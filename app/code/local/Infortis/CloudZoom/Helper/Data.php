@@ -97,6 +97,6 @@ class Infortis_CloudZoom_Helper_Data extends Mage_Core_Helper_Abstract
             $cfg[] = "softFocus:{$softFocus}";
         }
 		
-		return implode($cfg, ',');
+		return implode(',', $cfg);
 	}
 }
