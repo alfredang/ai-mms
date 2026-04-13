@@ -899,42 +899,58 @@ img[src*="rss"],
     gap: 2px;
 }
 
-.pagination-btn {
+button.pagination-btn,
+.admin-main button.pagination-btn,
+body button.pagination-btn,
+.modern-pagination button.pagination-btn {
     display: inline-flex !important;
     align-items: center;
     justify-content: center;
-    min-width: 28px;
-    height: 28px;
-    padding: 0 8px !important;
+    min-width: 26px !important;
+    min-height: 26px !important;
+    height: 26px !important;
+    padding: 0 7px !important;
     background: transparent !important;
+    background-image: none !important;
     border: none !important;
-    border-radius: 6px !important;
+    border-radius: 5px !important;
     color: var(--t4) !important;
-    font-size: 12px !important;
+    font-size: 11px !important;
     font-weight: 500 !important;
     cursor: pointer !important;
     transition: all 0.12s ease !important;
     box-shadow: none !important;
     text-decoration: none !important;
     line-height: 1 !important;
+    transform: none !important;
 }
-.pagination-btn:hover {
+button.pagination-btn:hover,
+.admin-main button.pagination-btn:hover,
+body button.pagination-btn:hover {
     background: var(--d5) !important;
     color: var(--t1) !important;
     transform: none !important;
+    box-shadow: none !important;
 }
-.pagination-btn.active {
+button.pagination-btn.active,
+.admin-main button.pagination-btn.active,
+body button.pagination-btn.active {
     background: var(--blue3) !important;
     color: #fff !important;
     font-weight: 700 !important;
 }
-.pagination-btn.disabled {
+button.pagination-btn.disabled,
+.admin-main button.pagination-btn.disabled {
     opacity: 0.3 !important;
     cursor: default !important;
     pointer-events: none;
+    transform: none !important;
 }
-.pagination-btn span {
+button.pagination-btn span,
+.admin-main button.pagination-btn span,
+body button.pagination-btn span {
     background: none !important;
+    background-image: none !important;
     padding: 0 !important;
     color: inherit !important;
 }
