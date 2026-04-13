@@ -527,15 +527,12 @@ document.observe('dom:loaded', function() {
 
         function goToPage(page) {
             if (page < 1 || page > totalPages || page === currentPage) return;
-            // Set the hidden pager's page input and trigger grid reload via doFilter
-            if (pageInput) {
-                pageInput.value = page;
-            }
             if (gridJsName && window[gridJsName]) {
                 var gridObj = window[gridJsName];
-                if (gridObj.doFilter) {
-                    gridObj.doFilter();
+                if (gridObj.setPage) {
+                    gridObj.setPage(page);
                 } else if (gridObj.reload) {
+                    if (pageInput) pageInput.value = page;
                     gridObj.reload();
                 }
             }
