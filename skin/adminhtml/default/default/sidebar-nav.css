@@ -1033,15 +1033,32 @@ body button.pagination-btn span {
     min-height: 0 !important;
     max-height: none !important;
 }
-.admin-main table.massaction tr,
 .admin-main table.massaction tbody {
     height: auto !important;
+    display: block !important;
+    width: 100%;
+}
+.admin-main table.massaction tr {
+    height: auto !important;
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
 }
 .admin-main table.massaction td {
     padding: 4px 4px !important;
     border: none !important;
     background: none !important;
     vertical-align: middle !important;
+}
+.admin-main table.massaction td:first-child {
+    flex: 1;
+}
+.admin-main table.massaction td:last-child {
+    flex-shrink: 0;
+    display: inline-flex !important;
+    align-items: center;
+    gap: 8px;
 }
 .admin-main table.massaction a {
     color: var(--blue) !important;
