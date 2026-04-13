@@ -45,12 +45,23 @@
 
 <body id="html-body"<?php echo $this->getBodyClass() ? ' class="' . $this->getBodyClass() . '"' : ''; ?>>
 <?php echo $this->getChildHtml('notification_window'); ?>
-<div class="wrapper">
+<div class="wrapper admin-sidebar-layout">
     <?php echo $this->getChildHtml('global_notices') ?>
-        <div class="header">
+    <aside class="admin-sidebar" id="admin-sidebar">
+        <div class="sidebar-logo">
+            <a href="<?php echo $this->getUrl('*') ?>">
+                <img src="<?php echo Mage::getBaseUrl('media') ?>favicon/default/favicon_1.png" alt="Tertiary Infotech Academy" class="sidebar-logo-img" />
+                <span class="sidebar-logo-text">Tertiary Infotech Academy</span>
+            </a>
+        </div>
+        <?php echo $this->getChildHtml('menu') ?>
+        <button class="sidebar-toggle" id="sidebar-toggle" type="button" title="Toggle sidebar">
+            <span class="toggle-icon"></span>
+        </button>
+    </aside>
+    <div class="admin-main">
+        <div class="admin-topbar">
             <?php echo $this->getChildHtml('header') ?>
-        <div class="clear"></div>
-            <?php echo $this->getChildHtml('menu') ?>
         </div>
         <?php echo $this->getChildHtml('notifications'); ?>
         <div class="middle" id="anchor-content">
@@ -78,6 +89,7 @@
         <div class="footer">
             <?php echo $this->getChildHtml('footer') ?>
         </div>
+    </div>
     </div>
     <?php echo $this->getChildHtml('js') ?>
     <?php echo $this->getChildHtml('profiler') ?>

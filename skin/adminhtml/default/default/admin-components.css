@@ -1,0 +1,420 @@
+.header-right #global_search,
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="number"],
+textarea,
+select,
+.input-text {
+    min-height: var(--admin-control-height);
+    border-radius: var(--admin-radius-sm);
+}
+
+button,
+button.scalable,
+.form-button,
+input[type="submit"] {
+    min-height: var(--admin-control-height);
+    border-radius: var(--admin-radius-sm);
+    box-shadow: var(--admin-shadow-sm);
+}
+
+.content-header,
+.entry-edit,
+.box,
+.box-left,
+.box-right,
+.massaction,
+.grid,
+.pager {
+    border-radius: var(--admin-radius-md);
+}
+
+.entry-edit-head,
+.box-head {
+    padding-top: var(--admin-space-3);
+    padding-bottom: var(--admin-space-3);
+}
+
+.entry-edit,
+.box-left,
+.box-right,
+.box,
+fieldset,
+.fieldset,
+fieldset.np {
+    border-radius: var(--admin-radius-md);
+    box-shadow: var(--admin-shadow-md);
+}
+
+.entry-edit-head,
+.box-head,
+dl.accordion dt,
+.accordion-head {
+    min-height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--admin-space-3);
+}
+
+.entry-edit .content,
+.entry-edit fieldset,
+.entry-edit .fieldset {
+    padding: var(--admin-space-5) !important;
+}
+
+.entry-edit fieldset,
+.entry-edit .fieldset {
+    margin-bottom: var(--admin-space-4);
+}
+
+.header-right #global_search {
+    width: min(320px, 34vw);
+}
+
+.grid .pager,
+.pager,
+.massaction {
+    display: flex;
+    align-items: center;
+    gap: var(--admin-space-3);
+    flex-wrap: wrap;
+}
+
+.massaction td,
+.pager td {
+    vertical-align: middle;
+}
+
+.grid tr.filter td {
+    vertical-align: top;
+}
+
+.grid .hor-scroll,
+.grid .grid,
+.grid table.actions,
+table.actions {
+    background: transparent;
+}
+
+table.actions {
+    width: 100%;
+    margin: 0 0 var(--admin-space-4);
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+table.actions td {
+    vertical-align: middle;
+    padding: var(--admin-space-3) var(--admin-space-4);
+}
+
+table.actions td:last-child {
+    text-align: right;
+}
+
+.pager {
+    justify-content: space-between;
+}
+
+.pager .export,
+.pager .limit,
+.pager .pages,
+.pager .sorter {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--admin-space-2);
+    flex-wrap: wrap;
+}
+
+.pager .amount,
+.pager .view-amount {
+    color: var(--admin-text-muted);
+}
+
+.pager select,
+.pager input.page {
+    min-height: 36px;
+}
+
+.pager input.page {
+    width: 56px !important;
+    text-align: center;
+}
+
+.pager .arrow {
+    display: inline-block;
+    padding: 0 var(--admin-space-1);
+}
+
+.massaction {
+    justify-content: space-between;
+}
+
+.massaction td {
+    padding: var(--admin-space-3) var(--admin-space-4) !important;
+}
+
+.massaction .entry-edit fieldset,
+.massaction .entry-edit .field-row,
+.massaction .entry-edit fieldset span.form_row,
+.massaction .entry-edit fieldset span.field-row {
+    display: inline-flex !important;
+    align-items: center;
+    gap: var(--admin-space-2);
+    float: none !important;
+}
+
+.massaction .entry-edit .outer-span {
+    float: none;
+}
+
+.massaction .entry-edit .field-row label {
+    margin-left: 0;
+}
+
+.massaction select {
+    min-width: 180px !important;
+    max-width: 240px;
+}
+
+table.form-edit,
+.form-list {
+    width: 100% !important;
+}
+
+.form-list tr {
+    display: grid;
+    grid-template-columns: minmax(180px, 220px) minmax(260px, 1fr) auto auto;
+    gap: var(--admin-space-3);
+    align-items: start;
+    padding: var(--admin-space-3) 0;
+    border-bottom: 1px solid rgba(64, 85, 117, 0.22);
+}
+
+.form-list tr:last-child {
+    border-bottom: 0;
+}
+
+.form-list td.label,
+.form-list td.value,
+.form-list td.value2,
+.form-list td.note,
+.form-list td.scope-label,
+.form-list td.use-default {
+    display: block;
+    width: auto !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: 0 !important;
+    min-width: 0;
+}
+
+.form-list td.label label {
+    width: auto !important;
+    padding: 0 !important;
+    color: var(--admin-text) !important;
+    font-weight: 600;
+    line-height: 1.45;
+}
+
+.form-list td.value,
+.columns .form-list td.value {
+    width: auto !important;
+}
+
+.form-list td.value input.input-text,
+.form-list td.value textarea,
+.form-list td.value select,
+.columns .form-list td.value input.input-text,
+.columns .form-list td.value textarea,
+.columns .form-list td.value select {
+    width: 100% !important;
+    max-width: none !important;
+}
+
+.form-list td.value textarea {
+    min-height: 144px;
+}
+
+.form-list td.note,
+.form-list p.note {
+    color: var(--admin-text-muted) !important;
+    background: none !important;
+    padding-left: 0 !important;
+    line-height: 1.5;
+}
+
+.form-list td.scope-label {
+    color: var(--admin-text-muted) !important;
+    font-size: 12px;
+}
+
+.field-row {
+    display: grid;
+    grid-template-columns: minmax(150px, 180px) minmax(0, 1fr);
+    gap: var(--admin-space-3);
+    align-items: center;
+}
+
+.entry-edit .field-row label {
+    float: none;
+    width: auto;
+    margin: 0;
+    color: var(--admin-text);
+    font-weight: 600;
+}
+
+.field-row .hint,
+.entry-edit fieldset .field-row .hint,
+.entry-edit .fieldset .field-row .hint {
+    float: none !important;
+    padding-left: 0 !important;
+    margin-top: var(--admin-space-1);
+    color: var(--admin-text-muted);
+}
+
+ul.tabs,
+body ul.tabs {
+    border-top: 0 !important;
+    border-right: 1px solid rgba(64, 85, 117, 0.24) !important;
+    background: transparent !important;
+    padding: var(--admin-space-2) 0;
+}
+
+ul.tabs a {
+    margin: 0 0 var(--admin-space-1) 0;
+    border: 0 !important;
+    border-radius: 0 12px 12px 0 !important;
+}
+
+ul.tabs span {
+    background: transparent !important;
+    padding: 12px 16px 12px 18px !important;
+}
+
+ul.tabs a.active,
+ul.tabs a.active span {
+    box-shadow: inset 3px 0 0 var(--admin-primary);
+}
+
+ul.tabs-horiz,
+body ul.tabs-horiz {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--admin-space-2);
+    padding: 0 0 var(--admin-space-3) 0;
+    border-bottom: 1px solid rgba(64, 85, 117, 0.28) !important;
+}
+
+ul.tabs-horiz li {
+    float: none;
+    margin: 0 !important;
+}
+
+ul.tabs-horiz li a,
+body ul.tabs-horiz li a {
+    border-radius: 999px !important;
+    padding: 10px 16px !important;
+}
+
+.side-col {
+    border-right: 0;
+}
+
+.side-col .entry-edit-head {
+    border-radius: var(--admin-radius-md) var(--admin-radius-md) 0 0;
+}
+
+.side-col ul,
+.side-col ol {
+    margin: 0;
+    padding: var(--admin-space-2);
+}
+
+.side-col li a {
+    border-bottom: 0 !important;
+    border-radius: var(--admin-radius-sm);
+    margin-bottom: var(--admin-space-1);
+}
+
+dl.accordion dt,
+.accordion-head {
+    border-radius: var(--admin-radius-sm);
+}
+
+dl.accordion dd,
+.accordion-body {
+    border-radius: 0 0 var(--admin-radius-sm) var(--admin-radius-sm);
+    margin-top: calc(-1 * var(--admin-space-1));
+}
+
+.grid tr.filter input,
+.grid tr.filter select,
+.grid tr.filter textarea {
+    width: 100%;
+}
+
+.grid tr.filter td {
+    padding: var(--admin-space-3) !important;
+}
+
+.grid tr.filter .range .range-line,
+.grid tr.filter .range div.date {
+    width: auto !important;
+    min-width: 0 !important;
+}
+
+.grid tr.filter .range input,
+.grid tr.filter .range select {
+    float: none !important;
+    width: 100% !important;
+}
+
+.grid tr.filter .range .label {
+    float: none !important;
+    width: auto !important;
+    padding-left: 0 !important;
+    margin-bottom: var(--admin-space-1);
+}
+
+.grid .head-massaction select {
+    max-width: 120px;
+}
+
+#nav ul {
+    width: 220px;
+    min-width: 220px;
+}
+
+#nav ul li {
+    position: relative;
+}
+
+#nav ul li + li {
+    border-top: 1px solid var(--admin-border-subtle);
+}
+
+#nav ul li a {
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+}
+
+#nav ul span {
+    width: 100%;
+}
+
+.messages,
+#messages {
+    margin-bottom: var(--admin-space-4);
+}
+
+.notice-msg,
+.warning-msg,
+.error-msg,
+.success-msg {
+    border-radius: var(--admin-radius-sm);
+    box-shadow: none;
+}

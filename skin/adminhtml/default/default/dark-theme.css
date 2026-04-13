@@ -58,6 +58,9 @@ body .header-top {
     border: none !important;
     border-bottom: 1px solid var(--b1) !important;
     box-shadow: 0 1px 8px rgba(0,0,0,0.4) !important;
+    position: relative !important;
+    z-index: 1200 !important;
+    overflow: visible !important;
 }
 .header-right { color: var(--t3) !important; }
 .header-right .super { color: var(--t3) !important; }
@@ -85,6 +88,9 @@ body .header-top {
     border: none !important;
     border-bottom: 1px solid var(--b1) !important;
     box-shadow: 0 1px 4px rgba(0,0,0,0.3) !important;
+    position: relative !important;
+    z-index: 1210 !important;
+    overflow: visible !important;
 }
 #nav li, #nav li.active, #nav li.parent {
     background: none !important;
@@ -119,22 +125,90 @@ body .header-top {
     box-shadow: 0 12px 32px rgba(0,0,0,0.6) !important;
     border-radius: 8px !important;
     padding: 4px 0 !important;
+    position: absolute !important;
+    z-index: 9999 !important;
+    pointer-events: auto !important;
+}
+#nav ul {
+    top: 100% !important;
+    left: -10000px !important;
+    width: 220px !important;
+    min-width: 220px !important;
+    max-width: calc(100vw - 48px) !important;
+    margin-top: 0 !important;
+}
+#nav ul ul {
+    top: 0 !important;
+    left: calc(100% + 8px) !important;
+    margin-top: -5px !important;
+}
+#nav li.over > ul {
+    left: 0 !important;
+}
+#nav li:hover > ul {
+    left: 0 !important;
+}
+#nav li > ul.shown-sub {
+    left: 0 !important;
+}
+#nav li.over ul ul {
+    left: -10000px !important;
+}
+#nav li:hover ul ul {
+    left: -10000px !important;
+}
+#nav li .shown-sub ul {
+    left: -10000px !important;
+}
+#nav li.over ul li.over > ul {
+    left: calc(100% + 8px) !important;
+}
+#nav li:hover ul li:hover > ul {
+    left: calc(100% + 8px) !important;
+}
+#nav li .shown-sub li > ul.shown-sub {
+    left: calc(100% + 8px) !important;
 }
 #nav ul li, #nav ul li.last, #nav ul li.parent a {
     background: none !important;
     background-image: none !important;
     padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+#nav ul li + li {
+    border-top: 1px solid var(--b1) !important;
 }
 #nav ul li a, #nav ul li a span {
     background: none !important;
     background-image: none !important;
     color: var(--t3) !important;
     border: none !important;
-    border-bottom: 1px solid var(--b1) !important;
-    padding: 10px 18px !important;
+    padding: 8px 12px !important;
     display: block !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+    box-shadow: none !important;
+    position: relative !important;
+    z-index: 10000 !important;
+    pointer-events: auto !important;
 }
-#nav ul li:last-child a { border-bottom: none !important; }
+#nav ul span,
+#nav ul li.last span,
+#nav ul li.last li span {
+    padding: 8px 12px !important;
+    border: none !important;
+    background: none !important;
+    background-image: none !important;
+    box-shadow: none !important;
+}
+#nav ul li.last,
+#nav ul li.last span,
+#nav ul li.last li.last span {
+    background: none !important;
+    background-image: none !important;
+    padding-bottom: 0 !important;
+}
 #nav ul li a:hover {
     background: var(--d5) !important;
     color: var(--blue) !important;
@@ -144,6 +218,8 @@ body .header-top {
 .middle, #anchor-content, .main-col, .main-col-inner {
     background: var(--d1) !important;
     background-image: none !important;
+    position: relative;
+    z-index: 1;
 }
 .columns {
     background: none !important;

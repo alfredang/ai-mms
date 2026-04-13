@@ -1,93 +1,132 @@
 <?php
 /**
- * Magento
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Academic Free License (AFL 3.0)
- * that is bundled with this package in the file LICENSE_AFL.txt.
- * It is also available through the world-wide-web at this URL:
- * http://opensource.org/licenses/afl-3.0.php
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@magento.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade Magento to newer
- * versions in the future. If you wish to customize Magento for your
- * needs please refer to http://www.magento.com for more information.
- *
- * @category    design
- * @package     default_default
- * @copyright   Copyright (c) 2006-2020 Magento, Inc. (http://www.magento.com)
- * @license     http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
+ * Modern Admin Dashboard — KPI Cards + Charts
+ * Uses Chart.js for bar/horizontal bar charts
  */
+
+// --- Data Collection ---
+$storeId = (int) $this->getRequest()->getParam('store', 0);
+$websiteId = (int) $this->getRequest()->getParam('website', 0);
+$groupId = (int) $this->getRequest()->getParam('group', 0);
+
+// Helper for currency
+$currencyCode = (string) Mage::app()->getStore()->getCurrentCurrencyCode();
+
+// 1. KPI: Total Orders (lifetime)
+$orderCollection = Mage::getResourceModel('reports/order_collection');
+if ($storeId) $orderCollection->addFieldToFilter('store_id', $storeId);
+$orderCollection->addFieldToFilter('state', array('nin' => array(
+    Mage_Sales_Model_Order::STATE_CANCELED,
+    Mage_Sales_Model_Order::STATE_NEW
+)));
+$totalOrders = (int) $orderCollection->getSize();
+
+// 2. KPI: Total Sales Revenue (lifetime)
+$salesCollection = Mage::getResourceModel('reports/order_collection');
+if ($storeId) $salesCollection->addFieldToFilter('store_id', $storeId);
+$salesCollection->addFieldToFilter('state', array('nin' => array(
+    Mage_Sales_Model_Order::STATE_CANCELED,
+    Mage_Sales_Model_Order::STATE_NEW
+)));
+$salesCollection->getSelect()->columns(array(
+    'total_revenue' => new Zend_Db_Expr('SUM(base_grand_total)')
+));
+$row = $salesCollection->getFirstItem();
+$totalRevenue = (float) $row->getData('total_revenue');
+
+// 3. KPI: Total Courses (products)
+$productCount = Mage::getModel('catalog/product')->getCollection()->getSize();
+
+// 4. KPI: Orders this month
+$monthStart = date('Y-m-01 00:00:00');
+$monthOrderCollection = Mage::getResourceModel('reports/order_collection');
+if ($storeId) $monthOrderCollection->addFieldToFilter('store_id', $storeId);
+$monthOrderCollection->addFieldToFilter('state', array('nin' => array(
+    Mage_Sales_Model_Order::STATE_CANCELED,
+    Mage_Sales_Model_Order::STATE_NEW
+)));
+$monthOrderCollection->addFieldToFilter('created_at', array('gteq' => $monthStart));
+$monthOrders = (int) $monthOrderCollection->getSize();
+
+// 5. Chart: Sales by Month (last 12 months)
+$salesByMonth = array();
+for ($i = 11; $i >= 0; $i--) {
+    $mStart = date('Y-m-01 00:00:00', strtotime("-$i months"));
+    $mEnd = date('Y-m-t 23:59:59', strtotime("-$i months"));
+    $mLabel = date('M Y', strtotime("-$i months"));
+    $mColl = Mage::getResourceModel('reports/order_collection');
+    if ($storeId) $mColl->addFieldToFilter('store_id', $storeId);
+    $mColl->addFieldToFilter('state', array('nin' => array(
+        Mage_Sales_Model_Order::STATE_CANCELED,
+        Mage_Sales_Model_Order::STATE_NEW
+    )));
+    $mColl->addFieldToFilter('created_at', array('gteq' => $mStart));
+    $mColl->addFieldToFilter('created_at', array('lteq' => $mEnd));
+    $mColl->getSelect()->columns(array(
+        'month_total' => new Zend_Db_Expr('SUM(base_grand_total)')
+    ));
+    $mRow = $mColl->getFirstItem();
+    $salesByMonth[] = array(
+        'label' => $mLabel,
+        'value' => round((float) $mRow->getData('month_total'), 2)
+    );
+}
+
+// 6. Chart: Popular Courses (last 6 months) — top 10 by qty ordered
+$sixMonthsAgo = date('Y-m-d 00:00:00', strtotime('-6 months'));
+$popularProducts = Mage::getResourceModel('reports/product_sold_collection');
+$popularProducts->addOrderedQty($sixMonthsAgo, date('Y-m-d 23:59:59'));
+$popularProducts->addAttributeToSelect('name');
+$popularProducts->setOrder('ordered_qty', 'desc');
+$popularProducts->setPageSize(10);
+$popularCourses = array();
+foreach ($popularProducts as $product) {
+    $name = $product->getName();
+    if (!$name) {
+        // Fallback: load name from catalog
+        $p = Mage::getModel('catalog/product')->load($product->getId());
+        $name = $p->getName();
+    }
+    $popularCourses[] = array(
+        'name' => $name ? $name : 'Product #' . $product->getId(),
+        'qty' => (int) $product->getOrderedQty()
+    );
+}
+
+// 7. Chart: Popular Search Terms — top 10 by popularity
+$searchCollection = Mage::getModel('catalogsearch/query')->getCollection();
+$searchCollection->setOrder('popularity', 'desc');
+$searchCollection->setPageSize(10);
+if ($storeId) $searchCollection->addFieldToFilter('store_id', $storeId);
+$popularSearches = array();
+foreach ($searchCollection as $term) {
+    $popularSearches[] = array(
+        'term' => $term->getQueryText(),
+        'count' => (int) $term->getPopularity()
+    );
+}
+
+// 8. Last 10 Search Terms (most recent)
+$recentSearchCollection = Mage::getModel('catalogsearch/query')->getCollection();
+$recentSearchCollection->setOrder('query_id', 'desc');
+$recentSearchCollection->setPageSize(10);
+if ($storeId) $recentSearchCollection->addFieldToFilter('store_id', $storeId);
+$recentSearches = array();
+foreach ($recentSearchCollection as $term) {
+    $recentSearches[] = array(
+        'term' => $term->getQueryText(),
+        'count' => (int) $term->getNumResults(),
+        'popularity' => (int) $term->getPopularity(),
+        'date' => Mage::helper('core')->formatDate($term->getUpdatedAt(), 'short', true)
+    );
+}
+
+// Format currency
+function dashFormatPrice($amount) {
+    return Mage::helper('core')->currency($amount, true, false);
+}
 ?>
 
-<?php if (is_array($this->getChild('diagrams')->getTabsIds())) : ?>
-<script type="text/javascript">
-//<![CDATA[
-function changeDiagramsPeriod(periodObj) {
-    periodParam = periodObj.value ? 'period/' + periodObj.value + '/' : '';
-<?php foreach ($this->getChild('diagrams')->getTabsIds() as $tabId): ?>
-    ajaxBlockParam = 'block/tab_<?php echo $tabId ?>/';
-    ajaxBlockUrl = '<?php echo $this->getUrl('*/*/ajaxBlock', array('_current' => true, 'block' => '', 'period' => '')) ?>' + ajaxBlockParam + periodParam;
-    new Ajax.Request(ajaxBlockUrl, {
-        parameters: {isAjax: 'true', form_key: FORM_KEY},
-        onSuccess: function(transport) {
-            tabContentElementId = '<?php echo $this->getChild('diagrams')->getId() ?>_<?php echo $tabId ?>_content';
-            try {
-                if (transport.responseText.isJSON()) {
-                    var response = transport.responseText.evalJSON()
-                    if (response.error) {
-                        alert(response.message);
-                    }
-                    if(response.ajaxExpired && response.ajaxRedirect) {
-                        setLocation(response.ajaxRedirect);
-                    }
-                } else {
-                    $(tabContentElementId).update(transport.responseText);
-                }
-            }
-            catch (e) {
-                $(tabContentElementId).update(transport.responseText);
-            }
-        }
-    });
-<?php endforeach; ?>
-    ajaxBlockUrl = '<?php echo $this->getUrl('*/*/ajaxBlock', array('_current' => true, 'block' => 'totals', 'period' => '')) ?>' + periodParam;
-    new Ajax.Request(ajaxBlockUrl, {
-        parameters: {isAjax: 'true', form_key: FORM_KEY},
-        onSuccess: function(transport) {
-            tabContentElementId = 'dashboard_diagram_totals';
-            try {
-                if (transport.responseText.isJSON()) {
-                    var response = transport.responseText.evalJSON()
-                    if (response.error) {
-                        alert(response.message);
-                    }
-                    if(response.ajaxExpired && response.ajaxRedirect) {
-                        setLocation(response.ajaxRedirect);
-                    }
-                } else {
-                    $(tabContentElementId).replace(transport.responseText);
-                }
-            }
-            catch (e) {
-                $(tabContentElementId).replace(transport.responseText);
-            }
-        }
-    });
-}
-
-function toggleCal(id) {
-    $('dashboard_'+id+'_cal_div').toggle();
-    $('dashboard_'+id+'_range_div').toggle();
-}
-//]]>
-</script>
-<?php endif; ?>
 <div class="content-header">
     <table cellspacing="0">
         <tr>
@@ -95,39 +134,280 @@ function toggleCal(id) {
         </tr>
     </table>
 </div>
-<div class="dashboard-container">
-    <?php echo $this->getChildHtml('store_switcher') ?>
-    <table cellspacing="25" width="100%">
-        <tr>
-            <td><?php echo $this->getChildHtml('sales') ?>
-                <div class="entry-edit">
-                    <div class="entry-edit-head"><h4><?php echo $this->__('Last 5 Orders') ?></h4></div>
-                    <fieldset class="np"><?php echo $this->getChildHtml('lastOrders'); ?></fieldset>
-                </div>
-                <div class="entry-edit">
-                    <div class="entry-edit-head"><h4><?php echo $this->__('Last 5 Search Terms') ?></h4></div>
-                    <fieldset class="np"><?php echo $this->getChildHtml('lastSearches'); ?></fieldset>
-                </div>
-                <div class="entry-edit">
-                    <div class="entry-edit-head"><h4><?php echo $this->__('Top 5 Search Terms') ?></h4></div>
-                    <fieldset class="np"><?php echo $this->getChildHtml('topSearches'); ?></fieldset>
-                </div>
-            </td>
-            <td>
-                <div class="entry-edit" style="border:1px solid #ccc;">
-                    <?php echo $this->getChildHtml('diagrams') ?>
-                    <?php if (is_array($this->getChild('diagrams')->getTabsIds())) : ?>
-                        <div id="diagram_tab_content"></div>
-                    <?php endif; ?>
-                    <div style="margin:20px;">
-                        <?php echo $this->getChildHtml('totals') ?>
-                    </div>
-                    <div style="margin:20px;">
-                        <?php echo $this->getChildHtml('grids') ?>
-                        <div id="grid_tab_content"></div>
-                    </div>
-                </div>
-            </td>
-        </tr>
-    </table>
+
+<div class="dashboard-modern">
+
+    <!-- KPI Cards Row -->
+    <div class="kpi-cards">
+        <div class="kpi-card kpi-orders">
+            <div class="kpi-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+            </div>
+            <div class="kpi-content">
+                <div class="kpi-value"><?php echo number_format($totalOrders) ?></div>
+                <div class="kpi-label">Total Orders</div>
+                <div class="kpi-sub"><?php echo number_format($monthOrders) ?> this month</div>
+            </div>
+        </div>
+
+        <div class="kpi-card kpi-revenue">
+            <div class="kpi-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+            </div>
+            <div class="kpi-content">
+                <div class="kpi-value"><?php echo dashFormatPrice($totalRevenue) ?></div>
+                <div class="kpi-label">Total Revenue</div>
+                <div class="kpi-sub">Lifetime sales</div>
+            </div>
+        </div>
+
+        <div class="kpi-card kpi-courses">
+            <div class="kpi-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>
+            </div>
+            <div class="kpi-content">
+                <div class="kpi-value"><?php echo number_format($productCount) ?></div>
+                <div class="kpi-label">Total Courses</div>
+                <div class="kpi-sub">Active catalog</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="dashboard-charts">
+
+        <!-- Sales by Month Chart -->
+        <div class="chart-card chart-wide">
+            <div class="chart-header">
+                <h4>Sales by Month</h4>
+                <span class="chart-subtitle">Last 12 months</span>
+            </div>
+            <div class="chart-body">
+                <canvas id="salesByMonthChart" height="280"></canvas>
+            </div>
+        </div>
+
+        <!-- Popular Courses Chart -->
+        <div class="chart-card chart-wide">
+            <div class="chart-header">
+                <h4>Popular Courses</h4>
+                <span class="chart-subtitle">Last 6 months — top 10 by orders</span>
+            </div>
+            <div class="chart-body">
+                <canvas id="popularCoursesChart" height="350"></canvas>
+            </div>
+        </div>
+
+        <!-- Popular Searches Chart -->
+        <div class="chart-card">
+            <div class="chart-header">
+                <h4>Popular Search Terms</h4>
+                <span class="chart-subtitle">Top 10 by popularity</span>
+            </div>
+            <div class="chart-body">
+                <canvas id="popularSearchesChart" height="320"></canvas>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Recent Searches Table -->
+    <div class="dashboard-tables">
+        <div class="chart-card">
+            <div class="chart-header">
+                <h4>Last 10 Searches</h4>
+                <span class="chart-subtitle">Most recent search queries</span>
+            </div>
+            <div class="chart-body" style="padding-top:8px;">
+                <table class="dashboard-table">
+                    <thead>
+                        <tr>
+                            <th>Search Term</th>
+                            <th>Popularity</th>
+                            <th>Results</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($recentSearches as $search): ?>
+                        <tr>
+                            <td><strong><?php echo $this->escapeHtml($search['term']) ?></strong></td>
+                            <td><?php echo $search['popularity'] ?></td>
+                            <td><?php echo number_format($search['count']) ?></td>
+                            <td><?php echo $search['date'] ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                        <?php if (empty($recentSearches)): ?>
+                        <tr><td colspan="4" style="text-align:center;color:var(--t5);">No search data available</td></tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
 </div>
+
+<!-- Chart.js from CDN -->
+<script type="text/javascript">
+//<![CDATA[
+// Fix Prototype.js / Chart.js conflict: restore native Array methods
+// Prototype.js overrides Array.prototype.map/filter/reduce which breaks Chart.js
+(function(){
+    var iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+    var nativeArr = iframe.contentWindow.Array.prototype;
+    Array.prototype.map = nativeArr.map;
+    Array.prototype.filter = nativeArr.filter;
+    Array.prototype.reduce = nativeArr.reduce;
+    if (nativeArr.find) Array.prototype.find = nativeArr.find;
+    if (nativeArr.findIndex) Array.prototype.findIndex = nativeArr.findIndex;
+    if (nativeArr.includes) Array.prototype.includes = nativeArr.includes;
+    document.body.removeChild(iframe);
+})();
+//]]>
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.4/dist/Chart.min.js"></script>
+<script type="text/javascript">
+//<![CDATA[
+document.observe('dom:loaded', function() {
+
+    var chartColors = {
+        blue: '#60a5fa',
+        blueDark: '#2563eb',
+        green: '#10b981',
+        purple: '#a78bfa',
+        orange: '#f97316',
+        gridLine: 'rgba(148, 163, 184, 0.1)',
+        text: '#94a3b8',
+        textLight: '#64748b'
+    };
+
+    // Chart.js v2 global defaults
+    Chart.defaults.global.defaultFontColor = chartColors.text;
+    Chart.defaults.global.defaultFontFamily = "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+    Chart.defaults.global.legend.display = false;
+    Chart.defaults.global.tooltips.backgroundColor = '#1e293b';
+    Chart.defaults.global.tooltips.titleFontColor = '#f8fafc';
+    Chart.defaults.global.tooltips.bodyFontColor = '#e2e8f0';
+    Chart.defaults.global.tooltips.borderColor = '#334155';
+    Chart.defaults.global.tooltips.borderWidth = 1;
+    Chart.defaults.global.tooltips.cornerRadius = 8;
+
+    // 1. Sales by Month — Bar Chart
+    var salesData = <?php echo json_encode($salesByMonth) ?>;
+    var salesLabels = [], salesValues = [];
+    for (var mi = 0; mi < salesData.length; mi++) {
+        salesLabels.push(salesData[mi].label);
+        salesValues.push(salesData[mi].value);
+    }
+
+    new Chart(document.getElementById('salesByMonthChart').getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: salesLabels,
+            datasets: [{
+                label: 'Revenue',
+                data: salesValues,
+                backgroundColor: chartColors.blue,
+                borderColor: chartColors.blueDark,
+                borderWidth: 1,
+                barPercentage: 0.7
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                xAxes: [{
+                    ticks: { fontColor: chartColors.text, fontSize: 10, maxRotation: 45 },
+                    gridLines: { display: false }
+                }],
+                yAxes: [{
+                    ticks: {
+                        fontColor: chartColors.text,
+                        fontSize: 11,
+                        callback: function(val) { return '$' + val.toLocaleString(); },
+                        beginAtZero: true
+                    },
+                    gridLines: { color: chartColors.gridLine }
+                }]
+            }
+        }
+    });
+
+    // 2. Popular Courses — Horizontal Bar Chart
+    var coursesData = <?php echo json_encode($popularCourses) ?>;
+    var courseLabels = [], courseValues = [];
+    for (var ci = 0; ci < coursesData.length; ci++) {
+        courseLabels.push(coursesData[ci].name || '');
+        courseValues.push(coursesData[ci].qty);
+    }
+
+    new Chart(document.getElementById('popularCoursesChart').getContext('2d'), {
+        type: 'horizontalBar',
+        data: {
+            labels: courseLabels,
+            datasets: [{
+                label: 'Orders',
+                data: courseValues,
+                backgroundColor: chartColors.green,
+                barPercentage: 0.7
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                xAxes: [{
+                    ticks: { fontColor: chartColors.text, fontSize: 11, beginAtZero: true },
+                    gridLines: { color: chartColors.gridLine }
+                }],
+                yAxes: [{
+                    ticks: { fontColor: chartColors.text, fontSize: 10 },
+                    gridLines: { display: false }
+                }]
+            }
+        }
+    });
+
+    // 3. Popular Searches — Horizontal Bar Chart
+    var searchData = <?php echo json_encode($popularSearches) ?>;
+    var searchLabels = [], searchValues = [];
+    for (var si = 0; si < searchData.length; si++) {
+        var st = searchData[si].term || '';
+        searchLabels.push(st.length > 35 ? st.substring(0, 32) + '...' : st);
+        searchValues.push(searchData[si].count);
+    }
+
+    new Chart(document.getElementById('popularSearchesChart').getContext('2d'), {
+        type: 'horizontalBar',
+        data: {
+            labels: searchLabels,
+            datasets: [{
+                label: 'Searches',
+                data: searchValues,
+                backgroundColor: chartColors.purple,
+                barPercentage: 0.7
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                xAxes: [{
+                    ticks: { fontColor: chartColors.text, fontSize: 11, beginAtZero: true },
+                    gridLines: { color: chartColors.gridLine }
+                }],
+                yAxes: [{
+                    ticks: { fontColor: chartColors.text, fontSize: 10 },
+                    gridLines: { display: false }
+                }]
+            }
+        }
+    });
+    restorePrototypeArray();
+});
+//]]>
+</script>

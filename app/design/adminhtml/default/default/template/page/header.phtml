@@ -27,10 +27,6 @@
 /** @var $this Mage_Adminhtml_Block_Page_Header */
 ?>
 <div class="header-top">
-    <a href="<?php echo $this->getHomeLink() ?>" style="display:inline-flex;align-items:center;text-decoration:none;float:left;">
-        <img src="<?php echo Mage::getBaseUrl('media') ?>favicon/default/favicon_1.png" alt="Tertiary Infotech Academy" style="height:32px;margin-right:10px;border-radius:4px;" />
-        <span style="color:#f9fafb;font-size:18px;font-weight:700;letter-spacing:0.5px;">Tertiary Infotech Academy</span>
-    </a>
     <div class="header-right">
         <p class="super">
             <?php echo $this->__("Logged in as %s", $this->escapeHtml($this->getUser()->getUsername())) ?><span class="separator">|</span><?php echo $this->formatDate(null, 'full') ?><span class="separator">|</span><a href="<?php echo $this->getLogoutLink() ?>" class="link-logout"><?php echo $this->__('Log Out') ?></a>
