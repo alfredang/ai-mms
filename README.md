@@ -14,7 +14,7 @@ Tertiary Courses Singapore (tertiarycourses.com.sg) - E-commerce platform rebuil
 
 - Multi-regional e-commerce (Singapore, Malaysia, Bhutan, Ghana, Nigeria, India)
 - WSQ and IBF-STS certified course catalog
-- Payment integrations: Stripe, HitPay, Braintree, Bank Payment
+- Payment integrations: Stripe, HitPay, Bank Payment
 - Custom course/provider management module
 - Ultimo theme with responsive design
 
@@ -85,7 +85,7 @@ app/
   code/
     core/Mage/     # OpenMage LTS core modules
     local/         # Custom modules (MMD, Infortis, Aschroder)
-    community/     # Community modules (Stripe, HitPay, Braintree)
+    community/     # Community modules (Stripe, HitPay)
   design/          # Frontend/admin templates (.phtml)
   etc/             # Configuration (local.xml, modules/)
 lib/               # Libraries (Varien, Zend, Magento)
@@ -107,4 +107,3 @@ docker/            # Docker configuration files
 | Aschroder_SMTPPro | SMTP email transport |
 | Stripe_Payments | Stripe payment gateway |
 | Hitpay_Pay | HitPay payment gateway |
-| Gene_Braintree | Braintree payment gateway |
