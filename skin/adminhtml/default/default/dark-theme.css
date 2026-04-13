@@ -1,546 +1,594 @@
 /* ============================================================
-   Tertiary Infotech Academy - Modern Admin Dark Theme
+   Tertiary Infotech Academy - Modern Admin Dark Theme v4
+   Nuclear override approach - max specificity
    ============================================================ */
 
-/* === 1. CSS Custom Properties === */
+/* === 1. Variables === */
 :root {
-    --bg-deepest: #0f172a;
-    --bg-surface: #1e293b;
-    --bg-elevated: #162032;
-    --bg-input: #334155;
-    --border-default: #334155;
-    --border-subtle: #293548;
-    --border-focus: #60a5fa;
-    --text-primary: #f1f5f9;
-    --text-secondary: #cbd5e1;
-    --text-muted: #94a3b8;
-    --text-dim: #64748b;
-    --accent-blue: #60a5fa;
-    --accent-blue-hover: #93c5fd;
-    --accent-blue-strong: #2563eb;
-    --accent-blue-bright: #3b82f6;
-    --accent-green: #059669;
-    --accent-green-hover: #10b981;
-    --accent-red: #dc2626;
-    --accent-red-hover: #ef4444;
-    --fast: 0.15s ease;
-    --normal: 0.2s ease;
-    --r-sm: 4px;
-    --r-md: 6px;
-    --r-lg: 8px;
+    --d0: #080d1a;
+    --d1: #0f172a;
+    --d2: #1a2340;
+    --d3: #1e293b;
+    --d4: #243044;
+    --d5: #2d3a4f;
+    --d6: #374357;
+    --b1: #2d3f55;
+    --b2: #3d5068;
+    --b3: #4a5e78;
+    --t1: #f8fafc;
+    --t2: #e2e8f0;
+    --t3: #cbd5e1;
+    --t4: #94a3b8;
+    --t5: #64748b;
+    --blue: #60a5fa;
+    --blue2: #3b82f6;
+    --blue3: #2563eb;
+    --green: #10b981;
+    --green2: #059669;
+    --red: #ef4444;
+    --red2: #dc2626;
+    --yellow: #fbbf24;
+    --orange: #f97316;
 }
 
-/* === 2. Base === */
+/* === 2. Global Reset for Dark === */
+* { border-color: var(--b1) !important; }
+
 body, html {
-    background: var(--bg-deepest) !important;
-    color: var(--text-secondary) !important;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
-    line-height: 1.5 !important;
+    background: var(--d1) !important;
+    color: var(--t2) !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif !important;
 }
-.wrapper { background: var(--bg-deepest) !important; }
-a { color: var(--accent-blue); transition: color var(--fast); }
-a:hover { color: var(--accent-blue-hover); }
-h1,h2,h3,h4,h5,h6 { color: var(--text-primary) !important; }
-label { color: var(--text-secondary) !important; }
-hr { border-color: var(--border-default) !important; }
-.note, .comment { color: var(--text-muted) !important; }
+
+.wrapper { background: var(--d1) !important; }
+a { color: var(--blue) !important; }
+a:hover { color: var(--blue) !important; opacity: 0.85; }
+h1,h2,h3,h4,h5,h6 { color: var(--t1) !important; }
+label { color: var(--t3) !important; }
+hr { border-color: var(--b1) !important; }
+img { border-color: var(--b1) !important; }
 
 /* === 3. Header === */
-.header {
-    background: var(--bg-surface) !important;
+.header,
+.header-top,
+body .header,
+body .header-top {
+    background: var(--d2) !important;
     background-image: none !important;
-    border-bottom: 2px solid var(--border-default) !important;
+    border: none !important;
+    border-bottom: 1px solid var(--b1) !important;
+    box-shadow: 0 1px 8px rgba(0,0,0,0.4) !important;
 }
-.header-top {
-    background: var(--bg-surface) !important;
-    background-image: none !important;
-    padding: 10px 20px !important;
-}
-.header-right { color: var(--text-secondary) !important; }
-.header-right .super { color: var(--text-secondary) !important; }
-.header-right .super a, .header-right a { color: var(--accent-blue) !important; }
-.header-right .super a:hover { color: var(--accent-blue-hover) !important; }
-.header-right .super .separator { color: var(--text-dim) !important; margin: 0 6px; }
+.header-right { color: var(--t3) !important; }
+.header-right .super { color: var(--t3) !important; }
+.header-right .super a { color: var(--blue) !important; }
+.header-right .super .separator { color: var(--t5) !important; }
 .header-right fieldset { border: none !important; }
 .header-right #global_search {
-    background: var(--bg-input) !important;
-    border: 1px solid #475569 !important;
-    color: var(--text-primary) !important;
-    border-radius: var(--r-md);
-    padding: 7px 14px;
-    width: 260px;
-    transition: border-color var(--fast), box-shadow var(--fast);
+    background: var(--d5) !important;
+    border: 1px solid var(--b2) !important;
+    color: var(--t1) !important;
+    border-radius: 8px;
+    padding: 8px 14px;
+    width: 280px;
 }
 .header-right #global_search:focus {
-    border-color: var(--accent-blue) !important;
-    box-shadow: 0 0 0 3px rgba(96,165,250,0.15);
-    outline: none;
+    border-color: var(--blue) !important;
+    box-shadow: 0 0 0 3px rgba(96,165,250,0.25) !important;
+    outline: none !important;
 }
 
 /* === 4. Navigation === */
-.nav-bar {
-    background: var(--bg-surface) !important;
+.nav-bar, body .nav-bar, #nav {
+    background: var(--d2) !important;
     background-image: none !important;
-    border-top: none !important;
-    border-bottom: 2px solid var(--border-default) !important;
-    padding: 0 16px !important;
+    border: none !important;
+    border-bottom: 1px solid var(--b1) !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3) !important;
 }
-#nav li {
-    background: none !important;
-    background-image: none !important;
-}
-#nav li.active {
+#nav li, #nav li.active, #nav li.parent {
     background: none !important;
     background-image: none !important;
 }
 #nav li a {
-    color: var(--text-secondary) !important;
+    color: var(--t3) !important;
     text-shadow: none !important;
     background: none !important;
     background-image: none !important;
-    border-right: 1px solid var(--border-default) !important;
-    padding: 10px 16px !important;
-    transition: color var(--fast), background var(--fast);
+    border: none !important;
+    border-right: 1px solid var(--b1) !important;
+    padding: 12px 18px !important;
+    transition: all 0.15s ease !important;
+    font-weight: 500 !important;
 }
 #nav li a:hover {
-    background: var(--bg-input) !important;
-    background-image: none !important;
-    color: var(--accent-blue) !important;
+    background: var(--d5) !important;
+    color: var(--blue) !important;
 }
 #nav li.active > a {
-    color: var(--accent-blue) !important;
-    border-bottom: 2px solid var(--accent-blue) !important;
-    background: none !important;
-    background-image: none !important;
+    color: var(--blue) !important;
+    background: rgba(96,165,250,0.08) !important;
+    border-bottom: 2px solid var(--blue) !important;
 }
 #nav li.active em { display: none !important; }
 /* Submenus */
-#nav li ul, #nav ul {
-    background: var(--bg-surface) !important;
+#nav li ul, #nav ul, #nav ul ul {
+    background: var(--d3) !important;
     background-image: none !important;
-    border: 1px solid #475569 !important;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.5) !important;
-    border-radius: var(--r-md);
+    border: 1px solid var(--b2) !important;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.6) !important;
+    border-radius: 8px !important;
+    padding: 4px 0 !important;
 }
-#nav ul li, #nav ul li.last {
+#nav ul li, #nav ul li.last, #nav ul li.parent a {
     background: none !important;
     background-image: none !important;
     padding: 0 !important;
 }
 #nav ul li a, #nav ul li a span {
-    background: transparent !important;
+    background: none !important;
     background-image: none !important;
-    color: var(--text-secondary) !important;
-    border-bottom: 1px solid var(--border-default) !important;
-    padding: 8px 16px !important;
-    transition: color var(--fast), background var(--fast);
+    color: var(--t3) !important;
+    border: none !important;
+    border-bottom: 1px solid var(--b1) !important;
+    padding: 10px 18px !important;
+    display: block !important;
 }
+#nav ul li:last-child a { border-bottom: none !important; }
 #nav ul li a:hover {
-    background: var(--bg-input) !important;
-    background-image: none !important;
-    color: var(--accent-blue) !important;
-}
-#nav ul li.parent a, #nav ul li.parent li.parent a {
-    background-image: none !important;
-}
-/* 3rd level */
-#nav ul ul {
-    background: var(--bg-surface) !important;
-    background-image: none !important;
-    border: 1px solid #475569 !important;
+    background: var(--d5) !important;
+    color: var(--blue) !important;
 }
 
 /* === 5. Content Area === */
-.middle, #anchor-content {
-    background: var(--bg-deepest) !important;
+.middle, #anchor-content, .main-col, .main-col-inner {
+    background: var(--d1) !important;
     background-image: none !important;
 }
 .columns {
     background: none !important;
     background-image: none !important;
-    background-color: var(--bg-deepest) !important;
 }
-.main-col, .main-col-inner { background: var(--bg-deepest) !important; }
 /* Content header */
 .content-header, .content-header-floating {
-    background: var(--bg-deepest) !important;
-    background-image: none !important;
-    border-bottom: 1px solid var(--border-default) !important;
-    padding: 14px 0 !important;
+    background: transparent !important;
+    border-bottom: 1px solid var(--b1) !important;
+    padding: 16px 0 !important;
 }
 .content-header h3, .content-header h3.icon-head {
-    color: var(--text-primary) !important;
-    background: transparent !important;
+    color: var(--t1) !important;
+    background: none !important;
     background-image: none !important;
-    font-size: 20px !important;
-    font-weight: 600 !important;
+    font-size: 22px !important;
+    font-weight: 700 !important;
     padding-left: 0 !important;
 }
+/* Page container */
+#page\:main-container { padding: 20px 28px !important; }
 
-/* === 5b. Side Column === */
+/* === 5b. Sidebar === */
 .side-col {
-    background: var(--bg-surface) !important;
-    border-right: 1px solid var(--border-default) !important;
+    background: var(--d2) !important;
+    border-right: 1px solid var(--b1) !important;
 }
 .side-col .entry-edit-head {
-    background: var(--bg-elevated) !important;
-    border-bottom: 1px solid var(--border-default) !important;
-    padding: 10px 14px !important;
+    background: var(--d3) !important;
+    border-bottom: 1px solid var(--b1) !important;
+    padding: 12px 16px !important;
 }
-.side-col .entry-edit-head h4 { color: var(--text-primary) !important; font-weight: 600 !important; }
+.side-col .entry-edit-head h4 { color: var(--t1) !important; font-weight: 600 !important; }
 .side-col li a {
-    color: var(--text-secondary) !important;
-    border-bottom: 1px solid var(--border-default) !important;
-    padding: 9px 14px !important;
+    color: var(--t3) !important;
+    border-bottom: 1px solid var(--b1) !important;
+    padding: 10px 16px !important;
     display: block;
-    transition: color var(--fast), background var(--fast);
+    transition: all 0.15s ease;
 }
 .side-col li a:hover, .side-col li a.active {
-    background: var(--bg-input) !important;
-    color: var(--accent-blue) !important;
+    background: var(--d5) !important;
+    color: var(--blue) !important;
 }
 
-/* === 6. Panels / Boxes === */
+/* === 6. Boxes / Panels === */
 .entry-edit, .box-left, .box-right, .box, fieldset, .fieldset, fieldset.np {
-    background: var(--bg-surface) !important;
+    background: var(--d3) !important;
     background-image: none !important;
-    border: 1px solid var(--border-default) !important;
-    border-radius: var(--r-lg);
+    border: 1px solid var(--b1) !important;
+    border-radius: 10px !important;
     margin-bottom: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
 }
 .entry-edit-head, .box-head {
-    background: var(--bg-elevated) !important;
+    background: var(--d4) !important;
     background-image: none !important;
-    border-bottom: 1px solid var(--border-default) !important;
-    border-radius: var(--r-lg) var(--r-lg) 0 0;
-    padding: 10px 16px !important;
+    border-bottom: 1px solid var(--b1) !important;
+    border-radius: 10px 10px 0 0 !important;
+    padding: 12px 18px !important;
 }
 .entry-edit-head h4, .box-head h4, .box-head h3 {
-    color: var(--text-primary) !important;
+    color: var(--t1) !important;
     font-weight: 600 !important;
     font-size: 14px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.3px;
 }
 
-/* === 7. Grids & Tables === */
+/* === 7. DATA GRIDS (most critical) === */
 .grid {
-    background: var(--bg-surface) !important;
-    border: 1px solid var(--border-default) !important;
-    border-radius: var(--r-lg);
-    overflow: hidden;
+    background: var(--d3) !important;
+    border: 1px solid var(--b2) !important;
+    border-radius: 10px !important;
+    overflow: hidden !important;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.2) !important;
+    margin-top: 12px !important;
 }
 .grid table {
-    background: var(--bg-surface) !important;
-    border-collapse: collapse !important;
-    width: 100%;
+    background: transparent !important;
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+    width: 100% !important;
 }
 table, table.data, .box-left table, .box-right table {
-    background: var(--bg-surface) !important;
+    background: var(--d3) !important;
 }
-/* Headers */
-.grid th, .headings th, .data th, .grid tr.headings th {
-    background: var(--bg-elevated) !important;
+
+/* --- Grid Header --- */
+.grid th, .headings th, .data th,
+.grid tr.headings th,
+body .grid th, body .grid tr.headings th {
+    background: var(--d4) !important;
     background-image: none !important;
-    color: var(--text-muted) !important;
-    border: 1px solid var(--border-default) !important;
-    font-weight: 600 !important;
-    padding: 10px 12px !important;
-    text-transform: uppercase;
+    color: var(--t4) !important;
+    border-bottom: 2px solid var(--b2) !important;
+    border-right: 1px solid var(--b1) !important;
+    font-weight: 700 !important;
+    padding: 12px 14px !important;
+    text-transform: uppercase !important;
     font-size: 11px !important;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.8px !important;
+    white-space: nowrap !important;
 }
-.grid th a { color: var(--text-muted) !important; text-decoration: none; }
-.grid th a:hover { color: var(--accent-blue) !important; }
-/* Sort arrows - replace GIFs with CSS */
-.grid th a.sort-arrow-desc, .grid th a.sort-arrow-asc {
+.grid th:last-child { border-right: none !important; }
+.grid th a { color: var(--t4) !important; text-decoration: none !important; }
+.grid th a:hover { color: var(--blue) !important; }
+/* Sort arrows */
+.grid th a.sort-arrow-desc, .grid th a.sort-arrow-asc,
+.grid th a.sort-arrow-desc span, .grid th a.sort-arrow-asc span {
     background: none !important;
     background-image: none !important;
 }
-.grid th a.sort-arrow-desc span.sort-title { background-image: none !important; }
-.grid th a.sort-arrow-asc span.sort-title { background-image: none !important; }
-/* Cells */
-.grid td, .data td {
-    background: var(--bg-surface) !important;
-    color: var(--text-secondary) !important;
-    border: 1px solid var(--border-default) !important;
-    padding: 9px 12px !important;
+.grid tr.headings { box-shadow: 0 2px 6px rgba(0,0,0,0.25) !important; }
+
+/* --- Grid Cells --- */
+.grid td, .data td,
+body .grid td, body .data td {
+    background: var(--d3) !important;
+    color: var(--t2) !important;
+    border-bottom: 1px solid var(--b1) !important;
+    border-right: 1px solid rgba(45,63,85,0.5) !important;
+    padding: 12px 14px !important;
+    font-size: 13px !important;
+    line-height: 1.5 !important;
 }
-.grid tr.even td, .data tr.even td, .grid tr:nth-child(even) td {
-    background: #172033 !important;
-}
-.grid tr:hover td, .data tr:hover td, .grid tr.on-mouse td {
-    background: var(--bg-input) !important;
-    color: var(--text-primary) !important;
-}
-.grid tr.selected td {
-    background: rgba(96,165,250,0.12) !important;
-}
-/* Filter row */
-.grid tr.filter, .grid tr.filter td, .grid tr.filter th,
-.filter td, .filter th, .headings td.filter {
-    background: var(--bg-elevated) !important;
-    background-image: none !important;
-    border: 1px solid var(--border-default) !important;
-}
-.filter input, .filter select, .filter textarea {
-    background: var(--bg-input) !important;
-    border: 1px solid #475569 !important;
-    color: var(--text-primary) !important;
-    border-radius: var(--r-sm);
-    padding: 5px 8px;
-}
-/* Headings row */
-.grid tr.headings {
-    background: var(--bg-elevated) !important;
-    background-image: none !important;
-}
-/* tfoot */
-.grid table tfoot tr, .grid table tfoot td {
-    background: var(--bg-elevated) !important;
-    border-top: 1px solid var(--border-default) !important;
-    color: var(--text-secondary) !important;
-}
-/* No data */
-.grid .empty-text, .no-data { color: var(--text-dim) !important; }
-.grid-container, .grid-wrapper, div.grid {
-    background: var(--bg-surface) !important;
-    color: var(--text-secondary) !important;
+.grid td:last-child { border-right: none !important; }
+.grid td a { color: var(--blue) !important; }
+.grid td a:hover { text-decoration: underline !important; }
+.grid td strong, .grid td b { color: var(--t1) !important; }
+
+/* Alternating rows */
+.grid tr.even td, .data tr.even td,
+body .grid tr.even td,
+.grid tr:nth-child(even) td {
+    background: var(--d2) !important;
 }
 
-/* === 8. Mass Action === */
-.massaction, .massaction-box {
-    background: var(--bg-elevated) !important;
-    background-image: none !important;
-    border: 1px solid var(--border-default) !important;
-    border-radius: var(--r-md);
-    padding: 8px 12px !important;
-    color: var(--text-secondary) !important;
+/* Hover */
+.grid tr:hover td, .data tr:hover td,
+.grid tr.on-mouse td,
+body .grid tr:hover td {
+    background: var(--d5) !important;
+    color: var(--t1) !important;
+    transition: background 0.15s ease !important;
 }
-.massaction label { color: var(--text-secondary) !important; }
+
+/* Selected */
+.grid tr.selected td {
+    background: rgba(96,165,250,0.1) !important;
+    border-left: 3px solid var(--blue) !important;
+}
+
+/* --- Filter Row (THE MAIN VISIBILITY ISSUE) --- */
+.grid tr.filter, .grid tr.filter td, .grid tr.filter th,
+.filter td, .filter th, .headings td.filter,
+body .grid tr.filter td,
+body .grid tr.filter th {
+    background: var(--d4) !important;
+    background-image: none !important;
+    border-bottom: 2px solid var(--b2) !important;
+    padding: 8px 10px !important;
+}
+
+/* ALL filter inputs - nuclear override */
+.grid tr.filter input,
+.grid tr.filter select,
+.grid tr.filter textarea,
+.filter input,
+.filter select,
+.filter textarea,
+body .grid tr.filter input,
+body .grid tr.filter select,
+body .grid input[type="text"],
+body .grid select,
+body .grid input.input-text,
+.grid input.input-text,
+.grid select,
+.grid input[type="text"] {
+    background: var(--d6) !important;
+    background-image: none !important;
+    border: 2px solid var(--b2) !important;
+    color: var(--t1) !important;
+    border-radius: 6px !important;
+    padding: 7px 10px !important;
+    font-size: 12px !important;
+    box-sizing: border-box !important;
+    -webkit-appearance: none !important;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease !important;
+}
+.grid tr.filter input:focus,
+.grid tr.filter select:focus,
+.grid input:focus,
+.grid select:focus {
+    border-color: var(--blue) !important;
+    box-shadow: 0 0 0 3px rgba(96,165,250,0.2) !important;
+    outline: none !important;
+}
+/* Date range labels */
+.grid tr.filter .range .label,
+.grid tr.filter label,
+body .grid tr.filter label {
+    color: var(--t4) !important;
+    font-size: 10px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    font-weight: 700 !important;
+    margin-bottom: 4px !important;
+    display: block !important;
+}
+
+/* Calendar icon */
+img[src*="calendar"], img[src*="cal_"],
+body img[src*="calendar"], body img[src*="cal_"] {
+    filter: invert(0.75) brightness(1.8) !important;
+    opacity: 0.8 !important;
+    cursor: pointer !important;
+}
+img[src*="calendar"]:hover, img[src*="cal_"]:hover { opacity: 1 !important; }
+
+/* Grid tfoot */
+.grid table tfoot tr, .grid table tfoot td {
+    background: var(--d4) !important;
+    border-top: 1px solid var(--b2) !important;
+    color: var(--t3) !important;
+}
+
+/* === 8. Mass Action Bar === */
+.massaction, .massaction-box,
+body .massaction {
+    background: var(--d4) !important;
+    background-image: none !important;
+    border: 1px solid var(--b1) !important;
+    border-radius: 8px !important;
+    padding: 10px 16px !important;
+    color: var(--t3) !important;
+    margin-bottom: 0 !important;
+}
+.massaction label { color: var(--t3) !important; }
 .massaction td { border-top: none !important; }
+.massaction a { color: var(--blue) !important; font-size: 12px; }
+.massaction select { min-width: 180px !important; }
+.massaction .entry-edit { background: transparent !important; border: none !important; margin: 0 !important; padding: 0 !important; }
 
 /* === 9. Pager === */
-.pager, .grid .pager {
-    background: var(--bg-elevated) !important;
+.pager, .grid .pager, body .pager {
+    background: var(--d4) !important;
     background-image: none !important;
-    border-top: 1px solid var(--border-default) !important;
-    color: var(--text-muted) !important;
-    padding: 8px 12px !important;
+    border-top: 1px solid var(--b1) !important;
+    color: var(--t4) !important;
+    padding: 10px 16px !important;
 }
 .pager input, .pager select {
-    background: var(--bg-input) !important;
-    border: 1px solid #475569 !important;
-    color: var(--text-primary) !important;
-    border-radius: var(--r-sm);
+    background: var(--d6) !important;
+    border: 2px solid var(--b2) !important;
+    color: var(--t1) !important;
+    border-radius: 6px !important;
+    padding: 5px 8px !important;
 }
-.pager a { color: var(--accent-blue) !important; }
+.pager a { color: var(--blue) !important; }
+.pager img, .grid img[src*="rss"] { filter: brightness(0.6) invert(0.5) !important; }
 
 /* === 10. Buttons === */
-button, button.scalable, .form-button, input[type="submit"] {
-    background: var(--accent-blue-strong) !important;
+button, button.scalable, .form-button, input[type="submit"],
+body button, body button.scalable, body .form-button {
+    background: var(--blue3) !important;
     background-image: none !important;
     color: #fff !important;
     border: none !important;
-    border-radius: var(--r-md);
-    padding: 8px 20px;
-    cursor: pointer;
+    border-radius: 8px !important;
+    padding: 9px 22px !important;
+    cursor: pointer !important;
     text-shadow: none !important;
-    font-weight: 600;
-    font-size: 13px;
-    transition: background var(--fast), transform var(--fast);
+    font-weight: 600 !important;
+    font-size: 13px !important;
+    letter-spacing: 0.3px !important;
+    transition: all 0.15s ease !important;
+    box-shadow: 0 2px 4px rgba(37,99,235,0.3) !important;
 }
 button:hover, button.scalable:hover, .form-button:hover, input[type="submit"]:hover {
-    background: var(--accent-blue-bright) !important;
+    background: var(--blue2) !important;
     background-image: none !important;
-    transform: translateY(-1px);
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 8px rgba(37,99,235,0.4) !important;
 }
 button:active {
-    background: var(--accent-blue-strong) !important;
-    background-image: none !important;
-    transform: translateY(0);
+    transform: translateY(0) !important;
+    box-shadow: 0 1px 2px rgba(37,99,235,0.3) !important;
 }
-/* Kill ALL button span background images */
+/* Kill ALL span bg images */
 button span, button span span,
 button.back span, button.cancel span, button.delete span,
-button.save span, button.add span, button.add-image span,
-button.add-widget span, button.add-variable span,
-button.go span, button.show-hide span, button.reset span {
+button.save span, button.add span, button.go span,
+button.show-hide span, button.reset span,
+button.add-image span, button.add-widget span, button.add-variable span {
     background: transparent !important;
     background-image: none !important;
     padding: 0 !important;
     color: #fff !important;
 }
-/* Variants */
+/* Delete / Cancel */
 button.delete, button.scalable.delete, button.fail, button.cancel {
-    background: var(--accent-red) !important;
-    background-image: none !important;
+    background: var(--red2) !important;
+    box-shadow: 0 2px 4px rgba(220,38,38,0.3) !important;
 }
 button.delete:hover, button.cancel:hover, button.fail:hover {
-    background: var(--accent-red-hover) !important;
-    background-image: none !important;
+    background: var(--red) !important;
+    box-shadow: 0 4px 8px rgba(220,38,38,0.4) !important;
 }
+/* Back */
 button.back {
-    background: var(--bg-input) !important;
-    background-image: none !important;
-    border: 1px solid var(--border-default) !important;
-    color: var(--text-secondary) !important;
+    background: var(--d5) !important;
+    border: 1px solid var(--b2) !important;
+    box-shadow: none !important;
 }
-button.back span, button.back span span { color: var(--text-secondary) !important; }
-button.back:hover {
-    background: #475569 !important;
-    background-image: none !important;
+button.back span, button.back span span { color: var(--t3) !important; }
+button.back:hover { background: var(--d6) !important; }
+/* Add / Success */
+button.add, button.scalable.add, button.success {
+    background: var(--green2) !important;
+    box-shadow: 0 2px 4px rgba(5,150,105,0.3) !important;
 }
-button.add, button.scalable.add {
-    background: var(--accent-green) !important;
-    background-image: none !important;
-}
-button.add:hover {
-    background: var(--accent-green-hover) !important;
-    background-image: none !important;
+button.add:hover, button.success:hover {
+    background: var(--green) !important;
+    box-shadow: 0 4px 8px rgba(5,150,105,0.4) !important;
 }
 button.add span, button.add span span { color: #fff !important; }
-button.success {
-    background: var(--accent-green) !important;
-    background-image: none !important;
-}
-button.disabled, button.disabled:hover, button.disabled:active {
-    background: #475569 !important;
-    background-image: none !important;
-    opacity: 0.5;
-    cursor: not-allowed;
-    transform: none;
+/* Disabled */
+button.disabled, button.disabled:hover {
+    background: var(--d6) !important;
+    opacity: 0.5 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+    box-shadow: none !important;
 }
 
-/* === 11. Forms === */
+/* === 11. Form Inputs === */
 input[type="text"], input[type="password"], input[type="email"],
 input[type="number"], input[type="url"], input[type="search"],
-textarea, select, .input-text {
-    background: var(--bg-input) !important;
-    border: 1px solid #475569 !important;
-    color: var(--text-primary) !important;
-    border-radius: var(--r-md);
-    padding: 8px 12px;
-    transition: border-color var(--fast), box-shadow var(--fast);
+textarea, select, .input-text,
+body input[type="text"], body input[type="password"],
+body textarea, body select, body .input-text {
+    background: var(--d5) !important;
+    background-image: none !important;
+    border: 2px solid var(--b2) !important;
+    color: var(--t1) !important;
+    border-radius: 8px !important;
+    padding: 9px 14px !important;
+    font-size: 13px !important;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease !important;
 }
 input[type="text"]:focus, input[type="password"]:focus,
 textarea:focus, select:focus, .input-text:focus {
-    border-color: var(--accent-blue) !important;
-    box-shadow: 0 0 0 3px rgba(96,165,250,0.15) !important;
-    outline: none;
+    border-color: var(--blue) !important;
+    box-shadow: 0 0 0 3px rgba(96,165,250,0.2) !important;
+    outline: none !important;
 }
-select option { background: var(--bg-input) !important; color: var(--text-primary) !important; }
+select option { background: var(--d5) !important; color: var(--t1) !important; }
 /* Validation */
 input.validation-failed, textarea.validation-failed {
-    background: rgba(239,68,68,0.1) !important;
-    border: 1px dashed #ef4444 !important;
+    border-color: var(--red) !important;
+    background: rgba(239,68,68,0.08) !important;
 }
 .validation-advice {
-    color: #f87171 !important;
+    color: var(--red) !important;
     background: none !important;
     background-image: none !important;
-    padding-left: 0 !important;
 }
 /* Form rows */
-.form-list td, .form-list th { color: var(--text-secondary) !important; }
-.form-list td.label, .form-list label { color: var(--text-secondary) !important; }
-.form-list td.scope-label { color: var(--text-dim) !important; }
+.form-list td, .form-list th { color: var(--t3) !important; }
+.form-list td.scope-label { color: var(--t5) !important; }
+/* Checkbox */
+input[type="checkbox"] {
+    width: 16px !important;
+    height: 16px !important;
+    accent-color: var(--blue) !important;
+}
 
 /* === 12. Tabs === */
-ul.tabs, ul.tabs a, ul.tabs span {
-    background: var(--bg-elevated) !important;
+ul.tabs, ul.tabs a, ul.tabs span,
+body ul.tabs, body ul.tabs a {
+    background: var(--d4) !important;
     background-image: none !important;
 }
 ul.tabs a {
-    color: var(--text-muted) !important;
-    border: 1px solid var(--border-default) !important;
-    padding: 8px 14px !important;
-    transition: color var(--fast), background var(--fast);
+    color: var(--t4) !important;
+    border: 1px solid var(--b1) !important;
+    padding: 10px 16px !important;
+    transition: all 0.15s ease !important;
 }
-ul.tabs a:hover {
-    background: var(--bg-surface) !important;
-    background-image: none !important;
-    color: var(--accent-blue) !important;
-}
+ul.tabs a:hover { background: var(--d5) !important; color: var(--blue) !important; }
 ul.tabs a.active, ul.tabs a.active span {
-    background: var(--bg-surface) !important;
-    background-image: none !important;
-    color: var(--accent-blue) !important;
+    background: var(--d3) !important;
+    color: var(--blue) !important;
     font-weight: 600 !important;
+    border-left: 3px solid var(--blue) !important;
 }
 /* Horizontal tabs */
-ul.tabs-horiz {
+ul.tabs-horiz, body ul.tabs-horiz {
     background: none !important;
     background-image: none !important;
-    border-bottom: 2px solid var(--border-default) !important;
+    border-bottom: 2px solid var(--b1) !important;
 }
-ul.tabs-horiz li a {
-    background: var(--bg-elevated) !important;
+ul.tabs-horiz li a, body ul.tabs-horiz li a {
+    background: var(--d4) !important;
     background-image: none !important;
-    border: 1px solid var(--border-default) !important;
-    color: var(--text-muted) !important;
-    padding: 8px 16px !important;
-    transition: color var(--fast), background var(--fast);
+    border: 1px solid var(--b1) !important;
+    color: var(--t4) !important;
+    padding: 10px 18px !important;
+    border-radius: 8px 8px 0 0 !important;
+    margin-right: 2px !important;
+    font-weight: 500 !important;
 }
-ul.tabs-horiz li a:hover {
-    color: var(--accent-blue) !important;
-}
+ul.tabs-horiz li a:hover { color: var(--blue) !important; background: var(--d5) !important; }
 ul.tabs-horiz li a.active {
-    background: var(--bg-surface) !important;
-    color: var(--accent-blue) !important;
-    border-bottom-color: var(--bg-surface) !important;
+    background: var(--d3) !important;
+    color: var(--blue) !important;
+    border-bottom-color: var(--d3) !important;
     font-weight: 600 !important;
 }
-#diagram_tab li a {
-    background: var(--bg-elevated) !important;
-    background-image: none !important;
-    color: var(--text-muted) !important;
-    border: 1px solid var(--border-default) !important;
-}
-#diagram_tab li a.active {
-    background: var(--bg-surface) !important;
-    color: var(--accent-blue) !important;
-}
+#diagram_tab li a { background: var(--d4) !important; background-image: none !important; color: var(--t4) !important; border: 1px solid var(--b1) !important; }
+#diagram_tab li a.active { background: var(--d3) !important; color: var(--blue) !important; }
 
 /* === 13. Dashboard === */
 .dashboard .box, .dashboard .box-head {
-    background: var(--bg-surface) !important;
+    background: var(--d3) !important;
     background-image: none !important;
-    border-color: var(--border-default) !important;
+    border-color: var(--b1) !important;
 }
-.dashboard .box-head h3 { color: var(--text-primary) !important; }
-.dashboard .col2-set, .dashboard .col2-set .col-1, .dashboard .col2-set .col-2 {
-    background: var(--bg-deepest) !important;
-}
-.dashboard .col-2 .box, .dashboard .col-2 .box .hor-scroll,
-.dashboard .col-2 .box .box-head, .dashboard .col-2 {
-    background: var(--bg-surface) !important;
-}
-/* Totals bar */
+.dashboard .box-head h3 { color: var(--t1) !important; }
+.dashboard .col2-set, .dashboard .col2-set .col-1, .dashboard .col2-set .col-2 { background: var(--d1) !important; }
+.dashboard .col-2 .box, .dashboard .col-2 .box .hor-scroll, .dashboard .col-2 .box .box-head, .dashboard .col-2 { background: var(--d3) !important; }
 .dashboard .box .totals, .dashboard .box .totals table,
 .dashboard .box .totals td, .dashboard .box .totals th,
 .dashboard .box .fieldset {
-    background: var(--bg-elevated) !important;
-    color: var(--text-secondary) !important;
-    border-color: var(--border-default) !important;
+    background: var(--d4) !important;
+    color: var(--t3) !important;
+    border-color: var(--b1) !important;
 }
-.dashboard .totals .label { color: var(--text-muted) !important; }
-.dashboard .totals .value { color: var(--text-primary) !important; }
-/* Chart area */
-#diagram_tab_content, .chart-container, .hor-scroll {
-    background: var(--bg-surface) !important;
-    color: var(--text-secondary) !important;
-}
-/* Invert chart images for dark bg */
-#diagram_tab_content img, .dashboard .hor-scroll img {
-    filter: invert(0.85) hue-rotate(180deg) !important;
-}
-/* Store switcher */
+.dashboard .totals .label { color: var(--t4) !important; }
+.dashboard .totals .value { color: var(--t1) !important; }
+#diagram_tab_content, .chart-container, .hor-scroll { background: var(--d3) !important; color: var(--t3) !important; }
+#diagram_tab_content img, .dashboard .hor-scroll img { filter: invert(0.85) hue-rotate(180deg) !important; }
 .dashboard .store-switcher, .dashboard .content-header,
-.switcher, .store-switcher {
-    background: var(--bg-surface) !important;
-    border: 1px solid var(--border-default) !important;
-    border-radius: var(--r-md);
-    color: var(--text-secondary) !important;
-}
+.switcher, .store-switcher { background: var(--d3) !important; border: 1px solid var(--b1) !important; border-radius: 8px !important; color: var(--t3) !important; }
 
 /* === 14. Messages === */
 .success-msg, .success-msg li, ul.messages li.success-msg {
@@ -548,426 +596,132 @@ ul.tabs-horiz li a.active {
     background-image: none !important;
     border: 1px solid rgba(52,211,153,0.4) !important;
     color: #34d399 !important;
-    border-radius: var(--r-md);
-    padding: 10px 16px !important;
+    border-radius: 8px !important;
+    padding: 12px 18px !important;
 }
 .error-msg, .error-msg li, ul.messages li.error-msg {
     background: rgba(239,68,68,0.12) !important;
     background-image: none !important;
     border: 1px solid rgba(248,113,113,0.4) !important;
     color: #f87171 !important;
-    border-radius: var(--r-md);
-    padding: 10px 16px !important;
+    border-radius: 8px !important;
+    padding: 12px 18px !important;
 }
 .warning-msg, .notice-msg, .warning-msg li, .notice-msg li,
 ul.messages li.notice-msg, ul.messages li.warning-msg {
     background: rgba(245,158,11,0.12) !important;
     background-image: none !important;
     border: 1px solid rgba(251,191,36,0.4) !important;
-    color: #fbbf24 !important;
-    border-radius: var(--r-md);
-    padding: 10px 16px !important;
+    color: var(--yellow) !important;
+    border-radius: 8px !important;
+    padding: 12px 18px !important;
 }
 .notification-global {
-    background: rgba(245,158,11,0.12) !important;
+    background: rgba(245,158,11,0.1) !important;
     background-image: none !important;
     border: 1px solid rgba(251,191,36,0.3) !important;
-    color: #fbbf24 !important;
-    border-radius: var(--r-md);
-    margin: 8px 20px !important;
-    padding: 10px 16px !important;
+    color: var(--yellow) !important;
+    border-radius: 8px !important;
+    margin: 10px 24px !important;
+    padding: 12px 18px !important;
 }
-.notification-global a { color: var(--accent-blue) !important; }
+.notification-global a { color: var(--blue) !important; }
 
 /* === 15. Accordion === */
 dl.accordion dt, .accordion-head {
-    background: var(--bg-elevated) !important;
+    background: var(--d4) !important;
     background-image: none !important;
-    border: 1px solid var(--border-default) !important;
-    color: var(--text-secondary) !important;
-    padding: 10px 14px !important;
+    border: 1px solid var(--b1) !important;
+    color: var(--t3) !important;
+    padding: 12px 16px !important;
 }
-dl.accordion dt a, div.collapseable a {
-    background-image: none !important;
-    color: var(--text-secondary) !important;
-}
-dl.accordion dt.open a, div.collapseable a.open {
-    background-image: none !important;
-    color: var(--accent-blue) !important;
-}
-dl.accordion dd, .accordion-body {
-    background: var(--bg-surface) !important;
-    border: 1px solid var(--border-default) !important;
-}
+dl.accordion dt a, div.collapseable a { background-image: none !important; color: var(--t3) !important; }
+dl.accordion dt.open a { background-image: none !important; color: var(--blue) !important; }
+dl.accordion dd, .accordion-body { background: var(--d3) !important; border: 1px solid var(--b1) !important; }
 
 /* === 16. Footer === */
 .footer {
-    background: var(--bg-surface) !important;
+    background: var(--d2) !important;
     background-image: none !important;
-    border-top: 2px solid var(--border-default) !important;
-    color: var(--text-dim) !important;
-    padding: 16px 24px !important;
+    border-top: 1px solid var(--b1) !important;
+    color: var(--t5) !important;
+    padding: 18px 24px !important;
     text-align: center !important;
 }
-.footer a { color: var(--accent-blue) !important; }
-.footer .legality, .footer .bug-report, .footer p {
-    color: var(--text-dim) !important;
-    text-align: center !important;
-}
+.footer a { color: var(--blue) !important; }
+.footer .legality, .footer .bug-report, .footer p { color: var(--t5) !important; text-align: center !important; }
 
-/* === 17. ExtJS (config pages, category tree) === */
-.x-tree-node a span, .x-tree-node-el { color: var(--text-secondary) !important; }
-.x-panel-body {
-    background: var(--bg-surface) !important;
-    border-color: var(--border-default) !important;
-}
-.x-panel-header {
-    background: var(--bg-elevated) !important;
-    background-image: none !important;
-    color: var(--text-primary) !important;
-    border-color: var(--border-default) !important;
-}
-.x-grid3-header { background: var(--bg-elevated) !important; background-image: none !important; }
-.x-grid3-row { background: var(--bg-surface) !important; color: var(--text-secondary) !important; }
-.x-grid3-row-alt { background: var(--bg-elevated) !important; }
-.x-toolbar { background: var(--bg-elevated) !important; background-image: none !important; border-color: var(--border-default) !important; }
+/* === 17. ExtJS === */
+.x-tree-node a span, .x-tree-node-el { color: var(--t3) !important; }
+.x-panel-body { background: var(--d3) !important; border-color: var(--b1) !important; }
+.x-panel-header { background: var(--d4) !important; background-image: none !important; color: var(--t1) !important; border-color: var(--b1) !important; }
+.x-grid3-header { background: var(--d4) !important; background-image: none !important; }
+.x-grid3-row { background: var(--d3) !important; color: var(--t3) !important; }
+.x-grid3-row-alt { background: var(--d4) !important; }
+.x-toolbar { background: var(--d4) !important; background-image: none !important; border-color: var(--b1) !important; }
 .x-btn { background-image: none !important; }
 
 /* === 18. Misc === */
 /* Calendar */
-.calendar {
-    background: var(--bg-surface) !important;
-    border: 1px solid var(--border-default) !important;
-    border-radius: var(--r-lg);
-}
-.calendar table { background: var(--bg-surface) !important; }
-.calendar .title, .calendar .headrow { background: var(--bg-elevated) !important; color: var(--text-primary) !important; }
-.calendar td, .calendar th { color: var(--text-secondary) !important; border-color: var(--border-subtle) !important; }
-.calendar td.selected { background: var(--accent-blue-strong) !important; color: #fff !important; }
-.calendar td:hover { background: var(--bg-input) !important; }
-
-/* Popups / Modals */
+.calendar { background: var(--d3) !important; border: 1px solid var(--b1) !important; border-radius: 10px !important; }
+.calendar table { background: var(--d3) !important; }
+.calendar .title, .calendar .headrow { background: var(--d4) !important; color: var(--t1) !important; }
+.calendar td, .calendar th { color: var(--t3) !important; }
+.calendar td.selected { background: var(--blue3) !important; color: #fff !important; border-radius: 4px !important; }
+.calendar td:hover { background: var(--d5) !important; }
+/* Popups */
 .popup, .dialog, .note-list, .dialog_content, .magento_message, div.overlay_dialog {
-    background: var(--bg-surface) !important;
-    border: 1px solid var(--border-default) !important;
-    color: var(--text-secondary) !important;
+    background: var(--d3) !important;
+    border: 1px solid var(--b1) !important;
+    color: var(--t3) !important;
+    border-radius: 10px !important;
 }
-.dialog .top, .dialog .middle, .dialog .bottom { background: var(--bg-surface) !important; }
-
-/* Loading mask */
-#loading-mask, .loading-mask {
-    background: rgba(15,23,42,0.75) !important;
-    background-image: none !important;
-}
-#loading-mask .loader, .loading-mask .loader {
-    background: var(--bg-surface) !important;
-    border: 1px solid var(--border-default) !important;
-    color: var(--text-secondary) !important;
-    border-radius: var(--r-lg);
-}
-
+.dialog .top, .dialog .middle, .dialog .bottom { background: var(--d3) !important; }
+/* Loading */
+#loading-mask, .loading-mask { background: rgba(8,13,26,0.8) !important; background-image: none !important; }
+#loading-mask .loader, .loading-mask .loader { background: var(--d3) !important; border: 1px solid var(--b1) !important; color: var(--t3) !important; border-radius: 10px !important; }
 /* Autocomplete */
-.autocomplete {
-    background: var(--bg-surface) !important;
-    border: 1px solid var(--border-default) !important;
-    border-radius: var(--r-md);
-}
-.autocomplete li { color: var(--text-secondary) !important; }
-.autocomplete li:hover, .autocomplete li.selected {
-    background: var(--bg-input) !important;
-    color: var(--accent-blue) !important;
-}
-
+.autocomplete { background: var(--d3) !important; border: 1px solid var(--b2) !important; border-radius: 8px !important; box-shadow: 0 8px 24px rgba(0,0,0,0.5) !important; }
+.autocomplete li { color: var(--t3) !important; padding: 8px 14px !important; }
+.autocomplete li:hover, .autocomplete li.selected { background: var(--d5) !important; color: var(--blue) !important; }
 /* Tooltips */
-.tool-tip {
-    background: var(--bg-input) !important;
-    border: 1px solid #475569 !important;
-    color: var(--text-primary) !important;
-    border-radius: var(--r-md);
-}
-
+.tool-tip { background: var(--d5) !important; border: 1px solid var(--b2) !important; color: var(--t1) !important; border-radius: 8px !important; box-shadow: 0 4px 12px rgba(0,0,0,0.4) !important; }
 /* Scrollbars */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: var(--bg-surface); }
-::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
-
+::-webkit-scrollbar-track { background: var(--d2); }
+::-webkit-scrollbar-thumb { background: var(--b3); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--t5); }
+/* Note/comment */
+.note, .comment { color: var(--t4) !important; }
+.separator { color: var(--t5) !important; }
 /* Page head */
-.page-head {
-    background: var(--bg-surface) !important;
-    background-image: none !important;
-    border-bottom: 1px solid var(--border-default) !important;
-}
+.page-head { background: var(--d3) !important; background-image: none !important; border-bottom: 1px solid var(--b1) !important; }
 
-/* ============================================================
-   19. Grid & Order Page Refinements
-   ============================================================ */
-
-/* Content header with title and buttons */
-.content-header {
-    display: flex !important;
-    align-items: center !important;
-    justify-content: space-between !important;
-    flex-wrap: wrap;
-    gap: 10px;
-}
-.content-header .content-buttons {
-    margin: 0 !important;
-}
-
-/* Pager bar - modern layout */
-.pager {
-    display: flex !important;
-    align-items: center !important;
-    flex-wrap: wrap;
-    gap: 8px;
-    padding: 10px 16px !important;
-    font-size: 13px !important;
-}
-.pager .pager-no-items { color: var(--text-muted) !important; }
-.pager input.input-text {
-    width: 50px !important;
-    text-align: center;
-    padding: 5px 8px !important;
-}
-.pager select {
-    padding: 5px 8px !important;
-    min-width: 60px;
-}
-.pager a { color: var(--accent-blue) !important; text-decoration: none; }
-.pager a:hover { color: var(--accent-blue-hover) !important; }
-.pager .separator { color: var(--text-dim) !important; margin: 0 4px; }
-
-/* Export bar */
-.export-actions, .grid .export {
-    background: var(--bg-elevated) !important;
-    border: 1px solid var(--border-default) !important;
-    border-radius: var(--r-md);
-    padding: 8px 12px !important;
-    display: flex !important;
-    align-items: center !important;
-    gap: 8px;
-}
-
-/* RSS link in pager */
-.pager img, .grid img[src*="rss"] {
-    filter: brightness(0.8) invert(0.6) !important;
-}
-
-/* Filter row inputs - more polish */
-.grid tr.filter input,
-.grid tr.filter select,
-.grid tr.filter textarea {
-    background: var(--bg-input) !important;
-    border: 1px solid #475569 !important;
-    color: var(--text-primary) !important;
-    border-radius: var(--r-sm);
-    padding: 6px 8px !important;
-    font-size: 12px !important;
-    width: 100% !important;
-    box-sizing: border-box !important;
-}
-.grid tr.filter input:focus,
-.grid tr.filter select:focus {
-    border-color: var(--accent-blue) !important;
-    box-shadow: 0 0 0 2px rgba(96,165,250,0.15) !important;
-    outline: none;
-}
-.grid tr.filter td {
-    padding: 6px 8px !important;
-    vertical-align: top !important;
-}
-
-/* Date filter - FROM/TO labels */
-.grid tr.filter .range .label,
-.grid tr.filter td label {
-    color: var(--text-muted) !important;
-    font-size: 10px !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.5px;
-    font-weight: 600 !important;
-    margin-bottom: 3px !important;
-    display: block;
-}
-
-/* Calendar trigger icon */
-img[src*="calendar"], img.v-middle[src*="calendar"],
-.grid img[src*="cal_"] {
-    filter: invert(0.7) brightness(1.5) !important;
-    opacity: 0.7;
-    cursor: pointer;
-}
-img[src*="calendar"]:hover, .grid img[src*="cal_"]:hover {
-    opacity: 1;
-}
-
-/* Grid cell content - better readability */
-.grid td a { color: var(--accent-blue) !important; }
-.grid td a:hover { color: var(--accent-blue-hover) !important; text-decoration: underline; }
-
-/* Bold labels in cells (like "Mode of Training:", "Course Date:") */
-.grid td strong, .grid td b {
-    color: var(--text-primary) !important;
-    font-weight: 600;
-}
-
-/* Mass action bar polish */
-.massaction {
-    display: flex !important;
-    align-items: center !important;
-    flex-wrap: wrap;
-    gap: 8px;
-    padding: 10px 16px !important;
-    margin-bottom: 0 !important;
-}
-.massaction select {
-    min-width: 180px;
-    padding: 6px 10px !important;
-}
-
-/* Checkbox styling */
-input[type="checkbox"] {
-    width: 16px !important;
-    height: 16px !important;
-    accent-color: var(--accent-blue);
-    cursor: pointer;
-}
-
-/* Grid action column links */
-.grid td .action-select, .grid td select.action-select {
-    background: var(--bg-input) !important;
-    border: 1px solid #475569 !important;
-    color: var(--text-primary) !important;
-    border-radius: var(--r-sm);
-    padding: 4px 8px;
-}
-
-/* Grid header row - subtle bottom shadow */
-.grid tr.headings {
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-}
-
-/* Alternating row colors - subtler */
-.grid tr.even td, .grid tr:nth-child(even) td {
-    background: rgba(22,32,50,0.5) !important;
-}
-
-/* Selected row highlight */
-.grid tr.selected td {
-    background: rgba(96,165,250,0.08) !important;
-    border-left: 2px solid var(--accent-blue) !important;
-}
-
-/* Image thumbnails in grid */
-.grid td img {
-    border-radius: var(--r-sm);
-    border: 1px solid var(--border-default);
-}
-
-/* Status labels / badges */
+/* === 19. Status Badges === */
 .grid-severity-notice, .grid-severity-minor {
     background: rgba(16,185,129,0.15) !important;
     color: #34d399 !important;
     border: 1px solid rgba(52,211,153,0.3) !important;
-    border-radius: 12px;
-    padding: 2px 10px !important;
+    border-radius: 20px !important;
+    padding: 3px 12px !important;
     font-size: 11px !important;
-    font-weight: 600;
+    font-weight: 600 !important;
+    display: inline-block !important;
 }
 .grid-severity-major, .grid-severity-critical {
     background: rgba(239,68,68,0.15) !important;
     color: #f87171 !important;
     border: 1px solid rgba(248,113,113,0.3) !important;
-    border-radius: 12px;
-    padding: 2px 10px !important;
+    border-radius: 20px !important;
+    padding: 3px 12px !important;
     font-size: 11px !important;
-    font-weight: 600;
+    font-weight: 600 !important;
+    display: inline-block !important;
 }
 
-/* Button bar spacing */
-.content-buttons button, .content-header button {
-    margin-left: 8px !important;
-}
-
-/* Grid wrapper spacing */
-.grid {
-    margin-top: 12px !important;
-}
-
-/* Improve overall page padding */
-#page\:main-container {
-    padding: 16px 24px !important;
-}
-
-/* Flag images in grid */
-.grid td img[src*="flag"] {
-    border: none !important;
-    border-radius: 2px;
-    vertical-align: middle;
-    margin-right: 4px;
-}
-
-/* "items selected" text */
-.massaction .entry-edit {
-    background: transparent !important;
-    border: none !important;
-    margin: 0 !important;
-    padding: 0 !important;
-}
-
-/* Select all / Unselect links */
-.massaction a {
-    color: var(--accent-blue) !important;
-    font-size: 12px;
-}
-
-/* Buttons in grid (Search, Reset Filter, Export) */
-.pager button, .filter button, .export button,
-button.task, button.scalable.task {
-    padding: 6px 16px !important;
-    font-size: 12px !important;
-}
-
-/* Number inputs in pager */
-.pager input[type="text"] {
-    background: var(--bg-input) !important;
-}
-
-/* ============================================================
-   20. Overall Spacing & Polish
-   ============================================================ */
-
-/* Smoother content area */
-.middle {
-    padding: 0 !important;
-}
-#page\:main-container {
-    padding: 20px 24px !important;
-}
-
-/* Page title */
-.content-header h3 {
-    margin: 0 !important;
-    font-size: 22px !important;
-}
-
-/* Better spacing between grid sections */
-.grid + .grid, .entry-edit + .entry-edit {
-    margin-top: 16px;
-}
-
-/* Make all images in dark admin slightly brighter */
-.grid td img:not([src*="flag"]):not([src*="favicon"]) {
-    opacity: 0.9;
-}
-
-/* Remove old Magento cell padding inconsistencies */
-.grid td, .grid th {
-    white-space: normal !important;
-    word-wrap: break-word;
-}
-
-/* Subtle row border on hover */
-.grid tr:hover td {
-    border-bottom-color: #475569 !important;
+/* === 20. Grid Image Thumbnails === */
+.grid td img:not([src*="calendar"]):not([src*="cal_"]):not([src*="rss"]):not([src*="flag"]) {
+    border-radius: 6px !important;
+    border: 1px solid var(--b1) !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.2) !important;
 }
