@@ -17,23 +17,31 @@
 <config>
     <menu>
         <catalog translate="title" module="catalog">
-            <title>Catalog</title>
+            <title>Course Management</title>
             <sort_order>30</sort_order>
-            <!--action>adminhtml/catalog</action-->
             <depends>
                 <module>Mage_Catalog</module>
             </depends>
             <children>
                 <products translate="title" module="catalog">
-                    <title>Manage Products</title>
+                    <title>Manage Courses</title>
                     <action>adminhtml/catalog_product/</action>
                     <sort_order>0</sort_order>
                 </products>
                 <categories translate="title" module="catalog">
-                    <title>Manage Categories</title>
+                    <title>Course Categories</title>
                     <action>adminhtml/catalog_category/</action>
-                    <sort_order>10</sort_order>
+                    <sort_order>5</sort_order>
                 </categories>
+            </children>
+        </catalog>
+        <marketing translate="title" module="catalog">
+            <title>Marketing Management</title>
+            <sort_order>35</sort_order>
+            <depends>
+                <module>Mage_Catalog</module>
+            </depends>
+            <children>
                 <attributes translate="title" module="catalog">
                     <title>Attributes</title>
                     <children>
@@ -46,15 +54,15 @@
                             <action>adminhtml/catalog_product_set/</action>
                         </sets>
                     </children>
-                    <sort_order>20</sort_order>
+                    <sort_order>40</sort_order>
                 </attributes>
                 <urlrewrite translate="title" module="catalog">
-                    <title>URL Rewrite Management</title>
+                    <title>URL Rewrite</title>
                     <action>adminhtml/urlrewrite/index</action>
-                    <sort_order>30</sort_order>
+                    <sort_order>50</sort_order>
                 </urlrewrite>
             </children>
-        </catalog>
+        </marketing>
     </menu>
     <acl>
         <resources>

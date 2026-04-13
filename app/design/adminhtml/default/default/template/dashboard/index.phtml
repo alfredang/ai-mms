@@ -117,7 +117,8 @@ foreach ($recentSearchCollection as $term) {
         'term' => $term->getQueryText(),
         'count' => (int) $term->getNumResults(),
         'popularity' => (int) $term->getPopularity(),
-        'date' => Mage::helper('core')->formatDate($term->getUpdatedAt(), 'short', true)
+        'date' => Mage::helper('core')->formatDate($term->getUpdatedAt(), 'short', true),
+        'edit_url' => $this->getUrl('adminhtml/catalog_search/edit', array('id' => $term->getId()))
     );
 }
 
@@ -231,7 +232,7 @@ function dashFormatPrice($amount) {
                     <tbody>
                         <?php foreach ($recentSearches as $search): ?>
                         <tr>
-                            <td><strong><?php echo $this->escapeHtml($search['term']) ?></strong></td>
+                            <td><a href="<?php echo $search['edit_url'] ?>" style="color:var(--blue) !important;text-decoration:none;"><strong><?php echo $this->escapeHtml($search['term']) ?></strong></a></td>
                             <td><?php echo $search['popularity'] ?></td>
                             <td><?php echo number_format($search['count']) ?></td>
                             <td><?php echo $search['date'] ?></td>

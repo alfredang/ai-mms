@@ -30,7 +30,7 @@ class Mage_Adminhtml_Block_Catalog_Product_Grid extends Mage_Adminhtml_Block_Wid
     {
         parent::__construct();
         $this->setId('productGrid');
-        $this->setDefaultSort('entity_id');
+        $this->setDefaultSort('sku');
         $this->setDefaultDir('DESC');
         $this->setSaveParametersInSession(true);
         $this->setUseAjax(true);
@@ -153,7 +153,7 @@ class Mage_Adminhtml_Block_Catalog_Product_Grid extends Mage_Adminhtml_Block_Wid
         $this->addColumn(
             'name',
             [
-                'header' => Mage::helper('catalog')->__('Name'),
+                'header' => Mage::helper('catalog')->__('Course Title'),
                 'width' => '300px',
                 'index' => 'name',
             ],

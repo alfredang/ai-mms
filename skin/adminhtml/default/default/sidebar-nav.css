@@ -63,12 +63,12 @@
 }
 .sidebar-logo-text {
     color: var(--t1) !important;
-    font-size: 15px !important;
+    font-size: 14px !important;
     font-weight: 700 !important;
     letter-spacing: 0.3px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: normal;
+    line-height: 1.3;
+    word-wrap: break-word;
 }
 
 /* === 3. Top Bar === */
@@ -174,6 +174,7 @@ body .sidebar-nav #nav {
     padding-right: 36px !important;
     cursor: pointer !important;
     background-image: none !important;
+    position: relative !important;
 }
 .sidebar-nav #nav li.parent > a::after {
     content: '' !important;
@@ -838,12 +839,13 @@ body.sidebar-collapsed .admin-main {
     margin-bottom: 2px !important;
 }
 
-/* Grid thumbnails */
+/* Grid thumbnails — compact rectangular */
 .admin-main .grid td img:not([src*="calendar"]):not([src*="cal_"]):not([src*="rss"]):not([src*="flag"]) {
-    max-width: 60px;
-    max-height: 60px;
+    width: 48px;
+    height: 36px;
     object-fit: cover;
-    border-radius: 6px !important;
+    border-radius: 4px !important;
+    vertical-align: middle;
 }
 
 /* === 15. Old Pager — HIDDEN (replaced by modern pagination) === */
@@ -872,9 +874,9 @@ img[src*="rss"],
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 16px;
+    gap: 12px;
     flex-wrap: wrap;
-    padding: 14px 20px;
+    padding: 8px 16px;
     background: var(--d4) !important;
     border: 1px solid var(--b1) !important;
     border-top: none !important;
@@ -882,8 +884,8 @@ img[src*="rss"],
 }
 
 .pagination-info {
-    color: var(--t4) !important;
-    font-size: 12px;
+    color: var(--t5) !important;
+    font-size: 11px;
     white-space: nowrap;
 }
 .pagination-info strong {
@@ -894,43 +896,41 @@ img[src*="rss"],
 .pagination-pages {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 2px;
 }
 
 .pagination-btn {
     display: inline-flex !important;
     align-items: center;
     justify-content: center;
-    min-width: 34px;
-    height: 34px;
-    padding: 0 10px !important;
-    background: var(--d5) !important;
-    border: 1px solid var(--b1) !important;
-    border-radius: 8px !important;
-    color: var(--t3) !important;
-    font-size: 13px !important;
+    min-width: 28px;
+    height: 28px;
+    padding: 0 8px !important;
+    background: transparent !important;
+    border: none !important;
+    border-radius: 6px !important;
+    color: var(--t4) !important;
+    font-size: 12px !important;
     font-weight: 500 !important;
     cursor: pointer !important;
-    transition: all 0.15s ease !important;
+    transition: all 0.12s ease !important;
     box-shadow: none !important;
     text-decoration: none !important;
     line-height: 1 !important;
 }
 .pagination-btn:hover {
-    background: var(--d6) !important;
-    color: var(--blue) !important;
-    border-color: var(--b2) !important;
+    background: var(--d5) !important;
+    color: var(--t1) !important;
     transform: none !important;
 }
 .pagination-btn.active {
     background: var(--blue3) !important;
     color: #fff !important;
-    border-color: var(--blue3) !important;
     font-weight: 700 !important;
 }
 .pagination-btn.disabled {
-    opacity: 0.4 !important;
-    cursor: not-allowed !important;
+    opacity: 0.3 !important;
+    cursor: default !important;
     pointer-events: none;
 }
 .pagination-btn span {
@@ -940,8 +940,8 @@ img[src*="rss"],
 }
 .pagination-ellipsis {
     color: var(--t5);
-    font-size: 14px;
-    padding: 0 4px;
+    font-size: 12px;
+    padding: 0 2px;
     user-select: none;
 }
 
@@ -949,9 +949,9 @@ img[src*="rss"],
 .pagination-perpage {
     display: flex;
     align-items: center;
-    gap: 8px;
-    color: var(--t4);
-    font-size: 12px;
+    gap: 6px;
+    color: var(--t5);
+    font-size: 11px;
     white-space: nowrap;
 }
 .pagination-perpage select {
@@ -1254,22 +1254,17 @@ img[src*="rss"],
 }
 
 /* === 24. Grid column width constraints === */
-/* Ensure Name column is wide enough for max ~2 lines */
+/* Compact grid cells */
 .admin-main .grid td,
 .admin-main .grid th {
-    min-width: 60px;
+    padding: 8px 10px !important;
+    line-height: 1.4 !important;
+    white-space: nowrap;
 }
-/* Name/title columns — wider to avoid excessive wrapping */
-.admin-main .grid td:nth-child(3),
-.admin-main .grid th:nth-child(3) {
-    min-width: 200px;
-}
-/* Clamp text in grid cells to max 2 lines */
-.admin-main .grid td {
-    max-height: 3.2em;
-    line-height: 1.5 !important;
-    overflow: hidden;
-    text-overflow: ellipsis;
+/* Override Magento's <col> widths via JS — handled in sidebar-nav.js */
+/* Thumbnail column: keep compact */
+.admin-main .grid col:nth-child(3) {
+    width: 56px !important;
 }
 
 /* === 24b. Modern Dashboard === */

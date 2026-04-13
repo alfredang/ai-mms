@@ -363,7 +363,22 @@ document.observe('dom:loaded', function() {
     });
     } // end buildFilterPanels
 
-    // 8. Remove RSS links from DOM completely
+    // 8. Optimize grid column widths (shrink Thumbnail, expand Name)
+    function optimizeGridColumns() {
+        $$('.grid table.data').each(function(table) {
+            var cols = table.select('col');
+            var headings = table.select('tr.headings th');
+            for (var i = 0; i < headings.length; i++) {
+                var text = headings[i].textContent.strip().toLowerCase();
+                if (text === 'thumbnail' || text === 'image') {
+                    if (cols[i]) cols[i].setAttribute('width', '56');
+                }
+            }
+        });
+    }
+    setTimeout(optimizeGridColumns, 600);
+
+    // 9. Remove RSS links from DOM completely
     function removeRssLinks() {
         $$('a[href*="/rss/"]').each(function(a) {
             // Remove parent container if it's a small wrapper (span, div, td)
