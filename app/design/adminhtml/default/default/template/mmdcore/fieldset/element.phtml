@@ -1,0 +1,51 @@
+<?php
+/**
+ * Checkout Fields Manager
+ *
+ * @category:    MMD
+ * @package:     MMD_Checkoutoptions
+ * @version      2.9.2
+ * @license:     
+ * @copyright:   Copyright (c) 2013 MMD, Inc. (http://www.mmd.com)
+ */
+/* @var $this MMD_Mmdsys_Block_Form_Element_Renderer */
+$module  = $this->getModule();
+$_helper  = Mage::helper('mmdsys');
+$_element = $this->getElement();
+if (!$_element->getNoDisplay()): 
+$mystring = $_element->getLabelHtml();
+$pos = strpos($mystring, 'Checkout Options');
+if($pos !== false) {
+?>
+<tr>
+    <?php if ($_element->getType()=='hidden'): ?>
+    <td colspan="3" class="hidden" valign="middle"><?php echo trim($_element->getElementHtml()) ?></td>
+    <?php else: ?>
+    <td class="label">
+        <table>
+          <tr>
+            <td>
+              <?php echo str_replace(" v2.9.2","",trim($_element->getLabelHtml())); ?>
+            </td>
+          </tr>
+        </table>
+    </td>
+    <td class="value">
+        <table>
+          <tr>
+            <td>
+              <?php echo trim($_element->getElementHtml()) ?>
+            </td>
+          </tr>
+        </table>
+    </td>
+    <td<?php if ($_element->getNote()): ?> class="note"<?php endif ?> id="note_<?php echo $_element->getId()?>">
+            <?php if ($_element->getNote()):?>
+            <?php echo $_element->getNote()?>
+        <?php else: ?>
+       
+        <?php endif;?>
+    </td>
+    <?php endif; ?>
+</tr>
+<?php } endif; ?>

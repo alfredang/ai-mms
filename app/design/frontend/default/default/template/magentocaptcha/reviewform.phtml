@@ -1,0 +1,170 @@
+<?php
+/**
+ * Magento
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Academic Free License (AFL 3.0)
+ * that is bundled with this package in the file LICENSE_AFL.txt.
+ * It is also available through the world-wide-web at this URL:
+ * http://opensource.org/licenses/afl-3.0.php
+ * If you did not receive a copy of the license and are unable to
+ * obtain it through the world-wide-web, please send an email
+ * to license@magentocommerce.com so we can send you a copy immediately.
+ *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
+ * @category    design
+ * @package     base_default
+ * @copyright   Copyright (c) 2012 Magento Inc. (http://www.magentocommerce.com)
+ * @license     http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
+ */
+ 
+ $formId= "review_form"; 
+$captchaModel = Mage::helper('captcha')->getCaptcha($formId);
+Mage_Core_Controller_Front_Action::getLayout()->createBlock($captchaModel->getBlockName())->setFormId($formId)->setIsAjax(true)->toHtml();
+
+?>
+<div class="form-add">
+    <h2><?php echo $this->__('Course Feedback') ?></h2>
+    <?php if ($this->getAllowWriteReviewFlag()): ?>
+    <form action="<?php echo $this->getAction() ?>" method="post" id="review-form">
+        <fieldset>
+            <?php echo $this->getChildHtml('form_fields_before')?>
+             <p><?php echo $this->__("You're reviewing:"); ?> <span><?php echo $this->htmlEscape($this->getProductInfo()->getName()) ?></span></p>
+            <?php if( $this->getRatings() && $this->getRatings()->getSize()): ?>
+               <p><?php echo $this->__('Kindly provide your feedback on the course so that we can further improve the course in the future. 1 star: least agree. 5 star: most agree') ?> <em class="required">*</em></p>
+                <span id="input-message-box"></span>
+                <table class="data-table" id="product-review-table">
+                    <col />
+                    <col width="1" />
+                    <col width="1" />
+                    <col width="1" />
+                    <col width="1" />
+                    <col width="1" />
+                    <thead>
+                        <tr>
+                            <th>&nbsp;</th>
+                            <th><span class="nobr"><?php echo $this->__('1 star') ?></span></th>
+                            <th><span class="nobr"><?php echo $this->__('2 stars') ?></span></th>
+                            <th><span class="nobr"><?php echo $this->__('3 stars') ?></span></th>
+                            <th><span class="nobr"><?php echo $this->__('4 stars') ?></span></th>
+                            <th><span class="nobr"><?php echo $this->__('5 stars') ?></span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    <?php foreach ($this->getRatings() as $_rating): ?>
+                        <tr>
+                            <th><?php echo $this->escapeHtml($_rating->getRatingCode()) ?></th>
+                        <?php foreach ($_rating->getOptions() as $_option): ?>
+                            <td class="value"><input type="radio" name="ratings[<?php echo $_rating->getId() ?>]" id="<?php echo $this->escapeHtml($_rating->getRatingCode()) ?>_<?php echo $_option->getValue() ?>" value="<?php echo $_option->getId() ?>" class="radio" /></td>
+                        <?php endforeach; ?>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+                <input type="hidden" name="validate_rating" class="validate-rating" value="" />
+                <script type="text/javascript">decorateTable('product-review-table')</script>
+            <?php endif; ?>
+                <ul class="form-list">
+                    <li>
+                        <label for="nickname_field" class="required"><em>*</em><?php echo $this->__('Name') ?></label>
+                        <div class="input-box">
+                            <input type="text" name="nickname" id="nickname_field" class="input-text required-entry" value="<?php echo $this->htmlEscape($data->getNickname()) ?>" />
+                        </div>
+                    </li>
+                    <li>
+                        <label for="summary_field" class="required"><em>*</em><?php echo $this->__('Summary of Your Review') ?></label>
+                        <div class="input-box">
+                            <input type="text" name="title" id="summary_field" class="input-text required-entry" value="<?php echo $this->htmlEscape($data->getTitle()) ?>" />
+                        </div>
+                    </li>
+                    <li>
+                        <label for="review_field" class="required"><em>*</em><?php echo $this->__('Further Comment') ?></label>
+                        <div class="input-box">
+                            <textarea name="detail" id="review_field" cols="5" rows="3" class="required-entry"><?php echo $this->htmlEscape($data->getDetail()) ?></textarea>
+                        </div>
+                    </li>
+					
+					<!-- Capcha-->
+			<?php
+
+		
+			$captcha = Mage::helper('captcha')->getCaptcha($formId);
+			if ($captcha->isRequired()) {
+			?>
+<li id="captcha-input-box-<?php echo $formId; ?>">
+    <label for="captcha_<?php echo $formId; ?>" class="required"><em>*</em><?php echo $this->__('Please type the letters below')?></label>
+    <div class="input-box captcha">
+        <input name="<?php echo Mage_Captcha_Helper_Data::INPUT_NAME_FIELD_VALUE ?>[<?php echo $formId; ?>]" type="text" class="input-text required-entry" id="captcha_<?php echo $formId; ?>" />
+    </div>
+</li>
+<li>
+    <div class="captcha-image" id="captcha-image-box-<?php echo $formId;?>">
+        <img id="captcha-reload" class="captcha-reload" src="<?php echo $this->getSkinUrl('images/reload.png') ?>" alt="<?php echo $this->__('Reload captcha') ?>" onclick="$('<?php echo $formId; ?>').captcha.refresh(this)">
+        <img id="<?php echo $formId; ?>" class="captcha-img" height="50" src="<?php echo $captcha->getImgSrc() ?>"/>
+        <?php if ($captcha->isCaseSensitive()) :?>
+        <div class="captcha-note">
+            <?php echo $this->__('<strong>Attention</strong>: Captcha is case sensitive.') ?>
+        </div>
+        <?php endif; ?>
+    </div>
+    <script type="text/javascript">//<![CDATA[
+        $('<?php echo $formId; ?>').captcha = new Captcha('<?php echo Mage_Captcha_Block_Captcha_Zend::getRefreshUrl() ?>', '<?php echo $formId; ?>');
+    //]]></script>
+</li>
+
+<?php } ?>
+			
+			<!-- Capcha -->
+					
+                </ul>
+            </fieldset>
+            <div class="buttons-set">
+                <button type="submit" title="<?php echo $this->__('Submit Feedback') ?>" class="button"><span><span><?php echo $this->__('Submit Feedback') ?></span></span></button>
+            </div>
+    </form>
+    <script type="text/javascript">
+    //<![CDATA[
+        var dataForm = new VarienForm('review-form');
+        Validation.addAllThese(
+        [
+               ['validate-rating', '<?php echo $this->__('Please select one of each of the ratings above') ?>', function(v) {
+                    var trs = $('product-review-table').select('tr');
+                    var inputs;
+                    var error = 1;
+    
+                    for( var j=0; j < trs.length; j++ ) {
+                        var tr = trs[j];
+                        if( j > 0 ) {
+                            inputs = tr.select('input');
+    
+                            for( i in inputs ) {
+                                if( inputs[i].checked == true ) {
+                                    error = 0;
+                                }
+                            }
+    
+                            if( error == 1 ) {
+                                return false;
+                            } else {
+                                error = 1;
+                            }
+                        }
+                    }
+                    return true;
+                }]
+        ]
+        );
+    //]]>
+    </script>
+    <?php else: ?>
+    <p class="review-nologged" id="review-form">
+        <?php echo $this->__('Only registered users can write reviews. Please, <a href="%s">log in</a> or <a href="%s">register</a>', $this->getLoginLink(), Mage::helper('customer')->getRegisterUrl()) ?>
+    </p>
+    <?php endif ?>
+</div>

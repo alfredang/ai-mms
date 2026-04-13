@@ -1,0 +1,42 @@
+.stripe.payment-info td {
+    padding-right: 20px;
+    font: 13px/1.5em Arial, Helvetica, sans-serif;
+    vertical-align: middle;
+}
+.stripe.payment-info td.result {
+    color: #666;
+    font-weight: bold;
+    opacity: 0.9;
+}
+.stripe.payment-info td.result.charge.authorized,
+.stripe.payment-info td.result.pass {
+    color: #4F8A10;
+}
+.stripe.payment-info td.result img {
+    display: none;
+}
+.stripe.payment-info td.result.pass img.passed {
+    display: inline-block;
+}
+.stripe.payment-info td.result.charge.issuer_declined,
+.stripe.payment-info td.result.charge.blocked,
+.stripe.payment-info td.result.charge.invalid,
+.stripe.payment-info td.result.fail {
+    color: #D8000C;
+}
+.stripe.payment-info td.result.fail img.failed {
+    display: inline-block;
+}
+.stripe.payment-info td.result.unchecked {
+    color: #9E9E9E;
+}
+.stripe.payment-info td.result.charge.manual_review,
+.stripe.payment-info td.result.radar.elevated {
+    color: orange;
+}
+.stripe.payment-info td.result {
+    font-weight: bold;
+}
+ul#payment_form_stripe_payments {
+    padding-left: 0;
+}

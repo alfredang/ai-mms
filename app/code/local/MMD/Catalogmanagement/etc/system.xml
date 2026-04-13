@@ -1,0 +1,355 @@
+<?xml version="1.0"?>
+<config>
+<tabs>
+		<mmd translate="label">
+			<label>Mage Mobile Design</label>
+			<sort_order>400</sort_order>
+		</mmd>
+	</tabs>
+    <sections>
+        <catalogmanagement translate="label" module="catalogmanagement">
+            <label>Product Catalog Management</label>
+            <tab>mmd</tab>
+            <frontend_type>text</frontend_type>
+            <sort_order>52416</sort_order>
+            <show_in_default>1</show_in_default>
+            <show_in_website>0</show_in_website>
+            <show_in_store>0</show_in_store>
+            <groups>
+                <general>
+                    <label>General Settings</label>
+                    <frontend_type>text</frontend_type>
+                    <sort_order>5</sort_order>
+                    <show_in_default>1</show_in_default>
+                    <show_in_website>0</show_in_website>
+                    <show_in_store>0</show_in_store>
+                    <fields>
+                        <sorting translate="label">
+                            <label>Allow to sort columns</label>
+                            <frontend_type>select</frontend_type>
+                            <source_model>adminhtml/system_config_source_yesno</source_model>
+                            <sort_order>10</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                        </sorting>
+						<rounding translate="label">
+                            <label>Price Rounding</label>
+                            <frontend_type>text</frontend_type>
+                            <sort_order>10</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>1</show_in_website>
+                             <!--important, do not chanage -->
+                            <show_in_store>0</show_in_store>
+                            <comment><![CDATA[Indicate 0.99 to round 9.43 to 9.99, indicate 0.5 to round 9.43 to 9.50. Leave empty for no rounding.]]></comment>
+                        </rounding> 
+                        <categories translate="label">
+                            <label>Show Categories as Tree</label>
+                            <frontend_type>select</frontend_type>
+                            <source_model>adminhtml/system_config_source_yesno</source_model>
+                            <sort_order>20</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>1</show_in_website>
+                            <show_in_store>1</show_in_store>
+                            <comment><![CDATA[Indicate No if you prefer to input IDs.]]></comment>
+                        </categories>                         
+                        <attr translate="label">
+                            <label>Copy Attributes</label>
+                            <frontend_type>text</frontend_type>
+                            <sort_order>30</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>1</show_in_website>
+                             <!--important, do not chanage -->
+                            <show_in_store>0</show_in_store>
+                            <comment><![CDATA[short_description, keywords, title, etc]]></comment>
+                        </attr> 
+                    </fields>
+                </general>
+                <editing>
+                    <label>Editing Settings</label>
+                    <frontend_type>text</frontend_type>
+                    <sort_order>10</sort_order>
+                    <show_in_default>1</show_in_default>
+                    <show_in_website>0</show_in_website>
+                    <show_in_store>0</show_in_store>
+                    <fields>
+                        <mode translate="label">
+                            <label>Editing Mode</label>
+                            <comment>Single Cell - data is being saved right after any cell is edited. Multi Cell - Save button should be clicked after data in multiple cells has beed edited.</comment>
+                            <frontend_type>select</frontend_type>
+                            <source_model>catalogmanagement/system_config_source_mode</source_model>
+                            <sort_order>10</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                        </mode>
+                    </fields>
+                </editing>
+                <cols translate="label">
+                    <label>Grid Default Editable Columns</label>
+                    <frontend_type>text</frontend_type>
+                    <sort_order>20</sort_order>
+                    <show_in_default>1</show_in_default>
+                    <show_in_website>1</show_in_website>
+                    <show_in_store>0</show_in_store>
+                    <fields>
+                        <name translate="label">
+                            <label>Allow to edit "Name"</label>
+                            <frontend_type>select</frontend_type>
+                            <source_model>adminhtml/system_config_source_yesno</source_model>
+                            <sort_order>5</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                        </name>
+                        <sku translate="label">
+                            <label>Allow to edit "SKU"</label>
+                            <frontend_type>select</frontend_type>
+                            <source_model>adminhtml/system_config_source_yesno</source_model>
+                            <sort_order>10</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                        </sku>
+                        <price translate="label">
+                            <label>Allow to edit "Price"</label>
+                            <frontend_type>select</frontend_type>
+                            <source_model>adminhtml/system_config_source_yesno</source_model>
+                            <sort_order>20</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                        </price>
+                        <qty translate="label">
+                            <label>Allow to edit "Quantity"</label>
+                            <frontend_type>select</frontend_type>
+                            <source_model>adminhtml/system_config_source_yesno</source_model>
+                            <sort_order>30</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                        </qty>
+                        <vis translate="label">
+                            <label>Allow to edit "Visibility"</label>
+                            <frontend_type>select</frontend_type>
+                            <source_model>adminhtml/system_config_source_yesno</source_model>
+                            <sort_order>40</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                        </vis>
+                        <status translate="label">
+                            <label>Allow to edit "Status"</label>
+                            <frontend_type>select</frontend_type>
+                            <source_model>adminhtml/system_config_source_yesno</source_model>
+                            <sort_order>50</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                        </status>
+                    </fields>
+                </cols>
+                <attr translate="label">
+                    <label>Grid Attribute Columns</label>
+                    <frontend_type>text</frontend_type>
+                    <sort_order>30</sort_order>
+                    <show_in_default>1</show_in_default>
+                    <show_in_website>1</show_in_website>
+                    <show_in_store>0</show_in_store>
+                    <fields>
+                        <byadmin>
+                            <label>Allow different attribute columns for different admin users</label>
+                            <frontend_type>select</frontend_type>
+                            <source_model>adminhtml/system_config_source_yesno</source_model>
+                            <sort_order>5</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                        </byadmin>
+                        <cols translate="label">
+                            <label>Allow to edit additional attribute columns on the grid</label>
+                            <frontend_type>select</frontend_type>
+                            <source_model>adminhtml/system_config_source_yesno</source_model>
+                            <sort_order>10</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                        </cols>
+                        <zoom translate="label">
+                            <label>Enable zoom for thumbnail image</label>
+                            <frontend_type>select</frontend_type>
+                            <source_model>adminhtml/system_config_source_yesno</source_model>
+                            <sort_order>20</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                        </zoom>
+                    </fields>
+                </attr>
+                <additional translate="label">
+                    <label>Additional Grid Columns</label>
+                    <frontend_type>text</frontend_type>
+                    <sort_order>40</sort_order>
+                    <show_in_default>1</show_in_default>
+                    <show_in_website>1</show_in_website>
+                    <show_in_store>0</show_in_store>
+                    <fields>
+                        <avail translate="label">
+                            <label>Allow to edit "Stock Availability"</label>
+                            <frontend_type>select</frontend_type>
+                            <source_model>adminhtml/system_config_source_yesno</source_model>
+                            <sort_order>3</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                        </avail>
+                        <thumb translate="label">
+                            <label>Show product thumbnail image</label>
+                            <frontend_type>select</frontend_type>
+                            <source_model>adminhtml/system_config_source_yesno</source_model>
+                            <sort_order>5</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                        </thumb>
+                        <category translate="label">
+                            <label>Show category information</label>
+                            <frontend_type>select</frontend_type>
+                            <source_model>adminhtml/system_config_source_yesno</source_model>
+                            <sort_order>8</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                        </category>
+                        <category_filter translate="label">
+                            <label>Enable category filter</label>
+                            <comment>Allow to filter by category on the product grid, but increases server load. "Show category information" option should be set to "Yes" in order to make this setting work.</comment>
+                            <frontend_type>select</frontend_type>
+                            <source_model>adminhtml/system_config_source_yesno</source_model>
+                            <sort_order>9</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                        </category_filter>
+                        <special_price_dates translate="label">
+                            <label>Show special price to/from dates</label>
+                            <comment>Will show and allow to edit product special price starting and ending dates.</comment>
+                            <frontend_type>select</frontend_type>
+                            <source_model>adminhtml/system_config_source_yesno</source_model>
+                            <sort_order>20</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                        </special_price_dates>
+                        <created_at>
+                            <label>Display creation date of a product</label>
+                            <comment>This field can be read only.</comment>
+                            <frontend_type>select</frontend_type>
+                            <source_model>adminhtml/system_config_source_yesno</source_model>
+                            <sort_order>35</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                        </created_at>
+                        <modified_at>
+                            <label>Display "last modified at" date of a product</label>
+                            <comment>This field can be read only.</comment>
+                            <frontend_type>select</frontend_type>
+                            <source_model>adminhtml/system_config_source_yesno</source_model>
+                            <sort_order>37</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                        </modified_at>
+                        <remove translate="label">
+                            <label>Remove Default Columns</label>
+                            <frontend_type>text</frontend_type>
+                            <sort_order>40</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>1</show_in_website>
+                            <show_in_store>1</show_in_store> 
+                            <comment>Use comma separated list of unwanted columns like type,set_name,visibility,status,websites</comment>
+                        </remove>                        
+                    </fields>
+                </additional>
+                <cond translate="label">
+                    <label>Conditional Modifications</label>
+                    <frontend_type>text</frontend_type>
+                    <sort_order>50</sort_order>
+                    <show_in_default>1</show_in_default>
+                    <show_in_website>1</show_in_website>
+                    <show_in_store>0</show_in_store>
+                    <fields>
+                        <availability translate="label">
+                            <label>Quantity Based Availability</label>
+                            <comment>When set to yes, availability will automatically change to 'In stock' when quantity is positive and to 'Out of stock" when quantity is zero or negative. When set to 'No', availability status will not be updated automatically.</comment>
+                            <frontend_type>select</frontend_type>
+                            <source_model>adminhtml/system_config_source_yesno</source_model>
+                            <sort_order>10</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                        </availability>
+                    </fields>
+                </cond>
+                <category translate="label">
+				
+                    <label>Product Grid on Category Products Page</label>
+                    <frontend_type>text</frontend_type>
+                    <sort_order>60</sort_order>
+                    <show_in_default>1</show_in_default>
+                    <show_in_website>1</show_in_website>
+                    <show_in_store>0</show_in_store>
+                    <fields>
+                        <thumb translate="label">
+                            <label>Display product thumbnail</label>
+                            <frontend_type>select</frontend_type>
+                            <source_model>adminhtml/system_config_source_yesno</source_model>
+                            <sort_order>10</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                        </thumb>
+                    </fields>
+                </category>
+				<links translate="label">
+                    <label>Product Linking Algorithms</label>
+                    <frontend_type>text</frontend_type>
+                    <sort_order>10</sort_order>
+                    <show_in_default>1</show_in_default>
+                    <show_in_website>1</show_in_website>
+                    <show_in_store>0</show_in_store>
+                    <fields>
+                        <relate translate="label">
+                            <label>Related</label>
+                            <frontend_type>select</frontend_type>
+                            <source_model>catalogmanagement/command_relate</source_model> 
+                            <sort_order>10</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                        </relate>                    
+                        <upsell translate="label">
+                            <label>Up-sell</label>
+                            <frontend_type>select</frontend_type>
+                            <source_model>catalogmanagement/command_relate</source_model> 
+                            <sort_order>20</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                        </upsell>
+                        <crosssell translate="label">
+                            <label>Cross-sell</label>
+                            <frontend_type>select</frontend_type>
+                            <source_model>catalogmanagement/command_relate</source_model> 
+                            <sort_order>30</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                        </crosssell>
+                    </fields>
+                </links>  
+            </groups>
+        </catalogmanagement>
+    </sections>
+</config>

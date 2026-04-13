@@ -1,0 +1,66 @@
+@import '../core/_general';
+@import '../core/_hostedfields';
+@import '../core/_paypal';
+@import '../core/_saved';
+
+/* IWD uses a lot of badly targeted styles meaning we have to target our elements more specifically */
+.opc-wrapper-opc button.braintree-paypal-button {
+    background:#019cde !important;
+    color:white !important;
+    height:46px;
+    line-height:46px;
+    padding:0 20px 0 18px;
+    border:none;
+    border-radius:3px;
+    -webkit-border-radius:3px;
+    font-size:14px;
+    float:none;
+    margin:14px auto;
+    > span {
+        display:block !important;
+        color:white !important;
+        height:46px;
+        line-height:46px;
+        background:url('../../../images/gene/braintree/paypal.png') right center no-repeat !important;
+        background-size:80px !important;
+        padding-right:94px !important;
+        > span {
+            color:white;
+        }
+    }
+}
+.opc-wrapper-opc button.braintree-paypal-button.braintree-paypal-loading {
+    background:#014c6b url('../../../images/gene/braintree/paypal-loading.gif') center center no-repeat !important;
+    background-size:32px !important;
+    > span {
+        opacity:0;
+    }
+}
+.opc-wrapper-opc button.braintree-paypal-button.braintree-paypal-loading:hover {
+    background:#014c6b url('../../../images/gene/braintree/paypal-loading.gif') center center no-repeat !important;
+}
+.opc-wrapper-opc button.braintree-paypal-button:hover {
+    background:#0175a6 !important;
+}
+
+/* IWD Specific Styling */
+#paypal-saved-accounts, .paypal-info, #creditcard-saved-accounts, #credit-card-form {
+    margin-bottom:20px;
+}
+#paypal-complete {
+    text-align:center;
+    padding:4px 0;
+    label {
+        margin-bottom:8px;
+    }
+}
+#paypal-container iframe {
+    display:none;
+}
+#braintree-paypal-button {
+    line-height:unset;
+    padding:0;
+}
+a#braintree-paypal-button {
+    margin:0 auto;
+}

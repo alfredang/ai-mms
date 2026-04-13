@@ -1,0 +1,590 @@
+<?php
+/**
+ * MMD
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the MMD EULA that is bundled with
+ * this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * http://www.magemobiledesign.com/LICENSE-1.0.html
+ *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade the extension
+ * to newer versions in the future. If you wish to customize the extension
+ * for your needs please refer to http://www.magemobiledesign.com/ for more information
+ *
+ * @category   MMD
+ * @package    MMD_CustomOptions
+ * @copyright  Copyright (c) 2012 MMD (http://www.magemobiledesign.com/)
+ * @license    http://www.magemobiledesign.com/LICENSE-1.0.html
+ */
+
+/**
+ * Advanced Product Options extension
+ *
+ * @category   MMD
+ * @package    MMD_CustomOptions
+ * @author     MMD Dev Team
+ */
+
+$helper = Mage::helper('customoptions');
+$width = 800;
+if ($helper->isDependentEnabled()) $width += 210;
+if ($helper->isWeightEnabled()) $width += 85;
+if ($helper->isTierPriceEnabled()) $width += 30;
+if ($helper->isSpecialPriceEnabled()) $width += 230;
+if ($helper->isInventoryEnabled()) $width += 50;
+?>
+<script type="text/javascript">
+    //<![CDATA[
+    OptionTemplateSelect = '<table class="border" cellpadding="0" cellspacing="0" style="width:<?php echo $width ?>px;">'+        
+        '<thead>'+
+        '<tr class="headings">'+
+        <?php if ($helper->isDependentEnabled()) { ?>'<th class="type-id"><?php echo $helper->__js('Id') ?></th>'+<?php } ?>
+        '<th class="type-title"><?php echo $helper->__js('Title') ?> <span class="required">*</span></th>'+
+		'<th class="type-reg_course"><?php echo $helper->__js('Course Date &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;') ?> </th>'+
+		
+        '<th class="type-price"><?php echo $helper->__js('Price') ?></th>'+
+        '<th class="type-type"><?php echo $helper->__js('Price Type') ?></th>'+
+        <?php if ($helper->isTierPriceEnabled()) { ?>'<th class="type-tier-price"><?php echo $helper->__js('Tier') ?></th>'+<?php } ?>
+        <?php if ($helper->isSpecialPriceEnabled()) { 
+            ?>'<th class="type-special-price"><?php echo $helper->__js('Special Price') ?></th>'+
+            '<th class="type-special-comment"><?php echo $helper->__js('Special Price Comment') ?></th>'+<?php
+        } ?>
+        <?php if ($helper->isWeightEnabled()) { ?>'<th class="type-type"><?php echo $helper->__js('Weight') ?></th>'+<?php } ?>
+        '<th class="type-sku"><?php echo $helper->__js('SKU') ?></th>'+
+        '<th class="type-order"><?php echo $helper->__js('Sort Order') ?></th>'+
+        <?php if ($helper->isInventoryEnabled()) { ?>'<th class="type-qty"><?php echo $helper->__js('Qty') ?></th>'+<?php } ?>
+        '<th class="type-default"><?php echo $helper->__js('Default') ?></th>'+
+        <?php if ($helper->isDependentEnabled()) { ?>'<th class="type-dependent-ids"><?php echo $helper->__js('Children') ?></th>'+<?php } ?>
+        '<th class="type-image"><?php echo $helper->__js('Image') ?></th>'+
+        '<th class="type-butt last">'+
+            '&nbsp;'+
+            '<input type="hidden" class="required-option-select-type-rows" name="validation_{{option_id}}_result" value="" >'+
+            '<input type="hidden" class="igi" id="product_option_{{option_id}}_in_group_id" name="product[options][{{option_id}}][in_group_id]" value="{{in_group_id}}"/>'+
+        '</th>'+
+        '</tr>'+
+        '</thead>'+
+        '<tbody id="select_option_type_row_{{option_id}}">'+
+        '</tbody>'+
+        '<tfoot>'+
+        '<tr>'+
+        '<td colspan="100" class="a-right">'+                
+            '<?php echo $this->jsQuoteEscape($this->getAddButtonHtml()) ?>'+            
+         '</td>'+
+        '</tr>'+
+        '</tfoot>'+
+        '</table>';
+
+    OptionTemplateSelectRow = '<tr id="product_option_{{id}}_select_{{select_id}}">'+
+            <?php if ($helper->isDependentEnabled()) { ?>'<td align="center">{{in_group_id_view}}</td>'+<?php } ?>
+            '<td>'+
+                '<input type="hidden" name="product[options][{{id}}][values][{{select_id}}][option_type_id]" value="{{option_type_id}}">'+
+                '<input type="hidden" id="product_option_{{id}}_select_{{select_id}}_is_delete" name="product[options][{{id}}][values][{{select_id}}][is_delete]" value="">'+
+                '<input type="hidden" class="igi" id="product_option_{{id}}_select_{{select_id}}_in_group_id" name="product[options][{{id}}][values][{{select_id}}][in_group_id]" value="{{in_group_id}}"/>'+
+                '<input type="text" class="required-entry input-text select-type-title" id="product_option_{{id}}_select_{{select_id}}_title" name="product[options][{{id}}][values][{{select_id}}][title]" value="{{title}}">{{checkboxScopeTitle}}'+
+				
+            '</td>'+
+			'<td>'+
+			'<input type="text" class="input-text select-type-reg_course" id="product_option_{{id}}_select_{{select_id}}_reg_course" name="product[options][{{id}}][values][{{select_id}}][reg_course]" value="{{reg_course}}" style="width:75% !important; margin: 0 3px 0 0;"><img title="Select date" id="product_option_{{id}}_select_{{select_id}}_reg_course_trig" src="<?php echo Mage::getBaseUrl(Mage_Core_Model_Store::URL_TYPE_SKIN) . 'adminhtml/default/default/images/grid-cal.gif'; ?>" class="v-middle">'+
+			'</td>'+
+
+			
+            '<td><input type="text" class="input-text validate-number product-option-price" id="product_option_{{id}}_select_{{select_id}}_price" name="product[options][{{id}}][values][{{select_id}}][price]" value="{{price}}" ></td>'+
+            '<td><?php echo $this->jsQuoteEscape($this->getPriceTypeSelectHtml()) ?>{{checkboxScopePrice}}</td>'+
+            <?php if ($helper->isTierPriceEnabled()) { ?>'<td><?php echo $this->jsQuoteEscape($this->getAddTierPriceButtonHtml()) ?></td>'+<?php } ?>
+            <?php if ($helper->isSpecialPriceEnabled()) { 
+                ?>'<td><input type="text" class="input-text validate-number product-option-price" id="product_option_{{id}}_select_{{select_id}}_price_special" name="product[options][{{id}}][values][{{select_id}}][special_price]" value="{{special_price}}"></td>'+
+                  '<td><input type="text" class="input-text" id="product_option_{{id}}_select_{{select_id}}_price_special_comment" name="product[options][{{id}}][values][{{select_id}}][special_comment]" value="{{special_comment}}"></td>'+<?php
+                    } ?>
+            <?php if ($helper->isWeightEnabled()) { ?>'<td><input type="text" class="input-text validate-number product-option-weight" id="product_option_{{id}}_select_{{select_id}}_weight" name="product[options][{{id}}][values][{{select_id}}][weight]" value="{{weight}}"></td>'+<?php } ?>
+            '<td><input type="text" class="input-text {{sku_class}}" id="product_option_{{id}}_select_{{select_id}}_sku" name="product[options][{{id}}][values][{{select_id}}][sku]" value="{{sku}}" onchange="if (!this.value) selectOptionType.enableQtyAndPrice({{id}}, {{select_id}});"></td>'+
+            '<td><input type="text" class="validate-zero-or-greater input-text" name="product[options][{{id}}][values][{{select_id}}][sort_order]" value="{{sort_order}}"></td>'+
+            <?php if ($helper->isInventoryEnabled()): ?>
+                '<td><input type="text" class="input-text" name="product[options][{{id}}][values][{{select_id}}][customoptions_qty]" id="product_option_{{id}}_select_{{select_id}}_customoptions_qty" value="{{customoptions_qty}}" {{customoptions_qty_disabled}}></td>'+
+            <?php endif; ?>
+            '<td><input id="product_option_{{id}}_select_{{select_id}}_default" type="{{default_type}}" class="input-text" name="product[options][{{id}}][default][]" value="{{select_id}}" {{checked}} onclick="if (this.up().hasClassName(\'checked\') && this.checked) this.checked=false; if (this.checked) this.up().addClassName(\'checked\'); else this.up().removeClassName(\'checked\');" onmouseover="if (this.checked) this.up().addClassName(\'checked\'); else this.up().removeClassName(\'checked\');"></td>'+                        
+            <?php if ($helper->isDependentEnabled()) { ?>
+                '<td align="center"><input type="text" class="input-children" id="dependent_ids_{{in_group_id}}" name="product[options][{{id}}][values][{{select_id}}][dependent_ids]" value="{{dependent_ids}}">&nbsp;<img src="<?php echo $this->getSkinUrl('images/rule_chooser_trigger.gif') ?>" alt="S" title="<?php echo $this->htmlEscape($helper->__('Select Children')) ?>" class="v-middle pointer" onclick="productChildrenOptions.show({{in_group_id}}, event);" /></td>'+
+            <?php } ?>
+            '<td><?php echo $this->jsQuoteEscape($this->getAddImageButtonHtml()) ?></td>'+
+            '<td class="last"><span title="Delete row"><?php echo $this->jsQuoteEscape($this->getDeleteButtonHtml()) ?></span></td>'+
+        '</tr>'+
+        '<tr id="image_option_row_{{select_id}}" style="{{image_tr_style}}">'+
+            <?php if ($helper->isDependentEnabled()) { ?>'<td>&nbsp;</td>'+<?php } ?>
+            '<td colspan="3" id="image_option_td_{{select_id}}"></td>'+
+            <?php if ($helper->isTierPriceEnabled()) { ?>'<td>&nbsp;</td>'+<?php } ?>
+        '</tr>';
+    
+    OptionTemplateSelectTierPriceRow = '<tr id="product_option_{{id}}_select_{{select_id}}_price_{{tier_price_id}}">'+
+        <?php if ($helper->isDependentEnabled()) { ?>'<td>&nbsp;</td>'+<?php } ?>
+        '<td>'+
+            '<input type="hidden" id="product_option_{{id}}_select_{{select_id}}_price_{{tier_price_id}}_real" name="product[options][{{id}}][values][{{select_id}}][tiers][{{tier_price_id}}][tier_price_id]" value="{{tier_price_real_id}}" />'+
+            '<input type="hidden" id="product_option_{{id}}_select_{{select_id}}_price_{{tier_price_id}}_is_delete" name="product[options][{{id}}][values][{{select_id}}][tiers][{{tier_price_id}}][is_delete]" value="" />'+
+            '<input type="text" class="input-text required-entry validate-greater-than-zero" style="width:50px !important;" id="product_option_{{id}}_select_{{select_id}}_price_{{tier_price_id}}_qty" name="product[options][{{id}}][values][{{select_id}}][tiers][{{tier_price_id}}][qty]" value="{{qty}}"> <?php echo $helper->__js('and above') ?>'+
+        '</td>'+
+        '<td><input type="text" class="input-text required-entry validate-number" id="product_option_{{id}}_select_{{select_id}}_price_{{tier_price_id}}_price" name="product[options][{{id}}][values][{{select_id}}][tiers][{{tier_price_id}}][price]" value="{{price}}"></td>'+
+        '<td><?php echo $this->jsQuoteEscape($this->getTierPriceTypeSelectHtml()) ?>{{checkboxScopePrice}}</td>'+
+        '<td><button type="button" id="product_option_{{id}}_select_{{select_id}}_price_{{tier_price_id}}_button" onclick="selectOptionType.removeTierPriceRow({{id}}, {{select_id}}, {{tier_price_id}})" class="delete icon-btn" style="width:23px !important;"><span><?php echo $helper->__js('Hide') ?></span></button></td>';
+  
+    OptionTemplateSelectImage = '<li class="image">'+
+            '<a href="#" class="close" onclick="selectOptionType.removeImage(this); return false;"><big>x</big></a><br/>'+
+            '<a href="{{big_img_url}}" rel="mmdLightbox[]" title="" >'+
+                '<img height="70" src="{{url}}" title="" class="small-image-preview v-middle" />'+
+            '</a>'+
+            '<input type="hidden" name="product[options][{{id}}][values][{{select_id}}][image_sort][]" value="{{option_type_image_id}}" />'+
+        '</li>';
+    
+    OptionTemplateSelectColor = '<li class="image">'+
+            '<a href="#" class="close" onclick="selectOptionType.removeImage(this); return false;"><big>x</big></a><br/>'+
+            '<div onclick="selectOptionType.showColor(this);" class="small-image-preview v-middle" style="display:inline-block; width:35px; height:35px; background: {{image_file}}; margin-bottom:5px;">&nbsp;</div><br/>'+
+            '<input class="input-color color {hash:true}" type="text" name="product[options][{{id}}][values][{{select_id}}][image_color][{{option_type_image_id}}]" value="{{image_file}}"  onmousedown="this.color.pickerOnfocus = false;" onclick="if (!$(this).hasClassName(\'selected\')) {$(this).select(); $(this).addClassName(\'selected\');} this.color.pickerOnfocus = true;" onchange="selectOptionType.changeColor(this)" />'+
+            '<input type="hidden" name="product[options][{{id}}][values][{{select_id}}][image_sort][]" value="{{option_type_image_id}}" />'+
+        '</li>';
+    
+    OptionTemplateSelectFile = '<tr class="file_option_rows_{{select_id}}">'+
+            <?php if ($helper->isDependentEnabled()) { ?>'<td>&nbsp;</td>'+<?php } ?>
+            '<td colspan="3"><table style="border:none;">'+
+                '<tr id="product_option_{{id}}_select_{{select_id}}_upload_{{count}}"><td style="border:none;">'+
+                    '<label><input type="radio" name="product[options][{{id}}][values][{{select_id}}][upload_type][{{count}}]" value="file" onclick="selectOptionType.changeUploadType(this)" checked/> <?php echo $helper->__js('File') ?></label>&nbsp;&nbsp;&nbsp;'+
+                    '<label><input type="radio" name="product[options][{{id}}][values][{{select_id}}][upload_type][{{count}}]" value="color" onclick="selectOptionType.changeUploadType(this)" /> <?php echo $helper->__js('Color') ?></label>&nbsp;&nbsp;&nbsp;'+
+                    //'<label><input type="radio" name="product[options][{{id}}][values][{{select_id}}][upload_type][{{count}}]" value="gallery" onclick="selectOptionType.changeUploadType(this)" /> <?php echo $helper->__js('Gallery') ?></label>'+
+                '</td></tr>'+
+                '<tr>'+
+                    '<td style="border:none;">'+
+                        '<span><input class="input-file" type="file" name="file_{{id}}_{{select_id}}_{{count}}" id="product_option_{{id}}_select_{{select_id}}_upload_{{count}}_file" value="" /></span>'+
+                        '<span style="display:none;">'+
+                            '<?php echo $helper->__js('Color') ?>: '+
+                            '<input class="input-color color {hash:true}" type="text" name="product[options][{{id}}][values][{{select_id}}][upload_color][{{count}}]" id="product_option_{{id}}_select_{{select_id}}_upload_{{count}}_color" value="#" onmousedown="this.color.pickerOnfocus = false;" onclick="this.color.pickerOnfocus = true;" onchange="selectOptionType.changeUploadColor(this)" disabled /> &nbsp; '+
+                            '<div onclick="selectOptionType.showColor(this);" style="display:inline-block; width:18px; height:18px; border: 1px solid black;">&nbsp;</div>'+
+                        '</span>'+
+                        '<span style="display:none;"><?php echo $helper->__js('Gallery') ?>: <input class="input-text" type="text" name="product[options][{{id}}][values][{{select_id}}][upload_gallery][{{count}}]" id="product_option_{{id}}_select_{{select_id}}_upload_{{count}}_gallery" value="" disabled /></span>'+
+                    '</td>'+
+                    '<td style="border:none;"><button type="button" onclick="selectOptionType.removeFileRow(this)" class="delete icon-btn"><span><?php echo $helper->__js('Hide') ?></span></button></td>'+
+                '</tr>'+
+            '</table></td>'+
+            <?php if ($helper->isTierPriceEnabled()) { ?>'<td>&nbsp;</td>'+<?php } ?>
+        '</tr>';
+
+    function PHP_Unserialize_(input) {
+        input = input.toString();
+        var length = 0;
+        switch (input.charAt(0)) {
+            case 'a':
+                length = PHP_Unserialize_GetLength(input);
+                input  = input.substr(String(length).length + 4);
+
+                var arr   = new Array();
+                var key   = null;
+                var value = null;
+
+                for (var i=0; i<length; ++i) {
+                    key   = PHP_Unserialize_(input);
+                    input = key[1];
+
+                    value = PHP_Unserialize_(input);
+                    input = value[1];
+
+                    arr[key[0]] = value[0];
+                }
+
+                input = input.substr(1);
+                return [arr, input];
+                break;
+
+            case 's':
+                length = PHP_Unserialize_GetLength(input);
+                return [String(input.substr(String(length).length + 4, length)), input.substr(String(length).length + 6 + length)];
+                break;
+
+            case 'i':
+            case 'd':
+                var num = Number(input.substring(2, input.indexOf(';')));
+                return [num, input.substr(String(num).length + 3)];
+                break;
+
+            case 'b':
+                var bool = (input.substr(2, 1) == 1);
+                return [bool, input.substr(4)];
+                break;
+
+            case 'N':
+                return [null, input.substr(2)];
+                break;
+
+            case 'o':
+            case 'O':
+            case 'r':
+            case 'C':
+            case 'R':
+            case 'U':
+                alert('Error: Unsupported PHP data type found!');
+            default:
+                return [null, null];
+                break;
+        }
+    }
+    function PHP_Unserialize_GetLength(input) {
+        input = input.substring(2);
+        var length = Number(input.substr(0, input.indexOf(':')));
+        return length;
+    }
+    selectOptionType = {
+        div: 'select_option_type_row',        
+        maxItemId: 0,
+        templateSyntax : /(^|.|\r|\n)({{(\w+)}})/,
+        templateText : OptionTemplateSelectRow,
+        add: function(data) {
+            //alert(data.tier_price[1]);
+            this.template = new Template(this.templateText, this.templateSyntax);
+
+            if (data.target || data.srcElement) {//data is Event (work in IE and Firefox)
+                element = $(Event.findElement(data, 'button'));
+                optionId = element.readAttribute('id').sub('add_select_row_button_', '');
+                data = {};
+                data.option_type_id = '-1';
+                data.select_id = this.maxItemId = this.maxItemId + 1;
+                data.image_tr_style = 'display:none';
+                data.option_id = optionId;
+            } else {
+                optionId = data.option_id;
+                data.select_id = data.option_type_id;                
+                if (parseInt(data.select_id)>this.maxItemId) this.maxItemId = parseInt(data.select_id);
+            }                        
+            
+            if(!data.in_group_id || data.in_group_id==0) {                    
+                data.in_group_id = data.in_group_id_view = maxInGroupId = maxInGroupId + 1;
+            } else {
+                if (data.in_group_id<65536 && parseInt(data.in_group_id)>maxInGroupId) maxInGroupId = parseInt(data.in_group_id);
+            } 
+			           
+           	if (!data.default_type) {
+                var inputType = $("product_option_" + optionId + "_type");
+                switch (inputType.value) {
+                    case 'drop_down':
+                    case 'radio':
+                    case 'swatch':    
+                        data.default_type = 'radio';
+                        break;
+                    case 'checkbox':
+                    case 'multiple':
+                        data.default_type = 'checkbox';
+                        break;
+                }
+            }
+            
+            data.id  = optionId;
+            if (!data.image_button_label) data.image_button_label = '<?php echo $helper->__js('Add Image') ?>';
+            
+            Element.insert($(this.div+'_'+data.id), {'bottom':this.template.evaluate(data)});
+
+                       
+
+            if (data.price_type) {
+                $A($('product_option_'+data.id+'_select_'+data.select_id+'_price_type').options).each(function(option){
+                    if (option.value==data.price_type) option.selected = true;
+                });
+            }
+            
+            if (data.tiers) {
+                for(var key in data.tiers) {                    
+                    if (!data.tiers.hasOwnProperty(key)) continue;
+                    var tierPriceId = data.tiers[key].option_type_tier_price_id;
+                    if (!tierPriceId) tierPriceId = data.tiers[key].tier_price_id;                    
+                    this.addTierPriceRow(data.id, data.select_id, tierPriceId, data.tiers[key].qty, data.tiers[key].price, data.tiers[key].price_type);
+                }
+            }
+            
+            if (data.images) {
+                this.addImages(data.id, data.select_id, data.images);
+            }
+            
+            
+            if (data.checkboxScopeTitle) {
+                //set disabled
+                if ($('product_option_'+data.id+'_select_'+data.select_id+'_title') && data.scopeTitleDisabled) {
+                    $('product_option_'+data.id+'_select_'+data.select_id+'_title').disable();
+                }
+            }
+            
+            if (data.checkboxScopePrice || data.price_disabled) {
+                //set disabled
+                if ($('product_option_'+data.id+'_select_'+data.select_id+'_price') && (data.scopePriceDisabled || data.price_disabled)) {                    
+                    $('product_option_'+data.id+'_select_'+data.select_id+'_price').disable();
+                    $$('input[id^="product_option_'+data.id+'_select_'+data.select_id+'_price_"]', 'select[id^="product_option_'+data.id+'_select_'+data.select_id+'_price_"]', 'button[id^="product_option_'+data.id+'_select_'+data.select_id+'_price_"]').each(function(el) {
+                        if (el.id.indexOf('_use_default')==-1) {
+                            if (el.id.indexOf('_real')!=-1) el.value = '-1'; // real_id
+                            el.disabled = true;                            
+                        }
+                    });                                        
+                }
+            }
+			
+			Calendar.setup({
+				inputField : 'product_option_'+data.id+'_select_'+data.select_id+'_reg_course',
+				ifFormat : "%m/%e/%y",
+				showsTime: false,
+				button : 'product_option_'+data.id+'_select_'+data.select_id+'_reg_course_trig',
+				align : "Bl",
+				singleClick : true
+			});
+			/*
+			Calendar.setup({
+				inputField : 'product_option_'+data.id+'_select_'+data.select_id+'_reg_from',
+				ifFormat :"%m/%e/%y",
+				showsTime: false,
+				button : 'product_option_'+data.id+'_select_'+data.select_id+'_reg_from_trig',
+				align : "Bl",
+				singleClick : true
+			});
+			
+			Calendar.setup({
+				inputField : 'product_option_'+data.id+'_select_'+data.select_id+'_reg_to',
+				ifFormat :"%m/%e/%y",
+				showsTime: false,
+				button : 'product_option_'+data.id+'_select_'+data.select_id+'_reg_to_trig',
+				align : "Bl",
+				singleClick : true
+			});
+            */
+            this.bindRemoveButtons();
+        },
+        enableQtyAndPrice: function(optionId, selectId) {
+            if ($('product_option_'+optionId+'_select_'+selectId+'_customoptions_qty')) $('product_option_'+optionId+'_select_'+selectId+'_customoptions_qty').disabled = false;
+            if ($('product_option_'+optionId+'_select_'+selectId+'_price')) {                    
+                $('product_option_'+optionId+'_select_'+selectId+'_price').enable();
+                $$('input[id^="product_option_'+optionId+'_select_'+selectId+'_price_"]', 'select[id^="product_option_'+optionId+'_select_'+selectId+'_price_"]', 'button[id^="product_option_'+optionId+'_select_'+selectId+'_price_"]').each(function(el) {
+                    if (el.id.indexOf('_use_default')==-1) {
+                        if (el.id.indexOf('_real')!=-1) el.value = '-1'; // real_id
+                        el.disabled = false;                            
+                    }
+                });                                        
+            }
+        },
+        remove: function(event){
+            var element = $(Event.findElement(event, 'tr'));
+            if(element){
+                $(element.readAttribute('id')+'_is_delete').value = '1';
+                $(element).addClassName('no-display');
+                $(element).addClassName('ignore-validate');
+                element.hide();
+                
+                // remove image
+                var ids = element.readAttribute('id').split('_');
+                selectId = ids[ids.length-1];
+                $('image_option_row_'+selectId).remove();
+                $$('tr.file_option_rows_'+selectId).each(function(elTr){
+                    elTr.remove();
+                });
+                
+                // remove tier price
+                $$('tr[id^="'+element.readAttribute('id')+'_"]').each(function(elTr){
+                    elTr.remove();
+                });
+                
+                // remove from children id                
+                productChildrenOptions.removeChildrenElement(element);                
+            }
+        },
+        bindRemoveButtons: function() {
+            var buttons = $$('.delete-select-row');
+            for(var i=0;i<buttons.length;i++){
+                if(!$(buttons[i]).binded){
+                    $(buttons[i]).binded = true;
+                    Event.observe(buttons[i], 'click', this.remove.bind(this));
+                }
+            }
+        },
+        bindAddButton: function() {
+            var buttons = $$('.add-select-row');
+            for(var i=0;i<buttons.length;i++){
+                if(!$(buttons[i]).binded){
+                    $(buttons[i]).binded = true;
+                    Event.observe(buttons[i], 'click', this.add.bind(this));
+                }
+            }
+        },
+        
+        addFileRow: function(optionId, selectId) {
+            var fileCount = 1;
+            //alert($$('input[name="file_'+optionId+'_'+selectId+'_'+fileCount+'"]').length);
+            while ($$('input[name="file_'+optionId+'_'+selectId+'_'+fileCount+'"]').length!=0) {
+                fileCount++;
+            }
+            var template = new Template(OptionTemplateSelectFile, this.templateSyntax);
+            Element.insert($$('#image_option_row_'+selectId, 'tr.file_option_rows_'+selectId).last(), {'after':template.evaluate({'id':optionId, 'select_id':selectId, count:fileCount})});
+        },
+        removeFileRow: function(obj) {
+            obj.up('table').up('tr').remove();
+	},
+        
+        maxTierPriceId: 0,
+        addTierPriceRow: function(optionId, selectId, tierPriceId, qty, price, priceType) {
+            // prepare data
+            var data = {};
+            data.id = optionId;
+            data.select_id = selectId;            
+            if (tierPriceId>0) {
+                data.tier_price_id = tierPriceId;
+                data.tier_price_real_id = tierPriceId;
+                if (parseInt(tierPriceId)>this.maxTierPriceId) this.maxTierPriceId = parseInt(tierPriceId);
+                data.qty = qty;
+                data.price = price;                
+            } else {    
+                data.tier_price_id = this.maxTierPriceId = this.maxTierPriceId + 1;
+                data.tier_price_real_id = -1;
+            }
+            
+            // select last el            
+            var elTrs = $$('tr[id^="product_option_'+optionId+'_select_'+selectId+'_"]');            
+            if (elTrs.length>0) {
+                var lastElTr = elTrs.last();
+            } else {
+                var lastElTr = $('product_option_'+optionId+'_select_'+selectId);
+            }
+            var template = new Template(OptionTemplateSelectTierPriceRow, this.templateSyntax);
+            // insert tier price row after last el
+            Element.insert(lastElTr, {'after':template.evaluate(data)});
+            
+            if (priceType) {                
+                $A($('product_option_'+data.id+'_select_'+data.select_id+'_price_'+data.tier_price_id+'_price_type').options).each(function(option){
+                    if (option.value==priceType) option.selected = true;
+                });
+            }
+        },
+        removeTierPriceRow: function(optionId, selectId, tierPriceId) {         
+            var trEl = $('product_option_'+optionId+'_select_'+selectId+'_price_'+tierPriceId);
+            if(trEl){
+                $(trEl.readAttribute('id')+'_is_delete').value = '1';
+                $(trEl).addClassName('no-display');
+                $(trEl).addClassName('ignore-validate');
+                trEl.hide();                
+            }
+	},
+        
+        addImages: function(optionId, selectId, images) {
+            if (!images || images.length==0) return;
+            
+            var imgHtml = '';
+            images.each(function(img) {
+                if (img.source==1) { // file
+                    var template = new Template(OptionTemplateSelectImage, this.templateSyntax);
+                } else if (img.source==2) { //color
+                    var template = new Template(OptionTemplateSelectColor, this.templateSyntax);
+                }
+                imgHtml += template.evaluate(img);
+                
+            }.bind(this));
+            
+            imgHtml += '<input type="hidden" id="product_option_'+optionId+'_select_'+selectId+'_image_change" name="product[options]['+optionId+'][values]['+selectId+'][image_change]" value="0" />';
+                        
+            imgHtml = '<ul id="image_option_ul_'+selectId+'">' + imgHtml + '</ul>';
+            $('image_option_td_'+selectId).innerHTML = imgHtml;
+            
+            if (images.length>1) {
+                Sortable.create('image_option_ul_'+selectId, {
+                    tag: 'li', overlap: 'horizontal', constraint: false,
+                    onChange:function(element) {
+                        var img = element.down('img');
+                        if (img) $(img.up('a')).addClassName('disableLightbox');
+                        var elImageSortChange = $('product_option_'+optionId+'_select_'+selectId+'_image_change');
+                        if (elImageSortChange) {
+                            elImageSortChange.value = 1;
+                            elImageSortChange.setHasChanges(); 
+                        }
+                    }
+                });
+            }
+        },
+        removeImage: function(el) {
+            var rmEl = el.next('a');
+            if (rmEl) rmEl.remove();
+            var rmEl = el.next('a');
+            if (rmEl) rmEl.remove();
+            var rmEl = el.next('div');
+            if (rmEl) rmEl.remove();
+            
+            var hiddenEl = el.next('input');
+            if (hiddenEl.type!='hidden') {
+                hiddenEl.remove();
+                var hiddenEl = el.next('input');
+            }
+            
+            hiddenEl.name = hiddenEl.name.replace("image_sort", 'image_delete');
+            
+            var ids = hiddenEl.name.split('][');
+            var elImageSortChange = $('product_option_'+ids[1]+'_select_'+ids[3]+'_image_change');
+            if (elImageSortChange) {
+                elImageSortChange.value = 1;
+                elImageSortChange.setHasChanges(); 
+            }
+            el.remove();
+        },
+        changeUploadType: function(el) {
+            var id = el.up('tr').id;
+            var types = ['file', 'color', 'gallery'];
+            types.each(function(type) {
+                $(id + '_' + type).up('span').hide();
+                $(id + '_' + type).disable();
+            });
+            
+            $(id + '_' + el.value).up('span').show();
+            $(id + '_' + el.value).enable();
+            if (el.value=='color') jscolor.init();
+        },
+        showColor: function(el) {
+            var colorEl = el.up().down('input.color');
+            colorEl.color.showPicker();
+            colorEl.focus();
+        },        
+        changeColor: function(el) {
+            this.changeUploadColor(el, 1);
+            var ids = el.name.split('][');
+            var elImageSortChange = $('product_option_'+ids[1]+'_select_'+ids[3]+'_image_change');
+            if (elImageSortChange) {
+                elImageSortChange.value = 1;
+                elImageSortChange.setHasChanges(); 
+            }
+        },
+        changeUploadColor: function(el, up) {
+            var color = el.value.replace('##', '#');
+            if (color.indexOf('#')==-1) {
+                color = '#' + color;
+            }
+            el.value = color;
+            
+            if (up) {
+                el.previous('div').style.background = color;
+            } else {
+                el.next('div').style.background = color;
+            }
+        }
+    };
+
+    if ($('option_panel_type_select')) {
+        $('option_panel_type_select').remove();
+    }
+
+    selectOptionType.bindRemoveButtons();
+
+    Validation.addAllThese([
+        ['required-option-select-type-rows', '<?php echo $helper->__js('Please add rows to option.') ?>', function(v, elm) {
+                var optionContainerElm = elm.up('div.grid');
+                var selectTypesFlag = false;
+                selectTypeElements = $$('#'+optionContainerElm.id+' .select-type-title');
+                selectTypeElements.each(function(elm){
+                    if (elm.id && elm.up('tr').visible()) {
+                        selectTypesFlag = true;
+                    }
+                });
+                elm.advaiceContainer = optionContainerElm.id+'_advice';
+                return selectTypesFlag;
+            }]]);
+
+    if($('add_select_row_button')){
+        Event.observe('add_select_row_button', 'click', selectOptionType.add.bind(selectOptionType));
+    }
+    //]]>
+</script>

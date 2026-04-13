@@ -1,0 +1,260 @@
+<?php
+/**
+ * @author         Vladimir Popov
+ * @copyright      Copyright (c) 2012 Vladimir Popov
+ */
+
+// in case redirect fails
+if (Mage::registry('redirect_url')) {
+    ?>
+    <meta http-equiv="refresh" content="0;url=<?php echo Mage::registry('redirect_url') ?>">
+    <script type="text/javascript">
+        window.location = '<?php echo Mage::registry('redirect_url')?>';
+    </script>
+<?php
+}
+
+// get temporary data
+$tmpData = Mage::getSingleton('core/session')->getData('formpro_result_tmp_' . $this->getFormpro()->getId());
+$tmpResult = new Varien_Object();
+if (!empty($tmpData['field']) && is_array($tmpData['field'])) {
+    foreach ($tmpData['field'] as $field_id => $value) {
+        $tmpResult->setData('field_' . $field_id, $value);
+    }
+}
+
+if ($this->getFormpro()->getIsActive() == MMD_Formpro_Model_Formpro::STATUS_DISABLED || !$this->isDirectAvailable()) {
+    echo $this->getNotAvailableMessage();
+} else {
+
+    if (Mage::registry('show_form_name')) {
+        ?>
+        <div class="page-title">
+            <h2><?php echo $this->getFormpro()->getName(); ?></h2>
+        </div>
+    <?php } ?>
+
+    <?php if ($this->isAjax()) { ?>
+        <div id="formpro_<?php echo $this->getFormpro()->getId() ?>_success_text" class="std formpro-success-text"
+             style="display:none"></div>
+    <?php } ?>
+
+    <?php if (Mage::registry('captcha_invalid')) { ?>
+        <ul class="messages">
+            <li class="error-msg">
+                <ul>
+                    <li><?php echo Mage::helper('formpro')->__('Verification code was not correct. Please try again.'); ?></li>
+                </ul>
+            </li>
+        </ul>
+    <?php } ?>
+
+    <?php
+    if (Mage::registry('show_success')) {
+        ?>
+        <div class="std formpro-success-text">
+            <?php echo $this->getFormpro()->getSuccessText() ?>
+        </div>
+    <?php
+    } else {
+        ?>
+
+        <div id="formpro_<?php echo $this->getFormpro()->getId() ?>_form">
+
+            <?php if ($this->getFormpro()->getDescription()) { ?>
+                <div class="std">
+                    <?php echo $this->getFormpro()->getDescription(); ?>
+                </div>
+            <?php } ?>
+
+            <?php if ($this->isAjax()) { ?>
+                <iframe id="formpro_<?php echo $this->getFormpro()->getId() ?>_iframe"
+                        name="formpro_<?php echo $this->getFormpro()->getId() ?>_iframe"
+                        style="width:0;height:0;border:0;position:absolute"></iframe>
+            <?php } ?>
+
+
+            <form action="<?php echo $this->getFormAction() ?>" method="post"
+                  name="formpro_<?php echo $this->getFormpro()->getId() ?>"
+                  id="formpro_<?php echo $this->getFormpro()->getId() ?>" enctype="<?php echo $this->getEnctype() ?>"
+                  class="formpro-<?php echo $this->getFormpro()->getCode() ?>"
+                  <?php if ($this->isAjax()) { ?>target="formpro_<?php echo $this->getFormpro()->getId() ?>_iframe"<?php } ?>>
+
+                <input type="hidden" name="submitFormpro_<?php echo $this->getFormpro()->getId() ?>" value="1"/>
+                <input type="hidden" name="formpro_id" value="<?php echo $this->getFormpro()->getId() ?>"/>
+
+                <?php if (is_array($this->getData('hidden'))) {
+                    foreach ($this->getData('hidden') as $key => $value) {
+                        ?>
+                        <input type="hidden" name="<?php echo $key ?>" value="<?php echo $value ?>"/>
+                    <?php
+                    }
+                }?>
+
+                <?php if (count($this->getFormpro()->_getHidden())) {
+                    foreach ($this->getFormpro()->_getHidden() as $field) {
+                        echo $field->toHtml();
+                    }
+                } ?>
+
+                <?php
+                foreach ($this->getFormpro()->_getFieldsToFieldsets() as $fieldset_id => $fieldset) {
+                    ?>
+
+                    <fieldset id="fieldset_<?php echo $fieldset_id ?>"
+                              class="group-select fieldset-<?php echo $fieldset_id ?>"
+                        <?php if ($fieldset['logic_visibility'] == MMD_Formpro_Model_Logic::VISIBILITY_HIDDEN) echo 'style="display:none"'; ?>>
+
+                        <?php if ($fieldset['name']) { ?>
+                            <h3><?php echo $fieldset['name'] ?></h3>
+                        <?php } ?>
+
+                        <ul class="form-list">
+                            <?php
+                            $k = 0;
+                            $j = 0;
+                            $prev = false;
+                            $fields_count = count($fieldset['fields']);
+                            foreach ($fieldset['fields'] as $field) {
+
+                                // set temporary value
+                                $field->setData('result', $tmpResult);
+
+                                $size_class = "fields";
+                                $field_class = "input-box";
+                                if ($field->getSize() == 'wide') {
+                                    $size_class = "wide";
+                                    $field_class = "";
+                                }
+
+                                ?>
+                                <?php if ($j % 2 == 0 || $field->getSize() == 'wide' || $prev->getSize() == 'wide') {
+                                    $j = 0; ?>
+                                    <?php if ($k > 1) { ?></li><?php } ?>
+                                    <li <?php if($size_class == 'wide') {?>id="field_<?php echo $field->getId()?>_row" <?php }?>
+                                        class="<?php if ($size_class == 'wide') { ?>formpro-fields-row-<?php echo $field->getId() ?><?php } ?>"
+                                        <?php if ($size_class == 'wide' && $field->getData('logic_visibility') == MMD_Formpro_Model_Logic::VISIBILITY_HIDDEN) echo 'style="display:none"'; ?>>
+                                <?php } ?>
+                                <?php if ($size_class != "wide") { ?>
+                                <div id="field_<?php echo $field->getId() ?>"
+                                     class="<?php echo $field_class ?> formpro-fields-<?php echo $field->getId() ?><?php if ($field->getCode()) { ?> formpro-fields-<?php echo $field->getCode();
+                                     }?>"
+                                    <?php if ($field->getData('logic_visibility') == MMD_Formpro_Model_Logic::VISIBILITY_HIDDEN) echo 'style="display:none"'; ?>>
+                            <?php } ?>
+
+                                <?php if ($field->getType() != 'html' && $field->getType() != 'subscribe') { ?>
+                                    <label for="field_<?php echo $field->getId() ?>">
+                                        <?php echo $field->getName() ?>
+                                        <?php if ($field->getRequired()) { ?>
+                                            <span class="required">*</span>
+                                        <?php } ?>
+                                    </label>
+                                <?php } ?>
+
+                                <br/>
+
+                                <?php if ($size_class != "wide") { ?>
+                                <div class="input-box">
+                            <?php } ?>
+
+                                <?php echo $field->toHtml(); ?>
+
+                                <?php if ($field->getComment()) { ?>
+                                    <p class="formpro-fields-comment">
+                                        <?php echo nl2br($field->getComment()) ?>
+                                    </p>
+                                <?php } ?>
+
+                                <?php if ($size_class != "wide") { ?>
+                                </div>
+                            <?php } ?>
+
+                                <?php if ($size_class != "wide") { ?>
+                                </div>
+                            <?php } ?>
+                                <?php if ($k == $fields_count - 1) { ?>
+                                    </li>
+                                <?php } ?>
+                                <?php
+                                $k++;
+                                $j++;
+                                $prev = $field;
+                            }?>
+                        </ul>
+
+                    </fieldset>
+
+                <?php
+                } // foreach 'fields_to_fieldsets'
+                ?>
+
+                <?php if (Mage::registry('use_captcha')) { ?>
+                    <fieldset class="group-select wide">
+                        <h2 class="legend">Captcha</h2>
+                        <ul class="form-list">
+                            <li>
+                                <div class="input-box">
+                                    <?php echo $this->getCaptcha()->getHTML() ?>
+                                </div>
+                            </li>
+                        </ul>
+                    </fieldset>
+                <?php } ?>
+
+                <?php if (Mage::getStoreConfig('formpro/honeypot/enable')) {
+                    echo $this->getLayout()->createBlock(
+                        'core/template',
+                        'formpro_' . $this->getFormpro()->getId() . '_honeypot',
+                        array(
+                            'formpro' => $this->getFormpro(),
+                            'template' => 'formpro/scripts/honeypot.phtml',
+                        )
+                    )->toHtml();
+                }?>
+
+                <p class="required"><?php echo $this->__('* Required Fields') ?></p>
+
+                <div class="buttons-set">
+                    <button type="button" id="formpro_<?php echo $this->getFormpro()->getId() ?>_submit_button"
+                            onclick="formpro_<?php echo $this->getFormpro()->getId() ?>_submit()" class="button"
+                            title="<?php echo $this->__('submit') ?>">
+                        <span><?php echo $this->__($this->getFormpro()->getSubmitButtonText()) ?></span>
+                    </button>
+		<span class="please-wait" id="formpro_<?php echo $this->getFormpro()->getId() ?>_sending_data"
+              style="display:none;">
+			<img src="<?php echo $this->getSkinUrl('images/opc-ajax-loader.gif') ?>"
+                 alt="<?php echo $this->__('Sending...') ?>" title="<?php echo $this->__('Sending...') ?>"
+                 class="v-middle"/><span
+                id="formpro_<?php echo $this->getFormpro()->getId() ?>_progress_text"><?php echo $this->__('Sending...') ?></span>
+		</span>
+                </div>
+
+
+            </form>
+
+        </div>
+
+        <?php echo $this->getLayout()->createBlock(
+            'core/template',
+            'formpro_' . $this->getFormpro()->getId() . '_submit_script',
+            array(
+                'formpro' => $this->getFormpro(),
+                'ajax' => $this->isAjax(),
+                'template' => 'formpro/scripts/submit.phtml',
+            )
+        )->toHtml();
+        ?>
+
+        <?php echo $this->getLayout()->createBlock(
+            'core/template',
+            'formpro_' . $this->getFormpro()->getId() . '_logic',
+            array(
+                'formpro' => $this->getFormpro(),
+                'template' => 'formpro/scripts/logic.phtml',
+            )
+        )->toHtml();
+        ?>
+    <?php
+    } // if(show_success)
+} // is active
+?>

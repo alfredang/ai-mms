@@ -1,0 +1,12 @@
+<?php 
+$configData = Mage::getStoreConfig('partnerslider');
+$moduleName         = $this->getRequest()->getModuleName();
+$controllerName     = $this->getRequest()->getControllerName();
+$actionName         = $this->getRequest()->getActionName();
+$moduleName . '|' . $controllerName . '|' . $actionName;
+if((in_array($moduleName, array('cms')) && $controllerName == 'index' && in_array($actionName, array('index')))):
+if($configData['settings']['include_jquery']): ?>
+<!--<script type="text/javascript" src="<?php echo Mage::helper('partnerslider')->getPartnerUrl(); ?>/jquery-1.4.2.min.js"></script>-->
+<script type="text/javascript" src="<?php echo Mage::helper('partnerslider')->getPartnerUrl(); ?>/no-conflict.js"></script>
+<?php endif; ?>
+<?php endif;?>

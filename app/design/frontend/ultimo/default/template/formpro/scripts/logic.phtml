@@ -1,0 +1,22 @@
+<script language="JavaScript">
+    var logicRules_<?php echo $this->getFormpro()->getId()?> = [];
+    var targets_<?php echo $this->getFormpro()->getId()?> = <?php echo json_encode($this->getFormpro()->_getLogicTarget())?>;
+    <?php
+    $logic_rules = $this->getFormpro()->getLogic();
+    foreach ($logic_rules as $logic) {
+        if ($logic->getIsActive()) {
+            ?>
+    logicRules_<?php echo $this->getFormpro()->getId()?>.push({
+        'field_id': '<?php echo $logic->getFieldId()?>',
+        'action': '<?php echo $logic->getAction()?>',
+        'logic_condition': '<?php echo $logic->getLogicCondition()?>',
+        'aggregation': '<?php echo $logic->getAggregation()?>',
+        'value':<?php echo json_encode($logic->getFrontendValue())?>,
+        'target':<?php echo json_encode($logic->getTarget())?>
+    });
+    <?php
+}
+}?>
+    // execute form logic
+    JSFormproLogic(targets_<?php echo $this->getFormpro()->getId()?>, logicRules_<?php echo $this->getFormpro()->getId()?>);
+</script>

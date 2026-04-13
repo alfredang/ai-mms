@@ -1,0 +1,188 @@
+diff -aurBb /1411-cfm/app/design/frontend/base/default/template/paypal/express/_review.phtml /1411-cfm/app/design/frontend/base/default/template/paypal/express/review.phtml
+--- /1411-cfm/app/design/frontend/base/default/template/paypal/express/_review.phtml	Fri Feb 11 12:56:47 2011
++++ /1411-cfm/app/design/frontend/base/default/template/paypal/express/review.phtml	Tue Feb 28 14:03:43 2012
+@@ -29,10 +29,16 @@
+ </div>
+ <?php echo $this->getMessagesBlock()->getGroupedHtml() ?>
+ 
++<?php $cfmHelper = Mage::helper('checkoutoptions'); ?> 
++<form method="post" id="order_review_form" action="<?php echo $this->getPlaceOrderUrl() ?>">
++
+ <?php if ($this->getShippingAddress()): ?>
+ <div class="info-set col2-set">
+     <h2 class="legend"><?php echo $this->__('Shipping Information') ?></h2>
+     <div class="col-1">
++    
++        <?php echo $cfmHelper->getStepFieldsCode('shippinfo', 1, 'onepage', 'mmdpaypalexpress'); ?>
++    
+         <div class="box">
+             <div class="box-title">
+                 <h3><?php echo $this->__('Shipping Address') ?><span class="separator"><?php if ($this->getCanEditShippingAddress()):?> | </span><a href="<?php echo $this->getEditUrl() ?>"><?php echo $this->__('Change Shipping Address') ?></a><?php endif;?></h3>
+@@ -41,8 +47,14 @@
+                 <address><?php echo $this->renderAddress($this->getShippingAddress())?></address>
+             </div>
+         </div>
++        
++        <?php echo $cfmHelper->getStepFieldsCode('shippinfo', 2, 'onepage', 'mmdpaypalexpress'); ?>
++        
+     </div>
+     <div class="col-2">
++    
++        <?php echo $cfmHelper->getStepFieldsCode('shippmethod', 1, 'onepage', 'mmdpaypalexpress'); ?>
++    
+         <div class="box">
+             <div class="box-title">
+                 <h3><?php echo $this->__('Shipping Method') ?></h3>
+@@ -51,9 +63,19 @@
+             <?php if ($this->getCanEditShippingMethod() || !$this->getCurrentShippingRate()):?>
+                 <?php if ($groups = $this->getShippingRateGroups()):?>
+                     <?php $currentRate = $this->getCurrentShippingRate(); ?>
++                    
++                    <?php /* AITCFM_COMMENT_START
+                     <form method="post" id="shipping_method_form" action="<?php echo $this->escapeHtml($this->getShippingMethodSubmitUrl()) ?>">
++                    AITCFM_COMMENT_END */ ?>
++                    
+                         <fieldset>
++                        
++                            <?php /* AITCFM_COMMENT_START
+                             <select name="shipping_method" id="shipping_method" style="width:250px;" class="required-entry">
++                            AITCFM_COMMENT_END */ ?>
++                            
++                            <select name="shipping_method" id="shipping_method_mmd" class="required-entry">
++                            
+                             <?php if (!$currentRate):?>
+                                 <option value=""><?php echo $this->__('Please select a shipping method...') ?></option>
+                             <?php endif;?>
+@@ -71,7 +93,11 @@
+                         <p class="actions">
+                             <button id="update_shipping_method_submit" type="submit" class="button"><span><span><?php echo $this->__('Update Shipping Method') ?></span></span></button>
+                         </p>
++                        
++                    <?php /* AITCFM_COMMENT_START
+                     </form>
++                    AITCFM_COMMENT_END */ ?>
++                    
+                 <?php else: ?>
+                     <p><strong><?php echo $this->__('Sorry, no quotes are available for this order at this time.') ?></strong></p>
+                 <?php endif;?>
+@@ -80,6 +106,9 @@
+             <?php endif; ?>
+             </div>
+         </div>
++        
++        <?php echo $cfmHelper->getStepFieldsCode('shippmethod', 2, 'onepage', 'mmdpaypalexpress'); ?>
++        
+     </div>
+ </div>
+ <?php endif; ?>
+@@ -87,6 +116,9 @@
+ <div class="info-set col2-set">
+     <h2 class="legend"><?php echo $this->__('Billing Information') ?></h2>
+     <div class="col-1">
++    
++        <?php echo $cfmHelper->getStepFieldsCode('payment', 1, 'onepage', 'mmdpaypalexpress'); ?>
++    
+         <div class="box">
+             <div class="box-title">
+                 <h3><?php echo $this->__('Payment Method') ?> <span class="separator">|</span> <a href="<?php echo $this->getEditUrl() ?>"><?php echo $this->__('Change Payment Method') ?></a></h3>
+@@ -95,8 +127,14 @@
+                 <?php echo $this->escapeHtml($this->getPaymentMethodTitle()) ?>
+             </div>
+         </div>
++        
++        <?php echo $cfmHelper->getStepFieldsCode('payment', 2, 'onepage', 'mmdpaypalexpress'); ?>
++        
+     </div>
+     <div class="col-2">
++    
++        <?php echo $cfmHelper->getStepFieldsCode('billing', 1, 'onepage', 'mmdpaypalexpress'); ?>
++    
+         <div class="box">
+             <div class="box-title">
+                 <h3><?php echo $this->__('Billing Address') ?></h3>
+@@ -108,16 +146,29 @@
+                 </address>
+             </div>
+         </div>
++        
++        <?php echo $cfmHelper->getStepFieldsCode('billing', 2, 'onepage', 'mmdpaypalexpress'); ?>
++        
+     </div>
+ </div>
+ 
+ <div class="info-set">
+     <h2 class="legend"><?php echo $this->__('Items in Your Shopping Cart') ?><span class="separator"> | </span><a href="<?php echo $this->getUrl('checkout/cart') ?>"><?php echo $this->__('Edit Shopping Cart') ?></a></h2>
++    
++    <?php echo  $cfmHelper->getStepFieldsCode('review', 1, 'onepage', 'mmdpaypalexpress'); ?>
++    
+     <div id="details-reload">
+         <?php echo $this->getChildHtml('details') ?>
+     </div>
++    
++    <?php echo  $cfmHelper->getStepFieldsCode('review', 2, 'onepage', 'mmdpaypalexpress'); ?>
++    
+ </div>
++
++<?php /* AITCFM_COMMENT_START
+ <form method="post" id="order_review_form" action="<?php echo $this->getPlaceOrderUrl() ?>">
++AITCFM_COMMENT_END */ ?>
++
+     <div class="buttons-set buttons-set-order" id="review-buttons-container">
+         <button id="review_button" value="<?php echo $this->__('Place Order') ?>" class="button btn-checkout"><span><span><?php echo $this->__('Place Order') ?></span></span></button>
+         <button type="submit" id="review_submit" value="<?php echo $this->__('Place Order') ?>" class="button btn-checkout"><span><span><?php echo $this->__('Place Order') ?></span></span></button>
+@@ -126,6 +177,15 @@
+         </span>
+     </div>
+ </form>
++
++<div style="display:none">
++    <form method="post" id="shipping_method_form" action="<?php echo $this->escapeHtml($this->getShippingMethodSubmitUrl()) ?>">
++        <fieldset>
++            <input type="hidden" name="shipping_method" id="shipping_method" value="<?php echo ($this->getCurrentShippingRate()?$this->renderShippingRateValue($this->getCurrentShippingRate()):''); ?>" />
++        </fieldset>
++    </form>
++</div>
++
+ <script type="text/javascript">
+ //<![CDATA[
+ // submit buttons are not needed when submitting with ajax
+@@ -134,9 +194,39 @@
+     $('update_shipping_method_submit').hide();
+ }
+ 
++OrderReviewController.addMethods({
++    _submitOrder : function()
++    {
++        if(!this.validate()) {
++            return false;
++        }
++        if (this._canSubmitOrder) {
++            this.form.submit();
++            this._updateOrderSubmit(true);
++            if (this._pleaseWait) {
++                this._pleaseWait.show();
++            }
++        }
++    },
++
++    validate: function()
++    {
++        if( typeof(this.validator) == 'undefined') {
++            this.validator = new Validation(this.form);
++        }
++        return this.validator.validate();   
++    }
++});
++
+ PayPalExpressAjax = new OrderReviewController($('order_review_form'), $('review_button'),
+     $('shipping_method'), $('shipping_method_form'), 'details-reload'
+ );
+ PayPalExpressAjax.addPleaseWait($('review-please-wait'));
++
++Event.observe('shipping_method_mmd', 'change', function(event){
++    $('shipping_method').value = $('shipping_method_mmd').value;
++    PayPalExpressAjax._submitShipping(event, $('shipping_method_form').action, 'details-reload');
++});
++
+ //]]>
+ </script>

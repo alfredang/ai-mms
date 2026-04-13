@@ -1,0 +1,93 @@
+<?php
+/**
+ * Magento
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Academic Free License (AFL 3.0)
+ * that is bundled with this package in the file LICENSE_AFL.txt.
+ * It is also available through the world-wide-web at this URL:
+ * http://opensource.org/licenses/afl-3.0.php
+ * If you did not receive a copy of the license and are unable to
+ * obtain it through the world-wide-web, please send an email
+ * to license@magentocommerce.com so we can send you a copy immediately.
+ *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
+ * @category    design
+ * @package     base_default
+ * @copyright   Copyright (c) 2011 Magento Inc. (http://www.magentocommerce.com)
+ * @license     http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
+ */
+
+?>
+<?php $_product = $this->getProduct();
+$buttonText  = Mage::getStoreConfig('outofstocknotification/general/mmd_outofstock_button_text');
+$labelText  = Mage::getStoreConfig('outofstocknotification/general/mmd_outofstock_label_text');
+$notifyMail  = Mage::getStoreConfig('outofstocknotification/general/activate_mmd_outofstock_email');
+$enableOutOfStock  = Mage::getStoreConfig('outofstocknotification/general/activate_mmd_outofstock_enable');
+$enableOutOfStock = intval($enableOutOfStock);
+$notifyRequest = Mage::getStoreConfig('outofstocknotification/general/activate_mmd_outofstock_notifymes');
+
+$storeName = Mage::getStoreConfig("general/store_information/name");  
+$_product = $this->getProduct();
+$productId =  $_product->getId();
+$productSku =  $_product->getSku();
+$productName = $_product->getName();
+
+
+$productUrl = $_product->getUrlInStore();
+
+$baseUrl     = Mage::getUrl('',array('_secure'=>true));
+$crtlPageUrl = $baseUrl.'outofstocknotification/index/storeNotificationProductData';
+//$crtlPageUrl =  Mage::getBaseUrl().'/outofstocknotification/index/storeNotificationProductData';
+
+
+?>
+
+<?php if($_product->isSaleable()): ?>
+<script type="text/javascript">
+//<![CDATA[
+    var bundle = new Product.Bundle(<?php echo $this->getJsonConfig() ?>);
+//]]>
+</script>
+<?php endif; ?>
+<?php if ($_product->isAvailable()): ?>
+    <p class="availability in-stock"><?php echo $this->helper('catalog')->__('Availability:') ?> <span><?php echo $this->helper('catalog')->__('In stock') ?></span></p>
+<?php else: ?>
+    <p class="availability out-of-stock"><?php echo $this->helper('catalog')->__('Availability:') ?> <span><?php echo $this->helper('catalog')->__('Out of stock') ?></span></p>
+<?php 
+if($enableOutOfStock){
+?>
+<div id="notifyBtn" style="display:block;"><button class="button" title="Subscribe" type="button" onclick="notifyToggle()"><span><?php echo $buttonText;?></span></button></div>
+<div id="notifyFrm" style="display:none;">
+<div class="block-body mmd-outofstock-block-body line" id='responceMesPlace'>
+    <span id='contentofnotification' >
+	   	 <div id="notify_conform" class="notify_conform"></div>
+	     <span id="notify_message"><?php echo $labelText; ?></span>
+      <div id="padding_div" style="height: 33px;margin-top: 4px;" > 
+	     <span id="notify_error" class="line notify_error"></span>
+	     
+	     <span id="notify_submit"> <b>Email:</b>
+	     <input id="outofstock_email" type="text"  name="outofstock_email"  >
+	      <button class="button" title="Subscribe" type="button" onclick="return stockNotifyValidate('<?php echo $productId; ?>','<?php echo $crtlPageUrl; ?>')" >
+	     <span>Submit</span>
+	     </button> <div id='ajaximageshowing' class="ajaxreloadimage" ></div>
+	     <div style="display: none;color: red;font-size: 11px;margin-left: 43px;" id="outofstock_notify_error" >Please specify a <b>valid</b> Email Address<br></div>
+	      </span>
+	    
+	</div>
+	</span>
+</div>
+</div>
+<?php } //if out of stock endable
+    
+ endif; ?>
+<div class="price-box-bundle">
+    <?php echo $this->getPriceHtml($_product) ?>
+</div>
+<?php echo $this->getChildHtml('bundle_prices') ?>

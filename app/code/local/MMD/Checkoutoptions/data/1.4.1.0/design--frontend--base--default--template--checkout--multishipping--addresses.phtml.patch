@@ -1,0 +1,120 @@
+diff -aurBb /home/httpd/htdocs/users/kaygorodov/segm-1410/var/mmd_patch_orig/compare59712820483654c6a816d671f2 /home/httpd/htdocs/users/kaygorodov/segm-1410/var/mmd_patch_modif/compare59712820483654c6a816d671f2
+--- /home/httpd/htdocs/users/kaygorodov/segm-1410/var/mmd_patch_orig/compare59712820483654c6a816d671f2	2010-08-17 15:32:45 +0300
++++ /home/httpd/htdocs/users/kaygorodov/segm-1410/var/mmd_patch_modif/compare59712820483654c6a816d671f2	2010-08-17 15:32:45 +0300
+@@ -32,14 +32,76 @@
+  */
+ ?>
+ <?php echo $this->getMessagesBlock()->getGroupedHtml() ?>
++
++
++
++<?php /* START MMD COMMENTING
+ <form id="checkout_multishipping_form" action="<?php echo $this->getPostActionUrl() ?>" method="post">
++
++
++FINISH MMD COMMENTING */ ?>
++
++<!--     START MMD CHECKOUT ATTRIBUTES     -->
++
++<form action="<?php echo $this->getPostActionUrl() ?>" method="post" id="co-addresses-form">
++
++<!--     FINISH MMD CHECKOUT ATTRIBUTES     -->          
++
+     <div class="multiple-checkout">
+         <div class="page-title title-buttons">
+             <h1><?php echo $this->__('Ship to Multiple Addresses') ?></h1>
++
++            <?php /*
++
+             <button type="button" title="<?php echo $this->__('Enter a New Address') ?>" class="button" onclick="$('add_new_address_flag').value=1; $('checkout_multishipping_form').submit();"><span><span><?php echo $this->__('Enter a New Address') ?></span></span></button>
++            
++            */ ?>
++            
++            <button type="submit" title="<?php echo $this->__('Enter a New Address') ?>" class="button" onclick="$('add_new_address_flag').value=1"><span><span><?php echo $this->__('Enter a New Address') ?></span></span></button>
++            
+         </div>
+         <input type="hidden" name="continue" value="0" id="can_continue_flag" />
+         <input type="hidden" name="new_address" value="0" id="add_new_address_flag" />
++
++
++        
++<!--     START MMD CHECKOUT ATTRIBUTES     -->
++
++<script type="text/javascript">
++
++var Addresses = Class.create();
++Addresses.prototype = {
++    initialize: function(formId){
++        this.formId = formId;
++        this.validator = new Validation(this.formId);
++    },
++    
++    save: function(){
++        if (this.validator.validate()) {
++            return true;
++        }
++        else 
++        {
++            return false;
++        }
++    }
++}
++
++</script>
++
++
++    <?php if ($aFieldList = $this->getCustomFieldList(1)): ?>
++    <fieldset>
++        <ul class="form-list">
++        <?php foreach ($aFieldList as $aField): ?>
++            <?php echo $this->getFieldHtml($aField); ?>
++        <?php endforeach; ?>
++        </ul>                
++    </fieldset>
++    <?php endif; ?>
++<!--     FINISH MMD CHECKOUT ATTRIBUTES     -->          
++        
++        
+         <h2><?php echo $this->__('Please select shipping address for applicable items') ?></h2>
+         <table class="data-table" id="multiship-addresses-table">
+             <col />
+@@ -70,10 +132,39 @@
+             <?php endforeach; ?>
+             </tbody>
+         </table>
++
++
++        
++<!--     START MMD CHECKOUT ATTRIBUTES     -->
++    <?php if ($aFieldList = $this->getCustomFieldList(2)): ?>
++    <fieldset>
++        <ul class="form-list">
++        <?php foreach ($aFieldList as $aField): ?>
++            <?php echo $this->getFieldHtml($aField); ?>
++        <?php endforeach; ?>
++        </ul>                
++    </fieldset>
++    <?php endif; ?>
++ 
++<script type="text/javascript">
++//<![CDATA[
++    var addresses = new Addresses('co-addresses-form');
++//]]>
++</script>
++    
++<!--     FINISH MMD CHECKOUT ATTRIBUTES     -->         
++        
+         <script type="text/javascript">decorateTable('multiship-addresses-table')</script>
+         <div class="buttons-set">
+             <p class="back-link"><a href="<?php echo $this->getBackUrl() ?>"><small>&laquo; </small><?php echo $this->__('Back to Shopping Cart') ?></a></p>
++
++
++<?php /* START MMD COMMENTING    
+             <button type="submit" title="<?php echo $this->__('Continue to Shipping Information') ?>" class="button<?php if ($this->isContinueDisabled()):?> disabled<?php endif; ?>" onclick="$('can_continue_flag').value=1"<?php if ($this->isContinueDisabled()):?> disabled="disabled"<?php endif; ?>><span><span><?php echo $this->__('Continue to Shipping Information') ?></span></span></button>
++
++
++FINISH MMD COMMENTING */ ?>
++            <button type="submit" title="<?php echo $this->__('Continue to Shipping Information') ?>" class="button<?php if ($this->isContinueDisabled()):?> disabled<?php endif; ?>" onclick="if (addresses.save()) {$('can_continue_flag').value=1} else {return false;}"<?php if ($this->isContinueDisabled()):?> disabled="disabled"<?php endif; ?>><span><span><?php echo $this->__('Continue to Shipping Information') ?></span></span></button>
+         </div>
+     </div>
+ </form>

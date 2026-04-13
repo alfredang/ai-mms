@@ -1,0 +1,78 @@
+<?xml version="1.0"?>
+<!--
+/**
+* This source file is subject to the Academic Free License (AFL 3.0)
+* that is bundled with this package in the file LICENSE_AFL.txt.
+* It is also available through the world-wide-web at this URL:
+* http://opensource.org/licenses/afl-3.0.php
+*
+* @category    MMD
+* @package     MMD_OrderComment
+* @copyright   Copyright (c) 2012 Ranjeet Singh <ranjeet180@gmail.com>
+* @license     http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
+*/
+-->
+<config>
+    <modules>
+        <MMD_OrderComment>
+            <version>1.0.5.0</version>
+        </MMD_OrderComment>
+    </modules>
+    <global>
+        <models>
+            <ordercomment>
+                <class>MMD_OrderComment_Model</class>
+                <resourceModel>ordercomment_resource</resourceModel>
+            </ordercomment>
+            <ordercomment_resource>
+                <class>MMD_OrderComment_Model_Resource</class>
+                <deprecatedNode>ordercomment_mysql4</deprecatedNode>
+            </ordercomment_resource>
+            <sales_resource>
+                <rewrite>
+                    <order_grid_collection>MMD_OrderComment_Model_Mysql4_Order_Grid_Collection</order_grid_collection>
+                </rewrite>
+            </sales_resource>
+        </models>
+        <helpers>
+            <ordercomment>
+                <class>MMD_OrderComment_Helper</class>
+            </ordercomment>
+        </helpers>
+        <blocks>
+            <ordercomment>
+                <class>MMD_OrderComment_Block</class>
+            </ordercomment>
+            <checkout>
+                <rewrite>
+                    <agreements>MMD_OrderComment_Block_Checkout_Agreements</agreements>
+                </rewrite>
+            </checkout>
+            <adminhtml>
+                <rewrite>
+                    <sales_order_grid>MMD_OrderComment_Block_Adminhtml_Sales_Order_Grid</sales_order_grid>
+                </rewrite>
+            </adminhtml>
+        </blocks>
+    </global>
+    <frontend>
+        <events>
+            <checkout_type_onepage_save_order>
+                <observers>
+                    <saveCustomerComment>
+                        <class>MMD_OrderComment_Model_Observer</class>
+                        <method>saveOrderComment</method>
+                    </saveCustomerComment>
+                </observers>
+            </checkout_type_onepage_save_order>
+            <checkout_type_multishipping_create_orders_single>
+                <observers>
+                    <saveCustomerComment>
+                        <class>MMD_OrderComment_Model_Observer</class>
+                        <method>saveOrderComment</method>
+                    </saveCustomerComment>
+                </observers>
+            </checkout_type_multishipping_create_orders_single>
+        </events>
+    </frontend>
+</config>

@@ -1,0 +1,64 @@
+diff -aurBb /home/httpd/htdocs/users/kaygorodov/cfm-1411/var/mmd_patch_orig/compare41612833394644c7e34c8d92fd /home/httpd/htdocs/users/kaygorodov/cfm-1411/var/mmd_patch_modif/compare41612833394644c7e34c8d92fd
+--- /home/httpd/htdocs/users/kaygorodov/cfm-1411/var/mmd_patch_orig/compare41612833394644c7e34c8d92fd	2010-09-01 14:11:04 +0300
++++ /home/httpd/htdocs/users/kaygorodov/cfm-1411/var/mmd_patch_modif/compare41612833394644c7e34c8d92fd	2010-09-01 14:11:04 +0300
+@@ -27,12 +27,60 @@
+ <script type="text/javascript">
+ //<![CDATA[
+     var payment = new Payment('co-payment-form', '<?php echo $this->getUrl('checkout/onepage/savePayment') ?>');
++
++    payment.init = function(){
++    	//this.beforeInit();
++        var elements = Form.getElements(this.form);
++        if ($(this.form)) {
++            $(this.form).observe('submit', function(event){this.save();Event.stop(event);}.bind(this));
++        }
++        var method = null;
++        for (var i=0; i<elements.length; i++) {
++            if ((elements[i].name=='payment[method]')||(elements[i].name.indexOf('mmd_checkout_')!=-1)) {
++                if (elements[i].checked) {
++                    method = elements[i].value;
++                }
++            } else {
++                elements[i].disabled = true;
++            }
++            elements[i].setAttribute('autocomplete','off');
++        }
++        if (method) this.switchMethod(method);
++        //this.afterInit();
++    }
++
+ //]]>
+ </script>
+ <form action="" id="co-payment-form">
++
++<!--     START MMD CHECKOUT ATTRIBUTES     -->
++    <?php if ($aFieldList = $this->getCustomFieldList(1)): ?>
++    <fieldset>
++        <ul class="form-list">
++        <?php foreach ($aFieldList as $aField): ?>
++            <?php echo $this->getFieldHtml($aField); ?>
++        <?php endforeach; ?>
++        </ul>                
++    </fieldset>
++    <?php endif; ?>
++<!--     FINISH MMD CHECKOUT ATTRIBUTES     -->          
++
+     <fieldset>
+         <?php echo $this->getChildHtml('methods') ?>
+     </fieldset>
++   
++<!--     START MMD CHECKOUT ATTRIBUTES     -->
++    <?php if ($aFieldList = $this->getCustomFieldList(2)): ?>
++    <fieldset>
++        <ul class="form-list">
++        <?php foreach ($aFieldList as $aField): ?>
++            <?php echo $this->getFieldHtml($aField); ?>
++        <?php endforeach; ?>
++        </ul>                
++    </fieldset>
++    <?php endif; ?>
++<!--     FINISH MMD CHECKOUT ATTRIBUTES     -->          
++
+ </form>
+ <div class="tool-tip" id="payment-tool-tip" style="display:none;">
+     <div class="btn-close"><a href="#" id="payment-tool-tip-close" title="<?php echo $this->__('Close') ?>"><?php echo $this->__('Close') ?></a></div>

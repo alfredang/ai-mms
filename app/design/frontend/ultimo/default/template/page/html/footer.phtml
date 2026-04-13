@@ -1,0 +1,240 @@
+<?php
+/**
+ * Magento
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Academic Free License (AFL 3.0)
+ * that is bundled with this package in the file LICENSE_AFL.txt.
+ * It is also available through the world-wide-web at this URL:
+ * http://opensource.org/licenses/afl-3.0.php
+ * If you did not receive a copy of the license and are unable to
+ * obtain it through the world-wide-web, please send an email
+ * to license@magentocommerce.com so we can send you a copy immediately.
+ *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
+ * @category    design
+ * @package     base_default
+ * @copyright   Copyright (c) 2010 Magento Inc. (http://www.magentocommerce.com)
+ * @license     http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
+ */
+?>
+<?php
+	$theme = $this->helper('ultimo');
+	$d = $theme->getCfgSectionDesign();
+	
+	//Get skin settings
+	$footerContainerCss = array();
+	$classString['all'] = '';
+	$classString['top'] = '';
+	$classString['primary'] = '';
+	$classString['secondary'] = '';
+	$classString['bottom'] = '';
+	
+	
+	//All footer sections
+	$classes['all'] = array();
+	if ($theme->isColor($d['footer']['inner_bg_color']))
+		$classes['all'][] = 'show-bg';
+
+	if ($classes['all'])
+		$classString['all'] = " " . implode(" ", $classes['all']); //NOTE: Add space before the first class
+
+
+	//Footer top
+	$classes['top'] = array();
+	if ($theme->isColor($d['footer']['inner_bg_color']) == false)
+	{
+		if ($theme->isColor($d['footer_top']['inner_bg_color']))
+			$classes['top'][] = 'show-bg';
+		else
+			$classes['top'][] = 'stretched';
+	}
+		
+	if ($classes['top'])
+		$classString['top'] = implode(" ", $classes['top']);
+	$classString['top'] .= $classString['all'];
+
+
+	//Footer primary
+	$classes['primary'] = array();
+	if ($theme->isColor($d['footer_primary']['inner_bg_color']))
+		$classes['primary'][] = 'show-bg';
+		
+	if ($classes['primary'])
+		$classString['primary'] = implode(" ", $classes['primary']);
+	$classString['primary'] .= $classString['all'];
+	
+	
+	//Footer secondary
+	//$classes['secondary'] = array();
+	//if ($classes['secondary'])
+	//	$classString['secondary'] = implode(" ", $classes['secondary']);
+	$classString['secondary'] .= $classString['all'];
+	
+	
+	//Footer bottom
+	$classes['bottom'] = array();
+	if ($theme->isColor($d['footer_bottom']['inner_bg_color']))
+		$classes['bottom'][] = 'show-bg';
+
+	if ($classes['bottom'])
+		$classString['bottom'] = implode(" ", $classes['bottom']);
+	$classString['bottom'] .= $classString['all'];
+?>
+
+<div class="footer-container<?php if($footerContainerCss) echo " " . implode(" ", $footerContainerCss); ?>">
+<div class="footer-container2">
+
+	<div class="footer-top-container section-container">
+        <div class="footer-top footer container<?php if($classString['top']) echo " " . $classString['top']; ?>">
+            <div class="inner-container">
+            
+                <div class="section clearer links-wrapper-separators">
+                
+                	<?php //Default Magento footer links (page.xml) ?>
+                    <?php if ($theme->getCfg('magento_blocks/footer_links')): ?>
+                        <div class="item item-left"><?php echo $this->getChildHtml('footer_links'); ?></div>
+                    <?php endif; ?>
+                    
+                    <?php //Custom footer links - override default Magento footer links ?>
+                    <?php if ($tmp = $this->getChildHtml('block_footer_links')): ?>
+                        <div class="item item-left"><?php echo $tmp; ?></div>
+					<?php endif; ?>
+                    
+                    <?php //Secondary custom footer links ?>
+                    <?php if ($tmp = $this->getChildHtml('block_footer_links2')): ?>
+                        <div class="item item-right"><?php echo $tmp; ?></div>
+                    <?php endif; ?>
+                    
+                </div> <!-- end: footer-top section -->
+                
+            </div> <!-- end: inner-container -->
+        </div> <!-- end: footer-top -->
+    </div>
+
+
+
+	<?php //
+		$b = array();
+		$b['primary'] = $theme->getFormattedBlocks($this, 'block_footer_column', $theme->getCfg('footer/links_column_auto_width'));
+		if ($tmp = $this->getChildHtml('block_footer_primary_bottom_left'))
+		{
+			$b['primary_bottom']['left'] = $tmp;
+        }
+		if ($tmp = $this->getChildHtml('block_footer_primary_bottom_right'))
+		{
+			$b['primary_bottom']['right'] = $tmp;
+        }
+		if ($theme->getCfg('magento_blocks/footer_newsletter') && $tmp = $this->getChildHtml('newsletter'))
+		{
+			$b['primary_bottom']['newsletter'] = $tmp;
+		}
+	?>
+    
+    <?php if (!empty($b['primary']) || !empty($b['primary_bottom'])): ?>
+    
+    <div class="footer-primary-container section-container<?php //if($classString['primary-container']) echo " " . $classString['primary-container']; ?>">
+        <div class="footer-primary footer container<?php if($classString['primary']) echo " " . $classString['primary']; ?>">
+            <div class="inner-container">
+
+				<?php if (!empty($b['primary'])): ?>
+                <div class="section clearer">
+					<?php echo $b['primary']; ?>
+                </div> <!-- end: footer-primary section -->
+                <?php endif; ?>
+                
+                <?php if (!empty($b['primary_bottom'])): ?>
+                <div class="footer-primary-bottom grid12-12">
+                    <div class="<?php if(!empty($b['primary'])) echo 'footer-primary-bottom-spacing '; ?>clearer">
+                    
+						<?php if (!empty($b['primary_bottom']['left'])): ?>
+                        	<div class="item item-left clearer block_footer_primary_bottom_left">
+								<?php echo $b['primary_bottom']['left']; ?>
+                            </div>
+                        <?php endif; ?>
+                        
+                        <?php if (!empty($b['primary_bottom']['right'])): ?>
+                        	<div class="item item-right clearer block_footer_primary_bottom_right">
+								<?php echo $b['primary_bottom']['right']; ?>
+							</div>
+                        <?php endif; ?>
+                        
+                        <?php if (!empty($b['primary_bottom']['newsletter'])): ?>
+                            <div class="item item-right newsletter-wrapper clearer">
+                                <?php echo $b['primary_bottom']['newsletter']; ?>
+                            </div>
+                        <?php endif; ?>
+                        
+                    </div> 
+                </div> <!-- end: footer-primary-bottom -->
+                <?php endif; ?>
+            
+            </div> <!-- end: inner-container -->
+        </div> <!-- end: footer-primary -->
+    </div>
+    
+    <?php endif; ?>
+
+
+    
+    <?php
+    	$b['secondary'] =
+			$theme->getFormattedBlocks($this, 'block_footer_row2_column', $theme->getCfg('footer/links_column_auto_width'));
+	?>
+    
+    <?php if (!empty($b['secondary'])): ?>
+
+    <div class="footer-secondary-container section-container">
+        <div class="footer-secondary footer container<?php if($classString['secondary']) echo " " . $classString['secondary']; ?>">
+            <div class="inner-container">
+            
+                <?php if (!empty($b['secondary'])): ?>
+                <div class="section clearer">
+					<?php echo $b['secondary']; ?>
+				</div> <!-- end: footer-secondary section -->
+                <?php endif; ?>
+
+            </div> <!-- end: inner-container -->
+        </div> <!-- end: footer-secondary -->
+    </div>
+    
+    <?php endif; ?>
+
+
+    
+    <div class="footer-bottom-container section-container">
+        <div class="footer-bottom footer container<?php if($classString['bottom']) echo " " . $classString['bottom']; ?>">
+            <div class="inner-container">
+
+                <div class="section clearer">
+                
+                	<div class="item item-left">
+                    	<p class="footer-copyright"><?php echo $this->getCopyright(); ?></p>
+                    </div>
+                    
+                    <?php if ($tmp = $this->getChildHtml('block_footer_payment')): ?>
+                    	<div class="item item-right block_footer_payment"><?php echo $tmp; ?></div>
+                    <?php endif; ?>
+                    
+                    <?php /* if ($theme->getCfg('magento_blocks/store_switcher') && $tmp = $this->getChildHtml('store_switcher')): ?>
+                    	<div class="item item-right"><?php echo $tmp; ?></div>
+                    <?php endif;*/ ?>
+                    
+                    
+                </div> <!-- end: footer-bottom section -->
+
+            </div> <!-- end: inner-container -->
+        </div> <!-- end: footer-bottom -->
+    </div>
+    
+   <?php /* <a id="scroll-to-top" class="ic ic-up" href="#top"></a>*/?>
+
+</div> <!-- end: footer-container2 -->
+</div> <!-- end: footer-container -->
+

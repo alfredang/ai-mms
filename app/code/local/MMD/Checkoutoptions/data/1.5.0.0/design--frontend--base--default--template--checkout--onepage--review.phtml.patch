@@ -1,0 +1,140 @@
+diff -aurBb app/design/frontend/base/default/template/checkout/onepage/review.phtml var/mmd_patch/design/frontend/default/default/template/mmdcommonfiles/design--frontend--base--default--template--checkout--onepage--review.phtml
+--- app/design/frontend/base/default/template/checkout/onepage/review.phtml	2011-02-03 15:33:35 +0200
++++ var/mmd_patch/design/frontend/default/default/template/mmdcommonfiles/design--frontend--base--default--template--checkout--onepage--review.phtml	2011-02-15 21:30:46 +0200
+@@ -1,5 +1,10 @@
+ <?php
+ /**
++* @copyright  Copyright (c) 2011 MMD, Inc.    
++*/
++?>
++<?php
++/**
+  * Magento
+  *
+  * NOTICE OF LICENSE
+@@ -24,6 +29,125 @@
+  * @license     http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
+  */
+ ?>
++<form id="co-customreview-form" action="">
++
++	<!-------------------------    START MMD CHECKOUT ATTRIBUTES          ---------------------------->
++    <?php if ($aFieldList = $this->getCustomFieldList(1)): ?>
++    <fieldset class="buttons-set" style="text-align:left; border-bottom: none;">
++        <ul class="form-list">
++        <?php foreach ($aFieldList as $aField): ?>
++            <?php echo $this->getFieldHtml($aField); ?>
++        <?php endforeach; ?>
++        </ul>
++    </fieldset>
++    <?php endif; ?>
++<!------------------------------    FINISH MMD CHECKOUT ATTRIBUTES         --------------------------->
++
++
++<div class="order-review" id="checkout-review-load"> <?php ?>
++    <?php echo $this->getChildHtml('info') ?> <?php ?>
++</div> <?php ?>
++
++
++<!-------------------------    START MMD CHECKOUT ATTRIBUTES          ---------------------------->
++    <?php if ($aFieldList = $this->getCustomFieldList(2)): ?>
++    <fieldset class="buttons-set" style="text-align:left; border-bottom: none;">
++        <ul class="form-list">
++        <?php foreach ($aFieldList as $aField): ?>
++            <?php echo $this->getFieldHtml($aField); ?>
++        <?php endforeach; ?>
++        </ul>
++    </fieldset>
++    <?php endif; ?>
++<!------------------------------    FINISH MMD CHECKOUT ATTRIBUTES         --------------------------->
++
++ </form>
++
++<div id="checkout-review-submit">
++    <?php echo $this->getChildHtml('agreements') ?>
++    <div class="buttons-set" id="review-buttons-container">
++        <p class="f-left"><?php echo $this->__('Forgot an Item?') ?> <a href="<?php echo $this->getUrl('checkout/cart') ?>"><?php echo $this->__('Edit Your Cart') ?></a></p>
++
++
++<?php /* START MMD COMMENTING
++
++
++        <button type="submit" title="<?php echo $this->__('Place Order') ?>" class="button btn-checkout" onclick="review.save();"><span><span><?php echo $this->__('Place Order') ?></span></span></button>
++
++
++FINISH MMD COMMENTING */ ?>
++
++
++        <button type="submit" title="<?php echo $this->__('Place Order') ?>" class="button btn-checkout" onclick="if (customreview.save()) review.save();"><span><span><?php echo $this->__('Place Order') ?></span></span></button>
++        <span class="please-wait" id="review-please-wait" style="display:none;">
++            <img src="<?php echo $this->getSkinUrl('images/opc-ajax-loader.gif') ?>" alt="<?php echo $this->__('Submitting order information...') ?>" title="<?php echo $this->__('Submitting order information...') ?>" class="v-middle" /> <?php echo $this->__('Submitting order information...') ?>
++        </span>
++    </div>
++    <script type="text/javascript">
++    //<![CDATA[
++        var review = new Review('<?php echo $this->getUrl('checkout/onepage/saveOrder') ?>', '<?php echo $this->getUrl('checkout/onepage/success') ?>', $('checkout-agreements'));
++
++<!-------------------------    START MMD CHECKOUT ATTRIBUTES          ---------------------------->
++
++var Customreview = Class.create();
++Customreview.prototype = {
++    initialize: function(form){
++        this.form = form;
++        this.validator = new Validation(this.form);
++    },
++
++    save: function(){
++        if (checkout.loadWaiting!=false) return;
++
++        var validator = new Validation(this.form);
++        if (validator.validate()) {
++            return true;
++        }
++        else
++        {
++            return false;
++        }
++    },
++
++    resetLoadWaiting: function(transport){
++        checkout.setLoadWaiting(false);
++    }
++
++}
++
++    var customreview = new Customreview('co-customreview-form');
++
++    // override parent class function to add our data to request
++
++    review.save = function(){
++        if (checkout.loadWaiting!=false) return;
++        checkout.setLoadWaiting('review');
++        var params = Form.serialize(payment.form);
++        if (this.agreementsForm) {
++            params += '&'+Form.serialize(this.agreementsForm);
++        }
++
++        params += '&'+Form.serialize($('co-customreview-form'));
++
++        params.save = true;
++        var request = new Ajax.Request(
++            this.saveUrl,
++            {
++                method:'post',
++                parameters:params,
++                onComplete: this.onComplete,
++                onSuccess: this.onSave,
++                onFailure: checkout.ajaxFailure.bind(checkout)
++            }
++        );
++    }
++<!------------------------------    FINISH MMD CHECKOUT ATTRIBUTES         --------------------------->
++    //]]>
++    </script>
++</div>
++<?php /* START MMD COMMENTING
+ <div class="order-review" id="checkout-review-load">
+     <?php echo $this->getChildHtml('info') ?>
++FINISH MMD COMMENTING */ ?>
++<div style="visility:hidden; display:none">
+ </div>

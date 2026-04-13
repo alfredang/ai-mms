@@ -1,0 +1,45 @@
+diff -aurBb /home/httpd/htdocs/users/kaygorodov/cfm-16-141/var/mmd_patch_orig/compare49312831585514c7b7217961d3 /home/httpd/htdocs/users/kaygorodov/cfm-16-141/var/mmd_patch_modif/compare49312831585514c7b7217961d3
+--- /home/httpd/htdocs/users/kaygorodov/cfm-16-141/var/mmd_patch_orig/compare49312831585514c7b7217961d3	2010-08-30 11:55:51 +0300
++++ /home/httpd/htdocs/users/kaygorodov/cfm-16-141/var/mmd_patch_modif/compare49312831585514c7b7217961d3	2010-08-30 11:55:51 +0300
+@@ -38,6 +38,20 @@
+     <?php echo $this->getChildHtml('form_fields_before')?>
+     <?php echo $this->getMessagesBlock()->getGroupedHtml() ?>
+     <form action="<?php echo $this->getPostActionUrl() ?>" method="post" id="form-validate">
++    
++<!--     START MMD REGISTRATION ATTRIBUTES     -->
++        <?php if($fieldList = $this->getCustomFieldsList(1)){ ?>
++			<div class="fieldset">
++    	        <h2 class="legend"><?php echo Mage::getStoreConfig('checkoutoptions/settings/checkoutoptions_reg_label_top', $this->getStoreId()) ?></h2>
++    	        <ul class="form-list">
++    	            <?php foreach ($fieldList as $field){
++    	                echo $this->getAttributeHtml($field,'mmdreg','register');	
++    	            } ?>
++    	        <ul class="form-list">
++    	    </div>
++        <?php } ?>
++<!--     FINISH MMD REGISTRATION ATTRIBUTES     -->
++    
+         <div class="fieldset">
+             <input type="hidden" name="success_url" value="<?php echo $this->getSuccessUrl() ?>" />
+             <input type="hidden" name="error_url" value="<?php echo $this->getErrorUrl() ?>" />
+@@ -166,6 +180,20 @@
+                 </li>
+             </ul>
+         </div>
++        
++<!--     START MMD REGISTRATION ATTRIBUTES     -->
++        <?php if($fieldList = $this->getCustomFieldsList(2)){ ?>
++			<div class="fieldset">
++    	        <h2 class="legend"><?php echo Mage::getStoreConfig('checkoutoptions/settings/checkoutoptions_reg_label_bottom', $this->getStoreId()) ?></h2>
++    	        <ul class="form-list">
++    	            <?php foreach ($fieldList as $field){
++    	                echo $this->getAttributeHtml($field,'mmdreg','register');	
++    	            } ?>
++    	        <ul class="form-list">
++    	    </div>
++        <?php } ?>
++<!--     FINISH MMD REGISTRATION ATTRIBUTES     -->
++        
+         <div class="buttons-set">
+             <p class="required"><?php echo $this->__('* Required Fields') ?></p>
+             <p class="back-link"><a href="<?php echo $this->escapeUrl($this->getBackUrl()) ?>" class="back-link"><small>&laquo; </small><?php echo $this->__('Back') ?></a></p>

@@ -1,0 +1,75 @@
+@import '../core/_general';
+@import '../core/_hostedfields';
+@import '../core/_paypal';
+@import '../core/_saved';
+
+/* Centrally aligned PayPal button */
+button.braintree-paypal-button {
+    margin: 0 auto;
+    float: none;
+}
+
+/* This checkout extension has lots of fixed widths, leaving styling as default */
+#braintree-paypal-button {
+    line-height: unset;
+    padding: 0;
+}
+#paypal-complete {
+    position: relative;
+    background: #fbfaf6;
+    text-align: center;
+    z-index: 6;
+}
+#paypal-container iframe {
+    display: none;
+}
+#paypal-complete label {
+    margin-bottom: 8px;
+}
+#braintree-paypal-button {
+    margin: 0 auto;
+}
+
+#payment_form_gene_braintree_paypal, #payment_form_gene_braintree_creditcard {
+    padding-top: 6px;
+    padding-bottom: 6px;
+}
+
+/* Saved Accounts */
+#creditcard-saved-accounts, #paypal-saved-accounts {
+    font-size: 0;
+    width: 100%;
+}
+#creditcard-saved-accounts tr, #paypal-saved-accounts tr {
+    border-bottom: 1px dotted lightgrey;
+}
+#creditcard-saved-accounts tr.other-row, #paypal-saved-accounts tr.other-row {
+    border-bottom: 0;
+}
+#creditcard-saved-accounts label {
+    padding: 14px 0;
+    line-height: 48px;
+    width: auto;
+}
+#creditcard-saved-accounts tr.other-row label, #paypal-saved-accounts tr.other-row label {
+    padding: 18px 0;
+}
+#paypal-saved-accounts label {
+    padding: 8px 0;
+    line-height: 48px;
+    width: auto;
+}
+#creditcard-saved-accounts label img {
+    float: left;
+}
+#creditcard-saved-accounts label .saved-card-info, #paypal-saved-accounts label .saved-paypal-email {
+    margin-left: 12px;
+    float: left;
+}
+#creditcard-saved-accounts label .saved-card-info span {
+    display: block;
+    line-height: 24px;
+}
+#creditcard-saved-accounts label .saved-card-info span.saved-expiry-date {
+    font-size: 12px;
+}

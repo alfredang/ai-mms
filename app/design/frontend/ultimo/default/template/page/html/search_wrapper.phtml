@@ -1,0 +1,26 @@
+<?php
+/**
+ * @var Mage_Page_Block_Html_Header $this
+ */
+?>
+<?php
+	$theme = Mage::helper('ultimo');
+
+	//Search wrapper classes
+	$searchClasses = 'skip-content skip-content--style search-wrapper';
+	if (! $theme->getCfg('header/mode'))
+	{
+		//If mobile header disabled, add a class to style the search box on mobile devices
+		$searchClasses .= ' search-wrapper-mobile';
+	}
+
+	//TODO: remove, not needed. Classes depending on position of search box
+	if ($theme->getCfg('header/search_position') === 'primCentralCol')
+	{
+		//If the search box assigned to the central column, add a class
+		$searchClasses .= ' search-wrapper-centered';
+	}
+?>
+<div id="header-search" class="<?php echo $searchClasses; ?>">
+	<?php echo $this->getChildHtml('top.search'); ?>
+</div>

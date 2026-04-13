@@ -1,0 +1,49 @@
+<?php if (!$this->accountExists()): ?>
+
+<div class="page-title">
+    <h1>Bank Account Not Found</h1>
+</div>
+
+<p>Sorry, the bank account that you are trying to verify could not be found. Please contact us so that we manually verify your account.</p>
+
+<?php elseif ($this->accountVerified()): ?>
+
+<div class="page-title">
+    <h1>Account Verified</h1>
+</div>
+
+<p>Thank you, your account has been verified and all associated orders will now be processed. Please note that it may take up to 5 business days for the bank transfer to arrive to us. As soon as the payment arrives, you will automatically be notified by email and your order will be fulfilled.</p>
+
+<?php else: ?>
+
+<div class="page-title">
+    <h1>Bank Account Verification</h1>
+</div>
+
+<form method="post" class="scaffold-form">
+    <div class="fieldset">
+        <p class="form-instructions">Please verify your bank account ending <b><?php echo $this->getBankAccountLast4(); ?></b> by entering the two micro-deposits that appear in your bank statement as <b>AMNTS:</b></p>
+        <ul class="form-list">
+            <li class="fields">
+                <label for="amount1">Amount 1</label>
+                <div class="field input-box">
+                    <input id="amount1" name="amount1" type="text" class="input-text">
+                </div>
+                <label for="amount2">Amount 2</label>
+                <div class="field input-box">
+                    <input id="amount2" name="amount2" type="text" class="input-text">
+                </div>
+            </li>
+        </ul>
+    </div>
+    <div class="buttons-set">
+        <button type="submit" class="button">
+            <span>
+                <span>Verify</span>
+            </span>
+        </button>
+    </div>
+
+</form>
+
+<?php endif; ?>

@@ -1,0 +1,25 @@
+<?php
+
+$startAt = ceil($this->getField()->getStarsCount()/2);
+$options = $this->getField()->getOptionsArray();
+if(!empty($options[1]) && array_key_exists('value',$options[1])){
+	$startAt = (int)$options[1]['value'];
+	if((int)$options[1]['value'] > $this->getField()->getStarsCount()){
+		$startAt = $this->getField()->getStarsCount();
+	}
+}
+if($this->getCustomerValue()){
+	$val = explode('/',$this->getCustomerValue());
+	$startAt = (int)$val[0];
+}
+
+?>
+
+<script>
+new Starry('<?php echo $this->getFieldId()?>',{
+		name:'<?php echo $this->getFieldName()?>',
+		showNull:false,
+		startAt:<?php echo $startAt?>,
+		maxLength:<?php echo $this->getField()->getStarsCount()?>
+});
+</script>

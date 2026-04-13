@@ -1,0 +1,104 @@
+<?php  $_product = $this->getProduct(); ?>
+<div class="block block-related">
+<h3 class="section-title padding-right">Course Information</h3>
+<ul id="bs-pav">
+<?php /*  $trainers2= $_product->getAttributeText('trainers'); if($trainers2) { ?>
+     <li><strong>Trainers:</strong> 
+	 <?php 
+if(is_array($trainers2))
+					{
+						$trainers_d2 = implode(", ",$trainers2);
+					}
+					else
+					{
+						$trainers_d2 = $trainers2;
+					} echo $trainers_d2; 
+	 ?></li>
+
+     
+
+    <?php } */ /* if($_product->getAttributeText('provider')) {
+		
+		 $providerId =  $_product->getProvider();
+		if($providerId) {
+		$productsD = Mage::getModel('catalog/product')->getCollection()->
+		addFieldToFilter(array(
+			array('attribute'=>'provider','eq'=>$providerId),
+			//array('attribute'=>'attribute_set_name','eq'=>'Providers'),
+			
+		));
+		$productsD->addAttributeToFilter('attribute_set_id','18');
+		
+		foreach($productsD as $courseProviderProduct) { $pid=$courseProviderProduct->getId();  $providerModel = Mage::getModel('catalog/product')->load($pid); 
+		
+		?>
+
+     <li><strong>Provider:</strong> <a href="<?php echo $providerModel->getUrlPath();?>"><?php  echo $_product->getAttributeText('provider') ?></a></li>
+
+     <?php } }
+		} */?>
+
+     
+
+     <?php if($_product->getSessions()) { ?>
+
+     <li><strong>Session (days):</strong> <?php  echo $_product->getSessions(); ?></li>
+
+     <?php } ?>
+
+     
+
+
+     <?php if($_product->getDuration()) { ?>
+
+     <li><strong>Duration (hrs):</strong> <?php  echo $_product->getDuration(); ?></li>
+
+     <?php } ?>
+
+      <?php if($release_date_val) { ?>
+
+     <li><strong>Release Date:</strong> <?php  echo date("d/m/Y",strtotime ($release_date_val)); ?></li>
+
+     <?php } ?>
+
+     
+     <?php if($_product->getAttributeText('level')) { ?>
+
+     <li><strong>Level:</strong> <?php  echo $_product->getAttributeText('level'); ?></li>
+
+     <?php } ?>
+
+      <?php if($_product->getAttributeText('agegroup')) { ?>
+
+     <li><strong>Age Group:</strong> <?php  echo $_product->getAttributeText('agegroup'); ?></li>
+
+     <?php } ?>
+
+     <?php if($_product->getAdditional_note()) { ?>
+
+     <li><strong>Additional Note:</strong> <?php  echo $_product->getAdditional_note(); ?></li>
+
+     <?php } ?>
+      <?php if($_product->getVenue()) { ?>
+    
+     <li><strong>Venue:</strong> <?php echo $_product->getVenue(); ?></li>
+
+     
+
+     
+
+     <?php } ?> 
+    </ul> 
+      <?php /* if($_product->getGooglemap()) { ?>
+
+      <a class="map" href="#"><?php echo $_product->getGooglemap(); ?></a>
+
+      <?php } */ ?> 
+      
+      <?php /*?><div class="googlemapdiv" style="background:#fff;">
+	 <a onclick="popWin('<?php echo $this->getUrl(); ?>formpro/index/index/id/1','windowName','width=650,height=700,resizable=yes,scrollbars=yes')" href="javascript:void(0)"><img src="<?php echo $this->getSkinUrl('images/book-now.jpg');?>" alt='Enquiry for Quote for Company/Group'/></a> 
+
+
+	</div><?php */?>
+     
+</div>

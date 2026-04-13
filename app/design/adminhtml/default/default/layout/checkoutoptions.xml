@@ -1,0 +1,75 @@
+<?xml version="1.0" ?>
+<layout version="0.1.0">
+    <checkoutoptions_index>
+        <reference name="content">
+            <block type="checkoutoptions/index"  name="checkoutoptions"  as="checkoutoptions" template="checkoutoptions/index.phtml" />
+        </reference>
+    </checkoutoptions_index>
+    
+    <checkoutoptions_address>
+        <reference name="content">
+            <block type="checkoutoptions/checkoutoptionsgrid"  name="checkoutoptionsgrid"  as="checkoutoptionsgrid" template="checkoutoptions/grid.phtml" />
+        </reference>
+    </checkoutoptions_address>
+    
+    <checkoutoptions_edit>
+        <reference name="content">
+            <block type="checkoutoptions/checkoutoptionsedit"  name="checkoutoptionsedit"  as="checkoutoptionsedit" template="checkoutoptions/options.phtml" />
+        </reference>
+    </checkoutoptions_edit>
+    
+    <adminhtml_sales_order_view>
+    	<reference name="order_info">
+            <action method="setTemplate"><template>checkoutoptions/design--adminhtml--default--default--template--sales--order--view--info.phtml</template></action>
+        </reference>
+    </adminhtml_sales_order_view>
+    
+    <adminhtml_sales_order_invoice_view>
+        <reference name="order_info">
+            <action method="setTemplate"><template>checkoutoptions/design--adminhtml--default--default--template--sales--order--view--info.phtml</template></action>
+            <action method="setIsInvoice"><value>true</value></action> 
+        </reference>
+    </adminhtml_sales_order_invoice_view>
+    
+    <adminhtml_sales_invoice_view>
+        <reference name="order_info">
+            <action method="setTemplate"><template>checkoutoptions/design--adminhtml--default--default--template--sales--order--view--info.phtml</template></action>
+            <action method="setIsInvoice"><value>true</value></action> 
+        </reference>
+    </adminhtml_sales_invoice_view>
+    
+    <adminhtml_sales_order_invoice_new>
+        <reference name="order_info">
+            <action method="setTemplate"><template>checkoutoptions/design--adminhtml--default--default--template--sales--order--view--info.phtml</template></action>
+            <action method="setIsInvoice"><value>true</value></action>
+        </reference>
+    </adminhtml_sales_order_invoice_new>
+    
+    <adminhtml_sales_order_index>        
+        <reference name="head">
+            <action method="addJs"><file>checkoutoptions/prototype.form.fix.js</file></action>            
+        </reference>    
+    </adminhtml_sales_order_index>
+	
+	<adminhtml_sales_recurring_profile_view>
+	    <reference name="sales.recurring.profile.tab.info">
+		    <block type="sales/recurring_profile_view" name="sales.recurring.profile.view.mmdcfm" as="mmdcfm" template="sales/recurring/profile/view/info.phtml">
+                <action method="getRecurringProfileCustomData"/>
+                <action method="addToParentGroup"><value>info_blocks_row_4</value></action>
+                <action method="setViewColumn"><value>1</value></action>
+            </block>
+		</reference>
+	</adminhtml_sales_recurring_profile_view>
+    
+</layout>
+<!--
+/**
+ * Checkout Fields Manager
+ *
+ * @category:    MMD
+ * @package:     MMD_Checkoutoptions
+ * @version      2.9.2
+ * @license:     
+ * @copyright:   Copyright (c) 2013 MMD, Inc. (http://www.mmd.com)
+ */
+-->

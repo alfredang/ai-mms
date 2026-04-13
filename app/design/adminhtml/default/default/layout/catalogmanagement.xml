@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<layout version="0.1.0">
+    <adminhtml_catalog_product_index>
+        <reference name="head">
+            <action method="addJs"><file>mmd/catalogmanagement/attribute.js</file></action>
+            <action method="addJs"><file>mmd/catalogmanagement/grid.js</file></action>
+            <action method="addJs"><file>mmd/catalogmanagement/sortable.js</file></action>
+            <action method="addCss"><name>mmd/catalogmanagement/grid.css</name></action>
+            
+            <action method="addItem"><type>js</type><name>prototype/window.js</name></action>
+            <action method="addItem"><type>js_css</type><name>prototype/windows/themes/default.css</name></action>
+            <action method="addItem"><type>js_css</type><name>prototype/windows/themes/magento.css</name></action>
+            
+            <action method="addJs"><stylesheet>mmd/catalogmanagement/lightbox/js/lightbox.js</stylesheet></action>
+            <action method="addItem"><type>js_css</type><name>mmd/catalogmanagement/lightbox/css/lightbox.css</name><params/></action>
+        </reference>
+        <reference name="content">
+            <block type="catalogmanagement/adminhtml_catalog_product_grid_jsinit" name="catalogmanagement_jsinit"></block>
+            <block type="catalogmanagement/adminhtml_catalog_product_grid_attributes" name="catalogmanagement_attributes"></block>
+        </reference>
+    </adminhtml_catalog_product_index>
+</layout>

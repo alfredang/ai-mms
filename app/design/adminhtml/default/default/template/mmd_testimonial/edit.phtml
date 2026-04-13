@@ -1,0 +1,89 @@
+<div class="entry-edit">
+    <div style="" id="testimonial_tabs_form_section_content"><div class="entry-edit">
+    <div class="entry-edit-head">
+    <h4 class="icon-head head-edit-form fieldset-legend">Item information</h4>
+    <div class="form-buttons"></div>
+</div>
+<?php  
+foreach(Mage::getSingleton('adminhtml/system_store')->getStoreValuesForForm(false, true) as $key=>$arr){
+	echo "<br>".$key."-------".var_dump($arr)."<br>";	
+	
+} ?>
+    <div id="testimonial_form" class="fieldset ">
+    <div class="hor-scroll">
+		<table cellspacing="0" class="form-list">
+            <tbody>
+                <tr>
+        		<td class="label"><label for="store_id">Store View <span class="required">*</span></label></td>
+			    <td class="value">
+				    <select multiple="multiple" class=" required-entry select multiselect" size="10" title="Store View" name="stores[]" id="store_id">
+						<option value="0">All Store Views</option>
+						<optgroup label="Main Website">
+						</optgroup>
+						<optgroup label="&nbsp;&nbsp;&nbsp;&nbsp;Hip Store">
+						<option value="6">&nbsp;&nbsp;&nbsp;&nbsp;VietNamese</option>
+						</optgroup>
+						<optgroup label="&nbsp;&nbsp;&nbsp;&nbsp;Main Store">
+						<option value="1">&nbsp;&nbsp;&nbsp;&nbsp;English</option>
+						<option value="3">&nbsp;&nbsp;&nbsp;&nbsp;French</option>
+						<option value="2">&nbsp;&nbsp;&nbsp;&nbsp;German</option>
+						</optgroup>
+						<optgroup label="Shoe Store">
+						</optgroup>
+						<optgroup label="&nbsp;&nbsp;&nbsp;&nbsp;Shoe Store">
+						<option value="4">&nbsp;&nbsp;&nbsp;&nbsp;English</option>
+						<option value="5">&nbsp;&nbsp;&nbsp;&nbsp;VietNamese</option>
+						</optgroup>
+					</select>
+				</td>
+    			<td id="note_store_id"><small>&nbsp;</small></td>
+    		</tr>
+		    
+			<tr>
+			    <td class="label"><label for="client_name">Client Name <span class="required">*</span></label></td>
+			    <td class="value"><input type="text" class="required-entry required-entry input-text" value="Nguyet Nguyen" name="client_name" id="client_name"></td>
+			    <td id="note_client_name"><small>&nbsp;</small></td>
+			</tr>
+	
+			<tr>
+			    <td class="label"><label for="company">Client Company</label></td>
+			    <td class="value"><input type="text" class=" input-text" value="ASIA-CONNECT" name="company" id="company"></td>
+			    <td id="note_company"><small>&nbsp;</small></td>
+		    </tr>
+			<tr>
+		        <td class="label"><label for="website">Client Website</label></td>
+		    	<td class="value"><input type="text" class=" input-text" value="Magento" name="website" id="website"></td>
+			    <td id="note_website"><small>&nbsp;</small></td>
+		    </tr>
+    
+			<tr>
+			    <td class="label"><label for="email">Client Email</label></td>
+			    <td class="value"><input type="text" class=" input-text" value="ntnguyet210@gmail.com" name="email" id="email"></td>
+			    <td id="note_email"><small>&nbsp;</small></td>
+			</tr>
+			
+			<tr>
+		    <td class="label"><label for="address">Address</label></td>
+		    <td class="value"><input type="text" class=" input-text" value="Bac Ninh" name="address" id="address"></td>
+		    <td id="note_address"><small>&nbsp;</small></td>
+		    </tr>
+			<tr>
+		    <td class="label"><label for="status">Status</label></td>
+		    <td class="value">
+		    	<select class=" select" name="status" id="status">
+					<option selected="selected" value="1">Enabled</option>
+					<option value="2">Disabled</option>
+				</select>
+			</td>
+		    <td id="note_status"><small>&nbsp;</small></td>
+		    </tr>
+			<tr>
+		    	<td class="label"><label for="description">Content <span class="required">*</span></label></td>
+		    	<td class="value"><textarea class=" required-entry textarea" cols="15" rows="2" style="width: 700px; height: 400px;" title="Content" name="description" id="description">English Main Store </textarea></td>
+		    	<td id="note_description"><small>&nbsp;</small></td>
+		    </tr>
+			</tbody>
+        </table>
+	</div>
+</div>
+</div>

@@ -1,0 +1,31 @@
+<?php
+$gatewayResponse = $this->getResponseValues();
+if ($gatewayResponse) {
+    $payment_method = $gatewayResponse['payment_method'];
+    $hitpay_fee = $gatewayResponse['hitpay_fee'];
+?>
+    <table id="hitpay-payment-details" style="display: none">
+        <tr id="hitpay_payment_method">
+            <td class="label"><strong><?php echo $this->escapeHtml('HitPay Payment Type')?></strong></td>
+            <td class="amount text-right nowrap">
+                <strong><?php echo $this->escapeHtml($payment_method)?></strong>
+            </td>
+        </tr>
+        <tr id="hitpay_fees">
+            <td class="label"><strong><?php echo $this->escapeHtml('HitPay Fee')?></strong></td>
+            <td class="amount text-right nowrap">
+                <strong><?php echo $this->escapeHtml($hitpay_fee)?></strong>
+            </td>
+        </tr>
+    </table>
+    <script type="text/javascript">
+    document.observe("dom:loaded", function() {
+        var hitpay_payment_method = document.getElementById('hitpay_payment_method');
+        var hitpay_fees = document.getElementById('hitpay_fees');
+        $$(".order-totals tfoot")[0].append(hitpay_payment_method);
+        $$(".order-totals tfoot")[0].append(hitpay_fees);
+    });
+    </script>
+<?php
+}
+?>

@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+<layout version="0.1.0">
+    <default>
+	 <!-- <reference name="head">
+	    	<action method="addJs"><script>mmd_js/jquery.js</script></action>
+			<action method="addJs"><script>mmd_js/jquery_noconflict.js</script></action>
+      </reference> 
+	   <reference name="right">
+            <block type="testimonial/testimonial" name="right.testimonial.testimonial" before="-">
+                    <action method="setTemplate">
+                            <template>testimonial/testimonial_advance.phtml</template> 
+                    </action>
+            </block>
+        </reference>  --> 
+		<reference name="left">
+            <!--<block type="testimonial/testimonial" name="left.testimonial.testimonial" before="-">
+                    <action method="setTemplate">
+                            <template>testimonial/testimonial_advance.phtml</template> 
+                    </action>
+            </block>-->
+        </reference>       
+    </default>
+    <testimonial_index_index>
+	<remove name="trainers"/>
+	<remove name="providers"/>
+		<reference name="root">
+            <action method="setTemplate"><template>page/2columns-left.phtml</template></action>
+        </reference>
+        <reference name="content">
+            <block type="testimonial/list" name="list" template="testimonial/list.phtml" />
+        </reference>       
+    </testimonial_index_index>
+    <testimonial_view_details>
+		<reference name="root">
+            <action method="setTemplate"><template>page/2columns-left.phtml</template></action>
+        </reference>
+        <reference name="content">
+            <block type="testimonial/view" name="view" template="testimonial/view.phtml" />
+        </reference>
+    </testimonial_view_details>
+    <testimonial_submit_index>
+		<reference name="root">
+            <action method="setTemplate"><template>page/2columns-left.phtml</template></action>
+        </reference>
+        <reference name="content">
+            <block type="testimonial/submit" name="submit" template="testimonial/submit.phtml" />
+        </reference>
+    </testimonial_submit_index>
+</layout> 

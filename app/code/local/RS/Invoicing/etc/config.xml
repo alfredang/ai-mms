@@ -1,0 +1,61 @@
+<?xml version="1.0"?>
+<config>
+    <modules>
+        <RS_Invoicing>
+            <version>1.2</version>
+        </RS_Invoicing>
+    </modules>
+	<frontend>
+	 <routers>
+            <invoicing>
+                <use>standard</use>
+                <args>
+                    <module>RS_Invoicing</module>
+                    <frontName>rs_payment</frontName>
+                </args>
+            </invoicing>
+        </routers>      	
+    </frontend>
+    <global>
+        <models>
+            <invoicing>
+                <class>RS_Invoicing_Model</class>
+            </invoicing>
+        </models>        
+        <blocks>
+            <invoicing>
+                <class>RS_Invoicing_Block</class>
+            </invoicing>
+        </blocks>
+        <helpers>
+            <invoicing>
+                <class>RS_Invoicing_Helper</class>
+            </invoicing>
+        </helpers>        
+    </global>
+	<default>
+        <payment>
+            <invoicing>
+                <active>0</active>
+                <model>invoicing/invoicing</model>
+                <order_status>1</order_status>
+                <title>Bank Pay</title>
+                <allowspecific>0</allowspecific>
+                <form_block_type>0</form_block_type>
+            </invoicing>
+        </payment>
+    </default>
+    
+    <default>
+        <payment>
+            <invoicing>
+                <title>Company Invoicing</title>
+                <active>1</active>
+                <show_bank_accounts_in_pdf>1</show_bank_accounts_in_pdf>
+                <show_customtext_in_pdf>1</show_customtext_in_pdf>
+				<enabledorder>1</enabledorder>
+				<recipient_email>sale@example.com</recipient_email>
+            </invoicing>
+        </payment>
+    </default>
+</config>

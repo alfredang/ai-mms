@@ -1,0 +1,81 @@
+<?php
+global $zopimoptions;
+if (!isset($zopimoptions)) {
+$zopimoptions = Mage::getModel('livechat/livechat')->load(1);
+$zopimoptions = $zopimoptions->_data;
+
+if ($zopimoptions["code"] != "" && $zopimoptions["code"] != "zopim") {
+   echo "
+      <!-- Start of Zopim Live Chat Script -->
+      <script type=\"text/javascript\">
+      document.write(unescape(\"%3Cscript src='\" + document.location.protocol + \"//zopim.com/?".$zopimoptions["code"]."' charset='utf-8' type='text/javascript'%3E%3C/script%3E\"));
+   </script>
+      <!-- End of Zopim Live Chat Script -->
+      ";
+   $theoptions = array();
+   if ($zopimoptions["lang"] != "" && $zopimoptions["lang"] != "--") {
+      if ($zopimoptions["lang"] == "md") {
+         $zopimoptions["lang"] = substr(Mage::app()->getlocale()->getlocalecode(), 0, 2);
+      }
+      $theoptions[] = " language: '".$zopimoptions["lang"]."'";
+   }
+
+   /*
+   if ( isset($current_user) && $zopimoptions["getVisitorInfo"] != "" )
+   {
+      $ul = $current_user->data->first_name;
+      $useremail = $current_user->data->user_email;
+
+      if ($ul!="" && $useremail != "") {
+         $theoptions[] = "
+            name: '$ul',
+            email: '$useremail'
+               ";
+      }
+   }
+   */
+   
+   echo '
+      <script type="text/javascript">';
+   if (count($theoptions) > 0) {
+      echo '$zopim.livechat.set({';
+      echo implode(", ", $theoptions);      
+      echo "      });";
+   }
+  
+   if ($zopimoptions['position'] != "") {
+      echo "\n\$zopim.livechat.button.setPosition('".$zopimoptions['position']."');";
+   }
+   if ($zopimoptions['theme'] != "") {
+      echo "\n\$zopim.livechat.window.setTheme('".$zopimoptions['theme']."');";
+   }
+   if ($zopimoptions['color'] != "") {
+      echo "\n\$zopim.livechat.window.setColor('".$zopimoptions['color']."');";
+   }
+   if ($zopimoptions['bubbletitle'] != "") {
+      echo "\n\$zopim.livechat.bubble.setTitle('".addslashes($zopimoptions['bubbletitle'])."');";
+   }
+   if ($zopimoptions['bubbletext'] != "") {
+      echo "\n\$zopim.livechat.bubble.setText('".addslashes($zopimoptions['bubbletext'])."');";
+   }
+   if ($zopimoptions['hideonoffline'] == "checked") {
+      echo "\n\$zopim.livechat.button.setHideWhenOffline(true);";
+   }
+   if ($zopimoptions['bubbleenable'] == "checked") {
+      echo "\n\$zopim.livechat.bubble.show(true);";
+   }
+   if ($zopimoptions['greetings'] != "") {
+      $greetings = Zend_Json::decode($zopimoptions['greetings']);
+      echo "\n\$zopim.livechat.setGreetings({
+            'online': ['".addslashes($greetings["online"]["bar"])."', '".addslashes($greetings["online"]["window"])."'],
+            'offline': ['".addslashes($greetings["offline"]["bar"])."', '".addslashes($greetings["offline"]["window"])."'],
+            'away': ['".addslashes($greetings["away"]["bar"])."', '".addslashes($greetings["away"]["window"])."']})";
+   }
+   echo "
+      </script>
+      ";
+
+}
+}
+
+?> 

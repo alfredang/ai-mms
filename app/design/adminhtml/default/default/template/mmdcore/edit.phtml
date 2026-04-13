@@ -1,0 +1,41 @@
+<?php
+/**
+ * Checkout Fields Manager
+ *
+ * @category:    MMD
+ * @package:     MMD_Checkoutoptions
+ * @version      2.9.2
+ * @license:     
+ * @copyright:   Copyright (c) 2013 MMD, Inc. (http://www.mmd.com)
+ */
+/* @var $this MMD_Mmdsys_Block_Edit */
+$_helper = Mage::helper('mmdsys');
+?>
+<div class="content-header">
+    <table cellspacing="0">
+        <tr>
+            <td><h3>Checkout Options Manager</h3></td>
+            <td class="form-buttons"><?php echo $this->getSaveButtonHtml() ?></td>
+         </tr>
+    </table>
+</div>
+<div class="entry-edit">
+    <?php echo $this->getInstallText()?>
+    <table class="mmdsys-list">
+      <tr>
+        <td class="list">
+          <div class="form">
+            <form action="<?php echo $this->getSaveUrl() ?>" method="post" id="config_edit_form" enctype="multipart/form-data">
+                <?php echo $this->getBlockHtml('formkey')?>
+                <?php echo $this->getChildHtml('form')?>
+            </form>
+          </div>
+         
+        </td>
+       
+      </tr>
+    </table>
+</div>
+<script type="text/javascript">
+    var configForm = new varienForm('config_edit_form');
+</script>

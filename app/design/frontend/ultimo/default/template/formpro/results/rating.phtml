@@ -1,0 +1,28 @@
+<?php $collection = $this->getSummaryRatings();?>
+<?php if(!empty($collection)): ?>
+<div class="formpro-rating-summary">
+    <table class="ratings-table">
+        <col width="1" />
+        <col />
+        <tbody>
+        <?php foreach ($collection as $_rating): ?>
+            <?php
+            $field = Mage::getModel('formpro/fields')->setStoreId(Mage::app()->getStore()->getId())->load($_rating['field_id']);
+            $value = $_rating['sum'] / $_rating['count'];
+            $width = ceil(100 * $value / $field->getStarsCount()) . '%';
+            ?>
+            <?php if($value): ?>
+                <tr>
+                    <th><?php echo $this->__($this->escapeHtml($field->getResultLabel())) ?></th>
+                    <td>
+                        <div class="rating-box">
+                            <div class="rating" style="width:<?php echo $width;?>"></div>
+                        </div>
+                    </td>
+                </tr>
+            <?php endif; ?>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+</div>
+<?php endif; ?>

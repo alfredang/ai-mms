@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+<config>
+	<menu>
+		<system>
+			<children>
+				<checkoutoptions> 
+					<title>Checkout Attributes</title>
+					<action>checkoutoptions</action>
+					<sort_order>20</sort_order>           
+				</checkoutoptions> 
+			</children>
+		</system>
+	</menu>
+    <acl>
+        <resources>
+            <admin>
+                <children>
+                    <system>
+                        <children>
+                            <checkoutoptions translate="title" module="checkoutoptions">
+                                <title>Manage MMD Checkout Attributes</title>
+                                <sort_order>1</sort_order>
+                            </checkoutoptions>
+                            <config>
+                                <children>
+                                    <checkoutoptions translate="title" module="checkoutoptions">
+                                        <title>Manage MMD Checkout Attributes</title>
+                                    </checkoutoptions>
+                                </children>
+                            </config>
+                        </children>
+                    </system>
+                </children>
+            </admin>
+        </resources>
+    </acl>
+</config>
+
+<!--
+/**
+ * Checkout Fields Manager
+ *
+ * @category:    MMD
+ * @package:     MMD_Checkoutoptions
+ * @version      2.9.2
+ * @license:     
+ * @copyright:   Copyright (c) 2013 MMD, Inc. (http://www.mmd.com)
+ */
+-->

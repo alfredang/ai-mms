@@ -1,0 +1,51 @@
+diff -aurBb /home/httpd/htdocs/users/komar/checkout1420x101210/var/mmd_patch_orig/compare10012920038394d0269ff15f89 /home/httpd/htdocs/users/komar/checkout1420x101210/var/mmd_patch_modif/compare10012920038394d0269ff15f89
+--- /home/httpd/htdocs/users/komar/checkout1420x101210/var/mmd_patch_orig/compare10012920038394d0269ff15f89	2010-12-10 19:57:19 +0200
++++ /home/httpd/htdocs/users/komar/checkout1420x101210/var/mmd_patch_modif/compare10012920038394d0269ff15f89	2010-12-10 19:57:19 +0200
+@@ -145,6 +145,47 @@
+ </div>
+ <div class="clear"></div>
+ 
++
++
++
++
++
++<!--     START CHECKOUT ATTRIBUTES     -->
++
++<?php 
++$aCustomAtrrList = $this->getOrderCustomData();
++$editUrl = $this->getEditUrl();
++?>
++    <!--Custom Attributes Information-->
++<div class="clear"></div>    
++    <div class="entry-edit">
++        <div class="entry-edit-head">
++            <h4 class="icon-head head-account"><?php echo Mage::getStoreConfig('checkoutoptions/common_settings/checkoutoptions_additionalblock_label', $this->getStoreId()); if($editUrl && (!$this->getIsInvoice())){ ?> <span class="separator">|</span> <a href="<?php echo $this->getEditUrl() ?>"><?php echo $this->__('Change') ?></a><?php } ?></h4>
++        </div>
++        <div class="fieldset">
++            <div class="hor-scroll">
++                <table cellspacing="0" class="form-list">
++                
++    <?php foreach ($aCustomAtrrList as $aItem):
++        if($aItem['value']){
++     ?>
++                <tr>
++                    <td class="label"><label><?php echo $aItem['label']; ?></label></td>
++                    <td><strong><?php echo $aItem['value']; ?></strong></td>
++                </tr>
++    <?php }
++        endforeach; ?>
++                
++                </table>
++            </div>
++        </div>
++    </div>
++<div class="clear"></div>
++
++<!--     FINISH CHECKOUT ATTRIBUTES     -->
++
++
++
+ <div class="box-left">
+     <!--Billing Address-->
+     <div class="entry-edit">

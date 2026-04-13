@@ -1,0 +1,80 @@
+<div class="multishipping-authorization">
+
+<?php
+
+if (empty($this->orders)): ?>
+
+<div class="message-notice notice message">
+  <p>Your session has expired!</p>
+</div>
+
+<?php else: ?>
+
+<div class="page-title">
+    <h1><?php echo $this->__('Customer authentication is required by your bank for this payment.') ?></h1>
+</div>
+
+<div class="block-content">
+    <?php foreach ($this->orders as $order): ?>
+        <p><b><?php echo $this->__('Amount for Order #%s', $order->getIncrementId()); ?></b>: <?php echo $this->getFormattedAmountFor($order); ?></p>
+    <?php endforeach; ?>
+
+    <div class="authentication message">
+        <?php echo $this->__('Please wait while the authentication dialog is loading. If the dialog does not open, please <a href="%s">click here</a>.', "javascript:stripe.processNextAuthentication(onAuthenticationComplete);"); ?>
+    </div>
+</div>
+
+<?php endif; ?>
+
+<div class="actions-toolbar">
+  <div class="primary">
+    <a href="<?php echo Mage::getUrl('/'); ?>" class="action back">
+      &laquo; <span><?php echo $this->__('Back to main website') ?></span>
+    </a>
+  </div>
+</div>
+
+</div>
+
+<form method="post" action="<?php echo $this->getConfirmationUrl(); ?>" id="confirm-payments">
+    <input name="form_key" type="hidden" value="<?php echo Mage::getSingleton('core/session')->getFormKey() ?>" />
+</form>
+
+<script type="text/javascript">
+    var hasErrors = <?php echo $this->hasErrors(); ?>;
+    var hasAuthenticationStarted = false;
+
+    window.onAuthenticationComplete = function(err)
+    {
+        if (err)
+        {
+            alert(err);
+            stripe.processNextAuthentication(onAuthenticationComplete);
+            return;
+        }
+
+        document.getElementById("confirm-payments").submit();
+    };
+
+    var beginAuthentication = function()
+    {
+        if (hasAuthenticationStarted)
+            return;
+        else
+            hasAuthenticationStarted = true;
+
+        <?php foreach ($this->paymentIntentClientSecrets as $paymentIntentClientSecret): ?>
+        stripe.paymentIntents.push("<?php echo $paymentIntentClientSecret; ?>");
+        <?php endforeach; ?>
+
+        // Wait 1s for Stripe.js to initialize
+        setTimeout(function(){
+            stripe.processNextAuthentication(onAuthenticationComplete);
+        }, 1000);
+    };
+
+    document.observe("dom:loaded", function() {
+        var stripeJsPublishableKey = '<?php echo $this->helper->getPublishableKey(); ?>';
+        initStripe(stripeJsPublishableKey, 2, beginAuthentication);
+    });
+</script>

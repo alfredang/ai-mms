@@ -1,0 +1,122 @@
+<?php
+/**
+ * MMD
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the MMD EULA that is bundled with
+ * this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * http://www.magemobiledesign.com/LICENSE-1.0.html
+ *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade the extension
+ * to newer versions in the future. If you wish to customize the extension
+ * for your needs please refer to http://www.magemobiledesign.com/ for more information
+ *
+ * @category   MMD
+ * @package    MMD_CustomOptions
+ * @copyright  Copyright (c) 2012 MMD (http://www.magemobiledesign.com/)
+ * @license    http://www.magemobiledesign.com/LICENSE-1.0.html
+ */
+
+/**
+ * Advanced Product Options extension
+ *
+ * @category   MMD
+ * @package    MMD_CustomOptions
+ * @author     MMD Dev Team
+ */
+$_option = $this->getOption();
+$_fileInfo = $this->getFileInfo();
+$_fileExists = $_fileInfo->hasData() ? true : false;
+$_fileName = 'options_' . $_option->getId() . '_file';
+$_fieldNameAction = $_fileName . '_action';
+$_fieldValueAction = $_fileExists ? 'save_old' : 'save_new';
+$_fileNamed = $_fileName . '_name';
+$_rand = rand();
+
+$helper = Mage::helper('customoptions');
+$disabled = '';
+if ($helper->isDependentEnabled() && $_option->getIsDependent()) {
+    $disabled = 'disabled="disabled"';
+    $js ='inGroupIdData['.$_option->getInGroupId().'] = {"disabled":true, "option_'.$_option->getId().'_file":1};';
+    if (Mage::getConfig()->getModuleConfig('Mico_Mupload')->is('active', true)) $js .= 'inGroupIdData['.$_option->getInGroupId().'] = {"disabled":true, "mico-mupload-uploader-container-'.$_option->getId().'":1};';
+    echo '<script type="text/javascript">' . $js . '</script>';
+}
+?>
+<script type="text/javascript">
+//<![CDATA[
+    opFile<?php echo $_rand; ?> = {
+        initializeFile: function(inputBox) {
+            this.inputFile = inputBox.select('input[name="<?php echo $_fileName; ?>"]')[0];
+            this.inputFileAction = inputBox.select('input[name="<?php echo $_fieldNameAction; ?>"]')[0];
+            this.fileNameBox = inputBox.up('dd').select('.<?php echo $_fileNamed ?>')[0];
+        },
+
+        toggleFileChange: function(inputBox) {
+            this.initializeFile(inputBox);
+            inputBox.toggle();
+            this.fileChangeFlag = this.fileChangeFlag ? false : true;
+            if (!this.fileDeleteFlag) {
+                if (this.fileChangeFlag) {
+                     this.inputFileAction.value = 'save_new';
+                     this.inputFile.disabled = false;
+                 } else {
+                     this.inputFileAction.value = 'save_old';
+                     this.inputFile.disabled = true;
+                 }
+            }
+        },
+
+        toggleFileDelete: function(fileDeleteFlag, inputBox) {
+            this.initializeFile(inputBox);
+            this.fileDeleteFlag = fileDeleteFlag.checked ? true : false;
+            if (this.fileDeleteFlag) {
+                this.inputFileAction.value = '';
+                this.inputFile.disabled = true;
+                this.fileNameBox.setStyle({'text-decoration': 'line-through'});
+            } else {
+                this.inputFileAction.value = this.fileChangeFlag ? 'save_new' : 'save_old';
+                this.inputFile.disabled = (this.fileChangeFlag == 'save_old');
+                this.fileNameBox.setStyle({'text-decoration': 'none'});
+            }
+        }
+    };
+//]]>
+</script>
+<div <?php if ($helper->hideDependentOption() && $_option->getIsDependent() || $_option->getViewMode()==2) { ?>style="display: none;"<?php } ?> class="option<?php if ($helper->isSpecifyingCssClassEnabled() && $_option->getDivClass()) echo ' '.$_option->getDivClass() ?>">
+<dl>
+    <dt><label><?php echo  $this->htmlEscape($_option->getTitle()) ?><?php if ($_option->getIsRequire(true)): ?><span class="required">&nbsp;*</span><?php endif; ?></label>
+        <?php if (!$_option->getIsMsrp()) echo $helper->getFormatedOptionPrice($this->getProduct(), $this->getFormatedPrice()); ?>
+        <?php if ($_option->getDescription()): ?><p class="note"><?php echo $_option->getDescription() ?></p><?php endif; ?>
+    </dt>
+    <dd<?php if ($_option->decoratedIsLast){?> class="last"<?php }?>>
+        <?php if ($_fileExists) { ?>
+            <span class="<?php echo $_fileNamed ?>"><?php echo $_fileInfo->getTitle(); ?></span>
+            <a href="javascript:void(0)" class="label" onclick="opFile<?php echo $_rand; ?>.toggleFileChange($(this).next('.input-box'))">
+                <?php echo Mage::helper('catalog')->__('Change') ?>
+            </a>&nbsp;
+            <?php if (!$_option->getIsRequire()): ?>
+               <input type="checkbox" onclick="opFile<?php echo $_rand; ?>.toggleFileDelete($(this), $(this).next('.input-box'))" />
+               <span class="label"><?php echo Mage::helper('catalog')->__('Delete') ?></span>
+            <?php endif; ?>
+        <?php } ?>
+        
+        <div class="input-box" <?php echo $_fileExists ? 'style="display:none"' : '' ?>>
+            <input type="file" id="option_<?php echo $_option->getId() ?>_file" <?php echo $disabled ?>  name="<?php echo $_fileName; ?>" class="product-custom-option<?php echo $_option->getIsRequire(true) ?($_option->getIsDependent()?' required-dependent':' required-entry') : '' ?>" onchange="opConfig.reloadPrice()" />
+            <input type="hidden" name="<?php echo $_fieldNameAction; ?>" value="<?php echo $_fieldValueAction; ?>" />
+            <?php if ($_option->getFileExtension()): ?>
+                <p class="no-margin"><?php echo Mage::helper('catalog')->__('Allowed file extensions to upload')?>: <strong><?php echo $_option->getFileExtension() ?></strong></p>
+            <?php endif; ?>
+            <?php if ($_option->getImageSizeX() > 0): ?>
+                <p class="no-margin"><?php echo Mage::helper('catalog')->__('Maximum image width')?>: <strong><?php echo $_option->getImageSizeX() ?> <?php echo Mage::helper('catalog')->__('px.')?></strong></p>
+            <?php endif; ?>
+            <?php if ($_option->getImageSizeY() > 0): ?>
+                <p class="no-margin"><?php echo Mage::helper('catalog')->__('Maximum image height')?>: <strong><?php echo $_option->getImageSizeY() ?> <?php echo Mage::helper('catalog')->__('px.')?></strong></p>
+            <?php endif; ?>
+        </div>
+    </dd>
+</dl>
+</div>

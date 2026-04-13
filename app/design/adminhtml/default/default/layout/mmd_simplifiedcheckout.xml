@@ -1,0 +1,44 @@
+<?xml version="1.0"?>
+<layout version="0.1.0">
+    <simplifiedcheckout_adminhtml_simplifiedcheckout_index>
+        <reference name="content">
+            <block type="simplifiedcheckout/adminhtml_simplifiedcheckout" name="simplifiedcheckout" />
+        </reference>
+    </simplifiedcheckout_adminhtml_simplifiedcheckout_index>
+	
+	<adminhtml_sales_order_view>
+	 
+			<reference name="order_tab_info">
+				<action method="setTemplate"><template>mmd_simplifiedcheckout/sales/order/view/tab/info.phtml</template></action>
+				<block type="simplifiedcheckout/adminhtml_simplifiedcheckout_sales_order_view_tab_info_customermessages" name="customer_messages" template="mmd_simplifiedcheckout/sales/order/view/tab/info/customermessages.phtml"></block>
+				<block type="simplifiedcheckout/adminhtml_simplifiedcheckout_sales_order_view_tab_info_deliverydate" name="deliverydate" template="mmd_simplifiedcheckout/sales/order/view/tab/info/deliverydate.phtml"></block>
+			</reference>
+		
+	</adminhtml_sales_order_view>
+	
+	<adminhtml_system_config_edit>		
+			<reference name="head">
+			<action method="addCss"><stylesheet>mmd_simplifiedcheckout/css/colorpicker.css</stylesheet></action>
+    		<action method="addJs"><script>mmd_js/jquery.js</script></action>    		
+    		<action method="addJs"><script>mmd_simplifiedcheckout/colorpicker.js</script></action>
+    		<action method="addJs"><script>mmd_simplifiedcheckout/validate.js</script></action>
+			</reference>
+	</adminhtml_system_config_edit>
+	
+	 <adminhtml_sales_order_grid>
+        <remove name="root"/>
+
+        <reference name="content">
+            <block type="simplifiedcheckout/sales_order_grid" name="sales_order.grid"></block>
+        </reference>
+    </adminhtml_sales_order_grid>
+
+    <adminhtml_sales_order_index>
+        <remove name="sales_order.grid.container"/>
+
+        <reference name="content">
+            <block type="simplifiedcheckout/sales_order" name="enhancedsalesgrid.sales_order.grid.container"></block>
+        </reference>
+    </adminhtml_sales_order_index>
+	
+</layout>

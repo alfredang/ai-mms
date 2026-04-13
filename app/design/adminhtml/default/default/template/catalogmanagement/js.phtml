@@ -1,0 +1,40 @@
+<?php
+/**
+* @author MMD Team
+* @copyright Copyright (c) 2012-2011 MMD (http://magemobiledesign.com)
+* @package MMD_Catalogmanagement
+*/
+?>
+<?php 
+$_editMode = Mage::getStoreConfig('catalogmanagement/editing/mode');
+?>
+<script type="text/javascript">
+Event.observe(window, 'load', function(){
+    peditGrid  = new mmdCatalogmanagement(<?php echo $this->getColumnsProperties(); ?>, '<?php echo $this->getSaveUrl(); ?>', '<?php echo $this->getSaveAllUrl(); ?>', <?php echo $this->getStoreId(); ?>, '%b %d, %Y', '<?php echo Mage::getDesign()->getSkinUrl('images/grid-cal.gif'); ?>', {quantity_math: <?php echo Mage::helper('catalogmanagement')->getAllowedQtyMath(); ?>, mode: '<?php echo $_editMode; ?>'});
+});
+Event.observe(window, 'load', function(){
+    pgridSortable  = new mmdCatalogmanagementSortable('productGrid_table', 'pgridSortable_button', '<?php echo $this->__('Sort Columns'); ?>', '<?php echo $this->__('Save Sorting'); ?>', '<?php echo $this->getSaveSortingUrl(); ?>', '<?php echo $this->getUrl('*/*/*'); ?>');
+});
+</script>
+<div id="catalogmanagement_edit_note" style="position: absolute; top: 0px; left: 0px; border: 1px solid gray; background-color: white; padding: 2px; font-size: 10px; display: none;">
+    <?php echo $this->__('Click to edit this cell right on the grid.'); ?>
+</div>
+
+<script type="text/javascript">
+LightboxOptions = Object.extend({
+    fileLoadingImage:        '<?php echo Mage::getBaseUrl('js') . 'mmd/catalogmanagement/lightbox/images/loading.gif'?>',     
+    fileBottomNavCloseImage: '<?php echo Mage::getBaseUrl('js') . 'mmd/catalogmanagement/lightbox/images/closelabel.gif'?>',
+
+    overlayOpacity: 0.8,   // controls transparency of shadow overlay
+
+    animate: true,         // toggles resizing animations
+    resizeSpeed: 10,        // controls the speed of the image resizing animations (1=slowest and 10=fastest)
+
+    borderSize: 10,         //if you adjust the padding in the CSS, you will need to update this variable
+
+    // When grouping images this is used to write: Image # of #.
+    // Change it for non-english localization
+    labelImage: "Image",
+    labelOf: "of"
+}, window.LightboxOptions || {});
+</script>

@@ -1,0 +1,77 @@
+<?xml version="1.0"?>
+<!-- @copyright  Copyright (c) 2009 MMD, Inc. -->
+<config>
+    <includes>
+        <default>
+			<MMD_Mmdsys_Abstract_Block/>
+			<MMD_Mmdsys_Abstract_Helper/>
+			<MMD_Mmdsys_Abstract_Model_Interface/>
+			<MMD_Mmdsys_Abstract_Model/>
+			<MMD_Mmdsys_Abstract_Mysql4_Collection/>
+			<MMD_Mmdsys_Abstract_Mysql4/>
+			<MMD_Mmdsys_Abstract_Pure/>
+			<MMD_Mmdsys_Abstract_Resource_Eav_Setup/>
+			<MMD_Mmdsys_Abstract_Resource_Setup/>
+			<MMD_Mmdsys_Abstract_Service/>
+			<MMD_Mmdsys_Abstract_Version/>
+			<MMD_Mmdsys_Helper_Data/>
+			<MMD_Mmdsys_Helper_License/>
+			<MMD_Mmdsys_Helper_Rewriter/>
+			<MMD_Mmdsys_Model_Core_Filesystem/>
+			<MMD_Mmdsys_Model_Core_Cache/>
+			<MMD_Mmdsys_Model_Core_Database/>
+			<MMD_Mmdsys_Model_Service_Exception/>
+			<MMD_Mmdsys_Model_Service/>
+			<MMD_Mmdsys_Model_Module_Abstract/>
+			<MMD_Mmdsys_Model_Module_Install/>
+			<MMD_Mmdsys_Model_Module/>
+			<MMD_Mmdsys_Model_Module_Status/>
+			<MMD_Mmdsys_Model_Mysql4_Module_Status_Collection/>
+			<MMD_Mmdsys_Model_Mysql4_Module_Status/>
+			<MMD_Mmdsys_Model_Mysql4_Setup/>
+			<MMD_Mmdsys_Model_Observer/>
+			<MMD_Mmdsys_Model_Platform/>
+			<MMD_Mmdsys_Model_Rewriter_Abstract/>
+			<MMD_Mmdsys_Model_Rewriter_Autoload/>
+			<MMD_Mmdsys_Model_Rewriter_Class/>
+			<MMD_Mmdsys_Model_Rewriter_Config/>
+			<MMD_Mmdsys_Model_Rewriter_Conflict/>
+			<MMD_Mmdsys_Model_Rewriter_Inheritance/>
+			<MMD_Mmdsys_Model_Rewriter_MageConfig/>
+			<MMD_Mmdsys_Model_Rewriter_Merge/>
+			<MMD_Mmdsys_Model_Rewriter_Observer/>
+			<MMD_Mmdsys_Model_Rewriter/>
+            <Varien_Crypt/>
+            <Varien_Crypt_Abstract/>
+            <Varien_Crypt_Mcrypt/>
+        </default>
+    </includes>
+    <!-- Classes to remove from compilation after batch copy -->
+    <exclude_files>
+        <MMD_Mmdsys_Model_Rewriter_Mage_Core_Block_Template/>
+    </exclude_files>
+    <!-- Classes to remove from compilation before merge into scope files -->
+    <exclude_classes>
+        <default>
+            <Varien_Db_Select/>
+        </default>
+        <checkout>
+            <Varien_Crypt/>
+            <Varien_Crypt_Abstract/>
+            <Varien_Crypt_Mcrypt/>
+        </checkout>
+    </exclude_classes>
+    <remove_scope/>
+    <rename_scope/>
+    <!-- Classes to replace with abstract rewrites after batch copy -->
+    <replace>
+        <Mage_Core_Block_Template/>
+    </replace>
+    <modules_rules>
+        <MMD_Aitcheckout>
+            <rename_scope>
+                <checkout>mmdcheckout</checkout>
+            </rename_scope>
+        </MMD_Aitcheckout>
+    </modules_rules>
+</config>

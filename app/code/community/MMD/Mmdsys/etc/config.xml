@@ -1,0 +1,327 @@
+<?xml version="1.0"?>
+<!-- @copyright  Copyright (c) 2009 MMD, Inc. -->
+<config>
+    <modules>
+        <MMD_Mmdsys>
+            <version>3.0.0</version>
+        </MMD_Mmdsys>
+    </modules>
+    
+    <admin>
+        <routers>
+            <mmdsys>
+                <use>admin</use>
+                <args>
+                    <module>MMD_Mmdsys</module>
+                    <frontName>mmdsys</frontName>
+                </args>
+            </mmdsys>
+        </routers>
+    </admin>
+
+    <mmdsys>
+        <events />
+    </mmdsys>
+    
+    <adminhtml>
+        <layout>
+            <updates>
+                <mmdsys>
+                    <file>mmdcore.xml</file>
+                </mmdsys>
+            </updates>
+        </layout>
+        <menu>
+            <system>
+                <children>
+                    <mmdsys translate="title" module="mmdsys"> 
+                        <title>Checkout Options Manager</title>
+                        <sort_order>1</sort_order>           
+                        <action>mmdsys</action>
+                    </mmdsys> 
+                </children>
+            </system>
+        </menu>
+        <acl>
+            <resources>
+                <admin>
+                    <children>
+                        <system>
+                            <children>
+                                <mmdsys translate="title" module="mmdsys">
+                                    <title>Checkout Options Manager</title>
+                                    <sort_order>0</sort_order>
+                                </mmdsys>
+                                <config>
+                                    <children>
+                                        <mmdsys translate="title" module="mmdsys">
+                                            <title>MMD Store Specific Settings</title>
+                                        </mmdsys>
+                                    </children>
+                                </config>
+                            </children>
+                        </system>
+                    </children>
+                </admin>
+            </resources>
+        </acl>
+        <!-- Do not uncomment this (X_x) 
+        <events>
+            <controller_action_predispatch>
+                <observers>
+                    <mmd_notfications>
+                        <type>singleton</type>
+                        <class>mmdsys/observer</class>
+                        <method>updateNews</method>
+                    </mmd_notfications>
+                </observers>
+            </controller_action_predispatch>
+        </events>
+        -->
+    </adminhtml>
+    
+    <global>
+        <events>
+            <!-- events for custom autoload start -->
+            <resource_get_tablename>
+                <observers>
+                    <mmdsys_rewriter_observer>
+                        <type>singleton</type>
+                        <class>mmdsys/rewriter_observer</class>
+                        <method>init</method>
+                    </mmdsys_rewriter_observer>
+                </observers>
+            </resource_get_tablename>
+            <core_collection_abstract_load_before>
+                <observers>
+                    <mmdsys_rewriter_observer>
+                        <type>singleton</type>
+                        <class>mmdsys/rewriter_observer</class>
+                        <method>init</method>
+                    </mmdsys_rewriter_observer>
+                </observers>
+            </core_collection_abstract_load_before>
+            <!-- events for custom autoload end -->
+            
+            <!-- cache cleaning start -->
+            <application_clean_cache>
+                <observers>
+                    <mmdsys_rewriter_observer>
+                        <type>singleton</type>
+                        <class>mmdsys/rewriter_observer</class>
+                        <method>clearCache</method>
+                    </mmdsys_rewriter_observer>
+                </observers>
+            </application_clean_cache>
+            
+            <controller_action_predispatch_adminhtml_cache_flushAll>
+                <observers>
+                    <mmdsys_rewriter_observer>
+                        <type>singleton</type>
+                        <class>mmdsys/rewriter_observer</class>
+                        <method>clearCache</method>
+                    </mmdsys_rewriter_observer>
+                </observers>
+            </controller_action_predispatch_adminhtml_cache_flushAll>
+            
+            <controller_action_predispatch_adminhtml_cache_massRefresh>
+                <observers>
+                    <mmdsys_rewriter_observer>
+                        <type>singleton</type>
+                        <class>mmdsys/rewriter_observer</class>
+                        <method>clearCache</method>
+                    </mmdsys_rewriter_observer>
+                </observers>
+            </controller_action_predispatch_adminhtml_cache_massRefresh>
+            <!-- cache cleaning end -->
+            
+            <controller_front_init_routers>
+                <observers>
+                    <mmdsys_debuger_init>
+                        <type>singleton</type>
+                        <class>mmdsys/observer</class>
+                        <method>correction</method>
+                    </mmdsys_debuger_init>
+                </observers>
+            </controller_front_init_routers>
+            
+            <controller_action_predispatch>
+                <observers>
+                    <mmdsys_error_render>
+                        <type>singleton</type>
+                        <class>mmdsys/observer</class>
+                        <method>errorRender</method>
+                    </mmdsys_error_render>
+                </observers>
+            </controller_action_predispatch>
+            
+            <core_block_abstract_to_html_after>
+                <observers>
+                    <mmdsys_compatibility>
+                        <type>singleton</type>
+                        <class>mmdsys/observer</class>
+                        <method>compatibility</method>
+                    </mmdsys_compatibility>
+                </observers>
+            </core_block_abstract_to_html_after>
+        </events>
+        <resources>
+            <mmdsys_setup>
+                <setup>
+                    <module>MMD_Mmdsys</module>
+                    <class>MMD_Mmdsys_Model_Mysql4_Setup</class>
+                </setup>
+                <connection>
+                    <use>core_setup</use>
+                </connection>
+                <sql_files>
+                    <upgrade>
+                        <u1>1.0-2.0.0</u1>
+                        <u2>1.0.0-2.0.0</u2>
+                        <u3>2.7.3-2.7.4</u3>
+                        <u4>2.14.6-2.15.0</u4>
+                        <u6>2.15.5-2.15.6</u6>
+                        <u6>2.20.1-2.21.0</u6>
+                        <u6>2.99.0-3.0.0</u6>
+                    </upgrade>
+                    <install>
+                        <i1>3.0.0</i1>
+                    </install>
+                </sql_files>
+            </mmdsys_setup>
+            
+            <mmdsys_write>
+                <connection>
+                    <use>core_write</use>
+                </connection>
+            </mmdsys_write>
+            
+            <mmdsys_read>
+                <connection>
+                    <use>core_read</use>
+                </connection>
+            </mmdsys_read>
+        
+        </resources>        
+    
+        <models>
+            <mmdsys>
+                <class>MMD_Mmdsys_Model</class>
+                <resourceModel>mmdsys_mysql4</resourceModel>
+            </mmdsys>
+            <mmdsys_mysql4>
+                <class>MMD_Mmdsys_Model_Mysql4</class>
+                <entities>
+                    <news>
+                        <table>mmdsys_news</table>
+                    </news>
+                    <status>
+                        <table>mmdsys_status</table>
+                    </status>
+                </entities>
+            </mmdsys_mysql4>
+            
+            <compiler>
+                <rewrite>
+                    <process>MMD_Mmdsys_Model_Core_Compiler_Process</process>
+                </rewrite>
+            </compiler>
+        </models>
+        
+        <blocks>
+            <mmdsys>
+                <class>MMD_Mmdsys_Block</class>
+            </mmdsys>
+            
+            <!-- rewriteabstract is our installer tag (for internal use) -->
+            <core>
+                <rewriteabstract>
+                    <template>MMD_Mmdsys_Model_Rewriter_Mage_Core_Block_Template</template>
+                </rewriteabstract>
+            </core>
+        </blocks>
+        
+        <helpers>
+            <mmdsys>
+                <class>MMD_Mmdsys_Helper</class>
+            </mmdsys>
+        </helpers>
+        
+        <cache>
+            <types>
+                <mmdsys translate="label,description" module="mmdsys">
+                    <label>Class Rewrites</label>
+                    <description>Extended class-rewriting subsystem.</description>
+                    <tags>mmdsys</tags>
+                </mmdsys>
+            </types>
+        </cache>
+        
+    </global>
+    
+    <default>
+        <mmdsys>
+            <service>
+                <url>https://www.mmd.com/api/xmlrpc</url>
+            </service>
+            <settings>
+                <use_dynamic_patches>0</use_dynamic_patches>
+            </settings>
+            <errors>
+                <seg_exceed_limit>
+                    <code>1001</code>
+                    <text><![CDATA[License Rule "%s" violated. Available License value: %s; Currently Used value: %s. %s]]></text>
+                </seg_exceed_limit>
+                <seg_config_stores_module_not_found>
+                    <code>1002</code>
+                    <text><![CDATA[Module with key "%s" was not found. Please make sure that module package is placed in correct location.]]></text>
+                </seg_config_stores_module_not_found>
+                <seg_config_stores_exceed_limit>
+                    <code>1003</code>
+                    <text><![CDATA[You can't assign more than %d store(s) to use with "%s" module. Read MMD License agreement for details. %s]]></text>
+                </seg_config_stores_exceed_limit>
+                <seg_config_stores_cant_disable>
+                    <code>1004</code>
+                    <text><![CDATA[You can't unassign store(s) to use with "%s" module. Refer to MMD License agreement for details. %s]]></text>
+                </seg_config_stores_cant_disable>
+                <seg_config_module_license_not_found>
+                    <code>1005</code>
+                    <text><![CDATA[The module with key "%s" has no license. Please make sure the module and license  are installed.]]></text>
+                </seg_config_module_license_not_found>
+                <seg_config_module_disabled_for_store>
+                    <code>1006</code>
+                    <text><![CDATA[You should enable module for store %s  in System/Configuration/MMD Module Manager. %s]]></text>
+                </seg_config_module_disabled_for_store>
+                <seg_config_module_disabled_for_website>
+                    <code>1007</code>
+                    <text><![CDATA[You should enable module for all stores of website %s in System/Configuration/MMD Module Manager. %s]]></text>
+                </seg_config_module_disabled_for_website>
+                <seg_config_module_disabled_for_all_stores>
+                    <code>1008</code>
+                    <text><![CDATA[You should enable module for all stores in System/Configuration/MMD Module Manager. %s]]></text>
+                </seg_config_module_disabled_for_all_stores>
+                <seg_config_admins_exceed_limit>
+                    <code>1009</code>
+                    <text><![CDATA[You can't apply features of "%s" module for more than %d administrator(s). To save the settings, please remove excess users from the Role. Read MMD License agreement for details. %s]]></text>
+                </seg_config_admins_exceed_limit>
+                <seg_store_access_denied>
+                    <code>1010</code>
+                    <text><![CDATA[The module "%s" is disabled for current store]]></text>
+                </seg_store_access_denied>
+                <seg_config_admins_module_cant_enable>
+                    <code>1011</code>
+                    <text><![CDATA[You can't enable "%s" module because you exceed the limit of %d administrators. Read MMD License agreement for details. %s]]></text>
+                </seg_config_admins_module_cant_enable>
+                <seg_license_violated>
+                    <code>1012</code>
+                    <text><![CDATA[The license for module "%s" has been violated. Module has been disabled.]]></text>
+                </seg_license_violated>
+                <seg_config_products_exceed_limit>
+                    <code>1013</code>
+                    <text><![CDATA[You can't apply features of "%s" module for more than %d product(s). Read MMD License agreement for details. %s]]></text>
+                </seg_config_products_exceed_limit>
+            </errors>
+        </mmdsys>
+    </default>
+    
+</config>

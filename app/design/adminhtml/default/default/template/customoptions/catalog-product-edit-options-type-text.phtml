@@ -1,0 +1,105 @@
+<?php
+/**
+ * MMD
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the MMD EULA that is bundled with
+ * this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * http://www.magemobiledesign.com/LICENSE-1.0.html
+ *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade the extension
+ * to newer versions in the future. If you wish to customize the extension
+ * for your needs please refer to http://www.magemobiledesign.com/ for more information
+ *
+ * @category   MMD
+ * @package    MMD_CustomOptions
+ * @copyright  Copyright (c) 2012 MMD (http://www.magemobiledesign.com/)
+ * @license    http://www.magemobiledesign.com/LICENSE-1.0.html
+ */
+
+/**
+ * Advanced Product Options extension
+ *
+ * @category   MMD
+ * @package    MMD_CustomOptions
+ * @author     MMD Dev Team
+ */
+
+$helper = Mage::helper('customoptions');
+?>
+<script type="text/javascript">
+//<![CDATA[
+OptionTemplateText = '<table class="border" <?php if ($helper->isDefaultTextEnabled()) { ?>style="width:1000px;"<?php } ?> cellpadding="0" cellspacing="0">'+
+        '<tr class="headings">'+
+            <?php if ($helper->isDependentEnabled()) { ?>'<th class="type-id"><?php echo $helper->__js('Id') ?></th>'+<?php } ?>
+            '<th class="type-price"><?php echo $helper->__js('Price') ?></th>'+
+            '<th class="type-type"><?php echo $helper->__js('Price Type') ?></th>'+
+            '<th class="type-sku"><?php echo $helper->__js('SKU') ?></th>'+            
+            '<th><?php echo $helper->__js('Max Characters') ?> </th>'+
+            <?php if ($helper->isDefaultTextEnabled()) { ?>'<th class="type-text-default"><?php echo $helper->__js('Default Text') ?></th>'+<?php } ?>
+            '<th class="type-last last"></th>'+
+        '</tr>'+
+        '<tr>'+
+            <?php if ($helper->isDependentEnabled()) { ?>'<td align="center">{{in_group_id_view}}</td>'+<?php } ?>
+            '<td><input type="text" class="input-text validate-number product-option-price" id="product_option_{{option_id}}_price" name="product[options][{{option_id}}][price]" value="{{price}}"></td>'+
+            '<td><?php echo $this->jsQuoteEscape($this->getPriceTypeSelectHtml()) ?>{{checkboxScopePrice}}</td>'+
+            '<td><input type="text" class="input-text" id="product_option_{{option_id}}_sku" name="product[options][{{option_id}}][sku]" value="{{sku}}" onchange="if (!this.value) productOptionType.enablePrice({{id}});"></td>'+
+            '<td><input type="text" class="input-text validate-zero-or-greater" name="product[options][{{option_id}}][max_characters]" value="{{max_characters}}"></td>'+
+            <?php if ($helper->isDefaultTextEnabled()) { ?>'<td><input type="text" class="input-text" style="width: 99% !important;" id="product_option_{{id}}_default_text" name="product[options][{{option_id}}][default_text]" value="{{default_text}}"><br />{{checkboxScopeDefaultText}}</td>'+<?php } ?>
+            '<td><span title="Add image"><?php echo $this->jsQuoteEscape($this->getAddImageButtonHtml()) ?></span></td>'+
+        '</tr>'+
+        '<tr id="file_option_row_{{option_id}}"><td colspan="9">{{image}}</td></tr>'+
+        '<tr><td colspan="9"><div id="file-upload-{{option_id}}"></div></td></tr>'+        
+    '</table>'+
+    '<input type="hidden" class="igi" id="product_option_{{option_id}}_in_group_id" name="product[options][{{option_id}}][in_group_id]" value="{{in_group_id}}"/>';
+
+OptionTemplateArea = '<table class="border" <?php if ($helper->isDefaultTextEnabled()) { ?>style="width:1000px;"<?php } ?> cellpadding="0" cellspacing="0">'+
+        '<tr class="headings">'+
+            <?php if ($helper->isDependentEnabled()) { ?>'<th class="type-id"><?php echo $helper->__js('Id') ?></th>'+<?php } ?>
+            '<th class="type-price"><?php echo $helper->__js('Price') ?></th>'+
+            '<th class="type-type"><?php echo $helper->__js('Price Type') ?></th>'+
+            '<th class="type-sku"><?php echo $helper->__js('SKU') ?></th>'+            
+            '<th><?php echo $helper->__js('Max Characters') ?> </th>'+
+            <?php if ($helper->isDefaultTextEnabled()) { ?>'<th class="type-text-default"><?php echo $helper->__js('Default Text') ?></th>'+<?php } ?>
+            '<th class="type-last last"></th>'+
+        '</tr>'+
+        '<tr>'+
+            <?php if ($helper->isDependentEnabled()) { ?>'<td align="center">{{in_group_id_view}}</td>'+<?php } ?>
+            '<td><input type="text" class="input-text validate-number product-option-price" id="product_option_{{option_id}}_price" name="product[options][{{option_id}}][price]" value="{{price}}"></td>'+
+            '<td><?php echo $this->jsQuoteEscape($this->getPriceTypeSelectHtml()) ?>{{checkboxScopePrice}}</td>'+
+            '<td><input type="text" class="input-text" id="product_option_{{option_id}}_sku" name="product[options][{{option_id}}][sku]" value="{{sku}}" onchange="if (!this.value) productOptionType.enablePrice({{id}});"></td>'+
+            '<td><input type="text" class="input-text validate-zero-or-greater" name="product[options][{{option_id}}][max_characters]" value="{{max_characters}}"></td>'+
+            <?php if ($helper->isDefaultTextEnabled()) { ?>'<td><textarea class="textarea" style="width: 99% !important;" id="product_option_{{id}}_default_text" name="product[options][{{option_id}}][default_text]">{{default_text}}</textarea><br />{{checkboxScopeDefaultText}}</td>'+<?php } ?>
+            '<td><span title="Add image"><?php echo $this->jsQuoteEscape($this->getAddImageButtonHtml()) ?></span></td>'+
+        '</tr>'+
+        '<tr id="file_option_row_{{option_id}}"><td colspan="9">{{image}}</td></tr>'+
+        '<tr><td colspan="9"><div id="file-upload-{{option_id}}"></div></td></tr>'+        
+    '</table>'+
+    '<input type="hidden" class="igi" id="product_option_{{option_id}}_in_group_id" name="product[options][{{option_id}}][in_group_id]" value="{{in_group_id}}"/>';
+
+productOptionTypeText = {
+        createFileField: function(strId) {
+            var id = strId.split('-');
+            var tpl = '<table class="customoptions-file-row" cellspacing="0" cellpadding="0"><tr>'+
+                '<td><input class="input-file" type="file" name="file_'+ id[3] +'" value="" /></td>'+
+                '<td class="td-button"><span title="<?php echo $this->htmlEscape($this->__('Hide')) ?>">'+
+                '<button type="button" onclick="productOptionTypeText.cleanFileRow(\''+ id[3] +'\')" class="delete delete-select-row icon-btn"><span><?php echo $helper->__js('Hide') ?></span></button></span></td>'+
+                '</tr></table>';
+            var field = $('file-upload-'+ id[3]);
+            if (field) {
+                field.update(tpl);
+            }
+        },
+        cleanFileRow: function(optionId) {
+            var fileRow = $('file-upload-'+ optionId);
+            if (fileRow) {
+        	fileRow.update('');
+            }
+	}
+    };
+//]]>
+</script>

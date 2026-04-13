@@ -1,0 +1,304 @@
+<?xml version="1.0"?>
+<config>
+    <modules>
+        <MMD_Checkoutoptions>
+            <version>2.9.2</version>
+        </MMD_Checkoutoptions>
+    </modules>
+    
+    <admin>
+        <routers>
+            <checkoutoptions>
+                <use>admin</use>
+                <args>
+                    <module>MMD_Checkoutoptions</module>
+                    <frontName>checkoutoptions</frontName>
+                </args>
+            </checkoutoptions>
+        </routers>
+    </admin>
+    
+    <adminhtml>
+        <layout>
+            <updates>
+                <checkoutoptions>
+                    <file>checkoutoptions.xml</file>
+                </checkoutoptions>
+            </updates>
+        </layout>
+        
+    </adminhtml> 
+      
+    <frontend>
+        <layout>
+             <updates>
+                  <checkoutoptions>
+                      <file>checkoutoptions.xml</file>
+                  </checkoutoptions>
+             </updates>
+        </layout>
+    </frontend>
+    
+    <global>
+
+        <blocks>
+            <checkoutoptions>
+                <class>MMD_Checkoutoptions_Block</class>
+            </checkoutoptions>
+
+            <adminhtml>
+                <rewrite>
+                    <sales_order_view_info>MMD_Checkoutoptions_Block_Rewrite_AdminSalesOrderViewInfo</sales_order_view_info>
+                    <sales_order_grid>MMD_Checkoutoptions_Block_Rewrite_AdminhtmlSalesOrderGrid</sales_order_grid>
+                    <sales_order_create_form_account>MMD_Checkoutoptions_Block_Rewrite_AdminSalesOrderCreateFormAccount</sales_order_create_form_account>
+                    <customer_edit_tabs>MMD_Checkoutoptions_Block_Rewrite_AdminCustomerEditTabs</customer_edit_tabs>
+				</rewrite>
+            </adminhtml>
+            
+            <sales>
+                <rewrite>
+                    <order_view>MMD_Checkoutoptions_Block_Rewrite_FrontSalesOrderView</order_view>
+                    <order_print>MMD_Checkoutoptions_Block_Rewrite_FrontSalesOrderPrint</order_print>
+                    <order_email_items>MMD_Checkoutoptions_Block_Rewrite_FrontSalesOrderEmailItems</order_email_items>
+					<recurring_profile_view>MMD_Checkoutoptions_Block_Rewrite_FrontSalesRecurringProfileView</recurring_profile_view>
+                </rewrite>
+            </sales>
+            
+            <checkout>
+                <rewrite>
+                    <onepage_billing>MMD_Checkoutoptions_Block_Rewrite_FrontCheckoutOnepageBilling</onepage_billing>
+                    <onepage_shipping>MMD_Checkoutoptions_Block_Rewrite_FrontCheckoutOnepageShipping</onepage_shipping>
+                    <onepage_shipping_method>MMD_Checkoutoptions_Block_Rewrite_FrontCheckoutOnepageShippingMethod</onepage_shipping_method>
+                    <onepage_payment>MMD_Checkoutoptions_Block_Rewrite_FrontCheckoutOnepagePayment</onepage_payment>
+                    <onepage_review>MMD_Checkoutoptions_Block_Rewrite_FrontCheckoutOnepageReview</onepage_review>
+                    <onepage_review_info>MMD_Checkoutoptions_Block_Rewrite_FrontCheckoutOnepageReviewInfo</onepage_review_info>
+                    <multishipping_addresses>MMD_Checkoutoptions_Block_Rewrite_FrontCheckoutMultishippingAddresses</multishipping_addresses>
+                    <multishipping_shipping>MMD_Checkoutoptions_Block_Rewrite_FrontCheckoutMultishippingShipping</multishipping_shipping>
+                    <multishipping_billing>MMD_Checkoutoptions_Block_Rewrite_FrontCheckoutMultishippingBilling</multishipping_billing>
+                    <multishipping_overview>MMD_Checkoutoptions_Block_Rewrite_FrontCheckoutMultishippingOverview</multishipping_overview>
+                </rewrite>
+            </checkout>
+            
+            <customer>
+                <rewrite>
+                    <form_register>MMD_Checkoutoptions_Block_Rewrite_FrontCustomerFormRegister</form_register>
+                    <form_edit>MMD_Checkoutoptions_Block_Rewrite_FrontCustomerFormEdit</form_edit>
+                </rewrite>
+            </customer>
+        </blocks>
+        
+        <models>
+            <checkoutoptions>
+                <class>MMD_Checkoutoptions_Model</class>
+                <resourceModel>checkoutoptions_mysql4</resourceModel>
+            </checkoutoptions>
+            
+            <checkoutoptions_mysql4>
+                <class>MMD_Checkoutoptions_Model_Mysql4</class>
+                <entities>
+                    <order_field>
+                        <table>mmd_order_entity_custom</table>
+                    </order_field>
+                    <customer_field>
+                        <table>mmd_customer_entity_data</table>
+                    </customer_field>
+                    <profile_field>
+                        <table>mmd_recurring_profile_entity_custom</table>
+                    </profile_field>
+                    <description>
+                        <table>mmd_custom_attribute_description</table>
+                    </description>
+                    <need_select>
+                        <table>mmd_custom_attribute_need_select</table>
+                    </need_select>
+                </entities>
+            </checkoutoptions_mysql4>
+        
+             <checkout>
+                <rewrite>
+                    <type_onepage>MMD_Checkoutoptions_Model_Rewrite_FrontCheckoutTypeOnepage</type_onepage>
+                    <type_multishipping>MMD_Checkoutoptions_Model_Rewrite_FrontCheckoutTypeMultishipping</type_multishipping>
+                    <type_multishipping_state>MMD_Checkoutoptions_Model_Rewrite_FrontCheckoutTypeMultishippingState</type_multishipping_state>
+                </rewrite>
+            </checkout>
+            
+            <customer>
+                <rewrite>
+                    <customer>MMD_Checkoutoptions_Model_Rewrite_FrontCustomerCustomer</customer>
+                </rewrite>
+            </customer>
+            
+            <catalog>
+                <rewrite>
+                    <product_flat_observer>MMD_Checkoutoptions_Model_Rewrite_FrontCatalogProductFlatObserver</product_flat_observer>
+                </rewrite>
+            </catalog>
+            
+            <sales>
+                <rewrite>
+                    <order>MMD_Checkoutoptions_Model_Rewrite_FrontSalesOrder</order>
+                    <order_api>MMD_Checkoutoptions_Model_Rewrite_FrontSalesOrderApi</order_api>
+                    <order_api_v2>MMD_Checkoutoptions_Model_Rewrite_FrontSalesOrderApiV2</order_api_v2>
+                    <order_pdf_invoice>MMD_Checkoutoptions_Model_Rewrite_AdminSalesPdfInvoice</order_pdf_invoice>
+                </rewrite>
+            </sales>
+            
+            <adminhtml>
+                <rewrite>
+                    <sales_order_create>MMD_Checkoutoptions_Model_Rewrite_AdminSalesOrderCreate</sales_order_create>
+                </rewrite>
+            </adminhtml>
+            
+            <eav_resource>
+                <rewrite>
+                    <entity_attribute>MMD_Checkoutoptions_Model_Rewrite_EavResourceEntityAttribute</entity_attribute>
+                </rewrite>
+            </eav_resource>
+            
+            <paypal>
+                <rewrite>
+                    <express_checkout>MMD_Checkoutoptions_Model_Rewrite_PaypalExpressCheckout</express_checkout>
+					<ipn>MMD_Checkoutoptions_Model_Rewrite_PaypalIpn</ipn>
+                </rewrite>
+            </paypal>
+            
+            <core>
+                <rewrite>
+                    <email_template>MMD_Checkoutoptions_Model_Rewrite_CoreEmailTemplate</email_template>
+                </rewrite>
+            </core>
+
+        </models>
+        
+        <helpers>
+            <checkoutoptions>
+                <class>MMD_Checkoutoptions_Helper</class>
+            </checkoutoptions>
+        </helpers>
+        
+        <resources>
+            <checkoutoptions_setup>
+                <setup>
+                    <module>MMD_Checkoutoptions</module>
+                </setup>
+                <connection>
+                    <use>core_setup</use>
+                </connection>
+            </checkoutoptions_setup>
+            <checkoutoptions_write>
+                <connection>
+                    <use>core_write</use>
+                </connection>
+            </checkoutoptions_write>
+            <checkoutoptions_read>
+                <connection>
+                    <use>core_read</use>
+                </connection>
+            </checkoutoptions_read>
+        </resources>
+        
+        <events>
+            <controller_action_predispatch_checkout_multishipping_addressesPost>
+                <observers>
+                    <checkoutoptions>
+                        <type>singleton</type>
+                        <class>checkoutoptions/observer</class>
+                        <method>frontCheckoutMultishippingAddressesPost</method>
+                    </checkoutoptions>
+                </observers>
+            </controller_action_predispatch_checkout_multishipping_addressesPost>
+            <controller_action_predispatch_sagepaysuite_payment_onepageSaveOrder>
+                <observers>
+                    <checkoutoptions>
+                        <type>singleton</type>
+                        <class>checkoutoptions/observer</class>
+                        <method>predispatchSagepaysuitePaymentOnepageSaveOrder</method>
+                    </checkoutoptions>
+                </observers>
+            </controller_action_predispatch_sagepaysuite_payment_onepageSaveOrder>
+            <checkoutoptions_paypal_express_order_place_after>
+                <observers>
+                    <checkoutoptions>
+                        <type>singleton</type>
+                        <class>checkoutoptions/observer</class>
+                        <method>onPaypalExpressOrderPlaceAfter</method>
+                    </checkoutoptions>
+                </observers>
+            </checkoutoptions_paypal_express_order_place_after>
+            
+            <controller_action_predispatch_checkout_onepage_progress>
+                <observers>
+                    <checkoutoptions>
+                        <type>singleton</type>
+                        <class>checkoutoptions/observer</class>
+                        <method>onPredispatchCheckoutOnepageProgress</method>
+                    </checkoutoptions>
+                </observers>
+            </controller_action_predispatch_checkout_onepage_progress>
+            <core_block_abstract_to_html_after>
+                <observers>
+                    <checkoutoptions>
+                        <type>singleton</type>
+                        <class>checkoutoptions/observer</class>
+                        <method>onCoreBlockAbstractToHtmlAfter</method>
+                    </checkoutoptions>
+                </observers>
+            </core_block_abstract_to_html_after>
+            <customer_address_format>
+                <observers>
+                    <checkoutoptions>
+                        <type>singleton</type>
+                        <class>checkoutoptions/observer</class>
+                        <method>onCustomerAddressFormat</method>
+                    </checkoutoptions>
+                </observers>            
+            </customer_address_format>
+            <controller_action_predispatch_checkout_multishipping_shipping>
+                <observers>
+                    <checkoutoptions>
+                        <type>singleton</type>
+                        <class>checkoutoptions/observer</class>
+                        <method>onPredispatchCheckoutMultishipping</method>
+                    </checkoutoptions>
+                </observers>            
+            </controller_action_predispatch_checkout_multishipping_shipping>
+            <controller_action_predispatch_checkout_multishipping_overview>
+                <observers>
+                    <checkoutoptions>
+                        <type>singleton</type>
+                        <class>checkoutoptions/observer</class>
+                        <method>onPredispatchCheckoutMultishipping</method>
+                    </checkoutoptions>
+                </observers>            
+            </controller_action_predispatch_checkout_multishipping_overview>            
+        </events>
+    </global>
+    
+    <default>
+        <checkoutoptions>
+            <settings>
+                <checkoutoptions_reg_label_top>Additional Info</checkoutoptions_reg_label_top>
+                <checkoutoptions_reg_label_bottom>Additional Info</checkoutoptions_reg_label_bottom>
+            </settings>
+            <email_settings>
+                <checkoutoptions_email_label>Additional Info</checkoutoptions_email_label>
+                <checkoutoptions_email_TheadTrThStyle>background: #eaeaea; font-size:13px; padding:5px 9px 6px 9px; line-height:1em;</checkoutoptions_email_TheadTrThStyle>
+                <checkoutoptions_email_TbodyTrTdStyle>font-size:12px; padding:7px 9px 9px 9px; border-left:1px solid #eaeaea; border-bottom:1px solid #eaeaea; border-right:1px solid #eaeaea;</checkoutoptions_email_TbodyTrTdStyle>
+            </email_settings>
+            <common_settings>
+                <checkoutoptions_additionalblock_label>Additional Info</checkoutoptions_additionalblock_label>
+            </common_settings>
+        </checkoutoptions>
+    </default>
+</config>
+<!--
+/**
+ * Checkout Fields Manager
+ *
+ * @category:    MMD
+ * @package:     MMD_Checkoutoptions
+ * @version      2.9.2
+ * @license:     
+ * @copyright:   Copyright (c) 2013 MMD, Inc. (http://www.mmd.com)
+ */
+-->

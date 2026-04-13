@@ -1,0 +1,60 @@
+<?xml version="1.0"?>
+<layout>
+    <default>
+        <reference name="notifications">
+            <block type="mmdsys/rewriter_notifications" name="mmdsys_rewriter_notifications" template="mmdcore/rewriter/notifications.phtml" />
+        </reference>
+    </default>
+    
+    <mmdsys_index_index>
+        <reference name="head">
+            <action method="addCss"><name>mmd/mmdsys.css</name></action>
+        </reference>
+        <reference name="content">
+            <block type="mmdsys/edit" name="mmdsys.edit" template="mmdcore/edit.phtml">
+                <block type="mmdsys/news" name="mmdsys.news" template="mmdcore/news.phtml" />
+            </block>
+        </reference>
+    </mmdsys_index_index>
+    
+    <mmdsys_patch_index>
+        <reference name="head">
+            <action method="addCss"><name>mmd/mmdsys.css</name></action>
+        </reference>
+        <reference name="content">
+            <block type="mmdsys/patch_view" name="mmdsys.patch.view" template="mmdcore/patch/view.phtml" />
+        </reference>
+    </mmdsys_patch_index>
+    
+    <mmdsys_patch_instruction>
+        <reference name="head">
+            <action method="addCss"><name>mmd/mmdsys.css</name></action>
+        </reference>
+        <reference name="content">
+            <block type="mmdsys/patch_instruction" name="mmdsys.patch.instruction" template="mmdcore/patch/instruction.phtml">
+                <block type="mmdsys/patch_instruction_one" name="mmdsys.patch.instruction.one" template="mmdcore/patch/instruction/one.phtml" />
+            </block>
+        </reference>
+    </mmdsys_patch_instruction>
+    
+    <mmdsys_rewriter_index>
+        <reference name="head">
+            <action method="addCss"><name>mmd/mmdsys.css</name></action>
+        </reference>
+        <reference name="content">
+            <block type="mmdsys/rewriter_list" name="mmdsys.rewriter.list" template="mmdcore/rewriter/list.phtml" />
+        </reference>
+    </mmdsys_rewriter_index>
+</layout>
+
+<!--
+/**
+ * Checkout Fields Manager
+ *
+ * @category:    MMD
+ * @package:     MMD_Checkoutoptions
+ * @version      2.9.2
+ * @license:     
+ * @copyright:   Copyright (c) 2013 MMD, Inc. (http://www.mmd.com)
+ */
+-->

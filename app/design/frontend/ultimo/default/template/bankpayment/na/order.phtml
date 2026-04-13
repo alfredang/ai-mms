@@ -1,0 +1,264 @@
+<?php
+/**
+ * Magento
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Academic Free License (AFL 3.0)
+ * that is bundled with this package in the file LICENSE_AFL.txt.
+ * It is also available through the world-wide-web at this URL:
+ * http://opensource.org/licenses/afl-3.0.php
+ * If you did not receive a copy of the license and are unable to
+ * obtain it through the world-wide-web, please send an email
+ * to license@magentocommerce.com so we can send you a copy immediately.
+ *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
+ * @category    design
+ * @package     base_default
+ * @copyright   Copyright (c) 2013 Magento Inc. (http://www.magentocommerce.com)
+ * @license     http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
+ */
+?>
+<?php $active = Mage::getStoreConfig('payment/bankpayment/enabledorder');
+if($active==1) {
+
+ $banks_raw = Mage::getStoreConfig('payment/bankpayment/bank_accounts');
+ $_account = unserialize ($banks_raw); 
+ $cnt = count($_account['account_holder']);
+?>
+<div id="messages_product_view"><?php echo $this->getMessagesBlock()->getGroupedHtml() ?></div>
+<div class="page-title">
+    <h1><?php echo Mage::helper('bankpayment')->__('Bank Transfer Confirm Order Form:') ?></h1>
+</div>
+
+ <div class="input-box">
+                <?php $first = true; ?>
+                <?php for($i=1;$i<=$cnt;$i++) {				
+				if($_account['account_holder'][$i]!="") {
+				?> <div class="fieldset" style="float:left;margin:5px 20px 0 0;">               
+                    <table >
+                        <tbody>
+                            <?php if ($_accountHolder = $_account['account_holder'][$i]): ?>
+                                <tr><td width="150"><label><b><?php echo $this->__('Account Holder') ?>:</b></label></td><td><?php echo $_accountHolder ?></td></tr>
+                            <?php endif; ?>
+                            <?php if ($_accountNumber = $_account['account_number'][$i]): ?>
+                                <tr><td><label><b><?php echo $this->__('Account Number') ?>:</b></label></td><td><?php echo $_accountNumber ?></td></tr>
+                            <?php endif; ?>
+							 <?php if ($_bankName = $_account['bank_name'][$i]): ?>
+                                <tr><td><label><b><?php echo $this->__('Bank Name') ?>:</b></label></td><td><?php echo $_bankName ?></td></tr>
+                            <?php endif; ?>
+                            <?php if ($_sortCode = $_account['sort_code'][$i]): ?>
+                                <tr><td><label><b><?php echo $this->__('Bank Code') ?>:</b></label></td><td><?php echo $_sortCode ?></td></tr>
+                            <?php endif; ?>
+                           
+							
+							<?php if ($_branchCode = $_account['branch_code'][$i]): ?>
+                                <tr><td><label><b><?php echo $this->__('Branck Code') ?>:</b></label></td><td><?php echo $_branchCode ?></td></tr>
+                            <?php endif; ?>
+							
+							<?php if ($iban = $_account['iban'][$i]): ?>
+                                <tr><td><label><b><?php echo $this->__('IBAN') ?>:</b></label></td><td><?php echo $iban ?></td></tr>
+                            <?php endif; ?>
+							<?php if ($bic = $_account['bic'][$i]): ?>
+                                <tr><td><label><b><?php echo $this->__('BIC') ?>:</b></label></td><td><?php echo $bic ?></td></tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                    </div>
+                <?php } } ?>   
+<div style="clear:both;"></div>				
+            </div>
+
+
+ <h2 class="sub-title"><?php echo $this->__('After you have made the bank transfer!') ?></h2>
+ <p><?php echo $this->__('Please fill the form below to process your order') ?></p>
+<form action="<?php echo $this->getUrl(); ?>bankpayment/index/post" id="bankpaymentForm" method="post" enctype="multipart/form-data">
+    <div class="fieldset">
+        <h2 class="legend"><?php echo Mage::helper('bankpayment')->__('Order Information') ?></h2>
+        <ul class="form-list">
+            <li class="fields">
+                <div class="field">
+                    <label for="name" class="required"><em>*</em><?php echo Mage::helper('bankpayment')->__('Name') ?></label>
+                    <div class="input-box">
+                        <input name="name" id="name" title="<?php echo Mage::helper('bankpayment')->__('Name') ?>" value="<?php echo $this->htmlEscape($this->helper('bankpayment')->getUserName()) ?>" class="input-text required-entry" type="text" />
+                    </div>
+                </div>
+                <div class="field">
+                    <label for="email" class="required"><em>*</em><?php echo Mage::helper('bankpayment')->__('Email') ?></label>
+                    <div class="input-box">
+                        <input name="email" id="email" title="<?php echo Mage::helper('bankpayment')->__('Email') ?>" value="<?php echo $this->htmlEscape($this->helper('bankpayment')->getUserEmail()) ?>" class="input-text required-entry validate-email" type="text" />
+                    </div>
+                </div>
+            </li>
+            <li class="fields">
+				<div class="field">
+					<label for="transaction_id" class="required"><?php echo Mage::helper('bankpayment')->__('Transaction ID') ?></label>
+					<div class="input-box">
+						<input name="transaction_id" id="transaction_id" title="<?php echo Mage::helper('bankpayment')->__('Transaction ID') ?>" value="" class="input-text " type="text" />
+					</div>
+				</div>
+				<div class="field">
+					<label for="bank_paid_to" class="required"><?php echo Mage::helper('bankpayment')->__('Bank Account Paid To') ?></label>
+					<div class="input-box">
+						<select name="bank_paid_to" id="bank_paid_to" class="validate-select">
+						<option value="">Please Select</option>
+						<?php if(count($_account['bank_name'])>0) {
+							foreach($_account['bank_name'] as $bk)
+							{
+								if($bk!="") { echo '<option value="'.$bk.'">'.$bk.'</option>';}
+							}
+
+						}
+						?>						
+						</select>
+						
+					</div>
+				</div>
+            </li>
+			 <li>
+			   <li>
+                <label for="order_id" class="required"><?php echo Mage::helper('bankpayment')->__('Order ID') ?></label>
+                <div class="input-box">
+                    <input name="order_id" id="order_id" title="<?php echo Mage::helper('bankpayment')->__('Order ID') ?>" value="<?php echo $this->getOrderId();?>" class="input-text" type="text" />
+                </div>
+            </li>
+			 <li>
+                <label for="ib_nick" class="required"><?php echo Mage::helper('bankpayment')->__('IB Nickname') ?></label>
+                <div class="input-box">
+                    <input name="ib_nick" id="ib_nick" title="<?php echo Mage::helper('bankpayment')->__('IB Nickname') ?>" value="" class="input-text" type="text" />
+                </div>
+            </li>
+			 <li>
+                <label for="transaction_date" class="required"><?php echo Mage::helper('bankpayment')->__('Transaction Date (DD/MM/YYYY)') ?></label>
+                <div class="input-box">
+                    <input name="transaction_date" id="transaction_date" title="<?php echo Mage::helper('bankpayment')->__('Transaction Date(DD/MM/YYYY)') ?>" onblur="dateValidate()" onkeyup="dateValidate()" class="input-text  validate-date" type="text" />
+                    <div id="val_date_msg" class="validation-advice" style="display:none">Invalid Date</div>
+                </div>
+            </li>
+			 <li>
+                <label for="transaction_time"><?php echo Mage::helper('bankpayment')->__('Transaction Time') ?></label>
+                <div class="input-box">
+                    <input name="transaction_time" id="transaction_time" title="<?php echo Mage::helper('bankpayment')->__('Transaction Time') ?>" value="" class="input-text" type="text" />
+                </div>
+            </li>
+            <li class="wide">
+                <label for="comment" class="required"><?php echo Mage::helper('bankpayment')->__('Comment') ?></label>
+                <div class="input-box">
+                    <textarea name="comment" id="comment" title="<?php echo Mage::helper('bankpayment')->__('Comment') ?>" class="input-text" cols="5" rows="3"></textarea>
+                </div>
+            </li>
+			<li>
+                <label for="comment" class="required"><?php echo Mage::helper('bankpayment')->__('Upload your payment receipt') ?></label>
+                <div class="input-box">
+					<input type="file" name="file_receipt" title="<?php echo Mage::helper('bankpayment')->__('Upload File') ?>" />
+                   
+                </div>
+            </li>
+        </ul>
+    </div>
+    <div class="buttons-set">
+        <p class="required"><?php echo Mage::helper('bankpayment')->__('* Required Fields') ?></p>
+        <input type="text" name="hideit" id="hideit" value="" style="display:none !important;" />
+        <button type="submit" title="<?php echo Mage::helper('bankpayment')->__('Submit') ?>" class="button"><span><span><?php echo Mage::helper('bankpayment')->__('Submit') ?></span></span></button>
+    </div>
+</form>
+<script type="text/javascript">
+function validatedate(inputText)
+{
+var dateformat = /^(0?[1-9]|[12][0-9]|3[01])[\/\-](0?[1-9]|1[012])[\/\-]\d{4}$/;
+// Match the date format through regular expression
+if(inputText.match(dateformat))
+{
+
+//Test which seperator is used '/' or '-'
+var opera1 = inputText.split('/');
+var opera2 = inputText.split('-');
+lopera1 = opera1.length;
+lopera2 = opera2.length;
+// Extract the string into month, date and year
+if (lopera1>1)
+{
+var pdate = inputText.split('/');
+}
+else if (lopera2>1)
+{
+var pdate = inputText.split('-');
+}
+var dd = parseInt(pdate[0]);
+var mm  = parseInt(pdate[1]);
+var yy = parseInt(pdate[2]);
+// Create list of days of a month [assume there is no leap year by default]
+var ListofDays = [31,28,31,30,31,30,31,31,30,31,30,31];
+if (mm==1 || mm>2)
+{
+if (dd>ListofDays[mm-1])
+{
+return false;
+}
+}
+if (mm==2)
+{
+var lyear = false;
+if ( (!(yy % 4) && yy % 100) || !(yy % 400)) 
+{
+lyear = true;
+}
+if ((lyear==false) && (dd>=29))
+{
+return false;
+}
+if ((lyear==true) && (dd>29))
+{
+return false;
+}
+}
+}
+else
+{
+return false;
+}
+return true;
+}
+  
+
+function dateValidate()
+{
+	var txtDate = document.getElementById('transaction_date').value;
+	if(validatedate(txtDate))
+	{
+	   document.getElementById('val_date_msg').style.display="none";	  
+	}else {
+	    document.getElementById('val_date_msg').style.display="block";
+		return false;
+	}
+	
+	 if(document.getElementById('advice-validate-date-transaction_date')) 
+	 {
+		document.getElementById('advice-validate-date-transaction_date').style.display="none";
+	 }
+	 if(document.getElementById('advice-required-entry-transaction_date')) 
+	 {
+		document.getElementById('advice-required-entry-transaction_date').style.display="none";
+	 } 	
+	 document.getElementById("transaction_date").className = "input-text required-entry validate-date validation-passed";	
+}
+//<![CDATA[
+    var bankpaymentForm = new VarienForm('bankpaymentForm', true);
+	Validation.add('validate-date', 'Invalid Date', function(v, element) {  
+	document.getElementById('val_date_msg').style.display="none";	
+   if(validatedate(v))
+	{
+	     return true;
+	}else {
+	    
+		return false;
+	}
+})
+//]]>
+</script>
+<?php  } ?>

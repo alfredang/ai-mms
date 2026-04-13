@@ -1,0 +1,59 @@
+<?php
+/**
+* @author MMD Team
+* @copyright Copyright (c) 2012-2011 MMD (http://magemobiledesign.com)
+* @package MMD_Catalogmanagement
+*/
+?>
+<script type="text/javascript">
+Event.observe(window, 'load', function(){
+    pAttribute = new amPattribute('<?php echo $this->__('Grid Columns'); ?>');
+});
+</script>
+<?php $selected = $this->getSelectedAttributes(); ?>
+<div id="pAttribute_block" style="display: none;">
+    <form action="<?php echo $this->getSaveUrl(); ?>" method="post">
+        <input type="hidden" name="form_key" value="<?php echo $this->getFormKey(); ?>" />
+        <input type="hidden" name="backurl" value="<?php echo $this->getBackUrl(); ?>" />
+        
+        <table cellpadding="4" cellspacing="1" border="0" width="100%" style="margin-top: 8px;">
+            <tr>
+                <th><?php echo $this->__('Show'); ?></th>
+                <th></th>
+                <th><?php echo $this->__('Attribute Code'); ?></th>
+                <th></th>
+                <th><?php echo $this->__('Attribute Label'); ?></th>
+            </tr>
+            <?php foreach ($this->getAttributes() as $attribute): ?>
+                <tr>
+                    <td align="center"><input type="checkbox" name="pattribute[<?php echo $attribute->getAttributeId(); ?>]" value="1" <?php if (in_array($attribute->getAttributeId(), $selected)): ?>checked="checked"<?php endif; ?> /></td>
+                    <td width="8"></td>
+                    <td><?php echo $attribute->getAttributeCode(); ?></td>
+                    <td width="8"></td>
+                    <td><?php echo $attribute->getFrontendLabel(); ?></td>
+                </tr>
+            <?php endforeach; ?>
+            <tr>
+                <td colspan="5" height="20"></td>
+            </tr>
+            <tr>
+                <td colspan="5"><hr width="100%" /></td>
+            </tr>
+            <tr>
+                <td colspan="5" height="8"></td>
+            </tr>
+            <tr>
+                <td colspan="5" align="center">
+                    <button style="" class="scalable save" type="submit"><span><?php echo $this->__('Save Columns'); ?></span></button>
+                    &nbsp;
+                    <button style="" class="scalable cancel" type="button" onclick="javascript: pAttribute.closeConfig();"><span><?php echo $this->__('Cancel'); ?></span></button>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="5" height="8"></td>
+            </tr>
+        </table>
+        
+        
+    </form>
+</div>

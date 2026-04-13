@@ -1,0 +1,143 @@
+<?php
+/**
+ * Magento
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Academic Free License (AFL 3.0)
+ * that is bundled with this package in the file LICENSE_AFL.txt.
+ * It is also available through the world-wide-web at this URL:
+ * http://opensource.org/licenses/afl-3.0.php
+ * If you did not receive a copy of the license and are unable to
+ * obtain it through the world-wide-web, please send an email
+ * to license@magentocommerce.com so we can send you a copy immediately.
+ *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
+ * @category    design
+ * @package     base_default
+ * @copyright   Copyright (c) 2012 Magento Inc. (http://www.magentocommerce.com)
+ * @license     http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
+ */
+ 
+$formId= "contact_form"; 
+$captchaModel = Mage::helper('captcha')->getCaptcha($formId);
+/*$Controller = new Mage_Core_Controller_Front_Action;
+$Controller->getLayout()->createBlock($captchaModel->getBlockName())->setFormId($formId)->setIsAjax(true)->toHtml();*/
+
+ $block_Captcha = new Mage_Captcha_Block_Captcha_Zend;
+?>
+<style>
+.form-list textarea {
+    height: 13em !important;
+    width: 90% !important;
+}
+</style>
+<div id="messages_product_view"><?php echo $this->getMessagesBlock()->getGroupedHtml() ?></div>
+<div class="page-title">
+    <h1><?php echo Mage::helper('contacts')->__('Contact Us') ?></h1>
+</div>
+<div class=" grid12-12">
+<div class=" grid12-6">
+<form action="<?php echo $this->getFormAction(); ?>" id="contactForm" method="post">
+    <?php echo $this->getBlockHtml('formkey')?>
+    <div class="fieldset">
+        <h2 class="legend"><?php echo Mage::helper('contacts')->__('Send us a Message') ?></h2>
+        <ul class="form-list">
+            <li class="fields">
+                <div class="field">
+                    <label for="name" class="required"><em>*</em><?php echo Mage::helper('contacts')->__('Name') ?></label>
+                    <div class="input-box">
+                        <input name="name" id="name" title="<?php echo Mage::helper('contacts')->__('Name') ?>" value="<?php echo $this->htmlEscape($this->helper('contacts')->getUserName()) ?>" class="input-text required-entry" type="text" />
+                    </div>
+                </div>
+                <div class="field">
+                    <label for="email" class="required"><em>*</em><?php echo Mage::helper('contacts')->__('Email') ?></label>
+                    <div class="input-box">
+                        <input name="email" id="email" title="<?php echo Mage::helper('contacts')->__('Email') ?>" value="<?php echo $this->htmlEscape($this->helper('contacts')->getUserEmail()) ?>" class="input-text required-entry validate-email" type="text" />
+                    </div>
+                </div>
+            </li>
+            
+            <li class="fields">
+             
+             <div class="field">
+                    <label for="name"><?php echo Mage::helper('contacts')->__('Company') ?></label>
+                    <div class="input-box">
+                        <input name="company" id="company" title="<?php echo Mage::helper('contacts')->__('Company') ?>"  class="input-text " type="text" />
+                    </div>
+                </div>
+                <div class="field">
+                <label for="telephone"  class="required"><em>*</em><?php echo Mage::helper('contacts')->__('Telephone') ?></label>
+                <div class="input-box">
+                    <input name="telephone" id="telephone" title="<?php echo Mage::helper('contacts')->__('Telephone') ?>" value="" class="input-text required-entry" type="text" maxlength="8" />
+                </div>
+                </div>
+            </li>
+			 <li class="wide">
+                <label for="courses" ><?php echo Mage::helper('contacts')->__('Course Title') ?></label>
+                <div class="input-box">
+                    <input name="courses" id="courses" title="<?php echo Mage::helper('contacts')->__('Courses Title') ?>" class="input-text" />
+                </div>
+            </li>
+            <li class="wide">
+                <label for="comment" class="required"><em>*</em><?php echo Mage::helper('contacts')->__('Message') ?></label>
+                <div class="input-box">
+                    <textarea name="comment" id="comment" title="<?php echo Mage::helper('contacts')->__('Comment') ?>" class="required-entry input-text" cols="5" rows="3"></textarea>
+                </div>
+            </li>
+			<!-- Capcha-->
+			<?php
+
+		
+			$captcha = Mage::helper('captcha')->getCaptcha($formId);
+			if ($captcha->isRequired()) {
+			?>
+<li id="captcha-input-box-contact_form">
+    <label for="captcha_contact_form" class="required"><em>*</em><?php echo $this->__('Please type the letters below')?></label>
+    <div class="input-box captcha">
+        <input name="<?php echo Mage_Captcha_Helper_Data::INPUT_NAME_FIELD_VALUE ?>[contact_form]" type="text" class="input-text required-entry" id="captcha_contact_form" />
+    </div>
+</li>
+<li>
+    <div class="captcha-image" id="captcha-image-box-<?php echo $formId;?>">
+        <img id="captcha-reload" class="captcha-reload" src="<?php echo $this->getSkinUrl('images/reload.png') ?>" alt="<?php echo $this->__('Reload captcha') ?>" onclick="$('<?php echo $formId; ?>').captcha.refresh(this)">
+        <img id="<?php echo $formId; ?>" class="captcha-img" height="50" src="<?php //echo $captcha->getImgSrc() ?>"/>
+        <?php if ($captcha->isCaseSensitive()) :?>
+        <div class="captcha-note">
+            <?php echo $this->__('<strong>Attention</strong>: Captcha is case sensitive.') ?>
+        </div>
+        <?php endif; ?>
+    </div>
+    <script type="text/javascript">//<![CDATA[
+        $('<?php echo $formId; ?>').captcha = new Captcha('<?php echo $block_Captcha->getRefreshUrl() ?>', '<?php echo $formId; ?>');
+    //]]></script>
+</li>
+
+<?php } ?>
+			
+			<!-- -->
+        </ul>
+    </div>
+	
+    <div class="buttons-set">
+        <p class="required"><?php echo Mage::helper('contacts')->__('* Required Fields') ?></p>
+        <input type="text" name="hideit" id="hideit" value="" style="display:none !important;" />
+        <button type="submit" title="<?php echo Mage::helper('contacts')->__('Submit') ?>" class="button"><span><span><?php echo Mage::helper('contacts')->__('Submit') ?></span></span></button>
+    </div>
+</form>
+<script type="text/javascript">
+//<![CDATA[
+    var contactForm = new VarienForm('contactForm', true);
+//]]>
+setTimeout(function(){ $('<?php echo $formId; ?>').captcha.refresh(document.getElementById("captcha-reload")); }, 2000);
+</script>
+</div>
+<div class=" grid12-6">
+<?php echo $this->getLayout()->createBlock('cms/block')->setBlockId('contacts')->toHtml() ?>
+</div>
+</div>

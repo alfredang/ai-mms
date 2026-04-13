@@ -1,0 +1,88 @@
+<?xml version="1.0"?>
+<!-- 
+/**
+ * MMD
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the MMD EULA that is bundled with
+ * this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * http://www.magemobiledesign.com/LICENSE-1.0.html
+ *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade the extension
+ * to newer versions in the future. If you wish to customize the extension
+ * for your needs please refer to http://www.magemobiledesign.com/ for more information
+ *
+ * @category   MMD
+ * @package    MMD_CustomOptions
+ * @copyright  Copyright (c) 2013 MMD (http://www.magemobiledesign.com/)
+ * @license    http://www.magemobiledesign.com/LICENSE-1.0.html
+ */
+
+/**
+ * Advanced Product Options extension
+ *
+ * @category   MMD
+ * @package    MMD_CustomOptions
+ * @author     MMD Dev Team
+ */
+-->
+<layout version="0.1.0">
+    
+    <adminhtml_catalog_product_edit>    
+        <reference name="head">
+            <action method="addItem" ifconfig="mmd_catalog/customoptions/enabled"><type>js_css</type><name>mmd/lightbox/css/lightbox.css</name><params/></action>
+            <action method="addItem" ifconfig="mmd_catalog/customoptions/enabled"><type>js_css</type><name>mmd/lightbox/css/lightbox-ie.css</name><params/><if>lt IE 8</if></action>
+            <action method="addItem" ifconfig="mmd_catalog/customoptions/enabled"><type>js</type><name>mmd/lightbox/js/lightbox.js</name><params/><if/></action>
+            
+            <action method="addItem" ifconfig="mmd_catalog/customoptions/enabled"><type>js</type><name>jscolor/jscolor.js</name><params/><if/></action>
+        </reference>
+    </adminhtml_catalog_product_edit>        
+    
+    <mmd_customoptions_options_index>
+        <reference name="content">
+            <block type="mmd/customoptions_options" name="customoptions_options" template="customoptions/options.phtml" />
+        </reference>
+    </mmd_customoptions_options_index>
+    
+    <mmd_customoptions_options_edit>
+        <reference name="head">
+            <action method="removeItem"><type>js</type><name>tbt/enhancedgrid/enhancedgrid.js</name></action> 
+            <action method="removeItem"><type>js</type><name>tbt/enhancedgrid/egsupplemental.js</name></action> 
+            <action method="removeItem"><type>js</type><name>tbt/enhancedgrid/customfunctions/catalog_products.js</name></action>
+            <action method="addItem"><type>js_css</type><name>mmd/lightbox/css/lightbox.css</name><params/></action>
+            <action method="addItem"><type>js_css</type><name>mmd/lightbox/css/lightbox-ie.css</name><params/><if>lt IE 8</if></action>
+            <action method="addItem"><type>js</type><name>mmd/lightbox/js/lightbox.js</name><params/><if/></action>
+            
+            <action method="addItem"><type>js</type><name>jscolor/jscolor.js</name><params/><if/></action>
+        </reference>
+    </mmd_customoptions_options_edit>
+    
+    <mmd_customoptions_options_apply>
+        <remove name="root"/>
+        <block type="adminhtml/page" name="convert_root" output="toHtml" template="page.phtml">
+            <block type="adminhtml/page_head" name="convert_root_head" as="head" template="page/head.phtml">
+                <action method="addJs"><script>prototype/prototype.js</script></action>
+                <action method="addJs"><script>prototype/validation.js</script></action>
+                <action method="addJs"><script>varien/js.js</script></action>
+                <action method="addJs"><script>mage/translate.js</script></action>
+                <action method="addJs"><script>mage/adminhtml/tools.js</script></action>
+            </block>
+            <block type="adminhtml/template" name="apply" template="customoptions/apply.phtml" output="toHtml"/>
+        </block>
+    </mmd_customoptions_options_apply>
+    
+    <ADMINHTML_CATALOG_PRODUCT_COMPOSITE_CONFIGURE>
+        <reference name="product.composite.fieldset.options">
+            <action method="addOptionRenderer" ifconfig="mmd_catalog/customoptions/enabled"><type>text</type><block>catalog/product_view_options_type_text</block><template>customoptions/composite/fieldset-options-type-text.phtml</template></action>
+            <action method="addOptionRenderer" ifconfig="mmd_catalog/customoptions/enabled"><type>file</type><block>catalog/product_view_options_type_file</block><template>customoptions/composite/fieldset-options-type-file.phtml</template></action>
+            <action method="addOptionRenderer" ifconfig="mmd_catalog/customoptions/enabled"><type>select</type><block>catalog/product_view_options_type_select</block><template>customoptions/composite/fieldset-options-type-select.phtml</template></action>
+            <action method="addOptionRenderer" ifconfig="mmd_catalog/customoptions/enabled"><type>date</type><block>catalog/product_view_options_type_date</block><template>customoptions/composite/fieldset-options-type-date.phtml</template></action>
+            <action method="setTemplate" ifconfig="mmd_catalog/customoptions/enabled"><template>customoptions/composite/fieldset-options.phtml</template></action>
+        </reference>
+    </ADMINHTML_CATALOG_PRODUCT_COMPOSITE_CONFIGURE> 
+    
+</layout>

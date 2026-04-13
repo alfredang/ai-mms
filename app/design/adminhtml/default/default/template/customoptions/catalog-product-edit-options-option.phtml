@@ -1,0 +1,793 @@
+<?php
+/**
+ * MMD
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the MMD EULA that is bundled with
+ * this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * http://www.magemobiledesign.com/LICENSE-1.0.html
+ *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade the extension
+ * to newer versions in the future. If you wish to customize the extension
+ * for your needs please refer to http://www.magemobiledesign.com/ for more information
+ *
+ * @category   MMD
+ * @package    MMD_CustomOptions
+ * @copyright  Copyright (c) 2012 MMD (http://www.magemobiledesign.com/)
+ * @license    http://www.magemobiledesign.com/LICENSE-1.0.html
+ */
+
+/**
+ * Advanced Product Options extension
+ *
+ * @category   MMD
+ * @package    MMD_CustomOptions
+ * @author     MMD Dev Team
+ */
+
+$helper = Mage::helper('customoptions');
+?>
+<style type="text/css">
+
+.custom-options .type-title {
+    width: 200px !important;
+}
+
+.custom-options .opt-title {
+    width: 200px !important;
+}
+
+.custom-options .option-box .border input.select-type-title  {
+    width: 200px !important;
+}
+
+
+.custom-options .opt-order {
+    width: 70px;
+}
+
+.custom-options .opt-enabled {
+    width: 80px;
+}
+
+.custom-options .opt-dependent {
+    width: 80px;
+}
+
+.custom-options .opt-sku-policy {
+    width: 100px;
+}
+
+.custom-options .opt-image-mode {
+    width: 170px;
+}
+
+.custom-options .opt-one-time {
+    width: 80px;
+}
+
+.custom-options .opt-qnty-input {
+    width: 80px;
+}
+.custom-options .option-header .input-sort-order {
+    width: 85% !important;
+}
+
+.template-title {
+    position:relative; top: -8px; height:10px; color:#A64612;
+}
+
+.custom-options .type-special-comment {
+    width: 150px;
+}
+
+.custom-options .type-qty {
+    width: 35px;
+}
+.custom-options .type-default {
+    width: 35px;
+}
+
+.custom-options .type-text-default {
+    width: 530px;
+}
+.custom-options .type-dependent-ids {
+    width: 150px;
+}
+
+.custom-options .input-children {
+    width: 125px;
+}
+
+.custom-options .red {
+    color:red !important;
+}
+
+.custom-options li.image {
+    float:left; text-align:center; margin-right: 2px;
+}
+
+.custom-options a.close {
+    text-decoration:none;
+}
+
+.custom-options .input-color {
+    width: 70px;
+}
+
+</style>
+
+<?php echo $this->getTemplatesHtml() ?>
+<script type="text/javascript">
+//<![CDATA[
+
+// fix bag /js/scriptaculous/dragdrop.js
+Draggables.register = function(draggable) {
+    if(this.drags.length == 0) {
+      this.eventMouseUp   = this.endDrag.bindAsEventListener(this);
+      this.eventMouseMove = this.updateDrag.bindAsEventListener(this);
+      this.eventKeypress  = this.keyPress.bindAsEventListener(this);
+      
+      Event.observe(document, "mouseup", this.eventMouseUp);
+      Event.observe(document, "mousemove", this.eventMouseMove);
+      Event.observe(document, "keypress", this.eventKeypress);
+    }
+    this.drags.push(draggable);
+};
+
+Draggables.unregister = function(draggable) {
+    this.drags = this.drags.reject(function(d) { return d==draggable });
+    if(this.drags.length == 0) {
+      Event.stopObserving(document, "mouseup", this.eventMouseUp);
+      Event.stopObserving(document, "mousemove", this.eventMouseMove);
+      Event.stopObserving(document, "keypress", this.eventKeypress);
+    }
+};
+
+var firstStepTemplate = '<div class="option-box" id="option_{{id}}">'+
+    '<span class="template-title">{{template_title}}</span>'+
+    '<input type="hidden" id="<?php echo $this->getFieldId() ?>_{{id}}_is_delete" name="<?php echo $this->getFieldName() ?>[{{id}}][is_delete]" value="" />'+
+    '<input type="hidden" id="<?php echo $this->getFieldId() ?>_{{id}}_previous_type" name="<?php echo $this->getFieldName() ?>[{{id}}][previous_type]" value="{{type}}" />'+
+    '<input type="hidden" id="<?php echo $this->getFieldId() ?>_{{id}}_previous_group" name="<?php echo $this->getFieldName() ?>[{{id}}][previous_group]" value="" />'+
+    '<input type="hidden" id="<?php echo $this->getFieldId() ?>_{{id}}_id" name="<?php echo $this->getFieldName() ?>[{{id}}][id]" value="{{id}}" />'+
+    '<input type="hidden" id="<?php echo $this->getFieldId() ?>_{{id}}_option_id" name="<?php echo $this->getFieldName() ?>[{{id}}][option_id]" value="{{option_id}}" />'+
+    '<table id="<?php echo $this->getFieldId() ?>_{{id}}" class="option-header" cellpadding="0" cellspacing="0">'+
+        '<thead>'+
+            '<tr>'+
+                '<th class="opt-title"><?php echo $helper->__js('Title') ?> <span class="required">*</span></th>'+
+                '<th class="opt-type"><?php echo $helper->__js('Input Type') ?> <span class="required">*</span></th>'+
+                '<th class="opt-req"><?php echo $helper->__js('Is Required') ?></th>'+                
+                '<th class="opt-enabled"><?php echo $helper->__js('View Mode') ?></th>'+
+                <?php if ($helper->isDependentEnabled()) { ?>'<th class="opt-dependent"><?php echo $helper->__js('Is Dependent') ?></th>'+<?php } ?>                
+                '<th class="opt-one-time"><?php echo $helper->__js('One-time') ?></th>'+
+                <?php if ($helper->isImageModeEnabled()) { ?>'<th class="opt-image-mode"><?php echo $helper->__js('Image Mode') ?></th>'+<?php } ?>
+                <?php if ($helper->isOptionSkuPolicyEnabled()) { ?>'<th class="opt-sku-policy"><?php echo $helper->__js('SKU Policy') ?></th>'+<?php } ?>
+                '<th class="opt-order"><?php echo $helper->__js('Sort Order') ?></th>'+                
+                <?php if ($helper->isQntyInputEnabled()) { ?>'<th class="opt-qnty-input"><?php echo $helper->__js('Qnty Input') ?></th>'+<?php } ?>
+                <?php if ($helper->isCustomerGroupsEnabled()) { ?>
+                    '<th><?php echo $helper->__js('Customer Groups') ?></th>'+
+                <?php } ?>    
+                '<th class="a-right"><?php echo $this->jsQuoteEscape($this->getDeleteButtonHtml()) ?></th>'+
+            '</tr>'+
+        '</thead>'+
+        '<tr style="height:36px;">'+
+            '<td><input type="text" class="required-entry input-text" id="<?php echo $this->getFieldId() ?>_{{id}}_title" name="<?php echo $this->getFieldName() ?>[{{id}}][title]" value="{{title}}" />{{checkboxScopeTitle}}</td>'+
+            '<td><?php echo $this->jsQuoteEscape($this->getTypeSelectHtml()) ?></td>'+
+            '<td class="opt-req"><?php echo $this->jsQuoteEscape($this->getRequireSelectHtml()) ?></td>'+
+            '<td class="opt-enabled"><?php echo $this->jsQuoteEscape($this->getViewModeSelectHtml()) ?><br />{{checkboxScopeViewMode}}</td>'+
+            <?php if ($helper->isDependentEnabled()) { ?>'<td class="opt-dependent"><?php echo $this->jsQuoteEscape($this->getDependentSelectHtml()) ?></td>'+<?php } ?>
+            '<td class="opt-one-time"><?php echo $this->jsQuoteEscape($this->getOneTimeSelectHtml()) ?></td>'+
+            <?php if ($helper->isImageModeEnabled()) { ?>
+                '<td class="opt-image-mode" rowspan="3"><?php echo $this->jsQuoteEscape($this->getImageModeSelectHtml()) ?><br/><label><input type="checkbox" id="<?php echo $this->getFieldId() ?>_{{id}}_exclude_first_image" name="<?php echo $this->getFieldName() ?>[{{id}}][exclude_first_image]" {{exclude_first_image}} {{image_mode_disabled}} value="1" /> <?php echo $helper->__js('Ignore for First Image') ?></label></td>'+
+            <?php } ?>
+            <?php if ($helper->isOptionSkuPolicyEnabled()) { ?>'<td class="opt-sku-policy"><?php echo $this->jsQuoteEscape($this->getSkuPolicySelectHtml()) ?></td>'+<?php } ?>
+            '<td><input type="text" class="validate-zero-or-greater input-text input-sort-order" name="<?php echo $this->getFieldName() ?>[{{id}}][sort_order]" value="{{sort_order}}" /></td>'+            
+            <?php if ($helper->isQntyInputEnabled()) { ?>
+                '<td><input type="checkbox" id="<?php echo $this->getFieldId() ?>_{{id}}_qnty_input" name="<?php echo $this->getFieldName() ?>[{{id}}][qnty_input]" {{qnty_input}} {{qnty_input_disabled}} value="1" /></td>'+
+            <?php } ?>
+            <?php if ($helper->isCustomerGroupsEnabled()) { ?>'<td rowspan="3" class="opt-customer-groups"><?php echo $this->jsQuoteEscape($this->getCustomerGroupsMultiselectHtml()) ?></td>'+<?php } ?>
+            '<td>&nbsp;</td>'+
+        '</tr>'+
+        '<tr style="height:12px;">'+
+            '<th>&nbsp;</th>'+
+            '<th><?php if ($helper->isSpecifyingCssClassEnabled()) echo $helper->__js('Div CSS Class'); else echo '&nbsp;'; ?></th>'+
+            '<th colspan="4"><?php echo $helper->__js('Description') ?></th>'+
+        '</tr>'+
+        '<tr>'+
+            '<td>&nbsp;</td>'+
+            '<td><?php  if ($helper->isSpecifyingCssClassEnabled()) { ?><input type="text" class="input-text" id="<?php echo $this->getFieldId() ?>_{{id}}_div_class" name="<?php echo $this->getFieldName() ?>[{{id}}][div_class]" value="{{div_class}}" /><?php } else { ?>&nbsp;<?php } ?></td>'+
+            '<td colspan="4"><input type="text" class="input-text" id="<?php echo $this->getFieldId() ?>_{{id}}_description" name="<?php echo $this->getFieldName() ?>[{{id}}][description]" value="{{description}}" /><br />{{checkboxScopeDescription}}</td>'+
+        '</tr>'+
+    '</table>'+
+'</div>';
+
+maxInGroupId = 0;
+minSelectInGroupId = 65536;
+
+var productOption = {
+    //div : $('product_options_container_down'),
+    templateSyntax: /(^|.|\r|\n)({{(\w+)}})/,
+    templateText: firstStepTemplate,
+    maxId: <?php if ($this->getRequest()->getControllerName()=='customoptions_options') echo $helper->getMaxOptionId(); else echo '0'; ?>,    
+    add: function(data) {        
+        this.template = new Template(this.templateText, this.templateSyntax);        
+        if(!data.id){
+            data = {};            
+            data.id = this.maxId = this.maxId + 1;
+            data.type = '';
+            data.option_id = 0;            
+        } else {
+            if (parseInt(data.id)>this.maxId) this.maxId = parseInt(data.id);            
+        }
+        
+            
+        if (data.type!='') {
+            if (data.type!='drop_down' && data.type!='radio' && data.type!='checkbox' && data.type!='multiple' && data.type!='swatch') {
+                if(!data.in_group_id || data.in_group_id==0) {            
+                    data.in_group_id = maxInGroupId = maxInGroupId + 1;  
+                } else {                    
+                    if (data.in_group_id<65536 && parseInt(data.in_group_id)>maxInGroupId) maxInGroupId = parseInt(data.in_group_id);                    
+                }
+            } else {
+                // for drop_down, radio, checkbox, multiple, swatch
+                if(!data.in_group_id || data.in_group_id<1000) {
+                    data.in_group_id = minSelectInGroupId = minSelectInGroupId - 1;  
+                } else {
+                    if (data.in_group_id<65536 && parseInt(data.in_group_id)<minSelectInGroupId) minSelectInGroupId = parseInt(data.in_group_id);                    
+                }                
+            }
+            Element.insert($('product_options_container_down'), {'before':this.template.evaluate(data)});
+        } else {
+            Element.insert($('product_options_container_top'), {'after':this.template.evaluate(data)});
+        }                
+
+        //set selected type
+        if (data.type) {
+            $A($('<?php echo $this->getFieldId() ?>_'+data.id+'_type').options).each(function(option){
+                if (option.value==data.type) option.selected = true;
+            });
+        }
+
+        //set selected is_require
+        $A($('<?php echo $this->getFieldId() ?>_'+data.id+'_is_require').options).each(function(option){
+            if (option.value==data.is_require) option.selected = true;
+        });
+        
+        //set selected view_mode
+        if (data.view_mode) {            
+            $A($('<?php echo $this->getFieldId() ?>_'+data.id+'_view_mode').options).each(function(option){
+                if (option.value==data.view_mode) option.selected = true;
+            });
+        }
+        
+        <?php if (Mage::helper('customoptions')->isDependentEnabled()) { ?>
+        //set selected is_dependent
+        if (data.is_dependent) {            
+            $A($('<?php echo $this->getFieldId() ?>_'+data.id+'_is_dependent').options).each(function(option){
+                if (option.value==data.is_dependent) option.selected = true;
+            });
+        }
+        <?php } ?>
+        
+        
+        <?php if (Mage::helper('customoptions')->isOptionSkuPolicyEnabled()) { ?>
+        //set selected sku_policy
+        if (data.sku_policy) {            
+            $A($('<?php echo $this->getFieldId() ?>_'+data.id+'_sku_policy').options).each(function(option){
+                if (option.value==data.sku_policy) option.selected = true;
+            });
+        }
+        <?php } ?>
+        
+        <?php if (Mage::helper('customoptions')->isImageModeEnabled()) { ?>
+        //set selected image_mode
+        if (data.image_mode) {            
+            $A($('<?php echo $this->getFieldId() ?>_'+data.id+'_image_mode').options).each(function(option){
+                if (option.value==data.image_mode) option.selected = true;
+            });
+        }
+        <?php } ?>
+        
+        
+        //set selected customer groups
+        <?php if (Mage::helper('customoptions')->isCustomerGroupsEnabled()) { ?>
+        if (data.customer_groups) {
+            customer_groups = data.customer_groups.split(',');
+            $A($('<?php echo $this->getFieldId() ?>_'+data.id+'_customer_groups').options).each(function(option){
+                if (customer_groups.indexOf(option.value) != '-1') option.selected = true;
+            });
+        }
+        <?php } ?>
+
+        //set selected customoptions_is_onetime
+        if (data.customoptions_is_onetime) {
+            $A($('<?php echo $this->getFieldId() ?>_'+data.id+'_customoptions_is_onetime').options).each(function(option){
+                if (option.value==data.customoptions_is_onetime) option.selected = true;
+            });
+        }
+
+        if (data.checkboxScopeTitle) {
+            //set disabled
+            if ($('<?php echo $this->getFieldId() ?>_'+data.option_id+'_title') && data.scopeTitleDisabled) {
+                $('<?php echo $this->getFieldId() ?>_'+data.option_id+'_title').disable();
+            }
+        }
+        
+        if (data.checkboxScopeViewMode) {
+            if ($('<?php echo $this->getFieldId() ?>_'+data.option_id+'_view_mode') && data.scopeViewModeDisabled) {
+                $('<?php echo $this->getFieldId() ?>_'+data.option_id+'_view_mode').disable();
+            }
+        }
+        
+        if (data.checkboxScopeDescription) {
+            if ($('<?php echo $this->getFieldId() ?>_'+data.option_id+'_description') && data.scopeDescriptionDisabled) {
+                $('<?php echo $this->getFieldId() ?>_'+data.option_id+'_description').disable();
+            }
+        }                
+        
+        this.bindRemoveButtons();
+        productOptionType.bindSelectInputType();
+        return data;
+    },
+    
+    remove: function(event){
+        var el = Event.element(event).up('div');
+        if (el) {
+            $('product_'+el.readAttribute('id')+'_'+'is_delete').value = '1';
+            $(el).addClassName('no-display');
+            $(el).addClassName('ignore-validate');
+            el.hide();
+            
+            // remove from children id                
+            productChildrenOptions.removeChildrenElement(el);
+        }
+    },       
+    
+    bindRemoveButtons: function(){
+        var buttons = $$('div.product-custom-options .delete-product-option');
+        for(var i=0;i<buttons.length;i++){
+            if(!$(buttons[i]).binded){
+                $(buttons[i]).binded = true;
+                Event.observe(buttons[i], 'click', this.remove.bind(this));
+            }
+        }
+        <?php if ($this->isReadonly()):?>
+        var inputs = $$('div.product-custom-options button', 'div.product-custom-options input', 'div.product-custom-options select', 'div.product-custom-options textarea');
+        for (var i=0, l = inputs.length; i < l; i ++) {
+            inputs[i].disabled = true;
+            if (inputs[i].tagName.toLowerCase()=='button') {
+                $(inputs[i]).addClassName('disabled');
+            }
+        }
+        <?php endif;?>
+    }
+}
+
+
+productOptionType = {
+    templateSyntax : /(^|.|\r|\n)({{(\w+)}})/,
+    loadStepTwo : function(event){
+        var element = $(Event.findElement(event, 'select'));        
+        var group = '';
+        var previousGroupElm = $(element.readAttribute('id').sub('_type', '_previous_group'));        
+        var optionId = element.readAttribute('id').sub('product_option_', '');        
+        optionId = optionId.replace("_type", '');
+        switch(element.getValue()){
+            case 'field':
+                template = OptionTemplateText;
+                group = 'text';
+                break;
+            case 'area':
+                template = OptionTemplateArea;
+                group = 'area';
+                break;
+            case 'file':
+                template = OptionTemplateFile;
+                group = 'file';
+                break;
+            case 'drop_down':
+            case 'swatch':
+            case 'radio':
+                $$("input[name='product[options][" + optionId + "][default][]']").each(function(elm){
+                    elm.type = 'radio';
+                });
+                template = OptionTemplateSelect;
+                group = 'select';
+                break;
+            case 'checkbox':                
+            case 'multiple':
+                $$("input[name='product[options][" + optionId + "][default][]']").each(function(elm){
+                    elm.type = 'checkbox';
+                });
+                template = OptionTemplateSelect;
+                group = 'select';
+                break;
+            case 'date':
+            case 'date_time':
+            case 'time':
+                template = OptionTemplateDate;
+                group = 'date';
+                break;
+            default:
+                template = '';
+                group = 'unknown';
+                break;
+        }
+
+        if (group == 'select' && element.getValue()!='multiple') {            
+            if ($('product_option_' + optionId + '_qnty_input')) $('product_option_' + optionId + '_qnty_input').disabled = false;
+        } else {
+            if ($('product_option_' + optionId + '_qnty_input')) $('product_option_' + optionId + '_qnty_input').disabled = true;
+        }
+        
+        if (group == 'select') { 
+            if ($('product_option_' + optionId + '_exclude_first_image')) $('product_option_' + optionId + '_exclude_first_image').disabled = false;
+            if ($('product_option_' + optionId + '_image_mode')) $('product_option_' + optionId + '_image_mode').disabled = false;
+        } else {
+            if ($('product_option_' + optionId + '_exclude_first_image')) $('product_option_' + optionId + '_exclude_first_image').disabled = true;
+            if ($('product_option_' + optionId + '_image_mode')) $('product_option_' + optionId + '_image_mode').disabled = true;
+        }
+        
+
+        if (previousGroupElm.getValue() != group) {
+            if ($(element.readAttribute('id')+'_'+previousGroupElm.getValue())) {
+                formElm = $(element.readAttribute('id')+'_'+previousGroupElm.getValue()).descendants();
+                formElm.each(function(elm){
+                    if (elm.tagName == 'input' || elm.tagName == 'select') {
+                        elm.name = '__delete__'+elm.readAttribute('name');
+                    }
+                });
+
+                $(element.readAttribute('id')+'_'+previousGroupElm.getValue()).addClassName('no-display');
+                $(element.readAttribute('id')+'_'+previousGroupElm.getValue()).addClassName('ignore-validate');
+                $(element.readAttribute('id')+'_'+previousGroupElm.getValue()).hide();
+            }
+
+            previousGroupElm.value = group;
+
+            if ($(element.readAttribute('id')+'_'+group)) {                
+                formElm = $(element.readAttribute('id')+'_'+group).descendants();
+                formElm.each(function(elm){
+                    if (elm.match('input') || elm.match('select')) {
+                        elm.name = elm.readAttribute('name').sub('__delete__', '');
+                    }
+                });
+                $(element.readAttribute('id')+'_'+group).removeClassName('no-display');
+                $(element.readAttribute('id')+'_'+group).removeClassName('ignore-validate');
+                $(element.readAttribute('id')+'_'+group).show();
+
+            } else {                
+                template = '<div id="'+element.readAttribute('id')+'_'+group+'" class="grid tier form-list">'+template+'</div><div id="'+element.readAttribute('id')+'_'+group+'_advice"></div';
+                this.secondTemplate = new Template(template, this.templateSyntax);
+
+                data = {};
+                if (!data.option_id) {
+                    data = {};
+                    data.option_id = $(element.readAttribute('id').sub('_type', '_id')).getValue();
+                    data.image_button_label = '<?php echo $helper->__js('Add Image') ?>';
+                    if (group!='select') {
+                        data.in_group_id = data.in_group_id_view = maxInGroupId = maxInGroupId + 1;
+                    } else {
+                        data.in_group_id = minSelectInGroupId = minSelectInGroupId - 1;
+                    }
+                }
+
+                Element.insert(element.readAttribute('id').sub('_type', ''), {'after':this.secondTemplate.evaluate(data)});
+
+                switch(element.getValue()){
+                    case 'drop_down':
+                    case 'radio':
+                    case 'checkbox':
+                    case 'multiple':
+                    case 'swatch':    
+                        selectOptionType.bindAddButton();
+                        break;
+                }
+            }
+        }
+    },
+    addDataToValues : function(data){
+        switch(data.type){
+            case 'field':
+                template = OptionTemplateText;
+                group = 'text';
+                break;
+            case 'area':
+                template = OptionTemplateArea;
+                group = 'area';
+                break;
+            case 'file':
+                template = OptionTemplateFile;
+                group = 'file';
+                break;
+            case 'drop_down':
+            case 'radio':
+            case 'checkbox':
+            case 'multiple':
+            case 'swatch':
+                template = OptionTemplateSelect;
+                group = 'select';
+                break;
+            case 'date':
+            case 'date_time':
+            case 'time':
+                template = OptionTemplateDate;
+                group = 'date';
+                break;
+        }
+
+        $('<?php echo $this->getFieldId() ?>_'+data.id+'_previous_group').value = group;
+
+        template = '<div id="<?php echo $this->getFieldId() ?>_{{id}}_type_'+group+'" class="grid tier form-list">'+template+'</div><div id="<?php echo $this->getFieldId() ?>_{{id}}_type_'+group+'_advice"></div>';
+        this.secondTemplate = new Template(template, this.templateSyntax);
+        
+        Element.insert($('<?php echo $this->getFieldId() ?>_'+data.option_id), {'after':this.secondTemplate.evaluate(data)});
+        
+        if (data.checkboxScopePrice || data.price_disabled) {
+            //set disabled
+            if ($('<?php echo $this->getFieldId() ?>_'+data.option_id+'_price') && (data.scopePriceDisabled || data.price_disabled)) {
+                $('<?php echo $this->getFieldId() ?>_'+data.option_id+'_price').disable();
+                $('<?php echo $this->getFieldId() ?>_'+data.option_id+'_price_type').disable();
+            }
+        }                
+        
+        if (data.checkboxScopeDefaultText) {
+            if ($('<?php echo $this->getFieldId() ?>_'+data.option_id+'_default_text') && data.scopeDefaultTextDisabled) {
+                $('<?php echo $this->getFieldId() ?>_'+data.option_id+'_default_text').disable();
+            }
+        }
+        
+        switch(data.type){
+            case 'drop_down':
+            case 'radio':
+            case 'checkbox':
+            case 'multiple':
+            case 'swatch':
+                data.optionValues.each(function(value) {
+                    selectOptionType.add(value);
+                });                
+                
+                selectOptionType.bindAddButton();
+                break;
+        }
+
+        if (data.price_type) {
+            $A($('<?php echo $this->getFieldId() ?>_'+data.option_id+'_price_type').options).each(function(option){
+                if (option.value==data.price_type) option.selected = true;
+            });
+        }
+    },
+    enablePrice: function(optionId) {
+        if ($('<?php echo $this->getFieldId() ?>_'+optionId+'_price')) {
+            $('<?php echo $this->getFieldId() ?>_'+optionId+'_price').enable();
+            $('<?php echo $this->getFieldId() ?>_'+optionId+'_price_type').enable();
+        }
+    },
+    bindSelectInputType : function(){        
+        var types = $$('.select-product-option-type');
+        for(var i=0;i<types.length;i++){
+            if(!$(types[i]).binded){
+                $(types[i]).binded = true;
+                Event.observe(types[i], 'change', function(event){
+                    productOptionType.loadStepTwo(event);
+                });
+            }
+        }
+    }
+}
+
+var productOptionScope = {
+    addScope : function(event){        
+        var element = $(Event.element(event));        
+        fieldToDisable = $(element.readAttribute('id').sub('_use_default', ''));
+        var disableBeginId = fieldToDisable.readAttribute('id') + '_';
+        if (fieldToDisable.disabled) {
+            if (fieldToDisable.hasClassName('product-option-price')) { //need change to cheking value of element                
+                $$('input[id^="'+disableBeginId+'"]', 'select[id^="'+disableBeginId+'"]', 'button[id^="'+disableBeginId+'"]').each(function(el){                    
+                    el.disabled = false; //el.enable();
+                });
+                //$(fieldToDisable.readAttribute('id')+'_type').enable();
+            }
+            fieldToDisable.enable();
+        } else {
+            if (fieldToDisable.hasClassName('product-option-price')) { //need change to cheking value of element                
+                $$('input[id^="'+disableBeginId+'"]', 'select[id^="'+disableBeginId+'"]', 'button[id^="'+disableBeginId+'"]').each(function(el){
+                    if (el.id.indexOf('_use_default')==-1) el.disabled = true; //el.disable();
+                });
+                //$(fieldToDisable.readAttribute('id')+'_type').disable();
+            }
+            fieldToDisable.disable();
+        }
+    },
+    bindScopeCheckbox : function(){
+        var checkboxes = $$('.product-option-scope-checkbox');
+        for (var i=0;i<checkboxes.length;i++) {
+            if (!$(checkboxes[i]).binded) {
+                $(checkboxes[i]).binded = true;
+                Event.observe(checkboxes[i], 'click', this.addScope.bind(this));
+            }
+        }
+    }
+}
+
+if($('option_panel')){
+    $('option_panel').remove();
+}
+
+productOption.bindRemoveButtons();
+
+if($('<?php echo $this->getAddButtonId() ?>')){
+    Event.observe('<?php echo $this->getAddButtonId() ?>', 'click', productOption.add.bind(productOption));
+}
+
+//validation for selected input type
+Validation.addAllThese([
+    ['required-option-select', '<?php echo $helper->__js('Select type of option') ?>', function(v, elm) {
+        if (elm.getValue() == '') {
+            return false;
+        }
+        return true;
+}]]);
+
+//adding data to templates
+<?php foreach ($this->getOptionValues() as $_value): ?>    
+    data = productOption.add(<?php echo $_value->toJson() ?>);
+    productOptionType.addDataToValues(data);
+<?php endforeach; ?>
+
+// init colorPicker
+jscolor.init();
+
+//bind scope checkboxes
+productOptionScope.bindScopeCheckbox();
+
+
+productChildrenOptions = {
+    show: function(IGI, event) {        
+        optionId = this.getOptionId($$('input.igi[value="'+IGI+'"]').first().id);        
+        selectedIds = this.parseChildrenIds($('dependent_ids_'+IGI).value, true);        
+        
+        var HTML = '';
+        var childrenGroup = 0;        
+        IGIs = $$('input.igi');
+        IGIs.each(function(el){        
+            if (productChildrenOptions.getOptionId(el.id)!=optionId) {
+                var elDiv = el.up('div');
+                if (elDiv && elDiv.style.display!='none') {
+                    if (selectedIds[el.value]) checked = 'checked'; else checked = '';
+                    var optionTitle = ''
+                    
+                    var optionSkuPrice = '';
+                    var optionSkuEl = $(el.id.replace('_in_group_id', '_sku'));
+                    if (optionSkuEl) optionSkuPrice = optionSkuEl.value;                    
+                    var optionPriceEl = $(el.id.replace('_in_group_id', '_price'));
+                    if (optionPriceEl) {                        
+                        if (optionPriceEl.value) {
+                            var optionPrice = '<?php echo Mage::app()->getLocale()->currency(Mage::app()->getStore()->getCurrentCurrencyCode())->getSymbol() ?>' + optionPriceEl.value;
+                            if (optionSkuPrice) optionSkuPrice += ', ' + optionPrice; else optionSkuPrice = optionPrice;
+                        }
+                    }
+                    if (optionSkuPrice) optionSkuPrice = ' (' + optionSkuPrice + ')';
+                    
+                    if (el.id.indexOf('_select_')>0) {
+                        optionTitle = $(el.id.replace('_in_group_id', '_title')).value;
+                        if (!optionTitle) optionTitle = 'n/a';
+                        HTML += '<div>&nbsp;&nbsp;&nbsp;&nbsp;<label><input class="children_group_'+childrenGroup+'" type="checkbox" value="'+el.value+'" '+checked+'/> ' + optionTitle + optionSkuPrice + '</label></div>';
+                    } else {
+                        type = $(el.id.replace('_in_group_id', '_type')).value;
+                        optionTitle = $(el.id.replace('_in_group_id', '_title')).value;                                          
+                        if (!optionTitle) optionTitle = 'n/a';
+                        if (type=='drop_down' || type=='radio' || type=='checkbox' || type=='multiple' || type=='swatch') {
+                            childrenGroup++;                            
+                            HTML += '<div><label><input type="checkbox" value="" onclick="productChildrenOptions.selectAll('+childrenGroup+', this.checked);" title="<?php echo $helper->__js('Select All') ?>" /> ' + optionTitle + '</label></div>';
+                        } else {
+                            HTML += '<div><label><input type="checkbox" value="'+el.value+'" '+checked+'/> ' + optionTitle + optionSkuPrice + '</label></div>';
+                        }    
+                    }
+                }
+            }               
+            
+        });        
+        
+        $('popup_children_show').style.display = 'block';
+	$('popup_children_show').style.top = event.pageY-15 +"px";
+	$('popup_children_show').style.left = event.pageX +"px";
+	$('popup_children_show').innerHTML = '<div style="float:left; font-weight:bold;"><?php echo $helper->__js('Select Children') ?></div>&nbsp;&nbsp;&nbsp;<div style="float:right; margin-top:-6px; font-size:15px; font-weight:bold; color:#800000; cursor:pointer;" onclick="this.parentNode.style.display=\'none\';">x</div><br/>';
+        $('popup_children_show').innerHTML += HTML;
+        $('popup_children_show').innerHTML += '<div align="center" style="margin-top:6px;"><button style="border-radius:4px;" onclick="productChildrenOptions.done('+IGI+'); this.parentNode.parentNode.style.display=\'none\'; return false;">Done</button>';
+        
+    },
+    
+    getOptionId: function(id) {
+        arr = id.split('_');
+        return arr[2];
+    },
+    
+    parseChildrenIds: function(str, inKey) {
+        ids = [];        
+        arr = str.split(',');
+        for (i=0; i < arr.length; i++) {            
+            if (arr[i]!="") {
+                IGI = this.decodeViewChildrenId(arr[i]);
+                if (IGI>0) {
+                    if (inKey) ids[IGI] = true; else ids.push(IGI);
+                }
+            }
+	}        
+        return ids;
+    },
+
+    getViewChildrenId: function(IGI) {
+        if (IGI<65536) return IGI;                       
+        return Math.floor(IGI/65535)+'x'+IGI%65535;        
+    },
+    
+    decodeViewChildrenId: function(IGI) {
+        tmp = IGI.split('x');
+        if (tmp.length<2) return parseInt(IGI);        
+        return (parseInt(tmp[0])*65535)+parseInt(tmp[1]);        
+    },
+
+    selectAll: function(childrenGroup, checked) {
+        $$('.children_group_'+childrenGroup).each(function(el){
+            el.checked = checked;            
+        });
+    },
+    
+    done: function(IGI) {
+        $('dependent_ids_'+IGI).value = '';
+        $$('#popup_children_show input[type="checkbox"]').each(function(el){
+            if (el.checked && el.value!='') $('dependent_ids_'+IGI).value += productChildrenOptions.getViewChildrenId(el.value) + ',';            
+        });        
+        
+        $('dependent_ids_'+IGI).value = $('dependent_ids_'+IGI).value.replace(/,$/g,"");
+    },
+    
+    removeChildrenElement: function(element) {
+        // remove children id                
+        var childrens = element.getElementsByClassName('igi');
+        for(var i=0;i<childrens.length;i++){
+            if (childrens[i].value) {
+                this.removeIdFromChildren(childrens[i].value);
+            }
+            $(childrens[i]).removeClassName('igi');
+            i--;
+        }
+    },
+    
+    removeIdFromChildren: function(IGI) {
+        childrens = $$('input.input-children');
+        childrens.each(function(el){
+            if (el.value) {
+                var ids = productChildrenOptions.parseChildrenIds(el.value, true);                
+                if (ids[IGI]) {
+                    var ids = productChildrenOptions.parseChildrenIds(el.value, false);                    
+                    ids = ids.without(IGI).uniq();
+                    el.value = '';
+                    ids.each(function(id){
+                        el.value += productChildrenOptions.getViewChildrenId(id) + ',';
+                    });
+                    el.value = el.value.replace(/,$/g,"");                    
+                }               
+            }
+        });
+    }
+}
+//]]>
+</script>
+<div id="popup_children_show" style="position: absolute; 
+    width: auto; 
+    height: auto; 
+    padding: 6px;
+    text-align: left;
+    display: none; 
+    cursor: default; 
+    background: #FFFFFF;
+    border: 1px solid #CCCCCC;
+    border-radius: 6px;    
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.6);
+    z-index: 100;">Select Children:<br></div>

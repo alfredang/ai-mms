@@ -1,0 +1,116 @@
+<?php
+/**
+ * MMD
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the MMD EULA that is bundled with
+ * this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * http://www.magemobiledesign.com/LICENSE-1.0.html
+ *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade the extension
+ * to newer versions in the future. If you wish to customize the extension
+ * for your needs please refer to http://www.magemobiledesign.com/ for more information
+ *
+ * @category   MMD
+ * @package    MMD_CustomOptions
+ * @copyright  Copyright (c) 2012 MMD (http://www.magemobiledesign.com/)
+ * @license    http://www.magemobiledesign.com/LICENSE-1.0.html
+ */
+
+/**
+ * Advanced Product Options extension
+ *
+ * @category   MMD
+ * @package    MMD_CustomOptions
+ * @author     MMD Dev Team
+ */
+?>
+<style type="text/css">
+.form-list td.note { padding-left:18px !important; }
+</style>
+
+<div class="entry-edit custom-options product-custom-options">
+    <div id="dynamic-price-warrning" style="display:none">
+        <ul class="messages">
+            <li class="error-msg">
+                <ul>
+                    <li><?php echo $this->__('Bundle with dynamic pricing cannot include custom defined options. Options will not be saved') ?></li>
+                </ul>
+            </li>
+        </ul>
+    </div>
+    <div class="entry-edit-head">
+        <h4><?php if ($this->isPredefinedOptions()===true) {
+            $model = Mage::registry('current_product');
+            echo $this->__('Course Schedule');
+        } else {
+            $model = Mage::registry('customoptions_data');
+            echo $this->__('Template Options');
+        } ?></h4>
+        <div class="right"><?php echo $this->getAddButtonHtml() ?></div>
+    </div>
+
+    <div id="product_options_container" class="box">
+    	<div style="padding-top: 10px;">
+            <table class="form-list" cellspacing="0">
+                <tbody>
+                    <tr>
+                        <?php if ($this->isPredefinedOptions() === true) { ?>
+                            <td align="right"><big><?php echo Mage::helper('customoptions')->__('Options Templates:') ?></big></td>
+                            <td width="10">&nbsp;</td>
+                        <?php } ?>
+                        <td><?php echo $this->getChildHtml('general_box') ?></td>
+                        <?php if ($this->isPredefinedOptions() === true) { ?>
+                            <td class="note" width="100"><small><?php echo $this->__('Select Options Templates and Save the product to apply options or <a href="%s" target="_blank">click here to define</a>', $this->getUrl('mmd/customoptions_options')) ?></small></td>
+                        <?php } ?>
+                        <td width="100">&nbsp;</td>
+                        <td>
+                            <label><input type="checkbox" name="general[absolute_price]" value="1" <?php if ($model->getAbsolutePrice()) echo 'checked' ?> /> <?php echo $this->__('Enable Absolute Price') ?></label><br/>
+                            <?php if (Mage::helper('customoptions')->isWeightEnabled()) { ?><label><input type="checkbox" name="general[absolute_weight]" value="1" <?php if ($model->getAbsoluteWeight()) echo 'checked' ?> /> <?php echo $this->__('Enable Absolute Weight') ?></label><br/><?php } ?>                            
+                        </td>
+                    </tr>
+                    <?php if ($this->isPredefinedOptions() === true) { ?>
+                    <tr>
+                        <td colspan="2">&nbsp;</td>
+                        <td><label><input type="checkbox" name="general[keep_options]" value="1" /> <?php echo $this->__('Keep Options on Unlink') ?></td>
+                    </tr>
+                    <?php } ?>
+                            
+                </tbody>
+            </table>
+    	</div>
+        <input type="hidden" name="store" value="<?php echo intval(Mage::registry('store_id')) ?>"/>
+        <?php if (!Mage::getSingleton('catalog/product')->isReadonly()): ?><input type="hidden" name="affect_product_custom_options" value="1" /><?php endif; ?>        
+        <div id="product_options_container_top"></div>
+        <div id="product_options_container_down"></div>        
+        <?php echo $this->getOptionsBoxHtml() ?>
+    </div>
+</div>
+
+<script type="text/javascript">
+// re-bind form elements onchange
+varienWindowOnload(true);
+//show error message
+if ($('price_type')) {
+    if ($('price_type').value == '0' && $('dynamic-price-warrning')) {
+        $('dynamic-price-warrning').show();
+    }
+}
+<?php
+    $helper = Mage::helper('customoptions');
+    $width = 930;
+    if ($helper->isDependentEnabled()) $width += 210;
+    if ($helper->isWeightEnabled()) $width += 85;
+    if ($helper->isTierPriceEnabled()) $width += 30;
+    if ($helper->isSpecialPriceEnabled()) $width += 230;
+    if ($helper->isQntyInputEnabled()) $width += 50;
+    if ($helper->isCustomerGroupsEnabled()) $width += 210;
+    if ($helper->isOptionSkuPolicyEnabled()) $width += 85;
+    if ($helper->isImageModeEnabled()) $width += 175;
+?>
+$$('div.wrapper').first().style.minWidth = '<?php echo $width; ?>px';
+</script>

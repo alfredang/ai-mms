@@ -1,0 +1,145 @@
+<?php
+/**
+ * MMD
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the MMD EULA that is bundled with
+ * this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * http://www.magemobiledesign.com/LICENSE-1.0.html
+ *
+ * If you did not receive a copy of the license and are unable to
+ * obtain it through the world-wide-web, please send an email
+ * to license@magemobiledesign.com so we can send you a copy immediately.
+ *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade the extension
+ * to newer versions in the future. If you wish to customize the extension
+ * for your needs please refer to http://www.magemobiledesign.com/ for more information
+ * or send an email to sales@magemobiledesign.com
+ *
+ * @category   design_default
+ * @package    MMD_CustomOptions
+ * @copyright  Copyright (c) 2013 MMD (http://www.magemobiledesign.com/)
+ * @license    http://www.magemobiledesign.com/LICENSE-1.0.html
+ */
+
+/**
+ * Custom Options extension
+ *
+ * @category   design_default
+ * @package    MMD_CustomOptions
+ * @author     MMD Dev Team <developers@magemobiledesign.com>
+ */
+?>
+<div id="<?php echo $this->getHtmlId() ?>">
+<table cellspacing="0" cellpadding="0" class="massaction">
+<tr>
+    <td>
+        <a href="#" onclick="return selectAllProducts()"><?php echo $this->__('Select All') ?></a>
+        <span class="separator">|</span>
+        <a href="#" onclick="return unselectAllProducts()"><?php echo $this->__('Unselect All') ?></a>
+        <span class="separator">|</span>
+        <a href="#" onclick="return selectVisible()"><?php echo $this->__('Select Visible') ?></a>
+        <span class="separator">|</span>
+        <a href="#" onclick="return unselectVisible()"><?php echo $this->__('Unselect Visible') ?></a>
+        <span class="separator">|</span>
+        <strong id="<?php echo $this->getHtmlId() ?>-count">0</strong> <?php echo $this->__('items selected') ?>
+    </td>
+    <td>
+        <div class="right">
+            <input type="hidden" id="in_products" name="in_products" value=""/>
+            <div class="entry-edit" style="display: none;">
+                <form action="" id="<?php echo $this->getHtmlId() ?>-form" method="post">                    
+                    <?php echo $this->getBlockHtml('formkey')?>
+                    <fieldset>
+                        <span class="field-row">
+                            <label><?php echo $this->__('Actions') ?></label>
+                            <select id="<?php echo $this->getHtmlId() ?>-select" class="select absolute-advice">
+                                <option value=""></option>
+                                <?php foreach($this->getItems() as $_item): ?>
+                                    <option value="<?php echo $_item->getId() ?>"<?php echo ($_item->getSelected() ? ' selected="selected"' : '')?>><?php echo $_item->getLabel() ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </span>
+                        <span class="outer-span" id="<?php echo $this->getHtmlId() ?>-form-hiddens"></span>
+                        <span class="outer-span" id="<?php echo $this->getHtmlId() ?>-form-additional"></span>
+                        <span class="field-row">
+                            <?php echo $this->getApplyButtonHtml() ?>
+                        </span>
+                    </fieldset>
+                </form>
+            </div>
+
+            <div class="no-display">
+            <?php foreach($this->getItems() as $_item): ?>
+                <div id="<?php echo $this->getHtmlId() ?>-item-<?php echo $_item->getId() ?>-block">
+                    <?php echo $_item->getAdditionalActionBlockHtml() ?>
+                </div>
+            <?php endforeach; ?>
+            </div>
+        </div>
+    </td>
+</tr>
+</table>
+
+<script type="text/javascript">
+//<![CDATA[   
+    function applySelectedProducts(type) {        
+        var ids = <?php echo $this->getJsObjectName() ?>.checkedString;    
+        if ($('in_products')) {
+            $('in_products').value = ids;
+            if (type == 'save') {
+                editForm.submit();
+            } else if ('saveandcontinue') {
+             $('edit_form').action += 'back/edit/';
+                editForm.submit();
+            }
+        }
+    }    
+        
+    function selectVisible() {
+        elements = $$('.massaction-checkbox');                
+        elements.each(function(el) {
+            if (!el.checked) el.click();
+        });        
+        return false;
+    }
+    
+    function unselectVisible() {
+        elements = $$('.massaction-checkbox');                
+        elements.each(function(el) {
+            if (el.checked) el.click();
+        });
+        return false;
+    }
+    
+    function selectAllProducts() {
+        var ids = <?php echo $this->getJsObjectName() ?>.checkedString + ',' + <?php echo $this->getJsObjectName() ?>.getGridIds();
+        ids = ids.split(',').without('').uniq().join(',');        
+        <?php echo $this->getJsObjectName() ?>.checkedString = ids;
+        <?php echo $this->getJsObjectName() ?>.checkCheckboxes();    
+        <?php echo $this->getJsObjectName() ?>.updateCount();
+        return false;                
+    }
+    
+    function unselectAllProducts() {
+        var ids = <?php echo $this->getJsObjectName() ?>.checkedString.split(',');        
+        <?php echo $this->getJsObjectName() ?>.getGridIds().split(',').each(function(id) {
+            ids = ids.without(id);
+        });        
+        ids = ids.uniq().join(',');        
+        <?php echo $this->getJsObjectName() ?>.checkedString = ids;
+        <?php echo $this->getJsObjectName() ?>.checkCheckboxes();    
+        <?php echo $this->getJsObjectName() ?>.updateCount();
+        return false;                
+    }    
+    
+<?php if(!$this->getParentBlock()->canDisplayContainer()): ?>
+    <?php echo $this->getJsObjectName() ?>.setGridIds('<?php echo $this->getGridIdsJson() ?>');
+<?php endif; ?>
+//]]>
+</script>
+</div>

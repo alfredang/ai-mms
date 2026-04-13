@@ -1,0 +1,46 @@
+<?php
+
+$_code = $this->getMethodCode();
+
+$sources = $this->getCustomerMandates();
+
+?>
+
+<ul class="form-list" id="payment_form_<?php echo $_code ?>" style="display:none;">
+    <li class="content">
+        <input type="radio" name="payment[mandate]" value="new" class="select" id="new_mandate" style="display: none;">
+        <?php if ($this->needsMandate()): ?>
+        <label class="required" for="<?php echo $_code ?>_cc_owner"><em>*</em> <?php echo $this->__('New IBAN') ?></label>
+        <div class="input-box" style="margin-bottom: 0.7em;">
+            <input type="text" title="IBAN" class="required-entry input-text" id="<?php echo $_code ?>_iban" name="payment[iban]" value="<?php echo $this->getInfoData('iban') ?>" onclick="javascript:stripe.selectNewIBAN();"/>
+        </div>
+        <div class="mandate" style="margin-bottom: 0.7em;">
+            <?php echo $this->__("By signing this mandate form, you authorise (A) %s to send instructions to your bank to debit your account and (B) your bank to debit your account in accordance with the instructions from %s. As part of your rights, you are entitled to a refund from your bank under the terms and conditions of your agreement with your bank. A refund must be claimed within 8 weeks starting from the date on which your account was debited.", $this->getCompanyName(), $this->getCompanyName()); ?>
+        </div>
+        <?php else: ?>
+        <div>
+            <?php echo $this->__('You will be redirected to your bank for payment processing.') ?>
+        </div>
+        <?php endif; ?>
+    </li>
+
+    <?php if (!empty($sources)): ?>
+    <li class="content">
+      <strong>
+        <label><?php echo $this->__('Or use an existing mandate from a previous order:') ?></label>
+      </strong>
+      <ul class="saved-cards" id="mandates">
+        <?php foreach ($sources as $key => $source): ?>
+          <?php if ($this->isReusableSource($source)): ?>
+            <li>
+              <input type="radio" name="payment[mandate]" value="<?php echo $source->id ?>" id="<?php echo $source->id; ?>" class="select" onclick="javascript:stripe.selectMandate();">
+              <label for="<?php echo $source->id; ?>">
+                <?php echo $this->formatSourceName($source); ?>
+              </label>
+            </li>
+          <?php endif; ?>
+        <?php endforeach; ?>
+      </ul>
+    </li>
+    <?php endif; ?>
+</ul>

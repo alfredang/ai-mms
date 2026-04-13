@@ -1,0 +1,130 @@
+<?php /* @var $this Mage_Catalog_Block_Product_View_Abstract */?>
+
+<?php 
+
+$buttonText  = Mage::getStoreConfig('outofstocknotification/general/mmd_outofstock_button_text');
+
+$labelText  = Mage::getStoreConfig('outofstocknotification/general/mmd_outofstock_label_text');
+
+$notifyMail  = Mage::getStoreConfig('outofstocknotification/general/activate_mmd_outofstock_email');
+
+$enableOutOfStock  = Mage::getStoreConfig('outofstocknotification/general/activate_mmd_outofstock_enable');
+
+$enableOutOfStock = intval($enableOutOfStock);
+
+//$notifyRequest = Mage::getStoreConfig('outofstocknotification/general/activate_mmd_outofstock_notifymes');
+
+
+
+$storeName = Mage::getStoreConfig("general/store_information/name");  
+
+$_product = $this->getProduct();
+
+$productId =  $_product->getId();
+
+$productSku =  $_product->getSku();
+
+$productName = $_product->getName();
+
+
+
+
+
+$productUrl = $_product->getUrlInStore();
+
+$baseUrl = $this->getUrl();
+
+$crtlPageUrl = $baseUrl.'outofstocknotification/index/storeNotificationProductData';
+
+//$crtlPageUrl = Mage::getBaseUrl().'/outofstocknotification/index/storeNotificationProductData';
+
+
+
+if ($_product->isAvailable()): /*?>
+
+    <p class="availability in-stock"><?php echo $this->__('Availability:') ?> <span><?php echo $this->__('In stock') ?></span></p>
+
+<?php */ else: /*
+
+?> <p class="availability out-of-stock"><?php echo $this->__('Availability:') ?> <span><?php echo $this->__('Out of stock') ?></span></p>
+
+<?php */
+
+if($enableOutOfStock){
+
+?>
+
+<style>
+
+.product-view .add-to-cart-wrapper { float:none; width:100%; padding-left:0;}
+
+
+
+</style>
+
+<div id="notifyBtn" style="display:block;"><button class="button btn-cart" title="Subscribe" type="button" onclick="notifyToggle()"><div class="abp-cart" ><?php echo $buttonText;?></div></button></div>
+
+<div id="notifyFrm" style="display:none; margin-bottom:20px;">
+
+<input type="hidden" value="<?php echo $ctrlPageUrl; ?>" id='ctrlUrlOfOutOfStock' name ='baseUrlOfOutOfStock' />
+
+<input type="hidden" value="<?php echo $productId; ?>" id='productId' name ='productId' />
+
+<input type="hidden" value="<?php echo $productSku; ?>" id='productSku' name ='productSku' />
+
+<input type="hidden" value="<?php echo $productName; ?>" id='productName' name ='productName' />
+
+<input type="hidden" value="<?php echo $productUrl; ?>" id='productUrl' name ='productUrl' />
+
+
+
+<div class="block-body mmd-outofstock-block-body line" id='responceMesPlace'>
+
+    <span id='contentofnotification' >
+
+	   	 <div id="notify_conform" class="notify_conform"></div>
+
+	     <span id="notify_message"><?php echo $labelText ; ?></span>
+
+      <div id="padding_div" style="margin-top: 4px;" > 
+
+	     <span id="notify_error" class="line notify_error"></span>
+
+	     
+
+	     <div id="notify_submit"> <span style="color:#000;">Email:</span>
+
+	     <input id="outofstock_email" type="text"  name="outofstock_email"  style="width:200px;" >
+         <div style="display: none;color: red;font-size: 11px;" id="outofstock_notify_error" >Please specify a valid Email Address</div>
+<div style="margin-top:5px;"> 
+	     <button class="button" title="Subscribe" type="button" onclick="return stockNotifyValidate('<?php echo $productId; ?>','<?php echo $crtlPageUrl; ?>')" >
+
+	     <span><span><?php //echo $buttonText;?>Submit</span></span>
+
+	     </button> 
+</div>         
+         <div id='ajaximageshowing' class="ajaxreloadimage" ></div>
+
+	    
+
+	      </div>
+
+	    
+
+	</div>
+
+	</span>
+
+</div>
+
+</div>
+
+<?php } //if out of stock endable
+
+
+
+endif; ?>
+
+<?php //echo $this->getChildHtml('product_type_data_extra') ?>
+
+<?php //echo $this->getPriceHtml($_product) ?>

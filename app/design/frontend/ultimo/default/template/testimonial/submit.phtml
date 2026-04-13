@@ -1,0 +1,101 @@
+<div class="page-title">
+    <h1><?php echo Mage::helper('testimonial')->__('Write Your Own Testimonial') ?></h1>
+</div>
+<div class="testimonial-container">
+<form action="<?php echo $this->getAction() ?>" enctype="multipart/form-data" method="post" id="testimonial-form" name="testimonial-form">
+<fieldset>
+
+        <?php // do not remove div - some problem whith validator in IE ?>
+        <div>
+        <label for="client_name" ><?php echo Mage::helper('testimonial')->__('Your Name') ?><span class="required">*</span></label><br />
+        <input class="required-entry input-text" name="client_name" id="client_name" style="width: 450px;" type="text" value="" />
+        </div>
+
+        <div>
+        <label for="company"><?php echo Mage::helper('testimonial')->__('Your Company') ?></label><br />
+        <input name="company" class="input-text" id="company" style="width: 450px;" type="text" value="" />
+        </div>
+        
+        <div>
+        <label for="website"><?php echo Mage::helper('testimonial')->__('Your Website') ?></label><br />
+        <input name="website" class="input-text" id="website" style="width: 450px;" type="text" value="" />
+        </div>        
+
+        <div>
+        <label for="email"><?php echo Mage::helper('testimonial')->__('Your Email') ?></label><br />
+        <input name="email" type="text" id="email" style="width: 450px;" class="required-entry validate-email input-text" />
+        </div>
+        <div>
+        <label for="address"><?php echo Mage::helper('testimonial')->__('Your Address') ?></label><br />
+        <input name="address" type="text" id="address" style="width: 450px;" class="input-text required-entry" />
+        </div>
+        <div style="padding:5px 0px;">
+        <label for="media"><?php echo Mage::helper('testimonial')->__('Upload Media:') ?></label>
+        <input type="file" name="media" id="media" style="width:200px;margin-left:20px;" class="input-text required-entry" />
+        </div>
+        <div>
+        <label for="description"><?php echo Mage::helper('testimonial')->__('Your Testimonial') ?><span class="required">*</span></label><br />
+        <textarea class="required-entry" name="description" id="description" cols="53" rows="10" style="width: 450px;"></textarea>
+        </div>
+        <div>
+		<?php if (Mage::getStoreConfig("mmd_testimonial/general/enable")==true): ?>
+		<label for="security_code"><?php echo Mage::helper('testimonial')->__('Security code') ?><span class="required">*</span></label><br />
+		<div class="div_submit">
+			<div class="div_submit_content" >
+				<input class="input-text required-entry" type="text" id="security_code" name="security_code"/>
+				  <script type="text/javascript">
+					// a regular expression to test for Base64 data
+					var BASE64_DATA = /^data:.*;base64/i;
+					// path to the PHP module that will decode the encoded data
+					var base64Path = "<?php echo Mage::getBaseUrl(Mage_Core_Model_Store::URL_TYPE_WEB).'js/testimonial/base64.php'?>";
+					function fixBase64(img) {
+						// check the image src
+						if (BASE64_DATA.test(img.src)) {
+							// pass the data to the PHP routine
+							img.src = base64Path + "?" + img.src.slice(5);
+						}
+					};
+					// fix images on page load
+					onload = function() {
+						for (var i = 0; i < document.images.length; i++) {
+							fixBase64(document.images[i]);
+						}
+					};
+				  </script>
+				<?php 					
+					$im = imagecreate(60, 20);
+					$bg = imagecolorallocate($im, 0 , 0, 0); 
+					$textcolor = imagecolorallocate($im, 255, 255, 255);
+					$random=rand(1000,9999);
+					imagestring($im, 10, 10, 2, $random , $textcolor);
+					$filenametemp="gif".time().".gif";
+					ImageGIF($im, $filenametemp); 
+					$ImageData = file_get_contents($filenametemp); 
+					$ImageDataEnc = base64_encode($ImageData); 
+					unlink($filenametemp);		
+				?>
+				</div>
+				<div class="div_submit">
+				<img id="security_image" style="float:left" alt="<?php echo $random ?>" src="data:image/gif;base64,<?php echo $ImageDataEnc?>" /></div>
+			</div>
+			<input type="hidden" name="codemd5" id="codemd5" value="<?php echo md5($random)?>"/>
+		
+		<?php else: ?>
+			<input type="hidden" name="codemd5" id="codemd5" value=""/>
+		<?php endif; ?>
+
+        </div>
+
+   	 <div class="buttons-set">
+        <p class="required"><?php echo Mage::helper('contacts')->__('* Required Fields') ?></p>
+        
+        <button type="submit" title="<?php echo Mage::helper('testimonial')->__('Submit Testimonial') ?>" class="button"><span><span><?php echo Mage::helper('testimonial')->__('Submit Testimonial') ?></span></span></button>
+    </div>
+</fieldset>
+</form>
+<script type="text/javascript">
+//<![CDATA[
+   // var testimonialForm = new VarienForm('testimonial-form', true);
+//]]>
+</script>
+</div>

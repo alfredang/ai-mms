@@ -1,0 +1,48 @@
+Only in /home/httpd/htdocs/users2/rastorguev/mrc14/var/mmd_patch_orig/: compare28812627695684b4455a05d0f9
+diff -aurBb /home/httpd/htdocs/users2/rastorguev/mrc14/var/mmd_patch_orig/compare63412635716254b5092a9aade6 /home/httpd/htdocs/users2/rastorguev/mrc14/var/mmd_patch_modif/compare63412635716254b5092a9aade6
+--- /home/httpd/htdocs/users2/rastorguev/mrc14/var/mmd_patch_orig/compare63412635716254b5092a9aade6	2010-01-15 18:07:05 +0200
++++ /home/httpd/htdocs/users2/rastorguev/mrc14/var/mmd_patch_modif/compare63412635716254b5092a9aade6	2010-01-15 18:07:05 +0200
+@@ -24,6 +24,40 @@
+  * @license     http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
+  */
+ ?>
++
++<!--     START MMD CHECKOUT ATTRIBUTES     -->
++
++<?php if ($aCustomAtrrList = $this->getOrderCustomData()) : ?>
++    <!--Account Information-->
++    
++<div class="col2-set order-info-box">
++        <div class="box">
++
++            <div class="box-title">
++                <h2><?php echo Mage::getStoreConfig('checkoutoptions/common_settings/checkoutoptions_additionalblock_label', $this->getStoreId()); ?></h2>
++            </div>
++
++            <div class="box-content">
++
++                <table cellspacing="0" class="form-list" width="100%">
++                
++    <?php foreach ($aCustomAtrrList as $aItem): if($aItem['value']){ ?>
++                <tr>
++                    <td class="label" width="30%"><?php echo $aItem['label']; ?></td>
++                    <td>&nbsp;</td>
++                    <td><label><?php echo $aItem['value']; ?></label></td>
++                </tr>
++    <?php } endforeach; ?>
++                
++                </table>
++</div>
++</div>
++</div>
++
++<?php endif; ?>
++
++<!--     FINISH MMD CHECKOUT ATTRIBUTES     -->
++
+<div class="order-items">
+    <?php if ($this->helper('giftmessage/message')->getIsMessagesAvailable('items', $this->getOrder())): ?>
+    <script type="text/javascript">
+Only in /home/httpd/htdocs/users2/rastorguev/mrc14/var/mmd_patch_orig/: compare63712627734844b4464ecb9cec
+Only in /home/httpd/htdocs/users2/rastorguev/mrc14/var/mmd_patch_orig/: compare74412627749304b446a92b2c73
+Only in /home/httpd/htdocs/users2/rastorguev/mrc14/var/mmd_patch_orig/: compare85312627665334b4449c552efc

@@ -1,0 +1,139 @@
+<?xml version="1.0"?>
+<config>
+    <modules>
+        <MMD_MagentoCaptcha>
+            <version>0.1.0</version>
+        </MMD_MagentoCaptcha>
+    </modules>
+    <frontend>
+        <routers>
+            <magentocaptcha>
+                <use>standard</use>
+                <args>
+                    <module>MMD_MagentoCaptcha</module>
+                    <frontName>magentocaptcha</frontName>
+                </args>
+            </magentocaptcha>
+			
+		<contacts><!-- Name of core module to be overridden-->
+			<args>
+				<modules>
+					<MMD_MagentoCaptcha before="Mage_Contacts">MMD_MagentoCaptcha</MMD_MagentoCaptcha><!-- Tell Magento to call our custom module before the Mage/Checkout module -->
+				</modules>
+			</args>
+		</contacts>
+		<review><!-- Name of core module to be overridden-->
+			<args>
+				<modules>
+					<MMD_MagentoCaptcha before="Mage_Review">MMD_MagentoCaptcha</MMD_MagentoCaptcha><!-- Tell Magento to call our custom module before the Mage/Checkout module -->
+				</modules>
+			</args>
+		</review>	
+        </routers>
+        <layout>
+            <updates>
+                <magentocaptcha>
+                    <file>magentocaptcha.xml</file>
+                </magentocaptcha>
+            </updates>
+        </layout>
+    </frontend>
+    <admin>
+        <routers>
+			<magentocaptcha>
+				<use>admin</use>
+				<args>
+					<module>MMD_MagentoCaptcha</module>
+					<frontName>magentocaptcha</frontName>
+				</args>
+			</magentocaptcha>
+        </routers>
+    </admin>
+    <adminhtml>
+		
+		<acl>
+			<resources>
+				<all>
+					<title>Allow Everything</title>
+				</all>
+				<admin>
+					<children>
+						<MMD_MagentoCaptcha>
+							<title>MagentoCaptcha Module</title>
+							<sort_order>10</sort_order>
+						</MMD_MagentoCaptcha>
+					</children>
+				</admin>
+			</resources>
+		</acl>
+		<layout>
+			<updates>
+				<magentocaptcha>
+					<file>magentocaptcha.xml</file>
+				</magentocaptcha>
+			</updates>
+		</layout>
+    </adminhtml>   
+    <global>
+        <models>
+            <magentocaptcha>
+                <class>MMD_MagentoCaptcha_Model</class>
+                <resourceModel>magentocaptcha_mysql4</resourceModel>
+            </magentocaptcha>            
+        </models>
+        <resources>
+            <magentocaptcha_setup>
+                <setup>
+                    <module>MMD_MagentoCaptcha</module>
+                </setup>
+                <connection>
+                    <use>core_setup</use>
+                </connection>
+            </magentocaptcha_setup>
+            <magentocaptcha_write>
+                <connection>
+                    <use>core_write</use>
+                </connection>
+            </magentocaptcha_write>
+            <magentocaptcha_read>
+                <connection>
+                    <use>core_read</use>
+                </connection>
+            </magentocaptcha_read>
+        </resources>
+        <blocks>
+            <magentocaptcha>
+                <class>MMD_MagentoCaptcha_Block</class>
+            </magentocaptcha>
+        </blocks>
+        <helpers>
+            <magentocaptcha>
+                <class>MMD_MagentoCaptcha_Helper</class>
+            </magentocaptcha>
+        </helpers>
+    </global>
+	
+	   <default> 
+        <customer>
+            <captcha>              
+                <always_for>
+					<contact_form>1</contact_form>
+					<review_form>1</review_form>         					
+                </always_for>
+            </captcha>
+        </customer>
+        <captcha  translate="label">           
+            <frontend>
+                <areas>
+					<contact_form>
+					<label>Contact Us</label> 
+					</contact_form> 
+					<review_form>
+					<label>Product Review</label> 
+					</review_form> 					
+                </areas>
+            </frontend>
+           
+        </captcha>
+    </default>
+</config>

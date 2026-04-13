@@ -1,0 +1,31 @@
+<?php 
+
+$_order = Mage::registry('current_order');
+$orderid=$_order->getId();
+$orders=Mage::getModel('simplifiedcheckout/simplifiedcheckout')->getCollection()->addFieldToFilter('sales_order_id',$orderid);
+$class_orders=get_class($orders);	//cha ve name class cua doi tuong
+$o ='';
+
+foreach($orders as $order)	//$orders chua nhieu doi tuong. va` chi lay dc doi tuong con qua foreach
+{
+	$o = $order; break;		//vi` record nam o doi tuong dau tien, nen chi can lay doi tuong dau tien
+}
+?>
+<?php
+//echo $orderid;die();
+//echo '<pre>';var_dump($_order->getCollection()->getData());die();
+ ?>
+<div class="box-right">
+	<div class="entry-edit">
+		<div class="entry-edit-head">
+			<h4 class="icon-head head-shipping-method"><?php echo $this->helper('simplifiedcheckout')->__('Delivery Date') ?></h4>
+		</div>
+		<fieldset>
+		<?php if($o):?>
+		<?php echo $this->__('Delivery Date:')?><span style="font-weight:bold;"> <?php echo $o->getMmdDeliverydateDate();//$order->getMmdCustomercommentInfo() ;//$_order->getMwCustomercomment() ?></span><br>
+		<?php echo $this->__('Delivery Time:')?><span style="font-weight:bold;"> <?php echo $o->getMmdDeliverydateDate();?></span>
+		<?php endif?>
+		</fieldset>
+	</div>
+</div>
+<?php

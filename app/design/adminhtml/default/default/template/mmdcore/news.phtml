@@ -1,0 +1,28 @@
+<?php
+/**
+ * Checkout Fields Manager
+ *
+ * @category:    MMD
+ * @package:     MMD_Checkoutoptions
+ * @version      2.9.2
+ * @license:     
+ * @copyright:   Copyright (c) 2013 MMD, Inc. (http://www.mmd.com)
+ */
+/* @var $this MMD_Mmdsys_Block_Notification */
+?>
+<div class="fieldset">
+  <div class="news">
+      <?php foreach ($this->getNews() as $item) { ?>
+          <dl class="item">
+            <dt>
+                <?php if (isset($item['title']) && $item['title']) { ?>
+                    <h2><?php echo $item['title']?></h2>
+                <?php } ?>
+            </dt>
+            <dd>
+              <?php echo $item['content']?>
+            </dd>
+          </dl>
+      <?php } ?>
+  </div>
+</div>

@@ -1,0 +1,119 @@
+diff U3 C:/temp/b10/billing.phtml C:/temp/b10/design--frontend--base--default--template--checkout--multishipping--billing.phtml
+--- C:/temp/b10/billing.phtml	Fri Aug 19 09:32:42 2011
++++ C:/temp/b10/design--frontend--base--default--template--checkout--multishipping--billing.phtml	Wed Aug 24 17:10:33 2011
+@@ -36,8 +36,75 @@
+         <h1><?php echo $this->__('Billing Information') ?></h1>
+     </div>
+     <?php echo $this->getMessagesBlock()->getGroupedHtml() ?>
++<?php /* START MMD COMMENTING
++
+     <script src="<?php echo Mage::getBaseUrl('js') ?>varien/payment.js" type="text/javascript"></script>
++        
++FINISH MMD COMMENTING */ ?> 
++
++    <script type="text/javascript">
++    //<![CDATA[
++    var paymentForm = Class.create();
++    paymentForm.prototype = {
++        initialize: function(formId){
++            this.formId = formId;
++            this.validator = new Validation(this.formId);
++            var elements = Form.getElements(formId);
++
++            var method = null;
++            for (var i=0; i<elements.length; i++) {
++            	if ((elements[i].name=='payment[method]')||(elements[i].name.indexOf('mmd_checkout_')!=-1)) {
++                    if (elements[i].checked) {
++                        method = elements[i].value;
++                    }
++                } else {
++                    elements[i].disabled = true;
++                }
++                elements[i].setAttribute('autocomplete','off');
++            }
++            if (method) this.switchMethod(method);
++        },
++
++        switchMethod: function(method){
++            if (this.currentMethod && $('payment_form_'+this.currentMethod)) {
++                var form = $('payment_form_'+this.currentMethod);
++                form.style.display = 'none';
++                var elements = form.getElementsByTagName('input');
++                for (var i=0; i<elements.length; i++) elements[i].disabled = true;
++                var elements = form.getElementsByTagName('select');
++                for (var i=0; i<elements.length; i++) elements[i].disabled = true;
++
++            }
++            if ($('payment_form_'+method)){
++                var form = $('payment_form_'+method);
++                form.style.display = '';
++                var elements = form.getElementsByTagName('input');
++                for (var i=0; i<elements.length; i++) elements[i].disabled = false;
++                var elements = form.getElementsByTagName('select');
++                for (var i=0; i<elements.length; i++) elements[i].disabled = false;
++                this.currentMethod = method;
++            }
++        }
++    }
++    //]]>
++    </script>
++
++
+     <form action="<?php echo $this->getPostActionUrl() ?>" method="post" id="multishipping-billing-form">
++
++    
++<!--     START MMD CHECKOUT ATTRIBUTES     -->
++    <?php if ($aFieldList = $this->getCustomFieldList(1)): ?>
++    <fieldset>
++        <ul class="form-list">
++        <?php foreach ($aFieldList as $aField): ?>
++            <?php echo $this->getFieldHtml($aField); ?>
++        <?php endforeach; ?>
++        </ul>                
++    </fieldset>
++    <?php endif; ?>
++<!--     FINISH MMD CHECKOUT ATTRIBUTES     -->          
++    
+         <div class="col2-set">
+             <div class="col-1 col-narrow">
+                 <div class="box">
+@@ -87,9 +154,39 @@
+                 </div>
+             </div>
+         </div>
++
++
++        
++<!--     START MMD CHECKOUT ATTRIBUTES     -->
++    <?php if ($aFieldList = $this->getCustomFieldList(2)): ?>
++    <fieldset>
++        <ul class="form-list">
++        <?php foreach ($aFieldList as $aField): ?>
++            <?php echo $this->getFieldHtml($aField); ?>
++        <?php endforeach; ?>
++        </ul>                
++    </fieldset>
++    <?php endif; ?>
++<!--     FINISH MMD CHECKOUT ATTRIBUTES     -->          
++        
++        
+         <div class="buttons-set">
+             <p class="back-link"><a href="<?php echo $this->getBackUrl() ?>"><small>&laquo; </small><?php echo $this->__('Back to Shipping Information') ?></a></p>
++
++
++<?php /* START MMD COMMENTING
++
+             <button type="submit" title="<?php echo $this->__('Continue to Review Your Order') ?>" class="button"><span><span><?php echo $this->__('Continue to Review Your Order') ?></span></span></button>
++
++ FINISH MMD COMMENTING */ ?> 
++            
++
++
++<!--     START MMD CHECKOUT ATTRIBUTES     -->
++            <button name="mmd_checkout_fields_btn_submit" type="submit" title="<?php echo $this->__('Continue to Review Your Order') ?>" class="button"><span><span><?php echo $this->__('Continue to Review Your Order') ?></span></span></button>
++<!--     FINISH MMD CHECKOUT ATTRIBUTES     -->
++
++
+         </div>
+     </form>
+     <script type="text/javascript">

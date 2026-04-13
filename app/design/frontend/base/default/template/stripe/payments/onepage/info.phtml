@@ -1,0 +1,19 @@
+<?php if ($this->isWechatMethod() && $this->getWechatAddress()): ?>
+  <div class="wechat-success">
+    <h2 class="sub-title">
+      <?php echo $this->__('Your order is pending!'); ?>
+    </h2>
+    <p>
+      <?php echo $this->__('To complete the order, please pay <b>%s</b> by scanning the QR code below with your mobile device', $this->getWechatFormattedAmount()); ?>
+    </p>
+
+    <div class="actions-toolbar">
+      <div class="img-qr">
+        <p><img src="<?php echo $this->getQR(); ?>" /></p>
+      </div>
+      <br>
+    </div>
+
+    <div style="clear: both;">&nbsp;</div>
+  </div>
+<?php endif; ?>

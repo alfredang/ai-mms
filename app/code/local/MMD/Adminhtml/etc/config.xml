@@ -1,0 +1,171 @@
+<?xml version="1.0"?>
+<!-- 
+/**
+ * MMD
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the MMD EULA that is bundled with
+ * this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * http://www.magemobiledesign.com/LICENSE-1.0.html
+ *
+ * If you did not receive a copy of the license and are unable to
+ * obtain it through the world-wide-web, please send an email
+ * to license@magemobiledesign.com so we can send you a copy immediately.
+ *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade the extension
+ * to newer versions in the future. If you wish to customize the extension
+ * for your needs please refer to http://www.magemobiledesign.com/ for more information
+ * or send an email to sales@magemobiledesign.com
+ *
+ * @category   MMD
+ * @package    MMD_Adminhtml
+ * @copyright  Copyright (c) 2013 MMD (http://www.magemobiledesign.com/)
+ * @license    http://www.magemobiledesign.com/LICENSE-1.0.html
+ */
+
+/**
+ * MMD Adminhtml extension
+ *
+ * @category   MMD
+ * @package    MMD_Adminhtml
+ * @author     MMD Dev Team <developers@magemobiledesign.com>
+ */
+-->
+<config>
+  <modules>
+    <MMD_Adminhtml>
+      <version>1.1.1</version>
+    </MMD_Adminhtml>
+  </modules>
+    <admin>
+        <routers>
+            <mmd>
+                <use>admin</use>
+                <args>
+                    <module>MMD_Adminhtml</module>
+                    <frontName>mmd</frontName>
+                </args>
+            </mmd>
+        </routers>
+    </admin>
+    <adminhtml>
+        <menu>
+            <system>
+                <children>
+                    <mmd translate="title" module="mmd">
+                        <title>Get Support</title>
+                        <sort_order>11</sort_order>
+                        <action>adminhtml/system_config/edit/section/mmd</action>
+                    </mmd>
+                </children>
+            </system>
+        </menu>
+        <acl>
+            <resources>
+                <all>
+                    <title>Allow Everything</title>
+                </all>
+                <admin>
+                    <children>
+                        <system>
+                            <children>
+                                <config>
+                                    <children>
+                                        <mmd translate="title" module="mmd">
+                                            <title>MMD &gt; Extensions &amp; Support</title>
+                                            <children>
+                                                <extensions translate="title">
+                                                    <title>Extensions Information</title>
+                                                    <sort_order>1</sort_order>
+                                                </extensions>
+                                                <support translate="title">
+                                                    <title>Get Support</title>
+                                                    <sort_order>2</sort_order>
+                                                </support>
+                                            </children>
+                                        </mmd>
+                                    </children>
+                                </config>
+                            </children>
+                        </system>
+                    </children>
+                </admin>
+            </resources>
+        </acl>
+        <translate>
+            <modules>
+                <MMD_Adminhtml>
+                    <files>
+                        <default>MMD_Adminhtml.csv</default>
+                    </files>
+                </MMD_Adminhtml>
+            </modules>
+        </translate>
+    </adminhtml>
+    <global>
+        <blocks>
+            <mmd>
+                <class>MMD_Adminhtml_Block</class>
+            </mmd>
+            <adminhtml>
+                <rewrite>
+                    <system_config_edit>MMD_Adminhtml_Block_System_Config_Edit</system_config_edit>
+                </rewrite>
+            </adminhtml>
+        </blocks>
+        <models>
+            <mmd>
+                <class>MMD_Adminhtml_Model</class>
+            </mmd>
+        </models>
+        <resources>
+            <mmd_setup>
+                <setup>
+                    <module>MMD_Adminhtml</module>
+                </setup>
+                <connection>
+                    <use>core_setup</use>
+                </connection>
+            </mmd_setup>
+            <mmd_write>
+                <connection>
+                    <use>core_write</use>
+                </connection>
+            </mmd_write>
+            <mmd_read>
+                <connection>
+                    <use>core_read</use>
+                </connection>
+            </mmd_read>
+        </resources>
+        <helpers>
+            <mmd>
+                <class>MMD_Adminhtml_Helper</class>
+            </mmd>
+        </helpers>
+        <template>
+            <email>
+                <mmd_support_email_template>
+                    <label>MMD Support</label>
+                    <file>mmd_support.html</file>
+                    <type>text</type>
+                </mmd_support_email_template>
+            </email>
+        </template>
+    </global>
+	
+    <default>
+        <mmd>
+            <support>
+                <email><![CDATA[c3VwcG9ydEBtYWdld29yeC5jb20=]]>
+                </email>
+                <name>MMD Support</name>
+                <template>mmd_support_email_template</template>
+            </support>
+        </mmd>
+    </default>
+</config>

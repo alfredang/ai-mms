@@ -1,0 +1,256 @@
+<?php
+
+/**
+
+ * Magento
+
+ *
+
+ * NOTICE OF LICENSE
+
+ *
+
+ * This source file is subject to the Academic Free License (AFL 3.0)
+
+ * that is bundled with this package in the file LICENSE_AFL.txt.
+
+ * It is also available through the world-wide-web at this URL:
+
+ * http://opensource.org/licenses/afl-3.0.php
+
+ * If you did not receive a copy of the license and are unable to
+
+ * obtain it through the world-wide-web, please send an email
+
+ * to license@magentocommerce.com so we can send you a copy immediately.
+
+ *
+
+ * DISCLAIMER
+
+ *
+
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+
+ * versions in the future. If you wish to customize Magento for your
+
+ * needs please refer to http://www.magentocommerce.com for more information.
+
+ *
+
+ * @category    design
+
+ * @package     base_default
+
+ * @copyright   Copyright (c) 2012 Magento Inc. (http://www.magentocommerce.com)
+
+ * @license     http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
+
+ */
+
+
+
+/**
+
+ * Product view template
+
+ *
+
+ * @see Mage_Catalog_Block_Product_View
+
+ * @see Mage_Review_Block_Product_View
+
+ */
+
+?>
+
+<style type="text/css">
+
+	.social_media_icons { text-align:center; margin:10px 0;}
+	.latest-bgcourses policy ul { list-style-type:circle; }
+.catalog-product-view .product-view .product-shop { width:205px;}
+#bs-pav li.abc { width:81%;}
+
+#bs-pav li { width:17%; float:left;}
+#bs-pav li ul li {
+    float: none;
+    width: 340px;
+	list-style:disc;
+}
+.provider_logo { text-align:center;}
+.catalog-product-view  .nwp_upsell .perPax { display:none !important;}
+</style>
+
+<?php $_helper = $this->helper('catalog/output'); ?>
+
+<?php $_product = $this->getProduct(); ?>
+
+<script type="text/javascript">
+
+    var optionsPrice = new Product.OptionsPrice(<?php echo $this->getJsonConfig() ?>);
+
+</script>
+
+<div id="messages_product_view"><?php echo $this->getMessagesBlock()->getGroupedHtml() ?></div>
+
+<div class=" grid12-12">
+
+
+
+    <form action="<?php echo $this->getSubmitUrl($_product) ?>" method="post" id="product_addtocart_form"<?php if($_product->getOptions()): ?> enctype="multipart/form-data"<?php endif; ?>>
+ <div class=" grid12-3">
+        <div class="no-display">
+
+            <input type="hidden" name="product" value="<?php echo $_product->getId() ?>" />
+
+            <input type="hidden" name="related_product" id="related-products-field" value="" />
+
+        </div>
+
+       
+
+
+
+       
+
+            
+
+<div class="provider_logo">            <?php
+        echo  '<img id="image" src="'.$this->helper('catalog/image')->init($_product, 'image')->resize(200,200).'" alt="'.$this->htmlEscape($this->getImageLabel()).'" title="'.$this->htmlEscape($this->getImageLabel()).'" />';        
+    ?></div>
+    
+
+          <?php /*?><div class="social_media_icons">
+          <?php if($_product->getFacebook()) { ?><a href="<?php echo $_product->getFacebook();?>" target="_blank"><img src="<?php echo $this->getSkinUrl('images/fb-pro-icon.png'); ?>" alt="Facebook"/></a><?php } ?>
+          <?php if($_product->getGoogleplus()) { ?><a href="<?php echo $_product->getGoogleplus();?>" target="_blank"><img src="<?php echo $this->getSkinUrl('images/google-pro-icon.png'); ?>" alt="Google Plus"/></a><?php } ?>
+          </div><?php */?>  
+
+            <?php echo $this->getChildHtml('alert_urls') ?>
+            <?php //echo $this->getChildHtml('other');?>
+        </div>
+
+        <div class=" grid12-5">
+        
+         <div class="product-name"><h1><?php echo $_helper->productAttribute($_product, $_product->getName(), 'name') ?></h1></div>
+		<div class="course-info">
+            <ul id="bs-pav">
+            <li><strong>Speciality:</strong></li>
+            <li class="abc"> <?php $SpecialityD = $_product->getAttributeText('speciality');	
+				if(is_array($SpecialityD)) {$Speciality = implode(", ",$SpecialityD);}	else{$Speciality = $SpecialityD;} echo $Speciality; ?></li><li class="clear"></li>
+            <?php /*?><li><strong>Area:</strong></li>
+            <li class="abc"><?php echo $_product->getAttributeText('area');	 ?></li><li class="clear"></li><?php */?>
+            <li><strong>Address:</strong></li>
+            <li class="abc"><?php echo $_product->getAddress();	 ?></li><li class="clear"></li>
+            <li><strong>Email:</strong></li>
+            <li class="abc"><a href="mailto:<?php echo $_product->getEmail();	 ?>"><?php echo $_product->getEmail();	 ?></a></li><li class="clear"></li>
+            <li><strong>Tel:</strong></li>
+            <li class="abc"><?php echo $_product->getTelephone();	 ?></li><li class="clear"></li>
+            <li><strong>Website:</strong></li>
+            <li class="abc"><a href="<?php echo $_product->getWebsite();	 ?>" target="_blank"><?php echo $_product->getWebsite();	 ?></a></li>
+            
+            <li><strong>Description:</strong></li>
+            <li class="abc">
+            <?php if($_product->getDescription()) { ?> <p>
+        <?php echo $this->helper('catalog/output')->productAttribute($_product, $_product->getDescription(), 'description') ?></p>
+   <?php } ?>
+            </li>
+            
+            <div class="clear"></div>
+            </ul>
+        
+
+        </div>
+        
+
+        
+
+        </div>
+
+
+    <div class=" grid12-4">   
+ <?php if($_product->getGooglemap()) { ?><div class="map" ><?php echo $_product->getGooglemap(); ?></div><?php } ?> 
+ </div>
+
+       <div class="clearer"></div>
+
+             
+
+    </form>
+
+  
+
+     
+
+  
+<?php 
+$providerId =  $_product->getProvider();
+if($providerId) {
+$products = Mage::getModel('catalog/product')->getCollection()->
+addFieldToFilter(array(
+	array('attribute'=>'provider','eq'=>$providerId),
+	
+));
+
+
+if(count($products)>1) {
+?>
+
+    <div class=" grid12-12">
+    <div class="box-collateral box-upsell">
+    <div class="block block-upsell">
+   <h3 class="section-title padding-right">Courses</h3>
+    <div class="itemslider-wrapper itemslider-upsell-wrapper slider-arrows1 slider-arrows1-pos-top-right slider-pagination1">
+    <div id="itemslider-upsell" class="itemslider  itemslider-responsive products-grid centered owl-carousel owl-theme">            
+                   <?php foreach($products as $courseProduct) {
+					   if($_product->getId()!=$courseProduct->getId()) {
+					   $obj = Mage::getModel('catalog/product')->load($courseProduct->getId());
+					    ?> <div class="item">
+                    
+                    
+                    <a class="product-image" title="<?php echo $obj->getName();?>" href="<?php echo $obj->getProductUrl(); ?>"><img height="100" width="150" alt="<?php echo $obj->getName();?>" src="<?php echo $this->helper('catalog/image')->init($obj, 'small_image')->resize(150,100); ?>"></a> 
+                    <h3 class="product-name"><a title="" href="<?php echo $obj->getProductUrl(); ?>"><?php echo $obj->getName();?></a></h3>                   <?php echo $this->getPriceHtml($obj, true) ?>
+                    
+                   
+                    <button class="button" onclick="window.location='<?php echo $obj->getProductUrl(); ?>'">
+                    <span><span>Details</span></span>
+                    </button>
+                    
+</div>
+                  
+					<?php } } ?>
+                
+    <script type="text/javascript">
+
+    //&lt;![CDATA[
+
+        jQuery(function($) {
+            var owl = $('#itemslider-upsell');
+            owl.owlCarousel({            
+                lazyLoad: true,  
+                itemsCustom: [ [0, 1], [320, 2], [480, 3], [960, 4], [1280, 5] ],
+                responsiveRefreshRate: 50,
+                slideSpeed: 100,
+                paginationSpeed: 400,
+                scrollPerPage: true,
+                stopOnHover: true,
+                rewindNav: true,
+                rewindSpeed: 300,
+                pagination: false,
+                navigation: true,
+                navigationText: false
+            }); //end: owl
+        });
+
+    //]]&gt;
+
+    </script>
+
+</div>
+</div>
+</div>
+</div>
+</div>
+<?php } }?>
+</div>
+
+  

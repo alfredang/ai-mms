@@ -1,0 +1,20 @@
+<?php
+/**
+ * Checkout Fields Manager
+ *
+ * @category:    MMD
+ * @package:     MMD_Checkoutoptions
+ * @version      2.9.2
+ * @license:     
+ * @copyright:   Copyright (c) 2013 MMD, Inc. (http://www.mmd.com)
+ */
+/**
+ * @var $this MMD_Mmdsys_Block_Rewriter_Notifications
+ */ 
+if ($this->isShow()) { ?>
+<div class="notification-global">
+    <strong><?php echo $this->helper('mmdsys')->__('Class Rewrites cache is disabled.') ?></strong>
+    <?php echo $this->helper('mmdsys')->__('It is strongly recommended to turn it on! Do not turn it off except for development purposes!') ?>
+    <?php echo $this->helper('mmdsys')->__('Click here to go to <a href="%s">Cache Management</a> and enable Class Rewrites cache.', $this->getManageUrl());?>
+</div>
+<?php } ?>

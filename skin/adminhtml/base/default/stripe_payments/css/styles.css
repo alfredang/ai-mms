@@ -1,0 +1,333 @@
+.multishipping-authorization .authentication.message {
+    margin: 2em 0;
+    display: inline-block;
+    border: 1px solid #ccc;
+    box-shadow: 0px 1px 3px 0px #ccc;
+    padding: 1em 2em 1em 2em;
+}
+
+/* ccType */
+#stripe-payments-accepted-cards img {
+    -moz-transition: opacity .3s ease-in-out;
+    -webkit-transition: opacity .3s ease-in-out;
+    transition: opacity .3s ease-in-out;
+    display: inline-block;
+}
+#stripe-payments-accepted-cards.stripe-payments-detected img {
+    opacity: 0.3;
+}
+#stripe-payments-accepted-cards.stripe-payments-detected img.active {
+    opacity: 1;
+}
+
+input#stripe_payments_cc_number {
+    background-repeat: no-repeat;
+    background-position: right center;
+    background-size: contain;
+    background-position-x: 80%;
+    -moz-transition: background-position-x 0.25s ease-in-out;
+    -webkit-transition: background-position-x 0.25s ease-in-out;
+    transition: background-position-x 0.25s ease-in-out;
+}
+
+input#stripe_payments_cc_number.cctype-detected {
+    background-position-x: 99%;
+}
+
+.adminhtml-sales-order-create-index #payment_form_stripe_payments input[type="text"]
+{
+    width: 200px;
+}
+
+.dialog_content {
+    background-color: #fff;
+}
+.img-preload {
+    position: absolute;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+    z-index: -1;
+}
+
+/* Customer Account */
+.saved-cards label {
+    display: inline;
+}
+.saved-cards {
+    font-size: 1.15em;
+}
+.saved-cards li {
+    margin: 4px 0;
+}
+#new-card .form-list select {
+    width: auto;
+}
+#new-card .form-list label {
+    float: none;
+}
+#stripe_payments_cc_cid {
+    width: 40px;
+}
+
+/* Checkout */
+#mandates.saved-cards label {
+    font-weight: normal;
+    margin-left: 4px;
+}
+ul#payment_form_stripe_payments {
+    padding-left: 20px;
+    padding-top: 15px;
+}
+.adminhtml-sales-order-create-index ul#payment_form_stripe_payments {
+    padding: 5px 0 10px;
+}
+ul#payment_form_stripe_payments li {
+    display: block;
+}
+ul#payment_form_stripe_payments li.stripe-new {
+    display: none;
+}
+ul#payment_form_stripe_payments.stripe-new li.stripe-new {
+    display: block;
+    margin-left: 20px;
+}
+/* Idev OSC 3-column fixes */
+.onestepcheckout-column-middle ul#payment_form_stripe_payments.stripe-new li.stripe-new {
+    margin-left: 0;
+}
+.onestepcheckout-column-middle ul#payment_form_stripe_payments {
+    margin: 10px 0;
+    padding-left: 0px;
+}
+/* ~Idev OSC */
+.sp-methods .saved-cards li label {
+    float: none;
+}
+.saved-cards {
+    margin-top: 14px;
+}
+.saved-cards input.select {
+    position: relative;
+    top: -1px;
+}
+.saved-cards span {
+    display: inline-block;
+}
+.saved-cards span.type {
+    font-weight: bold;
+    margin-left: 3px;
+}
+.saved-cards span.exp {
+    float: right;
+}
+.saved-cards label {
+    display: inline;
+}
+.saved-cards span.stripe-payments-fade {
+    color: #aaa;
+    font-weight: normal;
+}
+.form-list .saved-cards label {
+    float: none;
+}
+#stripe-payments-card-errors {
+    border: 0;
+    border-radius: 3px;
+    height: 0;
+    margin: 0 auto;
+    transition: height 1s, margin 1s, border 1s, padding 1s;
+    display: inline-block;
+    padding: 0 1em;
+}
+#stripe-payments-card-errors.populated {
+    border: 1px hsla(0,100%,50%,0.5) dashed;
+    padding: 5px 1em;
+    color: #D20;
+    height: auto;
+    margin: 0.5em auto 1em;
+}
+
+/* Card Icons */
+#payment_form_stripe_payments span.type.Visa, #payment_form_stripe_payments span.type.visa { background: url(../img/visa.png) no-repeat; }
+#payment_form_stripe_payments span.type.American.Express, #payment_form_stripe_payments span.type.amex { background: url(../img/amex.png) no-repeat; }
+#payment_form_stripe_payments span.type.MasterCard, #payment_form_stripe_payments span.type.mastercard { background: url(../img/mastercard.png) no-repeat; }
+#payment_form_stripe_payments span.type.Discover, #payment_form_stripe_payments span.type.discover { background: url(../img/discover.png) no-repeat; }
+#payment_form_stripe_payments span.type.Diners, #payment_form_stripe_payments span.type.diners { background: url(../img/diners.png) no-repeat; }
+#payment_form_stripe_payments span.type.JCB, #payment_form_stripe_payments span.type.jcb { background: url(../img/jcb.png) no-repeat; }
+
+#payment_form_stripe_payments span.type.Visa, #payment_form_stripe_payments span.type.visa,
+#payment_form_stripe_payments span.type.American.Express, #payment_form_stripe_payments span.type.amex,
+#payment_form_stripe_payments span.type.MasterCard, #payment_form_stripe_payments span.type.mastercard,
+#payment_form_stripe_payments span.type.Discover, #payment_form_stripe_payments span.type.discover,
+#payment_form_stripe_payments span.type.Diners, #payment_form_stripe_payments span.type.diners,
+#payment_form_stripe_payments span.type.JCB, #payment_form_stripe_payments span.type.jcb {
+    padding-left: 30px;
+    background-position-y: -3px;
+    background-size: 24px;
+}
+
+/* Apple Pay */
+#co-payment-form #stripe-apple-pay-section #apple-pay-button,
+ul#payment_form_stripe_payments li#apple-pay-section #apple-pay-button {
+    background-color: black;
+    background-image: -webkit-named-image(apple-pay-logo-white);
+    background-size: 100% 24px;
+    background-origin: content-box;
+    background-repeat: no-repeat;
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 0;
+    border-radius: 10px;
+}
+#co-payment-form #stripe-apple-pay-section,
+ul#payment_form_stripe_payments li#apple-pay-section {
+    display: none;
+    text-align: center;
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+#co-payment-form.payment-request-api-supported #stripe-apple-pay-section,
+ul#payment_form_stripe_payments.payment-request-api-supported li#apple-pay-section {
+    display: block;
+}
+#co-payment-form.payment-request-api-supported #stripe-apple-pay-section #apple-pay-button,
+ul#payment_form_stripe_payments.payment-request-api-supported li#apple-pay-section #apple-pay-button {
+    display: none;
+}
+#co-payment-form #stripe-apple-pay-section label,
+ul#payment_form_stripe_payments li#apple-pay-section label {
+    font-weight: bold;
+    margin: 10px 0;
+    float: none;
+    display: block;
+}
+#stripe-apple-pay-result {
+    margin-bottom: 20px;
+}
+#co-payment-form.apple-pay-success .sp-methods {
+    display: none;
+}
+
+/* Authorized Apple Pay Result */
+#co-payment-form #stripe-apple-pay-result label,
+.form-list #apple-pay-result label {
+    display: inline-block;
+    float: none;
+}
+#co-payment-form #stripe-apple-pay-result,
+ul#payment_form_stripe_payments li#apple-pay-result {
+    text-align: center;
+    font-size: 1.1em;
+    display: none;
+}
+#stripe-apple-pay-result > div,
+#apple-pay-result > div {
+    display: block;
+    margin: 5px 0;
+}
+#co-payment-form.apple-pay-success #stripe-apple-pay-result,
+ul#payment_form_stripe_payments.apple-pay-success li#apple-pay-result {
+    display: block;
+}
+#co-payment-form.payment-request-api-supported.apple-pay-success #stripe-apple-pay-section,
+ul#payment_form_stripe_payments.payment-request-api-supported.apple-pay-success li#apple-pay-section {
+    display: none;
+}
+ul#payment_form_stripe_payments.payment-request-api-supported.apple-pay-success.stripe-new li.stripe-new {
+    display: none;
+}
+ul#payment_form_stripe_payments.payment-request-api-supported.apple-pay-success.stripe-new li#stripe_payments_cc_save_div.stripe-new {
+    display: block;
+}
+ul#payment_form_stripe_payments.apple-pay-success ul#saved-cards {
+    display: none;
+}
+
+/* Stripe Elements */
+#card-details-label {
+    display: block;
+}
+#stripe-payments-card-number {
+    width: 225px;
+    display: inline-block;
+}
+.stripe-payments-brand {
+    opacity: 0.5;
+    height: 24px;
+    width: 32px;
+    display: inline-block;
+    font-size: 20px;
+    margin-left: -49px;
+    position: relative;
+    top: -9px;
+}
+#stripe-payments-card-expiry {
+    width: 93px;
+    display: inline-block;
+}
+#stripe-payments-card-cvc {
+    width: 68px;
+    display: inline-block;
+}
+.stripe-elements-field {
+    display: inline-block;
+    margin: 5px 0 0 0;
+    padding: 4px 14px;
+    border-style: none;
+    background-color: #fefefe;
+    box-shadow: 0 6px 9px rgba(50, 50, 93, 0.06), 0 2px 5px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 #fefefe;
+    border-radius: 4px;
+}
+li.stripe-payments-elements.no-wrap {
+    white-space: nowrap;
+}
+.pci-dss-info-block {
+    margin: 10px 15px -16px 25px;
+    width: 240px;
+}
+#pci-svg {
+    position: relative;
+    left: -25px;
+    top: 5px;
+    opacity: 0.5;
+    fill: green;
+}
+.pci-dss-info-text {
+    display: inline-block;
+    position: relative;
+    top: -20px;
+}
+
+/* ACH */
+
+ul.ach-bank-account-details {
+    margin: 1em auto;
+}
+ul.ach-bank-account-details label {
+    min-width: 140px;
+}
+ul.ach-bank-account-details .account-number,
+ul.ach-bank-account-details .account-holder-name {
+    width: 210px;
+}
+ul.ach-bank-account-details .account-holder-type {
+    width: 215px;
+}
+#ach-bank-account-details .ach-token .validation-advice {
+    display: none;
+}
+#ach-bank-account-details.showVerificationError .ach-token .validation-advice {
+    display: block;
+}
+#stripe-ach-account-verified {
+    color: #47a722;
+    font-style: italic;
+    display: none;
+}
+#stripe-ach-account-verified img {
+    display: inline;
+    height: 1em;
+    padding: 2px;
+}

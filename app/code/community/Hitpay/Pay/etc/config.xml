@@ -1,0 +1,133 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * Magento
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * http://opensource.org/licenses/osl-3.0.php
+ * If you did not receive a copy of the license and are unable to
+ * obtain it through the world-wide-web, please send an email
+ * to license@magentocommerce.com so we can send you a copy immediately.
+ *
+ * @category    Payment
+ * @package     Hitpay_Pay
+ * @copyright   Copyright (c) 2021 Hitpay 
+ * @license     http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
+ */
+-->
+<config>
+    <modules>
+        <Hitpay_Pay>
+            <version>1.2.0</version>
+        </Hitpay_Pay>
+    </modules>
+    <global>
+        <models>
+            <hitpay>
+                <class>Hitpay_Pay_Model</class>
+                <resourceModel>hitpay_mysql4</resourceModel>
+            </hitpay>
+            <hitpay_mysql4>
+                <class>Hitpay_Pay_Model_Mysql4</class>
+                <entities>
+                    <payment>
+                        <table>hitpay_payments</table>
+                    </payment>  
+                </entities>
+            </hitpay_mysql4>
+        </models>
+        <resources>
+            <hitpay_setup>
+                <setup>
+                    <module>Hitpay_Pay</module>
+                </setup>
+                <connection>
+                    <use>core_setup</use>
+                </connection>
+            </hitpay_setup>
+            <hitpay_write>
+                <connection>
+                    <use>core_write</use>
+                </connection>
+            </hitpay_write>
+            <hitpay_read>
+                <connection>
+                    <use>core_read</use>
+                </connection>
+            </hitpay_read>
+        </resources>
+        <helpers>
+            <hitpay>
+                <class>Hitpay_Pay_Helper</class>
+            </hitpay>
+        </helpers>
+        <blocks>
+            <hitpay>
+                <class>Hitpay_Pay_Block</class>
+            </hitpay>
+        </blocks>
+    </global>
+    <frontend>
+        <routers>
+            <hitpay>
+                <use>standard</use>
+                <args>
+                    <module>Hitpay_Pay</module>
+                    <frontName>hitpay</frontName>
+                </args>
+            </hitpay>
+        </routers>
+        <layout>
+            <updates>
+                <hitpay>
+                    <file>hitpay.xml</file>
+                </hitpay>
+            </updates>
+        </layout>
+        <translate>
+            <modules>
+                <Hitpay_Pay>
+                    <files>
+                        <default>Hitpay.csv</default>
+                    </files>
+                </Hitpay_Pay>
+            </modules>
+        </translate>
+    </frontend>
+    <adminhtml>
+        <layout>
+            <updates>
+                <hitpay>
+                    <file>hitpay.xml</file>
+                </hitpay>
+            </updates>
+        </layout>
+        <translate>
+            <modules>
+                <Hitpay_Pay>
+                    <files>
+                        <default>Hitpay.csv</default>
+                    </files>
+                </Hitpay_Pay>
+            </modules>
+        </translate>
+    </adminhtml>
+    <default>
+        <payment>
+            <hitpay>
+                <debug>0</debug>
+                <active>0</active>
+                <mode>0</mode>
+                <model>hitpay/pay</model>
+                <api_key backend_model="adminhtml/system_config_backend_encrypted" />
+                <salt backend_model="adminhtml/system_config_backend_encrypted" />
+                <order_status>pending_payment</order_status>
+                <title>HitPay Payment Gateway</title>
+            </hitpay>
+        </payment>
+    </default>   
+</config>

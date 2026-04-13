@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<layout version="0.1.0">
+	 <contacts_index_index translate="label">
+       <reference name="contactForm">
+			<action method="setTemplate"><template>recaptcha/contacts/form.phtml</template></action>
+        </reference>
+    </contacts_index_index>
+	<!-- <review_product_list translate="label">
+            <block type="review/product_view_list" name="product.info.product_additional_data" as="product_additional_data" template="recaptcha/review/product/view/list.phtml">
+			  	<reference name="product.review.form">
+					<action method="setTemplate">
+						<template>recaptcha/review/form.phtml</template>
+					</action>	
+				</reference>     
+            </block>
+	</review_product_list> -->
+	<customer_account_create>
+    	<reference name="customer_form_register">
+        	<action method="setTemplate"><template>recaptcha/persistent/customer/form/register.phtml</template></action>
+        </reference>
+    </customer_account_create>
+	 <customer_account_login>
+	 	 <reference name="customer_form_login">
+		 	<action method="setTemplate"><template>recaptcha/persistent/customer/form/login.phtml</template></action>
+		 </reference>
+	 </customer_account_login>
+	<!--<checkout_onepage_index>
+        <reference name="checkout.onepage.login">
+            <action method="setTemplate"><template>recaptcha/onepage/login.phtml</template></action>
+            <block type="persistent/form_remember" name="persistent.remember.me" template="persistent/remember_me.phtml" />
+        </reference>
+	</checkout_onepage_index>
+	<checkout_onepage_index>
+    	<reference name="checkout.onepage.billing">
+        	<action method="setTemplate">
+            	<template>recaptcha/onepage/billing.phtml</template>
+            </action>
+        </reference>
+    </checkout_onepage_index>
+	 <default>
+	 	 <reference name="footer.newsletter">
+		 	<action method="setTemplate">
+            	<template>recaptcha/newsletter/subscribe.phtml</template>
+            </action>
+		 </reference>
+	 </default> -->
+</layout>

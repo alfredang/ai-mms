@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<layout version="0.1.0">
+    <default>
+        <reference name="head">
+            <action method="addCss"><stylesheet>stripe_payments/css/admin.css</stylesheet></action>
+        </reference>
+        <reference name="notifications">
+            <block type="stripe_payments/adminhtml_notifications" name="stripe_payments_notifications" template="stripe/payments/adminhtml/notifications.phtml"/>
+        </reference>
+    </default>
+    <adminhtml_sales_order_create_index>
+        <reference name="head">
+            <action method="addItem"><type>skin_js</type><name>stripe_payments/js/stripe_payments.js</name></action>
+            <action method="addCss"><stylesheet>stripe_payments/css/styles.css</stylesheet></action>
+            <action method="addCss"><stylesheet>stripe_payments/css/paymentfont.min.css</stylesheet></action>
+            <action method="addItem"><type>skin_js</type><name>stripe_payments/js/cctype.js</name></action>
+            <action method="addCss"><stylesheet>stripe_payments/css/admin.css</stylesheet></action>
+        </reference>
+    </adminhtml_sales_order_create_index>
+</layout>

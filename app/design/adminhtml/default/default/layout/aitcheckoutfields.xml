@@ -1,0 +1,75 @@
+<?xml version="1.0" ?>
+<layout version="0.1.0">
+    <aitcheckoutfields_index>
+        <reference name="content">
+            <block type="aitcheckoutfields/index"  name="aitcheckoutfields"  as="aitcheckoutfields" template="aitcheckoutfields/index.phtml" />
+        </reference>
+    </aitcheckoutfields_index>
+    
+    <aitcheckoutfields_address>
+        <reference name="content">
+            <block type="aitcheckoutfields/aitcheckoutfieldsgrid"  name="aitcheckoutfieldsgrid"  as="aitcheckoutfieldsgrid" template="aitcheckoutfields/grid.phtml" />
+        </reference>
+    </aitcheckoutfields_address>
+    
+    <aitcheckoutfields_edit>
+        <reference name="content">
+            <block type="aitcheckoutfields/aitcheckoutfieldsedit"  name="aitcheckoutfieldsedit"  as="aitcheckoutfieldsedit" template="aitcheckoutfields/options.phtml" />
+        </reference>
+    </aitcheckoutfields_edit>
+    
+    <adminhtml_sales_order_view>
+    	<reference name="order_info">
+            <action method="setTemplate"><template>aitcommonfiles/design--adminhtml--default--default--template--sales--order--view--info.phtml</template></action>
+        </reference>
+    </adminhtml_sales_order_view>
+    
+    <adminhtml_sales_order_invoice_view>
+        <reference name="order_info">
+            <action method="setTemplate"><template>aitcommonfiles/design--adminhtml--default--default--template--sales--order--view--info.phtml</template></action>
+            <action method="setIsInvoice"><value>true</value></action> 
+        </reference>
+    </adminhtml_sales_order_invoice_view>
+    
+    <adminhtml_sales_invoice_view>
+        <reference name="order_info">
+            <action method="setTemplate"><template>aitcommonfiles/design--adminhtml--default--default--template--sales--order--view--info.phtml</template></action>
+            <action method="setIsInvoice"><value>true</value></action> 
+        </reference>
+    </adminhtml_sales_invoice_view>
+    
+    <adminhtml_sales_order_invoice_new>
+        <reference name="order_info">
+            <action method="setTemplate"><template>aitcommonfiles/design--adminhtml--default--default--template--sales--order--view--info.phtml</template></action>
+            <action method="setIsInvoice"><value>true</value></action>
+        </reference>
+    </adminhtml_sales_order_invoice_new>
+    
+    <adminhtml_sales_order_index>        
+        <reference name="head">
+            <action method="addJs"><file>aitcheckoutfields/prototype.form.fix.js</file></action>            
+        </reference>    
+    </adminhtml_sales_order_index>
+	
+	<adminhtml_sales_recurring_profile_view>
+	    <reference name="sales.recurring.profile.tab.info">
+		    <block type="sales/recurring_profile_view" name="sales.recurring.profile.view.aitcfm" as="aitcfm" template="sales/recurring/profile/view/info.phtml">
+                <action method="getRecurringProfileCustomData"/>
+                <action method="addToParentGroup"><value>info_blocks_row_4</value></action>
+                <action method="setViewColumn"><value>1</value></action>
+            </block>
+		</reference>
+	</adminhtml_sales_recurring_profile_view>
+    
+</layout>
+<!--
+/**
+ * Checkout Fields Manager
+ *
+ * @category:    Aitoc
+ * @package:     Aitoc_Aitcheckoutfields
+ * @version      2.9.2
+ * @license:     QTDADp60kIhJd78JVK1SMqMlS7rjKn77Nt5LfKG9RI
+ * @copyright:   Copyright (c) 2013 AITOC, Inc. (http://www.aitoc.com)
+ */
+-->

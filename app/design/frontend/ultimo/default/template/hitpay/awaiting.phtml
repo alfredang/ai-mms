@@ -1,0 +1,41 @@
+<?php
+$params = $this->getTemplateParams();
+if ($params) {
+    $imagePath = $this->getSkinUrl('hitpay/images/');
+?>
+<script>
+    let hitpay_payment_id = '<?php echo $params['payment_id']?>';
+    let hitpay_order_id = '<?php echo $params['order_id']?>';
+    let status_ajax_url = '<?php echo $this->getUrl('hitpay/payment/status')?>';
+</script>
+<div>
+    <div class="payment_pending" style="width: 100%; text-align: center; display: ">
+        <img class="hitpay_success_loader" src="<?php echo $imagePath?>loader.gif" />
+        <h3><?php echo __('We are retrieving your HitPay payment status, please wait...')?></h3>
+    </div>
+    <div class="payment_error" style="width: 100%; text-align: center; display: none">
+        <img src="<?php echo $imagePath?>disabled.gif" />
+        <span><?php echo __('Something went wrong, please contact the merchant')?></span>
+    </div>
+    <div class="payment_status_complete" style="width: 100%; text-align: center; display: none">
+        <img src="<?php echo $imagePath?>check.png" style="width:200px" />
+        <h3><?php echo __('Your payment has been confirmed!')?></h3>
+        <p>&nbsp;</p>
+        <p><?php echo __('We are redirecting you to order confirmation page...')?></p>
+    </div>
+    <div class="payment_status_failed" style="width: 100%; text-align: center; display: none">
+        <img src="<?php echo $imagePath?>disabled.gif" />
+        <span><?php echo __('Your payment has been failed. ')?></span>
+        <p>&nbsp;</p>
+        <p><?php echo __('Restored quote and redirecting you to checkout page...')?></p>
+    </div>
+    <div class="payment_status_pending" style="width: 100%; text-align: center; display: none">
+        <span><?php echo __('Your payment status is in pending.')?></span>
+        <p>&nbsp;</p>
+        <p><?php echo __('We are redirecting you to order confirmation page...')?></p>
+    </div>
+    <p>&nbsp;</p>
+</div>
+<?php
+}
+?>

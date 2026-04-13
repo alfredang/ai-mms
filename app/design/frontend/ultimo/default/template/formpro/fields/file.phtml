@@ -1,0 +1,202 @@
+<?php
+if($this->getCustomerValue()){
+?>
+
+<div class="formpro-uploaded-file">
+
+<?php
+	$this->setFieldClass(str_replace('required-entry','',$this->getFieldClass()));
+	if($this->getField()->getType() == 'file'){
+		if(strlen($this->getCustomerValue())>1){ 
+?>
+
+	<nobr>
+		<a href="<?php echo $this->getResult()->getDownloadLink($this->getField()->getId(),$this->getCustomerValue())?>"><?php echo $this->getCustomerValue()?></a> <small>[<?php echo $this->getResult()->getFileSizeText($this->getField()->getId(),$this->getCustomerValue())?>]</small>
+	</nobr>
+
+<?php
+		}
+	}
+	if($this->getField()->getType() == 'image'){
+		if(strlen($this->getCustomerValue())>1){
+			if($this->getResult()->getThumbnail($this->getField()->getId(),$this->getCustomerValue(),100)){
+?>
+	
+	<a href="<?php echo $this->getResult()->getDownloadLink($this->getField()->getId(),$this->getCustomerValue())?>" target="_blank"><img src="<?php echo $this->getResult()->getThumbnail($this->getField()->getId(),$this->getCustomerValue(),100)?>"/></a>
+	
+<?php
+			} else {
+?>
+
+	<nobr>
+		<a href="<?php echo $this->getResult()->getDownloadLink($this->getField()->getId(),$this->getCustomerValue())?>"><?php echo $this->getCustomerValue()?></a> <small>[<?php echo $this->getResult()->getFileSizeText($this->getField()->getId(),$this->getCustomerValue())?>]</small>
+	</nobr>
+
+<?php
+			}
+		}
+	}
+	if(!$this->getField()->getRequired()){
+?>
+
+	<div class='formpro-uploaded-file-delete'>
+		<input type='checkbox' id='delete_<?php echo $this->getFieldId()?>' name='delete_<?php echo $this->getFieldId()?>' value='1'/>
+		<label class='formpro-uploaded-file-delete-label' for='delete_<?php echo $this->getFieldId()?>'><?php echo Mage::helper('formpro')->__('Delete')?></label>
+	</div>
+
+<?php
+	}
+?>
+
+</div>
+
+<?php 
+}
+?>			
+
+<input type='file' name='<?php echo $this->getFieldName()?>' id='<?php echo $this->getFieldId()?>' class='<?php echo $this->getFieldClass()?>' style='<?php echo $this->getFieldStyle()?>'/>
+
+<?php
+
+if(Mage::getStoreConfig('formpro/files/ajax')){
+	
+?>
+
+<div id="fileupload-progress-<?php echo $this->getFieldId()?>" class="file-progress"></div>
+
+<ul id="preview_<?php echo $this->getFieldId()?>" class="file-preview" style="display:none"></ul>
+
+<script>
+var jqXHR<?php echo $this->getFieldId()?>;
+jQuery(document).ready(function($) {
+	
+	$('#<?php echo $this->getFieldId()?>').fileupload({
+		dataType: 'json',
+		url: '<?php echo Mage::getBaseUrl('js')?>formpro/upload/index.php?param_name=<?php echo $this->getFieldName()?>',
+		replaceFileInput: false,
+		change: function (e, data){
+			if(jqXHR<?php echo $this->getFieldId()?>) jqXHR<?php echo $this->getFieldId()?>.abort();
+			$('#preview_<?php echo $this->getFieldId()?>').empty();
+		},
+		add: function (e,data){
+			jqXHR<?php echo $this->getFieldId()?> = data.submit();
+		},
+		done: function (e, data) { 
+		  var fileInfo = data.result[0];
+		  $("#<?php echo $this->getFieldId()?>").removeClass("required-entry");
+		  if(fileInfo){
+			  $("#preview_<?php echo $this->getFieldId()?>").append(
+					$('<input>').attr('type','hidden').attr('name','<?php echo $this->getFieldId()?>').attr('value',fileInfo.rand + '/' + fileInfo.name)
+			  );
+			  $('#<?php echo $this->getFieldId()?>').val('');
+			  $.each(data.files, function (index, file) {			
+				$("#preview_<?php echo $this->getFieldId()?>").append(
+				  $('<li>').attr('id', file.name)
+					.append($('<h3>').text(file.name))
+						.append($('<p>')
+							.append('<?php echo $this->__('type')?>: ' + (file.type || 'unknown'))
+							.append($('<br>'))
+							.append('<?php echo $this->__('size')?>: ' + Math.round(file.size / 1024) + 'KB' )
+							.append($('<br>'))
+							.append($('<a>').attr('class','file-cancel').text('[<?php echo $this->__('Cancel')?>]').click(function(){
+								$('#preview_<?php echo $this->getFieldId()?>').empty();
+								<?php if($this->getField()->getRequired()){?>
+								$("#<?php echo $this->getFieldId()?>").addClass("required-entry");
+								<?php } ?>
+							})))
+				  );
+			  });
+			 
+			  var li = $('li[id="'+fileInfo['name']+'"]');
+			  
+			  if (/image\/.*/.test(fileInfo['type'])) {
+				if(fileInfo['thumbnail_url']){
+					var thumb = $('<img>').attr('src', fileInfo['thumbnail_url']);
+					li.prepend(thumb); 
+				}
+			  }			   
+
+		  } else {
+			  alert('<?php echo $this->__('Error occured!')?>');
+		  }
+		}
+	});
+	
+	// Add detailed progress information	
+	$('#<?php echo $this->getFieldId()?>').bind('fileuploadstart', function ( e, data) {
+		var widget = $(this),
+			progressElement = $('#fileupload-progress-<?php echo $this->getFieldId()?>').fadeIn(),
+			interval = 500,
+			total = 0,
+			loaded = 0,
+			loadedBefore = 0,
+			progressTimer,
+			progressHandler = function (e, data) {
+				loaded = data.loaded;
+				total = data.total;
+			},
+			stopHandler = function () {
+				widget
+					.unbind('fileuploadprogressall', progressHandler)
+					.unbind('fileuploadstop', stopHandler);
+				window.clearInterval(progressTimer);
+				progressElement.fadeOut(function () {
+					progressElement.html('');
+					$('#preview_<?php echo $this->getFieldId()?>').fadeIn();
+				});
+			},
+			formatTime = function (seconds) {
+				var date = new Date(seconds * 1000);
+				return ('0' + date.getUTCHours()).slice(-2) + ':' +
+					('0' + date.getUTCMinutes()).slice(-2) + ':' +
+					('0' + date.getUTCSeconds()).slice(-2);
+			},
+			formatBytes = function (bytes) {
+				if (bytes >= 1000000000) {
+					return (bytes / 1000000000).toFixed(2) + ' GB';
+				}
+				if (bytes >= 1000000) {
+					return (bytes / 1000000).toFixed(2) + ' MB';
+				}
+				if (bytes >= 1000) {
+					return (bytes / 1000).toFixed(2) + ' KB';
+				}
+				return bytes + ' B';
+			},
+			formatPercentage = function (floatValue) {
+				return (floatValue * 100).toFixed(2) + ' %';
+			},
+			updateProgressElement = function (loaded, total, bps) {
+				progressElement.html(
+					formatBytes(bps) + 'ps | ' +
+						formatTime((total - loaded) / bps) + ' | ' +
+						formatPercentage(loaded / total) + ' | ' +
+						formatBytes(loaded) + ' / ' + formatBytes(total)
+				);
+			},
+			intervalHandler = function () {
+				var diff = loaded - loadedBefore;
+				if (!diff) {
+					return;
+				}
+				loadedBefore = loaded;
+				updateProgressElement(
+					loaded,
+					total,
+					diff * (1000 / interval)
+				);
+			};
+		widget
+			.bind('fileuploadprogressall', progressHandler)
+			.bind('fileuploadstop', stopHandler);
+		progressTimer = window.setInterval(intervalHandler, interval);
+	});
+	
+});
+</script>
+
+<?php
+
+}
+
+?>

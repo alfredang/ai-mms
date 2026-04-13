@@ -1,0 +1,63 @@
+@import '../core/_general';
+@import '../core/_hostedfields';
+@import '../core/_paypal';
+@import '../core/_saved';
+
+#ac-page #checkout-payment-method-load {
+    #payment_form_gene_braintree_creditcard, #payment_form_gene_braintree_paypal {
+        padding: 12px 0;
+        > label {
+            font-weight: bold;
+        }
+        > p {
+            margin-top: 6px;
+        }
+
+        #creditcard-saved-accounts, #paypal-saved-accounts {
+            font-size: inherit!important;
+            margin: 8px 0;
+
+            tr {
+                td {
+                    padding: 6px 0;
+                }
+            }
+
+            label  {
+                .saved-card-info {
+                    margin-left: 10px;
+                }
+            }
+        }
+
+        #credit-card-form {
+            li {
+                margin-bottom: 12px;
+
+                > label {
+                    margin-bottom: 6px;
+                    display: block;
+                }
+
+                .cvv-what-is-this {
+                    top: -40px;
+                }
+            }
+            #gene_braintree_creditcard_store_in_vault_div {
+                label {
+                    display: inline;
+                }
+            }
+        }
+
+        .paypal-info {
+            >p {
+                margin-bottom: 8px;
+            }
+        }
+    }
+}
+
+#paypal-complete {
+    float: right;
+}

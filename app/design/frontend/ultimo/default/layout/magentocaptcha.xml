@@ -1,0 +1,54 @@
+<?xml version="1.0"?>
+<layout version="0.1.0">
+   <!--	<contacts_index_index translate="label"> 
+		 <reference name="contactForm">
+            <block type="core/template" name="contactForm" template="magentocaptcha/form.phtml">
+                <block type="captcha/captcha" name="captcha">
+                    <reference name="head">
+                        <action method="addJs"><file>mage/captcha.js</file></action>
+                    </reference>
+                    <action method="setFormId"><formId>contact_form</formId></action>
+                    <action method="setImgWidth"><width>230</width></action>
+                    <action method="setImgHeight"><width>50</width></action>
+                </block>
+            </block>
+        </reference>		
+    </contacts_index_index> -->
+	 <review_product_list translate="label">
+	 <reference name="product.info.product_additional_data">
+		 <block type="review/form" name="product.review.form" as="review_form" template="magentocaptcha/reviewform.phtml">
+			<block type="page/html_wrapper" name="product.review.form.fields.before" as="form_fields_before" translate="label">
+				<label>Review Form Fields Before</label>
+				<action method="setMayBeInvisible"><value>1</value></action>
+			</block>
+			<block type="captcha/captcha" name="captcha">
+                    <reference name="head">
+                        <action method="addJs"><file>mage/captcha.js</file></action>
+                    </reference>
+                    <action method="setFormId"><formId>contact_form</formId></action>
+                    <action method="setImgWidth"><width>230</width></action>
+                    <action method="setImgHeight"><width>50</width></action>
+                </block>
+		 </block>
+	 </reference>	
+	</review_product_list>
+	
+	<catalog_product_view>
+	<reference name="product.info.product_additional_data">
+		 <block type="review/form" name="product.review.form" as="review_form" template="magentocaptcha/reviewform.phtml">
+			<block type="page/html_wrapper" name="product.review.form.fields.before" as="form_fields_before" translate="label">
+				<label>Review Form Fields Before</label>
+				<action method="setMayBeInvisible"><value>1</value></action>
+			</block>
+			<block type="captcha/captcha" name="captcha">
+                    <reference name="head">
+                        <action method="addJs"><file>mage/captcha.js</file></action>
+                    </reference>
+                    <action method="setFormId"><formId>contact_form</formId></action>
+                    <action method="setImgWidth"><width>230</width></action>
+                    <action method="setImgHeight"><width>50</width></action>
+                </block>
+		 </block>
+	 </reference>	
+	</catalog_product_view>
+</layout> 

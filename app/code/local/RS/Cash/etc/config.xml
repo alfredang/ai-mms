@@ -1,0 +1,61 @@
+<?xml version="1.0"?>
+<config>
+    <modules>
+        <RS_Cash>
+            <version>1.2</version>
+        </RS_Cash>
+    </modules>
+	<frontend>
+	 <routers>
+            <cash>
+                <use>standard</use>
+                <args>
+                    <module>RS_Cash</module>
+                    <frontName>rs_payment</frontName>
+                </args>
+            </cash>
+        </routers>      	
+    </frontend>
+    <global>
+        <models>
+            <cash>
+                <class>RS_Cash_Model</class>
+            </cash>
+        </models>        
+        <blocks>
+            <cash>
+                <class>RS_Cash_Block</class>
+            </cash>
+        </blocks>
+        <helpers>
+            <cash>
+                <class>RS_Cash_Helper</class>
+            </cash>
+        </helpers>        
+    </global>
+	<default>
+        <payment>
+            <cash>
+                <active>0</active>
+                <model>cash/cash</model>
+                <order_status>1</order_status>
+                <title>Bank Pay</title>
+                <allowspecific>0</allowspecific>
+                <form_block_type>0</form_block_type>
+            </cash>
+        </payment>
+    </default>
+    
+    <default>
+        <payment>
+            <cash>
+                <title>Cash Payment on Course Day</title>
+                <active>1</active>
+                <show_bank_accounts_in_pdf>1</show_bank_accounts_in_pdf>
+                <show_customtext_in_pdf>1</show_customtext_in_pdf>
+				<enabledorder>1</enabledorder>
+				<recipient_email>sale@example.com</recipient_email>
+            </cash>
+        </payment>
+    </default>
+</config>

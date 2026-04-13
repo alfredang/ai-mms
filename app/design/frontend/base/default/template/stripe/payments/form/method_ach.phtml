@@ -1,0 +1,66 @@
+<?php
+
+$_code = $this->getMethodCode();
+
+?>
+
+<ul class="form-list" id="payment_form_<?php echo $_code ?>" style="display:none;">
+  <li class="content">
+    <ul class="ach-bank-account-details" id="ach-bank-account-details">
+      <li>
+        <label for="payment[ach][account_holder_name]">
+            <?php echo $this->__('Account Holder Name:') ?>
+        </label>
+        <div class="input-box">
+          <input type="text" id="stripe-ach-account_holder_name" value="" class="account-holder-name input-text required-entry" onkeyup="stripe.ach.resetToken()">
+        </div>
+      </li>
+      <li>
+        <label for="payment[ach][account_holder_type]">
+            <?php echo $this->__('Account Holder Type:') ?>
+        </label>
+        <div class="input-box">
+          <select id="stripe-ach-account_holder_type" class="account-holder-type input-select required-entry" onkeyup="stripe.ach.resetToken()">
+            <option value="individual"><?php echo $this->__('Individual') ?></option>
+            <option value="company"><?php echo $this->__('Company') ?></option>
+          </select>
+        </div>
+      </li>
+      <li>
+        <label for="payment[ach][account_number]">
+            <?php echo $this->__('Account Number:') ?>
+        </label>
+        <div class="input-box">
+          <input type="text" id="stripe-ach-account_number" value="" class="account-number input-text required-entry" onkeyup="stripe.ach.resetToken()">
+        </div>
+      </li>
+      <li>
+        <label for="payment[ach][routing_number]">
+            <?php echo $this->__('Routing Number:') ?>
+        </label>
+        <div class="input-box">
+          <input type="text" id="stripe-ach-routing_number" value="" class="routing-number required-entry" onkeyup="stripe.ach.resetToken()">
+        </div>
+      </li>
+      <li id="stripe-ach-account-verified">
+        <img src="<?php echo $this->getSkinUrl('stripe_payments/img/avs-passed.png'); ?>">
+        <?php echo $this->__('Your bank account details have been verified!') ?>
+      </li>
+      <li>
+        <p><?php echo $this->__('After the order is placed, two micro-deposits will be made to your bank account with a statement description of <b>AMNTS:</b>. These deposits will take 1-2 business days to appear on your online statement. Once they appear, click the link in your order email to enter these two amounts into a verification form. As soon as your bank account is verified, the payment will be completed and your order will be processed. If you register, you only need to do this the very first time that you use your bank account for an order.'); ?></p>
+      </li>
+      <li class="ach-token">
+        <input type="hidden" name="payment[ach][token]" class="stripe-payments-ach-generate-token" id="stripe-ach-token">
+      </li>
+    </ul>
+    <input type="hidden" id="stripe-ach-country" value="<?php echo $this->getCountry(); ?>">
+    <input type="hidden" id="stripe-ach-currency" value="<?php echo $this->getCurrency(); ?>">
+  </li>
+</ul>
+
+<script type="text/javascript">
+    //< ![CDATA[
+        var achForm = new VarienForm('payment_form_<?php echo $_code; ?>');
+        Validation.add('stripe-payments-ach-generate-token', stripe.ach.verificationError, stripe.ach.validateForm);
+    //]]>
+</script>

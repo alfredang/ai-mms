@@ -1,0 +1,147 @@
+ <script src="https://www.google.com/recaptcha/api.js"></script>
+<style>
+.form-list textarea {
+    height: 13em !important;
+    width: 90% !important;
+}
+</style>
+<div id="messages_product_view"><?php echo $this->getMessagesBlock()->getGroupedHtml() ?></div>
+<div class="page-title">
+    <h1><?php echo Mage::helper('contacts')->__('Contact Us') ?></h1>
+</div>
+<div class=" grid12-12">
+<div class=" grid12-6">
+
+    <?php  $iframeUrl= "";   $storeCode =  Mage::app()->getStore()->getStoreId();
+    if( $storeCode==1) { $iframeUrl = "https://docs.google.com/forms/d/e/1FAIpQLSdaUK2Xqs6_qDxGm1l_FRNWhpPrdNrMIHjUpDmgQbRhgiOWEQ/viewform?embedded=true"; }
+    elseif($storeCode==2) { $iframeUrl = "https://docs.google.com/forms/d/e/1FAIpQLSeJpmoZP-mSvbCpPg9FNbW4GxGjc--CiaDqqcSvb1wuduFBHg/viewform?embedded=true";  }
+    elseif($storeCode==3) { $iframeUrl = "https://docs.google.com/forms/d/e/1FAIpQLSdB6grSRfDaOCIUO1MYHFQ2UO35yNhgFBGnMUa2b7iS_sx8QA/viewform?embedded=true";  }
+    elseif($storeCode==4) { $iframeUrl = "https://docs.google.com/forms/d/e/1FAIpQLSc7OIR-NtlkfhQZ5tf1q2hOMlcduGmzMINuKiT3k0x_cNDECw/viewform?embedded=true";  }
+    elseif($storeCode==5) { $iframeUrl = "https://docs.google.com/forms/d/e/1FAIpQLSfRT_UNXpx46WomOZUDgZie9aNKRLWBGusIgftgNYPPkpn81A/viewform?embedded=true";  }
+    elseif($storeCode==6) { $iframeUrl = "https://docs.google.com/forms/d/e/1FAIpQLScJGl3hP7KdRpV1HC8GqM7YFH-sfFAHPgqXdskR8lHe3zjjww/viewform?embedded=true";  }
+    
+    if(  $iframeUrl!="") { // Singapore  ?>
+    <iframe src="<?php echo  $iframeUrl; ?>" width="100%" height="1247" frameborder="0" marginheight="0" marginwidth="0">Loading…</iframe>
+    <?php  } else { ?>
+
+<form action="<?php echo $this->getFormAction() ?>" name="contactForm" id="contactForm" method="post" >
+      <?php echo $this->getBlockHtml('formkey')?>
+    <div class="fieldset">
+        <h2 class="legend"><?php echo Mage::helper('contacts')->__('Send us a Message') ?></h2>
+        <ul class="form-list">
+            <li class="fields">
+                <div class="field">
+                    <label for="name" class="required"><em>*</em><?php echo Mage::helper('contacts')->__('Name') ?></label>
+                    <div class="input-box">
+                        <input name="name" id="name" title="<?php echo Mage::helper('contacts')->__('Name') ?>" value="<?php echo $this->htmlEscape($this->helper('contacts')->getUserName()) ?>" class="input-text required-entry" type="text" />
+                    </div>
+                </div>
+                <div class="field">
+                    <label for="email" class="required"><em>*</em><?php echo Mage::helper('contacts')->__('Email') ?></label>
+                    <div class="input-box">
+                        <input name="email" id="email" title="<?php echo Mage::helper('contacts')->__('Email') ?>" value="<?php echo $this->htmlEscape($this->helper('contacts')->getUserEmail()) ?>" class="input-text required-entry validate-email" type="text" />
+                    </div>
+                </div>
+            </li>
+            
+            <li class="fields">
+             
+             <div class="field">
+                    <label for="name"><?php echo Mage::helper('contacts')->__('Company') ?></label>
+                    <div class="input-box">
+                        <input name="company" id="company" title="<?php echo Mage::helper('contacts')->__('Company') ?>"  class="input-text " type="text" />
+                    </div>
+                </div>
+                <div class="field">
+                <label for="telephone"  class="required"><em>*</em><?php echo Mage::helper('contacts')->__('Telephone') ?></label>
+                <div class="input-box">
+                    <input name="telephone" id="telephone" title="<?php echo Mage::helper('contacts')->__('Telephone') ?>" value="" class="input-text required-entry" type="text" maxlength="8" />
+                </div>
+                </div>
+            </li>
+			 <li class="wide">
+                <label for="courses" ><?php echo Mage::helper('contacts')->__('Course Title') ?></label>
+                <div class="input-box">
+                    <input name="courses" id="courses" title="<?php echo Mage::helper('contacts')->__('Courses Title') ?>" class="input-text" />
+                </div>
+            </li>
+            <li class="wide">
+                <label for="comment" class="required"><em>*</em><?php echo Mage::helper('contacts')->__('Message') ?></label>
+                <div class="input-box">
+                    <textarea name="comment" id="comment" title="<?php echo Mage::helper('contacts')->__('Comment') ?>" class="required-entry input-text" cols="5" rows="3"></textarea>
+                </div>
+            </li>
+
+        </ul>
+    </div>
+    <div class="buttons-set">
+    
+        <p class="required"><?php echo Mage::helper('contacts')->__('* Required Fields') ?></p>
+        <div id="error" class="error"></div>
+        <input type="text" name="hideit" id="hideit" value="" style="display:none !important;"/>
+        <button type="submit" title="<?php echo Mage::helper('contacts')->__('Submit') ?>" class="button g-recaptcha"
+        data-sitekey="<?php echo Mage::getStoreConfig('magentocaptcha/general/site_key'); ?>" 
+        data-callback='onSubmit' 
+        data-action='submit'
+      >
+            <span><span><?php echo Mage::helper('contacts')->__('Submit') ?></span></span></button>
+    </div>
+</form>
+<script type="text/javascript">
+   //  var contactForm = new VarienForm('contactForm', false);
+    
+    
+    function onSubmit(token) {
+        var error ="";
+     let name = document.forms["contactForm"]["name"].value;
+      if (name == "") {
+        error +="Please enter name<br/>";
+      } 
+    let email = document.forms["contactForm"]["email"].value;
+      if (/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(email))
+          {
+           
+          }
+        else
+            {
+                 error +="Please enter valid email id<br/>";
+            }
+     
+     let telephone = document.forms["contactForm"]["telephone"].value;
+      if (telephone == "") {
+        error +="Please enter telephone<br/>";
+      } 
+     let comment = document.forms["contactForm"]["comment"].value;
+      if (comment == "") {
+        error +="Please enter message<br/>";
+      } 
+        if(error=="")
+            {
+                 document.getElementById("error").innerHTML ="";
+                document.getElementById("contactForm").submit(); 
+                return true;
+            }
+        else
+            {
+                 document.getElementById("error").innerHTML = error;
+                return false;
+            }
+     
+   }
+    
+
+  if ('NodeList' in window) {
+        if (!NodeList.prototype.each && NodeList.prototype.forEach) {
+            NodeList.prototype.each = NodeList.prototype.forEach;
+        }
+    }
+    
+    
+</script>
+    <?php
+}  ?>
+</div>
+<div class=" grid12-6">
+<?php echo $this->getLayout()->createBlock('cms/block')->setBlockId('contacts')->toHtml() ?>
+</div>
+</div>

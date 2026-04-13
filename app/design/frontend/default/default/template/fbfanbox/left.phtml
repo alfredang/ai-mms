@@ -1,0 +1,59 @@
+<?php
+$fbfanbox = $this->getFbfanbox();
+
+
+if(($fbfanbox['enable']))
+{ 
+
+if($fbfanbox['fb_page_background'])
+{
+?>
+<style type="text/css">
+#fbfanbox { background: <?php echo $fbfanbox['fb_page_background']; ?>  !important; }
+</style>
+<?php	
+}
+
+	if($fbfanbox['boxposition']=="left")
+	{
+		$box_content="";
+		$box_content .='<iframe src="http://www.facebook.com/plugins/likebox.php?id='. $fbfanbox['fb_page_id'];
+		if($fbfanbox['box_width'])
+		{
+			$box_content .= '&amp;width='. $fbfanbox['box_width'];
+		}
+		if($fbfanbox['box_height'])
+		{
+			$box_content .= '&amp;height='. $fbfanbox['box_height'];
+		}
+		
+		$box_content .= '&amp;connections='. $fbfanbox['connection'];
+		
+		if($fbfanbox['header']==0)
+		{
+			$box_content .= '&amp;header=false';
+		}
+		
+		if($fbfanbox['stream'])
+		{
+			$box_content .= '&amp;stream=true';
+		}
+		$box_content .= '" scrolling="no" frameborder="0" allowTransparency="true" style="border:none; overflow:hidden; ';
+		
+		if($fbfanbox['box_width'])
+		{
+			$box_content .= ' width:'. $fbfanbox['box_width'] . 'px; ';
+		}
+		if($fbfanbox['box_height'])
+		{
+			$box_content .= ' height:'. $fbfanbox['box_height'] . 'px; ';
+		}
+		$box_content .= '"></iframe>';
+		
+		echo("<div id='fbfanbox'>");
+		echo($box_content);
+		echo("</div>");
+	}
+
+}
+?>

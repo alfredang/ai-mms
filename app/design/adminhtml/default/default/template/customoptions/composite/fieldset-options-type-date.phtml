@@ -1,0 +1,112 @@
+<?php
+/**
+ * MMD
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the MMD EULA that is bundled with
+ * this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * http://www.magemobiledesign.com/LICENSE-1.0.html
+ *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade the extension
+ * to newer versions in the future. If you wish to customize the extension
+ * for your needs please refer to http://www.magemobiledesign.com/ for more information
+ *
+ * @category   MMD
+ * @package    MMD_CustomOptions
+ * @copyright  Copyright (c) 2013 MMD (http://www.magemobiledesign.com/)
+ * @license    http://www.magemobiledesign.com/LICENSE-1.0.html
+ */
+
+/**
+ * Advanced Product Options extension
+ *
+ * @category   MMD
+ * @package    MMD_CustomOptions
+ * @author     MMD Dev Team
+ */
+
+$_option = $this->getOption();
+$_optionId = $_option->getId();
+$helper = Mage::helper('customoptions');
+?>
+<div <?php if ($helper->hideDependentOption() && $_option->getIsDependent() || $_option->getViewMode()==2) { ?>style="display: none;"<?php } ?> class="option">
+<dl>
+<dt><label><?php echo $this->htmlEscape($_option->getTitle()) ?><?php if ($_option->getIsRequire(true)): ?><span class="required">&nbsp;*</span><?php endif; ?></label>
+    <?php echo $helper->getFormatedOptionPrice($this->getProduct(), $this->getFormatedPrice()) ?>
+    <?php if ($_option->getDescription()): ?><p class="note"><?php echo $_option->getDescription() ?></p><?php endif; ?></dt>
+<dd<?php if ($_option->decoratedIsLast){?> class="last"<?php }?>>
+
+<?php if ($_option->getType() == Mage_Catalog_Model_Product_Option::OPTION_TYPE_DATE_TIME || $_option->getType() == Mage_Catalog_Model_Product_Option::OPTION_TYPE_DATE): ?>
+
+    <?php echo $this->getDateHtml() ?>
+
+    <?php if (!$this->useCalendar()): ?>
+    <script type="text/javascript">
+    //<![CDATA[
+        var dateOption = productConfigure.opConfig.dateOption;
+        Event.observe('options_<?php echo $_optionId ?>_month', 'change', dateOption.reloadMonth.bind(dateOption));
+        Event.observe('options_<?php echo $_optionId ?>_year', 'change', dateOption.reloadMonth.bind(dateOption));
+    //]]>
+    </script>
+    <?php endif; ?>
+
+<?php endif; ?>
+
+<?php if ($_option->getType() == Mage_Catalog_Model_Product_Option::OPTION_TYPE_DATE_TIME
+    || $_option->getType() == Mage_Catalog_Model_Product_Option::OPTION_TYPE_TIME): ?>
+    &nbsp;&nbsp;<?php echo $this->getTimeHtml() ?>
+<?php endif; ?>
+
+    <input type="hidden" name="validate_datetime_<?php echo $_optionId ?>" class="validate-datetime-<?php echo $_optionId ?>" value="" />
+    <script type="text/javascript">
+    //<![CDATA[
+<?php if ($_option->getIsRequire(true)): ?>
+        Validation.addAllThese(
+        [
+               ['validate-datetime-<?php echo $_optionId ?>', '<?php echo $helper->__js('This is a required option') ?>', function(v) {
+                   var dateTimeParts = $$('.datetime-picker[id^="options_<?php echo $_optionId ?>"]');
+                   for (var i=0; i < dateTimeParts.length; i++) {
+                       if (dateTimeParts[i].value == "") return false;
+                   }
+                   return true;
+                }]
+        ]
+        );
+<?php else: ?>
+        Validation.add(
+            'validate-datetime-<?php echo $_optionId ?>',
+            '<?php echo $helper->__js('Field is not complete') ?>',
+            function(v) {
+                var dateTimeParts = $$('.datetime-picker[id^="options_<?php echo $_optionId ?>"]');
+                var hasWithValue = false, hasWithNoValue = false;
+                var pattern = /day_part$/i;
+                for (var i=0; i < dateTimeParts.length; i++) {
+                   if (! pattern.test(dateTimeParts[i].id)) {
+                       if (dateTimeParts[i].value === "") {
+                           hasWithValue = true;
+                       } else {
+                           hasWithNoValue = true;
+                       }
+                   }
+                }
+                return hasWithValue ^ hasWithNoValue;
+            }
+        );
+<?php endif;
+
+if ($helper->isDependentEnabled() && $_option->getIsDependent()) {    
+    echo 'inGroupIdData['.$_option->getInGroupId().'] = {"disabled":true, "options_'.$_optionId.'_minute":1, "options_'.$_optionId.'_hour":1, "options_'.$_optionId.'_day_part":1, "options_'.$_optionId.'_day":1, "options_'.$_optionId.'_month":1, "options_'.$_optionId.'_year":1, "options_'.$_optionId.'_date":1};';
+    ?>  
+    $$('.product-custom-option[id^="options_<?php echo $_optionId ?>_"]').each(function(dt){
+        dt.disabled = true;
+    });
+<?php } ?>
+    //]]>
+    </script>
+</dd>
+</dl>
+</div>

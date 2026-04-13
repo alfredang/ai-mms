@@ -1,0 +1,99 @@
+<?php
+
+$savedCards = $this->stripe->getCustomerCards();
+
+?>
+<div class="page-title">
+    <h1><?php echo $this->__('Saved Cards') ?></h1>
+</div>
+<?php echo $this->getMessagesBlock()->getGroupedHtml() ?>
+
+<?php if (empty($savedCards)): ?>
+
+	<p><?php echo $this->__('You have no saved cards.') ?></p>
+
+<?php else: ?>
+
+<?php echo $this->getChildHtml('form_before')?>
+<form action="" method="post">
+    <div class="fieldset">
+        <?php echo $this->getBlockHtml('formkey')?>
+        <h2 class="legend"><?php echo $this->__('Select cards to remove') ?></h2>
+        <ul class="saved-cards" id="saved-cards">
+            <?php foreach ($savedCards as $key => $card): ?>
+            <li>
+                <input type="checkbox" name="card[]" value="<?php echo $card->id; ?>" id="<?php echo $card->id; ?>" class="select">
+                <label for="<?php echo $card->id; ?>">
+                    <i class="pf <?php echo $this->pfIconClassFor($card->brand); ?>"></i>
+                    <?php if ($card->brand != 'Visa'): ?>
+                    <span class="type <?php echo $card->brand ?>"><?php echo $this->cardType($card->brand); ?></span>
+                    <?php endif; ?>
+                    <span class="last4 stripe-payments-fade"><?php echo $this->__('ending in'); ?> <?php echo $card->last4; ?></span>
+                    <span class="exp stripe-payments-fade"><?php echo $this->__('expires'); ?>
+                        <?php echo str_pad($card->exp_month,2,'0',STR_PAD_LEFT); ?>/<?php echo $card->exp_year; ?>
+                    </span>
+                </label>
+            </li>
+            <?php endforeach; ?>
+        </ul>
+    </div>
+    <div class="buttons-set">
+        <button type="submit" title="<?php echo $this->__('Save') ?>" class="button"><span><span><?php echo $this->__('Remove') ?></span></span></button>
+    </div>
+</form>
+
+<?php endif; ?>
+
+
+<?php if (empty($this->billingInfo)): ?>
+
+<form action="" method="post" id="new-card" onsubmit="return saveNewCard()">
+    <div class="fieldset">
+        <h2 class="legend"><?php echo $this->__('Add new card'); ?></h2>
+        <div class="message info empty">
+            <span>You must first <a href="<?php echo Mage::getUrl('customer/address'); ?>">add a billing address</a> before you can add saved cards.</span>
+        </div>
+    </div>
+</form>
+
+<?php else: ?>
+
+<form action="" method="post" id="new-card" onsubmit="return saveNewCard()">
+    <div class="fieldset">
+        <h2 class="legend"><?php echo $this->__('Add new card'); ?></h2>
+        <ul class="form-list">
+
+            <li class="fields">
+
+            <?php echo $this->getLayout()->createBlock('stripe_payments/form_stripeElements')->toHtml(); ?>
+
+            </li>
+
+            <li class="stripe-new" id="stripe-payments-card-errors"></li>
+        </ul>
+    </div>
+    <div class="buttons-set">
+        <p class="required">* Required Fields</p>
+        <p class="back-link"><a href="<?php echo $this->getBackUrl() ?>"><small>&laquo; </small><?php echo $this->__('Back') ?></a></p>
+        <button id="stripe-savecard-button" type="submit" title="Save Card" class="button"><span><span>Save Card</span></span></button>
+        <span class="please-wait" id="stripe-savecard-please-wait" style="display:none;">
+            <img src="<?php echo $this->getSkinUrl('images/opc-ajax-loader.gif') ?>" alt="<?php echo $this->__('Saving...') ?>" title="<?php echo $this->__('Saving...') ?>" class="v-middle" /> <?php echo $this->__('Saving...') ?>
+        </span>
+    </div>
+</form>
+
+<?php endif; ?>
+
+<?php
+$store = Mage::app()->getStore();
+$publishableKey = $this->getPublishableKey();
+?>
+
+<script type="text/javascript">
+    <?php if (!empty($this->billingInfo)): ?>
+    stripe.billingInfo = <?php echo json_encode($this->billingInfo); ?>;
+    <?php endif; ?>
+
+    initStripe('<?php echo $publishableKey; ?>', <?php echo $this->stripe->getSecurityMethod(); ?>);
+</script>
+

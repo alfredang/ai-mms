@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<layout>
+    <adminhtml_sales_order_grid>
+        <remove name="root"/>
+
+        <reference name="content">
+            <block type="enhancedsalesgrid/sales_order_grid" name="sales_order.grid"></block>
+        </reference>
+    </adminhtml_sales_order_grid>
+
+    <adminhtml_sales_order_index>
+        <remove name="sales_order.grid.container"/>
+
+        <reference name="content">
+            <block type="enhancedsalesgrid/sales_order" name="enhancedsalesgrid.sales_order.grid.container"></block>
+        </reference>
+    </adminhtml_sales_order_index>
+</layout>

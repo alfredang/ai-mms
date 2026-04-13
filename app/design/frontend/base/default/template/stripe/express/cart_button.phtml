@@ -1,0 +1,19 @@
+<?php if ($this->isEnabled('cart_button')): ?>
+<div id="payment-request-button">&nbsp;</div>
+<script type="text/javascript">
+    //<![CDATA[
+    var MAGENTO_BASE_URL = '<?php echo $this->jsQuoteEscape(Mage::getBaseUrl(Mage_Core_Model_Store::URL_TYPE_LINK, true)); ?>';
+    Event.observe(document, 'dom:loaded', function () {
+        stripeExpress.initStripeExpress('<?php echo $this->getPublishableKey(); ?>', <?php echo json_encode($this->getApplePayParams()); ?>, <?php echo json_encode($this->getButtonConfig()); ?>, function (paymentRequest, params, prButton) {
+            stripeExpress.initCartWidget(paymentRequest, params, prButton);
+        });
+    });
+    //]]>
+</script>
+<li class="bml-checkout-type">
+    <p class="stripexpress-logo paypal-logo" style="display: none;">
+        <span class="paypal-or"><?php echo $this->__('-OR-'); ?></span>
+    </p>
+</li>
+<?php endif; ?>
+

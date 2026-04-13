@@ -1,0 +1,60 @@
+<?xml version="1.0"?>
+<layout>
+    <default>
+        <reference name="notifications">
+            <block type="aitsys/rewriter_notifications" name="aitsys_rewriter_notifications" template="aitcore/rewriter/notifications.phtml" />
+        </reference>
+    </default>
+    
+    <aitsys_index_index>
+        <reference name="head">
+            <action method="addCss"><name>aitoc/aitsys.css</name></action>
+        </reference>
+        <reference name="content">
+            <block type="aitsys/edit" name="aitsys.edit" template="aitcore/edit.phtml">
+                <block type="aitsys/news" name="aitsys.news" template="aitcore/news.phtml" />
+            </block>
+        </reference>
+    </aitsys_index_index>
+    
+    <aitsys_patch_index>
+        <reference name="head">
+            <action method="addCss"><name>aitoc/aitsys.css</name></action>
+        </reference>
+        <reference name="content">
+            <block type="aitsys/patch_view" name="aitsys.patch.view" template="aitcore/patch/view.phtml" />
+        </reference>
+    </aitsys_patch_index>
+    
+    <aitsys_patch_instruction>
+        <reference name="head">
+            <action method="addCss"><name>aitoc/aitsys.css</name></action>
+        </reference>
+        <reference name="content">
+            <block type="aitsys/patch_instruction" name="aitsys.patch.instruction" template="aitcore/patch/instruction.phtml">
+                <block type="aitsys/patch_instruction_one" name="aitsys.patch.instruction.one" template="aitcore/patch/instruction/one.phtml" />
+            </block>
+        </reference>
+    </aitsys_patch_instruction>
+    
+    <aitsys_rewriter_index>
+        <reference name="head">
+            <action method="addCss"><name>aitoc/aitsys.css</name></action>
+        </reference>
+        <reference name="content">
+            <block type="aitsys/rewriter_list" name="aitsys.rewriter.list" template="aitcore/rewriter/list.phtml" />
+        </reference>
+    </aitsys_rewriter_index>
+</layout>
+
+<!--
+/**
+ * Checkout Fields Manager
+ *
+ * @category:    Aitoc
+ * @package:     Aitoc_Aitcheckoutfields
+ * @version      2.9.2
+ * @license:     QTDADp60kIhJd78JVK1SMqMlS7rjKn77Nt5LfKG9RI
+ * @copyright:   Copyright (c) 2013 AITOC, Inc. (http://www.aitoc.com)
+ */
+-->

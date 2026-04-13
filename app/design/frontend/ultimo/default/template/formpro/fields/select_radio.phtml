@@ -1,0 +1,35 @@
+<ul class="list-select">
+
+<?php
+$validate = '';
+$options = $this->getFieldOptions();
+foreach($this->getFieldOptions() as $i=>$option){
+	$checked = false;
+	if($option["checked"]){
+		$checked = 'checked';
+	}
+	if($this->getField()->getRequired() && $i==(count($options)-1)){
+		$validate = "validate-one-required-by-name";
+		if($this->getField()->getData('validate_regex')){
+			$validate.= ' validate-field-'.$this->getField()->getId();
+		}
+	}
+	if(!empty($option["value"])){
+		$label = $option["label"];
+		if($option["image_src"]){
+			$label = "<img src='{$option['image_src']}'/>";
+		}
+?>
+
+<li class='control'>
+	<input style='float:left' type='radio' name='<?php echo $this->getFieldName()?>' id='<?php echo $this->getFieldId().$i?>' value="<?php echo htmlspecialchars($option["value"])?>" class='radio <?php echo $validate?>' <?php echo $checked?> <?php if($this->getField()->getDisabled()){?> disabled <?php } ?>/>
+	<label for='<?php echo $this->getFieldId().$i?>' class='<?php echo $this->getFieldClass()?>' style='<?php echo $this->getFieldStyle()?>'><?php echo $label?></label>
+</li>
+
+<?php
+	}
+}
+
+?>
+
+</ul>

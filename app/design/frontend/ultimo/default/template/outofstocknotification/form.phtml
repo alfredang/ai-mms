@@ -1,0 +1,115 @@
+<?php /* @var $this Mage_Catalog_Block_Product_View_Abstract */?>
+
+<?php 
+
+$buttonText  = Mage::getStoreConfig('outofstocknotification/general/mmd_outofstock_button_text');
+$labelText  = Mage::getStoreConfig('outofstocknotification/general/mmd_outofstock_label_text');
+$notifyMail  = Mage::getStoreConfig('outofstocknotification/general/activate_mmd_outofstock_email');
+
+$enableOutOfStock  = Mage::getStoreConfig('outofstocknotification/general/activate_mmd_outofstock_enable');
+
+$enableOutOfStock = intval($enableOutOfStock);
+
+//$notifyRequest = Mage::getStoreConfig('outofstocknotification/general/activate_mmd_outofstock_notifymes');
+
+
+
+$storeName = Mage::getStoreConfig("general/store_information/name");  
+
+$_product = $this->getProduct();
+
+$productId =  $_product->getId();
+
+$productSku =  $_product->getSku();
+
+$productName = $_product->getName();
+
+
+
+
+
+$productUrl = $_product->getUrlInStore();
+
+$baseUrl = $this->getUrl();
+
+$crtlPageUrl = $baseUrl.'outofstocknotification/index/storeNotificationProductData';
+
+//$crtlPageUrl = Mage::getBaseUrl().'/outofstocknotification/index/storeNotificationProductData';
+
+
+
+if ($_product->isAvailable()): ?>
+
+    
+
+<?php else: 
+
+?> 
+
+<?php 
+
+if($enableOutOfStock){
+
+?>
+
+<div id="notifyBtn<?php echo $productId; ?>" style="display:block;"><button class="button" title="Subscribe" type="button" onclick="notifyToggle(<?php echo $productId; ?>)"><span><span><?php echo $buttonText;?></span></span></button></div>
+
+<div id="notifyFrm<?php echo $productId; ?>" style="display:none;">
+
+<input type="hidden" value="<?php echo $ctrlPageUrl; ?>" id='ctrlUrlOfOutOfStock<?php echo $productId; ?>' name ='baseUrlOfOutOfStock' />
+
+<input type="hidden" value="<?php echo $productId; ?>" id='productId<?php echo $productId; ?>' name ='productId' />
+
+<input type="hidden" value="<?php echo $productSku; ?>" id='productSku<?php echo $productId; ?>' name ='productSku' />
+
+<input type="hidden" value="<?php echo $productName; ?>" id='productName<?php echo $productId; ?>' name ='productName' />
+
+<input type="hidden" value="<?php echo $productUrl; ?>" id='productUrl<?php echo $productId; ?>' name ='productUrl' />
+
+
+
+<div class="block-body mmd-outofstock-block-body line" id='responceMesPlace<?php echo $productId; ?>'>
+
+    <span id='contentofnotification<?php echo $productId; ?>' >
+
+	   	 <div id="notify_conform<?php echo $productId; ?>" class="notify_conform"></div>
+
+	     <span id="notify_message<?php echo $productId; ?>"><?php echo $labelText; ?></span>
+         
+          <div style="float:right;"><a href="javascript:void(0)" onclick="document.getElementById('notifyFrm<?php echo $productId; ?>').style.display='none'; document.getElementById('notifyBtn<?php echo $productId; ?>').style.display='block';">X</a></div>
+
+      <div id="padding_div<?php echo $productId; ?>" > 
+
+	     <span id="notify_error<?php echo $productId; ?>" class="line notify_error"></span>
+
+	     
+
+	     <span id="notify_submit"> <b>Email:</b>
+
+	     <input id="outofstock_email<?php echo $productId; ?>" type="text"  name="outofstock_email" class="outofstock_email" >
+         <div style="display: none;color: red;font-size: 11px;margin-left: 43px;" id="outofstock_notify_error<?php echo $productId; ?>" >Please specify a <b>valid</b> Email Address<br></div>
+	     <button class="button" title="Subscribe" type="button" onclick="return stockNotifyValidate('<?php echo $productId; ?>','<?php echo $crtlPageUrl; ?>')" >
+
+	     <span><span>Submit</span></span>
+
+	     </button> <div id='ajaximageshowing<?php echo $productId; ?>' class="ajaxreloadimage" ></div>
+
+	     
+
+	      </span>
+
+	    
+
+	</div>
+
+	</span>
+
+</div>
+
+</div>
+
+<?php } //if out of stock endable
+
+
+
+endif; ?>

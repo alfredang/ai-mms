@@ -1,0 +1,93 @@
+<?php
+$partnerModel = Mage::getModel('partnerslider/partnerslider');
+$partnerCollection = $partnerModel->getCollection()->setOrder('sort_order', 'ASC');
+$partnerCollection->addFieldToFilter('status','1');
+$configData = Mage::getStoreConfig('partnerslider');
+$i = 0;
+?>
+<?php if ($configData['settings']['enable_partnerslider']): ?>
+<style type="text/css">
+.jcarousel-skin-tango .jcarousel-container
+{
+width:<?php echo $configData['settings']['time_delay']; ?>px !important;
+height:<?php echo $configData['settings']['time_interval'];?>px !important;
+}
+.jcarousel-skin-tango .jcarousel-item .product-image
+{
+width: <?php echo $configData['settings']['show_width']; ?>px !important;
+}
+.jcarousel-skin-tango .jcarousel-item {
+width:<?php echo $configData['settings']['show_width']; ?>px !important;
+height:<?php echo $configData['settings']['show_height']; ?>px !important;
+}
+.jcarousel-skin-tango .jcarousel-next-horizontal {
+top: <?php echo ($configData['settings']['show_height']/2)-16; ?>px !important ;
+}
+.jcarousel-skin-tango .jcarousel-prev-horizontal {
+top:<?php echo ($configData['settings']['show_height']/2)-16; ?>px !important ;
+}
+.sabkuchh { 
+width:<?php echo $configData['settings']['time_delay']+60; ?>px !important;
+}
+<?php if($configData['settings']['enable_partnerslider_padding']) { ?>
+.jcarousel-skin-tango .jcarousel-item { padding:<?php echo $configData['settings']['enable_partnerslider_padding'];?> !important; }
+<?php } ?>
+</style>
+
+<?php
+$bsnumber = $configData['settings']['time_delay']/$configData['settings']['show_width'];
+?>
+<div class="bs-partner-slider">
+<script type="text/javascript" src="<?php echo $this->getSkinUrl('mmdpartners/jquery.jcarousel.min.js')?>"></script>
+<link rel="stylesheet" type="text/css" href="<?php echo $this->getSkinUrl('mmdpartners/tango/skin.css')?>" />
+<script type="text/javascript">
+function mycarousel_initCallback(carousel)
+{
+    // Disable autoscrolling if the user clicks the prev or next button.
+    carousel.buttonNext.bind('click', function() {
+        carousel.startAuto(0);
+    });
+
+    carousel.buttonPrev.bind('click', function() {
+        carousel.startAuto(0);
+    });
+    // Pause autoscrolling if the user moves with the cursor over the clip.
+    carousel.clip.hover(function() {
+        carousel.stopAuto();
+    }, function() {
+        carousel.startAuto();
+    });
+};
+jQuery.noConflict();
+jQuery(document).ready(function() {
+    jQuery('#mmdpartners').jcarousel({
+		
+	<?php if ($configData['settings']['enable_partnerslider_auto']): ?>	
+        auto: <?php echo floor($bsnumber); ?>,
+    <?php endif; ?>
+	    
+		wrap: 'last',
+        initCallback: mycarousel_initCallback
+    });
+});
+</script>
+
+<div class="sabkuchh">
+<ul class="jcarousel-skin-tango" id="mmdpartners">
+<?php
+$i = 0;
+foreach ($partnerCollection as $partner):
+$i++;
+?>
+<li>
+<a href="<?php echo $partner['weblink'];?>">
+<img title="<?php echo $partner['title']?>" src="<?php echo Mage::getBaseUrl(Mage_Core_Model_Store::URL_TYPE_MEDIA) . $partner['filename']?>" alt="<?php echo $partner['filename_alt']?>">
+<p class="easyslidedescription"></p>
+</a>
+</li>
+<?php endforeach; ?>	  
+<div class="clear"></div>	
+</ul>
+</div>
+</div>
+<?php endif; ?>

@@ -1,0 +1,61 @@
+<?php
+/**
+ * - Additional CSS
+ */
+?>
+<?php
+	$theme = Mage::helper('ultimo');
+	$d = $theme->getCfgSectionDesign();
+	$bgUrl = Mage::getBaseUrl(Mage_Core_Model_Store::URL_TYPE_MEDIA) . $theme->getBgImagesPath();
+	$texUrl = Mage::getBaseUrl(Mage_Core_Model_Store::URL_TYPE_MEDIA) . $theme->getTexPath();
+?>
+<style type="text/css">
+	<?php if ($d['page']['bg_image']): ?>
+	.wrapper
+	{	
+		background-image: url(<?php echo $bgUrl . $d['page']['bg_image']; ?>);
+	}
+	<?php endif; ?>
+	<?php if ($d['page']['tex']): ?>
+	.page
+	{
+		background-image: url(<?php echo $texUrl . $d['page']['tex'] . '.png'; ?>);
+	}
+	<?php endif; ?>
+	<?php if ($d['header']['bg_image']): ?>
+	.header-container
+	{
+		background-image: url(<?php echo $bgUrl . $d['header']['bg_image']; ?>);
+	}
+	<?php endif; ?>
+	<?php if ($d['header']['tex']): ?>
+	.header-container2
+	{
+		background-image: url(<?php echo $texUrl . $d['header']['tex'] . '.png'; ?>);
+	}
+	<?php endif; ?>
+	<?php if ($d['header']['tex2']): ?>
+	.header-container3
+	{
+		background-image: url(<?php echo $texUrl . $d['header']['tex2'] . '.png'; ?>);
+	}
+	<?php endif; ?>
+	<?php if ($d['main']['tex']): ?>
+	.main-container
+	{
+		background-image: url(<?php echo $texUrl . $d['main']['tex'] . '.png'; ?>);
+	}
+	<?php endif; ?>
+	<?php if ($d['footer']['tex']): ?>
+	.footer-container
+	{
+		background-image: url(<?php echo $texUrl . $d['footer']['tex'] . '.png'; ?>);
+	}
+	<?php endif; ?>
+	<?php if ($d['footer']['tex2']): ?>
+	.footer-container2
+	{
+		background-image: url(<?php echo $texUrl . $d['footer']['tex2'] . '.png'; ?>);
+	}
+	<?php endif; ?>
+</style>

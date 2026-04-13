@@ -1,0 +1,21 @@
+<?php
+/**
+ * @deprecated
+ */
+?>
+<?php
+	$theme = Mage::helper('ultimo');
+	$storeCode = Mage::app()->getStore()->getCode();
+	
+	$isResponsive = $theme->getCfgLayout('responsive/responsive', $storeCode);
+	$maxBreak = Mage::helper('infortis/responsive')->mapWidthToBreakpoint($theme->getMaxWidth($storeCode), $storeCode);
+	
+//	Mage::register('infortisTheme', true);
+//	Mage::register('infortisTheme_responsive', $isResponsive);
+//	Mage::register('infortisTheme_maxBreak', $maxBreak);
+?>
+<script type="text/javascript">
+//<![CDATA[
+var infortisTheme = {}; infortisTheme.responsive = <?php echo ($isResponsive ? 'true' : 'false'); ?>; infortisTheme.maxBreak = <?php echo $maxBreak; ?>;
+//]]>
+</script>

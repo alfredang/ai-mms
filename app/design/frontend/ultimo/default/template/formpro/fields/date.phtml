@@ -1,0 +1,16 @@
+<div class='formpro-calendar'>
+	<input type='text' name='<?php echo $this->getFieldName()?>' id='<?php echo $this->getFieldId()?>' class='<?php echo $this->getFieldClass()?>' style='<?php echo $this->getFieldStyle()?>' value='<?php echo $this->getCustomerValue()?>' readonly='readonly'/>
+</div>
+
+<script type='text/javascript'>
+
+Calendar.setup({
+	inputField: '<?php echo $this->getFieldId()?>',
+	ifFormat: '<?php echo str_replace("'","\'",$this->getField()->getDateStrFormat())?>',
+	showsTime: <?php echo $this->getShowTime()?>,
+	button: '<?php echo $this->getFieldId()?>',
+	align: 'Bl',
+	singleClick: true
+});
+
+</script>

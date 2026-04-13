@@ -1,0 +1,9 @@
+<script type="text/javascript">
+    <?php if ($this->hasBillingAddress()): ?>
+    stripe.billingInfo = <?php echo json_encode($this->billingInfo); ?>;
+    <?php endif; ?>
+    stripe.isAdmin = <?php echo $this->getIsAdmin(); ?>;
+    paramsApplePay = <?php echo $this->stripe->getApplePayParams(); ?>;
+    MAGENTO_BASE_URL = '<?php echo $this->jsQuoteEscape(Mage::getBaseUrl(Mage_Core_Model_Store::URL_TYPE_LINK, true)); ?>';
+    initStripe('<?php echo $this->getPublishableKey(); ?>', <?php echo $this->stripe->getSecurityMethod(); ?>);
+</script>

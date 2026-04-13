@@ -1,0 +1,135 @@
+diff -aurBb /home/httpd/htdocs/users/martinkevich/mag1700/var/mmd_patch_orig/compare24513357673394f9e312b6f4c6 /home/httpd/htdocs/users/martinkevich/mag1700/var/mmd_patch_modif/compare24513357673394f9e312b6f4c6
+--- /home/httpd/htdocs/users/martinkevich/mag1700/var/mmd_patch_orig/compare24513357673394f9e312b6f4c6	2012-04-30 09:28:59 +0300
++++ /home/httpd/htdocs/users/martinkevich/mag1700/var/mmd_patch_modif/compare24513357673394f9e312b6f4c6	2012-04-30 09:28:59 +0300
+@@ -27,6 +27,7 @@
+ 
+ $billingBlock = $this->getChild('billing')->setFieldNamePrefix('billing')->setHideEmailAddress(true);
+ $shippingAddress = $this->getShippingAddress();
++$cfmHelper = Mage::helper('checkoutoptions');
+ ?>
+ <div class="page-title">
+     <h1><?php echo $this->__('Review Order') ?></h1>
+@@ -60,21 +61,38 @@
+     <div class="info-set col2-set">
+         <div class="col-1" id="billing-address">
+             <h2 class="legend"><?php echo $this->__('Billing Address') ?></h2>
++            
++            <?php echo $cfmHelper->getStepFieldsCode('billing', 1, 'onepage', 'mmdpaypalexpress'); ?>
++            <?php echo $cfmHelper->getStepFieldsCode('payment', 1, 'onepage', 'mmdpaypalexpress'); ?>
++            
+             <?php if ($shippingAddress): ?>
+                 <?php echo $billingBlock->setShowAsShippingCheckbox(true)->toHtml(); ?>
+             <?php else: ?>
+                 <?php echo $billingBlock->toHtml(); ?>
+             <?php endif; ?>
++        
++        <?php echo $cfmHelper->getStepFieldsCode('billing', 2, 'onepage', 'mmdpaypalexpress'); ?>
++        <?php echo $cfmHelper->getStepFieldsCode('payment', 2, 'onepage', 'mmdpaypalexpress'); ?>
++        
+         </div>
+     <?php if ($shippingAddress): ?>
+         <div class="col-2" id="shipping-address">
+             <h2 class="legend"><?php echo $this->__('Shipping Address') ?></h2>
++            
++            <?php echo $cfmHelper->getStepFieldsCode('shippinfo', 1, 'onepage', 'mmdpaypalexpress'); ?>
++            
+             <?php echo $this->getChild('shipping')->setFieldNamePrefix('shipping')->setHideEmailAddress(true)->toHtml(); ?>
++        
++        <?php echo $cfmHelper->getStepFieldsCode('shippinfo', 2, 'onepage', 'mmdpaypalexpress'); ?>
++        
+         </div>
+     </div>
+ 
+     <div class="info-set col2-set">
+         <div class="col-2">
++    
++        <?php echo $cfmHelper->getStepFieldsCode('shippmethod', 1, 'onepage', 'mmdpaypalexpress'); ?>
++    
+             <div class="box paypal-shipping-method">
+                 <div class="box-title">
+                     <h3><?php echo $this->__('Shipping Method') ?></h3>
+@@ -83,15 +101,24 @@
+                     <?php echo $this->getChild('shipping_method')->toHtml(); ?>
+                 </div>
+             </div>
++        
++        <?php echo $cfmHelper->getStepFieldsCode('shippmethod', 2, 'onepage', 'mmdpaypalexpress'); ?>
++        
+         </div>
+     <?php endif; ?>
+     </div>
+ 
+     <div class="info-set">
+         <h2 class="legend"><?php echo $this->__('Items in Your Shopping Cart') ?><span class="separator"> | </span><a href="<?php echo $this->getUrl('checkout/cart') ?>"><?php echo $this->__('Edit Shopping Cart') ?></a></h2>
++    
++    <?php echo  $cfmHelper->getStepFieldsCode('review', 1, 'onepage', 'mmdpaypalexpress'); ?>
++    
+         <div id="details-reload">
+             <?php echo $this->getChildHtml('details') ?>
+         </div>
++    
++    <?php echo  $cfmHelper->getStepFieldsCode('review', 2, 'onepage', 'mmdpaypalexpress'); ?>
++    
+     </div>
+         <?php echo $this->getChildHtml('agreements'); ?>
+         <div class="buttons-set buttons-set-order" id="review-buttons-container">
+@@ -114,12 +141,21 @@
+ 
+ <?php if ($this->getUseAjax()):?>
+     OrderReviewController.prototype._submitOrder = function() {
++        
++        if(!this.validate()) {
++            return false;
++        }
++        
+         if (this._canSubmitOrder) {
+             if (this._pleaseWait) {
+                 this._pleaseWait.show();
+             }
+             new Ajax.Request(this.form.action, {
++                <?php /* AITCFM_COMMENT_START
+                 parameters: {isAjax: 1, method: 'POST'},
++                AITCFM_COMMENT_END */ ?>
++                mathod: 'post',
++                parameters: 'isAjax=1' + ((serializedCfmForm = $('order_review_form').serialize()) ? ('&' + serializedCfmForm) : '' ),
+                 onSuccess: function(transport) {
+                     try{
+                         response = eval('(' + transport.responseText + ')');
+@@ -155,7 +191,37 @@
+             });
+         }
+     }
++
++<?php else: ?>
++
++OrderReviewController.addMethods({
++    _submitOrder : function()
++    {
++        if(!this.validate()) {
++            return false;
++        }
++        if (this._canSubmitOrder) {
++            this.form.submit();
++            this._updateOrderSubmit(true);
++            if (this._pleaseWait) {
++                this._pleaseWait.show();
++            }
++        }
++    }
++});
++
+ <?php endif ?>
++
++OrderReviewController.addMethods({
++    validate: function()
++    {
++        if( typeof(this.validator) == 'undefined') {
++            this.validator = new Validation(this.form);
++        }
++        return this.validator.validate();   
++    }
++});
++
+ PayPalExpressAjax = new OrderReviewController($('order_review_form'), $('review_button'),
+     'shipping_method', null, 'details-reload'
+ );

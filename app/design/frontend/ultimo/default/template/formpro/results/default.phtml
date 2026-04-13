@@ -1,0 +1,71 @@
+<?php
+/**
+ * @author        Vladimir Popov
+ * @copyright    Copyright (c) 2013 Vladimir Popov
+ */
+?>
+
+<?php echo $this->getChildHtml('rating'); ?>
+
+<?php $_items = $this->getResultsCollection(); ?>
+<div class="formpro-results">
+
+    <?php echo $this->getChildHtml('toolbar'); ?>
+
+    <?php
+    foreach ($_items as $result) {
+        ?>
+        <div class="formpro-results-block">
+            <h2><?php echo $this->formatDate($result->getCreatedTime()) ?></h2>
+            <?php
+            foreach (Mage::registry('fields_to_fieldsets') as $fieldset) {
+                foreach ($fieldset['fields'] as $field) {
+                    $text = trim($result->getData('field_' . $field->getId()));
+                    $filename = $text;
+                    if (strlen($text) > 0 && $field->getResultDisplay() != 'off') {
+                        ?>
+                        <div class="formpro-results-row">
+
+                            <?php if (strlen($field->getResultLabel()) > 1 && $field->getResultDisplay() != 'value') { ?>
+                                <div class="formpro-results-label"><?php echo $field->getResultLabel() ?></div>
+                            <?php } ?>
+
+                            <?php switch ($field->getType()) {
+                                // download link
+                                case 'file':
+                                    echo "<a href=" . $result->getDownloadLink($field->getId(), $filename) . ">" . $filename . "</a>";
+                                    break;
+                                // image thumbnail
+                                case 'image':
+                                    echo "<a href='" . $result->getDownloadLink($field->getId(), $filename) . "'><img src='" . $result->getThumbnail($field->getId(), $filename, 200) . "'/></a>";
+                                    break;
+                                // stars rating bar
+                                case 'stars':
+                                    $value = (int)$text;
+                                    $width = round(100 * $value / $field->getStarsCount()) . '%';
+                                    echo "<div class='stars'><ul class='stars-bar'><li class='stars-value' style='width:$width'></li></ul></div>";
+                                    break;
+                                // text
+                                default:
+                                    ?>
+                                        <div class="formpro-results-text">
+                                            <?php echo nl2br($text) ?>
+                                        </div>
+                                    <?php break;
+                            } ?>
+
+                        </div>
+                    <?php
+                    } // if text
+                } // foreach fields
+            } // foreach fields_to_fieldsets
+            ?>
+        </div>
+    <?php
+    } // foreach results
+    ?>
+
+
+    <?php echo $this->getChildHtml('toolbar'); ?>
+
+</div>

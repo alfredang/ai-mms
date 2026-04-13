@@ -1,0 +1,61 @@
+<?xml version="1.0"?>
+<config>
+    <modules>
+        <RS_Cheque>
+            <version>1.2</version>
+        </RS_Cheque>
+    </modules>
+	<frontend>
+	 <routers>
+            <cheque>
+                <use>standard</use>
+                <args>
+                    <module>RS_Cheque</module>
+                    <frontName>rs_payment</frontName>
+                </args>
+            </cheque>
+        </routers>      	
+    </frontend>
+    <global>
+        <models>
+            <cheque>
+                <class>RS_Cheque_Model</class>
+            </cheque>
+        </models>        
+        <blocks>
+            <cheque>
+                <class>RS_Cheque_Block</class>
+            </cheque>
+        </blocks>
+        <helpers>
+            <cheque>
+                <class>RS_Cheque_Helper</class>
+            </cheque>
+        </helpers>        
+    </global>
+	<default>
+        <payment>
+            <cheque>
+                <active>0</active>
+                <model>cheque/cheque</model>
+                <order_status>1</order_status>
+                <title>Bank Pay</title>
+                <allowspecific>0</allowspecific>
+                <form_block_type>0</form_block_type>
+            </cheque>
+        </payment>
+    </default>
+    
+    <default>
+        <payment>
+            <cheque>
+                <title>Cheque Payment</title>
+                <active>1</active>
+                <show_bank_accounts_in_pdf>1</show_bank_accounts_in_pdf>
+                <show_customtext_in_pdf>1</show_customtext_in_pdf>
+				<enabledorder>1</enabledorder>
+				<recipient_email>sale@example.com</recipient_email>
+            </cheque>
+        </payment>
+    </default>
+</config>

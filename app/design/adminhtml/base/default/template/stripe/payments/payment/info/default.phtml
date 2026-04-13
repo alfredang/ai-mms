@@ -1,0 +1,109 @@
+<?php
+
+echo $this->escapeHtml($this->getMethod()->getTitle());
+$sourceType = $this->getSourceType();
+
+if ($_specificInfo = $this->getSpecificInformation()): ?>
+<table>
+<?php foreach ($_specificInfo as $_label => $_value):?>
+    <tr>
+        <td><?php echo $this->escapeHtml($_label)?>:</td>
+        <td><?php echo nl2br(implode($this->getValueAsArray($_value, true), "\n"))?></td>
+    </tr>
+<?php endforeach; ?>
+</table>
+<?php endif;?>
+
+<?php if ($this->shouldDisplayStripeSection()): ?>
+<table class="stripe payment-info">
+    <?php if (!empty($sourceType)): ?>
+    <tr>
+        <td><?php echo $this->__('Payment Type'); ?></td>
+        <td class="source-type"><?php echo $this->getSourceType(); ?></td>
+    </tr>
+    <?php endif; ?>
+	<?php if ($this->getBrand() && $this->getLast4()): ?>
+	<tr>
+		<td><?php echo $this->getBrand(); ?> ending</td>
+		<td>xxxx <?php echo $this->getLast4(); ?></td>
+	</tr>
+	<?php endif; ?>
+    <tr>
+        <td><?php echo $this->__('Card Country'); ?></td>
+        <td class="country"><?php echo ucfirst($this->getCardCountry()); ?></td>
+    </tr>
+    <tr>
+        <td><?php echo $this->__('Charge'); ?></td>
+        <td class="result charge <?php echo $this->getChargeOutcome(); ?>">
+            <?php echo ucwords(str_replace('_', ' ', $this->getChargeOutcome())); ?>
+            <img src="<?php echo $this->getSkinUrl('stripe_payments/img/avs-passed.png'); ?>" class="passed">
+            <img src="<?php echo $this->getSkinUrl('stripe_payments/img/avs-failed.png'); ?>" class="failed">
+        </td>
+    </tr>
+    <tr>
+        <td><?php echo $this->__('Radar Risk'); ?></td>
+        <td class="result radar <?php echo $this->getRadarRisk(); ?>"><?php echo ucfirst($this->getRadarRisk()); ?></td>
+    </tr>
+	<tr>
+		<td><?php echo $this->__('Street Check'); ?></td>
+		<td class="result <?php echo $this->getStreetCheck(); ?>">
+            <?php echo ucfirst($this->getStreetCheck()); ?>
+            <img src="<?php echo $this->getSkinUrl('stripe_payments/img/avs-passed.png'); ?>" class="passed">
+            <img src="<?php echo $this->getSkinUrl('stripe_payments/img/avs-failed.png'); ?>" class="failed">
+        </td>
+	</tr>
+	<tr>
+		<td><?php echo $this->__('Zip Check'); ?></td>
+		<td class="result <?php echo $this->getZipCheck(); ?>">
+            <?php echo ucfirst($this->getZipCheck()); ?>
+            <img src="<?php echo $this->getSkinUrl('stripe_payments/img/avs-passed.png'); ?>" class="passed">
+            <img src="<?php echo $this->getSkinUrl('stripe_payments/img/avs-failed.png'); ?>" class="failed">
+        </td>
+	</tr>
+    <tr>
+        <td><?php echo $this->__('CVC Check'); ?></td>
+        <td class="result <?php echo $this->getCVCCheck(); ?>">
+            <?php echo ucfirst($this->getCVCCheck()); ?>
+            <img src="<?php echo $this->getSkinUrl('stripe_payments/img/avs-passed.png'); ?>" class="passed">
+            <img src="<?php echo $this->getSkinUrl('stripe_payments/img/avs-failed.png'); ?>" class="failed">
+        </td>
+    </tr>
+    <tr>
+        <td><?php echo $this->__('Captured'); ?></td>
+        <td class="captured"><?php echo $this->getCaptured(); ?></td>
+    </tr>
+    <tr>
+        <td><?php echo $this->__('Refunded'); ?></td>
+        <td class="refunded"><?php echo $this->getRefunded(); ?></td>
+    </tr>
+    <?php if ($this->getPaymentId()): ?>
+    <tr>
+        <td><?php echo $this->__('Payment'); ?></td>
+        <td class="payment">
+            <a href="https://dashboard.stripe.com/payments/<?php echo $this->getPaymentId(); ?>" target="_blank">View in Stripe</a>
+        </td>
+    </tr>
+    <?php endif; ?>
+    <?php if ($this->getCustomerId()): ?>
+    <tr>
+        <td><?php echo $this->__('Customer'); ?></td>
+        <td class="customer">
+            <a href="https://dashboard.stripe.com/customers/<?php echo $this->getCustomerId(); ?>" target="_blank">View in Stripe</a>
+        </td>
+    </tr>
+    <?php endif; ?>
+</table>
+<?php endif; ?>
+
+<?php if ($info = $this->getSourceInfo()): ?>
+    <table class="stripe payment-info">
+        <?php foreach ($info as $key => $value): ?>
+            <tr>
+                <td><?php echo ucwords(implode(" ", explode('_', $key))); ?></td>
+                <td><?php echo $value; ?>
+            </td>
+        <?php endforeach; ?>
+    </table>
+<?php endif; ?>
+
+<?php echo $this->getChildHtml()?>

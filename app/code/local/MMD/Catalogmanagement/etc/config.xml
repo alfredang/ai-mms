@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config>
+    <modules>
+        <MMD_Catalogmanagement>
+            <version>4.1.0</version>
+        </MMD_Catalogmanagement>
+    </modules>
+    
+    <admin>
+        <routers>
+            <catalogmanagement>
+                <use>admin</use>
+                <args>
+                    <module>MMD_Catalogmanagement</module>
+                    <frontName>catalogmanagement</frontName>
+                </args>
+            </catalogmanagement>
+        </routers>
+    </admin>
+    
+    <frontend>
+        <translate>
+            <modules>
+                <MMD_Catalogmanagement>
+                    <files>
+                        <default>MMD_Catalogmanagement.csv</default>
+                    </files>
+                </MMD_Catalogmanagement>
+            </modules>
+        </translate>
+    </frontend>
+    
+    <adminhtml>
+		<events>
+            <mmd_product_grid_massaction>
+                <observers>
+                    <catalogmanagement>
+                        <type>singleton</type>
+                        <class>MMD_Catalogmanagement_Model_Observer</class>
+                        <method>handleAmProductGridMassaction</method>
+                    </catalogmanagement>
+                </observers>
+            </mmd_product_grid_massaction>
+        </events> 
+	
+        <translate>
+            <modules>
+                <MMD_Catalogmanagement>
+                    <files>
+                        <default>MMD_Catalogmanagement.csv</default>
+                    </files>
+                </MMD_Catalogmanagement>
+            </modules>
+        </translate>
+        <acl>
+            <resources>
+                <all>
+                    <title>Allow Everything</title>
+                </all>
+                <admin>
+                    <children>
+                        <system>
+                            <children>
+                                <config>
+                                    <children>
+                                        <catalogmanagement translate="title" module="catalogmanagement">
+                                            <title>Product Catalog Management</title>
+                                        </catalogmanagement>
+                                    </children>
+                                </config>
+                            </children>
+                        </system> 
+                     </children>
+                </admin> 
+            </resources>
+        </acl>
+        <layout>
+            <updates>
+                <ameasyblocks>
+                    <file>catalogmanagement.xml</file>
+                </ameasyblocks>
+            </updates>
+        </layout>
+    </adminhtml>
+    
+    <global>
+    
+        <models>
+            <catalogmanagement>
+                <class>MMD_Catalogmanagement_Model</class>
+                <resourceModel>catalogmanagement_mysql4</resourceModel>
+            </catalogmanagement>
+            <catalogmanagement_mysql4>
+                <class>MMD_Catalogmanagement_Model_Mysql4</class>
+            </catalogmanagement_mysql4>
+        </models>
+        
+		<resources>
+             <catalogmanagement_setup>
+                <setup>
+                    <module>MMD_Catalogmanagement</module>
+                </setup>
+                <connection>
+                    <use>core_setup</use>
+                </connection>
+            </catalogmanagement_setup>
+		    <catalogmanagement_write>
+		        <connection><use>core_write</use></connection>
+		    </catalogmanagement_write>
+		    <catalogmanagement_read>
+		        <connection><use>core_read</use></connection>
+		    </catalogmanagement_read>
+		</resources>
+
+        <blocks>
+            <catalogmanagement>
+                <class>MMD_Catalogmanagement_Block</class>
+            </catalogmanagement>
+            
+            <adminhtml>
+                <rewrite>
+                    <catalog_product_grid>MMD_Catalogmanagement_Block_Adminhtml_Catalog_Product_Grid</catalog_product_grid>
+                    <catalog_category_tab_product>MMD_Catalogmanagement_Block_Adminhtml_Catalog_Category_Tab_Product</catalog_category_tab_product>
+					
+                </rewrite>
+            </adminhtml>
+        </blocks>
+        
+        <helpers>
+            <catalogmanagement>
+                <class>MMD_Catalogmanagement_Helper</class>
+            </catalogmanagement>
+        </helpers>
+
+    </global>
+    
+    
+    <default>
+        <catalogmanagement>
+           <general>
+               <sorting>1</sorting>
+			   <rounding>0</rounding>
+                <categories>1</categories>
+                <attr></attr>
+           </general>
+           <editing>
+                <mode>single</mode>
+           </editing>
+           <cols>
+                <name>1</name>
+                <sku>1</sku>
+                <price>1</price>
+                <qty>1</qty>
+                <vis>1</vis>
+                <status>1</status>
+           </cols>
+           <attr>
+               <byadmin>1</byadmin>
+               <cols>1</cols>
+               <zoom>1</zoom>
+           </attr>
+           <additional>
+               <avail>0</avail>
+               <thumb>1</thumb>
+               <category>0</category>
+               <category_filter>0</category_filter>
+               <special_price_dates>0</special_price_dates>
+               <created_at>1</created_at>
+               <modified_at>0</modified_at>
+               <remove></remove>
+           </additional>
+           <cond>
+               <availability>0</availability>
+           </cond>
+           <category>
+               <thumb>1</thumb>
+           </category>
+		   <links>           
+                <upsell>0</upsell>
+                <crosssell>0</crosssell>
+                <relate>0</relate>            
+           </links>
+        </catalogmanagement>
+    </default>
+    
+</config>

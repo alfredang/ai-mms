@@ -1,0 +1,163 @@
+<?xml version="1.0"?>
+<layout version="0.1.0">
+
+    <customer_account_create translate="label">
+    	<reference name="head">
+            <action method="addItem"><type>js_css</type><name>calendar/calendar-win2k-1.css</name><params/></action>
+            <action method="addItem"><type>js</type><name>calendar/calendar.js</name></action>
+            <action method="addItem"><type>js</type><name>calendar/calendar-setup.js</name></action>
+        </reference>
+        <reference name="content">
+        	<block type="core/html_calendar" name="head.calendar" as="html_calendar" template="aitcheckoutfields/js/calendar.phtml"/>
+        </reference>
+        <reference name="customer_form_register">
+            <action method="setTemplate"><template>aitcommonfiles/design--frontend--base--default--template--customer--form--register.phtml</template></action>
+        </reference>
+    </customer_account_create>
+
+    <customer_account_edit translate="label">
+    	<reference name="head">
+            <action method="addItem"><type>js_css</type><name>calendar/calendar-win2k-1.css</name><params/></action>
+            <action method="addItem"><type>js</type><name>calendar/calendar.js</name></action>
+            <action method="addItem"><type>js</type><name>calendar/calendar-setup.js</name></action>
+        </reference>
+        <reference name="content">
+        	<block type="core/html_calendar" name="head.calendar" as="html_calendar" template="aitcheckoutfields/js/calendar.phtml"/>
+        </reference>
+    	<reference name="customer_edit">
+            <action method="setTemplate"><template>aitcommonfiles/design--frontend--base--default--template--customer--form--edit.phtml</template></action>
+        </reference>
+    </customer_account_edit>
+
+	<checkout_multishipping_addresses translate="label">
+		<reference name="head">
+            <action method="addItem"><type>js_css</type><name>calendar/calendar-win2k-1.css</name><params/></action>
+            <action method="addItem"><type>js</type><name>calendar/calendar.js</name></action>
+            <action method="addItem"><type>js</type><name>calendar/calendar-setup.js</name></action>
+        </reference>
+        <reference name="content">
+        	<block type="core/html_calendar" name="head.calendar" as="html_calendar" template="aitcheckoutfields/js/calendar.phtml"/>
+        </reference>
+		<reference name="checkout_addresses">
+            <action method="setTemplate"><template>aitcommonfiles/design--frontend--base--default--template--checkout--multishipping--addresses.phtml</template></action>
+        </reference>
+	</checkout_multishipping_addresses>
+	
+	<checkout_multishipping_shipping translate="label">
+		<reference name="head">
+            <action method="addItem"><type>js_css</type><name>calendar/calendar-win2k-1.css</name><params/></action>
+            <action method="addItem"><type>js</type><name>calendar/calendar.js</name></action>
+            <action method="addItem"><type>js</type><name>calendar/calendar-setup.js</name></action>
+        </reference>
+        <reference name="content">
+        	<action method="unsetChild"><name>head.calendar</name></action>
+        	<block type="core/html_calendar" name="head.calendar" as="html_calendar" template="aitcheckoutfields/js/calendar.phtml"/>
+        </reference>
+		<reference name="checkout_shipping">
+            <action method="setTemplate"><template>aitcommonfiles/design--frontend--base--default--template--checkout--multishipping--shipping.phtml</template></action>
+        </reference>
+	</checkout_multishipping_shipping>
+	
+	<checkout_multishipping_billing translate="label">
+		<reference name="head">
+            <action method="addItem"><type>js_css</type><name>calendar/calendar-win2k-1.css</name><params/></action>
+            <action method="addItem"><type>js</type><name>calendar/calendar.js</name></action>
+            <action method="addItem"><type>js</type><name>calendar/calendar-setup.js</name></action>
+        </reference>
+        <reference name="content">
+        	<block type="core/html_calendar" name="head.calendar" as="html_calendar" template="aitcheckoutfields/js/calendar.phtml"/>
+        </reference>
+		<reference name="checkout_billing">
+            <action method="setTemplate"><template>aitcommonfiles/design--frontend--base--default--template--checkout--multishipping--billing.phtml</template></action>
+        </reference>
+	</checkout_multishipping_billing>
+	
+	<checkout_multishipping_overview translate="label">
+		<reference name="head">
+            <action method="addItem"><type>js_css</type><name>calendar/calendar-win2k-1.css</name><params/></action>
+            <action method="addItem"><type>js</type><name>calendar/calendar.js</name></action>
+            <action method="addItem"><type>js</type><name>calendar/calendar-setup.js</name></action>
+        </reference>
+        <reference name="content">
+        	<block type="core/html_calendar" name="head.calendar" as="html_calendar" template="aitcheckoutfields/js/calendar.phtml"/>
+        </reference>
+		<reference name="checkout_overview">
+            <action method="setTemplate"><template>aitcommonfiles/design--frontend--base--default--template--checkout--multishipping--overview.phtml</template></action>
+        </reference>
+	</checkout_multishipping_overview>
+	
+	<checkout_onepage_index translate="label">
+		<reference name="head">
+            <action method="addItem"><type>js_css</type><name>calendar/calendar-win2k-1.css</name><params/></action>
+            <action method="addItem"><type>js</type><name>calendar/calendar.js</name></action>
+            <action method="addItem"><type>js</type><name>calendar/calendar-setup.js</name></action>
+        </reference>
+        <reference name="content">
+        	<action method="unsetChild"><name>head.calendar</name></action>
+        	<block type="core/html_calendar" name="head.calendar" as="html_calendar" template="aitcheckoutfields/js/calendar.phtml"/>
+        </reference>
+		<reference name="checkout.onepage.billing">
+            <action method="setTemplate"><template>aitcommonfiles/design--frontend--base--default--template--checkout--onepage--billing.phtml</template></action>
+        </reference>
+        <reference name="checkout.onepage.shipping">
+            <action method="setTemplate"><template>aitcommonfiles/design--frontend--base--default--template--checkout--onepage--shipping.phtml</template></action>
+        </reference>
+        <reference name="checkout.onepage.shipping_method">
+            <action method="setTemplate"><template>aitcommonfiles/design--frontend--base--default--template--checkout--onepage--shipping_method.phtml</template></action>
+        </reference>
+        <reference name="checkout.onepage.payment">
+            <action method="setTemplate"><template>aitcommonfiles/design--frontend--base--default--template--checkout--onepage--payment.phtml</template></action>
+        </reference>
+	</checkout_onepage_index>
+	
+	<sales_order_print translate="label">
+		<reference name="head">
+            <action method="addItem"><type>js_css</type><name>calendar/calendar-win2k-1.css</name><params/></action>
+            <action method="addItem"><type>js</type><name>calendar/calendar.js</name></action>
+            <action method="addItem"><type>js</type><name>calendar/calendar-setup.js</name></action>
+        </reference>
+        <reference name="content">
+        	<block type="core/html_calendar" name="head.calendar" as="html_calendar" template="aitcheckoutfields/js/calendar.phtml"/>
+        </reference>
+		<reference name="sales.order.print">
+            <action method="setTemplate"><template>aitcommonfiles/design--frontend--base--default--template--sales--order--print.phtml</template></action>
+        </reference>
+	</sales_order_print>
+	
+    <paypal_express_review>        
+        <reference name="head">
+            <action method="addCss"><file>css/aitcheckoutfields/paypal_express_review.css</file></action>
+            <action method="addItem"><type>js_css</type><name>calendar/calendar-win2k-1.css</name><params/></action>
+            <action method="addItem"><type>js</type><name>calendar/calendar.js</name></action>
+            <action method="addItem"><type>js</type><name>calendar/calendar-setup.js</name></action>
+        </reference>
+        <reference name="content">
+            <block type="core/html_calendar" name="head.calendar" as="html_calendar" template="aitcheckoutfields/js/calendar.phtml"/>
+        </reference>
+        <reference name="paypal.express.review">
+            <action method="setTemplate"><template>aitcommonfiles/design--frontend--base--default--template--paypal--express--review.phtml</template></action>
+        </reference>   
+    </paypal_express_review>
+	
+	<sales_recurring_profile_view>
+	    <reference name="sales.recurring.profile.view">
+		    <block type="sales/recurring_profile_view" name="sales.recurring.profile.view.aitcfm" as="aitcfm" template="sales/recurring/profile/view/info.phtml">
+                <action method="getRecurringProfileCustomData"/>
+                <action method="addToParentGroup"><value>info_blocks_row_4</value></action>
+                <action method="setViewColumn"><value>1</value></action>
+            </block>
+		</reference>
+	</sales_recurring_profile_view>
+	
+</layout>
+<!--
+/**
+ * Checkout Fields Manager
+ *
+ * @category:    Aitoc
+ * @package:     Aitoc_Aitcheckoutfields
+ * @version      2.9.2
+ * @license:     QTDADp60kIhJd78JVK1SMqMlS7rjKn77Nt5LfKG9RI
+ * @copyright:   Copyright (c) 2013 AITOC, Inc. (http://www.aitoc.com)
+ */
+-->

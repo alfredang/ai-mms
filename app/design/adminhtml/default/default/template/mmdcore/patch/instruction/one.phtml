@@ -1,0 +1,20 @@
+<?php
+/**
+ * @var MMD_Mmdsys_Block_Patch_Instruction_One
+ */
+$_helper = Mage::helper('mmdsys');
+?>
+<h3><?php echo Mage::helper('adminhtml')->__('File') . ': ' . $this->getSourceFile(); ?></h3>
+<div class="mmdsys-patch-instructions">
+
+    <?php echo $_helper->__('Please take the following file (If you are using a custom theme you need to use the very file from your custom theme folder instead)
+                             <pre>%s</pre> copy/rename it to <pre>%s</pre> and put the file in the folder (you might need to create all not existing folders) &mdash; <pre>%s</pre> so finally it should be like this &mdash; <pre>%s</pre>', 
+                                    $this->getSourceFile(), $this->getPatchedFileName(), $this->getDestinationDir(), $this->getDestinationFile()) ?>
+
+    <?php echo $_helper->__('After that please open the file for editing.'); ?><br />
+    <?php echo $_helper->__('You will need to add a piece (or several pieces) of code.'); ?>
+    
+    <?php echo $_helper->getPatchContents(); ?>
+    
+    <?php echo $_helper->__('Open the following file for editing (make a backup of the file first) <pre>%s</pre> find and remove the line similar to the following one &mdash; <pre>%s</pre>', $this->getPatchConfigPath(), $this->getPatchConfigLine()); ?>
+</div>

@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<layout version="0.1.0">
+    <checkout_onepage_index>
+        <reference name="head">
+            <action method="addItem">
+                <type>skin_css</type>
+                <file>hitpay/css/hitpay.css</file>
+            </action>
+        </reference>
+    </checkout_onepage_index>
+    <hitpay_payment_awaiting>
+        <reference name="root">
+            <action method="setTemplate"><template>page/1column.phtml</template></action>
+        </reference>
+        <reference name="head">
+            <action method="addItem">
+                <type>skin_css</type>
+                <file>hitpay/css/hitpay.css</file>
+            </action>
+            <action method="addItem">
+                <type>skin_js</type>
+                <file>hitpay/js/hitpay.js</file>
+            </action>
+        </reference>
+        <reference name="content">
+            <block type="hitpay/awaiting" name="hitpay_awaiting" template="hitpay/awaiting.phtml"/>
+        </reference>
+    </hitpay_payment_awaiting>
+</layout>

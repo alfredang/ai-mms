@@ -1,0 +1,19 @@
+<?php
+$validate = '';
+$checked = '';
+if ($this->getField()->getRequired()) {
+    $validate = "validate-one-required-by-name";
+}
+if ($this->getField()->isCheckedOption($this->getFieldValue())) {
+    $checked = "checked";
+}
+$label = $this->__('Sign Up for Newsletter');
+if ($this->getField()->getCheckedOptionValue($this->getFieldValue()))
+    $label = $this->getField()->getCheckedOptionValue($this->getFieldValue());
+?>
+
+<input style='float:left' type='checkbox' name='<?php echo $this->getFieldName() ?>'
+       id='<?php echo $this->getFieldId() . 0 ?>' value="1"
+       class='checkbox <?php echo $validate ?>' <?php echo $checked ?>/>
+<label for='<?php echo $this->getFieldId() . 0 ?>' class='<?php echo $this->getFieldClass() ?>'
+       style='<?php echo $this->getFieldStyle() ?>'><?php echo $label ?></label>

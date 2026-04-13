@@ -1,0 +1,27 @@
+<select name='<?php echo $this->getFieldName()?>' id='<?php echo $this->getFieldId()?>' class='<?php echo $this->getFieldClass()?>' style='<?php echo $this->getFieldStyle()?>' <?php if($this->getField()->getDisabled()){?> disabled <?php } ?>>
+
+<?php 				
+
+foreach($this->getFieldOptions() as $option){
+	$checked = false;
+	if($option["checked"]){
+		$checked = 'selected';
+	}
+	if(!empty($option["value"])){
+		$value = htmlspecialchars($option["value"]);
+		if($option['null']){
+			$value = '';
+		}
+		
+?>
+
+<option value="<?php echo $value?>" <?php echo $checked?>><?php echo $option['label']?></option>
+
+<?php
+
+	}
+}
+
+?>
+
+</select>

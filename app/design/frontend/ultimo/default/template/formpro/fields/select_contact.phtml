@@ -1,0 +1,25 @@
+<select name='<?php echo $this->getFieldName()?>' id='<?php echo $this->getFieldId()?>'
+        class='<?php echo $this->getFieldClass()?>'
+        style='<?php echo $this->getFieldStyle()?>' <?php if ($this->getField()->getDisabled()) { ?>
+        disabled <?php } ?>>
+    <?php
+    foreach ($this->getFieldOptions() as $i => $option) {
+        $checked = false;
+        if ($option["checked"]) {
+            $checked = 'selected';
+        }
+        if (!empty($option["value"])) {
+            $contact = $this->getField()->getContactArray($option["value"]);
+            $value = $option["value"];
+            if ($option['null']) {
+                $value = '';
+            }
+            if ($contact) {
+                ?>
+                <option value="<?php echo $contact["email"] ? $i : $value;?>" <?php echo $checked?>><?php echo $contact['name']?></option>
+                <?php
+            }
+        }
+    }
+    ?>
+</select>

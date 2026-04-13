@@ -1,0 +1,57 @@
+@import '../core/_general';
+@import '../core/_hostedfields';
+@import '../core/_paypal';
+@import '../core/_saved';
+
+#paypal-container {
+    float: right;
+}
+
+/* Saved Accounts */
+#creditcard-saved-accounts, #paypal-saved-accounts {
+    font-size: 0;
+    width: 100%;
+
+    em {
+        float: none;
+        position: static;
+        right: 0;
+        top: 0;
+        color: #636363;
+    }
+}
+#creditcard-saved-accounts tr, #paypal-saved-accounts tr {
+    border-bottom: 1px dotted lightgrey;
+}
+#creditcard-saved-accounts tr.other-row, #paypal-saved-accounts tr.other-row {
+    border-bottom: 0;
+}
+#creditcard-saved-accounts label {
+    padding: 14px 0;
+    line-height: 48px;
+    width: auto;
+}
+#creditcard-saved-accounts tr.other-row label, #paypal-saved-accounts tr.other-row label {
+    padding: 18px 0;
+}
+#paypal-saved-accounts label {
+    padding: 8px 0;
+    line-height: 48px;
+    width: auto;
+}
+#creditcard-saved-accounts label img {
+    float: left;
+}
+#creditcard-saved-accounts label .saved-card-info, #paypal-saved-accounts label .saved-paypal-email {
+    margin-left: 12px;
+    float: left;
+}
+#creditcard-saved-accounts label .saved-card-info span {
+    display: block;
+    line-height: 24px;
+}
+#creditcard-saved-accounts label .saved-card-info span.saved-expiry-date {
+    font-size: 12px;
+    margin-left: 0;
+    padding-left: 7px;
+}

@@ -1,0 +1,64 @@
+<script>
+    document.observe('dom:loaded', function()
+    {
+        $('stripe_configure_webhooks').observe('click', function (e)
+        {
+            $('stripe_payments_configuration_errors').hide();
+            var params = {};
+            new Ajax.Request('<?php echo $this->getAjaxUrl() ?>', {
+                parameters:     params,
+                loaderArea:     false,
+                asynchronous:   true,
+                onCreate: function() {
+                    $('stripe_payments_webhooks_processing').update("Configuring ...");
+                    $('stripe_payments_webhooks_processing').show();
+                    $('stripe_payments_configured_message').update('');
+                    $('stripe_configure_webhooks').disable();
+                    $('stripe_configure_webhooks').addClassName("disabled");
+                },
+                onSuccess: function(response)
+                {
+                    var resultText = '';
+                    $('stripe_payments_webhooks_processing').update("Completed");
+
+                    try
+                    {
+                        if (typeof response.responseJSON.errors == "number" && response.responseJSON.errors > 0)
+                        {
+                            $('stripe_payments_configuration_errors').show();
+                            if (response.responseJSON.errors == 1)
+                                $$('#stripe_payments_configuration_errors .message')[0].update(response.responseJSON.errors + " error was logged under var/log/stripe_payments_webhooks.log");
+                            else if (response.responseJSON.errors > 1)
+                                $$('#stripe_payments_configuration_errors .message')[0].update(response.responseJSON.errors + " errors were logged under var/log/stripe_payments_webhooks.log");
+                        }
+                    }
+                    catch (e)
+                    {
+                        console.warn(e);
+                    }
+                },
+                onFailure: function(response)
+                {
+                    $('stripe_payments_webhooks_processing').update("Failed");
+                },
+                onComplete: function()
+                {
+                    $('stripe_configure_webhooks').enable();
+                    $('stripe_configure_webhooks').removeClassName("disabled");
+                }
+            });
+        });
+    });
+</script>
+
+<?php echo $this->getButtonHtml() ?>
+<span class="stripe-webhooks-config-admin" id="progress">
+    <span id="stripe_payments_webhooks_processing" alt="Configuring" style="display: none; margin:0 15px;"></span>
+    <span id="stripe_payments_configured_message"></span>
+    <div id="stripe_payments_configuration_errors" class="message-system-inner">
+        <div class="message message-warning"></div>
+    </div>
+</span>
+<p class="note">
+    <span><?php echo $this->__('A webhook will automatically be configured in your Stripe account which will point to <a href="%s" target="_blank">%s</a>. Please ensure that this link is externally accessible. Existing webhook configurations will be upgraded. A reconfigure is necessary when you change your Stripe API keys or your website Base URL.', $this->webhooksSetup->getWebhookUrl(), $this->webhooksSetup->getWebhookUrl()); ?></span>
+</p>

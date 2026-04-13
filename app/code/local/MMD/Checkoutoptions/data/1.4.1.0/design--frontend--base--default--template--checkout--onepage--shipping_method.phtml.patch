@@ -1,0 +1,47 @@
+diff -aurBb /home/httpd/htdocs/users/kaygorodov/discounts/var/mmd_patch_orig/compare62412809962694c5a73ae010a2 /home/httpd/htdocs/users/kaygorodov/discounts/var/mmd_patch_modif/compare62412809962694c5a73ae010a2
+--- /home/httpd/htdocs/users/kaygorodov/discounts/var/mmd_patch_orig/compare62412809962694c5a73ae010a2	2010-08-05 11:17:50 +0300
++++ /home/httpd/htdocs/users/kaygorodov/discounts/var/mmd_patch_modif/compare62412809962694c5a73ae010a2	2010-08-05 11:17:50 +0300
+@@ -25,6 +25,21 @@
+  */
+ ?>
+ <form id="co-shipping-method-form" action="">
++
++
++
++<!--          START MMD CHECKOUT ATTRIBUTES     -->
++    <?php if ($aFieldList = $this->getCustomFieldList(1)): ?>
++    <fieldset>
++        <ul class="form-list">
++        <?php foreach ($aFieldList as $aField): ?>
++            <?php echo $this->getFieldHtml($aField); ?>
++        <?php endforeach; ?>
++        </ul>                
++    </fieldset>
++    <?php endif; ?>
++<!--     FINISH MMD CHECKOUT ATTRIBUTES     -->          
++
+     <div id="checkout-shipping-method-load">
+         <?php echo $this->getChildHtml('available') ?>
+     </div>
+@@ -36,6 +51,21 @@
+     <div id="onepage-checkout-shipping-method-additional-load">
+         <?php echo $this->getChildHtml('additional') ?>
+     </div>
++
++
++    
++<!--     START MMD CHECKOUT ATTRIBUTES     -->
++    <?php if ($aFieldList = $this->getCustomFieldList(2)): ?>
++    <fieldset>
++        <ul class="form-list">
++        <?php foreach ($aFieldList as $aField): ?>
++            <?php echo $this->getFieldHtml($aField); ?>
++        <?php endforeach; ?>
++        </ul>                
++    </fieldset>
++    <?php endif; ?>
++<!--     FINISH MMD CHECKOUT ATTRIBUTES     -->          
++    
+     <div class="buttons-set" id="shipping-method-buttons-container">
+         <p class="back-link"><a href="#" onclick="checkout.back(); return false;"><small>&laquo; </small><?php echo $this->__('Back') ?></a></p>
+         <button type="button" class="button" onclick="shippingMethod.save()"><span><span><?php echo $this->__('Continue') ?></span></span></button>

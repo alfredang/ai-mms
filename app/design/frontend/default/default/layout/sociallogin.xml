@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<layout version="0.1.0">
+    <default>
+         <reference name="head">
+           <action method="addJs"><script>sociallogin/lightbox.js</script></action>
+         <action method="addItem"><type>skin_css</type><name>css/sociallogin.css</name><params/></action>
+        </reference>
+        <reference name="content">
+            <block type="sociallogin/sociallogin" before="-" name="sociallogin" template="sociallogin/sociallogin.phtml" />
+            </reference>			
+    </default>	 <customer_logged_out>		<reference name="top.links">						  <action method="removeLinkByUrl"><url helper="customer/getLoginUrl"/></action>            <action method="addLink" translate="label title" module="customer"><label>Log In</label><url helper="customer/getLoginUrl">javascript:mmd_header_logo_Div.open();</url><title>Log In</title><prepare/><urlParams/><position>100</position></action>        </reference>	  </customer_logged_out>	
+    <checkout_onepage_index translate="label">
+         <reference name="content">
+            <block type="sociallogin/sociallogin" before="customer_form_login" name="sociallogin" template="sociallogin/sociallogin.phtml" />
+            </reference>
+    </checkout_onepage_index>
+    
+</layout> 

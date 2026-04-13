@@ -1,0 +1,25 @@
+<?php
+/**
+ * Checkout Fields Manager
+ *
+ * @category:    MMD
+ * @package:     MMD_Checkoutoptions
+ * @version      2.9.2
+ * @license:     
+ * @copyright:   Copyright (c) 2013 MMD, Inc. (http://www.mmd.com)
+ */
+$_helper = Mage::helper('mmdinstall');
+/* @var $_helper MMD_Mmdinstall_Helper_Data */
+if ($_helper->isDoubleInstallerVersion()) { ?>
+<div class="notification-global">
+    <?php if ($_helper->isThereAnyLicenses()) {
+        echo $_helper->__('<strong>Do not delete</strong> the old MMD Modules Manager (app/code/local/MMD/Mmdsys) unless you convert licenses purschased
+                          prior to August 6th, 2013. You may <a href="%s" target="_blank">request MMD support team</a> to convert your licenses and remove
+                          the old MMD Modules Manager. More info available at <a href="%s" target="_blank">this guide</a>. If you delete the old MMD Modules
+                          Manager without converting licenses your Magento will crash.', $_helper->getSupportLink() , $_helper->getInfoLink());
+    } else {
+        echo $_helper->__('You have both the new and old versions of the MMD Module Manager.
+                           You may <a href="%s" target="_blank">request MMD support team</a> to remove the old MMD Modules Manager for you.', $_helper->getSupportLink());
+    } ?>
+</div>
+<?php } ?>

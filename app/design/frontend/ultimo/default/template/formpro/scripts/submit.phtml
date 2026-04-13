@@ -1,0 +1,70 @@
+<script type="text/javascript">
+//<![CDATA[
+var formpro_<?php echo $this->getFormpro()->getId()?> = new VarienForm('formpro_<?php echo $this->getFormpro()->getId()?>', <?php echo (int)$this->getData('focus')?>);
+var formpro_<?php echo $this->getFormpro()->getId()?>_submit = function(){
+	var form = formpro_<?php echo $this->getFormpro()->getId()?>;
+	if(form.validator && form.validator.validate()){
+		form.submit();
+		<?php if($this->getAjax()) { ?>
+		$('formpro_<?php echo $this->getFormpro()->getId()?>_submit_button').hide();
+		$('formpro_<?php echo $this->getFormpro()->getId()?>_sending_data').show();
+		<?php } ?>
+	}
+};
+
+<?php if($this->getAjax()) { ?>
+var iframe = $('formpro_<?php echo $this->getFormpro()->getId()?>_iframe');
+iframe.observe('load',function(){
+	var doc = this.contentDocument ? this.contentDocument: this.contentWindow.document;
+	var json = {success:false};
+	if(doc.body.innerHTML.unfilterJSON())
+		json = doc.body.innerHTML.evalJSON();
+	else return;
+	if(json.success > 0){
+		if(json.script){
+			eval(json.script);
+			return;
+		}
+		if(json.redirect_url){
+			$('formpro_<?php echo $this->getFormpro()->getId()?>_progress_text').update('<?php echo $this->__('Redirecting')?>');
+			window.location = json.redirect_url;
+			return;
+		}
+		$('formpro_<?php echo $this->getFormpro()->getId()?>_progress_text').update('<?php echo $this->__('Complete')?>');
+		Effect.Fade('formpro_<?php echo $this->getFormpro()->getId()?>_form',{
+			duration: 0.5, from:1, to:0,
+			afterFinish: function(){
+				$('formpro_<?php echo $this->getFormpro()->getId()?>_success_text').update(json.success_text.unescapeHTML()).show();
+				Effect.Fade('formpro_<?php echo $this->getFormpro()->getId()?>_success_text',{
+					duration:0.5, from:0, to:1
+				});
+				if(<?php echo (int)$this->getData('scroll_to')?>) $('formpro_<?php echo $this->getFormpro()->getId()?>_success_text').scrollTo();
+			}
+			
+		});
+	} else {
+		if($('formpro_<?php echo $this->getFormpro()->getId()?>_sending_data'))
+			$('formpro_<?php echo $this->getFormpro()->getId()?>_sending_data').hide();
+		if($('formpro_<?php echo $this->getFormpro()->getId()?>_submit_button'))
+			$('formpro_<?php echo $this->getFormpro()->getId()?>_submit_button').show();
+		if(json.errors && typeof(json.errors) == "string"){
+			Dialog.alert(json.errors.unescapeHTML(),{
+				title: "<?php echo $this->__('Error(s) occured')?>",
+				className: "alphacube",
+				width:300, 
+				buttonClass: "button",
+				okLabel: "<?php echo $this->__('Close')?>",
+				destroyOnClose: true, 
+				recenterAuto:true
+			})
+		} else {
+			alert('<?php echo $this->__('Error(s) occured')?>');
+		}
+		if(json.script){
+			eval(json.script);
+		}
+	}
+});
+<?php } ?>
+//]]>
+</script>

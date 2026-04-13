@@ -1,0 +1,75 @@
+<?php
+/**
+ * MMD
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the MMD EULA that is bundled with
+ * this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * http://www.magemobiledesign.com/LICENSE-1.0.html
+ *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade the extension
+ * to newer versions in the future. If you wish to customize the extension
+ * for your needs please refer to http://www.magemobiledesign.com/ for more information
+ *
+ * @category   MMD
+ * @package    MMD_CustomOptions
+ * @copyright  Copyright (c) 2012 MMD (http://www.magemobiledesign.com/)
+ * @license    http://www.magemobiledesign.com/LICENSE-1.0.html
+ */
+
+/**
+ * Advanced Product Options extension
+ *
+ * @category   MMD
+ * @package    MMD_CustomOptions
+ * @author     MMD Dev Team
+ */
+?>
+<style type="text/css" >
+    ul { list-style-type:none; padding:0; margin:0; }
+    li { margin-left:0; border:1px solid #ccc; margin:2px; padding:2px 2px 2px 2px; font:normal 12px sans-serif; }
+    img { margin-right:5px; }
+</style>
+
+
+<ul id="processRows"></ul>
+
+
+<script type="text/javascript">
+tplRowSuccess = new Template('<li style="background-color:#DDF;"><img src="<?php echo $this->getSkinUrl('images/fam_bullet_success.gif');?>" class="v-middle" /> #{text}</li>');
+tplRowWait = '<li class="wait"><img src="<?php echo $this->getSkinUrl('images/rule-ajax-loader.gif');?>" class="v-middle" /></li>';
+tplRowDone = '<li class="wait"><img src="<?php echo $this->getSkinUrl('images/note_msg_icon.gif');?>" class="v-middle" /> <?php echo $this->__('Done') ?></li>';
+
+function runProcess(data) {    
+    $$('.wait').each(function(el) {
+        el.remove();
+    });    
+    
+    Element.insert($("processRows"), tplRowSuccess.evaluate(data));    
+    
+    if (data.stop) {
+        Element.insert($("processRows"), tplRowDone);
+        window.scrollTo(0,9000);
+        window.location = data.url;
+        return true;
+    }
+    
+    Element.insert($("processRows"), tplRowWait);
+    window.scrollTo(0,9000);
+    
+    new Ajax.Request(data.url, {
+        method: "get",
+        onSuccess: function(transport) {
+            if (transport.responseText.isJSON()) {
+                runProcess(transport.responseText.evalJSON());
+            }                            
+        }
+      }
+    );
+}
+runProcess({'text':'<?php echo $this->__('Starting applying options to products...') ?>', 'url':'<?php echo $this->getUrl('*/*/runApply/', array('current'=>0)) ?>'});
+</script>

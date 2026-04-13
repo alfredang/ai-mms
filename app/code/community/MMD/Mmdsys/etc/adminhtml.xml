@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<!-- @copyright  Copyright (c) 2009 MMD, Inc. -->
+<config>
+	<menu>
+		<system>
+			<children>
+				<mmdsys translate="title" module="mmdsys"> 
+					<title>Checkout Options Manager</title>
+					<sort_order>1</sort_order>           
+					<action>mmdsys</action>
+				</mmdsys> 
+			</children>
+		</system>
+	</menu>
+    <acl>
+        <resources>
+            <admin>
+                <children>
+                    <system>
+                        <children>
+                            <mmdsys translate="title" module="mmdsys">
+                                <title>Checkout Options Manager</title>
+                                <sort_order>0</sort_order>
+                            </mmdsys>
+                            <config>
+                                <children>
+                                    <mmdsys translate="title" module="mmdsys">
+                                        <title>MMD Store Specific Settings</title>
+                                    </mmdsys>
+                                </children>
+                            </config>
+                        </children>
+                    </system>
+                </children>
+            </admin>
+        </resources>
+    </acl>
+</config>

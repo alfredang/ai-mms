@@ -1,0 +1,1037 @@
+<?php
+/**
+ * MMD
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the MMD EULA that is bundled with
+ * this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * http://www.magemobiledesign.com/LICENSE-1.0.html
+ *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade the extension
+ * to newer versions in the future. If you wish to customize the extension
+ * for your needs please refer to http://www.magemobiledesign.com/ for more information
+ *
+ * @category   MMD
+ * @package    MMD_CustomOptions
+ * @copyright  Copyright (c) 2013 MMD (http://www.magemobiledesign.com/)
+ * @license    http://www.magemobiledesign.com/LICENSE-1.0.html
+ */
+
+/**
+ * Advanced Product Options extension
+ *
+ * @category   MMD
+ * @package    MMD_CustomOptions
+ * @author     MMD Dev Team
+ */
+$getSymbol = Mage::app()->getLocale()->currency(Mage::app()->getStore()->getCurrentCurrencyCode())->getSymbol(); 
+$_options = Mage::helper('core')->decorateArray($this->getOptions());
+$helper = $this->helper('customoptions');
+$coreHelper = $this->helper('core');
+
+if (count($_options) || ((string)Mage::getConfig()->getModuleConfig('OrganicInternet_SimpleConfigurableProducts')->active == 'true' && $this->getProduct()->isConfigurable())) { ?>
+    <style type="text/css">
+        .option a {text-decoration: none;}
+        .option .special-price {color: #CD5033;}
+        .option .small-image-preview {padding:3px;}
+        .option li.swatch {display: inline;}
+        .option li.swatch-disabled {opacity: 0.3;}
+        
+        .option img.swatch, .option div.swatch {margin: 1px;}
+        .option img.swatch-selected, .option div.swatch-selected {border: 1px solid #000000;}
+
+        .option div.container-swatch-color {
+            display:inline-block;
+            width:<?php echo $helper->getImagesThumbnailsSize(); ?>px; 
+            height:<?php echo $helper->getImagesThumbnailsSize(); ?>px;
+        }
+        .option div.swatch-color {
+            display:inline-block;
+            width:100%;
+            height:100%;
+        }
+    </style>
+    <script type="text/javascript">
+        //<![CDATA[
+        var optionFileUpload = {
+            productForm : $('product_addtocart_form'),
+            formAction : '',
+            formElements : {},
+            upload : function(element){
+                this.formElements = this.productForm.getElementsBySelector('input', 'select', 'textarea', 'button');
+                this.removeRequire(element.readAttribute('id').sub('option_', ''));
+
+                template = '<iframe id="upload_target" name="upload_target" style="width:0; height:0; border:0;"><\/iframe>';
+
+                Element.insert($('option_'+element.readAttribute('id').sub('option_', '')+'_uploaded_file'), {after: template});
+
+                this.formAction = this.productForm.action;
+                this.productForm.action = '<?php echo $this->getUrl('*/product/upload') ?>option_id/'+element.readAttribute('id').sub('option_', '');
+                this.productForm.target = 'upload_target';
+                this.productForm.submit();
+                this.productForm.target = '';
+                this.productForm.action = this.formAction;
+            },
+            removeRequire: function(skipElementId){
+                for(var i=0; i<this.formElements.length; i++){
+                    if (this.formElements[i].readAttribute('id') != 'option_'+skipElementId+'_file' && this.formElements[i].type != 'button') {
+                        this.formElements[i].disabled='disabled';
+                    }
+                }
+            },
+            addRequire: function(skipElementId){
+                for(var i=0; i<this.formElements.length; i++){
+                    if (this.formElements[i].readAttribute('name') != 'options_'+skipElementId+'_file' && this.formElements[i].type != 'button') {
+                        this.formElements[i].disabled='';
+                    }
+                }
+            },
+            uploadCallback: function(data){
+                this.addRequire(data.optionId);
+                $('upload_target').remove();
+
+                if (data.error) {
+
+                } else {
+                    $('option_'+data.optionId+'_uploaded_file').value = data.fileName;
+                    $('option_'+data.optionId+'_file').value = '';
+                    $('option_'+data.optionId+'_file').hide();
+                    $('option_'+data.optionId+'').hide();
+                    template = '<div id="option_'+data.optionId+'_file_box"><a href="#"><img src="var/options/'+data.fileName+'"><\/a><a href="#" onclick="optionFileUpload.removeFile('+data.optionId+')">Remove file<\/a>';
+
+                    Element.insert($('option_'+data.optionId+'_uploaded_file'), {after: template});
+                }
+            },
+            removeFile: function(optionId) {
+                $('option_'+optionId+'_uploaded_file').value= '';
+                $('option_'+optionId+'_file').show();
+                $('option_'+optionId+'').show();
+
+                $('option_'+optionId+'_file_box').remove();
+            }
+        };
+        
+        var optionTextCounter = {
+            count : function(field,cntfield,maxlimit){
+                if (field.value.length > maxlimit){
+                    field.value = field.value.substring(0, maxlimit);
+                } else {
+                    cntfield.innerHTML = maxlimit - field.value.length;
+                }
+            }
+        };
+        
+        Product.Options = Class.create();
+        Product.Options.prototype = {
+            initialize : function(config){
+                this.config = config;
+                this.reloadPrice();
+            },
+            getProductQty: function() {
+                var qty = 1;
+                if ($('qty') && !isNaN(parseInt($('qty').getValue()))) {
+                    var qty = parseInt($('qty').getValue());
+                    if (qty <= 0) qty = 1;
+                }
+                return qty;
+            },
+            getProductPriceByQty: function() {
+                var prQty = this.getProductQty();
+                var prPrice = <?php echo floatval($coreHelper->currency($this->getProduct()->getFinalPrice(), false, false)) ?>;                
+                <?php
+                    $priceArr = $this->getProduct()->getFormatedTierPrice();
+                    if (is_array($priceArr)) {
+                        foreach ($priceArr as $priceRow) {?>
+                            if (prQty >= <?php echo intval($priceRow['price_qty'])?>) prPrice = <?php echo floatval($coreHelper->currency($priceRow['price'], false, false)) ?>;
+                        <?php }
+                    }
+                ?>
+                return prPrice;
+            },
+            getOptionPriceByQty: function(opPrice, opPriceType, opQty, optionId, valueId) {
+                if (opPriceType=='percent' && opPrice>0) {
+                    opPrice = this.getProductPriceByQty() * (opPrice/100);
+                }
+                var prQty = this.getProductQty();
+                if (isNaN(opQty)) opQty = 1;
+                <?php if ($helper->isTierPriceEnabled()) { ?>
+                    if (optionTierPricesData[optionId+'_'+valueId]) {
+                        for (var tierQty in optionTierPricesData[optionId+'_'+valueId]) {
+                            if (!optionTierPricesData[optionId+'_'+valueId].hasOwnProperty(tierQty)) continue;
+                            if ((this.config[optionId]['is_onetime']==0 && prQty*opQty >= tierQty) || (opQty >= tierQty)) opPrice = parseFloat(optionTierPricesData[optionId+'_'+valueId][tierQty]);
+                        }
+                    }
+                <?php } ?>
+                if (this.config[optionId]['is_onetime']==0) return opPrice * prQty * opQty;
+                return opPrice * opQty;
+            },
+            <?php if ($helper->isTierPriceEnabled()) { ?>
+            getOptionTierPriceHTML: function(el, optionId, opPrice) {
+                var tierPrice = 0;
+                var tierSaved = 0;
+                var tierHTML = '<ul id="option_tier_prices_'+el.value+'" class="tier-prices product-pricing" style="width:250px;">';
+                for (var tierQty in optionTierPricesData[optionId+'_'+el.value]) {
+                    if (!optionTierPricesData[optionId+'_'+el.value].hasOwnProperty(tierQty)) continue;
+                    tierPrice = optionTierPricesData[optionId+'_'+el.value][tierQty];
+                    tierSaved = parseInt(100 - ((parseFloat(tierPrice) * 100) / opPrice));
+                    tierHTML += '<li><?php echo $helper->__js('Buy') ?> '+tierQty+' <?php echo $helper->__js('for') ?> <span class="price"><?php echo Mage::app()->getLocale()->currency(Mage::app()->getStore()->getCurrentCurrencyCode())->getSymbol() ?>'+tierPrice+'</span> <?php echo $helper->__js('each') ?> <?php echo $helper->__js('and') ?> <strong class="benefit"><?php echo $helper->__js('save') ?> '+tierSaved+'%</strong></li>';
+                }
+                tierHTML += '</ul>';
+                return tierHTML;
+            },
+            <?php } ?>
+            reloadOptionTierPriceBlock: function(el){
+            <?php if ($helper->isTierPriceEnabled()) { ?>
+                var optionId = 0;
+                el.name.sub(/[0-9]+/, function(match){
+                    optionId = match[0];
+                });
+                if (!optionId) return false;
+                if ((el.type=='radio' || el.type=='checkbox') && optionTierPricesData[optionId+'_'+el.value]) {
+                    if (!el.value) return false;
+                    if (el.checked) {
+                        if (!$('option_tier_prices_'+el.value)) {
+                            if (typeof(this.config[optionId][el.value]['price'])!='undefined') {
+                                var opPrice = parseFloat(this.config[optionId][el.value]['price']);
+                            }                                                        
+                            Element.insert(el.up('li'), {'bottom':this.getOptionTierPriceHTML(el, optionId, opPrice)});
+                        }
+                    } else {
+                        if ($('option_tier_prices_'+el.value)) {
+                            $('option_tier_prices_'+el.value).remove();
+                        }
+                    }
+                } else if (el.type=='select-one' || el.type=='select-multiple') {
+                    $A(el.options).each(function(selOp) {
+                        if (selOp.value && optionTierPricesData[optionId+'_'+selOp.value]) {
+                            if (selOp.selected) {
+                                if (!$('option_tier_prices_'+selOp.value)) {
+                                    var opPrice = 0;
+                                    if (typeof(this.config[optionId][selOp.value])!='undefined') {
+                                        if (typeof(this.config[optionId][selOp.value]['price'])!='undefined') {
+                                            opPrice = parseFloat(this.config[optionId][selOp.value]['price']);
+                                        }
+                                    }
+                                    Element.insert(el.up('dd'), {'bottom':this.getOptionTierPriceHTML(selOp, optionId, opPrice)});
+                                }
+                            } else {
+                                if ($('option_tier_prices_'+selOp.value)) {
+                                    $('option_tier_prices_'+selOp.value).remove();
+                                }
+                            }
+                        }
+                    }.bind(this));
+                }
+            <?php } ?>
+            },
+            reloadPrice: function(){
+                var price = 0;
+                var PNew = 0;
+                var config = this.config;
+                var skipIds = [];
+                $$('.product-custom-option').each(function(element){
+                    var optionId = 0;
+                    element.name.sub(/[0-9]+/, function(match){
+                        optionId = match[0];
+                    });
+                    if (config[optionId] && !element.disabled) {
+                        var configOptions = config[optionId];
+                        
+                        this.reloadOptionTierPriceBlock(element);
+                        if (element.type == 'radio') {
+                            if (element.checked && typeof(configOptions[element.getValue()])!='undefined') {
+                                if ($('options_'+optionId+'_qty')) optionQty = parseInt($('options_'+optionId+'_qty').value); else optionQty = 1;
+                                price += this.getOptionPriceByQty(parseFloat(configOptions[element.getValue()]['price']), configOptions[element.getValue()]['price_type'], optionQty, optionId, element.value);
+
+
+
+								
+								
+								if(document.getElementById("gtPH"))
+								{
+									var gtPH = document.getElementById("gtPH").value;
+									if(gtPH>0)
+									{
+                                        if(element.getAttribute('data-type')=="fixed")
+                                        {
+
+                                            var priceG = parseFloat(price) + (parseFloat(price)*0.09)
+                                            var fGst = parseFloat(gtPH)+parseFloat(priceG) ;
+                                            var ffGst = fGst.toFixed(2);
+                                            document.getElementById("gtP").innerHTML= "<?php echo $getSymbol ?>" + ffGst;
+                                        }
+                                        if(element.getAttribute('data-type')=="percent")
+                                        {
+                                            var priceL = Math.abs(price);
+                                            var mainGPrice = document.getElementById("simpleProdPrice").value;
+                                            var priceDis = (parseFloat(mainGPrice) *  parseFloat(priceL))/100;
+                                            PNew = parseFloat(mainGPrice) - parseFloat(priceDis);
+                                            var PNewGST = parseFloat(PNew) + (parseFloat(mainGPrice)*0.09)
+                                            //var fGst = parseFloat(gtPH)+parseFloat(priceG) ;
+                                            var ffGst = PNewGST.toFixed(2);
+                                            document.getElementById("gtP").innerHTML= "<?php echo $getSymbol ?>" + ffGst;
+                                            //children = document.getElementById("productTypeData").querySelector(".price");
+                                           // children = document.querySelectorAll('.product-type-data > .price');
+                                           // console.log(children);
+                                           // children.innerHTML= "<?php echo $getSymbol ?>" + PNew;
+                                           // return false;
+                                        }
+
+									}
+								}
+                            }
+                        } else if(element.type == 'checkbox') {
+                            if (element.checked && typeof(configOptions[element.getValue()])!='undefined') {
+                                if ($('options_'+optionId+'_'+element.value+'_qty')) optionQty = parseInt($('options_'+optionId+'_'+element.value+'_qty').value); else optionQty = 1;
+                                price += this.getOptionPriceByQty(parseFloat(configOptions[element.getValue()]['price']), configOptions[element.getValue()]['price_type'], optionQty, optionId, element.value);
+                            }
+                        } else if(element.hasClassName('datetime-picker') && !skipIds.include(optionId)) {
+                            dateSelected = true;
+                            $$('.product-custom-option[id^="options_' + optionId + '"]').each(function(dt){
+                                if (dt.getValue() == '') {
+                                    dateSelected = false;
+                                }
+                            });
+                            if (dateSelected) {
+                                if (typeof(configOptions['price'])!='undefined') {
+                                    price += this.getOptionPriceByQty(parseFloat(configOptions['price']), configOptions['price_type'], 1, optionId, 0);
+                                }
+                                skipIds[optionId] = optionId;
+                            }
+                        } else if (element.type == 'select-one') {
+                            if (element.options) {
+                                // qty 
+                                if ($('options_'+optionId+'_qty')) optionQty = parseInt($('options_'+optionId+'_qty').value); else optionQty = 1;
+                                $A(element.options).each(function(selectOption){
+                                    if (selectOption.selected && typeof(configOptions[selectOption.value])!='undefined') {                                        
+                                        price += this.getOptionPriceByQty(parseFloat(configOptions[selectOption.value]['price']), configOptions[selectOption.value]['price_type'], optionQty, optionId, selectOption.value);
+                                    }
+                                }.bind(this));
+                            }
+                        } else if(element.type == 'select-multiple') {                            
+                            if (element.options) {
+                                $A(element.options).each(function(selectOption){
+                                    if (selectOption.selected && typeof(configOptions[selectOption.value])!='undefined') {
+                                        price += this.getOptionPriceByQty(parseFloat(configOptions[selectOption.value]['price']), configOptions[selectOption.value]['price_type'], 1, optionId, selectOption.value);
+                                    }
+                                }.bind(this));
+                            }
+                        } else {
+                            if (element.getValue().strip()!='') {
+                                if (typeof(configOptions['price'])!='undefined') {
+                                    price += this.getOptionPriceByQty(parseFloat(configOptions['price']), configOptions['price_type'], 1, optionId, 0);
+                                }
+                            }
+                        }
+                    }
+                }.bind(this));                
+                try {
+                    optionsPrice.productPrice = this.getProductPriceByQty() * this.getProductQty();
+                    optionsPrice.productOldPrice = <?php echo floatval($coreHelper->currency($this->getProduct()->getPrice(), false, false)) ?> * this.getProductQty();
+                    <?php if ($helper->getProductAbsolutePrice($this->getProduct())) { ?>
+                        if (price>0) {
+                            optionsPrice.productPrice = 0;
+                            optionsPrice.productOldPrice = optionsPrice.productOldPrice - price;
+                        }
+                    <?php } ?>
+
+                    if(PNew>0) {
+                        price = 0 - parseFloat(PNew);
+                    }
+                    optionsPrice.changePrice('options', price);
+
+                    optionsPrice.reload();
+                } catch (e) {}
+            }
+        };
+        function validateOptionsCallback(elmId, result){
+            var container = $(elmId).up('ul.options-list');
+            if (result == 'failed') {
+                $(container).removeClassName('validation-passed');
+                $(container).addClassName('validation-failed');
+            } else {
+                $(container).removeClassName('validation-failed');
+                $(container).addClassName('validation-passed');
+            }
+        }
+        <?php if ($helper->isTierPriceEnabled()) { ?>        
+            var optionTierPricesData = [];
+        <?php } ?>
+        var opConfig = new Product.Options(<?php echo $helper->getOptionsJsonConfig($this->getOptions()) ?>);
+        var valueId, optionId;
+        var enableAll = false;
+        var inputs = new Array();
+        function nodeAnalysis (currentNode) {
+            var name = currentNode.nodeName.toLowerCase();
+            switch (name)
+            {
+                case 'option' :
+                    inputs.push(currentNode);
+                    break;
+                case 'input' :
+                    if (currentNode.type=='checkbox' || currentNode.type=='radio') {
+                        inputs.push(currentNode);
+                    }
+                    break;
+                default : break;
+            }
+            for (var i = 0; i < currentNode.childNodes.length; i++) {
+                if (currentNode.childNodes[i].nodeType == 1) {
+                    nodeAnalysis(currentNode.childNodes[i]);
+                }
+            }
+        }
+        
+        
+        // set qty product from option
+        var optionSetQtyProductData = [];
+        var optionSetQtyProduct = {
+            pricePerUnit: 0,
+            setQty: function(optionId) {
+                if (!$('qty')) {
+                    setTimeout('optionSetQtyProduct.setQty()', 500);
+                    return;
+                }                
+                var totalQty = 0;
+                var elArr = $$("input[id^='options_']:checked", "select[id^='select_']");
+                if (elArr.length>0) {
+                    elArr.each(function(el) {
+                        var elIdArr = el.id.split('_');
+                        var optionId = 0;
+                    	if (elIdArr[1]) optionId = elIdArr[1];
+                        if (optionId && optionSetQtyProductData[optionId] && optionSetQtyProductData[optionId][el.value]) {
+                            if ($('options_'+optionId+'_qty')) {
+                                var optionQty = parseInt($('options_'+optionId+'_qty').value);
+                            } else if ($('options_'+optionId+'_'+el.value+'_qty')) {
+                                var optionQty = parseInt($('options_'+optionId+'_'+el.value+'_qty').value);
+                            } else {
+                                var optionQty = 1;
+                            }
+                            totalQty += optionSetQtyProductData[optionId][el.value] * optionQty;
+                        }
+                    }.bind(this));
+                }
+                if (totalQty==0) totalQty = 1;
+                if ($('qty').value!=totalQty) this.setTotalQty(totalQty);                
+            },
+            setTotalQty: function(qty) {
+                $('qty').value = qty;
+                opConfig.reloadPrice();
+            },
+            hideQty: function() {
+                if (!$('qty')) {
+                    setTimeout('optionSetQtyProduct.hideQty()', 100);
+                    return;
+                }                
+                //$('qty').previous('label').style.visibility = 'hidden';
+                //$('qty').style.visibility = 'hidden';
+                $('qty').writeAttribute('readonly', 'readonly');
+            },
+            checkboxQty: function(el) {
+                var elIdArr = el.id.split('_');
+                var optionId = 0;
+                if (elIdArr[1]) optionId = elIdArr[1];
+                
+                var elQty = $('options_'+ optionId +'_'+ el.value +'_qty');
+                if (!elQty) return;
+                elQty.disabled=!el.checked;
+                
+                if (el.checked) {
+                    if (elQty.value<=0) elQty.value = 1;
+                    $(elQty).addClassName('validate-greater-than-zero');
+                } else {
+                    elQty.value = 0;
+                    $(elQty).removeClassName('validate-greater-than-zero');
+                }
+                
+            }
+        };
+        
+        // swatch class
+        var optionSwatch = {
+            select: function(optionId, optionValueId) {
+                // change value
+                var sel = $('select_' + optionId);
+                if (!sel) return;
+                if (sel.value==optionValueId) {
+                    optionValueId = '';
+                }
+                sel.value = optionValueId;
+                $(sel).onchange();
+            },
+            change:function(el) {
+                if (!el || !el.id) return;
+                optionId = el.id.replace('select_', '');
+                
+                //change border
+                var ul = $('ul_swatch_' + optionId);
+                if (!ul) return;
+                
+                var imgs = ul.getElementsByTagName('img');
+                for (i=0; i < imgs.length; i++) {
+                    if ($(imgs[i]).hasClassName('swatch-selected')) {
+                        $(imgs[i]).removeClassName('swatch-selected');
+                        $(imgs[i]).addClassName('swatch');
+                    }
+                }
+                
+                var divs = ul.getElementsByTagName('div');
+                for (i=0; i < divs.length; i++) {
+                    if ($(divs[i]).hasClassName('swatch-selected')) {
+                        $(divs[i]).removeClassName('swatch-selected');
+                        $(divs[i]).addClassName('swatch');
+                    }
+                }
+                
+                var span = $('span_swatch_' + optionId);
+                if (span) span.remove();
+                
+                <?php if ($helper->isDependentEnabled()) { ?>
+                // dependent
+                var lis = ul.getElementsByTagName('li');
+                for (i=0; i < lis.length; i++) {
+                    lis[i].hide();
+                }
+                for (i=0; i < el.options.length; i++) {
+                    if (el.options[i].value) {
+                        var li = $('swatch_' + el.options[i].value);
+                        if (li) li.show();
+                    }
+                }
+                <?php } ?>
+                
+                if (!el.value) return;
+                var li = $('swatch_' + el.value);
+                if (!li) return;
+                
+                li.down('.swatch').removeClassName('swatch').addClassName('swatch-selected');
+                
+                // change title
+                if (el.options[el.selectedIndex].text!='') {
+                    ul.up('dl').down('dt').innerHTML += '<span id="span_swatch_' + optionId + '"> - ' + el.options[el.selectedIndex].text + '</span>';
+                }
+            }
+        };
+        
+        // images class
+        var optionImages = {
+            ulId: 'div.product-img-box div.more-views ul',
+            mainImageUrl: '',
+            mainImageThumbnail: '',
+            mainImageTitle: '',
+            mainImageWidth: 240,
+            newMainImageUrl: '',
+            newMainImageThumbnail: '',
+            newMainImageTitle: '',
+            pageLoaded: false,
+            
+            showImage: function(el) {
+                if (!el || !el.id) return;
+                
+                var elIdArr = el.id.split('_');
+                var optionId = 0;
+                if (elIdArr[1]) optionId = elIdArr[1];
+                
+                var elValueArr = [];                    
+                if (el.multiple) {
+                    for (i=0; i < el.options.length; i++) {
+                        if (el.options[i].selected) elValueArr.push(el.options[i].value);
+                    }
+                } else {
+                    elValueArr.push(el.value);
+                }
+                
+                if (!opConfig.config[optionId]) return;
+                var imageHTML = '';
+                
+                var imageMode = opConfig.config[optionId].image_mode;
+                if (imageMode==1) {
+                    // beside option variant
+                    var imageBox = $('customoptions_images_' + optionId);
+                    if (!imageBox) return;
+                    
+                    imageBox.hide();
+                    elValueArr.each(function(optionValueId) {
+                        if (optionValueId!='' && opConfig.config[optionId][optionValueId] && opConfig.config[optionId][optionValueId].images) {
+                            opConfig.config[optionId][optionValueId].images.each(function(image) {
+                                if (image[1]) {
+                                    imageHTML += '<a href="'+image[1]+'" rel="mmdLightbox[]" title="">'+
+                                        '<img src="'+image[0]+'" title="" class="small-image-preview v-middle" />'+
+                                    '</a>';
+                                } else {
+                                    imageHTML += '<div class="container-swatch-color small-image-preview v-middle"">'+
+                                        '<div class="swatch-color" style="background:' + image[0] + ';">&nbsp;</div>'+
+                                    '</div>';
+                                }
+                            }.bind(this));
+                        }
+                    }.bind(this));
+                    imageBox.innerHTML = imageHTML;
+                    imageBox.show();
+                } else {
+                    // replace variant
+                    var ul = $$(this.ulId).first();
+                    
+                    var liClass = 'option-image-'+optionId;
+                    if (el.type=='checkbox') liClass += '-' + el.value;
+                    
+                    // hide product gallery
+                    if (imageMode==2) {
+                        $$(this.ulId + ' li.product-image').each(function(li) {
+                            li.hide();
+                        });
+                    }
+                    
+                    // remove option images
+                    $$('li.' + liClass).each(function(li) {
+                        li.remove();
+                    });
+                    
+                    // set default main image
+                    this.newMainImageUrl = this.mainImageUrl;
+                    this.newMainImageTitle = this.mainImageTitle;
+                    this.newMainImageThumbnail = this.mainImageThumbnail;
+                    
+                    if (((el.type=='checkbox' || el.type=='radio') && el.checked) || ((el.type=='select-one' || el.type=='select-multiple') && el.value!='')) {
+                        var liHtml = '';
+                        if (ul) {
+                            var li = ul.down('li');
+                            if (li) {
+                                liHtml = ul.down('li').innerHTML;
+                                liHtml = liHtml.replace(/https?\:\/\/.+?([\'\"])/,"{{big_image_url}}$1");
+                                liHtml = liHtml.replace(/https?\:\/\/.+?([\'\"])/g,"{{small_image_url}}$1");
+                                liHtml = liHtml.replace(/(\s(?:title|alt)\=[\'\"]).*?([\'\"])/g,"$1{{title}}$2");
+                                liHtml = '<li class="' + liClass + '">' + liHtml + '</li>';
+                            }
+                        }
+                        
+                        var imageBox = $('customoptions_images_' + optionId);
+                        if (imageBox) imageBox.hide();
+
+                        var excludeFirstImage = opConfig.config[optionId].exclude_first_image;
+
+                        // append option images
+                        elValueArr.each(function(optionValueId) {
+                            if (optionValueId!='' && opConfig.config[optionId][optionValueId] && opConfig.config[optionId][optionValueId].images) {
+                                opConfig.config[optionId][optionValueId].images.each(function(image, index) {
+                                    if ((excludeFirstImage==0 && index==0) || index > 0) {
+                                        if (liHtml) {
+                                            if (image[1]) imageHTML += liHtml.replace(new RegExp("{{big_image_url}}",'g'), image[1]).replace(new RegExp("{{small_image_url}}",'g'), image[0]).replace(new RegExp("{{title}}",'g'), opConfig.config[optionId][optionValueId].title);
+                                        } else {
+                                            if (index==0 || (excludeFirstImage==1 && index==1)) {
+                                                this.newMainImageUrl = image[1];
+                                                this.newMainImageThumbnail = image[1];
+                                                this.newMainImageTitle = opConfig.config[optionId][optionValueId].title;
+                                            }
+                                        }
+                                    } else if (el.type=='select-one' || el.type=='select-multiple') {
+                                        if (imageBox) {                    
+                                            imageBox.hide();
+                                            imageBox.innerHTML = '<a href="'+image[1]+'" rel="mmdLightbox[]" title="">'+
+                                                '<img src="'+image[0]+'" title="" class="small-image-preview v-middle" />'+
+                                            '</a>';;
+                                            imageBox.show();
+                                        }
+                                    }
+                                }.bind(this));
+                            }
+                        }.bind(this));
+                        if (imageHTML) ul.innerHTML += imageHTML;
+                    }
+                    
+                    // show product gallery
+                    if (!this.hasOptionImages()) {
+                        $$(this.ulId + ' li.product-image').each(function(li) {
+                            li.show();
+                        });
+                    }
+                    
+                    // change main image
+                    if (imageMode==2) this.changeMainImage();
+                    
+                }
+            },
+            markProduct: function() {
+                $$(this.ulId + ' li').each(function(li) {
+                    li.addClassName('product-image');
+                });
+                
+                if (this.mainImageUrl=='') {
+                    var mainImage = this.getMainImage();
+                    if (mainImage) {
+                    	if (mainImage.hasClassName('MagicToolboxContainer')) {
+                    		var elA = mainImage.down('a');
+                    		if (elA) {
+                    			this.mainImageUrl = elA.href;
+                    			var elImg = elA.down('img');
+                    			if (elImg.width) this.mainImageWidth = elImg.width;
+                    			this.mainImageThumbnail = elImg.src;
+                    			this.mainImageTitle = elImg.alt;
+                    		}
+                        } else {
+                        	this.mainImageUrl = mainImage.src;
+                        	this.mainImageTitle = mainImage.alt;
+                    	}
+                    }
+                }
+            },
+            getMainImage: function() {
+                return $$('div.product-img-box div.MagicToolboxContainer', 'div.product-img-box p.product-image img', '#image').first();
+            },
+            changeMainImage: function() {
+                if (!this.newMainImageUrl) return;
+                var mainImage = this.getMainImage();
+                if (!mainImage) return;
+                
+                if (!this.pageLoaded) {
+                    mainImage.hide();
+                    setTimeout('optionImages.changeMainImage()', 100);
+                    return;
+                }
+                if (mainImage.hasClassName('MagicToolboxContainer')) {
+                	var elA = mainImage.down('a');
+                    if (elA) {
+                    	elA.down('img').width = this.mainImageWidth;
+                    	MagicZoomPlus.update(elA.id, this.newMainImageUrl, this.newMainImageThumbnail, 'show-title: false; drag-mode: false');
+                    }
+                } else {
+                	mainImage.src = this.newMainImageUrl;
+                	mainImage.alt = this.newMainImageTitle;
+                	mainImage.title = this.newMainImageTitle;
+                }
+                mainImage.show();
+            },
+            hasOptionImages: function() {
+                var result = false;
+                var firstImageUrl = '';
+                
+                $$(this.ulId + ' li').each(function(li) {
+                    if (li.hasClassName('product-image')==false) {
+                        // change main image
+                        if (!firstImageUrl) {
+                            var firstImageMatch = li.innerHTML.match(/(https?\:\/\/.+?)[\'\"]/);
+                            if (firstImageMatch) firstImageUrl = firstImageMatch[1];
+                            this.newMainImageUrl = firstImageUrl;
+                            this.newMainImageThumbnail = firstImageUrl;
+                            this.newMainImageTitle = li.down('img').alt;
+                        }
+                        result = true;
+                    }
+                }.bind(this));
+                return result;
+            }
+        };
+        
+        Event.observe(window, 'load', function() {
+            opConfig.reloadPrice();
+            <?php if ($helper->getProductAbsolutePrice($this->getProduct())) { ?>
+                oldPriceEl = $('old-price-'+optionsPrice.productId+'_clone');
+                if (oldPriceEl) oldPriceEl.id = oldPriceEl.id + '_absolute';
+            <?php } ?>
+        });
+     <?php if ($helper->isDependentEnabled()) { ?>
+            var dependentData = [];
+            var inGroupIdData = [];
+            var dependentChanges = {"m":[], "d":[]};
+            var dependentHide = <?php if ($helper->hideDependentOption()) echo 'true'; else echo 'false'; ?>;
+            var dependentDefault = [];
+            var dependentOptions = {
+                select: function(el) {
+                    var i, ii = 0;                    
+                    if (el.type=='radio') {
+                        var radios = this.upDiv(el).getElementsByClassName('radio');
+                        for (i=0; i < radios.length; i++) {
+                            this.returnSelect(radios[i]);
+                        }                        
+                    } else {                    
+                        this.returnSelect(el);
+                    }
+                    
+                    if (el.type && el.type=='checkbox' && !el.checked) return false;
+                    if (el.disabled) return false;
+                    if (el.value>0) {
+                        // prepare value
+                        var elValueArr = [];
+                        if (el.multiple) {
+                            for (i=0; i < el.options.length; i++) {
+                                if (el.options[i].selected) elValueArr.push(el.options[i].value);
+                            }
+                        } else {
+                            elValueArr.push(el.value);
+                        }
+                        var mElementId = el.id;
+                        var dSelects = [];
+                        var isRequire = false;
+                        for (i=0; i < elValueArr.length; i++) {
+                            if (!dependentData[elValueArr[i]]) continue;                            
+                            dependentData[elValueArr[i]].each(function(IGI){
+                                if (inGroupIdData[IGI]) {                                    
+                                    for(var dElementId in inGroupIdData[IGI]) {
+                                        if (dElementId!='disabled' && $(dElementId)) {
+                                            var dElement = $(dElementId);
+                                            if (!dependentChanges['m'][mElementId]) dependentChanges['m'][mElementId] = [];
+                                            if (!dependentChanges['m'][mElementId][dElementId]) dependentChanges['m'][mElementId][dElementId] = [];
+
+                                            if (!dependentChanges['d'][dElementId]) dependentChanges['d'][dElementId] = [];
+
+                                            if (inGroupIdData[IGI].disabled) {
+                                                if (!inGroupIdData[IGI].out_of_stock) dElement.disabled = false;
+                                                if (dependentHide) {
+                                                    if (dElement.type=='checkbox' || dElement.type=='radio') {
+                                                        $(dElement).up('li').style.display = 'block';
+                                                    }
+                                                    dependentOptions.upDiv(dElement).style.display = 'block';
+                                                }
+                                                dependentChanges['m'][mElementId][dElementId]['disabled'] = true;
+                                                
+                                                if (dependentChanges['m'][mElementId][dElementId]['is_require']) {
+                                                    isRequire = true;
+                                                } else {
+                                                    isRequire = $(dElement).hasClassName('required-dependent');
+                                                }
+                                                if (isRequire) {
+                                                    $(dElement).removeClassName('required-dependent');
+                                                    if (dElement.type=='checkbox' || dElement.type=='radio') {
+                                                        $(dElement).addClassName('validate-one-required-by-name');
+                                                    } else {
+                                                        $(dElement).addClassName('required-entry');
+                                                    }    
+                                                }
+                                                dependentChanges['m'][mElementId][dElementId]['is_require'] = isRequire;
+                                            }
+                                            
+                                            
+                                            if (inGroupIdData[IGI][dElementId] && (dElement.type=='select-one' || dElement.type=='select-multiple')) {
+                                                // if [multi]select
+                                                // if el not modified -> backup default options and clear
+                                                if (!dependentChanges['d'][dElementId]['options']) {
+                                                    dependentChanges['d'][dElementId]['options'] = [];
+                                                    var opSelected = false;
+                                                    for (ii=0; ii < dElement.options.length; ii++) {
+                                                        if (dependentDefault[dElementId] && (dependentDefault[dElementId]==dElement.options[ii].value || dependentDefault[dElementId][dElement.options[ii].value])) opSelected = true; else opSelected = false;
+                                                        if (dElement.options[ii].value) dependentChanges['d'][dElementId]['options']['s'+dElement.options[ii].value] = {'text':dElement.options[ii].text, 'selected':opSelected, 'sel-def':opSelected, 'disabled':dElement.options[ii].disabled};
+                                                    }
+                                                    if (dElement.multiple) dElement.length = 0; else dElement.length = 1; // clear select
+                                                } else {
+                                                    dependentOptions.rememberNewSelected(dElement, dElementId);
+                                                }
+                                                
+                                                var selectValue = 's'+inGroupIdData[IGI][dElementId];
+                                                if (dependentChanges['d'][dElementId]['options'][selectValue]) {
+                                                    // commit changes
+                                                    if (!dependentChanges['m'][mElementId][dElementId]['options']) dependentChanges['m'][mElementId][dElementId]['options'] = [];
+                                                    dependentChanges['m'][mElementId][dElementId]['options'].push(selectValue);
+                                                    // set [multi]select flag use
+                                                    if (!dependentChanges['d'][dElementId]['options'][selectValue]['use']) dependentChanges['d'][dElementId]['options'][selectValue]['use'] = [];
+                                                    if (dependentChanges['d'][dElementId]['options'][selectValue]['use'].indexOf(mElementId)==-1) dependentChanges['d'][dElementId]['options'][selectValue]['use'].push(mElementId);
+                                                    dSelects.push(dElement); // after add data to this [multi]select
+                                                }                                              
+                                            } else {
+                                                // if radio, checkbox, text, etc.
+                                                if (!dependentChanges['d'][dElementId]['use']) dependentChanges['d'][dElementId]['use'] = [];
+                                                if (dependentDefault[dElementId] && ($(dElementId).type=='checkbox' || $(dElementId).type=='radio') && dependentChanges['d'][dElementId]['use'].length==0) $(dElementId).click();
+                                                if (dependentChanges['d'][dElementId]['use'].indexOf(mElementId)==-1) dependentChanges['d'][dElementId]['use'].push(mElementId);
+                                            }
+                                        }
+                                    }
+                                }
+
+                            });
+                        }
+                        if (dSelects.length>0) {
+                            for (i=0; i < dSelects.length; i++) {
+                                var dElement = dSelects[i];
+                                var dElementId = dElement.id;
+                                // add data to [multi]select                                        
+                                if (dElement.multiple) dElement.length = 0; else dElement.length = 1; // clear select
+                                for(var opValue in dependentChanges['d'][dElementId]['options']) {
+                                    if (!dependentChanges['d'][dElementId]['options'].hasOwnProperty(opValue) || !dependentChanges['d'][dElementId]['options'][opValue] || !dependentChanges['d'][dElementId]['options'][opValue]['use'] || dependentChanges['d'][dElementId]['options'][opValue]['use'].length==0) continue;
+                                    var newOpt = new Option(dependentChanges['d'][dElementId]['options'][opValue]['text'], opValue.substr(1));
+                                    newOpt.disabled = dependentChanges['d'][dElementId]['options'][opValue]['disabled'];
+                                    if (dependentChanges['d'][dElementId]['options'][opValue]['selected']) {
+                                        newOpt.selected = true;
+                                        //if (!newOpt.disabled) setTimeout('dependentOptions.select($("'+dElementId+'"));', '100');
+                                    }
+                                    dElement.options.add(newOpt);
+                                }
+                                dElement.onchange();
+                                //if (dElement.hasClassName('swatch')) optionSwatch.change(dElement);
+                            }
+                        }
+                    }
+                },
+
+                // cancel changes and return default options params
+                returnSelect: function(el) {
+                    var mElementId = el.id;
+                    var i = 0;
+                    if (dependentChanges['m'][mElementId] && !dependentChanges['m'][mElementId]['is_used']) {
+                        dependentChanges['m'][mElementId]['is_used'] = true;
+                        //alert(mElementId);
+                        for(var dElementId in dependentChanges['m'][mElementId]) {
+                            if (!dependentChanges['m'][mElementId].hasOwnProperty(dElementId) || dElementId=='is_used' || !$(dElementId)) continue;
+                            var dElement = $(dElementId);
+                            var disableElFlag = true;
+                            // disable dependent el
+                            if (dependentChanges['m'][mElementId][dElementId]['disabled']) {
+                                if (dependentChanges['m'][mElementId][dElementId]['options'] && dependentChanges['d'][dElementId]['options']) {
+                                    // to [multi]select                                    
+                                    this.rememberNewSelected(dElement, dElementId);
+                                    
+                                    // remove options if not use main el
+                                    for (i=0; i < dependentChanges['m'][mElementId][dElementId]['options'].length; i++) {
+                                        opValue = dependentChanges['m'][mElementId][dElementId]['options'][i];
+                                        
+                                        if (dependentChanges['d'][dElementId]['options'][opValue] && dependentChanges['d'][dElementId]['options'][opValue]['use'] && dependentChanges['d'][dElementId]['options'][opValue]['use'].length>0) {
+                                            dependentChanges['d'][dElementId]['options'][opValue]['use'] = dependentChanges['d'][dElementId]['options'][opValue]['use'].without(mElementId);
+                                            if (dependentChanges['d'][dElementId]['options'][opValue]['use'].length==0) {
+                                                $$("#"+dElementId+" option[value='"+opValue.substr(1)+"']").each(function(elOp){
+                                                    elOp.remove();
+                                                });
+                                            } else {
+                                                disableElFlag = false;
+                                            }
+                                        }
+                                    }
+                                    if (disableElFlag && (dElement.length>1 || (dElement.multiple && dElement.length>0))) disableElFlag = false;
+                                    
+                                } else {                                    
+                                    // to radio, checkbox, text, etc.
+                                    if (dependentChanges['d'][dElementId]['use'] && dependentChanges['d'][dElementId]['use'].length>0) {                                        
+                                        dependentChanges['d'][dElementId]['use'] = dependentChanges['d'][dElementId]['use'].without(mElementId);
+                                        if (dependentChanges['d'][dElementId]['use'].length>0) disableElFlag = false;
+                                    }
+                                }
+                                if (disableElFlag) {
+                                    dElement.disabled = true;
+                                    
+                                    optionImages.showImage(dElement);
+                                    
+                                    // restore default if [multi]select
+                                    if (dElement.type=='select-one' || dElement.type=='select-multiple') {
+                                        for(var opValue in dependentChanges['d'][dElementId]['options']) {
+                                            if (!dependentChanges['d'][dElementId]['options'].hasOwnProperty(opValue) || !dependentChanges['d'][dElementId]['options'][opValue]) continue;
+                                            var newOpt = new Option(dependentChanges['d'][dElementId]['options'][opValue]['text'], opValue.substr(1));
+                                            newOpt.disabled = dependentChanges['d'][dElementId]['options'][opValue]['disabled'];
+                                            newOpt.selected = dependentChanges['d'][dElementId]['options'][opValue]['sel-def'];
+                                            dElement.options.add(newOpt);
+                                        }
+                                    }
+                                    
+                                    // hide
+                                    if (dependentHide) {
+                                        var hideDivFlag = true;
+                                        if (dElement.type=='checkbox' || dElement.type=='radio') {
+                                            $(dElement).up('li').style.display = 'none';
+                                            ulEl = $(dElement).up('li').up('ul');
+                                            if (ulEl) {
+                                                lis = ulEl.getElementsByTagName('li');
+                                                for (i=0; i < lis.length; i++) {
+                                                    if (lis[i].style.display=='block') {
+                                                        hideDivFlag = false;
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        if (hideDivFlag) this.upDiv(dElement).style.display = 'none';
+                                    }
+                                    
+                                    // require
+                                    if (dependentChanges['m'][mElementId][dElementId]['is_require']) {
+                                        if (dElement.type=='checkbox' || dElement.type=='radio') {
+                                            $(dElement).removeClassName('validate-one-required-by-name');
+                                        } else {
+                                            $(dElement).removeClassName('required-entry');
+                                        }                                
+                                        $(dElement).addClassName('required-dependent');
+                                    }
+                                }
+                            }
+                            // return dependent->dependent etc..
+                            if (disableElFlag && (dElement.type=='checkbox' || dElement.type=='radio') && dElement.checked) {
+                                dElement.checked = false;
+                                dependentOptions.returnSelect(dElement);
+                            } else if (dElement.type=='select-one' || dElement.type=='select-multiple') {                            
+                                dependentOptions.select(dElement); // that's right!
+                            } else if (disableElFlag && (dElement.type=='text' || dElement.type=='textarea' || dElement.type=='file')) {
+                                if (dependentDefault[dElementId]) dElement.value = dependentDefault[dElementId]; else dElement.value = '';
+                            }                            
+                        }
+                        delete dependentChanges['m'][mElementId];
+                    }    
+                },
+                
+                rememberNewSelected: function(dElement, dElementId) {
+                    // remember new selected
+                    if (dependentChanges['d'][dElementId] && dependentChanges['d'][dElementId]['options']) {
+                        var opSelected = false;
+                        for (i=0; i < dElement.options.length; i++) {
+                            if (dependentChanges['d'][dElementId]['options']['s'+dElement.options[i].value]) {
+                                if (dElement.options[i].selected && dElement.options[i].value>0) opSelected = true; else opSelected = false;
+                                dependentChanges['d'][dElementId]['options']['s'+dElement.options[i].value]['selected'] = opSelected;
+                            }
+                        }
+                    }
+                },
+                
+                // for ie to work
+                upDiv: function(el) {            
+                    if (el.type=='checkbox' || el.type=='radio') return el.up(4); else return el.up('div.option');                    
+                }
+            }
+    <?php } ?>        
+        
+        //]]>
+    </script>
+    <?php
+    $isFirstOption = true;
+    $hideOptionsWrapperFlag = true; 
+    foreach ($_options as $_option) {        
+        echo $this->getOptionHtml($_option, $isFirstOption);
+        if ($_option->getViewMode()==1) $hideOptionsWrapperFlag = false;
+     }
+     ?>
+    <script type="text/javascript"> 
+    <?php if ($hideOptionsWrapperFlag) { ?>
+        if ($('product-options-wrapper')) $('product-options-wrapper').hide();
+    <?php } ?>
+    // onchange -> product price update by qty
+    document.observe('dom:loaded', function() {
+        if ($('qty')) $('qty').writeAttribute('onchange','opConfig.reloadPrice()');
+    });
+    
+    Event.observe(window, 'load', function() {
+        optionImages.markProduct();
+        optionImages.pageLoaded = true;
+        <?php if ($helper->isDependentEnabled()) { ?>               
+            // apply edit or options default
+            $$("select[id^='select_']").each(function(element){
+                element.onchange();
+            });
+
+            for(var elementId in dependentDefault) {
+                if (!dependentDefault.hasOwnProperty(elementId)) continue;
+                if ($(elementId) && dependentOptions.upDiv($(elementId)) && dependentOptions.upDiv($(elementId)).style.display!="none") {                    
+                    dependentOptions.returnSelect($(elementId));
+                    if ($(elementId).type=='select-one' || $(elementId).type=='text' || $(elementId).type=='textarea') {
+                        $(elementId).value = dependentDefault[elementId];
+                    } else if ($(elementId).type=='select-multiple') {
+                        el = $(elementId);
+                        for (i=0; i < el.options.length; i++) {
+                            if (dependentDefault[elementId][el.options[i].value]) el.options[i].selected = true;
+                        }
+                    } else if ($(elementId).type=='checkbox' || $(elementId).type=='radio') {
+                        if ($(elementId).checked!=true) $(elementId).click();
+                    }    
+                    dependentOptions.select($(elementId));
+                }
+            }        
+        <?php } ?>
+    });
+    </script>
+<?php } ?>

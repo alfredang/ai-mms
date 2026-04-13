@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<layout version="0.1.0">
+    <customer_savedcards_index translate="label">
+        <label>Saved Cards</label>
+        <reference name="head">
+            <action method="setTitle"><title>Saved Cards</title></action> <!--Page Title-->
+        </reference>
+        <!-- Mage_Customer -->
+        <update handle="customer_account"/>
+        <reference name="my.account.wrapper">
+            <block type="stripe_payments/customer_savedcards" name="customer_savedcards" before="-" template="stripe/payments/customer/savedcards.phtml"/>
+        </reference>
+    </customer_savedcards_index>
+</layout>

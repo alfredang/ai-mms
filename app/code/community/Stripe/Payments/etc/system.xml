@@ -1,0 +1,1198 @@
+<?xml version="1.0"?>
+<config>
+  <sections>
+    <payment>
+      <groups>
+        <stripe_payments translate="label comment" module="stripe_payments">
+          <label>Stripe Payments</label>
+          <comment>&lt;strong&gt;Please note&lt;/strong&gt;: If you do not yet have a Stripe account, please &lt;a href="https://manage.stripe.com/register" target="_blank"&gt;click here&lt;/a&gt; to register.</comment>
+          <sort_order>21</sort_order>
+          <show_in_default>1</show_in_default>
+          <show_in_website>1</show_in_website>
+          <show_in_store>1</show_in_store>
+          <fields>
+            <active translate="label">
+              <label>Enabled</label>
+              <frontend_type>select</frontend_type>
+              <source_model>adminhtml/system_config_source_yesno</source_model>
+              <sort_order>1</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </active>
+            <title translate="label">
+              <label>Title</label>
+              <comment><![CDATA[This appears at the checkout page during payment]]></comment>
+              <frontend_type>text</frontend_type>
+              <sort_order>2</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </title>
+            <stripe_mode translate="label">
+              <label>Mode</label>
+              <comment><![CDATA[Set this to live when you are ready to accept payments]]></comment>
+              <frontend_type>select</frontend_type>
+              <source_model>stripe_payments/source_mode</source_model>
+              <sort_order>5</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </stripe_mode>
+            <stripe_test_sk translate="label">
+              <label>Test Secret Key</label>
+              <comment>
+                <![CDATA[<a target="_blank" href="https://manage.stripe.com/account">stripe.com/account</a> &gt; API Keys &gt; Test Secret Key]]>
+              </comment>
+              <frontend_type>text</frontend_type>
+              <sort_order>12</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+              <depends>
+                <stripe_mode>test</stripe_mode>
+              </depends>
+            </stripe_test_sk>
+            <stripe_test_pk translate="label">
+              <label>Test Publishable Key</label>
+              <comment>
+                <![CDATA[<a target="_blank" href="https://manage.stripe.com/account">stripe.com/account</a> &gt; API Keys &gt; Test Publishable Key]]>
+              </comment>
+              <frontend_type>text</frontend_type>
+              <sort_order>11</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+              <depends>
+                <stripe_mode>test</stripe_mode>
+              </depends>
+            </stripe_test_pk>
+            <stripe_live_sk translate="label">
+              <label>Live Secret Key</label>
+              <comment>
+                <![CDATA[<a target="_blank" href="https://manage.stripe.com/account">stripe.com/account</a> &gt; API Keys &gt; Live Secret Key]]>
+              </comment>
+              <frontend_type>text</frontend_type>
+              <sort_order>14</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+              <depends>
+                <stripe_mode>live</stripe_mode>
+              </depends>
+            </stripe_live_sk>
+            <stripe_live_pk translate="label">
+              <label>Live Publishable Key</label>
+              <comment>
+                <![CDATA[<a target="_blank" href="https://manage.stripe.com/account">stripe.com/account</a> &gt; API Keys &gt; Live Publishable Key]]>
+              </comment>
+              <frontend_type>text</frontend_type>
+              <sort_order>13</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+              <depends>
+                <stripe_mode>live</stripe_mode>
+              </depends>
+            </stripe_live_pk>
+            <stripe_webhooks_configuration>
+              <label>Webhooks</label>
+              <frontend_model>stripe_payments/adminhtml_webhooksConfiguration</frontend_model>
+              <sort_order>20</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </stripe_webhooks_configuration>
+            <apple_pay_checkout translate="label">
+              <label>Apple Pay</label>
+              <comment>
+                <![CDATA[Enable Apple Pay, Google Pay and Microsoft Pay on the checkout page.]]>
+              </comment>
+              <frontend_type>select</frontend_type>
+              <source_model>stripe_payments/source_enabled</source_model>
+              <sort_order>25</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </apple_pay_checkout>
+            <apple_pay_location translate="label">
+              <label>Apple Pay Button Location</label>
+              <comment>
+                <![CDATA[Where should we display the Apple Pay button?]]>
+              </comment>
+              <frontend_type>select</frontend_type>
+              <source_model>stripe_payments/source_applePayLocation</source_model>
+              <sort_order>27</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+              <depends>
+                <apple_pay_checkout>1</apple_pay_checkout>
+              </depends>
+            </apple_pay_location>
+            <payment_action translate="label">
+              <label>Payment Action</label>
+              <frontend_type>select</frontend_type>
+              <source_model>stripe_payments/source_paymentAction</source_model>
+              <sort_order>32</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </payment_action>
+            <expired_authorizations translate="label">
+              <label>Expired Authorizations</label>
+              <comment>
+                <![CDATA[Authorizations will typically expire after 7 days. What should we do if an admin tries to capture an expired authorization?]]>
+              </comment>
+              <frontend_type>select</frontend_type>
+              <source_model>stripe_payments/source_expiredAuthorizations</source_model>
+              <sort_order>33</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+              <depends>
+                <payment_action>authorize</payment_action>
+              </depends>
+            </expired_authorizations>
+            <automatic_invoicing translate="label,comment">
+              <label>Automatic Invoicing</label>
+              <comment>For Authorize Only orders, should we automatically create an invoice in Pending status right after the order?</comment>
+              <frontend_type>select</frontend_type>
+              <source_model>stripe_payments/source_enabled</source_model>
+              <sort_order>34</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+              <depends>
+                <payment_action>authorize</payment_action>
+              </depends>
+            </automatic_invoicing>
+            <radar_risk_level translate="label">
+              <label>Stripe Radar</label>
+              <comment>
+                <![CDATA[When enabled, elevated risk orders will be placed under review.]]>
+              </comment>
+              <frontend_type>select</frontend_type>
+              <source_model>stripe_payments/source_radar</source_model>
+              <sort_order>35</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </radar_risk_level>
+            <moto_exemptions translate="label">
+              <label>SCA MOTO Exemptions</label>
+              <comment>
+                <![CDATA[Only enable this if your Stripe account has been gated to use MOTO exemptions.]]>
+              </comment>
+              <frontend_type>select</frontend_type>
+              <source_model>stripe_payments/source_enabled</source_model>
+              <sort_order>36</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </moto_exemptions>
+            <ccsave translate="label">
+              <label>Save Customer Cards</label>
+              <comment>
+                <![CDATA[Enable this if you want to save customer cards on Stripe's servers so that they don't have to enter the details of the same card twice]]>
+              </comment>
+              <frontend_type>select</frontend_type>
+              <source_model>stripe_payments/source_ccSave</source_model>
+              <sort_order>36</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </ccsave>
+            <statement_descriptor>
+              <label>Optional Statement Descriptor</label>
+              <frontend_type>text</frontend_type>
+              <sort_order>37</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </statement_descriptor>
+            <email_invoice translate="label,comment">
+              <label>Email Copy of Invoice</label>
+              <comment>At the checkout, should we also send an invoice by email?</comment>
+              <frontend_type>select</frontend_type>
+              <source_model>adminhtml/system_config_source_yesno</source_model>
+              <sort_order>40</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </email_invoice>
+            <use_store_currency translate="label,comment">
+              <label>Pay in store currency</label>
+              <comment>Choose "Yes" to use store view currency instead of base currency.</comment>
+              <frontend_type>select</frontend_type>
+              <source_model>adminhtml/system_config_source_yesno</source_model>
+              <sort_order>45</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </use_store_currency>
+            <card_autodetect translate="label">
+              <label>Show Accepted Card Icons</label>
+              <frontend_type>select</frontend_type>
+              <source_model>stripe_payments/source_ccAutoDetect</source_model>
+              <sort_order>55</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </card_autodetect>
+            <cctypes translate="label">
+              <label>Accepted Card Types</label>
+              <frontend_type>multiselect</frontend_type>
+              <source_model>stripe_payments/source_ccType</source_model>
+              <sort_order>56</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+              <can_be_empty>1</can_be_empty>
+              <depends>
+                <card_autodetect>1</card_autodetect>
+              </depends>
+            </cctypes>
+            <allowspecific translate="label">
+              <label>Payment Applicable From</label>
+              <frontend_type>select</frontend_type>
+              <sort_order>70</sort_order>
+              <source_model>adminhtml/system_config_source_payment_allspecificcountries</source_model>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </allowspecific>
+            <specificcountry translate="label">
+              <label>Countries Payment Applicable From</label>
+              <frontend_type>multiselect</frontend_type>
+              <sort_order>80</sort_order>
+              <source_model>adminhtml/system_config_source_country</source_model>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+              <depends>
+                <allowspecific>1</allowspecific>
+              </depends>
+            </specificcountry>
+            <minimum_order_amount translate="label">
+              <label>Minimum Order Amount</label>
+              <frontend_type>text</frontend_type>
+              <sort_order>90</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </minimum_order_amount>
+            <sort_order translate="label">
+              <label>Sort Order</label>
+              <comment>Adjust this to move the payment method above or below other payment methods</comment>
+              <frontend_type>text</frontend_type>
+              <sort_order>100</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </sort_order>
+          </fields>
+        </stripe_payments>
+        <stripe_payments_express translate="label comment" module="stripe_payments">
+          <label>Stripe Express Checkout</label>
+          <sort_order>22</sort_order>
+          <show_in_default>1</show_in_default>
+          <show_in_website>1</show_in_website>
+          <show_in_store>1</show_in_store>
+          <comment>Allow your customers to checkout with Apple Pay, Google Pay and Microsoft Pay directly from the product page or the shopping cart page.</comment>
+          <fields>
+            <cart_button translate="label">
+              <label>Cart Express Checkout</label>
+              <frontend_type>select</frontend_type>
+              <source_model>adminhtml/system_config_source_yesno</source_model>
+              <sort_order>1</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </cart_button>
+            <product_button translate="label">
+              <label>Product Express Checkout</label>
+              <frontend_type>select</frontend_type>
+              <source_model>adminhtml/system_config_source_yesno</source_model>
+              <sort_order>2</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </product_button>
+            <ccsave translate="label">
+              <label>Save Customer Cards</label>
+              <frontend_type>select</frontend_type>
+              <source_model>adminhtml/system_config_source_yesno</source_model>
+              <sort_order>3</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </ccsave>
+            <button_type translate="label">
+              <label>Button Type</label>
+              <frontend_type>select</frontend_type>
+              <source_model>stripe_payments/source_buttonType</source_model>
+              <sort_order>4</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </button_type>
+            <button_theme translate="label">
+              <label>Button Theme</label>
+              <frontend_type>select</frontend_type>
+              <source_model>stripe_payments/source_buttonTheme</source_model>
+              <sort_order>5</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </button_theme>
+            <button_height translate="label">
+              <label>Button Height</label>
+              <frontend_type>text</frontend_type>
+              <sort_order>6</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </button_height>
+          </fields>
+        </stripe_payments_express>
+        <!-- Bancontact -->
+        <stripe_payments_bancontact translate="label comment" module="stripe_payments">
+          <label>Stripe Bancontact</label>
+          <comment>Stripe Bancontact is a payment method made available through the Stripe payment gateway.</comment>
+          <sort_order>23</sort_order>
+          <show_in_default>1</show_in_default>
+          <show_in_website>1</show_in_website>
+          <show_in_store>1</show_in_store>
+          <fields>
+            <active translate="label">
+              <label>Enabled</label>
+              <frontend_type>select</frontend_type>
+              <source_model>adminhtml/system_config_source_yesno</source_model>
+              <sort_order>10</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </active>
+            <title translate="label">
+              <label>Title</label>
+              <comment><![CDATA[This appears at the checkout page during payment]]></comment>
+              <frontend_type>text</frontend_type>
+              <sort_order>20</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </title>
+            <allowspecific translate="label">
+              <label>Payment Applicable From</label>
+              <frontend_type>select</frontend_type>
+              <sort_order>70</sort_order>
+              <source_model>adminhtml/system_config_source_payment_allspecificcountries</source_model>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </allowspecific>
+            <specificcountry translate="label">
+              <label>Countries Applicable From</label>
+              <frontend_type>multiselect</frontend_type>
+              <sort_order>80</sort_order>
+              <source_model>adminhtml/system_config_source_country</source_model>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+              <depends>
+                <allowspecific>1</allowspecific>
+              </depends>
+            </specificcountry>
+            <allowed_currencies translate="label">
+              <label>Currencies Applicable For</label>
+              <frontend_type>select</frontend_type>
+              <sort_order>90</sort_order>
+              <source_model>stripe_payments/source_currenciesEuro</source_model>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </allowed_currencies>
+            <statement_descriptor>
+              <label>Optional Statement Descriptor</label>
+              <frontend_type>text</frontend_type>
+              <sort_order>95</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </statement_descriptor>
+            <sort_order translate="label">
+              <label>Sort Order</label>
+              <comment>Adjust this to move the payment method above or below other payment methods</comment>
+              <frontend_type>text</frontend_type>
+              <sort_order>100</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </sort_order>
+          </fields>
+        </stripe_payments_bancontact>
+        <!-- Giropay -->
+        <stripe_payments_giropay translate="label comment" module="stripe_payments">
+          <label>Stripe Giropay</label>
+          <comment>Stripe Giropay is a payment method made available through the Stripe payment gateway.</comment>
+          <sort_order>23</sort_order>
+          <show_in_default>1</show_in_default>
+          <show_in_website>1</show_in_website>
+          <show_in_store>1</show_in_store>
+          <fields>
+            <active translate="label">
+              <label>Enabled</label>
+              <frontend_type>select</frontend_type>
+              <source_model>adminhtml/system_config_source_yesno</source_model>
+              <sort_order>10</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </active>
+            <title translate="label">
+              <label>Title</label>
+              <comment><![CDATA[This appears at the checkout page during payment]]></comment>
+              <frontend_type>text</frontend_type>
+              <sort_order>20</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </title>
+            <allowspecific translate="label">
+              <label>Payment Applicable From</label>
+              <frontend_type>select</frontend_type>
+              <sort_order>70</sort_order>
+              <source_model>adminhtml/system_config_source_payment_allspecificcountries</source_model>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </allowspecific>
+            <specificcountry translate="label">
+              <label>Countries Applicable From</label>
+              <frontend_type>multiselect</frontend_type>
+              <sort_order>80</sort_order>
+              <source_model>adminhtml/system_config_source_country</source_model>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+              <depends>
+                <allowspecific>1</allowspecific>
+              </depends>
+            </specificcountry>
+            <allowed_currencies translate="label">
+              <label>Currencies Applicable For</label>
+              <frontend_type>select</frontend_type>
+              <sort_order>90</sort_order>
+              <source_model>stripe_payments/source_currenciesEuro</source_model>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </allowed_currencies>
+            <statement_descriptor>
+              <label>Optional Statement Descriptor</label>
+              <frontend_type>text</frontend_type>
+              <sort_order>95</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </statement_descriptor>
+            <sort_order translate="label">
+              <label>Sort Order</label>
+              <comment>Adjust this to move the payment method above or below other payment methods</comment>
+              <frontend_type>text</frontend_type>
+              <sort_order>100</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </sort_order>
+          </fields>
+        </stripe_payments_giropay>
+        <!-- iDEAL -->
+        <stripe_payments_ideal translate="label comment" module="stripe_payments">
+          <label>Stripe iDEAL</label>
+          <comment>Stripe iDEAL is a payment method made available through the Stripe payment gateway.</comment>
+          <sort_order>23</sort_order>
+          <show_in_default>1</show_in_default>
+          <show_in_website>1</show_in_website>
+          <show_in_store>1</show_in_store>
+          <fields>
+            <active translate="label">
+              <label>Enabled</label>
+              <frontend_type>select</frontend_type>
+              <source_model>adminhtml/system_config_source_yesno</source_model>
+              <sort_order>10</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </active>
+            <title translate="label">
+              <label>Title</label>
+              <comment><![CDATA[This appears at the checkout page during payment]]></comment>
+              <frontend_type>text</frontend_type>
+              <sort_order>20</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </title>
+            <allowspecific translate="label">
+              <label>Payment Applicable From</label>
+              <frontend_type>select</frontend_type>
+              <sort_order>70</sort_order>
+              <source_model>adminhtml/system_config_source_payment_allspecificcountries</source_model>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </allowspecific>
+            <specificcountry translate="label">
+              <label>Countries Applicable From</label>
+              <frontend_type>multiselect</frontend_type>
+              <sort_order>80</sort_order>
+              <source_model>adminhtml/system_config_source_country</source_model>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+              <depends>
+                <allowspecific>1</allowspecific>
+              </depends>
+            </specificcountry>
+            <allowed_currencies translate="label">
+              <label>Currencies Applicable For</label>
+              <frontend_type>select</frontend_type>
+              <sort_order>90</sort_order>
+              <source_model>stripe_payments/source_currenciesEuro</source_model>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </allowed_currencies>
+            <statement_descriptor>
+              <label>Optional Statement Descriptor</label>
+              <frontend_type>text</frontend_type>
+              <sort_order>95</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </statement_descriptor>
+            <sort_order translate="label">
+              <label>Sort Order</label>
+              <comment>Adjust this to move the payment method above or below other payment methods</comment>
+              <frontend_type>text</frontend_type>
+              <sort_order>100</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </sort_order>
+          </fields>
+        </stripe_payments_ideal>
+        <!-- SEPA Direct Debit -->
+        <stripe_payments_sepa translate="label comment" module="stripe_payments">
+          <label>Stripe SEPA Direct Debit</label>
+          <comment>Stripe SEPA Direct Debit is a payment method made available through the Stripe payment gateway.</comment>
+          <sort_order>23</sort_order>
+          <show_in_default>1</show_in_default>
+          <show_in_website>1</show_in_website>
+          <show_in_store>1</show_in_store>
+          <fields>
+            <active translate="label">
+              <label>Enabled</label>
+              <frontend_type>select</frontend_type>
+              <source_model>adminhtml/system_config_source_yesno</source_model>
+              <sort_order>10</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </active>
+            <title translate="label">
+              <label>Title</label>
+              <comment><![CDATA[This appears at the checkout page during payment]]></comment>
+              <frontend_type>text</frontend_type>
+              <sort_order>20</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </title>
+            <allowspecific translate="label">
+              <label>Payment Applicable From</label>
+              <frontend_type>select</frontend_type>
+              <sort_order>70</sort_order>
+              <source_model>adminhtml/system_config_source_payment_allspecificcountries</source_model>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </allowspecific>
+            <specificcountry translate="label">
+              <label>Countries Applicable From</label>
+              <frontend_type>multiselect</frontend_type>
+              <sort_order>80</sort_order>
+              <source_model>adminhtml/system_config_source_country</source_model>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+              <depends>
+                <allowspecific>1</allowspecific>
+              </depends>
+            </specificcountry>
+            <allowed_currencies translate="label">
+              <label>Currencies Applicable For</label>
+              <frontend_type>select</frontend_type>
+              <sort_order>90</sort_order>
+              <source_model>stripe_payments/source_currenciesEuro</source_model>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </allowed_currencies>
+            <sort_order translate="label">
+              <label>Sort Order</label>
+              <comment>Adjust this to move the payment method above or below other payment methods</comment>
+              <frontend_type>text</frontend_type>
+              <sort_order>100</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </sort_order>
+          </fields>
+        </stripe_payments_sepa>
+        <!-- SOFORT -->
+        <stripe_payments_sofort translate="label comment" module="stripe_payments">
+          <label>Stripe SOFORT</label>
+          <comment>Stripe SOFORT is a payment method made available through the Stripe payment gateway.</comment>
+          <sort_order>23</sort_order>
+          <show_in_default>1</show_in_default>
+          <show_in_website>1</show_in_website>
+          <show_in_store>1</show_in_store>
+          <fields>
+            <active translate="label">
+              <label>Enabled</label>
+              <frontend_type>select</frontend_type>
+              <source_model>adminhtml/system_config_source_yesno</source_model>
+              <sort_order>10</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </active>
+            <title translate="label">
+              <label>Title</label>
+              <comment><![CDATA[This appears at the checkout page during payment]]></comment>
+              <frontend_type>text</frontend_type>
+              <sort_order>20</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </title>
+            <allowspecific translate="label">
+              <label>Payment Applicable From</label>
+              <frontend_type>select</frontend_type>
+              <sort_order>70</sort_order>
+              <source_model>adminhtml/system_config_source_payment_allspecificcountries</source_model>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </allowspecific>
+            <specificcountry translate="label">
+              <label>Countries Applicable From</label>
+              <frontend_type>multiselect</frontend_type>
+              <sort_order>80</sort_order>
+              <source_model>adminhtml/system_config_source_country</source_model>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+              <depends>
+                <allowspecific>1</allowspecific>
+              </depends>
+            </specificcountry>
+            <allowed_currencies translate="label">
+              <label>Currencies Applicable For</label>
+              <frontend_type>select</frontend_type>
+              <sort_order>90</sort_order>
+              <source_model>stripe_payments/source_currenciesEuro</source_model>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </allowed_currencies>
+            <statement_descriptor>
+              <label>Optional Statement Descriptor</label>
+              <frontend_type>text</frontend_type>
+              <sort_order>95</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </statement_descriptor>
+            <sort_order translate="label">
+              <label>Sort Order</label>
+              <comment>Adjust this to move the payment method above or below other payment methods</comment>
+              <frontend_type>text</frontend_type>
+              <sort_order>100</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </sort_order>
+          </fields>
+        </stripe_payments_sofort>
+        <!-- Multibanco -->
+        <stripe_payments_multibanco translate="label comment" module="stripe_payments">
+          <label>Stripe Multibanco</label>
+          <comment>Stripe Multibanco is a payment method made available through the Stripe payment gateway.</comment>
+          <sort_order>23</sort_order>
+          <show_in_default>1</show_in_default>
+          <show_in_website>1</show_in_website>
+          <show_in_store>1</show_in_store>
+          <fields>
+            <active translate="label">
+              <label>Enabled</label>
+              <frontend_type>select</frontend_type>
+              <source_model>adminhtml/system_config_source_yesno</source_model>
+              <sort_order>10</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </active>
+            <title translate="label">
+              <label>Title</label>
+              <comment><![CDATA[This appears at the checkout page during payment]]></comment>
+              <frontend_type>text</frontend_type>
+              <sort_order>20</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </title>
+            <test_payment>
+              <label>Test Payment</label>
+              <comment><![CDATA[Overwrites the email address to <a href="https://stripe.com/docs/sources/multibanco#testing-the-redirect-and-payment" target="_blank">test the payment</a>]]></comment>
+              <frontend_type>select</frontend_type>
+              <source_model>stripe_payments/source_testMultibanco</source_model>
+              <sort_order>30</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </test_payment>
+            <allowspecific translate="label">
+              <label>Payment Applicable From</label>
+              <frontend_type>select</frontend_type>
+              <sort_order>70</sort_order>
+              <source_model>adminhtml/system_config_source_payment_allspecificcountries</source_model>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </allowspecific>
+            <specificcountry translate="label">
+              <label>Countries Applicable From</label>
+              <frontend_type>multiselect</frontend_type>
+              <sort_order>80</sort_order>
+              <source_model>adminhtml/system_config_source_country</source_model>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+              <depends>
+                <allowspecific>1</allowspecific>
+              </depends>
+            </specificcountry>
+            <allowed_currencies translate="label">
+              <label>Currencies Applicable For</label>
+              <frontend_type>select</frontend_type>
+              <sort_order>90</sort_order>
+              <source_model>stripe_payments/source_currenciesEuro</source_model>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </allowed_currencies>
+            <sort_order translate="label">
+              <label>Sort Order</label>
+              <comment>Adjust this to move the payment method above or below other payment methods</comment>
+              <frontend_type>text</frontend_type>
+              <sort_order>100</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </sort_order>
+          </fields>
+        </stripe_payments_multibanco>
+        <stripe_payments_p24  translate="label comment" module="stripe_payments">
+          <label>Stripe Przelewy24 (P24)</label>
+          <comment>Stripe Przelewy24 is a payment method made available through the Stripe payment gateway.</comment>
+          <sort_order>23</sort_order>
+          <show_in_default>1</show_in_default>
+          <show_in_website>1</show_in_website>
+          <show_in_store>1</show_in_store>
+          <fields>
+            <active translate="label">
+              <label>Enabled</label>
+              <frontend_type>select</frontend_type>
+              <source_model>adminhtml/system_config_source_yesno</source_model>
+              <sort_order>10</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </active>
+            <title translate="label">
+              <label>Title</label>
+              <comment><![CDATA[This appears at the checkout page during payment]]></comment>
+              <frontend_type>text</frontend_type>
+              <sort_order>20</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </title>
+            <allowspecific translate="label">
+              <label>Payment Applicable From</label>
+              <frontend_type>select</frontend_type>
+              <sort_order>70</sort_order>
+              <source_model>adminhtml/system_config_source_payment_allspecificcountries</source_model>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </allowspecific>
+            <specificcountry translate="label">
+              <label>Countries Applicable From</label>
+              <frontend_type>multiselect</frontend_type>
+              <sort_order>80</sort_order>
+              <source_model>adminhtml/system_config_source_country</source_model>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+              <depends>
+                <allowspecific>1</allowspecific>
+              </depends>
+            </specificcountry>
+            <allowed_currencies translate="label">
+              <label>Currencies Applicable For</label>
+              <frontend_type>select</frontend_type>
+              <sort_order>90</sort_order>
+              <source_model>stripe_payments/source_currenciesP24</source_model>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </allowed_currencies>
+            <sort_order translate="label">
+              <label>Sort Order</label>
+              <comment>Adjust this to move the payment method above or below other payment methods</comment>
+              <frontend_type>text</frontend_type>
+              <sort_order>100</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </sort_order>
+          </fields>
+        </stripe_payments_p24>
+        <!-- EPS -->
+        <stripe_payments_eps translate="label comment" module="stripe_payments">
+          <label>Stripe EPS</label>
+          <comment>Stripe EPS is a payment method made available through the Stripe payment gateway.</comment>
+          <sort_order>23</sort_order>
+          <show_in_default>1</show_in_default>
+          <show_in_website>1</show_in_website>
+          <show_in_store>1</show_in_store>
+          <fields>
+            <active translate="label">
+              <label>Enabled</label>
+              <frontend_type>select</frontend_type>
+              <source_model>adminhtml/system_config_source_yesno</source_model>
+              <sort_order>10</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </active>
+            <title translate="label">
+              <label>Title</label>
+              <comment><![CDATA[This appears at the checkout page during payment]]></comment>
+              <frontend_type>text</frontend_type>
+              <sort_order>20</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </title>
+            <allowspecific translate="label">
+              <label>Payment Applicable From</label>
+              <frontend_type>select</frontend_type>
+              <sort_order>70</sort_order>
+              <source_model>adminhtml/system_config_source_payment_allspecificcountries</source_model>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </allowspecific>
+            <specificcountry translate="label">
+              <label>Countries Applicable From</label>
+              <frontend_type>multiselect</frontend_type>
+              <sort_order>80</sort_order>
+              <source_model>adminhtml/system_config_source_country</source_model>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+              <depends>
+                <allowspecific>1</allowspecific>
+              </depends>
+            </specificcountry>
+            <allowed_currencies translate="label">
+              <label>Currencies Applicable For</label>
+              <frontend_type>select</frontend_type>
+              <sort_order>90</sort_order>
+              <source_model>stripe_payments/source_currenciesEuro</source_model>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </allowed_currencies>
+            <statement_descriptor>
+              <label>Optional Statement Descriptor</label>
+              <frontend_type>text</frontend_type>
+              <sort_order>95</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </statement_descriptor>
+            <sort_order translate="label">
+              <label>Sort Order</label>
+              <comment>Adjust this to move the payment method above or below other payment methods</comment>
+              <frontend_type>text</frontend_type>
+              <sort_order>100</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </sort_order>
+          </fields>
+        </stripe_payments_eps>
+        <!-- Alipay -->
+        <stripe_payments_alipay translate="label comment" module="stripe_payments">
+          <label>Stripe Alipay</label>
+          <comment>Stripe Alipay is a payment method made available through the Stripe payment gateway.</comment>
+          <sort_order>24</sort_order>
+          <show_in_default>1</show_in_default>
+          <show_in_website>1</show_in_website>
+          <show_in_store>1</show_in_store>
+          <fields>
+            <active translate="label">
+              <label>Enabled</label>
+              <frontend_type>select</frontend_type>
+              <source_model>adminhtml/system_config_source_yesno</source_model>
+              <sort_order>10</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </active>
+            <title translate="label">
+              <label>Title</label>
+              <comment><![CDATA[This appears at the checkout page during payment]]></comment>
+              <frontend_type>text</frontend_type>
+              <sort_order>20</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </title>
+            <allowspecific translate="label">
+              <label>Payment Applicable From</label>
+              <frontend_type>select</frontend_type>
+              <sort_order>70</sort_order>
+              <source_model>adminhtml/system_config_source_payment_allspecificcountries</source_model>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </allowspecific>
+            <specificcountry translate="label">
+              <label>Countries Applicable From</label>
+              <frontend_type>multiselect</frontend_type>
+              <sort_order>80</sort_order>
+              <source_model>adminhtml/system_config_source_country</source_model>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+              <depends>
+                <allowspecific>1</allowspecific>
+              </depends>
+            </specificcountry>
+            <allow_currencies>
+              <label>Currencies Applicable For</label>
+              <frontend_type>select</frontend_type>
+              <sort_order>85</sort_order>
+              <source_model>stripe_payments/source_currencies</source_model>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </allow_currencies>
+            <allowed_currencies translate="label">
+              <label>Currencies Applicable For</label>
+              <frontend_type>multiselect</frontend_type>
+              <sort_order>90</sort_order>
+              <source_model>adminhtml/system_config_source_currency</source_model>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+              <depends>
+                <allow_currencies>1</allow_currencies>
+              </depends>
+            </allowed_currencies>
+            <statement_descriptor>
+              <label>Optional Statement Descriptor</label>
+              <frontend_type>text</frontend_type>
+              <sort_order>95</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </statement_descriptor>
+            <sort_order translate="label">
+              <label>Sort Order</label>
+              <comment>Adjust this to move the payment method above or below other payment methods</comment>
+              <frontend_type>text</frontend_type>
+              <sort_order>100</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </sort_order>
+          </fields>
+        </stripe_payments_alipay>
+        <!-- WeChat Pay -->
+        <stripe_payments_wechat translate="label comment" module="stripe_payments">
+          <label>Stripe WeChat Pay</label>
+          <comment>Stripe WeChat Pay is a payment method made available through the Stripe payment gateway.</comment>
+          <sort_order>24</sort_order>
+          <show_in_default>1</show_in_default>
+          <show_in_website>1</show_in_website>
+          <show_in_store>1</show_in_store>
+          <fields>
+            <active translate="label">
+              <label>Enabled</label>
+              <frontend_type>select</frontend_type>
+              <source_model>adminhtml/system_config_source_yesno</source_model>
+              <sort_order>10</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </active>
+            <title translate="label">
+              <label>Title</label>
+              <comment><![CDATA[This appears at the checkout page during payment]]></comment>
+              <frontend_type>text</frontend_type>
+              <sort_order>20</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </title>
+            <allowspecific translate="label">
+              <label>Payment Applicable From</label>
+              <frontend_type>select</frontend_type>
+              <sort_order>70</sort_order>
+              <source_model>adminhtml/system_config_source_payment_allspecificcountries</source_model>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </allowspecific>
+            <specificcountry translate="label">
+              <label>Countries Applicable From</label>
+              <frontend_type>multiselect</frontend_type>
+              <sort_order>80</sort_order>
+              <source_model>adminhtml/system_config_source_country</source_model>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+              <depends>
+                <allowspecific>1</allowspecific>
+              </depends>
+            </specificcountry>
+            <allow_currencies>
+              <label>Currencies Applicable For</label>
+              <frontend_type>select</frontend_type>
+              <sort_order>85</sort_order>
+              <source_model>stripe_payments/source_currencies</source_model>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </allow_currencies>
+            <allowed_currencies translate="label">
+              <label>Currencies Applicable For</label>
+              <frontend_type>multiselect</frontend_type>
+              <sort_order>90</sort_order>
+              <source_model>adminhtml/system_config_source_currency</source_model>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+              <depends>
+                <allow_currencies>1</allow_currencies>
+              </depends>
+            </allowed_currencies>
+            <statement_descriptor>
+              <label>Optional Statement Descriptor</label>
+              <frontend_type>text</frontend_type>
+              <sort_order>95</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </statement_descriptor>
+            <sort_order translate="label">
+              <label>Sort Order</label>
+              <comment>Adjust this to move the payment method above or below other payment methods</comment>
+              <frontend_type>text</frontend_type>
+              <sort_order>100</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </sort_order>
+          </fields>
+        </stripe_payments_wechat>
+        <!-- ACH Payments -->
+        <stripe_payments_ach translate="label comment" module="stripe_payments">
+          <label>Stripe ACH Payments</label>
+          <sort_order>25</sort_order>
+          <show_in_default>1</show_in_default>
+          <show_in_website>1</show_in_website>
+          <show_in_store>1</show_in_store>
+          <fields>
+            <active translate="label">
+              <label>Enabled</label>
+              <frontend_type>select</frontend_type>
+              <source_model>adminhtml/system_config_source_yesno</source_model>
+              <sort_order>10</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </active>
+            <title translate="label">
+              <label>Title</label>
+              <comment><![CDATA[This appears at the checkout page during payment]]></comment>
+              <frontend_type>text</frontend_type>
+              <sort_order>20</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </title>
+            <allowspecific translate="label">
+              <label>Payment Applicable From</label>
+              <frontend_type>select</frontend_type>
+              <sort_order>70</sort_order>
+              <source_model>adminhtml/system_config_source_payment_allspecificcountries</source_model>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </allowspecific>
+            <specificcountry translate="label">
+              <label>Countries Applicable From</label>
+              <frontend_type>multiselect</frontend_type>
+              <sort_order>80</sort_order>
+              <source_model>adminhtml/system_config_source_country</source_model>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+              <depends>
+                <allowspecific>1</allowspecific>
+              </depends>
+            </specificcountry>
+            <allowed_currencies translate="label">
+              <label>Currencies Applicable For</label>
+              <frontend_type>select</frontend_type>
+              <sort_order>90</sort_order>
+              <source_model>stripe_payments/source_currenciesUSD</source_model>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </allowed_currencies>
+            <sort_order translate="label">
+              <label>Sort Order</label>
+              <comment>Adjust this to move the payment method above or below other payment methods</comment>
+              <frontend_type>text</frontend_type>
+              <sort_order>100</sort_order>
+              <show_in_default>1</show_in_default>
+              <show_in_website>1</show_in_website>
+              <show_in_store>1</show_in_store>
+            </sort_order>
+          </fields>
+        </stripe_payments_ach>
+      </groups>
+    </payment>
+  </sections>
+</config>

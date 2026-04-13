@@ -1,0 +1,53 @@
+<?php
+/**
+ * @var $this MMD_Mmdsys_Block_Patch_View
+ */ 
+?>
+<ul class="messages">
+    <li class="notice-msg">
+        <p><?php echo Mage::helper('mmdsys')->__('Our installer creates several templates files during installation based on existing magento files with the help of our patcher.')?></p>
+        <p><?php echo Mage::helper('mmdsys')->__('The newly created templates are automatically placed in folder - %s', $this->_getPatchesDir())?></p>
+    </li>
+</ul>
+<div class="grid">
+    <div class="content-header">
+        <h3><?php echo Mage::helper('mmdsys')->__('Customized Templates')?></h3>
+    </div>
+    <table width="100%" class="data" cellspacing="0">
+        <thead>
+            <tr class="headings">
+                <th>Area</th>
+                <th>Package</th>
+                <th>Theme</th>
+                <th class="last">File</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php
+            $i=0;
+            if ($this->getFilesNumber()) {
+                foreach ($this->getAitcommonThemes() as $area => $packages) {
+                    foreach ($packages as $package => $themes) {
+                        foreach ($themes as $theme => $files) {
+                            foreach ($files as $file) {
+                                $i++;
+                                ?>
+                <tr class="<?php echo ($i%2)?'even ':'' ?>">
+                    <td><?php echo $area?></td>
+                    <td><?php echo $package?></td>
+                    <td><?php echo $theme?></td>
+                    <td class="last"><?php echo $file?></td>
+                </tr>
+                                <?php
+                            }
+                        }
+                    }
+                }
+            } else { ?>
+                <tr>
+                    <td colspan="4"><?php echo Mage::helper('mmdsys')->__('There are no customized templates');?></td>
+                </tr>
+            <?php } ?>
+        </tbody>
+    </table>
+</div>

@@ -1,0 +1,24 @@
+<?php
+if ($this->shouldDisplay()):
+?>
+
+<li id="apple-pay-section">
+    <button id="apple-pay-button" onlick="beginApplePay();" type="button"></button>
+    <div id="payment-request-button"></div>
+    <label><?php echo $this->__('Or use a card below'); ?></label>
+</li>
+<li id="apple-pay-result">
+    <label><?php echo $this->__('Selected Card'); ?></label>
+    <div>
+        <span id="apple-pay-result-brand"></span>
+        **** <span id="apple-pay-result-last4"></span>
+    </div>
+    <button type="button" class="button" title="Reset" name="reset" id="apple-pay-reset">
+        <span><span><?php echo $this->__('Reset') ?></span></span>
+    </button>
+    <script type="text/javascript">
+        stripe.applePayLocation = 2;
+    </script>
+</li>
+
+<?php endif;

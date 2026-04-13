@@ -1,0 +1,9 @@
+<?php
+$logos = $this->getPaymentLogos();
+if (!empty($logos)) {
+    $logos = explode(',', $logos);
+?>
+<?php foreach ($logos as $logo):?>
+    <img class="v-middle" src="<?php echo $this->getSkinUrl('hitpay/images/' . $logo . '.svg') ?>" alt="<?php echo $logo ?>" title="<?php echo $logo ?>">
+<?php endforeach; ?>
+<?php } ?>

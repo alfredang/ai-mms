@@ -1,0 +1,31 @@
+<?php
+
+$cards = $this->getCustomerCards();
+$isAdmin = $this->isAdmin();
+
+if (!empty($cards)): ?>
+<li>
+  <ul class="saved-cards" id="saved-cards">
+    <?php foreach ($cards as $key => $card): ?>
+      <li>
+        <input type="radio" name="payment[cc_saved]" value="<?php echo $card->id . ':' . $card->brand . ':' . $card->last4; ?>" id="<?php echo $card->id; ?>" class="select" onclick="stripe.useCard()">
+        <label for="<?php echo $card->id; ?>">
+          <span class="type <?php echo $card->brand ?>">
+            <?php echo (empty($card->brand) ? $this->__('Card') : $this->cardType($card->brand)); ?>
+          </span>
+          <span class="last4 stripe-payments-fade"><?php echo $this->__('ending in'); ?> <?php echo $card->last4; ?></span>
+          <span class="exp stripe-payments-fade"><?php echo $this->__('expires'); ?>
+            <?php echo str_pad($card->exp_month,2,'0',STR_PAD_LEFT); ?>/<?php echo $card->exp_year; ?>
+          </span>
+        </label>
+      </li>
+    <?php endforeach; ?>
+    <li>
+      <input type="radio" name="payment[cc_saved]" value="new_card" class="select" id="new_card" checked="checked" onclick="stripe.useCard()">
+      <label for="new_card">
+        <span class="type"><?php echo $this->__('Use a new card'); ?></span>
+      </label>
+    </li>
+  </ul>
+</li>
+<?php endif; ?>

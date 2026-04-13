@@ -1,0 +1,61 @@
+<?php
+
+$_code = $this->getMethodCode();
+
+echo $this->getLayout()->createBlock('stripe_payments/form_stripeJs')->toHtml();
+
+?>
+
+<?php if ($this->autoDetectCard()): ?>
+<style type="text/css">
+    <?php foreach ($this->getAcceptedCardTypes() as $code => $label): ?>
+    input#stripe_payments_cc_number.cctype-<?php echo $code; ?> { background-image: url(<?php echo $this->getSkinUrl("stripe_payments/img/$code.png"); ?>); }
+    <?php endforeach; ?>
+</style>
+<?php /* We are preloading the images so that there is no lag when they appear */ ?>
+<div class="img-preload">
+    <?php foreach ($this->getAcceptedCardTypes() as $code => $label): ?>
+    <img src="<?php echo $this->getSkinUrl("stripe_payments/img/$code.png"); ?>">
+    <?php endforeach; ?>
+</div>
+<?php endif; ?>
+
+<ul class="form-list stripe-new" id="payment_form_<?php echo $_code ?>" style="display:none;">
+
+    <!-- <?php echo $this->stripe->getDebuggingInfo(); ?> -->
+    <?php echo $this->getLayout()->createBlock('stripe_payments/applePay_inside')->toHtml(); ?>
+    <?php echo $this->getLayout()->createBlock('stripe_payments/form_saved')->toHtml(); ?>
+
+    <?php if ($this->showAcceptedCardTypes()): ?>
+    <li class="stripe-new">
+        <label for="<?php echo $_code ?>_cc_types"><?php echo $this->__('Accepted Card Types') ?></label>
+        <div class="input-box" id="stripe-payments-accepted-cards">
+            <?php foreach ($this->getAcceptedCardTypes() as $code => $label): ?>
+                <img src="<?php echo $this->getSkinUrl("stripe_payments/img/$code.png"); ?>" alt="<?php echo $label; ?>" id="stripe_payments_<?php echo $code; ?>_type" />
+            <?php endforeach; ?>
+        </div>
+    </li>
+    <?php endif; ?>
+
+    <?php echo $this->getLayout()->createBlock('stripe_payments/form_stripeElements')->toHtml(); ?>
+
+    <li class="stripe-new" id="stripe-payments-card-errors"></li>
+
+    <?php if ($this->stripe->showSaveCardOption() || $this->stripe->alwaysSaveCard()): ?>
+    <li id="<?php echo $_code ?>_cc_save_div" class="stripe-new">
+        <div class="input-box">
+            <div class="v-fix">
+                <label for="<?php echo $_code ?>_cc_save">
+                    <?php if ($this->stripe->alwaysSaveCard()): ?>
+                        <input type="hidden" class="input-hidden stripe-input" id="<?php echo $_code ?>_cc_save" name="payment[cc_save]" value="1"/>
+                    <?php else: ?>
+                        <input type="checkbox" title="<?php echo $this->__('Save card for future purchases') ?>" class="input-checkbox stripe-input" id="<?php echo $_code ?>_cc_save" name="payment[cc_save]" checked="checked"/>
+                        &nbsp;
+                        <?php echo $this->__('Save card for future purchases') ?>
+                    <?php endif; ?>
+                </label>
+            </div>
+        </div>
+    </li>
+    <?php endif; ?>
+</ul>

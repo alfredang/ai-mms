@@ -1,0 +1,98 @@
+<?php
+/**
+ * Magento
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Academic Free License (AFL 3.0)
+ * that is bundled with this package in the file LICENSE_AFL.txt.
+ * It is also available through the world-wide-web at this URL:
+ * http://opensource.org/licenses/afl-3.0.php
+ * If you did not receive a copy of the license and are unable to
+ * obtain it through the world-wide-web, please send an email
+ * to license@magentocommerce.com so we can send you a copy immediately.
+ *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
+ * @category    design
+ * @package     base_default
+ * @copyright   Copyright (c) 2012 Magento Inc. (http://www.magentocommerce.com)
+ * @license     http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
+ */
+?>
+<?php $theme = Mage::helper('ultimo'); ?>
+
+<meta http-equiv="Content-Type" content="<?php echo $this->getContentType() ?>" />
+<title><?php echo $this->getTitle() ?></title>
+<?php if ($theme->getCfgLayout('responsive/responsive')): ?>
+	<?php /*<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />*/?>
+	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no"/>
+<?php endif; ?>
+
+<meta name="description" content="<?php echo htmlspecialchars($this->getDescription()) ?>" />
+<meta name="keywords" content="<?php echo htmlspecialchars($this->getKeywords()) ?>" />
+<?php  $currentUrl = $this->helper('core/url')->getCurrentUrl();
+$allowRobots =  true;
+if (strpos($currentUrl,'?') !== false) { 
+	$allowRobots =  false;
+} elseif(strpos($currentUrl,'/currency/') !== false) {
+	$allowRobots =  false;
+} 
+elseif(strpos($currentUrl,'/customer/') !== false) {
+	$allowRobots =  false;
+} 
+elseif(strpos($currentUrl,'/checkout/') !== false) {
+	$allowRobots =  false;
+} 
+	?>
+<?php if($allowRobots) { ?>
+<meta name="robots" content="<?php echo htmlspecialchars($this->getRobots()) ?>" />
+<?php  } else {  ?>	<meta name="robots" content="noindex,follow" /> <?php } ?>
+<link rel="icon" href="<?php echo $this->getFaviconFile(); ?>" type="image/x-icon" />
+<link rel="shortcut icon" href="<?php echo $this->getFaviconFile(); ?>" type="image/x-icon" />
+<?php
+	$skinUrl = $this->getSkinUrl('');
+?>
+
+<!--[if lt IE 7]>
+<script type="text/javascript">
+//<![CDATA[
+    var BLANK_URL = '<?php echo $this->helper('core/js')->getJsUrl('blank.html') ?>';
+    var BLANK_IMG = '<?php echo $this->helper('core/js')->getJsUrl('spacer.gif') ?>';
+//]]>
+</script>
+<![endif]-->
+
+<?php echo $this->getCssJsHtml() ?>
+<?php echo $this->getChildHtml() ?>
+<?php echo $this->helper('core/js')->getTranslatorScript() ?>
+<?php echo $this->getIncludes() ?>
+
+
+
+<?php //Include Google Fonts
+	$amp = '&amp;';
+	$charSubset = '';
+	if ($subsets = $theme->getCfgDesign('font/primary_char_subset'))
+	{
+		$charSubset = "{$amp}subset={$subsets}";
+	}
+
+	$fontWeight = '';
+	if ($weight = $theme->getCfgDesign('font/primary_font_weight'))
+	{
+		$fontWeight = ':' . $weight;
+	}
+?>
+<?php if ($theme->getCfgDesign('font/primary_font_family_group') == 'google'): ?>
+	<link href='//fonts.googleapis.com/css?family=<?php echo str_replace(' ', '+', $theme->getCfgDesign('font/primary_font_family')); 
+		echo $fontWeight; echo $charSubset; ?>' rel='stylesheet' type='text/css' />
+<?php endif;?><style>.gst_price { display:none;}.catalog-product-view .product-type-data .gst_price { display:inline-block;}
+img {
+max-width: 100%;
+}
+</style>

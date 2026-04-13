@@ -1,0 +1,80 @@
+<?php
+
+    $_productCollection=$this->getLoadedProductCollection();
+
+    $_helper = $this->helper('catalog/output');
+
+?>
+
+
+
+
+
+<div class="main-providers">
+<?php if(!$_productCollection->count()): ?>
+
+<p class="note-msg"><?php echo $this->__('There are no products matching the selection.') ?></p>
+
+<?php else: ?>
+ <?php echo $this->getToolbarHtml() ?>
+
+    
+
+
+<ul id="products-list" class="products-list hover-effect">
+ <?php $i=0; foreach ($_productCollection as $_product): 
+$product=Mage::getModel('catalog/product')->load($_product->getId());
+ ?>
+
+
+  <li class="item odd">
+
+
+<div class="grid12-3" >
+   
+    <a  href="<?php echo $_product->getProductUrl() ?>" title="<?php echo $_helper->productAttribute($_product, $_product->getName(), 'name') ?>" target="_blank">
+    <img src="<?php echo $this->helper('catalog/image')->init($_product, 'small_image')->resize(105); ?>" width="105" alt="<?php echo $_product->getName();?>" title="<?php echo $_helper->productAttribute($_product, $_product->getName(), 'name') ?>"/>
+    </a>
+    
+</div>
+
+<div class="grid12-6" >
+    
+    
+    <h3><a class="pro_link" href="<?php echo $_product->getProductUrl();?>" title="<?php echo $_product->getName();?>" target="_blank"><?php echo $_product->getName();?></a></h3>
+   <strong>Specialty:</strong> <?php $SpecialityD = $product->getAttributeText('speciality');	
+				if(is_array($SpecialityD)) {$Speciality = implode(", ",$SpecialityD);}	else{$Speciality = $SpecialityD;} echo $Speciality; ?><br />
+	<strong>Address:</strong> <?php echo $product->getAddress();?><br />
+	<strong>Email:</strong> <a href="mailto:<?php echo $product->getEmail();?>"><?php echo $product->getEmail();?></a><br />
+	<strong>Tel:</strong> <?php echo $product->getTelephone();?><br />
+	<strong>Website:</strong> <a href="<?php echo $product->getWebsite();?>" title="<?php echo $_product->getName();?>" target="_blank"><?php echo $product->getWebsite();?></a>
+     
+</div>
+<div class="grid12-3" >
+    <button class="button" onclick="window.location='<?php echo $product->getProductUrl(); ?>'">
+                    <span><span>Details</span></span>
+                    </button>
+   
+   </div>
+
+
+
+</li>
+
+<?php endforeach ;?>
+
+</ul>
+
+
+<script type="text/javascript">
+
+function searchCoach(q){
+	if(!q || q==''){
+		return;
+	}
+	window.location.href='<?php echo $this->getUrl("courses/index/findproviders")."?s=";?>'+q;
+}
+
+</script>
+<?php endif; ?>
+</div>

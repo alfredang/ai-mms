@@ -1,0 +1,109 @@
+<style type="text/css">
+.latest-bgcourses.policy ul li {
+  list-style-type: disc;
+  margin-left: 15px;
+}
+.latest-bgcourses.policy ol li {
+  list-style-type: decimal;
+  margin-left: 15px;
+}
+</style>
+<div class="nwp_upsell">
+	<div style="margin-top:15px;" class="latest-corses marginleft">
+     <div class="latest-bgcourses policy" style="padding:10px;">
+	<h2>Payment Methods</h2>
+	<?php echo $this->getLayout()->createBlock('cms/block')->setBlockId('paymentmethods')->toHtml();  ?> 
+	</div>
+    </div>
+</div>
+
+<div class="nwp_upsell">
+	<div style="margin-top:15px;" class="latest-corses marginleft">
+    <div class="latest-bgcourses policy" style="padding:10px;">
+	<h2>Cancellation Policy</h2>
+	<?php echo $this->getLayout()->createBlock('cms/block')->setBlockId('cancellation_policy')->toHtml();  ?> 
+	</div>
+    </div>
+</div>
+
+<div class="nwp_upsell">
+	<div style="margin-top:15px;" class="latest-corses marginleft">
+     <div class="latest-bgcourses policy" style="padding:10px;">
+	<h2>Replacement Policy</h2>
+	<?php echo $this->getLayout()->createBlock('cms/block')->setBlockId('replacementpolicy')->toHtml();  ?> 
+	</div>
+    </div>
+</div>
+
+<div class="nwp_upsell">
+	<div style="margin-top:15px;" class="latest-corses marginleft">
+     <div class="latest-bgcourses policy" style="padding:10px;">
+	<h2>Terms and Conditions</h2>
+	<?php echo $this->getLayout()->createBlock('cms/block')->setBlockId('termsandconditions')->toHtml();  ?> 
+	</div>
+    </div>
+</div>
+
+
+
+<?php 
+
+$product_id = Mage::registry('current_product')->getId();
+$_product= Mage::getModel('catalog/product')->load($product_id);
+
+//$_product=$this->getProduct();
+$image=$this->helper('catalog/image')->init($_product, 'image');
+
+$link_temp=$this->helper('core/url')->getCurrentUrl();
+if(strpos($link_temp,'?fb_comment_id')){
+	$link=$this->helper('core/string')->substr($link_temp,0,strpos($link_temp,'?fb_comment_id'));
+}else{
+	$link=$link_temp;
+}
+ ?>
+<html xmlns:fb="http://ogp.me/ns/fb#">
+
+<link rel="image_src" href="<?php echo $image ?>"/>
+
+	<div class="box-collateral fbcomment">
+<?php $isHiddenLike = $this->isHiddenLike()?>
+<?php $isHiddenComment = $this->isHiddenComment()?>
+<?php if(!$isHiddenComment){?>
+
+    	<h2><?php echo $this->__('Comments') ?></h2>
+	<?php }?>
+	
+	<?php if(!$isHiddenLike){?>
+	<fb:like send="true" width="<?php echo $this->widthOfCommmentBox() ?>" show_faces="true"></fb:like>
+	
+<?php } if(!$isHiddenLike || !$isHiddenComment){?>  	
+	 <div id="fb-root"></div>
+	<script>
+  window.fbAsyncInit = function() {
+    FB.init({
+      appId      : '<?php echo $this->getUniqueId()?>', // App ID
+      channelUrl : '<?php echo $link ?>', // Channel File
+      status     : true, // check login status
+      cookie     : true, // enable cookies to allow the server to access the session
+      xfbml      : true  // parse XFBML
+    });
+
+    // Additional initialization code here
+  };
+
+  // Load the SDK Asynchronously
+(function(d, s, id) {
+  var js, fjs = d.getElementsByTagName(s)[0];
+  if (d.getElementById(id)) return;
+  js = d.createElement(s); js.id = id;
+  js.src = "//connect.facebook.net/<?php echo $this->getLanguage() ?>/all.js#xfbml=1&appId=<?php echo $this->getUniqueId()?>";
+  fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));</script>
+	 <div class="fblike">
+			<fb:comments xid="<?php echo $this->getXid()?>" href="<?php echo $link ?>"  num_posts="<?php echo $this->numberOfCommment()?>" width="<?php echo $this->widthOfCommmentBox() ?>" publish_feed="<?php echo $this->publicFeed() ?>"  reverse="<?php echo $this->isReserveOrdering() ?>"  data-colorscheme="<?php echo $this->getColor(); ?>">
+				<fb:title></fb:title>
+			</fb:comments>
+		</div>
+	 
+<?php } ?>
+</div>

@@ -1,0 +1,20 @@
+<?php echo $this->escapeHtml($this->getMethod()->getTitle()) ?>
+
+<?php if ($_specificInfo = $this->getSpecificInformation()):?>
+<table>
+<?php foreach ($_specificInfo as $_label => $_value):?>
+    <tr>
+        <td><?php echo $this->escapeHtml($_label)?>:</td>
+        <td><?php echo nl2br(implode($this->getValueAsArray($_value, true), "\n"))?></td>
+    </tr>
+<?php endforeach; ?>
+</table>
+<?php endif;?>
+
+<?php if ($this->getInfo()->getCcType()): ?>
+<div class="stripe payment-info">
+    <?php echo $this->getInfo()->getCcType() . " " . $this->__('ending') . " " . $this->getInfo()->getCcLast4(); ?>
+</div>
+<?php endif; ?>
+
+<?php echo $this->getChildHtml()?>

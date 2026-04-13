@@ -1,0 +1,171 @@
+/* Hosted Fields Loading State */
+#credit-card-form.loading {
+    position: relative;
+}
+#credit-card-form .braintree-hostedfield {
+    opacity: 1;
+}
+#credit-card-form .credit-card-loading {
+    display: none;
+}
+#credit-card-form .braintree-card-unsupported {
+    color: darkred;
+    font-weight: bold;
+    padding: 6px 0 4px 0;
+}
+#credit-card-form.loading .credit-card-loading {
+    position: absolute;
+    top: 30%;
+    left: 0;
+    right: 0;
+    width: 100%;
+    height: 70%;
+    text-align: center;
+    display: block;
+}
+#credit-card-form.loading .credit-card-loading img {
+    margin: 16px  auto;
+}
+#credit-card-form.loading .braintree-hostedfield {
+    opacity: 0;
+}
+#credit-card-form label {
+    float: none;
+}
+
+/* Hosted Fields */
+#braintree-hosted-submit {
+    display: none;
+}
+.braintree-input-field {
+    height: 42px;
+    max-width: 340px;
+    padding: 0 10px;
+    border: 1px solid lightgrey;
+    background: white;
+
+    &.braintree-postal-code {
+        width: 140px;
+    }
+}
+.braintree-card-input-field {
+    height: 50px;
+    width: 100%;
+    max-width: 372px;
+    border: 1px solid lightgrey;
+    position: relative;
+    background: white;
+}
+.braintree-card-input-field .card-type {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    padding: 0 10px 0 8px;
+}
+.braintree-card-input-field .card-type img {
+    height: 48px;
+}
+.braintree-card-input-field #card-number {
+    float: left;
+    height: 48px;
+    width: 100%;
+    padding-left: 66px;
+    box-sizing: border-box;
+}
+#braintree-expiration-container {
+    display: block;
+    width: 100%;
+    vertical-align: middle;
+    font-size: 0;
+}
+.braintree-expiration {
+    width: 70px;
+    display: inline-block;
+    *zoom: 1;
+    *display: inline;
+}
+.braintree-expiration-seperator {
+    vertical-align: top;
+    line-height: 42px;
+    display: inline-block;
+    *zoom: 1;
+    *display: inline;
+    font-size: 30px;
+    padding: 0 8px;
+}
+.braintree-cvv {
+    width: 80px;
+}
+.braintree-hostedfield .cvv-what-is-this {
+    margin-left: 0;
+}
+
+
+#three-d-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    display: flex;
+    align-items: center;
+    height: 100vh;
+    width: 100vw;
+    z-index: 100000;
+    visibility: visible;
+    transition: 0.4s;
+    opacity: 1;
+
+    &.hidden {
+        visibility: hidden;
+        transition: 0.4s;
+        opacity: 0;
+
+        .bt-modal-frame {
+            transition: 0.4s;
+            transform: translateY(80px);
+        }
+    }
+
+    .bt-modal-frame {
+        height: 450px;
+        width: 440px;
+        margin: auto;
+        background-color: #ffffff;
+        z-index: 2;
+        border-radius: 6px;
+
+        transition: 0.4s;
+        transform: translateY(0);
+    }
+
+    .bt-modal-body {
+        height: 380px;
+        margin: 0 20px;
+        background-color: white;
+        border: 1px solid lightgray;
+    }
+
+    .bt-modal-header {
+        height: 40px;
+        text-align: center;
+        line-height: 40px;
+    }
+
+    .bt-mask {
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 100%;
+        width: 100%;
+        background-color: black;
+        opacity: 0.75;
+    }
+}
+
+@media (max-width: 650px) {
+    #three-d-modal {
+        .bt-modal-frame {
+            width: 100%;
+        }
+    }
+}

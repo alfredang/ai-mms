@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns:typens="urn:{{var wsdl.name}}" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+    xmlns:soapenc="http://schemas.xmlsoap.org/soap/encoding/" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns="http://schemas.xmlsoap.org/wsdl/"
+    name="{{var wsdl.name}}" targetNamespace="urn:{{var wsdl.name}}">
+    <types>
+        <schema xmlns="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:Magento">
+            <import namespace="http://schemas.xmlsoap.org/soap/encoding/" schemaLocation="http://schemas.xmlsoap.org/soap/encoding/" />
+            <complexType name="salesOrderEntity">
+                <all>
+                    <element name="increment_id" type="xsd:string" minOccurs="0" />
+                    <element name="parent_id" type="xsd:string" minOccurs="0" />
+                    <element name="store_id" type="xsd:string" minOccurs="0" />
+                    <element name="created_at" type="xsd:string" minOccurs="0" />
+                    <element name="updated_at" type="xsd:string" minOccurs="0" />
+                    <element name="is_active" type="xsd:string" minOccurs="0" />
+                    <element name="customer_id" type="xsd:string" minOccurs="0" />
+                    <element name="tax_amount" type="xsd:string" minOccurs="0" />
+                    <element name="shipping_amount" type="xsd:string" minOccurs="0" />
+                    <element name="discount_amount" type="xsd:string" minOccurs="0" />
+                    <element name="subtotal" type="xsd:string" minOccurs="0" />
+                    <element name="grand_total" type="xsd:string" minOccurs="0" />
+                    <element name="total_paid" type="xsd:string" minOccurs="0" />
+                    <element name="total_refunded" type="xsd:string" minOccurs="0" />
+                    <element name="total_qty_ordered" type="xsd:string" minOccurs="0" />
+                    <element name="total_canceled" type="xsd:string" minOccurs="0" />
+                    <element name="total_invoiced" type="xsd:string" minOccurs="0" />
+                    <element name="total_online_refunded" type="xsd:string" minOccurs="0" />
+                    <element name="total_offline_refunded" type="xsd:string" minOccurs="0" />
+                    <element name="base_tax_amount" type="xsd:string" minOccurs="0" />
+                    <element name="base_shipping_amount" type="xsd:string" minOccurs="0" />
+                    <element name="base_discount_amount" type="xsd:string" minOccurs="0" />
+                    <element name="base_subtotal" type="xsd:string" minOccurs="0" />
+                    <element name="base_grand_total" type="xsd:string" minOccurs="0" />
+                    <element name="base_total_paid" type="xsd:string" minOccurs="0" />
+                    <element name="base_total_refunded" type="xsd:string" minOccurs="0" />
+                    <element name="base_total_qty_ordered" type="xsd:string" minOccurs="0" />
+                    <element name="base_total_canceled" type="xsd:string" minOccurs="0" />
+                    <element name="base_total_invoiced" type="xsd:string" minOccurs="0" />
+                    <element name="base_total_online_refunded" type="xsd:string" minOccurs="0" />
+                    <element name="base_total_offline_refunded" type="xsd:string" minOccurs="0" />
+                    <element name="billing_address_id" type="xsd:string" minOccurs="0" />
+                    <element name="billing_firstname" type="xsd:string" minOccurs="0" />
+                    <element name="billing_lastname" type="xsd:string" minOccurs="0" />
+                    <element name="shipping_address_id" type="xsd:string" minOccurs="0" />
+                    <element name="shipping_firstname" type="xsd:string" minOccurs="0" />
+                    <element name="shipping_lastname" type="xsd:string" minOccurs="0" />
+                    <element name="billing_name" type="xsd:string" minOccurs="0" />
+                    <element name="shipping_name" type="xsd:string" minOccurs="0" />
+                    <element name="store_to_base_rate" type="xsd:string" minOccurs="0" />
+                    <element name="store_to_order_rate" type="xsd:string" minOccurs="0" />
+                    <element name="base_to_global_rate" type="xsd:string" minOccurs="0" />
+                    <element name="base_to_order_rate" type="xsd:string" minOccurs="0" />
+                    <element name="weight" type="xsd:string" minOccurs="0" />
+                    <element name="store_name" type="xsd:string" minOccurs="0" />
+                    <element name="remote_ip" type="xsd:string" minOccurs="0" />
+                    <element name="status" type="xsd:string" minOccurs="0" />
+                    <element name="state" type="xsd:string" minOccurs="0" />
+                    <element name="applied_rule_ids" type="xsd:string" minOccurs="0" />
+                    <element name="global_currency_code" type="xsd:string" minOccurs="0" />
+                    <element name="base_currency_code" type="xsd:string" minOccurs="0" />
+                    <element name="store_currency_code" type="xsd:string" minOccurs="0" />
+                    <element name="order_currency_code" type="xsd:string" minOccurs="0" />
+                    <element name="shipping_method" type="xsd:string" minOccurs="0" />
+                    <element name="shipping_description" type="xsd:string" minOccurs="0" />
+                    <element name="customer_email" type="xsd:string" minOccurs="0" />
+                    <element name="customer_firstname" type="xsd:string" minOccurs="0" />
+                    <element name="customer_lastname" type="xsd:string" minOccurs="0" />
+                    <element name="quote_id" type="xsd:string" minOccurs="0" />
+                    <element name="is_virtual" type="xsd:string" minOccurs="0" />
+                    <element name="customer_group_id" type="xsd:string" minOccurs="0" />
+                    <element name="customer_note_notify" type="xsd:string" minOccurs="0" />
+                    <element name="customer_is_guest" type="xsd:string" minOccurs="0" />
+                    <element name="email_sent" type="xsd:string" minOccurs="0" />
+                    <element name="order_id" type="xsd:string" minOccurs="0" />
+                    <element name="gift_message_id" type="xsd:string" minOccurs="0" />
+                    <element name="gift_message" type="xsd:string" minOccurs="0" />
+                    <element name="shipping_address" type="typens:salesOrderAddressEntity" minOccurs="0" />
+                    <element name="billing_address" type="typens:salesOrderAddressEntity" minOccurs="0" />
+                    <element name="items" type="typens:salesOrderItemEntityArray" minOccurs="0" />
+                    <element name="payment" type="typens:salesOrderPaymentEntity" minOccurs="0" />
+                    <element name="status_history" type="typens:salesOrderStatusHistoryEntityArray" minOccurs="0" />
+                    <element name="mmd_order_custom_data" type="typens:mmdOrderDataArray" minOccurs="0" />
+                </all>
+            </complexType>
+            <complexType name="mmdOrderData">
+                <all>
+                    <element name="label" type="xsd:string" minOccurs="0" />
+                    <element name="value" type="xsd:string" minOccurs="0" />
+                    <element name="code" type="xsd:string" minOccurs="0" />
+                    <element name="type" type="xsd:string" minOccurs="0" />
+                    <element name="rawval" type="xsd:string" minOccurs="0" />
+                    <element name="id" type="xsd:string" minOccurs="0" />
+                </all>
+            </complexType>            
+            <complexType name="mmdOrderDataArray">
+            	<complexContent>
+                    <restriction base="soapenc:Array">
+                        <attribute ref="soapenc:arrayType" wsdl:arrayType="typens:mmdOrderData[]" />
+                    </restriction>
+                </complexContent>
+            </complexType>
+    	</schema>
+    </types>
+</definitions>
+<!--
+/**
+ * Checkout Fields Manager
+ *
+ * @category:    MMD
+ * @package:     MMD_Checkoutoptions
+ * @version      2.9.2
+ * @license:     
+ * @copyright:   Copyright (c) 2013 MMD, Inc. (http://www.mmd.com)
+ */
+-->

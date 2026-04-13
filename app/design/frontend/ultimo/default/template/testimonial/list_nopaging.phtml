@@ -1,0 +1,131 @@
+<link rel="stylesheet" type="text/css" href="<?php echo $this->getSkinUrl('css/testimonial/style.css')?>" />
+<style>
+.mmd_clear{clear:both;width:100%;}
+</style>
+<h3><?php echo Mage::helper('testimonial')->__('What our customers say'); ?></h3>
+<div style="float:right; font-weight:bold; margin-bottom:0.4em;margin-right:0.4em;"><a href="<?php echo Mage::getUrl("testimonial/submit"); ?>"><?php echo Mage::helper('testimonial')->__('Submit Your Testimonial'); ?></a></div>
+<div class="mmd_clear"></div>
+<?php 
+	$testimonial = $this->getTestimonials();
+	$allow_media = (Mage::getStoreConfig('mmd_testimonial/general/allow_media')) ? Mage::getStoreConfig('mmd_testimonial/general/allow_media'):0;
+?>
+<?php
+    if($testimonial->count() < 1):
+?>
+<div class="postWrapper">
+<p><?php echo Mage::helper('testimonial')->__('No Testimonials'); ?></p>
+</div>
+<?php
+    else:
+?>
+<div class="postWrapper">
+<?php foreach ($testimonial as $post): ?>
+	<?php if($allow_media){?>     
+     <div style="border-bottom:1px solid silver;">
+     	<div class="mmd_clear" style="height:5px;"></div>
+     	<div style="float:left;width:30%;">
+     	<?php $media = $post->getMedia();
+     		if($media){
+				$file_ext = array();
+				$file_ext = explode('.',$media);
+				$file_ext = $file_ext[sizeof($file_ext)-1];
+				if($file_ext=='flv'|| $file_ext=='avi'|| $file_ext=='mp3'){?>
+					<object id="player" classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000" name="player" width="<?php echo $this->getWidthMedia();?>" 
+				    		height="<?php echo $this->getHeightMedia();?>">
+						<param name="movie" value="<?php echo Mage::getBaseUrl(Mage_Core_Model_Store::URL_TYPE_MEDIA).'testimonial/'.'player-viral.swf';?>" />
+						<param name="allowfullscreen" value="true" />
+						<param name="allowscriptaccess" value="always" />
+						<param name="flashvars" value="file=<?php echo $this->getMediaUrl($post->getMedia());?>" />
+						<embed
+							type="application/x-shockwave-flash"
+							id="player2"
+							name="player2"
+							src="<?php echo Mage::getBaseUrl(Mage_Core_Model_Store::URL_TYPE_MEDIA).'testimonial/'.'player-viral.swf';?>" 
+							allowscriptaccess="always" 
+							allowfullscreen="true"
+							width="<?php echo $this->getWidthMedia();?>"
+							height="<?php echo $this->getHeightMedia(); ?>"
+							flashvars="file=<?php echo $this->getMediaUrl($post->getMedia());?>" 
+						/>
+					</object>
+				<?php }elseif ($file_ext=='swf'){?>
+					<object classid="clsid:your-class-id" codebase="http://download.macromedia.com/pub/shockwave/cabs/flash/swflash.cab#version=5,0,0,0">
+				 		<param name=movie value="">
+				    	<param name=quality value=high>
+				    	<param name="wmode" value="transparent">
+				    	<embed src="<?php echo $this->getMediaUrl($post->getMedia());?>" 
+				    			quality="high" 
+				    			wmode="transparent"
+				    			width="<?php echo $this->getWidthMedia();?>"
+				    			height="<?php echo $this->getHeightMedia();?>" 
+				    			pluginspage="http://www.macromedia.com/shockwave/download/index.cgi?P1_Prod_Version=ShockwaveFlash"
+				    			type="application/x-shockwave-flash">
+				    	</embed> 
+			    	</object>
+				<?php }elseif($file_ext=='mp4'){?>
+					<object classid="clsid:02BF25D5-8C17-4B23-BC80-D3488ABDDC6B" codebase="http://www.apple.com/qtactivex/qtplugin.cab" 
+						width="<?php echo $this->getWidthMedia(); ?>" height="<?php echo $this->HeightMedia(); ?>">
+						<param name="src" value="<?php echo $this->getMediaUrl() ?>" />
+						<param name="autoplay" value="false" />
+						<param name="controller" value="true" />
+						<embed width="<?php echo $this->getWidthMedia(); ?>" height="<?php echo $this->getHeightMedia();?>"
+							src="<?php echo $this->getMediaUrl($post->getMedia());?>" 
+							type="video/mpeg" 
+							pluginspage="http://www.apple.com/quicktime/download" autoplay="false" controller="true">
+					</object>
+				<?php }else{?>
+					<!--<img src="<?php echo $this->getMediaUrl($post->getMedia());?>" width="<?php echo $this->getWidthMedia();?>" height="<?php echo $this->getHeightMedia();?>">-->
+					<?php if($media!=""){?>
+					<img src="<?php echo Mage::helper('testimonial/image')->init($post->getMedia())->resize(intval($this->getWidthMedia()), intval($this->getHeightMedia())); ?>" style="border:1px solid silver;"/>
+					<?php } ?>
+				<?php }?> 
+     	<?php }?>
+     	</div>
+     	<div style="float:right;width:70%;" class="tes_info">
+	    	<div style="font-style:italic;margin:0.4em 0.4em;"><?php echo $post->getDescription(); ?></div>
+	     	<div class="mmd_clear"></div> 
+			<div style="float:right;margin:0.4em 0.4em;"><?php echo $post->getClientName();?> 
+			<?php 
+			
+				$allow_Email = Mage::getStoreConfig('mmd_testimonial/general/allow_email');
+				$allow_address = Mage::getStoreConfig('mmd_testimonial/general/allow_address');
+				$allow_company = Mage::getStoreConfig('mmd_testimonial/general/allow_company');
+		                if($allow_Email && $post->getEmail()!=''){
+				      echo ' - '.$post->getEmail();
+				}
+				if($allow_company && $post->getCompany()!='') {?>- <a href="<?php echo $post->getWebsite(); ?>" ><?php echo $post->getCompany();?></a><?php } 
+				if($allow_address && $post->getAddress()!=''){
+					echo ' - '.$post->getAddress();
+				}
+			?>
+			</div>
+			<div class="mmd_clear"></div> 
+		</div>
+		<div class="mmd_clear" style="height:4px;"></div>
+    </div>
+    <?php }else{?>
+    	<div>
+        	<blockquote style="font-style:italic; margin-right:0.4em; text-indent: 20px;margin: 0px;background:url('<?php echo $this->getSkinUrl('images/testimonial/icon_bt.gif');?>') no-repeat left top;"><?php echo $post->getDescription(); ?></blockquote>
+			<p style="float:right; margin-right:0.4em; "><?php echo $post->getClientName();?> 
+			<?php 
+			
+				$allow_Email = Mage::getStoreConfig('mmd_testimonial/general/allow_email');
+				$allow_address = Mage::getStoreConfig('mmd_testimonial/general/allow_address');
+				$allow_company = Mage::getStoreConfig('mmd_testimonial/general/allow_company');
+		                if($allow_Email && $post->getEmail()!=''){
+				      echo ' - '.$post->getEmail();
+				}
+				if($allow_company && $post->getCompany()!='') {?>- <a href="<?php echo $post->getWebsite(); ?>" ><?php echo $post->getCompany();?></a><?php } 
+				if($allow_address && $post->getAddress()!=''){
+					echo ' - '.$post->getAddress();
+				}
+			?>
+			</p>
+   		</div>
+    	<div class="mmd_clear"></div>  
+   <?php }?> 
+<?php endforeach; ?>
+</div>
+<?php
+    endif;
+?>

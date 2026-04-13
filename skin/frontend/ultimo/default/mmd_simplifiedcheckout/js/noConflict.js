@@ -1,0 +1,1 @@
+$MMD_Simplifiedcheckout=jQuery.noConflict();

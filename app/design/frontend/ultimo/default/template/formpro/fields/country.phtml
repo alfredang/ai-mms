@@ -1,0 +1,13 @@
+<?php $_countries = Mage::getResourceModel('directory/country_collection')->loadData()->toOptionArray(false) ?>
+
+<?php if (count($_countries) > 0): ?>
+    <select name="<?php echo $this->getFieldName()?>" id="<?php echo $this->getFieldId()?>">
+        <option value=""><?php echo Mage::helper('formpro')->__('-- Please Select --');?></option>
+        <?php foreach($_countries as $_country): ?>
+            <?php $selected = ($this->getFieldValue() == $_country['value']) ? 'selected="selected"' : ''; ?>
+            <option value="<?php echo $_country['value'] ?>" <?php echo $selected ?>>
+                <?php echo $_country['label'] ?>
+            </option>
+        <?php endforeach; ?>
+    </select>
+<?php endif; ?>

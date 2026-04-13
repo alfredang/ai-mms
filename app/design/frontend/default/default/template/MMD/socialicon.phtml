@@ -1,0 +1,103 @@
+<style type="text/css">
+#socialicon { float: right;
+width: 173px; list-style-type:none; }
+#socialicon li { float:left; padding-left: 9px; padding-top: 9px;  }
+#socialicon li:first-child { margin-left:0px; }
+#socialicon li:last-child { margin-right:0px; }
+#socialicon li a { display:block; text-decoration:none; }
+</style>
+
+<?php
+$all = Mage::getStoreConfig('socialicon/general/social_icons_enabled');
+$fb = Mage::getStoreConfig('socialicon/general/social_icons_fb_enabled');
+$fb_url = Mage::getStoreConfig('socialicon/general/social_icons_fb_url');
+$fb_img = Mage::getStoreConfig('socialicon/general/social_icons_fb_img');
+$tw = Mage::getStoreConfig('socialicon/general/social_icons_tw_enabled');
+$tw_url = Mage::getStoreConfig('socialicon/general/social_icons_tw_url');
+$tw_img = Mage::getStoreConfig('socialicon/general/social_icons_tw_img');
+$gp = Mage::getStoreConfig('socialicon/general/social_icons_gp_enabled');
+$gp_url = Mage::getStoreConfig('socialicon/general/social_icons_gp_url');
+$gp_img = Mage::getStoreConfig('socialicon/general/social_icons_gp_img');
+$pn = Mage::getStoreConfig('socialicon/general/social_icons_pn_enabled');
+$pn_url = Mage::getStoreConfig('socialicon/general/social_icons_pn_url');
+$pn_img = Mage::getStoreConfig('socialicon/general/social_icons_pn_img');
+$yt = Mage::getStoreConfig('socialicon/general/social_icons_yt_enabled');
+$yt_url = Mage::getStoreConfig('socialicon/general/social_icons_yt_url');
+$yt_img = Mage::getStoreConfig('socialicon/general/social_icons_yt_img');
+$ig = Mage::getStoreConfig('socialicon/general/social_icons_ig_enabled');
+$ig_url = Mage::getStoreConfig('socialicon/general/social_icons_ig_url');
+$ig_img = Mage::getStoreConfig('socialicon/general/social_icons_ig_img');
+$bg = Mage::getStoreConfig('socialicon/general/social_icons_bg_enabled');
+$bg_url = Mage::getStoreConfig('socialicon/general/social_icons_bg_url');
+$bg_img = Mage::getStoreConfig('socialicon/general/social_icons_bg_img');
+$all_size = Mage::getStoreConfig('socialicon/general/social_all_size');
+$all_path = Mage::getBaseUrl(Mage_Core_Model_Store::URL_TYPE_MEDIA).'wysiwyg/socialicons/';
+?>
+
+
+
+<?php if ($all) : ?>
+<ul id="socialicon">
+
+
+<?php if($fb): ?>
+<li>
+<a href="<?php if($fb_url) { echo $fb_url; } else { echo '#'; }?>" target="_blank" title="Facebook">
+<img src="<?php if($fb_img) { echo $all_path.$fb_img; } else { echo $this->getSkinUrl('images/socialicons'); if($all_size) { echo '/'.$all_size; }  echo '/facebook.png'; }?>" alt="Facebook" />
+</a>
+</li>
+<?php endif; ?> 
+
+<?php if ($tw) : ?>
+<li>
+<a href="<?php if($tw_url) { echo $tw_url; } else { echo '#'; }?>" target="_blank" title="Twitter">
+<img src="<?php if($tw_img) { echo $all_path.$tw_img; } else { echo $this->getSkinUrl('images/socialicons'); if($all_size) { echo '/'.$all_size; }  echo '/twitter.png'; }?>" alt="Twitter" />
+</a>
+</li>
+<?php endif; ?>  
+
+<?php if ($gp) : ?>
+<li>
+<a href="<?php if($gp_url) { echo $gp_url; } else { echo '#'; }?>" target="_blank" title="Google Plus">
+<img src="<?php if($gp_img) { echo $all_path.$gp_img; } else { echo $this->getSkinUrl('images/socialicons'); if($all_size) { echo '/'.$all_size; }  echo '/googleplus.png'; }?>" alt="Google Plus" />
+</a>
+</li>
+<?php endif; ?>  
+
+<?php if ($pn) : ?>
+<li>
+<a href="<?php if($pn_url) { echo $pn_url; } else { echo '#'; }?>" target="_blank" title="Pinterest">
+<img src="<?php if($pn_img) { echo $all_path.$pn_img; } else { echo $this->getSkinUrl('images/socialicons'); if($all_size) { echo '/'.$all_size; }  echo '/pinterest.png'; }?>" alt="Pinterest" />
+</a>
+</li>
+<?php endif; ?>  
+
+<?php if ($yt) : ?>
+<li>
+<a href="<?php if($yt_url) { echo $yt_url; } else { echo '#'; }?>" target="_blank" title="YouTube">
+<img src="<?php if($yt_img) { echo $all_path.$yt_img; } else { echo $this->getSkinUrl('images/socialicons'); if($all_size) { echo '/'.$all_size; }  echo '/youtube.png'; }?>" alt="YouTube" />
+</a>
+</li>
+<?php endif; ?>  
+
+<?php if ($ig) : ?>
+<li>
+<a href="<?php if($ig_url) { echo $ig_url; } else { echo '#'; }?>" target="_blank" title="Instagram">
+<img src="<?php if($ig_img) { echo $all_path.$ig_img; } else { echo $this->getSkinUrl('images/socialicons'); if($all_size) { echo '/'.$all_size; }  echo '/instagram.png'; }?>" alt="Instagram" />
+</a>
+</li>
+<?php endif; ?>  
+
+<?php if ($bg) : ?>
+<li>
+<a href="<?php if($bg_url) { echo $bg_url; } else { echo '#'; }?>" target="_blank" title="Blog">
+<img src="<?php if($bg_img) { echo $all_path.$bg_img; } else { echo $this->getSkinUrl('images/socialicons'); if($all_size) { echo '/'.$all_size; }  echo '/blog.png'; }?>" alt="Blog" />
+</a>
+</li>
+<?php endif; ?>   
+
+</ul>
+<div style="clear:both;"></div>
+<?php endif; ?>  
+
+ 
