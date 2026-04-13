@@ -698,3 +698,276 @@ dl.accordion dd, .accordion-body {
     background-image: none !important;
     border-bottom: 1px solid var(--border-default) !important;
 }
+
+/* ============================================================
+   19. Grid & Order Page Refinements
+   ============================================================ */
+
+/* Content header with title and buttons */
+.content-header {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.content-header .content-buttons {
+    margin: 0 !important;
+}
+
+/* Pager bar - modern layout */
+.pager {
+    display: flex !important;
+    align-items: center !important;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 16px !important;
+    font-size: 13px !important;
+}
+.pager .pager-no-items { color: var(--text-muted) !important; }
+.pager input.input-text {
+    width: 50px !important;
+    text-align: center;
+    padding: 5px 8px !important;
+}
+.pager select {
+    padding: 5px 8px !important;
+    min-width: 60px;
+}
+.pager a { color: var(--accent-blue) !important; text-decoration: none; }
+.pager a:hover { color: var(--accent-blue-hover) !important; }
+.pager .separator { color: var(--text-dim) !important; margin: 0 4px; }
+
+/* Export bar */
+.export-actions, .grid .export {
+    background: var(--bg-elevated) !important;
+    border: 1px solid var(--border-default) !important;
+    border-radius: var(--r-md);
+    padding: 8px 12px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px;
+}
+
+/* RSS link in pager */
+.pager img, .grid img[src*="rss"] {
+    filter: brightness(0.8) invert(0.6) !important;
+}
+
+/* Filter row inputs - more polish */
+.grid tr.filter input,
+.grid tr.filter select,
+.grid tr.filter textarea {
+    background: var(--bg-input) !important;
+    border: 1px solid #475569 !important;
+    color: var(--text-primary) !important;
+    border-radius: var(--r-sm);
+    padding: 6px 8px !important;
+    font-size: 12px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+.grid tr.filter input:focus,
+.grid tr.filter select:focus {
+    border-color: var(--accent-blue) !important;
+    box-shadow: 0 0 0 2px rgba(96,165,250,0.15) !important;
+    outline: none;
+}
+.grid tr.filter td {
+    padding: 6px 8px !important;
+    vertical-align: top !important;
+}
+
+/* Date filter - FROM/TO labels */
+.grid tr.filter .range .label,
+.grid tr.filter td label {
+    color: var(--text-muted) !important;
+    font-size: 10px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px;
+    font-weight: 600 !important;
+    margin-bottom: 3px !important;
+    display: block;
+}
+
+/* Calendar trigger icon */
+img[src*="calendar"], img.v-middle[src*="calendar"],
+.grid img[src*="cal_"] {
+    filter: invert(0.7) brightness(1.5) !important;
+    opacity: 0.7;
+    cursor: pointer;
+}
+img[src*="calendar"]:hover, .grid img[src*="cal_"]:hover {
+    opacity: 1;
+}
+
+/* Grid cell content - better readability */
+.grid td a { color: var(--accent-blue) !important; }
+.grid td a:hover { color: var(--accent-blue-hover) !important; text-decoration: underline; }
+
+/* Bold labels in cells (like "Mode of Training:", "Course Date:") */
+.grid td strong, .grid td b {
+    color: var(--text-primary) !important;
+    font-weight: 600;
+}
+
+/* Mass action bar polish */
+.massaction {
+    display: flex !important;
+    align-items: center !important;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 16px !important;
+    margin-bottom: 0 !important;
+}
+.massaction select {
+    min-width: 180px;
+    padding: 6px 10px !important;
+}
+
+/* Checkbox styling */
+input[type="checkbox"] {
+    width: 16px !important;
+    height: 16px !important;
+    accent-color: var(--accent-blue);
+    cursor: pointer;
+}
+
+/* Grid action column links */
+.grid td .action-select, .grid td select.action-select {
+    background: var(--bg-input) !important;
+    border: 1px solid #475569 !important;
+    color: var(--text-primary) !important;
+    border-radius: var(--r-sm);
+    padding: 4px 8px;
+}
+
+/* Grid header row - subtle bottom shadow */
+.grid tr.headings {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+/* Alternating row colors - subtler */
+.grid tr.even td, .grid tr:nth-child(even) td {
+    background: rgba(22,32,50,0.5) !important;
+}
+
+/* Selected row highlight */
+.grid tr.selected td {
+    background: rgba(96,165,250,0.08) !important;
+    border-left: 2px solid var(--accent-blue) !important;
+}
+
+/* Image thumbnails in grid */
+.grid td img {
+    border-radius: var(--r-sm);
+    border: 1px solid var(--border-default);
+}
+
+/* Status labels / badges */
+.grid-severity-notice, .grid-severity-minor {
+    background: rgba(16,185,129,0.15) !important;
+    color: #34d399 !important;
+    border: 1px solid rgba(52,211,153,0.3) !important;
+    border-radius: 12px;
+    padding: 2px 10px !important;
+    font-size: 11px !important;
+    font-weight: 600;
+}
+.grid-severity-major, .grid-severity-critical {
+    background: rgba(239,68,68,0.15) !important;
+    color: #f87171 !important;
+    border: 1px solid rgba(248,113,113,0.3) !important;
+    border-radius: 12px;
+    padding: 2px 10px !important;
+    font-size: 11px !important;
+    font-weight: 600;
+}
+
+/* Button bar spacing */
+.content-buttons button, .content-header button {
+    margin-left: 8px !important;
+}
+
+/* Grid wrapper spacing */
+.grid {
+    margin-top: 12px !important;
+}
+
+/* Improve overall page padding */
+#page\:main-container {
+    padding: 16px 24px !important;
+}
+
+/* Flag images in grid */
+.grid td img[src*="flag"] {
+    border: none !important;
+    border-radius: 2px;
+    vertical-align: middle;
+    margin-right: 4px;
+}
+
+/* "items selected" text */
+.massaction .entry-edit {
+    background: transparent !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* Select all / Unselect links */
+.massaction a {
+    color: var(--accent-blue) !important;
+    font-size: 12px;
+}
+
+/* Buttons in grid (Search, Reset Filter, Export) */
+.pager button, .filter button, .export button,
+button.task, button.scalable.task {
+    padding: 6px 16px !important;
+    font-size: 12px !important;
+}
+
+/* Number inputs in pager */
+.pager input[type="text"] {
+    background: var(--bg-input) !important;
+}
+
+/* ============================================================
+   20. Overall Spacing & Polish
+   ============================================================ */
+
+/* Smoother content area */
+.middle {
+    padding: 0 !important;
+}
+#page\:main-container {
+    padding: 20px 24px !important;
+}
+
+/* Page title */
+.content-header h3 {
+    margin: 0 !important;
+    font-size: 22px !important;
+}
+
+/* Better spacing between grid sections */
+.grid + .grid, .entry-edit + .entry-edit {
+    margin-top: 16px;
+}
+
+/* Make all images in dark admin slightly brighter */
+.grid td img:not([src*="flag"]):not([src*="favicon"]) {
+    opacity: 0.9;
+}
+
+/* Remove old Magento cell padding inconsistencies */
+.grid td, .grid th {
+    white-space: normal !important;
+    word-wrap: break-word;
+}
+
+/* Subtle row border on hover */
+.grid tr:hover td {
+    border-bottom-color: #475569 !important;
+}
