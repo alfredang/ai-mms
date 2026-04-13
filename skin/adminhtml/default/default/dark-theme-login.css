@@ -3,94 +3,156 @@
    ============================================================ */
 
 body#page-login {
-    background: #111827 !important;
+    background: #0f172a !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
 }
 
+/* Center the login box */
 .login-container {
     background: transparent !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    min-height: 100vh !important;
 }
 
 .login-box {
-    background: #1f2937 !important;
-    border: 1px solid #374151 !important;
+    background: #1e293b !important;
+    border: 1px solid #334155 !important;
     border-radius: 12px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5) !important;
-}
-
-.login-form {
-    background: #1f2937 !important;
-}
-
-.login-form h2 {
-    color: #f9fafb !important;
-    font-size: 24px;
-    font-weight: 600;
-}
-
-.login-form label {
-    color: #d1d5db !important;
-}
-
-.login-form .input-text {
-    background: #374151 !important;
-    border: 1px solid #4b5563 !important;
-    color: #f9fafb !important;
-    border-radius: 6px;
-    padding: 10px 14px;
-}
-
-.login-form .input-text:focus {
-    border-color: #60a5fa !important;
-    box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.2) !important;
-}
-
-.login-form .form-button {
-    background: #2563eb !important;
-    color: #fff !important;
-    border: none !important;
-    border-radius: 6px;
-    padding: 10px 32px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s;
-}
-
-.login-form .form-button:hover {
-    background: #3b82f6 !important;
-}
-
-.login-form a {
-    color: #60a5fa !important;
-}
-
-.login-form a:hover {
-    color: #93bbfd !important;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5) !important;
+    width: 420px !important;
+    max-width: 90% !important;
 }
 
 .login-box .bottom {
     background: transparent !important;
 }
 
+.login-form {
+    background: #1e293b !important;
+    padding: 32px !important;
+}
+
+.login-form h2 {
+    color: #f1f5f9 !important;
+    font-size: 22px;
+    font-weight: 600;
+    text-align: center;
+}
+
+/* Stack fields vertically */
+.login-form .input-box {
+    float: none !important;
+    width: 100% !important;
+    margin-bottom: 16px !important;
+}
+.login-form .input-box.input-left,
+.login-form .input-box.input-right {
+    float: none !important;
+    width: 100% !important;
+}
+
+.login-form label {
+    color: #cbd5e1 !important;
+    font-weight: 500 !important;
+    font-size: 13px !important;
+    margin-bottom: 6px !important;
+    display: block !important;
+}
+
+.login-form .input-text {
+    background: #334155 !important;
+    border: 1px solid #475569 !important;
+    color: #f1f5f9 !important;
+    border-radius: 8px;
+    padding: 11px 14px;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    font-size: 14px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.login-form .input-text:focus {
+    border-color: #60a5fa !important;
+    box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2) !important;
+    outline: none;
+}
+
+/* Buttons */
+.login-form .form-buttons {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    margin-top: 24px !important;
+}
+.login-form .form-buttons::after { display: none !important; }
+.login-form .form-buttons a { float: none !important; }
+.login-form .form-buttons .form-button { float: none !important; }
+
+.login-form .form-button {
+    background: #2563eb !important;
+    color: #fff !important;
+    border: none !important;
+    border-radius: 8px;
+    padding: 11px 36px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.login-form .form-button:hover {
+    background: #3b82f6 !important;
+    transform: translateY(-1px);
+}
+
+/* Links */
+.login-form a {
+    color: #60a5fa !important;
+    font-size: 13px;
+}
+.login-form a:hover {
+    color: #93c5fd !important;
+}
+
+/* Legal text */
 p.legal {
-    color: #6b7280 !important;
+    color: #64748b !important;
     background: transparent !important;
+    margin-top: 24px !important;
+    padding-top: 16px !important;
+    border-top: 1px solid #334155 !important;
+    font-size: 12px;
+    text-align: center;
 }
 
 /* Messages */
 .login-form #messages li.error-msg {
-    background: rgba(239, 68, 68, 0.15) !important;
-    border: 1px solid #f87171 !important;
+    background: rgba(239, 68, 68, 0.12) !important;
+    background-image: none !important;
+    border: 1px solid rgba(248, 113, 113, 0.4) !important;
     color: #f87171 !important;
+    border-radius: 8px;
+    padding: 10px 16px !important;
 }
 
 .login-form #messages li.success-msg {
-    background: rgba(16, 185, 129, 0.15) !important;
-    border: 1px solid #34d399 !important;
+    background: rgba(16, 185, 129, 0.12) !important;
+    background-image: none !important;
+    border: 1px solid rgba(52, 211, 153, 0.4) !important;
     color: #34d399 !important;
+    border-radius: 8px;
+    padding: 10px 16px !important;
 }
 
 /* CAPTCHA */
 .login-form .captcha-note {
-    color: #9ca3af !important;
+    color: #94a3b8 !important;
 }
+
+/* Clear div */
+.login-form .clear { clear: both; }
+
+/* Hide dummy password field */
+.login-form .no-display { display: none !important; }
