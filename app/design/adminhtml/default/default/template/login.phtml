@@ -29,9 +29,10 @@
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <meta name="robots" content="noindex, nofollow" />
-    <title><?php echo Mage::helper('adminhtml')->__('Log into Magento Admin Page') ?></title>
+    <title>Tertiary Infotech Academy - Admin</title>
     <link type="text/css" rel="stylesheet" href="<?php echo $this->getSkinUrl('reset.css') ?>" media="all" />
     <link type="text/css" rel="stylesheet" href="<?php echo $this->getSkinUrl('boxes.css') ?>" media="all" />
+    <link type="text/css" rel="stylesheet" href="<?php echo $this->getSkinUrl('dark-theme-login.css') ?>" media="all" />
     <link rel="icon" href="<?php echo $this->getSkinUrl('favicon.ico') ?>" type="image/x-icon" />
     <link rel="shortcut icon" href="<?php echo $this->getSkinUrl('favicon.ico') ?>" type="image/x-icon" />
 
@@ -51,7 +52,10 @@
             <form method="post" action="" id="loginForm" autocomplete="off">
                 <div class="login-form">
                     <input name="form_key" type="hidden" value="<?php echo $this->getFormKey() ?>" />
-                    <h2><?php echo Mage::helper('adminhtml')->__('Log in to Admin Panel') ?></h2>
+                    <div style="text-align:center;margin-bottom:16px;">
+                        <img src="<?php echo Mage::getBaseUrl('media') ?>favicon/default/favicon_1.png" alt="Tertiary Infotech Academy" style="height:48px;border-radius:6px;" />
+                        <h2 style="margin-top:12px;">Tertiary Infotech Academy</h2>
+                    </div>
                     <div id="messages">
                         <?php echo $this->getMessagesBlock()->toHtml() ?>
                     </div>
@@ -67,7 +71,7 @@
                         <a class="left" href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/index/forgotpassword', array('_nosecret' => true)) ?>"><?php echo Mage::helper('adminhtml')->__('Forgot your password?') ?></a>
                         <input type="submit" class="form-button" value="<?php echo Mage::helper('core')->quoteEscape(Mage::helper('adminhtml')->__('Login')) ?>" title="<?php echo Mage::helper('core')->quoteEscape(Mage::helper('adminhtml')->__('Login')) ?>" /></div>
                 </div>
-                <p class="legal"><?php echo Mage::helper('adminhtml')->__('Magento is a trademark of Magento Inc. Copyright &copy; %s Magento Inc.', date('Y')) ?></p>
+                <p class="legal">Powered by Tertiary Infotech Academy Pte Ltd &copy; <?php echo date('Y') ?></p>
             </form>
             <div class="bottom"></div>
             <script type="text/javascript">
