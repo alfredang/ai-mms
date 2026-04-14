@@ -11,7 +11,7 @@ class MMD_RoleManager_Block_Page_Menu extends Mage_Adminhtml_Block_Page_Menu
      */
     protected $_menuRenames = array(
         'sales'     => 'Course Registration',
-        'catalog'   => 'Class Management',
+        'catalog'   => 'Course Management',
         'customer'  => 'View Learners',
         'system'    => 'Company Setting',
         'marketing' => 'Marketing Management',
