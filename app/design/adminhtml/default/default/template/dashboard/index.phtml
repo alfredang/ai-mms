@@ -177,6 +177,8 @@ function tpFmt($v) { return '$' . number_format($v, 0); }
 $storeId       = (int) $this->getRequest()->getParam('store', 0);
 $countryFilter = $this->getRequest()->getParam('country', '');
 $countryTabs   = array('' => 'ALL','SG' => 'Singapore','MY' => 'Malaysia','GH' => 'Ghana','NG' => 'Nigeria','BT' => 'Bhutan');
+$countryStoreMap = array('SG' => 1, 'MY' => 2, 'GH' => 3, 'NG' => 4, 'BT' => 5);
+$countryStoreId = isset($countryStoreMap[$countryFilter]) ? $countryStoreMap[$countryFilter] : 0;
 
 function _dashCountry($collection, $cc) {
     if (!$cc) return;
@@ -227,19 +229,28 @@ for ($i=11; $i>=0; $i--) {
 $pp = Mage::getResourceModel('reports/product_sold_collection');
 $pp->addOrderedQty(date('Y-m-d 00:00:00', strtotime('-6 months')), date('Y-m-d 23:59:59'));
 $pp->addAttributeToSelect('name')->setOrder('ordered_qty','desc')->setPageSize(10);
+if ($countryFilter) {
+    $orderTable = Mage::getSingleton('core/resource')->getTableName('sales/order');
+    $addrTable  = Mage::getSingleton('core/resource')->getTableName('sales/order_address');
+    $pp->getSelect()
+        ->join(array('so_pc' => $orderTable), 'so_pc.entity_id = order_items.order_id', array())
+        ->join(array('soa_pc' => $addrTable), 'so_pc.entity_id = soa_pc.parent_id AND soa_pc.address_type = "billing"', array())
+        ->where('soa_pc.country_id = ?', $countryFilter);
+}
 $popularCourses = array();
 foreach ($pp as $p) {
     $n = $p->getName() ?: Mage::getModel('catalog/product')->load($p->getId())->getName();
     $popularCourses[] = array('name' => $n ?: 'Product #'.$p->getId(), 'qty' => (int)$p->getOrderedQty());
 }
 
+$_searchStoreFilter = $countryStoreId ?: $storeId;
 $sq = Mage::getModel('catalogsearch/query')->getCollection()->setOrder('popularity','desc')->setPageSize(10);
-if ($storeId) $sq->addFieldToFilter('store_id', $storeId);
+if ($_searchStoreFilter) $sq->addFieldToFilter('store_id', $_searchStoreFilter);
 $popularSearches = array();
 foreach ($sq as $t) { $popularSearches[] = array('term' => $t->getQueryText(), 'count' => (int)$t->getPopularity()); }
 
 $rq = Mage::getModel('catalogsearch/query')->getCollection()->setOrder('query_id','desc')->setPageSize(10);
-if ($storeId) $rq->addFieldToFilter('store_id', $storeId);
+if ($_searchStoreFilter) $rq->addFieldToFilter('store_id', $_searchStoreFilter);
 $recentSearches = array();
 foreach ($rq as $t) {
     $recentSearches[] = array(
