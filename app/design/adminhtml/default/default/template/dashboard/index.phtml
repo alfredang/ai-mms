@@ -418,7 +418,7 @@ $_roleIcon = $_roleHelper ? $_roleHelper->getRoleIcon($activeRole) : '';
         var admin = document.getElementById('dashboard-admin-view');
         var learner = document.getElementById('dashboard-learner-view');
         var suffix = document.querySelector('.head-role-suffix');
-        var isAdmin = (role === 'Admin' || role === 'Training Provider');
+        var isAdmin = (role === 'Super Admin' || role === 'Admin' || role === 'Training Provider' || role === 'Marketing');
         if (admin) admin.style.display = isAdmin ? '' : 'none';
         if (learner) learner.style.display = isAdmin ? 'none' : '';
         if (suffix) suffix.textContent = '— ' + role;
