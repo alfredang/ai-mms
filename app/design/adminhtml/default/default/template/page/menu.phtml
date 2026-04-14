@@ -98,10 +98,30 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
         <span>Dashboard</span>
     </a>
-    <a href="<?php echo $promoCartUrl ?>" class="lms-nav-item">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
-        <span>Promotions</span>
-    </a>
+    <div class="tools-group">
+        <div class="tools-group-toggle" onclick="toggleToolGroup(this)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>
+            <span>Marketing Management</span>
+            <svg class="tools-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="tools-group-items">
+            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/catalog_search') ?>" class="tools-sub-item"><span>Search Terms</span></a>
+            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/catalog_product_review') ?>" class="tools-sub-item"><span>Reviews and Ratings</span></a>
+            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/urlrewrite/index') ?>" class="tools-sub-item"><span>URL Rewrite</span></a>
+            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/sitemap') ?>" class="tools-sub-item"><span>Google Sitemap</span></a>
+        </div>
+    </div>
+    <div class="tools-group">
+        <div class="tools-group-toggle" onclick="toggleToolGroup(this)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
+            <span>Promotions</span>
+            <svg class="tools-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="tools-group-items">
+            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/promo_catalog') ?>" class="tools-sub-item"><span>Catalog Price Rules</span></a>
+            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/promo_quote') ?>" class="tools-sub-item"><span>Shopping Cart Price Rules</span></a>
+        </div>
+    </div>
 </div>
 
 <div class="sidebar-nav sidebar-nav-learner" id="sidebar-nav-learner" style="display:none;">
