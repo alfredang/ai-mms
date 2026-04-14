@@ -4,6 +4,10 @@
  * Uses Chart.js for bar/horizontal bar charts
  */
 
+// --- Role Detection ---
+$activeRole = Mage::helper('mmd_rolemanager')->getActiveRoleCode();
+$isFullDashboard = in_array($activeRole, array('super_admin', 'admin'));
+
 // --- Data Collection ---
 $storeId = (int) $this->getRequest()->getParam('store', 0);
 $websiteId = (int) $this->getRequest()->getParam('website', 0);
@@ -194,11 +198,28 @@ function dashFormatPrice($amount) {
 <div class="content-header">
     <table cellspacing="0">
         <tr>
-            <td><h3 class="head-dashboard"><?php echo $this->__('Dashboard') ?></h3></td>
+            <td><h3 class="head-dashboard"><?php echo $this->__('Dashboard') ?> <span style="font-size:14px;color:var(--t4);font-weight:400;">— <?php echo Mage::helper('mmd_rolemanager')->getRoleIcon($activeRole) ?> <?php echo Mage::helper('mmd_rolemanager')->getRoleLabel($activeRole) ?></span></h3></td>
         </tr>
     </table>
 </div>
 
+<?php if (!$isFullDashboard): ?>
+<!-- Role-specific dashboard for Learner/Trainer -->
+<div class="dashboard-modern">
+    <div class="chart-card" style="padding:40px;text-align:center;">
+        <div style="font-size:48px;margin-bottom:16px;"><?php echo Mage::helper('mmd_rolemanager')->getRoleIcon($activeRole) ?></div>
+        <h3 style="color:var(--t1);margin-bottom:8px;"><?php echo Mage::helper('mmd_rolemanager')->getRoleLabel($activeRole) ?> Dashboard</h3>
+        <p style="color:var(--t4);font-size:14px;">
+            <?php if ($activeRole === 'learner'): ?>
+                Welcome! View your enrolled courses, track progress, and download certificates.
+            <?php elseif ($activeRole === 'trainer'): ?>
+                Manage your classes, track attendance, and access training tools.
+            <?php endif; ?>
+        </p>
+    </div>
+</div>
+<?php else: ?>
+<!-- Full Admin/Super Admin Dashboard -->
 <div class="dashboard-modern">
 
     <!-- Country Filter Tabs -->
@@ -335,7 +356,9 @@ function dashFormatPrice($amount) {
     </div>
 
 </div>
+<?php endif; /* end $isFullDashboard */ ?>
 
+<?php if ($isFullDashboard): ?>
 <!-- Chart.js from CDN -->
 <script type="text/javascript">
 //<![CDATA[
@@ -534,3 +557,4 @@ document.observe('dom:loaded', function() {
 });
 //]]>
 </script>
+<?php endif; /* end Chart.js for full dashboard */ ?>

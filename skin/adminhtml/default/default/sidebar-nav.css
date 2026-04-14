@@ -1704,3 +1704,104 @@ button.filter-search-btn span {
     top: 2px;
     margin-left: 4px;
 }
+
+/* ============================================================
+   Role Switcher Dropdown
+   ============================================================ */
+.role-switcher-wrapper {
+    position: relative;
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 16px;
+}
+.role-switcher-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    background: var(--d3);
+    border: 1px solid var(--b1);
+    border-radius: 8px;
+    color: var(--t2) !important;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+.role-switcher-btn:hover {
+    background: var(--d4);
+    border-color: var(--blue);
+}
+.role-switcher-btn .role-icon {
+    font-size: 16px;
+}
+.role-switcher-btn .role-view-as {
+    color: var(--t4);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.role-switcher-btn .role-current {
+    color: var(--t1);
+    font-weight: 600;
+}
+.role-switcher-btn .role-chevron {
+    font-size: 8px;
+    color: var(--t4);
+    margin-left: 2px;
+}
+.role-switcher-dropdown {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    min-width: 220px;
+    background: var(--d3);
+    border: 1px solid var(--b1);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    z-index: 9999;
+    padding: 8px 0;
+    overflow: hidden;
+}
+.role-switcher-header {
+    padding: 8px 16px 6px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    color: var(--t5);
+    text-transform: uppercase;
+}
+.role-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    color: var(--t2) !important;
+    text-decoration: none !important;
+    font-size: 14px;
+    transition: background 0.15s ease;
+    cursor: pointer;
+}
+.role-option:hover {
+    background: var(--d4);
+    color: var(--t1) !important;
+}
+.role-option.active {
+    background: rgba(96, 165, 250, 0.1);
+    color: var(--blue) !important;
+}
+.role-option-icon {
+    font-size: 18px;
+    width: 24px;
+    text-align: center;
+}
+.role-option-label {
+    flex: 1;
+    font-weight: 500;
+}
+.role-option-check {
+    color: var(--blue);
+    font-size: 14px;
+    font-weight: 700;
+}

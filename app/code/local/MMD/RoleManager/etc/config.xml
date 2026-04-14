@@ -1,0 +1,96 @@
+<?xml version="1.0"?>
+<config>
+    <modules>
+        <MMD_RoleManager>
+            <version>1.0.0</version>
+        </MMD_RoleManager>
+    </modules>
+
+    <global>
+        <models>
+            <mmd_rolemanager>
+                <class>MMD_RoleManager_Model</class>
+                <resourceModel>mmd_rolemanager_mysql4</resourceModel>
+            </mmd_rolemanager>
+            <mmd_rolemanager_mysql4>
+                <class>MMD_RoleManager_Model_Mysql4</class>
+                <entities>
+                    <role_map>
+                        <table>mmd_user_role_map</table>
+                    </role_map>
+                </entities>
+            </mmd_rolemanager_mysql4>
+        </models>
+
+        <blocks>
+            <mmd_rolemanager>
+                <class>MMD_RoleManager_Block</class>
+            </mmd_rolemanager>
+            <adminhtml>
+                <rewrite>
+                    <page_menu>MMD_RoleManager_Block_Page_Menu</page_menu>
+                </rewrite>
+            </adminhtml>
+        </blocks>
+
+        <helpers>
+            <mmd_rolemanager>
+                <class>MMD_RoleManager_Helper</class>
+            </mmd_rolemanager>
+        </helpers>
+
+        <resources>
+            <mmd_rolemanager_setup>
+                <setup>
+                    <module>MMD_RoleManager</module>
+                </setup>
+                <connection>
+                    <use>core_setup</use>
+                </connection>
+            </mmd_rolemanager_setup>
+            <mmd_rolemanager_write>
+                <connection>
+                    <use>core_write</use>
+                </connection>
+            </mmd_rolemanager_write>
+            <mmd_rolemanager_read>
+                <connection>
+                    <use>core_read</use>
+                </connection>
+            </mmd_rolemanager_read>
+        </resources>
+
+        <events>
+            <admin_session_user_login_success>
+                <observers>
+                    <mmd_rolemanager_login>
+                        <class>mmd_rolemanager/observer</class>
+                        <method>onAdminLogin</method>
+                    </mmd_rolemanager_login>
+                </observers>
+            </admin_session_user_login_success>
+        </events>
+    </global>
+
+    <admin>
+        <routers>
+            <adminhtml>
+                <args>
+                    <modules>
+                        <MMD_RoleManager before="Mage_Adminhtml">MMD_RoleManager_Adminhtml</MMD_RoleManager>
+                    </modules>
+                </args>
+            </adminhtml>
+        </routers>
+    </admin>
+
+    <adminhtml>
+        <layout>
+            <updates>
+                <mmd_rolemanager>
+                    <file>rolemanager.xml</file>
+                </mmd_rolemanager>
+            </updates>
+        </layout>
+    </adminhtml>
+</config>

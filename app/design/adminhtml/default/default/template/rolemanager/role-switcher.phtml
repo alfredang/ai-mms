@@ -1,0 +1,83 @@
+<?php
+/** @var MMD_RoleManager_Block_Page_Header_RoleSwitcher $this */
+$roles      = $this->getUserRoles();
+$activeRole = $this->getActiveRoleCode();
+$switchUrl  = $this->getSwitchUrl();
+$showSwitcher = $this->shouldShow();
+?>
+
+<div class="role-switcher-wrapper" id="role-switcher-wrapper">
+    <button type="button" class="role-switcher-btn" id="role-switcher-btn" onclick="RoleSwitcher.toggle()">
+        <span class="role-icon"><?php echo $this->getRoleIcon($activeRole) ?></span>
+        <span class="role-view-as">View As:</span>
+        <span class="role-current"><?php echo $this->escapeHtml($this->getRoleLabel($activeRole)) ?></span>
+        <?php if ($showSwitcher): ?>
+        <span class="role-chevron">&#9660;</span>
+        <?php endif; ?>
+    </button>
+
+    <?php if ($showSwitcher): ?>
+    <div class="role-switcher-dropdown" id="role-switcher-dropdown" style="display:none">
+        <div class="role-switcher-header">SWITCH ROLE</div>
+        <?php foreach ($roles as $roleCode): ?>
+        <a href="#" class="role-option <?php echo ($roleCode === $activeRole) ? 'active' : '' ?>"
+           onclick="RoleSwitcher.switchTo('<?php echo $this->escapeHtml($roleCode) ?>'); return false;">
+            <span class="role-option-icon"><?php echo $this->getRoleIcon($roleCode) ?></span>
+            <span class="role-option-label"><?php echo $this->escapeHtml($this->getRoleLabel($roleCode)) ?></span>
+            <?php if ($roleCode === $activeRole): ?>
+            <span class="role-option-check">&#10003;</span>
+            <?php endif; ?>
+        </a>
+        <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
+</div>
+
+<script type="text/javascript">
+//<![CDATA[
+var RoleSwitcher = {
+    switchUrl: '<?php echo $switchUrl ?>',
+    formKey: '<?php echo Mage::getSingleton('core/session')->getFormKey() ?>',
+
+    toggle: function() {
+        var dd = $('role-switcher-dropdown');
+        if (dd) {
+            dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+        }
+    },
+
+    switchTo: function(roleCode) {
+        new Ajax.Request(this.switchUrl, {
+            method: 'post',
+            parameters: {
+                role_code: roleCode,
+                form_key: this.formKey
+            },
+            onSuccess: function(transport) {
+                var response = transport.responseText.evalJSON();
+                if (response.success) {
+                    window.location.href = response.redirect || window.location.href;
+                } else {
+                    alert(response.message || 'Failed to switch role');
+                }
+            },
+            onFailure: function() {
+                alert('Failed to switch role. Please try again.');
+            }
+        });
+    },
+
+    closeOnOutsideClick: function(e) {
+        var wrapper = $('role-switcher-wrapper');
+        if (wrapper && !wrapper.contains(e.target)) {
+            var dd = $('role-switcher-dropdown');
+            if (dd) dd.style.display = 'none';
+        }
+    }
+};
+
+document.observe('click', function(e) {
+    RoleSwitcher.closeOnOutsideClick(e);
+});
+//]]>
+</script>

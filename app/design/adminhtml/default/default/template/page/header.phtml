@@ -28,6 +28,7 @@
 ?>
 <div class="header-top">
     <div class="header-right">
+        <?php echo $this->getChildHtml('role_switcher') ?>
         <p class="super">
             <?php echo $this->__("Logged in as %s", $this->escapeHtml($this->getUser()->getUsername())) ?><span class="separator">|</span><?php echo $this->formatDate(null, 'full') ?><span class="separator">|</span><a href="<?php echo $this->getLogoutLink() ?>" class="link-logout"><?php echo $this->__('Log Out') ?></a>
         </p>
