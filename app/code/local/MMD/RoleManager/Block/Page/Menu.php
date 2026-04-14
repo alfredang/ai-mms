@@ -45,6 +45,18 @@ class MMD_RoleManager_Block_Page_Menu extends Mage_Adminhtml_Block_Page_Menu
             }
         }
 
+        // Rename sales sub-items: Orders → Registrations
+        if (isset($menu['sales']['children'])) {
+            $salesRenames = array(
+                'order' => 'Registrations',
+            );
+            foreach ($salesRenames as $childKey => $childLabel) {
+                if (isset($menu['sales']['children'][$childKey])) {
+                    $menu['sales']['children'][$childKey]['label'] = $childLabel;
+                }
+            }
+        }
+
         // Rename customer sub-items: Customer → Learner
         if (isset($menu['customer']['children'])) {
             $childRenames = array(
