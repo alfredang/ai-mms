@@ -11,31 +11,41 @@ class MMD_RoleManager_Model_Observer
             $helper  = Mage::helper('mmd_rolemanager');
             $session = Mage::getSingleton('admin/session');
 
-            // Load all roles for this user
-            $roles = $helper->getUserRolesFromDb($user->getId());
-
-            // Store roles in session
-            $session->setUserRoles($roles);
-
-            // Find primary role
+            // Check if the user has an explicit mapping in mmd_user_role_map
+            $hasMapping = false;
             $primaryRole = null;
             try {
                 $collection = Mage::getModel('mmd_rolemanager/role_map')->getCollection()
-                    ->addFieldToFilter('user_id', $user->getId())
-                    ->addFieldToFilter('is_primary', 1);
+                    ->addFieldToFilter('user_id', $user->getId());
                 if ($collection->getSize()) {
-                    $primaryRole = $collection->getFirstItem()->getRoleCode();
+                    $hasMapping = true;
+                    foreach ($collection as $item) {
+                        if ($item->getIsPrimary()) {
+                            $primaryRole = $item->getRoleCode();
+                            break;
+                        }
+                    }
+                    if (!$primaryRole) {
+                        $primaryRole = $collection->getFirstItem()->getRoleCode();
+                    }
                 }
             } catch (Exception $e) {
-                // Table may not exist yet
-            }
-            if (!$primaryRole) {
-                $primaryRole = $roles[0];
+                // Table may not exist yet — treat as unmapped
             }
 
-            // Set active role and update ACL
-            $session->setActiveRoleCode($primaryRole);
-            $helper->applyRoleAcl($user->getId(), $primaryRole);
+            if ($hasMapping && $primaryRole) {
+                // Store roles from DB mapping only
+                $roles = $helper->getUserRolesFromDb($user->getId());
+                $session->setUserRoles($roles);
+                $session->setActiveRoleCode($primaryRole);
+                $helper->applyRoleAcl($user->getId(), $primaryRole);
+            } else {
+                // No explicit mapping — leave the user's existing admin_role
+                // assignment untouched. Still expose a role code in session so
+                // the dashboard/UI can render something sensible.
+                $session->setUserRoles(array($helper::ROLE_SUPER_ADMIN));
+                $session->setActiveRoleCode($helper::ROLE_SUPER_ADMIN);
+            }
         } catch (Exception $e) {
             Mage::logException($e);
         }
