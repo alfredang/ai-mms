@@ -632,12 +632,14 @@ foreach ($coc as $row) {
 <script type="text/javascript">
 (function(){
     function showPanel(role) {
+        // Temporarily show admin dashboard (charts) for all roles
+        // TODO: restore per-role dashboards once role UIs are configured
         var panels = {
             'Admin':             'dash-panel-superadmin',
-            'Marketing':         'dash-panel-admin',
-            'Training Provider': 'dash-panel-trainingprovider',
-            'Learner':           'dash-panel-learner',
-            'Trainer':           'dash-panel-learner'
+            'Marketing':         'dash-panel-superadmin',
+            'Training Provider': 'dash-panel-superadmin',
+            'Learner':           'dash-panel-superadmin',
+            'Trainer':           'dash-panel-superadmin'
         };
         var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-trainingprovider','dash-panel-learner'];
         for (var i=0; i<all.length; i++) {
@@ -652,9 +654,8 @@ foreach ($coc as $row) {
         if (suffix) suffix.textContent = ' — ' + role;
     }
 
-    // Read saved role from localStorage
-    var role = 'Admin';
-    try { var saved = localStorage.getItem('adminViewAs'); if (saved) role = saved; } catch(e) {}
+    // Read active role from server session (set by role selection/switch)
+    var role = '<?php echo htmlspecialchars($_roleLabel) ?>';
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function(){ showPanel(role); });
