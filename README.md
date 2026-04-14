@@ -40,16 +40,31 @@ docker compose up -d --build
 # Import the database (place courses_mysql2.sql in project root)
 docker exec -i ai-mms-db_mysql-1 mysql -u root -p$MYSQL_ROOT_PASSWORD $MYSQL_DATABASE < courses_mysql2.sql
 
-# Update base URLs for localhost
-docker exec -i ai-mms-db_mysql-1 mysql -u root -p$MYSQL_ROOT_PASSWORD $MYSQL_DATABASE -e "
-UPDATE core_config_data SET value='http://localhost:8080/' WHERE path IN ('web/unsecure/base_url','web/secure/base_url');
-UPDATE core_config_data SET value='0' WHERE path='web/secure/use_in_frontend';
-UPDATE core_config_data SET value='0' WHERE path='web/secure/use_in_adminhtml';
-"
+# Apply migrations (localhost URLs, config fixes, enable all products)
+for f in migrations/*.sql; do
+  docker exec -i ai-mms-db_mysql-1 mysql -u root -p$MYSQL_ROOT_PASSWORD $MYSQL_DATABASE < "$f"
+done
+
+# Copy local.xml template and update credentials to match .env
+cp app/etc/local.xml.example app/etc/local.xml
+
+# Install composer dependencies inside the web container
+docker exec ai-mms-web-1 bash -c 'cd /var/www/html && curl -sS https://getcomposer.org/installer | php && mv composer.phar /usr/local/bin/composer && composer install --no-dev --optimize-autoloader'
 
 # Clear cache
 docker exec ai-mms-web-1 bash -c 'rm -rf /var/www/html/var/cache/*'
 ```
+
+### Migrations
+
+The `migrations/` folder contains incremental SQL fixes applied on top of the base DB dump:
+
+| File | Purpose |
+|------|---------|
+| `001-remove-orphan-eav-entity-types.sql` | Removes broken EAV entities that crash product sliders in dev mode |
+| `002-disable-customoptions-inventory.sql` | Disables per-option inventory so registration form works |
+| `003-enable-all-products.sql` | Enables all ~441 disabled products for local dev visibility |
+| `004-set-localhost-urls.sql` | Points base URLs at `localhost:8080` |
 
 ### Access
 
