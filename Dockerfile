@@ -45,11 +45,17 @@ COPY docker/php.ini /usr/local/etc/php/conf.d/magento.ini
 # Copy Apache vhost config
 COPY docker/apache-vhost.conf /etc/apache2/sites-available/000-default.conf
 
+# Install Composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
 # Set working directory
 WORKDIR /var/www/html
 
 # Copy application files
 COPY . /var/www/html/
+
+# Install Composer dependencies
+RUN composer install --no-dev --no-interaction --optimize-autoloader
 
 # Set proper permissions for Apache
 RUN chown -R www-data:www-data /var/www/html
