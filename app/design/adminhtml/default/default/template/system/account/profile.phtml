@@ -1,0 +1,143 @@
+<?php
+/** @var MMD_Adminhtml_Block_System_Account_Edit $this */
+$user = $this->getUser();
+$roles = $this->getUserRoles();
+$firstName = $this->escapeHtml($user->getFirstname());
+$lastName = $this->escapeHtml($user->getLastname());
+$fullName = $firstName . ' ' . $lastName;
+$email = $this->escapeHtml($user->getEmail());
+$initials = strtoupper(substr($firstName, 0, 1) . substr($lastName, 0, 1));
+$roleLabels = array();
+foreach ($roles as $rc) { $roleLabels[] = $this->getRoleLabel($rc); }
+$roleSubtitle = implode(' & ', $roleLabels);
+$formKey = Mage::getSingleton('core/session')->getFormKey();
+$minPwLen = $this->getMinPasswordLength();
+
+$roleColors = array(
+    'learner'           => '#22c55e',
+    'trainer'           => '#f59e0b',
+    'admin'             => '#3b82f6',
+    'marketing'         => '#a855f7',
+    'training_provider' => '#06b6d4',
+    'developer'         => '#ef4444',
+    'finance'           => '#64748b',
+);
+?>
+<style>
+.profile-card{background:rgba(30,41,59,0.85);border:1px solid #334155;border-radius:16px;padding:32px;margin-bottom:24px}
+.profile-header{display:flex;align-items:center;gap:24px}
+.profile-avatar{width:80px;height:80px;border-radius:50%;background:#1e3a5f;border:3px solid #06b6d4;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;color:#93c5fd;flex-shrink:0}
+.profile-info{flex:1}
+.profile-name{font-size:22px;font-weight:700;color:#f1f5f9;margin:0 0 4px}
+.profile-subtitle{color:#94a3b8;font-size:14px;margin:0 0 10px}
+.profile-roles{display:flex;flex-wrap:wrap;gap:8px}
+.role-badge{padding:4px 14px;border-radius:20px;font-size:12px;font-weight:600;border:1.5px solid;background:transparent}
+.profile-edit-btn{padding:10px 28px;background:#06b6d4;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0}
+.profile-edit-btn:hover{background:#0891b2}
+
+.bio-section{background:rgba(30,41,59,0.85);border:1px solid #334155;border-radius:16px;padding:32px;margin-bottom:24px}
+.bio-title{font-size:18px;font-weight:700;color:#f1f5f9;margin:0 0 20px}
+.bio-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px 40px}
+.bio-label{color:#94a3b8;font-size:12px;margin:0 0 4px}
+.bio-value{color:#f1f5f9;font-size:15px;font-weight:500;margin:0}
+.bio-divider{border:none;border-top:1px solid #334155;margin:20px 0}
+
+.edit-section{background:rgba(30,41,59,0.85);border:1px solid #334155;border-radius:16px;padding:32px;display:none}
+.edit-section.active{display:block}
+.edit-title{font-size:18px;font-weight:700;color:#f1f5f9;margin:0 0 24px}
+.edit-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px 24px}
+.edit-field label{display:block;color:#94a3b8;font-size:13px;font-weight:500;margin:0 0 6px}
+.edit-field input{width:100%;padding:10px 14px;background:#334155;border:1px solid #475569;border-radius:8px;color:#f1f5f9;font-size:14px;outline:none;box-sizing:border-box}
+.edit-field input:focus{border-color:#60a5fa;box-shadow:0 0 0 3px rgba(96,165,250,0.15)}
+.edit-field.full-width{grid-column:1/-1}
+.edit-note{color:#64748b;font-size:12px;margin:4px 0 0}
+.edit-actions{display:flex;gap:12px;margin-top:24px}
+.btn-save{padding:10px 32px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}
+.btn-save:hover{background:#3b82f6}
+.btn-cancel{padding:10px 32px;background:transparent;color:#94a3b8;border:1px solid #475569;border-radius:8px;font-size:14px;cursor:pointer}
+.btn-cancel:hover{color:#f1f5f9;border-color:#64748b}
+</style>
+
+<?php echo $this->getMessagesBlock()->toHtml() ?>
+
+<div class="profile-card">
+    <div class="profile-header">
+        <div class="profile-avatar"><?php echo $initials ?></div>
+        <div class="profile-info">
+            <h2 class="profile-name"><?php echo $fullName ?></h2>
+            <p class="profile-subtitle"><?php echo $this->escapeHtml($roleSubtitle) ?></p>
+            <div class="profile-roles">
+                <?php foreach ($roles as $rc):
+                    $color = isset($roleColors[$rc]) ? $roleColors[$rc] : '#64748b';
+                ?>
+                <span class="role-badge" style="color:<?php echo $color ?>;border-color:<?php echo $color ?>;"><?php echo $this->escapeHtml($this->getRoleLabel($rc)) ?></span>
+                <?php endforeach; ?>
+            </div>
+        </div>
+        <button type="button" class="profile-edit-btn" onclick="toggleEdit()">Edit Profile</button>
+    </div>
+</div>
+
+<div class="bio-section" id="bio-section">
+    <h3 class="bio-title">Bio Data</h3>
+    <div class="bio-grid">
+        <div><p class="bio-label">Name</p><p class="bio-value"><?php echo $fullName ?></p></div>
+        <div><p class="bio-label">Email</p><p class="bio-value"><?php echo $email ?></p></div>
+        <div><p class="bio-label">Roles</p><p class="bio-value"><?php echo $this->escapeHtml($roleSubtitle) ?></p></div>
+    </div>
+</div>
+
+<div class="edit-section" id="edit-section">
+    <h3 class="edit-title">Edit Profile</h3>
+    <form method="post" action="<?php echo $this->getSaveUrl() ?>" id="edit_form">
+        <input type="hidden" name="form_key" value="<?php echo $formKey ?>" />
+        <input type="hidden" name="user_id" value="<?php echo $user->getId() ?>" />
+        <input type="hidden" name="username" id="hidden-username" value="<?php echo $email ?>" />
+
+        <div class="edit-grid">
+            <div class="edit-field">
+                <label for="pf-firstname">First Name *</label>
+                <input type="text" id="pf-firstname" name="firstname" value="<?php echo $firstName ?>" required />
+            </div>
+            <div class="edit-field">
+                <label for="pf-lastname">Last Name *</label>
+                <input type="text" id="pf-lastname" name="lastname" value="<?php echo $lastName ?>" required />
+            </div>
+            <div class="edit-field full-width">
+                <label for="pf-email">Email *</label>
+                <input type="email" id="pf-email" name="email" value="<?php echo $email ?>" required onchange="document.getElementById('hidden-username').value=this.value" />
+            </div>
+            <div class="edit-field full-width" style="border-top:1px solid #334155;padding-top:16px;margin-top:8px;">
+                <label for="pf-current-pw">Current Password * <span style="color:#64748b;font-weight:400;">(required to save changes)</span></label>
+                <input type="password" id="pf-current-pw" name="current_password" required autocomplete="current-password" />
+            </div>
+            <div class="edit-field">
+                <label for="pf-new-pw">New Password</label>
+                <input type="password" id="pf-new-pw" name="new_password" autocomplete="new-password" />
+                <p class="edit-note">Leave blank to keep current. Min <?php echo $minPwLen ?> characters.</p>
+            </div>
+            <div class="edit-field">
+                <label for="pf-confirm-pw">Confirm Password</label>
+                <input type="password" id="pf-confirm-pw" name="password_confirmation" autocomplete="new-password" />
+            </div>
+        </div>
+        <div class="edit-actions">
+            <button type="submit" class="btn-save">Save Changes</button>
+            <button type="button" class="btn-cancel" onclick="toggleEdit()">Cancel</button>
+        </div>
+    </form>
+</div>
+
+<script type="text/javascript">
+function toggleEdit() {
+    var bio = document.getElementById('bio-section');
+    var edit = document.getElementById('edit-section');
+    if (edit.classList.contains('active')) {
+        edit.classList.remove('active');
+        bio.style.display = '';
+    } else {
+        edit.classList.add('active');
+        bio.style.display = 'none';
+    }
+}
+</script>
