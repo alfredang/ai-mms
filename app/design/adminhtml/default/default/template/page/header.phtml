@@ -155,6 +155,8 @@ function selectViewAs(btn) {
     document.getElementById('view-as').classList.remove('open');
     try { localStorage.setItem('adminViewAs', role); } catch(e) {}
     renderHeaderNav(role);
+    if (typeof window.__applyDashboardRole === 'function') window.__applyDashboardRole(role);
+    if (typeof window.__applySidebarRole === 'function') window.__applySidebarRole(role);
 }
 (function(){
     var role = 'Admin';

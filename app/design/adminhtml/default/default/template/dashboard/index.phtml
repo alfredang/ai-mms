@@ -210,10 +210,51 @@ $_roleIcon = $_roleHelper ? $_roleHelper->getRoleIcon($activeRole) : '';
 <div class="content-header">
     <table cellspacing="0">
         <tr>
-            <td><h3 class="head-dashboard"><?php echo $this->__('Dashboard') ?> <span style="font-size:14px;color:var(--t4);font-weight:400;">— <?php echo $_roleIcon ?> <?php echo $_roleLabel ?></span></h3></td>
+            <td><h3 class="head-dashboard"><?php echo $this->__('Dashboard') ?> <span class="head-role-suffix" style="font-size:14px;color:var(--t4);font-weight:400;">— <?php echo $_roleIcon ?> <?php echo $_roleLabel ?></span></h3></td>
         </tr>
     </table>
 </div>
+
+<!-- Learner view (hidden by default; shown via JS when View As = Learner/Trainer) -->
+<div class="dashboard-learner-view" id="dashboard-learner-view" style="display:none;">
+    <div class="lms-kpi-cards">
+        <div class="lms-kpi-card lms-current">
+            <div class="lms-kpi-value">0</div>
+            <div class="lms-kpi-label">Current Classes</div>
+        </div>
+        <div class="lms-kpi-card lms-upcoming">
+            <div class="lms-kpi-value">0</div>
+            <div class="lms-kpi-label">Upcoming Classes</div>
+        </div>
+        <div class="lms-kpi-card lms-past">
+            <div class="lms-kpi-value">0</div>
+            <div class="lms-kpi-label">Past Classes</div>
+        </div>
+    </div>
+
+    <div class="lms-tabs">
+        <button class="lms-tab active">All Classes</button>
+        <button class="lms-tab">Current Classes</button>
+        <button class="lms-tab">Upcoming Classes</button>
+        <button class="lms-tab">Past Classes</button>
+    </div>
+
+    <div class="lms-search">
+        <svg class="lms-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="text" class="lms-search-input" placeholder="Search by course code, title, or run ID..." />
+    </div>
+
+    <div class="lms-empty">
+        <div class="lms-empty-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+        </div>
+        <div class="lms-empty-title">No enrolled courses found</div>
+        <div class="lms-empty-sub">You haven't enrolled in any courses yet</div>
+    </div>
+</div>
+
+<!-- Admin view wrapper (original dashboard content) -->
+<div class="dashboard-admin-view" id="dashboard-admin-view">
 
 <?php if (!$isFullDashboard): ?>
 <!-- Role-specific dashboard for Learner/Trainer -->
@@ -369,6 +410,32 @@ $_roleIcon = $_roleHelper ? $_roleHelper->getRoleIcon($activeRole) : '';
 
 </div>
 <?php endif; /* end $isFullDashboard */ ?>
+</div> <!-- end: dashboard-admin-view -->
+
+<script type="text/javascript">
+(function(){
+    function applyRole(role) {
+        var admin = document.getElementById('dashboard-admin-view');
+        var learner = document.getElementById('dashboard-learner-view');
+        var suffix = document.querySelector('.head-role-suffix');
+        var isAdmin = (role === 'Admin' || role === 'Training Provider');
+        if (admin) admin.style.display = isAdmin ? '' : 'none';
+        if (learner) learner.style.display = isAdmin ? 'none' : '';
+        if (suffix) suffix.textContent = '— ' + role;
+    }
+    var role = 'Admin';
+    try {
+        var saved = localStorage.getItem('adminViewAs');
+        if (saved) role = saved;
+    } catch(e) {}
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function(){ applyRole(role); });
+    } else {
+        applyRole(role);
+    }
+    window.__applyDashboardRole = applyRole;
+})();
+</script>
 
 <?php if ($isFullDashboard): ?>
 <!-- Chart.js from CDN -->
