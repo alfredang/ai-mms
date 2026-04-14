@@ -30,49 +30,42 @@
 $userName = $this->escapeHtml($this->getUser()->getUsername());
 $currentDate = date('D d M');
 $currentTime = date('h:i A');
+
+$helper = Mage::helper('mmd_rolemanager');
+$activeRole = $helper->getActiveRoleCode();
+$activeRoleLabel = $helper->getRoleLabel($activeRole);
+$userRoles = $helper->getUserRoles();
+$switchUrl = Mage::helper('adminhtml')->getUrl('adminhtml/roleswitch/switch');
+$roleIcons = array(
+    'learner' => '&#x1F4DA;',
+    'trainer' => '&#x1F468;&#x200D;&#x1F3EB;',
+    'marketing' => '&#x1F4E3;',
+    'admin' => '&#x2699;&#xFE0F;',
+    'training_provider' => '&#x1F3E2;',
+);
 ?>
 <div class="header-top lms-header">
-    <nav class="header-nav" id="header-nav">
-        <!-- Populated dynamically by role -->
-    </nav>
-
     <div class="header-right">
+        <?php if (count($userRoles) > 1): ?>
         <div class="view-as-wrap" id="view-as">
             <button type="button" class="view-as-pill" onclick="document.getElementById('view-as').classList.toggle('open')">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
                 <span class="view-as-label">View As:</span>
-                <strong class="view-as-role" id="view-as-role">Learner</strong>
+                <strong class="view-as-role"><?php echo $this->escapeHtml($activeRoleLabel) ?></strong>
                 <svg class="view-as-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
             <div class="view-as-dropdown">
                 <div class="view-as-heading">SWITCH ROLE</div>
-                <button type="button" class="view-as-option active" data-role="Learner" onclick="selectViewAs(this)">
-                    <span class="view-as-emoji">📚</span>
-                    <span class="view-as-option-title">Learner</span>
+                <?php foreach ($userRoles as $rc): ?>
+                <button type="button" class="view-as-option<?php echo ($rc === $activeRole) ? ' active' : '' ?>" data-role="<?php echo $this->escapeHtml($rc) ?>" onclick="switchRole(this)">
+                    <span class="view-as-emoji"><?php echo isset($roleIcons[$rc]) ? $roleIcons[$rc] : '' ?></span>
+                    <span class="view-as-option-title"><?php echo $this->escapeHtml($helper->getRoleLabel($rc)) ?></span>
                     <svg class="view-as-check" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
                 </button>
-                <button type="button" class="view-as-option" data-role="Trainer" onclick="selectViewAs(this)">
-                    <span class="view-as-emoji">👨‍🏫</span>
-                    <span class="view-as-option-title">Trainer</span>
-                    <svg class="view-as-check" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                </button>
-                <button type="button" class="view-as-option" data-role="Marketing" onclick="selectViewAs(this)">
-                    <span class="view-as-emoji">📣</span>
-                    <span class="view-as-option-title">Marketing</span>
-                    <svg class="view-as-check" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                </button>
-                <button type="button" class="view-as-option" data-role="Super Admin" onclick="selectViewAs(this)">
-                    <span class="view-as-emoji">⚙️</span>
-                    <span class="view-as-option-title">Super Admin</span>
-                    <svg class="view-as-check" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                </button>
-                <button type="button" class="view-as-option" data-role="Training Provider" onclick="selectViewAs(this)">
-                    <span class="view-as-emoji">🏢</span>
-                    <span class="view-as-option-title">Training Provider</span>
-                    <svg class="view-as-check" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                </button>
+                <?php endforeach; ?>
             </div>
         </div>
+        <?php endif; ?>
 
         <div class="user-menu" id="user-menu">
             <button type="button" class="user-avatar-btn" onclick="document.getElementById('user-menu').classList.toggle('open')" title="<?php echo $userName ?>">
@@ -110,83 +103,29 @@ $currentTime = date('h:i A');
     </div>
 </div>
 <script type="text/javascript">
-window.__dashboardUrl = '<?php echo $this->getUrl('adminhtml/dashboard') ?>';
+function switchRole(btn) {
+    var roleCode = btn.getAttribute('data-role');
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '<?php echo $switchUrl ?>');
+    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+    xhr.onload = function() {
+        try {
+            var resp = JSON.parse(xhr.responseText);
+            if (resp.success && resp.redirect) {
+                window.location.href = resp.redirect;
+            }
+        } catch(e) {
+            window.location.reload();
+        }
+    };
+    xhr.send('role_code=' + encodeURIComponent(roleCode) + '&form_key=<?php echo Mage::getSingleton('core/session')->getFormKey() ?>');
+}
 document.addEventListener('click', function(e) {
     var menu = document.getElementById('user-menu');
     if (menu && !menu.contains(e.target)) menu.classList.remove('open');
     var viewAs = document.getElementById('view-as');
     if (viewAs && !viewAs.contains(e.target)) viewAs.classList.remove('open');
 });
-var ROLE_NAV = {
-    'Learner': [
-        {label:'My Classes', svg:'<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>'},
-        {label:'Certificate', svg:'<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>'},
-        {label:'Billing', svg:'<circle cx="12" cy="12" r="10"/><line x1="12" y1="6" x2="12" y2="18"/><path d="M15 9.5a2.5 2.5 0 0 0-2.5-2.5h-1a2.5 2.5 0 0 0 0 5h1a2.5 2.5 0 0 1 0 5h-1a2.5 2.5 0 0 1-2.5-2.5"/>'}
-    ],
-    'Trainer': [
-        {label:'My Classes', svg:'<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>'},
-        {label:'E-Attendance', svg:'<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>'},
-        {label:'Ed Tools', svg:'<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>'},
-        {label:'GenAI Tools', svg:'<path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>'}
-    ],
-    'Super Admin': [
-        {label:'Dashboard', svg:'<rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/>'},
-        {label:'Catalog', svg:'<path d="M20 7h-7L10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/>'},
-        {label:'Sales', svg:'<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>'},
-        {label:'Reports', svg:'<path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/>'}
-    ],
-    'Marketing': [
-        {label:'Campaigns', svg:'<path d="M3 11l18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>'},
-        {label:'Promotions', svg:'<line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>'},
-        {label:'CMS Pages', svg:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>'},
-        {label:'Newsletter', svg:'<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>'}
-    ],
-    'Training Provider': [
-        {label:'Providers', svg:'<path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/>'},
-        {label:'Courses', svg:'<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>'},
-        {label:'Reports', svg:'<path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/>'}
-    ]
-};
-function renderHeaderNav(role) {
-    var items = ROLE_NAV[role] || ROLE_NAV['Admin'];
-    var dashUrl = (window.__dashboardUrl) || '#';
-    var html = '';
-    for (var i = 0; i < items.length; i++) {
-        var href = (i === 0) ? dashUrl : '#';
-        html += '<a href="' + href + '" class="header-nav-item' + (i===0?' active':'') + '">' +
-                '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' + items[i].svg + '</svg>' +
-                '<span>' + items[i].label + '</span></a>';
-    }
-    var nav = document.getElementById('header-nav');
-    if (nav) nav.innerHTML = html;
-}
-function selectViewAs(btn) {
-    var role = btn.getAttribute('data-role');
-    document.getElementById('view-as-role').textContent = role;
-    var options = document.querySelectorAll('.view-as-option');
-    for (var i = 0; i < options.length; i++) options[i].classList.remove('active');
-    btn.classList.add('active');
-    document.getElementById('view-as').classList.remove('open');
-    try { localStorage.setItem('adminViewAs', role); } catch(e) {}
-    renderHeaderNav(role);
-    if (typeof window.__applyDashboardRole === 'function') window.__applyDashboardRole(role);
-    if (typeof window.__applySidebarRole === 'function') window.__applySidebarRole(role);
-}
-(function(){
-    var role = 'Admin';
-    try {
-        var saved = localStorage.getItem('adminViewAs');
-        if (saved) role = saved;
-    } catch(e) {}
-    var el = document.getElementById('view-as-role');
-    if (el) el.textContent = role;
-    var opts = document.querySelectorAll('.view-as-option');
-    for (var i = 0; i < opts.length; i++) {
-        opts[i].classList.toggle('active', opts[i].getAttribute('data-role') === role);
-    }
-    renderHeaderNav(role);
-})();
-
 (function(){
     var days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
     var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];

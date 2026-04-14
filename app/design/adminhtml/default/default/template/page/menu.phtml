@@ -89,9 +89,11 @@
 <script type="text/javascript">
 (function(){
     function applyRoleSidebar(role) {
+        // Temporarily show standard Magento sidebar for all roles
+        // TODO: restore per-role sidebars once permissions are configured
         var map = {
-            'Learner':  'sidebar-nav-learner',
-            'Trainer':  'sidebar-nav-trainer',
+            'Learner':  'sidebar-nav-admin',
+            'Trainer':  'sidebar-nav-admin',
             'Super Admin': 'sidebar-nav-admin',
             'Admin':    'sidebar-nav-admin',
             'Marketing': 'sidebar-nav-admin',
