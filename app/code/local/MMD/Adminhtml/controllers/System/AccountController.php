@@ -18,11 +18,13 @@ class MMD_Adminhtml_System_AccountController extends Mage_Adminhtml_System_Accou
             ->setLastname($this->getRequest()->getParam('lastname', false))
             ->setEmail(strtolower($this->getRequest()->getParam('email', false)));
 
-        // Profile fields
+        // Profile fields — saved directly via SQL since core model
+        // _beforeSave() only persists a whitelist of fields
+        $profileData = array();
         $profileFields = array('tel', 'gender', 'race', 'dob', 'nric_fin', 'linkedin_url');
         foreach ($profileFields as $field) {
             $value = $this->getRequest()->getParam($field, null);
-            $user->setData($field, $value ?: null);
+            $profileData[$field] = ($value !== '' && $value !== null) ? $value : null;
         }
 
         // Profile image upload
@@ -38,7 +40,11 @@ class MMD_Adminhtml_System_AccountController extends Mage_Adminhtml_System_Accou
                 $uploader->save($path, $filename);
 
                 // Delete old image
-                $oldImage = $user->getData('profile_image');
+                $resource = Mage::getSingleton('core/resource');
+                $oldImage = $resource->getConnection('core_read')->fetchOne(
+                    'SELECT profile_image FROM ' . $resource->getTableName('admin/user') . ' WHERE user_id = ?',
+                    array($userId)
+                );
                 if ($oldImage) {
                     $oldPath = $path . DS . $oldImage;
                     if (file_exists($oldPath)) {
@@ -46,7 +52,7 @@ class MMD_Adminhtml_System_AccountController extends Mage_Adminhtml_System_Accou
                     }
                 }
 
-                $user->setData('profile_image', $filename);
+                $profileData['profile_image'] = $filename;
             } catch (Exception $e) {
                 Mage::getSingleton('adminhtml/session')->addError('Image upload failed: ' . $e->getMessage());
             }
@@ -71,6 +77,16 @@ class MMD_Adminhtml_System_AccountController extends Mage_Adminhtml_System_Accou
 
         try {
             $user->save();
+
+            // Save profile fields directly (bypasses model whitelist)
+            $resource = Mage::getSingleton('core/resource');
+            $write = $resource->getConnection('core_write');
+            $write->update(
+                $resource->getTableName('admin/user'),
+                $profileData,
+                'user_id = ' . (int)$userId
+            );
+
             Mage::getSingleton('adminhtml/session')->addSuccess(
                 Mage::helper('adminhtml')->__('The account has been saved.')
             );
