@@ -5,7 +5,13 @@
  */
 
 // --- Role Detection ---
-$activeRole = Mage::helper('mmd_rolemanager')->getActiveRoleCode();
+try {
+    $activeRole = Mage::helper('mmd_rolemanager')->getActiveRoleCode();
+} catch (Exception $e) {
+    $activeRole = 'super_admin';
+} catch (Error $e) {
+    $activeRole = 'super_admin';
+}
 $isFullDashboard = in_array($activeRole, array('super_admin', 'admin'));
 
 // --- Data Collection ---
@@ -193,12 +199,18 @@ foreach ($countryOrderCollection as $row) {
 function dashFormatPrice($amount) {
     return Mage::helper('core')->currency($amount, true, false);
 }
+
+// Safe helper access
+$_roleHelper = null;
+try { $_roleHelper = Mage::helper('mmd_rolemanager'); } catch (Exception $e) {} catch (Error $e) {}
+$_roleLabel = $_roleHelper ? $_roleHelper->getRoleLabel($activeRole) : ucwords(str_replace('_', ' ', $activeRole));
+$_roleIcon = $_roleHelper ? $_roleHelper->getRoleIcon($activeRole) : '';
 ?>
 
 <div class="content-header">
     <table cellspacing="0">
         <tr>
-            <td><h3 class="head-dashboard"><?php echo $this->__('Dashboard') ?> <span style="font-size:14px;color:var(--t4);font-weight:400;">— <?php echo Mage::helper('mmd_rolemanager')->getRoleIcon($activeRole) ?> <?php echo Mage::helper('mmd_rolemanager')->getRoleLabel($activeRole) ?></span></h3></td>
+            <td><h3 class="head-dashboard"><?php echo $this->__('Dashboard') ?> <span style="font-size:14px;color:var(--t4);font-weight:400;">— <?php echo $_roleIcon ?> <?php echo $_roleLabel ?></span></h3></td>
         </tr>
     </table>
 </div>
@@ -207,8 +219,8 @@ function dashFormatPrice($amount) {
 <!-- Role-specific dashboard for Learner/Trainer -->
 <div class="dashboard-modern">
     <div class="chart-card" style="padding:40px;text-align:center;">
-        <div style="font-size:48px;margin-bottom:16px;"><?php echo Mage::helper('mmd_rolemanager')->getRoleIcon($activeRole) ?></div>
-        <h3 style="color:var(--t1);margin-bottom:8px;"><?php echo Mage::helper('mmd_rolemanager')->getRoleLabel($activeRole) ?> Dashboard</h3>
+        <div style="font-size:48px;margin-bottom:16px;"><?php echo $_roleIcon ?></div>
+        <h3 style="color:var(--t1);margin-bottom:8px;"><?php echo $_roleLabel ?> Dashboard</h3>
         <p style="color:var(--t4);font-size:14px;">
             <?php if ($activeRole === 'learner'): ?>
                 Welcome! View your enrolled courses, track progress, and download certificates.
