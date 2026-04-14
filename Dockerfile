@@ -1,5 +1,7 @@
 FROM php:8.2-apache
 
+# Build trigger: 2026-04-14
+
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     libpng-dev \
