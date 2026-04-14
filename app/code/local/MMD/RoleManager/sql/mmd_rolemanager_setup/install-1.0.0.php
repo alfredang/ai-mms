@@ -8,20 +8,19 @@ $installer = $this;
 $installer->startSetup();
 
 // 1. Create mmd_user_role_map table
-// Get the exact column type from admin_user table
+// Create table with user_id matching admin_user exactly
 $adminUserTable = $installer->getTable('admin/user');
-$colInfo = $installer->getConnection()->describeTable($adminUserTable);
-$userIdType = 'INT UNSIGNED';
-if (isset($colInfo['user_id'])) {
-    $col = $colInfo['user_id'];
-    $userIdType = $col['DATA_TYPE'];
-    if ($col['UNSIGNED']) $userIdType .= ' UNSIGNED';
-}
+$roleMapTable = $installer->getTable('mmd_rolemanager/role_map');
+
+// Get the exact CREATE TABLE definition for user_id column type
+$createSql = $installer->getConnection()->fetchOne("SHOW CREATE TABLE `{$adminUserTable}`", array(), 1);
+preg_match('/`user_id`\s+(\S+)/i', $createSql, $matches);
+$userIdDef = isset($matches[1]) ? $matches[1] : 'int';
 
 $installer->run("
-    CREATE TABLE IF NOT EXISTS `{$installer->getTable('mmd_rolemanager/role_map')}` (
+    CREATE TABLE IF NOT EXISTS `{$roleMapTable}` (
         `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
-        `user_id` {$userIdType} NOT NULL,
+        `user_id` {$userIdDef} NOT NULL,
         `role_code` VARCHAR(32) NOT NULL COMMENT 'learner, trainer, admin, super_admin',
         `is_primary` TINYINT(1) NOT NULL DEFAULT 0,
         `created_at` DATETIME NOT NULL,

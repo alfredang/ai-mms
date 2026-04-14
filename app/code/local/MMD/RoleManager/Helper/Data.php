@@ -76,22 +76,35 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
      */
     public function getUserRolesFromDb($userId)
     {
-        $collection = Mage::getModel('mmd_rolemanager/role_map')->getCollection()
-            ->addFieldToFilter('user_id', $userId);
+        try {
+            $model = Mage::getModel('mmd_rolemanager/role_map');
+            if (!$model) {
+                return array(self::ROLE_SUPER_ADMIN);
+            }
+            $collection = $model->getCollection()
+                ->addFieldToFilter('user_id', $userId);
 
-        $roles = array();
-        foreach ($collection as $item) {
-            $roles[] = $item->getRoleCode();
+            $roles = array();
+            foreach ($collection as $item) {
+                $roles[] = $item->getRoleCode();
+            }
+
+            if (empty($roles)) {
+                return array(self::ROLE_SUPER_ADMIN);
+            }
+
+            // Sort by priority (highest first)
+            $priorities = $this->_rolePriority;
+            usort($roles, function ($a, $b) use ($priorities) {
+                $pa = isset($priorities[$a]) ? $priorities[$a] : 0;
+                $pb = isset($priorities[$b]) ? $priorities[$b] : 0;
+                return $pb - $pa;
+            });
+
+            return $roles;
+        } catch (Exception $e) {
+            return array(self::ROLE_SUPER_ADMIN);
         }
-
-        // Sort by priority (highest first)
-        usort($roles, function ($a, $b) {
-            $pa = isset($this->_rolePriority[$a]) ? $this->_rolePriority[$a] : 0;
-            $pb = isset($this->_rolePriority[$b]) ? $this->_rolePriority[$b] : 0;
-            return $pb - $pa;
-        });
-
-        return $roles;
     }
 
     /**
