@@ -48,7 +48,10 @@ COPY docker/apache-vhost.conf /etc/apache2/sites-available/000-default.conf
 # Set working directory
 WORKDIR /var/www/html
 
+# Copy application files
+COPY . /var/www/html/
+
 # Set proper permissions for Apache
-RUN chown -R www-data:www-data /var/www/html 2>/dev/null || true
+RUN chown -R www-data:www-data /var/www/html
 
 EXPOSE 80
