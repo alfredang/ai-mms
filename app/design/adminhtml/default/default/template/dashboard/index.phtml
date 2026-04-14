@@ -148,6 +148,43 @@ foreach ($recentSearchCollection as $term) {
     );
 }
 
+// 9. Chart: Orders by Country
+$countryOrderCollection = Mage::getResourceModel('reports/order_collection');
+if ($storeId) $countryOrderCollection->addFieldToFilter('store_id', $storeId);
+$countryOrderCollection->addFieldToFilter('state', array('nin' => array(
+    Mage_Sales_Model_Order::STATE_CANCELED,
+    Mage_Sales_Model_Order::STATE_NEW
+)));
+$countryOrderCollection->getSelect()->join(
+    array('soa_country' => Mage::getSingleton('core/resource')->getTableName('sales/order_address')),
+    'main_table.entity_id = soa_country.parent_id AND soa_country.address_type = "billing"',
+    array()
+);
+$countryOrderCollection->getSelect()->columns(array(
+    'country_code' => 'soa_country.country_id',
+    'order_count' => new Zend_Db_Expr('COUNT(main_table.entity_id)')
+));
+$countryOrderCollection->getSelect()->group('soa_country.country_id');
+$countryOrderCollection->getSelect()->order('order_count DESC');
+$countryOrderCollection->getSelect()->limit(10);
+
+$countryNames = array(
+    'SG' => 'Singapore', 'MY' => 'Malaysia', 'GH' => 'Ghana', 'NG' => 'Nigeria',
+    'BT' => 'Bhutan', 'US' => 'United States', 'IN' => 'India', 'AU' => 'Australia',
+    'GB' => 'United Kingdom', 'PH' => 'Philippines', 'ID' => 'Indonesia', 'TH' => 'Thailand',
+    'VN' => 'Vietnam', 'JP' => 'Japan', 'KR' => 'South Korea', 'CN' => 'China',
+    'HK' => 'Hong Kong', 'TW' => 'Taiwan', 'NZ' => 'New Zealand', 'CA' => 'Canada',
+);
+$ordersByCountry = array();
+foreach ($countryOrderCollection as $row) {
+    $code = $row->getData('country_code');
+    $label = isset($countryNames[$code]) ? $countryNames[$code] : $code;
+    $ordersByCountry[] = array(
+        'country' => $label,
+        'count' => (int) $row->getData('order_count')
+    );
+}
+
 // Format currency
 function dashFormatPrice($amount) {
     return Mage::helper('core')->currency($amount, true, false);
@@ -246,6 +283,17 @@ function dashFormatPrice($amount) {
             </div>
             <div class="chart-body">
                 <canvas id="popularSearchesChart" height="320"></canvas>
+            </div>
+        </div>
+
+        <!-- Orders by Country Chart -->
+        <div class="chart-card">
+            <div class="chart-header">
+                <h4>Orders by Country</h4>
+                <span class="chart-subtitle">Top 10 countries by order count</span>
+            </div>
+            <div class="chart-body">
+                <canvas id="ordersByCountryChart" height="320"></canvas>
             </div>
         </div>
 
@@ -447,6 +495,41 @@ document.observe('dom:loaded', function() {
             }
         }
     });
+    // 4. Orders by Country — Horizontal Bar Chart
+    var countryData = <?php echo json_encode($ordersByCountry) ?>;
+    var countryLabels = [], countryValues = [];
+    for (var ci2 = 0; ci2 < countryData.length; ci2++) {
+        countryLabels.push(countryData[ci2].country || '');
+        countryValues.push(countryData[ci2].count);
+    }
+
+    new Chart(document.getElementById('ordersByCountryChart').getContext('2d'), {
+        type: 'horizontalBar',
+        data: {
+            labels: countryLabels,
+            datasets: [{
+                label: 'Orders',
+                data: countryValues,
+                backgroundColor: chartColors.orange,
+                barPercentage: 0.7
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                xAxes: [{
+                    ticks: { fontColor: chartColors.text, fontSize: 11, beginAtZero: true },
+                    gridLines: { color: chartColors.gridLine }
+                }],
+                yAxes: [{
+                    ticks: { fontColor: chartColors.text, fontSize: 10 },
+                    gridLines: { display: false }
+                }]
+            }
+        }
+    });
+
     restorePrototypeArray();
 });
 //]]>
