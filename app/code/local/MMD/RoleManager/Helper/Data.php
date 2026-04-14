@@ -12,7 +12,7 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
         'trainer'           => 'Trainer',
         'marketing'         => 'Marketing',
         'admin'             => 'Admin',
-        'training_provider' => 'Training Provider',
+        'training_provider' => 'Super Admin',
     );
 
     protected $_roleIcons = array(
@@ -20,7 +20,7 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
         'trainer'           => '&#x1F468;&#x200D;&#x1F3EB;', // 👨‍🏫
         'marketing'         => '&#x1F4E3;',  // 📣
         'admin'             => '&#x2699;&#xFE0F;',  // ⚙️
-        'training_provider' => '&#x1F3E2;',  // 🏢
+        'training_provider' => '&#x1F6E1;&#xFE0F;',  // 🛡️
     );
 
     protected $_roleDescriptions = array(
@@ -28,7 +28,7 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
         'trainer'           => 'Manage classes and grade assessments',
         'marketing'         => 'Manage campaigns, promotions, and CMS',
         'admin'             => 'Manage users, classes, and system settings',
-        'training_provider' => 'Manage organization and course catalog',
+        'training_provider' => 'Full system access and configuration',
     );
 
     protected $_rolePriority = array(
