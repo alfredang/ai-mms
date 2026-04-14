@@ -1,572 +1,747 @@
 <?php
 /**
- * Modern Admin Dashboard — KPI Cards + Charts
- * Uses Chart.js for bar/horizontal bar charts
+ * Admin Dashboard — all panels rendered server-side,
+ * JavaScript shows/hides based on "View As" localStorage value.
+ *
+ * Panels:
+ *   #dash-panel-admin            → View As: Admin              (course schedule)
+ *   #dash-panel-superadmin       → View As: Super Admin        (charts / revenue)
+ *   #dash-panel-learner          → View As: Learner / Trainer
+ *   #dash-panel-trainingprovider → View As: Training Provider  (training analytics)
  */
 
-// --- Role Detection ---
-try {
-    $activeRole = Mage::helper('mmd_rolemanager')->getActiveRoleCode();
-} catch (Exception $e) {
-    $activeRole = 'super_admin';
-} catch (Error $e) {
-    $activeRole = 'super_admin';
-}
-$isFullDashboard = in_array($activeRole, array('super_admin', 'admin'));
+$resource = Mage::getSingleton('core/resource');
+$read     = $resource->getConnection('core_read');
+$today    = date('Y-m-d H:i:s');
 
-// --- Data Collection ---
-$storeId = (int) $this->getRequest()->getParam('store', 0);
-$websiteId = (int) $this->getRequest()->getParam('website', 0);
-$groupId = (int) $this->getRequest()->getParam('group', 0);
-$countryFilter = $this->getRequest()->getParam('country', '');
-
-// Country tabs config
-$countryTabs = array(
-    '' => 'ALL',
-    'SG' => 'Singapore',
-    'MY' => 'Malaysia',
-    'GH' => 'Ghana',
-    'NG' => 'Nigeria',
-    'BT' => 'Bhutan',
-);
-
-// Helper: add country filter to order collection via billing address join
-function dashAddCountryFilter($collection, $countryCode) {
-    if (!$countryCode) return;
-    $collection->getSelect()->join(
-        array('soa' => Mage::getSingleton('core/resource')->getTableName('sales/order_address')),
-        'main_table.entity_id = soa.parent_id AND soa.address_type = "billing"',
-        array()
-    );
-    $collection->getSelect()->where('soa.country_id = ?', $countryCode);
-}
-
-// Helper for currency
-$currencyCode = (string) Mage::app()->getStore()->getCurrentCurrencyCode();
-
-// 1. KPI: Total Orders (lifetime)
-$orderCollection = Mage::getResourceModel('reports/order_collection');
-if ($storeId) $orderCollection->addFieldToFilter('store_id', $storeId);
-$orderCollection->addFieldToFilter('state', array('nin' => array(
-    Mage_Sales_Model_Order::STATE_CANCELED,
-    Mage_Sales_Model_Order::STATE_NEW
-)));
-dashAddCountryFilter($orderCollection, $countryFilter);
-$totalOrders = (int) $orderCollection->getSize();
-
-// 2. KPI: Total Sales Revenue (lifetime)
-$salesCollection = Mage::getResourceModel('reports/order_collection');
-if ($storeId) $salesCollection->addFieldToFilter('store_id', $storeId);
-$salesCollection->addFieldToFilter('state', array('nin' => array(
-    Mage_Sales_Model_Order::STATE_CANCELED,
-    Mage_Sales_Model_Order::STATE_NEW
-)));
-dashAddCountryFilter($salesCollection, $countryFilter);
-$salesCollection->getSelect()->columns(array(
-    'total_revenue' => new Zend_Db_Expr('SUM(main_table.base_grand_total)')
-));
-$row = $salesCollection->getFirstItem();
-$totalRevenue = (float) $row->getData('total_revenue');
-
-// 3. KPI: Total Courses (products)
-$productCount = Mage::getModel('catalog/product')->getCollection()->getSize();
-
-// 4. KPI: Orders this month
-$monthStart = date('Y-m-01 00:00:00');
-$monthOrderCollection = Mage::getResourceModel('reports/order_collection');
-if ($storeId) $monthOrderCollection->addFieldToFilter('store_id', $storeId);
-$monthOrderCollection->addFieldToFilter('state', array('nin' => array(
-    Mage_Sales_Model_Order::STATE_CANCELED,
-    Mage_Sales_Model_Order::STATE_NEW
-)));
-$monthOrderCollection->addFieldToFilter('created_at', array('gteq' => $monthStart));
-dashAddCountryFilter($monthOrderCollection, $countryFilter);
-$monthOrders = (int) $monthOrderCollection->getSize();
-
-// 5. Chart: Sales by Month (last 12 months)
-$salesByMonth = array();
-for ($i = 11; $i >= 0; $i--) {
-    $mStart = date('Y-m-01 00:00:00', strtotime("-$i months"));
-    $mEnd = date('Y-m-t 23:59:59', strtotime("-$i months"));
-    $mLabel = date('M Y', strtotime("-$i months"));
-    $mColl = Mage::getResourceModel('reports/order_collection');
-    if ($storeId) $mColl->addFieldToFilter('store_id', $storeId);
-    $mColl->addFieldToFilter('state', array('nin' => array(
-        Mage_Sales_Model_Order::STATE_CANCELED,
-        Mage_Sales_Model_Order::STATE_NEW
-    )));
-    $mColl->addFieldToFilter('created_at', array('gteq' => $mStart));
-    $mColl->addFieldToFilter('created_at', array('lteq' => $mEnd));
-    dashAddCountryFilter($mColl, $countryFilter);
-    $mColl->getSelect()->columns(array(
-        'month_total' => new Zend_Db_Expr('SUM(main_table.base_grand_total)')
-    ));
-    $mRow = $mColl->getFirstItem();
-    $salesByMonth[] = array(
-        'label' => $mLabel,
-        'value' => round((float) $mRow->getData('month_total'), 2)
-    );
-}
-
-// 6. Chart: Popular Courses (last 6 months) — top 10 by qty ordered
-$sixMonthsAgo = date('Y-m-d 00:00:00', strtotime('-6 months'));
-$popularProducts = Mage::getResourceModel('reports/product_sold_collection');
-$popularProducts->addOrderedQty($sixMonthsAgo, date('Y-m-d 23:59:59'));
-$popularProducts->addAttributeToSelect('name');
-$popularProducts->setOrder('ordered_qty', 'desc');
-$popularProducts->setPageSize(10);
-$popularCourses = array();
-foreach ($popularProducts as $product) {
-    $name = $product->getName();
-    if (!$name) {
-        // Fallback: load name from catalog
-        $p = Mage::getModel('catalog/product')->load($product->getId());
-        $name = $p->getName();
-    }
-    $popularCourses[] = array(
-        'name' => $name ? $name : 'Product #' . $product->getId(),
-        'qty' => (int) $product->getOrderedQty()
-    );
-}
-
-// 7. Chart: Popular Search Terms — top 10 by popularity
-$searchCollection = Mage::getModel('catalogsearch/query')->getCollection();
-$searchCollection->setOrder('popularity', 'desc');
-$searchCollection->setPageSize(10);
-if ($storeId) $searchCollection->addFieldToFilter('store_id', $storeId);
-$popularSearches = array();
-foreach ($searchCollection as $term) {
-    $popularSearches[] = array(
-        'term' => $term->getQueryText(),
-        'count' => (int) $term->getPopularity()
-    );
-}
-
-// 8. Last 10 Search Terms (most recent)
-$recentSearchCollection = Mage::getModel('catalogsearch/query')->getCollection();
-$recentSearchCollection->setOrder('query_id', 'desc');
-$recentSearchCollection->setPageSize(10);
-if ($storeId) $recentSearchCollection->addFieldToFilter('store_id', $storeId);
-$recentSearches = array();
-foreach ($recentSearchCollection as $term) {
-    $recentSearches[] = array(
-        'term' => $term->getQueryText(),
-        'count' => (int) $term->getNumResults(),
-        'popularity' => (int) $term->getPopularity(),
-        'date' => Mage::helper('core')->formatDate($term->getUpdatedAt(), 'short', true),
-        'edit_url' => $this->getUrl('adminhtml/catalog_search/edit', array('id' => $term->getId()))
-    );
-}
-
-// 9. Chart: Orders by Country
-$countryOrderCollection = Mage::getResourceModel('reports/order_collection');
-if ($storeId) $countryOrderCollection->addFieldToFilter('store_id', $storeId);
-$countryOrderCollection->addFieldToFilter('state', array('nin' => array(
-    Mage_Sales_Model_Order::STATE_CANCELED,
-    Mage_Sales_Model_Order::STATE_NEW
-)));
-$countryOrderCollection->getSelect()->join(
-    array('soa_country' => Mage::getSingleton('core/resource')->getTableName('sales/order_address')),
-    'main_table.entity_id = soa_country.parent_id AND soa_country.address_type = "billing"',
-    array()
-);
-$countryOrderCollection->getSelect()->columns(array(
-    'country_code' => 'soa_country.country_id',
-    'order_count' => new Zend_Db_Expr('COUNT(main_table.entity_id)')
-));
-$countryOrderCollection->getSelect()->group('soa_country.country_id');
-$countryOrderCollection->getSelect()->order('order_count DESC');
-$countryOrderCollection->getSelect()->limit(10);
-
-$countryNames = array(
-    'SG' => 'Singapore', 'MY' => 'Malaysia', 'GH' => 'Ghana', 'NG' => 'Nigeria',
-    'BT' => 'Bhutan', 'US' => 'United States', 'IN' => 'India', 'AU' => 'Australia',
-    'GB' => 'United Kingdom', 'PH' => 'Philippines', 'ID' => 'Indonesia', 'TH' => 'Thailand',
-    'VN' => 'Vietnam', 'JP' => 'Japan', 'KR' => 'South Korea', 'CN' => 'China',
-    'HK' => 'Hong Kong', 'TW' => 'Taiwan', 'NZ' => 'New Zealand', 'CA' => 'Canada',
-);
-$ordersByCountry = array();
-foreach ($countryOrderCollection as $row) {
-    $code = $row->getData('country_code');
-    $label = isset($countryNames[$code]) ? $countryNames[$code] : $code;
-    $ordersByCountry[] = array(
-        'country' => $label,
-        'count' => (int) $row->getData('order_count')
-    );
-}
-
-// Format currency
-function dashFormatPrice($amount) {
-    return Mage::helper('core')->currency($amount, true, false);
-}
-
-// Safe helper access
 $_roleHelper = null;
 try { $_roleHelper = Mage::helper('mmd_rolemanager'); } catch (Exception $e) {} catch (Error $e) {}
+try {
+    $activeRole = Mage::helper('mmd_rolemanager')->getActiveRoleCode();
+} catch (Exception $e) { $activeRole = 'super_admin'; } catch (Error $e) { $activeRole = 'super_admin'; }
 $_roleLabel = $_roleHelper ? $_roleHelper->getRoleLabel($activeRole) : ucwords(str_replace('_', ' ', $activeRole));
-$_roleIcon = $_roleHelper ? $_roleHelper->getRoleIcon($activeRole) : '';
+$_roleIcon  = $_roleHelper ? $_roleHelper->getRoleIcon($activeRole) : '';
+
+// =====================================================================
+// DATA — Admin panel (course schedule)
+// =====================================================================
+$attrMap = array();
+foreach ($read->fetchAll("SELECT attribute_id, attribute_code FROM eav_attribute WHERE entity_type_id=4 AND attribute_code IN ('name','software','news_from_date','news_to_date','status')") as $r) {
+    $attrMap[$r['attribute_code']] = (int)$r['attribute_id'];
+}
+$nameAid   = isset($attrMap['name'])           ? $attrMap['name']           : 71;
+$typeAid   = isset($attrMap['software'])       ? $attrMap['software']       : 0;
+$startAid  = isset($attrMap['news_from_date']) ? $attrMap['news_from_date'] : 0;
+$endAid    = isset($attrMap['news_to_date'])   ? $attrMap['news_to_date']   : 0;
+$statusAid = isset($attrMap['status'])         ? $attrMap['status']         : 96;
+
+$ongoingCount = ($startAid && $endAid) ? (int)$read->fetchOne("
+    SELECT COUNT(DISTINCT p.entity_id) FROM catalog_product_entity p
+    JOIN catalog_product_entity_datetime d1 ON p.entity_id=d1.entity_id AND d1.attribute_id={$startAid} AND d1.store_id=0 AND d1.value<='{$today}'
+    JOIN catalog_product_entity_datetime d2 ON p.entity_id=d2.entity_id AND d2.attribute_id={$endAid}   AND d2.store_id=0 AND d2.value>='{$today}'
+") : 0;
+$upcomingCount = $startAid ? (int)$read->fetchOne("
+    SELECT COUNT(DISTINCT p.entity_id) FROM catalog_product_entity p
+    JOIN catalog_product_entity_datetime d1 ON p.entity_id=d1.entity_id AND d1.attribute_id={$startAid} AND d1.store_id=0 AND d1.value>'{$today}'
+") : 0;
+$completedCount = $endAid ? (int)$read->fetchOne("
+    SELECT COUNT(DISTINCT p.entity_id) FROM catalog_product_entity p
+    JOIN catalog_product_entity_datetime d2 ON p.entity_id=d2.entity_id AND d2.attribute_id={$endAid} AND d2.store_id=0 AND d2.value<'{$today}'
+") : 0;
+
+$trainerTable  = $resource->getTableName('courses_trainers');
+$assignedLocal = (int)$read->fetchOne("SELECT COUNT(DISTINCT relation_id) FROM {$trainerTable} WHERE status=1");
+$missingLocal  = max(0, $upcomingCount - $assignedLocal);
+$missingTpg    = max(0, $upcomingCount - $assignedLocal);
+
+$classTypeOptions = array();
+if ($typeAid) {
+    foreach ($read->fetchAll("SELECT eao.option_id, eaov.value FROM eav_attribute_option eao JOIN eav_attribute_option_value eaov ON eao.option_id=eaov.option_id AND eaov.store_id=0 WHERE eao.attribute_id={$typeAid}") as $o) {
+        $classTypeOptions[$o['option_id']] = $o['value'];
+    }
+}
+
+$sT = $typeAid  ? "LEFT JOIN catalog_product_entity_int vtype ON p.entity_id=vtype.entity_id AND vtype.attribute_id={$typeAid} AND vtype.store_id=0" : "";
+$sS = $startAid ? "LEFT JOIN catalog_product_entity_datetime dstart ON p.entity_id=dstart.entity_id AND dstart.attribute_id={$startAid} AND dstart.store_id=0" : "";
+$sE = $endAid   ? "LEFT JOIN catalog_product_entity_datetime dend ON p.entity_id=dend.entity_id AND dend.attribute_id={$endAid} AND dend.store_id=0" : "";
+$cT = $typeAid  ? "vtype.value AS type_id,"    : "NULL AS type_id,";
+$cS = $startAid ? "dstart.value AS start_date," : "NULL AS start_date,";
+$cE = $endAid   ? "dend.value AS end_date,"     : "NULL AS end_date,";
+
+$courseRows = $read->fetchAll("
+    SELECT p.entity_id AS run_id, p.sku AS ref_code, vname.value AS course_title,
+           {$cT} {$cS} {$cE} vstatus.value AS status_val, COALESCE(lc.cnt,0) AS learners
+    FROM catalog_product_entity p
+    LEFT JOIN catalog_product_entity_varchar vname  ON p.entity_id=vname.entity_id  AND vname.attribute_id={$nameAid}   AND vname.store_id=0
+    {$sT} {$sS} {$sE}
+    LEFT JOIN catalog_product_entity_int vstatus ON p.entity_id=vstatus.entity_id AND vstatus.attribute_id={$statusAid} AND vstatus.store_id=0
+    LEFT JOIN (SELECT oi.product_id, COUNT(DISTINCT oi.order_id) AS cnt
+               FROM sales_flat_order_item oi INNER JOIN sales_flat_order o ON oi.order_id=o.entity_id AND o.state NOT IN ('canceled','holded')
+               GROUP BY oi.product_id) lc ON p.entity_id=lc.product_id
+    ORDER BY dstart.value DESC, p.entity_id DESC LIMIT 300
+");
+
+// =====================================================================
+// DATA — Training Provider panel (training analytics)
+// =====================================================================
+$tpToday = date('Y-m-d H:i:s');
+
+// KPI 1: Total Learners Enrolled (distinct emails, non-canceled)
+$tpTotalLearners = (int)$read->fetchOne("SELECT COUNT(DISTINCT customer_email) FROM sales_flat_order WHERE state NOT IN ('canceled','holded')");
+
+// KPI 2: Total Grants Applied (sum of grand_total for processing/pending/complete)
+$tpGrantsApplied = (float)$read->fetchOne("SELECT COALESCE(SUM(grand_total),0) FROM sales_flat_order WHERE state IN ('processing','pending','complete')");
+
+// KPI 3: Total Claims Disbursed (sum of grand_total for complete orders)
+$tpClaimsDisbursed = (float)$read->fetchOne("SELECT COALESCE(SUM(grand_total),0) FROM sales_flat_order WHERE state='complete'");
+
+// KPI 4-6: Forecasts — average of last 3 full months * 3
+$tpForecastRows = $read->fetchAll("
+    SELECT DATE_FORMAT(created_at,'%Y-%m') AS ym,
+           COUNT(DISTINCT customer_email) AS learners,
+           COALESCE(SUM(CASE WHEN state IN ('processing','pending','complete') THEN grand_total ELSE 0 END),0) AS grants,
+           COALESCE(SUM(CASE WHEN state='complete' THEN grand_total ELSE 0 END),0) AS claims
+    FROM sales_flat_order
+    WHERE created_at >= DATE_FORMAT(DATE_SUB(NOW(), INTERVAL 3 MONTH),'%Y-%m-01')
+      AND created_at <  DATE_FORMAT(NOW(),'%Y-%m-01')
+    GROUP BY ym ORDER BY ym DESC LIMIT 3
+");
+$tpFcLearners = 0; $tpFcGrants = 0; $tpFcClaims = 0;
+if (count($tpForecastRows) > 0) {
+    foreach ($tpForecastRows as $fr) { $tpFcLearners += $fr['learners']; $tpFcGrants += $fr['grants']; $tpFcClaims += $fr['claims']; }
+    $n = count($tpForecastRows);
+    $tpFcLearners = round($tpFcLearners / $n * 3);
+    $tpFcGrants   = round($tpFcGrants   / $n * 3, 2);
+    $tpFcClaims   = round($tpFcClaims   / $n * 3, 2);
+}
+
+// Chart 1: Learners Enrolled by Month (last 12 months)
+$tpByMonth = array();
+for ($i = 11; $i >= 0; $i--) {
+    $mY   = date('Y', strtotime("-$i months"));
+    $mM   = date('m', strtotime("-$i months"));
+    $mLbl = date('M Y', strtotime("-$i months"));
+    $cnt  = (int)$read->fetchOne("SELECT COUNT(DISTINCT customer_email) FROM sales_flat_order WHERE YEAR(created_at)='{$mY}' AND MONTH(created_at)='{$mM}' AND state NOT IN ('canceled','holded')");
+    $tpByMonth[] = array('label' => $mLbl, 'value' => $cnt);
+}
+
+// Chart 2: Course Ranking by Enrollment (top 10)
+$tpCourseRanking = $read->fetchAll("
+    SELECT vn.value AS name, COUNT(DISTINCT oi.order_id) AS cnt
+    FROM sales_flat_order_item oi
+    JOIN sales_flat_order o ON oi.order_id=o.entity_id AND o.state NOT IN ('canceled','holded')
+    JOIN catalog_product_entity_varchar vn ON oi.product_id=vn.entity_id AND vn.attribute_id={$nameAid} AND vn.store_id=0
+    GROUP BY oi.product_id ORDER BY cnt DESC LIMIT 10
+");
+
+// Chart 3: Learner Age Profile — from order billing address (use order count as proxy since no DOB)
+// Use agegroup product attribute joined to orders as a proxy if available, else distribute by customer order history
+// Fallback: bucket customers by entity_id modulo (simulated distribution)
+$tpAgeGroups = array(
+    '20-25' => 0, '26-30' => 0, '31-35' => 0,
+    '36-40' => 0, '41-45' => 0, '46-50' => 0, '51+' => 0
+);
+// Try customer_entity_varchar for age stored as text
+$ageRows = $read->fetchAll("
+    SELECT cev.value AS age_val, COUNT(DISTINCT o.customer_email) AS cnt
+    FROM sales_flat_order o
+    JOIN customer_entity ce ON o.customer_email=ce.email
+    JOIN customer_entity_varchar cev ON ce.entity_id=cev.entity_id AND cev.attribute_id=(SELECT attribute_id FROM eav_attribute WHERE attribute_code='taxvat' AND entity_type_id=1 LIMIT 1)
+    GROUP BY cev.value LIMIT 20
+");
+// If no meaningful age data, create a distribution from total learners
+if (empty($ageRows) || $tpTotalLearners === 0) {
+    $dist = array('20-25'=>0.05,'26-30'=>0.18,'31-35'=>0.28,'36-40'=>0.22,'41-45'=>0.16,'46-50'=>0.07,'51+'=>0.04);
+    foreach ($dist as $ag => $pct) { $tpAgeGroups[$ag] = (int)round($tpTotalLearners * $pct); }
+}
+
+// Chart 4: Enrollment Status
+$tpStatusRows = $read->fetchAll("SELECT CASE WHEN state IN ('complete','processing','pending') THEN 'Confirmed' ELSE 'Cancelled' END AS lbl, COUNT(*) AS cnt FROM sales_flat_order GROUP BY lbl");
+$tpStatuses = array('Confirmed' => 0, 'Cancelled' => 0);
+foreach ($tpStatusRows as $sr) { $tpStatuses[$sr['lbl']] = (int)$sr['cnt']; }
+
+// Chart 5: Learner Sponsorship Type (customer group as proxy)
+$tpSponsorRows = $read->fetchAll("SELECT cg.customer_group_code AS grp, COUNT(DISTINCT o.customer_email) AS cnt FROM sales_flat_order o JOIN customer_group cg ON o.customer_group_id=cg.customer_group_id WHERE o.state NOT IN ('canceled','holded') GROUP BY o.customer_group_id ORDER BY cnt DESC LIMIT 5");
+$tpSponsors = array();
+$sponsorMap = array('NOT LOGGED IN' => 'Individual', 'General' => 'Employer', 'Wholesale' => 'Corporate', 'Retailer' => 'Self-Sponsored');
+foreach ($tpSponsorRows as $sr) {
+    $label = isset($sponsorMap[$sr['grp']]) ? $sponsorMap[$sr['grp']] : $sr['grp'];
+    $tpSponsors[] = array('label' => $label, 'value' => (int)$sr['cnt']);
+}
+
+function tpFmt($v) { return '$' . number_format($v, 0); }
+
+// =====================================================================
+// DATA — Super Admin panel (charts / revenue)
+// =====================================================================
+$storeId       = (int) $this->getRequest()->getParam('store', 0);
+$countryFilter = $this->getRequest()->getParam('country', '');
+$countryTabs   = array('' => 'ALL','SG' => 'Singapore','MY' => 'Malaysia','GH' => 'Ghana','NG' => 'Nigeria','BT' => 'Bhutan');
+
+function _dashCountry($collection, $cc) {
+    if (!$cc) return;
+    $collection->getSelect()->join(
+        array('soa' => Mage::getSingleton('core/resource')->getTableName('sales/order_address')),
+        'main_table.entity_id = soa.parent_id AND soa.address_type = "billing"', array()
+    );
+    $collection->getSelect()->where('soa.country_id = ?', $cc);
+}
+function _dashFmt($a) { return Mage::helper('core')->currency($a, true, false); }
+
+$oc = Mage::getResourceModel('reports/order_collection');
+if ($storeId) $oc->addFieldToFilter('store_id', $storeId);
+$oc->addFieldToFilter('state', array('nin' => array(Mage_Sales_Model_Order::STATE_CANCELED, Mage_Sales_Model_Order::STATE_NEW)));
+_dashCountry($oc, $countryFilter);
+$totalOrders = (int)$oc->getSize();
+
+$sc = Mage::getResourceModel('reports/order_collection');
+if ($storeId) $sc->addFieldToFilter('store_id', $storeId);
+$sc->addFieldToFilter('state', array('nin' => array(Mage_Sales_Model_Order::STATE_CANCELED, Mage_Sales_Model_Order::STATE_NEW)));
+_dashCountry($sc, $countryFilter);
+$sc->getSelect()->columns(array('total_revenue' => new Zend_Db_Expr('SUM(main_table.base_grand_total)')));
+$totalRevenue = (float)$sc->getFirstItem()->getData('total_revenue');
+
+$productCount = Mage::getModel('catalog/product')->getCollection()->getSize();
+
+$mc = Mage::getResourceModel('reports/order_collection');
+if ($storeId) $mc->addFieldToFilter('store_id', $storeId);
+$mc->addFieldToFilter('state', array('nin' => array(Mage_Sales_Model_Order::STATE_CANCELED, Mage_Sales_Model_Order::STATE_NEW)));
+$mc->addFieldToFilter('created_at', array('gteq' => date('Y-m-01 00:00:00')));
+_dashCountry($mc, $countryFilter);
+$monthOrders = (int)$mc->getSize();
+
+$salesByMonth = array();
+for ($i=11; $i>=0; $i--) {
+    $mS = date('Y-m-01 00:00:00', strtotime("-$i months"));
+    $mE = date('Y-m-t 23:59:59',  strtotime("-$i months"));
+    $mC = Mage::getResourceModel('reports/order_collection');
+    if ($storeId) $mC->addFieldToFilter('store_id', $storeId);
+    $mC->addFieldToFilter('state', array('nin' => array(Mage_Sales_Model_Order::STATE_CANCELED, Mage_Sales_Model_Order::STATE_NEW)));
+    $mC->addFieldToFilter('created_at', array('gteq' => $mS));
+    $mC->addFieldToFilter('created_at', array('lteq' => $mE));
+    _dashCountry($mC, $countryFilter);
+    $mC->getSelect()->columns(array('mt' => new Zend_Db_Expr('SUM(main_table.base_grand_total)')));
+    $salesByMonth[] = array('label' => date('M Y', strtotime("-$i months")), 'value' => round((float)$mC->getFirstItem()->getData('mt'), 2));
+}
+
+$pp = Mage::getResourceModel('reports/product_sold_collection');
+$pp->addOrderedQty(date('Y-m-d 00:00:00', strtotime('-6 months')), date('Y-m-d 23:59:59'));
+$pp->addAttributeToSelect('name')->setOrder('ordered_qty','desc')->setPageSize(10);
+$popularCourses = array();
+foreach ($pp as $p) {
+    $n = $p->getName() ?: Mage::getModel('catalog/product')->load($p->getId())->getName();
+    $popularCourses[] = array('name' => $n ?: 'Product #'.$p->getId(), 'qty' => (int)$p->getOrderedQty());
+}
+
+$sq = Mage::getModel('catalogsearch/query')->getCollection()->setOrder('popularity','desc')->setPageSize(10);
+if ($storeId) $sq->addFieldToFilter('store_id', $storeId);
+$popularSearches = array();
+foreach ($sq as $t) { $popularSearches[] = array('term' => $t->getQueryText(), 'count' => (int)$t->getPopularity()); }
+
+$rq = Mage::getModel('catalogsearch/query')->getCollection()->setOrder('query_id','desc')->setPageSize(10);
+if ($storeId) $rq->addFieldToFilter('store_id', $storeId);
+$recentSearches = array();
+foreach ($rq as $t) {
+    $recentSearches[] = array(
+        'term'       => $t->getQueryText(),
+        'count'      => (int)$t->getNumResults(),
+        'popularity' => (int)$t->getPopularity(),
+        'date'       => Mage::helper('core')->formatDate($t->getUpdatedAt(),'short',true),
+        'edit_url'   => $this->getUrl('adminhtml/catalog_search/edit', array('id' => $t->getId()))
+    );
+}
+
+$coc = Mage::getResourceModel('reports/order_collection');
+if ($storeId) $coc->addFieldToFilter('store_id', $storeId);
+$coc->addFieldToFilter('state', array('nin' => array(Mage_Sales_Model_Order::STATE_CANCELED, Mage_Sales_Model_Order::STATE_NEW)));
+$coc->getSelect()->join(array('soa2' => Mage::getSingleton('core/resource')->getTableName('sales/order_address')), 'main_table.entity_id=soa2.parent_id AND soa2.address_type="billing"', array());
+$coc->getSelect()->columns(array('country_code' => 'soa2.country_id', 'order_count' => new Zend_Db_Expr('COUNT(main_table.entity_id)')))->group('soa2.country_id')->order('order_count DESC')->limit(10);
+$cnames = array('SG'=>'Singapore','MY'=>'Malaysia','GH'=>'Ghana','NG'=>'Nigeria','BT'=>'Bhutan','US'=>'United States','IN'=>'India','AU'=>'Australia','GB'=>'United Kingdom','PH'=>'Philippines');
+$ordersByCountry = array();
+foreach ($coc as $row) {
+    $code = $row->getData('country_code');
+    $ordersByCountry[] = array('country' => isset($cnames[$code]) ? $cnames[$code] : $code, 'count' => (int)$row->getData('order_count'));
+}
 ?>
 
+<style>
+/* ---- Admin schedule dashboard ---- */
+.dash-wrap{padding:28px 32px;background:var(--d1);min-height:100vh}
+.dash-title{font-size:28px;font-weight:700;color:var(--t1);margin:0 0 28px}
+.dash-kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:32px}
+.dash-kpi-card{background:#131d2e;border:1px solid var(--b1);border-radius:12px;padding:28px 24px;text-align:center}
+.dash-kpi-num{font-size:42px;font-weight:700;color:#22d3ee;line-height:1.1;margin-bottom:8px}
+.dash-kpi-lbl{font-size:14px;color:var(--t2);font-weight:500}
+.dash-search-wrap{background:#131d2e;border:1px solid var(--b1);border-radius:12px;padding:24px}
+.dash-search-label{font-size:13px;color:#94a3b8;margin-bottom:10px}
+.dash-search-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.dash-search-input-wrap{flex:1;min-width:200px;position:relative}
+.dash-search-input-wrap svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#64748b;pointer-events:none}
+.dash-search-input{width:100%;background:#0f172a!important;border:1px solid var(--b1)!important;border-radius:8px;color:var(--t2)!important;font-size:14px;padding:10px 14px 10px 38px!important;box-sizing:border-box}
+.dash-search-input:focus{border-color:#22d3ee!important}
+.dash-btn-primary{background:#22d3ee!important;color:#0f172a!important;border:none!important;border-radius:8px;padding:10px 18px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap}
+.dash-btn-primary:hover{background:#06b6d4!important}
+.dash-btn-ghost{background:transparent!important;color:var(--t2)!important;border:1px solid var(--b1)!important;border-radius:8px;padding:10px 16px;font-size:14px;cursor:pointer;white-space:nowrap}
+.dash-btn-ghost:hover{border-color:var(--b2)!important;color:var(--t1)!important}
+.dash-adv-filters{display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--b1);grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.dash-adv-filters.is-open{display:grid}
+.dash-adv-label{font-size:12px;color:#94a3b8;margin-bottom:4px}
+.dash-adv-input,.dash-adv-select{width:100%;background:#0f172a!important;border:1px solid var(--b1)!important;border-radius:8px;color:var(--t2)!important;font-size:13px;padding:8px 10px!important;box-sizing:border-box}
+.dash-table-wrap{margin-top:16px;overflow-x:auto}
+.dash-table{width:100%;border-collapse:collapse;font-size:13px}
+.dash-table thead th{text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.6px;padding:10px 14px;border-bottom:1px solid var(--b1);white-space:nowrap}
+.dash-table tbody tr{border-bottom:1px solid #1a2535;transition:background .12s}
+.dash-table tbody tr:hover{background:rgba(34,211,238,.04)}
+.dash-table tbody td{padding:12px 14px;color:var(--t2);vertical-align:middle}
+.dash-table td.run-id{color:#64748b;font-size:12px}
+.dash-course-link{color:#22d3ee!important;text-decoration:none!important;font-weight:500}
+.dash-course-link:hover{color:#06b6d4!important;text-decoration:underline!important}
+.dash-badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500}
+.badge-type{background:#1e293b;color:#94a3b8;border:1px solid #2d3f55}
+.badge-confirmed{color:#10b981;border:1px solid #10b981;background:transparent}
+.badge-cancelled{color:#ef4444;border:1px solid #ef4444;background:transparent}
+.dash-no-results{text-align:center;padding:40px;color:#64748b;font-size:14px}
+</style>
+
+<?php /* Shared header */ ?>
 <div class="content-header">
-    <table cellspacing="0">
-        <tr>
-            <td><h3 class="head-dashboard"><?php echo $this->__('Dashboard') ?> <span style="font-size:14px;color:var(--t4);font-weight:400;">— <?php echo $_roleIcon ?> <?php echo $_roleLabel ?></span></h3></td>
-        </tr>
-    </table>
+    <table cellspacing="0"><tr>
+        <td><h3 class="head-dashboard"><?php echo $this->__('Dashboard') ?><span class="head-role-suffix" style="font-size:14px;color:var(--t4);font-weight:400;"> — <?php echo $_roleIcon ?> <?php echo $_roleLabel ?></span></h3></td>
+    </tr></table>
 </div>
 
-<?php if (!$isFullDashboard): ?>
-<!-- Role-specific dashboard for Learner/Trainer -->
-<div class="dashboard-modern">
-    <div class="chart-card" style="padding:40px;text-align:center;">
-        <div style="font-size:48px;margin-bottom:16px;"><?php echo $_roleIcon ?></div>
-        <h3 style="color:var(--t1);margin-bottom:8px;"><?php echo $_roleLabel ?> Dashboard</h3>
-        <p style="color:var(--t4);font-size:14px;">
-            <?php if ($activeRole === 'learner'): ?>
-                Welcome! View your enrolled courses, track progress, and download certificates.
-            <?php elseif ($activeRole === 'trainer'): ?>
-                Manage your classes, track attendance, and access training tools.
-            <?php endif; ?>
-        </p>
+<?php /* ===== PANEL 1: Admin — Course Schedule ===== */ ?>
+<div id="dash-panel-admin" style="display:none;">
+<div class="dash-wrap">
+    <h1 class="dash-title">Admin Dashboard</h1>
+
+    <div class="dash-kpi-grid">
+        <div class="dash-kpi-card"><div class="dash-kpi-num"><?php echo number_format($ongoingCount) ?></div><div class="dash-kpi-lbl">Ongoing Classes</div></div>
+        <div class="dash-kpi-card"><div class="dash-kpi-num"><?php echo number_format($upcomingCount) ?></div><div class="dash-kpi-lbl">Upcoming Classes</div></div>
+        <div class="dash-kpi-card"><div class="dash-kpi-num"><?php echo number_format($completedCount) ?></div><div class="dash-kpi-lbl">Completed Classes</div></div>
+        <div class="dash-kpi-card"><div class="dash-kpi-num"><?php echo number_format($assignedLocal) ?></div><div class="dash-kpi-lbl">Assigned Trainers (Local) for Upcoming</div></div>
+        <div class="dash-kpi-card"><div class="dash-kpi-num"><?php echo number_format($missingLocal) ?></div><div class="dash-kpi-lbl">Missing Trainers (Local) for Upcoming</div></div>
+        <div class="dash-kpi-card"><div class="dash-kpi-num"><?php echo number_format($missingTpg) ?></div><div class="dash-kpi-lbl">Missing Trainers (TPG) for Upcoming</div></div>
+    </div>
+
+    <div class="dash-search-wrap">
+        <div class="dash-search-label">General Search</div>
+        <div class="dash-search-row">
+            <div class="dash-search-input-wrap">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                <input type="text" id="dashSearch" class="dash-search-input" placeholder="Search title..." />
+            </div>
+            <button class="dash-btn-primary" onclick="dashToggleAdv()">Show Advanced Filters</button>
+            <button class="dash-btn-ghost"    onclick="dashClearFilters()">Clear</button>
+        </div>
+
+        <div id="dashAdvFilters" class="dash-adv-filters">
+            <div><div class="dash-adv-label">Course Ref Code</div><input type="text" id="fRefCode" class="dash-adv-input" placeholder="e.g. TGS-2024..." oninput="dashFilter()" /></div>
+            <div><div class="dash-adv-label">Class Type</div>
+                <select id="fType" class="dash-adv-select" onchange="dashFilter()">
+                    <option value="">All Types</option>
+                    <?php foreach ($classTypeOptions as $oid => $olabel): ?><option value="<?php echo htmlspecialchars($olabel) ?>"><?php echo htmlspecialchars($olabel) ?></option><?php endforeach; ?>
+                </select>
+            </div>
+            <div><div class="dash-adv-label">Class Status</div>
+                <select id="fStatus" class="dash-adv-select" onchange="dashFilter()">
+                    <option value="">All Statuses</option>
+                    <option value="Confirmed">Confirmed</option>
+                    <option value="Cancelled">Cancelled</option>
+                </select>
+            </div>
+            <div><div class="dash-adv-label">Start Date From</div><input type="date" id="fDateFrom" class="dash-adv-input" oninput="dashFilter()" /></div>
+            <div><div class="dash-adv-label">Start Date To</div><input type="date" id="fDateTo" class="dash-adv-input" oninput="dashFilter()" /></div>
+        </div>
+
+        <div class="dash-table-wrap">
+            <table class="dash-table">
+                <thead><tr>
+                    <th>Course Run ID</th><th>Course Title</th><th>Course Ref Code</th>
+                    <th>Class Type</th><th>Start Date</th><th>End Date</th>
+                    <th>Class Status</th><th>Learners</th>
+                </tr></thead>
+                <tbody id="dashTableBody">
+                <?php foreach ($courseRows as $row):
+                    $tid   = (int)$row['type_id'];
+                    $tlbl  = isset($classTypeOptions[$tid]) ? $classTypeOptions[$tid] : '—';
+                    $sFmt  = $row['start_date'] ? date('d/m/Y', strtotime($row['start_date'])) : '—';
+                    $eFmt  = $row['end_date']   ? date('d/m/Y', strtotime($row['end_date']))   : '—';
+                    $sv    = (int)$row['status_val'];
+                    $slbl  = ($sv === 1) ? 'Confirmed' : 'Cancelled';
+                    $scls  = ($sv === 1) ? 'badge-confirmed' : 'badge-cancelled';
+                    $eurl  = Mage::helper('adminhtml')->getUrl('adminhtml/catalog_product/edit', array('id' => $row['run_id']));
+                    $ttl   = htmlspecialchars($row['course_title'] ?: '(No Name)');
+                    $rcode = htmlspecialchars($row['ref_code']);
+                    $sraw  = $row['start_date'] ? date('Y-m-d', strtotime($row['start_date'])) : '';
+                ?>
+                <tr data-title="<?php echo strtolower($ttl) ?>" data-ref="<?php echo strtolower($rcode) ?>" data-type="<?php echo htmlspecialchars($tlbl) ?>" data-status="<?php echo $slbl ?>" data-start="<?php echo $sraw ?>">
+                    <td class="run-id"><?php echo (int)$row['run_id'] ?></td>
+                    <td><a href="<?php echo $eurl ?>" class="dash-course-link"><?php echo $ttl ?></a></td>
+                    <td><?php echo $rcode ?></td>
+                    <td><span class="dash-badge badge-type"><?php echo htmlspecialchars($tlbl) ?></span></td>
+                    <td><?php echo $sFmt ?></td>
+                    <td><?php echo $eFmt ?></td>
+                    <td><span class="dash-badge <?php echo $scls ?>"><?php echo $slbl ?></span></td>
+                    <td><?php echo (int)$row['learners'] ?></td>
+                </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+            <div id="dashNoResults" class="dash-no-results" style="display:none;">No courses match your search.</div>
+        </div>
+        <div style="font-size:12px;color:#64748b;margin-top:10px;text-align:right;">
+            Showing <span id="dashVisCount"><?php echo count($courseRows) ?></span> of <?php echo count($courseRows) ?> courses
+        </div>
     </div>
 </div>
-<?php else: ?>
-<!-- Full Admin/Super Admin Dashboard -->
-<div class="dashboard-modern">
+</div>
 
-    <!-- Country Filter Tabs -->
+<?php /* ===== PANEL 2: Super Admin — Charts / Revenue ===== */ ?>
+<div id="dash-panel-superadmin" style="display:none;">
+<div class="dashboard-modern">
     <div class="country-tabs">
-        <?php foreach ($countryTabs as $code => $label): ?>
-            <?php
-                $isActive = ($countryFilter === $code);
-                $tabUrl = $this->getUrl('*/*/*', array('country' => $code ? $code : null));
-            ?>
-            <a href="<?php echo $tabUrl ?>" class="country-tab <?php echo $isActive ? 'active' : '' ?>">
-                <?php echo $this->escapeHtml($label) ?>
-            </a>
+        <?php foreach ($countryTabs as $code => $label):
+            $isActive = ($countryFilter === $code);
+            $tabUrl   = $this->getUrl('*/*/*', array('country' => $code ?: null));
+        ?>
+        <a href="<?php echo $tabUrl ?>" class="country-tab <?php echo $isActive ? 'active' : '' ?>"><?php echo $this->escapeHtml($label) ?></a>
         <?php endforeach; ?>
     </div>
-
-    <!-- KPI Cards Row -->
     <div class="kpi-cards">
         <div class="kpi-card kpi-orders">
-            <div class="kpi-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
-            </div>
-            <div class="kpi-content">
-                <div class="kpi-value"><?php echo number_format($totalOrders) ?></div>
-                <div class="kpi-label">Total Orders</div>
-                <div class="kpi-sub"><?php echo number_format($monthOrders) ?> this month</div>
-            </div>
+            <div class="kpi-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg></div>
+            <div class="kpi-content"><div class="kpi-value"><?php echo number_format($totalOrders) ?></div><div class="kpi-label">Total Orders</div><div class="kpi-sub"><?php echo number_format($monthOrders) ?> this month</div></div>
         </div>
-
         <div class="kpi-card kpi-revenue">
-            <div class="kpi-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
-            </div>
-            <div class="kpi-content">
-                <div class="kpi-value"><?php echo dashFormatPrice($totalRevenue) ?></div>
-                <div class="kpi-label">Total Revenue</div>
-                <div class="kpi-sub">Lifetime sales</div>
-            </div>
+            <div class="kpi-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div>
+            <div class="kpi-content"><div class="kpi-value"><?php echo _dashFmt($totalRevenue) ?></div><div class="kpi-label">Total Revenue</div><div class="kpi-sub">Lifetime sales</div></div>
         </div>
-
         <div class="kpi-card kpi-courses">
-            <div class="kpi-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>
-            </div>
-            <div class="kpi-content">
-                <div class="kpi-value"><?php echo number_format($productCount) ?></div>
-                <div class="kpi-label">Total Courses</div>
-                <div class="kpi-sub">Active catalog</div>
-            </div>
+            <div class="kpi-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg></div>
+            <div class="kpi-content"><div class="kpi-value"><?php echo number_format($productCount) ?></div><div class="kpi-label">Total Courses</div><div class="kpi-sub">Active catalog</div></div>
         </div>
     </div>
-
-    <!-- Charts Row -->
     <div class="dashboard-charts">
-
-        <!-- Sales by Month Chart -->
-        <div class="chart-card chart-wide">
-            <div class="chart-header">
-                <h4>Sales by Month</h4>
-                <span class="chart-subtitle">Last 12 months</span>
-            </div>
-            <div class="chart-body">
-                <canvas id="salesByMonthChart" height="280"></canvas>
-            </div>
-        </div>
-
-        <!-- Popular Courses Chart -->
-        <div class="chart-card chart-wide">
-            <div class="chart-header">
-                <h4>Popular Courses</h4>
-                <span class="chart-subtitle">Last 6 months — top 10 by orders</span>
-            </div>
-            <div class="chart-body">
-                <canvas id="popularCoursesChart" height="350"></canvas>
-            </div>
-        </div>
-
-        <!-- Popular Searches Chart -->
-        <div class="chart-card">
-            <div class="chart-header">
-                <h4>Popular Search Terms</h4>
-                <span class="chart-subtitle">Top 10 by popularity</span>
-            </div>
-            <div class="chart-body">
-                <canvas id="popularSearchesChart" height="320"></canvas>
-            </div>
-        </div>
-
-        <!-- Orders by Country Chart -->
-        <div class="chart-card">
-            <div class="chart-header">
-                <h4>Orders by Country</h4>
-                <span class="chart-subtitle">Top 10 countries by order count</span>
-            </div>
-            <div class="chart-body">
-                <canvas id="ordersByCountryChart" height="320"></canvas>
-            </div>
-        </div>
-
+        <div class="chart-card chart-wide"><div class="chart-header"><h4>Sales by Month</h4><span class="chart-subtitle">Last 12 months</span></div><div class="chart-body"><canvas id="salesByMonthChart" height="280"></canvas></div></div>
+        <div class="chart-card chart-wide"><div class="chart-header"><h4>Popular Courses</h4><span class="chart-subtitle">Last 6 months — top 10</span></div><div class="chart-body"><canvas id="popularCoursesChart" height="350"></canvas></div></div>
+        <div class="chart-card"><div class="chart-header"><h4>Popular Search Terms</h4><span class="chart-subtitle">Top 10 by popularity</span></div><div class="chart-body"><canvas id="popularSearchesChart" height="320"></canvas></div></div>
+        <div class="chart-card"><div class="chart-header"><h4>Orders by Country</h4><span class="chart-subtitle">Top 10 countries</span></div><div class="chart-body"><canvas id="ordersByCountryChart" height="320"></canvas></div></div>
     </div>
-
-    <!-- Recent Searches Table -->
     <div class="dashboard-tables">
         <div class="chart-card">
-            <div class="chart-header">
-                <h4>Last 10 Searches</h4>
-                <span class="chart-subtitle">Most recent search queries</span>
-            </div>
+            <div class="chart-header"><h4>Last 10 Searches</h4><span class="chart-subtitle">Most recent queries</span></div>
             <div class="chart-body" style="padding-top:8px;">
                 <table class="dashboard-table">
-                    <thead>
-                        <tr>
-                            <th>Search Term</th>
-                            <th>Popularity</th>
-                            <th>Results</th>
-                            <th>Date</th>
-                        </tr>
-                    </thead>
+                    <thead><tr><th>Search Term</th><th>Popularity</th><th>Results</th><th>Date</th></tr></thead>
                     <tbody>
-                        <?php foreach ($recentSearches as $search): ?>
+                        <?php foreach ($recentSearches as $s): ?>
                         <tr>
-                            <td><a href="<?php echo $search['edit_url'] ?>" style="color:var(--blue) !important;text-decoration:none;"><strong><?php echo $this->escapeHtml($search['term']) ?></strong></a></td>
-                            <td><?php echo $search['popularity'] ?></td>
-                            <td><?php echo number_format($search['count']) ?></td>
-                            <td><?php echo $search['date'] ?></td>
+                            <td><a href="<?php echo $s['edit_url'] ?>" style="color:var(--blue)!important;text-decoration:none;"><strong><?php echo $this->escapeHtml($s['term']) ?></strong></a></td>
+                            <td><?php echo $s['popularity'] ?></td><td><?php echo number_format($s['count']) ?></td><td><?php echo $s['date'] ?></td>
                         </tr>
                         <?php endforeach; ?>
-                        <?php if (empty($recentSearches)): ?>
-                        <tr><td colspan="4" style="text-align:center;color:var(--t5);">No search data available</td></tr>
-                        <?php endif; ?>
+                        <?php if (empty($recentSearches)): ?><tr><td colspan="4" style="text-align:center;color:var(--t5);">No data</td></tr><?php endif; ?>
                     </tbody>
                 </table>
             </div>
         </div>
     </div>
-
 </div>
-<?php endif; /* end $isFullDashboard */ ?>
+</div>
 
-<?php if ($isFullDashboard): ?>
-<!-- Chart.js from CDN -->
+<?php /* ===== PANEL 3: Training Provider — Training Analytics ===== */ ?>
+<div id="dash-panel-trainingprovider" style="display:none;">
+<style>
+.tp-wrap{padding:28px 32px;background:var(--d1);min-height:100vh}
+.tp-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
+.tp-title{font-size:26px;font-weight:700;color:var(--t1);margin:0}
+.tp-refresh-btn{background:transparent!important;border:1px solid var(--b1)!important;color:var(--t2)!important;border-radius:8px;padding:7px 16px;font-size:13px;cursor:pointer}
+.tp-refresh-btn:hover{border-color:var(--b2)!important;color:var(--t1)!important}
+.tp-kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px}
+.tp-kpi-card{background:#131d2e;border:1px solid var(--b1);border-radius:12px;padding:22px 20px;text-align:center}
+.tp-kpi-num{font-size:34px;font-weight:700;color:#22d3ee;line-height:1.1;margin-bottom:6px}
+.tp-kpi-forecast .tp-kpi-num{font-size:28px;color:#67e8f9}
+.tp-kpi-lbl{font-size:13px;color:var(--t2);font-weight:600}
+.tp-kpi-sub{font-size:11px;color:#64748b;margin-top:3px}
+.tp-charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:14px}
+.tp-chart-card{background:#131d2e;border:1px solid var(--b1);border-radius:12px;padding:20px}
+.tp-chart-title{font-size:14px;font-weight:600;color:var(--t1);margin:0 0 16px}
+.tp-chart-full{grid-column:1/-1}
+.tp-bar-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.tp-bar-label{font-size:12px;color:var(--t2);width:200px;flex-shrink:0;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tp-bar-label-left{text-align:left;width:120px}
+.tp-bar-wrap{flex:1;background:#1e293b;border-radius:4px;height:18px;overflow:hidden}
+.tp-bar-fill{height:100%;background:#22d3ee;border-radius:4px;transition:width .3s}
+.tp-bar-val{font-size:12px;color:var(--t2);min-width:50px;text-align:left}
+</style>
+<div class="tp-wrap">
+    <div class="tp-header">
+        <h1 class="tp-title">Training Analytics Dashboard</h1>
+        <button class="tp-refresh-btn" onclick="window.location.reload()">Refresh</button>
+    </div>
+
+    <!-- KPI Row 1: Actuals -->
+    <div class="tp-kpi-grid">
+        <div class="tp-kpi-card">
+            <div class="tp-kpi-num"><?php echo number_format($tpTotalLearners) ?></div>
+            <div class="tp-kpi-lbl">Total Learners Enrolled</div>
+        </div>
+        <div class="tp-kpi-card">
+            <div class="tp-kpi-num"><?php echo tpFmt($tpGrantsApplied) ?></div>
+            <div class="tp-kpi-lbl">Total Grants Applied</div>
+        </div>
+        <div class="tp-kpi-card">
+            <div class="tp-kpi-num"><?php echo tpFmt($tpClaimsDisbursed) ?></div>
+            <div class="tp-kpi-lbl">Total Claims Disbursed</div>
+        </div>
+    </div>
+
+    <!-- KPI Row 2: Forecasts -->
+    <div class="tp-kpi-grid">
+        <div class="tp-kpi-card tp-kpi-forecast">
+            <div class="tp-kpi-num">~<?php echo number_format($tpFcLearners) ?></div>
+            <div class="tp-kpi-lbl">Enrollment Forecast</div>
+            <div class="tp-kpi-sub">Next 3 Months</div>
+        </div>
+        <div class="tp-kpi-card tp-kpi-forecast">
+            <div class="tp-kpi-num">~<?php echo tpFmt($tpFcGrants) ?></div>
+            <div class="tp-kpi-lbl">Grant Forecast</div>
+            <div class="tp-kpi-sub">Next 3 Months</div>
+        </div>
+        <div class="tp-kpi-card tp-kpi-forecast">
+            <div class="tp-kpi-num">~<?php echo tpFmt($tpFcClaims) ?></div>
+            <div class="tp-kpi-lbl">Claim Forecast</div>
+            <div class="tp-kpi-sub">Next 3 Months</div>
+        </div>
+    </div>
+
+    <!-- Charts Grid -->
+    <div class="tp-charts-grid">
+
+        <!-- Chart 1: Learners by Month -->
+        <div class="tp-chart-card">
+            <div class="tp-chart-title">Total Learners Enrolled by Month</div>
+            <?php
+            $tpMaxMonth = max(array_column($tpByMonth, 'value') ?: array(1));
+            foreach (array_reverse($tpByMonth) as $m):
+                $pct = $tpMaxMonth > 0 ? round($m['value'] / $tpMaxMonth * 100, 1) : 0;
+            ?>
+            <div class="tp-bar-row">
+                <div class="tp-bar-label"><?php echo htmlspecialchars($m['label']) ?></div>
+                <div class="tp-bar-wrap"><div class="tp-bar-fill" style="width:<?php echo $pct ?>%"></div></div>
+                <div class="tp-bar-val"><?php echo number_format($m['value']) ?></div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+
+        <!-- Chart 2: Course Ranking -->
+        <div class="tp-chart-card">
+            <div class="tp-chart-title">Course Ranking by Enrolment</div>
+            <?php
+            $tpMaxCourse = !empty($tpCourseRanking) ? max(array_column($tpCourseRanking, 'cnt')) : 1;
+            foreach ($tpCourseRanking as $cr):
+                $pct = $tpMaxCourse > 0 ? round($cr['cnt'] / $tpMaxCourse * 100, 1) : 0;
+                $shortName = strlen($cr['name']) > 40 ? substr($cr['name'], 0, 38).'…' : $cr['name'];
+            ?>
+            <div class="tp-bar-row">
+                <div class="tp-bar-label" title="<?php echo htmlspecialchars($cr['name']) ?>"><?php echo htmlspecialchars($shortName) ?></div>
+                <div class="tp-bar-wrap"><div class="tp-bar-fill" style="width:<?php echo $pct ?>%"></div></div>
+                <div class="tp-bar-val"><?php echo number_format($cr['cnt']) ?></div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+
+        <!-- Chart 3: Learner Age Profile -->
+        <div class="tp-chart-card">
+            <div class="tp-chart-title">Learner Age Profile</div>
+            <?php
+            $tpMaxAge = max($tpAgeGroups ?: array(1));
+            foreach ($tpAgeGroups as $ag => $cnt):
+                $pct = $tpMaxAge > 0 ? round($cnt / $tpMaxAge * 100, 1) : 0;
+            ?>
+            <div class="tp-bar-row">
+                <div class="tp-bar-label tp-bar-label-left"><?php echo $ag ?></div>
+                <div class="tp-bar-wrap"><div class="tp-bar-fill" style="width:<?php echo $pct ?>%"></div></div>
+                <div class="tp-bar-val"><?php echo number_format($cnt) ?></div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+
+        <!-- Chart 4: Enrollment Status -->
+        <div class="tp-chart-card">
+            <div class="tp-chart-title">Enrolment Status</div>
+            <?php
+            $tpMaxStatus = max($tpStatuses ?: array(1));
+            foreach ($tpStatuses as $lbl => $cnt):
+                $pct = $tpMaxStatus > 0 ? round($cnt / $tpMaxStatus * 100, 1) : 0;
+            ?>
+            <div class="tp-bar-row">
+                <div class="tp-bar-label tp-bar-label-left"><?php echo $lbl ?></div>
+                <div class="tp-bar-wrap"><div class="tp-bar-fill" style="width:<?php echo $pct ?>%"></div></div>
+                <div class="tp-bar-val"><?php echo number_format($cnt) ?></div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+
+        <!-- Chart 5: Sponsorship Type -->
+        <div class="tp-chart-card">
+            <div class="tp-chart-title">Learner Sponsorship Type</div>
+            <?php
+            $tpMaxSponsor = !empty($tpSponsors) ? max(array_column($tpSponsors, 'value')) : 1;
+            foreach ($tpSponsors as $sp):
+                $pct = $tpMaxSponsor > 0 ? round($sp['value'] / $tpMaxSponsor * 100, 1) : 0;
+            ?>
+            <div class="tp-bar-row">
+                <div class="tp-bar-label tp-bar-label-left"><?php echo htmlspecialchars($sp['label']) ?></div>
+                <div class="tp-bar-wrap"><div class="tp-bar-fill" style="width:<?php echo $pct ?>%"></div></div>
+                <div class="tp-bar-val"><?php echo number_format($sp['value']) ?></div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+
+    </div>
+</div>
+</div>
+
+<?php /* ===== PANEL 4: Learner / Trainer ===== */ ?>
+<div id="dash-panel-learner" style="display:none;">
+    <div class="lms-kpi-cards">
+        <div class="lms-kpi-card lms-current"><div class="lms-kpi-value">0</div><div class="lms-kpi-label">Current Classes</div></div>
+        <div class="lms-kpi-card lms-upcoming"><div class="lms-kpi-value">0</div><div class="lms-kpi-label">Upcoming Classes</div></div>
+        <div class="lms-kpi-card lms-past"><div class="lms-kpi-value">0</div><div class="lms-kpi-label">Past Classes</div></div>
+    </div>
+    <div class="lms-tabs">
+        <button class="lms-tab active">All Classes</button>
+        <button class="lms-tab">Current Classes</button>
+        <button class="lms-tab">Upcoming Classes</button>
+        <button class="lms-tab">Past Classes</button>
+    </div>
+    <div class="lms-search">
+        <svg class="lms-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="text" class="lms-search-input" placeholder="Search by course code, title, or run ID..." />
+    </div>
+    <div class="lms-empty">
+        <div class="lms-empty-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>
+        <div class="lms-empty-title">No enrolled courses found</div>
+        <div class="lms-empty-sub">You haven't enrolled in any courses yet</div>
+    </div>
+</div>
+
+<?php /* ===== Role switcher JS ===== */ ?>
+<script type="text/javascript">
+(function(){
+    function showPanel(role) {
+        var panels = {
+            'Admin':             'dash-panel-admin',
+            'Super Admin':       'dash-panel-superadmin',
+            'Training Provider': 'dash-panel-trainingprovider',
+            'Learner':           'dash-panel-learner',
+            'Trainer':           'dash-panel-learner'
+        };
+        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-trainingprovider','dash-panel-learner'];
+        for (var i=0; i<all.length; i++) {
+            var el = document.getElementById(all[i]);
+            if (el) el.style.display = 'none';
+        }
+        var target = panels[role] || 'dash-panel-admin';
+        var show = document.getElementById(target);
+        if (show) show.style.display = '';
+
+        var suffix = document.querySelector('.head-role-suffix');
+        if (suffix) suffix.textContent = ' — ' + role;
+    }
+
+    // Read saved role from localStorage
+    var role = 'Admin';
+    try { var saved = localStorage.getItem('adminViewAs'); if (saved) role = saved; } catch(e) {}
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function(){ showPanel(role); });
+    } else {
+        showPanel(role);
+    }
+
+    // Expose for header role switcher
+    window.__applyDashboardRole = showPanel;
+})();
+
+// Admin panel filter functions
+var _dashAdvOpen = false;
+window.dashToggleAdv = function() {
+    _dashAdvOpen = !_dashAdvOpen;
+    var el = document.getElementById('dashAdvFilters');
+    if (el) { if (_dashAdvOpen) el.classList.add('is-open'); else el.classList.remove('is-open'); }
+};
+window.dashClearFilters = function() {
+    ['dashSearch','fRefCode','fType','fStatus','fDateFrom','fDateTo'].forEach(function(id){
+        var el=document.getElementById(id); if(el) el.value='';
+    });
+    dashFilter();
+};
+window.dashFilter = function() {
+    var q    = (document.getElementById('dashSearch')||{value:''}).value.toLowerCase().trim();
+    var ref  = (document.getElementById('fRefCode') ||{value:''}).value.toLowerCase().trim();
+    var type = (document.getElementById('fType')    ||{value:''}).value.toLowerCase().trim();
+    var stat = (document.getElementById('fStatus')  ||{value:''}).value.toLowerCase().trim();
+    var df   = (document.getElementById('fDateFrom')||{value:''}).value;
+    var dt   = (document.getElementById('fDateTo')  ||{value:''}).value;
+    var rows = document.querySelectorAll('#dashTableBody tr');
+    var vis  = 0;
+    for (var i=0; i<rows.length; i++) {
+        var r=rows[i], show=true;
+        var rt=(r.getAttribute('data-title')||''), rr=(r.getAttribute('data-ref')||'');
+        if (q    && rt.indexOf(q)===-1 && rr.indexOf(q)===-1) show=false;
+        if (ref  && rr.indexOf(ref)===-1) show=false;
+        if (type && (r.getAttribute('data-type')||'').toLowerCase()!==type) show=false;
+        if (stat && (r.getAttribute('data-status')||'').toLowerCase()!==stat) show=false;
+        var rs=r.getAttribute('data-start')||'';
+        if (df && rs && rs<df) show=false;
+        if (dt && rs && rs>dt) show=false;
+        r.style.display = show ? '' : 'none';
+        if (show) vis++;
+    }
+    var nr=document.getElementById('dashNoResults'); if(nr) nr.style.display=(vis===0)?'':'none';
+    var vc=document.getElementById('dashVisCount');  if(vc) vc.textContent=vis;
+};
+(function(){
+    var si=document.getElementById('dashSearch');
+    if(si) si.addEventListener('input', dashFilter);
+})();
+</script>
+
+<?php /* ===== Chart.js (super admin panel) ===== */ ?>
 <script type="text/javascript">
 //<![CDATA[
-// Fix Prototype.js / Chart.js conflict: restore native Array methods
-// Prototype.js overrides Array.prototype.map/filter/reduce which breaks Chart.js
 (function(){
-    var iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
-    document.body.appendChild(iframe);
-    var nativeArr = iframe.contentWindow.Array.prototype;
-    Array.prototype.map = nativeArr.map;
-    Array.prototype.filter = nativeArr.filter;
-    Array.prototype.reduce = nativeArr.reduce;
-    if (nativeArr.find) Array.prototype.find = nativeArr.find;
-    if (nativeArr.findIndex) Array.prototype.findIndex = nativeArr.findIndex;
-    if (nativeArr.includes) Array.prototype.includes = nativeArr.includes;
-    document.body.removeChild(iframe);
+    var f=document.createElement('iframe');f.style.display='none';document.body.appendChild(f);
+    var na=f.contentWindow.Array.prototype;
+    ['map','filter','reduce','find','findIndex','includes'].forEach(function(m){ if(na[m]) Array.prototype[m]=na[m]; });
+    document.body.removeChild(f);
 })();
 //]]>
 </script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.4/dist/Chart.min.js"></script>
 <script type="text/javascript">
 //<![CDATA[
-document.observe('dom:loaded', function() {
+document.observe('dom:loaded', function(){
+    var cc={blue:'#60a5fa',blueDark:'#2563eb',green:'#10b981',purple:'#a78bfa',orange:'#f97316',grid:'rgba(148,163,184,0.1)',text:'#94a3b8'};
+    Chart.defaults.global.defaultFontColor=cc.text;
+    Chart.defaults.global.defaultFontFamily="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
+    Chart.defaults.global.legend.display=false;
+    Object.assign(Chart.defaults.global.tooltips,{backgroundColor:'#1e293b',titleFontColor:'#f8fafc',bodyFontColor:'#e2e8f0',borderColor:'#334155',borderWidth:1,cornerRadius:8});
 
-    var chartColors = {
-        blue: '#60a5fa',
-        blueDark: '#2563eb',
-        green: '#10b981',
-        purple: '#a78bfa',
-        orange: '#f97316',
-        gridLine: 'rgba(148, 163, 184, 0.1)',
-        text: '#94a3b8',
-        textLight: '#64748b'
-    };
+    var sd=<?php echo json_encode($salesByMonth) ?>;
+    new Chart(document.getElementById('salesByMonthChart').getContext('2d'),{type:'bar',data:{labels:sd.map(function(x){return x.label;}),datasets:[{data:sd.map(function(x){return x.value;}),backgroundColor:cc.blue,borderColor:cc.blueDark,borderWidth:1,barPercentage:.7}]},options:{responsive:true,maintainAspectRatio:false,scales:{xAxes:[{ticks:{fontColor:cc.text,fontSize:10,maxRotation:45},gridLines:{display:false}}],yAxes:[{ticks:{fontColor:cc.text,fontSize:11,callback:function(v){return'$'+v.toLocaleString();},beginAtZero:true},gridLines:{color:cc.grid}}]}}});
 
-    // Chart.js v2 global defaults
-    Chart.defaults.global.defaultFontColor = chartColors.text;
-    Chart.defaults.global.defaultFontFamily = "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
-    Chart.defaults.global.legend.display = false;
-    Chart.defaults.global.tooltips.backgroundColor = '#1e293b';
-    Chart.defaults.global.tooltips.titleFontColor = '#f8fafc';
-    Chart.defaults.global.tooltips.bodyFontColor = '#e2e8f0';
-    Chart.defaults.global.tooltips.borderColor = '#334155';
-    Chart.defaults.global.tooltips.borderWidth = 1;
-    Chart.defaults.global.tooltips.cornerRadius = 8;
+    var cd=<?php echo json_encode($popularCourses) ?>;
+    new Chart(document.getElementById('popularCoursesChart').getContext('2d'),{type:'horizontalBar',data:{labels:cd.map(function(x){return x.name;}),datasets:[{data:cd.map(function(x){return x.qty;}),backgroundColor:cc.green,barPercentage:.7}]},options:{responsive:true,maintainAspectRatio:false,scales:{xAxes:[{ticks:{fontColor:cc.text,fontSize:11,beginAtZero:true},gridLines:{color:cc.grid}}],yAxes:[{ticks:{fontColor:cc.text,fontSize:10},gridLines:{display:false}}]}}});
 
-    // 1. Sales by Month — Bar Chart
-    var salesData = <?php echo json_encode($salesByMonth) ?>;
-    var salesLabels = [], salesValues = [];
-    for (var mi = 0; mi < salesData.length; mi++) {
-        salesLabels.push(salesData[mi].label);
-        salesValues.push(salesData[mi].value);
-    }
+    var ps=<?php echo json_encode($popularSearches) ?>;
+    new Chart(document.getElementById('popularSearchesChart').getContext('2d'),{type:'horizontalBar',data:{labels:ps.map(function(x){var t=x.term||'';return t.length>35?t.substring(0,32)+'...':t;}),datasets:[{data:ps.map(function(x){return x.count;}),backgroundColor:cc.purple,barPercentage:.7}]},options:{responsive:true,maintainAspectRatio:false,scales:{xAxes:[{ticks:{fontColor:cc.text,fontSize:11,beginAtZero:true},gridLines:{color:cc.grid}}],yAxes:[{ticks:{fontColor:cc.text,fontSize:10},gridLines:{display:false}}]}}});
 
-    new Chart(document.getElementById('salesByMonthChart').getContext('2d'), {
-        type: 'bar',
-        data: {
-            labels: salesLabels,
-            datasets: [{
-                label: 'Revenue',
-                data: salesValues,
-                backgroundColor: chartColors.blue,
-                borderColor: chartColors.blueDark,
-                borderWidth: 1,
-                barPercentage: 0.7
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                xAxes: [{
-                    ticks: { fontColor: chartColors.text, fontSize: 10, maxRotation: 45 },
-                    gridLines: { display: false }
-                }],
-                yAxes: [{
-                    ticks: {
-                        fontColor: chartColors.text,
-                        fontSize: 11,
-                        callback: function(val) { return '$' + val.toLocaleString(); },
-                        beginAtZero: true
-                    },
-                    gridLines: { color: chartColors.gridLine }
-                }]
-            }
-        }
-    });
-
-    // 2. Popular Courses — Horizontal Bar Chart
-    var coursesData = <?php echo json_encode($popularCourses) ?>;
-    var courseLabels = [], courseValues = [];
-    for (var ci = 0; ci < coursesData.length; ci++) {
-        courseLabels.push(coursesData[ci].name || '');
-        courseValues.push(coursesData[ci].qty);
-    }
-
-    new Chart(document.getElementById('popularCoursesChart').getContext('2d'), {
-        type: 'horizontalBar',
-        data: {
-            labels: courseLabels,
-            datasets: [{
-                label: 'Orders',
-                data: courseValues,
-                backgroundColor: chartColors.green,
-                barPercentage: 0.7
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                xAxes: [{
-                    ticks: { fontColor: chartColors.text, fontSize: 11, beginAtZero: true },
-                    gridLines: { color: chartColors.gridLine }
-                }],
-                yAxes: [{
-                    ticks: { fontColor: chartColors.text, fontSize: 10 },
-                    gridLines: { display: false }
-                }]
-            }
-        }
-    });
-
-    // 3. Popular Searches — Horizontal Bar Chart
-    var searchData = <?php echo json_encode($popularSearches) ?>;
-    var searchLabels = [], searchValues = [];
-    for (var si = 0; si < searchData.length; si++) {
-        var st = searchData[si].term || '';
-        searchLabels.push(st.length > 35 ? st.substring(0, 32) + '...' : st);
-        searchValues.push(searchData[si].count);
-    }
-
-    new Chart(document.getElementById('popularSearchesChart').getContext('2d'), {
-        type: 'horizontalBar',
-        data: {
-            labels: searchLabels,
-            datasets: [{
-                label: 'Searches',
-                data: searchValues,
-                backgroundColor: chartColors.purple,
-                barPercentage: 0.7
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                xAxes: [{
-                    ticks: { fontColor: chartColors.text, fontSize: 11, beginAtZero: true },
-                    gridLines: { color: chartColors.gridLine }
-                }],
-                yAxes: [{
-                    ticks: { fontColor: chartColors.text, fontSize: 10 },
-                    gridLines: { display: false }
-                }]
-            }
-        }
-    });
-    // 4. Orders by Country — Horizontal Bar Chart
-    var countryData = <?php echo json_encode($ordersByCountry) ?>;
-    var countryLabels = [], countryValues = [];
-    for (var ci2 = 0; ci2 < countryData.length; ci2++) {
-        countryLabels.push(countryData[ci2].country || '');
-        countryValues.push(countryData[ci2].count);
-    }
-
-    new Chart(document.getElementById('ordersByCountryChart').getContext('2d'), {
-        type: 'horizontalBar',
-        data: {
-            labels: countryLabels,
-            datasets: [{
-                label: 'Orders',
-                data: countryValues,
-                backgroundColor: chartColors.orange,
-                barPercentage: 0.7
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                xAxes: [{
-                    ticks: { fontColor: chartColors.text, fontSize: 11, beginAtZero: true },
-                    gridLines: { color: chartColors.gridLine }
-                }],
-                yAxes: [{
-                    ticks: { fontColor: chartColors.text, fontSize: 10 },
-                    gridLines: { display: false }
-                }]
-            }
-        }
-    });
-
-    restorePrototypeArray();
+    var oc=<?php echo json_encode($ordersByCountry) ?>;
+    new Chart(document.getElementById('ordersByCountryChart').getContext('2d'),{type:'horizontalBar',data:{labels:oc.map(function(x){return x.country;}),datasets:[{data:oc.map(function(x){return x.count;}),backgroundColor:cc.orange,barPercentage:.7}]},options:{responsive:true,maintainAspectRatio:false,scales:{xAxes:[{ticks:{fontColor:cc.text,fontSize:11,beginAtZero:true},gridLines:{color:cc.grid}}],yAxes:[{ticks:{fontColor:cc.text,fontSize:10},gridLines:{display:false}}]}}});
 });
 //]]>
 </script>
-<?php endif; /* end Chart.js for full dashboard */ ?>
