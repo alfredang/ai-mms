@@ -2,7 +2,9 @@
 class MMD_RoleManager_Model_Observer
 {
     /**
-     * On admin login, load user roles into session and set active role
+     * On admin login, load user roles into session.
+     * If multiple roles, flag for role selection page.
+     * If single role, apply immediately.
      */
     public function onAdminLogin(Varien_Event_Observer $observer)
     {
@@ -11,41 +13,59 @@ class MMD_RoleManager_Model_Observer
             $helper  = Mage::helper('mmd_rolemanager');
             $session = Mage::getSingleton('admin/session');
 
-            // Check if the user has an explicit mapping in mmd_user_role_map
-            $hasMapping = false;
-            $primaryRole = null;
-            try {
-                $collection = Mage::getModel('mmd_rolemanager/role_map')->getCollection()
-                    ->addFieldToFilter('user_id', $user->getId());
-                if ($collection->getSize()) {
-                    $hasMapping = true;
-                    foreach ($collection as $item) {
-                        if ($item->getIsPrimary()) {
-                            $primaryRole = $item->getRoleCode();
-                            break;
-                        }
-                    }
-                    if (!$primaryRole) {
-                        $primaryRole = $collection->getFirstItem()->getRoleCode();
-                    }
-                }
-            } catch (Exception $e) {
-                // Table may not exist yet — treat as unmapped
+            $roles = $helper->getUserRolesFromDb($user->getId());
+            $session->setUserRoles($roles);
+
+            if (count($roles) > 1) {
+                // Multiple roles — need role selection page
+                $session->setNeedsRoleSelect(true);
+                $session->unsActiveRoleCode();
+            } else {
+                // Single role — apply immediately
+                $session->setNeedsRoleSelect(false);
+                $session->setActiveRoleCode($roles[0]);
+                $helper->applyRoleAcl($user->getId(), $roles[0]);
+            }
+        } catch (Exception $e) {
+            Mage::logException($e);
+        }
+    }
+
+    /**
+     * Before every admin controller action, redirect to role selection
+     * if user hasn't chosen a role yet.
+     */
+    public function onPredispatch(Varien_Event_Observer $observer)
+    {
+        try {
+            $session = Mage::getSingleton('admin/session');
+            if (!$session->isLoggedIn()) {
+                return;
             }
 
-            if ($hasMapping && $primaryRole) {
-                // Store roles from DB mapping only
-                $roles = $helper->getUserRolesFromDb($user->getId());
-                $session->setUserRoles($roles);
-                $session->setActiveRoleCode($primaryRole);
-                $helper->applyRoleAcl($user->getId(), $primaryRole);
-            } else {
-                // No explicit mapping — leave the user's existing admin_role
-                // assignment untouched. Still expose a role code in session so
-                // the dashboard/UI can render something sensible.
-                $session->setUserRoles(array($helper::ROLE_SUPER_ADMIN));
-                $session->setActiveRoleCode($helper::ROLE_SUPER_ADMIN);
+            $needsSelect = $session->getNeedsRoleSelect();
+            if (!$needsSelect) {
+                return;
             }
+
+            $controller = $observer->getEvent()->getControllerAction();
+            $actionName = $controller->getFullActionName();
+
+            // Allow role selection and logout actions
+            $allowed = array(
+                'adminhtml_roleselect_index',
+                'adminhtml_roleselect_choose',
+                'adminhtml_index_logout',
+            );
+            if (in_array($actionName, $allowed)) {
+                return;
+            }
+
+            // Redirect to role selection
+            $controller->getResponse()->setRedirect(
+                Mage::helper('adminhtml')->getUrl('adminhtml/roleselect/index')
+            );
+            $controller->setFlag('', Mage_Core_Controller_Varien_Action::FLAG_NO_DISPATCH, true);
         } catch (Exception $e) {
             Mage::logException($e);
         }

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Select Role - Tertiary Infotech Academy</title>
+    <link rel="icon" href="<?php echo $logoUrl ?>" type="image/png" />
+    <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+        background: #0f172a;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        display: flex; justify-content: center; align-items: center;
+        min-height: 100vh; padding: 20px;
+    }
+    .role-select-card {
+        background: rgba(30, 41, 59, 0.85);
+        backdrop-filter: blur(12px);
+        border: 1px solid #334155;
+        border-radius: 20px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+        width: 480px; max-width: 100%;
+        padding: 40px 36px 32px;
+    }
+    .rs-logo { text-align: center; margin-bottom: 16px; }
+    .rs-logo img { height: 72px; border-radius: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
+    .rs-title { text-align: center; color: #f1f5f9; font-size: 24px; font-weight: 700; margin-bottom: 4px; }
+    .rs-subtitle { text-align: center; color: #94a3b8; font-size: 14px; margin-bottom: 28px; }
+    .rs-welcome { text-align: center; color: #93c5fd; font-size: 18px; font-weight: 600; margin-bottom: 6px; }
+    .rs-instruction { text-align: center; color: #94a3b8; font-size: 14px; margin-bottom: 24px; }
+
+    .role-card {
+        display: flex; align-items: center; gap: 16px;
+        width: 100%; padding: 18px 20px;
+        background: rgba(51, 65, 85, 0.4);
+        border: 2px solid #334155;
+        border-radius: 14px;
+        margin-bottom: 12px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+    }
+    .role-card:hover {
+        border-color: #60a5fa;
+        background: rgba(96, 165, 250, 0.08);
+        transform: translateY(-1px);
+    }
+    .role-card-icon { font-size: 28px; width: 40px; text-align: center; flex-shrink: 0; }
+    .role-card-info { flex: 1; }
+    .role-card-name { color: #f1f5f9; font-size: 16px; font-weight: 600; margin-bottom: 2px; }
+    .role-card-desc { color: #94a3b8; font-size: 13px; }
+    .role-card-arrow { color: #64748b; font-size: 18px; flex-shrink: 0; transition: transform 0.2s; }
+    .role-card:hover .role-card-arrow { color: #60a5fa; transform: translateX(4px); }
+
+    .rs-footer { text-align: center; margin-top: 24px; padding-top: 20px; border-top: 1px solid #334155; }
+    .rs-footer a { color: #60a5fa; font-size: 13px; text-decoration: none; }
+    .rs-footer a:hover { color: #93c5fd; text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="role-select-card">
+        <div class="rs-logo">
+            <img src="<?php echo $logoUrl ?>" alt="Tertiary Infotech Academy" />
+        </div>
+        <h1 class="rs-title">Tertiary Infotech Academy</h1>
+        <p class="rs-subtitle">Magento Management System for WSQ Courses</p>
+
+        <p class="rs-welcome">Welcome back, <?php echo htmlspecialchars($fullName) ?>!</p>
+        <p class="rs-instruction">You have access to multiple roles. Please select one to continue:</p>
+
+        <?php foreach ($roles as $roleCode): ?>
+        <form method="post" action="<?php echo $chooseUrl ?>" style="display:inline">
+            <input type="hidden" name="form_key" value="<?php echo $formKey ?>" />
+            <input type="hidden" name="role_code" value="<?php echo htmlspecialchars($roleCode) ?>" />
+            <button type="submit" class="role-card">
+                <span class="role-card-icon"><?php echo $helper->getRoleIcon($roleCode) ?></span>
+                <div class="role-card-info">
+                    <div class="role-card-name"><?php echo htmlspecialchars($helper->getRoleLabel($roleCode)) ?></div>
+                    <div class="role-card-desc"><?php echo htmlspecialchars($helper->getRoleDescription($roleCode)) ?></div>
+                </div>
+                <span class="role-card-arrow">&#x203A;</span>
+            </button>
+        </form>
+        <?php endforeach; ?>
+
+        <div class="rs-footer">
+            <a href="<?php echo $logoutUrl ?>">Sign in with a different account</a>
+        </div>
+    </div>
+</body>
+</html>

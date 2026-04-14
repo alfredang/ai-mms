@@ -1,85 +1,84 @@
 <?php
 class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
 {
-    const ROLE_LEARNER     = 'learner';
-    const ROLE_TRAINER     = 'trainer';
-    const ROLE_ADMIN       = 'admin';
-    const ROLE_SUPER_ADMIN = 'super_admin';
+    const ROLE_LEARNER           = 'learner';
+    const ROLE_TRAINER           = 'trainer';
+    const ROLE_MARKETING         = 'marketing';
+    const ROLE_ADMIN             = 'admin';
+    const ROLE_TRAINING_PROVIDER = 'training_provider';
 
     protected $_roleLabels = array(
-        'learner'     => 'Learner',
-        'trainer'     => 'Trainer',
-        'admin'       => 'Admin',
-        'super_admin' => 'Super Admin',
+        'learner'           => 'Learner',
+        'trainer'           => 'Trainer',
+        'marketing'         => 'Marketing',
+        'admin'             => 'Admin',
+        'training_provider' => 'Training Provider',
     );
 
     protected $_roleIcons = array(
-        'learner'     => '&#x1F393;',  // 🎓
-        'trainer'     => '&#x1F3EB;',  // 🏫
-        'admin'       => '&#x1F6E0;',  // 🛠️
-        'super_admin' => '&#x1F451;',  // 👑
+        'learner'           => '&#x1F4DA;',  // 📚
+        'trainer'           => '&#x1F468;&#x200D;&#x1F3EB;', // 👨‍🏫
+        'marketing'         => '&#x1F4E3;',  // 📣
+        'admin'             => '&#x2699;&#xFE0F;',  // ⚙️
+        'training_provider' => '&#x1F3E2;',  // 🏢
+    );
+
+    protected $_roleDescriptions = array(
+        'learner'           => 'Access courses and track your learning progress',
+        'trainer'           => 'Manage classes and grade assessments',
+        'marketing'         => 'Manage campaigns, promotions, and CMS',
+        'admin'             => 'Manage users, classes, and system settings',
+        'training_provider' => 'Manage organization and course catalog',
     );
 
     protected $_rolePriority = array(
-        'learner'     => 1,
-        'trainer'     => 2,
-        'admin'       => 3,
-        'super_admin' => 4,
+        'learner'           => 1,
+        'trainer'           => 2,
+        'marketing'         => 3,
+        'admin'             => 4,
+        'training_provider' => 5,
     );
 
-    /**
-     * Get all role codes/labels
-     */
     public function getAllRoles()
     {
         return $this->_roleLabels;
     }
 
-    /**
-     * Get role label
-     */
     public function getRoleLabel($code)
     {
         return isset($this->_roleLabels[$code]) ? $this->_roleLabels[$code] : $code;
     }
 
-    /**
-     * Get role icon HTML entity
-     */
     public function getRoleIcon($code)
     {
         return isset($this->_roleIcons[$code]) ? $this->_roleIcons[$code] : '';
     }
 
-    /**
-     * Get active role code from session
-     */
+    public function getRoleDescription($code)
+    {
+        return isset($this->_roleDescriptions[$code]) ? $this->_roleDescriptions[$code] : '';
+    }
+
     public function getActiveRoleCode()
     {
         $session = Mage::getSingleton('admin/session');
         $code = $session->getActiveRoleCode();
-        return $code ? $code : self::ROLE_SUPER_ADMIN;
+        return $code ? $code : self::ROLE_ADMIN;
     }
 
-    /**
-     * Get all roles assigned to current user from session
-     */
     public function getUserRoles()
     {
         $session = Mage::getSingleton('admin/session');
         $roles = $session->getUserRoles();
-        return is_array($roles) ? $roles : array(self::ROLE_SUPER_ADMIN);
+        return is_array($roles) ? $roles : array(self::ROLE_ADMIN);
     }
 
-    /**
-     * Get user roles from database
-     */
     public function getUserRolesFromDb($userId)
     {
         try {
             $model = Mage::getModel('mmd_rolemanager/role_map');
             if (!$model) {
-                return array(self::ROLE_SUPER_ADMIN);
+                return array(self::ROLE_ADMIN);
             }
             $collection = $model->getCollection()
                 ->addFieldToFilter('user_id', $userId);
@@ -90,10 +89,9 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
             }
 
             if (empty($roles)) {
-                return array(self::ROLE_SUPER_ADMIN);
+                return array(self::ROLE_ADMIN);
             }
 
-            // Sort by priority (highest first)
             $priorities = $this->_rolePriority;
             usort($roles, function ($a, $b) use ($priorities) {
                 $pa = isset($priorities[$a]) ? $priorities[$a] : 0;
@@ -103,13 +101,10 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
 
             return $roles;
         } catch (Exception $e) {
-            return array(self::ROLE_SUPER_ADMIN);
+            return array(self::ROLE_ADMIN);
         }
     }
 
-    /**
-     * Apply ACL group role to a user by updating admin_role parent_id
-     */
     public function applyRoleAcl($userId, $roleCode)
     {
         $roleLabel = $this->getRoleLabel($roleCode);
@@ -117,26 +112,29 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
         $write     = $resource->getConnection('core_write');
         $roleTable = $resource->getTableName('admin/role');
 
-        // Find the group role_id for this role label
         $groupRoleId = $write->fetchOne(
             "SELECT role_id FROM {$roleTable} WHERE role_name = ? AND role_type = 'G'",
             array($roleLabel)
         );
 
         if (!$groupRoleId) {
+            // Fallback to Administrators group
+            $groupRoleId = $write->fetchOne(
+                "SELECT role_id FROM {$roleTable} WHERE role_name = 'Administrators' AND role_type = 'G'"
+            );
+        }
+
+        if (!$groupRoleId) {
             return false;
         }
 
-        // Update the user's role row to point at this group
         $write->update(
             $roleTable,
             array('parent_id' => $groupRoleId),
             "user_id = {$userId} AND role_type = 'U'"
         );
 
-        // Reload ACL in session
         Mage::getSingleton('admin/session')->setAcl(Mage::getResourceModel('admin/acl')->loadAcl());
-
         return true;
     }
 }

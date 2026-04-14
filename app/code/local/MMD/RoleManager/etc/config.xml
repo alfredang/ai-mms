@@ -2,7 +2,7 @@
 <config>
     <modules>
         <MMD_RoleManager>
-            <version>1.0.0</version>
+            <version>1.1.0</version>
         </MMD_RoleManager>
     </modules>
 
@@ -69,6 +69,14 @@
                     </mmd_rolemanager_login>
                 </observers>
             </admin_session_user_login_success>
+            <controller_action_predispatch>
+                <observers>
+                    <mmd_rolemanager_predispatch>
+                        <class>mmd_rolemanager/observer</class>
+                        <method>onPredispatch</method>
+                    </mmd_rolemanager_predispatch>
+                </observers>
+            </controller_action_predispatch>
         </events>
     </global>
 

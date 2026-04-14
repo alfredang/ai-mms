@@ -18,7 +18,7 @@ $_roleHelper = null;
 try { $_roleHelper = Mage::helper('mmd_rolemanager'); } catch (Exception $e) {} catch (Error $e) {}
 try {
     $activeRole = Mage::helper('mmd_rolemanager')->getActiveRoleCode();
-} catch (Exception $e) { $activeRole = 'super_admin'; } catch (Error $e) { $activeRole = 'super_admin'; }
+} catch (Exception $e) { $activeRole = 'admin'; } catch (Error $e) { $activeRole = 'admin'; }
 $_roleLabel = $_roleHelper ? $_roleHelper->getRoleLabel($activeRole) : ucwords(str_replace('_', ' ', $activeRole));
 $_roleIcon  = $_roleHelper ? $_roleHelper->getRoleIcon($activeRole) : '';
 
@@ -633,8 +633,8 @@ foreach ($coc as $row) {
 (function(){
     function showPanel(role) {
         var panels = {
-            'Admin':             'dash-panel-admin',
-            'Super Admin':       'dash-panel-superadmin',
+            'Admin':             'dash-panel-superadmin',
+            'Marketing':         'dash-panel-admin',
             'Training Provider': 'dash-panel-trainingprovider',
             'Learner':           'dash-panel-learner',
             'Trainer':           'dash-panel-learner'
