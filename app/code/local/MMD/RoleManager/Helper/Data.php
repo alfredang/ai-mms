@@ -107,22 +107,15 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
 
     public function applyRoleAcl($userId, $roleCode)
     {
-        $roleLabel = $this->getRoleLabel($roleCode);
         $resource  = Mage::getSingleton('core/resource');
         $write     = $resource->getConnection('core_write');
         $roleTable = $resource->getTableName('admin/role');
 
+        // Temporarily assign all roles to Administrators (full access)
+        // TODO: restore per-role ACL once role permissions are configured
         $groupRoleId = $write->fetchOne(
-            "SELECT role_id FROM {$roleTable} WHERE role_name = ? AND role_type = 'G'",
-            array($roleLabel)
+            "SELECT role_id FROM {$roleTable} WHERE role_name = 'Administrators' AND role_type = 'G'"
         );
-
-        if (!$groupRoleId) {
-            // Fallback to Administrators group
-            $groupRoleId = $write->fetchOne(
-                "SELECT role_id FROM {$roleTable} WHERE role_name = 'Administrators' AND role_type = 'G'"
-            );
-        }
 
         if (!$groupRoleId) {
             return false;
