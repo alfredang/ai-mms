@@ -176,8 +176,8 @@ function tpFmt($v) { return '$' . number_format($v, 0); }
 // =====================================================================
 $storeId       = (int) $this->getRequest()->getParam('store', 0);
 $countryFilter = $this->getRequest()->getParam('country', '');
-$countryTabs   = array('' => 'ALL','SG' => 'Singapore','MY' => 'Malaysia','GH' => 'Ghana','NG' => 'Nigeria','BT' => 'Bhutan');
-$countryStoreMap = array('SG' => 1, 'MY' => 2, 'GH' => 3, 'NG' => 4, 'BT' => 5);
+$countryTabs   = array('' => 'ALL','SG' => 'Singapore','MY' => 'Malaysia','GH' => 'Ghana','NG' => 'Nigeria','BT' => 'Bhutan','IN' => 'India','IT' => 'Infotech');
+$countryStoreMap = array('SG' => 1, 'MY' => 2, 'GH' => 3, 'NG' => 4, 'BT' => 5, 'IN' => 6, 'IT' => 7);
 $countryStoreId = isset($countryStoreMap[$countryFilter]) ? $countryStoreMap[$countryFilter] : 0;
 
 function _dashCountry($collection, $cc) {
