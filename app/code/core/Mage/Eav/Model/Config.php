@@ -162,6 +162,8 @@ class Mage_Eav_Model_Config
 
         if (empty($this->_entityTypes)) {
             $this->_loadEntityTypes();
+        }
+        if ($this->_attributeSetInfo === null) {
             $this->_loadAttributeSetInfo();
         }
 
@@ -591,7 +593,7 @@ class Mage_Eav_Model_Config
         $attributes = [];
 
         foreach ($attributeSetId as $setId) {
-            foreach ($this->_attributeSetInfo as $attributeId => $sets) {
+            foreach (($this->_attributeSetInfo ?? []) as $attributeId => $sets) {
                 if (isset($sets[$setId])) {
                     $attributes[$attributeId] = true;
                 }
