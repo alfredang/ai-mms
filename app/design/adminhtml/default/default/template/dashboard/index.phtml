@@ -8,6 +8,28 @@
 $storeId = (int) $this->getRequest()->getParam('store', 0);
 $websiteId = (int) $this->getRequest()->getParam('website', 0);
 $groupId = (int) $this->getRequest()->getParam('group', 0);
+$countryFilter = $this->getRequest()->getParam('country', '');
+
+// Country tabs config
+$countryTabs = array(
+    '' => 'ALL',
+    'SG' => 'Singapore',
+    'MY' => 'Malaysia',
+    'GH' => 'Ghana',
+    'NG' => 'Nigeria',
+    'BT' => 'Bhutan',
+);
+
+// Helper: add country filter to order collection via billing address join
+function dashAddCountryFilter($collection, $countryCode) {
+    if (!$countryCode) return;
+    $collection->getSelect()->join(
+        array('soa' => Mage::getSingleton('core/resource')->getTableName('sales/order_address')),
+        'main_table.entity_id = soa.parent_id AND soa.address_type = "billing"',
+        array()
+    );
+    $collection->getSelect()->where('soa.country_id = ?', $countryCode);
+}
 
 // Helper for currency
 $currencyCode = (string) Mage::app()->getStore()->getCurrentCurrencyCode();
@@ -19,6 +41,7 @@ $orderCollection->addFieldToFilter('state', array('nin' => array(
     Mage_Sales_Model_Order::STATE_CANCELED,
     Mage_Sales_Model_Order::STATE_NEW
 )));
+dashAddCountryFilter($orderCollection, $countryFilter);
 $totalOrders = (int) $orderCollection->getSize();
 
 // 2. KPI: Total Sales Revenue (lifetime)
@@ -28,8 +51,9 @@ $salesCollection->addFieldToFilter('state', array('nin' => array(
     Mage_Sales_Model_Order::STATE_CANCELED,
     Mage_Sales_Model_Order::STATE_NEW
 )));
+dashAddCountryFilter($salesCollection, $countryFilter);
 $salesCollection->getSelect()->columns(array(
-    'total_revenue' => new Zend_Db_Expr('SUM(base_grand_total)')
+    'total_revenue' => new Zend_Db_Expr('SUM(main_table.base_grand_total)')
 ));
 $row = $salesCollection->getFirstItem();
 $totalRevenue = (float) $row->getData('total_revenue');
@@ -46,6 +70,7 @@ $monthOrderCollection->addFieldToFilter('state', array('nin' => array(
     Mage_Sales_Model_Order::STATE_NEW
 )));
 $monthOrderCollection->addFieldToFilter('created_at', array('gteq' => $monthStart));
+dashAddCountryFilter($monthOrderCollection, $countryFilter);
 $monthOrders = (int) $monthOrderCollection->getSize();
 
 // 5. Chart: Sales by Month (last 12 months)
@@ -62,8 +87,9 @@ for ($i = 11; $i >= 0; $i--) {
     )));
     $mColl->addFieldToFilter('created_at', array('gteq' => $mStart));
     $mColl->addFieldToFilter('created_at', array('lteq' => $mEnd));
+    dashAddCountryFilter($mColl, $countryFilter);
     $mColl->getSelect()->columns(array(
-        'month_total' => new Zend_Db_Expr('SUM(base_grand_total)')
+        'month_total' => new Zend_Db_Expr('SUM(main_table.base_grand_total)')
     ));
     $mRow = $mColl->getFirstItem();
     $salesByMonth[] = array(
@@ -137,6 +163,19 @@ function dashFormatPrice($amount) {
 </div>
 
 <div class="dashboard-modern">
+
+    <!-- Country Filter Tabs -->
+    <div class="country-tabs">
+        <?php foreach ($countryTabs as $code => $label): ?>
+            <?php
+                $isActive = ($countryFilter === $code);
+                $tabUrl = $this->getUrl('*/*/*', array('country' => $code ? $code : null));
+            ?>
+            <a href="<?php echo $tabUrl ?>" class="country-tab <?php echo $isActive ? 'active' : '' ?>">
+                <?php echo $this->escapeHtml($label) ?>
+            </a>
+        <?php endforeach; ?>
+    </div>
 
     <!-- KPI Cards Row -->
     <div class="kpi-cards">
