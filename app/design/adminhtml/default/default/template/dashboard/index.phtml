@@ -273,6 +273,83 @@ foreach ($coc as $row) {
     $code = $row->getData('country_code');
     $ordersByCountry[] = array('country' => isset($cnames[$code]) ? $cnames[$code] : $code, 'count' => (int)$row->getData('order_count'));
 }
+
+// =====================================================================
+// DATA — Learner panel (My Classes)
+// =====================================================================
+$_learnerCourses = array();
+$_learnerCurrent = 0; $_learnerUpcoming = 0; $_learnerPast = 0;
+$_loggedInEmail = '';
+try {
+    $_loggedInUser = Mage::getSingleton('admin/session')->getUser();
+    $_loggedInEmail = $_loggedInUser ? strtolower($_loggedInUser->getEmail()) : '';
+} catch (Exception $e) {}
+
+if ($_loggedInEmail) {
+    $_now = date('Y-m-d');
+    $_resource = Mage::getSingleton('core/resource');
+    $_read = $_resource->getConnection('core_read');
+    $_orderTable = $_resource->getTableName('sales/order');
+    $_itemTable  = $_resource->getTableName('sales/order_item');
+    $_prodTable  = $_resource->getTableName('catalog/product');
+    $_eav_dt     = $_resource->getTableName('catalog_product_entity_datetime');
+    $_eav_vc     = $_resource->getTableName('catalog_product_entity_varchar');
+
+    // Get attribute IDs
+    $_nameAttrId = (int) $_read->fetchOne("SELECT attribute_id FROM eav_attribute WHERE attribute_code='name' AND entity_type_id=4");
+    $_startAttrId = (int) $_read->fetchOne("SELECT attribute_id FROM eav_attribute WHERE attribute_code='news_from_date' AND entity_type_id=4");
+    $_endAttrId = (int) $_read->fetchOne("SELECT attribute_id FROM eav_attribute WHERE attribute_code='news_to_date' AND entity_type_id=4");
+
+    $_sql = "SELECT DISTINCT oi.product_id, oi.sku, oi.name as item_name,
+                o.state as order_state,
+                pn.value as product_name,
+                sd.value as start_date,
+                ed.value as end_date
+             FROM {$_orderTable} o
+             JOIN {$_itemTable} oi ON o.entity_id = oi.order_id
+             LEFT JOIN {$_eav_vc} pn ON oi.product_id = pn.entity_id AND pn.attribute_id = {$_nameAttrId} AND pn.store_id = 0
+             LEFT JOIN {$_eav_dt} sd ON oi.product_id = sd.entity_id AND sd.attribute_id = {$_startAttrId} AND sd.store_id = 0
+             LEFT JOIN {$_eav_dt} ed ON oi.product_id = ed.entity_id AND ed.attribute_id = {$_endAttrId} AND ed.store_id = 0
+             WHERE LOWER(o.customer_email) = ?
+             AND o.state NOT IN ('canceled','closed')
+             ORDER BY sd.value DESC";
+
+    $_rows = $_read->fetchAll($_sql, array($_loggedInEmail));
+    foreach ($_rows as $_r) {
+        $_start = $_r['start_date'] ? date('Y-m-d', strtotime($_r['start_date'])) : null;
+        $_end = $_r['end_date'] ? date('Y-m-d', strtotime($_r['end_date'])) : null;
+
+        $_status = 'Confirmed';
+        if (in_array($_r['order_state'], array('pending','holded','new'))) $_status = 'Pending';
+
+        $_timeStatus = 'past';
+        if ($_start && $_end) {
+            if ($_now >= $_start && $_now <= $_end) { $_timeStatus = 'current'; $_learnerCurrent++; }
+            elseif ($_now < $_start) { $_timeStatus = 'upcoming'; $_learnerUpcoming++; }
+            else { $_learnerPast++; }
+        } else { $_learnerPast++; }
+
+        // Get product image
+        $_imgUrl = '';
+        try {
+            $_prod = Mage::getModel('catalog/product')->load($_r['product_id']);
+            if ($_prod->getImage() && $_prod->getImage() !== 'no_selection') {
+                $_imgUrl = (string) Mage::helper('catalog/image')->init($_prod, 'image')->resize(400, 250);
+            }
+        } catch (Exception $e) {}
+
+        $_learnerCourses[] = array(
+            'name'        => $_r['product_name'] ?: $_r['item_name'],
+            'sku'         => $_r['sku'],
+            'start_date'  => $_start ? date('j M Y', strtotime($_start)) : '—',
+            'end_date'    => $_end ? date('j M Y', strtotime($_end)) : '—',
+            'status'      => $_status,
+            'time_status' => $_timeStatus,
+            'image'       => $_imgUrl,
+            'order_state' => $_r['order_state'],
+        );
+    }
+}
 ?>
 
 <style>
@@ -615,42 +692,143 @@ foreach ($coc as $row) {
 </div>
 </div>
 
-<?php /* ===== PANEL 4: Learner / Trainer ===== */ ?>
+<?php /* ===== PANEL 4: Learner My Classes ===== */ ?>
 <div id="dash-panel-learner" style="display:none;">
-    <div class="lms-kpi-cards">
-        <div class="lms-kpi-card lms-current"><div class="lms-kpi-value">0</div><div class="lms-kpi-label">Current Classes</div></div>
-        <div class="lms-kpi-card lms-upcoming"><div class="lms-kpi-value">0</div><div class="lms-kpi-label">Upcoming Classes</div></div>
-        <div class="lms-kpi-card lms-past"><div class="lms-kpi-value">0</div><div class="lms-kpi-label">Past Classes</div></div>
+<style>
+.lmc-wrap{padding:0}
+.lmc-title{font-size:24px;font-weight:700;color:var(--t1);margin:0 0 20px}
+.lmc-kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px}
+.lmc-kpi-card{background:#131d2e;border:1px solid var(--b1);border-radius:12px;padding:24px;text-align:center}
+.lmc-kpi-num{font-size:36px;font-weight:700;line-height:1.1;margin-bottom:4px}
+.lmc-kpi-num.green{color:#22c55e}.lmc-kpi-num.blue{color:#3b82f6}.lmc-kpi-num.gray{color:#94a3b8}
+.lmc-kpi-lbl{color:var(--t4);font-size:13px}
+.lmc-tabs{display:flex;gap:8px;margin-bottom:16px}
+.lmc-tab{padding:8px 18px;border-radius:20px;border:none;font-size:13px;font-weight:500;cursor:pointer;background:#1e293b;color:#94a3b8}
+.lmc-tab.active{background:#3b82f6;color:#fff}
+.lmc-search{position:relative;margin-bottom:24px}
+.lmc-search input{width:100%;padding:10px 16px 10px 40px;background:#1e293b;border:1px solid #334155;border-radius:10px;color:#f1f5f9;font-size:14px;outline:none;box-sizing:border-box}
+.lmc-search input:focus{border-color:#60a5fa}
+.lmc-search svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#64748b}
+.lmc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.lmc-card{background:#131d2e;border:1px solid #1e293b;border-radius:14px;overflow:hidden;transition:transform .15s,box-shadow .15s}
+.lmc-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.lmc-card-img{width:100%;aspect-ratio:16/9;object-fit:cover;background:#0f172a;display:block}
+.lmc-card-img-placeholder{width:100%;aspect-ratio:16/9;background:linear-gradient(135deg,#1e3a5f,#0f172a);display:flex;align-items:center;justify-content:center;color:#334155}
+.lmc-card-body{padding:16px}
+.lmc-card-title{font-size:15px;font-weight:600;color:#f1f5f9;margin:0 0 10px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.lmc-card-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.lmc-card-label{color:#64748b;font-size:12px}
+.lmc-card-value{color:#cbd5e1;font-size:12px;font-weight:500}
+.lmc-badge{padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600}
+.lmc-badge-wsq{background:rgba(59,130,246,.15);color:#60a5fa;border:1px solid rgba(59,130,246,.3)}
+.lmc-badge-confirmed{background:rgba(34,197,94,.12);color:#22c55e;border:1px solid rgba(34,197,94,.3)}
+.lmc-badge-pending{background:rgba(245,158,11,.12);color:#f59e0b;border:1px solid rgba(245,158,11,.3)}
+.lmc-badge-cancelled{background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.3)}
+.lmc-card-footer{padding:12px 16px;border-top:1px solid #1e293b;display:flex;justify-content:space-between;align-items:center}
+.lmc-card-footer a{color:#06b6d4;font-size:13px;font-weight:600;text-decoration:none}
+.lmc-card-footer a:hover{color:#22d3ee}
+.lmc-empty{text-align:center;padding:60px 20px;color:#64748b}
+.lmc-empty svg{margin-bottom:12px;opacity:.5}
+@media(max-width:1024px){.lmc-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:640px){.lmc-grid{grid-template-columns:1fr}}
+</style>
+    <div class="lmc-wrap">
+        <h2 class="lmc-title">My Classes</h2>
+        <div class="lmc-kpi">
+            <div class="lmc-kpi-card"><div class="lmc-kpi-num green"><?php echo $_learnerCurrent ?></div><div class="lmc-kpi-lbl">Current Classes</div></div>
+            <div class="lmc-kpi-card"><div class="lmc-kpi-num blue"><?php echo $_learnerUpcoming ?></div><div class="lmc-kpi-lbl">Upcoming Classes</div></div>
+            <div class="lmc-kpi-card"><div class="lmc-kpi-num gray"><?php echo $_learnerPast ?></div><div class="lmc-kpi-lbl">Past Classes</div></div>
+        </div>
+        <div class="lmc-tabs">
+            <button class="lmc-tab active" onclick="lmcFilter('all',this)">All Classes</button>
+            <button class="lmc-tab" onclick="lmcFilter('current',this)">Current Classes</button>
+            <button class="lmc-tab" onclick="lmcFilter('upcoming',this)">Upcoming Classes</button>
+            <button class="lmc-tab" onclick="lmcFilter('past',this)">Past Classes</button>
+        </div>
+        <div class="lmc-search">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input type="text" id="lmc-search" placeholder="Search by course code, title, or run ID..." oninput="lmcSearch(this.value)" />
+        </div>
+
+        <?php if (empty($_learnerCourses)): ?>
+        <div class="lmc-empty">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+            <div style="font-size:16px;font-weight:600;color:#94a3b8;margin-bottom:4px;">No enrolled courses found</div>
+            <div>You haven't enrolled in any courses yet</div>
+        </div>
+        <?php else: ?>
+        <div class="lmc-grid" id="lmc-grid">
+            <?php foreach ($_learnerCourses as $_c): ?>
+            <div class="lmc-card" data-time="<?php echo $_c['time_status'] ?>" data-search="<?php echo strtolower($_c['name'] . ' ' . $_c['sku']) ?>">
+                <?php if ($_c['image']): ?>
+                <img class="lmc-card-img" src="<?php echo $_c['image'] ?>" alt="" />
+                <?php else: ?>
+                <div class="lmc-card-img-placeholder">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                </div>
+                <?php endif; ?>
+                <div class="lmc-card-body">
+                    <div class="lmc-card-title"><?php echo htmlspecialchars($_c['name']) ?></div>
+                    <div class="lmc-card-row">
+                        <span class="lmc-card-label">Course Code</span>
+                        <span class="lmc-card-value"><?php echo htmlspecialchars($_c['sku']) ?></span>
+                    </div>
+                    <div class="lmc-card-row">
+                        <span class="lmc-card-label">Course Type</span>
+                        <span class="lmc-badge lmc-badge-wsq">WSQ</span>
+                    </div>
+                    <div class="lmc-card-row">
+                        <span class="lmc-card-label">Class Status</span>
+                        <span class="lmc-badge lmc-badge-<?php echo strtolower($_c['status']) ?>"><?php echo $_c['status'] ?></span>
+                    </div>
+                    <div class="lmc-card-row">
+                        <span class="lmc-card-label">Start Date</span>
+                        <span class="lmc-card-value"><?php echo $_c['start_date'] ?></span>
+                    </div>
+                    <div class="lmc-card-row">
+                        <span class="lmc-card-label">End Date</span>
+                        <span class="lmc-card-value"><?php echo $_c['end_date'] ?></span>
+                    </div>
+                </div>
+                <div class="lmc-card-footer">
+                    <a href="#">View Course</a>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m10 8 6 4-6 4z" fill="#06b6d4"/></svg>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
     </div>
-    <div class="lms-tabs">
-        <button class="lms-tab active">All Classes</button>
-        <button class="lms-tab">Current Classes</button>
-        <button class="lms-tab">Upcoming Classes</button>
-        <button class="lms-tab">Past Classes</button>
-    </div>
-    <div class="lms-search">
-        <svg class="lms-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-        <input type="text" class="lms-search-input" placeholder="Search by course code, title, or run ID..." />
-    </div>
-    <div class="lms-empty">
-        <div class="lms-empty-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>
-        <div class="lms-empty-title">No enrolled courses found</div>
-        <div class="lms-empty-sub">You haven't enrolled in any courses yet</div>
-    </div>
+<script type="text/javascript">
+function lmcFilter(type, btn) {
+    var tabs = document.querySelectorAll('.lmc-tab');
+    for (var i = 0; i < tabs.length; i++) tabs[i].classList.remove('active');
+    btn.classList.add('active');
+    var cards = document.querySelectorAll('.lmc-card');
+    for (var i = 0; i < cards.length; i++) {
+        cards[i].style.display = (type === 'all' || cards[i].getAttribute('data-time') === type) ? '' : 'none';
+    }
+}
+function lmcSearch(q) {
+    q = q.toLowerCase();
+    var cards = document.querySelectorAll('.lmc-card');
+    for (var i = 0; i < cards.length; i++) {
+        cards[i].style.display = (!q || cards[i].getAttribute('data-search').indexOf(q) >= 0) ? '' : 'none';
+    }
+}
+</script>
 </div>
 
 <?php /* ===== Role switcher JS ===== */ ?>
 <script type="text/javascript">
 (function(){
     function showPanel(role) {
-        // Temporarily show admin dashboard (charts) for all roles
-        // TODO: restore per-role dashboards once role UIs are configured
         var panels = {
             'Admin':             'dash-panel-superadmin',
             'Marketing':         'dash-panel-superadmin',
             'Training Provider': 'dash-panel-superadmin',
-            'Learner':           'dash-panel-superadmin',
-            'Trainer':           'dash-panel-superadmin'
+            'Learner':           'dash-panel-learner',
+            'Trainer':           'dash-panel-learner'
         };
         var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-trainingprovider','dash-panel-learner'];
         for (var i=0; i<all.length; i++) {
