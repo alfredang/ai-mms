@@ -9,10 +9,18 @@ $_versionFile = BP . '/version.txt';
 if (file_exists($_versionFile)) {
     $_version = trim(file_get_contents($_versionFile));
 }
+// Git commit timestamp as version
+$_commitVersion = '';
+$_commitVersionFile = BP . '/commit-version.txt';
+if (file_exists($_commitVersionFile)) {
+    $_commitVersion = trim(file_get_contents($_commitVersionFile));
+}
 ?>
 <p class="legality">
     Powered by Tertiary Infotech Academy Pte Ltd &copy; <?php echo date('Y') ?>
-    <?php if ($_version): ?>
+    <?php if ($_commitVersion): ?>
+    <span style="margin-left:12px;color:var(--t5);font-size:11px;">v <?php echo htmlspecialchars($_commitVersion) ?></span>
+    <?php elseif ($_version): ?>
     <span style="margin-left:12px;color:var(--t5);font-size:11px;">v <?php echo htmlspecialchars($_version) ?></span>
     <?php endif; ?>
 </p>
