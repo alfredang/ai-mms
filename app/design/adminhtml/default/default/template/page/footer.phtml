@@ -3,6 +3,16 @@
  * Admin footer - Tertiary Infotech Academy
  */
 ?>
+<?php
+$_version = '';
+$_versionFile = BP . '/version.txt';
+if (file_exists($_versionFile)) {
+    $_version = trim(file_get_contents($_versionFile));
+}
+?>
 <p class="legality">
     Powered by Tertiary Infotech Academy Pte Ltd &copy; <?php echo date('Y') ?>
+    <?php if ($_version): ?>
+    <span style="margin-left:12px;color:var(--t5);font-size:11px;">v <?php echo htmlspecialchars($_version) ?></span>
+    <?php endif; ?>
 </p>

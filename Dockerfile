@@ -57,6 +57,9 @@ COPY . /var/www/html/
 # Install Composer dependencies
 RUN composer install --no-dev --no-interaction --optimize-autoloader
 
+# Save build timestamp as version
+RUN date -u '+%d-%m-%Y %H:%M' > /var/www/html/version.txt
+
 # Set proper permissions for Apache
 RUN chown -R www-data:www-data /var/www/html
 
