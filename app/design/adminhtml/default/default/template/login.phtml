@@ -6,6 +6,8 @@
 $logoUrl = Mage::getBaseUrl('skin') . 'adminhtml/default/default/images/admin-logo.png';
 $formKey = $this->getFormKey();
 $forgotUrl = Mage::helper('adminhtml')->getUrl('adminhtml/index/forgotpassword', array('_nosecret' => true));
+$otpSendUrl = Mage::helper('adminhtml')->getUrl('adminhtml/otp/send', array('_nosecret' => true));
+$otpVerifyUrl = Mage::helper('adminhtml')->getUrl('adminhtml/otp/verify', array('_nosecret' => true));
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -261,17 +263,27 @@ $forgotUrl = Mage::helper('adminhtml')->getUrl('adminhtml/index/forgotpassword',
         btn.disabled = true;
         btn.innerHTML = 'Sending...';
 
-        // OTP sending is a placeholder — needs backend implementation
-        setTimeout(function() {
-            $('otp-step-email').addClassName('hidden');
-            $('otp-step-verify').removeClassName('hidden');
-            $('otp-sent-text').innerHTML = 'OTP sent to ' + email;
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '<?php echo $otpSendUrl ?>');
+        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+        xhr.onload = function() {
             btn.disabled = false;
             btn.innerHTML = 'Send OTP';
-            // Focus first digit
-            var digits = document.querySelectorAll('.otp-digit');
-            if (digits[0]) digits[0].focus();
-        }, 1500);
+            try {
+                var resp = JSON.parse(xhr.responseText);
+                if (resp.success) {
+                    $('otp-step-email').addClassName('hidden');
+                    $('otp-step-verify').removeClassName('hidden');
+                    $('otp-sent-text').innerHTML = 'OTP sent to ' + email;
+                    var digits = document.querySelectorAll('.otp-digit');
+                    if (digits[0]) digits[0].focus();
+                } else {
+                    alert(resp.message || 'Failed to send OTP');
+                }
+            } catch(e) { alert('Error sending OTP. Please try again.'); }
+        };
+        xhr.onerror = function() { btn.disabled = false; btn.innerHTML = 'Send OTP'; alert('Network error'); };
+        xhr.send('email=' + encodeURIComponent(email) + '&form_key=<?php echo $formKey ?>');
     }
 
     function otpInput(el) {
@@ -296,16 +308,28 @@ $forgotUrl = Mage::helper('adminhtml')->getUrl('adminhtml/index/forgotpassword',
         for (var i = 0; i < digits.length; i++) otp += digits[i].value;
         if (otp.length < 6) { alert('Please enter the complete 6-digit OTP'); return; }
 
+        var email = $('otp-email').value.trim();
         var btn = $('btn-verify-otp');
         btn.disabled = true;
         btn.innerHTML = 'Verifying...';
 
-        // OTP verification placeholder — needs backend implementation
-        setTimeout(function() {
-            alert('OTP verification requires backend implementation. Please use password login for now.');
-            btn.disabled = false;
-            btn.innerHTML = 'Verify & Login';
-        }, 1000);
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '<?php echo $otpVerifyUrl ?>');
+        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+        xhr.onload = function() {
+            try {
+                var resp = JSON.parse(xhr.responseText);
+                if (resp.success && resp.redirect) {
+                    window.location.href = resp.redirect;
+                } else {
+                    btn.disabled = false;
+                    btn.innerHTML = 'Verify &amp; Login';
+                    alert(resp.message || 'Verification failed');
+                }
+            } catch(e) { btn.disabled = false; btn.innerHTML = 'Verify &amp; Login'; alert('Error verifying OTP'); }
+        };
+        xhr.onerror = function() { btn.disabled = false; btn.innerHTML = 'Verify &amp; Login'; alert('Network error'); };
+        xhr.send('email=' + encodeURIComponent(email) + '&otp=' + encodeURIComponent(otp) + '&form_key=<?php echo $formKey ?>');
     }
     //]]>
     </script>

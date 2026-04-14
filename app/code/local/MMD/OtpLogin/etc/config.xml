@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+<config>
+    <modules>
+        <MMD_OtpLogin>
+            <version>1.0.0</version>
+        </MMD_OtpLogin>
+    </modules>
+    <global>
+        <models>
+            <mmd_otplogin>
+                <class>MMD_OtpLogin_Model</class>
+            </mmd_otplogin>
+        </models>
+        <helpers>
+            <mmd_otplogin>
+                <class>MMD_OtpLogin_Helper</class>
+            </mmd_otplogin>
+        </helpers>
+    </global>
+    <admin>
+        <routers>
+            <adminhtml>
+                <args>
+                    <modules>
+                        <MMD_OtpLogin before="Mage_Adminhtml">MMD_OtpLogin_Adminhtml</MMD_OtpLogin>
+                    </modules>
+                </args>
+            </adminhtml>
+        </routers>
+    </admin>
+    <adminhtml>
+        <events>
+            <controller_action_predispatch>
+                <observers>
+                    <mmd_otplogin_allow>
+                        <class>mmd_otplogin/observer</class>
+                        <method>allowOtpAction</method>
+                    </mmd_otplogin_allow>
+                </observers>
+            </controller_action_predispatch>
+        </events>
+    </adminhtml>
+</config>
