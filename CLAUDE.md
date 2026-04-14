@@ -94,11 +94,10 @@ Manual SQL scripts in `migrations/` applied via Docker exec (not Magento's Varie
 
 Skills provide domain-specific coding standards and patterns. Load them when working in their domain.
 
-| Skill | When to Use |
-|-------|------------|
-| **php-pro** | Writing or reviewing PHP code — enforces strict typing, PSR-12, PHPStan level 9, typed DTOs, constructor DI, and PHPUnit patterns |
-| **mysql** | Creating/modifying tables, indexes, or queries; diagnosing slow queries or locking; planning migrations; writing SQL in `migrations/` folder |
-
-Source repos:
-- php-pro: `github.com/Jeffallan/claude-skills`
-- mysql: `github.com/planetscale/database-skills`
+| Skill | When to Use | Source |
+|-------|------------|--------|
+| **php-pro** | Writing/reviewing PHP code — strict typing, PSR-12, PHPStan, typed DTOs, DI, PHPUnit | `Jeffallan/claude-skills` |
+| **mysql** | Schema design, indexing, query tuning, migrations, transactions, DDL operations | `planetscale/database-skills` |
+| **web-accessibility** | Building/reviewing UI for a11y — WCAG 2.1, semantic HTML, keyboard nav, ARIA, contrast | `supercent-io/skills-template` |
+| **create-github-action-workflow-specification** | Creating/modifying GitHub Actions CI/CD workflows | `github/awesome-copilot` |
+| **find-skills** | Discovering and installing new skills via `npx skills find [query]` | `vercel-labs/skills` |
