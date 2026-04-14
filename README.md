@@ -122,3 +122,4 @@ docker/            # Docker configuration files
 | Aschroder_SMTPPro | SMTP email transport |
 | Stripe_Payments | Stripe payment gateway |
 | Hitpay_Pay | HitPay payment gateway |
+# auto-deploy test
