@@ -17,9 +17,7 @@ if (file_exists($_commitVersionFile)) {
 }
 ?>
 <?php $_v = $_commitVersion ? $_commitVersion : $_version; ?>
-<?php if ($_v): ?>
-<p style="color:var(--t5);font-size:11px;text-align:left !important;margin:0 0 4px;">version <?php echo htmlspecialchars($_v) ?></p>
-<?php endif; ?>
-<p style="color:var(--t5);font-size:12px;text-align:center !important;margin:0;">
-    Powered by Tertiary Infotech Academy Pte Ltd &copy; <?php echo date('Y') ?>
-</p>
+<div style="display:flex;align-items:center;margin:0;">
+    <span style="color:var(--t5);font-size:11px;white-space:nowrap;"><?php if ($_v): ?>version <?php echo htmlspecialchars($_v) ?><?php endif; ?></span>
+    <span style="flex:1;color:var(--t5);font-size:12px;text-align:center;">Powered by Tertiary Infotech Academy Pte Ltd &copy; <?php echo date('Y') ?></span>
+</div>
