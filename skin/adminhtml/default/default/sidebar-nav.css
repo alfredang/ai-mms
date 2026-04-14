@@ -1519,6 +1519,45 @@ body button.pagination-btn span {
     flex-shrink: 0;
 }
 
+/* === Collapsible tool groups (Trainer sidebar) === */
+.tools-group { margin: 0; }
+.tools-group-toggle {
+    display: flex !important; align-items: center !important; gap: 12px !important;
+    width: 100% !important; padding: 12px 20px !important; border: none !important;
+    background: transparent !important; color: var(--t3) !important; font-size: 14px !important;
+    font-weight: 500 !important; cursor: pointer !important; text-align: left !important;
+    border-left: 3px solid transparent !important; transition: all 0.15s ease !important;
+}
+.tools-group-toggle:hover { background: var(--d4) !important; color: var(--t1) !important; }
+.tools-group-toggle svg:first-child { flex-shrink: 0; }
+.tools-group-toggle span { flex: 1; }
+.tools-caret { flex-shrink: 0; transition: transform 0.2s; margin-left: auto; }
+.tools-group.open > .tools-group-toggle .tools-caret { transform: rotate(180deg); }
+.tools-group-items {
+    display: none; padding-left: 16px; border-left: 1px solid #334155; margin-left: 29px;
+}
+.tools-group.open > .tools-group-items { display: block; }
+.tools-sub-item {
+    display: flex !important; align-items: center !important; gap: 10px !important;
+    padding: 8px 16px !important; color: var(--t4) !important; font-size: 13px !important;
+    text-decoration: none !important; transition: color 0.15s !important; cursor: pointer !important;
+}
+.tools-sub-item:hover { color: var(--t1) !important; }
+.tools-sub-item svg { flex-shrink: 0; opacity: 0.6; }
+.tools-sub-label {
+    padding: 10px 16px 4px !important; color: #475569 !important;
+    font-size: 10px !important; font-weight: 600 !important;
+    text-transform: uppercase !important; letter-spacing: 0.5px !important;
+}
+
+/* Collapsed sidebar: hide tool group text */
+body.sidebar-collapsed .tools-group-toggle span,
+body.sidebar-collapsed .tools-caret,
+body.sidebar-collapsed .tools-group-items { display: none !important; }
+body.sidebar-collapsed .tools-group-toggle {
+    justify-content: center !important; padding: 14px 0 !important;
+}
+
 /* === Learner / Trainer Dashboard View === */
 .dashboard-learner-view {
     padding: 0;
