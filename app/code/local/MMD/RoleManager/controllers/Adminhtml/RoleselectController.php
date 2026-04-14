@@ -65,7 +65,7 @@ class MMD_RoleManager_Adminhtml_RoleselectController extends Mage_Adminhtml_Cont
         $helper  = Mage::helper('mmd_rolemanager');
         $user    = $session->getUser();
         $roles   = $helper->getUserRoles();
-        $logoUrl = Mage::getBaseUrl('media') . 'favicon/default/favicon_1.png';
+        $logoUrl = Mage::getBaseUrl('skin') . 'adminhtml/default/default/images/admin-logo.png';
         $fullName = $user->getFirstname() . ' ' . $user->getLastname();
         $logoutUrl = Mage::helper('adminhtml')->getUrl('adminhtml/index/logout');
         $chooseUrl = Mage::helper('adminhtml')->getUrl('adminhtml/roleselect/choose');

@@ -96,7 +96,7 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
             usort($roles, function ($a, $b) use ($priorities) {
                 $pa = isset($priorities[$a]) ? $priorities[$a] : 0;
                 $pb = isset($priorities[$b]) ? $priorities[$b] : 0;
-                return $pb - $pa;
+                return $pa - $pb;
             });
 
             return $roles;
