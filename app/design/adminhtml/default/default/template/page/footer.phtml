@@ -16,11 +16,10 @@ if (file_exists($_commitVersionFile)) {
     $_commitVersion = trim(file_get_contents($_commitVersionFile));
 }
 ?>
-<p class="legality">
-    Powered by Tertiary Infotech Academy Pte Ltd &copy; <?php echo date('Y') ?>
-    <?php if ($_commitVersion): ?>
-    <span style="margin-left:12px;color:var(--t5);font-size:11px;">v <?php echo htmlspecialchars($_commitVersion) ?></span>
-    <?php elseif ($_version): ?>
-    <span style="margin-left:12px;color:var(--t5);font-size:11px;">v <?php echo htmlspecialchars($_version) ?></span>
+<div class="legality" style="position:relative;text-align:center;">
+    <?php $_v = $_commitVersion ? $_commitVersion : $_version; ?>
+    <?php if ($_v): ?>
+    <span style="position:absolute;left:0;color:var(--t5);font-size:11px;">version <?php echo htmlspecialchars($_v) ?></span>
     <?php endif; ?>
-</p>
+    <span>Powered by Tertiary Infotech Academy Pte Ltd &copy; <?php echo date('Y') ?></span>
+</div>
