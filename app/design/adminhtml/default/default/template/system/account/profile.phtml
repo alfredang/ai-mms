@@ -107,11 +107,7 @@ $roleColors = array(
                 <label for="pf-email">Email *</label>
                 <input type="email" id="pf-email" name="email" value="<?php echo $email ?>" required onchange="document.getElementById('hidden-username').value=this.value" />
             </div>
-            <div class="edit-field full-width" style="border-top:1px solid #334155;padding-top:16px;margin-top:8px;">
-                <label for="pf-current-pw">Current Password * <span style="color:#64748b;font-weight:400;">(required to save changes)</span></label>
-                <input type="password" id="pf-current-pw" name="current_password" required autocomplete="current-password" />
-            </div>
-            <div class="edit-field">
+            <div class="edit-field" style="border-top:1px solid #334155;padding-top:16px;margin-top:8px;">
                 <label for="pf-new-pw">New Password</label>
                 <input type="password" id="pf-new-pw" name="new_password" autocomplete="new-password" />
                 <p class="edit-note">Leave blank to keep current. Min <?php echo $minPwLen ?> characters.</p>
