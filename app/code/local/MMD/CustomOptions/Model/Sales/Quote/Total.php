@@ -77,10 +77,10 @@ class MMD_CustomOptions_Model_Sales_Quote_Total extends Mage_Tax_Model_Sales_Tot
                             case 'date':
                             case 'date_time':
                             case 'time':
-                                if (!$productOption->getSku()) continue;
+                                if (!$productOption->getSku()) continue 2;
                                 $optionTotalQty = ($productOption->getCustomoptionsIsOnetime()?1:$qty);
                                 list($price, $priceType, $isProductPrice, $taxClassId) = $helper->getOptionPriceAndPriceType(0, 'fixed', $productOption->getSku(), $store);
-                                if (!$isProductPrice || $product->getTaxClassId()==$taxClassId) continue;
+                                if (!$isProductPrice || $product->getTaxClassId()==$taxClassId) continue 2;
                                 $price = $price * $optionTotalQty;
                                 $tax1 = $helper->getTaxPrice($price, $quote, $product->getTaxClassId(), $address);
                                 $tax2 = $helper->getTaxPrice($price, $quote, $taxClassId, $address);
