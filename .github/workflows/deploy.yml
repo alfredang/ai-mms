@@ -9,7 +9,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Coolify Deploy
+        env:
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
         run: |
-          curl -s -X GET \
-            "http://76.13.180.29:8000/api/v1/deploy?uuid=jsw40o4ss4kkowgcc8wo8skg&force=false" \
-            -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}"
+          for i in 1 2 3; do
+            echo "Attempt $i..."
+            response=$(curl -s -w "\n%{http_code}" --connect-timeout 10 --max-time 60 \
+              "http://76.13.180.29:8000/api/v1/deploy?uuid=jsw40o4ss4kkowgcc8wo8skg&force=false" \
+              -H "Authorization: Bearer ${COOLIFY_TOKEN}" \
+              2>&1)
+            http_code=$(echo "$response" | tail -1)
+            echo "HTTP Status: $http_code"
+            if [ "$http_code" = "200" ]; then
+              echo "Deploy triggered successfully!"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "All attempts failed. Deploy may need to be triggered manually."
+          exit 1
