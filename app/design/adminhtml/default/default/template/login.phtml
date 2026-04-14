@@ -60,6 +60,11 @@ $forgotUrl = Mage::helper('adminhtml')->getUrl('adminhtml/index/forgotpassword',
     }
     .field-input:focus { border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(96,165,250,0.15); }
     .field-input::placeholder { color: #64748b; }
+    .field-pw-wrap { position: relative; }
+    .field-pw-wrap .field-input { padding-right: 44px; }
+    .pw-toggle { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #64748b; padding: 4px; }
+    .pw-toggle:hover { color: #94a3b8; }
+    .pw-toggle svg { display: block; }
 
     /* Messages */
     #messages ul { list-style: none; padding: 0; margin: 0 0 16px; }
@@ -154,7 +159,13 @@ $forgotUrl = Mage::helper('adminhtml')->getUrl('adminhtml/index/forgotpassword',
                 <div class="field-group">
                     <label class="field-label" for="login">Password</label>
                     <input type="password" class="no-display" name="dummy" id="dummy" />
-                    <input type="password" id="login" name="login[password]" class="field-input required-entry" placeholder="Enter your password" autocomplete="new-password" />
+                    <div class="field-pw-wrap">
+                        <input type="password" id="login" name="login[password]" class="field-input required-entry" placeholder="Enter your password" autocomplete="new-password" />
+                        <button type="button" class="pw-toggle" onclick="togglePw()" aria-label="Toggle password visibility">
+                            <svg id="pw-eye-open" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                            <svg id="pw-eye-closed" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                        </button>
+                    </div>
                 </div>
                 <?php echo $this->getChildHtml('form.additional.info'); ?>
                 <button type="submit" class="btn-primary">Login</button>
@@ -207,6 +218,21 @@ $forgotUrl = Mage::helper('adminhtml')->getUrl('adminhtml/index/forgotpassword',
     <script type="text/javascript">
     //<![CDATA[
     var loginForm = new varienForm('loginForm');
+
+    function togglePw() {
+        var inp = document.getElementById('login');
+        var open = document.getElementById('pw-eye-open');
+        var closed = document.getElementById('pw-eye-closed');
+        if (inp.type === 'password') {
+            inp.type = 'text';
+            open.style.display = 'none';
+            closed.style.display = 'block';
+        } else {
+            inp.type = 'password';
+            open.style.display = 'block';
+            closed.style.display = 'none';
+        }
+    }
 
     function switchTab(tab) {
         var passwordForm = $('loginForm');
