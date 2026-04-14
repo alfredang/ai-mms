@@ -45,6 +45,20 @@ class MMD_RoleManager_Block_Page_Menu extends Mage_Adminhtml_Block_Page_Menu
             }
         }
 
+        // Rename customer sub-items: Customer → Learner
+        if (isset($menu['customer']['children'])) {
+            $childRenames = array(
+                'manage' => 'Manage Learners',
+                'group'  => 'Learner Groups',
+                'online' => 'Online Learners',
+            );
+            foreach ($childRenames as $childKey => $childLabel) {
+                if (isset($menu['customer']['children'][$childKey])) {
+                    $menu['customer']['children'][$childKey]['label'] = $childLabel;
+                }
+            }
+        }
+
         // Move Promotions under Marketing Management as a child
         if (isset($menu['promo']) && isset($menu['marketing'])) {
             if (!isset($menu['marketing']['children'])) {

@@ -77,10 +77,18 @@
             <a href="<?php echo Mage::helper('adminhtml')->getUrl('mmd/customoptions_options') ?>" class="tools-sub-item"><span>Course Schedules</span></a>
         </div>
     </div>
-    <a href="<?php echo $customersUrl ?>" class="lms-nav-item">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        <span>View Learners</span>
-    </a>
+    <div class="tools-group">
+        <div class="tools-group-toggle" onclick="toggleToolGroup(this)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <span>View Learners</span>
+            <svg class="tools-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="tools-group-items">
+            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/customer') ?>" class="tools-sub-item"><span>Manage Learners</span></a>
+            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/customer_group') ?>" class="tools-sub-item"><span>Learner Groups</span></a>
+            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/customer_online') ?>" class="tools-sub-item"><span>Online Learners</span></a>
+        </div>
+    </div>
     <a href="<?php echo $sysUsersUrl ?>" class="lms-nav-item">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
         <span>View Trainers</span>
