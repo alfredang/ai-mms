@@ -386,7 +386,10 @@ if ($_loggedInEmail) {
 .dash-course-link:hover{color:#06b6d4!important;text-decoration:underline!important}
 .dash-badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500}
 .badge-type{background:#1e293b;color:#94a3b8;border:1px solid #2d3f55}
+.badge-type-virtual{background:rgba(59,130,246,.15);color:#60a5fa;border:1px solid rgba(59,130,246,.4)}
+.badge-type-physical{background:#1e293b;color:#94a3b8;border:1px solid #2d3f55}
 .badge-confirmed{color:#10b981;border:1px solid #10b981;background:transparent}
+.badge-pending{color:#f59e0b;border:1px solid #f59e0b;background:transparent}
 .badge-cancelled{color:#ef4444;border:1px solid #ef4444;background:transparent}
 .dash-no-results{text-align:center;padding:40px;color:#64748b;font-size:14px}
 </style>
@@ -435,6 +438,7 @@ if ($_loggedInEmail) {
                 <select id="fStatus" class="dash-adv-select" onchange="dashFilter()">
                     <option value="">All Statuses</option>
                     <option value="Confirmed">Confirmed</option>
+                    <option value="Pending">Pending</option>
                     <option value="Cancelled">Cancelled</option>
                 </select>
             </div>
@@ -453,11 +457,16 @@ if ($_loggedInEmail) {
                 <?php foreach ($courseRows as $row):
                     $tid   = (int)$row['type_id'];
                     $tlbl  = isset($classTypeOptions[$tid]) ? $classTypeOptions[$tid] : '—';
+                    // Type badge class: Virtual → blue, Physical/others → gray
+                    $tcls  = (stripos($tlbl, 'virtual') !== false || stripos($tlbl, 'online') !== false)
+                              ? 'badge-type-virtual' : 'badge-type';
                     $sFmt  = $row['start_date'] ? date('d/m/Y', strtotime($row['start_date'])) : '—';
                     $eFmt  = $row['end_date']   ? date('d/m/Y', strtotime($row['end_date']))   : '—';
                     $sv    = (int)$row['status_val'];
-                    $slbl  = ($sv === 1) ? 'Confirmed' : 'Cancelled';
-                    $scls  = ($sv === 1) ? 'badge-confirmed' : 'badge-cancelled';
+                    // Status: disabled → Cancelled; enabled + has start date → Confirmed; enabled + no date → Pending
+                    if ($sv !== 1)                 { $slbl = 'Cancelled'; $scls = 'badge-cancelled'; }
+                    elseif (empty($row['start_date'])) { $slbl = 'Pending';   $scls = 'badge-pending'; }
+                    else                           { $slbl = 'Confirmed'; $scls = 'badge-confirmed'; }
                     $eurl  = Mage::helper('adminhtml')->getUrl('adminhtml/catalog_product/edit', array('id' => $row['run_id']));
                     $ttl   = htmlspecialchars($row['course_title'] ?: '(No Name)');
                     $rcode = htmlspecialchars($row['ref_code']);
@@ -467,7 +476,7 @@ if ($_loggedInEmail) {
                     <td class="run-id"><?php echo (int)$row['run_id'] ?></td>
                     <td><a href="<?php echo $eurl ?>" class="dash-course-link"><?php echo $ttl ?></a></td>
                     <td><?php echo $rcode ?></td>
-                    <td><span class="dash-badge badge-type"><?php echo htmlspecialchars($tlbl) ?></span></td>
+                    <td><span class="dash-badge <?php echo $tcls ?>"><?php echo htmlspecialchars($tlbl) ?></span></td>
                     <td><?php echo $sFmt ?></td>
                     <td><?php echo $eFmt ?></td>
                     <td><span class="dash-badge <?php echo $scls ?>"><?php echo $slbl ?></span></td>
@@ -831,18 +840,105 @@ function lmcSearch(q) {
 </script>
 </div>
 
+<?php /* ===== PANEL 5: Ed Tools (Trainer sub-view) ===== */ ?>
+<div id="dash-panel-edtools" style="display:none;">
+<style>
+.edt-wrap{padding:0}
+.edt-title{font-size:28px;font-weight:700;color:var(--t1);margin:0 0 24px}
+.edt-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.edt-card{background:#131d2e;border:1px solid var(--b1);border-radius:12px;padding:22px;text-decoration:none;display:block;transition:transform .15s,border-color .15s,box-shadow .15s}
+.edt-card:hover{transform:translateY(-2px);border-color:#22d3ee;box-shadow:0 8px 24px rgba(34,211,238,.08)}
+.edt-icon{width:40px;height:40px;border-radius:10px;background:#1e293b;color:#22d3ee;display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+.edt-card-title{font-size:15px;font-weight:600;color:var(--t1) !important;margin:0 0 6px}
+.edt-card-desc{font-size:12.5px;color:#94a3b8;line-height:1.45;margin:0}
+@media (max-width:1100px){.edt-grid{grid-template-columns:repeat(3,1fr)}}
+@media (max-width:820px){.edt-grid{grid-template-columns:repeat(2,1fr)}}
+</style>
+<div class="edt-wrap">
+    <h1 class="edt-title">Ed Tools</h1>
+    <div class="edt-grid">
+        <a href="https://alfredang.github.io/ice-breaker/" target="_blank" class="edt-card">
+            <div class="edt-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+            <div class="edt-card-title">Ice Breaker</div>
+            <div class="edt-card-desc">Fun ice breaker activities to engage learners</div>
+        </a>
+        <a href="https://alfredang.github.io/pinboard/" target="_blank" class="edt-card">
+            <div class="edt-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></div>
+            <div class="edt-card-title">Pinboard</div>
+            <div class="edt-card-desc">Collaborative pinboard for sharing ideas and resources</div>
+        </a>
+        <a href="https://alfredang.github.io/musical-timer-countdown/" target="_blank" class="edt-card">
+            <div class="edt-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+            <div class="edt-card-title">Break Timer</div>
+            <div class="edt-card-desc">Musical countdown timer for class breaks</div>
+        </a>
+        <a href="https://alfredang.github.io/wordcloud/" target="_blank" class="edt-card">
+            <div class="edt-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg></div>
+            <div class="edt-card-title">Word Cloud</div>
+            <div class="edt-card-desc">Generate word clouds from learner responses in real time</div>
+        </a>
+        <a href="https://alfredang.github.io/flashcard/" target="_blank" class="edt-card">
+            <div class="edt-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+            <div class="edt-card-title">Flash Cards</div>
+            <div class="edt-card-desc">Interactive flash cards for learner review and memorisation</div>
+        </a>
+        <a href="https://alfredang.github.io/live-qna/" target="_blank" class="edt-card">
+            <div class="edt-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+            <div class="edt-card-title">Live Q&amp;A</div>
+            <div class="edt-card-desc">Real-time question and answer board for classroom interaction</div>
+        </a>
+        <a href="https://alfredang.github.io/whiteboard/" target="_blank" class="edt-card">
+            <div class="edt-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div>
+            <div class="edt-card-title">Whiteboard</div>
+            <div class="edt-card-desc">Interactive whiteboard for drawing and annotations</div>
+        </a>
+        <a href="https://alfredang.github.io/collabnote/" target="_blank" class="edt-card">
+            <div class="edt-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+            <div class="edt-card-title">Collaborative Note</div>
+            <div class="edt-card-desc">Shared notes for real-time collaboration in class</div>
+        </a>
+        <a href="https://alfredang.github.io/collabflow/" target="_blank" class="edt-card">
+            <div class="edt-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>
+            <div class="edt-card-title">Collaborative Flow</div>
+            <div class="edt-card-desc">Visual workflow and flowchart collaboration tool</div>
+        </a>
+        <a href="https://alfredang.github.io/kanban/" target="_blank" class="edt-card">
+            <div class="edt-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="10" rx="1"/></svg></div>
+            <div class="edt-card-title">Collaborative Kanban</div>
+            <div class="edt-card-desc">Shared kanban board for organizing tasks and ideas</div>
+        </a>
+        <a href="https://alfredang.github.io/livepoll/" target="_blank" class="edt-card">
+            <div class="edt-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg></div>
+            <div class="edt-card-title">Live Poll</div>
+            <div class="edt-card-desc">Real-time polling and voting for classroom engagement</div>
+        </a>
+        <a href="https://alfredang.github.io/mindmapping/" target="_blank" class="edt-card">
+            <div class="edt-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><circle cx="5" cy="5" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><line x1="9.8" y1="9.8" x2="6.5" y2="6.5"/><line x1="14.2" y1="9.8" x2="17.5" y2="6.5"/><line x1="9.8" y1="14.2" x2="6.5" y2="17.5"/><line x1="14.2" y1="14.2" x2="17.5" y2="17.5"/></svg></div>
+            <div class="edt-card-title">MindMaps</div>
+            <div class="edt-card-desc">Create and collaborate on mind maps in real-time</div>
+        </a>
+        <a href="https://alfredang.github.io/spinning-wheel/" target="_blank" class="edt-card">
+            <div class="edt-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="2" x2="12" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/><line x1="19.07" y1="4.93" x2="4.93" y2="19.07"/></svg></div>
+            <div class="edt-card-title">Spinning Wheel</div>
+            <div class="edt-card-desc">Random selection spinner for classroom activities</div>
+        </a>
+    </div>
+</div>
+</div>
+
 <?php /* ===== Role switcher JS ===== */ ?>
 <script type="text/javascript">
 (function(){
     function showPanel(role) {
         var panels = {
-            'Admin':       'dash-panel-superadmin',
-            'Marketing':   'dash-panel-superadmin',
-            'Super Admin': 'dash-panel-superadmin',
-            'Learner':     'dash-panel-learner',
-            'Trainer':     'dash-panel-learner'
+            'Admin':             'dash-panel-admin',
+            'Super Admin':       'dash-panel-superadmin',
+            'Marketing':         'dash-panel-superadmin',
+            'Training Provider': 'dash-panel-trainingprovider',
+            'Learner':           'dash-panel-learner',
+            'Trainer':           'dash-panel-learner'
         };
-        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-trainingprovider','dash-panel-learner'];
+        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-trainingprovider','dash-panel-learner','dash-panel-edtools'];
         for (var i=0; i<all.length; i++) {
             var el = document.getElementById(all[i]);
             if (el) el.style.display = 'none';
@@ -855,8 +951,29 @@ function lmcSearch(q) {
         if (suffix) suffix.textContent = ' — ' + role;
     }
 
-    // Read active role from server session (set by role selection/switch)
-    var role = '<?php echo htmlspecialchars($_roleLabel) ?>';
+    // Trainer sub-view switcher (My Classes <-> Ed Tools)
+    // Only effective when current role is Learner/Trainer; otherwise no-op.
+    function showTrainerSubPanel(name) {
+        var current = '<?php echo htmlspecialchars($_roleLabel) ?>' || 'Admin';
+        if (current !== 'Trainer' && current !== 'Learner') return;
+
+        // Hide ALL panels first, then show only the requested sub-panel
+        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-trainingprovider','dash-panel-learner','dash-panel-edtools'];
+        for (var i=0; i<all.length; i++) {
+            var el = document.getElementById(all[i]);
+            if (el) el.style.display = 'none';
+        }
+        var target = (name === 'edtools') ? 'dash-panel-edtools' : 'dash-panel-learner';
+        var show = document.getElementById(target);
+        if (show) show.style.display = '';
+    }
+    window.showTrainerSubPanel = showTrainerSubPanel;
+
+    // Use server-side role (from session) as source of truth.
+    // The View As dropdown does a server-side switch and page reload, so the
+    // server role label is always up-to-date after a switch.
+    var role = '<?php echo htmlspecialchars($_roleLabel) ?>' || 'Admin';
+    try { localStorage.setItem('adminViewAs', role); } catch(e) {}
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function(){ showPanel(role); });
