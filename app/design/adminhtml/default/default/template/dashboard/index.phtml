@@ -471,6 +471,8 @@ body.adminhtml-dashboard-index .main-col-inner{padding-top:0 !important;margin-t
                     <th>Course Run ID</th><th>Course Title</th><th>Course Ref Code</th>
                     <th>Class Type</th><th>Start Date</th><th>End Date</th>
                     <th>Class Status</th><th>Learners</th>
+                    <th>Trainer (TPG)</th><th>Trainer (Local)</th>
+                    <th>Cal</th><th>Attendance</th>
                 </tr></thead>
                 <tbody id="dashTableBody">
                 <?php foreach ($courseRows as $row):
@@ -500,6 +502,10 @@ body.adminhtml-dashboard-index .main-col-inner{padding-top:0 !important;margin-t
                     <td><?php echo $eFmt ?></td>
                     <td><span class="dash-badge <?php echo $scls ?>"><?php echo $slbl ?></span></td>
                     <td><?php echo (int)$row['learners'] ?></td>
+                    <td style="color:#94a3b8;">—</td>
+                    <td style="color:#94a3b8;">—</td>
+                    <td><a href="#" title="Calendar" style="color:#22d3ee;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;background:rgba(34,211,238,.08);" onclick="event.preventDefault();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></a></td>
+                    <td><a href="#" title="Attendance" style="color:#10b981;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;background:rgba(16,185,129,.08);" onclick="event.preventDefault();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></a></td>
                 </tr>
                 <?php endforeach; ?>
                 </tbody>
