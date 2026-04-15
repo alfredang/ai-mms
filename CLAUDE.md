@@ -19,6 +19,10 @@ docker-compose up -d
 # Run database migrations (after first setup or schema changes)
 docker exec -i <mysql_container> mysql -u magento -p courses_backupDB < migrations/001-remove-orphan-eav-entity-types.sql
 
+# Tailwind CSS (run locally — requires Node.js)
+npm run tw:build    # Build tailwind.css from templates
+npm run tw:watch    # Watch mode during development
+
 # Code quality (run inside web container or with local PHP)
 composer php-cs-fixer:test    # Check code style
 composer php-cs-fixer:fix     # Auto-fix code style
