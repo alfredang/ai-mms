@@ -32,6 +32,13 @@
 <?php
     $dashboardUrl  = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard');
     $accountUrl    = Mage::helper('adminhtml')->getUrl('adminhtml/system_account');
+
+    // Determine which sidebar item should be active based on current page
+    $_req = Mage::app()->getRequest();
+    $_ctrl = strtolower((string) $_req->getControllerName());
+    $_act  = strtolower((string) $_req->getActionName());
+    $_isDashboard = ($_ctrl === 'dashboard');
+    $_isAccount   = ($_ctrl === 'system_account' || ($_ctrl === 'system' && strpos($_req->getPathInfo(), '/account') !== false));
     $ordersUrl     = Mage::helper('adminhtml')->getUrl('adminhtml/sales_order');
     $catalogUrl    = Mage::helper('adminhtml')->getUrl('adminhtml/catalog_product');
     $customersUrl  = Mage::helper('adminhtml')->getUrl('adminhtml/customer');
@@ -131,11 +138,11 @@
 
 <div class="sidebar-nav sidebar-nav-learner" id="sidebar-nav-learner" style="display:none;">
     <div class="sidebar-section-label">MENU</div>
-    <a href="<?php echo $dashboardUrl ?>" class="lms-nav-item active">
+    <a href="<?php echo $dashboardUrl ?>" class="lms-nav-item<?php echo $_isDashboard ? ' active' : '' ?>">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
         <span>My Classes</span>
     </a>
-    <a href="<?php echo $accountUrl ?>" class="lms-nav-item">
+    <a href="<?php echo $accountUrl ?>" class="lms-nav-item<?php echo $_isAccount ? ' active' : '' ?>">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></svg>
         <span>My Profile</span>
     </a>

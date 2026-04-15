@@ -1073,6 +1073,25 @@ button.lmc-link-btn:hover{color:#fff !important}
 .lmc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
 a.lmc-card,a.lmc-card:hover,a.lmc-card:focus,a.lmc-card:active{text-decoration:none !important;color:inherit !important}
 .lmc-card{background:#1e293b;border:1px solid #334155;border-radius:12px;overflow:hidden;transition:all .2s;cursor:pointer;display:flex;flex-direction:column}
+
+/* List-view layout — horizontal row per card */
+.lmc-grid-list{display:flex !important;flex-direction:column;gap:10px;grid-template-columns:none}
+.lmc-grid-list .lmc-card{flex-direction:row;align-items:center;border-radius:10px;padding:10px 14px}
+.lmc-grid-list .lmc-card:hover{transform:none}
+.lmc-grid-list .lmc-card-img-wrap{width:72px;min-width:72px;aspect-ratio:1;border-radius:8px;flex-shrink:0;overflow:hidden}
+.lmc-grid-list .lmc-wsq-ribbon{display:none}
+.lmc-grid-list .lmc-card-img,.lmc-grid-list .lmc-card-img-placeholder{width:72px;height:72px;aspect-ratio:1;object-fit:cover}
+.lmc-grid-list .lmc-card-body{padding:0 14px;flex:1;min-width:0}
+.lmc-grid-list .lmc-card-title{margin:0 0 6px;-webkit-line-clamp:1;font-size:14px}
+.lmc-grid-list .lmc-card-row{display:inline-flex;padding:0;gap:6px;margin-right:14px;font-size:12px}
+.lmc-grid-list .lmc-card-row:not(:first-of-type)::before{content:"";display:inline-block;width:3px;height:3px;border-radius:50%;background:#475569;align-self:center;margin-right:6px}
+.lmc-grid-list .lmc-card-label{display:none}
+.lmc-grid-list .lmc-card-value{color:#94a3b8;font-weight:500;font-size:12px}
+.lmc-grid-list .lmc-badge{font-size:10px;padding:2px 8px}
+.lmc-grid-list .lmc-card-footer{border-top:none;margin-top:0;padding:0 0 0 14px;flex-shrink:0}
+.lmc-grid-list .lmc-card-footer span{font-size:12px}
+.lmc-grid-list .lmc-card-footer .lmc-arrow{width:24px;height:24px}
+.lmc-grid-list .lmc-card-meta-inline{display:flex;align-items:center;flex-wrap:wrap;gap:2px;margin-top:2px}
 .lmc-card:hover{transform:translateY(-4px);box-shadow:0 20px 40px rgba(0,0,0,.3)}
 .lmc-card-img-wrap{position:relative;overflow:hidden;aspect-ratio:16/9}
 .lmc-wsq-ribbon{position:absolute;top:10px;left:10px;background:#2563eb;color:#fff;font-size:11px;font-weight:700;letter-spacing:.5px;padding:4px 10px;border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,.35);z-index:2}
@@ -1133,8 +1152,8 @@ a.lmc-card,a.lmc-card:hover,a.lmc-card:focus,a.lmc-card:active{text-decoration:n
                 <input type="text" id="lmc-search" placeholder="Search by course code, title, or run ID..." oninput="lmcSearch(this.value)" />
             </div>
             <div class="lmc-view-toggle">
-                <button type="button" class="lmc-view-btn active" title="Grid view"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></button>
-                <button type="button" class="lmc-view-btn" title="List view"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></button>
+                <button type="button" class="lmc-view-btn active" data-view="grid" title="Grid view" onclick="lmcSetView('grid',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></button>
+                <button type="button" class="lmc-view-btn" data-view="list" title="List view" onclick="lmcSetView('list',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></button>
             </div>
             <button type="button" class="lmc-link-btn" onclick="document.getElementById('lmc-search').value='';lmcSearch('');">Reset</button>
             <button type="button" class="lmc-link-btn">Show Filters</button>
@@ -1235,6 +1254,15 @@ function lmcSearch(q) {
     for (var i = 0; i < cards.length; i++) {
         cards[i].style.display = (!q || cards[i].getAttribute('data-search').indexOf(q) >= 0) ? '' : 'none';
     }
+}
+function lmcSetView(view, btn) {
+    var grid = document.getElementById('lmc-grid');
+    if (!grid) return;
+    if (view === 'list') grid.classList.add('lmc-grid-list');
+    else grid.classList.remove('lmc-grid-list');
+    var btns = document.querySelectorAll('.lmc-view-btn');
+    for (var i = 0; i < btns.length; i++) btns[i].classList.remove('active');
+    if (btn) btn.classList.add('active');
 }
 </script>
 </div>
