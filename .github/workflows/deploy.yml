@@ -12,19 +12,29 @@ jobs:
         env:
           COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
         run: |
-          for i in 1 2 3; do
-            echo "Attempt $i..."
-            response=$(curl -s -w "\n%{http_code}" --connect-timeout 10 --max-time 60 \
-              "http://76.13.180.29:8000/api/v1/deploy?uuid=jsw40o4ss4kkowgcc8wo8skg&force=false" \
+          MAX_ATTEMPTS=5
+          DELAY=10
+          for i in $(seq 1 $MAX_ATTEMPTS); do
+            echo "=== Attempt $i of $MAX_ATTEMPTS ==="
+            response=$(curl -s -w "\n%{http_code}" \
+              --connect-timeout 15 \
+              --max-time 120 \
+              --retry 2 \
+              --retry-delay 5 \
+              "http://76.13.180.29:8000/api/v1/deploy?uuid=jsw40o4ss4kkowgcc8wo8skg&force=true" \
               -H "Authorization: Bearer ${COOLIFY_TOKEN}" \
               2>&1)
             http_code=$(echo "$response" | tail -1)
+            body=$(echo "$response" | head -n -1)
             echo "HTTP Status: $http_code"
+            echo "Response: $body"
             if [ "$http_code" = "200" ]; then
               echo "Deploy triggered successfully!"
               exit 0
             fi
-            sleep 5
+            echo "Failed (HTTP $http_code). Retrying in ${DELAY}s..."
+            sleep $DELAY
+            DELAY=$((DELAY * 2))
           done
-          echo "All attempts failed. Deploy may need to be triggered manually."
+          echo "ERROR: All $MAX_ATTEMPTS attempts failed."
           exit 1

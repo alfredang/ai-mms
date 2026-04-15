@@ -62,6 +62,9 @@ RUN composer install --no-dev --no-interaction --optimize-autoloader
 # Save build timestamp as version
 RUN date -u '+%d-%m-%Y %H:%M' > /var/www/html/version.txt
 
+# Clear Magento cache to ensure fresh templates/config on deploy
+RUN rm -rf /var/www/html/var/cache/* /var/www/html/var/session/* /var/www/html/var/tmp/* 2>/dev/null || true
+
 # Set proper permissions for Apache
 RUN chown -R www-data:www-data /var/www/html
 
