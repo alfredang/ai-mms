@@ -53,20 +53,19 @@ $badgeColors = array(
 .rm-search svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#64748b}
 .rm-select{padding:10px 14px;background:#1e293b;border:1px solid #334155;border-radius:10px;color:#f1f5f9;font-size:13px;outline:none;min-width:140px}
 .rm-table{width:100%;border-collapse:separate;border-spacing:0}
-.rm-table th{text-align:left;padding:12px 16px;color:#64748b;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #1e293b}
-.rm-table td{padding:14px 16px;border-bottom:1px solid #1e293b;vertical-align:middle}
+.rm-table th{text-align:left;padding:12px 16px;color:#64748b;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #1e293b;white-space:nowrap}
+.rm-table td{padding:12px 16px;border-bottom:1px solid #1e293b;vertical-align:middle;white-space:nowrap}
 .rm-table tr:hover td{background:rgba(30,41,59,.5)}
 .rm-name{color:#f1f5f9;font-weight:500;font-size:14px}
 .rm-email{color:#94a3b8;font-size:13px}
-.rm-roles{display:flex;flex-wrap:wrap;gap:6px}
-.rm-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600}
-.rm-badge-dot{width:6px;height:6px;border-radius:50%;display:inline-block}
-.rm-status{padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600}
-.rm-status-active{background:rgba(34,197,94,.12);color:#22c55e}
-.rm-status-disabled{background:rgba(239,68,68,.12);color:#ef4444}
-.rm-date{color:#94a3b8;font-size:13px}
-.rm-actions{display:flex;gap:6px;flex-wrap:wrap}
-.rm-btn{padding:5px 12px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid;background:transparent;transition:all .15s}
+.rm-roles{display:flex;flex-wrap:nowrap;gap:5px}
+.rm-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:12px;font-size:10px;font-weight:600;white-space:nowrap}
+.rm-badge-dot{width:5px;height:5px;border-radius:50%;display:inline-block;flex-shrink:0}
+.rm-status{padding:4px 12px;border-radius:12px;font-size:11px;font-weight:600}
+.rm-status-active{background:rgba(34,197,94,.15);color:#22c55e}
+.rm-status-disabled{background:rgba(239,68,68,.15);color:#ef4444}
+.rm-actions{display:flex;gap:6px;white-space:nowrap}
+.rm-btn{padding:5px 12px;border-radius:6px;font-size:11px;font-weight:500;cursor:pointer;border:1px solid;background:transparent;transition:all .15s;white-space:nowrap}
 .rm-btn-edit{color:#3b82f6;border-color:#3b82f6}.rm-btn-edit:hover{background:rgba(59,130,246,.1)}
 .rm-btn-disable{color:#f59e0b;border-color:#f59e0b}.rm-btn-disable:hover{background:rgba(245,158,11,.1)}
 .rm-btn-enable{color:#22c55e;border-color:#22c55e}.rm-btn-enable:hover{background:rgba(34,197,94,.1)}
@@ -118,6 +117,7 @@ $badgeColors = array(
         </select>
     </div>
 
+    <div style="overflow-x:auto;">
     <table class="rm-table" id="rm-table">
         <thead>
             <tr>
@@ -125,7 +125,6 @@ $badgeColors = array(
                 <th>Email</th>
                 <th>Roles</th>
                 <th>Account Status</th>
-                <th>Created</th>
                 <th>Actions</th>
             </tr>
         </thead>
@@ -158,7 +157,6 @@ $badgeColors = array(
                     </div>
                 </td>
                 <td><span class="rm-status <?php echo $r['is_active'] ? 'rm-status-active' : 'rm-status-disabled' ?>"><?php echo $r['is_active'] ? 'Active' : 'Disabled' ?></span></td>
-                <td><span class="rm-date"><?php echo $createdDate ?></span></td>
                 <td>
                     <?php if ($isSelf): ?>
                         <span class="rm-self">Cannot edit self</span>
@@ -178,6 +176,7 @@ $badgeColors = array(
         <?php endforeach; ?>
         </tbody>
     </table>
+    </div>
 </div>
 
 <!-- Edit Modal -->
