@@ -96,6 +96,22 @@ class MMD_RoleManager_Block_Page_Menu extends Mage_Adminhtml_Block_Page_Menu
             unset($menu['promo']);
         }
 
+        // Add "View Trainers" under Course Management (catalog) for Admin/Super Admin
+        if (isset($menu['catalog'])) {
+            if (!isset($menu['catalog']['children'])) {
+                $menu['catalog']['children'] = array();
+            }
+            $menu['catalog']['children']['view_trainers'] = array(
+                'label'      => 'View Trainers',
+                'url'        => Mage::helper('adminhtml')->getUrl('adminhtml/dashboard') . '#trainers',
+                'active'     => false,
+                'level'      => 1,
+                'sort_order' => 100,
+                'children'   => array(),
+                'last'       => true,
+            );
+        }
+
         return $menu;
     }
 }

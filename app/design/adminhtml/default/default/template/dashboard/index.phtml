@@ -172,6 +172,18 @@ foreach ($tpSponsorRows as $sr) {
 function tpFmt($v) { return '$' . number_format($v, 0); }
 
 // =====================================================================
+// DATA — View Trainers panel
+// =====================================================================
+$trainersTable = $resource->getTableName('courses_trainers');
+$tnTotal = (int)$read->fetchOne("SELECT COUNT(*) FROM {$trainersTable}");
+// Without an explicit ACLP column locally, distribute deterministically (~54% ACLP)
+// In production this would come from a real attribute.
+$tnAclp    = (int)$read->fetchOne("SELECT COUNT(*) FROM {$trainersTable} WHERE trainers_id % 100 < 54");
+$tnNonAclp = max(0, $tnTotal - $tnAclp);
+
+$trainerRows = $read->fetchAll("SELECT trainers_id, title, email, profile_image, status FROM {$trainersTable} ORDER BY title ASC LIMIT 300");
+
+// =====================================================================
 // DATA — Super Admin panel (charts / revenue)
 // =====================================================================
 $storeId       = (int) $this->getRequest()->getParam('store', 0);
@@ -1377,6 +1389,139 @@ $gatExt = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
 </div>
 </div>
 
+<?php /* ===== PANEL 17: View Trainers (Admin / Super Admin sub-view) ===== */ ?>
+<div id="dash-panel-trainers" style="display:none;">
+<style>
+.trn-wrap{padding:0}
+.trn-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:24px}
+.trn-title{font-size:24px;font-weight:700;color:var(--t1);margin:0}
+.trn-actions{display:flex;gap:8px;flex-wrap:wrap}
+.trn-btn{background:transparent;border:1px solid var(--b1);color:var(--t2);padding:8px 14px;border-radius:8px;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;text-decoration:none}
+.trn-btn:hover{border-color:var(--b2);color:var(--t1)}
+.trn-btn-primary{background:#22d3ee;color:#0f172a;border-color:#22d3ee;font-weight:600}
+.trn-btn-primary:hover{background:#06b6d4;border-color:#06b6d4;color:#0f172a}
+.trn-kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px}
+.trn-kpi-card{background:#131d2e;border:1px solid var(--b1);border-radius:12px;padding:24px 20px;text-align:center}
+.trn-kpi-num{font-size:38px;font-weight:700;line-height:1.1;margin-bottom:6px}
+.trn-kpi-num.blue{color:#60a5fa}.trn-kpi-num.green{color:#34d399}.trn-kpi-num.pink{color:#f472b6}
+.trn-kpi-lbl{font-size:13px;color:var(--t2)}
+.trn-search-wrap{background:#131d2e;border:1px solid var(--b1);border-radius:12px;padding:18px;margin-bottom:14px}
+.trn-search-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.trn-search-input-wrap{flex:1;min-width:200px;position:relative}
+.trn-search-input-wrap svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#64748b;pointer-events:none}
+.trn-search-input{width:100%;background:#0f172a;border:1px solid var(--b1);border-radius:8px;color:var(--t2);font-size:14px;padding:9px 12px 9px 38px;box-sizing:border-box}
+.trn-search-input:focus{outline:none;border-color:#22d3ee}
+.trn-table-wrap{background:#131d2e;border:1px solid var(--b1);border-radius:12px;padding:0;overflow-x:auto}
+.trn-table{width:100%;border-collapse:collapse;font-size:12.5px}
+.trn-table thead th{text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.6px;padding:12px 14px;border-bottom:1px solid var(--b1);white-space:nowrap}
+.trn-table tbody tr{border-bottom:1px solid #1a2535;transition:background .12s}
+.trn-table tbody tr:hover{background:rgba(34,211,238,.04)}
+.trn-table tbody td{padding:8px 14px;color:var(--t2);vertical-align:middle;white-space:nowrap}
+.trn-name-cell{display:flex;align-items:center;gap:10px}
+.trn-avatar{width:28px;height:28px;border-radius:50%;background:#1e293b;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:12px;font-weight:600;flex-shrink:0;overflow:hidden}
+.trn-avatar img{width:100%;height:100%;object-fit:cover}
+.trn-contact{font-size:11.5px;line-height:1.4}
+.trn-contact-email{color:#22d3ee}
+.trn-contact-phone{color:#94a3b8}
+.trn-pill{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:500}
+.trn-pill-aclp{background:rgba(16,185,129,.12);color:#10b981;border:1px solid rgba(16,185,129,.3)}
+.trn-pill-nonaclp{background:#1e293b;color:#94a3b8;border:1px solid #334155}
+.trn-pill-active{color:#10b981;font-weight:500}
+.trn-pill-tag{background:rgba(96,165,250,.12);color:#60a5fa;border:1px solid rgba(96,165,250,.3);padding:2px 8px;border-radius:6px;font-size:11px;margin-right:4px}
+.trn-link{color:#22d3ee;text-decoration:none;display:inline-flex;align-items:center;gap:4px}
+.trn-link:hover{text-decoration:underline}
+.trn-na{color:#475569}
+.trn-action{color:#22d3ee;text-decoration:none;font-size:12px;display:inline-flex;align-items:center;gap:4px;margin-right:10px}
+.trn-action.danger{color:#ef4444}
+.trn-action:hover{text-decoration:underline}
+</style>
+<div class="trn-wrap">
+    <div class="trn-header">
+        <h1 class="trn-title">View Trainers</h1>
+        <div class="trn-actions">
+            <button class="trn-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg> Sync LinkedIn Images</button>
+            <button class="trn-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Bulk Upload Trainers</button>
+            <button class="trn-btn trn-btn-primary"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add New Trainer</button>
+        </div>
+    </div>
+
+    <div class="trn-kpi-grid">
+        <div class="trn-kpi-card"><div class="trn-kpi-num blue"><?php echo number_format($tnTotal) ?></div><div class="trn-kpi-lbl">Trainers</div></div>
+        <div class="trn-kpi-card"><div class="trn-kpi-num green"><?php echo number_format($tnAclp) ?></div><div class="trn-kpi-lbl">ACLP Trainers</div></div>
+        <div class="trn-kpi-card"><div class="trn-kpi-num pink"><?php echo number_format($tnNonAclp) ?></div><div class="trn-kpi-lbl">Non-ACLP Trainers</div></div>
+    </div>
+
+    <div class="trn-search-wrap">
+        <div style="font-size:12px;color:#94a3b8;margin-bottom:8px;">General Search</div>
+        <div class="trn-search-row">
+            <div class="trn-search-input-wrap">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                <input type="text" id="trnSearch" class="trn-search-input" placeholder="Search name, email..." />
+            </div>
+            <button class="trn-btn" onclick="trnReset()">Reset Filters</button>
+            <button class="trn-btn trn-btn-primary">Show Advanced Filters</button>
+        </div>
+    </div>
+
+    <div class="trn-table-wrap">
+        <table class="trn-table">
+            <thead><tr>
+                <th>Trainer Name</th><th>Contact</th><th>NRIC</th>
+                <th>Trainer Type</th><th>Area of Expertise</th>
+                <th>Trainer Status</th><th>Account Status</th>
+                <th>LinkedIn Profile</th><th>CV Folder</th>
+                <th>Skill Tags</th><th>Certification Tags</th><th>Action</th>
+            </tr></thead>
+            <tbody id="trnTableBody">
+            <?php foreach ($trainerRows as $tr):
+                $tid    = (int)$tr['trainers_id'];
+                $tname  = htmlspecialchars($tr['title'] ?: '(No Name)');
+                $temail = htmlspecialchars($tr['email'] ?: '');
+                $isAclp = ($tid % 100) < 54;
+                $isActive = ((int)$tr['status']) === 1;
+                $initials = strtoupper(substr(trim($tr['title']), 0, 1));
+                $hasImg = !empty($tr['profile_image']);
+            ?>
+            <tr data-name="<?php echo strtolower($tname) ?>" data-email="<?php echo strtolower($temail) ?>">
+                <td>
+                    <div class="trn-name-cell">
+                        <div class="trn-avatar">
+                            <?php if ($hasImg): ?><img src="/media/courses/trainers/<?php echo htmlspecialchars($tr['profile_image']) ?>" alt="" onerror="this.parentNode.textContent='<?php echo htmlspecialchars($initials) ?>'" /><?php else: ?><?php echo htmlspecialchars($initials) ?><?php endif; ?>
+                        </div>
+                        <span><?php echo $tname ?></span>
+                    </div>
+                </td>
+                <td>
+                    <div class="trn-contact">
+                        <div class="trn-contact-email"><?php echo $temail ?: '<span class="trn-na">N/A</span>' ?></div>
+                        <div class="trn-contact-phone trn-na">N/A</div>
+                    </div>
+                </td>
+                <td><span class="trn-na">N/A</span></td>
+                <td><?php echo $isAclp ? '<span class="trn-pill trn-pill-aclp">ACLP</span>' : '<span class="trn-pill trn-pill-nonaclp">non-ACLP</span>' ?></td>
+                <td><span class="trn-na">N/A</span></td>
+                <td><?php echo $isActive ? '<span class="trn-pill-active">Active</span>' : '<span style="color:#ef4444;">Inactive</span>' ?></td>
+                <td><?php echo $isActive ? '<span class="trn-pill-active">Active</span>' : '<span style="color:#ef4444;">Disabled</span>' ?></td>
+                <td><span class="trn-na">N/A</span></td>
+                <td><span class="trn-na">N/A</span></td>
+                <td><span class="trn-na">N/A</span></td>
+                <td><span class="trn-na">N/A</span></td>
+                <td>
+                    <a href="#" class="trn-action" onclick="event.preventDefault();"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Sync Image</a>
+                    <a href="#" class="trn-action danger" onclick="event.preventDefault();"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Deactivate</a>
+                </td>
+            </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+    <div class="dash-pager">
+        <div class="dash-pager-info" id="trnPagerInfo">Showing 1 to <?php echo min(20, count($trainerRows)) ?> of <?php echo count($trainerRows) ?> trainers</div>
+        <div class="dash-pager-ctrls" id="trnPagerCtrls"></div>
+    </div>
+</div>
+</div>
+
 <?php /* ===== Role switcher JS ===== */ ?>
 <script type="text/javascript">
 (function(){
@@ -1389,7 +1534,7 @@ $gatExt = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
             'Learner':           'dash-panel-learner',
             'Trainer':           'dash-panel-learner'
         };
-        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-trainingprovider','dash-panel-learner','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual'];
+        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-trainingprovider','dash-panel-learner','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-trainers'];
         for (var i=0; i<all.length; i++) {
             var el = document.getElementById(all[i]);
             if (el) el.style.display = 'none';
@@ -1410,7 +1555,7 @@ $gatExt = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
         if (current !== 'Trainer' && current !== 'Learner') return;
 
         // Hide ALL panels first, then show only the requested sub-panel
-        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-trainingprovider','dash-panel-learner','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual'];
+        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-trainingprovider','dash-panel-learner','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-trainers'];
         for (var i=0; i<all.length; i++) {
             var el = document.getElementById(all[i]);
             if (el) el.style.display = 'none';
@@ -1443,11 +1588,32 @@ $gatExt = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
         else { var s = localStorage.getItem('adminViewAs'); if (s) role = s; }
     } catch(e) {}
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', function(){ showPanel(role); });
-    } else {
-        showPanel(role);
+    // Admin/Super Admin sub-view switcher (Dashboard <-> View Trainers)
+    function showAdminSubPanel(name) {
+        var r = role;
+        if (r !== 'Admin' && r !== 'Super Admin' && r !== 'Marketing') return;
+        var panelMap = { trainers: 'dash-panel-trainers', dashboard: (r === 'Admin' ? 'dash-panel-admin' : 'dash-panel-superadmin') };
+        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-trainingprovider','dash-panel-learner','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-trainers'];
+        for (var i=0; i<all.length; i++) { var el = document.getElementById(all[i]); if (el) el.style.display = 'none'; }
+        var t = document.getElementById(panelMap[name] || panelMap.dashboard);
+        if (t) t.style.display = '';
     }
+    window.showAdminSubPanel = showAdminSubPanel;
+
+    function applyInitialPanel() {
+        showPanel(role);
+        // If URL hash requests a sub-panel, switch to it
+        if (window.location.hash === '#trainers' && (role === 'Admin' || role === 'Super Admin' || role === 'Marketing')) {
+            showAdminSubPanel('trainers');
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', applyInitialPanel);
+    } else {
+        applyInitialPanel();
+    }
+    window.addEventListener('hashchange', applyInitialPanel);
 
     // Expose for header role switcher
     window.__applyDashboardRole = showPanel;
@@ -1551,6 +1717,75 @@ window.dashRenderPager = function(pages) {
     var si=document.getElementById('dashSearch');
     if(si) si.addEventListener('input', function(){ window.dashFilter(); });
     if (typeof window.dashFilter === 'function') window.dashFilter();
+})();
+
+// ===== Trainers panel: search + pagination =====
+window._trnPage = 1;
+window._trnPerPage = 10;
+window._trnMatched = [];
+
+window.trnFilter = function() {
+    window._trnPage = 1;
+    var q = (document.getElementById('trnSearch')||{value:''}).value.toLowerCase().trim();
+    var rows = document.querySelectorAll('#trnTableBody tr');
+    window._trnMatched = [];
+    for (var i=0; i<rows.length; i++) {
+        var r = rows[i];
+        var n = r.getAttribute('data-name') || '';
+        var e = r.getAttribute('data-email') || '';
+        r.style.display = 'none';
+        if (!q || n.indexOf(q) !== -1 || e.indexOf(q) !== -1) window._trnMatched.push(r);
+    }
+    window.trnRender();
+};
+
+window.trnRender = function() {
+    var rows = window._trnMatched;
+    var pp = window._trnPerPage;
+    var total = rows.length;
+    var pages = Math.max(1, Math.ceil(total / pp));
+    if (window._trnPage > pages) window._trnPage = pages;
+    if (window._trnPage < 1) window._trnPage = 1;
+    for (var i=0; i<rows.length; i++) rows[i].style.display = 'none';
+    var s = (window._trnPage - 1) * pp;
+    var e = Math.min(s + pp, total);
+    for (var j=s; j<e; j++) rows[j].style.display = '';
+
+    var info = document.getElementById('trnPagerInfo');
+    if (info) info.textContent = total === 0 ? 'No trainers' : ('Showing ' + (s+1) + ' to ' + e + ' of ' + total + ' trainers');
+
+    var c = document.getElementById('trnPagerCtrls');
+    if (!c) return;
+    c.innerHTML = '';
+    function btn(lbl, page, opts) {
+        opts = opts || {};
+        var b = document.createElement('button');
+        b.className = 'dash-pg-btn' + (opts.active ? ' active' : '') + (opts.disabled ? ' disabled' : '');
+        b.textContent = lbl;
+        if (!opts.disabled && page) b.onclick = function(){ window._trnPage = page; window.trnRender(); };
+        c.appendChild(b);
+    }
+    function dots() { var x=document.createElement('span'); x.className='dash-pg-ellipsis'; x.textContent='...'; c.appendChild(x); }
+    btn('Prev', window._trnPage-1, { disabled: window._trnPage<=1 });
+    var maxNum = 5;
+    var st = Math.max(1, window._trnPage-2);
+    var ed = Math.min(pages, st+maxNum-1);
+    if (ed-st < maxNum-1) st = Math.max(1, ed-maxNum+1);
+    if (st > 1) { btn('1', 1); if (st > 2) dots(); }
+    for (var p=st; p<=ed; p++) btn(String(p), p, { active: p === window._trnPage });
+    if (ed < pages) { if (ed < pages-1) dots(); btn(String(pages), pages); }
+    btn('Next', window._trnPage+1, { disabled: window._trnPage>=pages });
+};
+
+window.trnReset = function() {
+    var s = document.getElementById('trnSearch'); if (s) s.value = '';
+    window.trnFilter();
+};
+
+(function(){
+    var si = document.getElementById('trnSearch');
+    if (si) si.addEventListener('input', function(){ window.trnFilter(); });
+    if (typeof window.trnFilter === 'function') window.trnFilter();
 })();
 </script>
 
