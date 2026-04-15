@@ -920,6 +920,54 @@ function lmcSearch(q) {
 </div>
 </div>
 
+<?php /* ===== PANEL 6: Problem Solving Tools (Trainer sub-view) ===== */ ?>
+<div id="dash-panel-problemsolving" style="display:none;">
+<div class="edt-wrap">
+    <h1 class="edt-title">Problem Solving Tools</h1>
+    <div class="edt-grid">
+        <a href="https://alfredang.github.io/5whys/" target="_blank" class="edt-card">
+            <div class="edt-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+            <div class="edt-card-title">5 Whys</div>
+            <div class="edt-card-desc">Root cause analysis tool using the 5 Whys technique</div>
+        </a>
+        <a href="https://alfredang.github.io/fishbone/" target="_blank" class="edt-card">
+            <div class="edt-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>
+            <div class="edt-card-title">Fishbone Diagram</div>
+            <div class="edt-card-desc">Cause-and-effect fishbone (Ishikawa) diagram for root cause analysis</div>
+        </a>
+        <a href="https://alfredang.github.io/paretochart/" target="_blank" class="edt-card">
+            <div class="edt-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg></div>
+            <div class="edt-card-title">Pareto Chart</div>
+            <div class="edt-card-desc">Pareto chart for identifying the most significant factors</div>
+        </a>
+        <a href="https://alfredang.github.io/systemloop/" target="_blank" class="edt-card">
+            <div class="edt-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>
+            <div class="edt-card-title">System Thinking</div>
+            <div class="edt-card-desc">Visualise cause-and-effect feedback loops for systems analysis</div>
+        </a>
+    </div>
+</div>
+</div>
+
+<?php /* ===== PANEL 7: Data Analytics Tools (Trainer sub-view) ===== */ ?>
+<div id="dash-panel-dataanalytics" style="display:none;">
+<div class="edt-wrap">
+    <h1 class="edt-title">Data Analytics Tools</h1>
+    <div class="edt-grid">
+        <a href="https://alfredang.github.io/novapivot/" target="_blank" class="edt-card">
+            <div class="edt-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg></div>
+            <div class="edt-card-title">Pivot Visualization</div>
+            <div class="edt-card-desc">Interactive pivot tables and visualizations for exploring and analysing data</div>
+        </a>
+        <a href="https://alfredang.github.io/mockdatagen/" target="_blank" class="edt-card">
+            <div class="edt-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+            <div class="edt-card-title">Mock Data Generator</div>
+            <div class="edt-card-desc">Generate realistic mock data for testing and demonstrations</div>
+        </a>
+    </div>
+</div>
+</div>
+
 <?php /* ===== Role switcher JS ===== */ ?>
 <script type="text/javascript">
 (function(){
@@ -932,7 +980,7 @@ function lmcSearch(q) {
             'Learner':           'dash-panel-learner',
             'Trainer':           'dash-panel-learner'
         };
-        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-trainingprovider','dash-panel-learner','dash-panel-edtools'];
+        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-trainingprovider','dash-panel-learner','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics'];
         for (var i=0; i<all.length; i++) {
             var el = document.getElementById(all[i]);
             if (el) el.style.display = 'none';
@@ -952,12 +1000,17 @@ function lmcSearch(q) {
         if (current !== 'Trainer' && current !== 'Learner') return;
 
         // Hide ALL panels first, then show only the requested sub-panel
-        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-trainingprovider','dash-panel-learner','dash-panel-edtools'];
+        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-trainingprovider','dash-panel-learner','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics'];
         for (var i=0; i<all.length; i++) {
             var el = document.getElementById(all[i]);
             if (el) el.style.display = 'none';
         }
-        var target = (name === 'edtools') ? 'dash-panel-edtools' : 'dash-panel-learner';
+        var subMap = {
+            'edtools':        'dash-panel-edtools',
+            'problemsolving': 'dash-panel-problemsolving',
+            'dataanalytics':  'dash-panel-dataanalytics'
+        };
+        var target = subMap[name] || 'dash-panel-learner';
         var show = document.getElementById(target);
         if (show) show.style.display = '';
     }

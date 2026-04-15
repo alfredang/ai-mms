@@ -179,7 +179,7 @@
 
     <!-- Problem Solving Tools -->
     <div class="tools-group">
-        <div class="tools-group-toggle" onclick="toggleToolGroup(this)">
+        <div class="tools-group-toggle" id="trainer-nav-problemsolving" onclick="toggleToolGroup(this); if (window.showTrainerSubPanel) { showTrainerSubPanel('problemsolving'); setTrainerActiveNav('problemsolving'); }">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             <span>Problem Solving Tools</span>
             <svg class="tools-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
@@ -194,7 +194,7 @@
 
     <!-- Data Analytics Tools -->
     <div class="tools-group">
-        <div class="tools-group-toggle" onclick="toggleToolGroup(this)">
+        <div class="tools-group-toggle" id="trainer-nav-dataanalytics" onclick="toggleToolGroup(this); if (window.showTrainerSubPanel) { showTrainerSubPanel('dataanalytics'); setTrainerActiveNav('dataanalytics'); }">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
             <span>Data Analytics Tools</span>
             <svg class="tools-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
@@ -406,9 +406,10 @@ function toggleToolGroup(btn) {
     group.classList.toggle('open');
 }
 function setTrainerActiveNav(which) {
-    var mc = document.getElementById('trainer-nav-myclasses');
-    var et = document.getElementById('trainer-nav-edtools');
-    if (mc) mc.classList.toggle('active', which === 'myclasses');
-    if (et) et.classList.toggle('active', which === 'edtools');
+    var ids = { myclasses:'trainer-nav-myclasses', edtools:'trainer-nav-edtools', problemsolving:'trainer-nav-problemsolving', dataanalytics:'trainer-nav-dataanalytics' };
+    for (var key in ids) {
+        var el = document.getElementById(ids[key]);
+        if (el) el.classList.toggle('active', which === key);
+    }
 }
 </script>
