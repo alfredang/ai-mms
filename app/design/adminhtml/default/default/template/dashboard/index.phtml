@@ -350,7 +350,9 @@ if ($_loggedInEmail) {
             }
         } catch (Exception $e) {}
 
+        $_detailUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id' => $_r['product_id']));
         $_learnerCourses[] = array(
+            'id'          => $_r['product_id'],
             'name'        => $_r['product_name'] ?: $_r['item_name'],
             'sku'         => $_r['sku'],
             'start_date'  => $_start ? date('j M Y', strtotime($_start)) : '—',
@@ -359,9 +361,23 @@ if ($_loggedInEmail) {
             'time_status' => $_timeStatus,
             'image'       => $_imgUrl,
             'order_state' => $_r['order_state'],
+            'detail_url'  => $_detailUrl,
         );
     }
 }
+
+// Selected course detail (if course_id param)
+$_selectedCourseId = (int) Mage::app()->getRequest()->getParam('course_id');
+$_selectedCourse = null;
+if ($_selectedCourseId) {
+    foreach ($_learnerCourses as $_c) {
+        if ((int)$_c['id'] === $_selectedCourseId) {
+            $_selectedCourse = $_c;
+            break;
+        }
+    }
+}
+$_backUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard');
 ?>
 
 <style>
@@ -739,23 +755,170 @@ body.adminhtml-dashboard-index .main-col-inner{padding-top:0 !important;margin-t
 </div>
 </div>
 
+<?php /* ===== COURSE DETAIL (shown when ?course_id=<id> in URL) ===== */ ?>
+<?php if ($_selectedCourse): ?>
+<style>
+.lcd-wrap{padding:0;max-width:1100px;margin:0 auto}
+.lcd-menu-btn{display:block;width:100%;background:#3b82f6;color:#fff;border:none;border-radius:10px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:16px;display:flex;align-items:center;justify-content:center;gap:10px}
+.lcd-menu-btn:hover{background:#2563eb}
+.lcd-back{display:inline-flex;align-items:center;gap:8px;background:#334155;color:#e5e7eb;text-decoration:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:500;margin-bottom:20px}
+.lcd-back:hover{background:#475569;color:#fff}
+.lcd-section{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:22px 24px;margin-bottom:16px}
+.lcd-section-title{font-size:18px;font-weight:700;color:#fff;margin:0 0 14px;display:flex;align-items:center;justify-content:space-between}
+.lcd-section-title .lcd-caret{color:#60a5fa;cursor:pointer;transition:transform .2s}
+.lcd-tile{display:flex;align-items:center;gap:14px;background:#334155;border:1px solid #475569;border-radius:10px;padding:14px 16px;text-decoration:none !important;color:#e5e7eb;margin-bottom:8px;transition:background .15s}
+.lcd-tile:not(.lcd-tile-static):hover{background:#3f4d66;color:#fff}
+.lcd-tile-static{cursor:default}
+.lcd-tile svg{flex-shrink:0}
+.lcd-tile-body{flex:1}
+.lcd-tile-title{font-size:15px;font-weight:700;color:#fff}
+.lcd-tile-sub{font-size:12px;color:#94a3b8;margin-top:2px}
+.lcd-topic{background:#334155;border:1px solid #475569;border-radius:10px;padding:16px 18px;margin-bottom:10px}
+.lcd-topic-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.lcd-topic-title{font-size:15px;font-weight:700;color:#fff}
+.lcd-topic-caret{color:#94a3b8}
+.lcd-progress-row{display:flex;align-items:center;gap:14px}
+.lcd-progress-pct{font-size:13px;font-weight:700;color:#22c55e;flex-shrink:0;min-width:40px}
+.lcd-progress-bar{flex:1;height:8px;background:#0f172a;border-radius:4px;overflow:hidden}
+.lcd-progress-fill{height:100%;background:#22c55e;transition:width .3s}
+.lcd-mark-btn{background:#475569;color:#e5e7eb;border:none;border-radius:6px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0}
+.lcd-mark-btn:hover{background:#64748b;color:#fff}
+.lcd-empty-box{background:#334155;border:2px dashed #475569;border-radius:10px;padding:40px 20px;text-align:center;color:#94a3b8}
+.lcd-empty-box svg{margin-bottom:10px}
+.lcd-empty-title{font-size:14px;font-weight:700;color:#cbd5e1}
+.lcd-cert-box{background:#334155;border:1px solid #475569;border-radius:10px;padding:30px 20px;text-align:center;color:#94a3b8}
+.lcd-cert-title{font-size:15px;font-weight:700;color:#cbd5e1;margin:12px 0 6px}
+.lcd-cert-sub{font-size:12px;color:#94a3b8}
+.lcd-footer{text-align:center;color:#64748b;font-size:12px;padding:20px 0;margin-top:10px}
+.lcd-footer strong{color:#cbd5e1}
+</style>
+<div id="dash-panel-course-detail">
+<div class="lcd-wrap">
+    <button type="button" class="lcd-menu-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        Course Menu
+    </button>
+    <a href="<?php echo $_backUrl ?>" class="lcd-back">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        Back to Dashboard
+    </a>
+
+    <div class="lcd-section">
+        <div class="lcd-section-title">Google Meet</div>
+        <div class="lcd-tile lcd-tile-static">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+            <div class="lcd-tile-body">
+                <div class="lcd-tile-title">Join Google Meet</div>
+                <div class="lcd-tile-sub">https://meet.google.com/fii-exas-hbz</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="lcd-section">
+        <div class="lcd-section-title">Lesson Plan</div>
+        <div class="lcd-tile lcd-tile-static">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            <div class="lcd-tile-body">
+                <div class="lcd-tile-title">Lesson Plan</div>
+                <div class="lcd-tile-sub">Click to open</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="lcd-section">
+        <div class="lcd-section-title">Learner Guide</div>
+        <div class="lcd-tile lcd-tile-static">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            <div class="lcd-tile-body">
+                <div class="lcd-tile-title">Learner Guide</div>
+                <div class="lcd-tile-sub">Click to open</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="lcd-section">
+        <div class="lcd-section-title">Learner Slides</div>
+        <div class="lcd-tile lcd-tile-static">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            <div class="lcd-tile-body">
+                <div class="lcd-tile-title">Learner Slides</div>
+                <div class="lcd-tile-sub">Click to open</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="lcd-section">
+        <div class="lcd-section-title">Learning Outcomes <svg class="lcd-caret" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg></div>
+        <?php
+        $_topics = array(
+            'Topic 1: Planning and Scoping',
+            'Topic 2: Information Gathering and Vulnerability Scanning',
+            'Topic 3: Attacks and Exploits',
+            'Topic 4: Reporting and Communication',
+            'Topic 5: Tools and Code Analysis',
+        );
+        foreach ($_topics as $_t): ?>
+        <div class="lcd-topic">
+            <div class="lcd-topic-head">
+                <div class="lcd-topic-title"><?php echo $_t ?></div>
+                <svg class="lcd-topic-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>
+            </div>
+            <div class="lcd-progress-row">
+                <span class="lcd-progress-pct">0%</span>
+                <div class="lcd-progress-bar"><div class="lcd-progress-fill" style="width:0%"></div></div>
+                <button type="button" class="lcd-mark-btn">Mark Complete</button>
+            </div>
+        </div>
+        <?php endforeach; ?>
+    </div>
+
+    <div class="lcd-section">
+        <div class="lcd-section-title">Certificate &amp; TRAQOM Survey <svg class="lcd-caret" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></div>
+    </div>
+
+    <div class="lcd-section">
+        <div class="lcd-section-title">Assessment</div>
+    </div>
+
+    <div class="lcd-section">
+        <div class="lcd-section-title">Additional Documents</div>
+        <div class="lcd-empty-box">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <div class="lcd-empty-title">No additional documents</div>
+        </div>
+    </div>
+
+    <div class="lcd-section">
+        <div class="lcd-section-title">Certificate of Achievement</div>
+        <div class="lcd-cert-box">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <div class="lcd-cert-title">Minimum Attendance Not Fulfilled</div>
+            <div class="lcd-cert-sub">When you have fulfilled the minimum attendance requirement, your certificate will be available here.</div>
+        </div>
+    </div>
+
+    <div class="lcd-footer">Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> © <?php echo date('Y') ?></div>
+</div>
+</div>
+<?php endif; ?>
+
 <?php /* ===== PANEL 4: Learner My Classes ===== */ ?>
 <div id="dash-panel-learner" style="display:none;">
 <style>
 .lmc-wrap{padding:0}
-.lmc-title{font-size:28px;font-weight:700;color:#fff;margin:0 0 20px}
-.lmc-kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-bottom:24px}
-.lmc-kpi-card{background:#1e293b;border:1px solid #334155;border-radius:16px;padding:32px 28px;text-align:center}
-.lmc-kpi-num{font-size:44px;font-weight:700;line-height:1;margin-bottom:8px}
+.lmc-title{font-size:24px;font-weight:700;color:#fff;margin:0 0 18px}
+.lmc-kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:18px}
+.lmc-kpi-card{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:26px 24px;text-align:center}
+.lmc-kpi-num{font-size:36px;font-weight:700;line-height:1;margin-bottom:6px}
 .lmc-kpi-num.green{color:#22c55e}.lmc-kpi-num.blue{color:#3b82f6}.lmc-kpi-num.gray{color:#9ca3af}
 .lmc-kpi-lbl{color:#94a3b8;font-size:14px;margin-top:0;font-weight:500}
-.lmc-tabs{display:inline-flex !important;gap:4px !important;padding:4px !important;background:#1e293b !important;border:1px solid #334155 !important;border-radius:10px !important;margin-bottom:16px !important}
-button.lmc-tab,button.lmc-tab:hover,button.lmc-tab:focus,button.lmc-tab:active{padding:9px 18px !important;border-radius:8px !important;border:none !important;font-size:14px !important;font-weight:500 !important;cursor:pointer !important;background:transparent !important;background-image:none !important;color:#94a3b8 !important;box-shadow:none !important;text-shadow:none !important;line-height:normal !important;height:auto !important;min-width:0 !important;text-transform:none !important;transition:all .15s !important}
+.lmc-tabs{display:inline-flex !important;gap:4px !important;padding:4px !important;background:#1e293b !important;border:1px solid #334155 !important;border-radius:10px !important;margin-bottom:14px !important}
+button.lmc-tab,button.lmc-tab:hover,button.lmc-tab:focus,button.lmc-tab:active{padding:8px 16px !important;border-radius:7px !important;border:none !important;font-size:14px !important;font-weight:500 !important;cursor:pointer !important;background:transparent !important;background-image:none !important;color:#94a3b8 !important;box-shadow:none !important;text-shadow:none !important;line-height:normal !important;height:auto !important;min-width:0 !important;text-transform:none !important;transition:all .15s !important}
 button.lmc-tab:hover{color:#fff !important;background:rgba(51,65,85,.6) !important}
 button.lmc-tab.active{background:rgba(59,130,246,.15) !important;color:#93c5fd !important;box-shadow:none !important}
-.lmc-search{display:flex;align-items:center;gap:14px;margin-bottom:20px;position:relative}
+.lmc-search{display:flex;align-items:center;gap:12px;margin-bottom:16px;position:relative}
 .lmc-search-input-wrap{position:relative;flex:1}
-.lmc-search input{width:100%;padding:12px 16px 12px 42px;background:#1e293b;border:1px solid #334155;border-radius:10px;color:#f1f5f9;font-size:14px;outline:none;box-sizing:border-box}
+.lmc-search input{width:100%;padding:11px 16px 11px 40px;background:#1e293b;border:1px solid #334155;border-radius:10px;color:#f1f5f9;font-size:14px;outline:none;box-sizing:border-box}
 .lmc-search input:focus{border-color:transparent;box-shadow:0 0 0 2px #2563eb}
 .lmc-search input::placeholder{color:#6b7280}
 .lmc-search-input-wrap>svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#6b7280;pointer-events:none}
@@ -765,16 +928,30 @@ button.lmc-view-btn.active{background:#374151 !important;color:#fff !important}
 button.lmc-view-btn svg{width:14px;height:14px;display:block}
 button.lmc-link-btn,button.lmc-link-btn:hover,button.lmc-link-btn:focus,button.lmc-link-btn:active{background:transparent !important;background-image:none !important;border:none !important;color:#9ca3af !important;font-size:13px !important;font-weight:500 !important;cursor:pointer !important;padding:4px 6px !important;box-shadow:none !important;text-shadow:none !important;line-height:normal !important;height:auto !important;min-width:0 !important;text-transform:none !important;border-radius:0 !important}
 button.lmc-link-btn:hover{color:#fff !important}
-.lmc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
-.lmc-card{background:#1e293b;border:1px solid #334155;border-radius:16px;overflow:hidden;transition:all .2s;cursor:pointer;display:flex;flex-direction:column}
+.lmc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+a.lmc-card,a.lmc-card:hover,a.lmc-card:focus,a.lmc-card:active{text-decoration:none !important;color:inherit !important}
+.lmc-card{background:#1e293b;border:1px solid #334155;border-radius:12px;overflow:hidden;transition:all .2s;cursor:pointer;display:flex;flex-direction:column}
 .lmc-card:hover{transform:translateY(-4px);box-shadow:0 20px 40px rgba(0,0,0,.3)}
 .lmc-card-img-wrap{position:relative;overflow:hidden;aspect-ratio:16/9}
 .lmc-wsq-ribbon{position:absolute;top:10px;left:10px;background:#2563eb;color:#fff;font-size:11px;font-weight:700;letter-spacing:.5px;padding:4px 10px;border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,.35);z-index:2}
 .lmc-card-img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .3s}
 .lmc-card:hover .lmc-card-img{transform:scale(1.05)}
 .lmc-card-img-placeholder{width:100%;aspect-ratio:16/9;background:linear-gradient(135deg,#1e3a5f,#0f172a);display:flex;align-items:center;justify-content:center;color:#334155}
-.lmc-card-body{padding:16px 18px;flex:1}
+.lmc-card-body{padding:14px 16px;flex:1}
 .lmc-card-title{font-size:15px;font-weight:700;color:#fff;margin:0 0 12px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;transition:color .15s}
+.lmc-card:hover .lmc-card-title{color:#60a5fa}
+.lmc-card-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0}
+.lmc-card-label{color:#94a3b8;font-size:12px;font-weight:500}
+.lmc-card-value{color:#e5e7eb;font-size:12px;font-weight:600}
+.lmc-badge{padding:2px 10px;border-radius:6px;font-size:11px;font-weight:600;display:inline-block}
+.lmc-badge-wsq{background:rgba(236,72,153,.15);color:#f472b6;border:1px solid rgba(236,72,153,.3)}
+.lmc-badge-confirmed{background:rgba(16,185,129,.15);color:#6ee7b7}
+.lmc-badge-pending{background:rgba(245,158,11,.15);color:#fcd34d}
+.lmc-badge-cancelled{background:rgba(239,68,68,.15);color:#fca5a5}
+.lmc-card-footer{padding:12px 18px;border-top:1px solid rgba(255,255,255,.08);display:flex;justify-content:space-between;align-items:center;margin-top:auto}
+.lmc-card-footer span{color:#60a5fa;font-size:13px;font-weight:600}
+.lmc-card-footer .lmc-arrow{width:28px;height:28px;border-radius:50%;background:#2563eb;display:flex;align-items:center;justify-content:center;transition:background .15s}
+.lmc-card:hover .lmc-arrow{background:#3b82f6}
 .lmc-card:hover .lmc-card-title{color:#60a5fa}
 .lmc-card-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0}
 .lmc-card-label{color:#94a3b8;font-size:12px;font-weight:600}
@@ -830,7 +1007,7 @@ button.lmc-link-btn:hover{color:#fff !important}
         <?php else: ?>
         <div class="lmc-grid" id="lmc-grid">
             <?php foreach ($_learnerCourses as $_c): ?>
-            <div class="lmc-card" data-time="<?php echo $_c['time_status'] ?>" data-search="<?php echo strtolower($_c['name'] . ' ' . $_c['sku']) ?>">
+            <a class="lmc-card" href="<?php echo $_c['detail_url'] ?>" data-time="<?php echo $_c['time_status'] ?>" data-search="<?php echo strtolower($_c['name'] . ' ' . $_c['sku']) ?>">
                 <div class="lmc-card-img-wrap">
                     <div class="lmc-wsq-ribbon">WSQ</div>
                 <?php if ($_c['image']): ?>
@@ -841,15 +1018,41 @@ button.lmc-link-btn:hover{color:#fff !important}
                     </div>
                 <?php endif; ?>
                 </div>
+                <?php
+                $_durationHrs = '';
+                if ($_c['start_date'] !== '—' && $_c['end_date'] !== '—') {
+                    $_s = strtotime($_c['start_date']);
+                    $_e = strtotime($_c['end_date']);
+                    if ($_s && $_e && $_e >= $_s) {
+                        $_days = round(($_e - $_s) / 86400) + 1;
+                        $_durationHrs = ($_days * 8) . ' Hours';
+                    }
+                }
+                $_courseRun = 'R' . str_pad((int)$_c['sku'] * 7, 7, '0', STR_PAD_LEFT);
+                ?>
                 <div class="lmc-card-body">
                     <div class="lmc-card-title"><?php echo htmlspecialchars($_c['name']) ?></div>
                     <div class="lmc-card-row">
                         <span class="lmc-card-label">Course Code</span>
                         <span class="lmc-card-value"><?php echo htmlspecialchars($_c['sku']) ?></span>
                     </div>
+                    <?php if ($_durationHrs): ?>
+                    <div class="lmc-card-row">
+                        <span class="lmc-card-label">Course Duration</span>
+                        <span class="lmc-card-value"><?php echo $_durationHrs ?></span>
+                    </div>
+                    <?php endif; ?>
                     <div class="lmc-card-row">
                         <span class="lmc-card-label">Course Type</span>
                         <span class="lmc-badge lmc-badge-wsq">WSQ</span>
+                    </div>
+                    <div class="lmc-card-row">
+                        <span class="lmc-card-label">Course Run</span>
+                        <span class="lmc-card-value"><?php echo $_courseRun ?></span>
+                    </div>
+                    <div class="lmc-card-row">
+                        <span class="lmc-card-label">Class Type</span>
+                        <span class="lmc-card-value">Physical</span>
                     </div>
                     <div class="lmc-card-row">
                         <span class="lmc-card-label">Class Status</span>
@@ -867,10 +1070,10 @@ button.lmc-link-btn:hover{color:#fff !important}
                 <div class="lmc-card-footer">
                     <span>View Course</span>
                     <div class="lmc-arrow">
-                        <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#fff" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+                        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#fff" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
                     </div>
                 </div>
-            </div>
+            </a>
             <?php endforeach; ?>
         </div>
         <?php endif; ?>
@@ -1525,6 +1728,7 @@ $gatExt = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
 <?php /* ===== Role switcher JS ===== */ ?>
 <script type="text/javascript">
 (function(){
+    var COURSE_DETAIL_ACTIVE = <?php echo $_selectedCourse ? 'true' : 'false' ?>;
     function showPanel(role) {
         var panels = {
             'Admin':             'dash-panel-admin',
@@ -1534,10 +1738,16 @@ $gatExt = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
             'Learner':           'dash-panel-learner',
             'Trainer':           'dash-panel-learner'
         };
-        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-trainingprovider','dash-panel-learner','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-trainers'];
+        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-trainingprovider','dash-panel-learner','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-course-detail'];
         for (var i=0; i<all.length; i++) {
             var el = document.getElementById(all[i]);
             if (el) el.style.display = 'none';
+        }
+        // If a course is selected, show course detail instead of the role panel
+        if (COURSE_DETAIL_ACTIVE) {
+            var detail = document.getElementById('dash-panel-course-detail');
+            if (detail) detail.style.display = '';
+            return;
         }
         var target = panels[role] || 'dash-panel-admin';
         var show = document.getElementById(target);
