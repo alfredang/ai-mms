@@ -1784,8 +1784,8 @@ $gatExt = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
         <h1 class="trn-title">View Trainers</h1>
         <div class="trn-actions">
             <button class="trn-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg> Sync LinkedIn Images</button>
-            <button class="trn-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Bulk Upload Trainers</button>
-            <button class="trn-btn trn-btn-primary"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add New Trainer</button>
+            <button class="trn-btn" onclick="trnOpenBulkModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Bulk Upload Trainers</button>
+            <button class="trn-btn trn-btn-primary" onclick="trnOpenAddModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add New Trainer</button>
         </div>
     </div>
 
@@ -1863,8 +1863,261 @@ $gatExt = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
         <div class="dash-pager-info" id="trnPagerInfo">Showing 1 to <?php echo min(20, count($trainerRows)) ?> of <?php echo count($trainerRows) ?> trainers</div>
         <div class="dash-pager-ctrls" id="trnPagerCtrls"></div>
     </div>
+
+    <?php /* Add New Trainer modal */ ?>
+    <div id="trnAddOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:flex-start;justify-content:center;overflow-y:auto;padding:40px 20px;">
+        <div style="background:var(--d1);border:1px solid var(--b1);border-radius:14px;width:100%;max-width:920px;padding:28px 32px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+                <h2 style="font-size:24px;font-weight:700;color:var(--t1);margin:0;">Add New Trainer</h2>
+                <a href="#" onclick="event.preventDefault();trnCloseAddModal()" style="color:var(--t2);text-decoration:none;font-size:13px;display:inline-flex;align-items:center;gap:4px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> Back to Trainers</a>
+            </div>
+
+            <form id="trnAddForm" onsubmit="trnSubmit(event)" style="background:#131d2e;border:1px solid var(--b1);border-radius:12px;padding:24px;">
+                <div style="background:#0f172a;border:1px solid var(--b1);border-radius:10px;padding:18px;margin-bottom:20px;">
+                    <div style="font-size:13px;font-weight:600;color:var(--t1);margin-bottom:10px;">Profile Picture</div>
+                    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+                        <div style="width:54px;height:54px;border-radius:50%;background:#1e293b;display:flex;align-items:center;justify-content:center;color:#475569;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+                        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                            <input type="file" id="trnPicture" accept="image/*" style="font-size:12px;color:var(--t2);" />
+                            <span style="color:#64748b;font-size:12px;">or</span>
+                            <button type="button" onclick="alert('AI Avatar generation is a future feature.')" style="background:rgba(34,211,238,.1);border:1px solid rgba(34,211,238,.3);color:#22d3ee;padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer;">Generate AI Avatar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px 24px;">
+                    <div><div class="trn-flbl">Email <span class="trn-req">*</span></div><input type="email" id="trnEmail" required class="trn-fld" /></div>
+                    <div><div class="trn-flbl">Full Name <span class="trn-req">*</span></div><input type="text" id="trnName" required class="trn-fld" /></div>
+
+                    <div><div class="trn-flbl">Default Password</div><input type="text" id="trnPwd" value="Tertiary888" readonly class="trn-fld" style="opacity:.7;" /><div style="font-size:11px;color:#64748b;margin-top:4px;">Default password from Company Settings will be assigned to the new trainer</div></div>
+                    <div><div class="trn-flbl">Telephone <span class="trn-req">*</span></div><input type="tel" id="trnTel" required class="trn-fld" /></div>
+
+                    <div>
+                        <div class="trn-flbl">Trainer Type <span class="trn-req">*</span></div>
+                        <select id="trnType" required class="trn-fld">
+                            <option value="">Select Trainer Type</option>
+                            <option value="ACLP">ACLP</option>
+                            <option value="non-ACLP">non-ACLP</option>
+                        </select>
+                    </div>
+                    <div>
+                        <div class="trn-flbl">Status <span class="trn-req">*</span></div>
+                        <select id="trnStatus" required class="trn-fld">
+                            <option value="">Select Status</option>
+                            <option value="Active">Active</option>
+                            <option value="Inactive">Inactive</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <div class="trn-flbl">Gender <span class="trn-req">*</span></div>
+                        <select id="trnGender" required class="trn-fld">
+                            <option value="">Select Gender</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div><div class="trn-flbl">LinkedIn Profile URL</div><input type="url" id="trnLinkedin" class="trn-fld" placeholder="https://linkedin.com/in/..." /></div>
+                </div>
+
+                <div id="trnAddMsg" style="margin-top:16px;font-size:12px;color:#ef4444;display:none;"></div>
+
+                <div style="margin-top:20px;padding-top:20px;border-top:1px solid var(--b1);display:flex;justify-content:flex-end;gap:8px;">
+                    <button type="button" onclick="trnCloseAddModal()" style="background:transparent;border:1px solid var(--b1);color:var(--t2);padding:8px 18px;border-radius:8px;font-size:13px;cursor:pointer;">Cancel</button>
+                    <button type="submit" id="trnAddBtn" style="background:#22d3ee;color:#0f172a;border:none;padding:8px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">Add Trainer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <style>
+        .trn-flbl{font-size:12px;font-weight:600;color:var(--t1);margin-bottom:6px}
+        .trn-req{color:#ef4444}
+        .trn-fld{width:100%;background:#0f172a;border:1px solid var(--b1);border-radius:8px;color:var(--t2);font-size:13px;padding:9px 12px;box-sizing:border-box}
+        .trn-fld:focus{outline:none;border-color:#22d3ee}
+    </style>
 </div>
 </div>
+
+    <?php /* Bulk Upload modal */ ?>
+    <div id="trnBulkOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:flex-start;justify-content:center;overflow-y:auto;padding:40px 20px;">
+        <div style="background:var(--d1);border:1px solid var(--b1);border-radius:14px;width:100%;max-width:980px;padding:28px 32px;">
+            <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px;">
+                <a href="#" onclick="event.preventDefault();trnCloseBulkModal()" style="color:var(--t2);text-decoration:none;font-size:13px;display:inline-flex;align-items:center;gap:4px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> Back to Trainers</a>
+                <h2 style="font-size:24px;font-weight:700;color:var(--t1);margin:0;">Bulk Upload Trainers</h2>
+            </div>
+
+            <div style="background:#131d2e;border:1px solid var(--b1);border-radius:12px;padding:22px;margin-bottom:18px;">
+                <h3 style="font-size:16px;font-weight:700;color:var(--t1);margin:0 0 14px;">Instructions</h3>
+                <ol style="color:#94a3b8;font-size:13px;line-height:1.8;margin:0 0 16px;padding-left:20px;">
+                    <li>Download the template file and fill in trainer details.</li>
+                    <li>Template columns: <strong style="color:var(--t1);">Common Name, Full Name, Country, Domain, Contact, Email, CN Plus Email, ACLP, LinkedIn, CV, NRIC</strong>.</li>
+                    <li>Required columns: <strong style="color:var(--t1);">Full Name, Email</strong>.</li>
+                    <li><strong style="color:var(--t1);">ACLP</strong> column: <code style="background:#1e293b;padding:1px 6px;border-radius:4px;">TRUE</code> &rarr; ACLP, <code style="background:#1e293b;padding:1px 6px;border-radius:4px;">FALSE</code> &rarr; non-ACLP.</li>
+                    <li><strong style="color:var(--t1);">Gender</strong> defaults to "Prefer not to say" if not provided.</li>
+                    <li><strong style="color:var(--t1);">Status</strong> defaults to "Active" if not provided.</li>
+                    <li>If the trainer email already exists, their information will be updated.</li>
+                    <li>New trainers will have their account created with the default password configured in <strong style="color:var(--t1);">Company Settings</strong>.</li>
+                </ol>
+                <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/trainer/template') ?>" style="display:inline-flex;align-items:center;gap:8px;color:#22d3ee;text-decoration:none;font-weight:600;font-size:14px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="8 12 12 16 16 12"/><line x1="12" y1="8" x2="12" y2="16"/></svg> Download Template</a>
+            </div>
+
+            <div style="background:#131d2e;border:1px solid var(--b1);border-radius:12px;padding:22px;">
+                <h3 style="font-size:16px;font-weight:700;color:var(--t1);margin:0 0 14px;">Upload File</h3>
+                <label id="trnDropZone" for="trnBulkFile" style="display:block;border:2px dashed var(--b1);border-radius:10px;padding:48px 20px;text-align:center;cursor:pointer;transition:border-color .15s;">
+                    <div style="display:flex;justify-content:center;margin-bottom:12px;color:#64748b;"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
+                    <div id="trnDropText" style="font-size:14px;color:var(--t2);margin-bottom:4px;">Drag &amp; drop your file here, or click to browse</div>
+                    <div style="font-size:12px;color:#64748b;">Supports .csv (xlsx/xls coming soon)</div>
+                    <input type="file" id="trnBulkFile" accept=".csv" style="display:none;" />
+                </label>
+                <div id="trnBulkResult" style="margin-top:14px;font-size:12px;display:none;"></div>
+            </div>
+
+            <div style="margin-top:20px;display:flex;justify-content:flex-end;gap:8px;">
+                <button type="button" onclick="trnCloseBulkModal()" style="background:transparent;border:1px solid var(--b1);color:var(--t2);padding:9px 18px;border-radius:8px;font-size:13px;cursor:pointer;">Cancel</button>
+                <button type="button" id="trnBulkBtn" onclick="trnBulkSubmit()" disabled style="background:#22d3ee;color:#0f172a;border:none;padding:9px 22px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;opacity:.5;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Upload Trainers</button>
+            </div>
+        </div>
+    </div>
+
+<?php
+    $trnAddUrl    = Mage::helper('adminhtml')->getUrl('adminhtml/trainer/add');
+    $trnBulkUrl   = Mage::helper('adminhtml')->getUrl('adminhtml/trainer/bulkUpload');
+    $trnFormKey   = Mage::getSingleton('core/session')->getFormKey();
+?>
+<script type="text/javascript">
+window.__trnAddUrl   = <?php echo json_encode($trnAddUrl) ?>;
+window.__trnBulkUrl  = <?php echo json_encode($trnBulkUrl) ?>;
+window.__trnFormKey  = <?php echo json_encode($trnFormKey) ?>;
+
+window.trnOpenAddModal = function() {
+    var ov = document.getElementById('trnAddOverlay');
+    if (ov) ov.style.display = 'flex';
+};
+window.trnCloseAddModal = function() {
+    var ov = document.getElementById('trnAddOverlay');
+    if (ov) ov.style.display = 'none';
+    var msg = document.getElementById('trnAddMsg');
+    if (msg) { msg.style.display = 'none'; msg.textContent = ''; }
+};
+// ---- Bulk upload modal ----
+window.trnOpenBulkModal = function() {
+    var ov = document.getElementById('trnBulkOverlay');
+    if (ov) ov.style.display = 'flex';
+};
+window.trnCloseBulkModal = function() {
+    var ov = document.getElementById('trnBulkOverlay');
+    if (ov) ov.style.display = 'none';
+    var f  = document.getElementById('trnBulkFile');
+    var t  = document.getElementById('trnDropText');
+    var b  = document.getElementById('trnBulkBtn');
+    var rs = document.getElementById('trnBulkResult');
+    if (f) f.value = '';
+    if (t) t.textContent = 'Drag & drop your file here, or click to browse';
+    if (b) { b.disabled = true; b.style.opacity = .5; }
+    if (rs) { rs.style.display = 'none'; rs.innerHTML = ''; }
+};
+(function(){
+    var input = document.getElementById('trnBulkFile');
+    var zone  = document.getElementById('trnDropZone');
+    var text  = document.getElementById('trnDropText');
+    var btn   = document.getElementById('trnBulkBtn');
+    if (!input || !zone) return;
+
+    function onPicked(file) {
+        text.textContent = file.name;
+        btn.disabled = false; btn.style.opacity = 1;
+    }
+    input.addEventListener('change', function(){
+        if (input.files.length) onPicked(input.files[0]);
+    });
+    ['dragenter','dragover'].forEach(function(ev){
+        zone.addEventListener(ev, function(e){ e.preventDefault(); zone.style.borderColor = '#22d3ee'; });
+    });
+    ['dragleave','drop'].forEach(function(ev){
+        zone.addEventListener(ev, function(e){ e.preventDefault(); zone.style.borderColor = ''; });
+    });
+    zone.addEventListener('drop', function(e){
+        if (e.dataTransfer && e.dataTransfer.files.length) {
+            input.files = e.dataTransfer.files;
+            onPicked(e.dataTransfer.files[0]);
+        }
+    });
+})();
+window.trnBulkSubmit = function() {
+    var input = document.getElementById('trnBulkFile');
+    var btn   = document.getElementById('trnBulkBtn');
+    var rs    = document.getElementById('trnBulkResult');
+    if (!input.files.length) return;
+
+    btn.disabled = true; btn.textContent = 'Uploading...';
+    rs.style.display = ''; rs.innerHTML = '<span style="color:#94a3b8;">Processing file…</span>';
+
+    var fd = new FormData();
+    fd.append('file', input.files[0]);
+    fd.append('form_key', window.__trnFormKey);
+
+    fetch(window.__trnBulkUrl, { method: 'POST', body: fd, credentials: 'same-origin' })
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+            btn.disabled = false; btn.textContent = 'Upload Trainers';
+            if (data.success) {
+                var html = '<span style="color:#10b981;">Done. Created: ' + data.created + ', Updated: ' + data.updated + '.</span>';
+                if (data.errors && data.errors.length) {
+                    html += '<div style="color:#f59e0b;margin-top:6px;">' + data.errors.length + ' row(s) skipped:</div>';
+                    html += '<ul style="color:#94a3b8;margin:4px 0 0 18px;font-size:11.5px;">';
+                    data.errors.slice(0, 10).forEach(function(e){ html += '<li>Row ' + e.row + ': ' + e.message + '</li>'; });
+                    if (data.errors.length > 10) html += '<li>… and ' + (data.errors.length - 10) + ' more</li>';
+                    html += '</ul>';
+                }
+                rs.innerHTML = html;
+                setTimeout(function(){ window.location.reload(); }, 1500);
+            } else {
+                var msg = (data.errors && data.errors.length) ? data.errors[0].message : 'Upload failed';
+                rs.innerHTML = '<span style="color:#ef4444;">' + msg + '</span>';
+            }
+        })
+        .catch(function(err){
+            btn.disabled = false; btn.textContent = 'Upload Trainers';
+            rs.innerHTML = '<span style="color:#ef4444;">Network error: ' + err.message + '</span>';
+        });
+};
+
+window.trnSubmit = function(e) {
+    e.preventDefault();
+    var msg = document.getElementById('trnAddMsg');
+    var btn = document.getElementById('trnAddBtn');
+    if (msg) { msg.style.display = 'none'; msg.textContent = ''; }
+    btn.disabled = true; btn.textContent = 'Adding...';
+
+    var fd = new FormData();
+    fd.append('email',         document.getElementById('trnEmail').value);
+    fd.append('full_name',     document.getElementById('trnName').value);
+    fd.append('telephone',     document.getElementById('trnTel').value);
+    fd.append('trainer_type',  document.getElementById('trnType').value);
+    fd.append('status',        document.getElementById('trnStatus').value);
+    fd.append('gender',        document.getElementById('trnGender').value);
+    fd.append('linkedin_url',  document.getElementById('trnLinkedin').value);
+    fd.append('default_password', document.getElementById('trnPwd').value);
+    fd.append('form_key',      window.__trnFormKey);
+
+    fetch(window.__trnAddUrl, { method: 'POST', body: fd, credentials: 'same-origin' })
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+            btn.disabled = false; btn.textContent = 'Add Trainer';
+            if (data.success) {
+                trnCloseAddModal();
+                window.location.reload();
+            } else {
+                if (msg) { msg.style.display = ''; msg.textContent = data.message || 'Failed to add trainer'; }
+            }
+        })
+        .catch(function(err){
+            btn.disabled = false; btn.textContent = 'Add Trainer';
+            if (msg) { msg.style.display = ''; msg.textContent = 'Network error: ' + err.message; }
+        });
+};
+</script>
 
 <?php /* ===== Role switcher JS ===== */ ?>
 <script type="text/javascript">
