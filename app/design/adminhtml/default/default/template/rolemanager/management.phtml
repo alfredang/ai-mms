@@ -83,12 +83,11 @@ $badgeColors = array(
 .rm-modal input:focus{border-color:#60a5fa}
 .rm-modal input[disabled]{opacity:.6;cursor:not-allowed}
 .rm-role-toggles{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
-.rm-role-toggle{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #475569;background:transparent;color:#94a3b8;transition:all .15s}
-.rm-role-toggle.selected{background:var(--sel-color);color:#fff !important;border-color:var(--sel-color) !important}
-.rm-modal-actions{display:flex;gap:10px;margin-top:8px}
-.rm-modal-save{padding:10px 24px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}
+.rm-role-toggle{padding:7px 16px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid;transition:all .15s;line-height:1.2}
+.rm-modal-actions{display:flex;gap:10px;margin-top:16px;justify-content:flex-end}
+.rm-modal-save{padding:10px 28px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}
 .rm-modal-save:hover{background:#3b82f6}
-.rm-modal-cancel{padding:10px 24px;background:transparent;color:#94a3b8;border:1px solid #475569;border-radius:8px;font-size:14px;cursor:pointer}
+.rm-modal-cancel{padding:10px 28px;background:transparent;color:#94a3b8;border:1px solid #475569;border-radius:8px;font-size:14px;cursor:pointer}
 @media(max-width:900px){.rm-kpi{grid-template-columns:1fr}.rm-table{font-size:13px}}
 </style>
 
@@ -185,14 +184,15 @@ $badgeColors = array(
 <div class="rm-modal-overlay" id="rm-modal">
     <div class="rm-modal">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-            <h3 style="margin:0">Edit User</h3>
+            <h3 style="margin:0">Edit Admin</h3>
             <button onclick="rmCloseModal()" style="background:none;border:none;color:#94a3b8;font-size:22px;cursor:pointer;padding:4px 8px;line-height:1;">&times;</button>
         </div>
         <input type="hidden" id="rm-edit-uid" />
-        <label>First Name</label>
-        <input type="text" id="rm-edit-firstname" />
-        <label>Last Name</label>
-        <input type="text" id="rm-edit-lastname" />
+        <label>Full Name</label>
+        <div style="display:flex;gap:10px;margin-bottom:14px;">
+            <input type="text" id="rm-edit-firstname" placeholder="First name" style="margin-bottom:0" />
+            <input type="text" id="rm-edit-lastname" placeholder="Last name" style="margin-bottom:0" />
+        </div>
         <label>Email</label>
         <input type="email" id="rm-edit-email" disabled />
         <label>Roles</label>
@@ -200,19 +200,19 @@ $badgeColors = array(
             <?php foreach ($allRoles as $code => $label):
                 $bc = isset($badgeColors[$code]) ? $badgeColors[$code] : array('color'=>'#94a3b8');
             ?>
-            <button type="button" class="rm-role-toggle" data-role="<?php echo $code ?>" style="--sel-color:<?php echo $bc['color'] ?>" onclick="rmToggleRole(this)">
+            <button type="button" class="rm-role-toggle" data-role="<?php echo $code ?>" data-color="<?php echo $bc['color'] ?>" onclick="rmToggleRole(this)" style="color:#94a3b8;border-color:#475569;background:transparent;">
                 <?php echo htmlspecialchars($label) ?>
             </button>
             <?php endforeach; ?>
         </div>
-        <label>Status</label>
+        <label>Account Status</label>
         <select id="rm-edit-status">
             <option value="1">Active</option>
             <option value="0">Disabled</option>
         </select>
         <div class="rm-modal-actions">
-            <button class="rm-modal-save" onclick="rmSave()">Save Changes</button>
             <button class="rm-modal-cancel" onclick="rmCloseModal()">Cancel</button>
+            <button class="rm-modal-save" onclick="rmSave()">Save Changes</button>
         </div>
     </div>
 </div>
@@ -223,17 +223,22 @@ var RM_TOGGLE_URL = '<?php echo $toggleUrl ?>';
 var RM_DELETE_URL = '<?php echo $deleteUrl ?>';
 var RM_FORM_KEY = '<?php echo $formKey ?>';
 
-function rmToggleRole(btn) {
-    btn.classList.toggle('selected');
-    if (btn.classList.contains('selected')) {
-        btn.style.background = 'var(--sel-color)';
+function rmApplyToggleStyle(btn, selected) {
+    var c = btn.getAttribute('data-color');
+    if (selected) {
+        btn.classList.add('selected');
+        btn.style.background = c;
         btn.style.color = '#fff';
-        btn.style.borderColor = 'var(--sel-color)';
+        btn.style.borderColor = c;
     } else {
+        btn.classList.remove('selected');
         btn.style.background = 'transparent';
-        btn.style.color = '#94a3b8';
-        btn.style.borderColor = '#475569';
+        btn.style.color = c;
+        btn.style.borderColor = c;
     }
+}
+function rmToggleRole(btn) {
+    rmApplyToggleStyle(btn, !btn.classList.contains('selected'));
 }
 
 function rmFilter() {
@@ -261,12 +266,8 @@ function rmEdit(uid) {
     var userRoles = (row.getAttribute('data-roles') || '').split(',');
     var toggles = document.querySelectorAll('.rm-role-toggle');
     for (var i = 0; i < toggles.length; i++) {
-        var t = toggles[i];
-        var sel = userRoles.indexOf(t.getAttribute('data-role')) >= 0;
-        t.classList.toggle('selected', sel);
-        t.style.background = sel ? 'var(--sel-color)' : 'transparent';
-        t.style.color = sel ? '#fff' : '#94a3b8';
-        t.style.borderColor = sel ? 'var(--sel-color)' : '#475569';
+        var sel = userRoles.indexOf(toggles[i].getAttribute('data-role')) >= 0;
+        rmApplyToggleStyle(toggles[i], sel);
     }
     document.getElementById('rm-modal').classList.add('active');
 }
