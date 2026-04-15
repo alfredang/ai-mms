@@ -377,10 +377,10 @@ if ($_loggedInEmail) {
 .dash-adv-input,.dash-adv-select{width:100%;background:#111827!important;border:1px solid var(--b1)!important;border-radius:8px;color:var(--t2)!important;font-size:13px;padding:8px 10px!important;box-sizing:border-box}
 .dash-table-wrap{margin-top:16px;overflow-x:auto}
 .dash-table{width:100%;border-collapse:collapse;font-size:13px}
-.dash-table thead th{text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.6px;padding:10px 14px;border-bottom:1px solid var(--b1);white-space:nowrap}
+.dash-table thead th{text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.6px;padding:8px 12px;border-bottom:1px solid var(--b1);white-space:nowrap}
 .dash-table tbody tr{border-bottom:1px solid #1a2535;transition:background .12s}
 .dash-table tbody tr:hover{background:rgba(34,211,238,.04)}
-.dash-table tbody td{padding:12px 14px;color:var(--t2);vertical-align:middle}
+.dash-table tbody td{padding:7px 12px;color:var(--t2);vertical-align:middle;font-size:12.5px}
 .dash-table td.run-id{color:#64748b;font-size:12px}
 .dash-course-link{color:#22d3ee!important;text-decoration:none!important;font-weight:500}
 .dash-course-link:hover{color:#06b6d4!important;text-decoration:underline!important}
@@ -392,6 +392,14 @@ if ($_loggedInEmail) {
 .badge-pending{color:#f59e0b;border:1px solid #f59e0b;background:transparent}
 .badge-cancelled{color:#ef4444;border:1px solid #ef4444;background:transparent}
 .dash-no-results{text-align:center;padding:40px;color:#64748b;font-size:14px}
+.dash-pager{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;font-size:12px;color:#94a3b8;flex-wrap:wrap}
+.dash-pager-info{color:#64748b}
+.dash-pager-ctrls{display:flex;gap:4px;align-items:center}
+.dash-pg-btn{background:transparent;border:1px solid var(--b1);color:var(--t2);padding:5px 10px;border-radius:6px;font-size:12px;cursor:pointer;min-width:32px;transition:background .12s,border-color .12s}
+.dash-pg-btn:hover:not(.disabled){background:#1e293b;border-color:var(--b2)}
+.dash-pg-btn.active{background:#22d3ee;color:#0f172a;border-color:#22d3ee;font-weight:600}
+.dash-pg-btn.disabled{opacity:.4;cursor:not-allowed}
+.dash-pg-ellipsis{color:#64748b;padding:0 4px}
 </style>
 
 <?php /* Shared header */ ?>
@@ -498,8 +506,9 @@ body.adminhtml-dashboard-index .main-col-inner{padding-top:0 !important;margin-t
             </table>
             <div id="dashNoResults" class="dash-no-results" style="display:none;">No courses match your search.</div>
         </div>
-        <div style="font-size:12px;color:#64748b;margin-top:10px;text-align:right;">
-            Showing <span id="dashVisCount"><?php echo count($courseRows) ?></span> of <?php echo count($courseRows) ?> courses
+        <div class="dash-pager">
+            <div class="dash-pager-info" id="dashPagerInfo">Showing 1 to <?php echo min(20, count($courseRows)) ?> of <?php echo count($courseRows) ?> courses</div>
+            <div class="dash-pager-ctrls" id="dashPagerCtrls"></div>
         </div>
     </div>
 </div>
@@ -1390,7 +1399,8 @@ $gatExt = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
     // Trainer sub-view switcher (My Classes <-> Ed Tools)
     // Only effective when current role is Learner/Trainer; otherwise no-op.
     function showTrainerSubPanel(name) {
-        var current = '<?php echo htmlspecialchars($_roleLabel) ?>' || 'Admin';
+        var current = 'Admin';
+        try { var s = localStorage.getItem('adminViewAs'); if (s) current = s; } catch(e) {}
         if (current !== 'Trainer' && current !== 'Learner') return;
 
         // Hide ALL panels first, then show only the requested sub-panel
@@ -1419,11 +1429,13 @@ $gatExt = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
     }
     window.showTrainerSubPanel = showTrainerSubPanel;
 
-    // Use server-side role (from session) as source of truth.
-    // The View As dropdown does a server-side switch and page reload, so the
-    // server role label is always up-to-date after a switch.
-    var role = '<?php echo htmlspecialchars($_roleLabel) ?>' || 'Admin';
-    try { localStorage.setItem('adminViewAs', role); } catch(e) {}
+    // Use server-side role (from session) as source of truth, fall back to localStorage.
+    var serverRole = <?php echo json_encode((string)$_roleLabel) ?>;
+    var role = serverRole || 'Admin';
+    try {
+        if (serverRole) localStorage.setItem('adminViewAs', serverRole);
+        else { var s = localStorage.getItem('adminViewAs'); if (s) role = s; }
+    } catch(e) {}
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function(){ showPanel(role); });
@@ -1448,7 +1460,12 @@ window.dashClearFilters = function() {
     });
     dashFilter();
 };
-window.dashFilter = function() {
+window._dashPage = 1;
+window._dashPerPage = 20;
+window._dashMatchedRows = [];
+
+window.dashFilter = function(resetPage) {
+    if (resetPage !== false) window._dashPage = 1;
     var q    = (document.getElementById('dashSearch')||{value:''}).value.toLowerCase().trim();
     var ref  = (document.getElementById('fRefCode') ||{value:''}).value.toLowerCase().trim();
     var type = (document.getElementById('fType')    ||{value:''}).value.toLowerCase().trim();
@@ -1456,26 +1473,78 @@ window.dashFilter = function() {
     var df   = (document.getElementById('fDateFrom')||{value:''}).value;
     var dt   = (document.getElementById('fDateTo')  ||{value:''}).value;
     var rows = document.querySelectorAll('#dashTableBody tr');
-    var vis  = 0;
+    window._dashMatchedRows = [];
     for (var i=0; i<rows.length; i++) {
-        var r=rows[i], show=true;
+        var r=rows[i], match=true;
         var rt=(r.getAttribute('data-title')||''), rr=(r.getAttribute('data-ref')||'');
-        if (q    && rt.indexOf(q)===-1 && rr.indexOf(q)===-1) show=false;
-        if (ref  && rr.indexOf(ref)===-1) show=false;
-        if (type && (r.getAttribute('data-type')||'').toLowerCase()!==type) show=false;
-        if (stat && (r.getAttribute('data-status')||'').toLowerCase()!==stat) show=false;
+        if (q    && rt.indexOf(q)===-1 && rr.indexOf(q)===-1) match=false;
+        if (ref  && rr.indexOf(ref)===-1) match=false;
+        if (type && (r.getAttribute('data-type')||'').toLowerCase()!==type) match=false;
+        if (stat && (r.getAttribute('data-status')||'').toLowerCase()!==stat) match=false;
         var rs=r.getAttribute('data-start')||'';
-        if (df && rs && rs<df) show=false;
-        if (dt && rs && rs>dt) show=false;
-        r.style.display = show ? '' : 'none';
-        if (show) vis++;
+        if (df && rs && rs<df) match=false;
+        if (dt && rs && rs>dt) match=false;
+        r.style.display = 'none';
+        if (match) window._dashMatchedRows.push(r);
     }
-    var nr=document.getElementById('dashNoResults'); if(nr) nr.style.display=(vis===0)?'':'none';
-    var vc=document.getElementById('dashVisCount');  if(vc) vc.textContent=vis;
+    window.dashRenderPage();
 };
+
+window.dashRenderPage = function() {
+    var rowsArr = window._dashMatchedRows || [];
+    var perPage = window._dashPerPage || 15;
+    var total = rowsArr.length;
+    var pages = Math.max(1, Math.ceil(total / perPage));
+    if (window._dashPage > pages) window._dashPage = pages;
+    if (window._dashPage < 1) window._dashPage = 1;
+
+    for (var i=0; i<rowsArr.length; i++) rowsArr[i].style.display = 'none';
+    var startIdx = (window._dashPage - 1) * perPage;
+    var endIdx   = Math.min(startIdx + perPage, total);
+    for (var j=startIdx; j<endIdx; j++) rowsArr[j].style.display = '';
+
+    var nr = document.getElementById('dashNoResults');
+    if (nr) nr.style.display = (total === 0) ? '' : 'none';
+
+    var info = document.getElementById('dashPagerInfo');
+    if (info) info.textContent = total === 0 ? 'No courses' : ('Showing ' + (startIdx+1) + ' to ' + endIdx + ' of ' + total + ' courses');
+
+    window.dashRenderPager(pages);
+};
+
+window.dashRenderPager = function(pages) {
+    var c = document.getElementById('dashPagerCtrls');
+    if (!c) return;
+    c.innerHTML = '';
+
+    function btn(label, page, opts) {
+        opts = opts || {};
+        var b = document.createElement('button');
+        b.className = 'dash-pg-btn' + (opts.active ? ' active' : '') + (opts.disabled ? ' disabled' : '');
+        b.textContent = label;
+        if (!opts.disabled && page) b.onclick = function(){ window._dashPage = page; window.dashRenderPage(); };
+        c.appendChild(b);
+    }
+    function ellipsis() { var e = document.createElement('span'); e.className = 'dash-pg-ellipsis'; e.textContent = '...'; c.appendChild(e); }
+
+    btn('Prev', window._dashPage - 1, { disabled: window._dashPage <= 1 });
+
+    var maxNumeric = 5;
+    var start = Math.max(1, window._dashPage - 2);
+    var end   = Math.min(pages, start + maxNumeric - 1);
+    if (end - start < maxNumeric - 1) start = Math.max(1, end - maxNumeric + 1);
+
+    if (start > 1) { btn('1', 1); if (start > 2) ellipsis(); }
+    for (var p = start; p <= end; p++) btn(String(p), p, { active: p === window._dashPage });
+    if (end < pages) { if (end < pages - 1) ellipsis(); btn(String(pages), pages); }
+
+    btn('Next', window._dashPage + 1, { disabled: window._dashPage >= pages });
+};
+
 (function(){
     var si=document.getElementById('dashSearch');
-    if(si) si.addEventListener('input', dashFilter);
+    if(si) si.addEventListener('input', function(){ window.dashFilter(); });
+    if (typeof window.dashFilter === 'function') window.dashFilter();
 })();
 </script>
 
