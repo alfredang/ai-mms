@@ -497,30 +497,26 @@
 })();
 function toggleToolGroup(btn) {
     var group = btn.parentElement;
+    var groups = group.parentElement.querySelectorAll('.tools-group');
+    var label = btn.querySelector('span') ? btn.querySelector('span').textContent.trim() : '';
     group.classList.toggle('open');
+    // Remember open group in localStorage
+    try { localStorage.setItem('sidebarOpen', group.classList.contains('open') ? label : ''); } catch(e) {}
 }
-// Auto-expand sidebar group containing the active page URL
+// Restore last-open sidebar group on page load
 (function(){
-    var loc = window.location.href;
-    var subs = document.querySelectorAll('.tools-sub-item');
-    for (var i = 0; i < subs.length; i++) {
-        var href = subs[i].getAttribute('href');
-        if (href && loc.indexOf(href.replace(/\/key\/[^/]*\/?$/, '').replace(/\/$/, '')) !== -1) {
-            subs[i].style.color = '#60a5fa';
-            subs[i].style.fontWeight = '600';
-            var group = subs[i].closest('.tools-group');
-            if (group) group.classList.add('open');
+    try {
+        var saved = localStorage.getItem('sidebarOpen');
+        if (saved) {
+            var toggles = document.querySelectorAll('.tools-group-toggle span');
+            for (var i = 0; i < toggles.length; i++) {
+                if (toggles[i].textContent.trim() === saved) {
+                    toggles[i].closest('.tools-group').classList.add('open');
+                    break;
+                }
+            }
         }
-    }
-    // Also highlight active lms-nav-item
-    var navs = document.querySelectorAll('.lms-nav-item');
-    for (var j = 0; j < navs.length; j++) {
-        navs[j].classList.remove('active');
-        var nh = navs[j].getAttribute('href');
-        if (nh && loc.indexOf(nh.replace(/\/key\/[^/]*\/?$/, '').replace(/\/$/, '')) !== -1) {
-            navs[j].classList.add('active');
-        }
-    }
+    } catch(e) {}
 })();
 function setTrainerActiveNav(which) {
     var ids = { myclasses:'trainer-nav-myclasses', edtools:'trainer-nav-edtools', problemsolving:'trainer-nav-problemsolving', dataanalytics:'trainer-nav-dataanalytics', finance:'trainer-nav-finance', statistical:'trainer-nav-statistical', doe:'trainer-nav-doe', spc:'trainer-nav-spc', sustainability:'trainer-nav-sustainability', blockchain:'trainer-nav-blockchain', genai:'trainer-nav-genai', agentic:'trainer-nav-agentic', virtual:'trainer-nav-virtual' };
