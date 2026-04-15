@@ -15,6 +15,16 @@ deny from 78.128.113.18
 
 
 ############################################
+## Domain to Store View mapping
+## tertiaryinfotech.edu.sg → Infotech store view
+SetEnvIf Host ^(www\.)?tertiaryinfotech\.edu\.sg$ MAGE_RUN_CODE=infotech
+SetEnvIf Host ^(www\.)?tertiaryinfotech\.edu\.sg$ MAGE_RUN_TYPE=store
+
+## Redirect non-www to www for tertiaryinfotech.edu.sg
+RewriteCond %{HTTP_HOST} ^tertiaryinfotech\.edu\.sg$ [NC]
+RewriteRule ^(.*)$ https://www.tertiaryinfotech.edu.sg/$1 [L,R=301]
+
+############################################
 ## uncomment these lines for CGI mode
 ## make sure to specify the correct cgi php binary file name
 ## it might be /cgi-bin/php-cgi
