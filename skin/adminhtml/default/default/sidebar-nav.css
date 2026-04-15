@@ -152,11 +152,13 @@ body .sidebar-nav #nav {
     position: relative;
 }
 
+#nav > li > a,
 .sidebar-nav #nav > li > a {
     min-height: auto !important;
     display: flex !important;
     align-items: center !important;
-    padding: 7px 16px !important;
+    padding: 6px 16px !important;
+    height: auto !important;
     color: var(--t3) !important;
     background: none !important;
     background-image: none !important;
@@ -263,6 +265,9 @@ body .sidebar-nav #nav {
 }
 
 /* Submenu items */
+#nav ul li,
+#nav ul li.last,
+#nav ul li.parent,
 .sidebar-nav #nav ul li,
 .sidebar-nav #nav ul li.last,
 .sidebar-nav #nav ul li.parent {
@@ -274,12 +279,16 @@ body .sidebar-nav #nav {
     padding: 0 !important;
     margin: 0 !important;
     height: auto !important;
+    min-height: 0 !important;
     box-shadow: none !important;
 }
 .sidebar-nav #nav ul li + li {
     border-top: none !important;
 }
 
+#nav a,
+#nav ul a,
+#nav ul a:hover,
 .sidebar-nav #nav ul li a,
 .sidebar-nav #nav ul li a:hover,
 .sidebar-nav #nav ul li.active a {
@@ -289,12 +298,14 @@ body .sidebar-nav #nav {
     border-left: 3px solid transparent !important;
     box-shadow: none !important;
     color: var(--t4) !important;
-    padding: 5px 16px 5px 36px !important;
+    padding: 4px 16px 4px 32px !important;
     font-size: 13px !important;
     font-weight: 400 !important;
     display: block !important;
     float: none !important;
-    line-height: 1.2 !important;
+    line-height: 1.3 !important;
+    height: auto !important;
+    min-height: 0 !important;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -303,6 +314,9 @@ body .sidebar-nav #nav {
     pointer-events: auto !important;
     cursor: pointer !important;
 }
+#nav ul li a span,
+#nav ul li.last span,
+#nav ul li.last li span,
 .sidebar-nav #nav ul li a span,
 .sidebar-nav #nav ul li.last span,
 .sidebar-nav #nav ul li.last li span {
@@ -312,6 +326,7 @@ body .sidebar-nav #nav {
     border: none !important;
     box-shadow: none !important;
     display: inline !important;
+    line-height: 1.3 !important;
 }
 .sidebar-nav #nav ul li a:hover {
     color: var(--blue) !important;
