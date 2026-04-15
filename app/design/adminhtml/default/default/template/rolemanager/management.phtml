@@ -1,0 +1,294 @@
+<?php
+$resource = Mage::getSingleton('core/resource');
+$read = $resource->getConnection('core_read');
+$userTable = $resource->getTableName('admin/user');
+$roleTable = $resource->getTableName('mmd_user_role_map');
+$currentUserId = Mage::getSingleton('admin/session')->getUser()->getId();
+$formKey = Mage::getSingleton('core/session')->getFormKey();
+
+$rows = $read->fetchAll("
+    SELECT u.user_id, u.firstname, u.lastname, u.email, u.is_active, u.created,
+           GROUP_CONCAT(r.role_code ORDER BY r.role_code) as roles
+    FROM {$userTable} u
+    LEFT JOIN {$roleTable} r ON u.user_id = r.user_id
+    GROUP BY u.user_id
+    ORDER BY u.firstname
+");
+
+$totalUsers = count($rows);
+$activeUsers = 0;
+$multiRoleUsers = 0;
+foreach ($rows as $r) {
+    if ($r['is_active']) $activeUsers++;
+    $rc = $r['roles'] ? explode(',', $r['roles']) : array();
+    if (count($rc) >= 3) $multiRoleUsers++;
+}
+
+$helper = Mage::helper('mmd_rolemanager');
+$allRoles = $helper->getAllRoles();
+$saveUrl = Mage::helper('adminhtml')->getUrl('adminhtml/rolemanagement/save');
+$toggleUrl = Mage::helper('adminhtml')->getUrl('adminhtml/rolemanagement/toggle');
+$deleteUrl = Mage::helper('adminhtml')->getUrl('adminhtml/rolemanagement/delete');
+
+$badgeColors = array(
+    'admin'             => array('bg' => 'rgba(239,68,68,.12)', 'color' => '#ef4444', 'dot' => '#ef4444'),
+    'learner'           => array('bg' => 'rgba(245,158,11,.12)', 'color' => '#f59e0b', 'dot' => '#f59e0b'),
+    'trainer'           => array('bg' => 'rgba(16,185,129,.12)', 'color' => '#10b981', 'dot' => '#10b981'),
+    'marketing'         => array('bg' => 'rgba(168,85,247,.12)', 'color' => '#a855f7', 'dot' => '#a855f7'),
+    'training_provider' => array('bg' => 'rgba(59,130,246,.12)', 'color' => '#3b82f6', 'dot' => '#3b82f6'),
+);
+?>
+<style>
+.rm-wrap{padding:0}
+.rm-title{font-size:24px;font-weight:700;color:var(--t1);margin:0 0 24px}
+.rm-kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:28px}
+.rm-kpi-card{background:#131d2e;border:1px solid var(--b1);border-radius:12px;padding:28px 24px;text-align:center}
+.rm-kpi-num{font-size:40px;font-weight:700;line-height:1.1;margin-bottom:6px}
+.rm-kpi-num.blue{color:#3b82f6}.rm-kpi-num.green{color:#22c55e}.rm-kpi-num.purple{color:#a855f7}
+.rm-kpi-lbl{color:var(--t4);font-size:13px}
+.rm-filters{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+.rm-search{flex:1;min-width:200px;position:relative}
+.rm-search input{width:100%;padding:10px 16px 10px 40px;background:#1e293b;border:1px solid #334155;border-radius:10px;color:#f1f5f9;font-size:14px;outline:none;box-sizing:border-box}
+.rm-search input:focus{border-color:#60a5fa}
+.rm-search svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#64748b}
+.rm-select{padding:10px 14px;background:#1e293b;border:1px solid #334155;border-radius:10px;color:#f1f5f9;font-size:13px;outline:none;min-width:140px}
+.rm-table{width:100%;border-collapse:separate;border-spacing:0}
+.rm-table th{text-align:left;padding:12px 16px;color:#64748b;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #1e293b}
+.rm-table td{padding:14px 16px;border-bottom:1px solid #1e293b;vertical-align:middle}
+.rm-table tr:hover td{background:rgba(30,41,59,.5)}
+.rm-name{color:#f1f5f9;font-weight:500;font-size:14px}
+.rm-email{color:#94a3b8;font-size:13px}
+.rm-roles{display:flex;flex-wrap:wrap;gap:6px}
+.rm-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600}
+.rm-badge-dot{width:6px;height:6px;border-radius:50%;display:inline-block}
+.rm-status{padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600}
+.rm-status-active{background:rgba(34,197,94,.12);color:#22c55e}
+.rm-status-disabled{background:rgba(239,68,68,.12);color:#ef4444}
+.rm-date{color:#94a3b8;font-size:13px}
+.rm-actions{display:flex;gap:6px;flex-wrap:wrap}
+.rm-btn{padding:5px 12px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid;background:transparent;transition:all .15s}
+.rm-btn-edit{color:#3b82f6;border-color:#3b82f6}.rm-btn-edit:hover{background:rgba(59,130,246,.1)}
+.rm-btn-disable{color:#f59e0b;border-color:#f59e0b}.rm-btn-disable:hover{background:rgba(245,158,11,.1)}
+.rm-btn-enable{color:#22c55e;border-color:#22c55e}.rm-btn-enable:hover{background:rgba(34,197,94,.1)}
+.rm-btn-delete{color:#ef4444;border-color:#ef4444}.rm-btn-delete:hover{background:rgba(239,68,68,.1)}
+.rm-self{color:#475569;font-size:12px;font-style:italic}
+
+/* Edit modal */
+.rm-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;justify-content:center;align-items:center}
+.rm-modal-overlay.active{display:flex}
+.rm-modal{background:#1e293b;border:1px solid #334155;border-radius:16px;padding:28px;width:500px;max-width:90vw;max-height:80vh;overflow-y:auto}
+.rm-modal h3{color:#f1f5f9;font-size:18px;font-weight:700;margin:0 0 20px}
+.rm-modal label{display:block;color:#94a3b8;font-size:13px;margin:0 0 6px}
+.rm-modal input,.rm-modal select{width:100%;padding:10px 14px;background:#334155;border:1px solid #475569;border-radius:8px;color:#f1f5f9;font-size:14px;outline:none;box-sizing:border-box;margin-bottom:14px}
+.rm-modal input:focus{border-color:#60a5fa}
+.rm-modal input[disabled]{opacity:.6;cursor:not-allowed}
+.rm-role-toggles{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.rm-role-toggle{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #475569;background:transparent;color:#94a3b8;transition:all .15s}
+.rm-role-toggle.selected{border-color:currentColor}
+.rm-modal-actions{display:flex;gap:10px;margin-top:8px}
+.rm-modal-save{padding:10px 24px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}
+.rm-modal-save:hover{background:#3b82f6}
+.rm-modal-cancel{padding:10px 24px;background:transparent;color:#94a3b8;border:1px solid #475569;border-radius:8px;font-size:14px;cursor:pointer}
+@media(max-width:900px){.rm-kpi{grid-template-columns:1fr}.rm-table{font-size:13px}}
+</style>
+
+<div class="rm-wrap">
+    <h2 class="rm-title">Role Management</h2>
+
+    <div class="rm-kpi">
+        <div class="rm-kpi-card"><div class="rm-kpi-num blue"><?php echo $totalUsers ?></div><div class="rm-kpi-lbl">Total Admin Accounts</div></div>
+        <div class="rm-kpi-card"><div class="rm-kpi-num green"><?php echo $activeUsers ?></div><div class="rm-kpi-lbl">Active Admins</div></div>
+        <div class="rm-kpi-card"><div class="rm-kpi-num purple"><?php echo $multiRoleUsers ?></div><div class="rm-kpi-lbl">Multi-Role Admins</div></div>
+    </div>
+
+    <div class="rm-filters">
+        <div class="rm-search">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input type="text" id="rm-search" placeholder="Search by name or email..." oninput="rmFilter()" />
+        </div>
+        <select class="rm-select" id="rm-role-filter" onchange="rmFilter()">
+            <option value="">All Roles</option>
+            <?php foreach ($allRoles as $code => $label): ?>
+            <option value="<?php echo $code ?>"><?php echo htmlspecialchars($label) ?></option>
+            <?php endforeach; ?>
+        </select>
+        <select class="rm-select" id="rm-status-filter" onchange="rmFilter()">
+            <option value="">All Status</option>
+            <option value="1">Active</option>
+            <option value="0">Disabled</option>
+        </select>
+    </div>
+
+    <table class="rm-table" id="rm-table">
+        <thead>
+            <tr>
+                <th>Full Name</th>
+                <th>Email</th>
+                <th>Roles</th>
+                <th>Account Status</th>
+                <th>Created</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+        <?php foreach ($rows as $r):
+            $roles = $r['roles'] ? explode(',', $r['roles']) : array();
+            $isSelf = ($r['user_id'] == $currentUserId);
+            $fullName = htmlspecialchars($r['firstname'] . ' ' . $r['lastname']);
+            $createdDate = $r['created'] ? date('d/m/Y', strtotime($r['created'])) : '—';
+        ?>
+            <tr class="rm-row" data-uid="<?php echo $r['user_id'] ?>"
+                data-name="<?php echo strtolower($fullName) ?>"
+                data-email="<?php echo strtolower($r['email']) ?>"
+                data-roles="<?php echo $r['roles'] ?>"
+                data-active="<?php echo $r['is_active'] ?>"
+                data-firstname="<?php echo htmlspecialchars($r['firstname']) ?>"
+                data-lastname="<?php echo htmlspecialchars($r['lastname']) ?>">
+                <td><span class="rm-name"><?php echo $fullName ?></span></td>
+                <td><span class="rm-email"><?php echo htmlspecialchars($r['email']) ?></span></td>
+                <td>
+                    <div class="rm-roles">
+                    <?php foreach ($roles as $rc):
+                        $bc = isset($badgeColors[$rc]) ? $badgeColors[$rc] : array('bg'=>'#1e293b','color'=>'#94a3b8','dot'=>'#64748b');
+                    ?>
+                        <span class="rm-badge" style="background:<?php echo $bc['bg'] ?>;color:<?php echo $bc['color'] ?>;">
+                            <span class="rm-badge-dot" style="background:<?php echo $bc['dot'] ?>;"></span>
+                            <?php echo htmlspecialchars($helper->getRoleLabel($rc)) ?>
+                        </span>
+                    <?php endforeach; ?>
+                    </div>
+                </td>
+                <td><span class="rm-status <?php echo $r['is_active'] ? 'rm-status-active' : 'rm-status-disabled' ?>"><?php echo $r['is_active'] ? 'Active' : 'Disabled' ?></span></td>
+                <td><span class="rm-date"><?php echo $createdDate ?></span></td>
+                <td>
+                    <?php if ($isSelf): ?>
+                        <span class="rm-self">Cannot edit self</span>
+                    <?php else: ?>
+                    <div class="rm-actions">
+                        <button class="rm-btn rm-btn-edit" onclick="rmEdit(<?php echo $r['user_id'] ?>)">Edit</button>
+                        <?php if ($r['is_active']): ?>
+                        <button class="rm-btn rm-btn-disable" onclick="rmToggle(<?php echo $r['user_id'] ?>)">Disable</button>
+                        <?php else: ?>
+                        <button class="rm-btn rm-btn-enable" onclick="rmToggle(<?php echo $r['user_id'] ?>)">Enable</button>
+                        <?php endif; ?>
+                        <button class="rm-btn rm-btn-delete" onclick="rmDelete(<?php echo $r['user_id'] ?>)">Delete</button>
+                    </div>
+                    <?php endif; ?>
+                </td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+</div>
+
+<!-- Edit Modal -->
+<div class="rm-modal-overlay" id="rm-modal">
+    <div class="rm-modal">
+        <h3>Edit User</h3>
+        <input type="hidden" id="rm-edit-uid" />
+        <label>First Name</label>
+        <input type="text" id="rm-edit-firstname" />
+        <label>Last Name</label>
+        <input type="text" id="rm-edit-lastname" />
+        <label>Email</label>
+        <input type="email" id="rm-edit-email" disabled />
+        <label>Roles</label>
+        <div class="rm-role-toggles" id="rm-edit-roles">
+            <?php foreach ($allRoles as $code => $label):
+                $bc = isset($badgeColors[$code]) ? $badgeColors[$code] : array('color'=>'#94a3b8');
+            ?>
+            <button type="button" class="rm-role-toggle" data-role="<?php echo $code ?>" style="--sel-color:<?php echo $bc['color'] ?>" onclick="this.classList.toggle('selected');if(this.classList.contains('selected'))this.style.color='var(--sel-color)',this.style.borderColor='var(--sel-color)';else this.style.color='#94a3b8',this.style.borderColor='#475569';">
+                <?php echo htmlspecialchars($label) ?>
+            </button>
+            <?php endforeach; ?>
+        </div>
+        <label>Status</label>
+        <select id="rm-edit-status">
+            <option value="1">Active</option>
+            <option value="0">Disabled</option>
+        </select>
+        <div class="rm-modal-actions">
+            <button class="rm-modal-save" onclick="rmSave()">Save Changes</button>
+            <button class="rm-modal-cancel" onclick="rmCloseModal()">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+var RM_SAVE_URL = '<?php echo $saveUrl ?>';
+var RM_TOGGLE_URL = '<?php echo $toggleUrl ?>';
+var RM_DELETE_URL = '<?php echo $deleteUrl ?>';
+var RM_FORM_KEY = '<?php echo $formKey ?>';
+
+function rmFilter() {
+    var q = document.getElementById('rm-search').value.toLowerCase();
+    var rf = document.getElementById('rm-role-filter').value;
+    var sf = document.getElementById('rm-status-filter').value;
+    var rows = document.querySelectorAll('.rm-row');
+    for (var i = 0; i < rows.length; i++) {
+        var r = rows[i];
+        var matchQ = !q || r.getAttribute('data-name').indexOf(q) >= 0 || r.getAttribute('data-email').indexOf(q) >= 0;
+        var matchR = !rf || (r.getAttribute('data-roles') || '').indexOf(rf) >= 0;
+        var matchS = sf === '' || r.getAttribute('data-active') === sf;
+        r.style.display = (matchQ && matchR && matchS) ? '' : 'none';
+    }
+}
+
+function rmEdit(uid) {
+    var row = document.querySelector('.rm-row[data-uid="' + uid + '"]');
+    if (!row) return;
+    document.getElementById('rm-edit-uid').value = uid;
+    document.getElementById('rm-edit-firstname').value = row.getAttribute('data-firstname');
+    document.getElementById('rm-edit-lastname').value = row.getAttribute('data-lastname');
+    document.getElementById('rm-edit-email').value = row.getAttribute('data-email');
+    document.getElementById('rm-edit-status').value = row.getAttribute('data-active');
+    var userRoles = (row.getAttribute('data-roles') || '').split(',');
+    var toggles = document.querySelectorAll('.rm-role-toggle');
+    for (var i = 0; i < toggles.length; i++) {
+        var t = toggles[i];
+        var sel = userRoles.indexOf(t.getAttribute('data-role')) >= 0;
+        t.classList.toggle('selected', sel);
+        t.style.color = sel ? 'var(--sel-color)' : '#94a3b8';
+        t.style.borderColor = sel ? 'var(--sel-color)' : '#475569';
+    }
+    document.getElementById('rm-modal').classList.add('active');
+}
+
+function rmCloseModal() { document.getElementById('rm-modal').classList.remove('active'); }
+
+function rmSave() {
+    var uid = document.getElementById('rm-edit-uid').value;
+    var roles = [];
+    document.querySelectorAll('.rm-role-toggle.selected').forEach(function(t) { roles.push(t.getAttribute('data-role')); });
+    var body = 'user_id=' + uid
+        + '&firstname=' + encodeURIComponent(document.getElementById('rm-edit-firstname').value)
+        + '&lastname=' + encodeURIComponent(document.getElementById('rm-edit-lastname').value)
+        + '&is_active=' + document.getElementById('rm-edit-status').value
+        + '&form_key=' + RM_FORM_KEY;
+    for (var i = 0; i < roles.length; i++) body += '&roles[]=' + encodeURIComponent(roles[i]);
+
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', RM_SAVE_URL);
+    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+    xhr.onload = function() { rmCloseModal(); window.location.reload(); };
+    xhr.send(body);
+}
+
+function rmToggle(uid) {
+    if (!confirm('Are you sure you want to change this user\'s status?')) return;
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', RM_TOGGLE_URL);
+    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+    xhr.onload = function() { window.location.reload(); };
+    xhr.send('user_id=' + uid + '&form_key=' + RM_FORM_KEY);
+}
+
+function rmDelete(uid) {
+    if (!confirm('Permanently delete this user? This action cannot be undone.')) return;
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', RM_DELETE_URL);
+    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+    xhr.onload = function() { window.location.reload(); };
+    xhr.send('user_id=' + uid + '&form_key=' + RM_FORM_KEY);
+}
+</script>

@@ -71,6 +71,21 @@ class MMD_RoleManager_Block_Page_Menu extends Mage_Adminhtml_Block_Page_Menu
             }
         }
 
+        // Add Role Management as a top-level menu item for Super Admin
+        $roleCode = Mage::helper('mmd_rolemanager')->getActiveRoleCode();
+        if ($roleCode === 'training_provider') {
+            $roleMgmtUrl = Mage::helper('adminhtml')->getUrl('adminhtml/rolemanagement/index');
+            $menu['role_management'] = array(
+                'label'      => 'Role Management',
+                'url'        => $roleMgmtUrl,
+                'active'     => false,
+                'level'      => 0,
+                'sort_order' => 85,
+                'children'   => array(),
+                'last'       => false,
+            );
+        }
+
         // Move Promotions under Marketing Management as a child
         if (isset($menu['promo']) && isset($menu['marketing'])) {
             if (!isset($menu['marketing']['children'])) {
