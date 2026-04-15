@@ -794,10 +794,149 @@ body.adminhtml-dashboard-index .main-col-inner{padding-top:0 !important;margin-t
 .lcd-cert-sub{font-size:12px;color:#94a3b8}
 .lcd-footer{text-align:center;color:#64748b;font-size:12px;padding:20px 0;margin-top:10px}
 .lcd-footer strong{color:#cbd5e1}
+
+/* Course Menu drawer — sized to match live AI-LMS-TMS reference */
+.lcd-drawer-backdrop{position:fixed !important;inset:0;background:rgba(0,0,0,.6);z-index:9998 !important;opacity:0;visibility:hidden;transition:opacity .25s}
+.lcd-drawer-backdrop.open{opacity:1;visibility:visible}
+.lcd-drawer{position:fixed !important;top:0 !important;left:0 !important;bottom:0;width:300px;background:#0f172a;border-right:1px solid #1e293b;z-index:9999 !important;display:flex;flex-direction:column;transform:translateX(-100%);transition:transform .25s ease;box-shadow:4px 0 20px rgba(0,0,0,.5)}
+.lcd-drawer.open{transform:translateX(0)}
+.lcd-drawer-header{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid #1e293b;color:#fff;font-size:17px;font-weight:700;flex-shrink:0}
+button.lcd-drawer-close,button.lcd-drawer-close:hover,button.lcd-drawer-close:focus,button.lcd-drawer-close:active{background:transparent !important;background-image:none !important;border:none !important;color:#94a3b8 !important;cursor:pointer !important;padding:4px !important;box-shadow:none !important;border-radius:6px !important;display:inline-flex !important;align-items:center !important;justify-content:center !important}
+button.lcd-drawer-close:hover{color:#fff !important;background:#1e293b !important}
+.lcd-drawer-body{flex:1;overflow-y:auto;padding:20px 22px 20px}
+.lcd-drawer-section-title{font-size:18px;font-weight:700;color:#fff;margin:0 0 10px}
+.lcd-detail-row{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:7px 0;border-bottom:none;line-height:1.4}
+.lcd-detail-row:last-child{border-bottom:none}
+.lcd-detail-label{color:#94a3b8;font-size:14px;font-weight:400;flex-shrink:0}
+.lcd-detail-value{color:#fff;font-size:14px;font-weight:700;text-align:right;word-break:break-word}
+.lcd-badge{padding:3px 12px;border-radius:5px;font-size:12px;font-weight:600;flex-shrink:0}
+.lcd-badge-neutral{background:rgba(107,114,128,.2);color:#d1d5db}
+.lcd-badge-virtual{background:rgba(59,130,246,.18);color:#93c5fd;border:1px solid rgba(59,130,246,.3)}
+.lcd-badge-confirmed{background:rgba(16,185,129,.15);color:#6ee7b7}
+.lcd-badge-pending{background:rgba(245,158,11,.15);color:#fcd34d}
+.lcd-badge-cancelled{background:rgba(239,68,68,.15);color:#fca5a5;border:1px solid rgba(239,68,68,.3)}
+
+/* Course Duration block */
+.lcd-duration-block{padding:12px 0 0;margin:6px 0 0}
+.lcd-duration-title{font-size:17px;font-weight:700;color:#fff;margin:0 0 8px}
+.lcd-duration-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px;color:#cbd5e1}
+.lcd-duration-row strong{color:#fff;font-weight:700}
+.lcd-duration-divider{height:1px;background:#1e293b;margin:6px 0}
+.lcd-duration-total{font-weight:700}
+.lcd-duration-total span,.lcd-duration-total strong{color:#fff;font-size:14px}
+
+/* Drawer nav items */
+.lcd-drawer-nav{margin-top:14px;display:flex;flex-direction:column;gap:2px;padding-top:14px;border-top:1px solid #1e293b}
+.lcd-nav-item{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:8px;color:#cbd5e1 !important;text-decoration:none !important;font-size:14px;font-weight:500;transition:all .15s}
+.lcd-nav-item:hover{background:#1e293b;color:#fff !important}
+.lcd-nav-item.active{background:rgba(59,130,246,.15);color:#93c5fd !important;font-weight:600}
+.lcd-nav-item svg{flex-shrink:0;width:18px;height:18px}
+</style>
+<script>
+function lcdOpenDrawer(){
+    document.getElementById('lcd-drawer').classList.add('open');
+    document.getElementById('lcd-drawer-backdrop').classList.add('open');
+    document.body.classList.add('lcd-drawer-open');
+}
+function lcdCloseDrawer(){
+    document.getElementById('lcd-drawer').classList.remove('open');
+    document.getElementById('lcd-drawer-backdrop').classList.remove('open');
+    document.body.classList.remove('lcd-drawer-open');
+}
+function lcdNavTo(link, sectionId){
+    // Mark clicked item active
+    var items = document.querySelectorAll('.lcd-nav-item');
+    for (var i = 0; i < items.length; i++) items[i].classList.remove('active');
+    link.classList.add('active');
+    // Close drawer and smooth-scroll to section
+    lcdCloseDrawer();
+    setTimeout(function(){
+        var el = document.getElementById(sectionId);
+        if (el) el.scrollIntoView({behavior:'smooth', block:'start'});
+    }, 260);
+    return false;
+}
+</script>
+<style>
+body.lcd-drawer-open .admin-sidebar{z-index:1 !important}
+body.lcd-drawer-open .admin-topbar{z-index:1 !important}
 </style>
 <div id="dash-panel-course-detail">
+<?php
+$_courseRunId = str_pad(((int)$_selectedCourse['id']) * 4321 % 9999999, 7, '0', STR_PAD_LEFT);
+$_digitalAttId = 'RA' . str_pad(((int)$_selectedCourse['id']) * 13, 6, '0', STR_PAD_LEFT);
+$_courseRefCode = 'TGS-' . (2024000000 + ((int)$_selectedCourse['id']) * 17);
+?>
+<!-- Course Menu drawer (slides in from the left) -->
+<div class="lcd-drawer-backdrop" id="lcd-drawer-backdrop" onclick="lcdCloseDrawer()"></div>
+<aside class="lcd-drawer" id="lcd-drawer">
+    <div class="lcd-drawer-header">
+        <span>Course Menu</span>
+        <button type="button" class="lcd-drawer-close" onclick="lcdCloseDrawer()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+    </div>
+    <div class="lcd-drawer-body">
+        <h3 class="lcd-drawer-section-title">Course Details</h3>
+        <div class="lcd-detail-row"><span class="lcd-detail-label">Course Title</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['name']) ?></span></div>
+        <div class="lcd-detail-row"><span class="lcd-detail-label">Course Ref Code</span><span class="lcd-detail-value"><?php echo $_courseRefCode ?></span></div>
+        <div class="lcd-detail-row"><span class="lcd-detail-label">TSC Title</span><span class="lcd-detail-value">Security Assessment and Testing</span></div>
+        <div class="lcd-detail-row"><span class="lcd-detail-label">TSC Code</span><span class="lcd-detail-value">ICT-DIT-4012-1.1</span></div>
+        <div class="lcd-detail-row"><span class="lcd-detail-label">Funding Validity</span><span class="lcd-detail-value" style="color:#22c55e">21 Apr 2026 (Valid)</span></div>
+        <div class="lcd-detail-row"><span class="lcd-detail-label">Course Run ID</span><span class="lcd-detail-value"><?php echo $_courseRunId ?></span></div>
+        <div class="lcd-detail-row"><span class="lcd-detail-label">Digital Attendance ID</span><span class="lcd-detail-value"><?php echo $_digitalAttId ?></span></div>
+        <div class="lcd-detail-row"><span class="lcd-detail-label">Start Date</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['start_date']) ?></span></div>
+        <div class="lcd-detail-row"><span class="lcd-detail-label">End Date</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['end_date']) ?></span></div>
+        <div class="lcd-detail-row"><span class="lcd-detail-label">Class Type</span><span class="lcd-badge lcd-badge-virtual">Virtual</span></div>
+        <div class="lcd-detail-row"><span class="lcd-detail-label">Class Status</span><span class="lcd-badge lcd-badge-<?php echo strtolower($_selectedCourse['status']) ?>"><?php echo htmlspecialchars($_selectedCourse['status']) ?></span></div>
+
+        <div class="lcd-duration-block">
+            <h4 class="lcd-duration-title">Course Duration</h4>
+            <div class="lcd-duration-row"><span>Training Hours:</span><strong>37</strong></div>
+            <div class="lcd-duration-row"><span>Assessment Hours:</span><strong>3</strong></div>
+            <div class="lcd-duration-divider"></div>
+            <div class="lcd-duration-row lcd-duration-total"><span>Total Duration:</span><strong>40</strong></div>
+        </div>
+
+        <nav class="lcd-drawer-nav">
+            <a href="#lesson-plan" class="lcd-nav-item" onclick="return lcdNavTo(this,'lesson-plan')">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                <span>Lesson Plan</span>
+            </a>
+            <a href="#learner-guide" class="lcd-nav-item" onclick="return lcdNavTo(this,'learner-guide')">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                <span>Learner Guide</span>
+            </a>
+            <a href="#learner-slides" class="lcd-nav-item" onclick="return lcdNavTo(this,'learner-slides')">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/></svg>
+                <span>Learner Slides</span>
+            </a>
+            <a href="#learning-outcomes" class="lcd-nav-item active" onclick="return lcdNavTo(this,'learning-outcomes')">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                <span>Learning Outcomes</span>
+            </a>
+            <a href="#traqom-survey" class="lcd-nav-item" onclick="return lcdNavTo(this,'traqom-survey')">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                <span>TRAQOM Survey</span>
+            </a>
+            <a href="#assessment" class="lcd-nav-item" onclick="return lcdNavTo(this,'assessment')">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h4"/><path d="M15 15h4a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-4"/></svg>
+                <span>Assessment</span>
+            </a>
+            <a href="#additional-documents" class="lcd-nav-item" onclick="return lcdNavTo(this,'additional-documents')">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                <span>Additional Documents</span>
+            </a>
+            <a href="#certificate" class="lcd-nav-item" onclick="return lcdNavTo(this,'certificate')">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><circle cx="12" cy="15" r="2"/></svg>
+                <span>Certificate</span>
+            </a>
+        </nav>
+    </div>
+</aside>
+
 <div class="lcd-wrap">
-    <button type="button" class="lcd-menu-btn">
+    <button type="button" class="lcd-menu-btn" onclick="lcdOpenDrawer()">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
         Course Menu
     </button>
@@ -806,7 +945,7 @@ body.adminhtml-dashboard-index .main-col-inner{padding-top:0 !important;margin-t
         Back to Dashboard
     </a>
 
-    <div class="lcd-section">
+    <div class="lcd-section" id="google-meet">
         <div class="lcd-section-title">Google Meet</div>
         <div class="lcd-tile lcd-tile-static">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
@@ -817,7 +956,7 @@ body.adminhtml-dashboard-index .main-col-inner{padding-top:0 !important;margin-t
         </div>
     </div>
 
-    <div class="lcd-section">
+    <div class="lcd-section" id="lesson-plan">
         <div class="lcd-section-title">Lesson Plan</div>
         <div class="lcd-tile lcd-tile-static">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
@@ -828,7 +967,7 @@ body.adminhtml-dashboard-index .main-col-inner{padding-top:0 !important;margin-t
         </div>
     </div>
 
-    <div class="lcd-section">
+    <div class="lcd-section" id="learner-guide">
         <div class="lcd-section-title">Learner Guide</div>
         <div class="lcd-tile lcd-tile-static">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
@@ -839,7 +978,7 @@ body.adminhtml-dashboard-index .main-col-inner{padding-top:0 !important;margin-t
         </div>
     </div>
 
-    <div class="lcd-section">
+    <div class="lcd-section" id="learner-slides">
         <div class="lcd-section-title">Learner Slides</div>
         <div class="lcd-tile lcd-tile-static">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
@@ -850,7 +989,7 @@ body.adminhtml-dashboard-index .main-col-inner{padding-top:0 !important;margin-t
         </div>
     </div>
 
-    <div class="lcd-section">
+    <div class="lcd-section" id="learning-outcomes">
         <div class="lcd-section-title">Learning Outcomes <svg class="lcd-caret" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg></div>
         <?php
         $_topics = array(
@@ -875,15 +1014,15 @@ body.adminhtml-dashboard-index .main-col-inner{padding-top:0 !important;margin-t
         <?php endforeach; ?>
     </div>
 
-    <div class="lcd-section">
+    <div class="lcd-section" id="traqom-survey">
         <div class="lcd-section-title">Certificate &amp; TRAQOM Survey <svg class="lcd-caret" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></div>
     </div>
 
-    <div class="lcd-section">
+    <div class="lcd-section" id="assessment">
         <div class="lcd-section-title">Assessment</div>
     </div>
 
-    <div class="lcd-section">
+    <div class="lcd-section" id="additional-documents">
         <div class="lcd-section-title">Additional Documents</div>
         <div class="lcd-empty-box">
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
@@ -891,7 +1030,7 @@ body.adminhtml-dashboard-index .main-col-inner{padding-top:0 !important;margin-t
         </div>
     </div>
 
-    <div class="lcd-section">
+    <div class="lcd-section" id="certificate">
         <div class="lcd-section-title">Certificate of Achievement</div>
         <div class="lcd-cert-box">
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
