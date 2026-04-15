@@ -23,6 +23,9 @@
  * @copyright   Copyright (c) 2006-2020 Magento, Inc. (http://www.magento.com)
  * @license     http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
  */
+<?php
+    $dashboardUrl  = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard');
+    $accountUrl    = Mage::helper('adminhtml')->getUrl('adminhtml/system_account');
 ?>
 
 <!-- Super Admin sidebar (custom, no Magento #nav) -->
@@ -117,9 +120,6 @@
 </div>
 
 <?php
-    $dashboardUrl  = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard');
-    $accountUrl    = Mage::helper('adminhtml')->getUrl('adminhtml/system_account');
-
     // Determine which sidebar item should be active based on current page
     $_req = Mage::app()->getRequest();
     $_ctrl = strtolower((string) $_req->getControllerName());
