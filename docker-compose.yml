@@ -6,10 +6,11 @@ services:
     ports:
       - "8080:80"
     volumes:
-      - .:/var/www/html
+      # cached = Windows→Linux reads can be briefly stale, non-blocking — much faster
+      - .:/var/www/html:cached
       - ./docker/php.ini:/usr/local/etc/php/conf.d/magento.ini
     environment:
-      - MAGE_IS_DEVELOPER_MODE=1
+      - MAGE_IS_DEVELOPER_MODE=0
     depends_on:
       db_mysql:
         condition: service_healthy
