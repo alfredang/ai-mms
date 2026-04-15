@@ -57,7 +57,7 @@ docker exec ai-mms-web-1 bash -c 'rm -rf /var/www/html/var/cache/*'
 
 ### Migrations
 
-The `migrations/` folder contains incremental SQL fixes applied on top of the base DB dump:
+The `migrations/` folder contains incremental SQL fixes applied on top of the base DB dump. Running `for f in migrations/*.sql; do ...` from the Quick Start applies them in order:
 
 | File | Purpose |
 |------|---------|
@@ -65,6 +65,11 @@ The `migrations/` folder contains incremental SQL fixes applied on top of the ba
 | `002-disable-customoptions-inventory.sql` | Disables per-option inventory so registration form works |
 | `003-enable-all-products.sql` | Enables all ~441 disabled products for local dev visibility |
 | `004-set-localhost-urls.sql` | Points base URLs at `localhost:8080` |
+| `005-disable-admin-captcha.sql` | Turns off admin login captcha for local dev |
+| `006-fix-rolemanager-rule-role-type.sql` | Backfills `role_type='G'` on RoleManager ACL rules (otherwise all rules silently fail and users get Access Denied) |
+| `007-clean-orphan-acl-rules.sql` | Removes 34 leftover admin_rule rows from uninstalled modules (Braintree, old API, sendfriend, etc.) |
+| `008-add-admin-user-profile-fields.sql` | Adds profile columns to admin_user table |
+| `009-seed-demo-learner-enrollments.sql` | Seeds 3 test enrollments (Current / Upcoming / Past) on the first admin user so the Learner "My Classes" dashboard has content |
 
 ### Access
 
