@@ -176,12 +176,17 @@ function tpFmt($v) { return '$' . number_format($v, 0); }
 // =====================================================================
 $trainersTable = $resource->getTableName('courses_trainers');
 $tnTotal = (int)$read->fetchOne("SELECT COUNT(*) FROM {$trainersTable}");
-// Without an explicit ACLP column locally, distribute deterministically (~54% ACLP)
-// In production this would come from a real attribute.
-$tnAclp    = (int)$read->fetchOne("SELECT COUNT(*) FROM {$trainersTable} WHERE trainers_id % 100 < 54");
-$tnNonAclp = max(0, $tnTotal - $tnAclp);
+// Use trainer_type column if it exists, else fallback to estimate
+$_tnCols = array_flip($read->fetchCol("SHOW COLUMNS FROM {$trainersTable}"));
+if (isset($_tnCols['trainer_type'])) {
+    $tnAclp    = (int)$read->fetchOne("SELECT COUNT(*) FROM {$trainersTable} WHERE trainer_type = 'ACLP'");
+    $tnNonAclp = max(0, $tnTotal - $tnAclp);
+} else {
+    $tnAclp    = (int)$read->fetchOne("SELECT COUNT(*) FROM {$trainersTable} WHERE trainers_id % 100 < 54");
+    $tnNonAclp = max(0, $tnTotal - $tnAclp);
+}
 
-$trainerRows = $read->fetchAll("SELECT trainers_id, title, email, profile_image, status FROM {$trainersTable} ORDER BY title ASC LIMIT 300");
+$trainerRows = $read->fetchAll("SELECT * FROM {$trainersTable} ORDER BY title ASC LIMIT 300");
 
 // =====================================================================
 // DATA — Super Admin panel (charts / revenue)
@@ -1850,13 +1855,23 @@ $gatExt = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
             </tr></thead>
             <tbody id="trnTableBody">
             <?php foreach ($trainerRows as $tr):
-                $tid    = (int)$tr['trainers_id'];
-                $tname  = htmlspecialchars($tr['title'] ?: '(No Name)');
-                $temail = htmlspecialchars($tr['email'] ?: '');
-                $isAclp = ($tid % 100) < 54;
+                $tid      = (int)$tr['trainers_id'];
+                $tname    = htmlspecialchars($tr['title'] ?: '(No Name)');
+                $temail   = htmlspecialchars($tr['email'] ?: '');
+                $tphone   = htmlspecialchars(isset($tr['telephone']) ? trim($tr['telephone']) : '');
+                $tnric    = htmlspecialchars(isset($tr['nric']) ? trim($tr['nric']) : '');
+                $ttype    = isset($tr['trainer_type']) ? trim($tr['trainer_type']) : '';
+                $tgender  = isset($tr['gender']) ? trim($tr['gender']) : '';
+                $tlinked  = isset($tr['linkedin_url']) ? trim($tr['linkedin_url']) : (isset($tr['linkedin']) ? trim($tr['linkedin']) : '');
                 $isActive = ((int)$tr['status']) === 1;
                 $initials = strtoupper(substr(trim($tr['title']), 0, 1));
-                $hasImg = !empty($tr['profile_image']);
+                $hasImg   = !empty($tr['profile_image']);
+                // NRIC masking: show last 4 chars, mask the rest
+                $nricDisplay = '';
+                if ($tnric !== '' && $tnric !== 'N/A') {
+                    $nricLen = strlen($tnric);
+                    $nricDisplay = ($nricLen > 4) ? str_repeat('*', $nricLen - 4) . substr($tnric, -4) : $tnric;
+                }
             ?>
             <tr data-name="<?php echo strtolower($tname) ?>" data-email="<?php echo strtolower($temail) ?>">
                 <td>
@@ -1870,19 +1885,20 @@ $gatExt = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
                 <td>
                     <div class="trn-contact">
                         <div class="trn-contact-email"><?php echo $temail ?: '<span class="trn-na">N/A</span>' ?></div>
-                        <div class="trn-contact-phone trn-na">N/A</div>
+                        <div class="trn-contact-phone"><?php echo $tphone ?: '<span class="trn-na">N/A</span>' ?></div>
                     </div>
                 </td>
-                <td><span class="trn-na">N/A</span></td>
-                <td><?php echo $isAclp ? '<span class="trn-pill trn-pill-aclp">ACLP</span>' : '<span class="trn-pill trn-pill-nonaclp">non-ACLP</span>' ?></td>
+                <td><?php if ($nricDisplay): ?><span style="font-family:monospace;font-size:11px;color:var(--t2);"><?php echo $nricDisplay ?></span> <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" style="cursor:pointer;vertical-align:middle;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><?php else: ?><span class="trn-na">NA</span> <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" style="cursor:pointer;vertical-align:middle;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><?php endif; ?></td>
+                <td><?php if ($ttype === 'ACLP'): ?><span class="trn-pill trn-pill-aclp">ACLP</span><?php elseif ($ttype !== ''): ?><?php echo htmlspecialchars($ttype) ?><?php else: ?><span class="trn-na">N/A</span><?php endif; ?></td>
                 <td><span class="trn-na">N/A</span></td>
                 <td><?php echo $isActive ? '<span class="trn-pill-active">Active</span>' : '<span style="color:#ef4444;">Inactive</span>' ?></td>
                 <td><?php echo $isActive ? '<span class="trn-pill-active">Active</span>' : '<span style="color:#ef4444;">Disabled</span>' ?></td>
-                <td><span class="trn-na">N/A</span></td>
+                <td><?php if ($tlinked !== ''): ?><a href="<?php echo htmlspecialchars($tlinked) ?>" target="_blank" class="trn-link" style="color:#0a66c2;"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20.5 2h-17A1.5 1.5 0 002 3.5v17A1.5 1.5 0 003.5 22h17a1.5 1.5 0 001.5-1.5v-17A1.5 1.5 0 0020.5 2zM8 19H5v-9h3zM6.5 8.25A1.75 1.75 0 118.3 6.5a1.78 1.78 0 01-1.8 1.75zM19 19h-3v-4.74c0-1.42-.6-1.93-1.38-1.93A1.74 1.74 0 0013 14.19V19h-3v-9h2.9v1.3a3.11 3.11 0 012.7-1.4c1.55 0 3.36.86 3.36 3.66z"/></svg> View</a><?php else: ?><span class="trn-na">N/A</span><?php endif; ?></td>
                 <td><span class="trn-na">N/A</span></td>
                 <td><span class="trn-na">N/A</span></td>
                 <td><span class="trn-na">N/A</span></td>
                 <td>
+                    <a href="#" class="trn-action" onclick="event.preventDefault();trnOpenEditModal(<?php echo $tid ?>,<?php echo htmlspecialchars(json_encode(array('email'=>$tr['email'],'name'=>$tr['title'],'phone'=>(isset($tr['telephone'])?$tr['telephone']:''),'type'=>$ttype,'status'=>($isActive?'Active':'Inactive'),'gender'=>$tgender,'linkedin'=>$tlinked)), ENT_QUOTES) ?>)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Edit</a>
                     <a href="#" class="trn-action" onclick="event.preventDefault();"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Sync Image</a>
                     <a href="#" class="trn-action danger" onclick="event.preventDefault();"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Deactivate</a>
                 </td>
@@ -2014,6 +2030,7 @@ $gatExt = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
 
 <?php
     $trnAddUrl    = Mage::helper('adminhtml')->getUrl('adminhtml/trainer/add');
+    $trnEditUrl   = Mage::helper('adminhtml')->getUrl('adminhtml/trainer/edit');
     $trnBulkUrl   = Mage::helper('adminhtml')->getUrl('adminhtml/trainer/bulkUpload');
     $trnFormKey   = Mage::getSingleton('core/session')->getFormKey();
     // Also get the admin form key — Magento validates admin requests against this
@@ -2023,6 +2040,7 @@ $gatExt = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
 ?>
 <script type="text/javascript">
 window.__trnAddUrl   = <?php echo json_encode($trnAddUrl) ?>;
+window.__trnEditUrl  = <?php echo json_encode($trnEditUrl) ?>;
 window.__trnBulkUrl  = <?php echo json_encode($trnBulkUrl) ?>;
 window.__trnFormKey  = <?php echo json_encode($_adminFormKey) ?>;
 
@@ -2036,6 +2054,83 @@ window.trnCloseAddModal = function() {
     var msg = document.getElementById('trnAddMsg');
     if (msg) { msg.style.display = 'none'; msg.textContent = ''; }
 };
+// ---- Edit trainer modal ----
+window._trnEditId = 0;
+window.trnOpenEditModal = function(id, data) {
+    window._trnEditId = id;
+    var ov = document.getElementById('trnAddOverlay');
+    if (!ov) return;
+    // Re-use the Add modal — change title and button
+    var title = ov.querySelector('h2');
+    if (title) title.textContent = 'Edit Trainer';
+    var btn = document.getElementById('trnAddBtn');
+    if (btn) { btn.textContent = 'Save Changes'; btn.setAttribute('data-mode', 'edit'); }
+    // Pre-fill fields
+    var f = function(id, val) { var el = document.getElementById(id); if (el) el.value = val || ''; };
+    f('trnEmail', data.email);
+    f('trnName', data.name);
+    f('trnTel', data.phone);
+    f('trnLinkedin', data.linkedin);
+    // Dropdowns
+    var setSelect = function(id, val) { var el = document.getElementById(id); if (!el) return; for (var i=0; i<el.options.length; i++) { if (el.options[i].value === val) { el.selectedIndex = i; return; } } };
+    setSelect('trnType', data.type);
+    setSelect('trnStatus', data.status);
+    setSelect('trnGender', data.gender);
+    ov.style.display = 'flex';
+};
+window.trnCloseAddModal_orig = window.trnCloseAddModal;
+window.trnCloseAddModal = function() {
+    window._trnEditId = 0;
+    var ov = document.getElementById('trnAddOverlay');
+    if (ov) {
+        var title = ov.querySelector('h2');
+        if (title) title.textContent = 'Add New Trainer';
+        var btn = document.getElementById('trnAddBtn');
+        if (btn) { btn.textContent = 'Add Trainer'; btn.removeAttribute('data-mode'); }
+    }
+    if (typeof window.trnCloseAddModal_orig === 'function') window.trnCloseAddModal_orig();
+    else { if (ov) ov.style.display = 'none'; }
+};
+
+// Override submit to handle both add and edit
+window.trnSubmit_orig = window.trnSubmit;
+window.trnSubmit = function(e) {
+    e.preventDefault();
+    var isEdit = window._trnEditId > 0;
+    var msg = document.getElementById('trnAddMsg');
+    var btn = document.getElementById('trnAddBtn');
+    if (msg) { msg.style.display = 'none'; msg.textContent = ''; }
+    btn.disabled = true; btn.textContent = isEdit ? 'Saving...' : 'Adding...';
+
+    var fd = new FormData();
+    if (isEdit) fd.append('trainer_id', window._trnEditId);
+    fd.append('email',         document.getElementById('trnEmail').value);
+    fd.append('full_name',     document.getElementById('trnName').value);
+    fd.append('telephone',     document.getElementById('trnTel').value);
+    fd.append('trainer_type',  document.getElementById('trnType').value);
+    fd.append('status',        document.getElementById('trnStatus').value);
+    fd.append('gender',        document.getElementById('trnGender').value);
+    fd.append('linkedin_url',  document.getElementById('trnLinkedin').value);
+    fd.append('form_key',      window.__trnFormKey);
+
+    var url = isEdit ? window.__trnEditUrl : window.__trnAddUrl;
+    fetch(url, { method: 'POST', body: fd, credentials: 'same-origin' })
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+            btn.disabled = false; btn.textContent = isEdit ? 'Save Changes' : 'Add Trainer';
+            if (data.success) {
+                trnCloseAddModal();
+                window.location.reload();
+            } else {
+                if (msg) { msg.style.display = ''; msg.textContent = data.message || 'Failed'; }
+            }
+        })
+        .catch(function(err){
+            btn.disabled = false; btn.textContent = isEdit ? 'Save Changes' : 'Add Trainer';
+            if (msg) { msg.style.display = ''; msg.textContent = 'Network error: ' + err.message; }
+        });
+};
+
 // ---- Bulk upload modal ----
 window.trnOpenBulkModal = function() {
     var ov = document.getElementById('trnBulkOverlay');
@@ -2119,40 +2214,7 @@ window.trnBulkSubmit = function() {
         });
 };
 
-window.trnSubmit = function(e) {
-    e.preventDefault();
-    var msg = document.getElementById('trnAddMsg');
-    var btn = document.getElementById('trnAddBtn');
-    if (msg) { msg.style.display = 'none'; msg.textContent = ''; }
-    btn.disabled = true; btn.textContent = 'Adding...';
-
-    var fd = new FormData();
-    fd.append('email',         document.getElementById('trnEmail').value);
-    fd.append('full_name',     document.getElementById('trnName').value);
-    fd.append('telephone',     document.getElementById('trnTel').value);
-    fd.append('trainer_type',  document.getElementById('trnType').value);
-    fd.append('status',        document.getElementById('trnStatus').value);
-    fd.append('gender',        document.getElementById('trnGender').value);
-    fd.append('linkedin_url',  document.getElementById('trnLinkedin').value);
-    fd.append('default_password', document.getElementById('trnPwd').value);
-    fd.append('form_key',      window.__trnFormKey);
-
-    fetch(window.__trnAddUrl, { method: 'POST', body: fd, credentials: 'same-origin' })
-        .then(function(r){ return r.json(); })
-        .then(function(data){
-            btn.disabled = false; btn.textContent = 'Add Trainer';
-            if (data.success) {
-                trnCloseAddModal();
-                window.location.reload();
-            } else {
-                if (msg) { msg.style.display = ''; msg.textContent = data.message || 'Failed to add trainer'; }
-            }
-        })
-        .catch(function(err){
-            btn.disabled = false; btn.textContent = 'Add Trainer';
-            if (msg) { msg.style.display = ''; msg.textContent = 'Network error: ' + err.message; }
-        });
-};
+// Original trnSubmit removed — unified version defined earlier handles both add + edit
 </script>
 
 <?php /* ===== Role switcher JS ===== */ ?>

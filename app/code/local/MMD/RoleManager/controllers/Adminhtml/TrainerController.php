@@ -98,6 +98,68 @@ class MMD_RoleManager_Adminhtml_TrainerController extends Mage_Adminhtml_Control
     }
 
     /**
+     * AJAX action — update an existing trainer.
+     */
+    public function editAction()
+    {
+        $result = array('success' => false);
+
+        try {
+            if (!$this->getRequest()->isPost()) {
+                $result['message'] = 'POST required';
+                $this->_sendJson($result);
+                return;
+            }
+
+            $trainerId = (int) $this->getRequest()->getPost('trainer_id');
+            if (!$trainerId) {
+                $result['message'] = 'Trainer ID is required';
+                $this->_sendJson($result);
+                return;
+            }
+
+            $email    = trim((string) $this->getRequest()->getPost('email'));
+            $name     = trim((string) $this->getRequest()->getPost('full_name'));
+            $tel      = trim((string) $this->getRequest()->getPost('telephone'));
+            $type     = trim((string) $this->getRequest()->getPost('trainer_type'));
+            $statusIn = (string) $this->getRequest()->getPost('status');
+            $gender   = trim((string) $this->getRequest()->getPost('gender'));
+            $linkedin = trim((string) $this->getRequest()->getPost('linkedin_url'));
+
+            if ($email === '' || $name === '') {
+                $result['message'] = 'Email and Full Name are required';
+                $this->_sendJson($result);
+                return;
+            }
+
+            $resource = Mage::getSingleton('core/resource');
+            $write    = $resource->getConnection('core_write');
+            $table    = $resource->getTableName('courses_trainers');
+            $cols     = array_flip($write->fetchCol("SHOW COLUMNS FROM {$table}"));
+
+            $row = array(
+                'title'       => $name,
+                'email'       => $email,
+                'status'      => ($statusIn === 'Active' || $statusIn === '1') ? 1 : 0,
+                'update_time' => date('Y-m-d H:i:s'),
+            );
+            if (isset($cols['telephone']))    $row['telephone']    = $tel;
+            if (isset($cols['trainer_type'])) $row['trainer_type'] = $type;
+            if (isset($cols['gender']))       $row['gender']       = $gender;
+            if (isset($cols['linkedin_url'])) $row['linkedin_url'] = $linkedin;
+
+            $write->update($table, $row, array('trainers_id = ?' => $trainerId));
+
+            $result['success'] = true;
+            $result['message'] = 'Trainer updated successfully';
+        } catch (Exception $e) {
+            $result['message'] = 'Error: ' . $e->getMessage();
+        }
+
+        $this->_sendJson($result);
+    }
+
+    /**
      * Stream a CSV template with the bulk-upload columns.
      */
     public function templateAction()
