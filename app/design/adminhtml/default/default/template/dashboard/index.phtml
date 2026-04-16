@@ -831,7 +831,8 @@ button.lcd-menu-btn:hover{background:#4da8b9 !important}
 .lcd-topic:last-child{border-bottom:none}
 .lcd-topic-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
 .lcd-topic-title{font-size:16px;font-weight:700;color:#f1f5f9}
-.lcd-topic-caret{color:#475569}
+.lcd-topic-caret{color:#94a3b8;transition:transform .2s ease}
+.lcd-topic-caret.lcd-caret-open{transform:rotate(180deg)}
 .lcd-progress-row{display:flex;align-items:center;gap:16px}
 .lcd-progress-pct{font-size:14px;font-weight:700;color:#22c55e;flex-shrink:0;min-width:36px}
 .lcd-progress-bar{flex:1;height:6px;background:#334155;border-radius:3px;overflow:hidden}
@@ -951,38 +952,31 @@ $_courseRefCode = 'TGS-' . (2024000000 + ((int)$_selectedCourse['id']) * 17);
         </div>
 
         <nav class="lcd-drawer-nav">
-            <a href="#lesson-plan" class="lcd-nav-item" onclick="return lcdNavTo(this,'lesson-plan')">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-                <span>Lesson Plan</span>
-            </a>
-            <a href="#learner-guide" class="lcd-nav-item" onclick="return lcdNavTo(this,'learner-guide')">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                <span>Learner Guide</span>
-            </a>
-            <a href="#learner-slides" class="lcd-nav-item" onclick="return lcdNavTo(this,'learner-slides')">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/></svg>
-                <span>Learner Slides</span>
-            </a>
-            <a href="#learning-outcomes" class="lcd-nav-item active" onclick="return lcdNavTo(this,'learning-outcomes')">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-                <span>Learning Outcomes</span>
-            </a>
-            <a href="#traqom-survey" class="lcd-nav-item" onclick="return lcdNavTo(this,'traqom-survey')">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                <span>TRAQOM Survey</span>
-            </a>
-            <a href="#assessment" class="lcd-nav-item" onclick="return lcdNavTo(this,'assessment')">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h4"/><path d="M15 15h4a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-4"/></svg>
-                <span>Assessment</span>
-            </a>
-            <a href="#additional-documents" class="lcd-nav-item" onclick="return lcdNavTo(this,'additional-documents')">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                <span>Additional Documents</span>
-            </a>
-            <a href="#certificate" class="lcd-nav-item" onclick="return lcdNavTo(this,'certificate')">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><circle cx="12" cy="15" r="2"/></svg>
-                <span>Certificate</span>
-            </a>
+            <?php if ($activeRole === 'trainer'): ?>
+            <a href="#e-attendance" class="lcd-nav-item" onclick="return lcdNavTo(this,'e-attendance')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>E-Attendance</span></a>
+            <a href="#courseware" class="lcd-nav-item" onclick="return lcdNavTo(this,'courseware')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span>Courseware Link</span></a>
+            <a href="#assessment-grading" class="lcd-nav-item" onclick="return lcdNavTo(this,'assessment-grading')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg><span>Assessment Grading</span></a>
+            <a href="#assessment-summary" class="lcd-nav-item" onclick="return lcdNavTo(this,'assessment-summary')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Assessment Summary Record</span></a>
+            <a href="#courseware" class="lcd-nav-item" onclick="return lcdNavTo(this,'courseware')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>Lesson Plan</span></a>
+            <a href="#courseware" class="lcd-nav-item" onclick="return lcdNavTo(this,'courseware')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Learner Guide</span></a>
+            <a href="#courseware" class="lcd-nav-item" onclick="return lcdNavTo(this,'courseware')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Facilitator Guide</span></a>
+            <a href="#courseware" class="lcd-nav-item" onclick="return lcdNavTo(this,'courseware')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Trainer Slides</span></a>
+            <a href="#courseware" class="lcd-nav-item" onclick="return lcdNavTo(this,'courseware')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Assessment Plan</span></a>
+            <div style="height:1px;background:#1e293b;margin:6px 0;"></div>
+            <a href="#lesson" class="lcd-nav-item active" onclick="return lcdNavTo(this,'lesson')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>Lesson</span></a>
+            <a href="#assessment" class="lcd-nav-item" onclick="return lcdNavTo(this,'assessment')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Assessment</span></a>
+            <a href="#assessment-grading" class="lcd-nav-item" onclick="return lcdNavTo(this,'assessment-grading')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg><span>Grading</span></a>
+            <a href="#additional-documents" class="lcd-nav-item" onclick="return lcdNavTo(this,'additional-documents')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Additional Documents</span></a>
+            <?php else: ?>
+            <a href="#lesson-plan" class="lcd-nav-item" onclick="return lcdNavTo(this,'lesson-plan')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>Lesson Plan</span></a>
+            <a href="#learner-guide" class="lcd-nav-item" onclick="return lcdNavTo(this,'learner-guide')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Learner Guide</span></a>
+            <a href="#learner-slides" class="lcd-nav-item" onclick="return lcdNavTo(this,'learner-slides')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/></svg><span>Learner Slides</span></a>
+            <a href="#learning-outcomes" class="lcd-nav-item active" onclick="return lcdNavTo(this,'learning-outcomes')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>Learning Outcomes</span></a>
+            <a href="#traqom-survey" class="lcd-nav-item" onclick="return lcdNavTo(this,'traqom-survey')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg><span>TRAQOM Survey</span></a>
+            <a href="#assessment" class="lcd-nav-item" onclick="return lcdNavTo(this,'assessment')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h4"/><path d="M15 15h4a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-4"/></svg><span>Assessment</span></a>
+            <a href="#additional-documents" class="lcd-nav-item" onclick="return lcdNavTo(this,'additional-documents')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Additional Documents</span></a>
+            <a href="#certificate" class="lcd-nav-item" onclick="return lcdNavTo(this,'certificate')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><circle cx="12" cy="15" r="2"/></svg><span>Certificate</span></a>
+            <?php endif; ?>
         </nav>
     </div>
 </aside>
@@ -1032,6 +1026,73 @@ $_courseRefCode = 'TGS-' . (2024000000 + ((int)$_selectedCourse['id']) * 17);
         Back to Dashboard
     </a>
 
+    <?php if ($activeRole === 'trainer'): ?>
+    <!-- TRAINER: E-Attendance -->
+    <div class="lcd-section" id="e-attendance">
+        <div class="lcd-section-title">E-Attendance</div>
+        <div class="lcd-tile">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            <div class="lcd-tile-body">
+                <div class="lcd-tile-title">E-Attendance</div>
+                <div class="lcd-tile-sub">Open E-Attendance for Course Run <?php echo $_courseRunId ?></div>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        </div>
+    </div>
+
+    <!-- TRAINER: Google Meet (N/A) -->
+    <div class="lcd-section" id="google-meet">
+        <div class="lcd-section-title">Google Meet</div>
+        <div class="lcd-tile lcd-tile-static">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+            <div class="lcd-tile-body">
+                <div class="lcd-tile-title" style="color:#94a3b8;">N/A</div>
+                <div class="lcd-tile-sub">No virtual meeting link for this class</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TRAINER: Courseware -->
+    <div class="lcd-section" id="courseware">
+        <div class="lcd-section-title">Courseware</div>
+        <?php
+        $_coursewareItems = array('Courseware Link','Lesson Plan','Learner Guide','Facilitator Guide','Trainer Slides','Assessment Plan');
+        foreach ($_coursewareItems as $_cw): ?>
+        <div class="lcd-tile" style="margin-bottom:8px;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            <div class="lcd-tile-body">
+                <div class="lcd-tile-title"><?php echo $_cw ?></div>
+                <div class="lcd-tile-sub">Click to open</div>
+            </div>
+        </div>
+        <?php endforeach; ?>
+    </div>
+
+    <!-- TRAINER: Lesson (topics — title + chevron only, no progress bars) -->
+    <div class="lcd-section" id="lesson">
+        <div class="lcd-section-title" style="padding-bottom:14px;border-bottom:2px solid #22d3ee;margin-bottom:4px;">Lesson <svg class="lcd-caret" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg></div>
+        <?php
+        $_trainerTopics = array(
+            'Topic 1 : Advanced Drawing Objects',
+            'Topic 2: Organize Objects',
+            'Topic 3: Draw with accuracy',
+            'Topic 4: Layouts, printing, and outputs',
+            'Topic 5: Adding annotative techniques',
+            'Topic 6: Reusable content and drawing management',
+            'Topic 7: Productivity tips for AutoCAD',
+        );
+        foreach ($_trainerTopics as $_ti => $_t): ?>
+        <div class="lcd-topic" style="padding:16px 0;cursor:pointer;" onclick="var c=this.querySelector('.lcd-topic-caret');c.classList.toggle('lcd-caret-open');">
+            <div class="lcd-topic-head" style="margin-bottom:0;">
+                <div class="lcd-topic-title"><?php echo $_t ?></div>
+                <svg class="lcd-topic-caret" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5" style="transition:transform .2s;flex-shrink:0;"><polyline points="18 15 12 9 6 15"/></svg>
+            </div>
+        </div>
+        <?php endforeach; ?>
+    </div>
+
+    <?php else: ?>
+    <!-- LEARNER sections -->
     <div class="lcd-section" id="google-meet">
         <div class="lcd-section-title">Google Meet</div>
         <div class="lcd-tile lcd-tile-static">
@@ -1100,6 +1161,7 @@ $_courseRefCode = 'TGS-' . (2024000000 + ((int)$_selectedCourse['id']) * 17);
         </div>
         <?php endforeach; ?>
     </div>
+    <?php endif; ?>
 
     <div class="lcd-section" id="traqom-survey">
         <div class="lcd-section-title" style="cursor:pointer" onclick="var c=this.nextElementSibling;c.style.display=c.style.display==='none'?'':'none';this.querySelector('.lcd-caret').style.transform=c.style.display==='none'?'':'rotate(180deg)'">Certificate &amp; TRAQOM Survey <svg class="lcd-caret" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition:transform .2s"><polyline points="6 9 12 15 18 9"/></svg></div>
@@ -1150,16 +1212,107 @@ $_courseRefCode = 'TGS-' . (2024000000 + ((int)$_selectedCourse['id']) * 17);
 
     <div class="lcd-section" id="assessment">
         <div class="lcd-section-title">Assessment</div>
+        <?php if ($activeRole === 'trainer'): ?>
+        <div style="margin-bottom:18px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                <span style="font-size:15px;font-weight:700;color:#fff;">Written Exam</span>
+            </div>
+            <div class="lcd-tile" style="margin-bottom:0;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                <div class="lcd-tile-body">
+                    <div class="lcd-tile-title">Open Assessment Link</div>
+                    <div class="lcd-tile-sub">Click to open external form</div>
+                </div>
+                <button type="button" style="background:#5bb8c9 !important;background-image:none !important;color:#fff !important;border:none !important;border-radius:8px !important;padding:8px 20px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;">Publish</button>
+            </div>
+        </div>
+        <div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                <span style="font-size:15px;font-weight:700;color:#fff;">Practical Exam</span>
+            </div>
+            <div class="lcd-tile" style="margin-bottom:0;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                <div class="lcd-tile-body">
+                    <div class="lcd-tile-title">Open Assessment Link</div>
+                    <div class="lcd-tile-sub">Click to open external form</div>
+                </div>
+                <button type="button" style="background:#5bb8c9 !important;background-image:none !important;color:#fff !important;border:none !important;border-radius:8px !important;padding:8px 20px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;">Publish</button>
+            </div>
+        </div>
+        <?php endif; ?>
     </div>
 
-    <div class="lcd-section" id="additional-documents">
-        <div class="lcd-section-title">Additional Documents</div>
-        <div class="lcd-empty-box">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-            <div class="lcd-empty-title">No additional documents</div>
+    <?php if ($activeRole === 'trainer'): ?>
+    <!-- TRAINER: Assessment Grading -->
+    <div class="lcd-section" id="assessment-grading">
+        <div class="lcd-section-title">Assessment Grading</div>
+        <div class="lcd-tile" style="margin-bottom:8px;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            <div class="lcd-tile-body">
+                <div class="lcd-tile-title">Assessment Record Link</div>
+                <div class="lcd-tile-sub">Click to open</div>
+            </div>
+        </div>
+        <div class="lcd-tile">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            <div class="lcd-tile-body">
+                <div class="lcd-tile-title">Assessment Grading</div>
+                <div class="lcd-tile-sub">Open Assessment Grading for Course Run <?php echo $_courseRunId ?></div>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
         </div>
     </div>
 
+    <!-- TRAINER: Assessment Summary Record -->
+    <div class="lcd-section" id="assessment-summary">
+        <div class="lcd-section-title">Assessment Summary Record</div>
+        <div style="background:#1a2744;border:1px solid #2d4a7c;border-radius:10px;padding:18px 20px;">
+            <div style="font-size:14px;font-weight:700;color:#fff;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:14px;">Upload Learner Summary Record</div>
+            <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-end;">
+                <div style="flex:1;min-width:200px;">
+                    <div style="font-size:12px;color:#94a3b8;margin-bottom:6px;">Select Learner</div>
+                    <select style="width:100%;padding:10px 14px;background:#1e293b;border:1px solid #475569;border-radius:8px;color:#e2e8f0;font-size:14px;appearance:auto;">
+                        <option>Choose a learner...</option>
+                    </select>
+                </div>
+                <div style="flex:1;min-width:200px;">
+                    <div style="font-size:12px;color:#94a3b8;margin-bottom:6px;">Upload File</div>
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <button type="button" style="background:#2563eb !important;background-image:none !important;color:#fff !important;border:none !important;border-radius:8px !important;padding:10px 20px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;white-space:nowrap;">Choose File</button>
+                        <span style="color:#64748b;font-size:13px;">No file chosen</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <div class="lcd-section" id="additional-documents">
+        <div class="lcd-section-title"<?php if ($activeRole === 'trainer'): ?> style="display:flex;align-items:center;justify-content:space-between;"<?php endif; ?>>
+            <span>Additional Documents</span>
+            <?php if ($activeRole === 'trainer'): ?>
+            <button type="button" style="background:#2563eb !important;background-image:none !important;color:#fff !important;border:none !important;border-radius:8px !important;padding:8px 18px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;display:inline-flex !important;align-items:center !important;gap:6px !important;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                Upload Files
+            </button>
+            <?php endif; ?>
+        </div>
+        <?php if ($activeRole === 'trainer'): ?>
+        <div style="color:#94a3b8;font-size:13px;margin-bottom:14px;">Upload personalized course materials for learners.</div>
+        <?php endif; ?>
+        <div class="lcd-empty-box">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <div class="lcd-empty-title">No additional documents</div>
+            <?php if ($activeRole === 'trainer'): ?>
+            <div style="color:#64748b;font-size:12px;margin-top:4px;">Click "Upload Files" to add materials.</div>
+            <?php endif; ?>
+        </div>
+    </div>
+
+
+    <?php if ($activeRole !== 'trainer'): ?>
     <div class="lcd-section" id="certificate">
         <div class="lcd-section-title">Certificate of Achievement</div>
         <div class="lcd-cert-box">
@@ -1168,6 +1321,7 @@ $_courseRefCode = 'TGS-' . (2024000000 + ((int)$_selectedCourse['id']) * 17);
             <div class="lcd-cert-sub">When you have fulfilled the minimum attendance requirement, your certificate will be available here.</div>
         </div>
     </div>
+    <?php endif; ?>
 
     <div class="lcd-footer">Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> © <?php echo date('Y') ?></div>
     </div><!-- end lcd-main-content -->
@@ -1265,7 +1419,7 @@ a.lmc-card,a.lmc-card:hover,a.lmc-card:focus,a.lmc-card:active{text-decoration:n
 @media(max-width:640px){.lmc-grid{grid-template-columns:1fr}}
 </style>
     <div class="lmc-wrap">
-        <h2 class="lmc-title">My Classes</h2>
+        <h2 class="lmc-title"><?php echo ($activeRole === 'trainer') ? 'My Assigned Classes' : 'My Classes' ?></h2>
         <div class="lmc-kpi">
             <div class="lmc-kpi-card"><div class="lmc-kpi-num green"><?php echo $_learnerCurrent ?></div><div class="lmc-kpi-lbl">Current Classes</div></div>
             <div class="lmc-kpi-card"><div class="lmc-kpi-num blue"><?php echo $_learnerUpcoming ?></div><div class="lmc-kpi-lbl">Upcoming Classes</div></div>
@@ -1277,6 +1431,24 @@ a.lmc-card,a.lmc-card:hover,a.lmc-card:focus,a.lmc-card:active{text-decoration:n
             <button class="lmc-tab" onclick="lmcFilter('upcoming',this)">Upcoming Classes</button>
             <button class="lmc-tab" onclick="lmcFilter('past',this)">Past Classes</button>
         </div>
+        <?php if ($activeRole === 'trainer'): ?>
+        <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:16px;margin-bottom:16px;">
+            <div style="font-size:13px;color:#94a3b8;font-weight:600;margin-bottom:10px;">General Search</div>
+            <div class="lmc-search" style="margin-bottom:0;">
+                <div class="lmc-search-input-wrap">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                    <input type="text" id="lmc-search" placeholder="Search title, code, TSC..." oninput="lmcSearch(this.value)" style="padding-left:42px !important;" />
+                </div>
+                <span style="color:#94a3b8;font-size:13px;flex-shrink:0;">View:</span>
+                <div class="lmc-view-toggle">
+                    <button type="button" class="lmc-view-btn active" data-view="grid" title="Grid view" onclick="lmcSetView('grid',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></button>
+                    <button type="button" class="lmc-view-btn" data-view="list" title="List view" onclick="lmcSetView('list',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></button>
+                </div>
+                <button type="button" class="lmc-link-btn" onclick="document.getElementById('lmc-search').value='';lmcSearch('');" style="background:transparent !important;background-image:none !important;border:none !important;color:#94a3b8 !important;font-size:13px !important;font-weight:500 !important;cursor:pointer !important;padding:4px 8px !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;height:auto !important;min-width:0 !important;line-height:normal !important;">Reset</button>
+                <button type="button" class="lmc-link-btn" style="background:transparent !important;background-image:none !important;border:none !important;color:#94a3b8 !important;font-size:13px !important;font-weight:500 !important;cursor:pointer !important;padding:4px 8px !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;height:auto !important;min-width:0 !important;line-height:normal !important;">Show Filters</button>
+            </div>
+        </div>
+        <?php else: ?>
         <div class="lmc-search">
             <div class="lmc-search-input-wrap">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -1287,6 +1459,7 @@ a.lmc-card,a.lmc-card:hover,a.lmc-card:focus,a.lmc-card:active{text-decoration:n
                 <button type="button" class="lmc-view-btn" data-view="list" title="List view" onclick="lmcSetView('list',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></button>
             </div>
         </div>
+        <?php endif; ?>
 
         <?php if (empty($_learnerCourses)): ?>
         <div class="lmc-empty">
