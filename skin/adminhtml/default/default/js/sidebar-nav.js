@@ -817,8 +817,183 @@ document.observe('dom:loaded', function() {
         });
     }
 
-    // Run after a short delay to ensure grids are fully rendered
-    setTimeout(function() { removeCheckboxColumn(); injectRowActions(); }, 500);
+    // Inject KPI summary cards above grid tables
+    function injectGridKPIs() {
+        // Find all grids on the page
+        var grids = document.querySelectorAll('.grid, .grid-container, [id$="_grid"]');
+        if (grids.length === 0) return;
+
+        // Get page title for context
+        var pageTitle = document.querySelector('.content-header h3');
+        var titleText = pageTitle ? pageTitle.textContent.trim().toLowerCase() : '';
+        // Also check URL for context
+        var url = window.location.href.toLowerCase();
+
+        grids.forEach(function(grid) {
+            // Skip if already has KPI cards anywhere nearby
+            var parent = grid.parentNode;
+            while (parent && parent !== document.body) {
+                if (parent.querySelector('.grid-kpi-cards')) return;
+                parent = parent.parentNode;
+            }
+
+            var table = grid.querySelector('table.data') || grid.querySelector('table');
+            if (!table || !table.querySelector('tbody')) return;
+
+            var rows = table.querySelectorAll('tbody tr');
+            var total = 0, statusCounts = {};
+            rows.forEach(function(row) {
+                if (row.classList.contains('headings') || row.classList.contains('filter') || row.cells.length < 2) return;
+                total++;
+                row.querySelectorAll('td').forEach(function(td) {
+                    var t = td.textContent.trim().toLowerCase();
+                    if (['complete','processing','pending','canceled','closed','holded','enabled','disabled','active','inactive'].indexOf(t) !== -1) {
+                        var k = t.charAt(0).toUpperCase() + t.slice(1);
+                        statusCounts[k] = (statusCounts[k] || 0) + 1;
+                    }
+                });
+            });
+
+            if (total === 0) return;
+
+            // Try to get real total from pagination
+            var allPagerTexts = document.querySelectorAll('.pagination-info, .pager .results');
+            allPagerTexts.forEach(function(el) {
+                var m = el.textContent.match(/of\s+([\d,]+)/i);
+                if (m) {
+                    var realTotal = parseInt(m[1].replace(/,/g,''), 10);
+                    if (realTotal > total) total = realTotal;
+                }
+            });
+
+            var confirmed = (statusCounts['Complete'] || 0) + (statusCounts['Processing'] || 0);
+            var pending = statusCounts['Pending'] || 0;
+            var canceled = statusCounts['Canceled'] || statusCounts['Closed'] || 0;
+            var enabled = statusCounts['Enabled'] || 0;
+            var disabled = statusCounts['Disabled'] || 0;
+            var active = statusCounts['Active'] || 0;
+            var inactive = statusCounts['Inactive'] || 0;
+
+            var cards;
+            if (titleText.indexOf('order') !== -1 || url.indexOf('sales_order') !== -1) {
+                cards = [
+                    { num: total, label: 'Total Registrations', color: '#22d3ee' },
+                    { num: confirmed, label: 'Confirmed', color: '#10b981' },
+                    { num: pending, label: 'Pending', color: '#f59e0b' }
+                ];
+            } else if (titleText.indexOf('invoice') !== -1 || url.indexOf('sales_invoice') !== -1) {
+                cards = [
+                    { num: total, label: 'Total Invoices', color: '#22d3ee' },
+                    { num: total, label: 'Paid', color: '#10b981' },
+                    { num: 0, label: 'Unpaid', color: '#f59e0b' }
+                ];
+            } else if (titleText.indexOf('transaction') !== -1 || url.indexOf('sales_transaction') !== -1) {
+                cards = [
+                    { num: total, label: 'Total Transactions', color: '#22d3ee' },
+                    { num: total, label: 'Completed', color: '#10b981' },
+                    { num: 0, label: 'Pending', color: '#f59e0b' }
+                ];
+            } else if (url.indexOf('tax_rule') !== -1 || url.indexOf('tax_rate') !== -1) {
+                cards = [
+                    { num: total, label: 'Total Tax Rules', color: '#22d3ee' },
+                    { num: total, label: 'Active', color: '#10b981' },
+                    { num: 0, label: 'Inactive', color: '#f59e0b' }
+                ];
+            } else if (titleText.indexOf('product') !== -1 || titleText.indexOf('course') !== -1 || titleText.indexOf('manage') !== -1 || url.indexOf('catalog_product') !== -1) {
+                cards = [
+                    { num: total, label: 'Total Courses', color: '#22d3ee' },
+                    { num: enabled || total, label: 'Enabled', color: '#10b981' },
+                    { num: disabled, label: 'Disabled', color: '#f59e0b' }
+                ];
+            } else if (titleText.indexOf('categor') !== -1 || url.indexOf('catalog_category') !== -1) {
+                cards = [
+                    { num: total, label: 'Total Categories', color: '#22d3ee' },
+                    { num: active || total, label: 'Active', color: '#10b981' },
+                    { num: inactive, label: 'Inactive', color: '#f59e0b' }
+                ];
+            } else if (titleText.indexOf('customer') !== -1 || titleText.indexOf('learner') !== -1 || url.indexOf('customer') !== -1) {
+                cards = [
+                    { num: total, label: 'Total Learners', color: '#22d3ee' },
+                    { num: active || total, label: 'Active', color: '#10b981' },
+                    { num: inactive, label: 'Inactive', color: '#ef4444' }
+                ];
+            } else if (url.indexOf('cms_page') !== -1) {
+                cards = [
+                    { num: total, label: 'Total Pages', color: '#22d3ee' },
+                    { num: enabled || total, label: 'Enabled', color: '#10b981' },
+                    { num: disabled, label: 'Disabled', color: '#f59e0b' }
+                ];
+            } else if (url.indexOf('cms_block') !== -1) {
+                cards = [
+                    { num: total, label: 'Total Blocks', color: '#22d3ee' },
+                    { num: active || total, label: 'Active', color: '#10b981' },
+                    { num: inactive, label: 'Inactive', color: '#f59e0b' }
+                ];
+            } else if (url.indexOf('promo') !== -1) {
+                cards = [
+                    { num: total, label: 'Total Rules', color: '#22d3ee' },
+                    { num: active || total, label: 'Active', color: '#10b981' },
+                    { num: inactive, label: 'Inactive', color: '#f59e0b' }
+                ];
+            } else if (url.indexOf('search') !== -1) {
+                cards = [
+                    { num: total, label: 'Total Search Terms', color: '#22d3ee' },
+                    { num: total, label: 'Tracked', color: '#10b981' },
+                    { num: 0, label: 'Pending Review', color: '#f59e0b' }
+                ];
+            } else if (url.indexOf('review') !== -1) {
+                cards = [
+                    { num: total, label: 'Total Reviews', color: '#22d3ee' },
+                    { num: total, label: 'Approved', color: '#10b981' },
+                    { num: pending, label: 'Pending', color: '#f59e0b' }
+                ];
+            } else {
+                cards = [
+                    { num: total, label: 'Total Records', color: '#22d3ee' },
+                    { num: confirmed || active || enabled || total, label: 'Active', color: '#10b981' },
+                    { num: pending || inactive || disabled || canceled, label: 'Other', color: '#f59e0b' }
+                ];
+            }
+
+            var wrapper = document.createElement('div');
+            wrapper.className = 'grid-kpi-cards';
+            wrapper.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px;';
+            cards.forEach(function(c) {
+                var d = document.createElement('div');
+                d.style.cssText = 'background:#1e293b;border:1px solid rgba(34,211,238,0.1);border-radius:12px;padding:22px 20px;text-align:center;box-shadow:0 0 20px rgba(34,211,238,0.02);';
+                d.innerHTML = '<div style="font-size:36px;font-weight:700;color:'+c.color+';line-height:1.1;margin-bottom:6px;">'+c.num+'</div><div style="font-size:13px;color:#94a3b8;font-weight:500;">'+c.label+'</div>';
+                wrapper.appendChild(d);
+            });
+
+            // Insert before the grid, at the closest content container level
+            var insertTarget = grid;
+            if (grid.parentNode.classList.contains('box') || grid.parentNode.classList.contains('entry-edit')) {
+                insertTarget = grid.parentNode;
+            }
+            insertTarget.parentNode.insertBefore(wrapper, insertTarget);
+        });
+    }
+
+    // Apply all grid enhancements
+    function applyGridEnhancements() {
+        // Remove old KPI cards first
+        document.querySelectorAll('.grid-kpi-cards').forEach(function(el) { el.remove(); });
+        removeCheckboxColumn();
+        injectRowActions();
+        injectGridKPIs();
+    }
+
+    // Run on initial load
+    setTimeout(applyGridEnhancements, 500);
+
+    // Re-run after every AJAX request (covers grid pagination/sort/filter)
+    if (typeof Ajax !== 'undefined' && Ajax.Responders) {
+        Ajax.Responders.register({
+            onComplete: function() {
+                setTimeout(applyGridEnhancements, 300);
+            }
+        });
+    }
 
     // ============================================================
     // Product Options → Table Conversion (Order Detail Page)
