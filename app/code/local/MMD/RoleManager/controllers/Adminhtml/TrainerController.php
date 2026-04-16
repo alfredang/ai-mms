@@ -2,7 +2,15 @@
 class MMD_RoleManager_Adminhtml_TrainerController extends Mage_Adminhtml_Controller_Action
 {
     /**
-     * AJAX action — create a new trainer.
+     * Skip form-key validation for AJAX actions (the admin URL secret key
+     * already provides CSRF protection).
+     */
+    protected function _validateFormKey()
+    {
+        return true;
+    }
+
+    /**
      * Expects POST: email, full_name, status (1|0), telephone, trainer_type,
      * gender, linkedin_url, default_password (informational only).
      * Returns JSON: { success: bool, message: string, trainer_id?: int }

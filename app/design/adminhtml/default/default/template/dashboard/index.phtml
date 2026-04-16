@@ -2017,11 +2017,15 @@ $gatExt = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
     $trnAddUrl    = Mage::helper('adminhtml')->getUrl('adminhtml/trainer/add');
     $trnBulkUrl   = Mage::helper('adminhtml')->getUrl('adminhtml/trainer/bulkUpload');
     $trnFormKey   = Mage::getSingleton('core/session')->getFormKey();
+    // Also get the admin form key — Magento validates admin requests against this
+    $_adminFormKey = $this->getFormKey();
+    if (!$_adminFormKey) $_adminFormKey = Mage::getSingleton('adminhtml/session')->getFormKey();
+    if (!$_adminFormKey) $_adminFormKey = $trnFormKey;
 ?>
 <script type="text/javascript">
 window.__trnAddUrl   = <?php echo json_encode($trnAddUrl) ?>;
 window.__trnBulkUrl  = <?php echo json_encode($trnBulkUrl) ?>;
-window.__trnFormKey  = <?php echo json_encode($trnFormKey) ?>;
+window.__trnFormKey  = <?php echo json_encode($_adminFormKey) ?>;
 
 window.trnOpenAddModal = function() {
     var ov = document.getElementById('trnAddOverlay');
