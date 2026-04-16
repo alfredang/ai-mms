@@ -2045,8 +2045,25 @@ window.__trnBulkUrl  = <?php echo json_encode($trnBulkUrl) ?>;
 window.__trnFormKey  = <?php echo json_encode($_adminFormKey) ?>;
 
 window.trnOpenAddModal = function() {
+    // Reset to "Add" mode and clear all fields
+    window._trnEditId = 0;
     var ov = document.getElementById('trnAddOverlay');
-    if (ov) ov.style.display = 'flex';
+    if (!ov) return;
+    var title = ov.querySelector('h2');
+    if (title) title.textContent = 'Add New Trainer';
+    var btn = document.getElementById('trnAddBtn');
+    if (btn) { btn.textContent = 'Add Trainer'; btn.removeAttribute('data-mode'); }
+    // Clear all inputs
+    var ids = ['trnEmail','trnName','trnTel','trnLinkedin'];
+    for (var i=0; i<ids.length; i++) { var el = document.getElementById(ids[i]); if (el) el.value = ''; }
+    document.getElementById('trnPwd').value = 'Tertiary888';
+    // Reset dropdowns to first option
+    var sels = ['trnType','trnStatus','trnGender'];
+    for (var j=0; j<sels.length; j++) { var s = document.getElementById(sels[j]); if (s) s.selectedIndex = 0; }
+    // Clear any error message
+    var msg = document.getElementById('trnAddMsg');
+    if (msg) { msg.style.display = 'none'; msg.textContent = ''; }
+    ov.style.display = 'flex';
 };
 window.trnCloseAddModal = function() {
     var ov = document.getElementById('trnAddOverlay');
