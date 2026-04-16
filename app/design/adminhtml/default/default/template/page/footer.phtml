@@ -17,7 +17,24 @@ if (file_exists($_commitVersionFile)) {
 }
 ?>
 <?php $_v = $_commitVersion ? $_commitVersion : $_version; ?>
-<div style="display:flex;align-items:center;margin:0;">
-    <span style="color:var(--t5);font-size:11px;white-space:nowrap;"><?php if ($_v): ?>version <?php echo htmlspecialchars($_v) ?><?php endif; ?></span>
-    <span style="flex:1;color:var(--t5);font-size:12px;text-align:center;">Powered by Tertiary Infotech Academy Pte Ltd &copy; <?php echo date('Y') ?></span>
+<div class="admin-bottom-bar">
+    <span class="admin-bottom-powered">Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y') ?></span>
 </div>
+<style>
+.admin-bottom-bar{
+    position:static;
+    margin-left:-24px;
+    margin-right:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:12px 24px;
+    background:#111827;
+    border-top:1px solid var(--b1);
+    z-index:1100;
+    transition:left 0.25s ease;
+}
+body.sidebar-collapsed .admin-bottom-bar{left:60px}
+.admin-bottom-powered{color:var(--t5);font-size:13px}
+.admin-bottom-powered strong{color:var(--t2)}
+</style>

@@ -347,24 +347,30 @@ body .sidebar-nav #nav {
     padding-left: 60px !important;
 }
 
-/* === 6. Sidebar Toggle Button === */
+/* === 6. Sidebar Toggle Button (now at the top of the sidebar) === */
+.sidebar-collapse-top {
+    display: flex;
+    justify-content: flex-end;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--b1);
+    flex-shrink: 0;
+}
 .sidebar-toggle,
 button.sidebar-toggle,
 body button.sidebar-toggle,
 .admin-sidebar .sidebar-toggle {
     position: relative;
     flex-shrink: 0;
-    display: flex !important;
+    display: inline-flex !important;
     align-items: center;
     justify-content: center;
-    width: 100% !important;
-    height: 44px !important;
-    min-height: 44px !important;
+    width: 32px !important;
+    height: 32px !important;
+    min-height: 32px !important;
     background: none !important;
     background-image: none !important;
     border: none !important;
-    border-top: 1px solid var(--b1) !important;
-    border-radius: 0 !important;
+    border-radius: 6px !important;
     cursor: pointer;
     padding: 0 !important;
     transition: background 0.15s ease !important;
@@ -379,6 +385,16 @@ body button.sidebar-toggle:hover {
     transform: none !important;
     box-shadow: none !important;
 }
+
+/* Sidebar version text (pinned at the bottom) */
+.sidebar-version {
+    padding: 10px 16px;
+    font-size: 11px;
+    color: var(--green, #22c55e);
+    border-top: 1px solid var(--b1);
+    flex-shrink: 0;
+    margin-top: auto;
+}
 .sidebar-toggle span,
 button.sidebar-toggle span {
     background: none !important;
@@ -386,31 +402,13 @@ button.sidebar-toggle span {
     padding: 0 !important;
     color: var(--t4) !important;
 }
-.toggle-icon,
-.toggle-icon::before,
-.toggle-icon::after {
+.sidebar-chevron {
     display: block;
-    width: 18px;
-    height: 2px;
-    background: var(--t4);
-    border-radius: 1px;
-    transition: all 0.25s ease;
-    border: none !important;
+    transition: transform 0.25s ease;
+    color: var(--t4);
 }
-.toggle-icon {
-    position: relative;
-}
-.toggle-icon::before,
-.toggle-icon::after {
-    content: '';
-    position: absolute;
-    left: 0;
-}
-.toggle-icon::before {
-    top: -6px;
-}
-.toggle-icon::after {
-    top: 6px;
+body.sidebar-collapsed .sidebar-chevron {
+    transform: rotate(180deg);
 }
 
 /* === 7. Collapsed Mode === */
