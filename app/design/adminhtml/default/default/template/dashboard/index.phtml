@@ -1900,7 +1900,8 @@ $gatExt = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
                 <td>
                     <a href="#" class="trn-action" onclick="event.preventDefault();trnOpenEditModal(<?php echo $tid ?>,<?php echo htmlspecialchars(json_encode(array('email'=>$tr['email'],'name'=>$tr['title'],'phone'=>(isset($tr['telephone'])?$tr['telephone']:''),'type'=>$ttype,'status'=>($isActive?'Active':'Inactive'),'gender'=>$tgender,'linkedin'=>$tlinked)), ENT_QUOTES) ?>)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Edit</a>
                     <a href="#" class="trn-action" onclick="event.preventDefault();"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Sync Image</a>
-                    <a href="#" class="trn-action danger" onclick="event.preventDefault();"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Deactivate</a>
+                    <a href="#" class="trn-action <?php echo $isActive ? 'danger' : '' ?>" style="<?php echo $isActive ? '' : 'color:#10b981;' ?>" onclick="event.preventDefault();trnToggleStatus(<?php echo $tid ?>,'<?php echo $tname ?>',<?php echo $isActive ? 1 : 0 ?>)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><?php if ($isActive): ?><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/><?php else: ?><polyline points="20 6 9 17 4 12"/><?php endif; ?></svg> <?php echo $isActive ? 'Deactivate' : 'Activate' ?></a>
+                    <a href="#" class="trn-action danger" onclick="event.preventDefault();trnDelete(<?php echo $tid ?>,'<?php echo $tname ?>')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Delete</a>
                 </td>
             </tr>
             <?php endforeach; ?>
@@ -2031,6 +2032,8 @@ $gatExt = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
 <?php
     $trnAddUrl    = Mage::helper('adminhtml')->getUrl('adminhtml/trainer/add');
     $trnEditUrl   = Mage::helper('adminhtml')->getUrl('adminhtml/trainer/edit');
+    $trnToggleUrl = Mage::helper('adminhtml')->getUrl('adminhtml/trainer/toggleStatus');
+    $trnDeleteUrl = Mage::helper('adminhtml')->getUrl('adminhtml/trainer/delete');
     $trnBulkUrl   = Mage::helper('adminhtml')->getUrl('adminhtml/trainer/bulkUpload');
     $trnFormKey   = Mage::getSingleton('core/session')->getFormKey();
     // Also get the admin form key — Magento validates admin requests against this
@@ -2040,8 +2043,10 @@ $gatExt = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
 ?>
 <script type="text/javascript">
 window.__trnAddUrl   = <?php echo json_encode($trnAddUrl) ?>;
-window.__trnEditUrl  = <?php echo json_encode($trnEditUrl) ?>;
-window.__trnBulkUrl  = <?php echo json_encode($trnBulkUrl) ?>;
+window.__trnEditUrl   = <?php echo json_encode($trnEditUrl) ?>;
+window.__trnToggleUrl = <?php echo json_encode($trnToggleUrl) ?>;
+window.__trnDeleteUrl = <?php echo json_encode($trnDeleteUrl) ?>;
+window.__trnBulkUrl   = <?php echo json_encode($trnBulkUrl) ?>;
 window.__trnFormKey  = <?php echo json_encode($_adminFormKey) ?>;
 
 window.trnOpenAddModal = function() {
@@ -2071,6 +2076,47 @@ window.trnCloseAddModal = function() {
     var msg = document.getElementById('trnAddMsg');
     if (msg) { msg.style.display = 'none'; msg.textContent = ''; }
 };
+// ---- Toggle trainer status (Deactivate / Activate) ----
+window.trnToggleStatus = function(id, name, currentActive) {
+    var action = currentActive ? 'deactivate' : 'activate';
+    if (!confirm('Are you sure you want to ' + action + ' "' + name + '"?')) return;
+
+    var fd = new FormData();
+    fd.append('trainer_id', id);
+    fd.append('form_key', window.__trnFormKey);
+
+    fetch(window.__trnToggleUrl, { method: 'POST', body: fd, credentials: 'same-origin' })
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+            if (data.success) {
+                window.location.reload();
+            } else {
+                alert(data.message || 'Failed to ' + action + ' trainer');
+            }
+        })
+        .catch(function(err){ alert('Network error: ' + err.message); });
+};
+
+// ---- Delete trainer ----
+window.trnDelete = function(id, name) {
+    if (!confirm('Are you sure you want to permanently delete "' + name + '"?\n\nThis action cannot be undone.')) return;
+
+    var fd = new FormData();
+    fd.append('trainer_id', id);
+    fd.append('form_key', window.__trnFormKey);
+
+    fetch(window.__trnDeleteUrl, { method: 'POST', body: fd, credentials: 'same-origin' })
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+            if (data.success) {
+                window.location.reload();
+            } else {
+                alert(data.message || 'Failed to delete trainer');
+            }
+        })
+        .catch(function(err){ alert('Network error: ' + err.message); });
+};
+
 // ---- Edit trainer modal ----
 window._trnEditId = 0;
 window.trnOpenEditModal = function(id, data) {

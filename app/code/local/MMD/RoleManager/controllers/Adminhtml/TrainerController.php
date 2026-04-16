@@ -160,6 +160,69 @@ class MMD_RoleManager_Adminhtml_TrainerController extends Mage_Adminhtml_Control
     }
 
     /**
+     * AJAX action — delete a trainer.
+     */
+    public function deleteAction()
+    {
+        $result = array('success' => false);
+        try {
+            if (!$this->getRequest()->isPost()) {
+                $result['message'] = 'POST required';
+                $this->_sendJson($result);
+                return;
+            }
+            $trainerId = (int) $this->getRequest()->getPost('trainer_id');
+            if (!$trainerId) {
+                $result['message'] = 'Trainer ID is required';
+                $this->_sendJson($result);
+                return;
+            }
+            $resource = Mage::getSingleton('core/resource');
+            $write    = $resource->getConnection('core_write');
+            $table    = $resource->getTableName('courses_trainers');
+            $write->delete($table, array('trainers_id = ?' => $trainerId));
+            $result['success'] = true;
+            $result['message'] = 'Trainer deleted';
+        } catch (Exception $e) {
+            $result['message'] = 'Error: ' . $e->getMessage();
+        }
+        $this->_sendJson($result);
+    }
+
+    /**
+     * AJAX action — toggle trainer active/inactive status.
+     */
+    public function toggleStatusAction()
+    {
+        $result = array('success' => false);
+        try {
+            if (!$this->getRequest()->isPost()) {
+                $result['message'] = 'POST required';
+                $this->_sendJson($result);
+                return;
+            }
+            $trainerId = (int) $this->getRequest()->getPost('trainer_id');
+            if (!$trainerId) {
+                $result['message'] = 'Trainer ID is required';
+                $this->_sendJson($result);
+                return;
+            }
+            $resource = Mage::getSingleton('core/resource');
+            $write    = $resource->getConnection('core_write');
+            $table    = $resource->getTableName('courses_trainers');
+            $current  = (int) $write->fetchOne("SELECT status FROM {$table} WHERE trainers_id = ?", array($trainerId));
+            $newStatus = ($current === 1) ? 0 : 1;
+            $write->update($table, array('status' => $newStatus, 'update_time' => date('Y-m-d H:i:s')), array('trainers_id = ?' => $trainerId));
+            $result['success']    = true;
+            $result['new_status'] = $newStatus;
+            $result['message']    = $newStatus ? 'Trainer activated' : 'Trainer deactivated';
+        } catch (Exception $e) {
+            $result['message'] = 'Error: ' . $e->getMessage();
+        }
+        $this->_sendJson($result);
+    }
+
+    /**
      * Stream a CSV template with the bulk-upload columns.
      */
     public function templateAction()
