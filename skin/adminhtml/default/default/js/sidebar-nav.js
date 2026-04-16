@@ -661,4 +661,256 @@ document.observe('dom:loaded', function() {
         if (total > 1) pages.push(total);
         return pages;
     }
+
+    // ============================================================
+    // Per-row action dropdowns for Magento admin grids
+    // Replaces the bulk mass-action bar with individual row actions
+    // ============================================================
+    function injectRowActions() {
+        // Find the mass action bar to get available actions
+        var massSelect = document.querySelector('.massaction select');
+        if (!massSelect) return;
+
+        var actions = [];
+        for (var i = 0; i < massSelect.options.length; i++) {
+            var opt = massSelect.options[i];
+            if (opt.value && opt.value !== '') {
+                actions.push({ label: opt.text, value: opt.value });
+            }
+        }
+        if (actions.length === 0) return;
+
+        // Find the grid table
+        var tables = document.querySelectorAll('.grid table.data');
+        if (tables.length === 0) return;
+
+        tables.forEach(function(table) {
+            // Add ACTIONS header
+            var headings = table.querySelector('tr.headings');
+            if (headings && !headings.querySelector('.row-actions-th')) {
+                var th = document.createElement('th');
+                th.className = 'row-actions-th';
+                th.textContent = 'ACTIONS';
+                th.style.cssText = 'text-align:center !important;';
+                headings.appendChild(th);
+            }
+
+            // Add empty cell to filter row
+            var filterRow = table.querySelector('tr.filter');
+            if (filterRow && !filterRow.querySelector('.row-actions-filter')) {
+                var ftd = document.createElement('td');
+                ftd.className = 'row-actions-filter';
+                filterRow.appendChild(ftd);
+            }
+
+            // Add action dropdown to each data row
+            var rows = table.querySelectorAll('tbody tr');
+            for (var r = 0; r < rows.length; r++) {
+                var row = rows[r];
+                if (row.classList.contains('headings') || row.classList.contains('filter') || row.querySelector('.row-action-wrap')) continue;
+
+                // Find the checkbox in this row to get the order ID
+                var cb = row.querySelector('input[type="checkbox"]');
+                if (!cb) continue;
+
+                var td = document.createElement('td');
+                td.style.cssText = 'text-align:center; white-space:nowrap;';
+
+                var wrap = document.createElement('div');
+                wrap.className = 'row-action-wrap';
+
+                var btn = document.createElement('button');
+                btn.className = 'row-action-btn';
+                btn.type = 'button';
+                btn.innerHTML = 'Actions <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>';
+                btn.onclick = function(e) {
+                    e.stopPropagation();
+                    // Close all other menus
+                    document.querySelectorAll('.row-action-wrap.open').forEach(function(w) { w.classList.remove('open'); });
+                    this.parentNode.classList.toggle('open');
+                };
+
+                var menu = document.createElement('div');
+                menu.className = 'row-action-menu';
+
+                for (var a = 0; a < actions.length; a++) {
+                    (function(action, checkbox) {
+                        var item = document.createElement('div');
+                        item.className = 'row-action-item';
+                        item.textContent = action.label;
+                        item.onclick = function(e) {
+                            e.stopPropagation();
+                            // Uncheck all, check only this row
+                            table.querySelectorAll('input[type="checkbox"]').forEach(function(c) { c.checked = false; });
+                            checkbox.checked = true;
+                            // Set the mass action value and submit
+                            massSelect.value = action.value;
+                            // Find and click the submit button
+                            var submitBtn = document.querySelector('.massaction button[onclick]') ||
+                                           document.querySelector('.massaction button[title="Submit"]') ||
+                                           document.querySelector('.massaction .entry-edit button');
+                            if (submitBtn) {
+                                submitBtn.click();
+                            } else {
+                                // Fallback: trigger the form
+                                var form = massSelect.closest('form') || document.querySelector('#sales_order_grid_massaction-form');
+                                if (form) form.submit();
+                            }
+                        };
+                        menu.appendChild(item);
+                    })(actions[a], cb);
+                }
+
+                wrap.appendChild(btn);
+                wrap.appendChild(menu);
+                td.appendChild(wrap);
+                row.appendChild(td);
+            }
+        });
+
+        // Close menus on outside click
+        document.addEventListener('click', function() {
+            document.querySelectorAll('.row-action-wrap.open').forEach(function(w) { w.classList.remove('open'); });
+        });
+    }
+
+    // Fix content-header button alignment — push to far right
+    function fixHeaderButtons() {
+        var headers = document.querySelectorAll('.content-header');
+        headers.forEach(function(header) {
+            var tr = header.querySelector('tr');
+            if (!tr) return;
+            var cells = tr.querySelectorAll('td');
+            if (cells.length < 2) return;
+            // First td = title, rest = buttons — force flex layout
+            tr.style.cssText = 'display:flex!important;width:100%!important;align-items:center!important;';
+            cells[0].style.cssText += 'flex:1!important;';
+            for (var i = 1; i < cells.length; i++) {
+                cells[i].style.cssText += 'flex-shrink:0!important;margin-left:8px!important;';
+            }
+        });
+    }
+    setTimeout(fixHeaderButtons, 300);
+
+    // Remove checkbox column from all grids
+    function removeCheckboxColumn() {
+        var tables = document.querySelectorAll('.grid table.data');
+        tables.forEach(function(table) {
+            var rows = table.querySelectorAll('tr');
+            for (var r = 0; r < rows.length; r++) {
+                var cells = rows[r].children;
+                if (cells.length === 0) continue;
+                var first = cells[0];
+                // Check if first cell is the checkbox column (contains checkbox, is empty, or is narrow)
+                var hasCheckbox = first.querySelector('input[type="checkbox"]');
+                var isEmpty = first.textContent.trim() === '' && !first.querySelector('img');
+                if (hasCheckbox || (isEmpty && first.tagName === 'TH') || (first.classList.contains('a-center') && (hasCheckbox || isEmpty))) {
+                    first.style.display = 'none';
+                }
+            }
+            // Also hide first col element if it exists
+            var cols = table.querySelectorAll('col');
+            if (cols.length > 0 && cols[0]) {
+                cols[0].style.width = '0';
+                cols[0].style.display = 'none';
+            }
+        });
+    }
+
+    // Run after a short delay to ensure grids are fully rendered
+    setTimeout(function() { removeCheckboxColumn(); injectRowActions(); }, 500);
+
+    // ============================================================
+    // Product Options → Table Conversion (Order Detail Page)
+    // Transforms text-block options into a structured table
+    // ============================================================
+    function transformProductOptions() {
+        // Find all product options blocks on order detail pages
+        var optionDls = document.querySelectorAll('.order-tables .item-options, dl.item-options');
+        if (optionDls.length === 0) {
+            // Fallback: look for the text-based options inside order item rows
+            var cells = document.querySelectorAll('td');
+            var optBlocks = [];
+            cells.forEach(function(td) {
+                var text = td.innerHTML || '';
+                if (text.indexOf('<strong>') !== -1 && (text.indexOf('Mode of Training') !== -1 || text.indexOf('Course Date') !== -1 || text.indexOf('Sponsorship') !== -1)) {
+                    optBlocks.push(td);
+                }
+            });
+            if (optBlocks.length === 0) return;
+
+            optBlocks.forEach(function(td) {
+                transformOptionCell(td);
+            });
+            return;
+        }
+
+        optionDls.forEach(function(dl) {
+            transformOptionDl(dl);
+        });
+    }
+
+    function transformOptionCell(td) {
+        var html = td.innerHTML;
+        // Parse "key: value" lines from bold tags
+        var pairs = [];
+        var regex = /<strong[^>]*>([^<]+)<\/strong>\s*:\s*([^<\n]+)/gi;
+        var match;
+        while ((match = regex.exec(html)) !== null) {
+            pairs.push({ label: match[1].trim(), value: match[2].trim() });
+        }
+        if (pairs.length === 0) return;
+
+        // Build a clean table
+        var table = document.createElement('table');
+        table.style.cssText = 'width:100%;border-collapse:collapse;font-size:12px;margin:4px 0;';
+        pairs.forEach(function(p) {
+            var tr = document.createElement('tr');
+            var tdLabel = document.createElement('td');
+            tdLabel.style.cssText = 'padding:4px 10px 4px 0;color:#22d3ee;font-weight:600;white-space:nowrap;vertical-align:top;font-size:11.5px;';
+            tdLabel.textContent = p.label;
+            var tdValue = document.createElement('td');
+            tdValue.style.cssText = 'padding:4px 0;color:#cbd5e1;font-size:12px;';
+            tdValue.textContent = p.value;
+            tr.appendChild(tdLabel);
+            tr.appendChild(tdValue);
+            table.appendChild(tr);
+        });
+
+        td.innerHTML = '';
+        td.appendChild(table);
+    }
+
+    function transformOptionDl(dl) {
+        var dts = dl.querySelectorAll('dt');
+        var dds = dl.querySelectorAll('dd');
+        if (dts.length === 0) return;
+
+        var pairs = [];
+        for (var i = 0; i < dts.length; i++) {
+            pairs.push({
+                label: (dts[i].textContent || '').trim(),
+                value: (dds[i] ? dds[i].textContent : '').trim()
+            });
+        }
+
+        var table = document.createElement('table');
+        table.style.cssText = 'width:100%;border-collapse:collapse;font-size:12px;margin:4px 0;';
+        pairs.forEach(function(p) {
+            var tr = document.createElement('tr');
+            var tdLabel = document.createElement('td');
+            tdLabel.style.cssText = 'padding:4px 10px 4px 0;color:#22d3ee;font-weight:600;white-space:nowrap;vertical-align:top;font-size:11.5px;';
+            tdLabel.textContent = p.label;
+            var tdValue = document.createElement('td');
+            tdValue.style.cssText = 'padding:4px 0;color:#cbd5e1;font-size:12px;';
+            tdValue.textContent = p.value;
+            tr.appendChild(tdLabel);
+            tr.appendChild(tdValue);
+            table.appendChild(tr);
+        });
+
+        dl.parentNode.replaceChild(table, dl);
+    }
+
+    setTimeout(transformProductOptions, 600);
 });

@@ -750,12 +750,27 @@ body.sidebar-collapsed .admin-main {
     border-bottom: 1px solid var(--b1) !important;
     background: transparent !important;
 }
-.admin-main .content-header table {
-    display: contents !important;
+.admin-main .content-header table,
+.admin-main .content-header > table {
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
 }
-.admin-main .content-header tbody,
-.admin-main .content-header tr {
-    display: contents !important;
+.admin-main .content-header table tbody,
+.admin-main .content-header table > tbody {
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+}
+.admin-main .content-header table tr,
+.admin-main .content-header table tbody > tr {
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 12px !important;
 }
 .admin-main .content-header td {
     display: inline-flex !important;
@@ -763,19 +778,53 @@ body.sidebar-collapsed .admin-main {
     padding: 0 !important;
     border: none !important;
     background: none !important;
+    float: none !important;
 }
 .admin-main .content-header td:first-child {
-    flex: 1;
+    flex: 1 !important;
     min-width: 0;
 }
+.admin-main .content-header td + td,
 .admin-main .content-header td.content-buttons,
 .admin-main .content-header .content-buttons {
     display: inline-flex !important;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-    flex-shrink: 0;
-    white-space: normal !important;
+    align-items: center !important;
+    gap: 8px !important;
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+    float: none !important;
+    text-align: right !important;
+}
+/* Force buttons to far right even if multiple td cells */
+.admin-main .content-header td:last-child {
+    margin-left: auto !important;
+}
+/* Fix any p.content-buttons inside header */
+.admin-main .content-header p.content-buttons,
+.admin-main .content-header .content-buttons {
+    display: flex !important;
+    gap: 8px !important;
+    align-items: center !important;
+    margin-left: auto !important;
+    float: none !important;
+}
+
+/* Nuclear fix: any button inside content-header pushed far right */
+.admin-main .content-header {
+    position: relative !important;
+}
+.admin-main .content-header .scalable,
+.admin-main .content-header button,
+.admin-main .content-header .form-button {
+    position: relative !important;
+    z-index: 1 !important;
+}
+/* Override Magento's float:right that doesn't work with flex */
+.admin-main .content-header p,
+.admin-main .content-header .a-right,
+.admin-main .content-header [style*="float"],
+.admin-main .content-header td[style*="float"] {
+    float: none !important;
 }
 .admin-main .content-header h3,
 .admin-main .content-header h3.icon-head {
@@ -836,59 +885,266 @@ body.sidebar-collapsed .admin-main {
     table-layout: auto !important;
 }
 
-/* Grid header cells */
+/* ===== FUTURISTIC GRID THEME ===== */
+
+/* Grid wrapper — dark with subtle glow border */
+.admin-main .grid table,
+.admin-main .grid .data,
+.admin-main .grid {
+    background: #0a0f1a !important;
+}
+.admin-main .grid table.data {
+    border: 1px solid rgba(34,211,238,0.12) !important;
+    border-radius: 10px !important;
+    overflow: hidden !important;
+    box-shadow: 0 0 30px rgba(34,211,238,0.03), 0 4px 20px rgba(0,0,0,0.3) !important;
+}
+
+/* Grid header — glowing accent */
 .admin-main .grid th,
 .admin-main .grid tr.headings th {
-    background: var(--d4) !important;
-    color: var(--t4) !important;
-    border-bottom: 2px solid var(--b2) !important;
-    border-right: 1px solid rgba(45,63,85,0.4) !important;
-    font-weight: 700 !important;
-    padding: 10px 12px !important;
+    background: rgba(34,211,238,0.04) !important;
+    color: #22d3ee !important;
+    border-bottom: 1px solid rgba(34,211,238,0.15) !important;
+    border-right: none !important;
+    font-weight: 600 !important;
+    padding: 12px 16px !important;
     text-transform: uppercase !important;
-    font-size: 11px !important;
-    letter-spacing: 0.6px !important;
+    font-size: 10px !important;
+    letter-spacing: 1.5px !important;
     white-space: nowrap !important;
+    text-shadow: 0 0 8px rgba(34,211,238,0.3) !important;
 }
 .admin-main .grid th:last-child {
     border-right: none !important;
 }
 
-/* Grid data cells */
-.admin-main .grid td {
-    padding: 10px 12px !important;
-    font-size: 13px !important;
-    border-bottom: 1px solid rgba(45,63,85,0.3) !important;
-    border-right: 1px solid rgba(45,63,85,0.2) !important;
-    line-height: 1.4 !important;
+/* Grid data cells — sleek dark rows */
+.admin-main .grid td,
+.admin-main .grid tr td,
+.admin-main .grid tr.even td,
+.admin-main .grid tr.odd td,
+.admin-main .grid tbody tr td,
+.admin-main .grid tbody tr:nth-child(even) td,
+.admin-main .grid tbody tr:nth-child(odd) td {
+    padding: 10px 16px !important;
+    font-size: 12.5px !important;
+    border-bottom: 1px solid rgba(34,211,238,0.06) !important;
+    border-right: none !important;
+    border-left: none !important;
+    line-height: 1.5 !important;
     vertical-align: middle !important;
+    color: #94a3b8 !important;
+    background: #0a0f1a !important;
+    transition: all 0.2s ease !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
 }
 .admin-main .grid td:last-child {
     border-right: none !important;
 }
+.admin-main .grid td a {
+    font-size: 12.5px !important;
+    color: #22d3ee !important;
+    text-shadow: 0 0 6px rgba(34,211,238,0.2);
+    transition: all 0.2s !important;
+}
+.admin-main .grid td a:hover {
+    color: #67e8f9 !important;
+    text-shadow: 0 0 12px rgba(34,211,238,0.4) !important;
+}
 
-/* Compact filter row */
+/* Row hover — neon glow effect */
+.admin-main .grid tr:hover td {
+    background: rgba(34,211,238,0.06) !important;
+    color: #e2e8f0 !important;
+    border-bottom-color: rgba(34,211,238,0.12) !important;
+}
+
+/* Left accent line on hover */
+.admin-main .grid tbody tr {
+    position: relative;
+}
+.admin-main .grid tbody tr:hover td:first-child {
+    box-shadow: inset 3px 0 0 #22d3ee !important;
+}
+
+/* Alternating rows — darker shade, no light bg */
+.admin-main .grid tbody tr:nth-child(even) td {
+    background: #0e1525 !important;
+}
+
+/* Override any Magento inline even/odd row backgrounds */
+.admin-main .grid tr[class*="even"] td {
+    background: #0e1525 !important;
+    color: #94a3b8 !important;
+}
+.admin-main .grid tr[class*="odd"] td {
+    background: #0a0f1a !important;
+    color: #94a3b8 !important;
+}
+
+/* Checkbox column hidden via JS (removeCheckboxColumn function) */
+
+/* Mass action bar — hidden (actions moved to per-row dropdowns via JS) */
+.admin-main .grid .massaction,
+.admin-main .massaction {
+    display: none !important;
+}
+
+/* Per-row action dropdown */
+.row-action-wrap { position: relative; display: inline-block; }
+.row-action-btn {
+    background: #1e293b !important; border: 1px solid #334155 !important; color: #cbd5e1 !important;
+    padding: 4px 10px !important; border-radius: 6px !important; font-size: 11px !important;
+    cursor: pointer !important; display: inline-flex; align-items: center; gap: 4px;
+    background-image: none !important; box-shadow: none !important; text-shadow: none !important;
+    line-height: normal !important; height: auto !important;
+}
+.row-action-btn:hover { background: #334155 !important; color: #fff !important; }
+.row-action-menu {
+    display: none; position: absolute; right: 0; top: 100%; margin-top: 4px;
+    background: #1e293b; border: 1px solid #334155; border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.4); z-index: 100; min-width: 180px; padding: 4px;
+}
+.row-action-wrap.open .row-action-menu { display: block; }
+.row-action-item {
+    display: block; padding: 7px 12px; color: #cbd5e1; font-size: 12px;
+    text-decoration: none; border-radius: 5px; cursor: pointer; white-space: nowrap;
+}
+.row-action-item:hover { background: #334155; color: #fff; }
+
+/* Grid wrapper / container — force dark bg on everything outside the table */
+.admin-main .grid,
+.admin-main .grid-container,
+.admin-main .box,
+.admin-main .entry-edit,
+.admin-main .entry-edit-head,
+.admin-main #sales_order_grid,
+.admin-main #sales_order_grid_table,
+.admin-main [id$="_grid"],
+.admin-main [id$="_grid"] .grid,
+.admin-main .content-header,
+.admin-main .grid .hor-scroll,
+.admin-main .grid > table {
+    background: #0f172a !important;
+    background-color: #0f172a !important;
+}
+
+/* Remove any white/light borders around grid sections */
+.admin-main .box,
+.admin-main .entry-edit {
+    border-color: #1e293b !important;
+}
+
+/* Grid heading row bar — match dark bg */
+.admin-main .grid .actions,
+.admin-main .grid .filter,
+.admin-main .grid .headings,
+.admin-main .hor-scroll {
+    background: #0f172a !important;
+}
+
+/* Select Visible / Unselect links + items selected text */
+.admin-main .massaction a {
+    color: #60a5fa !important;
+}
+.admin-main .massaction span {
+    color: #cbd5e1 !important;
+}
+
+/* File input — futuristic styled */
+.admin-main input[type="file"] {
+    position: relative !important;
+    color: transparent !important;
+    width: 220px !important;
+}
+.admin-main input[type="file"]::file-selector-button {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
+    border: 1px solid rgba(34,211,238,0.25) !important;
+    color: #22d3ee !important;
+    padding: 10px 20px !important;
+    border-radius: 8px !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    transition: all 0.25s ease !important;
+    letter-spacing: 0.5px !important;
+    box-shadow: 0 0 12px rgba(34,211,238,0.06), inset 0 1px 0 rgba(255,255,255,0.04) !important;
+    text-shadow: 0 0 8px rgba(34,211,238,0.3) !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+}
+.admin-main input[type="file"]::file-selector-button:hover {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%) !important;
+    border-color: rgba(34,211,238,0.5) !important;
+    box-shadow: 0 0 20px rgba(34,211,238,0.12), inset 0 1px 0 rgba(255,255,255,0.06) !important;
+    color: #67e8f9 !important;
+}
+.admin-main input[type="file"]::after {
+    content: '' !important;
+    color: #64748b !important;
+    font-size: 12px !important;
+}
+
+/* Order detail — product options as clean structured rows */
+.admin-main .order-tables dl.item-options dt {
+    color: #22d3ee !important;
+    font-size: 11.5px !important;
+    font-weight: 600 !important;
+}
+.admin-main .order-tables dl.item-options dd {
+    color: #cbd5e1 !important;
+    font-size: 12px !important;
+    margin-bottom: 6px !important;
+}
+/* Separator between order items */
+.admin-main .order-tables .border td {
+    border-top: 1px solid rgba(34,211,238,0.08) !important;
+}
+
+/* Filter row — futuristic */
 .admin-main .grid tr.filter td {
-    background: var(--d4) !important;
-    padding: 6px 8px !important;
-    border-bottom: 2px solid var(--b2) !important;
+    background: rgba(34,211,238,0.02) !important;
+    padding: 8px 10px !important;
+    border-bottom: 1px solid rgba(34,211,238,0.1) !important;
 }
 .admin-main .grid tr.filter input,
 .admin-main .grid tr.filter select {
-    min-height: 32px !important;
-    padding: 4px 8px !important;
-    font-size: 12px !important;
+    min-height: 30px !important;
+    padding: 4px 10px !important;
+    font-size: 11.5px !important;
     border-radius: 6px !important;
     width: 100% !important;
     box-sizing: border-box !important;
+    background: #0a0f1a !important;
+    border: 1px solid rgba(34,211,238,0.12) !important;
+    color: #cbd5e1 !important;
+    transition: border-color 0.2s !important;
+}
+.admin-main .grid tr.filter input:focus,
+.admin-main .grid tr.filter select:focus {
+    border-color: rgba(34,211,238,0.4) !important;
+    box-shadow: 0 0 8px rgba(34,211,238,0.1) !important;
+    outline: none !important;
 }
 .admin-main .grid tr.filter .range input {
     width: 100% !important;
-    margin-bottom: 4px;
+    margin-bottom: 3px;
 }
 .admin-main .grid tr.filter .range .label {
     font-size: 9px !important;
     margin-bottom: 2px !important;
+    color: #64748b !important;
+}
+
+/* Page title — futuristic glow */
+.admin-main .content-header h3,
+.admin-main .content-header .head-products,
+.admin-main .content-header .head-sales-order,
+.admin-main .content-header .head-customer {
+    font-size: 26px !important;
+    font-weight: 700 !important;
+    color: #f1f5f9 !important;
+    text-shadow: 0 0 20px rgba(34,211,238,0.15) !important;
 }
 
 /* Grid thumbnails — compact rectangular */
