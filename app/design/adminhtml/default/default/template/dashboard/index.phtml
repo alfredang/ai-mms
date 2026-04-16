@@ -1155,8 +1155,6 @@ a.lmc-card,a.lmc-card:hover,a.lmc-card:focus,a.lmc-card:active{text-decoration:n
                 <button type="button" class="lmc-view-btn active" data-view="grid" title="Grid view" onclick="lmcSetView('grid',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></button>
                 <button type="button" class="lmc-view-btn" data-view="list" title="List view" onclick="lmcSetView('list',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></button>
             </div>
-            <button type="button" class="lmc-link-btn" onclick="document.getElementById('lmc-search').value='';lmcSearch('');">Reset</button>
-            <button type="button" class="lmc-link-btn">Show Filters</button>
         </div>
 
         <?php if (empty($_learnerCourses)): ?>
@@ -1237,6 +1235,7 @@ a.lmc-card,a.lmc-card:hover,a.lmc-card:focus,a.lmc-card:active{text-decoration:n
             <?php endforeach; ?>
         </div>
         <?php endif; ?>
+        <div style="text-align:center;padding:18px 20px;margin:20px -24px 0;background:#111827;border-top:1px solid #1e293b;color:#64748b;font-size:13px;">Powered by <strong style="color:#cbd5e1;">Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y') ?></div>
     </div>
 <script type="text/javascript">
 function lmcFilter(type, btn) {
