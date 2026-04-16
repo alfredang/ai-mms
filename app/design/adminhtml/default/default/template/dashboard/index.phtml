@@ -378,11 +378,47 @@ if ($_loggedInEmail) {
 $_selectedCourseId = (int) Mage::app()->getRequest()->getParam('course_id');
 $_selectedCourse = null;
 if ($_selectedCourseId) {
+    // First check learner courses
     foreach ($_learnerCourses as $_c) {
         if ((int)$_c['id'] === $_selectedCourseId) {
             $_selectedCourse = $_c;
             break;
         }
+    }
+    // If not found (e.g. Admin/Super Admin view), load product directly
+    if (!$_selectedCourse) {
+        try {
+            $_prod = Mage::getModel('catalog/product')->load($_selectedCourseId);
+            if ($_prod->getId()) {
+                $_pName = $_prod->getName();
+                $_pSku  = $_prod->getSku();
+                $_pStart = $_prod->getData('news_from_date');
+                $_pEnd   = $_prod->getData('news_to_date');
+                $_pStatus = ((int)$_prod->getStatus() === 1) ? 'Confirmed' : 'Pending';
+                $_pImg = '';
+                $_courseImgUrl = trim((string) $_prod->getData('course_image_url'));
+                if ($_courseImgUrl !== '') {
+                    $_pImg = $_courseImgUrl;
+                } elseif ($_prod->getImage() && $_prod->getImage() !== 'no_selection') {
+                    try { $_pImg = (string) Mage::helper('catalog/image')->init($_prod, 'image')->resize(400, 250); } catch (Exception $e) {}
+                }
+                // Determine software/class type
+                $_swAttr = $_prod->getAttributeText('software');
+                $_selectedCourse = array(
+                    'id'          => $_selectedCourseId,
+                    'name'        => $_pName ?: '(No Name)',
+                    'sku'         => $_pSku,
+                    'start_date'  => $_pStart ? date('j M Y', strtotime($_pStart)) : '—',
+                    'end_date'    => $_pEnd ? date('j M Y', strtotime($_pEnd)) : '—',
+                    'status'      => $_pStatus,
+                    'time_status' => 'current',
+                    'image'       => $_pImg,
+                    'order_state' => 'complete',
+                    'detail_url'  => '',
+                    'class_type'  => $_swAttr ?: '',
+                );
+            }
+        } catch (Exception $e) {}
     }
 }
 $_backUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard');
@@ -525,13 +561,14 @@ body.adminhtml-dashboard-index .main-col-inner{padding-top:0 !important;margin-t
                     elseif (empty($row['start_date'])) { $slbl = 'Pending';   $scls = 'badge-pending'; }
                     else                           { $slbl = 'Confirmed'; $scls = 'badge-confirmed'; }
                     $eurl  = Mage::helper('adminhtml')->getUrl('adminhtml/catalog_product/edit', array('id' => $row['run_id']));
+                    $viewUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id' => $row['run_id']));
                     $ttl   = htmlspecialchars($row['course_title'] ?: '(No Name)');
                     $rcode = htmlspecialchars($row['ref_code']);
                     $sraw  = $row['start_date'] ? date('Y-m-d', strtotime($row['start_date'])) : '';
                 ?>
                 <tr data-title="<?php echo strtolower($ttl) ?>" data-ref="<?php echo strtolower($rcode) ?>" data-type="<?php echo htmlspecialchars($tlbl) ?>" data-status="<?php echo $slbl ?>" data-start="<?php echo $sraw ?>">
                     <td class="run-id"><?php echo (int)$row['run_id'] ?></td>
-                    <td><a href="<?php echo $eurl ?>" class="dash-course-link"><?php echo $ttl ?></a></td>
+                    <td><a href="#" class="dash-course-link" onclick="event.preventDefault();var p=window._dashPage||1;window.location.href='<?php echo $viewUrl ?>from_page/'+p+'/';"><?php echo $ttl ?></a> <a href="<?php echo $eurl ?>" title="Edit in Magento" style="color:#64748b;text-decoration:none;margin-left:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></a></td>
                     <td><?php echo $rcode ?></td>
                     <td><span class="dash-badge <?php echo $tcls ?>"><?php echo htmlspecialchars($tlbl) ?></span></td>
                     <td><?php echo $sFmt ?></td>
@@ -990,7 +1027,8 @@ $_courseRefCode = 'TGS-' . (2024000000 + ((int)$_selectedCourse['id']) * 17);
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
         Course Menu
     </button>
-    <a href="<?php echo $_backUrl ?>" class="lcd-back">
+    <?php $_fromPage = (int) Mage::app()->getRequest()->getParam('from_page'); ?>
+    <a href="<?php echo $_backUrl ?><?php echo $_fromPage > 1 ? '#page' . $_fromPage : '' ?>" class="lcd-back">
         Back to Dashboard
     </a>
 
@@ -2570,6 +2608,17 @@ window.dashRenderPager = function(pages) {
     var si=document.getElementById('dashSearch');
     if(si) si.addEventListener('input', function(){ window.dashFilter(); });
     if (typeof window.dashFilter === 'function') window.dashFilter();
+
+    // Restore page from URL hash (e.g. #page3)
+    try {
+        var hash = window.location.hash;
+        var m = hash.match(/^#page(\d+)$/);
+        if (m && parseInt(m[1],10) > 1) {
+            window._dashPage = parseInt(m[1],10);
+            if (typeof window.dashRenderPage === 'function') window.dashRenderPage();
+            history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
+    } catch(e) {}
 })();
 
 // ===== Trainers panel: search + pagination =====
