@@ -14,6 +14,12 @@ class Infortis_Infortis_Helper_Image extends Mage_Core_Helper_Abstract
 	 */
 	public function getImg($product, $w, $h, $imgVersion='image', $file=NULL)
 	{
+		// If course_image_url is set, use it directly (external URL)
+		$courseImgUrl = trim((string) $product->getData('course_image_url'));
+		if ($courseImgUrl !== '') {
+			return $courseImgUrl;
+		}
+
 		$url = '';
 		if ($h <= 0)
 		{
