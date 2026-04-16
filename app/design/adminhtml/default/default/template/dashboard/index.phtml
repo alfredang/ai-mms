@@ -766,32 +766,42 @@ body.adminhtml-dashboard-index .main-col-inner{padding-top:0 !important;margin-t
 <?php /* ===== COURSE DETAIL (shown when ?course_id=<id> in URL) ===== */ ?>
 <?php if ($_selectedCourse): ?>
 <style>
-.lcd-wrap{padding:0;max-width:1100px;margin:0 auto}
-.lcd-menu-btn{display:block;width:100%;background:#3b82f6;color:#fff;border:none;border-radius:10px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:16px;display:flex;align-items:center;justify-content:center;gap:10px}
-.lcd-menu-btn:hover{background:#2563eb}
-.lcd-back{display:inline-flex;align-items:center;gap:8px;background:#334155;color:#e5e7eb;text-decoration:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:500;margin-bottom:20px}
-.lcd-back:hover{background:#475569;color:#fff}
+.lcd-wrap{padding:0;max-width:1600px;margin:0 auto}
+.lcd-two-col{display:flex;gap:24px;align-items:flex-start}
+/* Default (100% zoom / normal width): sidebar hidden, button visible */
+.lcd-sidebar-details{display:none;width:280px;min-width:280px;flex-shrink:0;background:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px;position:sticky;top:70px;max-height:calc(100vh - 90px);overflow-y:auto}
+.lcd-main-content{flex:1;min-width:0}
+button.lcd-menu-btn.lcd-mobile-only{display:flex !important}
+/* When zoomed out (90% or less = wider viewport): sidebar visible, button hidden */
+@media(min-width:1450px){
+    .lcd-sidebar-details{display:block}
+    button.lcd-menu-btn.lcd-mobile-only{display:none !important}
+}
+button.lcd-menu-btn,button.lcd-menu-btn:hover,button.lcd-menu-btn:focus,button.lcd-menu-btn:active{display:flex !important;width:100% !important;background:#5bb8c9 !important;background-image:none !important;color:#fff !important;border:none !important;border-radius:10px !important;padding:14px !important;font-size:15px !important;font-weight:700 !important;cursor:pointer !important;margin-bottom:16px !important;align-items:center !important;justify-content:center !important;gap:10px !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
+button.lcd-menu-btn:hover{background:#4da8b9 !important}
+.lcd-back{display:inline-block;background:#334155;color:#fff !important;text-decoration:none !important;border-radius:10px;padding:12px 24px;font-size:15px;font-weight:600;margin-bottom:20px;border:none}
+.lcd-back:hover{background:#475569;color:#fff !important}
 .lcd-section{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:22px 24px;margin-bottom:16px}
 .lcd-section-title{font-size:18px;font-weight:700;color:#fff;margin:0 0 14px;display:flex;align-items:center;justify-content:space-between}
 .lcd-section-title .lcd-caret{color:#60a5fa;cursor:pointer;transition:transform .2s}
-.lcd-tile{display:flex;align-items:center;gap:14px;background:#334155;border:1px solid #475569;border-radius:10px;padding:14px 16px;text-decoration:none !important;color:#e5e7eb;margin-bottom:8px;transition:background .15s}
-.lcd-tile:not(.lcd-tile-static):hover{background:#3f4d66;color:#fff}
-.lcd-tile-static{cursor:default}
+.lcd-tile{display:flex;align-items:center;gap:14px;background:#334155;border:1px solid #475569;border-radius:10px;padding:14px 16px;text-decoration:none !important;color:#e5e7eb;margin-bottom:8px;transition:background .15s;cursor:pointer}
+.lcd-tile:hover{background:#64748b !important;color:#fff}
 .lcd-tile svg{flex-shrink:0}
 .lcd-tile-body{flex:1}
 .lcd-tile-title{font-size:15px;font-weight:700;color:#fff}
 .lcd-tile-sub{font-size:12px;color:#94a3b8;margin-top:2px}
-.lcd-topic{background:#334155;border:1px solid #475569;border-radius:10px;padding:16px 18px;margin-bottom:10px}
-.lcd-topic-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
-.lcd-topic-title{font-size:15px;font-weight:700;color:#fff}
-.lcd-topic-caret{color:#94a3b8}
-.lcd-progress-row{display:flex;align-items:center;gap:14px}
-.lcd-progress-pct{font-size:13px;font-weight:700;color:#22c55e;flex-shrink:0;min-width:40px}
-.lcd-progress-bar{flex:1;height:8px;background:#0f172a;border-radius:4px;overflow:hidden}
-.lcd-progress-fill{height:100%;background:#22c55e;transition:width .3s}
-.lcd-mark-btn{background:#475569;color:#e5e7eb;border:none;border-radius:6px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0}
-.lcd-mark-btn:hover{background:#64748b;color:#fff}
-.lcd-empty-box{background:#334155;border:2px dashed #475569;border-radius:10px;padding:40px 20px;text-align:center;color:#94a3b8}
+.lcd-topic{background:transparent;border:none;border-bottom:1px solid #1e293b;padding:20px 0;margin-bottom:0}
+.lcd-topic:last-child{border-bottom:none}
+.lcd-topic-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.lcd-topic-title{font-size:16px;font-weight:700;color:#f1f5f9}
+.lcd-topic-caret{color:#475569}
+.lcd-progress-row{display:flex;align-items:center;gap:16px}
+.lcd-progress-pct{font-size:14px;font-weight:700;color:#22c55e;flex-shrink:0;min-width:36px}
+.lcd-progress-bar{flex:1;height:6px;background:#334155;border-radius:3px;overflow:hidden}
+.lcd-progress-fill{height:100%;background:#22c55e;border-radius:3px;transition:width .3s}
+button.lcd-mark-btn,button.lcd-mark-btn:hover,button.lcd-mark-btn:focus,button.lcd-mark-btn:active{background:#1e293b !important;background-image:none !important;color:#cbd5e1 !important;border:1px solid #334155 !important;border-radius:8px !important;padding:8px 18px !important;font-size:14px !important;font-weight:500 !important;cursor:pointer !important;flex-shrink:0;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
+button.lcd-mark-btn:hover{background:#334155 !important;color:#fff !important}
+.lcd-empty-box{background:transparent;border:1px dashed #475569;border-radius:10px;padding:40px 20px;text-align:center;color:#94a3b8}
 .lcd-empty-box svg{margin-bottom:10px}
 .lcd-empty-title{font-size:14px;font-weight:700;color:#cbd5e1}
 .lcd-cert-box{background:#334155;border:1px solid #475569;border-radius:10px;padding:30px 20px;text-align:center;color:#94a3b8}
@@ -940,13 +950,47 @@ $_courseRefCode = 'TGS-' . (2024000000 + ((int)$_selectedCourse['id']) * 17);
     </div>
 </aside>
 
-<div class="lcd-wrap">
-    <button type="button" class="lcd-menu-btn" onclick="lcdOpenDrawer()">
+<div class="lcd-wrap lcd-two-col">
+    <!-- Left sidebar: Course Details + Nav (visible on wide screens) -->
+    <div class="lcd-sidebar-details">
+        <h3 style="font-size:16px;font-weight:700;color:#fff;margin:0 0 12px;">Course Details</h3>
+        <div class="lcd-detail-row"><span class="lcd-detail-label">Course Title</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['name']) ?></span></div>
+        <div class="lcd-detail-row"><span class="lcd-detail-label">Course Ref Code</span><span class="lcd-detail-value"><?php echo $_courseRefCode ?></span></div>
+        <div class="lcd-detail-row"><span class="lcd-detail-label">TSC Title</span><span class="lcd-detail-value">Security Assessment and Testing</span></div>
+        <div class="lcd-detail-row"><span class="lcd-detail-label">TSC Code</span><span class="lcd-detail-value">ICT-DIT-4012-1.1</span></div>
+        <div class="lcd-detail-row"><span class="lcd-detail-label">Funding Validity</span><span class="lcd-detail-value" style="color:#22c55e">21 Apr 2026 (Valid)</span></div>
+        <div class="lcd-detail-row"><span class="lcd-detail-label">Course Run ID</span><span class="lcd-detail-value"><?php echo $_courseRunId ?></span></div>
+        <div class="lcd-detail-row"><span class="lcd-detail-label">Digital Attendance ID</span><span class="lcd-detail-value"><?php echo $_digitalAttId ?></span></div>
+        <div class="lcd-detail-row"><span class="lcd-detail-label">Start Date</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['start_date']) ?></span></div>
+        <div class="lcd-detail-row"><span class="lcd-detail-label">End Date</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['end_date']) ?></span></div>
+        <div class="lcd-detail-row"><span class="lcd-detail-label">Class Type</span><span class="lcd-badge lcd-badge-virtual">Virtual</span></div>
+        <div class="lcd-detail-row"><span class="lcd-detail-label">Class Status</span><span class="lcd-badge lcd-badge-<?php echo strtolower($_selectedCourse['status']) ?>"><?php echo htmlspecialchars($_selectedCourse['status']) ?></span></div>
+        <div style="padding:10px 0 0;margin:6px 0 0;">
+            <div style="font-size:14px;font-weight:700;color:#fff;margin:0 0 6px;">Course Duration</div>
+            <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;color:#cbd5e1;"><span>Training Hours:</span><strong style="color:#fff">37</strong></div>
+            <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;color:#cbd5e1;"><span>Assessment Hours:</span><strong style="color:#fff">3</strong></div>
+            <div style="height:1px;background:#1e293b;margin:4px 0;"></div>
+            <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:13px;color:#fff;font-weight:700;"><span>Total Duration:</span><strong>40</strong></div>
+        </div>
+        <nav style="margin-top:14px;padding-top:14px;border-top:1px solid #1e293b;display:flex;flex-direction:column;gap:2px;">
+            <a href="#lesson-plan" class="lcd-nav-item" onclick="return lcdNavTo(this,'lesson-plan')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>Lesson Plan</span></a>
+            <a href="#learner-guide" class="lcd-nav-item" onclick="return lcdNavTo(this,'learner-guide')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Learner Guide</span></a>
+            <a href="#learner-slides" class="lcd-nav-item" onclick="return lcdNavTo(this,'learner-slides')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/></svg><span>Learner Slides</span></a>
+            <a href="#learning-outcomes" class="lcd-nav-item active" onclick="return lcdNavTo(this,'learning-outcomes')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>Learning Outcomes</span></a>
+            <a href="#traqom-survey" class="lcd-nav-item" onclick="return lcdNavTo(this,'traqom-survey')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg><span>TRAQOM Survey</span></a>
+            <a href="#assessment" class="lcd-nav-item" onclick="return lcdNavTo(this,'assessment')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h4"/><path d="M15 15h4a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-4"/></svg><span>Assessment</span></a>
+            <a href="#additional-documents" class="lcd-nav-item" onclick="return lcdNavTo(this,'additional-documents')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Additional Documents</span></a>
+            <a href="#certificate" class="lcd-nav-item" onclick="return lcdNavTo(this,'certificate')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><circle cx="12" cy="15" r="2"/></svg><span>Certificate</span></a>
+        </nav>
+    </div>
+
+    <!-- Right column: Course content -->
+    <div class="lcd-main-content">
+    <button type="button" class="lcd-menu-btn lcd-mobile-only" onclick="lcdOpenDrawer()">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
         Course Menu
     </button>
     <a href="<?php echo $_backUrl ?>" class="lcd-back">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
         Back to Dashboard
     </a>
 
@@ -995,7 +1039,7 @@ $_courseRefCode = 'TGS-' . (2024000000 + ((int)$_selectedCourse['id']) * 17);
     </div>
 
     <div class="lcd-section" id="learning-outcomes">
-        <div class="lcd-section-title">Learning Outcomes <svg class="lcd-caret" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg></div>
+        <div class="lcd-section-title" style="padding-bottom:14px;border-bottom:2px solid #22d3ee;margin-bottom:4px;">Learning Outcomes <svg class="lcd-caret" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg></div>
         <?php
         $_topics = array(
             'Topic 1: Planning and Scoping',
@@ -1020,7 +1064,50 @@ $_courseRefCode = 'TGS-' . (2024000000 + ((int)$_selectedCourse['id']) * 17);
     </div>
 
     <div class="lcd-section" id="traqom-survey">
-        <div class="lcd-section-title">Certificate &amp; TRAQOM Survey <svg class="lcd-caret" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></div>
+        <div class="lcd-section-title" style="cursor:pointer" onclick="var c=this.nextElementSibling;c.style.display=c.style.display==='none'?'':'none';this.querySelector('.lcd-caret').style.transform=c.style.display==='none'?'':'rotate(180deg)'">Certificate &amp; TRAQOM Survey <svg class="lcd-caret" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition:transform .2s"><polyline points="6 9 12 15 18 9"/></svg></div>
+        <div class="lcd-qr-content" style="display:none">
+            <?php $_certUrl = 'https://example.com/certificate-demo'; $_traqomUrl = 'https://example.com/traqom-survey-demo'; ?>
+            <div style="display:flex;gap:20px;flex-wrap:wrap;margin-top:16px;">
+                <!-- Certificate Delivery -->
+                <div style="flex:1;min-width:280px;background:#1e293b;border:1px solid #334155;border-radius:12px;overflow:hidden;">
+                    <div style="background:#2563eb;padding:12px 16px;display:flex;align-items:center;gap:10px;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        <span style="color:#fff;font-size:14px;font-weight:700;">Certificate Delivery</span>
+                    </div>
+                    <div style="padding:20px;text-align:center;">
+                        <div style="background:#fff;border-radius:8px;padding:12px;display:inline-block;margin-bottom:14px;">
+                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=<?php echo urlencode($_certUrl) ?>" alt="Certificate QR" width="160" height="160" style="display:block;" />
+                        </div>
+                        <div style="color:#cbd5e1;font-size:13px;margin-bottom:14px;">Scan to receive your certificate</div>
+                        <div style="color:#94a3b8;font-size:12px;word-break:break-all;margin-bottom:14px;"><?php echo htmlspecialchars($_certUrl) ?></div>
+                        <div style="display:flex;gap:8px;">
+                            <a href="#" onclick="return false;" style="flex:1;display:block;background:#2563eb;color:#fff !important;text-decoration:none !important;padding:10px;border-radius:8px;font-size:13px;font-weight:600;text-align:center;cursor:default;">Open Link</a>
+                            <button type="button" onclick="navigator.clipboard.writeText('<?php echo $_certUrl ?>')" style="background:#334155 !important;background-image:none !important;color:#e2e8f0 !important;border:1px solid #475569 !important;border-radius:8px !important;padding:10px 16px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;">Copy</button>
+                        </div>
+                        <div style="color:#94a3b8;font-size:12px;margin-top:14px;">Course Ref: <strong style="color:#fff;"><?php echo $_courseRefCode ?></strong></div>
+                    </div>
+                </div>
+                <!-- TRAQOM Survey -->
+                <div style="flex:1;min-width:280px;background:#1e293b;border:1px solid #334155;border-radius:12px;overflow:hidden;">
+                    <div style="background:#0d9488;padding:12px 16px;display:flex;align-items:center;gap:10px;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        <span style="color:#fff;font-size:14px;font-weight:700;">TRAQOM Survey</span>
+                    </div>
+                    <div style="padding:20px;text-align:center;">
+                        <div style="background:#fff;border-radius:8px;padding:12px;display:inline-block;margin-bottom:14px;">
+                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=<?php echo urlencode($_traqomUrl) ?>" alt="TRAQOM QR" width="160" height="160" style="display:block;" />
+                        </div>
+                        <div style="color:#cbd5e1;font-size:13px;margin-bottom:14px;">Your feedback helps us improve</div>
+                        <div style="color:#94a3b8;font-size:12px;word-break:break-all;margin-bottom:14px;"><?php echo htmlspecialchars($_traqomUrl) ?></div>
+                        <div style="display:flex;gap:8px;">
+                            <a href="#" onclick="return false;" style="flex:1;display:block;background:#0d9488;color:#fff !important;text-decoration:none !important;padding:10px;border-radius:8px;font-size:13px;font-weight:600;text-align:center;cursor:default;">Open Link</a>
+                            <button type="button" onclick="navigator.clipboard.writeText('<?php echo $_traqomUrl ?>')" style="background:#334155 !important;background-image:none !important;color:#e2e8f0 !important;border:1px solid #475569 !important;border-radius:8px !important;padding:10px 16px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;">Copy</button>
+                        </div>
+                        <div style="color:#94a3b8;font-size:12px;margin-top:14px;">Course Run ID: <strong style="color:#fff;"><?php echo $_courseRunId ?></strong></div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div class="lcd-section" id="assessment">
@@ -1045,8 +1132,9 @@ $_courseRefCode = 'TGS-' . (2024000000 + ((int)$_selectedCourse['id']) * 17);
     </div>
 
     <div class="lcd-footer">Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> © <?php echo date('Y') ?></div>
-</div>
-</div>
+    </div><!-- end lcd-main-content -->
+</div><!-- end lcd-wrap -->
+</div><!-- end dash-panel-course-detail -->
 <?php endif; ?>
 
 <?php /* ===== PANEL 4: Learner My Classes ===== */ ?>
@@ -1064,11 +1152,11 @@ button.lmc-tab,button.lmc-tab:hover,button.lmc-tab:focus,button.lmc-tab:active{p
 button.lmc-tab:hover{color:#fff !important;background:rgba(51,65,85,.6) !important}
 button.lmc-tab.active{background:rgba(59,130,246,.15) !important;color:#93c5fd !important;box-shadow:none !important}
 .lmc-search{display:flex;align-items:center;gap:12px;margin-bottom:16px;position:relative}
-.lmc-search-input-wrap{position:relative;flex:1}
-.lmc-search input{width:100%;padding:11px 16px 11px 40px;background:#1e293b;border:1px solid #334155;border-radius:10px;color:#f1f5f9;font-size:14px;outline:none;box-sizing:border-box}
+.lmc-search-input-wrap{position:relative !important;flex:1}
+.lmc-search input{width:100% !important;padding:11px 16px 11px 42px !important;background:#1e293b !important;border:1px solid #334155 !important;border-radius:10px !important;color:#f1f5f9 !important;font-size:14px !important;outline:none !important;box-sizing:border-box !important}
 .lmc-search input:focus{border-color:transparent;box-shadow:0 0 0 2px #2563eb}
 .lmc-search input::placeholder{color:#6b7280}
-.lmc-search-input-wrap>svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#6b7280;pointer-events:none}
+.lmc-search-input-wrap>svg{position:absolute !important;left:14px !important;top:50% !important;transform:translateY(-50%) !important;color:#6b7280 !important;pointer-events:none !important;z-index:2 !important;width:16px !important;height:16px !important}
 .lmc-view-toggle{display:inline-flex !important;border:1px solid #374151 !important;border-radius:6px !important;overflow:hidden;background:#1f2937}
 button.lmc-view-btn,button.lmc-view-btn:hover,button.lmc-view-btn:focus,button.lmc-view-btn:active{width:28px !important;height:28px !important;min-width:28px !important;display:inline-flex !important;align-items:center !important;justify-content:center !important;background:transparent !important;background-image:none !important;border:none !important;border-radius:0 !important;color:#9ca3af !important;cursor:pointer !important;padding:0 !important;box-shadow:none !important;text-shadow:none !important;line-height:1 !important;font-size:0 !important;text-transform:none !important}
 button.lmc-view-btn.active{background:#374151 !important;color:#fff !important}
@@ -1154,7 +1242,7 @@ a.lmc-card,a.lmc-card:hover,a.lmc-card:focus,a.lmc-card:active{text-decoration:n
         <div class="lmc-search">
             <div class="lmc-search-input-wrap">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                <input type="text" id="lmc-search" placeholder="Search by course code, title, or run ID..." oninput="lmcSearch(this.value)" />
+                <input type="text" id="lmc-search" placeholder="Search by course code, title, or run ID..." oninput="lmcSearch(this.value)" style="padding-left:42px !important;" />
             </div>
             <div class="lmc-view-toggle">
                 <button type="button" class="lmc-view-btn active" data-view="grid" title="Grid view" onclick="lmcSetView('grid',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></button>
@@ -1240,7 +1328,7 @@ a.lmc-card,a.lmc-card:hover,a.lmc-card:focus,a.lmc-card:active{text-decoration:n
             <?php endforeach; ?>
         </div>
         <?php endif; ?>
-        <div style="text-align:center;padding:18px 20px;margin:20px -24px 0;background:#111827;border-top:1px solid #1e293b;color:#64748b;font-size:13px;">Powered by <strong style="color:#cbd5e1;">Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y') ?></div>
+        <div style="text-align:center;padding:18px 20px;margin:20px -24px 0;background:#111827;border-top:1px solid #1e293b;color:#94a3b8;font-size:13px;">Powered by <strong style="color:#f1f5f9;">Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y') ?></div>
     </div>
 <script type="text/javascript">
 function lmcFilter(type, btn) {
