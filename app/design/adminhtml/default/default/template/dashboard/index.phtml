@@ -771,16 +771,42 @@ $_devUnfundedTotal = $_devTotalAll - $_devTotalWsq - $_devTotalIbf;
 .dev-card-img-placeholder{width:100%;aspect-ratio:16/9;background:linear-gradient(135deg,#1e3a5f,#0f172a);display:flex;align-items:center;justify-content:center;color:#334155}
 .dev-card-body{padding:16px;flex:1}
 .dev-card-title{font-size:15px;font-weight:700;color:#fff;margin:0 0 12px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.dev-card-row{display:flex;justify-content:space-between;align-items:flex-start;padding:4px 0;font-size:12px}
+.dev-card-row{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;font-size:12px;border-bottom:1px solid rgba(255,255,255,.04)}
+.dev-card-row:last-child{border-bottom:none}
 .dev-card-lbl{color:#94a3b8}
 .dev-card-val{color:#e2e8f0;font-weight:600;text-align:right}
+.dev-card-duration-sub{font-size:10px;color:#64748b;font-weight:400}
 .dev-badge{padding:2px 10px;border-radius:5px;font-size:11px;font-weight:600}
 .dev-badge-wsq{background:rgba(236,72,153,.15);color:#f472b6;border:1px solid rgba(236,72,153,.3)}
 .dev-badge-ibf{background:rgba(59,130,246,.15);color:#93c5fd;border:1px solid rgba(59,130,246,.3)}
-.dev-card-footer{padding:12px 16px;border-top:1px solid rgba(255,255,255,.08);display:flex;gap:8px}
-.dev-card-footer a,.dev-card-footer button{flex:1;padding:8px;border-radius:8px;font-size:13px;font-weight:600;text-align:center;cursor:pointer;text-decoration:none !important}
-.dev-view-btn{background:#2563eb !important;color:#fff !important;border:none !important;background-image:none !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
-.dev-edit-btn{background:transparent !important;color:#94a3b8 !important;border:1px solid #475569 !important;background-image:none !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
+.dev-card-footer{padding:12px 16px;border-top:1px solid rgba(255,255,255,.08);display:flex;gap:8px;align-items:center}
+.dev-view-btn{flex:1;padding:10px;border-radius:8px;font-size:13px;font-weight:600;text-align:center;cursor:pointer;text-decoration:none !important;background:#0d9488 !important;color:#fff !important;border:none !important;background-image:none !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
+.dev-view-btn:hover{background:#0f766e !important}
+.dev-edit-btn{padding:10px 12px;font-size:12px;font-weight:600;cursor:pointer;text-decoration:none !important;background:transparent !important;color:#94a3b8 !important;border:none !important;background-image:none !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;display:inline-flex !important;align-items:center !important;gap:5px !important;white-space:nowrap}
+.dev-edit-btn:hover{color:#fff !important}
+/* List view */
+.dev-list-header{display:none;grid-template-columns:2fr 100px 100px 200px;gap:12px;padding:10px 16px;font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #334155;margin-bottom:4px}
+.dev-grid.dev-grid-list{grid-template-columns:1fr;gap:0}
+.dev-grid.dev-grid-list+.x{} /* placeholder */
+.dev-grid.dev-grid-list .dev-card{flex-direction:row;border-radius:0;border-left:none;border-right:none;border-top:none;border-bottom:1px solid #1e293b}
+.dev-grid.dev-grid-list .dev-card:first-child{border-radius:12px 12px 0 0}
+.dev-grid.dev-grid-list .dev-card:last-child{border-radius:0 0 12px 12px;border-bottom:1px solid #334155}
+.dev-grid.dev-grid-list .dev-card-img-wrap{width:48px;height:48px;min-width:48px;aspect-ratio:auto;border-radius:8px;margin:12px 0 12px 16px;overflow:hidden}
+.dev-grid.dev-grid-list .dev-card-img-placeholder{aspect-ratio:auto;width:48px;height:48px}
+.dev-grid.dev-grid-list .dev-card-img-placeholder svg{width:20px;height:20px}
+.dev-grid.dev-grid-list .dev-card-body{padding:12px 16px;display:flex;align-items:center;gap:12px;flex:1}
+.dev-grid.dev-grid-list .dev-card-title{font-size:14px;margin:0;-webkit-line-clamp:1;flex:1;min-width:0}
+.dev-grid.dev-grid-list .dev-card-row{display:none}
+.dev-grid.dev-grid-list .dev-card-row.dev-card-only{display:none}
+.dev-grid.dev-grid-list .dev-card-row[data-col]{display:flex;flex-direction:column;align-items:center;gap:2px;padding:0;border:none;min-width:80px}
+.dev-grid.dev-grid-list .dev-card-footer{border:none;padding:12px 16px;align-items:center}
+.dev-grid.dev-grid-list .dev-view-btn{flex:none !important;padding:8px 18px !important;font-size:12px !important}
+.dev-grid.dev-grid-list .dev-card-duration-sub{font-size:9px}
+.dev-list-active .dev-list-header{display:grid}
+/* List view: show TGS code under title */
+.dev-card-tgs-sub{display:none;font-size:11px;color:#94a3b8;font-weight:400;margin-top:2px}
+.dev-grid.dev-grid-list .dev-card-tgs-sub{display:block}
+.dev-grid.dev-grid-list .dev-card-title{display:flex;flex-direction:column}
 @media(max-width:1024px){.dev-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:640px){.dev-grid{grid-template-columns:1fr}}
 </style>
@@ -796,31 +822,58 @@ $_devUnfundedTotal = $_devTotalAll - $_devTotalWsq - $_devTotalIbf;
         <div class="dev-search-row">
             <div class="dev-search-input-wrap">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                <input type="text" class="dev-search-input" placeholder="Search title, code, TSC..." style="padding-left:42px !important;" oninput="devSearch(this.value)" />
+                <input type="text" class="dev-search-input" placeholder="Search title, code, TSC..." style="padding-left:42px !important;" oninput="devSearch(this.value)" autocomplete="off" />
             </div>
             <span style="color:#94a3b8;font-size:13px;flex-shrink:0;">View:</span>
-            <div class="lmc-view-toggle"><button type="button" class="lmc-view-btn active" style="background:#374151 !important;color:#fff !important;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></button><button type="button" class="lmc-view-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></button></div>
-            <button type="button" style="background:transparent !important;background-image:none !important;border:none !important;color:#94a3b8 !important;font-size:13px !important;font-weight:500 !important;cursor:pointer !important;padding:4px 8px !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;height:auto !important;min-width:0 !important;line-height:normal !important;">Reset</button>
-            <button type="button" style="background:transparent !important;background-image:none !important;border:none !important;color:#94a3b8 !important;font-size:13px !important;font-weight:500 !important;cursor:pointer !important;padding:4px 8px !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;height:auto !important;min-width:0 !important;line-height:normal !important;">Show Filters</button>
+            <div class="lmc-view-toggle"><button type="button" class="lmc-view-btn active" id="dev-grid-btn" onclick="devSetView('grid')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></button><button type="button" class="lmc-view-btn" id="dev-list-btn" onclick="devSetView('list')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></button></div>
+            <button type="button" onclick="devResetFilters()" style="background:transparent !important;background-image:none !important;border:none !important;color:#94a3b8 !important;font-size:13px !important;font-weight:500 !important;cursor:pointer !important;padding:4px 8px !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;height:auto !important;min-width:0 !important;line-height:normal !important;">Reset</button>
+            <button type="button" id="dev-filter-toggle" onclick="devToggleFilters()" style="background:transparent !important;background-image:none !important;border:1px solid #475569 !important;color:#e2e8f0 !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;padding:6px 16px !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;height:auto !important;min-width:0 !important;line-height:normal !important;border-radius:8px !important;">Show Filters</button>
+        </div>
+        <div id="dev-filter-row" style="display:none;margin-top:14px;">
+            <div style="display:flex;gap:16px;flex-wrap:wrap;">
+                <div style="flex:1;min-width:200px;">
+                    <div style="font-size:12px;font-weight:600;color:#e2e8f0;margin-bottom:6px;">Course Type</div>
+                    <select id="dev-filter-type" onchange="devApplyFilters()" style="width:100%;padding:10px 14px;background:#111827;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:14px;appearance:auto;outline:none;">
+                        <option value="">All Types</option>
+                        <option value="wsq">WSQ</option>
+                        <option value="ibf">IBF</option>
+                        <option value="general">General</option>
+                    </select>
+                </div>
+                <div style="flex:1;min-width:200px;">
+                    <div style="font-size:12px;font-weight:600;color:#e2e8f0;margin-bottom:6px;">Mode of Training</div>
+                    <select id="dev-filter-mode" onchange="devApplyFilters()" style="width:100%;padding:10px 14px;background:#111827;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:14px;appearance:auto;outline:none;">
+                        <option value="">All Modes</option>
+                        <option value="physical">Physical</option>
+                        <option value="virtual">Virtual</option>
+                        <option value="hybrid">Hybrid</option>
+                    </select>
+                </div>
+            </div>
         </div>
     </div>
+    <div class="dev-list-header" id="dev-list-header">
+        <span>COURSE</span><span style="text-align:center">TYPES</span><span style="text-align:center">DURATION</span><span style="text-align:center">ACTIONS</span>
+    </div>
     <div class="dev-grid" id="dev-grid">
-        <?php foreach ($_devCourses as $_dc): ?>
-        <div class="dev-card" data-search="<?php echo strtolower($_dc['name'].' '.$_dc['sku']) ?>">
+        <?php foreach ($_devCourses as $_dc):
+            $_dcTgs = 'TGS-' . (2024000000 + ((int)$_dc['id']) * 17);
+        ?>
+        <div class="dev-card" data-search="<?php echo strtolower($_dc['name'].' '.$_dc['sku'].' '.$_dcTgs) ?>">
             <div class="dev-card-img-wrap">
                 <?php if ($_dc['image']): ?><img class="dev-card-img" src="<?php echo $_dc['image'] ?>" alt="" /><?php else: ?><div class="dev-card-img-placeholder"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div><?php endif; ?>
             </div>
             <div class="dev-card-body">
-                <div class="dev-card-title"><?php echo htmlspecialchars($_dc['name']) ?></div>
-                <div class="dev-card-row"><span class="dev-card-lbl">TSG Ref</span><span class="dev-card-val"><?php echo htmlspecialchars($_dc['sku']) ?></span></div>
-                <div class="dev-card-row"><span class="dev-card-lbl">Course Type</span><span class="dev-badge <?php echo $_dc['wsq'] ? 'dev-badge-wsq' : ($_dc['ibf'] ? 'dev-badge-ibf' : '') ?>"><?php echo $_dc['wsq'] ? 'WSQ' : ($_dc['ibf'] ? 'IBF' : 'General') ?></span></div>
-                <div class="dev-card-row"><span class="dev-card-lbl">Mode of Training</span><span class="dev-card-val">Physical</span></div>
-                <div class="dev-card-row"><span class="dev-card-lbl">Funding Validity</span><span class="dev-card-val" style="color:#22c55e;"><?php echo $_dc['funding_date'] ? date('j M Y', strtotime($_dc['funding_date'])).' Valid' : '—' ?></span></div>
-                <div class="dev-card-row"><span class="dev-card-lbl">Course Duration</span><span class="dev-card-val">16 Hours Total</span></div>
+                <div class="dev-card-title"><span><?php echo htmlspecialchars($_dc['name']) ?></span><span class="dev-card-tgs-sub"><?php echo $_dcTgs ?></span></div>
+                <div class="dev-card-row"><span class="dev-card-lbl">TGS Ref:</span><span class="dev-card-val"><?php echo $_dcTgs ?></span></div>
+                <div class="dev-card-row" data-col="types"><span class="dev-badge <?php echo $_dc['wsq'] ? 'dev-badge-wsq' : ($_dc['ibf'] ? 'dev-badge-ibf' : '') ?>"><?php echo $_dc['wsq'] ? 'WSQ' : ($_dc['ibf'] ? 'IBF' : 'General') ?></span><span class="dev-card-val" style="font-size:11px;font-weight:400;">Physical</span></div>
+                <div class="dev-card-row"><span class="dev-card-lbl">Mode of Training:</span><span class="dev-card-val">Physical</span></div>
+                <div class="dev-card-row"><span class="dev-card-lbl">Funding Validity:</span><span class="dev-card-val" style="color:#22c55e;"><?php echo $_dc['funding_date'] ? date('j M Y', strtotime($_dc['funding_date'])).' - Valid' : '—' ?></span></div>
+                <div class="dev-card-row"><span class="dev-card-lbl">Course Duration:</span><span class="dev-card-val">32 Hours Total<br><span class="dev-card-duration-sub">(30T + 2A)</span></span></div>
             </div>
             <div class="dev-card-footer">
                 <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id'=>$_dc['id'])) ?>" class="dev-view-btn">View Course</a>
-                <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id'=>$_dc['id'], 'mode'=>'edit')) ?>" class="dev-edit-btn">Edit Course</a>
+                <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id'=>$_dc['id'], 'mode'=>'edit')) ?>" class="dev-edit-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Edit Course</a>
             </div>
         </div>
         <?php endforeach; ?>
@@ -832,6 +885,69 @@ function devSearch(q) {
     var cards = document.querySelectorAll('#dev-grid .dev-card');
     for (var i = 0; i < cards.length; i++) {
         cards[i].style.display = (!q || cards[i].getAttribute('data-search').indexOf(q) >= 0) ? '' : 'none';
+    }
+}
+function devToggleFilters() {
+    var row = document.getElementById('dev-filter-row');
+    var btn = document.getElementById('dev-filter-toggle');
+    if (row.style.display === 'none') {
+        row.style.display = '';
+        btn.textContent = 'Hide Filters';
+        btn.style.borderColor = '#60a5fa';
+        btn.style.color = '#fff';
+    } else {
+        row.style.display = 'none';
+        btn.textContent = 'Show Filters';
+        btn.style.borderColor = '#475569';
+        btn.style.color = '#e2e8f0';
+    }
+}
+function devApplyFilters() {
+    var typeVal = document.getElementById('dev-filter-type').value;
+    var cards = document.querySelectorAll('#dev-grid .dev-card');
+    for (var i = 0; i < cards.length; i++) {
+        var show = true;
+        if (typeVal) {
+            var badge = cards[i].querySelector('.dev-badge');
+            var cardType = badge ? badge.textContent.trim().toLowerCase() : 'general';
+            if (typeVal !== cardType) show = false;
+        }
+        cards[i].style.display = show ? '' : 'none';
+    }
+}
+function devResetFilters() {
+    document.querySelector('.dev-search-input').value = '';
+    devSearch('');
+    document.getElementById('dev-filter-type').value = '';
+    document.getElementById('dev-filter-mode').value = '';
+    devApplyFilters();
+}
+function devSetView(view) {
+    var grid = document.getElementById('dev-grid');
+    var header = document.getElementById('dev-list-header');
+    var gridBtn = document.getElementById('dev-grid-btn');
+    var listBtn = document.getElementById('dev-list-btn');
+    var wrap = grid.parentNode;
+    if (view === 'list') {
+        grid.classList.add('dev-grid-list');
+        wrap.classList.add('dev-list-active');
+        if (header) header.style.display = 'grid';
+        gridBtn.classList.remove('active');
+        gridBtn.style.background = '';
+        gridBtn.style.color = '';
+        listBtn.classList.add('active');
+        listBtn.style.background = '#374151';
+        listBtn.style.color = '#fff';
+    } else {
+        grid.classList.remove('dev-grid-list');
+        wrap.classList.remove('dev-list-active');
+        if (header) header.style.display = 'none';
+        listBtn.classList.remove('active');
+        listBtn.style.background = '';
+        listBtn.style.color = '';
+        gridBtn.classList.add('active');
+        gridBtn.style.background = '#374151';
+        gridBtn.style.color = '#fff';
     }
 }
 </script>
@@ -1049,15 +1165,19 @@ button.dcf-upload-btn,button.dcf-ai-btn{display:inline-flex !important;align-ite
 @media(max-width:900px){.dcf-two-col{flex-direction:column}}
 </style>
 <div id="dash-panel-course-edit">
+<form id="dcf-form" method="post" action="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/save') ?>">
+<input type="hidden" name="form_key" value="<?php echo Mage::getSingleton('core/session')->getFormKey() ?>" />
+<input type="hidden" name="course_id" value="<?php echo (int)$_selectedCourse['id'] ?>" />
+<input type="hidden" name="continue_edit" id="dcf-continue-edit" value="" />
 <div class="dcf-wrap">
     <div style="margin-bottom:24px;">
         <h1 class="dcf-title"><?php echo htmlspecialchars($_editCourseData['name']) ?></h1>
         <div class="dcf-title-sub"><?php echo 'TGS-' . (2024000000 + ((int)$_selectedCourse['id']) * 17) ?></div>
         <div class="dcf-actions" style="justify-content:flex-end;margin-top:14px;">
-            <button type="button" class="dcf-btn dcf-btn-cancel" onclick="window.location.href='<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id'=>$_selectedCourse['id'])) ?>'">Cancel</button>
+            <button type="button" class="dcf-btn dcf-btn-cancel" onclick="window.location.href='<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard') ?>'">Cancel</button>
             <button type="button" class="dcf-btn dcf-btn-edit" onclick="window.location.href='<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id'=>$_selectedCourse['id'], 'mode'=>'edit')) ?>'">Exit Edit</button>
-            <a href="#" class="dcf-btn dcf-btn-save-cont" onclick="return false;">Save &amp; Continue Editing</a>
-            <a href="#" class="dcf-btn dcf-btn-save" onclick="return false;">Save Changes</a>
+            <button type="button" class="dcf-btn dcf-btn-save-cont" onclick="document.getElementById('dcf-continue-edit').value='1';document.getElementById('dcf-form').submit();">Save &amp; Continue Editing</button>
+            <button type="submit" class="dcf-btn dcf-btn-save">Save Changes</button>
         </div>
     </div>
 
@@ -1076,7 +1196,7 @@ button.dcf-upload-btn,button.dcf-ai-btn{display:inline-flex !important;align-ite
 
                 <div class="dcf-field">
                     <div class="dcf-label">Image URL Link</div>
-                    <input type="text" class="dcf-input" value="<?php echo htmlspecialchars($_editCourseData['image_url'] ?: $_editCourseData['image']) ?>" />
+                    <input type="text" class="dcf-input" name="image_url" value="<?php echo htmlspecialchars($_editCourseData['image_url'] ?: $_editCourseData['image']) ?>" />
                     <div class="dcf-btn-row">
                         <button type="button" class="dcf-upload-btn">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -1091,7 +1211,7 @@ button.dcf-upload-btn,button.dcf-ai-btn{display:inline-flex !important;align-ite
 
                 <div class="dcf-field">
                     <div class="dcf-label">Course Title</div>
-                    <input type="text" class="dcf-input" value="<?php echo htmlspecialchars($_editCourseData['name']) ?>" />
+                    <input type="text" class="dcf-input" name="course_name" value="<?php echo htmlspecialchars($_editCourseData['name']) ?>" />
                 </div>
 
                 <div class="dcf-field">
@@ -1143,7 +1263,7 @@ button.dcf-upload-btn,button.dcf-ai-btn{display:inline-flex !important;align-ite
         <div class="dcf-col-right">
             <div class="dcf-section">
                 <div class="dcf-section-title">Learning Outcomes</div>
-                <textarea class="dcf-textarea" rows="5">LO1: Design multi-agent integration workflows using CrewAI, Autogen, and ADK for intelligent AI application development.
+                <textarea class="dcf-textarea" name="learning_outcomes" rows="5">LO1: Design multi-agent integration workflows using CrewAI, Autogen, and ADK for intelligent AI application development.
 LO2: Develop and deploy Agentic AI and RAG applications on Streamlit and cloud-based platforms.
 LO3: Deploy guardrails to ensure safe and aligned outputs in Agentic AI applications.</textarea>
             </div>
@@ -1261,6 +1381,7 @@ LO3: Deploy guardrails to ensure safe and aligned outputs in Agentic AI applicat
 
     <div class="dcf-footer">Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y') ?></div>
 </div>
+</form>
 </div>
 
 <?php elseif ($_editMode): ?>
@@ -1299,10 +1420,10 @@ a.dce-edit-btn,a.dce-edit-btn:hover{display:inline-flex !important;align-items:c
     <div class="dce-header">
         <div>
             <h1 class="dce-title"><?php echo htmlspecialchars($_editCourseData['name']) ?></h1>
-            <div class="dce-title-sub"><?php echo htmlspecialchars($_editCourseData['sku']) ?></div>
+            <div class="dce-title-sub"><?php echo 'TGS-' . (2024000000 + ((int)$_selectedCourse['id']) * 17) ?></div>
         </div>
         <div class="dce-actions">
-            <button type="button" class="dce-cancel-btn" onclick="window.location.href='<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id'=>$_selectedCourse['id'])) ?>'">Cancel</button>
+            <button type="button" class="dce-cancel-btn" onclick="window.location.href='<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard') ?>'">Cancel</button>
             <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id'=>$_selectedCourse['id'], 'mode'=>'editing')) ?>" class="dce-edit-btn">Edit</a>
         </div>
     </div>
