@@ -292,6 +292,12 @@ foreach ($coc as $row) {
 }
 
 // =====================================================================
+// DATA — Learner Billing History
+$_billingHistory = array();
+$_billingTotal = 0;
+$_billingPaid = 0;
+$_billingPending = 0;
+
 // DATA — Learner panel (My Classes)
 // =====================================================================
 $_learnerCourses = array();
@@ -371,6 +377,30 @@ if ($_loggedInEmail) {
             'order_state' => $_r['order_state'],
             'detail_url'  => $_detailUrl,
         );
+    }
+
+    // Query billing history for this learner
+    $_billSql = "SELECT o.increment_id, o.created_at, o.grand_total, o.status, o.state,
+                        GROUP_CONCAT(oi.name SEPARATOR ', ') as items
+                 FROM {$_orderTable} o
+                 JOIN {$_itemTable} oi ON o.entity_id = oi.order_id
+                 WHERE LOWER(o.customer_email) = ?
+                 GROUP BY o.entity_id
+                 ORDER BY o.created_at DESC";
+    $_billRows = $_read->fetchAll($_billSql, array($_loggedInEmail));
+    foreach ($_billRows as $_b) {
+        $_isPaid = in_array($_b['state'], array('complete', 'processing'));
+        $_billingHistory[] = array(
+            'order_id'   => $_b['increment_id'],
+            'date'       => date('d M Y', strtotime($_b['created_at'])),
+            'items'      => $_b['items'],
+            'amount'     => number_format((float)$_b['grand_total'], 2),
+            'status'     => ucfirst($_b['status']),
+            'is_paid'    => $_isPaid,
+        );
+        $_billingTotal += (float)$_b['grand_total'];
+        if ($_isPaid) $_billingPaid += (float)$_b['grand_total'];
+        else $_billingPending += (float)$_b['grand_total'];
     }
 }
 
@@ -1563,6 +1593,63 @@ function lmcSetView(view, btn) {
 </script>
 </div>
 
+<?php /* ===== PANEL: Billing History (Learner sub-view) ===== */ ?>
+<div id="dash-panel-billing" style="display:none;">
+<div class="edt-wrap" style="max-width:1200px;">
+    <h1 class="edt-title">Billing History</h1>
+
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px;">
+        <div style="background:#1e293b;border:1px solid rgba(34,211,238,0.1);border-radius:12px;padding:22px 20px;text-align:center;">
+            <div style="font-size:28px;font-weight:700;color:#22d3ee;line-height:1.1;margin-bottom:6px;">$<?php echo number_format($_billingTotal, 2) ?></div>
+            <div style="font-size:13px;color:#94a3b8;">Total Billed</div>
+        </div>
+        <div style="background:#1e293b;border:1px solid rgba(16,185,129,0.1);border-radius:12px;padding:22px 20px;text-align:center;">
+            <div style="font-size:28px;font-weight:700;color:#10b981;line-height:1.1;margin-bottom:6px;">$<?php echo number_format($_billingPaid, 2) ?></div>
+            <div style="font-size:13px;color:#94a3b8;">Paid</div>
+        </div>
+        <div style="background:#1e293b;border:1px solid rgba(245,158,11,0.1);border-radius:12px;padding:22px 20px;text-align:center;">
+            <div style="font-size:28px;font-weight:700;color:#f59e0b;line-height:1.1;margin-bottom:6px;">$<?php echo number_format($_billingPending, 2) ?></div>
+            <div style="font-size:13px;color:#94a3b8;">Pending</div>
+        </div>
+    </div>
+
+    <div style="background:#131d2e;border:1px solid var(--b1);border-radius:12px;overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+            <thead>
+                <tr>
+                    <th style="text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.6px;padding:12px 16px;border-bottom:1px solid #1e293b;white-space:nowrap;">Order #</th>
+                    <th style="text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.6px;padding:12px 16px;border-bottom:1px solid #1e293b;white-space:nowrap;">Date</th>
+                    <th style="text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.6px;padding:12px 16px;border-bottom:1px solid #1e293b;">Course(s)</th>
+                    <th style="text-align:right;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.6px;padding:12px 16px;border-bottom:1px solid #1e293b;white-space:nowrap;">Amount</th>
+                    <th style="text-align:center;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.6px;padding:12px 16px;border-bottom:1px solid #1e293b;white-space:nowrap;">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php if (empty($_billingHistory)): ?>
+                <tr><td colspan="5" style="padding:40px;text-align:center;color:#64748b;">No billing records found</td></tr>
+                <?php else: ?>
+                <?php foreach ($_billingHistory as $_bill): ?>
+                <tr style="border-bottom:1px solid #1a2535;">
+                    <td style="padding:10px 16px;color:#22d3ee;font-weight:500;">#<?php echo htmlspecialchars($_bill['order_id']) ?></td>
+                    <td style="padding:10px 16px;color:#cbd5e1;"><?php echo $_bill['date'] ?></td>
+                    <td style="padding:10px 16px;color:#cbd5e1;max-width:400px;overflow:hidden;text-overflow:ellipsis;"><?php echo htmlspecialchars($_bill['items']) ?></td>
+                    <td style="padding:10px 16px;color:#f1f5f9;text-align:right;font-weight:600;">$<?php echo $_bill['amount'] ?></td>
+                    <td style="padding:10px 16px;text-align:center;">
+                        <?php if ($_bill['is_paid']): ?>
+                        <span style="color:#10b981;font-size:12px;font-weight:500;">Paid</span>
+                        <?php else: ?>
+                        <span style="color:#f59e0b;font-size:12px;font-weight:500;">Pending</span>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+</div>
+
 <?php /* ===== PANEL 5: Ed Tools (Trainer sub-view) ===== */ ?>
 <div id="dash-panel-edtools" style="display:none;">
 <style>
@@ -2585,7 +2672,7 @@ window.trnBulkSubmit = function() {
             'Learner':           'dash-panel-learner',
             'Trainer':           'dash-panel-learner'
         };
-        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-trainingprovider','dash-panel-learner','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-course-detail'];
+        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-trainingprovider','dash-panel-learner','dash-panel-billing','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-course-detail'];
         for (var i=0; i<all.length; i++) {
             var el = document.getElementById(all[i]);
             if (el) el.style.display = 'none';
@@ -2629,7 +2716,8 @@ window.trnBulkSubmit = function() {
             'blockchain':     'dash-panel-blockchain',
             'genai':          'dash-panel-genai',
             'agentic':        'dash-panel-agentic',
-            'virtual':        'dash-panel-virtual'
+            'virtual':        'dash-panel-virtual',
+            'billing':        'dash-panel-billing'
         };
         var target = subMap[name] || 'dash-panel-learner';
         var show = document.getElementById(target);
@@ -2660,8 +2748,12 @@ window.trnBulkSubmit = function() {
     function applyInitialPanel() {
         showPanel(role);
         // If URL hash requests a sub-panel, switch to it
-        if (window.location.hash === '#trainers' && (role === 'Admin' || role === 'Super Admin' || role === 'Marketing')) {
+        var hash = window.location.hash;
+        if (hash === '#trainers' && (role === 'Admin' || role === 'Super Admin' || role === 'Marketing')) {
             showAdminSubPanel('trainers');
+        }
+        if (hash === '#billing' && (role === 'Learner' || role === 'Trainer')) {
+            showTrainerSubPanel('billing');
         }
     }
 

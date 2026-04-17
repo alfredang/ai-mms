@@ -229,7 +229,7 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></svg>
         <span>My Profile</span>
     </a>
-    <a href="#" class="lms-nav-item">
+    <a href="<?php echo $dashboardUrl ?>#billing" class="lms-nav-item" id="learner-nav-billing" onclick="if (window.showTrainerSubPanel) { event.preventDefault(); showTrainerSubPanel('billing'); setTrainerActiveNav('billing'); } else { window.location.href=this.href; }">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="6" x2="12" y2="18"/><path d="M15 9.5a2.5 2.5 0 0 0-2.5-2.5h-1a2.5 2.5 0 0 0 0 5h1a2.5 2.5 0 0 1 0 5h-1a2.5 2.5 0 0 1-2.5-2.5"/></svg>
         <span>Billing History</span>
     </a>
@@ -497,7 +497,7 @@ function toggleToolGroup(btn) {
     group.classList.toggle('open');
 }
 function setTrainerActiveNav(which) {
-    var ids = { myclasses:'trainer-nav-myclasses', edtools:'trainer-nav-edtools', problemsolving:'trainer-nav-problemsolving', dataanalytics:'trainer-nav-dataanalytics', finance:'trainer-nav-finance', statistical:'trainer-nav-statistical', doe:'trainer-nav-doe', spc:'trainer-nav-spc', sustainability:'trainer-nav-sustainability', blockchain:'trainer-nav-blockchain', genai:'trainer-nav-genai', agentic:'trainer-nav-agentic', virtual:'trainer-nav-virtual' };
+    var ids = { myclasses:'trainer-nav-myclasses', edtools:'trainer-nav-edtools', problemsolving:'trainer-nav-problemsolving', dataanalytics:'trainer-nav-dataanalytics', finance:'trainer-nav-finance', statistical:'trainer-nav-statistical', doe:'trainer-nav-doe', spc:'trainer-nav-spc', sustainability:'trainer-nav-sustainability', blockchain:'trainer-nav-blockchain', genai:'trainer-nav-genai', agentic:'trainer-nav-agentic', virtual:'trainer-nav-virtual', billing:'learner-nav-billing' };
     for (var key in ids) {
         var el = document.getElementById(ids[key]);
         if (el) el.classList.toggle('active', which === key);
