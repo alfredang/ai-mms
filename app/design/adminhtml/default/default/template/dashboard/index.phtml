@@ -871,7 +871,7 @@ $_devUnfundedTotal = $_devTotalAll - $_devTotalWsq - $_devTotalIbf;
             <div class="dev-card-body">
                 <div class="dev-card-title"><span><?php echo htmlspecialchars($_dc['name']) ?></span><span class="dev-card-tgs-sub"><?php echo $_dcTgs ?></span></div>
                 <div class="dev-card-row"><span class="dev-card-lbl">TGS Ref:</span><span class="dev-card-val"><?php echo $_dcTgs ?></span></div>
-                <div class="dev-card-row" data-col="types"><span class="dev-badge <?php echo $_dc['wsq'] ? 'dev-badge-wsq' : ($_dc['ibf'] ? 'dev-badge-ibf' : '') ?>"><?php echo $_dc['wsq'] ? 'WSQ' : ($_dc['ibf'] ? 'IBF' : 'General') ?></span><span class="dev-card-val" style="font-size:11px;font-weight:400;">Physical</span></div>
+                <div class="dev-card-row" data-col="types" style="display:none;"><span class="dev-badge <?php echo $_dc['wsq'] ? 'dev-badge-wsq' : ($_dc['ibf'] ? 'dev-badge-ibf' : '') ?>"><?php echo $_dc['wsq'] ? 'WSQ' : ($_dc['ibf'] ? 'IBF' : 'General') ?></span><span class="dev-card-val" style="font-size:11px;font-weight:400;">Physical</span></div>
                 <div class="dev-card-row"><span class="dev-card-lbl">Mode of Training:</span><span class="dev-card-val">Physical</span></div>
                 <div class="dev-card-row"><span class="dev-card-lbl">Funding Validity:</span><span class="dev-card-val" style="color:#22c55e;"><?php echo $_dc['funding_date'] ? date('j M Y', strtotime($_dc['funding_date'])).' - Valid' : '—' ?></span></div>
                 <div class="dev-card-row"><span class="dev-card-lbl">Course Duration:</span><span class="dev-card-val">32 Hours Total<br><span class="dev-card-duration-sub">(30T + 2A)</span></span></div>
