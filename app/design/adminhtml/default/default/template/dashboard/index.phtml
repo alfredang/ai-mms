@@ -452,6 +452,31 @@ if ($_selectedCourseId) {
     }
 }
 $_backUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard');
+
+// Edit mode for developer course detail
+$_courseMode = Mage::app()->getRequest()->getParam('mode');
+$_editMode = ($_courseMode === 'edit' || $_courseMode === 'editing') && $_selectedCourse && $activeRole === 'developer';
+$_editingMode = ($_courseMode === 'editing') && $_selectedCourse && $activeRole === 'developer';
+$_editCourseData = array();
+if ($_editMode) {
+    try {
+        $_editProd = Mage::getModel('catalog/product')->load($_selectedCourseId);
+        if ($_editProd->getId()) {
+            $_editCourseData = array(
+                'name'        => $_editProd->getName() ?: '',
+                'sku'         => $_editProd->getSku() ?: '',
+                'image'       => $_selectedCourse['image'],
+                'image_url'   => trim((string)$_editProd->getData('course_image_url')),
+                'description' => $_editProd->getData('description') ?: '',
+                'short_desc'  => $_editProd->getData('short_description') ?: '',
+                'start_date'  => $_editProd->getData('news_from_date') ? date('M d, Y', strtotime($_editProd->getData('news_from_date'))) : '',
+                'end_date'    => $_editProd->getData('news_to_date') ? date('M d, Y', strtotime($_editProd->getData('news_to_date'))) : '',
+                'course_type' => $_editProd->getAttributeText('software') ?: 'WSQ',
+                'price'       => $_editProd->getPrice(),
+            );
+        }
+    } catch (Exception $e) {}
+}
 ?>
 
 <style>
@@ -676,6 +701,121 @@ body.adminhtml-dashboard-index .main-col-inner{padding-top:0 !important;margin-t
 </div>
 </div>
 
+<?php /* ===== PANEL: Developer — Course Management ===== */ ?>
+<?php
+// Count WSQ, IBF, Unfunded courses
+$_devWsq = 0; $_devIbf = 0; $_devUnfunded = 0;
+$_devCourses = array();
+try {
+    $_devCollection = Mage::getModel('catalog/product')->getCollection()
+        ->addAttributeToSelect(array('name','image','status','news_from_date'))
+        ->addAttributeToFilter('status', 1)
+        ->setPageSize(50);
+    foreach ($_devCollection as $_dp) {
+        $_dName = $_dp->getName();
+        $_isWsq = (stripos($_dName, 'wsq') !== false || stripos($_dName, 'workforce') !== false);
+        $_isIbf = (stripos($_dName, 'ibf') !== false);
+        if ($_isWsq) $_devWsq++;
+        elseif ($_isIbf) $_devIbf++;
+        else $_devUnfunded++;
+        $_dImgUrl = '';
+        try { if ($_dp->getImage() && $_dp->getImage() !== 'no_selection') $_dImgUrl = (string)Mage::helper('catalog/image')->init($_dp, 'image')->resize(400, 250); } catch (Exception $e) {}
+        $_devCourses[] = array('id'=>$_dp->getId(),'name'=>$_dName,'sku'=>$_dp->getSku(),'image'=>$_dImgUrl,'wsq'=>$_isWsq,'ibf'=>$_isIbf,'funding_date'=>$_dp->getNewsFromDate());
+    }
+} catch (Exception $e) {}
+$_devTotalWsq = Mage::getModel('catalog/product')->getCollection()->addAttributeToFilter('status',1)->addAttributeToFilter('name',array('like'=>'%WSQ%'))->getSize();
+$_devTotalIbf = Mage::getModel('catalog/product')->getCollection()->addAttributeToFilter('status',1)->addAttributeToFilter('name',array('like'=>'%IBF%'))->getSize();
+$_devTotalAll = Mage::getModel('catalog/product')->getCollection()->addAttributeToFilter('status',1)->getSize();
+$_devUnfundedTotal = $_devTotalAll - $_devTotalWsq - $_devTotalIbf;
+?>
+<div id="dash-panel-developer" style="display:none;">
+<style>
+.dev-wrap{padding:0}
+.dev-title{font-size:28px;font-weight:700;color:#fff;margin:0 0 24px}
+.dev-kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px}
+.dev-kpi-card{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:28px 24px;text-align:center}
+.dev-kpi-num{font-size:38px;font-weight:700;color:#22d3ee;line-height:1;margin-bottom:8px}
+.dev-kpi-lbl{font-size:14px;color:#94a3b8;font-weight:500}
+.dev-search-wrap{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:16px;margin-bottom:20px}
+.dev-search-label{font-size:13px;color:#94a3b8;font-weight:600;margin-bottom:10px}
+.dev-search-row{display:flex;align-items:center;gap:12px}
+.dev-search-input-wrap{position:relative;flex:1}
+.dev-search-input-wrap svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#6b7280;pointer-events:none}
+.dev-search-input{width:100%;padding:11px 16px 11px 42px;background:#111827;border:1px solid #334155;border-radius:10px;color:#f1f5f9;font-size:14px;outline:none;box-sizing:border-box}
+.dev-search-input:focus{border-color:#22d3ee}
+.dev-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.dev-card{background:#1e293b;border:1px solid #334155;border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
+.dev-card-img-wrap{aspect-ratio:16/9;overflow:hidden;position:relative}
+.dev-card-img{width:100%;height:100%;object-fit:cover;display:block}
+.dev-card-img-placeholder{width:100%;aspect-ratio:16/9;background:linear-gradient(135deg,#1e3a5f,#0f172a);display:flex;align-items:center;justify-content:center;color:#334155}
+.dev-card-body{padding:16px;flex:1}
+.dev-card-title{font-size:15px;font-weight:700;color:#fff;margin:0 0 12px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.dev-card-row{display:flex;justify-content:space-between;align-items:flex-start;padding:4px 0;font-size:12px}
+.dev-card-lbl{color:#94a3b8}
+.dev-card-val{color:#e2e8f0;font-weight:600;text-align:right}
+.dev-badge{padding:2px 10px;border-radius:5px;font-size:11px;font-weight:600}
+.dev-badge-wsq{background:rgba(236,72,153,.15);color:#f472b6;border:1px solid rgba(236,72,153,.3)}
+.dev-badge-ibf{background:rgba(59,130,246,.15);color:#93c5fd;border:1px solid rgba(59,130,246,.3)}
+.dev-card-footer{padding:12px 16px;border-top:1px solid rgba(255,255,255,.08);display:flex;gap:8px}
+.dev-card-footer a,.dev-card-footer button{flex:1;padding:8px;border-radius:8px;font-size:13px;font-weight:600;text-align:center;cursor:pointer;text-decoration:none !important}
+.dev-view-btn{background:#2563eb !important;color:#fff !important;border:none !important;background-image:none !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
+.dev-edit-btn{background:transparent !important;color:#94a3b8 !important;border:1px solid #475569 !important;background-image:none !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
+@media(max-width:1024px){.dev-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:640px){.dev-grid{grid-template-columns:1fr}}
+</style>
+<div class="dev-wrap">
+    <h1 class="dev-title">Course Management</h1>
+    <div class="dev-kpi">
+        <div class="dev-kpi-card"><div class="dev-kpi-num"><?php echo number_format($_devTotalWsq) ?></div><div class="dev-kpi-lbl">WSQ Courses</div></div>
+        <div class="dev-kpi-card"><div class="dev-kpi-num"><?php echo number_format($_devTotalIbf) ?></div><div class="dev-kpi-lbl">IBF Courses</div></div>
+        <div class="dev-kpi-card"><div class="dev-kpi-num"><?php echo number_format($_devUnfundedTotal) ?></div><div class="dev-kpi-lbl">Unfunded Courses</div></div>
+    </div>
+    <div class="dev-search-wrap">
+        <div class="dev-search-label">General Search</div>
+        <div class="dev-search-row">
+            <div class="dev-search-input-wrap">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                <input type="text" class="dev-search-input" placeholder="Search title, code, TSC..." style="padding-left:42px !important;" oninput="devSearch(this.value)" />
+            </div>
+            <span style="color:#94a3b8;font-size:13px;flex-shrink:0;">View:</span>
+            <div class="lmc-view-toggle"><button type="button" class="lmc-view-btn active" style="background:#374151 !important;color:#fff !important;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></button><button type="button" class="lmc-view-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></button></div>
+            <button type="button" style="background:transparent !important;background-image:none !important;border:none !important;color:#94a3b8 !important;font-size:13px !important;font-weight:500 !important;cursor:pointer !important;padding:4px 8px !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;height:auto !important;min-width:0 !important;line-height:normal !important;">Reset</button>
+            <button type="button" style="background:transparent !important;background-image:none !important;border:none !important;color:#94a3b8 !important;font-size:13px !important;font-weight:500 !important;cursor:pointer !important;padding:4px 8px !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;height:auto !important;min-width:0 !important;line-height:normal !important;">Show Filters</button>
+        </div>
+    </div>
+    <div class="dev-grid" id="dev-grid">
+        <?php foreach ($_devCourses as $_dc): ?>
+        <div class="dev-card" data-search="<?php echo strtolower($_dc['name'].' '.$_dc['sku']) ?>">
+            <div class="dev-card-img-wrap">
+                <?php if ($_dc['image']): ?><img class="dev-card-img" src="<?php echo $_dc['image'] ?>" alt="" /><?php else: ?><div class="dev-card-img-placeholder"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div><?php endif; ?>
+            </div>
+            <div class="dev-card-body">
+                <div class="dev-card-title"><?php echo htmlspecialchars($_dc['name']) ?></div>
+                <div class="dev-card-row"><span class="dev-card-lbl">TSG Ref</span><span class="dev-card-val"><?php echo htmlspecialchars($_dc['sku']) ?></span></div>
+                <div class="dev-card-row"><span class="dev-card-lbl">Course Type</span><span class="dev-badge <?php echo $_dc['wsq'] ? 'dev-badge-wsq' : ($_dc['ibf'] ? 'dev-badge-ibf' : '') ?>"><?php echo $_dc['wsq'] ? 'WSQ' : ($_dc['ibf'] ? 'IBF' : 'General') ?></span></div>
+                <div class="dev-card-row"><span class="dev-card-lbl">Mode of Training</span><span class="dev-card-val">Physical</span></div>
+                <div class="dev-card-row"><span class="dev-card-lbl">Funding Validity</span><span class="dev-card-val" style="color:#22c55e;"><?php echo $_dc['funding_date'] ? date('j M Y', strtotime($_dc['funding_date'])).' Valid' : '—' ?></span></div>
+                <div class="dev-card-row"><span class="dev-card-lbl">Course Duration</span><span class="dev-card-val">16 Hours Total</span></div>
+            </div>
+            <div class="dev-card-footer">
+                <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id'=>$_dc['id'])) ?>" class="dev-view-btn">View Course</a>
+                <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id'=>$_dc['id'], 'mode'=>'edit')) ?>" class="dev-edit-btn">Edit Course</a>
+            </div>
+        </div>
+        <?php endforeach; ?>
+    </div>
+</div>
+<script type="text/javascript">
+function devSearch(q) {
+    q = q.toLowerCase();
+    var cards = document.querySelectorAll('#dev-grid .dev-card');
+    for (var i = 0; i < cards.length; i++) {
+        cards[i].style.display = (!q || cards[i].getAttribute('data-search').indexOf(q) >= 0) ? '' : 'none';
+    }
+}
+</script>
+</div>
+
 <?php /* ===== PANEL 3: Training Provider — Training Analytics ===== */ ?>
 <div id="dash-panel-trainingprovider" style="display:none;">
 <style>
@@ -829,6 +969,490 @@ button.tp-refresh-btn:hover{border-color:#475569 !important;color:var(--t1) !imp
 
 <?php /* ===== COURSE DETAIL (shown when ?course_id=<id> in URL) ===== */ ?>
 <?php if ($_selectedCourse): ?>
+
+<?php /* ===== DEVELOPER EDIT MODE ===== */ ?>
+<?php if ($_editingMode): ?>
+<style>
+.dcf-wrap{max-width:1400px;margin:0 auto}
+.dcf-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.dcf-title{font-size:22px;font-weight:700;color:#fff;flex:1;margin:0}
+.dcf-title-sub{font-size:13px;color:#94a3b8;font-weight:400;margin-top:4px}
+.dcf-actions{display:flex;gap:10px;flex-wrap:wrap}
+button.dcf-btn,a.dcf-btn{display:inline-flex !important;align-items:center !important;gap:6px !important;border-radius:8px !important;padding:10px 20px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;text-decoration:none !important;background-image:none !important;border:none !important}
+button.dcf-btn-cancel{background:#334155 !important;color:#e2e8f0 !important;border:1px solid #475569 !important}
+button.dcf-btn-edit{background:#334155 !important;color:#e2e8f0 !important;border:1px solid #475569 !important}
+a.dcf-btn-save-cont{background:#475569 !important;color:#fff !important}
+a.dcf-btn-save{background:#2563eb !important;color:#fff !important}
+.dcf-two-col{display:flex;gap:24px;align-items:flex-start}
+.dcf-col-left{flex:1;min-width:0}
+.dcf-col-right{flex:1;min-width:0}
+.dcf-section{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:22px 24px;margin-bottom:16px}
+.dcf-section-title{font-size:16px;font-weight:700;color:#fff;margin:0 0 16px;padding-bottom:12px;border-bottom:1px solid #334155}
+.dcf-field{margin-bottom:16px}
+.dcf-field:last-child{margin-bottom:0}
+.dcf-label{font-size:12px;font-weight:600;color:#94a3b8;margin-bottom:6px;text-transform:uppercase;letter-spacing:.3px}
+.dcf-input,.dcf-select,.dcf-textarea{width:100%;padding:10px 14px;background:#283548;border:1px solid #384a60;border-radius:8px;color:#e2e8f0;font-size:14px;outline:none;box-sizing:border-box;font-family:inherit}
+.dcf-input:focus,.dcf-select:focus,.dcf-textarea:focus{border-color:#60a5fa}
+.dcf-textarea{min-height:80px;resize:vertical}
+.dcf-select{appearance:auto}
+.dcf-img-preview{max-width:100%;border-radius:8px;border:1px solid #334155;margin-bottom:12px}
+.dcf-btn-row{display:flex;gap:10px;margin-top:8px}
+button.dcf-upload-btn,button.dcf-ai-btn{display:inline-flex !important;align-items:center !important;gap:6px !important;background:#334155 !important;background-image:none !important;color:#e2e8f0 !important;border:1px solid #475569 !important;border-radius:8px !important;padding:8px 16px !important;font-size:12px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
+.dcf-duration-row{display:flex;gap:16px;align-items:flex-end;margin-bottom:12px}
+.dcf-duration-row .dcf-field{flex:1;margin-bottom:0}
+.dcf-duration-total{font-size:14px;color:#22d3ee;font-weight:700;padding:10px 0}
+.dcf-radio-group{display:flex;flex-direction:column;gap:8px}
+.dcf-radio-item{display:flex;align-items:center;gap:10px;font-size:14px;color:#e2e8f0;cursor:pointer}
+.dcf-radio-item input[type="radio"]{accent-color:#2563eb;width:16px;height:16px}
+.dcf-check-item{display:flex;align-items:center;gap:10px;background:#283548;border:1px solid #384a60;border-radius:8px;padding:12px 14px;margin-bottom:8px;font-size:14px;color:#e2e8f0}
+.dcf-check-item input[type="checkbox"]{accent-color:#2563eb;width:18px;height:18px;flex-shrink:0}
+.dcf-check-url{width:100%;margin-top:8px}
+.dcf-trainer-search{width:100%;padding:10px 14px;background:#283548;border:1px solid #384a60;border-radius:8px;color:#e2e8f0;font-size:14px;outline:none;box-sizing:border-box;margin-bottom:12px}
+.dcf-trainer-search:focus{border-color:#60a5fa}
+.dcf-trainer-tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.dcf-trainer-tag{background:#334155;border:1px solid #475569;border-radius:20px;padding:6px 14px;font-size:12px;color:#e2e8f0;display:flex;align-items:center;gap:6px}
+.dcf-trainer-tag .dcf-tag-x{color:#94a3b8;cursor:pointer;font-weight:700}
+.dcf-lesson-add{display:flex;align-items:center;justify-content:center;gap:8px;padding:14px;border:1px dashed #475569;border-radius:8px;color:#94a3b8;font-size:13px;font-weight:600;cursor:pointer;background:transparent}
+.dcf-lesson-add:hover{border-color:#60a5fa;color:#60a5fa}
+.dcf-toggle-row{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.dcf-toggle-label{font-size:14px;font-weight:600;color:#fff}
+.dcf-toggle-sub{font-size:12px;color:#94a3b8;margin-top:2px}
+.dcf-toggle{position:relative;width:44px;height:24px;flex-shrink:0}
+.dcf-toggle input{opacity:0;width:0;height:0}
+.dcf-toggle-slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#475569;border-radius:12px;transition:.2s}
+.dcf-toggle-slider:before{content:'';position:absolute;height:18px;width:18px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s}
+.dcf-toggle input:checked+.dcf-toggle-slider{background:#2563eb}
+.dcf-toggle input:checked+.dcf-toggle-slider:before{transform:translateX(20px)}
+.dcf-footer{text-align:center;color:#64748b;font-size:12px;padding:20px 0;margin-top:10px}
+.dcf-footer strong{color:#cbd5e1}
+@media(max-width:900px){.dcf-two-col{flex-direction:column}}
+</style>
+<div id="dash-panel-course-edit">
+<div class="dcf-wrap">
+    <div style="margin-bottom:24px;">
+        <h1 class="dcf-title"><?php echo htmlspecialchars($_editCourseData['name']) ?></h1>
+        <div class="dcf-title-sub"><?php echo 'TGS-' . (2024000000 + ((int)$_selectedCourse['id']) * 17) ?></div>
+        <div class="dcf-actions" style="justify-content:flex-end;margin-top:14px;">
+            <button type="button" class="dcf-btn dcf-btn-cancel" onclick="window.location.href='<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id'=>$_selectedCourse['id'])) ?>'">Cancel</button>
+            <button type="button" class="dcf-btn dcf-btn-edit" onclick="window.location.href='<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id'=>$_selectedCourse['id'], 'mode'=>'edit')) ?>'">Exit Edit</button>
+            <a href="#" class="dcf-btn dcf-btn-save-cont" onclick="return false;">Save &amp; Continue Editing</a>
+            <a href="#" class="dcf-btn dcf-btn-save" onclick="return false;">Save Changes</a>
+        </div>
+    </div>
+
+    <div class="dcf-two-col">
+        <!-- LEFT COLUMN -->
+        <div class="dcf-col-left">
+            <div class="dcf-section">
+                <div class="dcf-section-title">Course Details</div>
+
+                <?php if ($_editCourseData['image']): ?>
+                <div class="dcf-field">
+                    <div class="dcf-label">Course Image</div>
+                    <img src="<?php echo htmlspecialchars($_editCourseData['image']) ?>" alt="" class="dcf-img-preview" />
+                </div>
+                <?php endif; ?>
+
+                <div class="dcf-field">
+                    <div class="dcf-label">Image URL Link</div>
+                    <input type="text" class="dcf-input" value="<?php echo htmlspecialchars($_editCourseData['image_url'] ?: $_editCourseData['image']) ?>" />
+                    <div class="dcf-btn-row">
+                        <button type="button" class="dcf-upload-btn">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            Upload Custom Image
+                        </button>
+                        <button type="button" class="dcf-ai-btn">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l4 2"/></svg>
+                            Generate with AI
+                        </button>
+                    </div>
+                </div>
+
+                <div class="dcf-field">
+                    <div class="dcf-label">Course Title</div>
+                    <input type="text" class="dcf-input" value="<?php echo htmlspecialchars($_editCourseData['name']) ?>" />
+                </div>
+
+                <div class="dcf-field">
+                    <div class="dcf-label">Course Code</div>
+                    <input type="text" class="dcf-input" value="<?php echo 'TGS-' . (2024000000 + ((int)$_selectedCourse['id']) * 17) ?>" />
+                </div>
+
+                <div class="dcf-field">
+                    <div class="dcf-label">Funding Validity</div>
+                    <input type="text" class="dcf-input" value="<?php echo $_editCourseData['start_date'] ?: '01/03/2028' ?>" />
+                </div>
+
+                <div class="dcf-field">
+                    <div class="dcf-label">Duration</div>
+                    <div class="dcf-duration-row">
+                        <div class="dcf-field">
+                            <div class="dcf-label" style="font-size:11px;">Training Hours</div>
+                            <input type="number" class="dcf-input" value="30" style="text-align:center" />
+                        </div>
+                        <div class="dcf-field">
+                            <div class="dcf-label" style="font-size:11px;">Assessment Hours</div>
+                            <input type="number" class="dcf-input" value="2" style="text-align:center" />
+                        </div>
+                    </div>
+                    <div class="dcf-duration-total">Total Duration: <strong>32 hours</strong></div>
+                </div>
+
+                <div class="dcf-field">
+                    <div class="dcf-label">Mode of Learning</div>
+                    <div class="dcf-radio-group">
+                        <label class="dcf-radio-item"><input type="radio" name="mode_learning" checked /> Physical</label>
+                        <label class="dcf-radio-item"><input type="radio" name="mode_learning" /> Virtual</label>
+                        <label class="dcf-radio-item"><input type="radio" name="mode_learning" /> Hybrid</label>
+                    </div>
+                </div>
+
+                <div class="dcf-field">
+                    <div class="dcf-label">Course Type</div>
+                    <select class="dcf-select">
+                        <option <?php echo $_editCourseData['course_type'] === 'WSQ' ? 'selected' : '' ?>>WSQ</option>
+                        <option <?php echo $_editCourseData['course_type'] === 'IBF' ? 'selected' : '' ?>>IBF</option>
+                        <option>Unfunded</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT COLUMN -->
+        <div class="dcf-col-right">
+            <div class="dcf-section">
+                <div class="dcf-section-title">Learning Outcomes</div>
+                <textarea class="dcf-textarea" rows="5">LO1: Design multi-agent integration workflows using CrewAI, Autogen, and ADK for intelligent AI application development.
+LO2: Develop and deploy Agentic AI and RAG applications on Streamlit and cloud-based platforms.
+LO3: Deploy guardrails to ensure safe and aligned outputs in Agentic AI applications.</textarea>
+            </div>
+
+            <div class="dcf-section">
+                <div class="dcf-section-title">Courseware</div>
+                <div class="dcf-field">
+                    <div class="dcf-label">Lesson Plan URL</div>
+                    <input type="text" class="dcf-input" value="https://docs.google.com/document/d/14ANQ1-kU_yl" />
+                </div>
+                <div class="dcf-field">
+                    <div class="dcf-label">Learner Guide URL</div>
+                    <input type="text" class="dcf-input" value="https://docs.google.com/document/d/1e2E5I6OIEDh" />
+                </div>
+                <div class="dcf-field">
+                    <div class="dcf-label">Facilitator Guide URL</div>
+                    <input type="text" class="dcf-input" value="https://docs.google.com/document/d/1M59RpW7-4" />
+                </div>
+                <div class="dcf-field">
+                    <div class="dcf-label">Assessment Plan URL</div>
+                    <input type="text" class="dcf-input" value="https://docs.google.com/document/d/1M59RpW7-4" />
+                </div>
+                <div class="dcf-field">
+                    <div class="dcf-label">Learner Slide URL</div>
+                    <input type="text" class="dcf-input" value="https://drive.google.com/file/d/1C4EJ2iUYEC16u2Bjp9" />
+                </div>
+                <div class="dcf-field">
+                    <div class="dcf-label">Trainer Slides URL</div>
+                    <input type="text" class="dcf-input" value="https://drive.google.com/file/d/1UVp2RThngSDFfrA" />
+                </div>
+                <div class="dcf-field">
+                    <div class="dcf-label">Courseware Link</div>
+                    <input type="text" class="dcf-input" value="https://drive.google.com/drive/folders/1tnI80IXOxNR" />
+                </div>
+                <div class="dcf-field">
+                    <div class="dcf-label">Brochure Link</div>
+                    <input type="text" class="dcf-input" value="https://drive.google.com/file/d/148VI4Dds81ZCC1L" />
+                </div>
+                <div class="dcf-field">
+                    <div class="dcf-label">SkillsFuture Link</div>
+                    <input type="text" class="dcf-input" value="https://courses.myskillsfuture.gov.sg/courses/TGS-2024" />
+                </div>
+                <div class="dcf-field">
+                    <div class="dcf-label">Assessment Record Link</div>
+                    <input type="text" class="dcf-input" value="https://drive.google.com/drive/u/1/folders/1Ut8bglQ" />
+                </div>
+                <div class="dcf-field">
+                    <div class="dcf-label">Assessment Summary Record URL</div>
+                    <input type="text" class="dcf-input" value="https://docs.google.com/document/d/1M59RpW7-4" />
+                </div>
+            </div>
+
+            <div class="dcf-section">
+                <div class="dcf-section-title">Assessment Methods</div>
+                <div style="font-size:12px;color:#94a3b8;margin-bottom:14px;">Select the assessment methods for this course. A link field will appear for each selected method.</div>
+                <div>
+                    <label class="dcf-check-item">
+                        <input type="checkbox" checked />
+                        <span>Written Exam</span>
+                    </label>
+                    <div style="padding:0 0 12px 38px;"><input type="text" class="dcf-input" value="https://docs.google.com/document/d/1N1QWyYWh" /></div>
+
+                    <label class="dcf-check-item">
+                        <input type="checkbox" checked />
+                        <span>Practical Exam</span>
+                    </label>
+                    <div style="padding:0 0 12px 38px;"><input type="text" class="dcf-input" value="https://docs.google.com/document/d/1zLA7lN" /></div>
+
+                    <label class="dcf-check-item"><input type="checkbox" /><span>Case Study</span></label>
+                    <label class="dcf-check-item"><input type="checkbox" /><span>Role Play</span></label>
+                    <label class="dcf-check-item"><input type="checkbox" /><span>Oral Questioning</span></label>
+                    <label class="dcf-check-item"><input type="checkbox" /><span>Project</span></label>
+                    <label class="dcf-check-item"><input type="checkbox" /><span>Assignment</span></label>
+                </div>
+            </div>
+
+            <div class="dcf-section">
+                <div class="dcf-section-title">Approved Trainers</div>
+                <div class="dcf-field">
+                    <div class="dcf-label">Add Trainer</div>
+                    <input type="text" class="dcf-trainer-search" placeholder="Search active trainer by name or email" />
+                </div>
+                <div style="font-size:12px;color:#94a3b8;margin-bottom:8px;">4 assigned trainers</div>
+                <div class="dcf-trainer-tags">
+                    <span class="dcf-trainer-tag">Tan Woei Ming <span class="dcf-tag-x">&times;</span></span>
+                    <span class="dcf-trainer-tag">Dr. Alfred Ang <span class="dcf-tag-x">&times;</span></span>
+                    <span class="dcf-trainer-tag">Teh Siew Yen <span class="dcf-tag-x">&times;</span></span>
+                    <span class="dcf-trainer-tag">Truman Ng Yeng Yee <span class="dcf-tag-x">&times;</span></span>
+                </div>
+            </div>
+
+            <div class="dcf-section">
+                <div class="dcf-section-title">Lesson</div>
+                <div class="dcf-lesson-add">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Add Learning Unit
+                </div>
+            </div>
+
+            <div class="dcf-section">
+                <div class="dcf-section-title">Course Settings</div>
+                <div class="dcf-toggle-row">
+                    <div>
+                        <div class="dcf-toggle-label">Enable Gaming Leaderboard</div>
+                        <div class="dcf-toggle-sub">Allow learners to use a competitive leaderboard for this course.</div>
+                    </div>
+                    <label class="dcf-toggle">
+                        <input type="checkbox" />
+                        <span class="dcf-toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="dcf-footer">Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y') ?></div>
+</div>
+</div>
+
+<?php elseif ($_editMode): ?>
+<style>
+.dce-wrap{max-width:1400px;margin:0 auto}
+.dce-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.dce-title{font-size:22px;font-weight:700;color:#fff;flex:1;margin:0}
+.dce-title-sub{font-size:13px;color:#94a3b8;font-weight:400;margin-top:4px}
+.dce-actions{display:flex;gap:10px}
+button.dce-cancel-btn,button.dce-cancel-btn:hover,button.dce-cancel-btn:focus{background:#334155 !important;background-image:none !important;color:#e2e8f0 !important;border:1px solid #475569 !important;border-radius:8px !important;padding:10px 24px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
+a.dce-edit-btn,a.dce-edit-btn:hover{display:inline-flex !important;align-items:center !important;gap:6px !important;background:#2563eb !important;color:#fff !important;border:none !important;border-radius:8px !important;padding:10px 24px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;text-decoration:none !important;box-shadow:none !important}
+.dce-two-col{display:flex;gap:24px;align-items:flex-start}
+.dce-col-left{flex:1;min-width:0}
+.dce-col-right{flex:1;min-width:0}
+.dce-section{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:22px 24px;margin-bottom:16px}
+.dce-section-title{font-size:16px;font-weight:700;color:#fff;margin:0 0 16px;padding-bottom:12px;border-bottom:1px solid #334155}
+.dce-field{margin-bottom:14px}
+.dce-field:last-child{margin-bottom:0}
+.dce-label{font-size:12px;font-weight:600;color:#94a3b8;margin-bottom:4px;text-transform:uppercase;letter-spacing:.3px}
+.dce-value{font-size:14px;color:#e2e8f0;word-break:break-word;background:#283548;border:1px solid #384a60;border-radius:8px;padding:10px 14px;margin-top:4px}
+.dce-value a{color:#60a5fa;text-decoration:none}
+.dce-value a:hover{text-decoration:underline}
+.dce-img-preview{max-width:100%;border-radius:8px;border:1px solid #334155;margin-bottom:12px}
+.dce-trainer-list{list-style:none;padding:0;margin:0}
+.dce-trainer-list li{padding:6px 0;color:#e2e8f0;font-size:14px;border-bottom:1px solid #1e293b}
+.dce-trainer-list li:last-child{border-bottom:none}
+.dce-lo-item{background:#283548;border:1px solid #384a60;border-radius:8px;padding:12px 14px;margin-bottom:8px;font-size:13px;color:#cbd5e1;line-height:1.5}
+.dce-lo-label{font-weight:700;color:#60a5fa;margin-right:6px}
+.dce-empty{color:#64748b;font-size:13px;font-style:italic}
+.dce-footer{text-align:center;color:#64748b;font-size:12px;padding:20px 0;margin-top:10px}
+.dce-footer strong{color:#cbd5e1}
+@media(max-width:900px){.dce-two-col{flex-direction:column}}
+</style>
+<div id="dash-panel-course-edit">
+<div class="dce-wrap">
+    <div class="dce-header">
+        <div>
+            <h1 class="dce-title"><?php echo htmlspecialchars($_editCourseData['name']) ?></h1>
+            <div class="dce-title-sub"><?php echo htmlspecialchars($_editCourseData['sku']) ?></div>
+        </div>
+        <div class="dce-actions">
+            <button type="button" class="dce-cancel-btn" onclick="window.location.href='<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id'=>$_selectedCourse['id'])) ?>'">Cancel</button>
+            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id'=>$_selectedCourse['id'], 'mode'=>'editing')) ?>" class="dce-edit-btn">Edit</a>
+        </div>
+    </div>
+
+    <div class="dce-two-col">
+        <!-- LEFT COLUMN: Course Details -->
+        <div class="dce-col-left">
+            <div class="dce-section">
+                <div class="dce-section-title">Course Details</div>
+
+                <?php if ($_editCourseData['image']): ?>
+                <div class="dce-field">
+                    <div class="dce-label">Course Image</div>
+                    <img src="<?php echo htmlspecialchars($_editCourseData['image']) ?>" alt="" class="dce-img-preview" />
+                </div>
+                <?php endif; ?>
+
+                <div class="dce-field">
+                    <div class="dce-label">Image URL Link</div>
+                    <div class="dce-value"><a href="#"><?php echo htmlspecialchars($_editCourseData['image_url'] ?: $_editCourseData['image']) ?></a></div>
+                </div>
+
+                <div class="dce-field">
+                    <div class="dce-label">Course Title</div>
+                    <div class="dce-value"><?php echo htmlspecialchars($_editCourseData['name']) ?></div>
+                </div>
+
+                <div class="dce-field">
+                    <div class="dce-label">Course Code</div>
+                    <div class="dce-value"><?php echo 'TGS-' . (2024000000 + ((int)$_selectedCourse['id']) * 17) ?></div>
+                </div>
+
+                <div class="dce-field">
+                    <div class="dce-label">Funding Validity</div>
+                    <div class="dce-value"><?php echo $_editCourseData['start_date'] ?: 'Mar 01, 2028' ?></div>
+                </div>
+
+                <div class="dce-field">
+                    <div class="dce-label">Training Hours</div>
+                    <div class="dce-value">30</div>
+                </div>
+
+                <div class="dce-field">
+                    <div class="dce-label">Assessment Hours</div>
+                    <div class="dce-value">2</div>
+                </div>
+
+                <div class="dce-field">
+                    <div class="dce-label">Total Duration</div>
+                    <div class="dce-value">32 hours</div>
+                </div>
+
+                <div class="dce-field">
+                    <div class="dce-label">Mode of Learning</div>
+                    <div class="dce-value">Physical</div>
+                </div>
+
+                <div class="dce-field">
+                    <div class="dce-label">Course Type</div>
+                    <div class="dce-value"><?php echo htmlspecialchars($_editCourseData['course_type']) ?></div>
+                </div>
+
+                <div class="dce-field">
+                    <div class="dce-label">Approved Trainers</div>
+                    <ul class="dce-trainer-list">
+                        <li>Tan Woei Ming</li>
+                        <li>Dr. Alfred Ang</li>
+                        <li>Teh Siew Yen</li>
+                        <li>Truman Ng Yeng Yee</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT COLUMN: Learning Outcomes, Courseware, Assessment -->
+        <div class="dce-col-right">
+            <div class="dce-section">
+                <div class="dce-section-title">Learning Outcomes</div>
+                <div class="dce-lo-item">
+                    <div style="margin-bottom:8px;"><span class="dce-lo-label">LO1:</span> Design multi-agent integration workflows using CrewAI, Autogen, and ADK for intelligent AI application development.</div>
+                    <div style="margin-bottom:8px;"><span class="dce-lo-label">LO2:</span> Develop and deploy Agentic AI and RAG applications on Streamlit and cloud-based platforms.</div>
+                    <div><span class="dce-lo-label">LO3:</span> Deploy guardrails to ensure safe and aligned outputs in Agentic AI applications.</div>
+                </div>
+            </div>
+
+            <div class="dce-section">
+                <div class="dce-section-title">Courseware</div>
+
+                <div class="dce-field">
+                    <div class="dce-label">Lesson Plan URL</div>
+                    <div class="dce-value"><a href="#">https://docs.google.com/document/d/14ANQ1-kU_yl-DfLUFuF_CICidcKlI_lw6d1...</a></div>
+                </div>
+
+                <div class="dce-field">
+                    <div class="dce-label">Learner Guide URL</div>
+                    <div class="dce-value"><a href="#">https://docs.google.com/document/d/1e2E5I6OIEDh-CxDwO8Mb2hfPNPl3N1TYw6d1...</a></div>
+                </div>
+
+                <div class="dce-field">
+                    <div class="dce-label">Facilitator Guide URL</div>
+                    <div class="dce-value"><a href="#">https://docs.google.com/document/d/1M59RpW7-4-RRyp4b4k05Xy4gKGy2v/edit...</a></div>
+                </div>
+
+                <div class="dce-field">
+                    <div class="dce-label">Assessment Plan URL</div>
+                    <div class="dce-value"><a href="#">https://docs.google.com/document/d/1M59RpW7-4-RRyp4b4k05Xy4gKGy2v/edit...</a></div>
+                </div>
+
+                <div class="dce-field">
+                    <div class="dce-label">Learner Slide URL</div>
+                    <div class="dce-value"><a href="#">https://docs.google.com/file/d/1C4EJ2iUYEC16u2Bjp9-f1ijN6IZv7KI_M/view...</a></div>
+                </div>
+
+                <div class="dce-field">
+                    <div class="dce-label">Trainer Slides URL</div>
+                    <div class="dce-value"><a href="#">https://drive.google.com/file/d/1UVp2RThngSDFfrA-cyLpznokDGgDT/view...</a></div>
+                </div>
+
+                <div class="dce-field">
+                    <div class="dce-label">Courseware Link</div>
+                    <div class="dce-value"><a href="#">https://drive.google.com/drive/folders/1tnI80IXOxNR-FEbqulPQ2v7ujcRrrtIF3I0X1up...</a></div>
+                </div>
+
+                <div class="dce-field">
+                    <div class="dce-label">Brochure Link</div>
+                    <div class="dce-value"><a href="#">https://drive.google.com/file/d/148VI4Dds81ZCC1L-e/iL_dGhYPEKD4A/view...</a></div>
+                </div>
+
+                <div class="dce-field">
+                    <div class="dce-label">SkillsFuture Link</div>
+                    <div class="dce-value"><a href="#">https://courses.myskillsfuture.gov.sg/courses/TGS-2024...</a></div>
+                </div>
+            </div>
+
+            <div class="dce-section">
+                <div class="dce-field">
+                    <div class="dce-label">Assessment Record Link</div>
+                    <div class="dce-value"><a href="#">https://drive.google.com/drive/u/1/folders/1Ut8bglQ-q0yeCaGHYQsk-9wrNFa7ful2e...</a></div>
+                </div>
+            </div>
+
+            <div class="dce-section">
+                <div class="dce-field">
+                    <div class="dce-label">Assessment Summary Record URL</div>
+                    <div class="dce-value"><a href="#">https://docs.google.com/document/d/1M59RpW7-4-RRyp4b4k05Xy4gKGy2v/edit...</a></div>
+                </div>
+            </div>
+
+            <div class="dce-section">
+                <div class="dce-section-title">Lesson</div>
+                <div class="dce-empty">No lessons available.</div>
+            </div>
+
+            <div class="dce-section">
+                <div class="dce-section-title">Assessment Links</div>
+                <div class="dce-field">
+                    <div class="dce-label">Written Exam</div>
+                    <div class="dce-value"><a href="#">https://docs.google.com/document/d/1N1QWyYWh-92oT4No4GNyElpAgerSU/edit...</a></div>
+                </div>
+                <div class="dce-field">
+                    <div class="dce-label">Practical Exam</div>
+                    <div class="dce-value"><a href="#">https://docs.google.com/document/d/cLA7hN5yja40-K1uSvbYOC7C0R/edit...</a></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="dce-footer">Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y') ?></div>
+</div>
+</div>
+<?php else: ?>
 <style>
 .lcd-wrap{padding:0;max-width:1600px;margin:0 auto}
 .lcd-two-col{display:flex;gap:24px;align-items:flex-start}
@@ -977,7 +1601,16 @@ $_courseRefCode = 'TGS-' . (2024000000 + ((int)$_selectedCourse['id']) * 17);
         </div>
 
         <nav class="lcd-drawer-nav">
-            <?php if ($activeRole === 'trainer'): ?>
+            <?php if ($activeRole === 'developer'): ?>
+            <a href="#google-meet" class="lcd-nav-item" onclick="return lcdNavTo(this,'google-meet')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg><span>Google Meet</span></a>
+            <a href="#courseware" class="lcd-nav-item" onclick="return lcdNavTo(this,'courseware')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span>Courseware</span></a>
+            <a href="#lesson" class="lcd-nav-item active" onclick="return lcdNavTo(this,'lesson')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>Lesson</span></a>
+            <a href="#assessment" class="lcd-nav-item" onclick="return lcdNavTo(this,'assessment')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Assessment</span></a>
+            <a href="#assessment-grading" class="lcd-nav-item" onclick="return lcdNavTo(this,'assessment-grading')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg><span>Assessment Grading</span></a>
+            <a href="#assessment-summary" class="lcd-nav-item" onclick="return lcdNavTo(this,'assessment-summary')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Assessment Summary Record</span></a>
+            <a href="#course-sessions" class="lcd-nav-item" onclick="return lcdNavTo(this,'course-sessions')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span>Course Sessions</span></a>
+            <a href="#additional-documents" class="lcd-nav-item" onclick="return lcdNavTo(this,'additional-documents')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Additional Documents</span></a>
+            <?php elseif ($activeRole === 'trainer'): ?>
             <a href="#e-attendance" class="lcd-nav-item" onclick="return lcdNavTo(this,'e-attendance')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>E-Attendance</span></a>
             <a href="#courseware" class="lcd-nav-item" onclick="return lcdNavTo(this,'courseware')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span>Courseware Link</span></a>
             <a href="#assessment-grading" class="lcd-nav-item" onclick="return lcdNavTo(this,'assessment-grading')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg><span>Assessment Grading</span></a>
@@ -1027,6 +1660,16 @@ $_courseRefCode = 'TGS-' . (2024000000 + ((int)$_selectedCourse['id']) * 17);
             <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:13px;color:#fff;font-weight:700;"><span>Total Duration:</span><strong>40</strong></div>
         </div>
         <nav style="margin-top:14px;padding-top:14px;border-top:1px solid #1e293b;display:flex;flex-direction:column;gap:2px;">
+            <?php if ($activeRole === 'developer'): ?>
+            <a href="#google-meet" class="lcd-nav-item" onclick="return lcdNavTo(this,'google-meet')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg><span>Google Meet</span></a>
+            <a href="#courseware" class="lcd-nav-item" onclick="return lcdNavTo(this,'courseware')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span>Courseware</span></a>
+            <a href="#lesson" class="lcd-nav-item active" onclick="return lcdNavTo(this,'lesson')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>Lesson</span></a>
+            <a href="#assessment" class="lcd-nav-item" onclick="return lcdNavTo(this,'assessment')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Assessment</span></a>
+            <a href="#assessment-grading" class="lcd-nav-item" onclick="return lcdNavTo(this,'assessment-grading')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg><span>Assessment Grading</span></a>
+            <a href="#assessment-summary" class="lcd-nav-item" onclick="return lcdNavTo(this,'assessment-summary')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Assessment Summary Record</span></a>
+            <a href="#course-sessions" class="lcd-nav-item" onclick="return lcdNavTo(this,'course-sessions')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span>Course Sessions</span></a>
+            <a href="#additional-documents" class="lcd-nav-item" onclick="return lcdNavTo(this,'additional-documents')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Additional Documents</span></a>
+            <?php else: ?>
             <a href="#lesson-plan" class="lcd-nav-item" onclick="return lcdNavTo(this,'lesson-plan')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>Lesson Plan</span></a>
             <a href="#learner-guide" class="lcd-nav-item" onclick="return lcdNavTo(this,'learner-guide')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Learner Guide</span></a>
             <a href="#learner-slides" class="lcd-nav-item" onclick="return lcdNavTo(this,'learner-slides')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/></svg><span>Learner Slides</span></a>
@@ -1035,6 +1678,7 @@ $_courseRefCode = 'TGS-' . (2024000000 + ((int)$_selectedCourse['id']) * 17);
             <a href="#assessment" class="lcd-nav-item" onclick="return lcdNavTo(this,'assessment')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h4"/><path d="M15 15h4a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-4"/></svg><span>Assessment</span></a>
             <a href="#additional-documents" class="lcd-nav-item" onclick="return lcdNavTo(this,'additional-documents')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Additional Documents</span></a>
             <a href="#certificate" class="lcd-nav-item" onclick="return lcdNavTo(this,'certificate')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><circle cx="12" cy="15" r="2"/></svg><span>Certificate</span></a>
+            <?php endif; ?>
         </nav>
     </div>
 
@@ -1045,11 +1689,196 @@ $_courseRefCode = 'TGS-' . (2024000000 + ((int)$_selectedCourse['id']) * 17);
         Course Menu
     </button>
     <?php $_fromPage = (int) Mage::app()->getRequest()->getParam('from_page'); ?>
+    <?php if ($activeRole !== 'developer'): ?>
     <a href="<?php echo $_backUrl ?><?php echo $_fromPage > 1 ? '#page' . $_fromPage : '' ?>" class="lcd-back">
         Back to Dashboard
     </a>
+    <?php endif; ?>
 
-    <?php if ($activeRole === 'trainer'): ?>
+    <?php if ($activeRole === 'developer'): ?>
+    <!-- DEVELOPER: Action buttons -->
+    <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;justify-content:flex-end;">
+        <a href="<?php echo $_backUrl ?>" style="display:inline-flex;align-items:center;gap:8px;background:#334155;color:#fff !important;text-decoration:none !important;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:600;margin-right:auto;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+            Back to All Courses
+        </a>
+        <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id'=>$_selectedCourse['id'], 'mode'=>'edit')) ?>" style="display:inline-flex !important;align-items:center !important;gap:8px !important;background:#2563eb !important;background-image:none !important;color:#fff !important;border:none !important;border-radius:8px !important;padding:10px 18px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;text-decoration:none !important;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            Edit Course
+        </a>
+        <button type="button" style="display:inline-flex !important;align-items:center !important;gap:8px !important;background:#dc2626 !important;background-image:none !important;color:#fff !important;border:none !important;border-radius:8px !important;padding:10px 18px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            Delete Course
+        </button>
+    </div>
+
+    <!-- DEVELOPER: Google Meet (N/A) -->
+    <div class="lcd-section" id="google-meet">
+        <div class="lcd-section-title">Google Meet</div>
+        <div class="lcd-tile lcd-tile-static">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+            <div class="lcd-tile-body">
+                <div class="lcd-tile-title" style="color:#94a3b8;">N/A</div>
+                <div class="lcd-tile-sub">No virtual meeting link for this class</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- DEVELOPER: Courseware -->
+    <div class="lcd-section" id="courseware">
+        <div class="lcd-section-title">Courseware</div>
+        <?php
+        $_devCoursewareItems = array('Courseware Link','Lesson Plan','Learner Guide','Facilitator Guide','Trainer Slides','Assessment Plan');
+        foreach ($_devCoursewareItems as $_dcw): ?>
+        <div class="lcd-tile" style="margin-bottom:8px;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            <div class="lcd-tile-body">
+                <div class="lcd-tile-title"><?php echo $_dcw ?></div>
+                <div class="lcd-tile-sub">Click to open</div>
+            </div>
+        </div>
+        <?php endforeach; ?>
+    </div>
+
+    <!-- DEVELOPER: Lesson (empty, collapsible) -->
+    <div class="lcd-section" id="lesson">
+        <div class="lcd-section-title" style="cursor:pointer;margin-bottom:0;" onclick="var c=this.nextElementSibling;c.style.display=c.style.display==='none'?'':'none';this.querySelector('.lcd-caret').style.transform=c.style.display==='none'?'rotate(180deg)':''">
+            <span>Lesson</span>
+            <svg class="lcd-caret" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transform:rotate(180deg);transition:transform .2s"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div style="display:none;">
+            <div style="border-top:1px solid #94a3b8;margin-top:14px;padding-top:14px;"></div>
+        </div>
+    </div>
+
+    <!-- DEVELOPER: Assessment (Written + Practical with Published status) -->
+    <div class="lcd-section" id="assessment">
+        <div class="lcd-section-title">Assessment</div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+            <div class="lcd-tile" style="margin-bottom:0;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <div class="lcd-tile-body">
+                    <div class="lcd-tile-title">Written Exam</div>
+                    <div class="lcd-tile-sub">Written assessment component</div>
+                </div>
+                <span style="background:rgba(34,197,94,.15);color:#22c55e;border:1px solid rgba(34,197,94,.3);padding:4px 12px;border-radius:6px;font-size:11px;font-weight:700;">Published</span>
+            </div>
+            <div class="lcd-tile" style="margin-bottom:0;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                <div class="lcd-tile-body">
+                    <div class="lcd-tile-title">Practical Exam</div>
+                    <div class="lcd-tile-sub">Practical assessment component</div>
+                </div>
+                <span style="background:rgba(34,197,94,.15);color:#22c55e;border:1px solid rgba(34,197,94,.3);padding:4px 12px;border-radius:6px;font-size:11px;font-weight:700;">Published</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- DEVELOPER: Assessment Grading -->
+    <div class="lcd-section" id="assessment-grading">
+        <div class="lcd-section-title">Assessment Grading</div>
+        <div class="lcd-tile">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            <div class="lcd-tile-body">
+                <div class="lcd-tile-title">Assessment Record Link</div>
+                <div class="lcd-tile-sub">Open assessment grading records</div>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        </div>
+    </div>
+
+    <!-- DEVELOPER: Assessment Summary Record -->
+    <div class="lcd-section" id="assessment-summary">
+        <div class="lcd-section-title">Assessment Summary Record</div>
+        <div class="lcd-tile">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <div class="lcd-tile-body">
+                <div class="lcd-tile-title">Assessment Summary Record Template</div>
+                <div class="lcd-tile-sub">Click to open</div>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        </div>
+    </div>
+
+    <!-- DEVELOPER: Course Sessions -->
+    <div class="lcd-section" id="course-sessions">
+        <div class="lcd-section-title">Course Sessions</div>
+        <style>
+        .dev-sessions-table{width:100%;border-collapse:collapse;font-size:13px}
+        .dev-sessions-table th{background:#334155;color:#94a3b8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px;padding:10px 14px;text-align:left;border-bottom:1px solid #475569}
+        .dev-sessions-table td{padding:10px 14px;color:#e2e8f0;border-bottom:1px solid #1e293b}
+        .dev-sessions-table tr:hover td{background:rgba(255,255,255,.03)}
+        .dev-sessions-table .session-name{font-weight:600;color:#fff}
+        .dev-sessions-table .session-time{color:#94a3b8}
+        .dev-sessions-table .session-mode{font-size:12px;color:#94a3b8}
+        </style>
+        <div style="overflow-x:auto;border-radius:8px;border:1px solid #334155;">
+        <table class="dev-sessions-table">
+            <thead>
+                <tr>
+                    <th>SESSION</th>
+                    <th>START TIME</th>
+                    <th>END TIME</th>
+                    <th>MODE OF TRAINING</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php
+                $_sessions = array(
+                    array('Session 1',  '09:00 AM', '01:00 PM', 'Physical'),
+                    array('Session 2',  '09:00 AM', '01:00 PM', 'Physical'),
+                    array('Session 3',  '09:00 AM', '01:00 PM', 'Physical'),
+                    array('Session 4',  '09:00 AM', '01:00 PM', 'Physical'),
+                    array('Session 5',  '09:00 AM', '01:00 PM', 'Physical'),
+                    array('Session 6',  '09:00 AM', '01:00 PM', 'Physical'),
+                    array('Session 7',  '09:00 AM', '01:00 PM', 'Physical'),
+                    array('Session 8',  '09:00 AM', '01:00 PM', 'Physical'),
+                    array('Session 9',  '09:00 AM', '01:00 PM', 'Physical'),
+                    array('Session 10', '09:00 AM', '01:00 PM', 'Physical'),
+                    array('Session 11', '09:00 AM', '01:00 PM', 'Physical'),
+                    array('Session 1 (Evening)', '07:00 PM', '10:00 PM', 'Physical'),
+                    array('Session 2 (Evening)', '07:00 PM', '10:00 PM', 'Physical'),
+                    array('Session 3 (Evening)', '07:00 PM', '10:00 PM', 'Physical'),
+                );
+                foreach ($_sessions as $_sess): ?>
+                <tr>
+                    <td class="session-name"><?php echo $_sess[0] ?></td>
+                    <td class="session-time"><?php echo $_sess[1] ?></td>
+                    <td class="session-time"><?php echo $_sess[2] ?></td>
+                    <td class="session-mode"><?php echo $_sess[3] ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+        </div>
+        <div style="margin-top:14px;text-align:right;">
+            <button type="button" style="display:inline-flex !important;align-items:center !important;gap:8px !important;background:#334155 !important;background-image:none !important;color:#e2e8f0 !important;border:1px solid #475569 !important;border-radius:8px !important;padding:10px 18px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                Edit
+            </button>
+        </div>
+    </div>
+
+    <!-- DEVELOPER: Additional Documents -->
+    <div class="lcd-section" id="additional-documents">
+        <div class="lcd-section-title" style="display:flex;align-items:center;justify-content:space-between;">
+            <span>Additional Documents</span>
+            <button type="button" style="background:#2563eb !important;background-image:none !important;color:#fff !important;border:none !important;border-radius:8px !important;padding:8px 18px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;display:inline-flex !important;align-items:center !important;gap:6px !important;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                Upload Files
+            </button>
+        </div>
+        <div style="color:#94a3b8;font-size:13px;margin-bottom:14px;">Upload additional course materials and documents.</div>
+        <div class="lcd-empty-box">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <div class="lcd-empty-title">No additional documents</div>
+            <div style="color:#64748b;font-size:12px;margin-top:4px;">Click "Upload Files" to add materials.</div>
+        </div>
+    </div>
+
+    <div class="lcd-footer">Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y') ?></div>
+
+    <?php elseif ($activeRole === 'trainer'): ?>
     <!-- TRAINER: E-Attendance -->
     <div class="lcd-section" id="e-attendance">
         <div class="lcd-section-title">E-Attendance</div>
@@ -1184,7 +2013,6 @@ $_courseRefCode = 'TGS-' . (2024000000 + ((int)$_selectedCourse['id']) * 17);
         </div>
         <?php endforeach; ?>
     </div>
-    <?php endif; ?>
 
     <div class="lcd-section" id="traqom-survey">
         <div class="lcd-section-title" style="cursor:pointer" onclick="var c=this.nextElementSibling;c.style.display=c.style.display==='none'?'':'none';this.querySelector('.lcd-caret').style.transform=c.style.display==='none'?'':'rotate(180deg)'">Certificate &amp; TRAQOM Survey <svg class="lcd-caret" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition:transform .2s"><polyline points="6 9 12 15 18 9"/></svg></div>
@@ -1311,7 +2139,9 @@ $_courseRefCode = 'TGS-' . (2024000000 + ((int)$_selectedCourse['id']) * 17);
         </div>
     </div>
     <?php endif; ?>
+    <?php endif; ?>
 
+    <?php if ($activeRole !== 'developer'): ?>
     <div class="lcd-section" id="additional-documents">
         <div class="lcd-section-title"<?php if ($activeRole === 'trainer'): ?> style="display:flex;align-items:center;justify-content:space-between;"<?php endif; ?>>
             <span>Additional Documents</span>
@@ -1346,10 +2176,12 @@ $_courseRefCode = 'TGS-' . (2024000000 + ((int)$_selectedCourse['id']) * 17);
     </div>
     <?php endif; ?>
 
-    <div class="lcd-footer">Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> © <?php echo date('Y') ?></div>
+    <div class="lcd-footer">Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y') ?></div>
+    <?php endif; ?>
     </div><!-- end lcd-main-content -->
 </div><!-- end lcd-wrap -->
 </div><!-- end dash-panel-course-detail -->
+<?php endif; ?>
 <?php endif; ?>
 
 <?php /* ===== PANEL 4: Learner My Classes ===== */ ?>
@@ -2663,6 +3495,7 @@ window.trnBulkSubmit = function() {
 <script type="text/javascript">
 (function(){
     var COURSE_DETAIL_ACTIVE = <?php echo $_selectedCourse ? 'true' : 'false' ?>;
+    var COURSE_EDIT_ACTIVE = <?php echo ($_editMode || $_editingMode) ? 'true' : 'false' ?>;
     function showPanel(role) {
         var panels = {
             'Admin':             'dash-panel-admin',
@@ -2670,12 +3503,19 @@ window.trnBulkSubmit = function() {
             'Marketing':         'dash-panel-superadmin',
             'Training Provider': 'dash-panel-trainingprovider',
             'Learner':           'dash-panel-learner',
-            'Trainer':           'dash-panel-learner'
+            'Trainer':           'dash-panel-learner',
+            'Developer':         'dash-panel-developer'
         };
-        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-trainingprovider','dash-panel-learner','dash-panel-billing','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-course-detail'];
+        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-trainingprovider','dash-panel-developer','dash-panel-learner','dash-panel-billing','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-course-detail','dash-panel-course-edit'];
         for (var i=0; i<all.length; i++) {
             var el = document.getElementById(all[i]);
             if (el) el.style.display = 'none';
+        }
+        // If in edit mode, show the edit panel
+        if (COURSE_EDIT_ACTIVE) {
+            var edit = document.getElementById('dash-panel-course-edit');
+            if (edit) edit.style.display = '';
+            return;
         }
         // If a course is selected, show course detail instead of the role panel
         if (COURSE_DETAIL_ACTIVE) {

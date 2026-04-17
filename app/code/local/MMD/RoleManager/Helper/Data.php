@@ -6,6 +6,7 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
     const ROLE_MARKETING         = 'marketing';
     const ROLE_ADMIN             = 'admin';
     const ROLE_TRAINING_PROVIDER = 'training_provider';
+    const ROLE_DEVELOPER         = 'developer';
 
     protected $_roleLabels = array(
         'learner'           => 'Learner',
@@ -13,6 +14,7 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
         'marketing'         => 'Marketing',
         'admin'             => 'Admin',
         'training_provider' => 'Super Admin',
+        'developer'         => 'Developer',
     );
 
     protected $_roleIcons = array(
@@ -21,6 +23,7 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
         'marketing'         => '&#x1F4E3;',  // 📣
         'admin'             => '&#x2699;&#xFE0F;',  // ⚙️
         'training_provider' => '&#x1F6E1;&#xFE0F;',  // 🛡️
+        'developer'         => '&#x1F4BB;',  // 💻
     );
 
     protected $_roleDescriptions = array(
@@ -29,6 +32,7 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
         'marketing'         => 'Manage campaigns, promotions, and CMS',
         'admin'             => 'Manage users, classes, and system settings',
         'training_provider' => 'Full system access and configuration',
+        'developer'         => 'System development and technical configuration',
     );
 
     protected $_rolePriority = array(
@@ -37,6 +41,7 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
         'marketing'         => 3,
         'admin'             => 4,
         'training_provider' => 5,
+        'developer'         => 6,
     );
 
     public function getAllRoles()
