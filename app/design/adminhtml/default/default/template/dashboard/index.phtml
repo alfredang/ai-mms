@@ -379,24 +379,45 @@ if ($_loggedInEmail) {
         );
     }
 
-    // Query billing history for this learner
+    // Query billing history for this learner (one row per order item)
     $_billSql = "SELECT o.increment_id, o.created_at, o.grand_total, o.status, o.state,
-                        GROUP_CONCAT(oi.name SEPARATOR ', ') as items
+                        oi.name as item_name, oi.sku as item_sku, oi.product_type,
+                        (SELECT GROUP_CONCAT(inv.increment_id) FROM {$_resource->getTableName('sales/invoice')} inv WHERE inv.order_id = o.entity_id) as invoice_no
                  FROM {$_orderTable} o
                  JOIN {$_itemTable} oi ON o.entity_id = oi.order_id
                  WHERE LOWER(o.customer_email) = ?
-                 GROUP BY o.entity_id
                  ORDER BY o.created_at DESC";
     $_billRows = $_read->fetchAll($_billSql, array($_loggedInEmail));
     foreach ($_billRows as $_b) {
         $_isPaid = in_array($_b['state'], array('complete', 'processing'));
+        // Extract course ref code (TGS-XXXXXXXXX) from item name or SKU
+        $_refCode = '—';
+        if (preg_match('/\b(TGS-\d+)\b/', $_b['item_name'], $_m)) {
+            $_refCode = $_m[1];
+        } elseif (preg_match('/\b(TGS-\d+)\b/', $_b['item_sku'], $_m)) {
+            $_refCode = $_m[1];
+        }
+        // Generate a deterministic enrollment ID from order + item
+        $_enrollId = substr(md5($_b['increment_id'] . '-' . $_b['item_sku']), 0, 8) . '-'
+                   . substr(md5($_b['increment_id'] . '-' . $_b['item_sku']), 8, 4) . '-'
+                   . substr(md5($_b['increment_id'] . '-' . $_b['item_sku']), 12, 4) . '-'
+                   . substr(md5($_b['increment_id'] . '-' . $_b['item_sku']), 16, 4) . '-'
+                   . substr(md5($_b['increment_id'] . '-' . $_b['item_sku']), 20, 12);
+        // Determine type from product_type
+        $_type = '—';
+        if ($_b['product_type'] === 'virtual') $_type = 'Virtual';
+        elseif ($_b['product_type'] === 'simple') $_type = 'Physical';
+        elseif ($_b['product_type'] === 'downloadable') $_type = 'Download';
         $_billingHistory[] = array(
-            'order_id'   => $_b['increment_id'],
-            'date'       => date('d M Y', strtotime($_b['created_at'])),
-            'items'      => $_b['items'],
-            'amount'     => number_format((float)$_b['grand_total'], 2),
-            'status'     => ucfirst($_b['status']),
-            'is_paid'    => $_isPaid,
+            'course_title' => $_b['item_name'],
+            'ref_code'     => $_refCode,
+            'type'         => $_type,
+            'invoice_no'   => $_b['invoice_no'] ?: '—',
+            'enrollment_id'=> $_enrollId,
+            'date'         => date('d M Y', strtotime($_b['created_at'])),
+            'status'       => ucfirst($_b['status']),
+            'is_paid'      => $_isPaid,
+            'amount'       => (float)$_b['grand_total'],
         );
         $_billingTotal += (float)$_b['grand_total'];
         if ($_isPaid) $_billingPaid += (float)$_b['grand_total'];
@@ -2449,30 +2470,36 @@ function lmcSetView(view, btn) {
         <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
             <thead>
                 <tr>
-                    <th style="text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.6px;padding:12px 16px;border-bottom:1px solid #1e293b;white-space:nowrap;">Order #</th>
-                    <th style="text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.6px;padding:12px 16px;border-bottom:1px solid #1e293b;white-space:nowrap;">Date</th>
-                    <th style="text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.6px;padding:12px 16px;border-bottom:1px solid #1e293b;">Course(s)</th>
-                    <th style="text-align:right;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.6px;padding:12px 16px;border-bottom:1px solid #1e293b;white-space:nowrap;">Amount</th>
+                    <th style="text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.6px;padding:12px 16px;border-bottom:1px solid #1e293b;white-space:nowrap;">Course Title</th>
+                    <th style="text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.6px;padding:12px 16px;border-bottom:1px solid #1e293b;white-space:nowrap;">Course Ref Code</th>
+                    <th style="text-align:center;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.6px;padding:12px 16px;border-bottom:1px solid #1e293b;white-space:nowrap;">Type</th>
+                    <th style="text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.6px;padding:12px 16px;border-bottom:1px solid #1e293b;white-space:nowrap;">Invoice No.</th>
+                    <th style="text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.6px;padding:12px 16px;border-bottom:1px solid #1e293b;">Enrollment ID</th>
+                    <th style="text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.6px;padding:12px 16px;border-bottom:1px solid #1e293b;white-space:nowrap;">Created Date</th>
                     <th style="text-align:center;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.6px;padding:12px 16px;border-bottom:1px solid #1e293b;white-space:nowrap;">Status</th>
+                    <th style="text-align:center;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.6px;padding:12px 16px;border-bottom:1px solid #1e293b;white-space:nowrap;">Documents</th>
                 </tr>
             </thead>
             <tbody>
                 <?php if (empty($_billingHistory)): ?>
-                <tr><td colspan="5" style="padding:40px;text-align:center;color:#64748b;">No billing records found</td></tr>
+                <tr><td colspan="8" style="padding:40px;text-align:center;color:#64748b;">No billing records found</td></tr>
                 <?php else: ?>
                 <?php foreach ($_billingHistory as $_bill): ?>
                 <tr style="border-bottom:1px solid #1a2535;">
-                    <td style="padding:10px 16px;color:#22d3ee;font-weight:500;">#<?php echo htmlspecialchars($_bill['order_id']) ?></td>
-                    <td style="padding:10px 16px;color:#cbd5e1;"><?php echo $_bill['date'] ?></td>
-                    <td style="padding:10px 16px;color:#cbd5e1;max-width:400px;overflow:hidden;text-overflow:ellipsis;"><?php echo htmlspecialchars($_bill['items']) ?></td>
-                    <td style="padding:10px 16px;color:#f1f5f9;text-align:right;font-weight:600;">$<?php echo $_bill['amount'] ?></td>
+                    <td style="padding:10px 16px;color:#cbd5e1;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><?php echo htmlspecialchars($_bill['course_title']) ?></td>
+                    <td style="padding:10px 16px;color:#94a3b8;"><?php echo htmlspecialchars($_bill['ref_code']) ?></td>
+                    <td style="padding:10px 16px;text-align:center;color:#94a3b8;"><?php echo $_bill['type'] ?></td>
+                    <td style="padding:10px 16px;color:#94a3b8;"><?php echo htmlspecialchars($_bill['invoice_no']) ?></td>
+                    <td style="padding:10px 16px;color:#64748b;font-size:11.5px;font-family:monospace;"><?php echo $_bill['enrollment_id'] ?></td>
+                    <td style="padding:10px 16px;color:#cbd5e1;white-space:nowrap;"><?php echo $_bill['date'] ?></td>
                     <td style="padding:10px 16px;text-align:center;">
                         <?php if ($_bill['is_paid']): ?>
-                        <span style="color:#10b981;font-size:12px;font-weight:500;">Paid</span>
+                        <span style="display:inline-flex;align-items:center;gap:5px;color:#10b981;font-size:12px;font-weight:500;"><span style="width:6px;height:6px;border-radius:50%;background:#10b981;display:inline-block;"></span> Paid</span>
                         <?php else: ?>
-                        <span style="color:#f59e0b;font-size:12px;font-weight:500;">Pending</span>
+                        <span style="display:inline-flex;align-items:center;gap:5px;color:#f59e0b;font-size:12px;font-weight:500;"><span style="width:6px;height:6px;border-radius:50%;background:#f59e0b;display:inline-block;"></span> Pending</span>
                         <?php endif; ?>
                     </td>
+                    <td style="padding:10px 16px;text-align:center;color:#94a3b8;">—</td>
                 </tr>
                 <?php endforeach; ?>
                 <?php endif; ?>
@@ -3491,6 +3518,989 @@ window.trnBulkSubmit = function() {
 // Original trnSubmit removed — unified version defined earlier handles both add + edit
 </script>
 
+<?php /* ===== PANEL: Company Setting (Super Admin) ===== */ ?>
+<?php
+$_csUrl = Mage::helper('adminhtml')->getUrl('adminhtml/companysetting/save');
+$_csLoadUrl = Mage::helper('adminhtml')->getUrl('adminhtml/companysetting/load');
+?>
+<div id="dash-panel-companysetting" style="display:none;">
+<style>
+.cs-wrap{max-width:900px;margin:0 auto;padding:0 0 60px}
+.cs-header{display:flex;align-items:center;gap:20px;margin-bottom:32px}
+.cs-logo{width:64px;height:64px;border-radius:16px;background:#1e3a5f;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;color:#60a5fa;border:2px solid #2d4a6f}
+.cs-header-info h1{font-size:22px;font-weight:700;color:var(--t1);margin:0 0 4px}
+.cs-header-info p{font-size:13px;color:#94a3b8;margin:0}
+.cs-header .cs-edit-btn{margin-left:auto}
+.cs-section{margin-bottom:8px}
+.cs-section-head{display:flex;align-items:center;padding:14px 0;border-bottom:1px solid rgba(34,211,238,.12);cursor:pointer;user-select:none}
+.cs-section-head h2{font-size:17px;font-weight:700;color:var(--t1);margin:0;flex:1}
+.cs-section-head .cs-caret{color:#64748b;transition:transform .2s;font-size:18px}
+.cs-section-head .cs-caret.open{transform:rotate(180deg)}
+.cs-section-head .cs-edit-btn{margin-left:12px}
+.cs-edit-btn{background:#0d9488;color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+.cs-edit-btn:hover{background:#0f766e}
+.cs-save-btn{background:#2563eb;color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+.cs-save-btn:hover{background:#1d4ed8}
+.cs-cancel-btn{background:#475569;color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;margin-left:6px}
+.cs-section-body{padding:16px 0;display:none}
+.cs-section-body.open{display:block}
+.cs-row{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:14px}
+.cs-row-2{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:14px}
+.cs-row-1{margin-bottom:14px}
+.cs-field label{font-size:11px;color:#64748b;display:block;margin-bottom:3px}
+.cs-field .cs-val{font-size:14px;color:var(--t1);font-weight:500}
+.cs-field input,.cs-field select{width:100%;background:#0f172a;border:1px solid #334155;border-radius:6px;padding:8px 12px;color:var(--t1);font-size:13px;display:none}
+.cs-field input:focus,.cs-field select:focus{border-color:#22d3ee;outline:none}
+.cs-field.editing .cs-val{display:none}
+.cs-field.editing input,.cs-field.editing select{display:block}
+.cs-card{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:16px 18px;margin-bottom:10px}
+.cs-card-title{font-size:14px;font-weight:600;color:var(--t1);margin-bottom:8px}
+.cs-sub-section{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:16px 18px;margin-bottom:10px}
+.cs-sub-title{font-size:14px;font-weight:700;color:var(--t1);margin:0 0 12px}
+.cs-toggle-row{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:12px 16px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between}
+.cs-toggle-row span{color:var(--t1);font-size:13px;font-weight:500}
+.cs-toggle{position:relative;width:44px;height:24px;cursor:pointer}
+.cs-toggle input{display:none}
+.cs-toggle .slider{position:absolute;inset:0;background:#475569;border-radius:12px;transition:.2s}
+.cs-toggle input:checked+.slider{background:#0d9488}
+.cs-toggle .slider:before{content:'';position:absolute;left:3px;top:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:.2s}
+.cs-toggle input:checked+.slider:before{transform:translateX(20px)}
+.cs-status{font-size:12px;font-weight:500;margin-left:auto;margin-right:12px}
+.cs-status.enabled{color:#10b981}
+.cs-status.disabled{color:#94a3b8}
+.cs-status.configured{color:#10b981}
+.cs-masked{font-family:monospace;letter-spacing:2px;color:#94a3b8}
+.cs-eye-btn{background:none;border:none;color:#64748b;cursor:pointer;padding:2px 6px;font-size:14px}
+.cs-link{color:#22d3ee;font-size:13px;word-break:break-all}
+.cs-divider{border:none;border-top:1px solid rgba(34,211,238,.12);margin:20px 0}
+.cs-app-card{border:1px solid #334155;border-radius:10px;margin-bottom:10px;overflow:hidden}
+.cs-app-card.active{border-color:#10b981}
+.cs-app-header{background:#1e293b;padding:12px 16px;display:flex;align-items:center;cursor:pointer}
+.cs-app-header h4{font-size:14px;font-weight:600;color:var(--t1);margin:0;flex:1}
+.cs-app-body{padding:16px;display:none}
+.cs-app-body.open{display:block}
+.cs-cred-card{border:1px solid #334155;border-radius:10px;padding:16px;margin-bottom:10px}
+.cs-cred-card h4{font-size:14px;font-weight:600;color:var(--t1);margin:0 0 10px}
+.cs-cred-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px}
+.cs-input-masked{display:flex;align-items:center;background:#0f172a;border:1px solid #334155;border-radius:6px;padding:4px 8px}
+.cs-input-masked span{flex:1;color:#94a3b8;font-family:monospace;font-size:13px;letter-spacing:1px}
+</style>
+
+<div class="cs-wrap">
+    <!-- Header -->
+    <div class="cs-header">
+        <div class="cs-logo">T</div>
+        <div class="cs-header-info">
+            <h1 id="cs-company-name">Tertiary Infotech Academy Pte Ltd</h1>
+            <p id="cs-company-short">Tertiary Infotech Academy</p>
+        </div>
+        <button class="cs-edit-btn" onclick="window.location.href='<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/system_config') ?>'">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            Edit Company Setting
+        </button>
+    </div>
+
+    <!-- Section: Company Details -->
+    <div class="cs-section" data-section="company_details">
+        <div class="cs-section-head" onclick="csToggleSection(this)">
+            <h2>Company Details</h2>
+            <span class="cs-caret open">&#9650;</span>
+            <button class="cs-edit-btn" onclick="event.stopPropagation();csEditSection('company_details')">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                Edit
+            </button>
+        </div>
+        <div class="cs-section-body open" id="cs-body-company_details">
+            <div class="cs-row">
+                <div class="cs-field" data-path="mmd_company/details/name">
+                    <label>Company Name</label>
+                    <div class="cs-val">Tertiary Infotech Academy Pte Ltd</div>
+                    <input type="text" value="Tertiary Infotech Academy Pte Ltd"/>
+                </div>
+                <div class="cs-field" data-path="mmd_company/details/short_name">
+                    <label>Company Short Name</label>
+                    <div class="cs-val">Tertiary Infotech Academy</div>
+                    <input type="text" value="Tertiary Infotech Academy"/>
+                </div>
+                <div class="cs-field" data-path="mmd_company/details/uen">
+                    <label>UEN</label>
+                    <div class="cs-val">201200696W</div>
+                    <input type="text" value="201200696W"/>
+                </div>
+            </div>
+            <div class="cs-row-1">
+                <div class="cs-field" data-path="mmd_company/details/address">
+                    <label>Company Address</label>
+                    <div class="cs-val">12 Woodland Square #07-85/86/87 Woods Square Tower 1, Singapore 737715</div>
+                    <input type="text" value="12 Woodland Square #07-85/86/87 Woods Square Tower 1, Singapore 737715"/>
+                </div>
+            </div>
+            <div class="cs-row">
+                <div class="cs-field" data-path="mmd_company/details/email">
+                    <label>Company Email</label>
+                    <div class="cs-val">enquiry@tertiaryinfotech.com</div>
+                    <input type="email" value="enquiry@tertiaryinfotech.com"/>
+                </div>
+                <div class="cs-field" data-path="mmd_company/details/tel">
+                    <label>Company Tel</label>
+                    <div class="cs-val">61000613</div>
+                    <input type="text" value="61000613"/>
+                </div>
+                <div class="cs-field" data-path="mmd_company/details/website">
+                    <label>Company Website</label>
+                    <div class="cs-val"><a href="https://www.tertiarycourses.com.sg/" target="_blank" class="cs-link">https://www.tertiarycourses.com.sg/</a></div>
+                    <input type="url" value="https://www.tertiarycourses.com.sg/"/>
+                </div>
+            </div>
+            <div id="cs-actions-company_details" style="display:none;margin-top:10px;">
+                <button class="cs-save-btn" onclick="csSaveSection('company_details')">Save</button>
+                <button class="cs-cancel-btn" onclick="csCancelSection('company_details')">Cancel</button>
+            </div>
+        </div>
+    </div>
+    <hr class="cs-divider"/>
+
+    <!-- Section: Company Support Details -->
+    <div class="cs-section" data-section="support">
+        <div class="cs-section-head" onclick="csToggleSection(this)">
+            <h2>Company Support Details</h2>
+            <span class="cs-caret open">&#9650;</span>
+            <button class="cs-edit-btn" onclick="event.stopPropagation();csEditSection('support')">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                Edit
+            </button>
+        </div>
+        <div class="cs-section-body open" id="cs-body-support">
+            <div class="cs-row">
+                <div class="cs-field" data-path="mmd_company/support/name">
+                    <label>Support Name</label>
+                    <div class="cs-val">Tertiary Infotech Academy</div>
+                    <input type="text" value="Tertiary Infotech Academy"/>
+                </div>
+                <div class="cs-field" data-path="mmd_company/support/email">
+                    <label>Support Email</label>
+                    <div class="cs-val">support@tertiaryinfotech.com</div>
+                    <input type="email" value="support@tertiaryinfotech.com"/>
+                </div>
+                <div class="cs-field" data-path="mmd_company/support/tel">
+                    <label>Support Telephone</label>
+                    <div class="cs-val">61000613</div>
+                    <input type="text" value="61000613"/>
+                </div>
+            </div>
+            <div id="cs-actions-support" style="display:none;margin-top:10px;">
+                <button class="cs-save-btn" onclick="csSaveSection('support')">Save</button>
+                <button class="cs-cancel-btn" onclick="csCancelSection('support')">Cancel</button>
+            </div>
+        </div>
+    </div>
+    <hr class="cs-divider"/>
+
+    <!-- Section: SSG Funding -->
+    <div class="cs-section" data-section="ssg_funding">
+        <div class="cs-section-head" onclick="csToggleSection(this)">
+            <h2>SSG Funding</h2>
+            <span class="cs-caret open">&#9650;</span>
+            <button class="cs-edit-btn" onclick="event.stopPropagation();csEditSection('ssg_funding')">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                Edit
+            </button>
+        </div>
+        <div class="cs-section-body open" id="cs-body-ssg_funding">
+            <div class="cs-row-2">
+                <div class="cs-field" data-path="mmd_company/ssg/normal_rate">
+                    <label>Normal Funding Rate</label>
+                    <div class="cs-val">50%</div>
+                    <input type="text" value="50%"/>
+                </div>
+                <div class="cs-field" data-path="mmd_company/ssg/enhanced_rate">
+                    <label>Enhanced Funding Rate</label>
+                    <div class="cs-val">20%</div>
+                    <input type="text" value="20%"/>
+                </div>
+            </div>
+            <div id="cs-actions-ssg_funding" style="display:none;margin-top:10px;">
+                <button class="cs-save-btn" onclick="csSaveSection('ssg_funding')">Save</button>
+                <button class="cs-cancel-btn" onclick="csCancelSection('ssg_funding')">Cancel</button>
+            </div>
+        </div>
+    </div>
+    <hr class="cs-divider"/>
+
+    <!-- Section: GST -->
+    <div class="cs-section" data-section="gst">
+        <div class="cs-section-head" onclick="csToggleSection(this)">
+            <h2>GST</h2>
+            <span class="cs-caret open">&#9650;</span>
+            <button class="cs-edit-btn" onclick="event.stopPropagation();csEditSection('gst')">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                Edit
+            </button>
+        </div>
+        <div class="cs-section-body open" id="cs-body-gst">
+            <div class="cs-row-2">
+                <div class="cs-field" data-path="mmd_company/gst/rate">
+                    <label>GST Rate</label>
+                    <div class="cs-val">9%</div>
+                    <input type="text" value="9%"/>
+                </div>
+                <div class="cs-field" data-path="mmd_company/gst/registered">
+                    <label>GST Registered</label>
+                    <div class="cs-val">Yes</div>
+                    <input type="text" value="Yes"/>
+                </div>
+            </div>
+            <div id="cs-actions-gst" style="display:none;margin-top:10px;">
+                <button class="cs-save-btn" onclick="csSaveSection('gst')">Save</button>
+                <button class="cs-cancel-btn" onclick="csCancelSection('gst')">Cancel</button>
+            </div>
+        </div>
+    </div>
+    <hr class="cs-divider"/>
+
+    <!-- Section: Integrations -->
+    <div class="cs-section" data-section="integrations">
+        <div class="cs-section-head" onclick="csToggleSection(this)">
+            <h2>Integrations</h2>
+            <span class="cs-caret open">&#9650;</span>
+            <button class="cs-edit-btn" onclick="event.stopPropagation();csEditSection('integrations')">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                Edit
+            </button>
+        </div>
+        <div class="cs-section-body open" id="cs-body-integrations">
+
+            <!-- Google -->
+            <div class="cs-sub-section">
+                <h3 class="cs-sub-title">Google</h3>
+
+                <!-- Gmail -->
+                <div class="cs-card">
+                    <div class="cs-card-title">Gmail</div>
+                    <div class="cs-card" style="background:#0f172a;margin-top:8px;">
+                        <div class="cs-card-title">Email Configuration (Google OAuth2)</div>
+                        <div class="cs-field" data-path="mmd_company/google/email_user" style="margin-bottom:8px">
+                            <label>Email User</label>
+                            <div class="cs-val">sales@tertiarycourses.com.sg</div>
+                            <input type="text" value="sales@tertiarycourses.com.sg"/>
+                        </div>
+                        <div class="cs-field" data-path="mmd_company/google/client_id" style="margin-bottom:8px">
+                            <label>Google Client ID</label>
+                            <div class="cs-val" style="word-break:break-all;font-size:12px;color:#94a3b8">244747523157-a87jleaej9on49cfo5jv6qamjj271d4k.apps.googleusercontent.com</div>
+                            <input type="text" value=""/>
+                        </div>
+                        <div class="cs-field" data-path="mmd_company/google/client_secret" style="margin-bottom:8px">
+                            <label>Google Client Secret</label>
+                            <div class="cs-val"><span class="cs-masked">••••••••</span></div>
+                            <input type="password" value=""/>
+                        </div>
+                        <div class="cs-field" data-path="mmd_company/google/refresh_token">
+                            <label>Google Refresh Token</label>
+                            <div class="cs-val"><span class="cs-masked">••••••••</span></div>
+                            <input type="password" value=""/>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Service Account -->
+                <div class="cs-card">
+                    <div class="cs-card-title">Service Account</div>
+                    <div class="cs-field" data-path="mmd_company/google/service_account" style="margin-top:8px">
+                        <label>Service Account Key File</label>
+                        <div class="cs-val">1776135707586_service-account.json</div>
+                        <input type="text" value="1776135707586_service-account.json"/>
+                    </div>
+                </div>
+
+                <!-- Google Sheet -->
+                <div class="cs-card">
+                    <div class="cs-card-title">Google Sheet</div>
+                    <div class="cs-card" style="background:#0f172a;margin-top:8px;">
+                        <div class="cs-field" data-path="mmd_company/google/sheet_master" style="margin-bottom:10px">
+                            <label>Master List</label>
+                            <div class="cs-val"><a href="#" class="cs-link" style="font-size:12px">https://docs.google.com/spreadsheets/d/...</a></div>
+                            <input type="url" value=""/>
+                        </div>
+                        <div class="cs-field" data-path="mmd_company/google/sheet_tms" style="margin-bottom:10px">
+                            <label>Tertiary TMS</label>
+                            <div class="cs-val"><a href="#" class="cs-link" style="font-size:12px">https://docs.google.com/spreadsheets/d/...</a></div>
+                            <input type="url" value=""/>
+                        </div>
+                        <div class="cs-field" data-path="mmd_company/google/sheet_fms" style="margin-bottom:10px">
+                            <label>Tertiary FMS</label>
+                            <div class="cs-val"><a href="#" class="cs-link" style="font-size:12px">https://docs.google.com/spreadsheets/d/...</a></div>
+                            <input type="url" value=""/>
+                        </div>
+                        <div class="cs-field" data-path="mmd_company/google/sheet_mms" style="margin-bottom:10px">
+                            <label>Tertiary MMS</label>
+                            <div class="cs-val"><a href="#" class="cs-link" style="font-size:12px">https://docs.google.com/spreadsheets/d/...</a></div>
+                            <input type="url" value=""/>
+                        </div>
+                        <div class="cs-field" data-path="mmd_company/google/sheet_tpms">
+                            <label>Tertiary TPMS</label>
+                            <div class="cs-val"><a href="#" class="cs-link" style="font-size:12px">https://docs.google.com/spreadsheets/d/...</a></div>
+                            <input type="url" value=""/>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Google Drive -->
+                <div class="cs-card">
+                    <div class="cs-card-title">Google Drive</div>
+                    <div class="cs-card" style="background:#0f172a;margin-top:8px;">
+                        <div class="cs-field" data-path="mmd_company/google/drive_trainer" style="margin-bottom:10px">
+                            <label>Trainer Profile Image Folder</label>
+                            <div class="cs-val"><a href="#" class="cs-link" style="font-size:12px">https://drive.google.com/drive/folders/...</a></div>
+                            <input type="url" value=""/>
+                        </div>
+                        <div class="cs-field" data-path="mmd_company/google/drive_certificate">
+                            <label>Certificate Folder</label>
+                            <div class="cs-val"><a href="#" class="cs-link" style="font-size:12px">https://drive.google.com/drive/folders/...</a></div>
+                            <input type="url" value=""/>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Calendar -->
+                <div class="cs-card">
+                    <div class="cs-card-title" style="display:flex;align-items:center">Calendar <span class="cs-status enabled" style="margin-left:auto">Enabled</span></div>
+                    <div class="cs-card" style="background:#0f172a;margin-top:8px;">
+                        <div class="cs-field" data-path="mmd_company/google/calendar_url">
+                            <label>Calendar Embed URL</label>
+                            <div class="cs-val"><a href="#" class="cs-link" style="font-size:12px">https://calendar.google.com/calendar/u/2?cid=...</a></div>
+                            <input type="url" value=""/>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Nemo OpenClaw -->
+            <div class="cs-sub-section">
+                <h3 class="cs-sub-title">Nemo OpenClaw</h3>
+                <div class="cs-card" style="background:#0f172a">
+                    <div class="cs-field" data-path="mmd_company/openclaw/mode" style="margin-bottom:8px">
+                        <label>Mode</label>
+                        <div class="cs-val" style="font-weight:700">Remote Live Mode</div>
+                        <input type="text" value="Remote Live Mode"/>
+                    </div>
+                    <div class="cs-field" data-path="mmd_company/openclaw/live_url" style="margin-bottom:8px">
+                        <label>Live Gateway URL</label>
+                        <div class="cs-val"><a href="#" class="cs-link">http://10.0.1.1:18789</a></div>
+                        <input type="url" value="http://10.0.1.1:18789"/>
+                    </div>
+                    <div class="cs-field" data-path="mmd_company/openclaw/test_url" style="margin-bottom:8px">
+                        <label>Local Testing URL</label>
+                        <div class="cs-val"><a href="#" class="cs-link">http://76.13.180.29:18789</a></div>
+                        <input type="url" value="http://76.13.180.29:18789"/>
+                    </div>
+                    <div class="cs-field" data-path="mmd_company/openclaw/hooks_path" style="margin-bottom:8px">
+                        <label>Hooks Path</label>
+                        <div class="cs-val"><span class="cs-link">/hooks</span></div>
+                        <input type="text" value="/hooks"/>
+                    </div>
+                    <div class="cs-field" data-path="mmd_company/openclaw/agent_id" style="margin-bottom:8px">
+                        <label>Agent ID</label>
+                        <div class="cs-val"><span class="cs-link">main</span></div>
+                        <input type="text" value="main"/>
+                    </div>
+                    <div class="cs-field" data-path="mmd_company/openclaw/callback_url">
+                        <label>Callback URL</label>
+                        <div class="cs-val">Not Set</div>
+                        <input type="url" value=""/>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Magento -->
+            <div class="cs-sub-section">
+                <h3 class="cs-sub-title">Magento</h3>
+                <div class="cs-card" style="background:#0f172a">
+                    <div class="cs-field" data-path="mmd_company/magento/backend_url">
+                        <label>Magento Backend URL</label>
+                        <div class="cs-val"><a href="https://www.tertiarycourses.com.sg/tigerdragon" target="_blank" class="cs-link">https://www.tertiarycourses.com.sg/tigerdragon</a></div>
+                        <input type="url" value="https://www.tertiarycourses.com.sg/tigerdragon"/>
+                    </div>
+                </div>
+            </div>
+
+            <!-- n8n -->
+            <div class="cs-sub-section">
+                <h3 class="cs-sub-title">n8n</h3>
+                <div class="cs-card" style="background:#0f172a">
+                    <div class="cs-field" data-path="mmd_company/n8n/host1" style="margin-bottom:8px">
+                        <label>Host 1 URL</label>
+                        <div class="cs-val"><a href="#" class="cs-link">https://n8n.srv923061.hstgr.cloud/home/workflows</a></div>
+                        <input type="url" value=""/>
+                    </div>
+                    <div class="cs-field" data-path="mmd_company/n8n/host2">
+                        <label>Host 2 URL</label>
+                        <div class="cs-val"><a href="#" class="cs-link">https://n8n.srv1231536.hstgr.cloud/home/workflows</a></div>
+                        <input type="url" value=""/>
+                    </div>
+                </div>
+            </div>
+
+            <div id="cs-actions-integrations" style="display:none;margin-top:10px;">
+                <button class="cs-save-btn" onclick="csSaveSection('integrations')">Save</button>
+                <button class="cs-cancel-btn" onclick="csCancelSection('integrations')">Cancel</button>
+            </div>
+        </div>
+    </div>
+    <hr class="cs-divider"/>
+
+    <!-- Section: Document Templates -->
+    <div class="cs-section" data-section="doc_templates">
+        <div class="cs-section-head" onclick="csToggleSection(this)">
+            <h2>Document Templates</h2>
+            <span class="cs-caret open">&#9650;</span>
+            <button class="cs-edit-btn" onclick="event.stopPropagation();csEditSection('doc_templates')">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                Edit
+            </button>
+        </div>
+        <div class="cs-section-body open" id="cs-body-doc_templates">
+            <div class="cs-toggle-row" style="flex-direction:column;align-items:flex-start">
+                <label style="font-size:11px;color:#64748b;margin-bottom:2px">Proforma Invoice Template ID</label>
+                <div class="cs-field" data-path="mmd_company/templates/proforma" style="width:100%">
+                    <div class="cs-val" style="font-size:12px;word-break:break-all">1KbvgGpNsirzmCvLZOuMv7SY5IWxX0XfTSbnNF_pjZYY</div>
+                    <input type="text" value="1KbvgGpNsirzmCvLZOuMv7SY5IWxX0XfTSbnNF_pjZYY"/>
+                </div>
+            </div>
+            <div class="cs-toggle-row" style="flex-direction:column;align-items:flex-start">
+                <label style="font-size:11px;color:#64748b;margin-bottom:2px">Invoice Template ID</label>
+                <div class="cs-field" data-path="mmd_company/templates/invoice" style="width:100%">
+                    <div class="cs-val" style="font-size:12px;word-break:break-all">/uploads/training_provider/invoice_template/1759478197184_cer1.docx</div>
+                    <input type="text" value="/uploads/training_provider/invoice_template/1759478197184_cer1.docx"/>
+                </div>
+            </div>
+            <div class="cs-toggle-row" style="flex-direction:column;align-items:flex-start">
+                <label style="font-size:11px;color:#64748b;margin-bottom:2px">Receipt Template ID</label>
+                <div class="cs-field" data-path="mmd_company/templates/receipt" style="width:100%">
+                    <div class="cs-val" style="font-size:12px;word-break:break-all">/uploads/training_provider/receipt_template/1759478231535_cer2.docx</div>
+                    <input type="text" value="/uploads/training_provider/receipt_template/1759478231535_cer2.docx"/>
+                </div>
+            </div>
+            <div class="cs-toggle-row" style="flex-direction:column;align-items:flex-start">
+                <label style="font-size:11px;color:#64748b;margin-bottom:2px">Certificate Template ID</label>
+                <div class="cs-field" data-path="mmd_company/templates/certificate" style="width:100%">
+                    <div class="cs-val" style="font-size:12px;word-break:break-all">1MKZRSVz115eGPTdaVB_sLPiD7SrlfpZeh_PTl2cMQl0</div>
+                    <input type="text" value="1MKZRSVz115eGPTdaVB_sLPiD7SrlfpZeh_PTl2cMQl0"/>
+                </div>
+            </div>
+            <div id="cs-actions-doc_templates" style="display:none;margin-top:10px;">
+                <button class="cs-save-btn" onclick="csSaveSection('doc_templates')">Save</button>
+                <button class="cs-cancel-btn" onclick="csCancelSection('doc_templates')">Cancel</button>
+            </div>
+        </div>
+    </div>
+    <hr class="cs-divider"/>
+
+    <!-- Section: Admin Setting -->
+    <div class="cs-section" data-section="admin_setting">
+        <div class="cs-section-head" onclick="csToggleSection(this)">
+            <h2>Admin Setting</h2>
+            <span class="cs-caret open">&#9650;</span>
+            <button class="cs-edit-btn" onclick="event.stopPropagation();csEditSection('admin_setting')">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                Edit
+            </button>
+        </div>
+        <div class="cs-section-body open" id="cs-body-admin_setting">
+            <div class="cs-toggle-row">
+                <span>Upcoming Classes Threshold (Days)</span>
+                <span class="cs-status enabled" style="margin-left:auto">365 days</span>
+            </div>
+            <div class="cs-toggle-row">
+                <span>Certificate Attendance Threshold (%)</span>
+                <span class="cs-status enabled" style="margin-left:auto">60%</span>
+            </div>
+            <div class="cs-toggle-row">
+                <span>Auto Send Pro Forma Invoice Upon Course Confirmation</span>
+                <label class="cs-toggle"><input type="checkbox" checked data-path="mmd_company/admin/auto_proforma"/><span class="slider"></span></label>
+            </div>
+            <div class="cs-toggle-row">
+                <span>Auto Send Confirmation Email Upon Course Confirmation</span>
+                <label class="cs-toggle"><input type="checkbox" checked data-path="mmd_company/admin/auto_confirm_email"/><span class="slider"></span></label>
+            </div>
+            <div class="cs-toggle-row">
+                <span>Auto Send Invoice Upon Successful Grant Application</span>
+                <label class="cs-toggle"><input type="checkbox" checked data-path="mmd_company/admin/auto_invoice_grant"/><span class="slider"></span></label>
+            </div>
+            <div class="cs-toggle-row">
+                <span>Auto Send Receipt Upon Payment Received</span>
+                <label class="cs-toggle"><input type="checkbox" checked data-path="mmd_company/admin/auto_receipt"/><span class="slider"></span></label>
+            </div>
+            <div class="cs-toggle-row">
+                <span>Auto Send Certificate On Achievement Upon Class Completed</span>
+                <label class="cs-toggle"><input type="checkbox" checked data-path="mmd_company/admin/auto_cert"/><span class="slider"></span></label>
+            </div>
+            <div class="cs-toggle-row">
+                <span>Auto Send Thank You Email Upon Class Completed</span>
+                <label class="cs-toggle"><input type="checkbox" checked data-path="mmd_company/admin/auto_thankyou"/><span class="slider"></span></label>
+            </div>
+            <div class="cs-toggle-row">
+                <span>Auto Submit Direct Applications to SSG</span>
+                <label class="cs-toggle"><input type="checkbox" checked data-path="mmd_company/admin/auto_ssg_submit"/><span class="slider"></span></label>
+            </div>
+            <div class="cs-toggle-row">
+                <span>Auto Generate QuickBooks Invoice for Direct Applications</span>
+                <label class="cs-toggle"><input type="checkbox" checked data-path="mmd_company/admin/auto_qb_invoice"/><span class="slider"></span></label>
+            </div>
+            <div class="cs-toggle-row">
+                <span>Auto Add Learner to Calendar for Direct Applications</span>
+                <label class="cs-toggle"><input type="checkbox" checked data-path="mmd_company/admin/auto_calendar"/><span class="slider"></span></label>
+            </div>
+            <div id="cs-actions-admin_setting" style="display:none;margin-top:10px;">
+                <button class="cs-save-btn" onclick="csSaveSection('admin_setting')">Save</button>
+                <button class="cs-cancel-btn" onclick="csCancelSection('admin_setting')">Cancel</button>
+            </div>
+        </div>
+    </div>
+    <hr class="cs-divider"/>
+
+    <!-- Section: Security Setting -->
+    <div class="cs-section" data-section="security">
+        <div class="cs-section-head" onclick="csToggleSection(this)">
+            <h2>Security Setting</h2>
+            <span class="cs-caret open">&#9650;</span>
+            <button class="cs-edit-btn" onclick="event.stopPropagation();csEditSection('security')">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                Edit
+            </button>
+        </div>
+        <div class="cs-section-body open" id="cs-body-security">
+            <div class="cs-toggle-row" style="flex-direction:column;align-items:flex-start">
+                <div style="display:flex;width:100%;align-items:center">
+                    <span style="color:var(--t1);font-size:13px;font-weight:500">Auto Sanitise Data</span>
+                    <span class="cs-status enabled" style="margin-left:auto">Enabled</span>
+                </div>
+                <div style="font-size:12px;color:#94a3b8;margin-top:4px">Sanitise data older than <strong style="color:var(--t1)">6</strong> months</div>
+                <div style="font-size:11px;color:#64748b;margin-top:4px;line-height:1.4">When enabled, NRIC and phone digits are redacted in place on rows older than this window (e.g. S1888997A → Sxxxx997A, 96983371 → 9xxxx371). Runs every Sunday 02:00 SGT.</div>
+            </div>
+            <div class="cs-toggle-row">
+                <span>Enable OTP Login</span>
+                <span class="cs-status enabled" style="margin-left:auto">Enabled</span>
+            </div>
+            <div class="cs-toggle-row">
+                <span>Set Default OTP</span>
+                <span class="cs-status disabled" style="margin-left:auto">Disabled</span>
+            </div>
+            <div class="cs-toggle-row">
+                <span>Forced First Time Password Change</span>
+                <span class="cs-status enabled" style="margin-left:auto">Enabled</span>
+            </div>
+            <div class="cs-toggle-row">
+                <span>Set Default Password</span>
+                <span style="color:var(--t1);font-weight:600;margin-left:auto">password123</span>
+            </div>
+            <div id="cs-actions-security" style="display:none;margin-top:10px;">
+                <button class="cs-save-btn" onclick="csSaveSection('security')">Save</button>
+                <button class="cs-cancel-btn" onclick="csCancelSection('security')">Cancel</button>
+            </div>
+        </div>
+    </div>
+    <hr class="cs-divider"/>
+
+    <!-- Section: SSG Authentication Setting -->
+    <div class="cs-section" data-section="ssg_auth">
+        <div class="cs-section-head" onclick="csToggleSection(this)">
+            <h2>SSG Authentication Setting</h2>
+            <span class="cs-caret open">&#9650;</span>
+            <button class="cs-edit-btn" onclick="event.stopPropagation();csEditSection('ssg_auth')">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                Edit
+            </button>
+        </div>
+        <div class="cs-section-body open" id="cs-body-ssg_auth">
+            <!-- App 1 -->
+            <div class="cs-app-card active">
+                <div class="cs-app-header" onclick="csToggleApp(this)">
+                    <h4 style="color:#10b981">App 1 (SKILLETO TERTIARY)</h4>
+                    <span class="cs-caret open">&#9650;</span>
+                </div>
+                <div class="cs-app-body open">
+                    <div class="cs-row-2">
+                        <div class="cs-field"><label>Self Signing Cert File</label><div class="cs-val" style="font-size:12px">CERT_1_skilleto_tertiary_cert_v3.pem</div></div>
+                        <div class="cs-field"><label>Private Key File</label><div class="cs-val" style="font-size:12px">CERT_1_skilleto_private_key_v3.pem</div></div>
+                    </div>
+                    <div class="cs-field" style="margin-top:8px"><label>Encryption Key</label><div class="cs-val"><span class="cs-masked">••••••••••••••••</span> <button class="cs-eye-btn">&#128065;</button></div></div>
+                    <div style="margin-top:10px;color:#10b981;font-size:12px;font-weight:500">&#9673; Default App for SSG API</div>
+                </div>
+            </div>
+            <!-- App 2 -->
+            <div class="cs-app-card">
+                <div class="cs-app-header" onclick="csToggleApp(this)">
+                    <h4>App 2 (Training Management System)</h4>
+                    <span class="cs-caret">&#9650;</span>
+                </div>
+                <div class="cs-app-body">
+                    <div class="cs-row-2">
+                        <div class="cs-field"><label>Self Signing Cert File</label><div class="cs-val" style="font-size:12px">CERT_2_TMS_cert.pem</div></div>
+                        <div class="cs-field"><label>Private Key File</label><div class="cs-val" style="font-size:12px">CERT_2_TMS_key.pem</div></div>
+                    </div>
+                    <div class="cs-field" style="margin-top:8px"><label>Encryption Key</label><div class="cs-val"><span class="cs-masked">••••••••••••••••••</span> <button class="cs-eye-btn">&#128065;</button></div></div>
+                </div>
+            </div>
+            <!-- App 3 -->
+            <div class="cs-app-card">
+                <div class="cs-app-header" onclick="csToggleApp(this)">
+                    <h4>App 3 (TIPL Tertiary Infotech Academy)</h4>
+                    <span class="cs-caret">&#9650;</span>
+                </div>
+                <div class="cs-app-body">
+                    <div class="cs-row-2">
+                        <div class="cs-field"><label>Self Signing Cert File</label><div class="cs-val" style="font-size:12px">CERT_3_TIPL_Tertiary_Infotech_Academy_certificate.pem</div></div>
+                        <div class="cs-field"><label>Private Key File</label><div class="cs-val" style="font-size:12px">CERT_3_TIPL_Tertiary_Infotech_Academy_key.pem</div></div>
+                    </div>
+                    <div class="cs-field" style="margin-top:8px"><label>Encryption Key</label><div class="cs-val"><span class="cs-masked">••••••••••••••••</span> <button class="cs-eye-btn">&#128065;</button></div></div>
+                </div>
+            </div>
+            <!-- App 4 -->
+            <div class="cs-app-card">
+                <div class="cs-app-header" onclick="csToggleApp(this)">
+                    <h4>App 4 (TMS API)</h4>
+                    <span class="cs-caret">&#9650;</span>
+                </div>
+                <div class="cs-app-body">
+                    <div class="cs-row-2">
+                        <div class="cs-field"><label>Client ID</label><div class="cs-val" style="font-size:12px;word-break:break-all">e256ccd5b2014655a95d2f607ad5acc6</div></div>
+                        <div class="cs-field"><label>Client Secret</label><div class="cs-val"><span class="cs-masked">••••••••••••••••</span> <button class="cs-eye-btn">&#128065;</button></div></div>
+                    </div>
+                </div>
+            </div>
+            <div id="cs-actions-ssg_auth" style="display:none;margin-top:10px;">
+                <button class="cs-save-btn" onclick="csSaveSection('ssg_auth')">Save</button>
+                <button class="cs-cancel-btn" onclick="csCancelSection('ssg_auth')">Cancel</button>
+            </div>
+        </div>
+    </div>
+    <hr class="cs-divider"/>
+
+    <!-- Section: Credentials -->
+    <div class="cs-section" data-section="credentials">
+        <div class="cs-section-head" onclick="csToggleSection(this)">
+            <h2>Credentials</h2>
+            <span class="cs-caret open">&#9650;</span>
+            <button class="cs-edit-btn" onclick="event.stopPropagation();csEditSection('credentials')">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                Edit
+            </button>
+        </div>
+        <div class="cs-section-body open" id="cs-body-credentials">
+
+            <!-- LLM -->
+            <div class="cs-app-card">
+                <div class="cs-app-header" onclick="csToggleApp(this)">
+                    <h4>LLM</h4>
+                    <span class="cs-caret open">&#9650;</span>
+                </div>
+                <div class="cs-app-body open">
+                    <!-- Anthropic -->
+                    <div class="cs-cred-card">
+                        <div style="display:flex;align-items:center"><h4 style="margin:0;flex:1">Anthropic (Claude)</h4><span class="cs-status configured">&#9679; Configured</span></div>
+                        <div class="cs-cred-row">
+                            <div class="cs-field"><label>API Key</label><div class="cs-input-masked"><span>••••••••••••••••TwAA</span><button class="cs-eye-btn">&#128065;</button></div></div>
+                            <div class="cs-field"><label>Model</label><div class="cs-input-masked"><span style="color:var(--t1)">Claude Opus 4.6</span></div></div>
+                        </div>
+                    </div>
+                    <!-- OpenAI -->
+                    <div class="cs-cred-card">
+                        <div style="display:flex;align-items:center"><h4 style="margin:0;flex:1">OpenAI</h4><span class="cs-status configured">&#9679; Configured</span></div>
+                        <div class="cs-cred-row">
+                            <div class="cs-field"><label>API Key</label><div class="cs-input-masked"><span>••••••••••••••••tjPg</span><button class="cs-eye-btn">&#128065;</button></div></div>
+                            <div class="cs-field"><label>Model</label><div class="cs-input-masked"><span style="color:var(--t1)">GPT-5.4</span></div></div>
+                        </div>
+                    </div>
+                    <!-- Google Gemini -->
+                    <div class="cs-cred-card">
+                        <div style="display:flex;align-items:center"><h4 style="margin:0;flex:1">Google Gemini</h4><span class="cs-status configured">&#9679; Configured</span></div>
+                        <div class="cs-cred-row">
+                            <div class="cs-field"><label>API Key</label><div class="cs-input-masked"><span>••••••••••••••••3RIw</span><button class="cs-eye-btn">&#128065;</button></div></div>
+                            <div class="cs-field"><label>Model</label><div class="cs-input-masked"><span style="color:var(--t1)">gemini-2.5-pro</span></div></div>
+                        </div>
+                    </div>
+                    <!-- MiniMax -->
+                    <div class="cs-cred-card">
+                        <div style="display:flex;align-items:center"><h4 style="margin:0;flex:1">MiniMax</h4><span style="color:#22d3ee;font-size:12px;margin-right:10px">Default Model</span><span class="cs-status configured">&#9679; Configured</span></div>
+                        <div class="cs-cred-row">
+                            <div class="cs-field"><label>API Key</label><div class="cs-input-masked"><span>••••••••••••••••OWmk</span><button class="cs-eye-btn">&#128065;</button></div></div>
+                            <div class="cs-field"><label>Model</label><div class="cs-input-masked"><span style="color:var(--t1)">MiniMax 2.7</span></div></div>
+                        </div>
+                    </div>
+                    <!-- Kimi -->
+                    <div class="cs-cred-card">
+                        <div style="display:flex;align-items:center"><h4 style="margin:0;flex:1">Kimi (Moonshot)</h4></div>
+                        <div class="cs-cred-row">
+                            <div class="cs-field"><label>API Key</label><div class="cs-input-masked"><span style="color:#64748b;font-style:italic">Not set</span></div></div>
+                            <div class="cs-field"><label>Model</label><div class="cs-input-masked"><span style="color:#64748b">-</span></div></div>
+                        </div>
+                    </div>
+                    <!-- DeepSeek -->
+                    <div class="cs-cred-card">
+                        <div style="display:flex;align-items:center"><h4 style="margin:0;flex:1">DeepSeek</h4><span class="cs-status configured">&#9679; Configured</span></div>
+                        <div class="cs-cred-row">
+                            <div class="cs-field"><label>API Key</label><div class="cs-input-masked"><span>••••••••••••••••a880</span><button class="cs-eye-btn">&#128065;</button></div></div>
+                            <div class="cs-field"><label>Model</label><div class="cs-input-masked"><span style="color:var(--t1)">DeepSeek V3.2 Chat</span></div></div>
+                        </div>
+                    </div>
+                    <!-- OpenRouter -->
+                    <div class="cs-cred-card">
+                        <div style="display:flex;align-items:center"><h4 style="margin:0;flex:1">OpenRouter</h4><span class="cs-status configured">&#9679; Configured</span></div>
+                        <div class="cs-cred-row">
+                            <div class="cs-field"><label>API Key</label><div class="cs-input-masked"><span>••••••••••••••••63b3</span><button class="cs-eye-btn">&#128065;</button></div></div>
+                            <div class="cs-field"><label>Model</label><div class="cs-input-masked"><span style="color:var(--t1)">Claude Opus 4.6</span></div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- OpenClaw -->
+            <div class="cs-app-card">
+                <div class="cs-app-header" onclick="csToggleApp(this)">
+                    <h4>OpenClaw</h4>
+                    <span class="cs-caret">&#9650;</span>
+                </div>
+                <div class="cs-app-body">
+                    <div class="cs-cred-card">
+                        <div style="display:flex;align-items:center"><h4 style="margin:0;flex:1">OpenClaw Hooks Token</h4><span class="cs-status configured">&#9679; Configured</span></div>
+                        <div class="cs-input-masked" style="margin-top:8px"><span>••••••••••••••••f1e4</span><button class="cs-eye-btn">&#128065;</button></div>
+                    </div>
+                    <div class="cs-cred-card">
+                        <div style="display:flex;align-items:center"><h4 style="margin:0;flex:1">OpenClaw Gateway Token</h4><span class="cs-status configured">&#9679; Configured</span></div>
+                        <div class="cs-input-masked" style="margin-top:8px"><span>••••••••••••••••e5f2</span><button class="cs-eye-btn">&#128065;</button></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- n8n -->
+            <div class="cs-app-card">
+                <div class="cs-app-header" onclick="csToggleApp(this)">
+                    <h4>n8n</h4>
+                    <span class="cs-caret">&#9650;</span>
+                </div>
+                <div class="cs-app-body">
+                    <div class="cs-cred-card">
+                        <div style="display:flex;align-items:center"><h4 style="margin:0;flex:1">n8n API Key</h4><span class="cs-status configured">&#9679; Configured</span></div>
+                        <div class="cs-input-masked" style="margin-top:8px"><span>••••••••••••••••Gc14</span><button class="cs-eye-btn">&#128065;</button></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bizfile -->
+            <div class="cs-app-card">
+                <div class="cs-app-header" onclick="csToggleApp(this)">
+                    <h4>Bizfile</h4>
+                    <span class="cs-caret">&#9650;</span>
+                </div>
+                <div class="cs-app-body">
+                    <div class="cs-cred-row">
+                        <div class="cs-field"><label>Bizfile Client ID</label><div class="cs-input-masked"><span>••••••••••••••••••••••••••••••••••••••</span><button class="cs-eye-btn">&#128065;</button></div></div>
+                        <div class="cs-field"><label>Bizfile Client Secret</label><div class="cs-input-masked"><span>••••••••</span><button class="cs-eye-btn">&#128065;</button></div></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quickbooks -->
+            <div class="cs-app-card">
+                <div class="cs-app-header" onclick="csToggleApp(this)">
+                    <h4>Quickbooks</h4>
+                    <span class="cs-caret open">&#9650;</span>
+                </div>
+                <div class="cs-app-body open">
+                    <!-- App 1 -->
+                    <div class="cs-cred-card" style="border-color:#10b981">
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <span style="color:#64748b">&#9679;</span>
+                            <h4 style="margin:0">App 1</h4>
+                            <span style="background:#10b981;color:#fff;font-size:10px;padding:2px 8px;border-radius:4px;font-weight:600">Default</span>
+                        </div>
+                        <div class="cs-cred-row" style="margin-top:8px">
+                            <div class="cs-field"><label>Client ID</label><div class="cs-input-masked"><span>••••••••••••••••••••••••••••••••••••••••</span><button class="cs-eye-btn">&#128065;</button></div></div>
+                            <div class="cs-field"><label>Client Secret</label><div class="cs-input-masked"><span>••••••••••••••••••••••••••••••</span><button class="cs-eye-btn">&#128065;</button></div></div>
+                        </div>
+                    </div>
+                    <!-- App 2 -->
+                    <div class="cs-cred-card">
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <span style="color:#64748b">&#9679;</span>
+                            <h4 style="margin:0">App 2</h4>
+                        </div>
+                        <div class="cs-cred-row" style="margin-top:8px">
+                            <div class="cs-field"><label>Client ID</label><div class="cs-input-masked"><span>••••••••••••••••••••••••••••••••••••••••</span><button class="cs-eye-btn">&#128065;</button></div></div>
+                            <div class="cs-field"><label>Client Secret</label><div class="cs-input-masked"><span>••••••••••••••••••••••••••••••</span><button class="cs-eye-btn">&#128065;</button></div></div>
+                        </div>
+                    </div>
+                    <div class="cs-cred-row" style="margin-top:10px">
+                        <div class="cs-field"><label>Refresh Token</label><div class="cs-input-masked"><span>••••••••••••••••••••••••••••••••••••••</span><button class="cs-eye-btn">&#128065;</button></div></div>
+                        <div class="cs-field"><label>Realm ID (Company ID)</label><div class="cs-input-masked"><span>••••••••••</span><button class="cs-eye-btn">&#128065;</button></div></div>
+                    </div>
+                    <div style="margin-top:14px">
+                        <button class="cs-edit-btn" style="background:#0d9488;padding:10px 18px;font-size:13px;border-radius:8px">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+                            Connect QuickBooks (Generate Refresh Token)
+                        </button>
+                        <div style="font-size:11px;color:#64748b;margin-top:6px">Opens Intuit OAuth to authorize and automatically save the refresh token.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="cs-actions-credentials" style="display:none;margin-top:10px;">
+                <button class="cs-save-btn" onclick="csSaveSection('credentials')">Save</button>
+                <button class="cs-cancel-btn" onclick="csCancelSection('credentials')">Cancel</button>
+            </div>
+        </div>
+    </div>
+    <hr class="cs-divider"/>
+
+    <!-- Section: Gamification Setting -->
+    <div class="cs-section" data-section="gamification">
+        <div class="cs-section-head" onclick="csToggleSection(this)">
+            <h2>Gamification Setting</h2>
+            <span class="cs-caret open">&#9650;</span>
+            <button class="cs-edit-btn" onclick="event.stopPropagation();csEditSection('gamification')">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                Edit
+            </button>
+        </div>
+        <div class="cs-section-body open" id="cs-body-gamification">
+            <div class="cs-toggle-row">
+                <span>Enable Leaderboard</span>
+                <span class="cs-status disabled" style="margin-left:auto">Disabled</span>
+            </div>
+            <div class="cs-toggle-row">
+                <span>Enable Points System</span>
+                <span class="cs-status disabled" style="margin-left:auto">Disabled</span>
+            </div>
+            <div id="cs-actions-gamification" style="display:none;margin-top:10px;">
+                <button class="cs-save-btn" onclick="csSaveSection('gamification')">Save</button>
+                <button class="cs-cancel-btn" onclick="csCancelSection('gamification')">Cancel</button>
+            </div>
+        </div>
+    </div>
+    <hr class="cs-divider"/>
+
+    <!-- Section: Appearance -->
+    <div class="cs-section" data-section="appearance">
+        <div class="cs-section-head" onclick="csToggleSection(this)">
+            <h2>Appearance</h2>
+            <span class="cs-caret open">&#9650;</span>
+            <button class="cs-edit-btn" onclick="event.stopPropagation();csEditSection('appearance')">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                Edit
+            </button>
+        </div>
+        <div class="cs-section-body open" id="cs-body-appearance">
+            <div class="cs-toggle-row">
+                <div style="display:flex;align-items:center;gap:10px">
+                    <span style="font-size:22px">&#127769;</span>
+                    <div>
+                        <div style="color:var(--t1);font-weight:600;font-size:13px">Theme Mode</div>
+                        <div style="color:#94a3b8;font-size:11px">Dark theme active</div>
+                    </div>
+                </div>
+                <label class="cs-toggle"><input type="checkbox" checked/><span class="slider"></span></label>
+            </div>
+            <div class="cs-toggle-row" style="margin-top:6px">
+                <div style="display:flex;align-items:center;gap:10px">
+                    <div style="width:28px;height:28px;border-radius:6px;background:#258BB6"></div>
+                    <div>
+                        <div style="color:var(--t1);font-weight:600;font-size:13px">Primary Color</div>
+                        <div style="color:#94a3b8;font-size:11px">#258BB6</div>
+                    </div>
+                </div>
+                <div style="background:#0f172a;border:1px solid #334155;border-radius:6px;padding:6px 12px;color:var(--t1);font-size:13px">#258bb6</div>
+            </div>
+            <div id="cs-actions-appearance" style="display:none;margin-top:10px;">
+                <button class="cs-save-btn" onclick="csSaveSection('appearance')">Save</button>
+                <button class="cs-cancel-btn" onclick="csCancelSection('appearance')">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+</div><!-- end cs-wrap -->
+
+<script type="text/javascript">
+// Company Setting panel JS
+window.csToggleSection = function(headEl) {
+    var body = headEl.nextElementSibling;
+    var caret = headEl.querySelector('.cs-caret');
+    if (body.classList.contains('open')) {
+        body.classList.remove('open');
+        if (caret) caret.classList.remove('open');
+    } else {
+        body.classList.add('open');
+        if (caret) caret.classList.add('open');
+    }
+};
+window.csToggleApp = function(headerEl) {
+    var body = headerEl.nextElementSibling;
+    var caret = headerEl.querySelector('.cs-caret');
+    if (body.classList.contains('open')) {
+        body.classList.remove('open');
+        if (caret) caret.classList.remove('open');
+    } else {
+        body.classList.add('open');
+        if (caret) caret.classList.add('open');
+    }
+};
+window.csEditSection = function(section) {
+    var body = document.getElementById('cs-body-' + section);
+    if (!body) return;
+    var fields = body.querySelectorAll('.cs-field[data-path]');
+    for (var i = 0; i < fields.length; i++) fields[i].classList.add('editing');
+    var actions = document.getElementById('cs-actions-' + section);
+    if (actions) actions.style.display = '';
+};
+window.csCancelSection = function(section) {
+    var body = document.getElementById('cs-body-' + section);
+    if (!body) return;
+    var fields = body.querySelectorAll('.cs-field[data-path]');
+    for (var i = 0; i < fields.length; i++) fields[i].classList.remove('editing');
+    var actions = document.getElementById('cs-actions-' + section);
+    if (actions) actions.style.display = 'none';
+};
+window.csSaveSection = function(section) {
+    var body = document.getElementById('cs-body-' + section);
+    if (!body) return;
+    var fields = body.querySelectorAll('.cs-field[data-path]');
+    var settings = {};
+    for (var i = 0; i < fields.length; i++) {
+        var path = fields[i].getAttribute('data-path');
+        var input = fields[i].querySelector('input,select');
+        if (input && path) {
+            settings[path] = input.value;
+            // Update the display value
+            var valEl = fields[i].querySelector('.cs-val');
+            if (valEl) {
+                var linkEl = valEl.querySelector('a');
+                if (linkEl) { linkEl.textContent = input.value; linkEl.href = input.value; }
+                else if (valEl.querySelector('.cs-masked')) { /* keep masked */ }
+                else { valEl.textContent = input.value; }
+            }
+        }
+    }
+    // Also collect toggle values
+    var toggles = body.querySelectorAll('.cs-toggle input[data-path]');
+    for (var j = 0; j < toggles.length; j++) {
+        settings[toggles[j].getAttribute('data-path')] = toggles[j].checked ? '1' : '0';
+    }
+    // Send AJAX save
+    new Ajax.Request('<?php echo $_csUrl ?>', {
+        method: 'post',
+        parameters: { settings: JSON.stringify(settings) },
+        onSuccess: function(t) {
+            try {
+                var r = JSON.parse(t.responseText);
+                if (r.success) {
+                    csCancelSection(section);
+                }
+            } catch(e) {}
+        }
+    });
+};
+</script>
+</div><!-- end dash-panel-companysetting -->
+
 <?php /* ===== Role switcher JS ===== */ ?>
 <script type="text/javascript">
 (function(){
@@ -3506,7 +4516,7 @@ window.trnBulkSubmit = function() {
             'Trainer':           'dash-panel-learner',
             'Developer':         'dash-panel-developer'
         };
-        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-trainingprovider','dash-panel-developer','dash-panel-learner','dash-panel-billing','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-course-detail','dash-panel-course-edit'];
+        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-trainingprovider','dash-panel-developer','dash-panel-learner','dash-panel-billing','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-course-detail','dash-panel-course-edit','dash-panel-companysetting'];
         for (var i=0; i<all.length; i++) {
             var el = document.getElementById(all[i]);
             if (el) el.style.display = 'none';
@@ -3539,7 +4549,7 @@ window.trnBulkSubmit = function() {
         if (current !== 'Trainer' && current !== 'Learner') return;
 
         // Hide ALL panels first, then show only the requested sub-panel
-        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-trainingprovider','dash-panel-learner','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-trainers'];
+        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-trainingprovider','dash-panel-learner','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-trainers','dash-panel-companysetting'];
         for (var i=0; i<all.length; i++) {
             var el = document.getElementById(all[i]);
             if (el) el.style.display = 'none';
@@ -3577,8 +4587,8 @@ window.trnBulkSubmit = function() {
     function showAdminSubPanel(name) {
         var r = role;
         if (r !== 'Admin' && r !== 'Super Admin' && r !== 'Marketing') return;
-        var panelMap = { trainers: 'dash-panel-trainers', dashboard: (r === 'Admin' ? 'dash-panel-admin' : 'dash-panel-superadmin') };
-        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-trainingprovider','dash-panel-learner','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-trainers'];
+        var panelMap = { trainers: 'dash-panel-trainers', companysetting: 'dash-panel-companysetting', dashboard: (r === 'Admin' ? 'dash-panel-admin' : 'dash-panel-superadmin') };
+        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-trainingprovider','dash-panel-learner','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-trainers','dash-panel-companysetting'];
         for (var i=0; i<all.length; i++) { var el = document.getElementById(all[i]); if (el) el.style.display = 'none'; }
         var t = document.getElementById(panelMap[name] || panelMap.dashboard);
         if (t) t.style.display = '';
@@ -3591,6 +4601,9 @@ window.trnBulkSubmit = function() {
         var hash = window.location.hash;
         if (hash === '#trainers' && (role === 'Admin' || role === 'Super Admin' || role === 'Marketing')) {
             showAdminSubPanel('trainers');
+        }
+        if (hash === '#companysetting' && (role === 'Admin' || role === 'Super Admin' || role === 'Marketing')) {
+            showAdminSubPanel('companysetting');
         }
         if (hash === '#billing' && (role === 'Learner' || role === 'Trainer')) {
             showTrainerSubPanel('billing');
