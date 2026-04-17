@@ -649,27 +649,29 @@ body.adminhtml-dashboard-index .main-col-inner{padding-top:0 !important;margin-t
 <?php /* ===== PANEL 3: Training Provider — Training Analytics ===== */ ?>
 <div id="dash-panel-trainingprovider" style="display:none;">
 <style>
-.tp-wrap{padding:28px 32px;background:var(--d1);min-height:100vh}
-.tp-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
-.tp-title{font-size:26px;font-weight:700;color:var(--t1);margin:0}
-.tp-refresh-btn{background:transparent!important;border:1px solid var(--b1)!important;color:var(--t2)!important;border-radius:8px;padding:7px 16px;font-size:13px;cursor:pointer}
-.tp-refresh-btn:hover{border-color:var(--b2)!important;color:var(--t1)!important}
-.tp-kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px}
-.tp-kpi-card{background:#1f2937;border:1px solid var(--b1);border-radius:12px;padding:22px 20px;text-align:center}
-.tp-kpi-num{font-size:34px;font-weight:700;color:#22d3ee;line-height:1.1;margin-bottom:6px}
-.tp-kpi-forecast .tp-kpi-num{font-size:28px;color:#67e8f9}
-.tp-kpi-lbl{font-size:13px;color:var(--t2);font-weight:600}
-.tp-kpi-sub{font-size:11px;color:#64748b;margin-top:3px}
-.tp-charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:14px}
-.tp-chart-card{background:#1f2937;border:1px solid var(--b1);border-radius:12px;padding:20px}
-.tp-chart-title{font-size:14px;font-weight:600;color:var(--t1);margin:0 0 16px}
+.tp-wrap{padding:24px 28px;background:var(--d1);min-height:100vh}
+.tp-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px}
+.tp-title{font-size:28px;font-weight:700;color:var(--t1);margin:0}
+button.tp-refresh-btn,button.tp-refresh-btn:hover,button.tp-refresh-btn:focus,button.tp-refresh-btn:active{background:#1e293b !important;background-image:none !important;border:1px solid #334155 !important;color:var(--t2) !important;border-radius:8px !important;padding:10px 20px !important;font-size:14px !important;font-weight:500 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
+button.tp-refresh-btn:hover{border-color:#475569 !important;color:var(--t1) !important}
+.tp-kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px}
+.tp-kpi-card{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:28px 24px;text-align:center}
+.tp-kpi-num{font-size:38px;font-weight:700;color:#22d3ee;line-height:1.1;margin-bottom:8px}
+.tp-kpi-forecast .tp-kpi-num{font-size:30px;color:#67e8f9}
+.tp-kpi-lbl{font-size:14px;color:#94a3b8;font-weight:600}
+.tp-kpi-sub{font-size:12px;color:#64748b;margin-top:4px}
+.tp-charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:16px}
+.tp-chart-card{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:24px}
+.tp-chart-title{font-size:16px;font-weight:700;color:var(--t1);margin:0 0 18px}
 .tp-chart-full{grid-column:1/-1}
-.tp-bar-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
-.tp-bar-label{font-size:12px;color:var(--t2);width:200px;flex-shrink:0;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tp-bar-row{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.tp-bar-label{font-size:13px;color:var(--t2);width:120px;flex-shrink:0;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tp-bar-label-left{text-align:left;width:120px}
-.tp-bar-wrap{flex:1;background:#1f2937;border-radius:4px;height:18px;overflow:hidden}
-.tp-bar-fill{height:100%;background:#22d3ee;border-radius:4px;transition:width .3s}
-.tp-bar-val{font-size:12px;color:var(--t2);min-width:50px;text-align:left}
+.tp-bar-label-course{width:180px;white-space:normal;line-height:1.4;font-size:13px}
+.tp-bar-wrap{flex:1;background:#334155;border-radius:6px;height:28px;overflow:hidden;position:relative}
+.tp-bar-fill{height:100%;background:linear-gradient(90deg,#2d8a9e,#5bb8c9);border-radius:6px;transition:width .3s;display:flex;align-items:center;justify-content:flex-end;padding-right:10px;min-width:40px}
+.tp-bar-val{font-size:12px;color:#fff;font-weight:700;white-space:nowrap}
+.tp-bar-val-outside{font-size:13px;color:var(--t1);min-width:50px;text-align:left;font-weight:600;display:none}
 </style>
 <div class="tp-wrap">
     <div class="tp-header">
@@ -725,8 +727,7 @@ body.adminhtml-dashboard-index .main-col-inner{padding-top:0 !important;margin-t
             ?>
             <div class="tp-bar-row">
                 <div class="tp-bar-label"><?php echo htmlspecialchars($m['label']) ?></div>
-                <div class="tp-bar-wrap"><div class="tp-bar-fill" style="width:<?php echo $pct ?>%"></div></div>
-                <div class="tp-bar-val"><?php echo number_format($m['value']) ?></div>
+                <div class="tp-bar-wrap"><div class="tp-bar-fill" style="width:<?php echo max($pct, 8) ?>%"><span class="tp-bar-val"><?php echo number_format($m['value']) ?></span></div></div>
             </div>
             <?php endforeach; ?>
         </div>
@@ -741,9 +742,8 @@ body.adminhtml-dashboard-index .main-col-inner{padding-top:0 !important;margin-t
                 $shortName = strlen($cr['name']) > 40 ? substr($cr['name'], 0, 38).'…' : $cr['name'];
             ?>
             <div class="tp-bar-row">
-                <div class="tp-bar-label" title="<?php echo htmlspecialchars($cr['name']) ?>"><?php echo htmlspecialchars($shortName) ?></div>
-                <div class="tp-bar-wrap"><div class="tp-bar-fill" style="width:<?php echo $pct ?>%"></div></div>
-                <div class="tp-bar-val"><?php echo number_format($cr['cnt']) ?></div>
+                <div class="tp-bar-label tp-bar-label-course" title="<?php echo htmlspecialchars($cr['name']) ?>"><?php echo htmlspecialchars($cr['name']) ?></div>
+                <div class="tp-bar-wrap"><div class="tp-bar-fill" style="width:<?php echo max($pct, 8) ?>%"><span class="tp-bar-val"><?php echo number_format($cr['cnt']) ?></span></div></div>
             </div>
             <?php endforeach; ?>
         </div>
@@ -758,8 +758,7 @@ body.adminhtml-dashboard-index .main-col-inner{padding-top:0 !important;margin-t
             ?>
             <div class="tp-bar-row">
                 <div class="tp-bar-label tp-bar-label-left"><?php echo $ag ?></div>
-                <div class="tp-bar-wrap"><div class="tp-bar-fill" style="width:<?php echo $pct ?>%"></div></div>
-                <div class="tp-bar-val"><?php echo number_format($cnt) ?></div>
+                <div class="tp-bar-wrap"><span class="tp-bar-val" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);z-index:1;color:<?php echo $cnt > 0 ? '#fff' : '#94a3b8' ?>;"><?php echo number_format($cnt) ?></span><?php if ($cnt > 0): ?><div class="tp-bar-fill" style="width:<?php echo max($pct, 8) ?>%"></div><?php endif; ?></div>
             </div>
             <?php endforeach; ?>
         </div>
@@ -774,8 +773,7 @@ body.adminhtml-dashboard-index .main-col-inner{padding-top:0 !important;margin-t
             ?>
             <div class="tp-bar-row">
                 <div class="tp-bar-label tp-bar-label-left"><?php echo $lbl ?></div>
-                <div class="tp-bar-wrap"><div class="tp-bar-fill" style="width:<?php echo $pct ?>%"></div></div>
-                <div class="tp-bar-val"><?php echo number_format($cnt) ?></div>
+                <div class="tp-bar-wrap"><div class="tp-bar-fill" style="width:<?php echo max($pct, 8) ?>%"><span class="tp-bar-val"><?php echo number_format($cnt) ?></span></div></div>
             </div>
             <?php endforeach; ?>
         </div>
@@ -790,8 +788,7 @@ body.adminhtml-dashboard-index .main-col-inner{padding-top:0 !important;margin-t
             ?>
             <div class="tp-bar-row">
                 <div class="tp-bar-label tp-bar-label-left"><?php echo htmlspecialchars($sp['label']) ?></div>
-                <div class="tp-bar-wrap"><div class="tp-bar-fill" style="width:<?php echo $pct ?>%"></div></div>
-                <div class="tp-bar-val"><?php echo number_format($sp['value']) ?></div>
+                <div class="tp-bar-wrap"><div class="tp-bar-fill" style="width:<?php echo max($pct, 8) ?>%"><span class="tp-bar-val"><?php echo number_format($sp['value']) ?></span></div></div>
             </div>
             <?php endforeach; ?>
         </div>
