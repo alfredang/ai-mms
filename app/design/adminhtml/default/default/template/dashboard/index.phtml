@@ -729,7 +729,7 @@ $_devWsq = 0; $_devIbf = 0; $_devUnfunded = 0;
 $_devCourses = array();
 try {
     $_devCollection = Mage::getModel('catalog/product')->getCollection()
-        ->addAttributeToSelect(array('name','image','status','news_from_date'))
+        ->addAttributeToSelect(array('name','image','status','news_from_date','course_image_url'))
         ->addAttributeToFilter('status', 1)
         ->setPageSize(50);
     foreach ($_devCollection as $_dp) {
@@ -740,7 +740,12 @@ try {
         elseif ($_isIbf) $_devIbf++;
         else $_devUnfunded++;
         $_dImgUrl = '';
-        try { if ($_dp->getImage() && $_dp->getImage() !== 'no_selection') $_dImgUrl = (string)Mage::helper('catalog/image')->init($_dp, 'image')->resize(400, 250); } catch (Exception $e) {}
+        $_dExtImg = trim((string) $_dp->getData('course_image_url'));
+        if ($_dExtImg !== '') {
+            $_dImgUrl = $_dExtImg;
+        } else {
+            try { if ($_dp->getImage() && $_dp->getImage() !== 'no_selection') $_dImgUrl = (string)Mage::helper('catalog/image')->init($_dp, 'image')->resize(400, 250); } catch (Exception $e) {}
+        }
         $_devCourses[] = array('id'=>$_dp->getId(),'name'=>$_dName,'sku'=>$_dp->getSku(),'image'=>$_dImgUrl,'wsq'=>$_isWsq,'ibf'=>$_isIbf,'funding_date'=>$_dp->getNewsFromDate());
     }
 } catch (Exception $e) {}
