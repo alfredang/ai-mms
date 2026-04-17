@@ -54,6 +54,87 @@
     $sysCacheUrl   = Mage::helper('adminhtml')->getUrl('adminhtml/cache');
 ?>
 
+<!-- Super Admin sidebar -->
+<div class="sidebar-nav sidebar-nav-role" id="sidebar-nav-superadmin-custom" style="display:none;">
+    <div class="sidebar-section-label">MENU</div>
+    <a href="<?php echo $dashboardUrl ?>" class="lms-nav-item active">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+        <span>Dashboard</span>
+    </a>
+    <div class="tools-group<?php echo _so(array('sales_order','sales_invoice','sales_transaction','tax_rule','tax_rate')) ?>">
+        <div class="tools-group-toggle" onclick="toggleToolGroup(this)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+            <span>Course Registration</span>
+            <svg class="tools-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="tools-group-items">
+            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/sales_order') ?>" class="tools-sub-item"><span>Registrations</span></a>
+            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/sales_invoice') ?>" class="tools-sub-item"><span>Invoices</span></a>
+            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/sales_transactions') ?>" class="tools-sub-item"><span>Transactions</span></a>
+            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/tax_rule') ?>" class="tools-sub-item"><span>GST</span></a>
+        </div>
+    </div>
+    <div class="tools-group<?php echo _so(array('catalog_product','catalog_category','customoptions')) ?>">
+        <div class="tools-group-toggle" onclick="toggleToolGroup(this)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+            <span>Course Management</span>
+            <svg class="tools-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="tools-group-items">
+            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/catalog_product') ?>" class="tools-sub-item"><span>Manage Courses</span></a>
+            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/catalog_category') ?>" class="tools-sub-item"><span>Course Categories</span></a>
+            <a href="<?php echo Mage::helper('adminhtml')->getUrl('mmd/customoptions_options') ?>" class="tools-sub-item"><span>Course Schedules</span></a>
+            <a href="<?php echo $dashboardUrl ?>#trainers" class="tools-sub-item" onclick="if (window.showAdminSubPanel) { event.preventDefault(); window.location.hash='#trainers'; window.showAdminSubPanel('trainers'); }"><span>View Trainers</span></a>
+        </div>
+    </div>
+    <div class="tools-group<?php echo _so(array('catalog_search','review','urlrewrite','sitemap')) ?>">
+        <div class="tools-group-toggle" onclick="toggleToolGroup(this)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>
+            <span>Marketing Management</span>
+            <svg class="tools-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="tools-group-items">
+            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/catalog_search') ?>" class="tools-sub-item"><span>Search Terms</span></a>
+            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/catalog_product_review') ?>" class="tools-sub-item"><span>Reviews and Ratings</span></a>
+            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/urlrewrite/index') ?>" class="tools-sub-item"><span>URL Rewrite</span></a>
+            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/sitemap') ?>" class="tools-sub-item"><span>Google Sitemap</span></a>
+        </div>
+    </div>
+    <div class="tools-group<?php echo _so(array('customer','customer_group','customer_online')) ?>">
+        <div class="tools-group-toggle" onclick="toggleToolGroup(this)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <span>View Learners</span>
+            <svg class="tools-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="tools-group-items">
+            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/customer') ?>" class="tools-sub-item"><span>Manage Learners</span></a>
+            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/customer_group') ?>" class="tools-sub-item"><span>Learner Groups</span></a>
+            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/customer_online') ?>" class="tools-sub-item"><span>Online Learners</span></a>
+        </div>
+    </div>
+    <a href="<?php echo $cmsPagesUrl ?>" class="lms-nav-item<?php echo _so('cms_page') ? ' active' : '' ?>">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        <span>CMS</span>
+    </a>
+    <div class="tools-group<?php echo _so(array('system_config','permissions','cache')) ?>">
+        <div class="tools-group-toggle" onclick="toggleToolGroup(this)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            <span>Company Setting</span>
+            <svg class="tools-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="tools-group-items">
+            <a href="<?php echo $sysConfigUrl ?>" class="tools-sub-item"><span>Configuration</span></a>
+            <a href="<?php echo $sysUsersUrl ?>" class="tools-sub-item"><span>Users</span></a>
+            <a href="<?php echo $sysRolesUrl ?>" class="tools-sub-item"><span>Roles</span></a>
+            <a href="<?php echo $sysCacheUrl ?>" class="tools-sub-item"><span>Cache Management</span></a>
+        </div>
+    </div>
+    <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/rolemanagement') ?>" class="lms-nav-item<?php echo _so('rolemanagement') ? ' active' : '' ?>">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <span>Role Management</span>
+    </a>
+</div>
+
 <!-- Admin sidebar -->
 <div class="sidebar-nav sidebar-nav-role" id="sidebar-nav-admin-custom" style="display:none;">
     <div class="sidebar-section-label">MENU</div>
@@ -397,10 +478,10 @@
             'Trainer':     'sidebar-nav-trainer',
             'Admin':       'sidebar-nav-admin-custom',
             'Marketing':   'sidebar-nav-marketing',
-            'Super Admin': 'sidebar-nav-admin'
+            'Super Admin': 'sidebar-nav-superadmin-custom'
         };
         var targetId = map[role] || 'sidebar-nav-admin';
-        var ids = ['sidebar-nav-admin','sidebar-nav-admin-custom','sidebar-nav-marketing','sidebar-nav-learner','sidebar-nav-trainer'];
+        var ids = ['sidebar-nav-admin','sidebar-nav-admin-custom','sidebar-nav-superadmin-custom','sidebar-nav-marketing','sidebar-nav-learner','sidebar-nav-trainer'];
         for (var i = 0; i < ids.length; i++) {
             var el = document.getElementById(ids[i]);
             if (el) el.style.display = (ids[i] === targetId) ? '' : 'none';
