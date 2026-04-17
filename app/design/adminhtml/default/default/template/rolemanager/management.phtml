@@ -91,7 +91,10 @@ $badgeColors = array(
 </style>
 
 <div class="rm-wrap">
-    <h2 class="rm-title">Role Management</h2>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+        <h2 class="rm-title" style="margin:0">Role Management</h2>
+        <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/permissions_user/new') ?>" style="padding:10px 24px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none;white-space:nowrap;">+ Add New User</a>
+    </div>
 
     <div class="rm-kpi">
         <div class="rm-kpi-card"><div class="rm-kpi-num blue"><?php echo $totalUsers ?></div><div class="rm-kpi-lbl">Total Admin Accounts</div></div>
