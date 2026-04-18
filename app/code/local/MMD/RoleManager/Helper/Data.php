@@ -11,37 +11,37 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
     protected $_roleLabels = array(
         'learner'           => 'Learner',
         'trainer'           => 'Trainer',
+        'developer'         => 'Developer',
         'marketing'         => 'Marketing',
         'admin'             => 'Admin',
         'training_provider' => 'Super Admin',
-        'developer'         => 'Developer',
     );
 
     protected $_roleIcons = array(
         'learner'           => '&#x1F4DA;',  // 📚
         'trainer'           => '&#x1F468;&#x200D;&#x1F3EB;', // 👨‍🏫
+        'developer'         => '&#x1F4BB;',  // 💻
         'marketing'         => '&#x1F4E3;',  // 📣
         'admin'             => '&#x2699;&#xFE0F;',  // ⚙️
         'training_provider' => '&#x1F6E1;&#xFE0F;',  // 🛡️
-        'developer'         => '&#x1F4BB;',  // 💻
     );
 
     protected $_roleDescriptions = array(
         'learner'           => 'Access courses and track your learning progress',
         'trainer'           => 'Manage classes and grade assessments',
+        'developer'         => 'System development and technical configuration',
         'marketing'         => 'Manage campaigns, promotions, and CMS',
         'admin'             => 'Manage users, classes, and system settings',
         'training_provider' => 'Full system access and configuration',
-        'developer'         => 'System development and technical configuration',
     );
 
     protected $_rolePriority = array(
         'learner'           => 1,
         'trainer'           => 2,
-        'marketing'         => 3,
-        'admin'             => 4,
-        'training_provider' => 5,
-        'developer'         => 6,
+        'developer'         => 3,
+        'marketing'         => 4,
+        'admin'             => 5,
+        'training_provider' => 6,
     );
 
     public function getAllRoles()

@@ -81,8 +81,12 @@ $badgeColors = array(
 .rm-modal input,.rm-modal select{width:100%;padding:10px 14px;background:#374151;border:1px solid #4b5563;border-radius:8px;color:#f1f5f9;font-size:14px;outline:none;box-sizing:border-box;margin-bottom:14px}
 .rm-modal input:focus{border-color:#60a5fa}
 .rm-modal input[disabled]{opacity:.6;cursor:not-allowed}
-.rm-role-toggles{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
-.rm-role-toggle{padding:7px 16px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid;transition:all .15s;line-height:1.2}
+.rm-role-toggles{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
+.rm-role-toggle{display:inline-flex;align-items:center;gap:5px;padding:5px 11px!important;border-radius:14px!important;font-size:12px!important;font-weight:600!important;cursor:pointer;border:none!important;line-height:1.2!important;box-shadow:none!important;text-transform:none!important;min-width:auto!important;height:auto!important;margin:0!important;opacity:.4;transition:opacity .15s}
+.rm-role-toggle.selected{opacity:1}
+.rm-role-toggle:hover{opacity:.7}
+.rm-role-toggle.selected:hover{opacity:.9}
+.rm-toggle-dot{width:6px;height:6px;border-radius:50%;display:inline-block;flex-shrink:0}
 .rm-modal-actions{display:flex;gap:10px;margin-top:16px;justify-content:flex-end}
 .rm-modal-save{padding:10px 28px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}
 .rm-modal-save:hover{background:#3b82f6}
@@ -132,8 +136,10 @@ $badgeColors = array(
             </tr>
         </thead>
         <tbody>
+        <?php $roleOrder = array_keys($allRoles); ?>
         <?php foreach ($rows as $r):
             $roles = $r['roles'] ? explode(',', $r['roles']) : array();
+            $roles = array_values(array_intersect($roleOrder, $roles));
             $isSelf = ($r['user_id'] == $currentUserId);
             $fullName = htmlspecialchars($r['firstname'] . ' ' . $r['lastname']);
             $createdDate = $r['created'] ? date('d/m/Y', strtotime($r['created'])) : '—';
@@ -200,9 +206,10 @@ $badgeColors = array(
         <label>Roles</label>
         <div class="rm-role-toggles" id="rm-edit-roles">
             <?php foreach ($allRoles as $code => $label):
-                $bc = isset($badgeColors[$code]) ? $badgeColors[$code] : array('color'=>'#94a3b8');
+                $bc = isset($badgeColors[$code]) ? $badgeColors[$code] : array('bg'=>'rgba(100,116,139,.15)','color'=>'#94a3b8','dot'=>'#64748b');
             ?>
-            <button type="button" class="rm-role-toggle" data-role="<?php echo $code ?>" data-color="<?php echo $bc['color'] ?>" onclick="rmToggleRole(this)" style="color:#94a3b8;border-color:#4b5563;background:transparent;">
+            <button type="button" class="rm-role-toggle" data-role="<?php echo $code ?>" onclick="rmToggleRole(this)" style="background:<?php echo $bc['bg'] ?> !important;color:<?php echo $bc['color'] ?> !important;">
+                <span class="rm-toggle-dot" style="background:<?php echo $bc['dot'] ?>;"></span>
                 <?php echo htmlspecialchars($label) ?>
             </button>
             <?php endforeach; ?>
@@ -226,18 +233,8 @@ var RM_DELETE_URL = '<?php echo $deleteUrl ?>';
 var RM_FORM_KEY = '<?php echo $formKey ?>';
 
 function rmApplyToggleStyle(btn, selected) {
-    var c = btn.getAttribute('data-color');
-    if (selected) {
-        btn.classList.add('selected');
-        btn.style.background = c;
-        btn.style.color = '#fff';
-        btn.style.borderColor = c;
-    } else {
-        btn.classList.remove('selected');
-        btn.style.background = 'transparent';
-        btn.style.color = c;
-        btn.style.borderColor = c;
-    }
+    if (selected) btn.classList.add('selected');
+    else btn.classList.remove('selected');
 }
 function rmToggleRole(btn) {
     rmApplyToggleStyle(btn, !btn.classList.contains('selected'));
