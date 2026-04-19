@@ -1,10 +1,10 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code when working in this repository.
 
 ## Project Overview
 
-OpenMage 1.x (Magento 1 LTS v20.12.3) customized as an LMS/TMS (Learning/Training Management System) for Tertiary Courses Singapore. PHP 8.2, MySQL 5.7, Apache, Docker.
+OpenMage 1.x (Magento 1 LTS v20.12.3) customized as an LMS/TMS (Learning/Training Management System) for Tertiary Courses Singapore. PHP 8.2, MySQL 5.7, Apache, Docker. Deployed to Coolify; local dev via `docker-compose`.
 
 ## Development Commands
 
@@ -12,25 +12,30 @@ OpenMage 1.x (Magento 1 LTS v20.12.3) customized as an LMS/TMS (Learning/Trainin
 # Start local environment
 docker-compose up -d
 
-# Access the app
+# Local access
 # Frontend: http://localhost:8080
-# Admin: http://localhost:8080/index.php/<frontName>/ (check app/etc/local.xml for frontName)
+# Admin:    http://localhost:8080/<frontName>/  (frontName is in app/etc/local.xml — currently "tigerdragon")
 
-# Run database migrations (after first setup or schema changes)
-docker exec -i <mysql_container> mysql -u magento -p courses_backupDB < migrations/001-remove-orphan-eav-entity-types.sql
+# Production
+# Admin: https://www.tertiaryinfotech.edu.sg/tigerdragon/  (also reachable at https://ai-mms.tertiaryinfo.tech/tigerdragon/)
+# Build timestamp: /version.txt
+# Migration status (public, counts only): /media/migrations-status.json
 
-# Tailwind CSS (run locally — requires Node.js)
-npm run tw:build    # Build tailwind.css from templates
-npm run tw:watch    # Watch mode during development
+# Run / author DB migrations
+# - Drop new *.sql files into migrations/ (numbered prefix, e.g. 017-foo.sql).
+# - On deploy, docker/entrypoint.sh runs migrations/apply.php automatically against the container's DB,
+#   applying only unseen files and tracking them in the schema_migrations table.
+# - Manual local run: docker exec ai-mms-web-1 php /var/www/html/migrations/apply.php
+# - First-time bootstrap against an existing DB: php migrations/apply.php --bootstrap (marks all as applied without running).
 
-# Code quality (run inside web container or with local PHP)
-composer php-cs-fixer:test    # Check code style
-composer php-cs-fixer:fix     # Auto-fix code style
-composer phpstan              # Static analysis
-composer phpmd                # Mess detector
-composer phpunit:test         # Run tests
-composer rector:test          # Dry-run refactoring
-composer rector:fix           # Apply refactoring
+# Tailwind CSS (for admin panel styling — run locally)
+npm run tw:build    # Build skin/adminhtml/default/default/tailwind.css
+npm run tw:watch    # Rebuild on change during dev
+
+# Code quality (inside web container)
+composer php-cs-fixer:fix
+composer phpstan
+composer phpunit:test
 ```
 
 ## Architecture
@@ -39,69 +44,79 @@ composer rector:fix           # Apply refactoring
 
 | Module | Purpose |
 |--------|---------|
-| **RoleManager** | Multi-role admin system: 5 roles (learner, trainer, marketing, admin, training_provider) with role selection UI, session-based role switching, and ACL mapping via `mmd_user_role_map` table |
-| **EmailLogin** | Rewrites `admin/user` model to support email-based admin login |
-| **Courses** | Course/provider CRUD management with admin grid and export |
-| **BankPayment** | Bank transfer payment method with configurable accounts |
-| **CustomOptions** | Enhanced product options with SKU policies (multi-version upgrades) |
-| **Enhancedsalesgrid** | Admin sales grid filters and rendering enhancements |
+| **RoleManager** | Multi-role admin system: 6 roles (learner, trainer, developer, marketing, admin, training_provider) with role selection UI, session-based role switching, and ACL mapping via `mmd_user_role_map`. Canonical display order is defined by `_rolePriority` in `Helper/Data.php`. |
+| **EmailLogin** | Rewrites `admin/user` model to support email-based admin login. |
+| **Courses** | Course/provider CRUD management with admin grid and export. |
+| **BankPayment** | Bank transfer payment method with configurable accounts. |
+| **CustomOptions** | Enhanced product options with SKU policies (multi-version upgrades). |
+| **Enhancedsalesgrid** | Admin sales grid filters and rendering enhancements. |
 
-### RoleManager Flow (Most Complex Module)
+### RoleManager Flow
 
-1. **Login** → Observer (`Model/Observer.php::onAdminLogin`) loads roles from `mmd_user_role_map`
-2. **Single role** → Applied immediately via `Helper/Data.php::applyRoleAcl`
-3. **Multiple roles** → Session flagged, predispatch observer redirects to role selection page
-4. **Role selection** → `RoleselectController` validates and applies ACL group
-5. **Role switching** → `RoleswitchController` handles AJAX role changes from header dropdown
+1. **Login** → `Model/Observer.php::onAdminLogin` loads roles from `mmd_user_role_map` into the admin session.
+2. **Single role** → Applied immediately via `Helper/Data.php::applyRoleAcl`.
+3. **Multiple roles** → Session flagged, predispatch observer redirects to role selection page.
+4. **Role selection** → `RoleselectController` validates and applies the chosen role's ACL group.
+5. **Role switching** → `RoleswitchController` handles AJAX role switches from the header dropdown.
 
-**Current state**: All roles temporarily inherit "Administrators" group (full access). Per-role ACL restrictions are TODO — search for `applyRoleAcl` TODO comments.
+Current state: all roles temporarily inherit the "Administrators" ACL group (full access). Per-role ACL restrictions are TODO — search for `applyRoleAcl` TODO comments.
 
 ### Two-Layer Role System
 
-- `mmd_user_role_map` table: Maps user_id → role_code (custom)
-- `admin_role` + `admin_rule` tables: Standard Magento ACL groups
-- `applyRoleAcl()` bridges the two by updating the user's parent_id in `admin_role`
+- `mmd_user_role_map` (custom): maps `user_id → role_code` (+ `is_primary` flag).
+- `admin_role` + `admin_rule` (standard Magento ACL): groups & rules.
+- `applyRoleAcl()` bridges the two by updating the admin user's `parent_id` in `admin_role` to point at the matching ACL group.
 
 ### Admin Theme
 
 - Dark theme: `skin/adminhtml/default/default/dark-theme.css`
-- Custom header: `app/design/adminhtml/default/default/template/page/header.phtml` (role switcher dropdown)
-- Custom sidebar: `app/design/adminhtml/default/default/template/page/menu.phtml` (role-aware)
+- Role Management grid + modal: `app/design/adminhtml/default/default/template/rolemanager/management.phtml` (styles are inline; iterates roles by `getAllRoles()` order — edit `_roleLabels` in Helper/Data.php to reorder everywhere)
+- Custom header (role switcher + avatar menu): `app/design/adminhtml/default/default/template/page/header.phtml`
+- Custom sidebar (role-aware): `app/design/adminhtml/default/default/template/page/menu.phtml`
 - Login page: `app/design/adminhtml/default/default/template/login.phtml` (standalone, not Magento layout)
-- Role selection: `app/design/adminhtml/default/default/template/rolemanager/role-select.phtml`
-- **Gotcha**: `boxes.css` has legacy Magento styles with high specificity (`#page-login`) — use ID selectors to override
+- Role-selection page: `app/design/adminhtml/default/default/template/rolemanager/role-select.phtml`
+- Gotcha: legacy `boxes.css` has high-specificity `#page-login` rules; use ID selectors to override.
 
 ### Database Migrations
 
-Manual SQL scripts in `migrations/` applied via Docker exec (not Magento's Varien setup). Module install/upgrade scripts use standard `sql/<setup>/mysql4-install-X.Y.Z.php` pattern.
+- Repo dirs:
+  - `migrations/` — production-bound numbered `*.sql` + `apply.php` runner.
+  - `scripts/local-dev/` — local-only fixups (e.g. set localhost base URL, disable admin CAPTCHA). Never auto-applied on deploy.
+- `apply.php` uses a `schema_migrations` ledger so each `.sql` runs at most once per DB.
+- On first-run against a pre-existing production DB (no ledger yet, `admin_user` already populated), `apply.php` enters **tolerant mode** and swallows idempotency errors (MySQL 1050/1051/1060/1061/1068/1091) for that single run so previously-applied DDL doesn't abort the chain. Future runs are strict.
+- Keep new migrations idempotent anyway (`INSERT IGNORE`, `ON DUPLICATE KEY UPDATE`, etc.) — safer on re-runs.
 
 ### Deployment
 
-- GitHub Actions (`.github/workflows/deploy.yml`) triggers Coolify API on push to `main`
-- Docker build creates the production image; `version.txt` tracks build timestamp shown in admin footer
-- `.dockerignore` excludes `.git` and `media/` — media files are served via volume mount, not baked into image
+- `.github/workflows/deploy.yml` triggers the Coolify API on push to `main` (force rebuild).
+- `Dockerfile` builds the image; `docker/entrypoint.sh` runs at container start:
+  1. Clears Magento runtime cache (`var/cache`, `var/full_page_cache`, `var/tmp`, `var/locks`).
+  2. Runs `migrations/apply.php` with retry/backoff while DB comes up.
+  3. `exec apache2-foreground`.
+- If migrations fail after retries, the container exits non-zero so Coolify keeps the previous container — never serve traffic against a stale schema.
+- Build timestamp written to `version.txt` at build time; visible at `/version.txt` and in the admin footer.
+- `.dockerignore` excludes `.git` and `media/` — media is volume-mounted, not baked.
 
 ### Key Config
 
-- `app/etc/local.xml`: DB credentials, encryption key, admin frontName (gitignored — use `local.xml.example`)
-- `.env`: MySQL passwords, API keys (gitignored — use `.env.example`)
-- `docker/php.ini`: 512M memory, 300s timeout, Asia/Singapore timezone
-- `composer.json`: OpenMage LTS + PHP 8.x polyfills
+- `app/etc/local.xml`: DB credentials, encryption key, admin frontName. **Gitignored** — start from `local.xml.example`.
+- `.env`: MySQL passwords, API keys. **Gitignored** — start from `.env.example`.
+- `docker/php.ini`: 512M memory, 300s timeout, Asia/Singapore tz, OPcache with `validate_timestamps=1`, session lifetime effectively forever.
+- `docker/entrypoint.sh`: runtime cache clear + auto-migration.
+- `composer.json`: OpenMage LTS + PHP 8.x polyfills.
 
 ### Community Modules
 
-- **Stripe_Payments** + **Hitpay_Pay**: Payment gateways
-- **Aschroder_SMTPPro**: SMTP email transport
-- **Infortis_Ultimo**: Premium frontend theme (in `skin/frontend/ultimo/`)
+- **Stripe_Payments** + **Hitpay_Pay** — payment gateways.
+- **Aschroder_SMTPPro** — SMTP email transport.
+- **Infortis_Ultimo** — premium frontend theme (`skin/frontend/ultimo/`).
 
 ## Skills (`.claude/skills/`)
 
-Skills provide domain-specific coding standards and patterns. Load them when working in their domain.
-
-| Skill | When to Use | Source |
-|-------|------------|--------|
-| **php-pro** | Writing/reviewing PHP code — strict typing, PSR-12, PHPStan, typed DTOs, DI, PHPUnit | `Jeffallan/claude-skills` |
-| **mysql** | Schema design, indexing, query tuning, migrations, transactions, DDL operations | `planetscale/database-skills` |
-| **web-accessibility** | Building/reviewing UI for a11y — WCAG 2.1, semantic HTML, keyboard nav, ARIA, contrast | `supercent-io/skills-template` |
-| **create-github-action-workflow-specification** | Creating/modifying GitHub Actions CI/CD workflows | `github/awesome-copilot` |
-| **find-skills** | Discovering and installing new skills via `npx skills find [query]` | `vercel-labs/skills` |
+| Skill | When to use |
+|-------|-------------|
+| **php-pro** | Writing / reviewing PHP — strict typing, PSR-12, PHPStan, typed DTOs, DI, PHPUnit. |
+| **mysql** | Schema design, indexing, query tuning, migrations, transactions. |
+| **web-accessibility** | Building / reviewing UI for a11y — WCAG 2.1, ARIA, contrast, keyboard nav. |
+| **create-github-action-workflow-specification** | Writing / modifying GitHub Actions workflows. |
+| **find-skills** | Discovering and installing new skills via `npx skills find [query]`. |

@@ -118,6 +118,7 @@ $pending = array_values(array_filter(
 
 if (empty($pending)) {
     echo "no pending migrations\n";
+    writeStatus($pdo, $tolerantMode);
     exit(0);
 }
 
@@ -158,39 +159,61 @@ foreach ($pending as $f) {
     }
 }
 
-// Post-run status file so external verification doesn't need DB access.
-// Written to media/ which Apache serves, so a curl GET can confirm state.
-try {
-    $userCount = (int)$pdo->query("SELECT COUNT(*) FROM admin_user")->fetchColumn();
-    $roleMapCount = (int)$pdo->query("SELECT COUNT(*) FROM mmd_user_role_map")->fetchColumn();
-    $distinctRoles = (int)$pdo->query("SELECT COUNT(DISTINCT role_code) FROM mmd_user_role_map")->fetchColumn();
-    $usersWithoutRole = (int)$pdo->query(
-        "SELECT COUNT(*) FROM admin_user u
-         LEFT JOIN mmd_user_role_map m ON m.user_id = u.user_id
-         WHERE m.user_id IS NULL"
-    )->fetchColumn();
-    $appliedCount = (int)$pdo->query("SELECT COUNT(*) FROM schema_migrations")->fetchColumn();
-
-    $status = [
-        'timestamp'         => gmdate('c'),
-        'tolerant_mode'     => $tolerantMode,
-        'applied_count'     => $appliedCount,
-        'admin_user_count'  => $userCount,
-        'role_map_count'    => $roleMapCount,
-        'distinct_roles'    => $distinctRoles,
-        'users_without_role'=> $usersWithoutRole,
-    ];
-
-    $statusDir = dirname(__DIR__) . '/media';
-    if (is_dir($statusDir) && is_writable($statusDir)) {
-        file_put_contents(
-            $statusDir . '/migrations-status.json',
-            json_encode($status, JSON_PRETTY_PRINT) . "\n"
-        );
-    }
-    echo "status: " . json_encode($status) . "\n";
-} catch (PDOException $e) {
-    fwrite(STDERR, "status report failed (non-fatal): " . $e->getMessage() . "\n");
-}
+writeStatus($pdo, $tolerantMode);
 
 echo "done\n";
+
+// Post-run status file so external verification doesn't need DB access.
+// Written to media/ which Apache serves, so a curl GET can confirm state.
+// Always runs — even when there were no pending migrations — so the file
+// reflects the *current* deploy, not the last one that had changes.
+function writeStatus(PDO $pdo, bool $tolerantMode): void
+{
+    try {
+        $userCount = (int)$pdo->query("SELECT COUNT(*) FROM admin_user")->fetchColumn();
+        $roleMapCount = (int)$pdo->query("SELECT COUNT(*) FROM mmd_user_role_map")->fetchColumn();
+        $distinctRoles = (int)$pdo->query("SELECT COUNT(DISTINCT role_code) FROM mmd_user_role_map")->fetchColumn();
+        $usersWithoutRole = (int)$pdo->query(
+            "SELECT COUNT(*) FROM admin_user u
+             LEFT JOIN mmd_user_role_map m ON m.user_id = u.user_id
+             WHERE m.user_id IS NULL"
+        )->fetchColumn();
+        $appliedCount = (int)$pdo->query("SELECT COUNT(*) FROM schema_migrations")->fetchColumn();
+
+        // Hash a handful of frequently-edited admin templates so curl can
+        // confirm remote picked up template changes (catches stale volume
+        // mounts or cached output).
+        $trackedFiles = [
+            'management.phtml' => dirname(__DIR__) . '/app/design/adminhtml/default/default/template/rolemanager/management.phtml',
+            'header.phtml'     => dirname(__DIR__) . '/app/design/adminhtml/default/default/template/page/header.phtml',
+            'role_select.phtml'=> dirname(__DIR__) . '/app/design/adminhtml/default/default/template/rolemanager/role-select.phtml',
+            'helper_data.php'  => dirname(__DIR__) . '/app/code/local/MMD/RoleManager/Helper/Data.php',
+        ];
+        $fileHashes = [];
+        foreach ($trackedFiles as $label => $path) {
+            $fileHashes[$label] = is_file($path) ? substr(md5_file($path), 0, 10) : null;
+        }
+
+        $status = [
+            'timestamp'         => gmdate('c'),
+            'tolerant_mode'     => $tolerantMode,
+            'applied_count'     => $appliedCount,
+            'admin_user_count'  => $userCount,
+            'role_map_count'    => $roleMapCount,
+            'distinct_roles'    => $distinctRoles,
+            'users_without_role'=> $usersWithoutRole,
+            'file_hashes'       => $fileHashes,
+        ];
+
+        $statusDir = dirname(__DIR__) . '/media';
+        if (is_dir($statusDir) && is_writable($statusDir)) {
+            file_put_contents(
+                $statusDir . '/migrations-status.json',
+                json_encode($status, JSON_PRETTY_PRINT) . "\n"
+            );
+        }
+        echo "status: " . json_encode($status) . "\n";
+    } catch (PDOException $e) {
+        fwrite(STDERR, "status report failed (non-fatal): " . $e->getMessage() . "\n");
+    }
+}

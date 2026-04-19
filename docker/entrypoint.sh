@@ -21,6 +21,16 @@ if [ ! -f "$LOCAL_XML" ]; then
     exec apache2-foreground
 fi
 
+# Clear Magento runtime cache so template/config/layout changes in this
+# deploy are picked up on first request. Dockerfile clears at build time,
+# but Coolify volume mounts can shadow that; this guarantees freshness.
+# Preserves var/session (users stay logged in) and var/log (debug history).
+echo "entrypoint: clearing Magento runtime cache..."
+rm -rf /var/www/html/var/cache/* \
+       /var/www/html/var/full_page_cache/* \
+       /var/www/html/var/tmp/* \
+       /var/www/html/var/locks/* 2>/dev/null || true
+
 echo "entrypoint: running migrations..."
 
 MAX_ATTEMPTS=12
