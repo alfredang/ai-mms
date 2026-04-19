@@ -47,6 +47,10 @@ COPY docker/php.ini /usr/local/etc/php/conf.d/magento.ini
 # Copy Apache vhost config
 COPY docker/apache-vhost.conf /etc/apache2/sites-available/000-default.conf
 
+# Copy container entrypoint (runs migrations before starting Apache)
+COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
@@ -69,3 +73,5 @@ RUN rm -rf /var/www/html/var/cache/* /var/www/html/var/session/* /var/www/html/v
 RUN chown -R www-data:www-data /var/www/html
 
 EXPOSE 80
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
