@@ -203,6 +203,8 @@ $badgeColors = array(
         </div>
         <label>Email</label>
         <input type="email" id="rm-edit-email" disabled />
+        <label>New Password <span style="color:#64748b;font-weight:400;font-size:12px;">(leave blank to keep current)</span></label>
+        <input type="password" id="rm-edit-password" placeholder="Minimum 7 characters" autocomplete="new-password" />
         <label>Roles</label>
         <div class="rm-role-toggles" id="rm-edit-roles">
             <?php foreach ($allRoles as $code => $label):
@@ -261,6 +263,7 @@ function rmEdit(uid) {
     document.getElementById('rm-edit-firstname').value = row.getAttribute('data-firstname');
     document.getElementById('rm-edit-lastname').value = row.getAttribute('data-lastname');
     document.getElementById('rm-edit-email').value = row.getAttribute('data-email');
+    document.getElementById('rm-edit-password').value = '';
     document.getElementById('rm-edit-status').value = row.getAttribute('data-active');
     var userRoles = (row.getAttribute('data-roles') || '').split(',');
     var toggles = document.querySelectorAll('.rm-role-toggle');
@@ -277,10 +280,16 @@ function rmSave() {
     var uid = document.getElementById('rm-edit-uid').value;
     var roles = [];
     document.querySelectorAll('.rm-role-toggle.selected').forEach(function(t) { roles.push(t.getAttribute('data-role')); });
+    var newPassword = document.getElementById('rm-edit-password').value;
+    if (newPassword && newPassword.length < 7) {
+        alert('Password must be at least 7 characters.');
+        return;
+    }
     var body = 'user_id=' + uid
         + '&firstname=' + encodeURIComponent(document.getElementById('rm-edit-firstname').value)
         + '&lastname=' + encodeURIComponent(document.getElementById('rm-edit-lastname').value)
         + '&is_active=' + document.getElementById('rm-edit-status').value
+        + '&password=' + encodeURIComponent(newPassword)
         + '&form_key=' + RM_FORM_KEY;
     for (var i = 0; i < roles.length; i++) body += '&roles[]=' + encodeURIComponent(roles[i]);
 

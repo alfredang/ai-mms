@@ -28,6 +28,7 @@ class MMD_RoleManager_Adminhtml_RolemanagementController extends Mage_Adminhtml_
         $isActive = (int) $this->getRequest()->getParam('is_active', 1);
         $firstname = $this->getRequest()->getParam('firstname', '');
         $lastname  = $this->getRequest()->getParam('lastname', '');
+        $password  = (string) $this->getRequest()->getParam('password', '');
 
         if (!$userId) {
             $result['message'] = 'Invalid user';
@@ -40,10 +41,17 @@ class MMD_RoleManager_Adminhtml_RolemanagementController extends Mage_Adminhtml_
             $userTable = $resource->getTableName('admin/user');
             $roleTable = $resource->getTableName('mmd_user_role_map');
 
-            // Update user status and name
+            // Update user status, name, and (optionally) password
             $updateData = array('is_active' => $isActive);
             if ($firstname) $updateData['firstname'] = $firstname;
             if ($lastname)  $updateData['lastname'] = $lastname;
+            if ($password !== '') {
+                if (strlen($password) < 7) {
+                    $result['message'] = 'Password must be at least 7 characters';
+                    return $this->_sendJson($result);
+                }
+                $updateData['password'] = Mage::helper('core')->getHash($password, 2);
+            }
             $write->update($userTable, $updateData, 'user_id = ' . $userId);
 
             // Replace roles
