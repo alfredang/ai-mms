@@ -747,7 +747,7 @@ $_devWebsiteId = $_devCountryMap[$_devCountry];
 $_devTotalCount = 0;
 try {
     $_devCollection = Mage::getModel('catalog/product')->getCollection()
-        ->addAttributeToSelect(array('name','image','status','news_from_date','course_image_url','software','training_hours','assessment_hours','mode_of_training'))
+        ->addAttributeToSelect(array('name','image','status','news_from_date','news_to_date','course_image_url','software','duration','sessions','level','price'))
         ->addAttributeToFilter('status', 1)
         ->addWebsiteFilter($_devWebsiteId)
         ->setOrder('entity_id', 'DESC');
@@ -755,8 +755,9 @@ try {
     $_devCollection->setPageSize($_devPageSize)->setCurPage($_devCurPage);
     foreach ($_devCollection as $_dp) {
         $_dName = $_dp->getName();
-        $_isWsq = (stripos($_dName, 'wsq') !== false || stripos($_dName, 'workforce') !== false);
-        $_isIbf = (stripos($_dName, 'ibf') !== false);
+        $_dSoftware = $_dp->getAttributeText('software');
+        $_isWsq = ($_dSoftware === 'WSQ' || stripos($_dName, 'wsq') !== false);
+        $_isIbf = ($_dSoftware === 'IBF' || stripos($_dName, 'ibf') !== false);
         if ($_isWsq) $_devWsq++;
         elseif ($_isIbf) $_devIbf++;
         else $_devUnfunded++;
@@ -775,9 +776,12 @@ try {
             'wsq'         => $_isWsq,
             'ibf'         => $_isIbf,
             'funding_date'=> $_dp->getNewsFromDate(),
-            'mode'        => trim((string)$_dp->getData('mode_of_training')),
-            'training_hours'   => (int)$_dp->getData('training_hours'),
-            'assessment_hours' => (int)$_dp->getData('assessment_hours'),
+            'funding_end' => $_dp->getNewsToDate(),
+            'duration'    => (float)$_dp->getData('duration'),
+            'sessions'    => $_dp->getAttributeText('sessions'),
+            'level'       => $_dp->getAttributeText('level'),
+            'price'       => (float)$_dp->getData('price'),
+            'course_type' => $_dSoftware ?: '',
         );
     }
 } catch (Exception $e) {}
@@ -923,9 +927,6 @@ a.dev-country-btn.active,a.dev-country-btn.active:hover,a.dev-country-btn.active
     <div class="dev-grid" id="dev-grid">
         <?php foreach ($_devCourses as $_dc):
             $_dcRef = $_dc['sku'] ?: '';
-            $_dcTh = $_dc['training_hours'];
-            $_dcAh = $_dc['assessment_hours'];
-            $_dcTotalHrs = $_dcTh + $_dcAh;
         ?>
         <div class="dev-card" data-search="<?php echo strtolower($_dc['name'].' '.$_dc['sku']) ?>">
             <div class="dev-card-img-wrap">
@@ -934,10 +935,17 @@ a.dev-country-btn.active,a.dev-country-btn.active:hover,a.dev-country-btn.active
             <div class="dev-card-body">
                 <div class="dev-card-title"><span><?php echo htmlspecialchars($_dc['name']) ?></span><?php if ($_dcRef): ?><span class="dev-card-tgs-sub"><?php echo htmlspecialchars($_dcRef) ?></span><?php endif; ?></div>
                 <div class="dev-card-row"><span class="dev-card-lbl">TGS Ref:</span><span class="dev-card-val"><?php echo $_dcRef ? htmlspecialchars($_dcRef) : '—' ?></span></div>
-                <div class="dev-card-row" data-col="types" style="display:none;"><span class="dev-badge <?php echo $_dc['wsq'] ? 'dev-badge-wsq' : ($_dc['ibf'] ? 'dev-badge-ibf' : '') ?>"><?php echo $_dc['wsq'] ? 'WSQ' : ($_dc['ibf'] ? 'IBF' : '—') ?></span><span class="dev-card-val" style="font-size:11px;font-weight:400;"><?php echo $_dc['mode'] ? htmlspecialchars($_dc['mode']) : '—' ?></span></div>
-                <div class="dev-card-row"><span class="dev-card-lbl">Mode of Training:</span><span class="dev-card-val"><?php echo $_dc['mode'] ? htmlspecialchars($_dc['mode']) : '—' ?></span></div>
+                <div class="dev-card-row"><span class="dev-card-lbl">Course Type:</span><span class="dev-card-val"><?php if ($_dc['course_type']): ?><span class="dev-badge <?php echo $_dc['wsq'] ? 'dev-badge-wsq' : ($_dc['ibf'] ? 'dev-badge-ibf' : '') ?>"><?php echo htmlspecialchars($_dc['course_type']) ?></span><?php else: echo '—'; endif; ?></span></div>
+                <div class="dev-card-row" data-col="types" style="display:none;"><span class="dev-badge <?php echo $_dc['wsq'] ? 'dev-badge-wsq' : ($_dc['ibf'] ? 'dev-badge-ibf' : '') ?>"><?php echo $_dc['course_type'] ? htmlspecialchars($_dc['course_type']) : '—' ?></span><span class="dev-card-val" style="font-size:11px;font-weight:400;"><?php echo $_dc['level'] ? htmlspecialchars($_dc['level']) : '—' ?></span></div>
+                <div class="dev-card-row"><span class="dev-card-lbl">Level:</span><span class="dev-card-val"><?php echo $_dc['level'] ? htmlspecialchars($_dc['level']) : '—' ?></span></div>
+                <div class="dev-card-row"><span class="dev-card-lbl">Duration:</span><span class="dev-card-val"><?php echo $_dc['duration'] > 0 ? rtrim(rtrim(number_format($_dc['duration'], 1), '0'), '.') . ' Hours' : '—' ?></span></div>
+                <?php if ($_dc['sessions']): ?>
+                <div class="dev-card-row"><span class="dev-card-lbl">Sessions:</span><span class="dev-card-val"><?php echo htmlspecialchars($_dc['sessions']) ?></span></div>
+                <?php endif; ?>
+                <?php if ($_dc['price'] > 0): ?>
+                <div class="dev-card-row"><span class="dev-card-lbl">Price:</span><span class="dev-card-val">$<?php echo number_format($_dc['price'], 2) ?></span></div>
+                <?php endif; ?>
                 <div class="dev-card-row"><span class="dev-card-lbl">Funding Validity:</span><span class="dev-card-val" style="color:#22c55e;"><?php echo $_dc['funding_date'] ? date('j M Y', strtotime($_dc['funding_date'])).' - Valid' : '—' ?></span></div>
-                <div class="dev-card-row"><span class="dev-card-lbl">Course Duration:</span><span class="dev-card-val"><?php if ($_dcTotalHrs > 0): echo $_dcTotalHrs; ?> Hours Total<?php if ($_dcTh > 0 && $_dcAh > 0): ?><br><span class="dev-card-duration-sub">(<?php echo $_dcTh ?>T + <?php echo $_dcAh ?>A)</span><?php endif; else: echo '—'; endif; ?></span></div>
             </div>
             <div class="dev-card-footer">
                 <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id'=>$_dc['id'])) ?>" class="dev-view-btn">View Course</a>
