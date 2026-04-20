@@ -3,10 +3,9 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
 {
     public function saveAction()
     {
-        $result = array('success' => false);
-
         try {
-            $courseId = (int) $this->getRequest()->getParam('course_id');
+            $req      = $this->getRequest();
+            $courseId = (int) $req->getParam('course_id');
             if (!$courseId) {
                 throw new Exception('No course ID provided');
             }
@@ -16,32 +15,35 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 throw new Exception('Course not found');
             }
 
-            // Update product fields from POST
-            $name = $this->getRequest()->getParam('course_name');
-            if ($name !== null && $name !== '') {
-                $product->setName($name);
-            }
+            // Basic fields
+            if (($v = $req->getParam('course_name'))  !== null && $v !== '') $product->setName($v);
+            if (($v = $req->getParam('course_code'))  !== null && $v !== '') $product->setSku($v);
+            if (($v = $req->getParam('image_url'))    !== null)              $product->setData('course_image_url', $v);
+            if (($v = $req->getParam('brochure_url')) !== null)              $product->setData('course_brochure_url', $v);
+            if (($v = $req->getParam('duration'))     !== null && $v !== '') $product->setData('duration', $v);
+            if (($v = $req->getParam('price'))        !== null && $v !== '') $product->setPrice((float)$v);
 
-            $imageUrl = $this->getRequest()->getParam('image_url');
-            if ($imageUrl !== null) {
-                $product->setData('course_image_url', $imageUrl);
+            // Rich HTML fields
+            if (($v = $req->getParam('trainer_names'))     !== null) {
+                $lines = array_filter(array_map('trim', preg_split('/\r?\n/', $v)));
+                $html  = '';
+                foreach ($lines as $line) {
+                    $html .= '<p><strong>' . htmlspecialchars($line) . ':</strong></p>' . "\n";
+                }
+                $product->setData('trainerprofile', $html);
             }
+            if (($v = $req->getParam('learning_outcomes')) !== null) $product->setData('description', $v);
+            if (($v = $req->getParam('who_should_attend')) !== null) $product->setData('whoshouldattend', $v);
+            if (($v = $req->getParam('prerequisite'))      !== null) $product->setData('prerequisite', $v);
 
-            $description = $this->getRequest()->getParam('learning_outcomes');
-            if ($description !== null) {
-                $product->setDescription($description);
-            }
+            // SEO
+            if (($v = $req->getParam('meta_title'))        !== null) $product->setMetaTitle($v);
+            if (($v = $req->getParam('meta_description'))  !== null) $product->setMetaDescription($v);
+            if (($v = $req->getParam('meta_keyword'))      !== null) $product->setMetaKeyword($v);
 
-            $shortDesc = $this->getRequest()->getParam('tsc_title');
-            if ($shortDesc !== null) {
-                $product->setShortDescription($shortDesc);
-            }
-
-            // Save the product
             $product->save();
 
-            // Redirect based on which button was clicked
-            $continueEdit = $this->getRequest()->getParam('continue_edit');
+            $continueEdit = $req->getParam('continue_edit');
             $dashboardUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard');
 
             if ($continueEdit) {
@@ -51,7 +53,11 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 ));
                 $this->_redirectUrl($editUrl);
             } else {
-                $this->_redirectUrl($dashboardUrl);
+                $viewUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array(
+                    'course_id' => $courseId,
+                    'mode' => 'edit',
+                ));
+                $this->_redirectUrl($viewUrl);
             }
             return;
         } catch (Exception $e) {

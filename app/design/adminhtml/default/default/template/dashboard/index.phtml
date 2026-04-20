@@ -483,21 +483,83 @@ if ($_editMode) {
     try {
         $_editProd = Mage::getModel('catalog/product')->load($_selectedCourseId);
         if ($_editProd->getId()) {
+            // Build full image URL: prefer course_image_url, fall back to Magento catalog image
+            $_imgUrlRaw = trim((string)$_editProd->getData('course_image_url'));
+            if ($_imgUrlRaw === '') {
+                $_rawImg = $_editProd->getImage();
+                if ($_rawImg && $_rawImg !== 'no_selection') {
+                    $_imgUrlRaw = Mage::getBaseUrl('media') . 'catalog/product' . $_rawImg;
+                }
+            }
+
+            // Extract brochure URL: prefer course_brochure_url attribute, else parse from short_description HTML
+            $_brochureUrl = trim((string)$_editProd->getData('course_brochure_url'));
+            if ($_brochureUrl === '') {
+                $_sd = (string)$_editProd->getData('short_description');
+                if ($_sd !== '' && preg_match('#Course Brochure.*?<a[^>]+href=(["\'])(.+?)\1#si', $_sd, $_m)) {
+                    $_brochureUrl = html_entity_decode($_m[2]);
+                }
+            }
+
+            // Load trainer names: first try the trainers multiselect attribute (option IDs)
+            $_trainerNames = array();
+            $_trainerIds = (string)$_editProd->getData('trainers');
+            if ($_trainerIds !== '') {
+                try {
+                    $_ids = array_filter(array_map('intval', explode(',', $_trainerIds)));
+                    if (!empty($_ids)) {
+                        $_read = Mage::getSingleton('core/resource')->getConnection('core_read');
+                        $_tblOV = $_read->getTableName('eav_attribute_option_value');
+                        $_placeholders = implode(',', array_fill(0, count($_ids), '?'));
+                        $_rows = $_read->fetchAll(
+                            "SELECT option_id, value FROM {$_tblOV} WHERE option_id IN ({$_placeholders}) AND store_id=0",
+                            $_ids
+                        );
+                        $_byId = array();
+                        foreach ($_rows as $_r) { $_byId[$_r['option_id']] = $_r['value']; }
+                        foreach ($_ids as $_id) {
+                            if (isset($_byId[$_id])) {
+                                $_nm = trim(preg_replace('/^ACTA\s+/i', '', $_byId[$_id]));
+                                if ($_nm !== '') $_trainerNames[] = $_nm;
+                            }
+                        }
+                    }
+                } catch (Exception $e) {}
+            }
+            // Fallback: extract from trainerprofile HTML (pattern: <strong>Name:</strong> ...)
+            if (empty($_trainerNames)) {
+                $_tpRaw = (string)$_editProd->getData('trainerprofile');
+                if ($_tpRaw !== '' && preg_match_all('#<strong>([^<:]+?):</strong>#si', $_tpRaw, $_tm)) {
+                    foreach ($_tm[1] as $_n) {
+                        $_n = trim(html_entity_decode($_n));
+                        if ($_n !== '') $_trainerNames[] = $_n;
+                    }
+                }
+            }
+
             $_editCourseData = array(
                 'name'        => $_editProd->getName() ?: '',
                 'sku'         => $_editProd->getSku() ?: '',
                 'image'       => $_selectedCourse['image'],
-                'image_url'   => trim((string)$_editProd->getData('course_image_url')),
+                'image_url'   => $_imgUrlRaw,
                 'description' => $_editProd->getData('description') ?: '',
                 'short_desc'  => $_editProd->getData('short_description') ?: '',
                 'start_date'  => $_editProd->getData('news_from_date') ? date('M d, Y', strtotime($_editProd->getData('news_from_date'))) : '',
                 'end_date'    => $_editProd->getData('news_to_date') ? date('M d, Y', strtotime($_editProd->getData('news_to_date'))) : '',
                 'course_type' => $_editProd->getAttributeText('software') ?: '',
-                'price'       => $_editProd->getPrice(),
-                'mode_of_training'  => trim((string)$_editProd->getData('mode_of_training')),
-                'training_hours'    => (int)$_editProd->getData('training_hours'),
-                'assessment_hours'  => (int)$_editProd->getData('assessment_hours'),
+                'price'       => (float)$_editProd->getData('price'),
+                'duration'    => (float)$_editProd->getData('duration'),
+                'sessions'    => $_editProd->getAttributeText('sessions') ?: '',
+                'level'       => $_editProd->getAttributeText('level') ?: '',
+                'meta_title'       => $_editProd->getData('meta_title') ?: '',
+                'meta_description' => $_editProd->getData('meta_description') ?: '',
+                'meta_keyword'     => $_editProd->getData('meta_keyword') ?: '',
+                'who_should_attend' => $_editProd->getData('whoshouldattend') ?: '',
+                'prerequisite'     => $_editProd->getData('prerequisite') ?: '',
+                'trainer_profile'  => $_editProd->getData('trainerprofile') ?: '',
+                'trainer_names'    => $_trainerNames,
                 'learning_outcomes' => $_editProd->getData('description') ?: '',
+                'brochure_url'      => $_brochureUrl,
             );
         }
     } catch (Exception $e) {}
@@ -1216,59 +1278,42 @@ button.tp-refresh-btn:hover{border-color:#475569 !important;color:var(--t1) !imp
 <?php /* ===== DEVELOPER EDIT MODE ===== */ ?>
 <?php if ($_editingMode): ?>
 <style>
+/* Editing form — same layout as read-only view, just with input fields */
 .dcf-wrap{max-width:1400px;margin:0 auto}
-.dcf-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px}
-.dcf-title{font-size:22px;font-weight:700;color:#fff;flex:1;margin:0}
-.dcf-title-sub{font-size:13px;color:#94a3b8;font-weight:400;margin-top:4px}
-.dcf-actions{display:flex;gap:10px;flex-wrap:wrap}
+.dcf-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:16px}
+.dcf-title{font-size:24px;font-weight:700;color:#fff;flex:1;margin:0;line-height:1.3}
+.dcf-title-sub{display:inline-block;background:rgba(34,211,238,.12);border:1px solid rgba(34,211,238,.25);color:#22d3ee;font-size:12px;font-weight:700;padding:4px 10px;border-radius:6px;margin-top:8px;letter-spacing:.3px}
+.dcf-actions{display:flex;gap:10px;flex-wrap:wrap;flex-shrink:0}
 button.dcf-btn,a.dcf-btn{display:inline-flex !important;align-items:center !important;gap:6px !important;border-radius:8px !important;padding:10px 20px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;text-decoration:none !important;background-image:none !important;border:none !important}
 button.dcf-btn-cancel{background:#334155 !important;color:#e2e8f0 !important;border:1px solid #475569 !important}
 button.dcf-btn-edit{background:#334155 !important;color:#e2e8f0 !important;border:1px solid #475569 !important}
-a.dcf-btn-save-cont{background:#475569 !important;color:#fff !important}
-a.dcf-btn-save{background:#2563eb !important;color:#fff !important}
-.dcf-two-col{display:flex;gap:24px;align-items:flex-start}
-.dcf-col-left{flex:1;min-width:0}
-.dcf-col-right{flex:1;min-width:0}
-.dcf-section{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:22px 24px;margin-bottom:16px}
-.dcf-section-title{font-size:16px;font-weight:700;color:#fff;margin:0 0 16px;padding-bottom:12px;border-bottom:1px solid #334155}
-.dcf-field{margin-bottom:16px}
+button.dcf-btn-save-cont{background:#475569 !important;color:#fff !important}
+button.dcf-btn-save{background:#2563eb !important;color:#fff !important}
+/* Meta info bar (same as read-only) */
+.dcf-meta-bar{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;background:#1e293b;border:1px solid #334155;border-radius:12px;padding:18px 22px;margin-bottom:20px}
+.dcf-meta-item{display:flex;flex-direction:column;gap:4px}
+.dcf-meta-lbl{font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px}
+.dcf-meta-input{font-size:15px;font-weight:700;color:#f1f5f9;background:#283548;border:1px solid #384a60;border-radius:6px;padding:6px 10px;outline:none;font-family:inherit;width:100%;box-sizing:border-box}
+.dcf-meta-input:focus{border-color:#60a5fa}
+/* Two-column layout matching read-only */
+.dcf-two-col{display:grid;grid-template-columns:minmax(0,360px) minmax(0,1fr);gap:20px;align-items:flex-start}
+.dcf-col-left{min-width:0}
+.dcf-col-right{min-width:0}
+.dcf-section{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px 24px;margin-bottom:16px}
+.dcf-section-title{font-size:16px;font-weight:700;color:#fff;margin:0 0 14px;padding-bottom:12px;border-bottom:1px solid #334155;display:flex;align-items:center;gap:8px}
+.dcf-field{margin-bottom:14px}
 .dcf-field:last-child{margin-bottom:0}
-.dcf-label{font-size:12px;font-weight:600;color:#94a3b8;margin-bottom:6px;text-transform:uppercase;letter-spacing:.3px}
-.dcf-input,.dcf-select,.dcf-textarea{width:100%;padding:10px 14px;background:#283548;border:1px solid #384a60;border-radius:8px;color:#e2e8f0;font-size:14px;outline:none;box-sizing:border-box;font-family:inherit}
+.dcf-label{font-size:11px;font-weight:700;color:#94a3b8;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+.dcf-input,.dcf-select,.dcf-textarea{width:100%;padding:10px 14px;background:#283548;border:1px solid #384a60;border-radius:8px;color:#f1f5f9;font-size:14px;outline:none;box-sizing:border-box;font-family:inherit;line-height:1.5}
 .dcf-input:focus,.dcf-select:focus,.dcf-textarea:focus{border-color:#60a5fa}
-.dcf-textarea{min-height:80px;resize:vertical}
+textarea.dcf-textarea{min-height:150px !important;height:150px !important;resize:vertical !important;line-height:1.6 !important}
+textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px !important}
 .dcf-select{appearance:auto}
-.dcf-img-preview{max-width:100%;border-radius:8px;border:1px solid #334155;margin-bottom:12px}
-.dcf-btn-row{display:flex;gap:10px;margin-top:8px}
-button.dcf-upload-btn,button.dcf-ai-btn{display:inline-flex !important;align-items:center !important;gap:6px !important;background:#334155 !important;background-image:none !important;color:#e2e8f0 !important;border:1px solid #475569 !important;border-radius:8px !important;padding:8px 16px !important;font-size:12px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
-.dcf-duration-row{display:flex;gap:16px;align-items:flex-end;margin-bottom:12px}
-.dcf-duration-row .dcf-field{flex:1;margin-bottom:0}
-.dcf-duration-total{font-size:14px;color:#22d3ee;font-weight:700;padding:10px 0}
-.dcf-radio-group{display:flex;flex-direction:column;gap:8px}
-.dcf-radio-item{display:flex;align-items:center;gap:10px;font-size:14px;color:#e2e8f0;cursor:pointer}
-.dcf-radio-item input[type="radio"]{accent-color:#2563eb;width:16px;height:16px}
-.dcf-check-item{display:flex;align-items:center;gap:10px;background:#283548;border:1px solid #384a60;border-radius:8px;padding:12px 14px;margin-bottom:8px;font-size:14px;color:#e2e8f0}
-.dcf-check-item input[type="checkbox"]{accent-color:#2563eb;width:18px;height:18px;flex-shrink:0}
-.dcf-check-url{width:100%;margin-top:8px}
-.dcf-trainer-search{width:100%;padding:10px 14px;background:#283548;border:1px solid #384a60;border-radius:8px;color:#e2e8f0;font-size:14px;outline:none;box-sizing:border-box;margin-bottom:12px}
-.dcf-trainer-search:focus{border-color:#60a5fa}
-.dcf-trainer-tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-.dcf-trainer-tag{background:#334155;border:1px solid #475569;border-radius:20px;padding:6px 14px;font-size:12px;color:#e2e8f0;display:flex;align-items:center;gap:6px}
-.dcf-trainer-tag .dcf-tag-x{color:#94a3b8;cursor:pointer;font-weight:700}
-.dcf-lesson-add{display:flex;align-items:center;justify-content:center;gap:8px;padding:14px;border:1px dashed #475569;border-radius:8px;color:#94a3b8;font-size:13px;font-weight:600;cursor:pointer;background:transparent}
-.dcf-lesson-add:hover{border-color:#60a5fa;color:#60a5fa}
-.dcf-toggle-row{display:flex;align-items:center;justify-content:space-between;gap:16px}
-.dcf-toggle-label{font-size:14px;font-weight:600;color:#fff}
-.dcf-toggle-sub{font-size:12px;color:#94a3b8;margin-top:2px}
-.dcf-toggle{position:relative;width:44px;height:24px;flex-shrink:0}
-.dcf-toggle input{opacity:0;width:0;height:0}
-.dcf-toggle-slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#475569;border-radius:12px;transition:.2s}
-.dcf-toggle-slider:before{content:'';position:absolute;height:18px;width:18px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s}
-.dcf-toggle input:checked+.dcf-toggle-slider{background:#2563eb}
-.dcf-toggle input:checked+.dcf-toggle-slider:before{transform:translateX(20px)}
+.dcf-img-preview{max-width:100%;border-radius:8px;border:1px solid #334155;margin-bottom:12px;display:block}
 .dcf-footer{text-align:center;color:#64748b;font-size:12px;padding:20px 0;margin-top:10px}
 .dcf-footer strong{color:#cbd5e1}
-@media(max-width:900px){.dcf-two-col{flex-direction:column}}
+.dcf-edit-notice{background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.3);color:#fbbf24;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:13px;display:flex;align-items:center;gap:8px}
+@media(max-width:1100px){.dcf-two-col{grid-template-columns:1fr}}
 </style>
 <div id="dash-panel-course-edit">
 <form id="dcf-form" method="post" action="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/save') ?>">
@@ -1276,22 +1321,65 @@ button.dcf-upload-btn,button.dcf-ai-btn{display:inline-flex !important;align-ite
 <input type="hidden" name="course_id" value="<?php echo (int)$_selectedCourse['id'] ?>" />
 <input type="hidden" name="continue_edit" id="dcf-continue-edit" value="" />
 <div class="dcf-wrap">
-    <div style="margin-bottom:24px;">
-        <h1 class="dcf-title"><?php echo htmlspecialchars($_editCourseData['name']) ?></h1>
-        <div class="dcf-title-sub"><?php echo 'TGS-' . (2024000000 + ((int)$_selectedCourse['id']) * 17) ?></div>
-        <div class="dcf-actions" style="justify-content:flex-end;margin-top:14px;">
+    <div class="dcf-header">
+        <div style="flex:1;min-width:0;">
+            <h1 class="dcf-title"><?php echo htmlspecialchars($_editCourseData['name']) ?></h1>
+            <?php if ($_editCourseData['sku']): ?>
+            <div class="dcf-title-sub"><?php echo htmlspecialchars($_editCourseData['sku']) ?></div>
+            <?php endif; ?>
+        </div>
+        <div class="dcf-actions">
             <button type="button" class="dcf-btn dcf-btn-cancel" onclick="window.location.href='<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard') ?>'">Cancel</button>
             <button type="button" class="dcf-btn dcf-btn-edit" onclick="window.location.href='<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id'=>$_selectedCourse['id'], 'mode'=>'edit')) ?>'">Exit Edit</button>
-            <button type="button" class="dcf-btn dcf-btn-save-cont" onclick="document.getElementById('dcf-continue-edit').value='1';document.getElementById('dcf-form').submit();">Save &amp; Continue Editing</button>
-            <button type="submit" class="dcf-btn dcf-btn-save">Save Changes</button>
+            <button type="button" class="dcf-btn dcf-btn-save-cont" onclick="document.getElementById('dcf-continue-edit').value='1';document.getElementById('dcf-form').submit();">Save &amp; Continue</button>
+            <button type="submit" class="dcf-btn dcf-btn-save">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                Save Changes
+            </button>
+        </div>
+    </div>
+
+    <div class="dcf-edit-notice">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        You are in edit mode. Make your changes and click Save Changes.
+    </div>
+
+    <!-- Quick-view meta bar (editable) -->
+    <div class="dcf-meta-bar">
+        <div class="dcf-meta-item">
+            <div class="dcf-meta-lbl">Course Type</div>
+            <input type="text" name="course_type_label" class="dcf-meta-input" value="<?php echo htmlspecialchars($_editCourseData['course_type']) ?>" placeholder="WSQ / IBF / …" />
+        </div>
+        <div class="dcf-meta-item">
+            <div class="dcf-meta-lbl">Duration (hrs)</div>
+            <input type="number" step="0.5" name="duration" class="dcf-meta-input" value="<?php echo $_editCourseData['duration'] > 0 ? $_editCourseData['duration'] : '' ?>" placeholder="0" />
+        </div>
+        <div class="dcf-meta-item">
+            <div class="dcf-meta-lbl">Sessions</div>
+            <input type="text" name="sessions_label" class="dcf-meta-input" value="<?php echo htmlspecialchars($_editCourseData['sessions']) ?>" placeholder="e.g. 1 day" />
+        </div>
+        <div class="dcf-meta-item">
+            <div class="dcf-meta-lbl">Level</div>
+            <input type="text" name="level_label" class="dcf-meta-input" value="<?php echo htmlspecialchars($_editCourseData['level']) ?>" placeholder="Beginner / …" />
+        </div>
+        <div class="dcf-meta-item">
+            <div class="dcf-meta-lbl">Price</div>
+            <input type="number" step="0.01" name="price" class="dcf-meta-input" value="<?php echo $_editCourseData['price'] > 0 ? $_editCourseData['price'] : '' ?>" placeholder="0.00" />
+        </div>
+        <div class="dcf-meta-item">
+            <div class="dcf-meta-lbl">Funding From</div>
+            <input type="text" name="funding_validity" class="dcf-meta-input" value="<?php echo htmlspecialchars($_editCourseData['start_date']) ?>" placeholder="M d, YYYY" />
         </div>
     </div>
 
     <div class="dcf-two-col">
-        <!-- LEFT COLUMN -->
+        <!-- LEFT COLUMN: Course Details (mirrors read-only layout) -->
         <div class="dcf-col-left">
             <div class="dcf-section">
-                <div class="dcf-section-title">Course Details</div>
+                <div class="dcf-section-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    Course Details
+                </div>
 
                 <?php if ($_editCourseData['image']): ?>
                 <div class="dcf-field">
@@ -1303,178 +1391,84 @@ button.dcf-upload-btn,button.dcf-ai-btn{display:inline-flex !important;align-ite
                 <div class="dcf-field">
                     <div class="dcf-label">Image URL Link</div>
                     <input type="text" class="dcf-input" name="image_url" value="<?php echo htmlspecialchars($_editCourseData['image_url']) ?>" placeholder="Paste image URL" />
-                    <div class="dcf-btn-row">
-                        <button type="button" class="dcf-upload-btn">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                            Upload Custom Image
-                        </button>
-                        <button type="button" class="dcf-ai-btn">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l4 2"/></svg>
-                            Generate with AI
-                        </button>
-                    </div>
                 </div>
 
                 <div class="dcf-field">
                     <div class="dcf-label">Course Title</div>
-                    <input type="text" class="dcf-input" name="course_name" value="<?php echo htmlspecialchars($_editCourseData['name']) ?>" />
+                    <input type="text" class="dcf-input" name="course_name" value="<?php echo htmlspecialchars($_editCourseData['name']) ?>" style="font-weight:600;" />
                 </div>
 
                 <div class="dcf-field">
                     <div class="dcf-label">Course Code</div>
-                    <input type="text" class="dcf-input" name="course_code" value="<?php echo htmlspecialchars($_editCourseData['sku']) ?>" placeholder="e.g. TGS-2024000102" />
+                    <input type="text" class="dcf-input" name="course_code" value="<?php echo htmlspecialchars($_editCourseData['sku']) ?>" style="font-family:monospace;letter-spacing:.5px;" placeholder="e.g. TGS-2024000102" />
                 </div>
+            </div>
 
-                <div class="dcf-field">
-                    <div class="dcf-label">Funding Validity</div>
-                    <input type="text" class="dcf-input" name="funding_validity" value="<?php echo htmlspecialchars($_editCourseData['start_date']) ?>" placeholder="e.g. 01/03/2028" />
+            <div class="dcf-section">
+                <div class="dcf-section-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    Trainers
                 </div>
-
                 <div class="dcf-field">
-                    <div class="dcf-label">Duration</div>
-                    <div class="dcf-duration-row">
-                        <div class="dcf-field">
-                            <div class="dcf-label" style="font-size:11px;">Training Hours</div>
-                            <input type="number" class="dcf-input" name="training_hours" value="<?php echo $_editCourseData['training_hours'] > 0 ? (int)$_editCourseData['training_hours'] : '' ?>" placeholder="0" style="text-align:center" />
-                        </div>
-                        <div class="dcf-field">
-                            <div class="dcf-label" style="font-size:11px;">Assessment Hours</div>
-                            <input type="number" class="dcf-input" name="assessment_hours" value="<?php echo $_editCourseData['assessment_hours'] > 0 ? (int)$_editCourseData['assessment_hours'] : '' ?>" placeholder="0" style="text-align:center" />
-                        </div>
-                    </div>
-                    <div class="dcf-duration-total">Total Duration: <strong><?php $_totalH = (int)$_editCourseData['training_hours'] + (int)$_editCourseData['assessment_hours']; echo $_totalH > 0 ? $_totalH . ' hours' : '—'; ?></strong></div>
-                </div>
-
-                <div class="dcf-field">
-                    <div class="dcf-label">Mode of Learning</div>
-                    <div class="dcf-radio-group">
-                        <?php $_mode = $_editCourseData['mode_of_training']; ?>
-                        <label class="dcf-radio-item"><input type="radio" name="mode_learning" value="Physical" <?php echo $_mode === 'Physical' ? 'checked' : '' ?> /> Physical</label>
-                        <label class="dcf-radio-item"><input type="radio" name="mode_learning" value="Virtual" <?php echo $_mode === 'Virtual' ? 'checked' : '' ?> /> Virtual</label>
-                        <label class="dcf-radio-item"><input type="radio" name="mode_learning" value="Hybrid" <?php echo $_mode === 'Hybrid' ? 'checked' : '' ?> /> Hybrid</label>
-                    </div>
-                </div>
-
-                <div class="dcf-field">
-                    <div class="dcf-label">Course Type</div>
-                    <select class="dcf-select" name="course_type">
-                        <option value="">— Select —</option>
-                        <option <?php echo $_editCourseData['course_type'] === 'WSQ' ? 'selected' : '' ?>>WSQ</option>
-                        <option <?php echo $_editCourseData['course_type'] === 'IBF' ? 'selected' : '' ?>>IBF</option>
-                        <option <?php echo $_editCourseData['course_type'] === 'Unfunded' ? 'selected' : '' ?>>Unfunded</option>
-                    </select>
+                    <div class="dcf-label">Trainer Names</div>
+                    <textarea class="dcf-textarea" name="trainer_names" placeholder="Enter one trainer name per line"><?php echo htmlspecialchars(implode("\n", $_editCourseData['trainer_names'])) ?></textarea>
                 </div>
             </div>
         </div>
 
-        <!-- RIGHT COLUMN -->
+        <!-- RIGHT COLUMN: Course Content (mirrors read-only layout) -->
         <div class="dcf-col-right">
             <div class="dcf-section">
-                <div class="dcf-section-title">Learning Outcomes</div>
-                <textarea class="dcf-textarea" name="learning_outcomes" rows="5" placeholder="Enter learning outcomes (e.g. LO1: ..., LO2: ..., LO3: ...)"><?php echo htmlspecialchars($_editCourseData['learning_outcomes']) ?></textarea>
+                <div class="dcf-section-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                    Course Topics
+                </div>
+                <textarea class="dcf-textarea dcf-textarea-rich" name="learning_outcomes" placeholder="Enter course topics and learning units (HTML supported)..."><?php echo htmlspecialchars($_editCourseData['learning_outcomes']) ?></textarea>
             </div>
 
             <div class="dcf-section">
-                <div class="dcf-section-title">Courseware</div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Lesson Plan URL</div>
-                    <input type="text" class="dcf-input" name="url_lesson_plan" value="" placeholder="Paste URL" />
+                <div class="dcf-section-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    Who Should Attend
                 </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Learner Guide URL</div>
-                    <input type="text" class="dcf-input" name="url_learner_guide" value="" placeholder="Paste URL" />
+                <textarea class="dcf-textarea dcf-textarea-rich" name="who_should_attend" placeholder="List target job roles and audience..."><?php echo htmlspecialchars($_editCourseData['who_should_attend']) ?></textarea>
+            </div>
+
+            <div class="dcf-section">
+                <div class="dcf-section-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                    Prerequisites
                 </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Facilitator Guide URL</div>
-                    <input type="text" class="dcf-input" name="url_facilitator_guide" value="" placeholder="Paste URL" />
-                </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Assessment Plan URL</div>
-                    <input type="text" class="dcf-input" name="url_assessment_plan" value="" placeholder="Paste URL" />
-                </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Learner Slide URL</div>
-                    <input type="text" class="dcf-input" name="url_learner_slide" value="" placeholder="Paste URL" />
-                </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Trainer Slides URL</div>
-                    <input type="text" class="dcf-input" name="url_trainer_slides" value="" placeholder="Paste URL" />
-                </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Courseware Link</div>
-                    <input type="text" class="dcf-input" name="url_courseware" value="" placeholder="Paste URL" />
+                <textarea class="dcf-textarea dcf-textarea-rich" name="prerequisite" placeholder="Minimum entry requirements, hardware/software needs..."><?php echo htmlspecialchars($_editCourseData['prerequisite']) ?></textarea>
+            </div>
+
+            <div class="dcf-section">
+                <div class="dcf-section-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                    Course Brochure
                 </div>
                 <div class="dcf-field">
                     <div class="dcf-label">Brochure Link</div>
-                    <input type="text" class="dcf-input" name="url_brochure" value="" placeholder="Paste URL" />
-                </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">SkillsFuture Link</div>
-                    <input type="text" class="dcf-input" name="url_skillsfuture" value="" placeholder="Paste URL" />
-                </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Assessment Record Link</div>
-                    <input type="text" class="dcf-input" name="url_assessment_record" value="" placeholder="Paste URL" />
-                </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Assessment Summary Record URL</div>
-                    <input type="text" class="dcf-input" name="url_assessment_summary" value="" placeholder="Paste URL" />
+                    <input type="text" class="dcf-input" name="brochure_url" value="<?php echo htmlspecialchars($_editCourseData['brochure_url']) ?>" placeholder="Paste brochure URL (PDF or Drive link)" />
                 </div>
             </div>
 
             <div class="dcf-section">
-                <div class="dcf-section-title">Assessment Methods</div>
-                <div style="font-size:12px;color:#94a3b8;margin-bottom:14px;">Select the assessment methods for this course. A link field will appear for each selected method.</div>
-                <div>
-                    <label class="dcf-check-item">
-                        <input type="checkbox" name="assess_written" />
-                        <span>Written Exam</span>
-                    </label>
-                    <div style="padding:0 0 12px 38px;"><input type="text" class="dcf-input" name="url_written_exam" value="" placeholder="Paste URL" /></div>
-
-                    <label class="dcf-check-item">
-                        <input type="checkbox" name="assess_practical" />
-                        <span>Practical Exam</span>
-                    </label>
-                    <div style="padding:0 0 12px 38px;"><input type="text" class="dcf-input" name="url_practical_exam" value="" placeholder="Paste URL" /></div>
-
-                    <label class="dcf-check-item"><input type="checkbox" name="assess_case_study" /><span>Case Study</span></label>
-                    <label class="dcf-check-item"><input type="checkbox" name="assess_role_play" /><span>Role Play</span></label>
-                    <label class="dcf-check-item"><input type="checkbox" name="assess_oral" /><span>Oral Questioning</span></label>
-                    <label class="dcf-check-item"><input type="checkbox" name="assess_project" /><span>Project</span></label>
-                    <label class="dcf-check-item"><input type="checkbox" name="assess_assignment" /><span>Assignment</span></label>
+                <div class="dcf-section-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                    SEO Metadata
                 </div>
-            </div>
-
-            <div class="dcf-section">
-                <div class="dcf-section-title">Approved Trainers</div>
                 <div class="dcf-field">
-                    <div class="dcf-label">Add Trainer</div>
-                    <input type="text" class="dcf-trainer-search" placeholder="Search active trainer by name or email" />
+                    <div class="dcf-label">Meta Title</div>
+                    <input type="text" class="dcf-input" name="meta_title" value="<?php echo htmlspecialchars($_editCourseData['meta_title']) ?>" placeholder="SEO-friendly page title (50-60 chars)" />
                 </div>
-                <div style="font-size:12px;color:#94a3b8;margin-bottom:8px;">0 assigned trainers</div>
-                <div class="dcf-trainer-tags"></div>
-            </div>
-
-            <div class="dcf-section">
-                <div class="dcf-section-title">Lesson</div>
-                <div class="dcf-lesson-add">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                    Add Learning Unit
+                <div class="dcf-field">
+                    <div class="dcf-label">Meta Description</div>
+                    <textarea class="dcf-textarea" name="meta_description" style="min-height:80px;" placeholder="150-160 char description for search results..."><?php echo htmlspecialchars($_editCourseData['meta_description']) ?></textarea>
                 </div>
-            </div>
-
-            <div class="dcf-section">
-                <div class="dcf-section-title">Course Settings</div>
-                <div class="dcf-toggle-row">
-                    <div>
-                        <div class="dcf-toggle-label">Enable Gaming Leaderboard</div>
-                        <div class="dcf-toggle-sub">Allow learners to use a competitive leaderboard for this course.</div>
-                    </div>
-                    <label class="dcf-toggle">
-                        <input type="checkbox" />
-                        <span class="dcf-toggle-slider"></span>
-                    </label>
+                <div class="dcf-field">
+                    <div class="dcf-label">Meta Keywords</div>
+                    <input type="text" class="dcf-input" name="meta_keyword" value="<?php echo htmlspecialchars($_editCourseData['meta_keyword']) ?>" placeholder="Comma-separated keywords" />
                 </div>
             </div>
         </div>
@@ -1488,44 +1482,109 @@ button.dcf-upload-btn,button.dcf-ai-btn{display:inline-flex !important;align-ite
 <?php elseif ($_editMode): ?>
 <style>
 .dce-wrap{max-width:1400px;margin:0 auto}
-.dce-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px}
-.dce-title{font-size:22px;font-weight:700;color:#fff;flex:1;margin:0}
-.dce-title-sub{font-size:13px;color:#94a3b8;font-weight:400;margin-top:4px}
-.dce-actions{display:flex;gap:10px}
+.dce-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:16px}
+.dce-title{font-size:24px;font-weight:700;color:#fff;flex:1;margin:0;line-height:1.3}
+.dce-title-sub{display:inline-block;background:rgba(34,211,238,.12);border:1px solid rgba(34,211,238,.25);color:#22d3ee;font-size:12px;font-weight:700;padding:4px 10px;border-radius:6px;margin-top:8px;letter-spacing:.3px}
+.dce-actions{display:flex;gap:10px;flex-shrink:0}
 button.dce-cancel-btn,button.dce-cancel-btn:hover,button.dce-cancel-btn:focus{background:#334155 !important;background-image:none !important;color:#e2e8f0 !important;border:1px solid #475569 !important;border-radius:8px !important;padding:10px 24px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
 a.dce-edit-btn,a.dce-edit-btn:hover{display:inline-flex !important;align-items:center !important;gap:6px !important;background:#2563eb !important;color:#fff !important;border:none !important;border-radius:8px !important;padding:10px 24px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;text-decoration:none !important;box-shadow:none !important}
-.dce-two-col{display:flex;gap:24px;align-items:flex-start}
-.dce-col-left{flex:1;min-width:0}
-.dce-col-right{flex:1;min-width:0}
-.dce-section{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:22px 24px;margin-bottom:16px}
-.dce-section-title{font-size:16px;font-weight:700;color:#fff;margin:0 0 16px;padding-bottom:12px;border-bottom:1px solid #334155}
+/* Meta info bar above columns */
+.dce-meta-bar{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;background:#1e293b;border:1px solid #334155;border-radius:12px;padding:18px 22px;margin-bottom:20px}
+.dce-meta-item{display:flex;flex-direction:column;gap:4px}
+.dce-meta-lbl{font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px}
+.dce-meta-val{font-size:15px;font-weight:700;color:#f1f5f9}
+.dce-meta-val.dce-meta-badge-wsq{color:#f472b6}
+.dce-meta-val.dce-meta-badge-ibf{color:#93c5fd}
+.dce-meta-val.dce-meta-badge-ok{color:#22c55e}
+.dce-two-col{display:grid;grid-template-columns:minmax(0,360px) minmax(0,1fr);gap:20px;align-items:flex-start}
+.dce-col-left{min-width:0}
+.dce-col-right{min-width:0}
+.dce-section{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px 24px;margin-bottom:16px}
+.dce-section-title{font-size:16px;font-weight:700;color:#fff;margin:0 0 14px;padding-bottom:12px;border-bottom:1px solid #334155;display:flex;align-items:center;gap:8px}
 .dce-field{margin-bottom:14px}
 .dce-field:last-child{margin-bottom:0}
-.dce-label{font-size:12px;font-weight:600;color:#94a3b8;margin-bottom:4px;text-transform:uppercase;letter-spacing:.3px}
-.dce-value{font-size:14px;color:#e2e8f0;word-break:break-word;background:#283548;border:1px solid #384a60;border-radius:8px;padding:10px 14px;margin-top:4px}
+.dce-label{font-size:11px;font-weight:700;color:#94a3b8;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+div.dce-value{font-size:15px !important;color:#f1f5f9;word-break:break-word;background:#283548;border:1px solid #384a60;border-radius:8px;padding:22px 26px !important;margin-top:4px;line-height:1.8 !important;max-height:360px;overflow-y:auto}
+/* Custom scrollbar for dce-value */
+div.dce-value::-webkit-scrollbar{width:10px}
+div.dce-value::-webkit-scrollbar-track{background:transparent}
+div.dce-value::-webkit-scrollbar-thumb{background:#475569;border-radius:10px;border:2px solid #283548}
+div.dce-value::-webkit-scrollbar-thumb:hover{background:#64748b}
 .dce-value a{color:#60a5fa;text-decoration:none}
 .dce-value a:hover{text-decoration:underline}
-.dce-img-preview{max-width:100%;border-radius:8px;border:1px solid #334155;margin-bottom:12px}
+/* Rich HTML inside values — brighter readable text */
+.dce-value p{margin:0 0 10px;line-height:1.7;color:#f1f5f9}
+.dce-value p:last-child{margin-bottom:0}
+.dce-value h2{font-size:15px;font-weight:700;color:#ffffff;margin:16px 0 10px;padding-top:10px;border-top:1px solid #475569}
+.dce-value h2:first-child{margin-top:0;padding-top:0;border-top:none}
+.dce-value h3{font-size:14px;font-weight:700;color:#f1f5f9;margin:12px 0 6px}
+.dce-value ul,.dce-value ol{margin:6px 0 10px;padding-left:22px;line-height:1.75;color:#f1f5f9}
+.dce-value li{margin-bottom:5px;color:#f1f5f9}
+.dce-value strong{color:#ffffff;font-weight:700}
+.dce-value span{color:#f1f5f9}
+.dce-value table{width:100%;border-collapse:collapse;margin:10px 0;font-size:13px;background:#1f2a3a}
+.dce-value table td{padding:8px 12px;border:1px solid #475569;color:#f1f5f9}
+.dce-value table td strong{color:#ffffff}
+.dce-value table td:first-child{color:#f1f5f9}
+.dce-value hr{border:none;border-top:1px solid #475569;margin:14px 0}
+.dce-value img{max-width:100%;border-radius:6px}
+/* Override any inline background-color style from pasted HTML (e.g. light grey boxes with hard-to-read text) */
+.dce-value div[style*="background-color"],.dce-value span[style*="background-color"]{background-color:transparent !important;color:#f1f5f9 !important;padding:0 !important}
+.dce-value [style*="color: #ff0000"],.dce-value [style*="color:#ff0000"]{color:#fb7185 !important}
+.dce-img-preview{max-width:100%;border-radius:8px;border:1px solid #334155;margin-bottom:12px;display:block}
 .dce-trainer-list{list-style:none;padding:0;margin:0}
-.dce-trainer-list li{padding:6px 0;color:#e2e8f0;font-size:14px;border-bottom:1px solid #1e293b}
+.dce-trainer-list li{padding:8px 0;color:#e2e8f0;font-size:14px;border-bottom:1px solid #334155}
 .dce-trainer-list li:last-child{border-bottom:none}
-.dce-lo-item{background:#283548;border:1px solid #384a60;border-radius:8px;padding:12px 14px;margin-bottom:8px;font-size:13px;color:#cbd5e1;line-height:1.5}
+.dce-lo-item{background:#283548;border:1px solid #384a60;border-radius:8px;padding:14px 16px;margin-bottom:8px;font-size:13px;color:#cbd5e1;line-height:1.6}
 .dce-lo-label{font-weight:700;color:#60a5fa;margin-right:6px}
-.dce-empty{color:#64748b;font-size:13px;font-style:italic}
+.dce-empty{color:#64748b;font-size:13px;font-style:italic;padding:8px 0}
 .dce-footer{text-align:center;color:#64748b;font-size:12px;padding:20px 0;margin-top:10px}
 .dce-footer strong{color:#cbd5e1}
-@media(max-width:900px){.dce-two-col{flex-direction:column}}
+@media(max-width:1100px){.dce-two-col{grid-template-columns:1fr}}
 </style>
 <div id="dash-panel-course-edit">
 <div class="dce-wrap">
     <div class="dce-header">
-        <div>
+        <div style="flex:1;min-width:0;">
             <h1 class="dce-title"><?php echo htmlspecialchars($_editCourseData['name']) ?></h1>
+            <?php if ($_editCourseData['sku']): ?>
             <div class="dce-title-sub"><?php echo htmlspecialchars($_editCourseData['sku']) ?></div>
+            <?php endif; ?>
         </div>
         <div class="dce-actions">
             <button type="button" class="dce-cancel-btn" onclick="window.location.href='<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard') ?>'">Cancel</button>
-            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id'=>$_selectedCourse['id'], 'mode'=>'editing')) ?>" class="dce-edit-btn">Edit</a>
+            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id'=>$_selectedCourse['id'], 'mode'=>'editing')) ?>" class="dce-edit-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                Edit
+            </a>
+        </div>
+    </div>
+
+    <!-- Quick-view meta bar -->
+    <div class="dce-meta-bar">
+        <div class="dce-meta-item">
+            <div class="dce-meta-lbl">Course Type</div>
+            <div class="dce-meta-val <?php echo $_editCourseData['course_type'] === 'WSQ' ? 'dce-meta-badge-wsq' : ($_editCourseData['course_type'] === 'IBF' ? 'dce-meta-badge-ibf' : '') ?>"><?php echo $_editCourseData['course_type'] ?: '—' ?></div>
+        </div>
+        <div class="dce-meta-item">
+            <div class="dce-meta-lbl">Duration</div>
+            <div class="dce-meta-val"><?php echo $_editCourseData['duration'] > 0 ? rtrim(rtrim(number_format($_editCourseData['duration'], 1), '0'), '.') . ' hrs' : '—' ?></div>
+        </div>
+        <div class="dce-meta-item">
+            <div class="dce-meta-lbl">Sessions</div>
+            <div class="dce-meta-val"><?php echo $_editCourseData['sessions'] ?: '—' ?></div>
+        </div>
+        <div class="dce-meta-item">
+            <div class="dce-meta-lbl">Level</div>
+            <div class="dce-meta-val"><?php echo $_editCourseData['level'] ?: '—' ?></div>
+        </div>
+        <div class="dce-meta-item">
+            <div class="dce-meta-lbl">Price</div>
+            <div class="dce-meta-val"><?php echo $_editCourseData['price'] > 0 ? '$' . number_format($_editCourseData['price'], 0) : '—' ?></div>
+        </div>
+        <div class="dce-meta-item">
+            <div class="dce-meta-lbl">Funding From</div>
+            <div class="dce-meta-val dce-meta-badge-ok"><?php echo $_editCourseData['start_date'] ?: '—' ?></div>
         </div>
     </div>
 
@@ -1533,7 +1592,10 @@ a.dce-edit-btn,a.dce-edit-btn:hover{display:inline-flex !important;align-items:c
         <!-- LEFT COLUMN: Course Details -->
         <div class="dce-col-left">
             <div class="dce-section">
-                <div class="dce-section-title">Course Details</div>
+                <div class="dce-section-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    Course Details
+                </div>
 
                 <?php if ($_editCourseData['image']): ?>
                 <div class="dce-field">
@@ -1542,89 +1604,119 @@ a.dce-edit-btn,a.dce-edit-btn:hover{display:inline-flex !important;align-items:c
                 </div>
                 <?php endif; ?>
 
+                <?php if ($_editCourseData['image_url']): ?>
                 <div class="dce-field">
                     <div class="dce-label">Image URL Link</div>
-                    <div class="dce-value"><?php echo $_editCourseData['image_url'] ? '<a href="#">' . htmlspecialchars($_editCourseData['image_url']) . '</a>' : '—' ?></div>
+                    <div class="dce-value"><a href="#"><?php echo htmlspecialchars($_editCourseData['image_url']) ?></a></div>
                 </div>
+                <?php endif; ?>
 
                 <div class="dce-field">
                     <div class="dce-label">Course Title</div>
-                    <div class="dce-value"><?php echo htmlspecialchars($_editCourseData['name']) ?></div>
+                    <div class="dce-value" style="font-weight:600;"><?php echo htmlspecialchars($_editCourseData['name']) ?></div>
                 </div>
 
                 <div class="dce-field">
                     <div class="dce-label">Course Code</div>
-                    <div class="dce-value"><?php echo $_editCourseData['sku'] ? htmlspecialchars($_editCourseData['sku']) : '—' ?></div>
+                    <div class="dce-value" style="font-family:monospace;letter-spacing:.5px;"><?php echo $_editCourseData['sku'] ? htmlspecialchars($_editCourseData['sku']) : '—' ?></div>
                 </div>
 
+                <?php if ($_editCourseData['price'] > 0): ?>
                 <div class="dce-field">
-                    <div class="dce-label">Funding Validity</div>
-                    <div class="dce-value"><?php echo $_editCourseData['start_date'] ? htmlspecialchars($_editCourseData['start_date']) : '—' ?></div>
+                    <div class="dce-label">Price</div>
+                    <div class="dce-value" style="color:#22d3ee;font-weight:700;font-size:16px;">$<?php echo number_format($_editCourseData['price'], 2) ?></div>
                 </div>
+                <?php endif; ?>
+            </div>
 
-                <div class="dce-field">
-                    <div class="dce-label">Training Hours</div>
-                    <div class="dce-value"><?php echo $_editCourseData['training_hours'] > 0 ? (int)$_editCourseData['training_hours'] : '—' ?></div>
+            <div class="dce-section">
+                <div class="dce-section-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    Trainers
                 </div>
-
-                <div class="dce-field">
-                    <div class="dce-label">Assessment Hours</div>
-                    <div class="dce-value"><?php echo $_editCourseData['assessment_hours'] > 0 ? (int)$_editCourseData['assessment_hours'] : '—' ?></div>
-                </div>
-
-                <div class="dce-field">
-                    <div class="dce-label">Total Duration</div>
-                    <?php $_tot = (int)$_editCourseData['training_hours'] + (int)$_editCourseData['assessment_hours']; ?>
-                    <div class="dce-value"><?php echo $_tot > 0 ? $_tot . ' hours' : '—' ?></div>
-                </div>
-
-                <div class="dce-field">
-                    <div class="dce-label">Mode of Learning</div>
-                    <div class="dce-value"><?php echo $_editCourseData['mode_of_training'] ? htmlspecialchars($_editCourseData['mode_of_training']) : '—' ?></div>
-                </div>
-
-                <div class="dce-field">
-                    <div class="dce-label">Course Type</div>
-                    <div class="dce-value"><?php echo $_editCourseData['course_type'] ? htmlspecialchars($_editCourseData['course_type']) : '—' ?></div>
-                </div>
-
-                <div class="dce-field">
-                    <div class="dce-label">Approved Trainers</div>
-                    <div class="dce-value" style="color:#64748b;font-style:italic;">No trainers assigned.</div>
-                </div>
+                <?php if (!empty($_editCourseData['trainer_names'])): ?>
+                <ul class="dce-trainer-list">
+                    <?php foreach ($_editCourseData['trainer_names'] as $_tn): ?>
+                    <li><?php echo htmlspecialchars($_tn) ?></li>
+                    <?php endforeach; ?>
+                </ul>
+                <?php else: ?>
+                <div class="dce-empty">No trainers assigned.</div>
+                <?php endif; ?>
             </div>
         </div>
 
         <!-- RIGHT COLUMN: Learning Outcomes, Courseware, Assessment -->
         <div class="dce-col-right">
+            <?php if ($_editCourseData['description']): ?>
             <div class="dce-section">
-                <div class="dce-section-title">Learning Outcomes</div>
-                <?php if (!empty($_editCourseData['learning_outcomes'])): ?>
-                <div class="dce-lo-item" style="white-space:pre-wrap;"><?php echo htmlspecialchars($_editCourseData['learning_outcomes']) ?></div>
+                <div class="dce-section-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                    Course Topics
+                </div>
+                <div class="dce-value"><?php echo $_editCourseData['description'] ?></div>
+            </div>
+            <?php endif; ?>
+
+            <?php if ($_editCourseData['who_should_attend']): ?>
+            <div class="dce-section">
+                <div class="dce-section-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    Who Should Attend
+                </div>
+                <div class="dce-value"><?php echo $_editCourseData['who_should_attend'] ?></div>
+            </div>
+            <?php endif; ?>
+
+            <?php if ($_editCourseData['prerequisite']): ?>
+            <div class="dce-section">
+                <div class="dce-section-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                    Prerequisites
+                </div>
+                <div class="dce-value"><?php echo $_editCourseData['prerequisite'] ?></div>
+            </div>
+            <?php endif; ?>
+
+            <div class="dce-section">
+                <div class="dce-section-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                    Course Brochure
+                </div>
+                <?php if ($_editCourseData['brochure_url']): ?>
+                <div class="dce-value"><a href="<?php echo htmlspecialchars($_editCourseData['brochure_url']) ?>" target="_blank" rel="noopener"><?php echo htmlspecialchars($_editCourseData['brochure_url']) ?></a></div>
                 <?php else: ?>
-                <div class="dce-empty">No learning outcomes added yet.</div>
+                <div class="dce-empty">No brochure link added yet.</div>
                 <?php endif; ?>
             </div>
 
+            <?php if ($_editCourseData['meta_description'] || $_editCourseData['meta_keyword']): ?>
             <div class="dce-section">
-                <div class="dce-section-title">Courseware</div>
-                <div class="dce-empty">No courseware URLs added yet.</div>
+                <div class="dce-section-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                    SEO Metadata
+                </div>
+                <?php if ($_editCourseData['meta_title']): ?>
+                <div class="dce-field">
+                    <div class="dce-label">Meta Title</div>
+                    <div class="dce-value"><?php echo htmlspecialchars($_editCourseData['meta_title']) ?></div>
+                </div>
+                <?php endif; ?>
+                <?php if ($_editCourseData['meta_description']): ?>
+                <div class="dce-field">
+                    <div class="dce-label">Meta Description</div>
+                    <div class="dce-value"><?php echo htmlspecialchars($_editCourseData['meta_description']) ?></div>
+                </div>
+                <?php endif; ?>
+                <?php if ($_editCourseData['meta_keyword']): ?>
+                <div class="dce-field">
+                    <div class="dce-label">Meta Keywords</div>
+                    <div class="dce-value"><?php echo htmlspecialchars($_editCourseData['meta_keyword']) ?></div>
+                </div>
+                <?php endif; ?>
             </div>
+            <?php endif; ?>
 
-            <div class="dce-section">
-                <div class="dce-section-title">Assessment Record</div>
-                <div class="dce-empty">No assessment record added yet.</div>
-            </div>
-
-            <div class="dce-section">
-                <div class="dce-section-title">Lesson</div>
-                <div class="dce-empty">No lessons available.</div>
-            </div>
-
-            <div class="dce-section">
-                <div class="dce-section-title">Assessment Links</div>
-                <div class="dce-empty">No assessment links added yet.</div>
-            </div>
         </div>
     </div>
 
@@ -1982,59 +2074,10 @@ $_courseRefCode = 'TGS-' . (2024000000 + ((int)$_selectedCourse['id']) * 17);
     <!-- DEVELOPER: Course Sessions -->
     <div class="lcd-section" id="course-sessions">
         <div class="lcd-section-title">Course Sessions</div>
-        <style>
-        .dev-sessions-table{width:100%;border-collapse:collapse;font-size:13px}
-        .dev-sessions-table th{background:#334155;color:#94a3b8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px;padding:10px 14px;text-align:left;border-bottom:1px solid #475569}
-        .dev-sessions-table td{padding:10px 14px;color:#e2e8f0;border-bottom:1px solid #1e293b}
-        .dev-sessions-table tr:hover td{background:rgba(255,255,255,.03)}
-        .dev-sessions-table .session-name{font-weight:600;color:#fff}
-        .dev-sessions-table .session-time{color:#94a3b8}
-        .dev-sessions-table .session-mode{font-size:12px;color:#94a3b8}
-        </style>
-        <div style="overflow-x:auto;border-radius:8px;border:1px solid #334155;">
-        <table class="dev-sessions-table">
-            <thead>
-                <tr>
-                    <th>SESSION</th>
-                    <th>START TIME</th>
-                    <th>END TIME</th>
-                    <th>MODE OF TRAINING</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php
-                $_sessions = array(
-                    array('Session 1',  '09:00 AM', '01:00 PM', 'Physical'),
-                    array('Session 2',  '09:00 AM', '01:00 PM', 'Physical'),
-                    array('Session 3',  '09:00 AM', '01:00 PM', 'Physical'),
-                    array('Session 4',  '09:00 AM', '01:00 PM', 'Physical'),
-                    array('Session 5',  '09:00 AM', '01:00 PM', 'Physical'),
-                    array('Session 6',  '09:00 AM', '01:00 PM', 'Physical'),
-                    array('Session 7',  '09:00 AM', '01:00 PM', 'Physical'),
-                    array('Session 8',  '09:00 AM', '01:00 PM', 'Physical'),
-                    array('Session 9',  '09:00 AM', '01:00 PM', 'Physical'),
-                    array('Session 10', '09:00 AM', '01:00 PM', 'Physical'),
-                    array('Session 11', '09:00 AM', '01:00 PM', 'Physical'),
-                    array('Session 1 (Evening)', '07:00 PM', '10:00 PM', 'Physical'),
-                    array('Session 2 (Evening)', '07:00 PM', '10:00 PM', 'Physical'),
-                    array('Session 3 (Evening)', '07:00 PM', '10:00 PM', 'Physical'),
-                );
-                foreach ($_sessions as $_sess): ?>
-                <tr>
-                    <td class="session-name"><?php echo $_sess[0] ?></td>
-                    <td class="session-time"><?php echo $_sess[1] ?></td>
-                    <td class="session-time"><?php echo $_sess[2] ?></td>
-                    <td class="session-mode"><?php echo $_sess[3] ?></td>
-                </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-        </div>
-        <div style="margin-top:14px;text-align:right;">
-            <button type="button" style="display:inline-flex !important;align-items:center !important;gap:8px !important;background:#334155 !important;background-image:none !important;color:#e2e8f0 !important;border:1px solid #475569 !important;border-radius:8px !important;padding:10px 18px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                Edit
-            </button>
+        <div class="lcd-empty-box">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <div class="lcd-empty-title">No course sessions scheduled</div>
+            <div style="color:#64748b;font-size:12px;margin-top:4px;">Sessions will appear here once added.</div>
         </div>
     </div>
 
