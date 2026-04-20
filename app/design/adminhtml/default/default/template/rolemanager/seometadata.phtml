@@ -1,343 +1,121 @@
 <?php
-$resource = Mage::getSingleton('core/resource');
-$read = $resource->getConnection('core_read');
-
-// Fetch a list of courses (products) to let Developer pick one for SEO editing
-try {
-    $prodTable = $resource->getTableName('catalog/product');
-    $courses = $read->fetchAll("
-        SELECT e.entity_id, e.sku,
-               (SELECT v.value FROM {$resource->getTableName('catalog_product_entity_varchar')} v
-                JOIN {$resource->getTableName('eav/attribute')} a ON v.attribute_id = a.attribute_id
-                WHERE v.entity_id = e.entity_id AND a.attribute_code = 'name' LIMIT 1) AS name
-        FROM {$prodTable} e
-        WHERE e.type_id IN ('simple','virtual','downloadable')
-        ORDER BY e.entity_id DESC LIMIT 40
-    ");
-} catch (Exception $e) {
-    $courses = array();
-}
+/**
+ * SEO Metadata Generator
+ * Matches the LMS reference: WSQ / Non-WSQ toggle, course details form,
+ * AI-generation button, and right-side info panel.
+ */
 ?>
 
 <style>
 .seo-page{background:var(--d1);min-height:calc(100vh - 60px);padding:32px;color:var(--t1)}
-.seo-wrap{max-width:1000px;margin:0 auto}
-.seo-header{margin-bottom:24px}
-.seo-header h1{font-size:26px;font-weight:700;color:var(--t1);margin:0 0 6px}
-.seo-header p{font-size:13px;color:#94a3b8;margin:0}
-.seo-card{background:#1e293b;border:1px solid rgba(34,211,238,.12);border-radius:12px;padding:24px;margin-bottom:16px}
-.seo-card h3{font-size:15px;font-weight:700;color:var(--t1);margin:0 0 4px}
-.seo-card p.sub{font-size:12px;color:#94a3b8;margin:0 0 18px}
-.seo-field{margin-bottom:16px}
-.seo-field label{display:block;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
-.seo-field input, .seo-field textarea, .seo-field select{width:100%;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:10px 14px;color:var(--t1);font-size:13px;font-family:inherit;box-sizing:border-box}
-.seo-field input:focus, .seo-field textarea:focus, .seo-field select:focus{border-color:#22d3ee;outline:none;box-shadow:0 0 0 3px rgba(34,211,238,.1)}
-.seo-field textarea{resize:vertical;min-height:80px}
-.seo-counter{font-size:11px;color:#64748b;margin-top:4px;text-align:right}
-.seo-counter.warn{color:#f59e0b}
-.seo-counter.ok{color:#10b981}
-.seo-row{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
-.seo-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px;padding-top:20px;border-top:1px solid rgba(34,211,238,.08)}
-.seo-btn{padding:10px 20px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
-.seo-btn-primary{background:#0d9488;color:#fff}
-.seo-btn-primary:hover{background:#0f766e}
-.seo-btn-secondary{background:#334155;color:#cbd5e1}
-.seo-btn-secondary:hover{background:#475569}
-.seo-preview{background:#0f172a;border:1px solid #334155;border-radius:8px;padding:16px;margin-top:8px}
-.seo-preview .serp-title{color:#60a5fa;font-size:16px;font-weight:400;margin:0 0 3px;line-height:1.3}
-.seo-preview .serp-url{color:#10b981;font-size:12px;margin:0 0 4px}
-.seo-preview .serp-desc{color:#cbd5e1;font-size:13px;line-height:1.4;margin:0}
-.seo-chip{display:inline-flex;align-items:center;gap:4px;background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.2);color:#22d3ee;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600;margin-right:6px}
-.seo-score{display:flex;gap:16px;margin-bottom:20px}
-.seo-score-card{flex:1;background:#1e293b;border:1px solid rgba(34,211,238,.12);border-radius:10px;padding:16px;text-align:center}
-.seo-score-card .num{font-size:28px;font-weight:700;line-height:1}
-.seo-score-card .lbl{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-top:6px}
-.seo-score-card.good .num{color:#10b981}
-.seo-score-card.warn .num{color:#f59e0b}
-.seo-score-card.bad .num{color:#ef4444}
+.seo-wrap{max-width:1400px;margin:0 auto}
+.seo-header{margin-bottom:28px}
+.seo-header h1{font-size:30px;font-weight:700;color:#fff;margin:0 0 8px}
+.seo-header p{font-size:14px;color:#94a3b8;margin:0}
+.seo-two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+.seo-card{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:24px;margin-bottom:16px}
+.seo-card-label{font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin:0 0 14px}
+.seo-toggle{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+button.seo-toggle-btn,button.seo-toggle-btn:hover,button.seo-toggle-btn:focus,button.seo-toggle-btn:active{padding:16px !important;background:#334155 !important;background-image:none !important;border:1px solid #475569 !important;border-radius:10px !important;color:#e2e8f0 !important;font-size:15px !important;font-weight:600 !important;cursor:pointer !important;text-align:center !important;transition:all .15s !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
+button.seo-toggle-btn:hover{background:#475569 !important}
+button.seo-toggle-btn.active,button.seo-toggle-btn.active:hover,button.seo-toggle-btn.active:focus{background:#2563eb !important;background-image:none !important;border-color:#3b82f6 !important;color:#fff !important}
+.seo-field{margin-bottom:18px}
+.seo-field:last-child{margin-bottom:0}
+.seo-field label{display:block;font-size:14px;font-weight:600;color:#fff;margin-bottom:8px}
+.seo-field input,.seo-field textarea{width:100%;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:12px 14px;color:#e2e8f0;font-size:14px;font-family:inherit;box-sizing:border-box;outline:none}
+.seo-field input:focus,.seo-field textarea:focus{border-color:#60a5fa}
+.seo-field input::placeholder,.seo-field textarea::placeholder{color:#64748b}
+.seo-field textarea{resize:vertical;min-height:110px}
+.seo-generate-btn{width:100%;padding:14px;background:#5bb8c9;background-image:linear-gradient(180deg,#6bc6d7,#5bb8c9);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px}
+.seo-generate-btn:hover{background-image:linear-gradient(180deg,#5bb8c9,#4da8b9)}
+.seo-info-card{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:40px 32px;text-align:center}
+.seo-info-icon{display:inline-flex;align-items:center;justify-content:center;width:70px;height:70px;background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.25);border-radius:50%;margin-bottom:18px}
+.seo-info-title{font-size:20px;font-weight:700;color:#fff;margin:0 0 14px}
+.seo-info-desc{font-size:14px;color:#94a3b8;line-height:1.6;margin:0}
+.seo-footer{text-align:center;color:#64748b;font-size:12px;padding:24px 0 0}
+.seo-footer strong{color:#cbd5e1}
+@media(max-width:1024px){.seo-two-col{grid-template-columns:1fr}}
 </style>
 
 <div class="seo-page">
 <div class="seo-wrap">
     <div class="seo-header">
-        <h1>SEO Metadata</h1>
-        <p>Manage SEO-related metadata for courses including search engine, social media, and structured data.</p>
+        <h1>SEO Metadata Generator</h1>
+        <p>Generate SEO-optimized meta titles, descriptions, keywords, course descriptions, and job roles using AI.</p>
     </div>
 
-    <div class="seo-score">
-        <div class="seo-score-card good"><div class="num">86</div><div class="lbl">SEO Score</div></div>
-        <div class="seo-score-card warn"><div class="num">12</div><div class="lbl">Courses Missing Meta</div></div>
-        <div class="seo-score-card good"><div class="num">128</div><div class="lbl">Courses Optimized</div></div>
-        <div class="seo-score-card bad"><div class="num">4</div><div class="lbl">Broken Canonicals</div></div>
-    </div>
+    <div class="seo-two-col">
+        <!-- LEFT: Form -->
+        <div>
+            <div class="seo-card">
+                <div class="seo-card-label">Select Course Type</div>
+                <div class="seo-toggle">
+                    <button type="button" class="seo-toggle-btn" id="seo-btn-wsq" onclick="seoSetType('wsq')">WSQ Course</button>
+                    <button type="button" class="seo-toggle-btn active" id="seo-btn-nonwsq" onclick="seoSetType('nonwsq')">Non-WSQ Course</button>
+                </div>
+            </div>
 
-    <!-- Course picker -->
-    <div class="seo-card">
-        <h3>Select Course</h3>
-        <p class="sub">Choose a course to view and edit its SEO metadata.</p>
-        <div class="seo-field">
-            <label>Course</label>
-            <select id="seoCoursePicker" onchange="seoOnCoursePick(this)">
-                <option value="">— Select a course —</option>
-                <?php foreach ($courses as $c): ?>
-                <option value="<?php echo (int)$c['entity_id'] ?>"><?php echo htmlspecialchars($c['name'] ?: $c['sku']) ?></option>
-                <?php endforeach; ?>
-            </select>
-        </div>
-    </div>
-
-    <!-- Primary SEO fields -->
-    <div class="seo-card">
-        <h3>Search Engine Listing</h3>
-        <p class="sub">How this course appears in Google, Bing, and other search results.</p>
-
-        <div class="seo-field">
-            <label>Meta Title</label>
-            <input type="text" id="metaTitle" placeholder="e.g. AutoCAD Certified Professional Course | Tertiary Infotech" maxlength="70" oninput="seoCount(this,'metaTitleCount',50,60)"/>
-            <div class="seo-counter" id="metaTitleCount">0 / 50-60 chars</div>
-        </div>
-
-        <div class="seo-field">
-            <label>Meta Description</label>
-            <textarea id="metaDesc" rows="3" maxlength="160" placeholder="A compelling 150-160 char description that appears below your title in search results..." oninput="seoCount(this,'metaDescCount',120,160)"></textarea>
-            <div class="seo-counter" id="metaDescCount">0 / 120-160 chars</div>
+            <div class="seo-card">
+                <div class="seo-card-label">Course Details</div>
+                <div class="seo-field">
+                    <label>Course Title</label>
+                    <input type="text" id="seo-title" placeholder="e.g. Data Analytics with Python" />
+                </div>
+                <div class="seo-field">
+                    <label>Course Topics and Outline</label>
+                    <textarea id="seo-topics" rows="5" placeholder="List the course topics and outline..."></textarea>
+                </div>
+                <div class="seo-field">
+                    <label>Course Highlights</label>
+                    <textarea id="seo-highlights" rows="5" placeholder="Key features, benefits, or selling points..."></textarea>
+                </div>
+                <button type="button" class="seo-generate-btn" onclick="seoGenerate()">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4 2 7L12 16l-6.5 4 2-7L2 9h7z"/></svg>
+                    Generate SEO Metadata
+                </button>
+            </div>
         </div>
 
-        <div class="seo-field">
-            <label>Meta Keywords</label>
-            <input type="text" id="metaKeywords" placeholder="e.g. AutoCAD training, CAD course, certification Singapore"/>
-            <div class="seo-counter">Comma-separated list (less important for modern SEO)</div>
-        </div>
-
-        <div class="seo-field">
-            <label>URL Slug</label>
-            <input type="text" id="urlSlug" placeholder="e.g. autocad-certified-professional-course"/>
-        </div>
-
-        <div class="seo-field">
-            <label>Canonical URL</label>
-            <input type="url" id="canonicalUrl" placeholder="https://www.tertiarycourses.com.sg/autocad-certified-professional-course.html"/>
-        </div>
-
-        <!-- Live SERP preview -->
-        <div class="seo-field">
-            <label>Google Preview</label>
-            <div class="seo-preview">
-                <div class="serp-title" id="serpTitle">Your meta title will appear here…</div>
-                <div class="serp-url" id="serpUrl">www.tertiarycourses.com.sg › course-url</div>
-                <div class="serp-desc" id="serpDesc">Your meta description will appear here. Write something compelling to attract clicks from search results.</div>
+        <!-- RIGHT: Info panel -->
+        <div>
+            <div class="seo-info-card" id="seo-info-card">
+                <div class="seo-info-icon" id="seo-info-icon">
+                    <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                </div>
+                <h2 class="seo-info-title" id="seo-info-title">SEO for Non-WSQ Course</h2>
+                <p class="seo-info-desc" id="seo-info-desc">Fill in the course details and generate SEO metadata with region-specific meta titles (Singapore, Malaysia, International), keywords, description, course description, and job roles.</p>
             </div>
         </div>
     </div>
 
-    <!-- Open Graph -->
-    <div class="seo-card">
-        <h3>Open Graph (Facebook, LinkedIn)</h3>
-        <p class="sub">How this page looks when shared on social media.</p>
-        <div class="seo-row">
-            <div class="seo-field">
-                <label>OG Title</label>
-                <input type="text" placeholder="Leave blank to use Meta Title"/>
-            </div>
-            <div class="seo-field">
-                <label>OG Type</label>
-                <select>
-                    <option>article</option>
-                    <option>website</option>
-                    <option>product</option>
-                    <option>course</option>
-                </select>
-            </div>
-        </div>
-        <div class="seo-field">
-            <label>OG Description</label>
-            <textarea rows="2" placeholder="Leave blank to use Meta Description"></textarea>
-        </div>
-        <div class="seo-field">
-            <label>OG Image URL</label>
-            <input type="url" placeholder="https://www.tertiarycourses.com.sg/media/courses/image.jpg (1200x630 recommended)"/>
-        </div>
-    </div>
-
-    <!-- Twitter Card -->
-    <div class="seo-card">
-        <h3>Twitter Card</h3>
-        <p class="sub">Optional — controls appearance when shared on Twitter/X.</p>
-        <div class="seo-row">
-            <div class="seo-field">
-                <label>Twitter Card Type</label>
-                <select>
-                    <option>summary_large_image</option>
-                    <option>summary</option>
-                    <option>app</option>
-                    <option>player</option>
-                </select>
-            </div>
-            <div class="seo-field">
-                <label>Twitter Site Handle</label>
-                <input type="text" placeholder="@tertiarycourses"/>
-            </div>
-        </div>
-        <div class="seo-field">
-            <label>Twitter Image URL</label>
-            <input type="url" placeholder="Leave blank to use OG Image"/>
-        </div>
-    </div>
-
-    <!-- Structured data -->
-    <div class="seo-card">
-        <h3>Structured Data (Schema.org)</h3>
-        <p class="sub">JSON-LD schema helps Google understand your course content.</p>
-
-        <div class="seo-row">
-            <div class="seo-field">
-                <label>Schema Type</label>
-                <select>
-                    <option>Course</option>
-                    <option>Product</option>
-                    <option>Event</option>
-                    <option>CreativeWork</option>
-                </select>
-            </div>
-            <div class="seo-field">
-                <label>Provider Name</label>
-                <input type="text" value="Tertiary Infotech Academy"/>
-            </div>
-        </div>
-
-        <div class="seo-row">
-            <div class="seo-field">
-                <label>Course Code</label>
-                <input type="text" placeholder="e.g. TGS-2023036004"/>
-            </div>
-            <div class="seo-field">
-                <label>Education Level</label>
-                <select>
-                    <option>Beginner</option>
-                    <option>Intermediate</option>
-                    <option>Advanced</option>
-                </select>
-            </div>
-        </div>
-
-        <div class="seo-field">
-            <label>Price / Offer</label>
-            <input type="text" placeholder="e.g. SGD 1290"/>
-        </div>
-    </div>
-
-    <!-- Robots + advanced -->
-    <div class="seo-card">
-        <h3>Indexing &amp; Robots</h3>
-        <p class="sub">Control how search engines crawl and index this page.</p>
-
-        <div class="seo-row">
-            <div class="seo-field">
-                <label>Robots Meta</label>
-                <select>
-                    <option>index, follow</option>
-                    <option>noindex, follow</option>
-                    <option>index, nofollow</option>
-                    <option>noindex, nofollow</option>
-                </select>
-            </div>
-            <div class="seo-field">
-                <label>Sitemap Priority</label>
-                <select>
-                    <option>1.0 (Homepage)</option>
-                    <option>0.8 (High)</option>
-                    <option selected>0.6 (Normal)</option>
-                    <option>0.4 (Low)</option>
-                    <option>0.2 (Very Low)</option>
-                </select>
-            </div>
-        </div>
-
-        <div class="seo-row">
-            <div class="seo-field">
-                <label>Change Frequency</label>
-                <select>
-                    <option>always</option>
-                    <option>hourly</option>
-                    <option>daily</option>
-                    <option>weekly</option>
-                    <option selected>monthly</option>
-                    <option>yearly</option>
-                    <option>never</option>
-                </select>
-            </div>
-            <div class="seo-field">
-                <label>Language / Hreflang</label>
-                <input type="text" value="en-SG"/>
-            </div>
-        </div>
-
-        <div class="seo-field">
-            <label>Keywords (Tags)</label>
-            <div style="margin-top:6px">
-                <span class="seo-chip">AutoCAD</span>
-                <span class="seo-chip">Design</span>
-                <span class="seo-chip">WSQ</span>
-                <span class="seo-chip">Singapore</span>
-                <span class="seo-chip">Certification</span>
-            </div>
-        </div>
-    </div>
-
-    <div class="seo-actions">
-        <button class="seo-btn seo-btn-secondary" onclick="seoAuditRun()">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-            Run SEO Audit
-        </button>
-        <button class="seo-btn seo-btn-primary" onclick="seoSave()">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-            Save Metadata
-        </button>
-    </div>
+    <div class="seo-footer">Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y') ?></div>
 </div>
 </div>
 
 <script type="text/javascript">
-window.seoCount = function(el, counterId, min, max) {
-    var c = document.getElementById(counterId);
-    if (!c) return;
-    var len = el.value.length;
-    var cls = 'seo-counter';
-    if (len === 0) cls = 'seo-counter';
-    else if (len < min) cls = 'seo-counter warn';
-    else if (len > max) cls = 'seo-counter warn';
-    else cls = 'seo-counter ok';
-    c.className = cls;
-    c.textContent = len + ' / ' + min + '-' + max + ' chars';
-    seoUpdatePreview();
+window.seoSetType = function(type) {
+    var wsq = document.getElementById('seo-btn-wsq');
+    var nonwsq = document.getElementById('seo-btn-nonwsq');
+    var title = document.getElementById('seo-info-title');
+    var desc = document.getElementById('seo-info-desc');
+    if (type === 'wsq') {
+        wsq.classList.add('active');
+        nonwsq.classList.remove('active');
+        if (title) title.textContent = 'SEO for WSQ Course';
+        if (desc) desc.textContent = 'Fill in the course details and generate SEO metadata tailored for WSQ-accredited courses including funding information, TSC competencies, and accreditation keywords.';
+    } else {
+        nonwsq.classList.add('active');
+        wsq.classList.remove('active');
+        if (title) title.textContent = 'SEO for Non-WSQ Course';
+        if (desc) desc.textContent = 'Fill in the course details and generate SEO metadata with region-specific meta titles (Singapore, Malaysia, International), keywords, description, course description, and job roles.';
+    }
 };
-window.seoUpdatePreview = function() {
-    var t = document.getElementById('metaTitle');
-    var d = document.getElementById('metaDesc');
-    var u = document.getElementById('urlSlug');
-    var st = document.getElementById('serpTitle');
-    var sd = document.getElementById('serpDesc');
-    var su = document.getElementById('serpUrl');
-    if (t && st) st.textContent = t.value || 'Your meta title will appear here…';
-    if (d && sd) sd.textContent = d.value || 'Your meta description will appear here. Write something compelling to attract clicks from search results.';
-    if (u && su) su.textContent = 'www.tertiarycourses.com.sg › ' + (u.value || 'course-url');
+window.seoGenerate = function() {
+    var title = document.getElementById('seo-title').value.trim();
+    if (!title) {
+        alert('Please enter a Course Title first.');
+        return;
+    }
+    alert('Generating SEO Metadata for:\n\n' + title + '\n\n(Prototype — AI integration coming soon)');
 };
-window.seoOnCoursePick = function(sel) {
-    // Prototype: in future, fetch existing SEO data via AJAX and populate fields
-    if (!sel.value) return;
-    var title = sel.options[sel.selectedIndex].text;
-    document.getElementById('metaTitle').value = title + ' | Tertiary Infotech Academy';
-    document.getElementById('urlSlug').value = title.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0, 80);
-    seoCount(document.getElementById('metaTitle'), 'metaTitleCount', 50, 60);
-};
-window.seoSave = function() { alert('SEO metadata saved. (Prototype — persistence coming soon)'); };
-window.seoAuditRun = function() { alert('Running SEO audit across all courses. (Prototype — full audit coming soon)'); };
-
-// Attach preview updates
-document.addEventListener('DOMContentLoaded', function(){
-    ['metaTitle','metaDesc','urlSlug'].forEach(function(id){
-        var el = document.getElementById(id);
-        if (el) el.addEventListener('input', seoUpdatePreview);
-    });
-});
 </script>
