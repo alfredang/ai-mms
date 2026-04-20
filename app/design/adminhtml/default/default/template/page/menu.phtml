@@ -53,6 +53,7 @@
     $sysRolesUrl   = Mage::helper('adminhtml')->getUrl('adminhtml/permissions_role');
     $sysCacheUrl   = Mage::helper('adminhtml')->getUrl('adminhtml/cache');
     $cpUrl         = Mage::helper('adminhtml')->getUrl('adminhtml/cpgenerator/index');
+    $seoUrl        = Mage::helper('adminhtml')->getUrl('adminhtml/seometadata/index');
 ?>
 
 <!-- Super Admin sidebar -->
@@ -472,7 +473,7 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
         <span>Course List</span>
     </a>
-    <a href="#" class="lms-nav-item">
+    <a href="<?php echo $seoUrl ?>" class="lms-nav-item">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
         <span>SEO Metadata</span>
     </a>
