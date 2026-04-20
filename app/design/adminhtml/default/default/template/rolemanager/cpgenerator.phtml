@@ -1,0 +1,339 @@
+<?php
+$cpKey = $this->getData('cp_key') ?: 'coursedetails';
+
+$cpPanels = array(
+    'coursedetails' => array(
+        'title' => 'Course Details',
+        'subtitle' => 'Basic course information and metadata',
+        'fields' => array(
+            array('type'=>'text','label'=>'Course Title','placeholder'=>'e.g. Autodesk Certified Professional (ACP) - AutoCAD'),
+            array('type'=>'text','label'=>'Course Reference Code','placeholder'=>'e.g. TGS-2023036004'),
+            array('type'=>'row3','fields'=>array(
+                array('type'=>'text','label'=>'Duration (Hours)','placeholder'=>'e.g. 24'),
+                array('type'=>'select','label'=>'Mode of Training','options'=>array('Physical Classroom','Online/Virtual','Blended','Asynchronous e-Learning')),
+                array('type'=>'select','label'=>'Language','options'=>array('English','Mandarin','Malay','Bilingual')),
+            )),
+            array('type'=>'row','fields'=>array(
+                array('type'=>'text','label'=>'Target Audience','placeholder'=>'e.g. IT Professionals, Designers'),
+                array('type'=>'text','label'=>'Minimum Class Size','placeholder'=>'e.g. 6'),
+            )),
+        ),
+    ),
+    'aboutcourse' => array(
+        'title' => 'About This Course',
+        'subtitle' => 'Course overview and description',
+        'hint' => 'Write a compelling description that will appear on course listings. Focus on what the course covers and its key value.',
+        'fields' => array(
+            array('type'=>'textarea','label'=>'Course Summary','placeholder'=>'A concise 2-3 sentence summary of the course.','rows'=>3),
+            array('type'=>'textarea','label'=>'Course Description','placeholder'=>'Full course description including what learners will experience...','rows'=>8),
+            array('type'=>'textarea','label'=>'Industry Relevance','placeholder'=>'How this course connects to current industry trends...','rows'=>4),
+        ),
+    ),
+    'whatlearn' => array(
+        'title' => "What You'll Learn",
+        'subtitle' => 'Key takeaways and skills gained',
+        'hint' => 'List the specific skills and knowledge learners will acquire. Use short, action-oriented bullet points.',
+        'list' => true,
+        'list_label' => 'Learning Points',
+        'list_placeholder' => 'e.g. Master the fundamentals of AutoCAD 2D drafting',
+    ),
+    'bgparta' => array(
+        'title' => 'Background Part A',
+        'subtitle' => 'Course context and industry background',
+        'fields' => array(
+            array('type'=>'textarea','label'=>'Industry Context','placeholder'=>'Describe the current state of the industry and why this course is needed...','rows'=>6),
+            array('type'=>'textarea','label'=>'Problem Statement','placeholder'=>'What problem does this course help learners solve?','rows'=>5),
+            array('type'=>'textarea','label'=>'Market Demand','placeholder'=>'Evidence of demand for these skills (statistics, job market data, etc.)','rows'=>5),
+        ),
+    ),
+    'bgpartb' => array(
+        'title' => 'Background Part B',
+        'subtitle' => 'Alignment with SSG frameworks and standards',
+        'fields' => array(
+            array('type'=>'row','fields'=>array(
+                array('type'=>'text','label'=>'SFW (Skills Framework)','placeholder'=>'e.g. Infocomm Technology'),
+                array('type'=>'text','label'=>'Job Role Alignment','placeholder'=>'e.g. Software Engineer, Data Analyst'),
+            )),
+            array('type'=>'textarea','label'=>'TSC/CCS Alignment','placeholder'=>'Technical Skills & Competencies (TSC) or Critical Core Skills (CCS) this course aligns with...','rows'=>6),
+            array('type'=>'textarea','label'=>'Proficiency Level Justification','placeholder'=>'Justify the proficiency level this course targets...','rows'=>5),
+        ),
+    ),
+    'learningoutcomes' => array(
+        'title' => 'Learning Outcomes',
+        'subtitle' => 'Measurable outcomes after course completion',
+        'hint' => "Use Bloom's Taxonomy action verbs (Analyze, Apply, Create, Evaluate, etc.). Each outcome should be observable and measurable.",
+        'list' => true,
+        'list_label' => 'Learning Outcomes',
+        'list_placeholder' => 'e.g. Apply industry-standard drafting techniques to create precise 2D drawings',
+    ),
+    'instructmethods' => array(
+        'title' => 'Instructional Methods',
+        'subtitle' => 'Teaching methodologies used in the course',
+        'fields' => array(
+            array('type'=>'row','fields'=>array(
+                array('type'=>'text','label'=>'Primary Method','placeholder'=>'e.g. Lecture with Hands-on Labs'),
+                array('type'=>'text','label'=>'Secondary Method','placeholder'=>'e.g. Group Discussion'),
+            )),
+            array('type'=>'textarea','label'=>'Lecture Approach','placeholder'=>'How lectures are delivered...','rows'=>5),
+            array('type'=>'textarea','label'=>'Hands-on Activities','placeholder'=>'Describe practical exercises, labs, and projects learners will complete...','rows'=>5),
+            array('type'=>'textarea','label'=>'Collaborative Learning','placeholder'=>'Group work, peer-to-peer learning, team projects...','rows'=>4),
+        ),
+    ),
+    'assessmethods' => array(
+        'title' => 'Assessment Methods',
+        'subtitle' => 'How learner competency is assessed',
+        'fields' => array(
+            array('type'=>'row3','fields'=>array(
+                array('type'=>'text','label'=>'Pass Mark (%)','placeholder'=>'e.g. 60'),
+                array('type'=>'text','label'=>'Max Attempts','placeholder'=>'e.g. 3'),
+                array('type'=>'select','label'=>'Grading Type','options'=>array('Competent/Not Yet Competent','Pass/Fail','Graded (A-F)')),
+            )),
+            array('type'=>'textarea','label'=>'Written Assessment','placeholder'=>'Details of written test — MCQ, short answer, essay...','rows'=>4),
+            array('type'=>'textarea','label'=>'Practical Assessment','placeholder'=>'Details of hands-on or project-based assessment...','rows'=>4),
+            array('type'=>'textarea','label'=>'Assessment Criteria','placeholder'=>'Rubric or criteria used to evaluate learner work...','rows'=>5),
+        ),
+    ),
+    'lusequencing' => array(
+        'title' => 'LU Sequencing',
+        'subtitle' => 'Learning Unit sequence and timing',
+        'hint' => 'Arrange learning units in the order they will be taught. Each unit should have clear duration and objectives.',
+        'list' => true,
+        'list_label' => 'Learning Units (in sequence)',
+        'list_placeholder' => 'e.g. Unit 1: Introduction to AutoCAD Interface (2 hrs)',
+    ),
+    'courseoutline' => array(
+        'title' => 'Course Outline',
+        'subtitle' => 'Detailed course structure and syllabus',
+        'fields' => array(
+            array('type'=>'textarea','label'=>'Course Structure Overview','placeholder'=>'High-level outline of the course flow...','rows'=>6),
+            array('type'=>'textarea','label'=>'Day-by-Day Schedule','placeholder'=>"Day 1: ...\nDay 2: ...\nDay 3: ...",'rows'=>10),
+            array('type'=>'textarea','label'=>'Learning Resources','placeholder'=>'Books, tools, software, online resources used...','rows'=>5),
+        ),
+    ),
+    'entryreq' => array(
+        'title' => 'Entry Requirements',
+        'subtitle' => 'Prerequisites for enrollment',
+        'fields' => array(
+            array('type'=>'row','fields'=>array(
+                array('type'=>'select','label'=>'Minimum Education','options'=>array('No minimum','Secondary','Diploma','Degree','Masters')),
+                array('type'=>'select','label'=>'Experience Level','options'=>array('Beginner','Intermediate','Advanced','Expert')),
+            )),
+            array('type'=>'textarea','label'=>'Prerequisite Knowledge','placeholder'=>'List prerequisite knowledge or skills required...','rows'=>5),
+            array('type'=>'textarea','label'=>'Hardware/Software Requirements','placeholder'=>'Any specific hardware or software learners must have access to...','rows'=>4),
+        ),
+    ),
+    'jobroles' => array(
+        'title' => 'Job Roles',
+        'subtitle' => 'Target job roles and career paths',
+        'hint' => 'List job roles this course prepares learners for. Align with SFw where possible.',
+        'list' => true,
+        'list_label' => 'Target Job Roles',
+        'list_placeholder' => 'e.g. CAD Technician, Drafting Specialist',
+    ),
+    'lessonplan' => array(
+        'title' => 'Lesson Plan',
+        'subtitle' => 'Detailed lesson-by-lesson plan',
+        'fields' => array(
+            array('type'=>'textarea','label'=>'Session 1','placeholder'=>'Topic, duration, activities, assessment...','rows'=>5),
+            array('type'=>'textarea','label'=>'Session 2','placeholder'=>'Topic, duration, activities, assessment...','rows'=>5),
+            array('type'=>'textarea','label'=>'Session 3','placeholder'=>'Topic, duration, activities, assessment...','rows'=>5),
+            array('type'=>'textarea','label'=>'Additional Sessions','placeholder'=>'Continue for remaining sessions...','rows'=>8),
+        ),
+    ),
+    'cpvalidation' => array(
+        'title' => 'CP Validation',
+        'subtitle' => 'Final review and validation before submission',
+        'hint' => 'Review all sections before submitting the Course Proposal for approval.',
+        'fields' => array(
+            array('type'=>'textarea','label'=>'Validation Notes','placeholder'=>'Any notes or concerns from the validation review...','rows'=>6),
+            array('type'=>'textarea','label'=>'Reviewer Comments','placeholder'=>'Feedback from internal reviewer...','rows'=>5),
+        ),
+        'submit_btn' => true,
+    ),
+);
+
+$panel = isset($cpPanels[$cpKey]) ? $cpPanels[$cpKey] : $cpPanels['coursedetails'];
+$prepareKeys = array('coursedetails','aboutcourse','whatlearn','bgparta','bgpartb','learningoutcomes','instructmethods','assessmethods','lusequencing');
+$submitKeys = array('courseoutline','entryreq','jobroles','lessonplan','cpvalidation');
+$cpUrl = Mage::helper('adminhtml')->getUrl('adminhtml/cpgenerator/index');
+?>
+
+<style>
+.cp-page{background:var(--d1);min-height:calc(100vh - 60px);padding:32px;color:var(--t1)}
+.cp-wrap{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:240px 1fr;gap:28px}
+.cp-side{background:#1e293b;border:1px solid rgba(34,211,238,.1);border-radius:12px;padding:20px;height:fit-content;position:sticky;top:20px}
+.cp-side h3{font-size:11px;font-weight:700;color:#64748b;letter-spacing:1px;margin:0 0 10px;padding:0 8px;text-transform:uppercase}
+.cp-side a{display:block;padding:8px 10px;border-radius:6px;color:#cbd5e1;text-decoration:none;font-size:13px;margin-bottom:2px;transition:background .15s}
+.cp-side a:hover{background:rgba(34,211,238,.06);color:#22d3ee}
+.cp-side a.active{background:rgba(34,211,238,.12);color:#22d3ee;font-weight:600;border-left:3px solid #22d3ee;padding-left:8px}
+.cp-side .cp-group{margin-bottom:16px}
+.cp-main{min-width:0}
+.cp-header{margin-bottom:20px}
+.cp-header h1{font-size:24px;font-weight:700;color:var(--t1);margin:0 0 6px}
+.cp-header p{font-size:13px;color:#94a3b8;margin:0}
+.cp-card{background:#1e293b;border:1px solid rgba(34,211,238,.12);border-radius:12px;padding:24px}
+.cp-field{margin-bottom:18px}
+.cp-field label{display:block;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.cp-field input, .cp-field textarea, .cp-field select{width:100%;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:10px 14px;color:var(--t1);font-size:13px;font-family:inherit;box-sizing:border-box}
+.cp-field input:focus, .cp-field textarea:focus, .cp-field select:focus{border-color:#22d3ee;outline:none;box-shadow:0 0 0 3px rgba(34,211,238,.1)}
+.cp-field textarea{resize:vertical;min-height:100px}
+.cp-row{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+.cp-row-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.cp-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px;padding-top:20px;border-top:1px solid rgba(34,211,238,.08)}
+.cp-btn{padding:10px 20px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.cp-btn-primary{background:#0d9488;color:#fff}
+.cp-btn-primary:hover{background:#0f766e}
+.cp-btn-secondary{background:#334155;color:#cbd5e1}
+.cp-btn-secondary:hover{background:#475569}
+.cp-hint-box{background:rgba(34,211,238,.06);border:1px solid rgba(34,211,238,.15);border-radius:8px;padding:12px 16px;margin-bottom:20px;font-size:12.5px;color:#94a3b8;line-height:1.5}
+.cp-hint-box strong{color:#22d3ee}
+.cp-list-item{background:#0f172a;border:1px solid #334155;border-radius:8px;padding:10px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px}
+.cp-list-item input{flex:1;background:transparent;border:none;color:var(--t1);font-size:13px;padding:0}
+.cp-list-item input:focus{outline:none;box-shadow:none}
+.cp-list-num{color:#22d3ee;font-weight:700;font-size:13px;min-width:20px}
+.cp-remove{background:none;border:none;color:#ef4444;cursor:pointer;font-size:16px;padding:0 4px}
+.cp-add-item{background:transparent;border:1px dashed #334155;color:#22d3ee;padding:10px;border-radius:8px;width:100%;cursor:pointer;font-size:12px;font-weight:600;margin-top:6px}
+.cp-add-item:hover{border-color:#22d3ee}
+@media (max-width:900px){.cp-wrap{grid-template-columns:1fr}.cp-side{position:static}}
+</style>
+
+<div class="cp-page">
+<div class="cp-wrap">
+    <aside class="cp-side">
+        <div class="cp-group">
+            <h3>Prepare CP</h3>
+            <?php foreach ($prepareKeys as $k): ?>
+                <a href="<?php echo $cpUrl ?>key/<?php echo $k ?>/" class="<?php echo $k === $cpKey ? 'active' : '' ?>"><?php echo htmlspecialchars($cpPanels[$k]['title']) ?></a>
+            <?php endforeach; ?>
+        </div>
+        <div class="cp-group">
+            <h3>Submit CP</h3>
+            <?php foreach ($submitKeys as $k): ?>
+                <a href="<?php echo $cpUrl ?>key/<?php echo $k ?>/" class="<?php echo $k === $cpKey ? 'active' : '' ?>"><?php echo htmlspecialchars($cpPanels[$k]['title']) ?></a>
+            <?php endforeach; ?>
+        </div>
+    </aside>
+
+    <main class="cp-main">
+        <div class="cp-header">
+            <h1><?php echo htmlspecialchars($panel['title']) ?></h1>
+            <p><?php echo htmlspecialchars($panel['subtitle']) ?></p>
+        </div>
+
+        <?php if (!empty($panel['hint'])): ?>
+        <div class="cp-hint-box"><strong>&#9432; Tip:</strong> <?php echo htmlspecialchars($panel['hint']) ?></div>
+        <?php endif; ?>
+
+        <div class="cp-card">
+            <?php if (!empty($panel['list'])): ?>
+                <div class="cp-field">
+                    <label><?php echo htmlspecialchars($panel['list_label']) ?></label>
+                    <div id="cp-list">
+                        <?php for ($i = 1; $i <= 3; $i++): ?>
+                        <div class="cp-list-item">
+                            <span class="cp-list-num"><?php echo $i ?>.</span>
+                            <input type="text" placeholder="<?php echo htmlspecialchars($panel['list_placeholder']) ?>"/>
+                            <button class="cp-remove" onclick="cpRemoveItem(this)" title="Remove">&times;</button>
+                        </div>
+                        <?php endfor; ?>
+                    </div>
+                    <button class="cp-add-item" onclick="cpAddItem('<?php echo htmlspecialchars($panel['list_placeholder']) ?>')">+ Add Item</button>
+                </div>
+            <?php else: ?>
+                <?php foreach ($panel['fields'] as $field): ?>
+                    <?php if (in_array($field['type'], array('row','row3'))): ?>
+                        <div class="<?php echo $field['type'] === 'row3' ? 'cp-row-3' : 'cp-row' ?>">
+                            <?php foreach ($field['fields'] as $subField): ?>
+                                <div class="cp-field">
+                                    <label><?php echo htmlspecialchars($subField['label']) ?></label>
+                                    <?php if ($subField['type'] === 'select'): ?>
+                                        <select>
+                                            <option value="">Select…</option>
+                                            <?php foreach ($subField['options'] as $opt): ?>
+                                                <option><?php echo htmlspecialchars($opt) ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    <?php else: ?>
+                                        <input type="<?php echo $subField['type'] ?>" placeholder="<?php echo htmlspecialchars($subField['placeholder']) ?>"/>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php elseif ($field['type'] === 'textarea'): ?>
+                        <div class="cp-field">
+                            <label><?php echo htmlspecialchars($field['label']) ?></label>
+                            <textarea rows="<?php echo isset($field['rows']) ? (int)$field['rows'] : 5 ?>" placeholder="<?php echo htmlspecialchars($field['placeholder']) ?>"></textarea>
+                        </div>
+                    <?php elseif ($field['type'] === 'select'): ?>
+                        <div class="cp-field">
+                            <label><?php echo htmlspecialchars($field['label']) ?></label>
+                            <select>
+                                <option value="">Select…</option>
+                                <?php foreach ($field['options'] as $opt): ?>
+                                    <option><?php echo htmlspecialchars($opt) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                    <?php else: ?>
+                        <div class="cp-field">
+                            <label><?php echo htmlspecialchars($field['label']) ?></label>
+                            <input type="<?php echo $field['type'] ?>" placeholder="<?php echo htmlspecialchars($field['placeholder']) ?>"/>
+                        </div>
+                    <?php endif; ?>
+                <?php endforeach; ?>
+            <?php endif; ?>
+
+            <div class="cp-actions">
+                <button class="cp-btn cp-btn-secondary" onclick="cpSaveDraft()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                    Save Draft
+                </button>
+                <?php if (!empty($panel['submit_btn'])): ?>
+                <button class="cp-btn cp-btn-primary" onclick="cpSubmitCP()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                    Submit CP for Approval
+                </button>
+                <?php else: ?>
+                <?php $allKeys = array_merge($prepareKeys, $submitKeys); $idx = array_search($cpKey, $allKeys, true); $next = ($idx !== false && $idx < count($allKeys) - 1) ? $allKeys[$idx + 1] : null; ?>
+                <?php if ($next): ?>
+                <a class="cp-btn cp-btn-primary" href="<?php echo $cpUrl ?>key/<?php echo $next ?>/">
+                    Save &amp; Continue
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                </a>
+                <?php endif; ?>
+                <?php endif; ?>
+            </div>
+        </div>
+    </main>
+</div>
+</div>
+
+<script type="text/javascript">
+window.cpAddItem = function(placeholder) {
+    var list = document.getElementById('cp-list');
+    if (!list) return;
+    var count = list.children.length + 1;
+    var item = document.createElement('div');
+    item.className = 'cp-list-item';
+    item.innerHTML = '<span class="cp-list-num">' + count + '.</span>' +
+                     '<input type="text" placeholder="' + placeholder + '"/>' +
+                     '<button class="cp-remove" onclick="cpRemoveItem(this)" title="Remove">&times;</button>';
+    list.appendChild(item);
+};
+window.cpRemoveItem = function(btn) {
+    var item = btn.parentElement;
+    var list = item.parentElement;
+    item.remove();
+    var items = list.children;
+    for (var i = 0; i < items.length; i++) {
+        var num = items[i].querySelector('.cp-list-num');
+        if (num) num.textContent = (i + 1) + '.';
+    }
+};
+window.cpSaveDraft = function() { alert('Draft saved. (Prototype — persistence coming soon)'); };
+window.cpSubmitCP = function() {
+    if (confirm('Submit this Course Proposal for approval?')) {
+        alert('Course Proposal submitted. (Prototype — submission workflow coming soon)');
+    }
+};
+</script>

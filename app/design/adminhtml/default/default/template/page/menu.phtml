@@ -52,6 +52,7 @@
     $sysUsersUrl   = Mage::helper('adminhtml')->getUrl('adminhtml/permissions_user');
     $sysRolesUrl   = Mage::helper('adminhtml')->getUrl('adminhtml/permissions_role');
     $sysCacheUrl   = Mage::helper('adminhtml')->getUrl('adminhtml/cache');
+    $cpUrl         = Mage::helper('adminhtml')->getUrl('adminhtml/cpgenerator/index');
 ?>
 
 <!-- Super Admin sidebar -->
@@ -488,15 +489,15 @@
                     <svg class="tools-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
                 </div>
                 <div class="tools-group-items">
-                    <a href="#" class="tools-sub-item"><span>Course Details</span></a>
-                    <a href="#" class="tools-sub-item"><span>About This Course</span></a>
-                    <a href="#" class="tools-sub-item"><span>What You'll Learn</span></a>
-                    <a href="#" class="tools-sub-item"><span>Background Part A</span></a>
-                    <a href="#" class="tools-sub-item"><span>Background Part B</span></a>
-                    <a href="#" class="tools-sub-item"><span>Learning Outcomes</span></a>
-                    <a href="#" class="tools-sub-item"><span>Instructional Methods</span></a>
-                    <a href="#" class="tools-sub-item"><span>Assessment Methods</span></a>
-                    <a href="#" class="tools-sub-item"><span>LU Sequencing</span></a>
+                    <a href="<?php echo $cpUrl ?>key/coursedetails/" class="tools-sub-item" data-ver="v2"><span>Course Details</span></a>
+                    <a href="<?php echo $cpUrl ?>key/aboutcourse/" class="tools-sub-item"><span>About This Course</span></a>
+                    <a href="<?php echo $cpUrl ?>key/whatlearn/" class="tools-sub-item"><span>What You'll Learn</span></a>
+                    <a href="<?php echo $cpUrl ?>key/bgparta/" class="tools-sub-item"><span>Background Part A</span></a>
+                    <a href="<?php echo $cpUrl ?>key/bgpartb/" class="tools-sub-item"><span>Background Part B</span></a>
+                    <a href="<?php echo $cpUrl ?>key/learningoutcomes/" class="tools-sub-item"><span>Learning Outcomes</span></a>
+                    <a href="<?php echo $cpUrl ?>key/instructmethods/" class="tools-sub-item"><span>Instructional Methods</span></a>
+                    <a href="<?php echo $cpUrl ?>key/assessmethods/" class="tools-sub-item"><span>Assessment Methods</span></a>
+                    <a href="<?php echo $cpUrl ?>key/lusequencing/" class="tools-sub-item"><span>LU Sequencing</span></a>
                 </div>
             </div>
             <div class="tools-group" style="margin:0;">
@@ -505,11 +506,11 @@
                     <svg class="tools-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
                 </div>
                 <div class="tools-group-items">
-                    <a href="#" class="tools-sub-item"><span>Course Outline</span></a>
-                    <a href="#" class="tools-sub-item"><span>Entry Requirements</span></a>
-                    <a href="#" class="tools-sub-item"><span>Job Roles</span></a>
-                    <a href="#" class="tools-sub-item"><span>Lesson Plan</span></a>
-                    <a href="#" class="tools-sub-item"><span>CP Validation</span></a>
+                    <a href="<?php echo $cpUrl ?>key/courseoutline/" class="tools-sub-item"><span>Course Outline</span></a>
+                    <a href="<?php echo $cpUrl ?>key/entryreq/" class="tools-sub-item"><span>Entry Requirements</span></a>
+                    <a href="<?php echo $cpUrl ?>key/jobroles/" class="tools-sub-item"><span>Job Roles</span></a>
+                    <a href="<?php echo $cpUrl ?>key/lessonplan/" class="tools-sub-item"><span>Lesson Plan</span></a>
+                    <a href="<?php echo $cpUrl ?>key/cpvalidation/" class="tools-sub-item"><span>CP Validation</span></a>
                 </div>
             </div>
         </div>
