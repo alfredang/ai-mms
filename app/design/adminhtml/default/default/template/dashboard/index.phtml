@@ -540,6 +540,19 @@ $_editCourseData = array();
 if ($_editMode) {
     try {
         $_editProd = Mage::getModel('catalog/product')->load($_selectedCourseId);
+        // Explicitly load multiselect/text attributes (default 0 store_id + fallback to any
+        // other store where the value is actually populated — some courses store trainerprofile
+        // under a specific store_view instead of the admin scope)
+        try {
+            $_read = Mage::getSingleton('core/resource')->getConnection('core_read');
+            $_trVal = $_read->fetchOne("SELECT value FROM catalog_product_entity_text WHERE entity_id=? AND attribute_id=170 AND value IS NOT NULL AND value != '' ORDER BY store_id LIMIT 1", array((int)$_selectedCourseId));
+            if ($_trVal !== false && $_trVal !== null) $_editProd->setData('trainers', $_trVal);
+            $_tpAttrId = (int) $_read->fetchOne("SELECT attribute_id FROM eav_attribute WHERE attribute_code='trainerprofile' AND entity_type_id=4");
+            if ($_tpAttrId) {
+                $_tpVal = $_read->fetchOne("SELECT value FROM catalog_product_entity_text WHERE entity_id=? AND attribute_id=? AND value IS NOT NULL AND value != '' ORDER BY store_id LIMIT 1", array((int)$_selectedCourseId, $_tpAttrId));
+                if ($_tpVal !== false && $_tpVal !== null) $_editProd->setData('trainerprofile', $_tpVal);
+            }
+        } catch (Exception $e) {}
         if ($_editProd->getId()) {
             // Build full image URL: prefer course_image_url, fall back to Magento catalog image
             $_imgUrlRaw = trim((string)$_editProd->getData('course_image_url'));
@@ -560,7 +573,9 @@ if ($_editMode) {
             }
 
             // Load ALL trainer options from the `trainers` multiselect attribute
-            $_allTrainers = array(); // option_id => name
+            // Also try to match each trainer's name to an admin_user record to pull an email
+            $_allTrainers = array();      // option_id => name
+            $_allTrainerEmails = array(); // option_id => email (may be empty)
             try {
                 $_read = Mage::getSingleton('core/resource')->getConnection('core_read');
                 $_tblOV = $_read->getTableName('eav_attribute_option_value');
@@ -568,9 +583,42 @@ if ($_editMode) {
                 $_rowsAll = $_read->fetchAll(
                     "SELECT o.option_id, v.value FROM {$_tblO} o JOIN {$_tblOV} v ON o.option_id=v.option_id WHERE o.attribute_id=170 AND v.store_id=0 ORDER BY v.value"
                 );
+
+                // Load admin users once: full_name_lower => email
+                $_adminUsers = array();
+                try {
+                    $_auRows = $_read->fetchAll("SELECT firstname, lastname, email FROM " . $_read->getTableName('admin_user') . " WHERE email IS NOT NULL AND email != ''");
+                    foreach ($_auRows as $_au) {
+                        $_fn = trim((string)$_au['firstname']);
+                        $_ln = trim((string)$_au['lastname']);
+                        if ($_fn !== '' || $_ln !== '') {
+                            $_key = strtolower(trim($_fn . ' ' . $_ln));
+                            $_adminUsers[$_key] = $_au['email'];
+                        }
+                    }
+                } catch (Exception $e) {}
+
                 foreach ($_rowsAll as $_r) {
                     $_nm = trim(preg_replace('/^ACTA\s+/i', '', $_r['value']));
-                    if ($_nm !== '') $_allTrainers[(int)$_r['option_id']] = $_nm;
+                    if ($_nm === '') continue;
+                    $_allTrainers[(int)$_r['option_id']] = $_nm;
+                    // Try to match an admin user by name (case-insensitive)
+                    $_low = strtolower($_nm);
+                    $_email = '';
+                    if (isset($_adminUsers[$_low])) {
+                        $_email = $_adminUsers[$_low];
+                    } else {
+                        foreach ($_adminUsers as $_aukey => $_auemail) {
+                            if ($_aukey !== '' && stripos($_nm, $_aukey) !== false) { $_email = $_auemail; break; }
+                        }
+                    }
+                    // Fallback: generate a placeholder email from the name
+                    if ($_email === '') {
+                        $_slug = preg_replace('/[^a-z0-9]+/', '.', strtolower($_nm));
+                        $_slug = trim($_slug, '.');
+                        if ($_slug !== '') $_email = $_slug . '@tertiaryinfotech.com';
+                    }
+                    $_allTrainerEmails[(int)$_r['option_id']] = $_email;
                 }
             } catch (Exception $e) {}
 
@@ -583,19 +631,47 @@ if ($_editMode) {
                 }
             }
 
-            // Build display list of assigned trainer names
+            // Build display list: multiselect names first, then HTML fallback names (deduped)
             $_trainerNames = array();
+            $_seenNames = array(); // lowercased for dedup
             foreach ($_assignedIds as $_id) {
-                if (isset($_allTrainers[$_id])) $_trainerNames[] = $_allTrainers[$_id];
+                if (isset($_allTrainers[$_id])) {
+                    $_nm = $_allTrainers[$_id];
+                    $_k = strtolower(trim($_nm));
+                    if (!isset($_seenNames[$_k])) {
+                        $_trainerNames[] = $_nm;
+                        $_seenNames[$_k] = true;
+                    }
+                }
             }
 
-            // Fallback: extract from trainerprofile HTML (pattern: <strong>Name:</strong> ...)
-            if (empty($_trainerNames)) {
-                $_tpRaw = (string)$_editProd->getData('trainerprofile');
-                if ($_tpRaw !== '' && preg_match_all('#<strong>([^<:]+?):</strong>#si', $_tpRaw, $_tm)) {
-                    foreach ($_tm[1] as $_n) {
-                        $_n = trim(html_entity_decode($_n));
-                        if ($_n !== '') $_trainerNames[] = $_n;
+            // Always also parse trainerprofile HTML so legacy names survive next to multiselect
+            $_tpRaw = (string)$_editProd->getData('trainerprofile');
+            if ($_tpRaw !== '' && preg_match_all('#<strong>([^<:]+?):</strong>#si', $_tpRaw, $_tm)) {
+                // Build lookup for matching fallback names to option IDs (pre-select in editor)
+                $_nameToId = array();
+                foreach ($_allTrainers as $_tid => $_tnm) {
+                    $_nameToId[strtolower(trim($_tnm))] = $_tid;
+                }
+                foreach ($_tm[1] as $_n) {
+                    $_n = trim(html_entity_decode($_n));
+                    if ($_n === '') continue;
+                    $_low = strtolower($_n);
+                    if (!isset($_seenNames[$_low])) {
+                        $_trainerNames[] = $_n;
+                        $_seenNames[$_low] = true;
+                    }
+                    // Try to also mark the matching option ID as assigned
+                    if (isset($_nameToId[$_low])) {
+                        $_mid = $_nameToId[$_low];
+                        if (!in_array($_mid, $_assignedIds)) $_assignedIds[] = $_mid;
+                    } else {
+                        foreach ($_allTrainers as $_tid => $_tnm) {
+                            if (stripos($_tnm, $_n) !== false || stripos($_n, $_tnm) !== false) {
+                                if (!in_array($_tid, $_assignedIds)) $_assignedIds[] = $_tid;
+                                break;
+                            }
+                        }
                     }
                 }
             }
@@ -622,6 +698,7 @@ if ($_editMode) {
                 'trainer_profile'  => $_editProd->getData('trainerprofile') ?: '',
                 'trainer_names'    => $_trainerNames,
                 'all_trainers'     => $_allTrainers,
+                'all_trainer_emails' => $_allTrainerEmails,
                 'assigned_ids'     => $_assignedIds,
                 'learning_outcomes' => $_editProd->getData('description') ?: '',
                 'brochure_url'      => $_brochureUrl,
@@ -1528,7 +1605,9 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                 .tr-picker-list{background:#1e293b;border:1px solid #334155;border-radius:10px;max-height:280px;overflow-y:auto;margin-top:10px}
                 .tr-picker-list::-webkit-scrollbar{width:10px}
                 .tr-picker-list::-webkit-scrollbar-thumb{background:#475569;border-radius:10px;border:2px solid #1e293b}
-                .tr-picker-item{padding:10px 16px;cursor:pointer;color:#e2e8f0;font-size:14px;border-bottom:1px solid #334155;display:flex;align-items:center;justify-content:space-between;gap:12px}
+                .tr-picker-item{padding:12px 16px;cursor:pointer;color:#e2e8f0;font-size:14px;border-bottom:1px solid #334155;display:flex;align-items:center;gap:14px}
+                .tr-picker-name{flex:1;min-width:0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+                .tr-picker-email{flex:1;min-width:0;text-align:right;color:#94a3b8;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
                 .tr-picker-item:last-child{border-bottom:none}
                 .tr-picker-item:hover{background:#283548}
                 .tr-picker-item.selected{background:rgba(37,99,235,.15);color:#93c5fd;font-weight:600}
@@ -1542,12 +1621,16 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                 <input type="hidden" name="trainer_ids" id="trainer-ids" value="<?php echo htmlspecialchars(implode(',', $_editCourseData['assigned_ids'])) ?>" />
                 <div class="tr-picker-wrap">
                     <div class="tr-picker-label">Add Trainer</div>
-                    <input type="text" class="tr-picker-search" id="trainer-search" placeholder="Search active trainer by name" oninput="trFilterList(this.value)" autocomplete="off" />
+                    <input type="text" class="tr-picker-search" id="trainer-search" placeholder="Search active trainer by name or email" oninput="trFilterList(this.value)" autocomplete="off" />
                     <div class="tr-picker-list" id="trainer-list">
-                        <?php foreach ($_editCourseData['all_trainers'] as $_tid => $_tnm): ?>
-                        <div class="tr-picker-item<?php echo in_array($_tid, $_editCourseData['assigned_ids']) ? ' selected' : '' ?>" data-id="<?php echo (int)$_tid ?>" data-name="<?php echo htmlspecialchars($_tnm) ?>" onclick="trToggle(this)">
-                            <span><?php echo htmlspecialchars($_tnm) ?></span>
-                            <?php if (in_array($_tid, $_editCourseData['assigned_ids'])): ?>
+                        <?php foreach ($_editCourseData['all_trainers'] as $_tid => $_tnm):
+                            $_temail = isset($_editCourseData['all_trainer_emails'][$_tid]) ? $_editCourseData['all_trainer_emails'][$_tid] : '';
+                            $_isSel = in_array($_tid, $_editCourseData['assigned_ids']);
+                        ?>
+                        <div class="tr-picker-item<?php echo $_isSel ? ' selected' : '' ?>" data-id="<?php echo (int)$_tid ?>" data-name="<?php echo htmlspecialchars($_tnm) ?>" data-search="<?php echo strtolower($_tnm . ' ' . $_temail) ?>" onclick="trToggle(this)">
+                            <span class="tr-picker-name"><?php echo htmlspecialchars($_tnm) ?></span>
+                            <span class="tr-picker-email"><?php echo htmlspecialchars($_temail) ?></span>
+                            <?php if ($_isSel): ?>
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
                             <?php endif; ?>
                         </div>
@@ -1567,8 +1650,8 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                         q = q.toLowerCase();
                         var items = document.querySelectorAll('#trainer-list .tr-picker-item');
                         for (var i = 0; i < items.length; i++) {
-                            var name = items[i].getAttribute('data-name').toLowerCase();
-                            items[i].classList.toggle('hidden', q && name.indexOf(q) === -1);
+                            var hay = items[i].getAttribute('data-search') || items[i].getAttribute('data-name').toLowerCase();
+                            items[i].classList.toggle('hidden', q && hay.indexOf(q) === -1);
                         }
                     };
                     function rebuildTags() {

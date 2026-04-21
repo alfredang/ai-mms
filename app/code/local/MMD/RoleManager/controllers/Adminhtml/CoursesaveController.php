@@ -27,10 +27,13 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 $product->setData('news_to_date', $v);
             }
 
-            // Rich HTML fields
+            // Trainer multiselect (primary source) — keeps trainerprofile HTML intact so
+            // legacy-only trainer names (not in the option list) are preserved for display
+            $trainerIdsChanged = false;
             if (($v = $req->getParam('trainer_ids')) !== null) {
                 $ids = array_filter(array_map('intval', explode(',', $v)));
-                $product->setData('trainers', $ids ? implode(',', $ids) : null);
+                $product->setData('trainers', implode(',', $ids));
+                $trainerIdsChanged = true;
             }
             if (($v = $req->getParam('trainer_names')) !== null) {
                 $lines = array_filter(array_map('trim', preg_split('/\r?\n/', $v)));
@@ -50,6 +53,13 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             if (($v = $req->getParam('meta_keyword'))      !== null) $product->setMetaKeyword($v);
 
             $product->save();
+
+            // Force-save the multiselect trainers attribute directly to catalog_product_entity_text
+            // in case Magento's normal save didn't persist it correctly for multiselects
+            if ($trainerIdsChanged) {
+                $product->getResource()->saveAttribute($product, 'trainers');
+                $product->getResource()->saveAttribute($product, 'trainerprofile');
+            }
 
             $continueEdit = $req->getParam('continue_edit');
             $dashboardUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard');
