@@ -21,10 +21,18 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             if (($v = $req->getParam('image_url'))    !== null)              $product->setData('course_image_url', $v);
             if (($v = $req->getParam('brochure_url')) !== null)              $product->setData('course_brochure_url', $v);
             if (($v = $req->getParam('duration'))     !== null && $v !== '') $product->setData('duration', $v);
+            if (($v = $req->getParam('training_hours')) !== null && $v !== '') $product->setData('duration', $v);
             if (($v = $req->getParam('price'))        !== null && $v !== '') $product->setPrice((float)$v);
+            if (($v = $req->getParam('funding_validity')) !== null && $v !== '') {
+                $product->setData('news_to_date', $v);
+            }
 
             // Rich HTML fields
-            if (($v = $req->getParam('trainer_names'))     !== null) {
+            if (($v = $req->getParam('trainer_ids')) !== null) {
+                $ids = array_filter(array_map('intval', explode(',', $v)));
+                $product->setData('trainers', $ids ? implode(',', $ids) : null);
+            }
+            if (($v = $req->getParam('trainer_names')) !== null) {
                 $lines = array_filter(array_map('trim', preg_split('/\r?\n/', $v)));
                 $html  = '';
                 foreach ($lines as $line) {

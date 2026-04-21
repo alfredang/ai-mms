@@ -317,27 +317,79 @@ if ($_loggedInEmail) {
     $_prodTable  = $_resource->getTableName('catalog/product');
     $_eav_dt     = $_resource->getTableName('catalog_product_entity_datetime');
     $_eav_vc     = $_resource->getTableName('catalog_product_entity_varchar');
+    $_eav_tx     = $_resource->getTableName('catalog_product_entity_text');
 
     // Get attribute IDs
     $_nameAttrId = (int) $_read->fetchOne("SELECT attribute_id FROM eav_attribute WHERE attribute_code='name' AND entity_type_id=4");
     $_startAttrId = (int) $_read->fetchOne("SELECT attribute_id FROM eav_attribute WHERE attribute_code='news_from_date' AND entity_type_id=4");
     $_endAttrId = (int) $_read->fetchOne("SELECT attribute_id FROM eav_attribute WHERE attribute_code='news_to_date' AND entity_type_id=4");
+    $_trainersAttrId = (int) $_read->fetchOne("SELECT attribute_id FROM eav_attribute WHERE attribute_code='trainers' AND entity_type_id=4");
 
-    $_sql = "SELECT DISTINCT oi.product_id, oi.sku, oi.name as item_name,
-                o.state as order_state,
-                pn.value as product_name,
-                sd.value as start_date,
-                ed.value as end_date
-             FROM {$_orderTable} o
-             JOIN {$_itemTable} oi ON o.entity_id = oi.order_id
-             LEFT JOIN {$_eav_vc} pn ON oi.product_id = pn.entity_id AND pn.attribute_id = {$_nameAttrId} AND pn.store_id = 0
-             LEFT JOIN {$_eav_dt} sd ON oi.product_id = sd.entity_id AND sd.attribute_id = {$_startAttrId} AND sd.store_id = 0
-             LEFT JOIN {$_eav_dt} ed ON oi.product_id = ed.entity_id AND ed.attribute_id = {$_endAttrId} AND ed.store_id = 0
-             WHERE LOWER(o.customer_email) = ?
-             AND o.state NOT IN ('canceled','closed')
-             ORDER BY sd.value DESC";
+    $_rows = array();
 
-    $_rows = $_read->fetchAll($_sql, array($_loggedInEmail));
+    // TRAINER view: show courses where the logged-in trainer is assigned
+    if ($activeRole === 'trainer' && $_trainersAttrId) {
+        $_fn = trim((string)$_loggedInUser->getFirstname());
+        $_ln = trim((string)$_loggedInUser->getLastname());
+        $_fullName = trim($_fn . ' ' . $_ln);
+
+        // Find trainer option IDs that match this admin user's name
+        $_optMatches = array();
+        if ($_fullName !== '') {
+            $_opts = $_read->fetchAll(
+                "SELECT o.option_id, v.value FROM eav_attribute_option o
+                 JOIN eav_attribute_option_value v ON o.option_id=v.option_id
+                 WHERE o.attribute_id=? AND v.store_id=0 AND (v.value LIKE ? OR v.value LIKE ? OR v.value LIKE ?)",
+                array($_trainersAttrId, '%' . $_fullName . '%', '%' . $_fn . ' ' . $_ln . '%', '%' . $_ln . '%')
+            );
+            foreach ($_opts as $_o) {
+                // Only strong matches: full name must appear in option text (case-insensitive)
+                if (stripos($_o['value'], $_fullName) !== false) $_optMatches[] = (int)$_o['option_id'];
+            }
+        }
+
+        if (!empty($_optMatches)) {
+            // Find products whose `trainers` attribute contains any of these option IDs
+            $_like = array();
+            $_params = array($_trainersAttrId);
+            foreach ($_optMatches as $_mid) {
+                $_like[] = "(FIND_IN_SET(?, REPLACE(t.value, ' ', ''))>0)";
+                $_params[] = $_mid;
+            }
+            $_likeSql = implode(' OR ', $_like);
+
+            $_sqlTrainer = "SELECT DISTINCT p.entity_id AS product_id, p.sku,
+                                pn.value AS product_name, pn.value AS item_name,
+                                'complete' AS order_state,
+                                sd.value AS start_date, ed.value AS end_date
+                            FROM {$_prodTable} p
+                            JOIN {$_eav_tx} t ON p.entity_id=t.entity_id AND t.attribute_id=?
+                            LEFT JOIN {$_eav_vc} pn ON p.entity_id=pn.entity_id AND pn.attribute_id={$_nameAttrId} AND pn.store_id=0
+                            LEFT JOIN {$_eav_dt} sd ON p.entity_id=sd.entity_id AND sd.attribute_id={$_startAttrId} AND sd.store_id=0
+                            LEFT JOIN {$_eav_dt} ed ON p.entity_id=ed.entity_id AND ed.attribute_id={$_endAttrId} AND ed.store_id=0
+                            WHERE ({$_likeSql})
+                            ORDER BY sd.value DESC
+                            LIMIT 200";
+            $_rows = $_read->fetchAll($_sqlTrainer, $_params);
+        }
+    } else {
+        // LEARNER view: show courses from order history
+        $_sql = "SELECT DISTINCT oi.product_id, oi.sku, oi.name as item_name,
+                    o.state as order_state,
+                    pn.value as product_name,
+                    sd.value as start_date,
+                    ed.value as end_date
+                 FROM {$_orderTable} o
+                 JOIN {$_itemTable} oi ON o.entity_id = oi.order_id
+                 LEFT JOIN {$_eav_vc} pn ON oi.product_id = pn.entity_id AND pn.attribute_id = {$_nameAttrId} AND pn.store_id = 0
+                 LEFT JOIN {$_eav_dt} sd ON oi.product_id = sd.entity_id AND sd.attribute_id = {$_startAttrId} AND sd.store_id = 0
+                 LEFT JOIN {$_eav_dt} ed ON oi.product_id = ed.entity_id AND ed.attribute_id = {$_endAttrId} AND ed.store_id = 0
+                 WHERE LOWER(o.customer_email) = ?
+                 AND o.state NOT IN ('canceled','closed')
+                 ORDER BY sd.value DESC";
+
+        $_rows = $_read->fetchAll($_sql, array($_loggedInEmail));
+    }
     foreach ($_rows as $_r) {
         $_start = $_r['start_date'] ? date('Y-m-d', strtotime($_r['start_date'])) : null;
         $_end = $_r['end_date'] ? date('Y-m-d', strtotime($_r['end_date'])) : null;
@@ -507,31 +559,36 @@ if ($_editMode) {
                 }
             }
 
-            // Load trainer names: first try the trainers multiselect attribute (option IDs)
-            $_trainerNames = array();
+            // Load ALL trainer options from the `trainers` multiselect attribute
+            $_allTrainers = array(); // option_id => name
+            try {
+                $_read = Mage::getSingleton('core/resource')->getConnection('core_read');
+                $_tblOV = $_read->getTableName('eav_attribute_option_value');
+                $_tblO  = $_read->getTableName('eav_attribute_option');
+                $_rowsAll = $_read->fetchAll(
+                    "SELECT o.option_id, v.value FROM {$_tblO} o JOIN {$_tblOV} v ON o.option_id=v.option_id WHERE o.attribute_id=170 AND v.store_id=0 ORDER BY v.value"
+                );
+                foreach ($_rowsAll as $_r) {
+                    $_nm = trim(preg_replace('/^ACTA\s+/i', '', $_r['value']));
+                    if ($_nm !== '') $_allTrainers[(int)$_r['option_id']] = $_nm;
+                }
+            } catch (Exception $e) {}
+
+            // Currently assigned trainer IDs for this course
+            $_assignedIds = array();
             $_trainerIds = (string)$_editProd->getData('trainers');
             if ($_trainerIds !== '') {
-                try {
-                    $_ids = array_filter(array_map('intval', explode(',', $_trainerIds)));
-                    if (!empty($_ids)) {
-                        $_read = Mage::getSingleton('core/resource')->getConnection('core_read');
-                        $_tblOV = $_read->getTableName('eav_attribute_option_value');
-                        $_placeholders = implode(',', array_fill(0, count($_ids), '?'));
-                        $_rows = $_read->fetchAll(
-                            "SELECT option_id, value FROM {$_tblOV} WHERE option_id IN ({$_placeholders}) AND store_id=0",
-                            $_ids
-                        );
-                        $_byId = array();
-                        foreach ($_rows as $_r) { $_byId[$_r['option_id']] = $_r['value']; }
-                        foreach ($_ids as $_id) {
-                            if (isset($_byId[$_id])) {
-                                $_nm = trim(preg_replace('/^ACTA\s+/i', '', $_byId[$_id]));
-                                if ($_nm !== '') $_trainerNames[] = $_nm;
-                            }
-                        }
-                    }
-                } catch (Exception $e) {}
+                foreach (array_filter(array_map('intval', explode(',', $_trainerIds))) as $_id) {
+                    $_assignedIds[] = $_id;
+                }
             }
+
+            // Build display list of assigned trainer names
+            $_trainerNames = array();
+            foreach ($_assignedIds as $_id) {
+                if (isset($_allTrainers[$_id])) $_trainerNames[] = $_allTrainers[$_id];
+            }
+
             // Fallback: extract from trainerprofile HTML (pattern: <strong>Name:</strong> ...)
             if (empty($_trainerNames)) {
                 $_tpRaw = (string)$_editProd->getData('trainerprofile');
@@ -564,6 +621,8 @@ if ($_editMode) {
                 'prerequisite'     => $_editProd->getData('prerequisite') ?: '',
                 'trainer_profile'  => $_editProd->getData('trainerprofile') ?: '',
                 'trainer_names'    => $_trainerNames,
+                'all_trainers'     => $_allTrainers,
+                'assigned_ids'     => $_assignedIds,
                 'learning_outcomes' => $_editProd->getData('description') ?: '',
                 'brochure_url'      => $_brochureUrl,
             );
@@ -1368,34 +1427,6 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
         You are in edit mode. Make your changes and click Save Changes.
     </div>
 
-    <!-- Quick-view meta bar (editable) -->
-    <div class="dcf-meta-bar">
-        <div class="dcf-meta-item">
-            <div class="dcf-meta-lbl">Course Type</div>
-            <input type="text" name="course_type_label" class="dcf-meta-input" value="<?php echo htmlspecialchars($_editCourseData['course_type']) ?>" placeholder="WSQ / IBF / …" />
-        </div>
-        <div class="dcf-meta-item">
-            <div class="dcf-meta-lbl">Duration (hrs)</div>
-            <input type="number" step="0.5" name="duration" class="dcf-meta-input" value="<?php echo $_editCourseData['duration'] > 0 ? $_editCourseData['duration'] : '' ?>" placeholder="0" />
-        </div>
-        <div class="dcf-meta-item">
-            <div class="dcf-meta-lbl">Sessions</div>
-            <input type="text" name="sessions_label" class="dcf-meta-input" value="<?php echo htmlspecialchars($_editCourseData['sessions']) ?>" placeholder="e.g. 1 day" />
-        </div>
-        <div class="dcf-meta-item">
-            <div class="dcf-meta-lbl">Level</div>
-            <input type="text" name="level_label" class="dcf-meta-input" value="<?php echo htmlspecialchars($_editCourseData['level']) ?>" placeholder="Beginner / …" />
-        </div>
-        <div class="dcf-meta-item">
-            <div class="dcf-meta-lbl">Price</div>
-            <input type="number" step="0.01" name="price" class="dcf-meta-input" value="<?php echo $_editCourseData['price'] > 0 ? $_editCourseData['price'] : '' ?>" placeholder="0.00" />
-        </div>
-        <div class="dcf-meta-item">
-            <div class="dcf-meta-lbl">Funding From</div>
-            <input type="text" name="funding_validity" class="dcf-meta-input" value="<?php echo htmlspecialchars($_editCourseData['start_date']) ?>" placeholder="M d, YYYY" />
-        </div>
-    </div>
-
     <div class="dcf-two-col">
         <!-- LEFT COLUMN: Course Details (mirrors read-only layout) -->
         <div class="dcf-col-left">
@@ -1426,17 +1457,162 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                     <div class="dcf-label">Course Code</div>
                     <input type="text" class="dcf-input" name="course_code" value="<?php echo htmlspecialchars($_editCourseData['sku']) ?>" style="font-family:monospace;letter-spacing:.5px;" placeholder="e.g. TGS-2024000102" />
                 </div>
+
+                <div class="dcf-field">
+                    <div class="dcf-label">Funding Validity</div>
+                    <?php
+                    $_rawFunding = $_editProd->getData('news_to_date');
+                    $_fundingInput = $_rawFunding ? date('Y-m-d', strtotime($_rawFunding)) : '';
+                    ?>
+                    <input type="date" class="dcf-input" name="funding_validity" value="<?php echo $_fundingInput ?>" />
+                    <div style="font-size:11px;color:#64748b;margin-top:4px;">Date until which the course funding is valid</div>
+                </div>
+
+                <div class="dcf-field">
+                    <div class="dcf-label" style="font-size:13px;font-weight:700;color:#f1f5f9;text-transform:none;letter-spacing:0;margin-bottom:10px;">Duration <span style="color:#fb7185;">*</span></div>
+                    <div style="background:#1b2638;border:1px solid #334155;border-radius:10px;padding:18px 20px;">
+                        <div style="display:flex;gap:16px;">
+                            <div style="flex:1;">
+                                <div style="font-size:13px;color:#94a3b8;margin-bottom:8px;font-weight:500;">Training Hours <span style="color:#fb7185;">*</span></div>
+                                <input type="number" step="0.5" name="training_hours" id="dcf-training-hours" value="<?php echo $_editCourseData['duration'] > 0 ? $_editCourseData['duration'] : '' ?>" placeholder="0" oninput="dcfUpdateTotal()" style="width:100%;padding:14px 16px;background:#283548;border:1px solid #475569;border-radius:10px;color:#f1f5f9;font-size:18px;font-weight:600;outline:none;box-sizing:border-box;font-family:inherit;" />
+                            </div>
+                            <div style="flex:1;">
+                                <div style="font-size:13px;color:#94a3b8;margin-bottom:8px;font-weight:500;">Assessment Hours <span style="color:#fb7185;">*</span></div>
+                                <input type="number" step="0.5" name="assessment_hours" id="dcf-assessment-hours" value="" placeholder="0" oninput="dcfUpdateTotal()" style="width:100%;padding:14px 16px;background:#283548;border:1px solid #475569;border-radius:10px;color:#f1f5f9;font-size:18px;font-weight:600;outline:none;box-sizing:border-box;font-family:inherit;" />
+                            </div>
+                        </div>
+                        <div style="text-align:right;margin-top:14px;font-size:14px;color:#94a3b8;font-weight:600;">Total Duration: <strong id="dcf-total-hours" style="color:#60a5fa;font-weight:700;margin-left:4px;"><?php echo $_editCourseData['duration'] > 0 ? rtrim(rtrim(number_format($_editCourseData['duration'], 1), '0'), '.') . ' hours' : '—' ?></strong></div>
+                    </div>
+                </div>
+
+                <div class="dcf-field">
+                    <div class="dcf-label">Mode of Learning</div>
+                    <div style="display:flex;flex-direction:column;gap:8px;">
+                        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;color:#f1f5f9;"><input type="radio" name="mode_of_learning" value="Physical" checked style="accent-color:#2563eb;width:16px;height:16px;" /> Physical</label>
+                        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;color:#f1f5f9;"><input type="radio" name="mode_of_learning" value="Virtual" style="accent-color:#2563eb;width:16px;height:16px;" /> Virtual</label>
+                        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;color:#f1f5f9;"><input type="radio" name="mode_of_learning" value="Hybrid" style="accent-color:#2563eb;width:16px;height:16px;" /> Hybrid</label>
+                    </div>
+                </div>
+
+                <div class="dcf-field">
+                    <div class="dcf-label">Course Type</div>
+                    <select class="dcf-input" name="course_type_select" style="appearance:auto;">
+                        <option value="">— Select —</option>
+                        <option value="WSQ" <?php echo $_editCourseData['course_type'] === 'WSQ' ? 'selected' : '' ?>>WSQ</option>
+                        <option value="IBF" <?php echo $_editCourseData['course_type'] === 'IBF' ? 'selected' : '' ?>>IBF</option>
+                        <option value="SkillsFuture" <?php echo $_editCourseData['course_type'] === 'SkillsFuture' ? 'selected' : '' ?>>SkillsFuture</option>
+                        <option value="Non-funded" <?php echo $_editCourseData['course_type'] === 'Non-funded' ? 'selected' : '' ?>>Non-funded</option>
+                    </select>
+                </div>
             </div>
+            <script>
+            function dcfUpdateTotal() {
+                var t = parseFloat(document.getElementById('dcf-training-hours').value) || 0;
+                var a = parseFloat(document.getElementById('dcf-assessment-hours').value) || 0;
+                var total = t + a;
+                var el = document.getElementById('dcf-total-hours');
+                if (el) el.textContent = total > 0 ? (total % 1 === 0 ? total : total.toFixed(1)) + ' hours' : '—';
+            }
+            </script>
 
             <div class="dcf-section">
                 <div class="dcf-section-title">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                     Trainers
                 </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Trainer Names</div>
-                    <textarea class="dcf-textarea" name="trainer_names" placeholder="Enter one trainer name per line"><?php echo htmlspecialchars(implode("\n", $_editCourseData['trainer_names'])) ?></textarea>
+                <style>
+                .tr-picker-wrap{}
+                .tr-picker-label{font-weight:700;color:#fff;font-size:14px;margin-bottom:8px}
+                .tr-picker-search{width:100%;padding:12px 16px;background:#1e293b;border:1px solid #334155;border-radius:10px;color:#e2e8f0;font-size:14px;outline:none;box-sizing:border-box}
+                .tr-picker-search:focus{border-color:#60a5fa}
+                .tr-picker-list{background:#1e293b;border:1px solid #334155;border-radius:10px;max-height:280px;overflow-y:auto;margin-top:10px}
+                .tr-picker-list::-webkit-scrollbar{width:10px}
+                .tr-picker-list::-webkit-scrollbar-thumb{background:#475569;border-radius:10px;border:2px solid #1e293b}
+                .tr-picker-item{padding:10px 16px;cursor:pointer;color:#e2e8f0;font-size:14px;border-bottom:1px solid #334155;display:flex;align-items:center;justify-content:space-between;gap:12px}
+                .tr-picker-item:last-child{border-bottom:none}
+                .tr-picker-item:hover{background:#283548}
+                .tr-picker-item.selected{background:rgba(37,99,235,.15);color:#93c5fd;font-weight:600}
+                .tr-picker-item.hidden{display:none}
+                .tr-picker-count{color:#94a3b8;font-size:12px;margin:16px 0 10px}
+                .tr-picker-tags{display:flex;flex-wrap:wrap;gap:8px}
+                .tr-picker-tag{background:rgba(37,99,235,.15);border:1px solid rgba(37,99,235,.4);border-radius:18px;padding:6px 14px;color:#93c5fd;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:8px}
+                .tr-picker-tag-x{color:#60a5fa;cursor:pointer;font-weight:700;font-size:15px;line-height:1}
+                .tr-picker-tag-x:hover{color:#fb7185}
+                </style>
+                <input type="hidden" name="trainer_ids" id="trainer-ids" value="<?php echo htmlspecialchars(implode(',', $_editCourseData['assigned_ids'])) ?>" />
+                <div class="tr-picker-wrap">
+                    <div class="tr-picker-label">Add Trainer</div>
+                    <input type="text" class="tr-picker-search" id="trainer-search" placeholder="Search active trainer by name" oninput="trFilterList(this.value)" autocomplete="off" />
+                    <div class="tr-picker-list" id="trainer-list">
+                        <?php foreach ($_editCourseData['all_trainers'] as $_tid => $_tnm): ?>
+                        <div class="tr-picker-item<?php echo in_array($_tid, $_editCourseData['assigned_ids']) ? ' selected' : '' ?>" data-id="<?php echo (int)$_tid ?>" data-name="<?php echo htmlspecialchars($_tnm) ?>" onclick="trToggle(this)">
+                            <span><?php echo htmlspecialchars($_tnm) ?></span>
+                            <?php if (in_array($_tid, $_editCourseData['assigned_ids'])): ?>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            <?php endif; ?>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <div class="tr-picker-count" id="trainer-count"><?php echo count($_editCourseData['assigned_ids']) ?> assigned trainer<?php echo count($_editCourseData['assigned_ids']) === 1 ? '' : 's' ?></div>
+                    <div class="tr-picker-tags" id="trainer-tags">
+                        <?php foreach ($_editCourseData['assigned_ids'] as $_aid): if (isset($_editCourseData['all_trainers'][$_aid])): ?>
+                        <span class="tr-picker-tag" data-id="<?php echo (int)$_aid ?>"><?php echo htmlspecialchars($_editCourseData['all_trainers'][$_aid]) ?> <span class="tr-picker-tag-x" onclick="trRemove(<?php echo (int)$_aid ?>)">&times;</span></span>
+                        <?php endif; endforeach; ?>
+                    </div>
                 </div>
+                <script>
+                (function(){
+                    var hidden = document.getElementById('trainer-ids');
+                    window.trFilterList = function(q) {
+                        q = q.toLowerCase();
+                        var items = document.querySelectorAll('#trainer-list .tr-picker-item');
+                        for (var i = 0; i < items.length; i++) {
+                            var name = items[i].getAttribute('data-name').toLowerCase();
+                            items[i].classList.toggle('hidden', q && name.indexOf(q) === -1);
+                        }
+                    };
+                    function rebuildTags() {
+                        var ids = (hidden.value || '').split(',').filter(Boolean);
+                        var tags = document.getElementById('trainer-tags');
+                        var count = document.getElementById('trainer-count');
+                        tags.innerHTML = '';
+                        ids.forEach(function(id){
+                            var item = document.querySelector('#trainer-list .tr-picker-item[data-id="' + id + '"]');
+                            if (!item) return;
+                            var span = document.createElement('span');
+                            span.className = 'tr-picker-tag';
+                            span.setAttribute('data-id', id);
+                            span.innerHTML = item.getAttribute('data-name') + ' <span class="tr-picker-tag-x">&times;</span>';
+                            span.querySelector('.tr-picker-tag-x').onclick = function(){ trRemove(parseInt(id, 10)); };
+                            tags.appendChild(span);
+                        });
+                        count.textContent = ids.length + ' assigned trainer' + (ids.length === 1 ? '' : 's');
+                    }
+                    window.trToggle = function(el) {
+                        var id = el.getAttribute('data-id');
+                        var ids = (hidden.value || '').split(',').filter(Boolean);
+                        var idx = ids.indexOf(id);
+                        if (idx >= 0) {
+                            ids.splice(idx, 1);
+                            el.classList.remove('selected');
+                            var check = el.querySelector('svg');
+                            if (check) check.remove();
+                        } else {
+                            ids.push(id);
+                            el.classList.add('selected');
+                            if (!el.querySelector('svg')) {
+                                el.insertAdjacentHTML('beforeend', '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>');
+                            }
+                        }
+                        hidden.value = ids.join(',');
+                        rebuildTags();
+                    };
+                    window.trRemove = function(id) {
+                        var el = document.querySelector('#trainer-list .tr-picker-item[data-id="' + id + '"]');
+                        if (el) trToggle(el);
+                    };
+                })();
+                </script>
             </div>
         </div>
 
@@ -1450,51 +1626,236 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                 <textarea class="dcf-textarea dcf-textarea-rich" name="learning_outcomes" placeholder="Enter course topics and learning units (HTML supported)..."><?php echo htmlspecialchars($_editCourseData['learning_outcomes']) ?></textarea>
             </div>
 
+            <!-- Courseware URLs -->
             <div class="dcf-section">
                 <div class="dcf-section-title">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                    Who Should Attend
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                    Courseware
                 </div>
-                <textarea class="dcf-textarea dcf-textarea-rich" name="who_should_attend" placeholder="List target job roles and audience..."><?php echo htmlspecialchars($_editCourseData['who_should_attend']) ?></textarea>
+                <div class="dcf-field"><div class="dcf-label">Lesson Plan URL</div><input type="text" class="dcf-input" name="url_lesson_plan" value="" placeholder="Paste URL" /></div>
+                <div class="dcf-field"><div class="dcf-label">Learner Guide URL</div><input type="text" class="dcf-input" name="url_learner_guide" value="" placeholder="Paste URL" /></div>
+                <div class="dcf-field"><div class="dcf-label">Facilitator Guide URL</div><input type="text" class="dcf-input" name="url_facilitator_guide" value="" placeholder="Paste URL" /></div>
+                <div class="dcf-field"><div class="dcf-label">Assessment Plan URL</div><input type="text" class="dcf-input" name="url_assessment_plan" value="" placeholder="Paste URL" /></div>
+                <div class="dcf-field"><div class="dcf-label">Learner Slides URL</div><input type="text" class="dcf-input" name="url_learner_slides" value="" placeholder="Paste URL" /></div>
+                <div class="dcf-field"><div class="dcf-label">Trainer Slides URL</div><input type="text" class="dcf-input" name="url_trainer_slides" value="" placeholder="Paste URL" /></div>
+                <div class="dcf-field"><div class="dcf-label">Courseware Link</div><input type="text" class="dcf-input" name="url_courseware" value="" placeholder="Paste URL" /></div>
+                <div class="dcf-field"><div class="dcf-label">Brochure Link</div><input type="text" class="dcf-input" name="brochure_url" value="<?php echo htmlspecialchars($_editCourseData['brochure_url']) ?>" placeholder="Paste URL" /></div>
+                <div class="dcf-field"><div class="dcf-label">SkillsFuture Link</div><input type="text" class="dcf-input" name="url_skillsfuture" value="" placeholder="Paste URL" /></div>
+                <div class="dcf-field"><div class="dcf-label">Assessment Record Link</div><input type="text" class="dcf-input" name="url_assessment_record" value="" placeholder="Paste URL" /></div>
+                <div class="dcf-field"><div class="dcf-label">Assessment Summary Record URL</div><input type="text" class="dcf-input" name="url_assessment_summary" value="" placeholder="Paste URL" /></div>
             </div>
 
+            <!-- Assessment Methods -->
             <div class="dcf-section">
                 <div class="dcf-section-title">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                    Prerequisites
+                    Assessment Methods
                 </div>
-                <textarea class="dcf-textarea dcf-textarea-rich" name="prerequisite" placeholder="Minimum entry requirements, hardware/software needs..."><?php echo htmlspecialchars($_editCourseData['prerequisite']) ?></textarea>
+                <div style="font-size:12px;color:#94a3b8;margin-bottom:14px;">Select the assessment methods for this course. A link field will appear for each selected method.</div>
+                <style>
+                .dcf-assess-box{display:block;background:#283548;border:1px solid #384a60;border-radius:10px;padding:14px 16px;margin-bottom:10px;box-sizing:border-box;width:100%}
+                .dcf-assess-row{display:flex !important;align-items:center;gap:12px;cursor:pointer;color:#f1f5f9;font-size:14px;font-weight:600;margin:0}
+                .dcf-assess-row input[type="checkbox"]{accent-color:#2563eb;width:18px;height:18px;flex-shrink:0;margin:0}
+                .dcf-assess-row span{flex:1}
+                .dcf-assess-url{margin-top:12px;display:none}
+                .dcf-assess-url input{width:100%}
+                .dcf-assess-box.dcf-assess-checked .dcf-assess-url{display:block}
+                </style>
+                <?php $_assessMethods = array(
+                    'written'    => 'Written Exam',
+                    'practical'  => 'Practical Exam',
+                    'case_study' => 'Case Study',
+                    'role_play'  => 'Role Play',
+                    'oral'       => 'Oral Questioning',
+                    'project'    => 'Project',
+                    'assignment' => 'Assignment',
+                ); ?>
+                <?php foreach ($_assessMethods as $_ak => $_al): ?>
+                <div class="dcf-assess-box">
+                    <label class="dcf-assess-row">
+                        <input type="checkbox" name="assess_<?php echo $_ak ?>" onchange="this.closest('.dcf-assess-box').classList.toggle('dcf-assess-checked', this.checked)" />
+                        <span><?php echo $_al ?></span>
+                    </label>
+                    <div class="dcf-assess-url"><input type="text" class="dcf-input" name="url_<?php echo $_ak ?>" value="" placeholder="Paste URL" /></div>
+                </div>
+                <?php endforeach; ?>
             </div>
 
+            <!-- Lesson section with rich topic/link cards -->
             <div class="dcf-section">
                 <div class="dcf-section-title">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                    Course Brochure
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                    Lesson
                 </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Brochure Link</div>
-                    <input type="text" class="dcf-input" name="brochure_url" value="<?php echo htmlspecialchars($_editCourseData['brochure_url']) ?>" placeholder="Paste brochure URL (PDF or Drive link)" />
+                <style>
+                .lsn-topic{background:#283548;border:1px solid #384a60;border-radius:12px;margin-bottom:14px;overflow:hidden}
+                .lsn-topic-head{display:flex;align-items:center;gap:12px;background:#334155;padding:14px 16px}
+                .lsn-topic-drag{color:#94a3b8;cursor:grab;padding:4px;display:flex;flex-direction:column;gap:3px}
+                .lsn-topic-drag span{display:block;width:14px;height:2px;background:currentColor;border-radius:1px}
+                .lsn-topic-title{flex:1;background:transparent;border:none;color:#f1f5f9;font-size:15px;font-weight:700;outline:none;padding:4px 0;font-family:inherit}
+                .lsn-topic-btn{background:transparent;border:none;cursor:pointer;padding:6px;display:flex;color:#94a3b8;border-radius:6px}
+                .lsn-topic-btn:hover{background:rgba(255,255,255,.05);color:#e2e8f0}
+                .lsn-topic-btn.lsn-del{color:#fb7185}
+                .lsn-topic-btn.lsn-del:hover{color:#f43f5e}
+                .lsn-topic-body{padding:14px 16px;display:none}
+                .lsn-topic.open .lsn-topic-body{display:block}
+                .lsn-topic.open .lsn-caret-svg{transform:rotate(180deg)}
+                .lsn-caret-svg{transition:transform .2s}
+                .lsn-subsec{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+                .lsn-subsec-icon{color:#22c55e;flex-shrink:0}
+                .lsn-subsec-title{flex:1;background:transparent;border:none;color:#f1f5f9;font-size:15px;font-weight:700;outline:none;padding:4px 6px;border-radius:4px;font-family:inherit}
+                .lsn-subsec-title:focus{background:rgba(96,165,250,.1)}
+                .lsn-link{display:flex;align-items:center;gap:10px;background:#1f2a3a;border:1px solid #384a60;border-radius:8px;padding:8px 10px;margin-bottom:8px}
+                .lsn-link-drag{color:#64748b;cursor:grab;display:flex;flex-direction:column;gap:2px;padding:2px}
+                .lsn-link-drag span{display:block;width:12px;height:2px;background:currentColor;border-radius:1px}
+                .lsn-tag{flex-shrink:0;padding:3px 8px;border-radius:5px;font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#fff;width:40px;text-align:center}
+                .lsn-tag-web{background:#2563eb}
+                .lsn-tag-yt{background:#dc2626}
+                .lsn-tag-doc{background:#16a34a}
+                .lsn-tag-act{background:#f59e0b}
+                .lsn-tag-qz{background:#a855f7}
+                .lsn-link-title{flex:1;min-width:0;background:transparent;border:none;color:#f1f5f9;font-size:14px;font-weight:600;outline:none;padding:4px 6px;border-radius:4px;font-family:inherit}
+                .lsn-link-title:focus{background:rgba(96,165,250,.1)}
+                .lsn-link-url{flex:1;min-width:0;background:transparent;border:none;color:#cbd5e1;font-size:13px;outline:none;padding:4px 6px;border-radius:4px;font-family:monospace;overflow:hidden;text-overflow:ellipsis}
+                .lsn-link-url:focus{background:rgba(96,165,250,.1);color:#f1f5f9}
+                .lsn-link-del{background:transparent;border:none;cursor:pointer;color:#64748b;padding:4px;border-radius:4px;display:flex}
+                .lsn-link-del:hover{color:#fb7185}
+                .lsn-add-row{display:flex;flex-wrap:wrap;gap:14px;padding:6px 0;margin-top:6px;border-top:1px solid rgba(255,255,255,.06)}
+                .lsn-add-row button{background:transparent;border:none;color:#60a5fa;font-size:13px;font-weight:600;cursor:pointer;padding:8px 6px;display:flex;align-items:center;gap:4px}
+                .lsn-add-row button:hover{color:#93c5fd}
+                .lsn-add-topic{display:flex;align-items:center;justify-content:center;gap:8px;padding:16px;border:1px dashed #475569;border-radius:10px;color:#94a3b8;font-size:14px;font-weight:700;cursor:pointer;background:transparent;width:100%;margin-top:4px}
+                .lsn-add-topic:hover{border-color:#60a5fa;color:#60a5fa}
+                </style>
+                <div id="lsn-topics"></div>
+                <input type="hidden" name="lesson_topics" id="lsn-topics-json" value="" />
+                <button type="button" class="lsn-add-topic" onclick="lsnAddTopic()">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Add Topic
+                </button>
+                <script>
+                (function(){
+                    // Seed topics from description HTML
+                    var seeded = <?php
+                        $_existing = array();
+                        $_loRaw = (string)$_editCourseData['learning_outcomes'];
+                        if ($_loRaw !== '' && preg_match_all('#<strong>\s*((?:LU|Lesson|Topic|Module)\s*\d+[^<]*?)\s*</strong>#i', $_loRaw, $_lm)) {
+                            foreach ($_lm[1] as $_t) $_existing[] = trim(html_entity_decode($_t), " :\t\n\r\0\x0B");
+                        }
+                        echo json_encode($_existing);
+                    ?>;
+                    var topics = seeded.map(function(t){ return { title: t, subsec: '', links: [] }; });
+
+                    function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+                    function syncJson(){ document.getElementById('lsn-topics-json').value = JSON.stringify(topics); }
+
+                    function render(){
+                        var wrap = document.getElementById('lsn-topics');
+                        wrap.innerHTML = '';
+                        topics.forEach(function(t, ti){
+                            var box = document.createElement('div');
+                            box.className = 'lsn-topic' + (t._open ? ' open' : '');
+                            var linksHtml = '';
+                            (t.links || []).forEach(function(l, li){
+                                var cls = 'lsn-tag-' + (l.type || 'web').toLowerCase();
+                                var tag = (l.type || 'web').toUpperCase();
+                                linksHtml += '<div class="lsn-link">' +
+                                    '<div class="lsn-link-drag"><span></span><span></span><span></span></div>' +
+                                    '<span class="lsn-tag ' + cls + '">' + tag + '</span>' +
+                                    '<input type="text" class="lsn-link-title" value="' + esc(l.title) + '" placeholder="Title" onchange="lsnEditLink(' + ti + ',' + li + ',\'title\',this.value)" />' +
+                                    '<input type="text" class="lsn-link-url" value="' + esc(l.url) + '" placeholder="URL" onchange="lsnEditLink(' + ti + ',' + li + ',\'url\',this.value)" />' +
+                                    '<button type="button" class="lsn-link-del" onclick="lsnDeleteLink(' + ti + ',' + li + ')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>' +
+                                '</div>';
+                            });
+                            box.innerHTML =
+                                '<div class="lsn-topic-head">' +
+                                    '<div class="lsn-topic-drag"><span></span><span></span><span></span></div>' +
+                                    '<input type="text" class="lsn-topic-title" value="' + esc(t.title) + '" onchange="lsnEditTopic(' + ti + ',\'title\',this.value)" />' +
+                                    '<button type="button" class="lsn-topic-btn" onclick="lsnToggleTopic(' + ti + ')"><svg class="lsn-caret-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></button>' +
+                                    '<button type="button" class="lsn-topic-btn lsn-del" onclick="lsnDeleteTopic(' + ti + ')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6M14 11v6"/></svg></button>' +
+                                '</div>' +
+                                '<div class="lsn-topic-body">' +
+                                    '<div class="lsn-subsec">' +
+                                        '<div class="lsn-subsec-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>' +
+                                        '<input type="text" class="lsn-subsec-title" value="' + esc(t.subsec) + '" placeholder="Section name" onchange="lsnEditTopic(' + ti + ',\'subsec\',this.value)" />' +
+                                    '</div>' +
+                                    linksHtml +
+                                    '<div class="lsn-add-row">' +
+                                        '<button type="button" onclick="lsnAddLink(' + ti + ',\'web\')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Web</button>' +
+                                        '<button type="button" onclick="lsnAddLink(' + ti + ',\'doc\')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Document</button>' +
+                                        '<button type="button" onclick="lsnAddLink(' + ti + ',\'yt\')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> YouTube</button>' +
+                                        '<button type="button" onclick="lsnAddLink(' + ti + ',\'act\')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Activity</button>' +
+                                        '<button type="button" onclick="lsnAddLink(' + ti + ',\'qz\')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Quiz</button>' +
+                                    '</div>' +
+                                '</div>';
+                            wrap.appendChild(box);
+                        });
+                        syncJson();
+                    }
+
+                    window.lsnAddTopic = function(){
+                        topics.push({ title: 'Topic ' + (topics.length + 1) + ': New Topic', subsec: '', links: [], _open: true });
+                        render();
+                    };
+                    window.lsnDeleteTopic = function(ti){
+                        topics.splice(ti, 1);
+                        render();
+                    };
+                    window.lsnToggleTopic = function(ti){
+                        topics[ti]._open = !topics[ti]._open;
+                        render();
+                    };
+                    window.lsnEditTopic = function(ti, field, val){
+                        topics[ti][field] = val;
+                        syncJson();
+                    };
+                    window.lsnAddLink = function(ti, type){
+                        topics[ti].links = topics[ti].links || [];
+                        topics[ti].links.push({ type: type, title: '', url: '' });
+                        render();
+                    };
+                    window.lsnDeleteLink = function(ti, li){
+                        topics[ti].links.splice(li, 1);
+                        render();
+                    };
+                    window.lsnEditLink = function(ti, li, field, val){
+                        topics[ti].links[li][field] = val;
+                        syncJson();
+                    };
+
+                    render();
+                })();
+                </script>
+            </div>
+
+            <!-- Course Settings -->
+            <div class="dcf-section">
+                <div class="dcf-section-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                    Course Settings
+                </div>
+                <style>
+                .dcf-toggle-row{display:flex;align-items:center;justify-content:space-between;gap:16px}
+                .dcf-toggle-label{font-size:14px;font-weight:600;color:#fff}
+                .dcf-toggle-sub{font-size:12px;color:#94a3b8;margin-top:2px}
+                .dcf-toggle-sw{position:relative;width:46px;height:24px;flex-shrink:0}
+                .dcf-toggle-sw input{opacity:0;width:0;height:0}
+                .dcf-toggle-slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#475569;border-radius:12px;transition:.2s}
+                .dcf-toggle-slider:before{content:'';position:absolute;height:18px;width:18px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s}
+                .dcf-toggle-sw input:checked+.dcf-toggle-slider{background:#2563eb}
+                .dcf-toggle-sw input:checked+.dcf-toggle-slider:before{transform:translateX(22px)}
+                </style>
+                <div class="dcf-toggle-row">
+                    <div>
+                        <div class="dcf-toggle-label">Enable Gaming Leaderboard</div>
+                        <div class="dcf-toggle-sub">Allow learners to see a competitive leaderboard for this course.</div>
+                    </div>
+                    <label class="dcf-toggle-sw">
+                        <input type="checkbox" name="enable_leaderboard" value="1" />
+                        <span class="dcf-toggle-slider"></span>
+                    </label>
                 </div>
             </div>
 
-            <div class="dcf-section">
-                <div class="dcf-section-title">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                    SEO Metadata
-                </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Meta Title</div>
-                    <input type="text" class="dcf-input" name="meta_title" value="<?php echo htmlspecialchars($_editCourseData['meta_title']) ?>" placeholder="SEO-friendly page title (50-60 chars)" />
-                </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Meta Description</div>
-                    <textarea class="dcf-textarea" name="meta_description" style="min-height:80px;" placeholder="150-160 char description for search results..."><?php echo htmlspecialchars($_editCourseData['meta_description']) ?></textarea>
-                </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Meta Keywords</div>
-                    <input type="text" class="dcf-input" name="meta_keyword" value="<?php echo htmlspecialchars($_editCourseData['meta_keyword']) ?>" placeholder="Comma-separated keywords" />
-                </div>
-            </div>
         </div>
     </div>
 
@@ -1682,65 +2043,41 @@ div.dce-value::-webkit-scrollbar-thumb:hover{background:#64748b}
             </div>
             <?php endif; ?>
 
-            <?php if ($_editCourseData['who_should_attend']): ?>
-            <div class="dce-section">
-                <div class="dce-section-title">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                    Who Should Attend
+            <?php
+            $_lessonTopics = array();
+            $_descRaw = (string)$_editCourseData['description'];
+            if ($_descRaw !== '' && preg_match_all('#<strong>\s*((?:LU|Lesson|Topic|Module)\s*\d+[^<]*?)\s*</strong>#i', $_descRaw, $_ltm)) {
+                foreach ($_ltm[1] as $_lt) {
+                    $_lt = trim(html_entity_decode($_lt), " :\t\n\r\0\x0B");
+                    if ($_lt !== '') $_lessonTopics[] = $_lt;
+                }
+            }
+            ?>
+            <div class="dce-section" id="lesson">
+                <div class="dce-section-title" style="cursor:pointer;margin-bottom:0;padding-bottom:14px;" onclick="var c=this.nextElementSibling;c.style.display=c.style.display==='none'?'':'none';var cr=this.querySelector('.dce-caret');if(cr)cr.style.transform=c.style.display==='none'?'rotate(180deg)':''">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                    <span style="flex:1;">Lesson</span>
+                    <svg class="dce-caret" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition:transform .2s"><polyline points="6 9 12 15 18 9"/></svg>
                 </div>
-                <div class="dce-value"><?php echo $_editCourseData['who_should_attend'] ?></div>
+                <div style="margin-top:14px;padding-top:14px;border-top:1px solid #334155;">
+                    <?php if (!empty($_lessonTopics)): ?>
+                        <style>
+                        .dce-topic-card{background:#283548;border:1px solid #384a60;border-radius:10px;padding:16px 18px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+                        .dce-topic-card:last-child{margin-bottom:0}
+                        .dce-topic-card-title{flex:1;font-size:15px;font-weight:700;color:#f1f5f9}
+                        .dce-topic-card-caret{color:#94a3b8;flex-shrink:0}
+                        </style>
+                        <?php foreach ($_lessonTopics as $_tp): ?>
+                        <div class="dce-topic-card">
+                            <div class="dce-topic-card-title"><?php echo htmlspecialchars($_tp) ?></div>
+                            <svg class="dce-topic-card-caret" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                        </div>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <div class="dce-empty">No lesson topics available.</div>
+                    <?php endif; ?>
+                </div>
             </div>
-            <?php endif; ?>
-
-            <?php if ($_editCourseData['prerequisite']): ?>
-            <div class="dce-section">
-                <div class="dce-section-title">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                    Prerequisites
-                </div>
-                <div class="dce-value"><?php echo $_editCourseData['prerequisite'] ?></div>
-            </div>
-            <?php endif; ?>
-
-            <div class="dce-section">
-                <div class="dce-section-title">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                    Course Brochure
-                </div>
-                <?php if ($_editCourseData['brochure_url']): ?>
-                <div class="dce-value"><a href="<?php echo htmlspecialchars($_editCourseData['brochure_url']) ?>" target="_blank" rel="noopener"><?php echo htmlspecialchars($_editCourseData['brochure_url']) ?></a></div>
-                <?php else: ?>
-                <div class="dce-empty">No brochure link added yet.</div>
-                <?php endif; ?>
-            </div>
-
-            <?php if ($_editCourseData['meta_description'] || $_editCourseData['meta_keyword']): ?>
-            <div class="dce-section">
-                <div class="dce-section-title">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                    SEO Metadata
-                </div>
-                <?php if ($_editCourseData['meta_title']): ?>
-                <div class="dce-field">
-                    <div class="dce-label">Meta Title</div>
-                    <div class="dce-value"><?php echo htmlspecialchars($_editCourseData['meta_title']) ?></div>
-                </div>
-                <?php endif; ?>
-                <?php if ($_editCourseData['meta_description']): ?>
-                <div class="dce-field">
-                    <div class="dce-label">Meta Description</div>
-                    <div class="dce-value"><?php echo htmlspecialchars($_editCourseData['meta_description']) ?></div>
-                </div>
-                <?php endif; ?>
-                <?php if ($_editCourseData['meta_keyword']): ?>
-                <div class="dce-field">
-                    <div class="dce-label">Meta Keywords</div>
-                    <div class="dce-value"><?php echo htmlspecialchars($_editCourseData['meta_keyword']) ?></div>
-                </div>
-                <?php endif; ?>
-            </div>
-            <?php endif; ?>
-
         </div>
     </div>
 
@@ -2035,14 +2372,44 @@ $_courseRefCode = 'TGS-' . (2024000000 + ((int)$_selectedCourse['id']) * 17);
         <?php endforeach; ?>
     </div>
 
-    <!-- DEVELOPER: Lesson (empty, collapsible) -->
+    <!-- DEVELOPER: Lesson (topic cards extracted from description) -->
+    <?php
+    $_devLessonTopics = array();
+    try {
+        $_devProd = Mage::getModel('catalog/product')->load($_selectedCourse['id']);
+        $_descRaw = (string)$_devProd->getData('description');
+        if ($_descRaw !== '' && preg_match_all('#<strong>\s*((?:LU|Lesson|Topic|Module)\s*\d+[^<]*?)\s*</strong>#i', $_descRaw, $_ltm)) {
+            foreach ($_ltm[1] as $_lt) {
+                $_lt = trim(html_entity_decode($_lt), " :\t\n\r\0\x0B");
+                if ($_lt !== '') $_devLessonTopics[] = $_lt;
+            }
+        }
+    } catch (Exception $e) {}
+    ?>
     <div class="lcd-section" id="lesson">
         <div class="lcd-section-title" style="cursor:pointer;margin-bottom:0;" onclick="var c=this.nextElementSibling;c.style.display=c.style.display==='none'?'':'none';this.querySelector('.lcd-caret').style.transform=c.style.display==='none'?'rotate(180deg)':''">
             <span>Lesson</span>
-            <svg class="lcd-caret" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transform:rotate(180deg);transition:transform .2s"><polyline points="6 9 12 15 18 9"/></svg>
+            <svg class="lcd-caret" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition:transform .2s"><polyline points="6 9 12 15 18 9"/></svg>
         </div>
-        <div style="display:none;">
-            <div style="border-top:1px solid #94a3b8;margin-top:14px;padding-top:14px;"></div>
+        <div>
+            <div style="border-top:1px solid #334155;margin-top:14px;padding-top:14px;">
+                <?php if (!empty($_devLessonTopics)): ?>
+                <style>
+                .lcd-topic-card{background:#283548;border:1px solid #384a60;border-radius:10px;padding:16px 18px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+                .lcd-topic-card:last-child{margin-bottom:0}
+                .lcd-topic-card-title{flex:1;font-size:15px;font-weight:700;color:#f1f5f9}
+                .lcd-topic-card-caret{color:#94a3b8;flex-shrink:0}
+                </style>
+                <?php foreach ($_devLessonTopics as $_tp): ?>
+                <div class="lcd-topic-card">
+                    <div class="lcd-topic-card-title"><?php echo htmlspecialchars($_tp) ?></div>
+                    <svg class="lcd-topic-card-caret" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                </div>
+                <?php endforeach; ?>
+                <?php else: ?>
+                <div style="color:#64748b;font-size:13px;font-style:italic;padding:8px 0;">No lesson topics available.</div>
+                <?php endif; ?>
+            </div>
         </div>
     </div>
 
