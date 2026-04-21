@@ -470,11 +470,11 @@ if ($_loggedInEmail) {
             elseif ($_now < $_start) { $_timeStatus = 'upcoming'; $_learnerUpcoming++; }
             else { $_timeStatus = 'past'; $_learnerPast++; }
         } else {
-            // No dates known: for trainer view treat as current (actively assigned);
-            // for learner view still count as past order history
+            // No dates known: trainer view → upcoming (scheduled but not yet running);
+            // learner view → past (historical order)
             if ($activeRole === 'trainer') {
-                $_timeStatus = 'current';
-                $_learnerCurrent++;
+                $_timeStatus = 'upcoming';
+                $_learnerUpcoming++;
             } else {
                 $_timeStatus = 'past';
                 $_learnerPast++;
