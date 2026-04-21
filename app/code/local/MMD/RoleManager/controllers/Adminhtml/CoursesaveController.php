@@ -15,6 +15,31 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 throw new Exception('Course not found');
             }
 
+            // Preserve attributes that Magento's default load doesn't populate so a full
+            // $product->save() doesn't silently wipe them. Pull them directly from the DB
+            // and seed onto the model.
+            try {
+                $resource = Mage::getSingleton('core/resource');
+                $read = $resource->getConnection('core_read');
+                $tpAttrId = (int)$read->fetchOne("SELECT attribute_id FROM eav_attribute WHERE attribute_code='trainerprofile' AND entity_type_id=4");
+                if ($tpAttrId) {
+                    $tpValExisting = $read->fetchOne(
+                        "SELECT value FROM catalog_product_entity_text WHERE entity_id=? AND attribute_id=? AND value IS NOT NULL AND value != '' ORDER BY store_id LIMIT 1",
+                        array($courseId, $tpAttrId)
+                    );
+                    if ($tpValExisting !== false && $tpValExisting !== null) {
+                        $product->setData('trainerprofile', $tpValExisting);
+                    }
+                }
+                $trValExisting = $read->fetchOne(
+                    "SELECT value FROM catalog_product_entity_text WHERE entity_id=? AND attribute_id=170 AND value IS NOT NULL AND value != '' ORDER BY store_id LIMIT 1",
+                    array($courseId)
+                );
+                if ($trValExisting !== false && $trValExisting !== null) {
+                    $product->setData('trainers', $trValExisting);
+                }
+            } catch (Exception $e) {}
+
             // Basic fields
             if (($v = $req->getParam('course_name'))  !== null && $v !== '') $product->setName($v);
             if (($v = $req->getParam('course_code'))  !== null && $v !== '') $product->setSku($v);
@@ -27,16 +52,43 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 $product->setData('news_to_date', $v);
             }
 
-            // Trainer multiselect (primary source) — keeps trainerprofile HTML intact so
-            // legacy-only trainer names (not in the option list) are preserved for display
+            // Trainer multiselect (primary source)
             $trainerIdsChanged = false;
             if (($v = $req->getParam('trainer_ids')) !== null) {
                 $ids = array_filter(array_map('intval', explode(',', $v)));
                 $product->setData('trainers', implode(',', $ids));
                 $trainerIdsChanged = true;
             }
-            if (($v = $req->getParam('trainer_names')) !== null) {
-                $lines = array_filter(array_map('trim', preg_split('/\r?\n/', $v)));
+            // Strip legacy trainer names from the trainerprofile HTML when the × was clicked
+            $legacyRemove = trim((string)$req->getParam('legacy_trainer_remove', ''));
+            if ($legacyRemove !== '') {
+                $resource = Mage::getSingleton('core/resource');
+                $read = $resource->getConnection('core_read');
+                $tpAttrId = (int)$read->fetchOne("SELECT attribute_id FROM eav_attribute WHERE attribute_code='trainerprofile' AND entity_type_id=4");
+                $currentTp = (string)$read->fetchOne(
+                    "SELECT value FROM catalog_product_entity_text WHERE entity_id=? AND attribute_id=? AND value IS NOT NULL AND value != '' ORDER BY store_id LIMIT 1",
+                    array($courseId, $tpAttrId)
+                );
+                if ($currentTp !== '') {
+                    $namesToRemove = array_filter(array_map('trim', explode('|', $legacyRemove)));
+                    foreach ($namesToRemove as $name) {
+                        // Remove <p>...<strong>Name:</strong>...content until next <p><strong> or end
+                        $escaped = preg_quote($name, '#');
+                        // Pattern: <p>...<strong>NAME:</strong>...</p> (and any following content until next <strong>NAME:</strong> paragraph or <h2>/end)
+                        $currentTp = preg_replace(
+                            '#<p[^>]*>\s*<strong>\s*' . $escaped . '\s*:\s*</strong>.*?(?=<p[^>]*>\s*<strong>[^<:]+:\s*</strong>|<h[1-6]|\z)#si',
+                            '',
+                            $currentTp
+                        );
+                    }
+                    $product->setData('trainerprofile', $currentTp);
+                }
+            }
+            // Only write trainerprofile if the form actually submitted trainer_names (legacy textarea).
+            // Never wipe it from a submission that lacks that field.
+            $tnRaw = $req->getParam('trainer_names');
+            if ($tnRaw !== null && trim((string)$tnRaw) !== '') {
+                $lines = array_filter(array_map('trim', preg_split('/\r?\n/', $tnRaw)));
                 $html  = '';
                 foreach ($lines as $line) {
                     $html .= '<p><strong>' . htmlspecialchars($line) . ':</strong></p>' . "\n";
