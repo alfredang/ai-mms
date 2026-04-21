@@ -464,12 +464,22 @@ if ($_loggedInEmail) {
         $_status = 'Confirmed';
         if (in_array($_r['order_state'], array('pending','holded','new'))) $_status = 'Pending';
 
-        $_timeStatus = 'past';
+        $_timeStatus = 'current';
         if ($_start && $_end) {
             if ($_now >= $_start && $_now <= $_end) { $_timeStatus = 'current'; $_learnerCurrent++; }
             elseif ($_now < $_start) { $_timeStatus = 'upcoming'; $_learnerUpcoming++; }
-            else { $_learnerPast++; }
-        } else { $_learnerPast++; }
+            else { $_timeStatus = 'past'; $_learnerPast++; }
+        } else {
+            // No dates known: for trainer view treat as current (actively assigned);
+            // for learner view still count as past order history
+            if ($activeRole === 'trainer') {
+                $_timeStatus = 'current';
+                $_learnerCurrent++;
+            } else {
+                $_timeStatus = 'past';
+                $_learnerPast++;
+            }
+        }
 
         // Get product image + real attributes from DB
         $_imgUrl = '';
