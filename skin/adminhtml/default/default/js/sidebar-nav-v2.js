@@ -160,29 +160,49 @@ document.observe('dom:loaded', function() {
         var filterCells = filterRow.childElements();
         var headingCells = headingRow ? headingRow.childElements() : [];
 
-        // Find the grid JS object name from Search/Reset buttons
+        // Find the grid JS object name from Search/Reset buttons.
+        // The Search button lives outside <div class="grid"> (in the top action bar),
+        // so we walk up ancestors until we find it, then fall back to document-wide.
         var gridJsName = null;
         var searchBtn = null;
-        // Search in grid first, then parent wrapper
-        var searchScopes = [grid];
-        var gridParentEl = grid.up();
-        if (gridParentEl) searchScopes.push(gridParentEl);
-        // Also check grandparent
-        if (gridParentEl && gridParentEl.up()) searchScopes.push(gridParentEl.up());
-
-        for (var si = 0; si < searchScopes.length && !searchBtn; si++) {
-            var btns = searchScopes[si].select('button');
+        var resetBtn = null;
+        var scope = grid;
+        for (var depth = 0; depth < 8 && !searchBtn; depth++) {
+            var btns = scope.select('button');
             for (var bi = 0; bi < btns.length; bi++) {
                 var oc = btns[bi].readAttribute('onclick') || '';
-                if (oc.indexOf('doFilter') !== -1) {
-                    searchBtn = btns[bi];
-                    break;
-                }
+                if (!searchBtn && oc.indexOf('.doFilter') !== -1) searchBtn = btns[bi];
+                if (!resetBtn && oc.indexOf('.resetFilter') !== -1) resetBtn = btns[bi];
+            }
+            if (searchBtn) break;
+            var parent = scope.up();
+            if (!parent || parent === document.body) break;
+            scope = parent;
+        }
+        // Last-ditch fallback: search whole document
+        if (!searchBtn) {
+            var allBtns = $$('button');
+            for (var ai = 0; ai < allBtns.length; ai++) {
+                var oc2 = allBtns[ai].readAttribute('onclick') || '';
+                if (!searchBtn && oc2.indexOf('.doFilter') !== -1) searchBtn = allBtns[ai];
+                if (!resetBtn && oc2.indexOf('.resetFilter') !== -1) resetBtn = allBtns[ai];
             }
         }
         if (searchBtn) {
-            var match = searchBtn.readAttribute('onclick').match(/(\w+)\.doFilter/);
+            var match = (searchBtn.readAttribute('onclick') || '').match(/(\w+)\.doFilter/);
             if (match) gridJsName = match[1];
+        }
+        // Fallback: try deriving from grid id (e.g. cmsPageGrid_table → cmsPageGridJsObject
+        // or plain cmsPageGrid — varienGrid assigns window[jsObjectName])
+        if (!gridJsName) {
+            var gridTable = grid.down('table[id$="_table"]');
+            if (gridTable) {
+                var tid = (gridTable.readAttribute('id') || '').replace(/_table$/, '');
+                if (tid) {
+                    if (window[tid + 'JsObject'] && window[tid + 'JsObject'].doFilter) gridJsName = tid + 'JsObject';
+                    else if (window[tid] && window[tid].doFilter) gridJsName = tid;
+                }
+            }
         }
 
         // Collect filter fields with their labels
@@ -294,18 +314,57 @@ document.observe('dom:loaded', function() {
         });
         resetBtnNew.update('<span>Reset</span>');
 
-        if (gridJsName) {
-            searchBtnNew.observe('click', function() {
-                if (window[gridJsName] && window[gridJsName].doFilter) {
-                    window[gridJsName].doFilter();
-                }
+        // Wire Apply/Reset. Magento's varienGrid.doFilter() only reads inputs inside
+        // "#<gridId> .filter" — but we moved them into the panel. So we temporarily
+        // reparent the inputs back into their original tr.filter cells, run doFilter,
+        // then move them back into the panel.
+        function withInputsInGrid(cb) {
+            var movedBack = [];
+            fields.each(function(field) {
+                field.inputs.each(function(inp) {
+                    var currentParent = inp.parentNode;
+                    if (currentParent !== field.cell) {
+                        movedBack.push({ inp: inp, from: currentParent });
+                        field.cell.appendChild(inp);
+                    }
+                });
             });
-            resetBtnNew.observe('click', function() {
-                if (window[gridJsName] && window[gridJsName].resetFilter) {
-                    window[gridJsName].resetFilter();
-                }
-            });
+            try { cb(); } finally {
+                movedBack.each(function(entry) {
+                    entry.from.appendChild(entry.inp);
+                });
+            }
         }
+
+        searchBtnNew.observe('click', function() {
+            if (gridJsName && window[gridJsName] && window[gridJsName].doFilter) {
+                withInputsInGrid(function() { window[gridJsName].doFilter(); });
+                return;
+            }
+            if (searchBtn) {
+                withInputsInGrid(function() { searchBtn.click(); });
+                return;
+            }
+            console.warn('[Filter] No grid JS object or Search button found for grid', grid.readAttribute('id'));
+        });
+        resetBtnNew.observe('click', function() {
+            // Reset: clear all panel inputs first, then delegate to grid
+            fields.each(function(field) {
+                field.inputs.each(function(inp) {
+                    if (inp.tagName === 'SELECT') inp.selectedIndex = 0;
+                    else inp.value = '';
+                });
+            });
+            if (gridJsName && window[gridJsName] && window[gridJsName].resetFilter) {
+                withInputsInGrid(function() { window[gridJsName].resetFilter(); });
+                return;
+            }
+            if (resetBtn) {
+                withInputsInGrid(function() { resetBtn.click(); });
+                return;
+            }
+            console.warn('[Filter] No grid JS object or Reset button found');
+        });
 
         actions.insert(searchBtnNew);
         actions.insert(resetBtnNew);
