@@ -802,6 +802,8 @@ $_devCourses = array();
 $_devPageSize = 12;
 $_devCurPage = max(1, (int) Mage::app()->getRequest()->getParam('dev_page', 1));
 $_devCountry = Mage::app()->getRequest()->getParam('dev_country', 'Singapore');
+$_devFilterType = (string) Mage::app()->getRequest()->getParam('dev_type', '');
+$_devFilterQuery = trim((string) Mage::app()->getRequest()->getParam('dev_q', ''));
 $_devCountryMap = array(
     'Singapore' => 1,
     'Malaysia'  => 2,
@@ -819,6 +821,27 @@ try {
         ->addAttributeToFilter('status', 1)
         ->addWebsiteFilter($_devWebsiteId)
         ->setOrder('entity_id', 'DESC');
+
+    // Server-side filter by course type (software attribute)
+    if ($_devFilterType !== '') {
+        $_typeMap = array('wsq'=>'WSQ','ibf'=>'IBF','skillsfuture'=>'SkillsFuture','nonfunded'=>'Non-funded');
+        $_typeKey = strtolower($_devFilterType);
+        if (isset($_typeMap[$_typeKey])) {
+            $_optId = Mage::getSingleton('eav/config')->getAttribute('catalog_product', 'software')->getSource()->getOptionId($_typeMap[$_typeKey]);
+            if ($_optId) {
+                $_devCollection->addAttributeToFilter('software', $_optId);
+            }
+        }
+    }
+
+    // Server-side search by course name or SKU
+    if ($_devFilterQuery !== '') {
+        $_devCollection->addFieldToFilter(array(
+            array('attribute'=>'name','like'=>'%' . $_devFilterQuery . '%'),
+            array('attribute'=>'sku','like'=>'%' . $_devFilterQuery . '%'),
+        ));
+    }
+
     $_devTotalCount = $_devCollection->getSize();
     $_devCollection->setPageSize($_devPageSize)->setCurPage($_devCurPage);
     foreach ($_devCollection as $_dp) {
@@ -952,22 +975,24 @@ a.dev-country-btn.active,a.dev-country-btn.active:hover,a.dev-country-btn.active
         <div class="dev-search-row">
             <div class="dev-search-input-wrap">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                <input type="text" class="dev-search-input" placeholder="Search title, code, TSC..." style="padding-left:42px !important;" oninput="devSearch(this.value)" autocomplete="off" />
+                <input type="text" id="dev-search-input" class="dev-search-input" placeholder="Search title, code, TSC..." value="<?php echo htmlspecialchars($_devFilterQuery) ?>" style="padding-left:42px !important;" onkeydown="if(event.key==='Enter'){event.preventDefault();devApplyFilters();}" autocomplete="off" />
             </div>
             <span style="color:#94a3b8;font-size:13px;flex-shrink:0;">View:</span>
             <div class="lmc-view-toggle"><button type="button" class="lmc-view-btn active" id="dev-grid-btn" onclick="devSetView('grid')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></button><button type="button" class="lmc-view-btn" id="dev-list-btn" onclick="devSetView('list')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></button></div>
             <button type="button" onclick="devResetFilters()" style="background:transparent !important;background-image:none !important;border:none !important;color:#94a3b8 !important;font-size:13px !important;font-weight:500 !important;cursor:pointer !important;padding:4px 8px !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;height:auto !important;min-width:0 !important;line-height:normal !important;">Reset</button>
-            <button type="button" id="dev-filter-toggle" onclick="devToggleFilters()" style="background:transparent !important;background-image:none !important;border:1px solid #475569 !important;color:#e2e8f0 !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;padding:6px 16px !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;height:auto !important;min-width:0 !important;line-height:normal !important;border-radius:8px !important;">Show Filters</button>
+            <?php $_devFiltersOpen = $_devFilterType !== ''; ?>
+            <button type="button" id="dev-filter-toggle" onclick="devToggleFilters()" style="background:transparent !important;background-image:none !important;border:1px solid <?php echo $_devFiltersOpen ? '#60a5fa' : '#475569' ?> !important;color:<?php echo $_devFiltersOpen ? '#fff' : '#e2e8f0' ?> !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;padding:6px 16px !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;height:auto !important;min-width:0 !important;line-height:normal !important;border-radius:8px !important;"><?php echo $_devFiltersOpen ? 'Hide Filters' : 'Show Filters' ?></button>
         </div>
-        <div id="dev-filter-row" style="display:none;margin-top:14px;">
+        <div id="dev-filter-row" style="display:<?php echo $_devFiltersOpen ? 'block' : 'none' ?>;margin-top:14px;">
             <div style="display:flex;gap:16px;flex-wrap:wrap;">
                 <div style="flex:1;min-width:200px;">
                     <div style="font-size:12px;font-weight:600;color:#e2e8f0;margin-bottom:6px;">Course Type</div>
                     <select id="dev-filter-type" onchange="devApplyFilters()" style="width:100%;padding:10px 14px;background:#111827;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:14px;appearance:auto;outline:none;">
                         <option value="">All Types</option>
-                        <option value="wsq">WSQ</option>
-                        <option value="ibf">IBF</option>
-                        <option value="general">General</option>
+                        <option value="wsq" <?php echo strtolower($_devFilterType) === 'wsq' ? 'selected' : '' ?>>WSQ</option>
+                        <option value="ibf" <?php echo strtolower($_devFilterType) === 'ibf' ? 'selected' : '' ?>>IBF</option>
+                        <option value="skillsfuture" <?php echo strtolower($_devFilterType) === 'skillsfuture' ? 'selected' : '' ?>>SkillsFuture</option>
+                        <option value="nonfunded" <?php echo strtolower($_devFilterType) === 'nonfunded' ? 'selected' : '' ?>>Non-funded</option>
                     </select>
                 </div>
                 <div style="flex:1;min-width:200px;">
@@ -1027,7 +1052,12 @@ a.dev-country-btn.active,a.dev-country-btn.active:hover,a.dev-country-btn.active
     <div class="dev-pagination">
         <?php
         $_devBaseUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard');
-        $_devPageUrl = function($p) use ($_devBaseUrl, $_devCountry) { return $_devBaseUrl . '?dev_country=' . urlencode($_devCountry) . '&dev_page=' . $p . '#courses'; };
+        $_devPageUrl = function($p) use ($_devBaseUrl, $_devCountry, $_devFilterType, $_devFilterQuery) {
+            $qs = array('dev_country=' . urlencode($_devCountry), 'dev_page=' . $p);
+            if ($_devFilterType !== '') $qs[] = 'dev_type=' . urlencode($_devFilterType);
+            if ($_devFilterQuery !== '') $qs[] = 'dev_q=' . urlencode($_devFilterQuery);
+            return $_devBaseUrl . '?' . implode('&', $qs) . '#courses';
+        };
         ?>
         <a href="<?php echo $_devPageUrl(max(1, $_devCurPage - 1)) ?>" class="dev-page-btn<?php echo $_devCurPage <= 1 ? ' disabled' : '' ?>">&larr; Prev</a>
         <?php
@@ -1049,13 +1079,6 @@ a.dev-country-btn.active,a.dev-country-btn.active:hover,a.dev-country-btn.active
     <?php endif; ?>
 </div>
 <script type="text/javascript">
-function devSearch(q) {
-    q = q.toLowerCase();
-    var cards = document.querySelectorAll('#dev-grid .dev-card');
-    for (var i = 0; i < cards.length; i++) {
-        cards[i].style.display = (!q || cards[i].getAttribute('data-search').indexOf(q) >= 0) ? '' : 'none';
-    }
-}
 function devSetCountry(btn) {
     var all = document.querySelectorAll('.dev-country-btn');
     for (var i = 0; i < all.length; i++) all[i].classList.remove('active');
@@ -1077,24 +1100,19 @@ function devToggleFilters() {
     }
 }
 function devApplyFilters() {
-    var typeVal = document.getElementById('dev-filter-type').value;
-    var cards = document.querySelectorAll('#dev-grid .dev-card');
-    for (var i = 0; i < cards.length; i++) {
-        var show = true;
-        if (typeVal) {
-            var badge = cards[i].querySelector('.dev-badge');
-            var cardType = badge ? badge.textContent.trim().toLowerCase() : 'general';
-            if (typeVal !== cardType) show = false;
-        }
-        cards[i].style.display = show ? '' : 'none';
-    }
+    var base = <?php echo json_encode(Mage::helper('adminhtml')->getUrl('adminhtml/dashboard')) ?>;
+    var country = <?php echo json_encode($_devCountry) ?>;
+    var typeEl = document.getElementById('dev-filter-type');
+    var qEl = document.getElementById('dev-search-input');
+    var params = ['dev_country=' + encodeURIComponent(country)];
+    if (typeEl && typeEl.value) params.push('dev_type=' + encodeURIComponent(typeEl.value));
+    if (qEl && qEl.value.trim() !== '') params.push('dev_q=' + encodeURIComponent(qEl.value.trim()));
+    window.location.href = base + '?' + params.join('&') + '#courses';
 }
 function devResetFilters() {
-    document.querySelector('.dev-search-input').value = '';
-    devSearch('');
-    document.getElementById('dev-filter-type').value = '';
-    document.getElementById('dev-filter-mode').value = '';
-    devApplyFilters();
+    var base = <?php echo json_encode(Mage::helper('adminhtml')->getUrl('adminhtml/dashboard')) ?>;
+    var country = <?php echo json_encode($_devCountry) ?>;
+    window.location.href = base + '?dev_country=' + encodeURIComponent(country) + '#courses';
 }
 function devSetView(view) {
     var grid = document.getElementById('dev-grid');
