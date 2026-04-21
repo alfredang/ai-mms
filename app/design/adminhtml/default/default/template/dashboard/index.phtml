@@ -421,16 +421,22 @@ if ($_loggedInEmail) {
                          WHERE o.product_id=? AND (ot.title='Course Date' OR ot.title LIKE '%Date%')",
                         array((int)$_r['product_id'])
                     );
-                    $_best = null;
+                    $_bestFuture = null;
+                    $_bestAny = null;
                     foreach ($_cdDates as $_cd) {
                         // Extract date from title like "26 Mar 2026 (Thu)" or "23/24 Jul 2026 Evening (Thu/Fri)"
                         if (preg_match('#(\d{1,2})(?:/\d{1,2})?\s+([A-Za-z]{3,})\s+(\d{4})#', $_cd['title'], $_dm)) {
                             $_ts = strtotime($_dm[1] . ' ' . $_dm[2] . ' ' . $_dm[3]);
-                            if ($_ts && ($_best === null || $_ts < $_best)) {
-                                if ($_ts >= $_todayTs || $_best === null) $_best = $_ts;
+                            if (!$_ts) continue;
+                            if ($_ts >= $_todayTs) {
+                                // Earliest future date
+                                if ($_bestFuture === null || $_ts < $_bestFuture) $_bestFuture = $_ts;
                             }
+                            // Latest past date (fallback when no future dates exist)
+                            if ($_bestAny === null || $_ts > $_bestAny) $_bestAny = $_ts;
                         }
                     }
+                    $_best = $_bestFuture !== null ? $_bestFuture : $_bestAny;
                     if ($_best) {
                         $_r['start_date'] = date('Y-m-d 00:00:00', $_best);
                         $_r['end_date']   = date('Y-m-d 23:59:59', $_best);
