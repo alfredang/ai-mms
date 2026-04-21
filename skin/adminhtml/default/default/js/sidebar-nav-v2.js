@@ -314,55 +314,56 @@ document.observe('dom:loaded', function() {
         });
         resetBtnNew.update('<span>Reset</span>');
 
-        // Wire Apply/Reset. Magento's varienGrid.doFilter() only reads inputs inside
-        // "#<gridId> .filter" — but we moved them into the panel. So we temporarily
-        // reparent the inputs back into their original tr.filter cells, run doFilter,
-        // then move them back into the panel.
-        function withInputsInGrid(cb) {
-            var movedBack = [];
-            fields.each(function(field) {
-                field.inputs.each(function(inp) {
-                    var currentParent = inp.parentNode;
-                    if (currentParent !== field.cell) {
-                        movedBack.push({ inp: inp, from: currentParent });
-                        field.cell.appendChild(inp);
-                    }
-                });
+        // Wire Apply/Reset by serializing the panel inputs directly.
+        // varienGrid.doFilter() expects inputs inside "#<gridId> .filter", but we
+        // moved them into a panel outside that scope. Rather than fight with move-back
+        // tricks (which break when the grid AJAX-replaces tr.filter), we serialize the
+        // panel inputs ourselves and call grid.reload() with the encoded filter URL.
+        function panelInputsWithValues() {
+            var all = panel.select('input[name], select[name], textarea[name]');
+            var withValue = [];
+            all.each(function(el) {
+                // Skip the buttons we added (type=button doesn't carry values; name is absent anyway)
+                if (el.tagName === 'BUTTON') return;
+                if (el.disabled) return;
+                // Checkbox/radio: only include if checked
+                if (el.type === 'checkbox' || el.type === 'radio') {
+                    if (el.checked) withValue.push(el);
+                    return;
+                }
+                if (el.value && el.value.length) withValue.push(el);
             });
-            try { cb(); } finally {
-                movedBack.each(function(entry) {
-                    entry.from.appendChild(entry.inp);
-                });
-            }
+            return withValue;
         }
 
         searchBtnNew.observe('click', function() {
-            if (gridJsName && window[gridJsName] && window[gridJsName].doFilter) {
-                withInputsInGrid(function() { window[gridJsName].doFilter(); });
+            var gridObj = (gridJsName && window[gridJsName]) ? window[gridJsName] : null;
+            if (gridObj && typeof gridObj.reload === 'function' && gridObj.filterVar) {
+                var els = panelInputsWithValues();
+                var serialized = els.length ? Form.serializeElements(els) : '';
+                var encoded = serialized ? encode_base64(serialized) : '';
+                gridObj.reload(gridObj.addVarToUrl(gridObj.filterVar, encoded));
                 return;
             }
-            if (searchBtn) {
-                withInputsInGrid(function() { searchBtn.click(); });
-                return;
-            }
+            // Fallback: the original Search button is still in the DOM (just hidden).
+            if (searchBtn) { searchBtn.click(); return; }
             console.warn('[Filter] No grid JS object or Search button found for grid', grid.readAttribute('id'));
         });
+
         resetBtnNew.observe('click', function() {
-            // Reset: clear all panel inputs first, then delegate to grid
-            fields.each(function(field) {
-                field.inputs.each(function(inp) {
-                    if (inp.tagName === 'SELECT') inp.selectedIndex = 0;
-                    else inp.value = '';
-                });
+            // Clear all panel inputs so the UI matches the reset state
+            panel.select('input[name], select[name], textarea[name]').each(function(el) {
+                if (el.tagName === 'BUTTON') return;
+                if (el.type === 'checkbox' || el.type === 'radio') { el.checked = false; return; }
+                if (el.tagName === 'SELECT') { el.selectedIndex = 0; return; }
+                el.value = '';
             });
-            if (gridJsName && window[gridJsName] && window[gridJsName].resetFilter) {
-                withInputsInGrid(function() { window[gridJsName].resetFilter(); });
+            var gridObj = (gridJsName && window[gridJsName]) ? window[gridJsName] : null;
+            if (gridObj && typeof gridObj.reload === 'function' && gridObj.filterVar) {
+                gridObj.reload(gridObj.addVarToUrl(gridObj.filterVar, ''));
                 return;
             }
-            if (resetBtn) {
-                withInputsInGrid(function() { resetBtn.click(); });
-                return;
-            }
+            if (resetBtn) { resetBtn.click(); return; }
             console.warn('[Filter] No grid JS object or Reset button found');
         });
 
