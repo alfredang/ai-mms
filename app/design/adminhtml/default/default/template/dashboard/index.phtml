@@ -406,6 +406,38 @@ if ($_loggedInEmail) {
                             ORDER BY sd.value DESC
                             LIMIT 200";
             $_rows = $_read->fetchAll($_sqlTrainer, $_params);
+
+            // For any trainer-row with no news_from_date, fall back to the earliest upcoming
+            // "Course Date" custom-option value (titles like "26 Mar 2026 (Thu)")
+            if (!empty($_rows)) {
+                $_todayTs = time();
+                foreach ($_rows as &$_r) {
+                    if ($_r['start_date']) continue;
+                    $_cdDates = $_read->fetchAll(
+                        "SELECT ott.title FROM catalog_product_option o
+                         JOIN catalog_product_option_title ot ON ot.option_id=o.option_id AND ot.store_id=0
+                         JOIN catalog_product_option_type_value ov ON ov.option_id=o.option_id
+                         JOIN catalog_product_option_type_title ott ON ott.option_type_id=ov.option_type_id AND ott.store_id=0
+                         WHERE o.product_id=? AND (ot.title='Course Date' OR ot.title LIKE '%Date%')",
+                        array((int)$_r['product_id'])
+                    );
+                    $_best = null;
+                    foreach ($_cdDates as $_cd) {
+                        // Extract date from title like "26 Mar 2026 (Thu)" or "23/24 Jul 2026 Evening (Thu/Fri)"
+                        if (preg_match('#(\d{1,2})(?:/\d{1,2})?\s+([A-Za-z]{3,})\s+(\d{4})#', $_cd['title'], $_dm)) {
+                            $_ts = strtotime($_dm[1] . ' ' . $_dm[2] . ' ' . $_dm[3]);
+                            if ($_ts && ($_best === null || $_ts < $_best)) {
+                                if ($_ts >= $_todayTs || $_best === null) $_best = $_ts;
+                            }
+                        }
+                    }
+                    if ($_best) {
+                        $_r['start_date'] = date('Y-m-d 00:00:00', $_best);
+                        $_r['end_date']   = date('Y-m-d 23:59:59', $_best);
+                    }
+                }
+                unset($_r);
+            }
         }
     } else {
         // LEARNER view: show courses from order history
