@@ -407,12 +407,12 @@ if ($_loggedInEmail) {
                             LIMIT 200";
             $_rows = $_read->fetchAll($_sqlTrainer, $_params);
 
-            // For any trainer-row with no news_from_date, fall back to the earliest upcoming
-            // "Course Date" custom-option value (titles like "26 Mar 2026 (Thu)")
+            // Resolve real course dates from "Course Date" custom-option dropdown titles.
+            // ALWAYS prefer Course Date custom options over news_from_date — many courses
+            // have stale news_from_date values from 2014 that should not be displayed.
             if (!empty($_rows)) {
                 $_todayTs = time();
                 foreach ($_rows as &$_r) {
-                    if ($_r['start_date']) continue;
                     $_cdDates = $_read->fetchAll(
                         "SELECT ott.title FROM catalog_product_option o
                          JOIN catalog_product_option_title ot ON ot.option_id=o.option_id AND ot.store_id=0
@@ -422,24 +422,40 @@ if ($_loggedInEmail) {
                         array((int)$_r['product_id'])
                     );
                     $_bestFuture = null;
+                    $_bestEnd = null;
                     $_bestAny = null;
                     foreach ($_cdDates as $_cd) {
                         // Extract date from title like "26 Mar 2026 (Thu)" or "23/24 Jul 2026 Evening (Thu/Fri)"
-                        if (preg_match('#(\d{1,2})(?:/\d{1,2})?\s+([A-Za-z]{3,})\s+(\d{4})#', $_cd['title'], $_dm)) {
-                            $_ts = strtotime($_dm[1] . ' ' . $_dm[2] . ' ' . $_dm[3]);
-                            if (!$_ts) continue;
-                            if ($_ts >= $_todayTs) {
-                                // Earliest future date
-                                if ($_bestFuture === null || $_ts < $_bestFuture) $_bestFuture = $_ts;
+                        if (preg_match('#(\d{1,2})(?:/(\d{1,2}))?\s+([A-Za-z]{3,})\s+(\d{4})#', $_cd['title'], $_dm)) {
+                            $_startTs = strtotime($_dm[1] . ' ' . $_dm[3] . ' ' . $_dm[4]);
+                            $_endTs = !empty($_dm[2]) ? strtotime($_dm[2] . ' ' . $_dm[3] . ' ' . $_dm[4]) : $_startTs;
+                            if (!$_startTs) continue;
+                            if ($_startTs >= $_todayTs) {
+                                if ($_bestFuture === null || $_startTs < $_bestFuture) {
+                                    $_bestFuture = $_startTs;
+                                    $_bestEnd = $_endTs;
+                                }
                             }
-                            // Latest past date (fallback when no future dates exist)
-                            if ($_bestAny === null || $_ts > $_bestAny) $_bestAny = $_ts;
+                            if ($_bestAny === null || $_startTs > $_bestAny) {
+                                $_bestAny = $_startTs;
+                                if ($_bestFuture === null) $_bestEnd = $_endTs;
+                            }
                         }
                     }
-                    $_best = $_bestFuture !== null ? $_bestFuture : $_bestAny;
-                    if ($_best) {
-                        $_r['start_date'] = date('Y-m-d 00:00:00', $_best);
-                        $_r['end_date']   = date('Y-m-d 23:59:59', $_best);
+                    if ($_bestFuture !== null) {
+                        $_r['start_date'] = date('Y-m-d 00:00:00', $_bestFuture);
+                        $_r['end_date']   = date('Y-m-d 23:59:59', $_bestEnd);
+                    } elseif ($_bestAny !== null) {
+                        $_r['start_date'] = date('Y-m-d 00:00:00', $_bestAny);
+                        $_r['end_date']   = date('Y-m-d 23:59:59', $_bestEnd);
+                    } else {
+                        // No custom-option dates — use news_from_date only if it's recent (last 2 years or future)
+                        $_sdTs = $_r['start_date'] ? strtotime($_r['start_date']) : 0;
+                        if ($_sdTs > 0 && $_sdTs < ($_todayTs - 63072000)) {
+                            // older than 2 years — discard as stale
+                            $_r['start_date'] = null;
+                            $_r['end_date'] = null;
+                        }
                     }
                 }
                 unset($_r);
