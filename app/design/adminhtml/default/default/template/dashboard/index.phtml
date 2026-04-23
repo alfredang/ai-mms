@@ -5960,9 +5960,11 @@ window.trnToggleAdv = function() {
     var panel = document.getElementById('trnAdvPanel');
     var btn   = document.getElementById('trnAdvBtn');
     if (!panel) return;
-    var open = panel.style.display === 'none' || panel.style.display === '';
-    panel.style.display = open ? '' : 'none';
-    if (btn) btn.textContent = open ? 'Hide Advanced Filters' : 'Show Advanced Filters';
+    // "is currently hidden" iff inline style is 'none' OR computed display is 'none'
+    var hidden = panel.style.display === 'none'
+        || (panel.style.display === '' && getComputedStyle(panel).display === 'none');
+    panel.style.display = hidden ? 'block' : 'none';
+    if (btn) btn.textContent = hidden ? 'Hide Advanced Filters' : 'Show Advanced Filters';
 };
 
 window.trnRender = function() {
