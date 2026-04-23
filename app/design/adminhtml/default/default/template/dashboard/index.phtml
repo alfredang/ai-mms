@@ -3866,10 +3866,38 @@ $gatExt = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
         <div class="trn-search-row">
             <div class="trn-search-input-wrap">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-                <input type="text" id="trnSearch" class="trn-search-input" placeholder="Search name, email..." />
+                <input type="text" id="trnSearch" class="trn-search-input" placeholder="Search name, email, phone, NRIC..." />
             </div>
             <button class="trn-btn" onclick="trnReset()">Reset Filters</button>
-            <button class="trn-btn trn-btn-primary">Show Advanced Filters</button>
+            <button class="trn-btn trn-btn-primary" id="trnAdvBtn" onclick="trnToggleAdv()">Show Advanced Filters</button>
+        </div>
+        <div id="trnAdvPanel" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--b1);">
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+                <div>
+                    <div style="font-size:12px;color:#94a3b8;margin-bottom:6px;">Trainer Type</div>
+                    <select id="trnFilterType" class="trn-search-input" style="padding:9px 12px;">
+                        <option value="">All Types</option>
+                        <option value="aclp">ACLP</option>
+                        <option value="non-aclp">Non-ACLP</option>
+                    </select>
+                </div>
+                <div>
+                    <div style="font-size:12px;color:#94a3b8;margin-bottom:6px;">Status</div>
+                    <select id="trnFilterStatus" class="trn-search-input" style="padding:9px 12px;">
+                        <option value="">All Statuses</option>
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                </div>
+                <div>
+                    <div style="font-size:12px;color:#94a3b8;margin-bottom:6px;">Has LinkedIn</div>
+                    <select id="trnFilterLinkedIn" class="trn-search-input" style="padding:9px 12px;">
+                        <option value="">Any</option>
+                        <option value="yes">Yes</option>
+                        <option value="no">No</option>
+                    </select>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -3902,7 +3930,15 @@ $gatExt = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
                     $nricDisplay = ($nricLen > 4) ? str_repeat('*', $nricLen - 4) . substr($tnric, -4) : $tnric;
                 }
             ?>
-            <tr data-name="<?php echo strtolower($tname) ?>" data-email="<?php echo strtolower($temail) ?>">
+            <tr
+                data-name="<?php echo strtolower($tname) ?>"
+                data-email="<?php echo strtolower($temail) ?>"
+                data-phone="<?php echo strtolower($tphone) ?>"
+                data-nric="<?php echo strtolower($tnric) ?>"
+                data-type="<?php echo strtolower($ttype) ?>"
+                data-status="<?php echo $isActive ? 'active' : 'inactive' ?>"
+                data-linkedin="<?php echo $tlinked !== '' ? 'yes' : 'no' ?>">
+
                 <td>
                     <div class="trn-name-cell">
                         <div class="trn-avatar">
@@ -5894,17 +5930,39 @@ window._trnMatched = [];
 
 window.trnFilter = function() {
     window._trnPage = 1;
-    var q = (document.getElementById('trnSearch')||{value:''}).value.toLowerCase().trim();
+    var q    = (document.getElementById('trnSearch')||{value:''}).value.toLowerCase().trim();
+    var typ  = (document.getElementById('trnFilterType')||{value:''}).value;
+    var stat = (document.getElementById('trnFilterStatus')||{value:''}).value;
+    var lin  = (document.getElementById('trnFilterLinkedIn')||{value:''}).value;
     var rows = document.querySelectorAll('#trnTableBody tr');
     window._trnMatched = [];
     for (var i=0; i<rows.length; i++) {
         var r = rows[i];
-        var n = r.getAttribute('data-name') || '';
-        var e = r.getAttribute('data-email') || '';
+        var n = r.getAttribute('data-name')     || '';
+        var e = r.getAttribute('data-email')    || '';
+        var p = r.getAttribute('data-phone')    || '';
+        var c = r.getAttribute('data-nric')     || '';
+        var t = r.getAttribute('data-type')     || '';
+        var s = r.getAttribute('data-status')   || '';
+        var l = r.getAttribute('data-linkedin') || '';
         r.style.display = 'none';
-        if (!q || n.indexOf(q) !== -1 || e.indexOf(q) !== -1) window._trnMatched.push(r);
+        // General search matches across name/email/phone/nric
+        var matchQ = !q || n.indexOf(q) !== -1 || e.indexOf(q) !== -1 || p.indexOf(q) !== -1 || c.indexOf(q) !== -1;
+        var matchT = !typ  || t === typ;
+        var matchS = !stat || s === stat;
+        var matchL = !lin  || l === lin;
+        if (matchQ && matchT && matchS && matchL) window._trnMatched.push(r);
     }
     window.trnRender();
+};
+
+window.trnToggleAdv = function() {
+    var panel = document.getElementById('trnAdvPanel');
+    var btn   = document.getElementById('trnAdvBtn');
+    if (!panel) return;
+    var open = panel.style.display === 'none' || panel.style.display === '';
+    panel.style.display = open ? '' : 'none';
+    if (btn) btn.textContent = open ? 'Hide Advanced Filters' : 'Show Advanced Filters';
 };
 
 window.trnRender = function() {
@@ -5947,12 +6005,20 @@ window.trnRender = function() {
 
 window.trnReset = function() {
     var s = document.getElementById('trnSearch'); if (s) s.value = '';
+    ['trnFilterType','trnFilterStatus','trnFilterLinkedIn'].forEach(function(id){
+        var el = document.getElementById(id);
+        if (el) el.value = '';
+    });
     window.trnFilter();
 };
 
 (function(){
     var si = document.getElementById('trnSearch');
     if (si) si.addEventListener('input', function(){ window.trnFilter(); });
+    ['trnFilterType','trnFilterStatus','trnFilterLinkedIn'].forEach(function(id){
+        var el = document.getElementById(id);
+        if (el) el.addEventListener('change', function(){ window.trnFilter(); });
+    });
     if (typeof window.trnFilter === 'function') window.trnFilter();
 })();
 </script>
