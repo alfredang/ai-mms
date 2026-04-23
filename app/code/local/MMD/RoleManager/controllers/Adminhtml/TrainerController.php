@@ -302,7 +302,10 @@ class MMD_RoleManager_Adminhtml_TrainerController extends Mage_Adminhtml_Control
             $table    = $resource->getTableName('courses_trainers');
             $cols     = array_flip($write->fetchCol("SHOW COLUMNS FROM {$table}"));
 
-            $rowNum = 1;
+            // First pass: dedupe the CSV by email (case-insensitive, last occurrence wins).
+            // Also validates each row and collects errors.
+            $byEmail = array();   // lower(email) => parsed row
+            $rowNum  = 1;
             while (($r = fgetcsv($fh)) !== false) {
                 $rowNum++;
                 if (count(array_filter($r, 'strlen')) === 0) continue; // skip blank rows
@@ -329,14 +332,22 @@ class MMD_RoleManager_Adminhtml_TrainerController extends Mage_Adminhtml_Control
                     'status'        => 1,
                     'update_time'   => date('Y-m-d H:i:s'),
                 );
-                if (isset($cols['relation_id']))  $row['relation_id']  = 0;
-                if (isset($cols['country_id']))   $row['country_id']   = $get($r, 'country');
-                if (isset($cols['telephone']))    $row['telephone']    = $get($r, 'contact');
-                if (isset($cols['trainer_type']))$row['trainer_type'] = $type;
-                if (isset($cols['linkedin_url'])) $row['linkedin_url'] = $get($r, 'linkedin');
-                if (isset($cols['gender']))       $row['gender']       = 'Prefer not to say';
+                if (isset($cols['relation_id']))   $row['relation_id']  = 0;
+                if (isset($cols['country_id']))    $row['country_id']   = $get($r, 'country');
+                if (isset($cols['telephone']))     $row['telephone']    = $get($r, 'contact');
+                if (isset($cols['trainer_type']))  $row['trainer_type'] = $type;
+                if (isset($cols['linkedin_url']))  $row['linkedin_url'] = $get($r, 'linkedin');
+                if (isset($cols['gender']))        $row['gender']       = 'Prefer not to say';
 
-                $existingId = $write->fetchOne("SELECT trainers_id FROM {$table} WHERE email = ?", array($email));
+                // Last occurrence of a given email wins — later rows overwrite earlier
+                $byEmail[strtolower($email)] = $row;
+            }
+            fclose($fh);
+
+            // Second pass: write deduped rows to DB (insert or update by email)
+            $result['skipped_duplicates'] = 0;
+            foreach ($byEmail as $row) {
+                $existingId = $write->fetchOne("SELECT trainers_id FROM {$table} WHERE email = ?", array($row['email']));
                 if ($existingId) {
                     $write->update($table, $row, array('trainers_id = ?' => (int)$existingId));
                     $result['updated']++;
@@ -346,7 +357,6 @@ class MMD_RoleManager_Adminhtml_TrainerController extends Mage_Adminhtml_Control
                     $result['created']++;
                 }
             }
-            fclose($fh);
             $result['success'] = true;
         } catch (Exception $e) {
             $result['errors'][] = array('row' => 0, 'message' => 'Error: ' . $e->getMessage());
