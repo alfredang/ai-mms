@@ -371,28 +371,8 @@ if ($_loggedInEmail) {
             }
         }
 
-        // Also match courses where THIS trainer is assigned to a specific session
-        // (via course_session_trainers table → catalog_product_option_type_value → catalog_product_option → product_id)
-        $_sessionMatchedProductIds = array();
-        if (!empty($_optMatches)) {
-            try {
-                $_ph = implode(',', array_fill(0, count($_optMatches), '?'));
-                $_sessionMatchedProductIds = $_read->fetchCol(
-                    "SELECT DISTINCT o.product_id
-                     FROM course_session_trainers cst
-                     JOIN catalog_product_option_type_value ov ON ov.option_type_id = cst.option_type_id
-                     JOIN catalog_product_option o ON o.option_id = ov.option_id
-                     WHERE cst.trainer_option_id IN ({$_ph})",
-                    $_optMatches
-                );
-            } catch (Exception $e) {
-                // Table may not exist yet on fresh DBs before migration runs — ignore
-                $_sessionMatchedProductIds = array();
-            }
-        }
-
-        // Build the product query: match via multiselect option IDs OR via trainerprofile HTML OR via session trainer assignments
-        if (!empty($_optMatches) || $_fullName !== '' || !empty($_sessionMatchedProductIds)) {
+        // Build the product query: match via multiselect option IDs OR via trainerprofile HTML
+        if (!empty($_optMatches) || $_fullName !== '') {
             $_tpAttrId = (int) $_read->fetchOne("SELECT attribute_id FROM eav_attribute WHERE attribute_code='trainerprofile' AND entity_type_id=4");
             $_conditions = array();
             $_params = array();
@@ -407,12 +387,6 @@ if ($_loggedInEmail) {
             if ($_tpAttrId && $_fullName !== '') {
                 $_conditions[] = "(tp.value LIKE ?)";
                 $_params[] = '%' . $_fullName . '%';
-            }
-            // Session-level matches: include these product_ids directly
-            if (!empty($_sessionMatchedProductIds)) {
-                $_ph2 = implode(',', array_fill(0, count($_sessionMatchedProductIds), '?'));
-                $_conditions[] = "(p.entity_id IN ({$_ph2}))";
-                $_params = array_merge($_params, array_map('intval', $_sessionMatchedProductIds));
             }
 
             $_whereSql = !empty($_conditions) ? '(' . implode(' OR ', $_conditions) . ')' : '1=0';
@@ -838,40 +812,57 @@ if ($_editMode) {
     } catch (Exception $e) {}
 }
 
+// ---- Courseware URLs (Courseware section on Developer course edit page) ----
+$_courseware = array(
+    'lesson_plan_url'        => '',
+    'learner_guide_url'      => '',
+    'facilitator_guide_url'  => '',
+    'assessment_plan_url'    => '',
+    'learner_slides_url'     => '',
+    'trainer_slides_url'     => '',
+    'courseware_link'        => '',
+    'brochure_link'          => '',
+    'skillsfuture_link'      => '',
+    'assessment_record_link' => '',
+    'assessment_summary_url' => '',
+);
+if ($_selectedCourseId) {
+    try {
+        $_read = Mage::getSingleton('core/resource')->getConnection('core_read');
+        $_cwRow = $_read->fetchRow(
+            "SELECT * FROM course_courseware WHERE product_id = ? LIMIT 1",
+            array((int) $_selectedCourseId)
+        );
+        if ($_cwRow) {
+            foreach ($_courseware as $_k => $_v) {
+                if (isset($_cwRow[$_k])) $_courseware[$_k] = (string)$_cwRow[$_k];
+            }
+        }
+    } catch (Exception $e) { /* table may not exist yet on fresh DB */ }
+}
+
 // ---- Course Date sessions (Course Sessions UI) ----
 // Query existing "Course Date" custom option values for the currently selected course.
 // Used by the Course Sessions section on the Developer course detail page to list
 // scheduled sessions and allow adding/removing them.
 $_courseSessions = array();
-$_sessTrainerOptions = array();   // [ [option_id, value], ... ] for the trainer dropdown
 if ($_selectedCourseId) {
     try {
         $_read = Mage::getSingleton('core/resource')->getConnection('core_read');
         $_courseSessions = $_read->fetchAll(
             "SELECT ov.option_type_id, ott.title,
-                    COALESCE(otp.price, 0) AS price,
-                    cst.trainer_option_id, cst.trainer_name
+                    COALESCE(otp.price, 0) AS price
              FROM catalog_product_option o
              JOIN catalog_product_option_title ot        ON ot.option_id = o.option_id  AND ot.store_id = 0
              JOIN catalog_product_option_type_value ov   ON ov.option_id = o.option_id
              JOIN catalog_product_option_type_title ott  ON ott.option_type_id = ov.option_type_id AND ott.store_id = 0
              LEFT JOIN catalog_product_option_type_price otp
                     ON otp.option_type_id = ov.option_type_id AND otp.store_id = 0
-             LEFT JOIN course_session_trainers cst
-                    ON cst.option_type_id = ov.option_type_id
              WHERE o.product_id = ? AND (ot.title = 'Course Date' OR ot.title LIKE '%Date%')
              ORDER BY ott.title",
             array((int) $_selectedCourseId)
         );
-        // Trainer options for the dropdown (from the `trainers` EAV attribute, attr id 170)
-        $_sessTrainerOptions = $_read->fetchAll(
-            "SELECT o.option_id, v.value
-             FROM eav_attribute_option o
-             JOIN eav_attribute_option_value v ON v.option_id = o.option_id AND v.store_id = 0
-             WHERE o.attribute_id = 170
-             ORDER BY v.value"
-        );
-    } catch (Exception $e) { $_courseSessions = array(); $_sessTrainerOptions = array(); }
+    } catch (Exception $e) { $_courseSessions = array(); }
 }
 ?>
 
@@ -1901,25 +1892,6 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                 <textarea class="dcf-textarea dcf-textarea-rich" name="learning_outcomes" placeholder="Enter course topics and learning units (HTML supported)..."><?php echo htmlspecialchars($_editCourseData['learning_outcomes']) ?></textarea>
             </div>
 
-            <!-- Courseware URLs -->
-            <div class="dcf-section">
-                <div class="dcf-section-title">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                    Courseware
-                </div>
-                <div class="dcf-field"><div class="dcf-label">Lesson Plan URL</div><input type="text" class="dcf-input" name="url_lesson_plan" value="" placeholder="Paste URL" /></div>
-                <div class="dcf-field"><div class="dcf-label">Learner Guide URL</div><input type="text" class="dcf-input" name="url_learner_guide" value="" placeholder="Paste URL" /></div>
-                <div class="dcf-field"><div class="dcf-label">Facilitator Guide URL</div><input type="text" class="dcf-input" name="url_facilitator_guide" value="" placeholder="Paste URL" /></div>
-                <div class="dcf-field"><div class="dcf-label">Assessment Plan URL</div><input type="text" class="dcf-input" name="url_assessment_plan" value="" placeholder="Paste URL" /></div>
-                <div class="dcf-field"><div class="dcf-label">Learner Slides URL</div><input type="text" class="dcf-input" name="url_learner_slides" value="" placeholder="Paste URL" /></div>
-                <div class="dcf-field"><div class="dcf-label">Trainer Slides URL</div><input type="text" class="dcf-input" name="url_trainer_slides" value="" placeholder="Paste URL" /></div>
-                <div class="dcf-field"><div class="dcf-label">Courseware Link</div><input type="text" class="dcf-input" name="url_courseware" value="" placeholder="Paste URL" /></div>
-                <div class="dcf-field"><div class="dcf-label">Brochure Link</div><input type="text" class="dcf-input" name="brochure_url" value="<?php echo htmlspecialchars($_editCourseData['brochure_url']) ?>" placeholder="Paste URL" /></div>
-                <div class="dcf-field"><div class="dcf-label">SkillsFuture Link</div><input type="text" class="dcf-input" name="url_skillsfuture" value="" placeholder="Paste URL" /></div>
-                <div class="dcf-field"><div class="dcf-label">Assessment Record Link</div><input type="text" class="dcf-input" name="url_assessment_record" value="" placeholder="Paste URL" /></div>
-                <div class="dcf-field"><div class="dcf-label">Assessment Summary Record URL</div><input type="text" class="dcf-input" name="url_assessment_summary" value="" placeholder="Paste URL" /></div>
-            </div>
-
             <!-- Assessment Methods -->
             <div class="dcf-section">
                 <div class="dcf-section-title">
@@ -2100,6 +2072,35 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                     render();
                 })();
                 </script>
+            </div>
+
+            <!-- Courseware -->
+            <div class="dcf-section">
+                <div class="dcf-section-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                    Courseware
+                </div>
+                <?php
+                $_cwFields = array(
+                    'lesson_plan_url'        => 'Lesson Plan URL',
+                    'learner_guide_url'      => 'Learner Guide URL',
+                    'facilitator_guide_url'  => 'Facilitator Guide URL',
+                    'assessment_plan_url'    => 'Assessment Plan URL',
+                    'learner_slides_url'     => 'Learner Slides URL',
+                    'trainer_slides_url'     => 'Trainer Slides URL',
+                    'courseware_link'        => 'Courseware Link',
+                    'brochure_link'          => 'Brochure Link',
+                    'skillsfuture_link'      => 'SkillsFuture Link',
+                    'assessment_record_link' => 'Assessment Record Link',
+                    'assessment_summary_url' => 'Assessment Summary Record URL',
+                );
+                foreach ($_cwFields as $_k => $_lbl):
+                ?>
+                <div class="dcf-field">
+                    <label class="dcf-label"><?php echo $_lbl ?></label>
+                    <input type="url" name="courseware_<?php echo $_k ?>" class="dcf-input" value="<?php echo htmlspecialchars($_courseware[$_k]) ?>" placeholder="https://..." />
+                </div>
+                <?php endforeach; ?>
             </div>
 
             <!-- Course Settings -->
@@ -2353,6 +2354,45 @@ div.dce-value::-webkit-scrollbar-thumb:hover{background:#64748b}
                     <?php endif; ?>
                 </div>
             </div>
+
+            <!-- Courseware (read-only) -->
+            <?php
+            $_cwLabels = array(
+                'lesson_plan_url'        => 'Lesson Plan URL',
+                'learner_guide_url'      => 'Learner Guide URL',
+                'facilitator_guide_url'  => 'Facilitator Guide URL',
+                'assessment_plan_url'    => 'Assessment Plan URL',
+                'learner_slides_url'     => 'Learner Slides URL',
+                'trainer_slides_url'     => 'Trainer Slides URL',
+                'courseware_link'        => 'Courseware Link',
+                'brochure_link'          => 'Brochure Link',
+                'skillsfuture_link'      => 'SkillsFuture Link',
+                'assessment_record_link' => 'Assessment Record Link',
+                'assessment_summary_url' => 'Assessment Summary Record URL',
+            );
+            $_hasAnyCw = false;
+            foreach ($_courseware as $_v) if ($_v !== '') { $_hasAnyCw = true; break; }
+            ?>
+            <div class="dce-section">
+                <div class="dce-section-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                    Courseware
+                </div>
+                <?php if ($_hasAnyCw): ?>
+                    <?php foreach ($_cwLabels as $_k => $_lbl): ?>
+                        <?php if (!empty($_courseware[$_k])): ?>
+                        <div class="dce-field">
+                            <div class="dce-label"><?php echo $_lbl ?></div>
+                            <div style="background:#283548;border:1px solid #384a60;border-radius:8px;padding:10px 14px;overflow-wrap:anywhere;">
+                                <a href="<?php echo htmlspecialchars($_courseware[$_k]) ?>" target="_blank" style="color:#60a5fa;text-decoration:none;font-size:13px;"><?php echo htmlspecialchars($_courseware[$_k]) ?></a>
+                            </div>
+                        </div>
+                        <?php endif; ?>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <div class="dce-empty">No courseware URLs set. Click Edit to add them.</div>
+                <?php endif; ?>
+            </div>
         </div>
     </div>
 
@@ -2518,7 +2558,7 @@ $_courseRefCode = 'TGS-' . (2024000000 + ((int)$_selectedCourse['id']) * 17);
             <a href="#course-sessions" class="lcd-nav-item" onclick="return lcdNavTo(this,'course-sessions')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span>Course Sessions</span></a>
             <a href="#additional-documents" class="lcd-nav-item" onclick="return lcdNavTo(this,'additional-documents')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Additional Documents</span></a>
             <?php elseif ($activeRole === 'trainer'): ?>
-            <a href="#e-attendance" class="lcd-nav-item" onclick="return lcdNavTo(this,'e-attendance')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>E-Attendance</span></a>
+            <a href="#e-attendance" class="lcd-nav-item" onclick="return lcdNavTo(this,'e-attendance')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Manual Attendance</span></a>
             <a href="#courseware" class="lcd-nav-item" onclick="return lcdNavTo(this,'courseware')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span>Courseware Link</span></a>
             <a href="#assessment-grading" class="lcd-nav-item" onclick="return lcdNavTo(this,'assessment-grading')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg><span>Assessment Grading</span></a>
             <a href="#assessment-summary" class="lcd-nav-item" onclick="return lcdNavTo(this,'assessment-summary')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Assessment Summary Record</span></a>
@@ -2754,23 +2794,14 @@ $_courseRefCode = 'TGS-' . (2024000000 + ((int)$_selectedCourse['id']) * 17);
 
         <!-- Add Session form (hidden by default) -->
         <div id="sessAddForm" style="display:none;background:#131d2e;border:1px solid var(--b1);border-radius:10px;padding:16px;margin-bottom:14px;">
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:12px;align-items:end;">
+            <div style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:12px;align-items:end;">
                 <div>
                     <label style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">Session Date</label>
                     <input type="date" id="sessAddDate" style="width:100%;background:#0f172a;border:1px solid var(--b1);border-radius:8px;padding:9px 12px;color:var(--t1);font-size:13px;box-sizing:border-box;" />
                 </div>
                 <div>
                     <label style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">Custom Label (optional)</label>
-                    <input type="text" id="sessAddLabel" placeholder="e.g. 13/14 May 2026" style="width:100%;background:#0f172a;border:1px solid var(--b1);border-radius:8px;padding:9px 12px;color:var(--t1);font-size:13px;box-sizing:border-box;" />
-                </div>
-                <div>
-                    <label style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">Trainer (optional)</label>
-                    <select id="sessAddTrainer" style="width:100%;background:#0f172a;border:1px solid var(--b1);border-radius:8px;padding:9px 12px;color:var(--t1);font-size:13px;box-sizing:border-box;">
-                        <option value="">— None —</option>
-                        <?php foreach ($_sessTrainerOptions as $_to): ?>
-                        <option value="<?php echo (int)$_to['option_id'] ?>"><?php echo htmlspecialchars($_to['value']) ?></option>
-                        <?php endforeach; ?>
-                    </select>
+                    <input type="text" id="sessAddLabel" placeholder="e.g. 13/14 May 2026 (Wed/Thu)" style="width:100%;background:#0f172a;border:1px solid var(--b1);border-radius:8px;padding:9px 12px;color:var(--t1);font-size:13px;box-sizing:border-box;" />
                 </div>
                 <div>
                     <label style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">Price Adjustment</label>
@@ -2799,16 +2830,7 @@ $_courseRefCode = 'TGS-' . (2024000000 + ((int)$_selectedCourse['id']) * 17);
                     <div style="color:#94a3b8;font-size:12px;margin-top:2px;">Additional price: $<?php echo number_format((float)$_s['price'], 2) ?></div>
                     <?php endif; ?>
                 </div>
-                <div style="min-width:240px;">
-                    <label style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Trainer</label>
-                    <select class="sess-trainer-select" onchange="sessAssignTrainer(<?php echo (int)$_s['option_type_id'] ?>, this)" style="width:100%;background:#0f172a;border:1px solid var(--b1);border-radius:6px;padding:6px 10px;color:var(--t1);font-size:12.5px;box-sizing:border-box;">
-                        <option value="">— None —</option>
-                        <?php $assigned = (int)$_s['trainer_option_id']; foreach ($_sessTrainerOptions as $_to): ?>
-                        <option value="<?php echo (int)$_to['option_id'] ?>"<?php echo ((int)$_to['option_id'] === $assigned) ? ' selected' : '' ?>><?php echo htmlspecialchars($_to['value']) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <button type="button" onclick="sessDelete(<?php echo (int)$_s['option_type_id'] ?>, this)" style="background:transparent;border:1px solid rgba(239,68,68,.3);color:#ef4444;border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;align-self:center;">
+                <button type="button" onclick="sessDelete(<?php echo (int)$_s['option_type_id'] ?>, this)" style="background:transparent;border:1px solid rgba(239,68,68,.3);color:#ef4444;border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                     Remove
                 </button>
@@ -2820,10 +2842,9 @@ $_courseRefCode = 'TGS-' . (2024000000 + ((int)$_selectedCourse['id']) * 17);
 
     <script type="text/javascript">
     (function(){
-        window.__sessAddUrl    = <?php echo json_encode($_sessAddUrl) ?>;
-        window.__sessDelUrl    = <?php echo json_encode($_sessDelUrl) ?>;
-        window.__sessAssignUrl = <?php echo json_encode(Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/assignSessionTrainer')) ?>;
-        window.__sessCourseId  = <?php echo (int)$_selectedCourseId ?>;
+        window.__sessAddUrl = <?php echo json_encode($_sessAddUrl) ?>;
+        window.__sessDelUrl = <?php echo json_encode($_sessDelUrl) ?>;
+        window.__sessCourseId = <?php echo (int)$_selectedCourseId ?>;
     })();
     window.sessToggleAddForm = function() {
         var f = document.getElementById('sessAddForm');
@@ -2850,8 +2871,6 @@ $_courseRefCode = 'TGS-' . (2024000000 + ((int)$_selectedCourse['id']) * 17);
         fd.append('session_date', dateEl.value);
         if (labelEl.value) fd.append('session_label', labelEl.value);
         if (priceEl.value) fd.append('session_price', priceEl.value);
-        var trainerEl = document.getElementById('sessAddTrainer');
-        if (trainerEl && trainerEl.value) fd.append('trainer_option_id', trainerEl.value);
 
         fetch(window.__sessAddUrl, { method: 'POST', body: fd, credentials: 'same-origin' })
             .then(function(r){ return r.json(); })
@@ -2867,23 +2886,6 @@ $_courseRefCode = 'TGS-' . (2024000000 + ((int)$_selectedCourse['id']) * 17);
             .catch(function(err){
                 btn.disabled = false; btn.textContent = 'Save';
                 rs.innerHTML = '<span style="color:#ef4444;">Network error: ' + err.message + '</span>';
-            });
-    };
-    window.sessAssignTrainer = function(optionTypeId, selEl) {
-        selEl.disabled = true;
-        var fd = new FormData();
-        fd.append('course_id', window.__sessCourseId);
-        fd.append('option_type_id', optionTypeId);
-        fd.append('trainer_option_id', selEl.value || '0');
-        fetch(window.__sessAssignUrl, { method: 'POST', body: fd, credentials: 'same-origin' })
-            .then(function(r){ return r.json(); })
-            .then(function(d){
-                selEl.disabled = false;
-                if (!d.success) alert(d.message || 'Failed to assign trainer');
-            })
-            .catch(function(err){
-                selEl.disabled = false;
-                alert('Network error: ' + err.message);
             });
     };
     window.sessDelete = function(optionTypeId, btnEl) {
@@ -2931,17 +2933,220 @@ $_courseRefCode = 'TGS-' . (2024000000 + ((int)$_selectedCourse['id']) * 17);
 
     <?php elseif ($activeRole === 'trainer'): ?>
     <!-- TRAINER: E-Attendance -->
-    <div class="lcd-section" id="e-attendance">
+    <?php $_attGenUrl = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/generateToken'); ?>
+    <div class="lcd-section" id="e-attendance-live">
         <div class="lcd-section-title">E-Attendance</div>
-        <div class="lcd-tile">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-            <div class="lcd-tile-body">
-                <div class="lcd-tile-title">E-Attendance</div>
-                <div class="lcd-tile-sub">Open E-Attendance for Course Run <?php echo $_courseRunId ?></div>
+        <?php if (empty($_courseSessions)): ?>
+            <div style="color:#94a3b8;font-size:13px;padding:14px 0;">No sessions scheduled — add a session date to enable E-Attendance.</div>
+        <?php else: ?>
+            <div style="color:#94a3b8;font-size:13px;margin-bottom:12px;">Generate a check-in link for a session and share it with learners. They open the link while logged in to mark themselves present.</div>
+            <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-bottom:14px;">
+                <div style="flex:1;min-width:220px;">
+                    <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">Session</label>
+                    <select id="eattSessionPicker" style="width:100%;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:10px 12px;color:#f1f5f9;font-size:14px;">
+                        <option value="">— Select a session —</option>
+                        <?php foreach ($_courseSessions as $_s): ?>
+                        <option value="<?php echo (int)$_s['option_type_id'] ?>"><?php echo htmlspecialchars($_s['title']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <button type="button" id="eattGenBtn" onclick="eattGenerate()" style="background:#10b981;color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                    Start E-Attendance
+                </button>
             </div>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-        </div>
+            <div id="eattResult" style="display:none;background:#131d2e;border:1px solid #334155;border-radius:10px;padding:18px;">
+                <div style="display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:center;">
+                    <div>
+                        <div id="eattQR" style="width:140px;height:140px;background:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;"></div>
+                    </div>
+                    <div>
+                        <div style="color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin-bottom:4px;">Session Code</div>
+                        <div id="eattCode" style="color:#22d3ee;font-size:30px;font-weight:800;letter-spacing:3px;margin-bottom:10px;"></div>
+                        <div style="color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin-bottom:4px;">Check-in URL</div>
+                        <div style="display:flex;gap:6px;align-items:center;">
+                            <input type="text" id="eattUrl" readonly style="flex:1;background:#0f172a;border:1px solid #334155;border-radius:6px;padding:8px 10px;color:#60a5fa;font-size:12px;font-family:monospace;" />
+                            <button type="button" onclick="eattCopy()" id="eattCopyBtn" style="background:#2563eb;color:#fff;border:none;border-radius:6px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">Copy</button>
+                        </div>
+                    </div>
+                </div>
+                <div style="color:#64748b;font-size:11.5px;margin-top:12px;">Link valid for 6 hours. Share with learners; they open it while logged in to check themselves in.</div>
+            </div>
+        <?php endif; ?>
     </div>
+
+    <script type="text/javascript">
+    (function(){
+        window.__eattGenUrl = <?php echo json_encode($_attGenUrl) ?>;
+        window.__eattCourseId = <?php echo (int)$_selectedCourseId ?>;
+    })();
+    window.eattGenerate = function() {
+        var sel = document.getElementById('eattSessionPicker');
+        var btn = document.getElementById('eattGenBtn');
+        var out = document.getElementById('eattResult');
+        if (!sel.value) { alert('Pick a session first.'); return; }
+        btn.disabled = true; btn.textContent = 'Generating…';
+        var fd = new FormData();
+        fd.append('course_id', window.__eattCourseId);
+        fd.append('option_type_id', sel.value);
+        fetch(window.__eattGenUrl, { method: 'POST', body: fd, credentials: 'same-origin' })
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+                btn.disabled = false; btn.textContent = 'Start E-Attendance';
+                if (!d.success) { alert(d.message || 'Failed'); return; }
+                document.getElementById('eattCode').textContent = d.code;
+                document.getElementById('eattUrl').value = d.url;
+                var qr = document.getElementById('eattQR');
+                qr.innerHTML = '<img alt="QR" src="https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=' + encodeURIComponent(d.url) + '" style="width:140px;height:140px;" />';
+                out.style.display = '';
+            })
+            .catch(function(err){
+                btn.disabled = false; btn.textContent = 'Start E-Attendance';
+                alert('Network error: ' + err.message);
+            });
+    };
+    window.eattCopy = function() {
+        var inp = document.getElementById('eattUrl');
+        inp.select();
+        try { document.execCommand('copy'); var b = document.getElementById('eattCopyBtn'); var t = b.textContent; b.textContent = 'Copied!'; setTimeout(function(){ b.textContent = t; }, 1500); } catch(e) {}
+    };
+    </script>
+
+    <!-- TRAINER: Manual Attendance -->
+    <?php
+    $_attListUrl = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/list');
+    $_attSaveUrl = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/save');
+    ?>
+    <div class="lcd-section" id="e-attendance">
+        <div class="lcd-section-title">Manual Attendance</div>
+        <?php if (empty($_courseSessions)): ?>
+            <div style="color:#94a3b8;font-size:13px;padding:14px 0;">No sessions scheduled for this class yet. Ask your admin to add a session date.</div>
+        <?php else: ?>
+            <div style="color:#94a3b8;font-size:13px;margin-bottom:12px;">Pick a session date, then mark each enrolled learner present or absent.</div>
+            <div style="margin-bottom:14px;">
+                <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">Session</label>
+                <select id="attSessionPicker" onchange="attLoadSession(this.value)" style="width:100%;max-width:420px;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:10px 12px;color:#f1f5f9;font-size:14px;">
+                    <option value="">— Select a session —</option>
+                    <?php foreach ($_courseSessions as $_s): ?>
+                    <option value="<?php echo (int)$_s['option_type_id'] ?>"><?php echo htmlspecialchars($_s['title']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <div id="attPanel" style="display:none;background:#131d2e;border:1px solid #334155;border-radius:10px;padding:18px;">
+                <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
+                    <div style="color:#94a3b8;font-size:13px;" id="attSummary"></div>
+                    <div style="margin-left:auto;display:flex;gap:8px;">
+                        <button type="button" onclick="attSetAll('present')" style="background:#10b981;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;">Mark All Present</button>
+                        <button type="button" onclick="attSetAll('absent')" style="background:#475569;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;">Mark All Absent</button>
+                    </div>
+                </div>
+                <div id="attList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;max-height:420px;overflow-y:auto;"></div>
+                <div style="display:flex;justify-content:flex-end;gap:8px;">
+                    <button type="button" onclick="attSave()" id="attSaveBtn" style="background:#2563eb;color:#fff;border:none;border-radius:8px;padding:10px 22px;font-size:13px;font-weight:600;cursor:pointer;">Save Attendance</button>
+                </div>
+                <div id="attResult" style="margin-top:10px;font-size:12px;display:none;"></div>
+            </div>
+        <?php endif; ?>
+    </div>
+
+    <script type="text/javascript">
+    (function(){
+        window.__attListUrl = <?php echo json_encode($_attListUrl) ?>;
+        window.__attSaveUrl = <?php echo json_encode($_attSaveUrl) ?>;
+        window.__attCourseId = <?php echo (int)$_selectedCourseId ?>;
+        window.__attCurrentSession = null;
+        window.__attLearners = [];
+    })();
+    window.attLoadSession = function(optionTypeId) {
+        var panel = document.getElementById('attPanel');
+        var summary = document.getElementById('attSummary');
+        var list = document.getElementById('attList');
+        if (!optionTypeId) { panel.style.display = 'none'; return; }
+        window.__attCurrentSession = parseInt(optionTypeId, 10);
+        panel.style.display = '';
+        summary.textContent = 'Loading…';
+        list.innerHTML = '';
+        var url = window.__attListUrl + '?course_id=' + window.__attCourseId + '&option_type_id=' + optionTypeId;
+        fetch(url, { credentials: 'same-origin' })
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+                if (!d.success) { summary.textContent = d.message || 'Failed to load'; return; }
+                window.__attLearners = d.learners || [];
+                if (window.__attLearners.length === 0) {
+                    summary.textContent = 'No enrolled learners found for this session.';
+                    return;
+                }
+                attRender();
+            })
+            .catch(function(err){ summary.textContent = 'Network error: ' + err.message; });
+    };
+    function attRender() {
+        var list = document.getElementById('attList');
+        var summary = document.getElementById('attSummary');
+        list.innerHTML = '';
+        var present = 0, absent = 0;
+        window.__attLearners.forEach(function(l) {
+            if (l.status === 'present') present++;
+            else if (l.status === 'absent') absent++;
+            var row = document.createElement('div');
+            row.className = 'att-row';
+            row.style.cssText = 'background:#0f172a;border:1px solid #334155;border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:12px;';
+            row.innerHTML =
+                '<div style="flex:1;min-width:0;">' +
+                    '<div style="color:#f1f5f9;font-size:13px;font-weight:600;">' + escapeHtml(l.name) + '</div>' +
+                    '<div style="color:#94a3b8;font-size:11.5px;">' + escapeHtml(l.email) + '</div>' +
+                '</div>' +
+                '<div style="display:flex;gap:4px;">' +
+                    '<button type="button" data-s="present" class="att-btn ' + (l.status === 'present' ? 'att-on' : '') + '" style="background:' + (l.status === 'present' ? '#10b981' : '#334155') + ';color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;">Present</button>' +
+                    '<button type="button" data-s="absent" class="att-btn ' + (l.status === 'absent' ? 'att-on' : '') + '" style="background:' + (l.status === 'absent' ? '#ef4444' : '#334155') + ';color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;">Absent</button>' +
+                '</div>';
+            var cid = l.customer_id;
+            row.querySelectorAll('button').forEach(function(b){
+                b.addEventListener('click', function(){
+                    var idx = window.__attLearners.findIndex(function(x){ return x.customer_id === cid; });
+                    if (idx >= 0) window.__attLearners[idx].status = b.getAttribute('data-s');
+                    attRender();
+                });
+            });
+            list.appendChild(row);
+        });
+        var total = window.__attLearners.length;
+        var unmarked = total - present - absent;
+        summary.textContent = total + ' learner(s): ' + present + ' present, ' + absent + ' absent' + (unmarked ? ', ' + unmarked + ' unmarked' : '');
+    }
+    function escapeHtml(s) { s = s || ''; return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+    window.attSetAll = function(status) {
+        window.__attLearners.forEach(function(l){ l.status = status; });
+        attRender();
+    };
+    window.attSave = function() {
+        var btn = document.getElementById('attSaveBtn');
+        var rs  = document.getElementById('attResult');
+        if (!window.__attCurrentSession) return;
+        var payload = {};
+        window.__attLearners.forEach(function(l){
+            if (l.status === 'present' || l.status === 'absent') payload[l.customer_id] = l.status;
+        });
+        btn.disabled = true; btn.textContent = 'Saving…';
+        rs.style.display = ''; rs.innerHTML = '<span style="color:#94a3b8;">Saving…</span>';
+        var fd = new FormData();
+        fd.append('course_id', window.__attCourseId);
+        fd.append('option_type_id', window.__attCurrentSession);
+        fd.append('attendance', JSON.stringify(payload));
+        fetch(window.__attSaveUrl, { method: 'POST', body: fd, credentials: 'same-origin' })
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+                btn.disabled = false; btn.textContent = 'Save Attendance';
+                if (d.success) rs.innerHTML = '<span style="color:#10b981;">Saved ' + d.updated + ' record(s).</span>';
+                else rs.innerHTML = '<span style="color:#ef4444;">' + (d.message || 'Save failed') + '</span>';
+            })
+            .catch(function(err){
+                btn.disabled = false; btn.textContent = 'Save Attendance';
+                rs.innerHTML = '<span style="color:#ef4444;">Network error: ' + err.message + '</span>';
+            });
+    };
+    </script>
 
     <!-- TRAINER: Google Meet (N/A) -->
     <div class="lcd-section" id="google-meet">
