@@ -643,21 +643,35 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             }
             if ($firstName === '') $firstName = 'Learner';
 
-            // Dedup: don't create a second enrolment if one already exists for the
-            // same (email, product). Idempotent so repeated clicks are safe.
-            $existing = $read->fetchOne(
-                "SELECT o.entity_id FROM sales_flat_order o
+            // Dedup with auto-heal: if an enrolment already exists for (email, product),
+            // check whether it was created by an older version of this controller that
+            // produced a guest order (customer_id NULL) or an item without product_options.
+            // Those orders are invisible to attendance/learner-dashboard queries, so we
+            // delete and rewrite them. Well-formed existing rows are left alone.
+            $existing = $read->fetchRow(
+                "SELECT o.entity_id AS order_id, o.customer_id, oi.item_id, oi.product_options, o.increment_id
+                 FROM sales_flat_order o
                  JOIN sales_flat_order_item oi ON oi.order_id = o.entity_id
                  WHERE LOWER(o.customer_email) = ? AND oi.product_id = ?
                  LIMIT 1",
                 array($email, $courseEntityId)
             );
             if ($existing) {
-                Mage::getSingleton('adminhtml/session')->addSuccess(
-                    'Enrolment already exists for ' . $email . ' on ' . $product->getSku() . ' — no changes made.'
-                );
-                $this->_redirectUrl(Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('tpg_page' => 'enroll_learners')));
-                return;
+                $brokenByOldCode = (empty($existing['customer_id']) || empty($existing['product_options']));
+                // Only auto-heal orders created by our Enrol flow, never external
+                // real-money orders. Our orders use the ENROL- increment_id prefix.
+                $isOurEnrol = strpos((string)$existing['increment_id'], 'ENROL-') === 0;
+                if ($brokenByOldCode && $isOurEnrol) {
+                    $write->delete('sales_flat_order_item', array('item_id = ?' => (int)$existing['item_id']));
+                    $write->delete('sales_flat_order',      array('entity_id = ?' => (int)$existing['order_id']));
+                    // fall through to recreate the order below
+                } else {
+                    Mage::getSingleton('adminhtml/session')->addSuccess(
+                        'Enrolment already exists for ' . $email . ' on ' . $product->getSku() . ' — no changes made.'
+                    );
+                    $this->_redirectUrl(Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('tpg_page' => 'enroll_learners')));
+                    return;
+                }
             }
 
             // Resolve (or create) the Magento customer_entity for this learner so that
