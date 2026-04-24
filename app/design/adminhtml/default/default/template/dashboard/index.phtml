@@ -520,6 +520,53 @@ if ($_loggedInEmail) {
                  ORDER BY sd.value DESC";
 
         $_rows = $_read->fetchAll($_sql, array($_loggedInEmail));
+
+        // Resolve real course dates from "Course Date" custom-option dropdown titles
+        // for the learner view too. news_from_date on many courses is either empty
+        // or stale (2014-era); the authoritative schedule lives in Course Date options.
+        if (!empty($_rows)) {
+            $_todayTs = time();
+            foreach ($_rows as &$_r) {
+                $_cdDates = $_read->fetchAll(
+                    "SELECT ott.title FROM catalog_product_option o
+                     JOIN catalog_product_option_title ot ON ot.option_id=o.option_id AND ot.store_id=0
+                     JOIN catalog_product_option_type_value ov ON ov.option_id=o.option_id
+                     JOIN catalog_product_option_type_title ott ON ott.option_type_id=ov.option_type_id AND ott.store_id=0
+                     WHERE o.product_id=? AND (ot.title='Course Date' OR ot.title LIKE '%Date%')",
+                    array((int)$_r['product_id'])
+                );
+                $_bestFuture = null; $_bestEnd = null; $_bestAny = null;
+                foreach ($_cdDates as $_cd) {
+                    if (preg_match('#(\d{1,2})(?:/(\d{1,2}))?\s+([A-Za-z]{3,})\s+(\d{4})#', $_cd['title'], $_dm)) {
+                        $_startTs = strtotime($_dm[1] . ' ' . $_dm[3] . ' ' . $_dm[4]);
+                        $_endTs = !empty($_dm[2]) ? strtotime($_dm[2] . ' ' . $_dm[3] . ' ' . $_dm[4]) : $_startTs;
+                        if (!$_startTs) continue;
+                        if ($_startTs >= $_todayTs) {
+                            if ($_bestFuture === null || $_startTs < $_bestFuture) {
+                                $_bestFuture = $_startTs; $_bestEnd = $_endTs;
+                            }
+                        }
+                        if ($_bestAny === null || $_startTs > $_bestAny) {
+                            $_bestAny = $_startTs;
+                            if ($_bestFuture === null) $_bestEnd = $_endTs;
+                        }
+                    }
+                }
+                if ($_bestFuture !== null) {
+                    $_r['start_date'] = date('Y-m-d 00:00:00', $_bestFuture);
+                    $_r['end_date']   = date('Y-m-d 23:59:59', $_bestEnd);
+                } elseif ($_bestAny !== null) {
+                    $_r['start_date'] = date('Y-m-d 00:00:00', $_bestAny);
+                    $_r['end_date']   = date('Y-m-d 23:59:59', $_bestEnd);
+                } else {
+                    $_sdTs = $_r['start_date'] ? strtotime($_r['start_date']) : 0;
+                    if ($_sdTs > 0 && $_sdTs < ($_todayTs - 63072000)) {
+                        $_r['start_date'] = null; $_r['end_date'] = null;
+                    }
+                }
+            }
+            unset($_r);
+        }
     }
     foreach ($_rows as $_r) {
         $_start = $_r['start_date'] ? date('Y-m-d', strtotime($_r['start_date'])) : null;
