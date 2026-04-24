@@ -6778,14 +6778,22 @@ button.tpgel-submit,button.tpgel-submit:hover{background:#2563eb !important;back
     // Debounced AJAX search for existing learners
     var TPGEL_SEARCH_URL = <?php echo json_encode(Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/searchLearners')) ?>;
     var tpgelDebounce = null;
-    window.tpgelSelectLearner = function(email, fullname){
-        // Populate the Trainee Information fields with the selected learner's
-        // known data, then swap to the Trainee Information view so the admin
-        // can fill in the remaining particulars (ID, DOB, phone).
-        document.getElementById('tpgel-learner-email').value = email || '';
-        document.getElementById('tpgel-learner-name').value = fullname || '';
+    window.tpgelSelectLearner = function(payload){
+        // payload: { email, fullname, id_type, nric, date_of_birth, country_code, phone_number, sponsorship_type }
+        // Populate every Trainee Information field from stored learner_profile
+        // data so admins don't retype previously-entered particulars.
+        function set(id, v){ var el = document.getElementById(id); if (el) el.value = (v !== undefined && v !== null) ? v : ''; }
+        set('tpgel-learner-email',         payload.email);
+        set('tpgel-learner-name',          payload.fullname);
+        set('tpgel-learner-idtype',        payload.id_type || 'NRIC');
+        set('tpgel-learner-nric',          payload.nric);
+        set('tpgel-learner-dob',           payload.date_of_birth);
+        set('tpgel-learner-country-code',  payload.country_code || '+65');
+        set('tpgel-learner-phone',         payload.phone_number);
+        set('tpgel-sponsorship',           payload.sponsorship_type || 'INDIVIDUAL');
+
         var search = document.getElementById('tpgel-learner-search');
-        if (search) search.value = email;
+        if (search) search.value = payload.email || '';
         var rs = document.getElementById('tpgel-learner-results');
         if (rs) { rs.innerHTML=''; rs.style.display='none'; }
         var sv = document.getElementById('tpgel-search-view');
@@ -6802,17 +6810,22 @@ button.tpgel-submit,button.tpgel-submit:hover{background:#2563eb !important;back
             box.style.display = 'block';
             return;
         }
+        // Stash full payloads so the Select button doesn't have to round-trip
+        // through attribute strings (handles quotes/commas/apostrophes safely).
+        window.__tpgelLastResults = results;
         var html = '';
         for (var i=0; i<results.length; i++){
             var r = results[i];
-            var name = (r.fullname || r.email.split('@')[0]).replace(/"/g,'&quot;');
-            var email = String(r.email).replace(/"/g,'&quot;');
+            var name = (r.fullname || r.email.split('@')[0]);
+            var email = String(r.email);
+            var nameEsc = name.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            var emailEsc = email.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
             html += '<div class="tpgel-result">'
                  +  '<div class="tpgel-result-info">'
-                 +    '<div class="tpgel-result-name">' + name + '</div>'
-                 +    '<div class="tpgel-result-email">' + email + '</div>'
+                 +    '<div class="tpgel-result-name">' + nameEsc + '</div>'
+                 +    '<div class="tpgel-result-email">' + emailEsc + '</div>'
                  +  '</div>'
-                 +  '<button type="button" class="tpgel-result-btn" onclick="tpgelSelectLearner(\'' + email + '\',\'' + name + '\')">Select</button>'
+                 +  '<button type="button" class="tpgel-result-btn" onclick="tpgelSelectLearner(window.__tpgelLastResults[' + i + '])">Select</button>'
                  +  '</div>';
         }
         box.innerHTML = html;

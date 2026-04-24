@@ -779,6 +779,45 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 'product_options' => $productOptionsSerialized,
             ));
 
+            // Upsert learner_profile so next time this learner is picked,
+            // the Trainee Information form auto-fills every field.
+            try {
+                $dobIn = trim((string) $req->getParam('learner_dob'));
+                $dobSql = ($dobIn !== '' && strtotime($dobIn)) ? date('Y-m-d', strtotime($dobIn)) : null;
+                $profileRow = array(
+                    'email'            => $email,
+                    'customer_id'      => $customerId ?: null,
+                    'id_type'          => trim((string) $req->getParam('learner_id_type')) ?: 'NRIC',
+                    'nric'             => $nric,
+                    'full_name'        => $fullName,
+                    'date_of_birth'    => $dobSql,
+                    'country_code'     => trim((string) $req->getParam('learner_country_code')) ?: '+65',
+                    'phone_number'     => trim((string) $req->getParam('learner_phone')),
+                    'sponsorship_type' => $sponsorship,
+                );
+                $existingProfile = $read->fetchOne(
+                    "SELECT id FROM learner_profile WHERE email = ? LIMIT 1",
+                    array($email)
+                );
+                if ($existingProfile) {
+                    // Only overwrite a field if the new submission actually has a non-empty value
+                    // — preserves whatever the admin typed before.
+                    $updateFields = array();
+                    foreach ($profileRow as $k => $v) {
+                        if ($k === 'email') continue;
+                        if ($v !== null && $v !== '') $updateFields[$k] = $v;
+                    }
+                    if ($updateFields) {
+                        $write->update('learner_profile', $updateFields, array('id = ?' => (int)$existingProfile));
+                    }
+                } else {
+                    $write->insert('learner_profile', $profileRow);
+                }
+            } catch (Exception $e) {
+                // learner_profile table may not exist yet (migration 024 not applied)
+                // — enrolment itself already succeeded so don't fail the request.
+            }
+
             Mage::app()->cleanCache();
 
             $msg = 'Enrolled ' . ($fullName !== '' ? $fullName . ' (' . $email . ')' : $email)
@@ -809,6 +848,23 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
 
             $read = Mage::getSingleton('core/resource')->getConnection('core_read');
 
+            // Preload all matching learner_profile rows once so we can enrich
+            // each result with stored Trainee Particulars. Key by lowercase email.
+            $profiles = array();
+            try {
+                $profileRows = $read->fetchAll(
+                    "SELECT email, id_type, nric, full_name, date_of_birth, country_code, phone_number, sponsorship_type
+                     FROM learner_profile
+                     WHERE email LIKE ? OR full_name LIKE ?",
+                    array($like, $like)
+                );
+                foreach ($profileRows as $pr) {
+                    $profiles[strtolower($pr['email'])] = $pr;
+                }
+            } catch (Exception $e) {
+                // learner_profile table may not exist yet — treat as empty.
+            }
+
             // admin_user (the people who actually log in and see the Learner dashboard)
             $adminRows = $read->fetchAll(
                 "SELECT email, firstname, lastname FROM admin_user
@@ -821,10 +877,17 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 $email = strtolower($r['email']);
                 if ($email === '' || isset($seen[$email])) continue;
                 $seen[$email] = 1;
+                $p = isset($profiles[$email]) ? $profiles[$email] : null;
                 $results[] = array(
-                    'email'     => $r['email'],
-                    'fullname'  => trim($r['firstname'] . ' ' . $r['lastname']),
-                    'source'    => 'admin_user',
+                    'email'            => $r['email'],
+                    'fullname'         => ($p && $p['full_name'] !== '') ? $p['full_name'] : trim($r['firstname'] . ' ' . $r['lastname']),
+                    'source'           => 'admin_user',
+                    'id_type'          => $p ? $p['id_type']          : '',
+                    'nric'             => $p ? $p['nric']             : '',
+                    'date_of_birth'    => $p ? $p['date_of_birth']    : '',
+                    'country_code'     => $p ? $p['country_code']     : '',
+                    'phone_number'     => $p ? $p['phone_number']     : '',
+                    'sponsorship_type' => $p ? $p['sponsorship_type'] : '',
                 );
             }
 
@@ -850,10 +913,17 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                     $email = strtolower($r['email']);
                     if ($email === '' || isset($seen[$email])) continue;
                     $seen[$email] = 1;
+                    $p = isset($profiles[$email]) ? $profiles[$email] : null;
                     $results[] = array(
-                        'email'    => $r['email'],
-                        'fullname' => trim(($r['firstname'] ?: '') . ' ' . ($r['lastname'] ?: '')),
-                        'source'   => 'customer',
+                        'email'            => $r['email'],
+                        'fullname'         => ($p && $p['full_name'] !== '') ? $p['full_name'] : trim(($r['firstname'] ?: '') . ' ' . ($r['lastname'] ?: '')),
+                        'source'           => 'customer',
+                        'id_type'          => $p ? $p['id_type']          : '',
+                        'nric'             => $p ? $p['nric']             : '',
+                        'date_of_birth'    => $p ? $p['date_of_birth']    : '',
+                        'country_code'     => $p ? $p['country_code']     : '',
+                        'phone_number'     => $p ? $p['phone_number']     : '',
+                        'sponsorship_type' => $p ? $p['sponsorship_type'] : '',
                     );
                 }
             }
