@@ -3133,6 +3133,25 @@ $_courseRefCode = 'TGS-' . (2024000000 + ((int)$_selectedCourse['id']) * 17);
             })
             .catch(function(err){ summary.textContent = 'Network error: ' + err.message; });
     };
+    // Inject once: forceful styles for attendance buttons/rows — overrides admin-area button CSS
+    (function(){
+        if (document.getElementById('att-styles')) return;
+        var s = document.createElement('style');
+        s.id = 'att-styles';
+        s.textContent = ''
+            + '.att-row{background:#0f172a;border:1px solid #334155;border-left-width:4px;border-left-color:#64748b;border-radius:8px;padding:12px 14px;display:flex;align-items:center;gap:12px;transition:background .15s,border-color .15s}'
+            + '.att-row.att-status-present{background:rgba(16,185,129,.08);border-color:#10b981}'
+            + '.att-row.att-status-absent{background:rgba(239,68,68,.08);border-color:#ef4444}'
+            + '.att-badge{font-size:10px;font-weight:800;letter-spacing:.8px;padding:3px 9px;border-radius:999px;text-transform:uppercase;background:#334155;color:#94a3b8;flex-shrink:0}'
+            + '.att-badge.att-badge-present{background:#10b981;color:#0f172a}'
+            + '.att-badge.att-badge-absent{background:#ef4444;color:#fff}'
+            + 'button.att-btn,button.att-btn:hover,button.att-btn:focus,button.att-btn:active{background:#334155 !important;background-image:none !important;color:#cbd5e1 !important;border:1px solid #475569 !important;border-radius:6px !important;padding:7px 14px !important;font-size:12px !important;font-weight:600 !important;cursor:pointer !important;text-align:center !important;transition:all .15s !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;display:inline-flex !important;align-items:center !important;gap:5px !important;min-width:96px !important;justify-content:center !important}'
+            + 'button.att-btn:hover{background:#475569 !important}'
+            + 'button.att-btn.att-btn-present.att-on,button.att-btn.att-btn-present.att-on:hover,button.att-btn.att-btn-present.att-on:focus{background:#10b981 !important;border-color:#10b981 !important;color:#0f172a !important;box-shadow:0 0 0 2px rgba(16,185,129,.25) !important}'
+            + 'button.att-btn.att-btn-absent.att-on,button.att-btn.att-btn-absent.att-on:hover,button.att-btn.att-btn-absent.att-on:focus{background:#ef4444 !important;border-color:#ef4444 !important;color:#fff !important;box-shadow:0 0 0 2px rgba(239,68,68,.25) !important}';
+        document.head.appendChild(s);
+    })();
+
     function attRender() {
         var list = document.getElementById('attList');
         var summary = document.getElementById('attSummary');
@@ -3142,22 +3161,31 @@ $_courseRefCode = 'TGS-' . (2024000000 + ((int)$_selectedCourse['id']) * 17);
             if (l.status === 'present') present++;
             else if (l.status === 'absent') absent++;
             var row = document.createElement('div');
-            row.className = 'att-row';
-            row.style.cssText = 'background:#0f172a;border:1px solid #334155;border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:12px;';
+            row.className = 'att-row' + (l.status === 'present' ? ' att-status-present' : (l.status === 'absent' ? ' att-status-absent' : ''));
+
+            var badgeLabel = l.status === 'present' ? 'Present' : (l.status === 'absent' ? 'Absent' : 'Unmarked');
+            var badgeClass = l.status === 'present' ? 'att-badge-present' : (l.status === 'absent' ? 'att-badge-absent' : '');
+            var presentIcon = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>';
+            var absentIcon  = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+
             row.innerHTML =
+                '<span class="att-badge ' + badgeClass + '">' + badgeLabel + '</span>' +
                 '<div style="flex:1;min-width:0;">' +
                     '<div style="color:#f1f5f9;font-size:13px;font-weight:600;">' + escapeHtml(l.name) + '</div>' +
                     '<div style="color:#94a3b8;font-size:11.5px;">' + escapeHtml(l.email) + '</div>' +
                 '</div>' +
-                '<div style="display:flex;gap:4px;">' +
-                    '<button type="button" data-s="present" class="att-btn ' + (l.status === 'present' ? 'att-on' : '') + '" style="background:' + (l.status === 'present' ? '#10b981' : '#334155') + ';color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;">Present</button>' +
-                    '<button type="button" data-s="absent" class="att-btn ' + (l.status === 'absent' ? 'att-on' : '') + '" style="background:' + (l.status === 'absent' ? '#ef4444' : '#334155') + ';color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;">Absent</button>' +
+                '<div style="display:flex;gap:6px;">' +
+                    '<button type="button" data-s="present" class="att-btn att-btn-present' + (l.status === 'present' ? ' att-on' : '') + '">' + presentIcon + ' Present</button>' +
+                    '<button type="button" data-s="absent"  class="att-btn att-btn-absent'  + (l.status === 'absent'  ? ' att-on' : '') + '">' + absentIcon + ' Absent</button>' +
                 '</div>';
             var cid = l.customer_id;
             row.querySelectorAll('button').forEach(function(b){
                 b.addEventListener('click', function(){
                     var idx = window.__attLearners.findIndex(function(x){ return x.customer_id === cid; });
-                    if (idx >= 0) window.__attLearners[idx].status = b.getAttribute('data-s');
+                    if (idx < 0) return;
+                    var target = b.getAttribute('data-s');
+                    // Clicking the already-active state clears it (back to unmarked)
+                    window.__attLearners[idx].status = (window.__attLearners[idx].status === target) ? '' : target;
                     attRender();
                 });
             });
@@ -3165,7 +3193,10 @@ $_courseRefCode = 'TGS-' . (2024000000 + ((int)$_selectedCourse['id']) * 17);
         });
         var total = window.__attLearners.length;
         var unmarked = total - present - absent;
-        summary.textContent = total + ' learner(s): ' + present + ' present, ' + absent + ' absent' + (unmarked ? ', ' + unmarked + ' unmarked' : '');
+        summary.innerHTML = '<strong style="color:#f1f5f9;">' + total + ' learner(s):</strong> '
+            + '<span style="color:#10b981;font-weight:600;">' + present + ' present</span>, '
+            + '<span style="color:#ef4444;font-weight:600;">' + absent + ' absent</span>'
+            + (unmarked ? ', <span style="color:#94a3b8;">' + unmarked + ' unmarked</span>' : '');
     }
     function escapeHtml(s) { s = s || ''; return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
     window.attSetAll = function(status) {

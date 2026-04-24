@@ -43,20 +43,26 @@ class MMD_RoleManager_Adminhtml_AttendanceController extends Mage_Adminhtml_Cont
             }
 
             // Find all customers who ordered this course WITH this specific session selected.
-            // We scan sales_flat_order_item.product_options (serialized PHP) for the option_type_id.
-            // A cheaper approximation (used here): any order containing the course product,
-            // where the option_value column matches our option_type_id.
+            // Magento 1 customer_entity is EAV — firstname/lastname live in customer_entity_varchar.
+            $fnAttr = (int) $read->fetchOne("SELECT attribute_id FROM eav_attribute WHERE entity_type_id=1 AND attribute_code='firstname'");
+            $lnAttr = (int) $read->fetchOne("SELECT attribute_id FROM eav_attribute WHERE entity_type_id=1 AND attribute_code='lastname'");
+
+            $nameJoinsSql =
+                " LEFT JOIN customer_entity_varchar fn ON fn.entity_id = c.entity_id AND fn.attribute_id = ?"
+              . " LEFT JOIN customer_entity_varchar ln ON ln.entity_id = c.entity_id AND ln.attribute_id = ?";
+
             $rows = $read->fetchAll(
                 "SELECT DISTINCT o.customer_id, c.email,
-                        CONCAT(TRIM(COALESCE(c.firstname,'')), ' ', TRIM(COALESCE(c.lastname,''))) AS name
+                        CONCAT(TRIM(COALESCE(fn.value,'')), ' ', TRIM(COALESCE(ln.value,''))) AS name
                  FROM sales_flat_order_item oi
                  JOIN sales_flat_order o ON o.entity_id = oi.order_id
                  JOIN customer_entity c ON c.entity_id = o.customer_id
+                 {$nameJoinsSql}
                  WHERE oi.product_id = ?
                    AND o.customer_id IS NOT NULL
                    AND (oi.product_options LIKE ? OR oi.product_options LIKE ?)
                  ORDER BY name",
-                array($courseId, '%i:' . $optionTypeId . ';%', '%"option_value";s:%"' . $optionTypeId . '"%')
+                array($fnAttr, $lnAttr, $courseId, '%i:' . $optionTypeId . ';%', '%"option_value";s:%"' . $optionTypeId . '"%')
             );
 
             // Also include any previously-marked attendance rows (keeps record if enrolment data changed)
@@ -70,13 +76,14 @@ class MMD_RoleManager_Adminhtml_AttendanceController extends Mage_Adminhtml_Cont
             if (empty($rows)) {
                 $rows = $read->fetchAll(
                     "SELECT DISTINCT o.customer_id, c.email,
-                            CONCAT(TRIM(COALESCE(c.firstname,'')), ' ', TRIM(COALESCE(c.lastname,''))) AS name
+                            CONCAT(TRIM(COALESCE(fn.value,'')), ' ', TRIM(COALESCE(ln.value,''))) AS name
                      FROM sales_flat_order_item oi
                      JOIN sales_flat_order o ON o.entity_id = oi.order_id
                      JOIN customer_entity c ON c.entity_id = o.customer_id
+                     {$nameJoinsSql}
                      WHERE oi.product_id = ? AND o.customer_id IS NOT NULL
                      ORDER BY name",
-                    array($courseId)
+                    array($fnAttr, $lnAttr, $courseId)
                 );
             }
 
