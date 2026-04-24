@@ -671,6 +671,27 @@ if ($_loggedInEmail) {
     }
 }
 
+// Course Run IDs (SG-100000, SG-100001, ...) sourced from course_run_registry —
+// a course gets registered the first time an admin clicks Create Class for it
+// through TPG, and keeps its sequential number thereafter. Courses that have
+// never been run through TPG don't get a Course Run ID row on the card.
+$_lmcCountryPrefix = array(1=>'SG', 2=>'MY', 3=>'GH', 4=>'NG', 5=>'BUT', 6=>'IND', 7=>'INF');
+$_lmcRunMap        = array(); // product_id => "SG-100000"
+try {
+    $_lmcRead = Mage::getSingleton('core/resource')->getConnection('core_read');
+    $_registryRows = $_lmcRead->fetchAll(
+        "SELECT product_id, website_id, run_seq FROM course_run_registry"
+    );
+    foreach ($_registryRows as $_rr) {
+        $_wid    = (int) $_rr['website_id'];
+        $_prefix = isset($_lmcCountryPrefix[$_wid]) ? $_lmcCountryPrefix[$_wid] : 'SG';
+        $_num    = 100000 + (int) $_rr['run_seq'];
+        $_lmcRunMap[(int) $_rr['product_id']] = $_prefix . '-' . str_pad((string)$_num, 6, '0', STR_PAD_LEFT);
+    }
+} catch (Exception $e) {
+    // course_run_registry migration not yet applied
+}
+
 // Selected course detail (if course_id param)
 $_selectedCourseId = (int) Mage::app()->getRequest()->getParam('course_id');
 $_selectedCourse = null;
@@ -3750,6 +3771,12 @@ a.lmc-card,a.lmc-card:hover,a.lmc-card:focus,a.lmc-card:active{text-decoration:n
                         <span class="lmc-card-label">Course Code</span>
                         <span class="lmc-card-value"><?php echo $_c['sku'] ? htmlspecialchars($_c['sku']) : '—' ?></span>
                     </div>
+                    <?php if (isset($_lmcRunMap[(int)$_c['id']])): ?>
+                    <div class="lmc-card-row">
+                        <span class="lmc-card-label">Course Run ID</span>
+                        <span class="lmc-card-value"><?php echo $_lmcRunMap[(int)$_c['id']] ?></span>
+                    </div>
+                    <?php endif; ?>
                     <?php if (!empty($_c['duration']) && $_c['duration'] > 0): ?>
                     <div class="lmc-card-row">
                         <span class="lmc-card-label">Course Duration</span>

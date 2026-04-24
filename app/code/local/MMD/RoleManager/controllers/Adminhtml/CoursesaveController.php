@@ -558,6 +558,39 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 }
             }
 
+            // Register this course in course_run_registry so the Trainer / Learner
+            // dashboards can render a per-course sequential Course Run ID
+            // (SG-100000, SG-100001, ...). Idempotent — a course that's already
+            // registered keeps its existing seq.
+            $courseRunSeq = null;
+            try {
+                $existingSeq = $read->fetchOne(
+                    "SELECT run_seq FROM course_run_registry WHERE product_id = ?",
+                    array($courseEntityId)
+                );
+                if ($existingSeq === false || $existingSeq === null) {
+                    $productWebsiteId = (int) $read->fetchOne(
+                        "SELECT website_id FROM catalog_product_website WHERE product_id = ? ORDER BY website_id ASC LIMIT 1",
+                        array($courseEntityId)
+                    ) ?: 1;
+                    $nextSeq = (int) $read->fetchOne(
+                        "SELECT COALESCE(MAX(run_seq), -1) + 1 FROM course_run_registry WHERE website_id = ?",
+                        array($productWebsiteId)
+                    );
+                    $write->insert('course_run_registry', array(
+                        'product_id' => $courseEntityId,
+                        'website_id' => $productWebsiteId,
+                        'run_seq'    => $nextSeq,
+                    ));
+                    $courseRunSeq = $nextSeq;
+                } else {
+                    $courseRunSeq = (int) $existingSeq;
+                }
+            } catch (Exception $e) {
+                // course_run_registry migration not yet applied — skip, dashboard
+                // will fall back to entity_id-based numbering.
+            }
+
             Mage::app()->cleanCache();
 
             $msg = 'Class created for "' . $product->getSku() . '" on ' . $label . '.';
