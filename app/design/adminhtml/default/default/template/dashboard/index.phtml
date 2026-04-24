@@ -357,13 +357,18 @@ if ($_loggedInEmail) {
              WHERE o.attribute_id=? AND v.store_id=0",
             array($_trainersAttrId)
         );
+        // Tokens for "full-name equal OR full-name-with-prefix" matching.
+        // Substring matching is unsafe — "Alfred Ang" must NOT match "Alfred Angelo".
+        $_fullNameLc = strtolower($_fullName);
+        $_fullNameRegex = $_fullName !== '' ? '/\b' . preg_quote($_fullName, '/') . '\b/i' : '';
         foreach ($_opts as $_o) {
             $_optName = trim(preg_replace('/^ACTA\s+/i', '', $_o['value']));
             if ($_optName === '') continue;
             $_isMatch = false;
 
-            // Strategy 1: full name substring match
-            if ($_fullName !== '' && stripos($_optName, $_fullName) !== false) {
+            // Strategy 1: full name as a whole word inside the option value.
+            // Word-boundary regex prevents "Alfred Ang" matching "Alfred Angelo".
+            if ($_fullNameRegex !== '' && preg_match($_fullNameRegex, $_optName)) {
                 $_isMatch = true;
             }
 
@@ -395,10 +400,16 @@ if ($_loggedInEmail) {
                     $_params[] = $_mid;
                 }
             }
-            // Also match courses where trainerprofile HTML contains the user's full name
+            // Also match courses where trainerprofile HTML names the user explicitly.
+            // trainerprofile follows the "<strong>Name:</strong>" convention set by
+            // CoursesaveController — matching any occurrence of the raw fullname is
+            // unsafe because it hits bios that merely mention the trainer in prose
+            // (and, worse, hits longer names that start with this one).
             if ($_tpAttrId && $_fullName !== '') {
-                $_conditions[] = "(tp.value LIKE ?)";
-                $_params[] = '%' . $_fullName . '%';
+                $_conditions[] = "(tp.value LIKE ? OR tp.value LIKE ? OR tp.value LIKE ?)";
+                $_params[] = '%<strong>' . $_fullName . ':%';
+                $_params[] = '%<strong>' . $_fullName . '</strong>%';
+                $_params[] = '%<strong>Dr ' . $_fullName . ':%';
             }
 
             $_whereSql = !empty($_conditions) ? '(' . implode(' OR ', $_conditions) . ')' : '1=0';
