@@ -71,21 +71,10 @@ class MMD_RoleManager_Adminhtml_AttendanceController extends Mage_Adminhtml_Cont
                 array($optionTypeId)
             );
 
-            // Fallback: if the product_options LIKE match returned nothing, fall back to
-            // showing EVERY customer who has any order with this product (user can trim later).
-            if (empty($rows)) {
-                $rows = $read->fetchAll(
-                    "SELECT DISTINCT o.customer_id, c.email,
-                            CONCAT(TRIM(COALESCE(fn.value,'')), ' ', TRIM(COALESCE(ln.value,''))) AS name
-                     FROM sales_flat_order_item oi
-                     JOIN sales_flat_order o ON o.entity_id = oi.order_id
-                     JOIN customer_entity c ON c.entity_id = o.customer_id
-                     {$nameJoinsSql}
-                     WHERE oi.product_id = ? AND o.customer_id IS NOT NULL
-                     ORDER BY name",
-                    array($fnAttr, $lnAttr, $courseId)
-                );
-            }
+            // No fallback to "all customers who ordered this course" — that was showing
+            // the same learner on every session of a course regardless of which session
+            // they were actually booked into. An empty list is the correct answer when
+            // nobody picked this particular option_type_id.
 
             $learners = array();
             foreach ($rows as $r) {

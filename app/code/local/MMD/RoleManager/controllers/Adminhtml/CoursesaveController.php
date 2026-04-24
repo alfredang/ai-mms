@@ -660,6 +660,33 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 return;
             }
 
+            // Resolve (or create) the Magento customer_entity for this learner so that
+            // the order links to a real customer_id. Attendance, billing, and every
+            // other downstream query joins on customer_id — a guest order with a
+            // null customer_id will appear to have "no enrolled learners".
+            $customerId = 0;
+            try {
+                $customer = Mage::getModel('customer/customer');
+                $customer->setWebsiteId((int) Mage::app()->getStore()->getWebsiteId());
+                $customer->loadByEmail($email);
+                if (!$customer->getId()) {
+                    // Fresh customer — use the default customer group and store
+                    $customer->setEmail($email);
+                    $customer->setFirstname($firstName ?: 'Learner');
+                    $customer->setLastname($lastName ?: '');
+                    $customer->setGroupId(1); // General group
+                    // Set a random password — the learner can reset via email if needed
+                    $customer->setPassword(substr(md5(uniqid((string)mt_rand(), true)), 0, 12));
+                    $customer->setConfirmation(null);
+                    $customer->save();
+                }
+                $customerId = (int) $customer->getId();
+            } catch (Exception $e) {
+                // Fall back to guest order if customer creation fails (e.g. race,
+                // website constraint) — attendance will still miss this enrolment
+                // but enrolment itself shouldn't block.
+            }
+
             // Generate a unique increment_id
             $incrementId = 'ENROL-' . time() . '-' . substr(md5($email . '|' . $courseEntityId), 0, 6);
 
@@ -667,10 +694,11 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 'state'                => 'processing',
                 'status'               => 'processing',
                 'store_id'             => 1,
+                'customer_id'          => $customerId ?: null,
                 'customer_email'       => $email,
                 'customer_firstname'   => $firstName,
                 'customer_lastname'    => $lastName,
-                'customer_is_guest'    => 1,
+                'customer_is_guest'    => $customerId ? 0 : 1,
                 'base_grand_total'     => 0,
                 'grand_total'          => 0,
                 'base_subtotal'        => 0,
@@ -690,20 +718,51 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             ));
             $orderId = (int) $write->lastInsertId();
 
+            // Serialize product_options so AttendanceController::listAction can find this
+            // enrolment for this specific session (it LIKE-matches option_value against
+            // the picked option_type_id). Without this, a learner enrolled in the
+            // 27 Apr session would incorrectly appear under every session of the course.
+            $productOptionsSerialized = '';
+            if ($runId !== '' && ctype_digit($runId)) {
+                $parentOptionId = (int) $read->fetchOne(
+                    "SELECT option_id FROM catalog_product_option_type_value WHERE option_type_id = ?",
+                    array((int)$runId)
+                );
+                $sessionTitle = (string) $read->fetchOne(
+                    "SELECT title FROM catalog_product_option_type_title WHERE option_type_id = ? AND store_id = 0",
+                    array((int)$runId)
+                );
+                if ($parentOptionId && $sessionTitle !== '') {
+                    $productOptionsSerialized = serialize(array(
+                        'options' => array(
+                            array(
+                                'label'        => 'Course Date',
+                                'value'        => $sessionTitle,
+                                'print_value'  => $sessionTitle,
+                                'option_id'    => $parentOptionId,
+                                'option_type'  => 'drop_down',
+                                'option_value' => (string)(int)$runId,
+                            ),
+                        ),
+                    ));
+                }
+            }
+
             $write->insert('sales_flat_order_item', array(
-                'order_id'      => $orderId,
-                'store_id'      => 1,
-                'created_at'    => date('Y-m-d H:i:s'),
-                'updated_at'    => date('Y-m-d H:i:s'),
-                'product_id'    => $courseEntityId,
-                'product_type'  => 'simple',
-                'sku'           => $product->getSku(),
-                'name'          => $product->getName(),
-                'qty_ordered'   => 1,
-                'base_price'    => 0,
-                'price'         => 0,
-                'base_row_total'=> 0,
-                'row_total'     => 0,
+                'order_id'        => $orderId,
+                'store_id'        => 1,
+                'created_at'      => date('Y-m-d H:i:s'),
+                'updated_at'      => date('Y-m-d H:i:s'),
+                'product_id'      => $courseEntityId,
+                'product_type'    => 'simple',
+                'sku'             => $product->getSku(),
+                'name'            => $product->getName(),
+                'qty_ordered'     => 1,
+                'base_price'      => 0,
+                'price'           => 0,
+                'base_row_total'  => 0,
+                'row_total'       => 0,
+                'product_options' => $productOptionsSerialized,
             ));
 
             Mage::app()->cleanCache();
