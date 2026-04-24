@@ -371,8 +371,28 @@ if ($_loggedInEmail) {
             }
         }
 
-        // Build the product query: match via multiselect option IDs OR via trainerprofile HTML
-        if (!empty($_optMatches) || $_fullName !== '') {
+        // Also match courses where THIS trainer is assigned to a specific session
+        // (via course_session_trainers table → catalog_product_option_type_value → catalog_product_option → product_id)
+        $_sessionMatchedProductIds = array();
+        if (!empty($_optMatches)) {
+            try {
+                $_ph = implode(',', array_fill(0, count($_optMatches), '?'));
+                $_sessionMatchedProductIds = $_read->fetchCol(
+                    "SELECT DISTINCT o.product_id
+                     FROM course_session_trainers cst
+                     JOIN catalog_product_option_type_value ov ON ov.option_type_id = cst.option_type_id
+                     JOIN catalog_product_option o ON o.option_id = ov.option_id
+                     WHERE cst.trainer_option_id IN ({$_ph})",
+                    $_optMatches
+                );
+            } catch (Exception $e) {
+                // Table may not exist yet on fresh DBs before migration runs — ignore
+                $_sessionMatchedProductIds = array();
+            }
+        }
+
+        // Build the product query: match via multiselect option IDs OR via trainerprofile HTML OR via session trainer assignments
+        if (!empty($_optMatches) || $_fullName !== '' || !empty($_sessionMatchedProductIds)) {
             $_tpAttrId = (int) $_read->fetchOne("SELECT attribute_id FROM eav_attribute WHERE attribute_code='trainerprofile' AND entity_type_id=4");
             $_conditions = array();
             $_params = array();
@@ -387,6 +407,12 @@ if ($_loggedInEmail) {
             if ($_tpAttrId && $_fullName !== '') {
                 $_conditions[] = "(tp.value LIKE ?)";
                 $_params[] = '%' . $_fullName . '%';
+            }
+            // Session-level matches: include these product_ids directly
+            if (!empty($_sessionMatchedProductIds)) {
+                $_ph2 = implode(',', array_fill(0, count($_sessionMatchedProductIds), '?'));
+                $_conditions[] = "(p.entity_id IN ({$_ph2}))";
+                $_params = array_merge($_params, array_map('intval', $_sessionMatchedProductIds));
             }
 
             $_whereSql = !empty($_conditions) ? '(' . implode(' OR ', $_conditions) . ')' : '1=0';
@@ -810,6 +836,42 @@ if ($_editMode) {
             );
         }
     } catch (Exception $e) {}
+}
+
+// ---- Course Date sessions (Course Sessions UI) ----
+// Query existing "Course Date" custom option values for the currently selected course.
+// Used by the Course Sessions section on the Developer course detail page to list
+// scheduled sessions and allow adding/removing them.
+$_courseSessions = array();
+$_sessTrainerOptions = array();   // [ [option_id, value], ... ] for the trainer dropdown
+if ($_selectedCourseId) {
+    try {
+        $_read = Mage::getSingleton('core/resource')->getConnection('core_read');
+        $_courseSessions = $_read->fetchAll(
+            "SELECT ov.option_type_id, ott.title,
+                    COALESCE(otp.price, 0) AS price,
+                    cst.trainer_option_id, cst.trainer_name
+             FROM catalog_product_option o
+             JOIN catalog_product_option_title ot        ON ot.option_id = o.option_id  AND ot.store_id = 0
+             JOIN catalog_product_option_type_value ov   ON ov.option_id = o.option_id
+             JOIN catalog_product_option_type_title ott  ON ott.option_type_id = ov.option_type_id AND ott.store_id = 0
+             LEFT JOIN catalog_product_option_type_price otp
+                    ON otp.option_type_id = ov.option_type_id AND otp.store_id = 0
+             LEFT JOIN course_session_trainers cst
+                    ON cst.option_type_id = ov.option_type_id
+             WHERE o.product_id = ? AND (ot.title = 'Course Date' OR ot.title LIKE '%Date%')
+             ORDER BY ott.title",
+            array((int) $_selectedCourseId)
+        );
+        // Trainer options for the dropdown (from the `trainers` EAV attribute, attr id 170)
+        $_sessTrainerOptions = $_read->fetchAll(
+            "SELECT o.option_id, v.value
+             FROM eav_attribute_option o
+             JOIN eav_attribute_option_value v ON v.option_id = o.option_id AND v.store_id = 0
+             WHERE o.attribute_id = 170
+             ORDER BY v.value"
+        );
+    } catch (Exception $e) { $_courseSessions = array(); $_sessTrainerOptions = array(); }
 }
 ?>
 
@@ -2676,14 +2738,177 @@ $_courseRefCode = 'TGS-' . (2024000000 + ((int)$_selectedCourse['id']) * 17);
     </div>
 
     <!-- DEVELOPER: Course Sessions -->
+    <?php
+    $_sessAddUrl = Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/addSession');
+    $_sessDelUrl = Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/deleteSession');
+    ?>
     <div class="lcd-section" id="course-sessions">
-        <div class="lcd-section-title">Course Sessions</div>
-        <div class="lcd-empty-box">
+        <div class="lcd-section-title" style="display:flex;align-items:center;justify-content:space-between;">
+            <span>Course Sessions</span>
+            <button type="button" onclick="sessToggleAddForm()" id="sessAddToggleBtn" style="background:#2563eb;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Add Session
+            </button>
+        </div>
+        <div style="color:#94a3b8;font-size:13px;margin-bottom:14px;">Schedule a new class date or manage existing sessions for this course.</div>
+
+        <!-- Add Session form (hidden by default) -->
+        <div id="sessAddForm" style="display:none;background:#131d2e;border:1px solid var(--b1);border-radius:10px;padding:16px;margin-bottom:14px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:12px;align-items:end;">
+                <div>
+                    <label style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">Session Date</label>
+                    <input type="date" id="sessAddDate" style="width:100%;background:#0f172a;border:1px solid var(--b1);border-radius:8px;padding:9px 12px;color:var(--t1);font-size:13px;box-sizing:border-box;" />
+                </div>
+                <div>
+                    <label style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">Custom Label (optional)</label>
+                    <input type="text" id="sessAddLabel" placeholder="e.g. 13/14 May 2026" style="width:100%;background:#0f172a;border:1px solid var(--b1);border-radius:8px;padding:9px 12px;color:var(--t1);font-size:13px;box-sizing:border-box;" />
+                </div>
+                <div>
+                    <label style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">Trainer (optional)</label>
+                    <select id="sessAddTrainer" style="width:100%;background:#0f172a;border:1px solid var(--b1);border-radius:8px;padding:9px 12px;color:var(--t1);font-size:13px;box-sizing:border-box;">
+                        <option value="">— None —</option>
+                        <?php foreach ($_sessTrainerOptions as $_to): ?>
+                        <option value="<?php echo (int)$_to['option_id'] ?>"><?php echo htmlspecialchars($_to['value']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">Price Adjustment</label>
+                    <input type="number" id="sessAddPrice" step="0.01" placeholder="0.00" style="width:100%;background:#0f172a;border:1px solid var(--b1);border-radius:8px;padding:9px 12px;color:var(--t1);font-size:13px;box-sizing:border-box;" />
+                </div>
+                <button type="button" onclick="sessSubmitAdd()" id="sessAddSubmitBtn" style="background:#10b981;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">Save</button>
+            </div>
+            <div id="sessAddResult" style="font-size:12px;margin-top:10px;display:none;"></div>
+        </div>
+
+        <!-- Existing sessions list -->
+        <?php if (empty($_courseSessions)): ?>
+        <div class="lcd-empty-box" id="sessEmptyBox">
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
             <div class="lcd-empty-title">No course sessions scheduled</div>
-            <div style="color:#64748b;font-size:12px;margin-top:4px;">Sessions will appear here once added.</div>
+            <div style="color:#64748b;font-size:12px;margin-top:4px;">Click "Add Session" to schedule one.</div>
         </div>
+        <?php else: ?>
+        <div id="sessList" style="display:flex;flex-direction:column;gap:8px;">
+            <?php foreach ($_courseSessions as $_s): ?>
+            <div class="sess-row" data-type-id="<?php echo (int)$_s['option_type_id'] ?>" style="background:#131d2e;border:1px solid var(--b1);border-radius:10px;padding:14px 18px;display:flex;align-items:center;gap:16px;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" style="flex-shrink:0;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                <div style="flex:1;min-width:0;">
+                    <div style="color:var(--t1);font-weight:600;font-size:14px;"><?php echo htmlspecialchars($_s['title']) ?></div>
+                    <?php if ((float)$_s['price'] > 0): ?>
+                    <div style="color:#94a3b8;font-size:12px;margin-top:2px;">Additional price: $<?php echo number_format((float)$_s['price'], 2) ?></div>
+                    <?php endif; ?>
+                </div>
+                <div style="min-width:240px;">
+                    <label style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Trainer</label>
+                    <select class="sess-trainer-select" onchange="sessAssignTrainer(<?php echo (int)$_s['option_type_id'] ?>, this)" style="width:100%;background:#0f172a;border:1px solid var(--b1);border-radius:6px;padding:6px 10px;color:var(--t1);font-size:12.5px;box-sizing:border-box;">
+                        <option value="">— None —</option>
+                        <?php $assigned = (int)$_s['trainer_option_id']; foreach ($_sessTrainerOptions as $_to): ?>
+                        <option value="<?php echo (int)$_to['option_id'] ?>"<?php echo ((int)$_to['option_id'] === $assigned) ? ' selected' : '' ?>><?php echo htmlspecialchars($_to['value']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <button type="button" onclick="sessDelete(<?php echo (int)$_s['option_type_id'] ?>, this)" style="background:transparent;border:1px solid rgba(239,68,68,.3);color:#ef4444;border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;align-self:center;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    Remove
+                </button>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
     </div>
+
+    <script type="text/javascript">
+    (function(){
+        window.__sessAddUrl    = <?php echo json_encode($_sessAddUrl) ?>;
+        window.__sessDelUrl    = <?php echo json_encode($_sessDelUrl) ?>;
+        window.__sessAssignUrl = <?php echo json_encode(Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/assignSessionTrainer')) ?>;
+        window.__sessCourseId  = <?php echo (int)$_selectedCourseId ?>;
+    })();
+    window.sessToggleAddForm = function() {
+        var f = document.getElementById('sessAddForm');
+        if (!f) return;
+        f.style.display = (f.style.display === 'none' || !f.style.display) ? 'block' : 'none';
+    };
+    window.sessSubmitAdd = function() {
+        var dateEl  = document.getElementById('sessAddDate');
+        var labelEl = document.getElementById('sessAddLabel');
+        var priceEl = document.getElementById('sessAddPrice');
+        var btn     = document.getElementById('sessAddSubmitBtn');
+        var rs      = document.getElementById('sessAddResult');
+        if (!dateEl.value) {
+            rs.style.display = '';
+            rs.innerHTML = '<span style="color:#ef4444;">Please pick a session date.</span>';
+            return;
+        }
+        btn.disabled = true; btn.textContent = 'Saving…';
+        rs.style.display = '';
+        rs.innerHTML = '<span style="color:#94a3b8;">Saving…</span>';
+
+        var fd = new FormData();
+        fd.append('course_id', window.__sessCourseId);
+        fd.append('session_date', dateEl.value);
+        if (labelEl.value) fd.append('session_label', labelEl.value);
+        if (priceEl.value) fd.append('session_price', priceEl.value);
+        var trainerEl = document.getElementById('sessAddTrainer');
+        if (trainerEl && trainerEl.value) fd.append('trainer_option_id', trainerEl.value);
+
+        fetch(window.__sessAddUrl, { method: 'POST', body: fd, credentials: 'same-origin' })
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+                btn.disabled = false; btn.textContent = 'Save';
+                if (d.success) {
+                    rs.innerHTML = '<span style="color:#10b981;">Session added: ' + d.label + '. Reloading…</span>';
+                    setTimeout(function(){ window.location.reload(); }, 800);
+                } else {
+                    rs.innerHTML = '<span style="color:#ef4444;">' + (d.message || 'Failed to add session') + '</span>';
+                }
+            })
+            .catch(function(err){
+                btn.disabled = false; btn.textContent = 'Save';
+                rs.innerHTML = '<span style="color:#ef4444;">Network error: ' + err.message + '</span>';
+            });
+    };
+    window.sessAssignTrainer = function(optionTypeId, selEl) {
+        selEl.disabled = true;
+        var fd = new FormData();
+        fd.append('course_id', window.__sessCourseId);
+        fd.append('option_type_id', optionTypeId);
+        fd.append('trainer_option_id', selEl.value || '0');
+        fetch(window.__sessAssignUrl, { method: 'POST', body: fd, credentials: 'same-origin' })
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+                selEl.disabled = false;
+                if (!d.success) alert(d.message || 'Failed to assign trainer');
+            })
+            .catch(function(err){
+                selEl.disabled = false;
+                alert('Network error: ' + err.message);
+            });
+    };
+    window.sessDelete = function(optionTypeId, btnEl) {
+        if (!confirm('Remove this session?')) return;
+        btnEl.disabled = true;
+        var fd = new FormData();
+        fd.append('course_id', window.__sessCourseId);
+        fd.append('option_type_id', optionTypeId);
+        fetch(window.__sessDelUrl, { method: 'POST', body: fd, credentials: 'same-origin' })
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+                if (d.success) {
+                    var row = btnEl.closest('.sess-row');
+                    if (row) row.remove();
+                } else {
+                    btnEl.disabled = false;
+                    alert(d.message || 'Failed to delete session');
+                }
+            })
+            .catch(function(err){
+                btnEl.disabled = false;
+                alert('Network error: ' + err.message);
+            });
+    };
+    </script>
 
     <!-- DEVELOPER: Additional Documents -->
     <div class="lcd-section" id="additional-documents">

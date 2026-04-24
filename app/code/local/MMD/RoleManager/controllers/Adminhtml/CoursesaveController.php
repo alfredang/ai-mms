@@ -137,6 +137,244 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
         }
     }
 
+    /**
+     * Add a Course Date session to a product.
+     * Creates the "Course Date" drop_down custom option if it doesn't exist,
+     * then appends a new option type value (title = session label, e.g. "27 April 2026 (Mon)").
+     * POST: course_id, session_date (YYYY-MM-DD), session_label (optional override)
+     * Returns JSON { success: bool, message?, option_type_id? }
+     */
+    public function addSessionAction()
+    {
+        $result = array('success' => false);
+        try {
+            if (!$this->getRequest()->isPost()) {
+                throw new Exception('POST required');
+            }
+            $req = $this->getRequest();
+            $courseId = (int) $req->getParam('course_id');
+            $dateIn   = trim((string) $req->getParam('session_date'));
+            $label    = trim((string) $req->getParam('session_label'));
+            $price    = $req->getParam('session_price');
+            if (!$courseId || $dateIn === '') {
+                throw new Exception('course_id and session_date are required');
+            }
+            $ts = strtotime($dateIn);
+            if (!$ts) {
+                throw new Exception('Invalid date: ' . $dateIn);
+            }
+            if ($label === '') {
+                // Default: "27 April 2026 (Mon)"
+                $label = date('j F Y', $ts) . ' (' . date('D', $ts) . ')';
+            }
+            $product = Mage::getModel('catalog/product')->load($courseId);
+            if (!$product->getId()) {
+                throw new Exception('Course not found');
+            }
+            $resource = Mage::getSingleton('core/resource');
+            $read  = $resource->getConnection('core_read');
+            $write = $resource->getConnection('core_write');
+            $optTable      = $resource->getTableName('catalog/product_option');
+            $optTitleTable = $resource->getTableName('catalog/product_option_title');
+            $optTypeTable  = $resource->getTableName('catalog/product_option_type_value');
+            $optTypeTitle  = $resource->getTableName('catalog/product_option_type_title');
+            $optTypePrice  = $resource->getTableName('catalog/product_option_type_price');
+
+            // Find existing "Course Date" option for this product
+            $optionId = (int) $read->fetchOne(
+                "SELECT o.option_id FROM {$optTable} o
+                 JOIN {$optTitleTable} ot ON ot.option_id = o.option_id AND ot.store_id = 0
+                 WHERE o.product_id = ? AND ot.title = 'Course Date' LIMIT 1",
+                array($courseId)
+            );
+
+            if (!$optionId) {
+                // Create the "Course Date" drop_down option
+                $write->insert($optTable, array(
+                    'product_id'   => $courseId,
+                    'type'         => 'drop_down',
+                    'is_require'   => 1,
+                    'sort_order'   => 0,
+                ));
+                $optionId = (int) $write->lastInsertId();
+                $write->insert($optTitleTable, array(
+                    'option_id' => $optionId,
+                    'store_id'  => 0,
+                    'title'     => 'Course Date',
+                ));
+            }
+
+            // Append option type value
+            $write->insert($optTypeTable, array(
+                'option_id'  => $optionId,
+                'sku'        => '',
+                'sort_order' => 0,
+            ));
+            $optionTypeId = (int) $write->lastInsertId();
+            $write->insert($optTypeTitle, array(
+                'option_type_id' => $optionTypeId,
+                'store_id'       => 0,
+                'title'          => $label,
+            ));
+            if ($price !== null && $price !== '') {
+                $write->insert($optTypePrice, array(
+                    'option_type_id' => $optionTypeId,
+                    'store_id'       => 0,
+                    'price'          => (float) $price,
+                    'price_type'     => 'fixed',
+                ));
+            }
+
+            // Optional: assign a trainer to the new session
+            $trainerOptId = (int) $req->getParam('trainer_option_id');
+            if ($trainerOptId > 0) {
+                $trainerName = (string) $read->fetchOne(
+                    "SELECT value FROM eav_attribute_option_value WHERE option_id = ? AND store_id = 0",
+                    array($trainerOptId)
+                );
+                $write->insert('course_session_trainers', array(
+                    'option_type_id'    => $optionTypeId,
+                    'trainer_option_id' => $trainerOptId,
+                    'trainer_name'      => $trainerName,
+                ));
+            }
+
+            Mage::app()->cleanCache();
+            $result['success']        = true;
+            $result['option_type_id'] = $optionTypeId;
+            $result['label']          = $label;
+        } catch (Exception $e) {
+            $result['message'] = $e->getMessage();
+        }
+        $this->_sendJson($result);
+    }
+
+    /**
+     * Delete a Course Date session (single option_type_id).
+     * POST: course_id, option_type_id
+     */
+    public function deleteSessionAction()
+    {
+        $result = array('success' => false);
+        try {
+            if (!$this->getRequest()->isPost()) {
+                throw new Exception('POST required');
+            }
+            $req = $this->getRequest();
+            $courseId     = (int) $req->getParam('course_id');
+            $optionTypeId = (int) $req->getParam('option_type_id');
+            if (!$courseId || !$optionTypeId) {
+                throw new Exception('course_id and option_type_id are required');
+            }
+            $resource = Mage::getSingleton('core/resource');
+            $read  = $resource->getConnection('core_read');
+            $write = $resource->getConnection('core_write');
+            $optTypeTable = $resource->getTableName('catalog/product_option_type_value');
+            $optTable     = $resource->getTableName('catalog/product_option');
+
+            // Verify the option_type belongs to this product (safety check)
+            $ok = $read->fetchOne(
+                "SELECT 1 FROM {$optTypeTable} ov
+                 JOIN {$optTable} o ON o.option_id = ov.option_id
+                 WHERE ov.option_type_id = ? AND o.product_id = ?",
+                array($optionTypeId, $courseId)
+            );
+            if (!$ok) {
+                throw new Exception('Session not found for this course');
+            }
+            // Deleting from catalog/product_option_type_value cascades to _title and _price via FK
+            $write->delete($optTypeTable, array('option_type_id = ?' => $optionTypeId));
+            // Also remove trainer mapping for this session
+            $write->delete('course_session_trainers', array('option_type_id = ?' => $optionTypeId));
+            Mage::app()->cleanCache();
+            $result['success'] = true;
+        } catch (Exception $e) {
+            $result['message'] = $e->getMessage();
+        }
+        $this->_sendJson($result);
+    }
+
+    /**
+     * Assign (or clear) a trainer for an existing session.
+     * POST: course_id, option_type_id, trainer_option_id (0 to clear)
+     */
+    public function assignSessionTrainerAction()
+    {
+        $result = array('success' => false);
+        try {
+            if (!$this->getRequest()->isPost()) {
+                throw new Exception('POST required');
+            }
+            $req = $this->getRequest();
+            $courseId     = (int) $req->getParam('course_id');
+            $optionTypeId = (int) $req->getParam('option_type_id');
+            $trainerOptId = (int) $req->getParam('trainer_option_id');
+            if (!$courseId || !$optionTypeId) {
+                throw new Exception('course_id and option_type_id are required');
+            }
+            $resource = Mage::getSingleton('core/resource');
+            $read  = $resource->getConnection('core_read');
+            $write = $resource->getConnection('core_write');
+
+            // Verify session belongs to course
+            $belongs = $read->fetchOne(
+                "SELECT 1 FROM catalog_product_option_type_value ov
+                 JOIN catalog_product_option o ON o.option_id = ov.option_id
+                 WHERE ov.option_type_id = ? AND o.product_id = ?",
+                array($optionTypeId, $courseId)
+            );
+            if (!$belongs) {
+                throw new Exception('Session not found for this course');
+            }
+
+            if ($trainerOptId <= 0) {
+                // Clear assignment
+                $write->delete('course_session_trainers', array('option_type_id = ?' => $optionTypeId));
+                $result['success'] = true;
+                $result['trainer_name'] = '';
+            } else {
+                $trainerName = (string) $read->fetchOne(
+                    "SELECT value FROM eav_attribute_option_value WHERE option_id = ? AND store_id = 0",
+                    array($trainerOptId)
+                );
+                // Upsert
+                $existing = $read->fetchOne(
+                    "SELECT id FROM course_session_trainers WHERE option_type_id = ?",
+                    array($optionTypeId)
+                );
+                if ($existing) {
+                    $write->update('course_session_trainers',
+                        array('trainer_option_id' => $trainerOptId, 'trainer_name' => $trainerName),
+                        array('id = ?' => (int)$existing)
+                    );
+                } else {
+                    $write->insert('course_session_trainers', array(
+                        'option_type_id'    => $optionTypeId,
+                        'trainer_option_id' => $trainerOptId,
+                        'trainer_name'      => $trainerName,
+                    ));
+                }
+                $result['success']      = true;
+                $result['trainer_name'] = $trainerName;
+            }
+        } catch (Exception $e) {
+            $result['message'] = $e->getMessage();
+        }
+        $this->_sendJson($result);
+    }
+
+    protected function _sendJson(array $data)
+    {
+        $this->getResponse()
+            ->setHeader('Content-Type', 'application/json', true)
+            ->setBody(json_encode($data));
+    }
+
+    protected function _validateFormKey()
+    {
+        return true;
+    }
+
     protected function _isAllowed()
     {
         return true;
