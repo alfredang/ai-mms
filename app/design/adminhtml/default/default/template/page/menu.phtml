@@ -168,6 +168,35 @@
             <a href="<?php echo $dashboardUrl ?>#trainers" class="tools-sub-item" onclick="if (window.showAdminSubPanel) { event.preventDefault(); window.location.hash='#trainers'; window.showAdminSubPanel('trainers'); }"><span>View Trainers</span></a>
         </div>
     </div>
+    <div class="tools-group">
+        <div class="tools-group-toggle" onclick="toggleToolGroup(this)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            <span>TPG Management</span>
+            <svg class="tools-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="tools-group-items">
+            <div class="tools-group" style="margin:0;">
+                <div class="tools-group-toggle" onclick="toggleToolGroup(this)" style="padding:8px 12px;">
+                    <span style="font-size:11px;font-weight:600;color:#64748b;letter-spacing:.5px;">COURSE RUN</span>
+                    <svg class="tools-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                </div>
+                <div class="tools-group-items">
+                    <a href="#" class="tools-sub-item"><span>View Class By Date</span></a>
+                    <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('tpg_page' => 'create_class')) ?>" class="tools-sub-item"><span>Create New Class</span></a>
+                    <a href="#" class="tools-sub-item"><span>Search Course Runs</span></a>
+                    <a href="#" class="tools-sub-item"><span>View Course Run</span></a>
+                    <a href="#" class="tools-sub-item"><span>Edit Course Run</span></a>
+                    <a href="#" class="tools-sub-item"><span>Upload Course Runs</span></a>
+                    <a href="#" class="tools-sub-item"><span>Delete Course Run</span></a>
+                </div>
+            </div>
+            <a href="#" class="tools-sub-item"><span>Session</span></a>
+            <a href="#" class="tools-sub-item"><span>Enrolment</span></a>
+            <a href="#" class="tools-sub-item"><span>Attendance</span></a>
+            <a href="#" class="tools-sub-item"><span>Assessment</span></a>
+            <a href="#" class="tools-sub-item"><span>Grant</span></a>
+        </div>
+    </div>
     <div class="tools-group<?php echo _so(array('customer','customer_group','customer_online')) ?>">
         <div class="tools-group-toggle" onclick="toggleToolGroup(this)">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>

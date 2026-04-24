@@ -22,6 +22,18 @@ try {
 $_roleLabel = $_roleHelper ? $_roleHelper->getRoleLabel($activeRole) : ucwords(str_replace('_', ' ', $activeRole));
 $_roleIcon  = $_roleHelper ? $_roleHelper->getRoleIcon($activeRole) : '';
 
+// TPG Management sub-pages (Admin only)
+$_tpgPage = (string) Mage::app()->getRequest()->getParam('tpg_page', '');
+$_tpgActive = ($activeRole === 'admin' && $_tpgPage !== '');
+$_tpgCourses = array();
+$_tpgTrainers = array();
+if ($_tpgActive && $_tpgPage === 'create_class') {
+    try {
+        $_tpgCourses = $read->fetchAll("SELECT e.entity_id, e.sku, (SELECT value FROM catalog_product_entity_varchar v WHERE v.entity_id=e.entity_id AND v.attribute_id=71 ORDER BY v.store_id LIMIT 1) AS name FROM catalog_product_entity e ORDER BY e.sku ASC");
+        $_tpgTrainers = $read->fetchAll("SELECT o.option_id, v.value FROM eav_attribute_option o JOIN eav_attribute_option_value v ON o.option_id=v.option_id AND v.store_id=0 WHERE o.attribute_id=170 ORDER BY v.value");
+    } catch (Exception $e) {}
+}
+
 // =====================================================================
 // DATA — Admin panel (course schedule)
 // =====================================================================
@@ -1114,9 +1126,36 @@ $_devCountryMap = array(
     'Bhutan'    => 5,
     'India'     => 6,
 );
+$_devCountryPrefix = array(
+    1 => 'SG',
+    2 => 'MY',
+    3 => 'GH',
+    4 => 'NG',
+    5 => 'BUT',
+    6 => 'IND',
+    7 => 'INF',
+);
 $_devAllowedCountries = array_keys($_devCountryMap);
 if (!in_array($_devCountry, $_devAllowedCountries)) $_devCountry = 'Singapore';
 $_devWebsiteId = $_devCountryMap[$_devCountry];
+$_devPrefix = isset($_devCountryPrefix[$_devWebsiteId]) ? $_devCountryPrefix[$_devWebsiteId] : 'SG';
+
+// Build a stable rank map for the current country so we can generate
+// Course Run IDs (SG-100000, SG-100001, ...) that stay consistent across
+// pages. Rank = position of the product's entity_id when all products in
+// the country are sorted ascending.
+$_devRankMap = array();
+try {
+    $_rRead = Mage::getSingleton('core/resource')->getConnection('core_read');
+    $_pwTbl = $_rRead->getTableName('catalog_product_website');
+    $_allCountryIds = $_rRead->fetchCol(
+        "SELECT DISTINCT product_id FROM {$_pwTbl} WHERE website_id=? ORDER BY product_id ASC",
+        array($_devWebsiteId)
+    );
+    foreach ($_allCountryIds as $_idx => $_pid) {
+        $_devRankMap[(int)$_pid] = $_idx;
+    }
+} catch (Exception $e) {}
 $_devTotalCount = 0;
 try {
     $_devCollection = Mage::getModel('catalog/product')->getCollection()
@@ -1331,6 +1370,8 @@ a.dev-country-btn.active,a.dev-country-btn.active:hover,a.dev-country-btn.active
             <div class="dev-card-body">
                 <div class="dev-card-title"><span><?php echo htmlspecialchars($_dc['name']) ?></span><?php if ($_dcRef): ?><span class="dev-card-tgs-sub"><?php echo htmlspecialchars($_dcRef) ?></span><?php endif; ?></div>
                 <div class="dev-card-row"><span class="dev-card-lbl">TGS Ref:</span><span class="dev-card-val"><?php echo $_dcRef ? htmlspecialchars($_dcRef) : '—' ?></span></div>
+                <?php $_runRank = isset($_devRankMap[(int)$_dc['id']]) ? $_devRankMap[(int)$_dc['id']] : 0; ?>
+                <div class="dev-card-row"><span class="dev-card-lbl">Course Run ID:</span><span class="dev-card-val"><?php echo $_devPrefix . '-' . (100000 + $_runRank) ?></span></div>
                 <div class="dev-card-row"><span class="dev-card-lbl">Course Type:</span><span class="dev-card-val"><?php if ($_dc['course_type']): ?><span class="dev-badge <?php echo $_dc['wsq'] ? 'dev-badge-wsq' : ($_dc['ibf'] ? 'dev-badge-ibf' : '') ?>"><?php echo htmlspecialchars($_dc['course_type']) ?></span><?php else: echo '—'; endif; ?></span></div>
                 <div class="dev-card-row" data-col="types" style="display:none;"><span class="dev-badge <?php echo $_dc['wsq'] ? 'dev-badge-wsq' : ($_dc['ibf'] ? 'dev-badge-ibf' : '') ?>"><?php echo $_dc['course_type'] ? htmlspecialchars($_dc['course_type']) : '—' ?></span><span class="dev-card-val" style="font-size:11px;font-weight:400;"><?php echo $_dc['level'] ? htmlspecialchars($_dc['level']) : '—' ?></span></div>
                 <div class="dev-card-row"><span class="dev-card-lbl">Level:</span><span class="dev-card-val"><?php echo $_dc['level'] ? htmlspecialchars($_dc['level']) : '—' ?></span></div>
@@ -5898,11 +5939,249 @@ window.csSaveSection = function(section) {
 </script>
 </div><!-- end dash-panel-companysetting -->
 
+<?php /* ===== TPG Management: Create New Class (Admin only) ===== */ ?>
+<?php if ($_tpgActive && $_tpgPage === 'create_class'): ?>
+<style>
+.tpg-wrap{max-width:1400px;margin:0 auto}
+.tpg-app-tabs{display:flex;align-items:center;gap:12px;margin-bottom:22px;flex-wrap:wrap}
+.tpg-app-label{font-size:14px;font-weight:600;color:#94a3b8;letter-spacing:.5px}
+button.tpg-app-tab,button.tpg-app-tab:hover,button.tpg-app-tab:focus{background:#1e293b !important;background-image:none !important;border:1px solid #334155 !important;color:#94a3b8 !important;padding:8px 18px !important;font-size:13px !important;font-weight:600 !important;border-radius:8px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
+button.tpg-app-tab.active,button.tpg-app-tab.active:hover{border-color:#22c55e !important;color:#22c55e !important;background:rgba(34,197,94,.08) !important}
+.tpg-title{font-size:32px;font-weight:700;color:#fff;margin:0 0 6px}
+.tpg-subtitle{font-size:20px;font-weight:600;color:#cbd5e1;margin:0 0 24px}
+.tpg-section{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:26px 30px;margin-bottom:18px}
+.tpg-section-title{font-size:18px;font-weight:700;color:#fff;margin:0 0 18px}
+.tpg-field{margin-bottom:18px}
+.tpg-field:last-child{margin-bottom:0}
+.tpg-label{font-size:13px;font-weight:600;color:#e2e8f0;margin-bottom:6px;display:block}
+.tpg-label .tpg-req{color:#fb7185}
+.tpg-input,.tpg-select{width:100%;padding:14px 16px;background:#334155;border:1px solid #475569;border-radius:10px;color:#f1f5f9;font-size:14px;outline:none;box-sizing:border-box;font-family:inherit}
+.tpg-input:focus,.tpg-select:focus{border-color:#60a5fa}
+.tpg-input::placeholder{color:#94a3b8}
+.tpg-select{appearance:auto}
+.tpg-helper{font-size:12px;color:#94a3b8;margin-top:6px}
+.tpg-row{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.tpg-row-4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.tpg-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px}
+.tpg-check-row{display:flex;align-items:center;gap:12px;margin-bottom:14px;color:#e2e8f0;font-size:14px}
+.tpg-check-row input[type="checkbox"]{accent-color:#22d3ee;width:20px;height:20px;flex-shrink:0}
+.tpg-check-row strong{color:#fff;font-weight:700;margin-right:4px}
+.tpg-check-row .tpg-check-sub{color:#94a3b8;font-weight:400;font-size:13px}
+.tpg-divider{height:1px;background:#334155;margin:22px 0}
+.tpg-actions{display:flex;justify-content:flex-end;align-items:center;gap:14px;padding:22px 0 12px}
+button.tpg-cancel,button.tpg-cancel:hover{background:transparent !important;background-image:none !important;border:none !important;color:#f1f5f9 !important;font-size:15px !important;font-weight:600 !important;cursor:pointer !important;padding:10px 24px !important;box-shadow:none !important}
+button.tpg-submit,button.tpg-submit:hover{background:#5bb8c9 !important;background-image:linear-gradient(180deg,#6bc6d7,#5bb8c9) !important;color:#fff !important;border:none !important;padding:12px 30px !important;font-size:15px !important;font-weight:700 !important;border-radius:10px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
+.tpg-footer-brand{text-align:center;padding:20px 0 10px;color:#64748b;font-size:12px}
+.tpg-footer-brand strong{color:#cbd5e1}
+.tpg-trainer-heading{font-size:28px;font-weight:700;color:#fff;margin:0 0 16px}
+.tpg-info-box{background:rgba(37,99,235,.12);border:1px solid rgba(59,130,246,.35);border-radius:10px;padding:18px 20px;margin-bottom:20px}
+.tpg-info-title{color:#60a5fa;font-size:16px;font-weight:700;margin-bottom:8px}
+.tpg-info-desc{color:#93c5fd;font-size:14px;line-height:1.5}
+@media(max-width:900px){.tpg-row,.tpg-row-3,.tpg-row-4{grid-template-columns:1fr}}
+</style>
+<div id="dash-panel-tpg-createclass" class="tpg-wrap">
+    <div class="tpg-app-tabs">
+        <span class="tpg-app-label">SSG APP</span>
+        <button type="button" class="tpg-app-tab active">App 1</button>
+        <button type="button" class="tpg-app-tab">App 2</button>
+        <button type="button" class="tpg-app-tab">App 3</button>
+        <button type="button" class="tpg-app-tab">App 4</button>
+    </div>
+    <h1 class="tpg-title">Create New Class</h1>
+    <h2 class="tpg-subtitle">Course Run</h2>
+
+    <?php
+    $_tpgSess = Mage::getSingleton('adminhtml/session');
+    $_tpgSuccess = $_tpgSess->getMessages(true);
+    $_tpgSuccessMsgs = array();
+    $_tpgErrorMsgs = array();
+    if ($_tpgSuccess) {
+        foreach ($_tpgSuccess->getItems() as $_m) {
+            if ($_m->getType() === 'success') $_tpgSuccessMsgs[] = $_m->getText();
+            elseif ($_m->getType() === 'error') $_tpgErrorMsgs[] = $_m->getText();
+        }
+    }
+    ?>
+    <?php foreach ($_tpgSuccessMsgs as $_msg): ?>
+        <div style="background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.4);color:#4ade80;padding:14px 18px;border-radius:10px;margin-bottom:16px;font-weight:600;"><?php echo htmlspecialchars($_msg) ?></div>
+    <?php endforeach; ?>
+    <?php foreach ($_tpgErrorMsgs as $_msg): ?>
+        <div style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.4);color:#f87171;padding:14px 18px;border-radius:10px;margin-bottom:16px;font-weight:600;"><?php echo htmlspecialchars($_msg) ?></div>
+    <?php endforeach; ?>
+
+    <form id="tpg-create-form" method="post" action="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/createClass') ?>">
+        <input type="hidden" name="form_key" value="<?php echo Mage::getSingleton('core/session')->getFormKey() ?>" />
+        <input type="hidden" name="course_entity_id" id="tpg-course-entity-id" value="" />
+        <div class="tpg-section">
+            <div class="tpg-section-title">Basic Information</div>
+            <div class="tpg-field">
+                <label class="tpg-label"><span class="tpg-req">*</span> Course Reference Number</label>
+                <input type="text" class="tpg-input" id="tpg-course-code" name="course_ref" placeholder="Enter course code (e.g., TGS-2024001234)" />
+                <div class="tpg-helper">Enter the course code manually or select from available courses below</div>
+            </div>
+            <div class="tpg-field">
+                <label class="tpg-label">Or Select from Available Courses</label>
+                <select class="tpg-select" id="tpg-course-select" onchange="var opt=this.options[this.selectedIndex];document.getElementById('tpg-course-code').value=opt.value||'';document.getElementById('tpg-course-entity-id').value=opt.getAttribute('data-eid')||'';">
+                    <option value="" data-eid="">Select a course...</option>
+                    <?php foreach ($_tpgCourses as $_c): ?>
+                    <option value="<?php echo htmlspecialchars($_c['sku']) ?>" data-eid="<?php echo (int)$_c['entity_id'] ?>"><?php echo htmlspecialchars($_c['sku']) ?> — <?php echo htmlspecialchars($_c['name'] ?: '(No name)') ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+        </div>
+
+        <div class="tpg-section">
+            <div class="tpg-section-title">Registration Dates</div>
+            <div class="tpg-row">
+                <div class="tpg-field">
+                    <label class="tpg-label"><span class="tpg-req">*</span> Opening Registration Date</label>
+                    <input type="date" class="tpg-input" value="<?php echo date('Y-m-d') ?>" />
+                </div>
+                <div class="tpg-field">
+                    <label class="tpg-label"><span class="tpg-req">*</span> Closing Registration Date</label>
+                    <input type="date" class="tpg-input" />
+                </div>
+            </div>
+        </div>
+
+        <div class="tpg-section">
+            <div class="tpg-section-title">Course Dates</div>
+            <div class="tpg-row">
+                <div class="tpg-field">
+                    <label class="tpg-label"><span class="tpg-req">*</span> Course Start Date</label>
+                    <input type="date" class="tpg-input" name="course_start_date" />
+                </div>
+                <div class="tpg-field">
+                    <label class="tpg-label"><span class="tpg-req">*</span> Course End Date</label>
+                    <input type="date" class="tpg-input" name="course_end_date" />
+                </div>
+            </div>
+        </div>
+
+        <div class="tpg-section">
+            <div class="tpg-section-title">Venue Information</div>
+            <div class="tpg-row-3">
+                <div class="tpg-field">
+                    <label class="tpg-label">Venue Block</label>
+                    <input type="text" class="tpg-input" value="12" />
+                </div>
+                <div class="tpg-field">
+                    <label class="tpg-label">Venue Street</label>
+                    <input type="text" class="tpg-input" value="WOODS SQUARE" />
+                </div>
+                <div class="tpg-field">
+                    <label class="tpg-label">Venue Building</label>
+                    <input type="text" class="tpg-input" value="WOODS SQUARE" />
+                </div>
+            </div>
+            <div class="tpg-field">
+                <label class="tpg-label">Wheelchair Accessible</label>
+                <select class="tpg-select"><option>Yes</option><option>No</option></select>
+            </div>
+            <div class="tpg-row-4">
+                <div class="tpg-field">
+                    <label class="tpg-label"><span class="tpg-req">*</span> Floor</label>
+                    <input type="text" class="tpg-input" value="07" />
+                </div>
+                <div class="tpg-field">
+                    <label class="tpg-label"><span class="tpg-req">*</span> Unit</label>
+                    <input type="text" class="tpg-input" value="85-87" />
+                </div>
+                <div class="tpg-field">
+                    <label class="tpg-label"><span class="tpg-req">*</span> Postal Code</label>
+                    <input type="text" class="tpg-input" value="737715" />
+                </div>
+                <div class="tpg-field">
+                    <label class="tpg-label"><span class="tpg-req">*</span> Room</label>
+                    <input type="text" class="tpg-input" value="Training room" />
+                </div>
+            </div>
+        </div>
+
+        <div class="tpg-section">
+            <div class="tpg-section-title">Course Admin Details</div>
+            <div class="tpg-row">
+                <div class="tpg-field">
+                    <label class="tpg-label"><span class="tpg-req">*</span> Mode of Training</label>
+                    <select class="tpg-select">
+                        <option>1 - Classroom Facilitated Training</option>
+                        <option>2 - Synchronous e-Learning</option>
+                        <option>3 - Asynchronous e-Learning</option>
+                        <option>4 - Blended Learning</option>
+                    </select>
+                </div>
+                <div class="tpg-field">
+                    <label class="tpg-label"><span class="tpg-req">*</span> Course Admin Email</label>
+                    <input type="email" class="tpg-input" placeholder="admin@example.com" />
+                </div>
+            </div>
+        </div>
+
+        <div class="tpg-section">
+            <div class="tpg-section-title">Course Vacancy Details</div>
+            <div class="tpg-field">
+                <label class="tpg-label"><span class="tpg-req">*</span> Course Vacancy</label>
+                <select class="tpg-select">
+                    <option>A - Available</option>
+                    <option>F - Fully Booked</option>
+                    <option>L - Limited</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="tpg-divider"></div>
+
+        <div class="tpg-section">
+            <div class="tpg-section-title">Optional Sections</div>
+            <div class="tpg-check-row">
+                <input type="checkbox" id="tpg-add-sessions" />
+                <label for="tpg-add-sessions"><strong>Add Sessions</strong> <span class="tpg-check-sub">(Add specific session details with dates, times, and venues)</span></label>
+            </div>
+            <div class="tpg-check-row">
+                <input type="checkbox" id="tpg-assign-trainer" onchange="document.getElementById('tpg-trainer-block').style.display=this.checked?'block':'none'" />
+                <label for="tpg-assign-trainer"><strong>Assign Trainer</strong> <span class="tpg-check-sub">(Assign an existing trainer to this course)</span></label>
+            </div>
+        </div>
+
+        <div id="tpg-trainer-block" style="display:none;">
+            <div class="tpg-divider"></div>
+            <h2 class="tpg-trainer-heading">Trainer</h2>
+            <div class="tpg-section">
+                <div class="tpg-section-title">Assign Existing Trainer</div>
+                <div class="tpg-info-box">
+                    <div class="tpg-info-title">Existing Trainer Assignment</div>
+                    <div class="tpg-info-desc">Enter the Trainer ID Number, email, or full name to assign an existing trainer to this course. The system will automatically retrieve trainer details from the existing trainer database.</div>
+                </div>
+                <div class="tpg-field">
+                    <label class="tpg-label"><span class="tpg-req">*</span> Trainer ID Number</label>
+                    <input type="text" class="tpg-input" id="tpg-trainer-id" name="trainer_lookup" placeholder="S1234567A" list="tpg-trainer-list" autocomplete="off" />
+                    <datalist id="tpg-trainer-list">
+                        <?php foreach ($_tpgTrainers as $_tr): ?>
+                        <option value="<?php echo htmlspecialchars($_tr['value']) ?>"></option>
+                        <?php endforeach; ?>
+                    </datalist>
+                    <div class="tpg-helper">Enter NRIC, email, or trainer name. Type to see suggestions from the existing trainer list.</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tpg-actions">
+            <button type="button" class="tpg-cancel" onclick="window.location.href='<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard') ?>'">Cancel</button>
+            <button type="submit" class="tpg-submit">Create Class</button>
+        </div>
+    </form>
+
+    <div class="tpg-footer-brand">Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y') ?></div>
+</div>
+<?php endif; ?>
+
 <?php /* ===== Role switcher JS ===== */ ?>
 <script type="text/javascript">
 (function(){
     var COURSE_DETAIL_ACTIVE = <?php echo $_selectedCourse ? 'true' : 'false' ?>;
     var COURSE_EDIT_ACTIVE = <?php echo ($_editMode || $_editingMode) ? 'true' : 'false' ?>;
+    var TPG_PAGE_ACTIVE = <?php echo $_tpgActive ? 'true' : 'false' ?>;
+    var TPG_PAGE_ID = <?php echo json_encode('dash-panel-tpg-' . str_replace('_', '', (string)$_tpgPage)) ?>;
     function showPanel(role) {
         var panels = {
             'Admin':             'dash-panel-admin',
@@ -5913,7 +6192,17 @@ window.csSaveSection = function(section) {
             'Trainer':           'dash-panel-learner',
             'Developer':         'dash-panel-developer'
         };
-        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-trainingprovider','dash-panel-developer','dash-panel-learner','dash-panel-billing','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-course-detail','dash-panel-course-edit','dash-panel-companysetting','dash-panel-cp-coursedetails','dash-panel-cp-aboutcourse','dash-panel-cp-whatlearn','dash-panel-cp-bgparta','dash-panel-cp-bgpartb','dash-panel-cp-learningoutcomes','dash-panel-cp-instructmethods','dash-panel-cp-assessmethods','dash-panel-cp-lusequencing','dash-panel-cp-courseoutline','dash-panel-cp-entryreq','dash-panel-cp-jobroles','dash-panel-cp-lessonplan','dash-panel-cp-cpvalidation'];
+        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-trainingprovider','dash-panel-developer','dash-panel-learner','dash-panel-billing','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-course-detail','dash-panel-course-edit','dash-panel-companysetting','dash-panel-cp-coursedetails','dash-panel-cp-aboutcourse','dash-panel-cp-whatlearn','dash-panel-cp-bgparta','dash-panel-cp-bgpartb','dash-panel-cp-learningoutcomes','dash-panel-cp-instructmethods','dash-panel-cp-assessmethods','dash-panel-cp-lusequencing','dash-panel-cp-courseoutline','dash-panel-cp-entryreq','dash-panel-cp-jobroles','dash-panel-cp-lessonplan','dash-panel-cp-cpvalidation','dash-panel-tpg-createclass'];
+        // If a TPG sub-page is active (Admin only), show it and skip the role panel
+        if (TPG_PAGE_ACTIVE) {
+            for (var j=0; j<all.length; j++) {
+                var e2 = document.getElementById(all[j]);
+                if (e2) e2.style.display = 'none';
+            }
+            var tpg = document.getElementById(TPG_PAGE_ID);
+            if (tpg) tpg.style.display = '';
+            return;
+        }
         for (var i=0; i<all.length; i++) {
             var el = document.getElementById(all[i]);
             if (el) el.style.display = 'none';

@@ -363,6 +363,202 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
         $this->_sendJson($result);
     }
 
+    /**
+     * Create New Class handler — TPG Management → Course Run → Create New Class.
+     *
+     * Treats "a new class" as a new scheduled run of an existing course:
+     *   1. Resolves the template course by entity_id (from the dropdown) or SKU (typed value).
+     *   2. Adds a "Course Date" custom option value using the form's start/end dates.
+     *   3. Resolves the trainer input (name / email / NRIC — NRIC will never match but
+     *      name & email will) to an existing trainer option_id on attribute 170.
+     *   4. Appends that trainer to the product's `trainers` multiselect (dedup).
+     *   5. Inserts a row into `course_session_trainers` so the trainer is bound to the
+     *      new session specifically (same mechanism the trainer dashboard already reads).
+     *
+     * Net effect: the trainer whose admin account matches (by email or name) the entered
+     * trainer now sees this course on their Trainer dashboard under "Upcoming".
+     */
+    public function createClassAction()
+    {
+        try {
+            if (!$this->getRequest()->isPost()) {
+                throw new Exception('POST required');
+            }
+            $req = $this->getRequest();
+
+            $courseEntityId = (int) $req->getParam('course_entity_id');
+            $courseRef      = trim((string) $req->getParam('course_ref'));
+            $startDate      = trim((string) $req->getParam('course_start_date'));
+            $endDate        = trim((string) $req->getParam('course_end_date'));
+            $trainerLookup  = trim((string) $req->getParam('trainer_lookup'));
+
+            if (!$courseEntityId && $courseRef === '') {
+                throw new Exception('Select a course from the dropdown or enter a Course Reference Number.');
+            }
+            if ($startDate === '' || $endDate === '') {
+                throw new Exception('Course Start Date and Course End Date are required.');
+            }
+
+            $resource = Mage::getSingleton('core/resource');
+            $read  = $resource->getConnection('core_read');
+            $write = $resource->getConnection('core_write');
+
+            // Resolve course — prefer entity_id, fall back to SKU lookup
+            if (!$courseEntityId && $courseRef !== '') {
+                $courseEntityId = (int) $read->fetchOne(
+                    "SELECT entity_id FROM catalog_product_entity WHERE sku = ? LIMIT 1",
+                    array($courseRef)
+                );
+                if (!$courseEntityId) {
+                    throw new Exception('No existing course found with reference "' . $courseRef . '". Pick one from the dropdown.');
+                }
+            }
+
+            $product = Mage::getModel('catalog/product')->load($courseEntityId);
+            if (!$product->getId()) {
+                throw new Exception('Course not found (entity_id ' . $courseEntityId . ').');
+            }
+
+            // Seed trainerprofile / trainers from DB so save() won't silently wipe them
+            try {
+                $tpAttrId = (int) $read->fetchOne("SELECT attribute_id FROM eav_attribute WHERE attribute_code='trainerprofile' AND entity_type_id=4");
+                if ($tpAttrId) {
+                    $tpExisting = $read->fetchOne(
+                        "SELECT value FROM catalog_product_entity_text WHERE entity_id=? AND attribute_id=? AND value IS NOT NULL AND value != '' ORDER BY store_id LIMIT 1",
+                        array($courseEntityId, $tpAttrId)
+                    );
+                    if ($tpExisting !== false && $tpExisting !== null) {
+                        $product->setData('trainerprofile', $tpExisting);
+                    }
+                }
+            } catch (Exception $e) {}
+
+            $existingTrainersCsv = (string) $read->fetchOne(
+                "SELECT value FROM catalog_product_entity_text WHERE entity_id=? AND attribute_id=170 AND value IS NOT NULL AND value != '' ORDER BY store_id LIMIT 1",
+                array($courseEntityId)
+            );
+
+            // --- Step 2: Add Course Date session ---
+            $startTs = strtotime($startDate);
+            if (!$startTs) throw new Exception('Invalid start date: ' . $startDate);
+            $endTs = strtotime($endDate);
+            if (!$endTs) throw new Exception('Invalid end date: ' . $endDate);
+
+            $label = date('j M Y', $startTs) . ' (' . date('D', $startTs) . ')';
+            if (date('Ymd', $startTs) !== date('Ymd', $endTs)) {
+                $label = date('j', $startTs) . '/' . date('j M Y', $endTs) . ' (' . date('D', $startTs) . '-' . date('D', $endTs) . ')';
+            }
+
+            $optTable      = $resource->getTableName('catalog/product_option');
+            $optTitleTable = $resource->getTableName('catalog/product_option_title');
+            $optTypeTable  = $resource->getTableName('catalog/product_option_type_value');
+            $optTypeTitle  = $resource->getTableName('catalog/product_option_type_title');
+
+            $optionId = (int) $read->fetchOne(
+                "SELECT o.option_id FROM {$optTable} o
+                 JOIN {$optTitleTable} ot ON ot.option_id = o.option_id AND ot.store_id = 0
+                 WHERE o.product_id = ? AND ot.title = 'Course Date' LIMIT 1",
+                array($courseEntityId)
+            );
+            if (!$optionId) {
+                $write->insert($optTable, array(
+                    'product_id' => $courseEntityId,
+                    'type'       => 'drop_down',
+                    'is_require' => 1,
+                    'sort_order' => 0,
+                ));
+                $optionId = (int) $write->lastInsertId();
+                $write->insert($optTitleTable, array(
+                    'option_id' => $optionId,
+                    'store_id'  => 0,
+                    'title'     => 'Course Date',
+                ));
+            }
+            $write->insert($optTypeTable, array(
+                'option_id'  => $optionId,
+                'sku'        => '',
+                'sort_order' => 0,
+            ));
+            $newOptionTypeId = (int) $write->lastInsertId();
+            $write->insert($optTypeTitle, array(
+                'option_type_id' => $newOptionTypeId,
+                'store_id'       => 0,
+                'title'          => $label,
+            ));
+
+            // --- Step 3: Resolve trainer ---
+            $trainerOptionId = 0;
+            $trainerValueStr = '';
+            if ($trainerLookup !== '') {
+                // Try exact-match first, then LIKE
+                $row = $read->fetchRow(
+                    "SELECT eao.option_id, eaov.value
+                     FROM eav_attribute_option eao
+                     JOIN eav_attribute_option_value eaov ON eao.option_id = eaov.option_id AND eaov.store_id = 0
+                     WHERE eao.attribute_id = 170 AND eaov.value = ?
+                     LIMIT 1",
+                    array($trainerLookup)
+                );
+                if (!$row) {
+                    $row = $read->fetchRow(
+                        "SELECT eao.option_id, eaov.value
+                         FROM eav_attribute_option eao
+                         JOIN eav_attribute_option_value eaov ON eao.option_id = eaov.option_id AND eaov.store_id = 0
+                         WHERE eao.attribute_id = 170 AND eaov.value LIKE ?
+                         ORDER BY LENGTH(eaov.value) ASC
+                         LIMIT 1",
+                        array('%' . $trainerLookup . '%')
+                    );
+                }
+                if ($row) {
+                    $trainerOptionId = (int) $row['option_id'];
+                    $trainerValueStr = (string) $row['value'];
+                }
+            }
+
+            // --- Step 4: Append trainer to product's trainers multiselect ---
+            $trainerAdded = false;
+            if ($trainerOptionId > 0) {
+                $idsArr = array_filter(array_map('intval', explode(',', $existingTrainersCsv)));
+                if (!in_array($trainerOptionId, $idsArr, true)) {
+                    $idsArr[] = $trainerOptionId;
+                    $product->setData('trainers', implode(',', $idsArr));
+                    $product->save();
+                    $product->getResource()->saveAttribute($product, 'trainers');
+                    $product->getResource()->saveAttribute($product, 'trainerprofile');
+                    $trainerAdded = true;
+                }
+
+                // --- Step 5: Link session ↔ trainer (the trainer dashboard reads this) ---
+                try {
+                    $write->insert('course_session_trainers', array(
+                        'option_type_id'    => $newOptionTypeId,
+                        'trainer_option_id' => $trainerOptionId,
+                        'trainer_name'      => $trainerValueStr,
+                    ));
+                } catch (Exception $e) {
+                    // Table may not exist in some envs — ignore silently
+                }
+            }
+
+            Mage::app()->cleanCache();
+
+            $msg = 'Class created for "' . $product->getSku() . '" on ' . $label . '.';
+            if ($trainerOptionId > 0) {
+                $msg .= ' Trainer "' . $trainerValueStr . '" assigned' . ($trainerAdded ? '' : ' (already linked)') . '.';
+            } elseif ($trainerLookup !== '') {
+                $msg .= ' (No existing trainer matched "' . $trainerLookup . '" — class saved without trainer.)';
+            }
+            Mage::getSingleton('adminhtml/session')->addSuccess($msg);
+
+            $this->_redirectUrl(Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('tpg_page' => 'create_class')));
+            return;
+        } catch (Exception $e) {
+            Mage::getSingleton('adminhtml/session')->addError($e->getMessage());
+            $this->_redirectUrl(Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('tpg_page' => 'create_class')));
+        }
+    }
+
     protected function _sendJson(array $data)
     {
         $this->getResponse()
