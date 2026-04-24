@@ -27,10 +27,29 @@ $_tpgPage = (string) Mage::app()->getRequest()->getParam('tpg_page', '');
 $_tpgActive = ($activeRole === 'admin' && $_tpgPage !== '');
 $_tpgCourses = array();
 $_tpgTrainers = array();
-if ($_tpgActive && $_tpgPage === 'create_class') {
+$_tpgRuns = array();
+if ($_tpgActive && ($_tpgPage === 'create_class' || $_tpgPage === 'enroll_learners')) {
     try {
         $_tpgCourses = $read->fetchAll("SELECT e.entity_id, e.sku, (SELECT value FROM catalog_product_entity_varchar v WHERE v.entity_id=e.entity_id AND v.attribute_id=71 ORDER BY v.store_id LIMIT 1) AS name FROM catalog_product_entity e JOIN catalog_product_website pw ON pw.product_id=e.entity_id AND pw.website_id=1 ORDER BY e.sku ASC");
+    } catch (Exception $e) {}
+}
+if ($_tpgActive && $_tpgPage === 'create_class') {
+    try {
         $_tpgTrainers = $read->fetchAll("SELECT o.option_id, v.value FROM eav_attribute_option o JOIN eav_attribute_option_value v ON o.option_id=v.option_id AND v.store_id=0 WHERE o.attribute_id=170 ORDER BY v.value");
+    } catch (Exception $e) {}
+}
+if ($_tpgActive && $_tpgPage === 'enroll_learners') {
+    try {
+        $_tpgRuns = $read->fetchAll(
+            "SELECT o.product_id, ov.option_type_id, ott.title
+             FROM catalog_product_option o
+             JOIN catalog_product_option_title ot ON ot.option_id=o.option_id AND ot.store_id=0
+             JOIN catalog_product_option_type_value ov ON ov.option_id=o.option_id
+             JOIN catalog_product_option_type_title ott ON ott.option_type_id=ov.option_type_id AND ott.store_id=0
+             JOIN catalog_product_website pw ON pw.product_id=o.product_id AND pw.website_id=1
+             WHERE ot.title='Course Date' OR ot.title LIKE '%Date%'
+             ORDER BY o.product_id ASC, ov.sort_order ASC"
+        );
     } catch (Exception $e) {}
 }
 
@@ -6156,9 +6175,9 @@ window.csSaveSection = function(section) {
 </div><!-- end dash-panel-companysetting -->
 
 <?php /* ===== TPG Management: Create New Class (Admin only) ===== */ ?>
-<?php if ($_tpgActive && $_tpgPage === 'create_class'): ?>
+<?php if ($_tpgActive): ?>
 <style>
-.tpg-wrap{max-width:1400px;margin:0 auto}
+.tpg-wrap{max-width:1400px;margin:0 auto;padding:28px 32px}
 .tpg-app-tabs{display:flex;align-items:center;gap:12px;margin-bottom:22px;flex-wrap:wrap}
 .tpg-app-label{font-size:14px;font-weight:600;color:#94a3b8;letter-spacing:.5px}
 button.tpg-app-tab,button.tpg-app-tab:hover,button.tpg-app-tab:focus{background:#1e293b !important;background-image:none !important;border:1px solid #334155 !important;color:#94a3b8 !important;padding:8px 18px !important;font-size:13px !important;font-weight:600 !important;border-radius:8px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
@@ -6195,6 +6214,9 @@ button.tpg-submit,button.tpg-submit:hover{background:#5bb8c9 !important;backgrou
 .tpg-info-desc{color:#93c5fd;font-size:14px;line-height:1.5}
 @media(max-width:900px){.tpg-row,.tpg-row-3,.tpg-row-4{grid-template-columns:1fr}}
 </style>
+<?php endif; ?>
+
+<?php if ($_tpgActive && $_tpgPage === 'create_class'): ?>
 <div id="dash-panel-tpg-createclass" class="tpg-wrap">
     <div class="tpg-app-tabs">
         <span class="tpg-app-label">SSG APP</span>
@@ -6391,6 +6413,357 @@ button.tpg-submit,button.tpg-submit:hover{background:#5bb8c9 !important;backgrou
 </div>
 <?php endif; ?>
 
+<?php /* ===== TPG Management: Enroll Learners (Admin only) ===== */ ?>
+<?php if ($_tpgActive && $_tpgPage === 'enroll_learners'): ?>
+<style>
+.tpgel-section-heading{font-size:20px;font-weight:700;color:#fff;margin:0 0 14px}
+.tpgel-subheading{font-size:16px;font-weight:600;color:#fff;margin:0 0 12px}
+.tpgel-search-wrap{position:relative}
+.tpgel-search-wrap svg.tpgel-search-icon{position:absolute;top:50%;left:14px;transform:translateY(-50%);color:#64748b;pointer-events:none}
+.tpgel-search{width:100%;padding:13px 14px 13px 42px !important;background:#0f172a !important;border:1px solid #334155 !important;border-radius:10px !important;color:#e2e8f0 !important;font-size:14px !important;box-sizing:border-box;outline:none !important}
+.tpgel-search:focus{border-color:#60a5fa !important}
+.tpgel-search::placeholder{color:#64748b}
+.tpgel-add-box{border:2px dashed #475569;border-radius:12px;padding:28px 20px;margin-top:14px;text-align:center;color:#cbd5e1;font-size:14px}
+button.tpgel-add-btn,button.tpgel-add-btn:hover{background:#5bb8c9 !important;background-image:linear-gradient(180deg,#6bc6d7,#5bb8c9) !important;color:#fff !important;border:none !important;padding:11px 24px !important;font-size:14px !important;font-weight:700 !important;border-radius:8px !important;cursor:pointer !important;margin-top:12px !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
+.tpgel-enrolled-empty{padding:40px 20px;text-align:center;color:#94a3b8;font-size:14px}
+.tpgel-result{display:flex;align-items:center;justify-content:space-between;background:#0f172a;border:1px solid #334155;border-radius:10px;padding:14px 16px;margin-bottom:8px}
+.tpgel-result-info{flex:1;min-width:0}
+.tpgel-result-name{color:#f1f5f9;font-size:14px;font-weight:700;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tpgel-result-email{color:#94a3b8;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+button.tpgel-result-btn,button.tpgel-result-btn:hover{background:transparent !important;background-image:none !important;border:none !important;color:#60a5fa !important;font-size:14px !important;font-weight:600 !important;cursor:pointer !important;padding:6px 12px !important;box-shadow:none !important}
+button.tpgel-result-btn:hover{color:#93c5fd !important}
+.tpgel-empty{padding:14px 16px;color:#94a3b8;font-size:13px;text-align:center;background:#0f172a;border:1px dashed #334155;border-radius:10px}
+a.tpgel-back-link,a.tpgel-back-link:hover,a.tpgel-back-link:visited{color:#cbd5e1 !important;font-size:14px;font-weight:600;text-decoration:none}
+a.tpgel-back-link:hover{color:#fff !important}
+.tpgel-phone-row{display:grid;grid-template-columns:160px 1fr;gap:18px}
+@media(max-width:640px){.tpgel-phone-row{grid-template-columns:1fr}}
+.tpgel-preview{background:#0f172a;border:1px solid #334155;border-radius:10px;padding:22px;margin-top:8px;color:#cbd5e1;font-family:'SFMono-Regular',Consolas,monospace;font-size:13px;white-space:pre;overflow:auto;max-height:460px}
+.tpgel-actions{display:flex;justify-content:flex-end;gap:14px;padding:24px 0 10px}
+button.tpgel-clear,button.tpgel-clear:hover{background:transparent !important;background-image:none !important;border:1px solid #475569 !important;color:#e2e8f0 !important;padding:11px 22px !important;font-size:14px !important;font-weight:600 !important;border-radius:8px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
+button.tpgel-clear:hover{background:#1e293b !important}
+button.tpgel-submit,button.tpgel-submit:hover{background:#2563eb !important;background-image:linear-gradient(180deg,#3b82f6,#2563eb) !important;color:#fff !important;border:none !important;padding:12px 28px !important;font-size:15px !important;font-weight:700 !important;border-radius:8px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
+</style>
+<div id="dash-panel-tpg-enrolllearners" class="tpg-wrap">
+    <div class="tpg-app-tabs">
+        <span class="tpg-app-label">SSG APP</span>
+        <button type="button" class="tpg-app-tab active">App 1</button>
+        <button type="button" class="tpg-app-tab">App 2</button>
+        <button type="button" class="tpg-app-tab">App 3</button>
+        <button type="button" class="tpg-app-tab">App 4</button>
+    </div>
+    <h1 class="tpg-title">Enroll Learners</h1>
+
+    <?php
+    $_elSess = Mage::getSingleton('adminhtml/session');
+    $_elMsgs = $_elSess->getMessages(true);
+    $_elSuccess = array(); $_elErrors = array();
+    if ($_elMsgs) {
+        foreach ($_elMsgs->getItems() as $_m) {
+            if ($_m->getType() === 'success') $_elSuccess[] = $_m->getText();
+            elseif ($_m->getType() === 'error') $_elErrors[] = $_m->getText();
+        }
+    }
+    ?>
+    <?php foreach ($_elSuccess as $_msg): ?>
+        <div style="background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.4);color:#4ade80;padding:14px 18px;border-radius:10px;margin-bottom:16px;font-weight:600;"><?php echo htmlspecialchars($_msg) ?></div>
+    <?php endforeach; ?>
+    <?php foreach ($_elErrors as $_msg): ?>
+        <div style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.4);color:#f87171;padding:14px 18px;border-radius:10px;margin-bottom:16px;font-weight:600;"><?php echo htmlspecialchars($_msg) ?></div>
+    <?php endforeach; ?>
+
+    <form id="tpgel-form" method="post" action="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/enrollLearner') ?>">
+        <input type="hidden" name="form_key" value="<?php echo Mage::getSingleton('core/session')->getFormKey() ?>" />
+        <input type="hidden" name="course_entity_id" id="tpgel-course-eid" value="" />
+        <!-- Course Information -->
+        <div class="tpg-section">
+            <div class="tpgel-section-heading">Course Information</div>
+            <div class="tpg-row">
+                <div>
+                    <div class="tpg-field">
+                        <label class="tpg-label"><span class="tpg-req">*</span> Course Reference Number</label>
+                        <input type="text" class="tpg-input" id="tpgel-course-ref" name="course_ref" placeholder="Enter course code (e.g., TGS-2024001234)" oninput="tpgelUpdatePreview()" />
+                        <div class="tpg-helper">Enter the course code manually or select from available courses below</div>
+                    </div>
+                    <div class="tpg-field">
+                        <label class="tpg-label">Or Select from Available Courses</label>
+                        <select class="tpg-select" id="tpgel-course-select" onchange="tpgelOnCourseChange()">
+                            <option value="" data-eid="" data-name="">Select a course...</option>
+                            <?php foreach ($_tpgCourses as $_c): ?>
+                            <option value="<?php echo htmlspecialchars($_c['sku']) ?>" data-eid="<?php echo (int)$_c['entity_id'] ?>" data-name="<?php echo htmlspecialchars($_c['name'] ?: '') ?>"><?php echo htmlspecialchars($_c['sku']) ?> — <?php echo htmlspecialchars($_c['name'] ?: '(No name)') ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <div class="tpg-field">
+                        <label class="tpg-label"><span class="tpg-req">*</span> Course Run ID</label>
+                        <input type="text" class="tpg-input" id="tpgel-run-id" name="course_run_id" placeholder="Enter course run ID (e.g., 101)" oninput="tpgelUpdatePreview()" />
+                        <div class="tpg-helper">Enter the course run ID manually or select from available runs below</div>
+                    </div>
+                    <div class="tpg-field">
+                        <label class="tpg-label">Or Select from Available Course Runs</label>
+                        <select class="tpg-select" id="tpgel-run-select" onchange="var opt=this.options[this.selectedIndex];document.getElementById('tpgel-run-id').value=opt.value||'';tpgelUpdatePreview();">
+                            <option value="">Select a course run...</option>
+                            <?php foreach ($_tpgRuns as $_r): ?>
+                            <option value="<?php echo (int)$_r['option_type_id'] ?>" data-eid="<?php echo (int)$_r['product_id'] ?>"><?php echo (int)$_r['option_type_id'] ?> — <?php echo htmlspecialchars($_r['title']) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Learners + Currently Enrolled (search view) -->
+        <div class="tpg-row" id="tpgel-search-view">
+            <div class="tpg-section" style="margin-bottom:18px">
+                <div class="tpgel-section-heading">Add Learners to Class</div>
+                <div class="tpgel-search-wrap" style="position:relative">
+                    <svg class="tpgel-search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" style="position:absolute;top:50%;left:14px;transform:translateY(-50%);pointer-events:none;z-index:2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input type="text" class="tpgel-search" id="tpgel-learner-search" placeholder="Search existing learners by name or email..." autocomplete="off" style="padding-left:44px !important" />
+                </div>
+                <div id="tpgel-learner-results" style="margin-top:12px;display:none;"></div>
+                <div class="tpgel-add-box">
+                    <div>Can't find a learner?</div>
+                    <button type="button" class="tpgel-add-btn" onclick="tpgelShowNewLearner()">+ Add New Learner Profile</button>
+                </div>
+            </div>
+            <div class="tpg-section" style="margin-bottom:18px">
+                <div class="tpgel-section-heading">Currently Enrolled (<span id="tpgel-enrolled-count">0</span>)</div>
+                <div class="tpgel-enrolled-empty" id="tpgel-enrolled-empty">Select a course run to see enrolled learners.</div>
+            </div>
+        </div>
+
+        <!-- Trainee Information (shown when "+ Add New Learner Profile" is clicked) -->
+        <div class="tpg-section" id="tpgel-learner-block" style="display:none;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+                <div class="tpgel-section-heading" style="margin:0">Trainee Information</div>
+                <a href="#" class="tpgel-back-link" onclick="event.preventDefault();tpgelBackToSearch();">&larr; Back to Search</a>
+            </div>
+            <div class="tpg-row">
+                <div class="tpg-field">
+                    <label class="tpg-label"><span class="tpg-req">*</span> Trainee ID Type</label>
+                    <select class="tpg-select" id="tpgel-learner-idtype" name="learner_id_type" onchange="tpgelUpdatePreview()">
+                        <option value="NRIC">NRIC</option>
+                        <option value="FIN">FIN</option>
+                        <option value="PASSPORT">PASSPORT</option>
+                        <option value="OTHERS">OTHERS</option>
+                    </select>
+                </div>
+                <div class="tpg-field">
+                    <label class="tpg-label"><span class="tpg-req">*</span> Trainee ID</label>
+                    <input type="text" class="tpg-input" id="tpgel-learner-nric" name="learner_nric" placeholder="e.g., S7020587D" oninput="tpgelUpdatePreview()" />
+                </div>
+            </div>
+
+            <div class="tpgel-subheading" style="margin-top:8px">Trainee Particulars</div>
+
+            <div class="tpg-field">
+                <label class="tpg-label"><span class="tpg-req">*</span> Trainee Full Name</label>
+                <input type="text" class="tpg-input" id="tpgel-learner-name" name="learner_fullname" placeholder="e.g., Aileen Chong" oninput="tpgelUpdatePreview()" />
+            </div>
+            <div class="tpg-field">
+                <label class="tpg-label"><span class="tpg-req">*</span> Trainee Date of Birth</label>
+                <input type="date" class="tpg-input" id="tpgel-learner-dob" name="learner_dob" placeholder="DD/MM/YYYY" oninput="tpgelUpdatePreview()" />
+            </div>
+            <div class="tpg-field">
+                <label class="tpg-label"><span class="tpg-req">*</span> Trainee Email Address</label>
+                <input type="email" class="tpg-input" id="tpgel-learner-email" name="learner_email" placeholder="e.g., test@test.com" oninput="tpgelUpdatePreview()" />
+                <div class="tpg-helper">This is how the learner's dashboard matches enrolled classes.</div>
+            </div>
+            <div class="tpgel-phone-row">
+                <div class="tpg-field">
+                    <label class="tpg-label"><span class="tpg-req">*</span> Country Code</label>
+                    <input type="text" class="tpg-input" id="tpgel-learner-country-code" name="learner_country_code" value="+65" oninput="tpgelUpdatePreview()" />
+                </div>
+                <div class="tpg-field">
+                    <label class="tpg-label"><span class="tpg-req">*</span> Phone Number</label>
+                    <input type="text" class="tpg-input" id="tpgel-learner-phone" name="learner_phone" placeholder="N/A" oninput="tpgelUpdatePreview()" />
+                </div>
+            </div>
+            <input type="hidden" id="tpgel-sponsorship" name="sponsorship_type" value="INDIVIDUAL" />
+        </div>
+
+        <!-- Training Partner Information -->
+        <div class="tpg-section">
+            <div class="tpgel-section-heading">Training Partner Information</div>
+            <div class="tpg-row">
+                <div class="tpg-field">
+                    <label class="tpg-label"><span class="tpg-req">*</span> Training Partner UEN</label>
+                    <input type="text" class="tpg-input" id="tpgel-tp-uen" name="tp_uen" value="201200696W" oninput="tpgelUpdatePreview()" />
+                </div>
+                <div class="tpg-field">
+                    <label class="tpg-label"><span class="tpg-req">*</span> Training Partner Code</label>
+                    <input type="text" class="tpg-input" id="tpgel-tp-code" name="tp_code" value="201200696W-01" oninput="tpgelUpdatePreview()" />
+                    <div class="tpg-helper">Code for the training partner conducting the course for which the trainee is enrolled</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Preview Request Body -->
+        <div class="tpg-section">
+            <div class="tpgel-section-heading">Preview Request Body</div>
+            <pre class="tpgel-preview" id="tpgel-preview"></pre>
+        </div>
+
+        <div class="tpgel-actions">
+            <button type="button" class="tpgel-clear" onclick="tpgelClearForm()">Clear Form</button>
+            <button type="submit" class="tpgel-submit">Create Enrolment</button>
+        </div>
+    </form>
+
+    <div class="tpg-footer-brand">Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y') ?></div>
+</div>
+<script type="text/javascript">
+(function(){
+    function val(id){var el=document.getElementById(id);return el?el.value:'';}
+    window.tpgelUpdatePreview = function(){
+        var body = {
+            enrolment: {
+                trainingPartner: {
+                    code: val('tpgel-tp-code'),
+                    uen: val('tpgel-tp-uen')
+                },
+                course: {
+                    referenceNumber: val('tpgel-course-ref'),
+                    run: { id: val('tpgel-run-id') }
+                },
+                trainee: {
+                    id: val('tpgel-learner-nric'),
+                    idType: { type: val('tpgel-learner-idtype') || 'NRIC' },
+                    fullName: val('tpgel-learner-name'),
+                    dateOfBirth: val('tpgel-learner-dob'),
+                    emailAddress: val('tpgel-learner-email'),
+                    contactNumber: { countryCode: val('tpgel-learner-country-code') || '+65', phoneNumber: val('tpgel-learner-phone') },
+                    enrolmentDate: new Date().toISOString().slice(0,10),
+                    sponsorshipType: val('tpgel-sponsorship') || 'INDIVIDUAL',
+                    fees: { discountAmount: 0, collectionStatus: 'Pending Payment' }
+                }
+            }
+        };
+        var pre = document.getElementById('tpgel-preview');
+        if (pre) pre.textContent = JSON.stringify(body, null, 2);
+    };
+    window.tpgelOnCourseChange = function(){
+        var sel = document.getElementById('tpgel-course-select');
+        var opt = sel.options[sel.selectedIndex];
+        document.getElementById('tpgel-course-ref').value = opt.value || '';
+        document.getElementById('tpgel-course-eid').value = opt.getAttribute('data-eid') || '';
+        var eid = opt.getAttribute('data-eid') || '';
+        var runSel = document.getElementById('tpgel-run-select');
+        for (var i=0; i<runSel.options.length; i++){
+            var o = runSel.options[i];
+            if (!o.value){ o.style.display=''; continue; }
+            o.style.display = (!eid || o.getAttribute('data-eid') === eid) ? '' : 'none';
+        }
+        runSel.value = '';
+        document.getElementById('tpgel-run-id').value = '';
+        tpgelUpdatePreview();
+    };
+    window.tpgelClearForm = function(){
+        document.getElementById('tpgel-form').reset();
+        document.getElementById('tpgel-course-eid').value = '';
+        var rs = document.getElementById('tpgel-learner-results');
+        if (rs) { rs.innerHTML=''; rs.style.display='none'; }
+        tpgelBackToSearch();
+        tpgelOnCourseChange();
+        tpgelUpdatePreview();
+    };
+
+    window.tpgelShowNewLearner = function(){
+        var sv = document.getElementById('tpgel-search-view');
+        var lb = document.getElementById('tpgel-learner-block');
+        // Carry the search query into the Trainee Information form so the user
+        // doesn't have to retype it. If it looks like an email, populate the
+        // Email field; otherwise treat it as a full name.
+        var q = (document.getElementById('tpgel-learner-search') || {}).value || '';
+        q = q.trim();
+        if (q) {
+            var emailEl = document.getElementById('tpgel-learner-email');
+            var nameEl  = document.getElementById('tpgel-learner-name');
+            if (q.indexOf('@') !== -1) {
+                if (emailEl && !emailEl.value) emailEl.value = q;
+            } else {
+                if (nameEl && !nameEl.value) nameEl.value = q;
+            }
+        }
+        if (sv) sv.style.display = 'none';
+        if (lb) lb.style.display = 'block';
+        tpgelUpdatePreview();
+    };
+    window.tpgelBackToSearch = function(){
+        var sv = document.getElementById('tpgel-search-view');
+        var lb = document.getElementById('tpgel-learner-block');
+        if (sv) sv.style.display = '';
+        if (lb) lb.style.display = 'none';
+    };
+
+    // Debounced AJAX search for existing learners
+    var TPGEL_SEARCH_URL = <?php echo json_encode(Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/searchLearners')) ?>;
+    var tpgelDebounce = null;
+    window.tpgelSelectLearner = function(email, fullname){
+        // Populate the Trainee Information fields with the selected learner's
+        // known data, then swap to the Trainee Information view so the admin
+        // can fill in the remaining particulars (ID, DOB, phone).
+        document.getElementById('tpgel-learner-email').value = email || '';
+        document.getElementById('tpgel-learner-name').value = fullname || '';
+        var search = document.getElementById('tpgel-learner-search');
+        if (search) search.value = email;
+        var rs = document.getElementById('tpgel-learner-results');
+        if (rs) { rs.innerHTML=''; rs.style.display='none'; }
+        var sv = document.getElementById('tpgel-search-view');
+        var lb = document.getElementById('tpgel-learner-block');
+        if (sv) sv.style.display = 'none';
+        if (lb) lb.style.display = 'block';
+        tpgelUpdatePreview();
+    };
+    function renderResults(results){
+        var box = document.getElementById('tpgel-learner-results');
+        if (!box) return;
+        if (!results || !results.length){
+            box.innerHTML = '<div class="tpgel-empty">No matching learners found.</div>';
+            box.style.display = 'block';
+            return;
+        }
+        var html = '';
+        for (var i=0; i<results.length; i++){
+            var r = results[i];
+            var name = (r.fullname || r.email.split('@')[0]).replace(/"/g,'&quot;');
+            var email = String(r.email).replace(/"/g,'&quot;');
+            html += '<div class="tpgel-result">'
+                 +  '<div class="tpgel-result-info">'
+                 +    '<div class="tpgel-result-name">' + name + '</div>'
+                 +    '<div class="tpgel-result-email">' + email + '</div>'
+                 +  '</div>'
+                 +  '<button type="button" class="tpgel-result-btn" onclick="tpgelSelectLearner(\'' + email + '\',\'' + name + '\')">Select</button>'
+                 +  '</div>';
+        }
+        box.innerHTML = html;
+        box.style.display = 'block';
+    }
+    var searchInput = document.getElementById('tpgel-learner-search');
+    if (searchInput){
+        searchInput.addEventListener('input', function(){
+            clearTimeout(tpgelDebounce);
+            var q = this.value.trim();
+            if (q.length < 2){
+                var rs = document.getElementById('tpgel-learner-results');
+                if (rs) { rs.innerHTML=''; rs.style.display='none'; }
+                return;
+            }
+            tpgelDebounce = setTimeout(function(){
+                fetch(TPGEL_SEARCH_URL + (TPGEL_SEARCH_URL.indexOf('?')>=0?'&':'?') + 'q=' + encodeURIComponent(q), { credentials: 'same-origin' })
+                    .then(function(r){ return r.json(); })
+                    .then(function(d){ renderResults(d.results || []); })
+                    .catch(function(){ renderResults([]); });
+            }, 220);
+        });
+    }
+
+    tpgelUpdatePreview();
+})();
+</script>
+<?php endif; ?>
+
 <?php /* ===== Role switcher JS ===== */ ?>
 <script type="text/javascript">
 (function(){
@@ -6408,7 +6781,7 @@ button.tpg-submit,button.tpg-submit:hover{background:#5bb8c9 !important;backgrou
             'Trainer':           'dash-panel-learner',
             'Developer':         'dash-panel-developer'
         };
-        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-trainingprovider','dash-panel-developer','dash-panel-learner','dash-panel-billing','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-course-detail','dash-panel-course-edit','dash-panel-companysetting','dash-panel-cp-coursedetails','dash-panel-cp-aboutcourse','dash-panel-cp-whatlearn','dash-panel-cp-bgparta','dash-panel-cp-bgpartb','dash-panel-cp-learningoutcomes','dash-panel-cp-instructmethods','dash-panel-cp-assessmethods','dash-panel-cp-lusequencing','dash-panel-cp-courseoutline','dash-panel-cp-entryreq','dash-panel-cp-jobroles','dash-panel-cp-lessonplan','dash-panel-cp-cpvalidation','dash-panel-tpg-createclass'];
+        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-trainingprovider','dash-panel-developer','dash-panel-learner','dash-panel-billing','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-course-detail','dash-panel-course-edit','dash-panel-companysetting','dash-panel-cp-coursedetails','dash-panel-cp-aboutcourse','dash-panel-cp-whatlearn','dash-panel-cp-bgparta','dash-panel-cp-bgpartb','dash-panel-cp-learningoutcomes','dash-panel-cp-instructmethods','dash-panel-cp-assessmethods','dash-panel-cp-lusequencing','dash-panel-cp-courseoutline','dash-panel-cp-entryreq','dash-panel-cp-jobroles','dash-panel-cp-lessonplan','dash-panel-cp-cpvalidation','dash-panel-tpg-createclass','dash-panel-tpg-enrolllearners'];
         // If a TPG sub-page is active (Admin only), show it and skip the role panel
         if (TPG_PAGE_ACTIVE) {
             for (var j=0; j<all.length; j++) {

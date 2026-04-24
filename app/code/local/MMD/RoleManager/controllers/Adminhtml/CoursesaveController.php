@@ -576,6 +576,220 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
         }
     }
 
+    /**
+     * Enroll Learners handler — TPG Management → Enrolment → Enroll Learners.
+     *
+     * The Learner dashboard reads enrolled courses from sales_flat_order +
+     * sales_flat_order_item, matched on customer_email. To make an enrollment
+     * show up for a learner we insert those two rows directly (we don't need
+     * a real Magento checkout — we're an admin-only management tool).
+     *
+     * POST params:
+     *   course_entity_id | course_ref (SKU fallback) — the course product
+     *   course_run_id — stored on the order item (non-authoritative, for audit)
+     *   learner_email (required) — key used by the learner dashboard
+     *   learner_fullname, learner_nric, learner_dob, learner_phone — stored on order
+     *   sponsorship_type — INDIVIDUAL / EMPLOYER (stored in a remote_ip-style note)
+     */
+    public function enrollLearnerAction()
+    {
+        try {
+            if (!$this->getRequest()->isPost()) {
+                throw new Exception('POST required');
+            }
+            $req = $this->getRequest();
+
+            $courseEntityId = (int) $req->getParam('course_entity_id');
+            $courseRef      = trim((string) $req->getParam('course_ref'));
+            $runId          = trim((string) $req->getParam('course_run_id'));
+            $email          = strtolower(trim((string) $req->getParam('learner_email')));
+            $fullName       = trim((string) $req->getParam('learner_fullname'));
+            $nric           = trim((string) $req->getParam('learner_nric'));
+            $sponsorship    = trim((string) $req->getParam('sponsorship_type')) ?: 'INDIVIDUAL';
+
+            if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                throw new Exception('A valid learner email is required.');
+            }
+            if (!$courseEntityId && $courseRef === '') {
+                throw new Exception('Select a course from the dropdown or enter a Course Reference Number.');
+            }
+
+            $resource = Mage::getSingleton('core/resource');
+            $read  = $resource->getConnection('core_read');
+            $write = $resource->getConnection('core_write');
+
+            // Resolve course by entity_id, fall back to SKU
+            if (!$courseEntityId && $courseRef !== '') {
+                $courseEntityId = (int) $read->fetchOne(
+                    "SELECT entity_id FROM catalog_product_entity WHERE sku = ? LIMIT 1",
+                    array($courseRef)
+                );
+                if (!$courseEntityId) {
+                    throw new Exception('No course found with reference "' . $courseRef . '". Pick one from the dropdown.');
+                }
+            }
+
+            $product = Mage::getModel('catalog/product')->load($courseEntityId);
+            if (!$product->getId()) {
+                throw new Exception('Course not found (entity_id ' . $courseEntityId . ').');
+            }
+
+            // Split name
+            $firstName = $fullName; $lastName = '';
+            if (strpos($fullName, ' ') !== false) {
+                $parts = explode(' ', $fullName, 2);
+                $firstName = $parts[0];
+                $lastName  = $parts[1];
+            }
+            if ($firstName === '') $firstName = 'Learner';
+
+            // Dedup: don't create a second enrolment if one already exists for the
+            // same (email, product). Idempotent so repeated clicks are safe.
+            $existing = $read->fetchOne(
+                "SELECT o.entity_id FROM sales_flat_order o
+                 JOIN sales_flat_order_item oi ON oi.order_id = o.entity_id
+                 WHERE LOWER(o.customer_email) = ? AND oi.product_id = ?
+                 LIMIT 1",
+                array($email, $courseEntityId)
+            );
+            if ($existing) {
+                Mage::getSingleton('adminhtml/session')->addSuccess(
+                    'Enrolment already exists for ' . $email . ' on ' . $product->getSku() . ' — no changes made.'
+                );
+                $this->_redirectUrl(Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('tpg_page' => 'enroll_learners')));
+                return;
+            }
+
+            // Generate a unique increment_id
+            $incrementId = 'ENROL-' . time() . '-' . substr(md5($email . '|' . $courseEntityId), 0, 6);
+
+            $write->insert('sales_flat_order', array(
+                'state'                => 'processing',
+                'status'               => 'processing',
+                'store_id'             => 1,
+                'customer_email'       => $email,
+                'customer_firstname'   => $firstName,
+                'customer_lastname'    => $lastName,
+                'customer_is_guest'    => 1,
+                'base_grand_total'     => 0,
+                'grand_total'          => 0,
+                'base_subtotal'        => 0,
+                'subtotal'             => 0,
+                'total_qty_ordered'    => 1,
+                'total_item_count'     => 1,
+                'base_currency_code'   => 'SGD',
+                'order_currency_code'  => 'SGD',
+                'store_currency_code'  => 'SGD',
+                'increment_id'         => $incrementId,
+                'protect_code'         => substr(md5(uniqid((string)mt_rand(), true)), 0, 20),
+                // Stash non-standard enrolment metadata in the remote_ip column (harmless,
+                // shows in admin order grid as a note). Keeps us from needing a schema change.
+                'remote_ip'            => 'enrol:run=' . $runId . ';nric=' . $nric . ';sponsor=' . $sponsorship,
+                'created_at'           => date('Y-m-d H:i:s'),
+                'updated_at'           => date('Y-m-d H:i:s'),
+            ));
+            $orderId = (int) $write->lastInsertId();
+
+            $write->insert('sales_flat_order_item', array(
+                'order_id'      => $orderId,
+                'store_id'      => 1,
+                'created_at'    => date('Y-m-d H:i:s'),
+                'updated_at'    => date('Y-m-d H:i:s'),
+                'product_id'    => $courseEntityId,
+                'product_type'  => 'simple',
+                'sku'           => $product->getSku(),
+                'name'          => $product->getName(),
+                'qty_ordered'   => 1,
+                'base_price'    => 0,
+                'price'         => 0,
+                'base_row_total'=> 0,
+                'row_total'     => 0,
+            ));
+
+            Mage::app()->cleanCache();
+
+            $msg = 'Enrolled ' . ($fullName !== '' ? $fullName . ' (' . $email . ')' : $email)
+                 . ' in "' . $product->getSku() . ' — ' . $product->getName() . '". '
+                 . 'Order ' . $incrementId . ' created. The learner will see this class on their dashboard.';
+            Mage::getSingleton('adminhtml/session')->addSuccess($msg);
+            $this->_redirectUrl(Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('tpg_page' => 'enroll_learners')));
+            return;
+        } catch (Exception $e) {
+            Mage::getSingleton('adminhtml/session')->addError($e->getMessage());
+            $this->_redirectUrl(Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('tpg_page' => 'enroll_learners')));
+        }
+    }
+
+    /**
+     * AJAX search for existing learners (used by the Enroll Learners form's search box).
+     * Searches both admin_user and customer_entity, dedupes by email,
+     * returns up to 20 matches ranked by admin_user first then customer_entity.
+     * GET params: q — name/email fragment (min 2 chars)
+     */
+    public function searchLearnersAction()
+    {
+        $results = array();
+        try {
+            $q = trim((string) $this->getRequest()->getParam('q'));
+            if (strlen($q) < 2) { $this->_sendJson(array('results' => array())); return; }
+            $like = '%' . $q . '%';
+
+            $read = Mage::getSingleton('core/resource')->getConnection('core_read');
+
+            // admin_user (the people who actually log in and see the Learner dashboard)
+            $adminRows = $read->fetchAll(
+                "SELECT email, firstname, lastname FROM admin_user
+                 WHERE is_active = 1 AND (email LIKE ? OR CONCAT_WS(' ', firstname, lastname) LIKE ?)
+                 ORDER BY firstname LIMIT 20",
+                array($like, $like)
+            );
+            $seen = array();
+            foreach ($adminRows as $r) {
+                $email = strtolower($r['email']);
+                if ($email === '' || isset($seen[$email])) continue;
+                $seen[$email] = 1;
+                $results[] = array(
+                    'email'     => $r['email'],
+                    'fullname'  => trim($r['firstname'] . ' ' . $r['lastname']),
+                    'source'    => 'admin_user',
+                );
+            }
+
+            // customer_entity (Magento customers — much larger pool)
+            if (count($results) < 20) {
+                $limit = 20 - count($results);
+                $fnAttr = (int) $read->fetchOne(
+                    "SELECT attribute_id FROM eav_attribute WHERE attribute_code='firstname' AND entity_type_id=(SELECT entity_type_id FROM eav_entity_type WHERE entity_type_code='customer')"
+                );
+                $lnAttr = (int) $read->fetchOne(
+                    "SELECT attribute_id FROM eav_attribute WHERE attribute_code='lastname'  AND entity_type_id=(SELECT entity_type_id FROM eav_entity_type WHERE entity_type_code='customer')"
+                );
+                $custRows = $read->fetchAll(
+                    "SELECT c.entity_id, c.email,
+                            (SELECT value FROM customer_entity_varchar WHERE entity_id=c.entity_id AND attribute_id=? LIMIT 1) AS firstname,
+                            (SELECT value FROM customer_entity_varchar WHERE entity_id=c.entity_id AND attribute_id=? LIMIT 1) AS lastname
+                     FROM customer_entity c
+                     WHERE c.email LIKE ?
+                     ORDER BY c.email LIMIT " . (int)$limit,
+                    array($fnAttr, $lnAttr, $like)
+                );
+                foreach ($custRows as $r) {
+                    $email = strtolower($r['email']);
+                    if ($email === '' || isset($seen[$email])) continue;
+                    $seen[$email] = 1;
+                    $results[] = array(
+                        'email'    => $r['email'],
+                        'fullname' => trim(($r['firstname'] ?: '') . ' ' . ($r['lastname'] ?: '')),
+                        'source'   => 'customer',
+                    );
+                }
+            }
+        } catch (Exception $e) {
+            // Return empty results silently
+        }
+        $this->_sendJson(array('results' => $results));
+    }
+
     protected function _sendJson(array $data)
     {
         $this->getResponse()

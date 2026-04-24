@@ -191,7 +191,21 @@
                 </div>
             </div>
             <a href="#" class="tools-sub-item"><span>Session</span></a>
-            <a href="#" class="tools-sub-item"><span>Enrolment</span></a>
+            <div class="tools-group" style="margin:0;">
+                <div class="tools-group-toggle" onclick="toggleToolGroup(this)" style="padding:8px 12px;">
+                    <span style="font-size:11px;font-weight:600;color:#64748b;letter-spacing:.5px;">ENROLMENT</span>
+                    <svg class="tools-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                </div>
+                <div class="tools-group-items">
+                    <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('tpg_page' => 'enroll_learners')) ?>" class="tools-sub-item"><span>Enroll Learners</span></a>
+                    <a href="#" class="tools-sub-item"><span>Upload Enrolments</span></a>
+                    <a href="#" class="tools-sub-item"><span>Search Enrolment</span></a>
+                    <a href="#" class="tools-sub-item"><span>View Enrolment</span></a>
+                    <a href="#" class="tools-sub-item"><span>Update Enrolment</span></a>
+                    <a href="#" class="tools-sub-item"><span>Cancel Enrolment</span></a>
+                    <a href="#" class="tools-sub-item"><span>Update Enrolment Fees</span></a>
+                </div>
+            </div>
             <a href="#" class="tools-sub-item"><span>Attendance</span></a>
             <a href="#" class="tools-sub-item"><span>Assessment</span></a>
             <a href="#" class="tools-sub-item"><span>Grant</span></a>
