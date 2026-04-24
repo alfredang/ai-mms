@@ -29,7 +29,7 @@ $_tpgCourses = array();
 $_tpgTrainers = array();
 if ($_tpgActive && $_tpgPage === 'create_class') {
     try {
-        $_tpgCourses = $read->fetchAll("SELECT e.entity_id, e.sku, (SELECT value FROM catalog_product_entity_varchar v WHERE v.entity_id=e.entity_id AND v.attribute_id=71 ORDER BY v.store_id LIMIT 1) AS name FROM catalog_product_entity e ORDER BY e.sku ASC");
+        $_tpgCourses = $read->fetchAll("SELECT e.entity_id, e.sku, (SELECT value FROM catalog_product_entity_varchar v WHERE v.entity_id=e.entity_id AND v.attribute_id=71 ORDER BY v.store_id LIMIT 1) AS name FROM catalog_product_entity e JOIN catalog_product_website pw ON pw.product_id=e.entity_id AND pw.website_id=1 ORDER BY e.sku ASC");
         $_tpgTrainers = $read->fetchAll("SELECT o.option_id, v.value FROM eav_attribute_option o JOIN eav_attribute_option_value v ON o.option_id=v.option_id AND v.store_id=0 WHERE o.attribute_id=170 ORDER BY v.value");
     } catch (Exception $e) {}
 }
