@@ -1,29 +1,52 @@
 -- Add extra columns to courses_trainers so the "Add New Trainer" form
 -- can persist Telephone, Trainer Type, Gender, and LinkedIn Profile URL.
--- Idempotent — uses INFORMATION_SCHEMA + dynamic SQL so re-running is safe.
+--
+-- Rewritten to NOT use DELIMITER / CREATE PROCEDURE — the PHP migration
+-- runner splits SQL on ';' at end-of-line, which breaks stored-procedure
+-- bodies (they contain internal semicolons). Each column add is now a
+-- self-contained statement that uses INFORMATION_SCHEMA + PREPARE to stay
+-- idempotent. Safe to re-run against a DB that already has the columns.
 
-DROP PROCEDURE IF EXISTS _add_trainer_col;
+SET @has := (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE()
+               AND TABLE_NAME = 'courses_trainers'
+               AND COLUMN_NAME = 'telephone');
+SET @sql := IF(@has = 0,
+    'ALTER TABLE courses_trainers ADD COLUMN `telephone` VARCHAR(64) NULL',
+    'SELECT 1');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
-DELIMITER //
-CREATE PROCEDURE _add_trainer_col(IN col_name VARCHAR(64), IN col_def VARCHAR(255))
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE()
-          AND TABLE_NAME = 'courses_trainers'
-          AND COLUMN_NAME = col_name
-    ) THEN
-        SET @sql = CONCAT('ALTER TABLE courses_trainers ADD COLUMN `', col_name, '` ', col_def);
-        PREPARE stmt FROM @sql;
-        EXECUTE stmt;
-        DEALLOCATE PREPARE stmt;
-    END IF;
-END //
-DELIMITER ;
+SET @has := (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE()
+               AND TABLE_NAME = 'courses_trainers'
+               AND COLUMN_NAME = 'trainer_type');
+SET @sql := IF(@has = 0,
+    "ALTER TABLE courses_trainers ADD COLUMN `trainer_type` VARCHAR(32) NOT NULL DEFAULT 'non-ACLP'",
+    'SELECT 1');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
-CALL _add_trainer_col('telephone',    'VARCHAR(64) NULL');
-CALL _add_trainer_col('trainer_type', "VARCHAR(32) NOT NULL DEFAULT 'non-ACLP'");
-CALL _add_trainer_col('gender',       'VARCHAR(16) NULL');
-CALL _add_trainer_col('linkedin_url', 'VARCHAR(255) NULL');
+SET @has := (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE()
+               AND TABLE_NAME = 'courses_trainers'
+               AND COLUMN_NAME = 'gender');
+SET @sql := IF(@has = 0,
+    'ALTER TABLE courses_trainers ADD COLUMN `gender` VARCHAR(16) NULL',
+    'SELECT 1');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
-DROP PROCEDURE _add_trainer_col;
+SET @has := (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE()
+               AND TABLE_NAME = 'courses_trainers'
+               AND COLUMN_NAME = 'linkedin_url');
+SET @sql := IF(@has = 0,
+    'ALTER TABLE courses_trainers ADD COLUMN `linkedin_url` VARCHAR(255) NULL',
+    'SELECT 1');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
