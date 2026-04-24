@@ -106,6 +106,39 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
 
             $product->save();
 
+            // Save courseware URLs into the dedicated course_courseware table (upsert by product_id).
+            // Only runs if the form actually submitted any courseware_* field.
+            $_cwFields = array(
+                'lesson_plan_url', 'learner_guide_url', 'facilitator_guide_url',
+                'assessment_plan_url', 'learner_slides_url', 'trainer_slides_url',
+                'courseware_link', 'brochure_link', 'skillsfuture_link',
+                'assessment_record_link', 'assessment_summary_url',
+            );
+            $_cwAny = false;
+            $_cwData = array();
+            foreach ($_cwFields as $_k) {
+                $_val = $req->getParam('courseware_' . $_k);
+                if ($_val !== null) {
+                    $_cwData[$_k] = (string) $_val;
+                    $_cwAny = true;
+                }
+            }
+            if ($_cwAny) {
+                try {
+                    $_w = Mage::getSingleton('core/resource')->getConnection('core_write');
+                    $_r = Mage::getSingleton('core/resource')->getConnection('core_read');
+                    $_existing = $_r->fetchOne("SELECT id FROM course_courseware WHERE product_id = ?", array($courseId));
+                    if ($_existing) {
+                        $_w->update('course_courseware', $_cwData, array('id = ?' => (int)$_existing));
+                    } else {
+                        $_cwData['product_id'] = $courseId;
+                        $_w->insert('course_courseware', $_cwData);
+                    }
+                } catch (Exception $_cwEx) {
+                    // Table may not exist yet on fresh DBs — silently ignore
+                }
+            }
+
             // Force-save the multiselect trainers attribute directly to catalog_product_entity_text
             // in case Magento's normal save didn't persist it correctly for multiselects
             if ($trainerIdsChanged) {
@@ -225,20 +258,6 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 ));
             }
 
-            // Optional: assign a trainer to the new session
-            $trainerOptId = (int) $req->getParam('trainer_option_id');
-            if ($trainerOptId > 0) {
-                $trainerName = (string) $read->fetchOne(
-                    "SELECT value FROM eav_attribute_option_value WHERE option_id = ? AND store_id = 0",
-                    array($trainerOptId)
-                );
-                $write->insert('course_session_trainers', array(
-                    'option_type_id'    => $optionTypeId,
-                    'trainer_option_id' => $trainerOptId,
-                    'trainer_name'      => $trainerName,
-                ));
-            }
-
             Mage::app()->cleanCache();
             $result['success']        = true;
             $result['option_type_id'] = $optionTypeId;
@@ -284,8 +303,6 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             }
             // Deleting from catalog/product_option_type_value cascades to _title and _price via FK
             $write->delete($optTypeTable, array('option_type_id = ?' => $optionTypeId));
-            // Also remove trainer mapping for this session
-            $write->delete('course_session_trainers', array('option_type_id = ?' => $optionTypeId));
             Mage::app()->cleanCache();
             $result['success'] = true;
         } catch (Exception $e) {
