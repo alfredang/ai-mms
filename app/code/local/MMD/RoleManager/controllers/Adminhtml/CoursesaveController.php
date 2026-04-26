@@ -233,15 +233,22 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             }
 
             $continueEdit = $req->getParam('continue_edit');
+            $devBack = trim((string) $req->getParam('dev_back', ''));
+            $devBackSuffix = $devBack !== '' ? '?dev_back=' . urlencode($devBack) : '';
             $dashboardUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard');
 
             if ($continueEdit) {
+                // Save & Continue — stay in editor, preserve back-state
                 $editUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array(
                     'course_id' => $courseId,
                     'mode' => 'editing',
-                ));
+                )) . $devBackSuffix;
                 $this->_redirectUrl($editUrl);
+            } elseif ($devBack !== '') {
+                // Save Changes with back-state — drop back on the filtered list
+                $this->_redirectUrl($dashboardUrl . '?' . $devBack . '#courses');
             } else {
+                // Save Changes without back-state (legacy entry) — read-only view
                 $viewUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array(
                     'course_id' => $courseId,
                     'mode' => 'edit',

@@ -745,6 +745,11 @@ $_backUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard');
 $_courseMode = Mage::app()->getRequest()->getParam('mode');
 $_editMode = ($_courseMode === 'edit' || $_courseMode === 'editing') && $_selectedCourse && $activeRole === 'developer';
 $_editingMode = ($_courseMode === 'editing') && $_selectedCourse && $activeRole === 'developer';
+// Back-state — preserved across View → Edit → Save/Cancel so the editor can
+// drop the user back on the exact filtered page they came from.
+$_devBack = trim((string) Mage::app()->getRequest()->getParam('dev_back', ''));
+$_devBackUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard') . ($_devBack !== '' ? '?' . $_devBack : '') . '#courses';
+$_devBackSuffix = $_devBack !== '' ? '?dev_back=' . urlencode($_devBack) : '';
 $_editCourseData = array();
 if ($_editMode) {
     try {
@@ -1239,6 +1244,16 @@ if (in_array($_devFilterCourseware, array('missing','partial','all'), true)) {
         foreach ($_cwRows as $_cwR) $_devCwCount[(int)$_cwR['product_id']] = (int)$_cwR['filled'];
     } catch (Exception $_cwEx) { /* table may not exist yet — fall through */ }
 }
+
+// Build a single "back" query string from the active filter/page state.
+// Threaded through View / Edit / Save / Cancel as ?dev_back=… so the editor
+// can return the user to the exact list state they were on.
+$_devBackParams = array('dev_country' => $_devCountry);
+if ($_devCurPage > 1)             $_devBackParams['dev_page']       = $_devCurPage;
+if ($_devFilterType !== '')       $_devBackParams['dev_type']       = $_devFilterType;
+if ($_devFilterQuery !== '')      $_devBackParams['dev_q']          = $_devFilterQuery;
+if ($_devFilterCourseware !== '') $_devBackParams['dev_courseware'] = $_devFilterCourseware;
+$_devBackQs = http_build_query($_devBackParams);
 $_devCountryMap = array(
     'Singapore' => 1,
     'Malaysia'  => 2,
@@ -1522,9 +1537,14 @@ a.dev-country-btn.active,a.dev-country-btn.active:hover,a.dev-country-btn.active
                 <?php endif; ?>
                 <div class="dev-card-row"><span class="dev-card-lbl">Funding Validity:</span><span class="dev-card-val" style="color:#22c55e;"><?php echo $_dc['funding_date'] ? date('j M Y', strtotime($_dc['funding_date'])).' - Valid' : '—' ?></span></div>
             </div>
+            <?php
+            $_dcBackSuffix = $_devBackQs !== '' ? '?dev_back=' . urlencode($_devBackQs) : '';
+            $_dcViewUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id'=>$_dc['id'])) . $_dcBackSuffix;
+            $_dcEditUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id'=>$_dc['id'], 'mode'=>'edit')) . $_dcBackSuffix;
+            ?>
             <div class="dev-card-footer">
-                <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id'=>$_dc['id'])) ?>" class="dev-view-btn">View Course</a>
-                <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id'=>$_dc['id'], 'mode'=>'edit')) ?>" class="dev-edit-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Edit Course</a>
+                <a href="<?php echo $_dcViewUrl ?>" class="dev-view-btn">View Course</a>
+                <a href="<?php echo $_dcEditUrl ?>" class="dev-edit-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Edit Course</a>
             </div>
         </div>
         <?php endforeach; ?>
@@ -1534,7 +1554,7 @@ a.dev-country-btn.active,a.dev-country-btn.active:hover,a.dev-country-btn.active
     <div class="dev-pagination">
         <?php
         $_devBaseUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard');
-        $_devPageUrl = function($p) use ($_devBaseUrl, $_devCountry, $_devFilterType, $_devFilterQuery) {
+        $_devPageUrl = function($p) use ($_devBaseUrl, $_devCountry, $_devFilterType, $_devFilterQuery, $_devFilterCourseware) {
             $qs = array('dev_country=' . urlencode($_devCountry), 'dev_page=' . $p);
             if ($_devFilterType !== '') $qs[] = 'dev_type=' . urlencode($_devFilterType);
             if ($_devFilterQuery !== '') $qs[] = 'dev_q=' . urlencode($_devFilterQuery);
@@ -1585,10 +1605,15 @@ function devToggleFilters() {
 function devApplyFilters() {
     var base = <?php echo json_encode(Mage::helper('adminhtml')->getUrl('adminhtml/dashboard')) ?>;
     var country = <?php echo json_encode($_devCountry) ?>;
+    var curPage = <?php echo json_encode($_devCurPage) ?>;
     var typeEl = document.getElementById('dev-filter-type');
     var qEl = document.getElementById('dev-search-input');
     var cwEl = document.getElementById('dev-filter-courseware');
     var params = ['dev_country=' + encodeURIComponent(country)];
+    // Carry current page across filter changes so changing a dropdown doesn't
+    // bounce the user back to page 1. The server clamps if the page no longer
+    // exists in the new result set.
+    if (curPage > 1) params.push('dev_page=' + curPage);
     if (typeEl && typeEl.value) params.push('dev_type=' + encodeURIComponent(typeEl.value));
     if (qEl && qEl.value.trim() !== '') params.push('dev_q=' + encodeURIComponent(qEl.value.trim()));
     if (cwEl && cwEl.value) params.push('dev_courseware=' + encodeURIComponent(cwEl.value));
@@ -1917,6 +1942,7 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
 <input type="hidden" name="form_key" value="<?php echo Mage::getSingleton('core/session')->getFormKey() ?>" />
 <input type="hidden" name="course_id" value="<?php echo (int)$_selectedCourse['id'] ?>" />
 <input type="hidden" name="continue_edit" id="dcf-continue-edit" value="" />
+<input type="hidden" name="dev_back" value="<?php echo htmlspecialchars($_devBack) ?>" />
 <div class="dcf-wrap">
     <div class="dcf-header">
         <div style="flex:1;min-width:0;">
@@ -1926,8 +1952,8 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
             <?php endif; ?>
         </div>
         <div class="dcf-actions">
-            <button type="button" class="dcf-btn dcf-btn-cancel" onclick="window.location.href='<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard') ?>'">Cancel</button>
-            <button type="button" class="dcf-btn dcf-btn-edit" onclick="window.location.href='<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id'=>$_selectedCourse['id'], 'mode'=>'edit')) ?>'">Exit Edit</button>
+            <button type="button" class="dcf-btn dcf-btn-cancel" onclick="window.location.href='<?php echo $_devBackUrl ?>'">Cancel</button>
+            <button type="button" class="dcf-btn dcf-btn-edit" onclick="window.location.href='<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id'=>$_selectedCourse['id'], 'mode'=>'edit')) . $_devBackSuffix ?>'">Exit Edit</button>
             <button type="button" class="dcf-btn dcf-btn-save-cont" onclick="document.getElementById('dcf-continue-edit').value='1';document.getElementById('dcf-form').submit();">Save &amp; Continue</button>
             <button type="submit" class="dcf-btn dcf-btn-save">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
@@ -3232,8 +3258,8 @@ div.dce-value::-webkit-scrollbar-thumb:hover{background:#64748b}
             <?php endif; ?>
         </div>
         <div class="dce-actions">
-            <button type="button" class="dce-cancel-btn" onclick="window.location.href='<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard') ?>'">Cancel</button>
-            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id'=>$_selectedCourse['id'], 'mode'=>'editing')) ?>" class="dce-edit-btn">
+            <button type="button" class="dce-cancel-btn" onclick="window.location.href='<?php echo $_devBackUrl ?>'">Cancel</button>
+            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id'=>$_selectedCourse['id'], 'mode'=>'editing')) . $_devBackSuffix ?>" class="dce-edit-btn">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 Edit
             </a>
