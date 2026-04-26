@@ -225,6 +225,14 @@ body .header-top {
 .columns {
     background: none !important;
     background-image: none !important;
+    display: flex !important;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 20px;
+}
+/* Stack columns on narrow viewports — matches admin-responsive.css breakpoint */
+@media (max-width: 1024px) {
+    .columns { flex-direction: column; gap: var(--admin-space-4); }
 }
 /* Content header */
 .content-header, .content-header-floating {
@@ -244,9 +252,29 @@ body .header-top {
 #page\:main-container { padding: 20px 28px !important; }
 
 /* === 5b. Sidebar === */
+/* Side column for legacy admin pages (Categories tree, Reviews ratings, etc.).
+   Legacy float-based width was being collapsed by the dashboard wrapper —
+   give the flex item a fixed allocation so the tree never gets crushed. */
 .side-col {
     background: var(--d2) !important;
     border-right: 1px solid var(--b1) !important;
+    flex: 0 0 280px !important;
+    width: 280px !important;
+    min-width: 280px !important;
+    float: none !important;
+    margin: 0 !important;
+}
+.main-col {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    margin-left: 0 !important;
+}
+/* Wider tree column on the Categories page — Magento's default reserved 25em. */
+body.adminhtml-catalog-category-edit .side-col,
+body.adminhtml-catalog-category-index .side-col,
+body.catalog-categories .side-col {
+    flex: 0 0 320px !important;
+    width: 320px !important;
 }
 .side-col .entry-edit-head {
     background: var(--d3) !important;
