@@ -52,7 +52,11 @@
                 </connection>
             </default_setup>
         </resources>
-        <session_save><![CDATA[files]]></session_save>
+        <!-- Sessions stored in the core_session DB table so they survive container
+             rebuilds (Coolify replaces the container on every deploy). Migration
+             027 ensures the table exists. Do not change to "files" without also
+             configuring a persistent volume mount for /var/www/html/var/session. -->
+        <session_save><![CDATA[db]]></session_save>
     </global>
     <admin>
         <routers>
