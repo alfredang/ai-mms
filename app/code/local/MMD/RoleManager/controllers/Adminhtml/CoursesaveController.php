@@ -104,6 +104,92 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             if (($v = $req->getParam('meta_description'))  !== null) $product->setMetaDescription($v);
             if (($v = $req->getParam('meta_keyword'))      !== null) $product->setMetaKeyword($v);
 
+            // === General tab (Magento-style fields). Name/SKU also accept general_*
+            // aliases — frontend JS keeps them in sync with course_name/course_code.
+            if (($v = $req->getParam('general_course_name'))            !== null && $v !== '') $product->setName($v);
+            if (($v = $req->getParam('general_course_code'))            !== null && $v !== '') $product->setSku($v);
+            if (($v = $req->getParam('general_tax_class'))              !== null && $v !== '') $product->setData('tax_class_id', (int)$v);
+            if (($v = $req->getParam('general_news_from_date'))         !== null) $product->setData('news_from_date', $v ?: null);
+            if (($v = $req->getParam('general_news_to_date'))           !== null) $product->setData('news_to_date',   $v ?: null);
+            if (($v = $req->getParam('general_status'))                 !== null && $v !== '') $product->setData('status', (int)$v);
+            if (($v = $req->getParam('general_url_key'))                !== null) $product->setData('url_key', $v);
+            if (($v = $req->getParam('general_visibility'))             !== null && $v !== '') $product->setData('visibility', (int)$v);
+            if (($v = $req->getParam('general_ebizmarts_mark_visited')) !== null) $product->setData('ebizmarts_mark_visited', (int)$v);
+            // URL-redirect checkbox is only in the General tab — absence means unchecked.
+            $product->setData('save_rewrites_history', $req->getParam('general_url_redirect') ? 1 : 0);
+
+            // === Prices tab ===
+            if (($v = $req->getParam('prices_price'))        !== null && $v !== '') $product->setData('price', (float)$v);
+            if (($v = $req->getParam('prices_special_price')) !== null) $product->setData('special_price',     $v === '' ? null : (float)$v);
+            if (($v = $req->getParam('prices_special_from_date')) !== null) $product->setData('special_from_date', $v ?: null);
+            if (($v = $req->getParam('prices_special_to_date'))   !== null) $product->setData('special_to_date',   $v ?: null);
+            if (($v = $req->getParam('prices_cost'))         !== null) $product->setData('cost',          $v === '' ? null : (float)$v);
+            if (($v = $req->getParam('prices_msrp'))         !== null) $product->setData('msrp',          $v === '' ? null : (float)$v);
+            if (($v = $req->getParam('prices_msrp_enabled')) !== null) $product->setData('msrp_enabled',  $v);
+            if (($v = $req->getParam('prices_msrp_display_actual_price_type')) !== null) $product->setData('msrp_display_actual_price_type', $v);
+
+            // === Trainer Details tab — Trainer Profile rich text ===
+            if (($v = $req->getParam('trainer_profile')) !== null) $product->setData('trainerprofile', $v);
+
+            // === Recurring Profile ===
+            if (($v = $req->getParam('recurring_profile_enabled')) !== null) $product->setData('is_recurring', (int)$v);
+
+            // === Design tab ===
+            foreach (array(
+                'design_custom_design'        => 'custom_design',
+                'design_custom_design_from'   => 'custom_design_from',
+                'design_custom_design_to'     => 'custom_design_to',
+                'design_custom_layout_update' => 'custom_layout_update',
+                'design_page_layout'          => 'page_layout',
+                'design_options_container'    => 'options_container',
+            ) as $_p => $_a) {
+                $_v = $req->getParam($_p);
+                if ($_v !== null) $product->setData($_a, $_v ?: null);
+            }
+
+            // === Gift Options — checkbox-driven Use Config Settings ===
+            if ($req->getParam('gift_use_config')) {
+                $product->setData('use_config_gift_message_available', 1);
+            } else if (($v = $req->getParam('gift_allow_gift_message')) !== null) {
+                $product->setData('use_config_gift_message_available', 0);
+                $product->setData('gift_message_available', strtolower($v) === 'yes' ? 1 : 0);
+            }
+
+            // === Inventory tab — merge into stock data, honour Use Config Settings ===
+            $_invMap = array(
+                'inv_manage_stock'   => 'manage_stock',
+                'inv_min_qty'        => 'min_sale_qty',
+                'inv_max_qty'        => 'max_sale_qty',
+                'inv_enable_qty_inc' => 'enable_qty_increments',
+            );
+            $_stockOverrides = array();
+            foreach ($_invMap as $_p => $_k) {
+                $_useCfg = (bool) $req->getParam($_p . '_use_config');
+                $_stockOverrides['use_config_' . $_k] = $_useCfg ? 1 : 0;
+                if (!$_useCfg) {
+                    $_v = $req->getParam($_p);
+                    if ($_v !== null && $_v !== '') {
+                        if ($_p === 'inv_manage_stock' || $_p === 'inv_enable_qty_inc') {
+                            $_stockOverrides[$_k] = (strtolower($_v) === 'yes') ? 1 : 0;
+                        } else {
+                            $_stockOverrides[$_k] = (int) $_v;
+                        }
+                    }
+                }
+            }
+            // Only touch stock_data if the inventory tab was actually rendered/submitted
+            // — detectable by any inv_* value OR use_config checkbox being present.
+            $_anyInv = false;
+            foreach (array_keys($_invMap) as $_p) {
+                if ($req->getParam($_p) !== null || $req->getParam($_p . '_use_config') !== null) {
+                    $_anyInv = true;
+                    break;
+                }
+            }
+            if ($_anyInv) {
+                $product->setStockData(array_merge((array) $product->getStockData(), $_stockOverrides));
+            }
+
             $product->save();
 
             // Save courseware URLs into the dedicated course_courseware table (upsert by product_id).
