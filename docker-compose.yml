@@ -9,6 +9,9 @@ services:
       # cached = Windows→Linux reads can be briefly stale, non-blocking — much faster
       - .:/var/www/html:cached
       - ./docker/php.ini:/usr/local/etc/php/conf.d/magento.ini
+      # Local-only override: turns opcache.validate_timestamps back on for dev.
+      # Loads after magento.ini (zz- prefix → alphabetical last). Not in prod image.
+      - ./docker/php-local.ini:/usr/local/etc/php/conf.d/zz-local.ini
     environment:
       - MAGE_IS_DEVELOPER_MODE=0
     depends_on:
