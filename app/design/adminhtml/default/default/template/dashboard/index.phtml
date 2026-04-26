@@ -1755,7 +1755,7 @@ button.tp-refresh-btn:hover{border-color:#475569 !important;color:var(--t1) !imp
 }
 /* Force <button> elements to look exactly like the <a class="lms-nav-item">
    nav links in the role sidebars — kill default user-agent button styling
-   and admin-theme button overrides. */
+   and admin-theme button overrides, and explicitly left-align the text. */
 .dcf-edit-sidebar .lms-nav-item,
 .dcf-edit-sidebar button.lms-nav-item {
     cursor: pointer !important;
@@ -1765,6 +1765,9 @@ button.tp-refresh-btn:hover{border-color:#475569 !important;color:var(--t1) !imp
     border: none !important;
     border-left: 3px solid transparent !important;
     width: 100% !important;
+    display: flex !important;
+    justify-content: flex-start !important;
+    align-items: center !important;
     text-align: left !important;
     text-transform: none !important;
     font-family: inherit !important;
@@ -1778,6 +1781,11 @@ button.tp-refresh-btn:hover{border-color:#475569 !important;color:var(--t1) !imp
     box-shadow: none !important;
     text-shadow: none !important;
     height: auto !important;
+}
+.dcf-edit-sidebar .lms-nav-item span {
+    text-align: left !important;
+    flex: 0 0 auto !important;
+    width: auto !important;
 }
 .dcf-edit-sidebar .lms-nav-item:hover {
     background: rgba(255,255,255,0.05) !important;
@@ -1815,8 +1823,26 @@ button.dcf-btn-save{background:#2563eb !important;color:#fff !important}
 .dcf-two-col{display:grid;grid-template-columns:minmax(0,360px) minmax(0,1fr);gap:20px;align-items:flex-start}
 .dcf-col-left{min-width:0}
 .dcf-col-right{min-width:0}
+/* Existing card-style section — kept for the Course Details tab and other
+   project-specific blocks that use the old vertical-label form layout. */
 .dcf-section{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px 24px;margin-bottom:16px}
 .dcf-section-title{font-size:16px;font-weight:700;color:#fff;margin:0 0 14px;padding-bottom:12px;border-bottom:1px solid #334155;display:flex;align-items:center;gap:8px}
+/* Magento-style section: header bar + body. Used for the new Magento-aligned
+   tabs (General, Prices, Meta, Inventory, etc.). */
+.dcf-mag{background:#1e293b;border:1px solid #334155;border-radius:10px;margin-bottom:16px;overflow:hidden}
+.dcf-mag-bar{background:linear-gradient(to bottom,#334155,#2a374a);color:#f1f5f9;padding:13px 22px;font-size:15px;font-weight:700;border-bottom:1px solid #1e293b;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.dcf-mag-bar .dcf-mag-action{background:#0e7490;color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer}
+.dcf-mag-body{padding:18px 24px}
+/* Magento-style 3-column row: label | input | scope tag */
+.dcf-row{display:grid;grid-template-columns:220px minmax(0,1fr) 110px;gap:18px;align-items:flex-start;padding:12px 0;border-bottom:1px solid rgba(51,65,85,.4)}
+.dcf-row:last-child{border-bottom:none}
+.dcf-row-label{font-size:13.5px;color:#cbd5e1;line-height:1.4;padding-top:11px}
+.dcf-row-label .dcf-required{color:#f87171;margin-left:2px}
+.dcf-row-input{min-width:0}
+.dcf-row-scope{color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:.5px;padding-top:13px;text-align:right;font-weight:500}
+.dcf-row-help{color:#64748b;font-size:12px;margin-top:6px;line-height:1.5}
+@media(max-width:1100px){.dcf-row{grid-template-columns:1fr;gap:4px}.dcf-row-label{padding-top:0}.dcf-row-scope{padding-top:0;text-align:left}}
+/* Legacy stacked field — kept for Course Details / project-specific sections that don't use rows */
 .dcf-field{margin-bottom:14px}
 .dcf-field:last-child{margin-bottom:0}
 .dcf-label{font-size:11px;font-weight:700;color:#94a3b8;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
@@ -1903,146 +1929,182 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
 
         <!-- ===== Tab: General ===== -->
         <div class="dcf-tab-panel" data-tab="general">
-            <div class="dcf-section">
-                <div class="dcf-section-title">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                    General
-                </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Name <span class="dcf-required">*</span></div>
-                    <input type="text" class="dcf-input" name="general_course_name" value="<?php echo htmlspecialchars($_editCourseData['name']) ?>" />
-                </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Course Code <span class="dcf-required">*</span></div>
-                    <input type="text" class="dcf-input" name="general_course_code" value="<?php echo htmlspecialchars($_editCourseData['sku']) ?>" style="font-family:monospace;letter-spacing:.5px;" />
-                </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Tax Class <span class="dcf-required">*</span></div>
-                    <select class="dcf-select" name="general_tax_class">
-                        <option value="0">None</option>
-                        <option value="2" selected>Taxable Courses</option>
-                        <option value="4">Shipping</option>
-                    </select>
-                </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Registration Start Date</div>
-                    <input type="date" class="dcf-input" name="general_news_from_date" value="" />
-                </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Registration End Date</div>
-                    <input type="date" class="dcf-input" name="general_news_to_date" value="" />
-                </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Status <span class="dcf-required">*</span></div>
-                    <select class="dcf-select" name="general_status">
-                        <option value="1"<?php echo (int)$_editCourseData['status'] === 1 ? ' selected' : '' ?>>Enabled</option>
-                        <option value="2"<?php echo (int)$_editCourseData['status'] === 2 ? ' selected' : '' ?>>Disabled</option>
-                    </select>
-                </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">URL Key</div>
-                    <input type="text" class="dcf-input" name="general_url_key" value="<?php echo htmlspecialchars($_editCourseData['url_key'] ?? '') ?>" placeholder="auto-generated-from-name" />
-                    <label style="display:flex;align-items:center;gap:8px;margin-top:8px;color:#cbd5e1;font-size:13px;">
-                        <input type="checkbox" name="general_url_redirect" value="1" checked style="accent-color:#2563eb;" />
-                        Create Permanent Redirect for old URL
-                    </label>
-                </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Visibility <span class="dcf-required">*</span></div>
-                    <select class="dcf-select" name="general_visibility">
-                        <option value="1">Not Visible Individually</option>
-                        <option value="2">Catalog</option>
-                        <option value="3">Search</option>
-                        <option value="4" selected>Catalog, Search</option>
-                    </select>
-                </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Send Browsed Product Autoresponder</div>
-                    <select class="dcf-select" name="general_ebizmarts_mark_visited">
-                        <option value="0" selected>No</option>
-                        <option value="1">Yes</option>
-                    </select>
+            <div class="dcf-mag">
+                <div class="dcf-mag-bar">General</div>
+                <div class="dcf-mag-body">
+                    <div class="dcf-row">
+                        <div class="dcf-row-label">Name <span class="dcf-required">*</span></div>
+                        <div class="dcf-row-input"><input type="text" class="dcf-input" name="general_course_name" value="<?php echo htmlspecialchars($_editCourseData['name']) ?>" /></div>
+                        <div class="dcf-row-scope">[GLOBAL]</div>
+                    </div>
+                    <div class="dcf-row">
+                        <div class="dcf-row-label">Course Code <span class="dcf-required">*</span></div>
+                        <div class="dcf-row-input"><input type="text" class="dcf-input" name="general_course_code" value="<?php echo htmlspecialchars($_editCourseData['sku']) ?>" style="font-family:monospace;letter-spacing:.5px;" /></div>
+                        <div class="dcf-row-scope">[GLOBAL]</div>
+                    </div>
+                    <div class="dcf-row">
+                        <div class="dcf-row-label">Tax Class <span class="dcf-required">*</span></div>
+                        <div class="dcf-row-input">
+                            <select class="dcf-select" name="general_tax_class">
+                                <option value="0">None</option>
+                                <option value="2" selected>Taxable Courses</option>
+                                <option value="4">Shipping</option>
+                            </select>
+                        </div>
+                        <div class="dcf-row-scope">[WEBSITE]</div>
+                    </div>
+                    <div class="dcf-row">
+                        <div class="dcf-row-label">Registration Start Date</div>
+                        <div class="dcf-row-input"><input type="date" class="dcf-input" name="general_news_from_date" /></div>
+                        <div class="dcf-row-scope">[WEBSITE]</div>
+                    </div>
+                    <div class="dcf-row">
+                        <div class="dcf-row-label">Registration End Date</div>
+                        <div class="dcf-row-input"><input type="date" class="dcf-input" name="general_news_to_date" /></div>
+                        <div class="dcf-row-scope">[WEBSITE]</div>
+                    </div>
+                    <div class="dcf-row">
+                        <div class="dcf-row-label">Status <span class="dcf-required">*</span></div>
+                        <div class="dcf-row-input">
+                            <select class="dcf-select" name="general_status">
+                                <option value="1"<?php echo (int)$_editCourseData['status'] === 1 ? ' selected' : '' ?>>Enabled</option>
+                                <option value="2"<?php echo (int)$_editCourseData['status'] === 2 ? ' selected' : '' ?>>Disabled</option>
+                            </select>
+                        </div>
+                        <div class="dcf-row-scope">[WEBSITE]</div>
+                    </div>
+                    <div class="dcf-row">
+                        <div class="dcf-row-label">URL Key</div>
+                        <div class="dcf-row-input">
+                            <input type="text" class="dcf-input" name="general_url_key" value="<?php echo htmlspecialchars($_editCourseData['url_key'] ?? '') ?>" placeholder="auto-generated-from-name" />
+                            <label style="display:flex;align-items:center;gap:8px;margin-top:8px;color:#cbd5e1;font-size:13px;">
+                                <input type="checkbox" name="general_url_redirect" value="1" checked style="accent-color:#2563eb;" />
+                                Create Permanent Redirect for old URL
+                            </label>
+                        </div>
+                        <div class="dcf-row-scope">[STORE VIEW]</div>
+                    </div>
+                    <div class="dcf-row">
+                        <div class="dcf-row-label">Visibility <span class="dcf-required">*</span></div>
+                        <div class="dcf-row-input">
+                            <select class="dcf-select" name="general_visibility">
+                                <option value="1">Not Visible Individually</option>
+                                <option value="2">Catalog</option>
+                                <option value="3">Search</option>
+                                <option value="4" selected>Catalog, Search</option>
+                            </select>
+                        </div>
+                        <div class="dcf-row-scope">[STORE VIEW]</div>
+                    </div>
+                    <div class="dcf-row">
+                        <div class="dcf-row-label">Send Browsed Product Autoresponder</div>
+                        <div class="dcf-row-input">
+                            <select class="dcf-select" name="general_ebizmarts_mark_visited">
+                                <option value="0" selected>No</option>
+                                <option value="1">Yes</option>
+                            </select>
+                        </div>
+                        <div class="dcf-row-scope">[WEBSITE]</div>
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- ===== Tab: Prices ===== -->
         <div class="dcf-tab-panel" data-tab="prices">
-            <div class="dcf-section">
-                <div class="dcf-section-title">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-                    Prices
-                </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Price <span class="dcf-required">*</span> <span style="color:#64748b;font-weight:500;text-transform:none;letter-spacing:0;margin-left:6px;">[SGD]</span></div>
-                    <input type="number" step="0.01" class="dcf-input" name="prices_price" placeholder="0.00" />
-                </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Group Price</div>
-                    <div style="background:#283548;border:1px solid #384a60;border-radius:8px;padding:0;overflow:hidden;">
-                        <table style="width:100%;border-collapse:collapse;font-size:13px;">
-                            <thead>
-                                <tr style="background:#334155;color:#cbd5e1;">
+            <div class="dcf-mag">
+                <div class="dcf-mag-bar">Prices</div>
+                <div class="dcf-mag-body">
+                    <?php
+                    $_priceTblHead = '<table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="background:#334155;color:#cbd5e1;">';
+                    ?>
+                    <div class="dcf-row">
+                        <div class="dcf-row-label">Price <span class="dcf-required">*</span></div>
+                        <div class="dcf-row-input">
+                            <input type="number" step="0.01" class="dcf-input" name="prices_price" placeholder="0.00" />
+                            <div class="dcf-row-help">[SGD]</div>
+                        </div>
+                        <div class="dcf-row-scope">[WEBSITE]</div>
+                    </div>
+                    <div class="dcf-row">
+                        <div class="dcf-row-label">Group Price</div>
+                        <div class="dcf-row-input">
+                            <div style="background:#283548;border:1px solid #384a60;border-radius:8px;overflow:hidden;">
+                                <?php echo $_priceTblHead ?>
                                     <th style="padding:10px 14px;text-align:left;font-weight:600;">Website</th>
                                     <th style="padding:10px 14px;text-align:left;font-weight:600;">Customer Group</th>
                                     <th style="padding:10px 14px;text-align:left;font-weight:600;">Price</th>
                                     <th style="padding:10px 14px;text-align:right;font-weight:600;">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr><td colspan="4" style="padding:14px;color:#64748b;text-align:center;">No group prices yet.</td></tr>
-                            </tbody>
-                        </table>
+                                </tr></thead>
+                                <tbody><tr><td colspan="4" style="padding:14px;color:#64748b;text-align:center;">No group prices yet.</td></tr></tbody>
+                                </table>
+                            </div>
+                            <button type="button" style="margin-top:10px;background:#2563eb;color:#fff;border:none;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">+ Add Group Price</button>
+                        </div>
+                        <div class="dcf-row-scope">[WEBSITE]</div>
                     </div>
-                    <button type="button" style="margin-top:10px;background:#2563eb;color:#fff;border:none;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">+ Add Group Price</button>
-                </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Special Price <span style="color:#64748b;font-weight:500;text-transform:none;letter-spacing:0;margin-left:6px;">[SGD]</span></div>
-                    <input type="number" step="0.01" class="dcf-input" name="prices_special_price" placeholder="0.00" />
-                </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Special Price From Date</div>
-                    <input type="date" class="dcf-input" name="prices_special_from_date" />
-                </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Special Price To Date</div>
-                    <input type="date" class="dcf-input" name="prices_special_to_date" />
-                </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Cost <span style="color:#64748b;font-weight:500;text-transform:none;letter-spacing:0;margin-left:6px;">[SGD]</span></div>
-                    <input type="number" step="0.01" class="dcf-input" name="prices_cost" placeholder="0.00" />
-                </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Tier Price</div>
-                    <div style="background:#283548;border:1px solid #384a60;border-radius:8px;padding:0;overflow:hidden;">
-                        <table style="width:100%;border-collapse:collapse;font-size:13px;">
-                            <thead>
-                                <tr style="background:#334155;color:#cbd5e1;">
+                    <div class="dcf-row">
+                        <div class="dcf-row-label">Special Price</div>
+                        <div class="dcf-row-input">
+                            <input type="number" step="0.01" class="dcf-input" name="prices_special_price" placeholder="0.00" />
+                            <div class="dcf-row-help">[SGD]</div>
+                        </div>
+                        <div class="dcf-row-scope">[WEBSITE]</div>
+                    </div>
+                    <div class="dcf-row">
+                        <div class="dcf-row-label">Special Price From Date</div>
+                        <div class="dcf-row-input"><input type="date" class="dcf-input" name="prices_special_from_date" /></div>
+                        <div class="dcf-row-scope">[WEBSITE]</div>
+                    </div>
+                    <div class="dcf-row">
+                        <div class="dcf-row-label">Special Price To Date</div>
+                        <div class="dcf-row-input"><input type="date" class="dcf-input" name="prices_special_to_date" /></div>
+                        <div class="dcf-row-scope">[WEBSITE]</div>
+                    </div>
+                    <div class="dcf-row">
+                        <div class="dcf-row-label">Cost</div>
+                        <div class="dcf-row-input">
+                            <input type="number" step="0.01" class="dcf-input" name="prices_cost" placeholder="0.00" />
+                            <div class="dcf-row-help">[SGD]</div>
+                        </div>
+                        <div class="dcf-row-scope">[WEBSITE]</div>
+                    </div>
+                    <div class="dcf-row">
+                        <div class="dcf-row-label">Tier Price</div>
+                        <div class="dcf-row-input">
+                            <div style="background:#283548;border:1px solid #384a60;border-radius:8px;overflow:hidden;">
+                                <?php echo $_priceTblHead ?>
                                     <th style="padding:10px 14px;text-align:left;font-weight:600;">Website</th>
                                     <th style="padding:10px 14px;text-align:left;font-weight:600;">Customer Group</th>
                                     <th style="padding:10px 14px;text-align:left;font-weight:600;">Pax</th>
                                     <th style="padding:10px 14px;text-align:left;font-weight:600;">Price</th>
                                     <th style="padding:10px 14px;text-align:right;font-weight:600;">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr><td colspan="5" style="padding:14px;color:#64748b;text-align:center;">No tier prices yet.</td></tr>
-                            </tbody>
-                        </table>
+                                </tr></thead>
+                                <tbody><tr><td colspan="5" style="padding:14px;color:#64748b;text-align:center;">No tier prices yet.</td></tr></tbody>
+                                </table>
+                            </div>
+                            <button type="button" style="margin-top:10px;background:#2563eb;color:#fff;border:none;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">+ Add Tier</button>
+                        </div>
+                        <div class="dcf-row-scope">[WEBSITE]</div>
                     </div>
-                    <button type="button" style="margin-top:10px;background:#2563eb;color:#fff;border:none;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">+ Add Tier</button>
-                </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Apply MAP</div>
-                    <select class="dcf-select" name="prices_msrp_enabled"><option>Use config</option><option>Yes</option><option>No</option></select>
-                </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Display Actual Price</div>
-                    <select class="dcf-select" name="prices_msrp_display_actual_price_type"><option>Use config</option><option>On Gesture</option><option>In Cart</option><option>Before Order Confirmation</option></select>
-                </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Manufacturer's Suggested Retail Price <span style="color:#64748b;font-weight:500;text-transform:none;letter-spacing:0;margin-left:6px;">[SGD]</span></div>
-                    <input type="number" step="0.01" class="dcf-input" name="prices_msrp" placeholder="0.00" />
+                    <div class="dcf-row">
+                        <div class="dcf-row-label">Apply MAP</div>
+                        <div class="dcf-row-input"><select class="dcf-select" name="prices_msrp_enabled"><option>Use config</option><option>Yes</option><option>No</option></select></div>
+                        <div class="dcf-row-scope">[WEBSITE]</div>
+                    </div>
+                    <div class="dcf-row">
+                        <div class="dcf-row-label">Display Actual Price</div>
+                        <div class="dcf-row-input"><select class="dcf-select" name="prices_msrp_display_actual_price_type"><option>Use config</option><option>On Gesture</option><option>In Cart</option><option>Before Order Confirmation</option></select></div>
+                        <div class="dcf-row-scope">[WEBSITE]</div>
+                    </div>
+                    <div class="dcf-row">
+                        <div class="dcf-row-label">Manufacturer's Suggested Retail Price</div>
+                        <div class="dcf-row-input">
+                            <input type="number" step="0.01" class="dcf-input" name="prices_msrp" placeholder="0.00" />
+                            <div class="dcf-row-help">[SGD]</div>
+                        </div>
+                        <div class="dcf-row-scope">[WEBSITE]</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2525,19 +2587,19 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
 
         <!-- ===== Tab: Trainer Details ===== -->
         <div class="dcf-tab-panel" data-tab="trainer-details">
-            <div class="dcf-section">
-                <div class="dcf-section-title">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                    Trainer Details
+            <div class="dcf-mag">
+                <div class="dcf-mag-bar">Trainer Details</div>
+                <div class="dcf-mag-body">
+                    <div class="dcf-row">
+                        <div class="dcf-row-label">Trainer Profile</div>
+                        <div class="dcf-row-input"><textarea class="dcf-textarea dcf-textarea-rich" name="trainer_profile" placeholder="HTML supported — trainer background, qualifications, experience..."></textarea></div>
+                        <div class="dcf-row-scope">[STORE VIEW]</div>
+                    </div>
                 </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Trainer Profile</div>
-                    <textarea class="dcf-textarea dcf-textarea-rich" name="trainer_profile" placeholder="HTML supported — describe the trainer's background, qualifications, and experience..."></textarea>
-                </div>
-                <div class="dcf-placeholder" style="margin-top:14px;">
-                    <strong>Trainer assignment</strong>
-                    The trainer multi-select picker for assigning trainers to this course currently lives in the Course Details tab. Use that for now.
-                </div>
+            </div>
+            <div class="dcf-placeholder" style="margin-top:14px;">
+                <strong>Trainer assignment</strong>
+                The trainer multi-select picker lives in the Course Details tab. Use that for now.
             </div>
         </div>
 
@@ -2593,94 +2655,107 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
 
         <!-- ===== Tab: Meta Information ===== -->
         <div class="dcf-tab-panel" data-tab="meta">
-            <div class="dcf-section">
-                <div class="dcf-section-title">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                    Meta Information
-                </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Meta Title</div>
-                    <input type="text" class="dcf-input" name="meta_title" />
-                </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Meta Keywords</div>
-                    <textarea class="dcf-textarea" name="meta_keyword" style="height:120px;"></textarea>
-                </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Meta Description</div>
-                    <textarea class="dcf-textarea" name="meta_description" maxlength="255" style="height:140px;"></textarea>
-                    <div style="margin-top:6px;color:#64748b;font-size:12px;">Maximum 255 chars</div>
+            <div class="dcf-mag">
+                <div class="dcf-mag-bar">Meta Information</div>
+                <div class="dcf-mag-body">
+                    <div class="dcf-row">
+                        <div class="dcf-row-label">Meta Title</div>
+                        <div class="dcf-row-input"><input type="text" class="dcf-input" name="meta_title" /></div>
+                        <div class="dcf-row-scope">[STORE VIEW]</div>
+                    </div>
+                    <div class="dcf-row">
+                        <div class="dcf-row-label">Meta Keywords</div>
+                        <div class="dcf-row-input"><textarea class="dcf-textarea" name="meta_keyword" style="height:120px;"></textarea></div>
+                        <div class="dcf-row-scope">[STORE VIEW]</div>
+                    </div>
+                    <div class="dcf-row">
+                        <div class="dcf-row-label">Meta Description</div>
+                        <div class="dcf-row-input">
+                            <textarea class="dcf-textarea" name="meta_description" maxlength="255" style="height:140px;"></textarea>
+                            <div class="dcf-row-help">Maximum 255 chars</div>
+                        </div>
+                        <div class="dcf-row-scope">[STORE VIEW]</div>
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- ===== Tab: Recurring Profile ===== -->
         <div class="dcf-tab-panel" data-tab="recurring">
-            <div class="dcf-section">
-                <div class="dcf-section-title">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-                    Recurring Profile
-                </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Enable Recurring Profile</div>
-                    <select class="dcf-select" name="recurring_profile_enabled">
-                        <option value="0" selected>No</option>
-                        <option value="1">Yes</option>
-                    </select>
-                    <div style="margin-top:6px;color:#64748b;font-size:12px;">Products with recurring profile participate in catalog as nominal items.</div>
+            <div class="dcf-mag">
+                <div class="dcf-mag-bar">Recurring Profile</div>
+                <div class="dcf-mag-body">
+                    <div class="dcf-row">
+                        <div class="dcf-row-label">Enable Recurring Profile</div>
+                        <div class="dcf-row-input">
+                            <select class="dcf-select" name="recurring_profile_enabled">
+                                <option value="0" selected>No</option>
+                                <option value="1">Yes</option>
+                            </select>
+                            <div class="dcf-row-help">Products with recurring profile participate in catalog as nominal items.</div>
+                        </div>
+                        <div class="dcf-row-scope">[GLOBAL]</div>
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- ===== Tab: Design ===== -->
         <div class="dcf-tab-panel" data-tab="design">
-            <div class="dcf-section">
-                <div class="dcf-section-title">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
-                    Design
-                </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Custom Design</div>
-                    <select class="dcf-select" name="design_custom_design"><option value="">-- Please Select --</option><option>default</option><option>infortis/ultimo</option></select>
-                </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Active From</div>
-                    <input type="date" class="dcf-input" name="design_custom_design_from" />
-                </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Active To</div>
-                    <input type="date" class="dcf-input" name="design_custom_design_to" />
-                </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Custom Layout Update</div>
-                    <textarea class="dcf-textarea" name="design_custom_layout_update" style="height:160px;font-family:monospace;font-size:13px;"></textarea>
-                </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Page Layout</div>
-                    <select class="dcf-select" name="design_page_layout"><option value="">No layout updates</option><option>1 column</option><option>2 columns with left bar</option><option>2 columns with right bar</option><option>3 columns</option></select>
-                </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Display Product Options In</div>
-                    <select class="dcf-select" name="design_options_container"><option value="container2" selected>Block after Info Column</option><option value="container1">Product Info Column</option></select>
+            <div class="dcf-mag">
+                <div class="dcf-mag-bar">Design</div>
+                <div class="dcf-mag-body">
+                    <div class="dcf-row">
+                        <div class="dcf-row-label">Custom Design</div>
+                        <div class="dcf-row-input"><select class="dcf-select" name="design_custom_design"><option value="">-- Please Select --</option><option>default</option><option>infortis/ultimo</option></select></div>
+                        <div class="dcf-row-scope">[STORE VIEW]</div>
+                    </div>
+                    <div class="dcf-row">
+                        <div class="dcf-row-label">Active From</div>
+                        <div class="dcf-row-input"><input type="date" class="dcf-input" name="design_custom_design_from" /></div>
+                        <div class="dcf-row-scope">[STORE VIEW]</div>
+                    </div>
+                    <div class="dcf-row">
+                        <div class="dcf-row-label">Active To</div>
+                        <div class="dcf-row-input"><input type="date" class="dcf-input" name="design_custom_design_to" /></div>
+                        <div class="dcf-row-scope">[STORE VIEW]</div>
+                    </div>
+                    <div class="dcf-row">
+                        <div class="dcf-row-label">Custom Layout Update</div>
+                        <div class="dcf-row-input"><textarea class="dcf-textarea" name="design_custom_layout_update" style="height:160px;font-family:monospace;font-size:13px;"></textarea></div>
+                        <div class="dcf-row-scope">[STORE VIEW]</div>
+                    </div>
+                    <div class="dcf-row">
+                        <div class="dcf-row-label">Page Layout</div>
+                        <div class="dcf-row-input"><select class="dcf-select" name="design_page_layout"><option value="">No layout updates</option><option>1 column</option><option>2 columns with left bar</option><option>2 columns with right bar</option><option>3 columns</option></select></div>
+                        <div class="dcf-row-scope">[STORE VIEW]</div>
+                    </div>
+                    <div class="dcf-row">
+                        <div class="dcf-row-label">Display Product Options In</div>
+                        <div class="dcf-row-input"><select class="dcf-select" name="design_options_container"><option value="container2" selected>Block after Info Column</option><option value="container1">Product Info Column</option></select></div>
+                        <div class="dcf-row-scope">[STORE VIEW]</div>
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- ===== Tab: Gift Options ===== -->
         <div class="dcf-tab-panel" data-tab="gift">
-            <div class="dcf-section">
-                <div class="dcf-section-title">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
-                    Gift Options
-                </div>
-                <div class="dcf-field">
-                    <div class="dcf-label">Allow Gift Message</div>
-                    <div style="display:flex;align-items:center;gap:14px;">
-                        <select class="dcf-select" name="gift_allow_gift_message" disabled style="flex:1;opacity:.6;"><option>No</option><option>Yes</option></select>
-                        <label style="display:flex;align-items:center;gap:6px;color:#cbd5e1;font-size:13px;white-space:nowrap;">
-                            <input type="checkbox" name="gift_use_config" value="1" checked style="accent-color:#2563eb;" onchange="this.closest('.dcf-field').querySelector('select').disabled = this.checked; this.closest('.dcf-field').querySelector('select').style.opacity = this.checked ? '.6' : '1';" />
-                            Use Config Settings
-                        </label>
+            <div class="dcf-mag">
+                <div class="dcf-mag-bar">Gift Options</div>
+                <div class="dcf-mag-body">
+                    <div class="dcf-row">
+                        <div class="dcf-row-label">Allow Gift Message</div>
+                        <div class="dcf-row-input">
+                            <div style="display:flex;align-items:center;gap:14px;">
+                                <select class="dcf-select" name="gift_allow_gift_message" disabled style="flex:1;opacity:.6;"><option>No</option><option>Yes</option></select>
+                                <label style="display:flex;align-items:center;gap:6px;color:#cbd5e1;font-size:13px;white-space:nowrap;">
+                                    <input type="checkbox" name="gift_use_config" value="1" checked style="accent-color:#2563eb;" onchange="var s=this.closest('.dcf-row-input').querySelector('select');s.disabled=this.checked;s.style.opacity=this.checked?'.6':'1';" />
+                                    Use Config Settings
+                                </label>
+                            </div>
+                        </div>
+                        <div class="dcf-row-scope">[GLOBAL]</div>
                     </div>
                 </div>
             </div>
@@ -2688,37 +2763,39 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
 
         <!-- ===== Tab: Inventory ===== -->
         <div class="dcf-tab-panel" data-tab="inventory">
-            <div class="dcf-section">
-                <div class="dcf-section-title">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-                    Inventory
-                </div>
-                <?php
-                $_inventoryFields = array(
-                    array('inv_manage_stock',     'Manage Stock',                          'select', array('No','Yes')),
-                    array('inv_min_qty',          'Minimum Qty Allowed in Shopping Cart',  'number', '1'),
-                    array('inv_max_qty',          'Maximum Qty Allowed in Shopping Cart',  'number', '10000'),
-                    array('inv_enable_qty_inc',   'Enable Qty Increments',                 'select', array('No','Yes')),
-                );
-                foreach ($_inventoryFields as $_inv): ?>
-                <div class="dcf-field">
-                    <div class="dcf-label"><?php echo $_inv[1] ?></div>
-                    <div style="display:flex;align-items:center;gap:14px;">
-                        <?php if ($_inv[2] === 'select'): ?>
-                        <select class="dcf-select" name="<?php echo $_inv[0] ?>" disabled style="flex:1;opacity:.6;">
-                            <?php foreach ($_inv[3] as $_o): ?><option><?php echo $_o ?></option><?php endforeach; ?>
-                        </select>
-                        <?php else: ?>
-                        <input type="number" class="dcf-input" name="<?php echo $_inv[0] ?>" value="<?php echo $_inv[3] ?>" disabled style="flex:1;opacity:.6;" />
-                        <?php endif; ?>
-                        <label style="display:flex;align-items:center;gap:6px;color:#cbd5e1;font-size:13px;white-space:nowrap;">
-                            <input type="checkbox" name="<?php echo $_inv[0] ?>_use_config" value="1" checked style="accent-color:#2563eb;"
-                                onchange="var f=this.closest('.dcf-field').querySelector('select,input[type=number]'); f.disabled=this.checked; f.style.opacity=this.checked?'.6':'1';" />
-                            Use Config Settings
-                        </label>
+            <div class="dcf-mag">
+                <div class="dcf-mag-bar">Inventory</div>
+                <div class="dcf-mag-body">
+                    <?php
+                    $_inventoryFields = array(
+                        array('inv_manage_stock',     'Manage Stock',                          'select', array('No','Yes')),
+                        array('inv_min_qty',          'Minimum Qty Allowed in Shopping Cart',  'number', '1'),
+                        array('inv_max_qty',          'Maximum Qty Allowed in Shopping Cart',  'number', '10000'),
+                        array('inv_enable_qty_inc',   'Enable Qty Increments',                 'select', array('No','Yes')),
+                    );
+                    foreach ($_inventoryFields as $_inv): ?>
+                    <div class="dcf-row">
+                        <div class="dcf-row-label"><?php echo $_inv[1] ?></div>
+                        <div class="dcf-row-input">
+                            <div style="display:flex;align-items:center;gap:14px;">
+                                <?php if ($_inv[2] === 'select'): ?>
+                                <select class="dcf-select" name="<?php echo $_inv[0] ?>" disabled style="flex:1;opacity:.6;">
+                                    <?php foreach ($_inv[3] as $_o): ?><option><?php echo $_o ?></option><?php endforeach; ?>
+                                </select>
+                                <?php else: ?>
+                                <input type="number" class="dcf-input" name="<?php echo $_inv[0] ?>" value="<?php echo $_inv[3] ?>" disabled style="flex:1;opacity:.6;" />
+                                <?php endif; ?>
+                                <label style="display:flex;align-items:center;gap:6px;color:#cbd5e1;font-size:13px;white-space:nowrap;">
+                                    <input type="checkbox" name="<?php echo $_inv[0] ?>_use_config" value="1" checked style="accent-color:#2563eb;"
+                                        onchange="var f=this.closest('.dcf-row-input').querySelector('select,input[type=number]');f.disabled=this.checked;f.style.opacity=this.checked?'.6':'1';" />
+                                    Use Config Settings
+                                </label>
+                            </div>
+                        </div>
+                        <div class="dcf-row-scope">[GLOBAL]</div>
                     </div>
+                    <?php endforeach; ?>
                 </div>
-                <?php endforeach; ?>
             </div>
         </div>
 
