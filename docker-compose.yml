@@ -12,6 +12,13 @@ services:
       # Local-only override: turns opcache.validate_timestamps back on for dev.
       # Loads after magento.ini (zz- prefix → alphabetical last). Not in prod image.
       - ./docker/php-local.ini:/usr/local/etc/php/conf.d/zz-local.ini
+      # Mount Apache vhost so config tweaks (LogFormat, modules, etc.) apply on
+      # `docker restart project-web-1` without needing a full image rebuild.
+      - ./docker/apache-vhost.conf:/etc/apache2/sites-available/000-default.conf
+      # Mount entrypoint.sh so the host's LF version overrides the baked-in
+      # copy (Git for Windows can rewrite line endings to CRLF, breaking the
+      # shebang). Same restart semantics — no rebuild needed.
+      - ./docker/entrypoint.sh:/usr/local/bin/entrypoint.sh
     environment:
       - MAGE_IS_DEVELOPER_MODE=0
     depends_on:
