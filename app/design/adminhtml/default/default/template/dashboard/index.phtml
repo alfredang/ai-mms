@@ -1208,6 +1208,32 @@ $_devCurPage = max(1, (int) Mage::app()->getRequest()->getParam('dev_page', 1));
 $_devCountry = Mage::app()->getRequest()->getParam('dev_country', 'Singapore');
 $_devFilterType = (string) Mage::app()->getRequest()->getParam('dev_type', '');
 $_devFilterQuery = trim((string) Mage::app()->getRequest()->getParam('dev_q', ''));
+// Courseware filter: '' = all, 'missing' = no URL set, 'has' = at least one URL set.
+$_devFilterCourseware = (string) Mage::app()->getRequest()->getParam('dev_courseware', '');
+// Pre-fetch product_ids with at least one non-empty courseware URL so we can
+// skip in PHP without a per-row query. Reads the course_courseware table
+// added by migration 019.
+$_devProductsWithCourseware = array();
+if ($_devFilterCourseware === 'missing' || $_devFilterCourseware === 'has') {
+    try {
+        $_cwRead = Mage::getSingleton('core/resource')->getConnection('core_read');
+        $_cwIds = $_cwRead->fetchCol(
+            "SELECT product_id FROM course_courseware WHERE
+                COALESCE(lesson_plan_url,'')        != '' OR
+                COALESCE(learner_guide_url,'')      != '' OR
+                COALESCE(facilitator_guide_url,'')  != '' OR
+                COALESCE(assessment_plan_url,'')    != '' OR
+                COALESCE(learner_slides_url,'')     != '' OR
+                COALESCE(trainer_slides_url,'')     != '' OR
+                COALESCE(courseware_link,'')        != '' OR
+                COALESCE(brochure_link,'')          != '' OR
+                COALESCE(skillsfuture_link,'')      != '' OR
+                COALESCE(assessment_record_link,'') != '' OR
+                COALESCE(assessment_summary_url,'') != ''"
+        );
+        foreach ($_cwIds as $_cwid) $_devProductsWithCourseware[(int)$_cwid] = true;
+    } catch (Exception $_cwEx) { /* table may not exist yet — fall through */ }
+}
 $_devCountryMap = array(
     'Singapore' => 1,
     'Malaysia'  => 2,
@@ -1276,6 +1302,10 @@ try {
     $_devTotalCount = $_devCollection->getSize();
     $_devCollection->setPageSize($_devPageSize)->setCurPage($_devCurPage);
     foreach ($_devCollection as $_dp) {
+        // Apply courseware filter — skip rows that don't match the chosen state
+        if ($_devFilterCourseware === 'missing' && isset($_devProductsWithCourseware[(int)$_dp->getId()])) continue;
+        if ($_devFilterCourseware === 'has'     && !isset($_devProductsWithCourseware[(int)$_dp->getId()])) continue;
+
         $_dName = $_dp->getName();
         $_dSoftware = $_dp->getAttributeText('software');
         $_isWsq = ($_dSoftware === 'WSQ' || stripos($_dName, 'wsq') !== false);
@@ -1411,7 +1441,7 @@ a.dev-country-btn.active,a.dev-country-btn.active:hover,a.dev-country-btn.active
             <span style="color:#94a3b8;font-size:13px;flex-shrink:0;">View:</span>
             <div class="lmc-view-toggle"><button type="button" class="lmc-view-btn active" id="dev-grid-btn" onclick="devSetView('grid')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></button><button type="button" class="lmc-view-btn" id="dev-list-btn" onclick="devSetView('list')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></button></div>
             <button type="button" onclick="devResetFilters()" style="background:transparent !important;background-image:none !important;border:none !important;color:#94a3b8 !important;font-size:13px !important;font-weight:500 !important;cursor:pointer !important;padding:4px 8px !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;height:auto !important;min-width:0 !important;line-height:normal !important;">Reset</button>
-            <?php $_devFiltersOpen = $_devFilterType !== ''; ?>
+            <?php $_devFiltersOpen = $_devFilterType !== '' || $_devFilterCourseware !== ''; ?>
             <button type="button" id="dev-filter-toggle" onclick="devToggleFilters()" style="background:transparent !important;background-image:none !important;border:1px solid <?php echo $_devFiltersOpen ? '#60a5fa' : '#475569' ?> !important;color:<?php echo $_devFiltersOpen ? '#fff' : '#e2e8f0' ?> !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;padding:6px 16px !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;height:auto !important;min-width:0 !important;line-height:normal !important;border-radius:8px !important;"><?php echo $_devFiltersOpen ? 'Hide Filters' : 'Show Filters' ?></button>
         </div>
         <div id="dev-filter-row" style="display:<?php echo $_devFiltersOpen ? 'block' : 'none' ?>;margin-top:14px;">
@@ -1433,6 +1463,14 @@ a.dev-country-btn.active,a.dev-country-btn.active:hover,a.dev-country-btn.active
                         <option value="physical">Physical</option>
                         <option value="virtual">Virtual</option>
                         <option value="hybrid">Hybrid</option>
+                    </select>
+                </div>
+                <div style="flex:1;min-width:200px;">
+                    <div style="font-size:12px;font-weight:600;color:#e2e8f0;margin-bottom:6px;">Courseware</div>
+                    <select id="dev-filter-courseware" onchange="devApplyFilters()" style="width:100%;padding:10px 14px;background:#111827;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:14px;appearance:auto;outline:none;">
+                        <option value="">All</option>
+                        <option value="missing"<?php echo $_devFilterCourseware === 'missing' ? ' selected' : '' ?>>Missing courseware URLs</option>
+                        <option value="has"<?php echo $_devFilterCourseware === 'has' ? ' selected' : '' ?>>Has at least one URL</option>
                     </select>
                 </div>
             </div>
@@ -1489,6 +1527,7 @@ a.dev-country-btn.active,a.dev-country-btn.active:hover,a.dev-country-btn.active
             $qs = array('dev_country=' . urlencode($_devCountry), 'dev_page=' . $p);
             if ($_devFilterType !== '') $qs[] = 'dev_type=' . urlencode($_devFilterType);
             if ($_devFilterQuery !== '') $qs[] = 'dev_q=' . urlencode($_devFilterQuery);
+            if ($_devFilterCourseware !== '') $qs[] = 'dev_courseware=' . urlencode($_devFilterCourseware);
             return $_devBaseUrl . '?' . implode('&', $qs) . '#courses';
         };
         ?>
@@ -1537,9 +1576,11 @@ function devApplyFilters() {
     var country = <?php echo json_encode($_devCountry) ?>;
     var typeEl = document.getElementById('dev-filter-type');
     var qEl = document.getElementById('dev-search-input');
+    var cwEl = document.getElementById('dev-filter-courseware');
     var params = ['dev_country=' + encodeURIComponent(country)];
     if (typeEl && typeEl.value) params.push('dev_type=' + encodeURIComponent(typeEl.value));
     if (qEl && qEl.value.trim() !== '') params.push('dev_q=' + encodeURIComponent(qEl.value.trim()));
+    if (cwEl && cwEl.value) params.push('dev_courseware=' + encodeURIComponent(cwEl.value));
     window.location.href = base + '?' + params.join('&') + '#courses';
 }
 function devResetFilters() {
