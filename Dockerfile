@@ -1,6 +1,8 @@
 FROM php:8.2-apache
 
-# Build trigger: 2026-04-14
+# Build trigger: 2026-04-26 (bumped to force COPY layer rebuild — Coolify
+# was reusing a stale image where app/etc/modules/Cm_RedisSession.xml still
+# had <active>true</active>, repeatedly breaking prod after each deploy.)
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
