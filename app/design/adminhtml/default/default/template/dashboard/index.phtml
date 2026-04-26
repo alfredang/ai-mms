@@ -1208,30 +1208,35 @@ $_devCurPage = max(1, (int) Mage::app()->getRequest()->getParam('dev_page', 1));
 $_devCountry = Mage::app()->getRequest()->getParam('dev_country', 'Singapore');
 $_devFilterType = (string) Mage::app()->getRequest()->getParam('dev_type', '');
 $_devFilterQuery = trim((string) Mage::app()->getRequest()->getParam('dev_q', ''));
-// Courseware filter: '' = all, 'missing' = no URL set, 'has' = at least one URL set.
+// Courseware filter:
+//   ''        = all
+//   'missing' = no row in course_courseware, OR all 11 URL columns empty
+//   'partial' = row exists and between 1 and 10 URLs are filled
+//   'all'     = row exists and all 11 URLs are filled
 $_devFilterCourseware = (string) Mage::app()->getRequest()->getParam('dev_courseware', '');
-// Pre-fetch product_ids with at least one non-empty courseware URL so we can
-// skip in PHP without a per-row query. Reads the course_courseware table
-// added by migration 019.
-$_devProductsWithCourseware = array();
-if ($_devFilterCourseware === 'missing' || $_devFilterCourseware === 'has') {
+$_devCwCount = array(); // product_id => count of non-empty URLs (0..11)
+$_devCwTotal = 11;      // number of URL columns we care about
+if (in_array($_devFilterCourseware, array('missing','partial','all'), true)) {
     try {
         $_cwRead = Mage::getSingleton('core/resource')->getConnection('core_read');
-        $_cwIds = $_cwRead->fetchCol(
-            "SELECT product_id FROM course_courseware WHERE
-                COALESCE(lesson_plan_url,'')        != '' OR
-                COALESCE(learner_guide_url,'')      != '' OR
-                COALESCE(facilitator_guide_url,'')  != '' OR
-                COALESCE(assessment_plan_url,'')    != '' OR
-                COALESCE(learner_slides_url,'')     != '' OR
-                COALESCE(trainer_slides_url,'')     != '' OR
-                COALESCE(courseware_link,'')        != '' OR
-                COALESCE(brochure_link,'')          != '' OR
-                COALESCE(skillsfuture_link,'')      != '' OR
-                COALESCE(assessment_record_link,'') != '' OR
-                COALESCE(assessment_summary_url,'') != ''"
+        // Count non-empty URLs per product. (col != '') casts to 0/1, summed.
+        $_cwRows = $_cwRead->fetchAll(
+            "SELECT product_id,
+                ((COALESCE(lesson_plan_url,'')        != '') +
+                 (COALESCE(learner_guide_url,'')      != '') +
+                 (COALESCE(facilitator_guide_url,'')  != '') +
+                 (COALESCE(assessment_plan_url,'')    != '') +
+                 (COALESCE(learner_slides_url,'')     != '') +
+                 (COALESCE(trainer_slides_url,'')     != '') +
+                 (COALESCE(courseware_link,'')        != '') +
+                 (COALESCE(brochure_link,'')          != '') +
+                 (COALESCE(skillsfuture_link,'')      != '') +
+                 (COALESCE(assessment_record_link,'') != '') +
+                 (COALESCE(assessment_summary_url,'') != '')
+                ) AS filled
+             FROM course_courseware"
         );
-        foreach ($_cwIds as $_cwid) $_devProductsWithCourseware[(int)$_cwid] = true;
+        foreach ($_cwRows as $_cwR) $_devCwCount[(int)$_cwR['product_id']] = (int)$_cwR['filled'];
     } catch (Exception $_cwEx) { /* table may not exist yet — fall through */ }
 }
 $_devCountryMap = array(
@@ -1303,8 +1308,13 @@ try {
     $_devCollection->setPageSize($_devPageSize)->setCurPage($_devCurPage);
     foreach ($_devCollection as $_dp) {
         // Apply courseware filter — skip rows that don't match the chosen state
-        if ($_devFilterCourseware === 'missing' && isset($_devProductsWithCourseware[(int)$_dp->getId()])) continue;
-        if ($_devFilterCourseware === 'has'     && !isset($_devProductsWithCourseware[(int)$_dp->getId()])) continue;
+        if (in_array($_devFilterCourseware, array('missing','partial','all'), true)) {
+            $_pid = (int)$_dp->getId();
+            $_filled = isset($_devCwCount[$_pid]) ? $_devCwCount[$_pid] : 0;
+            if ($_devFilterCourseware === 'missing' && $_filled !== 0)            continue;
+            if ($_devFilterCourseware === 'partial' && ($_filled === 0 || $_filled === $_devCwTotal)) continue;
+            if ($_devFilterCourseware === 'all'     && $_filled !== $_devCwTotal) continue;
+        }
 
         $_dName = $_dp->getName();
         $_dSoftware = $_dp->getAttributeText('software');
@@ -1469,8 +1479,9 @@ a.dev-country-btn.active,a.dev-country-btn.active:hover,a.dev-country-btn.active
                     <div style="font-size:12px;font-weight:600;color:#e2e8f0;margin-bottom:6px;">Courseware</div>
                     <select id="dev-filter-courseware" onchange="devApplyFilters()" style="width:100%;padding:10px 14px;background:#111827;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:14px;appearance:auto;outline:none;">
                         <option value="">All</option>
-                        <option value="missing"<?php echo $_devFilterCourseware === 'missing' ? ' selected' : '' ?>>Missing courseware URLs</option>
-                        <option value="has"<?php echo $_devFilterCourseware === 'has' ? ' selected' : '' ?>>Has at least one URL</option>
+                        <option value="missing"<?php echo $_devFilterCourseware === 'missing' ? ' selected' : '' ?>>Has no courseware links</option>
+                        <option value="partial"<?php echo $_devFilterCourseware === 'partial' ? ' selected' : '' ?>>Partially filled links</option>
+                        <option value="all"<?php echo $_devFilterCourseware === 'all' ? ' selected' : '' ?>>All links filled</option>
                     </select>
                 </div>
             </div>
