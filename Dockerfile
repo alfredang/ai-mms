@@ -65,6 +65,15 @@ COPY . /var/www/html/
 # Install Composer dependencies
 RUN composer install --no-dev --no-interaction --optimize-autoloader
 
+# Disable Cm_RedisSession AFTER composer install. The magento-composer-installer
+# uses copy + magento-force, so the vendor package overwrites our git-tracked
+# app/etc/modules/Cm_RedisSession.xml with <active>true</active> on every build.
+# We don't run Redis — sessions are in MySQL via core_session — so the rewrite
+# this module installs would crash every request. Patch in place here so the
+# fix survives composer install.
+RUN sed -i 's|<active>true</active>|<active>false</active>|' \
+    /var/www/html/app/etc/modules/Cm_RedisSession.xml
+
 # Save build timestamp as version
 RUN date -u '+%d-%m-%Y %H:%M' > /var/www/html/version.txt
 
