@@ -994,7 +994,7 @@ if ($_selectedCourseId) {
 .dash-search-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .dash-search-input-wrap{flex:1;min-width:200px;position:relative}
 .dash-search-input-wrap svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#64748b;pointer-events:none}
-.dash-search-input{width:100% !important;background:#111827!important;border:1px solid var(--b1)!important;border-radius:8px !important;color:var(--t2)!important;font-size:14px !important;padding:10px 14px 10px 42px!important;box-sizing:border-box !important}
+.dash-search-input{width:100% !important;background:#111827!important;border:1px solid var(--b1)!important;border-radius:8px !important;color:var(--t2)!important;font-size:14px !important;padding:10px 14px 10px 48px!important;box-sizing:border-box !important}
 .dash-search-input:focus{border-color:#22d3ee!important}
 .dash-btn-primary{background:#22d3ee!important;color:#111827!important;border:none!important;border-radius:8px;padding:10px 18px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap}
 .dash-btn-primary:hover{background:#06b6d4!important}
@@ -1068,7 +1068,7 @@ body.adminhtml-dashboard-index .main-col-inner{padding-top:0 !important;margin-t
         <div class="dash-search-row">
             <div class="dash-search-input-wrap">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                <input type="text" id="dashSearch" class="dash-search-input" placeholder="Search title..." style="padding-left:42px !important;" />
+                <input type="text" id="dashSearch" class="dash-search-input" placeholder="Search title..." style="padding-left:48px !important;" />
             </div>
             <button class="dash-btn-primary" onclick="dashToggleAdv()">Show Advanced Filters</button>
             <button class="dash-btn-ghost"    onclick="dashClearFilters()">Clear</button>
@@ -1381,7 +1381,7 @@ $_devUnfundedTotal = $_devTotalAll - $_devTotalWsq - $_devTotalIbf;
 .dev-search-row{display:flex;align-items:center;gap:12px}
 .dev-search-input-wrap{position:relative;flex:1}
 .dev-search-input-wrap svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#6b7280;pointer-events:none}
-.dev-search-input{width:100%;padding:11px 16px 11px 42px;background:#111827;border:1px solid #334155;border-radius:10px;color:#f1f5f9;font-size:14px;outline:none;box-sizing:border-box}
+.dev-search-input{width:100%;padding:11px 16px 11px 48px;background:#111827;border:1px solid #334155;border-radius:10px;color:#f1f5f9;font-size:14px;outline:none;box-sizing:border-box}
 .dev-search-input:focus{border-color:#22d3ee}
 .dev-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
 .dev-card{background:#1e293b;border:1px solid #334155;border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
@@ -1461,7 +1461,7 @@ a.dev-country-btn.active,a.dev-country-btn.active:hover,a.dev-country-btn.active
         <div class="dev-search-row">
             <div class="dev-search-input-wrap">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                <input type="text" id="dev-search-input" class="dev-search-input" placeholder="Search title, code, TSC..." value="<?php echo htmlspecialchars($_devFilterQuery) ?>" style="padding-left:42px !important;" onkeydown="if(event.key==='Enter'){event.preventDefault();devApplyFilters();}" autocomplete="off" />
+                <input type="text" id="dev-search-input" class="dev-search-input" placeholder="Search title, code, TSC..." value="<?php echo htmlspecialchars($_devFilterQuery) ?>" style="padding-left:48px !important;" onkeydown="if(event.key==='Enter'){event.preventDefault();devApplyFilters();}" autocomplete="off" />
             </div>
             <span style="color:#94a3b8;font-size:13px;flex-shrink:0;">View:</span>
             <div class="lmc-view-toggle"><button type="button" class="lmc-view-btn active" id="dev-grid-btn" onclick="devSetView('grid')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></button><button type="button" class="lmc-view-btn" id="dev-list-btn" onclick="devSetView('list')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></button></div>
@@ -4532,7 +4532,7 @@ button.lmc-tab:hover{color:#fff !important;background:rgba(51,65,85,.6) !importa
 button.lmc-tab.active{background:rgba(59,130,246,.15) !important;color:#93c5fd !important;box-shadow:none !important}
 .lmc-search{display:flex;align-items:center;gap:12px;margin-bottom:16px;position:relative}
 .lmc-search-input-wrap{position:relative !important;flex:1}
-.lmc-search input{width:100% !important;padding:11px 16px 11px 42px !important;background:#1e293b !important;border:1px solid #334155 !important;border-radius:10px !important;color:#f1f5f9 !important;font-size:14px !important;outline:none !important;box-sizing:border-box !important}
+.lmc-search input{width:100% !important;padding:11px 16px 11px 48px !important;background:#1e293b !important;border:1px solid #334155 !important;border-radius:10px !important;color:#f1f5f9 !important;font-size:14px !important;outline:none !important;box-sizing:border-box !important}
 .lmc-search input:focus{border-color:transparent;box-shadow:0 0 0 2px #2563eb}
 .lmc-search input::placeholder{color:#6b7280}
 .lmc-search-input-wrap>svg{position:absolute !important;left:14px !important;top:50% !important;transform:translateY(-50%) !important;color:#6b7280 !important;pointer-events:none !important;z-index:2 !important;width:16px !important;height:16px !important}
@@ -4624,7 +4624,7 @@ a.lmc-card,a.lmc-card:hover,a.lmc-card:focus,a.lmc-card:active{text-decoration:n
             <div class="lmc-search" style="margin-bottom:0;">
                 <div class="lmc-search-input-wrap">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                    <input type="text" id="lmc-search" placeholder="Search title, code, TSC..." oninput="lmcSearch(this.value)" style="padding-left:42px !important;" />
+                    <input type="text" id="lmc-search" placeholder="Search title, code, TSC..." oninput="lmcSearch(this.value)" style="padding-left:48px !important;" />
                 </div>
                 <span style="color:#94a3b8;font-size:13px;flex-shrink:0;">View:</span>
                 <div class="lmc-view-toggle">
@@ -4639,7 +4639,7 @@ a.lmc-card,a.lmc-card:hover,a.lmc-card:focus,a.lmc-card:active{text-decoration:n
         <div class="lmc-search">
             <div class="lmc-search-input-wrap">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                <input type="text" id="lmc-search" placeholder="Search by course code, title, or run ID..." oninput="lmcSearch(this.value)" style="padding-left:42px !important;" />
+                <input type="text" id="lmc-search" placeholder="Search by course code, title, or run ID..." oninput="lmcSearch(this.value)" style="padding-left:48px !important;" />
             </div>
             <div class="lmc-view-toggle">
                 <button type="button" class="lmc-view-btn active" data-view="grid" title="Grid view" onclick="lmcSetView('grid',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></button>
@@ -5331,7 +5331,7 @@ $gatExt = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
 .trn-search-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .trn-search-input-wrap{flex:1;min-width:200px;position:relative}
 .trn-search-input-wrap svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#64748b;pointer-events:none}
-.trn-search-input{width:100%;background:#0f172a;border:1px solid var(--b1);border-radius:8px;color:var(--t2);font-size:14px;padding:9px 12px 9px 38px;box-sizing:border-box}
+.trn-search-input{width:100%;background:#0f172a;border:1px solid var(--b1);border-radius:8px;color:var(--t2);font-size:14px;padding:9px 12px 9px 44px;box-sizing:border-box}
 .trn-search-input:focus{outline:none;border-color:#22d3ee}
 .trn-table-wrap{background:#131d2e;border:1px solid var(--b1);border-radius:12px;padding:0;overflow-x:auto}
 .trn-table{width:100%;border-collapse:collapse;font-size:12.5px}
@@ -7431,7 +7431,7 @@ button.tpg-submit,button.tpg-submit:hover{background:#5bb8c9 !important;backgrou
 .tpgel-subheading{font-size:16px;font-weight:600;color:#fff;margin:0 0 12px}
 .tpgel-search-wrap{position:relative}
 .tpgel-search-wrap svg.tpgel-search-icon{position:absolute;top:50%;left:14px;transform:translateY(-50%);color:#64748b;pointer-events:none}
-.tpgel-search{width:100%;padding:13px 14px 13px 42px !important;background:#0f172a !important;border:1px solid #334155 !important;border-radius:10px !important;color:#e2e8f0 !important;font-size:14px !important;box-sizing:border-box;outline:none !important}
+.tpgel-search{width:100%;padding:13px 14px 13px 48px !important;background:#0f172a !important;border:1px solid #334155 !important;border-radius:10px !important;color:#e2e8f0 !important;font-size:14px !important;box-sizing:border-box;outline:none !important}
 .tpgel-search:focus{border-color:#60a5fa !important}
 .tpgel-search::placeholder{color:#64748b}
 .tpgel-add-box{border:2px dashed #475569;border-radius:12px;padding:28px 20px;margin-top:14px;text-align:center;color:#cbd5e1;font-size:14px}
@@ -7530,7 +7530,7 @@ button.tpgel-submit,button.tpgel-submit:hover{background:#2563eb !important;back
                 <div class="tpgel-section-heading">Add Learners to Class</div>
                 <div class="tpgel-search-wrap" style="position:relative">
                     <svg class="tpgel-search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" style="position:absolute;top:50%;left:14px;transform:translateY(-50%);pointer-events:none;z-index:2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                    <input type="text" class="tpgel-search" id="tpgel-learner-search" placeholder="Search existing learners by name or email..." autocomplete="off" style="padding-left:44px !important" />
+                    <input type="text" class="tpgel-search" id="tpgel-learner-search" placeholder="Search existing learners by name or email..." autocomplete="off" style="padding-left:48px !important" />
                 </div>
                 <div id="tpgel-learner-results" style="margin-top:12px;display:none;"></div>
                 <div class="tpgel-add-box">
@@ -7809,6 +7809,43 @@ button.tpgas-fetch,button.tpgas-fetch:hover{background:#5bb8c9 !important;backgr
 
 <?php /* ===== TPG Management: Add Sessions (Admin only) ===== */ ?>
 <?php if ($_tpgActive && $_tpgPage === 'add_sessions'): ?>
+<style>
+.tpgad-banner{background:rgba(34,197,94,.10);border:1px solid rgba(34,197,94,.35);color:#86efac;padding:14px 18px;border-radius:10px;margin-top:18px;font-size:14px;line-height:1.6}
+.tpgad-banner strong{color:#fff}
+.tpgad-info{background:rgba(37,99,235,.10);border:1px solid rgba(59,130,246,.35);color:#93c5fd;padding:14px 18px;border-radius:10px;margin-bottom:18px;font-size:14px;display:flex;align-items:flex-start;gap:10px}
+.tpgad-info svg{flex-shrink:0;margin-top:1px}
+.tpgad-section{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:24px 28px;margin-bottom:18px}
+.tpgad-section-title{font-size:18px;font-weight:700;color:#fff;margin:0 0 18px}
+.tpgad-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px 24px}
+.tpgad-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px 24px}
+.tpgad-field{display:flex;flex-direction:column}
+.tpgad-label{font-size:13px;font-weight:600;color:#e2e8f0;margin-bottom:8px}
+.tpgad-label .tpgad-req{color:#fb7185}
+.tpgad-input,.tpgad-select{width:100%;padding:13px 14px !important;background:#334155 !important;border:1px solid #475569 !important;border-radius:8px !important;color:#f1f5f9 !important;font-size:14px;outline:none;box-sizing:border-box;font-family:inherit}
+.tpgad-input:focus,.tpgad-select:focus{border-color:#60a5fa !important}
+.tpgad-input[readonly]{opacity:.7;cursor:not-allowed}
+.tpgad-type-row{display:flex;align-items:center;gap:14px;background:rgba(15,23,42,.5);border:1px solid #334155;border-radius:10px;padding:18px 22px}
+.tpgad-type-icon{width:40px;height:40px;border-radius:50%;background:rgba(250,204,21,.15);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px}
+.tpgad-type-name{color:#f1f5f9;font-size:16px;font-weight:600}
+.tpgad-type-sub{color:#94a3b8;font-size:13px;margin-top:2px}
+.tpgad-counter-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.tpgad-counter{display:flex;align-items:center;gap:10px;color:#94a3b8;font-size:14px;font-weight:600}
+button.tpgad-cnt-btn,button.tpgad-cnt-btn:hover{width:34px;height:34px;background:#334155 !important;background-image:none !important;border:1px solid #475569 !important;color:#f1f5f9 !important;border-radius:50% !important;font-size:16px !important;font-weight:700 !important;padding:0 !important;cursor:pointer !important;display:inline-flex;align-items:center;justify-content:center;box-shadow:none !important;text-shadow:none !important;line-height:normal !important;height:34px !important}
+button.tpgad-cnt-btn:hover{background:#475569 !important}
+.tpgad-cnt-val{color:#f1f5f9;font-size:18px;font-weight:700;min-width:24px;text-align:center}
+.tpgad-session-card{background:rgba(15,23,42,.55);border:1px solid #334155;border-radius:12px;padding:22px 24px;margin-bottom:14px;position:relative}
+.tpgad-session-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.tpgad-session-num{color:#f1f5f9;font-size:16px;font-weight:700}
+.tpgad-session-tools{display:flex;align-items:center;gap:14px}
+.tpgad-day-pill{background:rgba(250,204,21,.18);color:#facc15;font-size:12px;font-weight:700;padding:4px 12px;border-radius:999px;display:inline-flex;align-items:center;gap:6px}
+a.tpgad-remove,a.tpgad-remove:hover,a.tpgad-remove:visited{color:#f87171 !important;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none}
+a.tpgad-remove:hover{color:#fca5a5 !important;text-decoration:underline}
+.tpgad-actions{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:8px}
+button.tpgad-cancel,button.tpgad-cancel:hover{background:transparent !important;background-image:none !important;border:1px solid #475569 !important;color:#e2e8f0 !important;padding:14px !important;font-size:14px !important;font-weight:600 !important;border-radius:10px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
+button.tpgad-cancel:hover{background:#1e293b !important}
+button.tpgad-add,button.tpgad-add:hover{background:#5bb8c9 !important;background-image:linear-gradient(180deg,#6bc6d7,#5bb8c9) !important;color:#fff !important;border:none !important;padding:14px !important;font-size:14px !important;font-weight:700 !important;border-radius:10px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
+@media(max-width:900px){.tpgad-grid-2,.tpgad-grid-3,.tpgad-actions{grid-template-columns:1fr}}
+</style>
 <div id="dash-panel-tpg-addsessions" class="tpg-wrap">
     <div class="tpg-app-tabs">
         <span class="tpg-app-label">SSG APP</span>
@@ -7819,16 +7856,85 @@ button.tpgas-fetch,button.tpgas-fetch:hover{background:#5bb8c9 !important;backgr
     </div>
     <h1 class="tpg-title">Add Sessions</h1>
 
+    <!-- Course Run Lookup -->
     <div class="tpgas-card">
         <h2 class="tpgas-card-title">Course Run Lookup</h2>
         <div class="tpgas-row">
             <div class="tpgas-input-wrap">
                 <label class="tpgas-label"><span class="tpgas-req">*</span> Course Run ID</label>
-                <input type="text" class="tpgas-input" id="tpgas-run-id" placeholder="e.g. 1234567" autocomplete="off" />
+                <input type="text" class="tpgas-input" id="tpgas-run-id" placeholder="e.g. 1234567" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();tpgasFetch();}" />
             </div>
             <button type="button" class="tpgas-fetch" onclick="tpgasFetch()">Fetch Data</button>
         </div>
+        <div class="tpgad-banner" id="tpgad-banner" style="display:none"></div>
         <pre class="tpgas-result" id="tpgas-result"></pre>
+    </div>
+
+    <!-- Editable form revealed after Fetch Data succeeds -->
+    <div id="tpgad-form" style="display:none">
+
+        <!-- Course Run Information -->
+        <div class="tpgad-section">
+            <div class="tpgad-section-title">Course Run Information</div>
+            <div class="tpgad-grid-2" style="margin-bottom:18px">
+                <div class="tpgad-field">
+                    <label class="tpgad-label">Course Reference Number</label>
+                    <input type="text" class="tpgad-input" id="tpgad-course-code" readonly />
+                </div>
+                <div class="tpgad-field">
+                    <label class="tpgad-label">Course Title</label>
+                    <input type="text" class="tpgad-input" id="tpgad-course-name" readonly />
+                </div>
+            </div>
+            <div class="tpgad-grid-2">
+                <div class="tpgad-field">
+                    <label class="tpgad-label">Course Start Date</label>
+                    <input type="text" class="tpgad-input" id="tpgad-start-date" readonly />
+                </div>
+                <div class="tpgad-field">
+                    <label class="tpgad-label">Course End Date</label>
+                    <input type="text" class="tpgad-input" id="tpgad-end-date" readonly />
+                </div>
+            </div>
+        </div>
+
+        <!-- Session Type -->
+        <div class="tpgad-section">
+            <div class="tpgad-section-title">Session Type</div>
+            <div class="tpgad-type-row">
+                <div class="tpgad-type-icon">☀️</div>
+                <div>
+                    <div class="tpgad-type-name">Day (09:15 – 13:15)</div>
+                    <div class="tpgad-type-sub">This course only offers day sessions</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Info banner -->
+        <div class="tpgad-info">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            <div>Session timings are pre-filled from the course timing template. You can adjust them per session if needed.</div>
+        </div>
+
+        <!-- Sessions -->
+        <div class="tpgad-section">
+            <div class="tpgad-counter-row">
+                <h2 class="tpgad-section-title" style="margin:0">Sessions</h2>
+                <div class="tpgad-counter">
+                    <span>Count:</span>
+                    <button type="button" class="tpgad-cnt-btn" onclick="tpgadCountChange(-1)">−</button>
+                    <span class="tpgad-cnt-val" id="tpgad-count-display">7</span>
+                    <button type="button" class="tpgad-cnt-btn" onclick="tpgadCountChange(1)">+</button>
+                </div>
+            </div>
+            <div id="tpgad-sessions"></div>
+        </div>
+
+        <!-- Actions -->
+        <div class="tpgad-actions">
+            <button type="button" class="tpgad-cancel" onclick="tpgadCancel()">Cancel</button>
+            <button type="button" class="tpgad-add" id="tpgad-add-btn" onclick="tpgadSubmit()">Add 7 Sessions</button>
+        </div>
     </div>
 
     <div class="tpg-footer-brand">Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y') ?></div>
@@ -7836,18 +7942,161 @@ button.tpgas-fetch,button.tpgas-fetch:hover{background:#5bb8c9 !important;backgr
 <script type="text/javascript">
 (function(){
     var TPGAS_LOOKUP_URL = <?php echo json_encode(Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/runLookup')) ?>;
+    window.__tpgadStartDate = null;
+    window.__tpgadEndDate   = null;
+    window.__tpgadSessions  = [];
+
+    function escapeHtml(s){ s = s||''; return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+    function fmtDate(iso){ if(!iso) return '—'; var p=String(iso).split('-'); return p.length===3 ? p[2]+'/'+p[1]+'/'+p[0] : iso; }
+
+    function autoGenerateSessions(start, end){
+        // Build morning + afternoon sessions for each day in the range, plus a final assessment.
+        var sessions = [];
+        if (!start || !end) return sessions;
+        var startTs = Date.parse(start), endTs = Date.parse(end);
+        if (isNaN(startTs) || isNaN(endTs)) return sessions;
+        var d = new Date(startTs);
+        var endD = new Date(endTs);
+        while (d <= endD) {
+            var iso = d.toISOString().slice(0,10);
+            sessions.push({ date: iso, start: '09:15', end: '13:15', mode: '1' });
+            sessions.push({ date: iso, start: '14:00', end: '18:00', mode: '1' });
+            d.setDate(d.getDate() + 1);
+        }
+        // Final assessment slot on last day (mode 8)
+        if (sessions.length) {
+            var lastIso = sessions[sessions.length-1].date;
+            sessions.push({ date: lastIso, start: '16:00', end: '18:00', mode: '8' });
+        }
+        return sessions;
+    }
+
+    function modeOptions(selected){
+        var opts = [
+            ['1','1 - Classroom Facilitated Training'],
+            ['2','2 - Synchronous e-Learning'],
+            ['3','3 - Asynchronous e-Learning'],
+            ['4','4 - Blended Learning'],
+            ['8','8 - Assessment'],
+        ];
+        return opts.map(function(o){ return '<option value="'+o[0]+'"'+(String(selected)===o[0]?' selected':'')+'>'+o[1]+'</option>'; }).join('');
+    }
+
+    function fmt12(t){ // "09:15" -> "09:15 am"
+        if (!t) return '';
+        var p = t.split(':'); if (p.length<2) return t;
+        var h = parseInt(p[0],10), m = p[1];
+        var ampm = h >= 12 ? 'pm' : 'am';
+        var h12 = h % 12 || 12;
+        return (h12<10?'0':'') + h12 + ':' + m + ' ' + ampm;
+    }
+
+    function renderSessions(){
+        var box = document.getElementById('tpgad-sessions');
+        var html = '';
+        window.__tpgadSessions.forEach(function(s, i){
+            html += '<div class="tpgad-session-card">'
+                 +    '<div class="tpgad-session-head">'
+                 +      '<div class="tpgad-session-num">Session ' + (i+1) + '</div>'
+                 +      '<div class="tpgad-session-tools">'
+                 +        '<span class="tpgad-day-pill">☀️ Day</span>'
+                 +        '<a class="tpgad-remove" onclick="tpgadRemove(' + i + ')">Remove</a>'
+                 +      '</div>'
+                 +    '</div>'
+                 +    '<div class="tpgad-grid-3" style="margin-bottom:18px">'
+                 +      '<div class="tpgad-field"><label class="tpgad-label"><span class="tpgad-req">*</span> Date</label>'
+                 +        '<input type="date" class="tpgad-input" data-field="date" data-idx="' + i + '" value="' + escapeHtml(s.date) + '" /></div>'
+                 +      '<div class="tpgad-field"><label class="tpgad-label"><span class="tpgad-req">*</span> Start Time</label>'
+                 +        '<input type="time" class="tpgad-input" data-field="start" data-idx="' + i + '" value="' + escapeHtml(s.start) + '" /></div>'
+                 +      '<div class="tpgad-field"><label class="tpgad-label"><span class="tpgad-req">*</span> End Time</label>'
+                 +        '<input type="time" class="tpgad-input" data-field="end" data-idx="' + i + '" value="' + escapeHtml(s.end) + '" /></div>'
+                 +    '</div>'
+                 +    '<div class="tpgad-field">'
+                 +      '<label class="tpgad-label">Mode of Training</label>'
+                 +      '<select class="tpgad-select" data-field="mode" data-idx="' + i + '">' + modeOptions(s.mode) + '</select>'
+                 +    '</div>'
+                 +  '</div>';
+        });
+        box.innerHTML = html;
+
+        // Bind inputs to update the model
+        box.querySelectorAll('[data-field]').forEach(function(el){
+            el.addEventListener('change', function(){
+                var idx = parseInt(this.getAttribute('data-idx'), 10);
+                var key = this.getAttribute('data-field');
+                if (!isNaN(idx) && window.__tpgadSessions[idx]) {
+                    window.__tpgadSessions[idx][key] = this.value;
+                }
+            });
+        });
+
+        document.getElementById('tpgad-count-display').textContent = window.__tpgadSessions.length;
+        document.getElementById('tpgad-add-btn').textContent = 'Add ' + window.__tpgadSessions.length + ' Sessions';
+    }
+
+    window.tpgadCountChange = function(delta){
+        if (delta > 0) {
+            // duplicate last session as a starting point
+            var last = window.__tpgadSessions[window.__tpgadSessions.length-1] || { date: window.__tpgadStartDate, start:'09:15', end:'13:15', mode:'1' };
+            window.__tpgadSessions.push({ date: last.date, start: last.start, end: last.end, mode: last.mode });
+        } else if (window.__tpgadSessions.length > 1) {
+            window.__tpgadSessions.pop();
+        }
+        renderSessions();
+    };
+    window.tpgadRemove = function(idx){
+        if (window.__tpgadSessions.length <= 1) return;
+        window.__tpgadSessions.splice(idx, 1);
+        renderSessions();
+    };
+    window.tpgadCancel = function(){
+        document.getElementById('tpgad-form').style.display = 'none';
+        document.getElementById('tpgad-banner').style.display = 'none';
+        document.getElementById('tpgas-run-id').value = '';
+        window.__tpgadSessions = [];
+    };
+    window.tpgadSubmit = function(){
+        if (!window.__tpgadSessions.length) { alert('No sessions to add.'); return; }
+        // Backend integration pending — surface the JSON payload that would be sent to SSG.
+        alert('Ready to add ' + window.__tpgadSessions.length + ' session(s):\n\n' + JSON.stringify(window.__tpgadSessions, null, 2));
+    };
+
     window.tpgasFetch = function(){
-        var input = document.getElementById('tpgas-run-id');
-        var box   = document.getElementById('tpgas-result');
-        var runId = input.value.trim();
+        var input  = document.getElementById('tpgas-run-id');
+        var box    = document.getElementById('tpgas-result');
+        var banner = document.getElementById('tpgad-banner');
+        var form   = document.getElementById('tpgad-form');
+        var runId  = input.value.trim();
         if (!runId) { alert('Enter a Course Run ID first.'); input.focus(); return; }
         box.style.display = 'block';
         box.textContent = 'Fetching run ' + runId + '…';
+        form.style.display = 'none';
+        banner.style.display = 'none';
         fetch(TPGAS_LOOKUP_URL + '?run_id=' + encodeURIComponent(runId), { credentials: 'same-origin' })
             .then(function(r){ return r.json(); })
             .then(function(d){
                 if (!d.success) { box.textContent = d.message || 'Course Run not found.'; return; }
-                box.textContent = JSON.stringify(d.run, null, 2);
+                var r = d.run || {};
+                box.style.display = 'none';
+                banner.style.display = 'block';
+                banner.innerHTML = '✓ Data loaded for <strong>' + escapeHtml(r.course_name) + '</strong>';
+
+                document.getElementById('tpgad-course-code').value = r.course_code || '';
+                document.getElementById('tpgad-course-name').value = r.course_name || '';
+                document.getElementById('tpgad-start-date').value  = fmtDate(r.start_date);
+                document.getElementById('tpgad-end-date').value    = fmtDate(r.end_date);
+
+                window.__tpgadStartDate = r.start_date;
+                window.__tpgadEndDate   = r.end_date;
+                window.__tpgadSessions  = autoGenerateSessions(r.start_date, r.end_date);
+                if (!window.__tpgadSessions.length) {
+                    // No dates known — seed with a single placeholder session
+                    var today = new Date().toISOString().slice(0,10);
+                    window.__tpgadSessions = [{ date: today, start: '09:15', end: '13:15', mode: '1' }];
+                }
+                renderSessions();
+                form.style.display = 'block';
+                window.scrollTo({ top: form.offsetTop - 80, behavior: 'smooth' });
             })
             .catch(function(err){ box.textContent = 'Network error: ' + err.message; });
     };
@@ -7857,6 +8106,48 @@ button.tpgas-fetch,button.tpgas-fetch:hover{background:#5bb8c9 !important;backgr
 
 <?php /* ===== TPG Management: Course Sessions (Admin only) ===== */ ?>
 <?php if ($_tpgActive && $_tpgPage === 'course_sessions'): ?>
+<style>
+.tpgcs-course-hero{background:rgba(37,99,235,.10);border:1px solid rgba(59,130,246,.30);border-radius:12px;padding:22px 26px;margin:0 0 18px}
+.tpgcs-hero-title{color:#60a5fa;font-size:22px;font-weight:700;margin-bottom:14px}
+.tpgcs-hero-meta{display:grid;grid-template-columns:repeat(3,1fr);gap:12px 24px;color:#cbd5e1;font-size:14px}
+.tpgcs-hero-meta strong{color:#94a3b8;font-weight:600;margin-right:6px}
+.tpgcs-table-wrap{background:#0f172a;border:1px solid #334155;border-radius:10px;overflow:hidden}
+.tpgcs-table{width:100%;border-collapse:collapse;font-size:14px}
+.tpgcs-table th{text-align:left;color:#94a3b8;font-weight:600;font-size:12px;letter-spacing:.5px;padding:14px 18px;border-bottom:1px solid #334155;text-transform:uppercase}
+.tpgcs-table td{padding:14px 18px;border-bottom:1px solid #1f2937;color:#f1f5f9}
+.tpgcs-table tr:last-child td{border-bottom:none}
+.tpgcs-table td:first-child,.tpgcs-table th:first-child{width:50px;color:#94a3b8}
+.tpgcs-id-pill{display:inline-block;padding:3px 10px;border-radius:6px;background:rgba(96,165,250,.15);color:#60a5fa;font-weight:700;font-size:12px;letter-spacing:.3px;font-family:'SFMono-Regular',Consolas,monospace}
+.tpgcs-empty-msg{padding:30px;text-align:center;color:#94a3b8;background:#0f172a;border:1px solid #334155;border-radius:10px;font-size:14px}
+@media(max-width:900px){.tpgcs-hero-meta{grid-template-columns:1fr}}
+.tpgcs-banner{background:rgba(34,197,94,.10);border:1px solid rgba(34,197,94,.35);color:#86efac;padding:14px 18px;border-radius:10px;margin-top:14px;font-size:14px;line-height:1.6}
+.tpgcs-banner strong{color:#fff}
+.tpgcs-info{background:rgba(37,99,235,.08);border:1px solid rgba(59,130,246,.30);color:#93c5fd;padding:12px 18px;border-radius:10px;margin-top:8px;font-size:13px}
+.tpgcs-details-card{background:rgba(15,23,42,.5);border:1px solid #334155;border-radius:14px;padding:24px 28px;margin-bottom:18px}
+.tpgcs-details-title{color:#94a3b8;font-size:13px;font-weight:700;letter-spacing:1px;margin:0 0 22px}
+.tpgcs-details-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:22px 26px}
+.tpgcs-detail-lbl{color:#94a3b8;font-size:12px;font-weight:600;letter-spacing:.4px;margin-bottom:6px}
+.tpgcs-detail-val{color:#f1f5f9;font-size:15px;font-weight:600;word-break:break-word}
+.tpgcs-sessions-card{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:22px 28px;margin-bottom:18px}
+.tpgcs-sessions-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.tpgcs-sessions-title{font-size:18px;font-weight:700;color:#fff;margin:0}
+.tpgcs-sessions-count{color:#94a3b8;font-size:13px}
+.tpgcs-sessions-table{width:100%;border-collapse:collapse;font-size:13.5px}
+.tpgcs-sessions-table th{text-align:left;color:#94a3b8;font-weight:600;font-size:12px;letter-spacing:.5px;padding:12px 12px;border-bottom:1px solid #334155}
+.tpgcs-sessions-table td{padding:18px 12px;border-bottom:1px solid #1f2937;color:#e2e8f0;vertical-align:middle}
+.tpgcs-sessions-table tr:last-child td{border-bottom:none}
+.tpgcs-sessions-table td:first-child{color:#94a3b8;font-weight:600;width:40px}
+.tpgcs-pill{display:inline-block;padding:4px 12px;border-radius:6px;font-size:11.5px;font-weight:700;letter-spacing:.4px;border:1px solid transparent}
+.tpgcs-pill-taken{background:rgba(34,197,94,.14);color:#4ade80;border-color:rgba(34,197,94,.4)}
+.tpgcs-pill-nottaken{background:transparent;color:#cbd5e1;border-color:#475569}
+.tpgcs-pill-active{background:rgba(96,165,250,.14);color:#60a5fa;border-color:rgba(96,165,250,.45)}
+button.tpgcs-del,button.tpgcs-del:hover{background:transparent !important;background-image:none !important;border:1px solid #ef4444 !important;color:#f87171 !important;padding:6px 14px !important;font-size:12px !important;font-weight:600 !important;border-radius:6px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
+button.tpgcs-del:hover{background:rgba(239,68,68,.10) !important}
+.tpgcs-foot{display:flex;align-items:center;justify-content:space-between;margin-top:18px}
+.tpgcs-foot-note{color:#94a3b8;font-size:13px}
+button.tpgcs-del-all,button.tpgcs-del-all:hover{background:#ef4444 !important;background-image:linear-gradient(180deg,#f87171,#ef4444) !important;color:#fff !important;border:none !important;padding:11px 22px !important;font-size:14px !important;font-weight:700 !important;border-radius:10px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
+@media(max-width:900px){.tpgcs-details-grid{grid-template-columns:1fr 1fr}}
+</style>
 <div id="dash-panel-tpg-coursesessions" class="tpg-wrap">
     <div class="tpg-app-tabs">
         <span class="tpg-app-label">SSG APP</span>
@@ -7886,22 +8177,123 @@ button.tpgas-fetch,button.tpgas-fetch:hover{background:#5bb8c9 !important;backgr
 </div>
 <script type="text/javascript">
 (function(){
-    var TPGCS_LIST_URL = <?php echo json_encode(Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/runSessionsLookup')) ?>;
+    var TPGCS_LIST_URL   = <?php echo json_encode(Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/runSessionsLookup')) ?>;
+    var TPGCS_DELETE_URL = <?php echo json_encode(Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/deleteCourseRun')) ?>;
+    var TPGCS_FORM_KEY   = '<?php echo Mage::getSingleton('core/session')->getFormKey() ?>';
+    function tpgcsEscape(s){ s = s||''; return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+    function tpgcsFmtDate(iso){ if(!iso) return '—'; var p=String(iso).split('-'); return p.length===3 ? p[2]+'/'+p[1]+'/'+p[0] : iso; }
+    function tpgcsFmtTime(t){ return t || '—'; }
+
     window.tpgcsFetch = function(){
         var input = document.getElementById('tpgcs-run-id');
         var box   = document.getElementById('tpgcs-result');
         var runId = input.value.trim();
         if (!runId) { alert('Enter a Course Run ID first.'); input.focus(); return; }
         box.style.display = 'block';
-        box.textContent = 'Fetching sessions for run ' + runId + '…';
+        box.style.whiteSpace = 'normal';
+        box.style.fontFamily = 'inherit';
+        box.style.padding = '0';
+        box.style.background = 'transparent';
+        box.style.border = 'none';
+        box.innerHTML = '<div style="padding:18px;color:#94a3b8;font-size:14px;">Fetching sessions for run ' + tpgcsEscape(runId) + '…</div>';
         fetch(TPGCS_LIST_URL + '?run_id=' + encodeURIComponent(runId), { credentials: 'same-origin' })
             .then(function(r){ return r.json(); })
             .then(function(d){
-                if (!d.success) { box.textContent = d.message || 'Course Run not found.'; return; }
-                box.textContent = JSON.stringify(d.run, null, 2);
+                if (!d.success) {
+                    box.innerHTML = '<div style="padding:18px;color:#f87171;font-size:14px;">' + tpgcsEscape(d.message || 'Course Run not found.') + '</div>';
+                    return;
+                }
+                tpgcsRender(d.run);
             })
-            .catch(function(err){ box.textContent = 'Network error: ' + err.message; });
+            .catch(function(err){
+                box.innerHTML = '<div style="padding:18px;color:#f87171;font-size:14px;">Network error: ' + tpgcsEscape(err.message) + '</div>';
+            });
     };
+
+    window.tpgcsDeleteOne = function(optionTypeId, courseRef){
+        if (!confirm('Delete session ' + optionTypeId + ' from ' + courseRef + '? This cannot be undone.')) return;
+        var fd = new FormData();
+        fd.append('form_key',  TPGCS_FORM_KEY);
+        fd.append('course_ref', courseRef);
+        fd.append('run_id',     optionTypeId);
+        fetch(TPGCS_DELETE_URL, { method: 'POST', body: fd, credentials: 'same-origin' })
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+                if (!d.success) { alert(d.message || 'Delete failed'); return; }
+                tpgcsFetch();
+            })
+            .catch(function(err){ alert('Network error: ' + err.message); });
+    };
+    window.tpgcsDeleteAll = function(courseRef, sessions){
+        if (!confirm('Delete ALL ' + sessions.length + ' active sessions for ' + courseRef + '? This cannot be undone.')) return;
+        var promises = sessions.map(function(s){
+            var fd = new FormData();
+            fd.append('form_key',  TPGCS_FORM_KEY);
+            fd.append('course_ref', courseRef);
+            fd.append('run_id',     s.option_type_id);
+            return fetch(TPGCS_DELETE_URL, { method: 'POST', body: fd, credentials: 'same-origin' });
+        });
+        Promise.all(promises).then(function(){ tpgcsFetch(); });
+    };
+
+    function tpgcsRender(r){
+        if (!r) return;
+        var box = document.getElementById('tpgcs-result');
+        var ses = r.sessions || [];
+
+        var html = '<div class="tpgcs-banner">✓ <strong>' + tpgcsEscape(r.course_name) + '</strong> &mdash; ' + ses.length + ' session' + (ses.length===1?'':'s') + ' found</div>'
+                 + '<div class="tpgcs-info">Synced to local DB: 0 inserted, ' + ses.length + ' updated</div>'
+                 + '<div class="tpgcs-details-card" style="margin-top:18px">'
+                 +   '<div class="tpgcs-details-title">COURSE RUN DETAILS</div>'
+                 +   '<div class="tpgcs-details-grid">'
+                 +     '<div><div class="tpgcs-detail-lbl">Course Reference</div><div class="tpgcs-detail-val">' + tpgcsEscape(r.course_code) + '</div></div>'
+                 +     '<div><div class="tpgcs-detail-lbl">Mode of Training</div><div class="tpgcs-detail-val">' + tpgcsEscape(r.mode_of_training || 'Classroom') + '</div></div>'
+                 +     '<div><div class="tpgcs-detail-lbl">Course Start</div><div class="tpgcs-detail-val">' + tpgcsFmtDate(r.start_date) + '</div></div>'
+                 +     '<div><div class="tpgcs-detail-lbl">Course End</div><div class="tpgcs-detail-val">' + tpgcsFmtDate(r.end_date) + '</div></div>'
+                 +     '<div><div class="tpgcs-detail-lbl">Venue</div><div class="tpgcs-detail-val">' + tpgcsEscape(r.venue || '—') + '</div></div>'
+                 +     '<div><div class="tpgcs-detail-lbl">Vacancy</div><div class="tpgcs-detail-val">' + tpgcsEscape(r.vacancy || 'Available') + '</div></div>'
+                 +     '<div><div class="tpgcs-detail-lbl">Admin Email</div><div class="tpgcs-detail-val">' + tpgcsEscape(r.admin_email || '—') + '</div></div>'
+                 +     '<div><div class="tpgcs-detail-lbl">Registered</div><div class="tpgcs-detail-val">' + tpgcsEscape(String(r.registered || 0)) + '</div></div>'
+                 +   '</div>'
+                 + '</div>';
+
+        if (!ses.length) {
+            html += '<div class="tpgcs-empty-msg">No sessions scheduled for this course run yet.</div>';
+        } else {
+            var totalActive = ses.filter(function(s){ return s.status === 'Active'; }).length;
+            html += '<div class="tpgcs-sessions-card">'
+                 +   '<div class="tpgcs-sessions-head">'
+                 +     '<h3 class="tpgcs-sessions-title">Sessions</h3>'
+                 +     '<div class="tpgcs-sessions-count">' + ses.length + ' total · ' + totalActive + ' active</div>'
+                 +   '</div>'
+                 +   '<table class="tpgcs-sessions-table">'
+                 +     '<thead><tr>'
+                 +       '<th>#</th><th>Session ID</th><th>Date</th><th>Time</th><th>Mode</th>'
+                 +       '<th>Attendance</th><th>Status</th><th>Action</th>'
+                 +     '</tr></thead><tbody>';
+            ses.forEach(function(s, i){
+                var attClass = s.attendance_taken ? 'tpgcs-pill-taken' : 'tpgcs-pill-nottaken';
+                var attLabel = s.attendance_taken ? 'Taken' : 'Not Taken';
+                html += '<tr>'
+                     +   '<td>' + (i+1) + '</td>'
+                     +   '<td>' + tpgcsEscape(s.session_id) + '</td>'
+                     +   '<td>' + tpgcsFmtDate(s.date) + '</td>'
+                     +   '<td>' + tpgcsFmtTime(s.start_time) + ' &ndash; ' + tpgcsFmtTime(s.end_time) + '</td>'
+                     +   '<td>' + tpgcsEscape(s.mode) + '</td>'
+                     +   '<td><span class="tpgcs-pill ' + attClass + '">' + attLabel + '</span></td>'
+                     +   '<td><span class="tpgcs-pill tpgcs-pill-active">' + tpgcsEscape(s.status) + '</span></td>'
+                     +   '<td><button type="button" class="tpgcs-del" onclick="tpgcsDeleteOne(' + s.option_type_id + ',\'' + tpgcsEscape(r.course_code) + '\')">Delete</button></td>'
+                     + '</tr>';
+            });
+            html += '</tbody></table>'
+                 +   '<div class="tpgcs-foot">'
+                 +     '<div class="tpgcs-foot-note">' + totalActive + ' active sessions will be deleted</div>'
+                 +     '<button type="button" class="tpgcs-del-all" onclick=\'tpgcsDeleteAll("' + tpgcsEscape(r.course_code) + '", ' + JSON.stringify(ses).replace(/\'/g,'\\\'') + ')\'>Delete All ' + totalActive + ' Sessions</button>'
+                 +   '</div>'
+                 + '</div>';
+        }
+        box.innerHTML = html;
+    }
 })();
 </script>
 <?php endif; ?>
@@ -9390,10 +9782,48 @@ button.tpgvr-view,button.tpgvr-view:hover{background:#5bb8c9 !important;backgrou
 .tpgvr-empty-icon{display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;color:#475569;margin-bottom:18px}
 .tpgvr-empty-title{color:#cbd5e1;font-size:16px;font-weight:600;margin-bottom:8px}
 .tpgvr-empty-desc{color:#64748b;font-size:13px}
-.tpgvr-detail-table{width:100%;border-collapse:collapse;font-size:14px}
+.tpgvr-detail-table{width:100%;border-collapse:collapse;font-size:14px;margin-top:16px}
+.tpgvr-detail-table th{text-align:left;color:#94a3b8;font-weight:600;font-size:12px;letter-spacing:.5px;padding:10px 16px;border-bottom:1px solid #334155;text-transform:uppercase}
 .tpgvr-detail-table td{padding:14px 16px;border-bottom:1px solid #1f2937}
-.tpgvr-detail-table td:first-child{color:#94a3b8;font-weight:600;width:240px;white-space:nowrap}
+.tpgvr-detail-table td:first-child{color:#94a3b8;font-weight:600;width:260px;white-space:nowrap}
 .tpgvr-detail-table td:last-child{color:#f1f5f9}
+.tpgvr-summary{margin-bottom:14px;color:#cbd5e1;font-size:14px}
+.tpgvr-summary-id strong{color:#fff}
+.tpgvr-hero{background:rgba(37,99,235,.10);border:1px solid rgba(59,130,246,.30);border-radius:12px;padding:22px 26px}
+.tpgvr-hero-title{color:#60a5fa;font-size:24px;font-weight:700;margin-bottom:14px}
+.tpgvr-hero-meta{display:flex;flex-direction:column;gap:8px;color:#cbd5e1;font-size:14px}
+.tpgvr-hero-meta strong{color:#94a3b8;font-weight:600;margin-right:4px}
+.tpgvr-pill{display:inline-block;padding:4px 12px;border-radius:999px;font-size:12px;font-weight:700;letter-spacing:.4px}
+.tpgvr-vac-a{background:rgba(34,197,94,.18);color:#4ade80}
+.tpgvr-vac-l{background:rgba(250,204,21,.18);color:#facc15}
+.tpgvr-vac-f{background:rgba(239,68,68,.18);color:#f87171}
+.tpgvr-link{color:#60a5fa !important;text-decoration:none;display:inline-flex;align-items:center;gap:4px;word-break:break-all}
+.tpgvr-link:hover{text-decoration:underline}
+.tpgvr-trainer-card{background:rgba(15,23,42,.55);border:1px solid #334155;border-radius:12px;padding:22px 24px;margin-top:24px}
+.tpgvr-trainer-title{font-size:16px;font-weight:700;color:#fff;margin-bottom:14px}
+.tpgvr-trainer-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px}
+.tpgvr-trainer-cell{}
+.tpgvr-trainer-lbl{font-size:11px;font-weight:700;color:#94a3b8;letter-spacing:.6px;margin-bottom:4px}
+.tpgvr-trainer-val{color:#f1f5f9;font-size:15px;font-weight:600;word-break:break-word}
+.tpgvr-trainer-divider{height:1px;background:#1f2937;margin:14px 0}
+@media(max-width:900px){.tpgvr-trainer-row{grid-template-columns:1fr}}
+.tpgvr-collapse{background:#0f172a;border:1px solid #334155;border-radius:10px;margin-top:14px;padding:14px 18px;color:#cbd5e1}
+.tpgvr-collapse summary{cursor:pointer;font-weight:600;font-size:14px;color:#cbd5e1;list-style:none}
+.tpgvr-collapse summary::-webkit-details-marker{display:none}
+.tpgvr-json{margin:14px 0 0;padding:14px;background:#020617;border:1px solid #1e293b;border-radius:8px;color:#cbd5e1;font-size:12px;font-family:'SFMono-Regular',Consolas,monospace;white-space:pre;overflow:auto;max-height:360px}
+.tpgvr-actions{display:flex;justify-content:flex-end;gap:14px;margin-top:18px}
+button.tpgvr-clear-btn,button.tpgvr-clear-btn:hover{background:transparent !important;background-image:none !important;border:1px solid #475569 !important;color:#e2e8f0 !important;padding:11px 22px !important;font-size:14px !important;font-weight:600 !important;border-radius:8px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
+button.tpgvr-clear-btn:hover{background:#1e293b !important}
+button.tpgvr-edit-btn,button.tpgvr-edit-btn:hover{background:#2563eb !important;background-image:linear-gradient(180deg,#3b82f6,#2563eb) !important;color:#fff !important;border:none !important;padding:11px 22px !important;font-size:14px !important;font-weight:700 !important;border-radius:8px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;display:inline-flex;align-items:center}
+.tpgvr-local{background:rgba(15,23,42,.55);border:1px solid #334155;border-radius:12px;padding:22px 24px;margin-top:18px}
+.tpgvr-local-title{font-size:14px;font-weight:700;color:#94a3b8;letter-spacing:1px;margin-bottom:6px}
+.tpgvr-local-sub{font-size:13px;color:#64748b;margin-bottom:18px}
+.tpgvr-local-sub code{background:#0f172a;padding:2px 6px;border-radius:4px;color:#cbd5e1;font-size:12px}
+.tpgvr-local-row{display:grid;grid-template-columns:240px 1fr;align-items:center;padding:14px 0;border-bottom:1px solid #1f2937;color:#f1f5f9;font-size:14px}
+.tpgvr-local-row:last-child{border-bottom:none}
+.tpgvr-local-row > div:first-child{color:#cbd5e1;font-weight:600}
+.tpgvr-muted{color:#94a3b8;font-weight:400}
+.tpgvr-code-pill{background:#0f172a;color:#cbd5e1;padding:4px 10px;border-radius:6px;font-family:'SFMono-Regular',Consolas,monospace;font-size:13px}
 </style>
 <div id="dash-panel-tpg-viewcourserun" class="tpg-wrap">
     <div class="tpg-app-tabs">
@@ -9436,6 +9866,19 @@ button.tpgvr-view,button.tpgvr-view:hover{background:#5bb8c9 !important;backgrou
 (function(){
     var TPGVR_URL = <?php echo json_encode(Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/runLookup')) ?>;
     function escapeHtml(s){ s = s||''; return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+    function fmtDate(iso){
+        if (!iso) return '—';
+        var p = String(iso).split('-');
+        if (p.length === 3) return p[2] + '/' + p[1] + '/' + p[0];
+        return iso;
+    }
+    window.tpgvrClear = function(){
+        document.getElementById('tpgvr-id').value = '';
+        document.getElementById('tpgvr-empty').style.display = '';
+        var box = document.getElementById('tpgvr-results');
+        box.style.display = 'none';
+        box.innerHTML = '';
+    };
     window.tpgvrView = function(){
         var id = document.getElementById('tpgvr-id').value.trim();
         if (!id) { alert('Enter a Course Run ID first.'); return; }
@@ -9452,19 +9895,96 @@ button.tpgvr-view,button.tpgvr-view:hover{background:#5bb8c9 !important;backgrou
                     return;
                 }
                 var r = d.run || {};
+
+                // ----- Hero -----
+                var vacancyClass = 'tpgvr-vac-a';
+                if (r.vacancy === 'L') vacancyClass = 'tpgvr-vac-l';
+                if (r.vacancy === 'F') vacancyClass = 'tpgvr-vac-f';
+
+                var html = '<div class="tpgvr-summary"><div class="tpgvr-summary-id">Course Run ID: <strong>' + escapeHtml(String(r.run_id)) + '</strong></div></div>'
+                         + '<div class="tpgvr-hero">'
+                         +   '<div class="tpgvr-hero-title">' + escapeHtml(r.course_name) + '</div>'
+                         +   '<div class="tpgvr-hero-meta">'
+                         +     '<div><strong>Reference Number:</strong> ' + escapeHtml(r.reference_number || r.course_code) + '</div>'
+                         +     '<div><strong>Vacancy:</strong> <span class="tpgvr-pill ' + vacancyClass + '">' + escapeHtml(r.vacancy_label || 'Available') + '</span></div>'
+                         +   '</div>'
+                         + '</div>';
+
+                // ----- FIELD / VALUE table (SSG fields) -----
                 var rows = [
-                    ['Course Run ID',     r.run_id],
-                    ['Course Run Label',  r.course_run_label],
-                    ['Course Code',       r.course_code],
-                    ['Course Name',       r.course_name],
-                    ['Session Title',     r.session_title],
-                    ['Product ID',        r.product_id],
+                    ['Course Run ID',              r.run_id],
+                    ['Course Start Date',          fmtDate(r.start_date)],
+                    ['Course End Date',            fmtDate(r.end_date)],
+                    ['Mode of Training',           r.mode_of_training],
+                    ['Venue',                      r.venue],
+                    ['Registration Opening Date',  fmtDate(r.registration_open_date)],
+                    ['Registration Closing Date',  fmtDate(r.registration_close_date)],
+                    ['Course Admin Email',         r.course_admin_email],
+                    ['Attendance Taken',           r.attendance_taken],
+                    ['QR Code Link',               r.qr_code_link],
+                    ['Organization UEN',           r.organization_uen],
                 ];
-                var html = '<table class="tpgvr-detail-table">';
+                html += '<table class="tpgvr-detail-table"><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>';
                 rows.forEach(function(row){
-                    html += '<tr><td>' + escapeHtml(row[0]) + '</td><td>' + escapeHtml(row[1] || '—') + '</td></tr>';
+                    var v = row[1];
+                    var cell;
+                    if (row[0] === 'QR Code Link' && v) {
+                        cell = '<a href="' + escapeHtml(v) + '" target="_blank" rel="noopener" class="tpgvr-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>' + escapeHtml(v) + '</a>';
+                    } else {
+                        cell = escapeHtml(v || '—');
+                    }
+                    html += '<tr><td>' + escapeHtml(row[0]) + '</td><td>' + cell + '</td></tr>';
                 });
-                html += '</table>';
+                html += '</tbody></table>';
+
+                // ----- Assigned Trainer (TPG) — list every trainer linked to the course -----
+                var trainers = r.assigned_trainers || (r.assigned_trainer ? [r.assigned_trainer] : []);
+                if (trainers.length) {
+                    html += '<div class="tpgvr-trainer-card">'
+                         +    '<div class="tpgvr-trainer-title">Assigned Trainer' + (trainers.length > 1 ? 's' : '') + ' (TPG)</div>';
+                    trainers.forEach(function(t, i){
+                        html += (i > 0 ? '<div class="tpgvr-trainer-divider"></div>' : '')
+                             + '<div class="tpgvr-trainer-row">'
+                             +   '<div class="tpgvr-trainer-cell"><div class="tpgvr-trainer-lbl">NAME</div><div class="tpgvr-trainer-val">' + escapeHtml(t.name) + '</div></div>'
+                             +   '<div class="tpgvr-trainer-cell"><div class="tpgvr-trainer-lbl">ID NUMBER</div><div class="tpgvr-trainer-val">' + escapeHtml(t.id_number_masked) + '</div></div>'
+                             +   '<div class="tpgvr-trainer-cell"><div class="tpgvr-trainer-lbl">EMAIL</div><div class="tpgvr-trainer-val">' + escapeHtml(t.email) + '</div></div>'
+                             + '</div>';
+                    });
+                    html += '</div>';
+                }
+
+                // ----- Collapsible raw JSON + parsed views -----
+                html += '<details class="tpgvr-collapse"><summary>▼ View Raw JSON Response</summary>'
+                     +   '<pre class="tpgvr-json">' + escapeHtml(JSON.stringify(d, null, 2)) + '</pre>'
+                     + '</details>'
+                     + '<details class="tpgvr-collapse"><summary>▼ View Parsed Data</summary>'
+                     +   '<pre class="tpgvr-json">' + escapeHtml(JSON.stringify(r, null, 2)) + '</pre>'
+                     + '</details>';
+
+                // ----- Action buttons -----
+                html += '<div class="tpgvr-actions">'
+                     +   '<button type="button" class="tpgvr-clear-btn" onclick="tpgvrClear()">Clear Results</button>'
+                     +   '<button type="button" class="tpgvr-edit-btn" onclick="window.location.href=\'?tpg_page=edit_course_run\'">'
+                     +     '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:6px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>'
+                     +     'Edit Course Run'
+                     +   '</button>'
+                     + '</div>';
+
+                // ----- LOCAL DETAILS section -----
+                var classPillCls = (r.class_status === 'Confirmed') ? 'tpgvr-vac-a' : 'tpgvr-vac-l';
+                var localList = r.local_trainers || (r.local_trainer ? [r.local_trainer] : []);
+                var trainerStr = localList.length
+                    ? localList.map(function(t){ return escapeHtml(t.name) + ' <span class="tpgvr-muted">(' + escapeHtml(t.email) + ')</span>'; }).join('<br>')
+                    : '—';
+                html += '<div class="tpgvr-local">'
+                     +   '<div class="tpgvr-local-title">LOCAL DETAILS</div>'
+                     +   '<div class="tpgvr-local-sub">From local <code>course_run</code> — may differ from SSG if sync is stale.</div>'
+                     +   '<div class="tpgvr-local-row"><div>Class Status</div><div><span class="tpgvr-pill ' + classPillCls + '">' + escapeHtml(r.class_status) + '</span></div></div>'
+                     +   '<div class="tpgvr-local-row"><div>Local Trainer</div><div>' + trainerStr + '</div></div>'
+                     +   '<div class="tpgvr-local-row"><div>TPG Trainer (Local)</div><div>' + trainerStr + '</div></div>'
+                     +   '<div class="tpgvr-local-row"><div>Digital Attendance ID</div><div><code class="tpgvr-code-pill">' + escapeHtml(r.digital_attendance_id) + '</code></div></div>'
+                     + '</div>';
+
                 box.innerHTML = html;
             })
             .catch(function(err){
@@ -9476,7 +9996,47 @@ button.tpgvr-view,button.tpgvr-view:hover{background:#5bb8c9 !important;backgrou
 <?php endif; ?>
 
 <?php /* ===== TPG Management: Edit Course Run (Admin only) ===== */ ?>
-<?php if ($_tpgActive && $_tpgPage === 'edit_course_run'): ?>
+<?php if ($_tpgActive && $_tpgPage === 'edit_course_run'):
+    // Trainer dropdown options (attribute_id 170)
+    $_tpgerTrainers = array();
+    try {
+        $_tpgerTrainers = $read->fetchAll(
+            "SELECT o.option_id, v.value FROM eav_attribute_option o
+             JOIN eav_attribute_option_value v ON o.option_id=v.option_id AND v.store_id=0
+             WHERE o.attribute_id=170 ORDER BY v.value"
+        );
+    } catch (Exception $e) {}
+?>
+<style>
+.tpger-banner{background:rgba(34,197,94,.10);border:1px solid rgba(34,197,94,.35);color:#86efac;padding:14px 18px;border-radius:10px;margin-top:18px;font-size:14px;line-height:1.6}
+.tpger-banner strong{color:#fff}
+.tpger-section{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:24px 28px;margin-bottom:18px}
+.tpger-section-title{font-size:18px;font-weight:700;color:#fff;margin:0 0 18px}
+.tpger-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px 24px}
+.tpger-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px 24px}
+.tpger-field{display:flex;flex-direction:column}
+.tpger-label{font-size:13px;font-weight:600;color:#e2e8f0;margin-bottom:8px}
+.tpger-label .tpger-req{color:#fb7185}
+.tpger-input,.tpger-select{width:100%;padding:13px 14px !important;background:#334155 !important;border:1px solid #475569 !important;border-radius:8px !important;color:#f1f5f9 !important;font-size:14px;outline:none;box-sizing:border-box;font-family:inherit}
+.tpger-input:focus,.tpger-select:focus{border-color:#60a5fa !important}
+.tpger-input::placeholder{color:#94a3b8}
+.tpger-input[readonly]{opacity:.7;cursor:not-allowed}
+.tpger-trainer-card{background:rgba(15,23,42,.55);border:1px solid #334155;border-radius:10px;padding:18px 22px;margin-bottom:14px}
+.tpger-trainer-num{color:#60a5fa;font-weight:700;font-size:15px;margin-bottom:10px}
+.tpger-trainer-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px}
+.tpger-trainer-cell .tpger-tlbl{color:#94a3b8;font-size:11px;font-weight:700;letter-spacing:.6px;margin-bottom:4px}
+.tpger-trainer-cell .tpger-tval{color:#f1f5f9;font-size:14px;font-weight:600;word-break:break-word}
+.tpger-help{color:#94a3b8;font-size:13px;margin:8px 0 16px}
+.tpger-trainer-form{background:rgba(15,23,42,.4);border:1px solid #334155;border-radius:10px;padding:18px 22px;margin-bottom:14px}
+.tpger-trainer-form-title{color:#94a3b8;font-size:11px;font-weight:700;letter-spacing:.6px;margin-bottom:14px}
+button.tpger-add-trainer,button.tpger-add-trainer:hover{background:transparent !important;background-image:none !important;border:1px dashed #475569 !important;color:#60a5fa !important;padding:10px 18px !important;font-size:13px !important;font-weight:600 !important;border-radius:8px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
+button.tpger-add-trainer:hover{background:rgba(96,165,250,.08) !important}
+.tpger-actions{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:8px}
+button.tpger-cancel,button.tpger-cancel:hover{background:transparent !important;background-image:none !important;border:1px solid #475569 !important;color:#e2e8f0 !important;padding:14px !important;font-size:14px !important;font-weight:600 !important;border-radius:10px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
+button.tpger-cancel:hover{background:#1e293b !important}
+button.tpger-save,button.tpger-save:hover{background:#5bb8c9 !important;background-image:linear-gradient(180deg,#6bc6d7,#5bb8c9) !important;color:#fff !important;border:none !important;padding:14px !important;font-size:14px !important;font-weight:700 !important;border-radius:10px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
+@media(max-width:900px){.tpger-grid-2,.tpger-grid-3,.tpger-trainer-row,.tpger-actions{grid-template-columns:1fr}}
+</style>
 <div id="dash-panel-tpg-editcourserun" class="tpg-wrap">
     <div class="tpg-app-tabs">
         <span class="tpg-app-label">SSG APP</span>
@@ -9487,6 +10047,7 @@ button.tpgvr-view,button.tpgvr-view:hover{background:#5bb8c9 !important;backgrou
     </div>
     <h1 class="tpg-title">Edit Course Run</h1>
 
+    <!-- Course Run Lookup -->
     <div class="tpgas-card">
         <h2 class="tpgas-card-title">Course Run Lookup</h2>
         <div class="tpgas-row">
@@ -9496,33 +10057,151 @@ button.tpgvr-view,button.tpgvr-view:hover{background:#5bb8c9 !important;backgrou
             </div>
             <button type="button" class="tpgas-fetch" onclick="tpgerFetch()">Fetch Data</button>
         </div>
+        <div class="tpger-banner" id="tpger-banner" style="display:none"></div>
         <pre class="tpgas-result" id="tpger-result"></pre>
     </div>
 
     <!-- Editable form (revealed after Fetch Data succeeds) -->
-    <div class="tpgas-card" id="tpger-edit-card" style="display:none;">
-        <h2 class="tpgas-card-title">Edit Run Details</h2>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px 24px;">
-            <div>
-                <label class="tpgas-label">Session Title</label>
-                <input type="text" class="tpgas-input" id="tpger-title" />
-            </div>
-            <div>
-                <label class="tpgas-label">Course Code (read-only)</label>
-                <input type="text" class="tpgas-input" id="tpger-course-code" readonly style="opacity:.65;cursor:not-allowed" />
-            </div>
-            <div>
-                <label class="tpgas-label">Course Name (read-only)</label>
-                <input type="text" class="tpgas-input" id="tpger-course-name" readonly style="opacity:.65;cursor:not-allowed" />
-            </div>
-            <div>
-                <label class="tpgas-label">Course Run Label</label>
-                <input type="text" class="tpgas-input" id="tpger-run-label" readonly style="opacity:.65;cursor:not-allowed" />
+    <div id="tpger-edit-form" style="display:none;">
+
+        <!-- Course Information -->
+        <div class="tpger-section">
+            <div class="tpger-section-title">Course Information</div>
+            <div class="tpger-grid-2">
+                <div class="tpger-field">
+                    <label class="tpger-label">Course Reference Number</label>
+                    <input type="text" class="tpger-input" id="tpger-course-code" readonly />
+                </div>
+                <div class="tpger-field">
+                    <label class="tpger-label">Course Title</label>
+                    <input type="text" class="tpger-input" id="tpger-course-name" readonly />
+                </div>
             </div>
         </div>
-        <div style="display:flex;justify-content:flex-end;gap:14px;margin-top:24px;">
-            <button type="button" class="tpgas-fetch" style="background:transparent !important;background-image:none !important;border:1px solid #475569 !important;color:#e2e8f0 !important;font-weight:600 !important;" onclick="tpgerCancel()">Cancel</button>
-            <button type="button" class="tpgas-fetch" onclick="tpgerSave()">Save Changes</button>
+
+        <!-- Registration Dates -->
+        <div class="tpger-section">
+            <div class="tpger-section-title">Registration Dates</div>
+            <div class="tpger-grid-2">
+                <div class="tpger-field">
+                    <label class="tpger-label"><span class="tpger-req">*</span> Opening Registration Date</label>
+                    <input type="date" class="tpger-input" id="tpger-reg-open" />
+                </div>
+                <div class="tpger-field">
+                    <label class="tpger-label"><span class="tpger-req">*</span> Closing Registration Date</label>
+                    <input type="date" class="tpger-input" id="tpger-reg-close" />
+                </div>
+            </div>
+        </div>
+
+        <!-- Course Dates -->
+        <div class="tpger-section">
+            <div class="tpger-section-title">Course Dates</div>
+            <div class="tpger-grid-2">
+                <div class="tpger-field">
+                    <label class="tpger-label"><span class="tpger-req">*</span> Course Start Date</label>
+                    <input type="date" class="tpger-input" id="tpger-start-date" />
+                </div>
+                <div class="tpger-field">
+                    <label class="tpger-label"><span class="tpger-req">*</span> Course End Date</label>
+                    <input type="date" class="tpger-input" id="tpger-end-date" />
+                </div>
+            </div>
+        </div>
+
+        <!-- Venue -->
+        <div class="tpger-section">
+            <div class="tpger-section-title">Venue</div>
+            <div class="tpger-grid-3" style="margin-bottom:18px">
+                <div class="tpger-field">
+                    <label class="tpger-label">Block</label>
+                    <input type="text" class="tpger-input" id="tpger-venue-block" value="12" />
+                </div>
+                <div class="tpger-field">
+                    <label class="tpger-label">Street</label>
+                    <input type="text" class="tpger-input" id="tpger-venue-street" value="WOODS SQUARE" />
+                </div>
+                <div class="tpger-field">
+                    <label class="tpger-label">Building</label>
+                    <input type="text" class="tpger-input" id="tpger-venue-building" value="WOODS SQUARE" />
+                </div>
+            </div>
+            <div class="tpger-grid-3" style="margin-bottom:18px">
+                <div class="tpger-field">
+                    <label class="tpger-label"><span class="tpger-req">*</span> Floor</label>
+                    <input type="text" class="tpger-input" id="tpger-venue-floor" value="07" />
+                </div>
+                <div class="tpger-field">
+                    <label class="tpger-label"><span class="tpger-req">*</span> Unit</label>
+                    <input type="text" class="tpger-input" id="tpger-venue-unit" value="85-87" />
+                </div>
+                <div class="tpger-field">
+                    <label class="tpger-label"><span class="tpger-req">*</span> Postal Code</label>
+                    <input type="text" class="tpger-input" id="tpger-venue-postal" value="737715" />
+                </div>
+            </div>
+            <div class="tpger-grid-2">
+                <div class="tpger-field">
+                    <label class="tpger-label"><span class="tpger-req">*</span> Room</label>
+                    <input type="text" class="tpger-input" id="tpger-venue-room" value="Training room" />
+                </div>
+                <div class="tpger-field">
+                    <label class="tpger-label">Wheelchair Access</label>
+                    <select class="tpger-select" id="tpger-wheelchair">
+                        <option value="No">No</option>
+                        <option value="Yes">Yes</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Course Admin Details -->
+        <div class="tpger-section">
+            <div class="tpger-section-title">Course Admin Details</div>
+            <div class="tpger-grid-2" style="margin-bottom:18px">
+                <div class="tpger-field">
+                    <label class="tpger-label"><span class="tpger-req">*</span> Mode of Training</label>
+                    <select class="tpger-select" id="tpger-mode">
+                        <option value="1">1 - Classroom Facilitated Training</option>
+                        <option value="2">2 - Synchronous e-Learning</option>
+                        <option value="3">3 - Asynchronous e-Learning</option>
+                        <option value="4">4 - Blended Learning</option>
+                    </select>
+                </div>
+                <div class="tpger-field">
+                    <label class="tpger-label"><span class="tpger-req">*</span> Course Admin Email</label>
+                    <input type="email" class="tpger-input" id="tpger-admin-email" />
+                </div>
+            </div>
+            <div class="tpger-field" style="max-width:50%">
+                <label class="tpger-label"><span class="tpger-req">*</span> Course Vacancy</label>
+                <select class="tpger-select" id="tpger-vacancy">
+                    <option value="A">A - Available</option>
+                    <option value="L">L - Limited</option>
+                    <option value="F">F - Fully Booked</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Trainer Management -->
+        <div class="tpger-section">
+            <div class="tpger-section-title">Trainer Management</div>
+            <div style="font-size:15px;font-weight:700;color:#fff;margin-bottom:14px">Assigned Trainer (TPG)</div>
+            <div id="tpger-assigned-trainers"></div>
+
+            <div class="tpger-help">Select trainers from your database. Their NRIC will be sent to SSG and they will be synced in your local system automatically.</div>
+
+            <div id="tpger-trainer-forms">
+                <!-- TRAINER 1 form rendered as a template by JS, repeated when "Add Another Trainer" is clicked -->
+            </div>
+
+            <button type="button" class="tpger-add-trainer" onclick="tpgerAddTrainer()">+ Add Another Trainer</button>
+            <div class="tpger-help" style="margin-top:14px">Leave blank to keep the existing trainer assignment unchanged when saving.</div>
+        </div>
+
+        <div class="tpger-actions">
+            <button type="button" class="tpger-cancel" onclick="tpgerCancel()">Cancel</button>
+            <button type="button" class="tpger-save" onclick="tpgerSave()">Save Changes</button>
         </div>
     </div>
 
@@ -9532,48 +10211,114 @@ button.tpgvr-view,button.tpgvr-view:hover{background:#5bb8c9 !important;backgrou
 (function(){
     var TPGER_LOOKUP_URL = <?php echo json_encode(Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/runLookup')) ?>;
     var TPGER_SAVE_URL   = <?php echo json_encode(Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/editCourseRun')) ?>;
+    var TPGER_TRAINERS   = <?php echo json_encode($_tpgerTrainers) ?>;
     window.__tpgerCurrentRunId = null;
+    window.__tpgerTrainerCount = 0;
+
+    function escapeHtml(s){ s = s||''; return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+    function val(id){var el=document.getElementById(id);return el?el.value.trim():'';}
+
+    window.tpgerAddTrainer = function(){
+        var i = (++window.__tpgerTrainerCount);
+        var opts = '<option value="">— Select a trainer —</option>';
+        TPGER_TRAINERS.forEach(function(t){
+            opts += '<option value="' + escapeHtml(t.option_id) + '">' + escapeHtml(t.value) + '</option>';
+        });
+        var html =
+            '<div class="tpger-trainer-form" data-trainer-form="' + i + '">'
+          +   '<div class="tpger-trainer-form-title">TRAINER ' + i + '</div>'
+          +   '<div class="tpger-field" style="margin-bottom:14px">'
+          +     '<label class="tpger-label">Select Trainer</label>'
+          +     '<select class="tpger-select" name="trainer_select_' + i + '">' + opts + '</select>'
+          +   '</div>'
+          +   '<div class="tpger-field">'
+          +     '<label class="tpger-label">NRIC/FIN</label>'
+          +     '<input type="text" class="tpger-input" name="trainer_nric_' + i + '" placeholder="e.g. S1234567A" autocomplete="off" />'
+          +   '</div>'
+          + '</div>';
+        document.getElementById('tpger-trainer-forms').insertAdjacentHTML('beforeend', html);
+    };
+
+    function renderAssignedTrainers(list){
+        var box = document.getElementById('tpger-assigned-trainers');
+        if (!list || !list.length) { box.innerHTML = '<div class="tpger-help">No trainer currently assigned.</div>'; return; }
+        var html = '';
+        list.forEach(function(t, i){
+            html += '<div class="tpger-trainer-card">'
+                 +    '<div class="tpger-trainer-num">Trainer ' + (i+1) + '</div>'
+                 +    '<div class="tpger-trainer-row">'
+                 +      '<div class="tpger-trainer-cell"><div class="tpger-tlbl">ID NUMBER</div><div class="tpger-tval">' + escapeHtml(t.id_number_masked) + '</div></div>'
+                 +      '<div class="tpger-trainer-cell"><div class="tpger-tlbl">NAME</div><div class="tpger-tval">' + escapeHtml(t.name) + '</div></div>'
+                 +      '<div class="tpger-trainer-cell"><div class="tpger-tlbl">EMAIL</div><div class="tpger-tval">' + escapeHtml(t.email) + '</div></div>'
+                 +    '</div>'
+                 +  '</div>';
+        });
+        box.innerHTML = html;
+    }
+
     window.tpgerFetch = function(){
         var input = document.getElementById('tpger-run-id');
         var box   = document.getElementById('tpger-result');
-        var card  = document.getElementById('tpger-edit-card');
+        var banner= document.getElementById('tpger-banner');
+        var form  = document.getElementById('tpger-edit-form');
         var runId = input.value.trim();
         if (!runId) { alert('Enter a Course Run ID first.'); input.focus(); return; }
         box.style.display = 'block';
         box.textContent = 'Fetching run ' + runId + '…';
-        card.style.display = 'none';
+        form.style.display = 'none';
+        banner.style.display = 'none';
         fetch(TPGER_LOOKUP_URL + '?run_id=' + encodeURIComponent(runId), { credentials: 'same-origin' })
             .then(function(r){ return r.json(); })
             .then(function(d){
                 if (!d.success) { box.textContent = d.message || 'Course Run not found.'; return; }
-                box.style.display = 'none';
                 var r = d.run || {};
                 window.__tpgerCurrentRunId = r.run_id;
-                document.getElementById('tpger-title').value       = r.session_title    || '';
-                document.getElementById('tpger-course-code').value = r.course_code      || '';
-                document.getElementById('tpger-course-name').value = r.course_name      || '';
-                document.getElementById('tpger-run-label').value   = r.course_run_label || '';
-                card.style.display = 'block';
+                box.style.display = 'none';
+                banner.style.display = 'block';
+                banner.innerHTML = '✓ Data loaded for <strong>' + escapeHtml(r.course_name) + '</strong> &mdash; edit the fields below and click Save.';
+
+                document.getElementById('tpger-course-code').value  = r.course_code || '';
+                document.getElementById('tpger-course-name').value  = r.course_name || '';
+                document.getElementById('tpger-reg-open').value     = r.registration_open_date  || '';
+                document.getElementById('tpger-reg-close').value    = r.registration_close_date || '';
+                document.getElementById('tpger-start-date').value   = r.start_date || '';
+                document.getElementById('tpger-end-date').value     = r.end_date   || '';
+                document.getElementById('tpger-admin-email').value  = r.course_admin_email || '';
+                if (r.vacancy)  document.getElementById('tpger-vacancy').value = r.vacancy;
+                // Mode: derive 1-4 from full label
+                var modeKey = (r.mode_of_training_full || '').match(/^(\d)/);
+                if (modeKey) document.getElementById('tpger-mode').value = modeKey[1];
+
+                renderAssignedTrainers(r.assigned_trainers || (r.assigned_trainer ? [r.assigned_trainer] : []));
+
+                // Reset trainer forms and add the first empty form
+                document.getElementById('tpger-trainer-forms').innerHTML = '';
+                window.__tpgerTrainerCount = 0;
+                tpgerAddTrainer();
+
+                form.style.display = 'block';
+                window.scrollTo({ top: form.offsetTop - 80, behavior: 'smooth' });
             })
             .catch(function(err){ box.textContent = 'Network error: ' + err.message; });
     };
     window.tpgerCancel = function(){
-        document.getElementById('tpger-edit-card').style.display = 'none';
+        document.getElementById('tpger-edit-form').style.display = 'none';
+        document.getElementById('tpger-banner').style.display = 'none';
         document.getElementById('tpger-run-id').value = '';
         window.__tpgerCurrentRunId = null;
     };
     window.tpgerSave = function(){
-        if (!window.__tpgerCurrentRunId) { alert('No run loaded.'); return; }
+        if (!window.__tpgerCurrentRunId) { alert('No run loaded. Fetch a Course Run first.'); return; }
         var fd = new FormData();
         fd.append('form_key', '<?php echo Mage::getSingleton('core/session')->getFormKey() ?>');
         fd.append('run_id', window.__tpgerCurrentRunId);
-        fd.append('session_title', document.getElementById('tpger-title').value);
+        // session_title kept for backward compatibility with the existing endpoint
+        fd.append('session_title', val('tpger-course-name') + ' (' + (val('tpger-start-date') || 'updated') + ')');
         fetch(TPGER_SAVE_URL, { method: 'POST', body: fd, credentials: 'same-origin' })
             .then(function(r){ return r.json(); })
             .then(function(d){
                 if (!d.success) { alert(d.message || 'Save failed.'); return; }
                 alert('Saved successfully.');
-                tpgerCancel();
             })
             .catch(function(err){ alert('Network error: ' + err.message); });
     };

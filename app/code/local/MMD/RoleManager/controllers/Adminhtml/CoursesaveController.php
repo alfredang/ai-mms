@@ -1060,39 +1060,110 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
     }
 
     /**
-     * Look up a Course Run by run_id (option_type_id) — used by the
-     * Add Sessions page's "Fetch Data" button. Returns the parent course +
-     * session details in a JSON envelope so the UI can pre-populate the
-     * Add Sessions form against an existing run.
+     * Look up a Course Run by run_id and return SSG-style details.
+     *
+     * The real SSG service issues 7-digit course run IDs (e.g. 1089835)
+     * which our local catalog doesn't have. To keep the page useful for
+     * demo and for SKU-driven workflows, the lookup tries:
+     *   1. our internal option_type_id (Magento custom-option session)
+     *   2. course_run_registry.run_seq (the SG-100xxx sequence)
+     *   3. deterministic hash into the SG product catalog so any numeric
+     *      input returns a stable course (mimics the SSG demo data the
+     *      AI-LMS-TMS reference shows).
+     *
+     * Returns rich SSG-shaped fields (vacancy, mode of training, dates,
+     * venue, etc.) so the View Course Run page can render the same
+     * detail layout as the SSG mockup.
      */
     public function runLookupAction()
     {
         $result = array('success' => false);
         try {
-            $runId = (int) $this->getRequest()->getParam('run_id');
-            if (!$runId) throw new Exception('run_id is required');
+            $rawId = trim((string) $this->getRequest()->getParam('run_id'));
+            $runId = (int) $rawId;
+            if (!$runId) throw new Exception('Course Run ID is required');
 
             $read = Mage::getSingleton('core/resource')->getConnection('core_read');
-            $row = $read->fetchRow(
-                "SELECT ov.option_type_id AS run_id, o.product_id, ott.title AS session_title,
-                        e.sku AS course_code,
-                        (SELECT value FROM catalog_product_entity_varchar v WHERE v.entity_id = e.entity_id AND v.attribute_id = 71 ORDER BY v.store_id LIMIT 1) AS course_name
-                 FROM catalog_product_option_type_value ov
-                 JOIN catalog_product_option o ON o.option_id = ov.option_id
-                 JOIN catalog_product_option_type_title ott ON ott.option_type_id = ov.option_type_id AND ott.store_id = 0
-                 JOIN catalog_product_entity e ON e.entity_id = o.product_id
-                 WHERE ov.option_type_id = ?
-                 LIMIT 1",
-                array($runId)
-            );
-            if (!$row) throw new Exception('No course run found for ID ' . $runId);
 
-            // Map run_id to its registry-assigned Course Run ID label, if registered
-            $reg = $read->fetchRow(
-                "SELECT website_id, run_seq FROM course_run_registry WHERE product_id = ? LIMIT 1",
-                array($row['product_id'])
+            // Strategy 1: SSG-issued Course Run IDs explicitly registered in
+            // tpg_run_id_map (the authoritative source — populated by admins
+            // or seeded from SSG). Wins over everything else.
+            $sourceProductId = 0;
+            $resolvedVia = null;
+            $mapTrainerOverride = null; // SSG-truth trainer attached to this run, if any
+            try {
+                $mapRow = $read->fetchRow(
+                    "SELECT product_id, trainer_name, trainer_id_masked, trainer_email
+                     FROM tpg_run_id_map WHERE ssg_run_id = ? LIMIT 1",
+                    array($runId)
+                );
+                if ($mapRow && (int)$mapRow['product_id']) {
+                    $sourceProductId = (int) $mapRow['product_id'];
+                    $resolvedVia = 'tpg_run_id_map';
+                    if (!empty($mapRow['trainer_name'])) {
+                        $mapTrainerOverride = array(
+                            'name'             => (string) $mapRow['trainer_name'],
+                            'id_number_masked' => (string) ($mapRow['trainer_id_masked'] ?: '*****' . substr(strtoupper(md5($mapRow['trainer_name'])), 0, 3) . 'H'),
+                            'email'            => (string) ($mapRow['trainer_email'] ?: 'trainer@gmail.com'),
+                        );
+                    }
+                }
+            } catch (Exception $e) { /* table or trainer columns not migrated yet */ }
+
+            // Strategy 2: our local option_type_id (Magento custom-option session)
+            $row = null;
+            if (!$sourceProductId) {
+                $row = $read->fetchRow(
+                    "SELECT ov.option_type_id AS run_id, o.product_id, ott.title AS session_title,
+                            e.sku AS course_code,
+                            (SELECT value FROM catalog_product_entity_varchar v WHERE v.entity_id = e.entity_id AND v.attribute_id = 71 ORDER BY v.store_id LIMIT 1) AS course_name
+                     FROM catalog_product_option_type_value ov
+                     JOIN catalog_product_option o ON o.option_id = ov.option_id
+                     JOIN catalog_product_option_type_title ott ON ott.option_type_id = ov.option_type_id AND ott.store_id = 0
+                     JOIN catalog_product_entity e ON e.entity_id = o.product_id
+                     WHERE ov.option_type_id = ?
+                     LIMIT 1",
+                    array($runId)
+                );
+                if ($row) { $sourceProductId = (int)$row['product_id']; $resolvedVia = 'option_type_id'; }
+            }
+
+            // Strategy 3: course_run_registry sequence label (SG-1000xx -> seq=xx)
+            if (!$sourceProductId && $runId >= 100000 && $runId <= 999999) {
+                $regRow = $read->fetchRow(
+                    "SELECT product_id FROM course_run_registry WHERE website_id=1 AND run_seq=? LIMIT 1",
+                    array($runId - 100000)
+                );
+                if ($regRow) { $sourceProductId = (int) $regRow['product_id']; $resolvedVia = 'course_run_registry'; }
+            }
+
+            // Strategy 4: deterministic hash into the SG catalog so any
+            // numeric Course Run ID still produces a stable demo mapping.
+            if (!$sourceProductId) {
+                $sgIds = $read->fetchCol(
+                    "SELECT product_id FROM catalog_product_website WHERE website_id=1 ORDER BY product_id"
+                );
+                if ($sgIds) {
+                    $idx = $runId % count($sgIds);
+                    $sourceProductId = (int) $sgIds[$idx];
+                    $resolvedVia = 'hash_mapped';
+                }
+            }
+            if (!$sourceProductId) throw new Exception('Could not resolve a course for ID ' . $runId);
+
+            $product = $read->fetchRow(
+                "SELECT e.entity_id, e.sku,
+                        (SELECT value FROM catalog_product_entity_varchar v WHERE v.entity_id=e.entity_id AND v.attribute_id=71 ORDER BY v.store_id LIMIT 1) AS course_name
+                 FROM catalog_product_entity e WHERE e.entity_id=? LIMIT 1",
+                array($sourceProductId)
             );
-            $prefix = 'SG';
+            if (!$product) throw new Exception('Course product not found');
+
+            // Course Run Label from registry (SG-100000 etc.)
+            $reg = $read->fetchRow(
+                "SELECT website_id, run_seq FROM course_run_registry WHERE product_id=? LIMIT 1",
+                array($sourceProductId)
+            );
             $courseRunLabel = null;
             if ($reg) {
                 $prefixMap = array(1=>'SG',2=>'MY',3=>'GH',4=>'NG',5=>'BUT',6=>'IND',7=>'INF');
@@ -1100,14 +1171,173 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 $courseRunLabel = $prefix . '-' . str_pad((string)(100000 + (int)$reg['run_seq']), 6, '0', STR_PAD_LEFT);
             }
 
+            // Pick a representative session title (earliest if any exist)
+            $sessionTitle = $row ? $row['session_title'] : null;
+            if (!$sessionTitle) {
+                $sessionTitle = (string) $read->fetchOne(
+                    "SELECT ott.title FROM catalog_product_option_type_value ov
+                     JOIN catalog_product_option o ON o.option_id=ov.option_id
+                     JOIN catalog_product_option_type_title ott ON ott.option_type_id=ov.option_type_id AND ott.store_id=0
+                     WHERE o.product_id=? ORDER BY ov.sort_order ASC, ov.option_type_id DESC LIMIT 1",
+                    array($sourceProductId)
+                );
+            }
+
+            $enrolCount = (int) $read->fetchOne(
+                "SELECT COUNT(DISTINCT o.entity_id) FROM sales_flat_order o
+                 JOIN sales_flat_order_item oi ON oi.order_id=o.entity_id
+                 WHERE oi.product_id=? AND o.state NOT IN ('canceled','closed')",
+                array($sourceProductId)
+            );
+
+            // Vacancy: A=Available, L=Limited (>=20 enrolled), F=Fully Booked (>=25)
+            if      ($enrolCount >= 25) $vacancy = 'F';
+            elseif  ($enrolCount >= 20) $vacancy = 'L';
+            else                         $vacancy = 'A';
+            $vacancyLabel = array('A'=>'Available','L'=>'Limited','F'=>'Fully Booked');
+
+            // Synthesize SSG-style course run details
+            $modes = array('1' => 'Classroom Facilitated Training', '2' => 'Synchronous e-Learning',
+                           '3' => 'Asynchronous e-Learning', '4' => 'Blended Learning');
+            $modeKey = (string) (($runId % 4) + 1);
+
+            // Try to extract real start/end from session_title (e.g. "27 Apr 2026 (Mon)")
+            $startDate = $endDate = null;
+            if ($sessionTitle && preg_match('#(\d{1,2})(?:/(\d{1,2}))?\s+([A-Za-z]{3,})\s+(\d{4})#', $sessionTitle, $m)) {
+                $startTs = strtotime($m[1] . ' ' . $m[3] . ' ' . $m[4]);
+                $endTs   = !empty($m[2]) ? strtotime($m[2] . ' ' . $m[3] . ' ' . $m[4]) : $startTs;
+                if ($startTs) $startDate = date('Y-m-d', $startTs);
+                if ($endTs)   $endDate   = date('Y-m-d', $endTs);
+            }
+
+            // Registration dates: opening 6 weeks before start, closing 1 day before
+            $regOpenDate = $regCloseDate = null;
+            if ($startDate) {
+                $regOpenDate  = date('Y-m-d', strtotime($startDate . ' -6 weeks'));
+                $regCloseDate = date('Y-m-d', strtotime($startDate . ' -1 day'));
+            }
+
+            // Assigned trainers: pull from BOTH the multiselect (structured) AND
+            // the trainerprofile HTML (legacy textual). Dedupe by lowercased name
+            // so the Assigned Trainer card lists every trainer this course is
+            // really linked to, not just the first multiselect option.
+            $trainerNames = array();      // dedup by lowercased name
+            $assignedTrainers = array();  // ordered list rendered to UI
+
+            // 1. Multiselect (attribute 170) — option_id values resolved to names
+            $trainersCsv = (string) $read->fetchOne(
+                "SELECT value FROM catalog_product_entity_text WHERE entity_id=? AND attribute_id=170 AND value IS NOT NULL AND value != '' ORDER BY store_id LIMIT 1",
+                array($sourceProductId)
+            );
+            if ($trainersCsv !== '') {
+                $ids = array_filter(array_map('intval', explode(',', $trainersCsv)));
+                if ($ids) {
+                    $rows = $read->fetchAll(
+                        "SELECT eaov.value FROM eav_attribute_option_value eaov
+                         WHERE eaov.option_id IN (" . implode(',', array_map('intval', $ids)) . ") AND eaov.store_id=0
+                         ORDER BY eaov.value"
+                    );
+                    foreach ($rows as $r2) {
+                        $name = trim((string)$r2['value']);
+                        if ($name === '') continue;
+                        $key = strtolower($name);
+                        if (isset($trainerNames[$key])) continue;
+                        $trainerNames[$key] = 1;
+                        $assignedTrainers[] = $name;
+                    }
+                }
+            }
+
+            // 2. trainerprofile HTML — extract names from <strong>Name:</strong>
+            //    blocks so courses with legacy-only assignments still surface.
+            $tpAttrId = (int) $read->fetchOne("SELECT attribute_id FROM eav_attribute WHERE attribute_code='trainerprofile' AND entity_type_id=4");
+            if ($tpAttrId) {
+                $tpHtml = (string) $read->fetchOne(
+                    "SELECT value FROM catalog_product_entity_text WHERE entity_id=? AND attribute_id=? AND value IS NOT NULL AND value != '' ORDER BY store_id LIMIT 1",
+                    array($sourceProductId, $tpAttrId)
+                );
+                if ($tpHtml !== '' && preg_match_all('#<strong[^>]*>\s*([^<:]{2,80}?)\s*:?\s*</strong>#si', $tpHtml, $mm)) {
+                    foreach ($mm[1] as $name) {
+                        $name = html_entity_decode(trim($name));
+                        if ($name === '' || stripos($name, 'http') !== false) continue;
+                        if (preg_match('/^(course|module|topic|day|session|note|trainer profile|learning|outcome)/i', $name)) continue;
+                        $key = strtolower($name);
+                        if (isset($trainerNames[$key])) continue;
+                        $trainerNames[$key] = 1;
+                        $assignedTrainers[] = $name;
+                    }
+                }
+            }
+
+            // Build the list of trainer objects (name + masked NRIC + slug email).
+            // The SSG-truth trainer from tpg_run_id_map (if present) goes FIRST
+            // so the Assigned Trainer card shows the real run-level assignee.
+            $assignedTrainerList = array();
+            if ($mapTrainerOverride) $assignedTrainerList[] = $mapTrainerOverride;
+            foreach ($assignedTrainers as $name) {
+                if ($mapTrainerOverride && strcasecmp($name, $mapTrainerOverride['name']) === 0) continue;
+                $clean = trim(preg_replace('/^(Dr\.?|Mr\.?|Mrs\.?|Ms\.?|Prof\.?)\s+/i', '', $name));
+                $slug  = trim(preg_replace('/[^a-z0-9]+/', '', strtolower($clean)));
+                $assignedTrainerList[] = array(
+                    'name'             => $name,
+                    'id_number_masked' => '*****' . substr(strtoupper(md5($name)), 0, 3) . 'H',
+                    'email'            => ($slug ?: 'trainer') . '@gmail.com',
+                );
+            }
+            $assignedTrainer = !empty($assignedTrainerList) ? $assignedTrainerList[0] : null;
+            // Local trainer = catalog-level only (drops the SSG override to
+            // show divergence between SSG-truth and our local data).
+            $localTrainerList = array();
+            foreach ($assignedTrainerList as $t) {
+                if ($mapTrainerOverride && strcasecmp($t['name'], $mapTrainerOverride['name']) === 0) continue;
+                $localTrainerList[] = $t;
+            }
+            $localTrainer = !empty($localTrainerList) ? $localTrainerList[0] : null;
+
+            // Course admin email — admin user 1's email when present
+            $courseAdminEmail = (string) $read->fetchOne(
+                "SELECT email FROM admin_user WHERE is_active=1 ORDER BY user_id ASC LIMIT 1"
+            ) ?: 'admin@tertiaryinfotech.com';
+
+            // Digital attendance / QR
+            $attendanceCode = 'RA' . str_pad((string)(($runId * 7) % 1000000), 6, '0', STR_PAD_LEFT);
+            $qrLink = 'https://www.myskillsfuture.gov.sg/api/take-attendance/' . $attendanceCode;
+
+            // Class status: Confirmed when there's a known session, else Pending
+            $classStatus = $sessionTitle && $startDate ? 'Confirmed' : 'Pending';
+
             $result['success'] = true;
             $result['run']     = array(
-                'run_id'           => (int) $row['run_id'],
-                'product_id'       => (int) $row['product_id'],
-                'course_code'      => $row['course_code'],
-                'course_name'      => $row['course_name'] ?: '(No name)',
-                'session_title'    => $row['session_title'],
-                'course_run_label' => $courseRunLabel,
+                'run_id'                  => $runId,
+                'product_id'              => $sourceProductId,
+                'course_code'             => $product['sku'],
+                'course_name'             => $product['course_name'] ?: '(No name)',
+                'session_title'           => $sessionTitle ?: '—',
+                'course_run_label'        => $courseRunLabel,
+                'reference_number'        => $product['sku'],
+                'vacancy'                 => $vacancy,
+                'vacancy_label'           => $vacancyLabel[$vacancy],
+                'mode_of_training'        => $modes[$modeKey],
+                'mode_of_training_full'   => $modeKey . ' - ' . $modes[$modeKey],
+                'start_date'              => $startDate,
+                'end_date'                => $endDate,
+                'registration_open_date'  => $regOpenDate,
+                'registration_close_date' => $regCloseDate,
+                'venue'                   => 'WOODS SQUARE, Blk 12, WOODS SQUARE, #07-85-87, S(737715)',
+                'venue_room'              => 'Training Room',
+                'training_partner'        => array('uen' => '201200696W', 'code' => '201200696W-01'),
+                'organization_uen'        => '201200696W',
+                'course_admin_email'      => $courseAdminEmail,
+                'attendance_taken'        => 'Yes',
+                'qr_code_link'            => $qrLink,
+                'digital_attendance_id'   => $attendanceCode,
+                'assigned_trainer'        => $assignedTrainer,
+                'assigned_trainers'       => $assignedTrainerList,
+                'local_trainer'           => $localTrainer,
+                'local_trainers'          => $localTrainerList,
+                'class_status'            => $classStatus,
+                'enrolment_count'         => $enrolCount,
+                'lookup_strategy'         => $resolvedVia ?: 'unknown',
             );
         } catch (Exception $e) {
             $result['message'] = $e->getMessage();
@@ -1117,7 +1347,9 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
 
     /**
      * List all sessions of the course whose Course Run ID was looked up.
-     * Used by the Course Sessions page's "Fetch Sessions" button.
+     * Uses the same lookup chain as runLookupAction so SSG-issued run IDs
+     * (e.g. 1089835) resolve via tpg_run_id_map / course_run_registry /
+     * hash mapping, not just the local option_type_id.
      */
     public function runSessionsLookupAction()
     {
@@ -1127,20 +1359,53 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             if (!$runId) throw new Exception('run_id is required');
 
             $read = Mage::getSingleton('core/resource')->getConnection('core_read');
-            // Resolve the run_id to its parent product
-            $course = $read->fetchRow(
-                "SELECT o.product_id, e.sku,
-                        (SELECT value FROM catalog_product_entity_varchar v WHERE v.entity_id = e.entity_id AND v.attribute_id = 71 ORDER BY v.store_id LIMIT 1) AS course_name
-                 FROM catalog_product_option_type_value ov
-                 JOIN catalog_product_option o ON o.option_id = ov.option_id
-                 JOIN catalog_product_entity e ON e.entity_id = o.product_id
-                 WHERE ov.option_type_id = ?
-                 LIMIT 1",
-                array($runId)
-            );
-            if (!$course) throw new Exception('No course run found for ID ' . $runId);
 
-            $sessions = $read->fetchAll(
+            // Strategy 1: tpg_run_id_map (SSG-issued IDs we've registered)
+            $productId = 0;
+            try {
+                $productId = (int) $read->fetchOne(
+                    "SELECT product_id FROM tpg_run_id_map WHERE ssg_run_id = ? LIMIT 1",
+                    array($runId)
+                );
+            } catch (Exception $e) {}
+
+            // Strategy 2: local option_type_id (Magento custom-option session)
+            if (!$productId) {
+                $productId = (int) $read->fetchOne(
+                    "SELECT o.product_id
+                     FROM catalog_product_option_type_value ov
+                     JOIN catalog_product_option o ON o.option_id = ov.option_id
+                     WHERE ov.option_type_id = ? LIMIT 1",
+                    array($runId)
+                );
+            }
+
+            // Strategy 3: course_run_registry (SG-1000xx -> seq)
+            if (!$productId && $runId >= 100000 && $runId <= 999999) {
+                $productId = (int) $read->fetchOne(
+                    "SELECT product_id FROM course_run_registry WHERE website_id=1 AND run_seq=? LIMIT 1",
+                    array($runId - 100000)
+                );
+            }
+
+            // Strategy 4: deterministic hash so any numeric ID still returns demo data
+            if (!$productId) {
+                $sgIds = $read->fetchCol(
+                    "SELECT product_id FROM catalog_product_website WHERE website_id=1 ORDER BY product_id"
+                );
+                if ($sgIds) $productId = (int) $sgIds[$runId % count($sgIds)];
+            }
+            if (!$productId) throw new Exception('No course run found for ID ' . $runId);
+
+            $course = $read->fetchRow(
+                "SELECT e.entity_id, e.sku,
+                        (SELECT value FROM catalog_product_entity_varchar v WHERE v.entity_id = e.entity_id AND v.attribute_id = 71 ORDER BY v.store_id LIMIT 1) AS course_name
+                 FROM catalog_product_entity e WHERE e.entity_id = ? LIMIT 1",
+                array($productId)
+            );
+            if (!$course) throw new Exception('Course product not found');
+
+            $sessionsRaw = $read->fetchAll(
                 "SELECT ov.option_type_id, ott.title
                  FROM catalog_product_option o
                  JOIN catalog_product_option_title ot ON ot.option_id = o.option_id AND ot.store_id = 0
@@ -1148,16 +1413,88 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                  JOIN catalog_product_option_type_title ott ON ott.option_type_id = ov.option_type_id AND ott.store_id = 0
                  WHERE o.product_id = ? AND (ot.title = 'Course Date' OR ot.title LIKE '%Date%')
                  ORDER BY ov.sort_order ASC, ov.option_type_id ASC",
-                array((int)$course['product_id'])
+                array((int)$course['entity_id'])
             );
+
+            // Course run derived details (same shape as runLookup)
+            $startTitle = $sessionsRaw ? $sessionsRaw[0]['title'] : '';
+            $startDate = $endDate = null;
+            if ($startTitle && preg_match('#(\d{1,2})(?:[-/](\d{1,2}))?\s+([A-Za-z]{3,})\s+(\d{4})#', $startTitle, $m)) {
+                $sTs = strtotime($m[1] . ' ' . $m[3] . ' ' . $m[4]);
+                $eTs = !empty($m[2]) ? strtotime($m[2] . ' ' . $m[3] . ' ' . $m[4]) : $sTs;
+                if ($sTs) $startDate = date('Y-m-d', $sTs);
+                if ($eTs) $endDate   = date('Y-m-d', $eTs);
+            }
+
+            $enrolCount = (int) $read->fetchOne(
+                "SELECT COUNT(DISTINCT o.entity_id) FROM sales_flat_order o
+                 JOIN sales_flat_order_item oi ON oi.order_id = o.entity_id
+                 WHERE oi.product_id = ? AND o.state NOT IN ('canceled','closed')",
+                array((int)$course['entity_id'])
+            );
+
+            $vacancy = $enrolCount >= 25 ? 'Fully Booked' : ($enrolCount >= 20 ? 'Limited' : 'Available');
+
+            $courseAdminEmail = (string) $read->fetchOne(
+                "SELECT email FROM admin_user WHERE is_active=1 ORDER BY user_id ASC LIMIT 1"
+            ) ?: 'admin@tertiaryinfotech.com';
+
+            // Build session rows with synthesized SSG-style fields
+            $modesByKey = array('1'=>'Classroom','2'=>'Synchronous e-Learning','3'=>'Asynchronous e-Learning','4'=>'Blended Learning','8'=>'Assessment');
+            $sessions = array();
+            foreach ($sessionsRaw as $i => $s) {
+                $title = $s['title'];
+                $sDate = null; $startTime = null; $endTime = null;
+                if (preg_match('#(\d{1,2})(?:[-/](\d{1,2}))?\s+([A-Za-z]{3,})\s+(\d{4})#', $title, $mm)) {
+                    $ts = strtotime($mm[1] . ' ' . $mm[3] . ' ' . $mm[4]);
+                    if ($ts) $sDate = date('Y-m-d', $ts);
+                }
+                // Alternate morning / afternoon timings; last one is Assessment 16:00-18:00
+                $idx = $i + 1;
+                $isLast = ($idx === count($sessionsRaw));
+                $isMorning = ($idx % 2 === 1);
+                if ($isLast && count($sessionsRaw) >= 3) {
+                    $startTime = '16:00'; $endTime = '18:00'; $modeKey = '8';
+                } elseif ($isMorning) {
+                    $startTime = '09:15'; $endTime = '13:15'; $modeKey = '1';
+                } else {
+                    $startTime = '14:00'; $endTime = '18:00'; $modeKey = '1';
+                }
+
+                $attTaken = (int) $read->fetchOne(
+                    "SELECT COUNT(*) FROM course_attendance WHERE option_type_id=?",
+                    array((int)$s['option_type_id'])
+                );
+
+                $sessions[] = array(
+                    'option_type_id'    => (int) $s['option_type_id'],
+                    'session_id'        => $course['sku'] . '-' . $runId . '-S' . $idx,
+                    'title'             => $title,
+                    'date'              => $sDate,
+                    'start_time'        => $startTime,
+                    'end_time'          => $endTime,
+                    'mode'              => $modesByKey[$modeKey],
+                    'attendance_taken'  => $attTaken > 0,
+                    'status'            => 'Active',
+                );
+            }
 
             $result['success'] = true;
             $result['run']     = array(
-                'product_id'    => (int) $course['product_id'],
-                'course_code'   => $course['sku'],
-                'course_name'   => $course['course_name'] ?: '(No name)',
-                'session_count' => count($sessions),
-                'sessions'      => $sessions,
+                'run_id'           => $runId,
+                'product_id'       => (int) $course['entity_id'],
+                'course_code'      => $course['sku'],
+                'course_name'      => $course['course_name'] ?: '(No name)',
+                'mode_of_training' => 'Classroom',
+                'start_date'       => $startDate,
+                'end_date'         => $endDate,
+                'venue'            => 'Floor 07 · #85-87 · WOODS SQUARE',
+                'vacancy'          => $vacancy,
+                'admin_email'      => $courseAdminEmail,
+                'registered'       => $enrolCount,
+                'session_count'    => count($sessions),
+                'active_count'     => count($sessions),
+                'sessions'         => $sessions,
             );
         } catch (Exception $e) {
             $result['message'] = $e->getMessage();
