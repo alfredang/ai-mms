@@ -7788,6 +7788,2014 @@ button.tpgel-submit,button.tpgel-submit:hover{background:#2563eb !important;back
 </script>
 <?php endif; ?>
 
+<?php /* Shared styles for Add Sessions / Course Sessions / any future Run-Lookup
+       page. Loaded for any TPG sub-page so each card-based form renders the
+       same way. */ ?>
+<?php if ($_tpgActive): ?>
+<style>
+.tpgas-card{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:26px 30px;margin-bottom:18px}
+.tpgas-card-title{font-size:18px;font-weight:700;color:#fff;margin:0 0 18px}
+.tpgas-row{display:flex;gap:12px;align-items:flex-end}
+.tpgas-input-wrap{flex:1}
+.tpgas-label{display:block;font-size:13px;font-weight:600;color:#e2e8f0;margin-bottom:6px}
+.tpgas-label .tpgas-req{color:#fb7185}
+.tpgas-input{width:100%;padding:14px 16px !important;background:#334155 !important;border:1px solid #475569 !important;border-radius:10px !important;color:#f1f5f9 !important;font-size:14px;outline:none;box-sizing:border-box;font-family:inherit}
+.tpgas-input:focus{border-color:#60a5fa !important}
+.tpgas-input::placeholder{color:#94a3b8}
+button.tpgas-fetch,button.tpgas-fetch:hover{background:#5bb8c9 !important;background-image:linear-gradient(180deg,#6bc6d7,#5bb8c9) !important;color:#fff !important;border:none !important;padding:14px 28px !important;font-size:14px !important;font-weight:700 !important;border-radius:10px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;white-space:nowrap;display:inline-flex;align-items:center;gap:8px}
+.tpgas-result{margin-top:18px;padding:18px;background:#0f172a;border:1px solid #334155;border-radius:10px;color:#cbd5e1;font-size:13px;font-family:'SFMono-Regular',Consolas,monospace;white-space:pre;overflow:auto;display:none}
+</style>
+<?php endif; ?>
+
+<?php /* ===== TPG Management: Add Sessions (Admin only) ===== */ ?>
+<?php if ($_tpgActive && $_tpgPage === 'add_sessions'): ?>
+<div id="dash-panel-tpg-addsessions" class="tpg-wrap">
+    <div class="tpg-app-tabs">
+        <span class="tpg-app-label">SSG APP</span>
+        <button type="button" class="tpg-app-tab active">App 1</button>
+        <button type="button" class="tpg-app-tab">App 2</button>
+        <button type="button" class="tpg-app-tab">App 3</button>
+        <button type="button" class="tpg-app-tab">App 4</button>
+    </div>
+    <h1 class="tpg-title">Add Sessions</h1>
+
+    <div class="tpgas-card">
+        <h2 class="tpgas-card-title">Course Run Lookup</h2>
+        <div class="tpgas-row">
+            <div class="tpgas-input-wrap">
+                <label class="tpgas-label"><span class="tpgas-req">*</span> Course Run ID</label>
+                <input type="text" class="tpgas-input" id="tpgas-run-id" placeholder="e.g. 1234567" autocomplete="off" />
+            </div>
+            <button type="button" class="tpgas-fetch" onclick="tpgasFetch()">Fetch Data</button>
+        </div>
+        <pre class="tpgas-result" id="tpgas-result"></pre>
+    </div>
+
+    <div class="tpg-footer-brand">Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y') ?></div>
+</div>
+<script type="text/javascript">
+(function(){
+    var TPGAS_LOOKUP_URL = <?php echo json_encode(Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/runLookup')) ?>;
+    window.tpgasFetch = function(){
+        var input = document.getElementById('tpgas-run-id');
+        var box   = document.getElementById('tpgas-result');
+        var runId = input.value.trim();
+        if (!runId) { alert('Enter a Course Run ID first.'); input.focus(); return; }
+        box.style.display = 'block';
+        box.textContent = 'Fetching run ' + runId + '…';
+        fetch(TPGAS_LOOKUP_URL + '?run_id=' + encodeURIComponent(runId), { credentials: 'same-origin' })
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+                if (!d.success) { box.textContent = d.message || 'Course Run not found.'; return; }
+                box.textContent = JSON.stringify(d.run, null, 2);
+            })
+            .catch(function(err){ box.textContent = 'Network error: ' + err.message; });
+    };
+})();
+</script>
+<?php endif; ?>
+
+<?php /* ===== TPG Management: Course Sessions (Admin only) ===== */ ?>
+<?php if ($_tpgActive && $_tpgPage === 'course_sessions'): ?>
+<div id="dash-panel-tpg-coursesessions" class="tpg-wrap">
+    <div class="tpg-app-tabs">
+        <span class="tpg-app-label">SSG APP</span>
+        <button type="button" class="tpg-app-tab active">App 1</button>
+        <button type="button" class="tpg-app-tab">App 2</button>
+        <button type="button" class="tpg-app-tab">App 3</button>
+        <button type="button" class="tpg-app-tab">App 4</button>
+    </div>
+    <h1 class="tpg-title">Course Sessions</h1>
+
+    <div class="tpgas-card">
+        <h2 class="tpgas-card-title">Course Run Lookup</h2>
+        <div class="tpgas-row">
+            <div class="tpgas-input-wrap">
+                <label class="tpgas-label"><span class="tpgas-req">*</span> Course Run ID</label>
+                <input type="text" class="tpgas-input" id="tpgcs-run-id" placeholder="e.g. 1289568" autocomplete="off" />
+            </div>
+            <button type="button" class="tpgas-fetch" onclick="tpgcsFetch()" style="display:inline-flex;align-items:center;gap:8px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                Fetch Sessions
+            </button>
+        </div>
+        <pre class="tpgas-result" id="tpgcs-result"></pre>
+    </div>
+
+    <div class="tpg-footer-brand">Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y') ?></div>
+</div>
+<script type="text/javascript">
+(function(){
+    var TPGCS_LIST_URL = <?php echo json_encode(Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/runSessionsLookup')) ?>;
+    window.tpgcsFetch = function(){
+        var input = document.getElementById('tpgcs-run-id');
+        var box   = document.getElementById('tpgcs-result');
+        var runId = input.value.trim();
+        if (!runId) { alert('Enter a Course Run ID first.'); input.focus(); return; }
+        box.style.display = 'block';
+        box.textContent = 'Fetching sessions for run ' + runId + '…';
+        fetch(TPGCS_LIST_URL + '?run_id=' + encodeURIComponent(runId), { credentials: 'same-origin' })
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+                if (!d.success) { box.textContent = d.message || 'Course Run not found.'; return; }
+                box.textContent = JSON.stringify(d.run, null, 2);
+            })
+            .catch(function(err){ box.textContent = 'Network error: ' + err.message; });
+    };
+})();
+</script>
+<?php endif; ?>
+
+<?php /* ===== TPG Management: Session Attendance (Admin only) ===== */ ?>
+<?php if ($_tpgActive && $_tpgPage === 'session_attendance'): ?>
+<style>
+.tpgsa-card{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:26px 30px;margin-bottom:18px}
+.tpgsa-card-title{font-size:18px;font-weight:700;color:#fff;margin:0 0 22px}
+.tpgsa-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px 24px}
+.tpgsa-field{display:flex;flex-direction:column}
+.tpgsa-label{font-size:13px;font-weight:600;color:#e2e8f0;margin-bottom:8px}
+.tpgsa-label .tpgsa-req{color:#fb7185}
+.tpgsa-input{width:100%;padding:14px 16px !important;background:#334155 !important;border:1px solid #475569 !important;border-radius:10px !important;color:#f1f5f9 !important;font-size:14px;outline:none;box-sizing:border-box;font-family:inherit}
+.tpgsa-input:focus{border-color:#60a5fa !important}
+.tpgsa-input::placeholder{color:#94a3b8}
+.tpgsa-actions{display:flex;justify-content:flex-end;gap:14px;margin-top:24px}
+button.tpgsa-clear,button.tpgsa-clear:hover{background:transparent !important;background-image:none !important;border:1px solid #475569 !important;color:#e2e8f0 !important;padding:13px 26px !important;font-size:14px !important;font-weight:600 !important;border-radius:10px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
+button.tpgsa-clear:hover{background:#1e293b !important}
+button.tpgsa-fetch,button.tpgsa-fetch:hover{background:#5bb8c9 !important;background-image:linear-gradient(180deg,#6bc6d7,#5bb8c9) !important;color:#fff !important;border:none !important;padding:13px 26px !important;font-size:14px !important;font-weight:700 !important;border-radius:10px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;display:inline-flex;align-items:center;gap:8px}
+.tpgsa-result{margin-top:18px;padding:18px;background:#0f172a;border:1px solid #334155;border-radius:10px;color:#cbd5e1;font-size:13px;font-family:'SFMono-Regular',Consolas,monospace;white-space:pre;overflow:auto;display:none}
+@media(max-width:900px){.tpgsa-grid{grid-template-columns:1fr}}
+</style>
+<div id="dash-panel-tpg-sessionattendance" class="tpg-wrap">
+    <div class="tpg-app-tabs">
+        <span class="tpg-app-label">SSG APP</span>
+        <button type="button" class="tpg-app-tab active">App 1</button>
+        <button type="button" class="tpg-app-tab">App 2</button>
+        <button type="button" class="tpg-app-tab">App 3</button>
+        <button type="button" class="tpg-app-tab">App 4</button>
+    </div>
+    <h1 class="tpg-title">Course Session Attendance</h1>
+
+    <div class="tpgsa-card">
+        <h2 class="tpgsa-card-title">Search Parameters</h2>
+        <div class="tpgsa-grid">
+            <div class="tpgsa-field">
+                <label class="tpgsa-label"><span class="tpgsa-req">*</span> Company UEN</label>
+                <input type="text" class="tpgsa-input" id="tpgsa-uen" value="201200696W" />
+            </div>
+            <div class="tpgsa-field">
+                <label class="tpgsa-label"><span class="tpgsa-req">*</span> Course Code</label>
+                <input type="text" class="tpgsa-input" id="tpgsa-course-code" placeholder="e.g. TGS-2019503161" autocomplete="off" />
+            </div>
+            <div class="tpgsa-field">
+                <label class="tpgsa-label"><span class="tpgsa-req">*</span> Session ID</label>
+                <input type="text" class="tpgsa-input" id="tpgsa-session-id" placeholder="e.g. TGS-2019503161-1289568-S1" autocomplete="off" />
+            </div>
+            <div class="tpgsa-field">
+                <label class="tpgsa-label"><span class="tpgsa-req">*</span> Course Run ID</label>
+                <input type="text" class="tpgsa-input" id="tpgsa-run-id" placeholder="e.g. 1289568" autocomplete="off" />
+            </div>
+        </div>
+        <div class="tpgsa-actions">
+            <button type="button" class="tpgsa-clear" onclick="tpgsaClear()">Clear</button>
+            <button type="button" class="tpgsa-fetch" onclick="tpgsaFetch()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                Fetch Attendance
+            </button>
+        </div>
+        <pre class="tpgsa-result" id="tpgsa-result"></pre>
+    </div>
+
+    <div class="tpg-footer-brand">Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y') ?></div>
+</div>
+<script type="text/javascript">
+(function(){
+    var TPGSA_LOOKUP_URL = <?php echo json_encode(Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/sessionAttendanceLookup')) ?>;
+    function val(id){var el=document.getElementById(id);return el?el.value.trim():'';}
+    window.tpgsaClear = function(){
+        ['tpgsa-course-code','tpgsa-session-id','tpgsa-run-id'].forEach(function(id){
+            var el = document.getElementById(id); if (el) el.value = '';
+        });
+        var box = document.getElementById('tpgsa-result');
+        if (box) { box.textContent=''; box.style.display='none'; }
+    };
+    window.tpgsaFetch = function(){
+        var box = document.getElementById('tpgsa-result');
+        var uen = val('tpgsa-uen');
+        var code = val('tpgsa-course-code');
+        var sid = val('tpgsa-session-id');
+        var run = val('tpgsa-run-id');
+        if (!run && !sid && !code) {
+            alert('Enter at least Course Run ID, Session ID, or Course Code.');
+            return;
+        }
+        box.style.display = 'block';
+        box.textContent = 'Fetching attendance…';
+        var qs = 'uen=' + encodeURIComponent(uen)
+               + '&course_code=' + encodeURIComponent(code)
+               + '&session_id=' + encodeURIComponent(sid)
+               + '&run_id=' + encodeURIComponent(run);
+        fetch(TPGSA_LOOKUP_URL + '?' + qs, { credentials: 'same-origin' })
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+                if (!d.success) { box.textContent = d.message || 'No attendance found.'; return; }
+                box.textContent = JSON.stringify(d, null, 2);
+            })
+            .catch(function(err){ box.textContent = 'Network error: ' + err.message; });
+    };
+})();
+</script>
+<?php endif; ?>
+
+<?php /* ===== TPG Management: Check Attendance (Admin only) ===== */ ?>
+<?php if ($_tpgActive && $_tpgPage === 'check_attendance'): ?>
+<style>
+.tpgca-subtitle{color:#94a3b8;font-size:14px;margin:0 0 24px}
+.tpgca-card{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:24px 28px;margin-bottom:18px}
+.tpgca-card-title{font-size:18px;font-weight:700;color:#fff;margin:0 0 18px}
+.tpgca-search-row{display:flex;gap:12px;align-items:flex-end}
+.tpgca-search-row .tpgca-input-wrap{flex:1}
+.tpgca-label{display:block;font-size:13px;font-weight:600;color:#e2e8f0;margin-bottom:6px}
+.tpgca-label .tpgca-req{color:#fb7185}
+.tpgca-input{width:100%;padding:14px 16px !important;background:#334155 !important;border:1px solid #475569 !important;border-radius:10px !important;color:#f1f5f9 !important;font-size:14px;outline:none;box-sizing:border-box;font-family:inherit}
+.tpgca-input:focus{border-color:#60a5fa !important}
+.tpgca-input::placeholder{color:#94a3b8}
+button.tpgca-search,button.tpgca-search:hover{background:#5bb8c9 !important;background-image:linear-gradient(180deg,#6bc6d7,#5bb8c9) !important;color:#fff !important;border:none !important;padding:14px 28px !important;font-size:14px !important;font-weight:700 !important;border-radius:10px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;display:inline-flex;align-items:center;gap:8px}
+button.tpgca-search:disabled,button.tpgca-search[disabled]{opacity:.55;cursor:not-allowed}
+.tpgca-tabs{display:flex;gap:24px;border-bottom:1px solid #334155;margin-bottom:18px}
+.tpgca-tab{padding:10px 4px;font-size:14px;font-weight:600;color:#94a3b8;cursor:pointer;border-bottom:2px solid transparent;transition:color .15s,border-color .15s}
+.tpgca-tab.active{color:#60a5fa;border-color:#60a5fa}
+.tpgca-tab-content{min-height:60px}
+button.tpgca-load,button.tpgca-load:hover{background:transparent !important;background-image:none !important;border:1px solid #334155 !important;color:#94a3b8 !important;padding:11px 20px !important;font-size:13px !important;font-weight:600 !important;border-radius:8px !important;cursor:not-allowed !important;display:inline-flex;align-items:center;gap:8px;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
+.tpgca-table-wrap{overflow-x:auto;margin-top:6px}
+.tpgca-table{width:100%;border-collapse:collapse;font-size:13px}
+.tpgca-table th{text-align:left;color:#94a3b8;font-weight:600;font-size:12px;letter-spacing:.5px;padding:14px 14px;border-bottom:1px solid #334155;white-space:nowrap}
+.tpgca-table td{padding:18px 14px;border-bottom:1px solid #1f2937;color:#e2e8f0}
+.tpgca-show-link{color:#60a5fa;font-size:11px;font-weight:600;margin-left:6px;cursor:pointer;text-transform:none;letter-spacing:0}
+.tpgca-empty{padding:30px 14px;text-align:center;color:#94a3b8;font-size:13px}
+button.tpgca-add-btn,button.tpgca-add-btn:hover{background:#5bb8c9 !important;background-image:linear-gradient(180deg,#6bc6d7,#5bb8c9) !important;color:#fff !important;border:none !important;padding:9px 16px !important;font-size:13px !important;font-weight:700 !important;border-radius:8px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;display:inline-flex;align-items:center;gap:6px}
+.tpgca-card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.tpgca-card-header .tpgca-card-title{margin:0}
+</style>
+<div id="dash-panel-tpg-checkattendance" class="tpg-wrap">
+    <div class="tpg-app-tabs">
+        <span class="tpg-app-label">SSG APP</span>
+        <button type="button" class="tpg-app-tab active">App 1</button>
+        <button type="button" class="tpg-app-tab">App 2</button>
+        <button type="button" class="tpg-app-tab">App 3</button>
+        <button type="button" class="tpg-app-tab">App 4</button>
+    </div>
+    <h1 class="tpg-title">E-Attendance</h1>
+    <p class="tpgca-subtitle">Enter a Course Run ID to look up attendance.</p>
+
+    <!-- Class Selection -->
+    <div class="tpgca-card">
+        <h2 class="tpgca-card-title">Class Selection</h2>
+        <div class="tpgca-search-row">
+            <div class="tpgca-input-wrap">
+                <label class="tpgca-label"><span class="tpgca-req">*</span> Course Run ID</label>
+                <input type="text" class="tpgca-input" id="tpgca-run-id" placeholder="e.g. 1069549" autocomplete="off" />
+            </div>
+            <button type="button" class="tpgca-search" onclick="tpgcaSearch()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                Search
+            </button>
+        </div>
+    </div>
+
+    <!-- Attendance (tabbed) -->
+    <div class="tpgca-card">
+        <h2 class="tpgca-card-title">Attendance</h2>
+        <div class="tpgca-tabs">
+            <div class="tpgca-tab active" id="tpgca-tab-qr" onclick="tpgcaTab('qr')">QR Attendance</div>
+            <div class="tpgca-tab" id="tpgca-tab-list" onclick="tpgcaTab('list')">E-Attendance List</div>
+        </div>
+        <div class="tpgca-tab-content" id="tpgca-tab-qr-content">
+            <button type="button" class="tpgca-load" disabled>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                Load Attendance Link
+            </button>
+        </div>
+        <div class="tpgca-tab-content" id="tpgca-tab-list-content" style="display:none;">
+            <div class="tpgca-empty">No e-attendance records loaded.</div>
+        </div>
+    </div>
+
+    <!-- Course Session Attendance table -->
+    <div class="tpgca-card">
+        <h2 class="tpgca-card-title">Course Session Attendance</h2>
+        <div class="tpgca-table-wrap">
+            <table class="tpgca-table">
+                <thead><tr>
+                    <th>No.</th><th>Name</th>
+                    <th>NRIC <span class="tpgca-show-link" onclick="tpgcaToggleNric(this)">Show</span></th>
+                    <th>Type</th><th>Status</th><th>Entry Mode</th><th>TRAQOM</th>
+                </tr></thead>
+                <tbody id="tpgca-session-tbody">
+                    <tr><td colspan="7" class="tpgca-empty">Select a class and session to load attendance.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Class Enrolments table -->
+    <div class="tpgca-card">
+        <h2 class="tpgca-card-title">Class Enrolments</h2>
+        <div class="tpgca-table-wrap">
+            <table class="tpgca-table">
+                <thead><tr>
+                    <th>No.</th><th>Course Run ID</th><th>Start Date</th><th>End Date</th>
+                    <th>Enrolment Ref</th><th>Trainee Name</th>
+                    <th>NRIC <span class="tpgca-show-link" onclick="tpgcaToggleNric(this)">Show</span></th>
+                    <th>Contact Number <span class="tpgca-show-link" onclick="tpgcaToggleNric(this)">Show</span></th>
+                    <th>Email</th><th>Sponsorship</th>
+                </tr></thead>
+                <tbody id="tpgca-enrol-tbody">
+                    <tr><td colspan="10" class="tpgca-empty">Select a class to load enrolments.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Manual Attendance Taking table -->
+    <div class="tpgca-card">
+        <div class="tpgca-card-header">
+            <h2 class="tpgca-card-title">Manual Attendance Taking</h2>
+            <button type="button" class="tpgca-add-btn" onclick="tpgcaAddLearner()">+ Add Learner</button>
+        </div>
+        <div class="tpgca-table-wrap">
+            <table class="tpgca-table">
+                <thead><tr>
+                    <th>No.</th><th>Name</th>
+                    <th>NRIC <span class="tpgca-show-link" onclick="tpgcaToggleNric(this)">Show</span></th>
+                    <th>Attendance Marking</th><th>Reason of Absence</th>
+                </tr></thead>
+                <tbody id="tpgca-manual-tbody">
+                    <tr><td colspan="5" class="tpgca-empty">Select a class to take attendance.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="tpg-footer-brand">Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y') ?></div>
+</div>
+<script type="text/javascript">
+(function(){
+    var TPGCA_LOOKUP_URL = <?php echo json_encode(Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/checkAttendanceLookup')) ?>;
+    window.tpgcaTab = function(name){
+        document.getElementById('tpgca-tab-qr').classList.toggle('active', name === 'qr');
+        document.getElementById('tpgca-tab-list').classList.toggle('active', name === 'list');
+        document.getElementById('tpgca-tab-qr-content').style.display = (name === 'qr') ? '' : 'none';
+        document.getElementById('tpgca-tab-list-content').style.display = (name === 'list') ? '' : 'none';
+    };
+    window.tpgcaToggleNric = function(el){
+        // Visual toggle only — actual NRIC values aren't stored in our DB.
+        el.textContent = (el.textContent === 'Show') ? 'Hide' : 'Show';
+    };
+    window.tpgcaAddLearner = function(){
+        alert('Add Learner — wire to enrolment form when ready.');
+    };
+    function escapeHtml(s) { s = s||''; return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+    window.tpgcaSearch = function(){
+        var run = document.getElementById('tpgca-run-id').value.trim();
+        if (!run) { alert('Enter a Course Run ID first.'); return; }
+        var sessTbody = document.getElementById('tpgca-session-tbody');
+        var enrolTbody = document.getElementById('tpgca-enrol-tbody');
+        var manualTbody = document.getElementById('tpgca-manual-tbody');
+        sessTbody.innerHTML  = '<tr><td colspan="7"  class="tpgca-empty">Loading…</td></tr>';
+        enrolTbody.innerHTML = '<tr><td colspan="10" class="tpgca-empty">Loading…</td></tr>';
+        manualTbody.innerHTML= '<tr><td colspan="5"  class="tpgca-empty">Loading…</td></tr>';
+        fetch(TPGCA_LOOKUP_URL + '?run_id=' + encodeURIComponent(run), { credentials: 'same-origin' })
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+                if (!d.success) {
+                    sessTbody.innerHTML  = '<tr><td colspan="7" class="tpgca-empty">' + escapeHtml(d.message || 'Run not found.') + '</td></tr>';
+                    enrolTbody.innerHTML = '<tr><td colspan="10" class="tpgca-empty">No enrolments.</td></tr>';
+                    manualTbody.innerHTML= '<tr><td colspan="5" class="tpgca-empty">No learners.</td></tr>';
+                    return;
+                }
+                // Session Attendance rows
+                if (d.attendance && d.attendance.length) {
+                    var html = '';
+                    d.attendance.forEach(function(a, i){
+                        html += '<tr>'
+                              +  '<td>' + (i+1) + '</td>'
+                              +  '<td>' + escapeHtml(a.name||'') + '</td>'
+                              +  '<td>—</td>'
+                              +  '<td>Trainee</td>'
+                              +  '<td>' + escapeHtml(a.status||'') + '</td>'
+                              +  '<td>Manual</td>'
+                              +  '<td>—</td>'
+                              + '</tr>';
+                    });
+                    sessTbody.innerHTML = html;
+                } else {
+                    sessTbody.innerHTML = '<tr><td colspan="7" class="tpgca-empty">No attendance records for this run.</td></tr>';
+                }
+                // Enrolments rows
+                if (d.enrolments && d.enrolments.length) {
+                    var html2 = '';
+                    d.enrolments.forEach(function(e, i){
+                        html2 += '<tr>'
+                              +   '<td>' + (i+1) + '</td>'
+                              +   '<td>' + escapeHtml(d.run.course_run_label || run) + '</td>'
+                              +   '<td>' + escapeHtml(e.start_date||'—') + '</td>'
+                              +   '<td>' + escapeHtml(e.end_date||'—') + '</td>'
+                              +   '<td>' + escapeHtml(e.increment_id||'') + '</td>'
+                              +   '<td>' + escapeHtml(e.name||'') + '</td>'
+                              +   '<td>—</td>'
+                              +   '<td>—</td>'
+                              +   '<td>' + escapeHtml(e.email||'') + '</td>'
+                              +   '<td>' + escapeHtml(e.sponsorship||'INDIVIDUAL') + '</td>'
+                              + '</tr>';
+                    });
+                    enrolTbody.innerHTML = html2;
+                    // Manual table mirrors enrolments
+                    var html3 = '';
+                    d.enrolments.forEach(function(e, i){
+                        html3 += '<tr>'
+                              +   '<td>' + (i+1) + '</td>'
+                              +   '<td>' + escapeHtml(e.name||'') + '</td>'
+                              +   '<td>—</td>'
+                              +   '<td>Unmarked</td>'
+                              +   '<td></td>'
+                              + '</tr>';
+                    });
+                    manualTbody.innerHTML = html3;
+                } else {
+                    enrolTbody.innerHTML  = '<tr><td colspan="10" class="tpgca-empty">No enrolments for this run.</td></tr>';
+                    manualTbody.innerHTML = '<tr><td colspan="5" class="tpgca-empty">No learners enrolled.</td></tr>';
+                }
+            })
+            .catch(function(err){
+                sessTbody.innerHTML  = '<tr><td colspan="7" class="tpgca-empty">Network error: ' + escapeHtml(err.message) + '</td></tr>';
+                enrolTbody.innerHTML = '<tr><td colspan="10" class="tpgca-empty">—</td></tr>';
+                manualTbody.innerHTML= '<tr><td colspan="5" class="tpgca-empty">—</td></tr>';
+            });
+    };
+})();
+</script>
+<?php endif; ?>
+
+<?php /* Shared styles for Submit / Update Assessment pages — load on either */ ?>
+<?php if ($_tpgActive && ($_tpgPage === 'submit_assessment' || $_tpgPage === 'update_assessment')): ?>
+<style>
+.tpgsm-card{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:26px 30px;margin-bottom:18px}
+.tpgsm-card-title{font-size:18px;font-weight:700;color:#fff;margin:0 0 6px}
+.tpgsm-card-subtitle{font-size:13px;color:#94a3b8;margin:0 0 22px}
+.tpgsm-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px 24px}
+.tpgsm-field{display:flex;flex-direction:column}
+.tpgsm-field-full{grid-column:1 / -1}
+.tpgsm-label{font-size:13px;font-weight:600;color:#e2e8f0;margin-bottom:8px}
+.tpgsm-label .tpgsm-req{color:#fb7185}
+.tpgsm-input,.tpgsm-select{width:100%;padding:14px 16px !important;background:#334155 !important;border:1px solid #475569 !important;border-radius:10px !important;color:#f1f5f9 !important;font-size:14px;outline:none;box-sizing:border-box;font-family:inherit}
+.tpgsm-input:focus,.tpgsm-select:focus{border-color:#60a5fa !important}
+.tpgsm-input::placeholder{color:#94a3b8}
+.tpgsm-actions{display:flex;gap:14px;margin-top:24px}
+button.tpgsm-submit,button.tpgsm-submit:hover{background:#5bb8c9 !important;background-image:linear-gradient(180deg,#6bc6d7,#5bb8c9) !important;color:#fff !important;border:none !important;padding:13px 26px !important;font-size:14px !important;font-weight:700 !important;border-radius:10px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;display:inline-flex;align-items:center;gap:8px}
+button.tpgsm-clear,button.tpgsm-clear:hover{background:transparent !important;background-image:none !important;border:1px solid #475569 !important;color:#e2e8f0 !important;padding:13px 26px !important;font-size:14px !important;font-weight:600 !important;border-radius:10px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
+button.tpgsm-clear:hover{background:#1e293b !important}
+.tpgsm-result{margin-top:18px;padding:18px;background:#0f172a;border:1px solid #334155;border-radius:10px;color:#cbd5e1;font-size:13px;font-family:'SFMono-Regular',Consolas,monospace;white-space:pre;overflow:auto;display:none}
+@media(max-width:900px){.tpgsm-grid{grid-template-columns:1fr}}
+</style>
+<?php endif; ?>
+
+<?php /* ===== TPG Management: Submit Assessment (Admin only) ===== */ ?>
+<?php if ($_tpgActive && $_tpgPage === 'submit_assessment'): ?>
+<div id="dash-panel-tpg-submitassessment" class="tpg-wrap">
+    <div class="tpg-app-tabs">
+        <span class="tpg-app-label">SSG APP</span>
+        <button type="button" class="tpg-app-tab active">App 1</button>
+        <button type="button" class="tpg-app-tab">App 2</button>
+        <button type="button" class="tpg-app-tab">App 3</button>
+        <button type="button" class="tpg-app-tab">App 4</button>
+    </div>
+    <h1 class="tpg-title">Submit Assessment</h1>
+
+    <div class="tpgsm-card">
+        <h2 class="tpgsm-card-title">Assessment Details</h2>
+        <p class="tpgsm-card-subtitle">All fields marked with <span style="color:#fb7185">*</span> are required.</p>
+        <div class="tpgsm-grid">
+            <div class="tpgsm-field">
+                <label class="tpgsm-label"><span class="tpgsm-req">*</span> Course Run ID</label>
+                <input type="text" class="tpgsm-input" id="tpgsm-run-id" placeholder="e.g. 1234567" autocomplete="off" />
+            </div>
+            <div class="tpgsm-field">
+                <label class="tpgsm-label"><span class="tpgsm-req">*</span> Course Reference Number</label>
+                <input type="text" class="tpgsm-input" id="tpgsm-course-ref" placeholder="e.g. TGS-2024052076" autocomplete="off" />
+            </div>
+            <div class="tpgsm-field">
+                <label class="tpgsm-label"><span class="tpgsm-req">*</span> Trainee ID</label>
+                <input type="text" class="tpgsm-input" id="tpgsm-trainee-id" placeholder="e.g. S1234567A" autocomplete="off" />
+            </div>
+            <div class="tpgsm-field">
+                <label class="tpgsm-label"><span class="tpgsm-req">*</span> Trainee Full Name</label>
+                <input type="text" class="tpgsm-input" id="tpgsm-trainee-name" placeholder="e.g. John Doe" autocomplete="off" />
+            </div>
+            <div class="tpgsm-field">
+                <label class="tpgsm-label"><span class="tpgsm-req">*</span> Assessment Date</label>
+                <input type="date" class="tpgsm-input" id="tpgsm-assessment-date" placeholder="dd/mm/yyyy" />
+            </div>
+            <div class="tpgsm-field">
+                <label class="tpgsm-label"><span class="tpgsm-req">*</span> Assessment Result</label>
+                <select class="tpgsm-select" id="tpgsm-result">
+                    <option value="Pass">Pass</option>
+                    <option value="Fail">Fail</option>
+                    <option value="Withdrew">Withdrew</option>
+                    <option value="No Show">No Show</option>
+                </select>
+            </div>
+            <div class="tpgsm-field">
+                <label class="tpgsm-label"><span class="tpgsm-req">*</span> Training Partner UEN</label>
+                <input type="text" class="tpgsm-input" id="tpgsm-tp-uen" value="201200696W" />
+            </div>
+            <div class="tpgsm-field">
+                <label class="tpgsm-label"><span class="tpgsm-req">*</span> Training Partner Code</label>
+                <input type="text" class="tpgsm-input" id="tpgsm-tp-code" value="201200696W-01" />
+            </div>
+            <div class="tpgsm-field tpgsm-field-full">
+                <label class="tpgsm-label"><span class="tpgsm-req">*</span> Skill Code</label>
+                <input type="text" class="tpgsm-input" id="tpgsm-skill-code" placeholder="e.g. ABC-123" autocomplete="off" />
+            </div>
+        </div>
+        <div class="tpgsm-actions">
+            <button type="button" class="tpgsm-submit" onclick="tpgsmSubmit()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                Submit Assessment
+            </button>
+            <button type="button" class="tpgsm-clear" onclick="tpgsmClear()">Clear</button>
+        </div>
+        <pre class="tpgsm-result" id="tpgsm-result-box"></pre>
+    </div>
+
+    <div class="tpg-footer-brand">Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y') ?></div>
+</div>
+<script type="text/javascript">
+(function(){
+    function val(id){var el=document.getElementById(id);return el?el.value.trim():'';}
+    window.tpgsmClear = function(){
+        ['tpgsm-run-id','tpgsm-course-ref','tpgsm-trainee-id','tpgsm-trainee-name','tpgsm-assessment-date','tpgsm-skill-code'].forEach(function(id){
+            var el = document.getElementById(id); if (el) el.value = '';
+        });
+        document.getElementById('tpgsm-result').value = 'Pass';
+        var box = document.getElementById('tpgsm-result-box');
+        if (box) { box.textContent=''; box.style.display='none'; }
+    };
+    window.tpgsmSubmit = function(){
+        var required = {
+            'Course Run ID':            val('tpgsm-run-id'),
+            'Course Reference Number':  val('tpgsm-course-ref'),
+            'Trainee ID':               val('tpgsm-trainee-id'),
+            'Trainee Full Name':        val('tpgsm-trainee-name'),
+            'Assessment Date':          val('tpgsm-assessment-date'),
+            'Skill Code':               val('tpgsm-skill-code'),
+        };
+        var missing = [];
+        for (var k in required) { if (!required[k]) missing.push(k); }
+        if (missing.length) {
+            alert('Please fill: ' + missing.join(', '));
+            return;
+        }
+        var payload = {
+            assessment: {
+                trainingPartner: { uen: val('tpgsm-tp-uen'), code: val('tpgsm-tp-code') },
+                course: { referenceNumber: val('tpgsm-course-ref'), run: { id: val('tpgsm-run-id') } },
+                trainee: { id: val('tpgsm-trainee-id'), fullName: val('tpgsm-trainee-name') },
+                assessmentDate: val('tpgsm-assessment-date'),
+                result:         val('tpgsm-result'),
+                skillCode:      val('tpgsm-skill-code'),
+            }
+        };
+        var box = document.getElementById('tpgsm-result-box');
+        box.style.display = 'block';
+        box.textContent = 'Assessment payload prepared (backend integration pending):\n\n' + JSON.stringify(payload, null, 2);
+    };
+})();
+</script>
+<?php endif; ?>
+
+<?php /* ===== TPG Management: Update Assessment (Admin only) ===== */ ?>
+<?php if ($_tpgActive && $_tpgPage === 'update_assessment'): ?>
+<div id="dash-panel-tpg-updateassessment" class="tpg-wrap">
+    <div class="tpg-app-tabs">
+        <span class="tpg-app-label">SSG APP</span>
+        <button type="button" class="tpg-app-tab active">App 1</button>
+        <button type="button" class="tpg-app-tab">App 2</button>
+        <button type="button" class="tpg-app-tab">App 3</button>
+        <button type="button" class="tpg-app-tab">App 4</button>
+    </div>
+    <h1 class="tpg-title">Update Assessment</h1>
+
+    <div class="tpgsm-card">
+        <h2 class="tpgsm-card-title">Assessment Update Details</h2>
+        <p class="tpgsm-card-subtitle">Update or void an existing assessment record. For void action, only Reference Number and Action are required.</p>
+        <div class="tpgsm-grid">
+            <div class="tpgsm-field">
+                <label class="tpgsm-label"><span class="tpgsm-req">*</span> Assessment Reference Number</label>
+                <input type="text" class="tpgsm-input" id="tpgua-ref" placeholder="e.g. ASM-2602-038292" autocomplete="off" />
+            </div>
+            <div class="tpgsm-field">
+                <label class="tpgsm-label"><span class="tpgsm-req">*</span> Action</label>
+                <select class="tpgsm-select" id="tpgua-action" onchange="tpguaActionChange()">
+                    <option value="Update" selected>Update</option>
+                    <option value="Void">Void</option>
+                </select>
+            </div>
+            <div class="tpgsm-field" id="tpgua-result-wrap">
+                <label class="tpgsm-label"><span class="tpgsm-req">*</span> Assessment Result</label>
+                <select class="tpgsm-select" id="tpgua-result">
+                    <option value="Pass">Pass</option>
+                    <option value="Fail">Fail</option>
+                    <option value="Withdrew">Withdrew</option>
+                    <option value="No Show">No Show</option>
+                </select>
+            </div>
+            <div class="tpgsm-field" id="tpgua-name-wrap">
+                <label class="tpgsm-label"><span class="tpgsm-req">*</span> Trainee Full Name</label>
+                <input type="text" class="tpgsm-input" id="tpgua-name" placeholder="e.g. John Doe" autocomplete="off" />
+            </div>
+            <div class="tpgsm-field" id="tpgua-date-wrap">
+                <label class="tpgsm-label"><span class="tpgsm-req">*</span> Assessment Date</label>
+                <input type="date" class="tpgsm-input" id="tpgua-date" placeholder="dd/mm/yyyy" />
+            </div>
+            <div class="tpgsm-field" id="tpgua-skill-wrap">
+                <label class="tpgsm-label"><span class="tpgsm-req">*</span> Skill Code</label>
+                <input type="text" class="tpgsm-input" id="tpgua-skill" placeholder="e.g. TGS-MKG-234222" autocomplete="off" />
+            </div>
+        </div>
+        <div class="tpgsm-actions">
+            <button type="button" class="tpgsm-submit" onclick="tpguaSubmit()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                Update Assessment
+            </button>
+            <button type="button" class="tpgsm-clear" onclick="tpguaClear()">Clear</button>
+        </div>
+        <pre class="tpgsm-result" id="tpgua-result-box"></pre>
+    </div>
+
+    <div class="tpg-footer-brand">Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y') ?></div>
+</div>
+<script type="text/javascript">
+(function(){
+    function val(id){var el=document.getElementById(id);return el?el.value.trim():'';}
+    window.tpguaActionChange = function(){
+        // Void action: only Reference Number + Action are required.
+        // Hide the assessment-detail fields to make that obvious.
+        var isVoid = (document.getElementById('tpgua-action').value === 'Void');
+        ['tpgua-result-wrap','tpgua-name-wrap','tpgua-date-wrap','tpgua-skill-wrap'].forEach(function(id){
+            var el = document.getElementById(id);
+            if (el) el.style.display = isVoid ? 'none' : '';
+        });
+    };
+    window.tpguaClear = function(){
+        ['tpgua-ref','tpgua-name','tpgua-date','tpgua-skill'].forEach(function(id){
+            var el = document.getElementById(id); if (el) el.value = '';
+        });
+        document.getElementById('tpgua-action').value = 'Update';
+        document.getElementById('tpgua-result').value = 'Pass';
+        tpguaActionChange();
+        var box = document.getElementById('tpgua-result-box');
+        if (box) { box.textContent=''; box.style.display='none'; }
+    };
+    window.tpguaSubmit = function(){
+        var ref    = val('tpgua-ref');
+        var action = val('tpgua-action');
+        if (!ref) { alert('Assessment Reference Number is required.'); return; }
+        if (!action) { alert('Action is required.'); return; }
+
+        var payload;
+        if (action === 'Void') {
+            payload = { assessment: { referenceNumber: ref, action: 'Void' } };
+        } else {
+            var missing = [];
+            if (!val('tpgua-name'))  missing.push('Trainee Full Name');
+            if (!val('tpgua-date'))  missing.push('Assessment Date');
+            if (!val('tpgua-skill')) missing.push('Skill Code');
+            if (missing.length) { alert('Please fill: ' + missing.join(', ')); return; }
+            payload = {
+                assessment: {
+                    referenceNumber: ref,
+                    action: 'Update',
+                    result:         val('tpgua-result'),
+                    trainee:        { fullName: val('tpgua-name') },
+                    assessmentDate: val('tpgua-date'),
+                    skillCode:      val('tpgua-skill'),
+                }
+            };
+        }
+        var box = document.getElementById('tpgua-result-box');
+        box.style.display = 'block';
+        box.textContent = 'Update payload prepared (backend integration pending):\n\n' + JSON.stringify(payload, null, 2);
+    };
+})();
+</script>
+<?php endif; ?>
+
+<?php /* ===== TPG Management: Bulk Update Assessment (Admin only) ===== */ ?>
+<?php if ($_tpgActive && $_tpgPage === 'bulk_update_assessment'): ?>
+<style>
+.tpgbu-card{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:26px 30px;margin-bottom:18px}
+.tpgbu-card-title{font-size:18px;font-weight:700;color:#fff;margin:0 0 14px}
+.tpgbu-desc{color:#cbd5e1;font-size:14px;line-height:1.6;margin:0 0 18px}
+.tpgbu-paste{width:100%;min-height:160px;padding:16px !important;background:#0f172a !important;border:1px solid #334155 !important;border-radius:10px !important;color:#e2e8f0 !important;font-size:13px;font-family:'SFMono-Regular',Consolas,monospace;outline:none;box-sizing:border-box;resize:vertical}
+.tpgbu-paste:focus{border-color:#60a5fa !important}
+.tpgbu-paste::placeholder{color:#475569}
+.tpgbu-table-wrap{overflow-x:auto;margin-top:18px}
+.tpgbu-table{width:100%;border-collapse:collapse;font-size:13px;background:#0f172a;border:1px solid #334155;border-radius:10px;overflow:hidden}
+.tpgbu-table th{text-align:left;color:#94a3b8;font-weight:600;font-size:12px;letter-spacing:.5px;padding:12px 14px;border-bottom:1px solid #334155;white-space:nowrap;text-transform:uppercase}
+.tpgbu-table td{padding:12px 14px;border-bottom:1px solid #1f2937;color:#e2e8f0;white-space:nowrap}
+.tpgbu-empty{padding:24px;text-align:center;color:#64748b;font-size:13px;font-style:italic}
+.tpgbu-meta{display:flex;justify-content:space-between;align-items:center;margin-top:14px;color:#94a3b8;font-size:13px}
+button.tpgbu-clear,button.tpgbu-clear:hover{background:transparent !important;background-image:none !important;border:1px solid #475569 !important;color:#e2e8f0 !important;padding:9px 18px !important;font-size:13px !important;font-weight:600 !important;border-radius:8px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
+button.tpgbu-clear:hover{background:#1e293b !important}
+button.tpgbu-submit,button.tpgbu-submit:hover{background:#5bb8c9 !important;background-image:linear-gradient(180deg,#6bc6d7,#5bb8c9) !important;color:#fff !important;border:none !important;padding:11px 22px !important;font-size:13px !important;font-weight:700 !important;border-radius:8px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;display:inline-flex;align-items:center;gap:8px}
+button.tpgbu-submit:disabled{opacity:.5;cursor:not-allowed}
+</style>
+<div id="dash-panel-tpg-bulkupdateassessment" class="tpg-wrap">
+    <div class="tpg-app-tabs">
+        <span class="tpg-app-label">SSG APP</span>
+        <button type="button" class="tpg-app-tab active">App 1</button>
+        <button type="button" class="tpg-app-tab">App 2</button>
+        <button type="button" class="tpg-app-tab">App 3</button>
+        <button type="button" class="tpg-app-tab">App 4</button>
+    </div>
+    <h1 class="tpg-title">Bulk Update Assessment</h1>
+
+    <div class="tpgbu-card">
+        <h2 class="tpgbu-card-title">Paste Data from All Course Runs</h2>
+        <p class="tpgbu-desc">Copy rows from the FMS Google Sheet "All Course Runs" tab and paste below. Rows are parsed instantly and the paste box clears. You can paste multiple times to add more rows.</p>
+        <textarea class="tpgbu-paste" id="tpgbu-paste" placeholder="Paste rows from Google Sheet here (they will appear in the table below)..." onpaste="setTimeout(tpgbuHandlePaste, 0)"></textarea>
+    </div>
+
+    <div class="tpgbu-card" id="tpgbu-rows-card" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+            <h2 class="tpgbu-card-title" style="margin:0">Parsed Rows (<span id="tpgbu-row-count">0</span>)</h2>
+            <div style="display:flex;gap:10px">
+                <button type="button" class="tpgbu-clear" onclick="tpgbuClearRows()">Clear All</button>
+                <button type="button" class="tpgbu-submit" onclick="tpgbuSubmit()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    Submit Bulk Update
+                </button>
+            </div>
+        </div>
+        <div class="tpgbu-table-wrap">
+            <table class="tpgbu-table" id="tpgbu-table">
+                <thead id="tpgbu-thead"></thead>
+                <tbody id="tpgbu-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="tpg-footer-brand">Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y') ?></div>
+</div>
+<script type="text/javascript">
+(function(){
+    window.__tpgbuRows    = [];
+    window.__tpgbuHeaders = [];
+    function escapeHtml(s){ s = s||''; return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+    function render(){
+        var card = document.getElementById('tpgbu-rows-card');
+        var thead = document.getElementById('tpgbu-thead');
+        var tbody = document.getElementById('tpgbu-tbody');
+        var count = document.getElementById('tpgbu-row-count');
+        if (!window.__tpgbuRows.length) {
+            card.style.display = 'none';
+            return;
+        }
+        card.style.display = '';
+        count.textContent = window.__tpgbuRows.length;
+
+        var hh = '<tr>';
+        window.__tpgbuHeaders.forEach(function(h){ hh += '<th>' + escapeHtml(h) + '</th>'; });
+        hh += '</tr>';
+        thead.innerHTML = hh;
+
+        var bb = '';
+        window.__tpgbuRows.forEach(function(row){
+            bb += '<tr>';
+            window.__tpgbuHeaders.forEach(function(h, i){
+                bb += '<td>' + escapeHtml(row[i] || '') + '</td>';
+            });
+            bb += '</tr>';
+        });
+        tbody.innerHTML = bb;
+    }
+
+    window.tpgbuHandlePaste = function(){
+        var ta = document.getElementById('tpgbu-paste');
+        var raw = ta.value;
+        if (!raw.trim()) return;
+        // Google Sheet copy = TSV (tab-separated). Split on \n then \t.
+        var lines = raw.split(/\r?\n/).filter(function(l){ return l.trim() !== ''; });
+        if (!lines.length) { ta.value = ''; return; }
+        var rows = lines.map(function(l){ return l.split('\t'); });
+
+        // First paste sets headers; subsequent pastes append data rows only.
+        if (!window.__tpgbuHeaders.length) {
+            // Detect: if the first row looks like headers (contains non-numeric tokens),
+            // treat it as headers, else generate Col 1, Col 2, ...
+            var first = rows[0];
+            var looksLikeHeader = first.some(function(c){ return /[A-Za-z]/.test(c); });
+            if (looksLikeHeader) {
+                window.__tpgbuHeaders = first;
+                rows = rows.slice(1);
+            } else {
+                window.__tpgbuHeaders = first.map(function(_, i){ return 'Col ' + (i+1); });
+            }
+        }
+        // Append rows; pad to header length
+        rows.forEach(function(r){
+            while (r.length < window.__tpgbuHeaders.length) r.push('');
+            window.__tpgbuRows.push(r);
+        });
+        ta.value = '';  // clear paste box per spec
+        render();
+    };
+
+    window.tpgbuClearRows = function(){
+        window.__tpgbuRows = [];
+        window.__tpgbuHeaders = [];
+        render();
+    };
+
+    window.tpgbuSubmit = function(){
+        if (!window.__tpgbuRows.length) { alert('No rows to submit.'); return; }
+        var payload = { headers: window.__tpgbuHeaders, rows: window.__tpgbuRows };
+        alert('Bulk update payload prepared with ' + window.__tpgbuRows.length + ' row(s). Backend integration pending.\n\n' + JSON.stringify(payload, null, 2).slice(0, 800) + (JSON.stringify(payload).length > 800 ? '\n\n...(truncated)' : ''));
+    };
+})();
+</script>
+<?php endif; ?>
+
+<?php /* Shared styles for Search Assessments / View Assessment pages */ ?>
+<?php if ($_tpgActive && ($_tpgPage === 'search_assessments' || $_tpgPage === 'view_assessment')): ?>
+<style>
+.tpgse-card{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:26px 30px;margin-bottom:18px}
+.tpgse-card-title{font-size:18px;font-weight:700;color:#fff;margin:0 0 6px}
+.tpgse-card-subtitle{font-size:13px;color:#94a3b8;margin:0 0 22px}
+.tpgse-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px 24px}
+.tpgse-field{display:flex;flex-direction:column}
+.tpgse-label{font-size:13px;font-weight:600;color:#e2e8f0;margin-bottom:8px}
+.tpgse-label .tpgse-req{color:#fb7185}
+.tpgse-input{width:100%;padding:14px 16px !important;background:#334155 !important;border:1px solid #475569 !important;border-radius:10px !important;color:#f1f5f9 !important;font-size:14px;outline:none;box-sizing:border-box;font-family:inherit}
+.tpgse-input:focus{border-color:#60a5fa !important}
+.tpgse-input::placeholder{color:#94a3b8}
+.tpgse-actions{display:flex;gap:14px;margin-top:24px}
+button.tpgse-search,button.tpgse-search:hover{background:#5bb8c9 !important;background-image:linear-gradient(180deg,#6bc6d7,#5bb8c9) !important;color:#fff !important;border:none !important;padding:13px 26px !important;font-size:14px !important;font-weight:700 !important;border-radius:10px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;display:inline-flex;align-items:center;gap:8px}
+button.tpgse-clear,button.tpgse-clear:hover{background:transparent !important;background-image:none !important;border:1px solid #475569 !important;color:#e2e8f0 !important;padding:13px 26px !important;font-size:14px !important;font-weight:600 !important;border-radius:10px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
+button.tpgse-clear:hover{background:#1e293b !important}
+.tpgse-empty{padding:60px 24px;text-align:center;color:#94a3b8}
+.tpgse-empty-icon{display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;color:#475569;margin-bottom:16px}
+.tpgse-empty-title{color:#cbd5e1;font-size:16px;font-weight:600;margin-bottom:8px}
+.tpgse-empty-desc{color:#64748b;font-size:13px;max-width:560px;margin:0 auto}
+.tpgse-table-wrap{overflow-x:auto}
+.tpgse-table{width:100%;border-collapse:collapse;font-size:13px}
+.tpgse-table th{text-align:left;color:#94a3b8;font-weight:600;font-size:12px;letter-spacing:.5px;padding:14px;border-bottom:1px solid #334155;text-transform:uppercase;white-space:nowrap}
+.tpgse-table td{padding:14px;border-bottom:1px solid #1f2937;color:#e2e8f0}
+@media(max-width:900px){.tpgse-grid{grid-template-columns:1fr}}
+</style>
+<?php endif; ?>
+
+<?php /* ===== TPG Management: Search Assessments (Admin only) ===== */ ?>
+<?php if ($_tpgActive && $_tpgPage === 'search_assessments'): ?>
+<div id="dash-panel-tpg-searchassessments" class="tpg-wrap">
+    <div class="tpg-app-tabs">
+        <span class="tpg-app-label">SSG APP</span>
+        <button type="button" class="tpg-app-tab active">App 1</button>
+        <button type="button" class="tpg-app-tab">App 2</button>
+        <button type="button" class="tpg-app-tab">App 3</button>
+        <button type="button" class="tpg-app-tab">App 4</button>
+    </div>
+    <h1 class="tpg-title">Search Assessments</h1>
+
+    <div class="tpgse-card">
+        <h2 class="tpgse-card-title">Search Criteria</h2>
+        <p class="tpgse-card-subtitle">Course Run ID and Course Reference Number are required. Other fields are optional.</p>
+        <div class="tpgse-grid">
+            <div class="tpgse-field">
+                <label class="tpgse-label"><span class="tpgse-req">*</span> Course Run ID</label>
+                <input type="text" class="tpgse-input" id="tpgse-run-id" placeholder="e.g. 12345" autocomplete="off" />
+            </div>
+            <div class="tpgse-field">
+                <label class="tpgse-label"><span class="tpgse-req">*</span> Course Reference Number</label>
+                <input type="text" class="tpgse-input" id="tpgse-course-ref" placeholder="e.g. TGS-2024052076" autocomplete="off" />
+            </div>
+            <div class="tpgse-field">
+                <label class="tpgse-label">Enrolment Reference Number</label>
+                <input type="text" class="tpgse-input" id="tpgse-enrol-ref" placeholder="Optional" autocomplete="off" />
+            </div>
+            <div class="tpgse-field">
+                <label class="tpgse-label">Trainee ID/NRIC</label>
+                <input type="text" class="tpgse-input" id="tpgse-trainee-id" placeholder="Optional" autocomplete="off" />
+            </div>
+        </div>
+        <div class="tpgse-actions">
+            <button type="button" class="tpgse-search" onclick="tpgseSearch()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                Search Assessments
+            </button>
+            <button type="button" class="tpgse-clear" onclick="tpgseClear()">Clear</button>
+        </div>
+    </div>
+
+    <div class="tpgse-card" id="tpgse-results-card">
+        <div id="tpgse-empty">
+            <div class="tpgse-empty">
+                <div class="tpgse-empty-icon">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                </div>
+                <div class="tpgse-empty-title">Enter search criteria to find assessments</div>
+                <div class="tpgse-empty-desc">Course Run ID and Course Reference Number are required. Optionally filter by enrolment number or trainee ID.</div>
+            </div>
+        </div>
+        <div id="tpgse-results" style="display:none;"></div>
+    </div>
+
+    <div class="tpg-footer-brand">Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y') ?></div>
+</div>
+<script type="text/javascript">
+(function(){
+    var TPGSE_URL = <?php echo json_encode(Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/searchAssessments')) ?>;
+    function val(id){var el=document.getElementById(id);return el?el.value.trim():'';}
+    function escapeHtml(s){ s = s||''; return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+    window.tpgseClear = function(){
+        ['tpgse-run-id','tpgse-course-ref','tpgse-enrol-ref','tpgse-trainee-id'].forEach(function(id){
+            var el = document.getElementById(id); if (el) el.value = '';
+        });
+        document.getElementById('tpgse-empty').style.display = '';
+        var r = document.getElementById('tpgse-results'); r.style.display = 'none'; r.innerHTML = '';
+    };
+    window.tpgseSearch = function(){
+        var run = val('tpgse-run-id');
+        var ref = val('tpgse-course-ref');
+        if (!run) { alert('Course Run ID is required.'); return; }
+        if (!ref) { alert('Course Reference Number is required.'); return; }
+
+        var empty = document.getElementById('tpgse-empty');
+        var box   = document.getElementById('tpgse-results');
+        empty.style.display = 'none';
+        box.style.display = 'block';
+        box.innerHTML = '<div class="tpgse-empty">Searching…</div>';
+
+        var qs = 'run_id=' + encodeURIComponent(run)
+               + '&course_ref=' + encodeURIComponent(ref)
+               + '&enrol_ref=' + encodeURIComponent(val('tpgse-enrol-ref'))
+               + '&trainee_id=' + encodeURIComponent(val('tpgse-trainee-id'));
+        fetch(TPGSE_URL + '?' + qs, { credentials: 'same-origin' })
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+                if (!d.success) {
+                    box.innerHTML = '<div class="tpgse-empty"><div class="tpgse-empty-title">No results</div><div class="tpgse-empty-desc">' + escapeHtml(d.message || 'No assessments matched.') + '</div></div>';
+                    return;
+                }
+                if (!d.results || !d.results.length) {
+                    box.innerHTML = '<div class="tpgse-empty"><div class="tpgse-empty-title">No assessments found</div><div class="tpgse-empty-desc">No records matched your search criteria.</div></div>';
+                    return;
+                }
+                var html = '<div class="tpgse-table-wrap"><table class="tpgse-table"><thead><tr>'
+                         + '<th>No.</th><th>Trainee Name</th><th>Email</th><th>Status</th><th>Last Marked</th>'
+                         + '</tr></thead><tbody>';
+                d.results.forEach(function(r, i){
+                    html += '<tr>'
+                         +    '<td>' + (i+1) + '</td>'
+                         +    '<td>' + escapeHtml(r.name||'') + '</td>'
+                         +    '<td>' + escapeHtml(r.email||'') + '</td>'
+                         +    '<td>' + escapeHtml(r.status||'') + '</td>'
+                         +    '<td>' + escapeHtml(r.updated_at||'—') + '</td>'
+                         +  '</tr>';
+                });
+                html += '</tbody></table></div>';
+                box.innerHTML = html;
+            })
+            .catch(function(err){
+                box.innerHTML = '<div class="tpgse-empty"><div class="tpgse-empty-title">Network error</div><div class="tpgse-empty-desc">' + escapeHtml(err.message) + '</div></div>';
+            });
+    };
+})();
+</script>
+<?php endif; ?>
+
+<?php /* ===== TPG Management: View Assessment (Admin only) ===== */ ?>
+<?php if ($_tpgActive && $_tpgPage === 'view_assessment'): ?>
+<style>
+.tpgvw-row{display:flex;gap:12px;align-items:flex-end}
+.tpgvw-input-wrap{flex:1}
+button.tpgvw-view,button.tpgvw-view:hover{background:#5bb8c9 !important;background-image:linear-gradient(180deg,#6bc6d7,#5bb8c9) !important;color:#fff !important;border:none !important;padding:14px 26px !important;font-size:14px !important;font-weight:700 !important;border-radius:10px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.tpgvw-detail-table{width:100%;border-collapse:collapse;font-size:14px;margin-top:8px}
+.tpgvw-detail-table td{padding:14px 16px;border-bottom:1px solid #1f2937}
+.tpgvw-detail-table td:first-child{color:#94a3b8;font-weight:600;width:200px;white-space:nowrap}
+.tpgvw-detail-table td:last-child{color:#f1f5f9}
+</style>
+<div id="dash-panel-tpg-viewassessment" class="tpg-wrap">
+    <div class="tpg-app-tabs">
+        <span class="tpg-app-label">SSG APP</span>
+        <button type="button" class="tpg-app-tab active">App 1</button>
+        <button type="button" class="tpg-app-tab">App 2</button>
+        <button type="button" class="tpg-app-tab">App 3</button>
+        <button type="button" class="tpg-app-tab">App 4</button>
+    </div>
+    <h1 class="tpg-title">View Assessment</h1>
+
+    <div class="tpgse-card">
+        <label class="tpgse-label" style="margin-bottom:10px;font-weight:700;font-size:14px">Assessment ID</label>
+        <div class="tpgvw-row">
+            <div class="tpgvw-input-wrap">
+                <input type="text" class="tpgse-input" id="tpgvw-id" placeholder="e.g. ASM-2002-123456" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();tpgvwView();}" />
+            </div>
+            <button type="button" class="tpgvw-view" onclick="tpgvwView()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                View Assessment
+            </button>
+        </div>
+    </div>
+
+    <div class="tpgse-card" id="tpgvw-results-card">
+        <div id="tpgvw-empty">
+            <div class="tpgse-empty">
+                <div class="tpgse-empty-icon">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                </div>
+                <div class="tpgse-empty-title">Enter Assessment ID to view details</div>
+                <div class="tpgse-empty-desc">Provide an Assessment ID (e.g. ASM-2601-159004) to fetch details from SSG</div>
+            </div>
+        </div>
+        <div id="tpgvw-results" style="display:none;"></div>
+    </div>
+
+    <div class="tpg-footer-brand">Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y') ?></div>
+</div>
+<script type="text/javascript">
+(function(){
+    var TPGVW_URL = <?php echo json_encode(Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/viewAssessment')) ?>;
+    function escapeHtml(s){ s = s||''; return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+    window.tpgvwView = function(){
+        var id = document.getElementById('tpgvw-id').value.trim();
+        if (!id) { alert('Enter an Assessment ID first.'); return; }
+        var empty = document.getElementById('tpgvw-empty');
+        var box   = document.getElementById('tpgvw-results');
+        empty.style.display = 'none';
+        box.style.display = 'block';
+        box.innerHTML = '<div class="tpgse-empty">Loading…</div>';
+        fetch(TPGVW_URL + '?id=' + encodeURIComponent(id), { credentials: 'same-origin' })
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+                if (!d.success) {
+                    box.innerHTML = '<div class="tpgse-empty"><div class="tpgse-empty-title">Not found</div><div class="tpgse-empty-desc">' + escapeHtml(d.message || 'No assessment matched that ID.') + '</div></div>';
+                    return;
+                }
+                var a = d.assessment || {};
+                var rows = [
+                    ['Assessment ID',     a.id],
+                    ['Course Code',       a.course_code],
+                    ['Course Name',       a.course_name],
+                    ['Course Run ID',     a.run_id],
+                    ['Session',           a.session_title],
+                    ['Trainee Name',      a.trainee_name],
+                    ['Trainee Email',     a.trainee_email],
+                    ['Result',            a.status],
+                    ['Last Marked',       a.updated_at],
+                ];
+                var html = '<table class="tpgvw-detail-table">';
+                rows.forEach(function(r){
+                    html += '<tr><td>' + escapeHtml(r[0]) + '</td><td>' + escapeHtml(r[1] || '—') + '</td></tr>';
+                });
+                html += '</table>';
+                box.innerHTML = html;
+            })
+            .catch(function(err){
+                box.innerHTML = '<div class="tpgse-empty"><div class="tpgse-empty-title">Network error</div><div class="tpgse-empty-desc">' + escapeHtml(err.message) + '</div></div>';
+            });
+    };
+})();
+</script>
+<?php endif; ?>
+
+<?php /* ===== TPG Management: Grant Calculator (Admin only) ===== */ ?>
+<?php if ($_tpgActive && $_tpgPage === 'grant_calculator'): ?>
+<style>
+.tpggc-meta{display:flex;align-items:center;gap:12px;color:#94a3b8;font-size:14px;margin:-14px 0 18px}
+.tpggc-meta code{color:#cbd5e1;font-family:'SFMono-Regular',Consolas,monospace}
+.tpggc-badge{background:#10b981;color:#0f172a;font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;letter-spacing:.3px}
+.tpggc-warning{background:rgba(250,204,21,.08);border:1px solid rgba(250,204,21,.25);color:#facc15;padding:14px 18px;border-radius:10px;font-size:14px;margin-bottom:22px}
+.tpggc-tabs{display:flex;border-bottom:1px solid #334155;margin-bottom:24px}
+.tpggc-tab{padding:14px 20px;font-size:14px;font-weight:600;color:#94a3b8;cursor:pointer;border-bottom:2px solid transparent;transition:color .15s,border-color .15s}
+.tpggc-tab.active{color:#60a5fa;border-color:#60a5fa}
+.tpggc-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px 24px;margin-bottom:24px}
+.tpggc-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px 24px;margin-bottom:24px}
+.tpggc-field{display:flex;flex-direction:column}
+.tpggc-label{font-size:14px;font-weight:700;color:#fff;margin-bottom:8px}
+.tpggc-label .tpggc-req{color:#fb7185;font-weight:400}
+.tpggc-input,.tpggc-select{width:100%;padding:13px 14px !important;background:#334155 !important;border:1px solid #475569 !important;border-radius:8px !important;color:#f1f5f9 !important;font-size:14px;outline:none;box-sizing:border-box;font-family:inherit}
+.tpggc-input:focus,.tpggc-select:focus{border-color:#60a5fa !important}
+.tpggc-input::placeholder{color:#94a3b8}
+button.tpggc-calc,button.tpggc-calc:hover{background:#5bb8c9 !important;background-image:linear-gradient(180deg,#6bc6d7,#5bb8c9) !important;color:#fff !important;border:none !important;padding:13px 26px !important;font-size:14px !important;font-weight:700 !important;border-radius:8px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
+.tpggc-result{margin-top:24px;padding:20px;background:#0f172a;border:1px solid #334155;border-radius:10px;color:#cbd5e1;font-size:13px;font-family:'SFMono-Regular',Consolas,monospace;white-space:pre;overflow:auto;display:none}
+@media(max-width:900px){.tpggc-grid{grid-template-columns:1fr}.tpggc-grid-2{grid-template-columns:1fr}}
+</style>
+<div id="dash-panel-tpg-grantcalculator" class="tpg-wrap">
+    <h1 class="tpg-title">Grant Calculator</h1>
+    <div class="tpggc-meta">
+        <code>POST /grantCalculators/individual (v3.0).</code>
+        <span class="tpggc-badge">Certificate + OAuth</span>
+    </div>
+
+    <div class="tpg-app-tabs">
+        <span class="tpg-app-label">SSG APP</span>
+        <button type="button" class="tpg-app-tab active">App 1</button>
+        <button type="button" class="tpg-app-tab">App 2</button>
+        <button type="button" class="tpg-app-tab">App 3</button>
+        <button type="button" class="tpg-app-tab">App 4</button>
+    </div>
+
+    <div class="tpggc-warning">
+        Personalised Grant Calculator only works with App 1 (Skilleto) certificate.
+    </div>
+
+    <div class="tpggc-tabs">
+        <div class="tpggc-tab active" id="tpggc-tab-personalised" onclick="tpggcTab('personalised')">Personalised</div>
+        <div class="tpggc-tab" id="tpggc-tab-baseline" onclick="tpggcTab('baseline')">Baseline Scheme</div>
+    </div>
+
+    <!-- Personalised tab -->
+    <div id="tpggc-personalised">
+        <div class="tpggc-grid-2">
+            <div class="tpggc-field">
+                <label class="tpggc-label">UEN</label>
+                <input type="text" class="tpggc-input" id="tpggc-uen" value="201200696W" />
+            </div>
+            <div class="tpggc-field">
+                <label class="tpggc-label">Course Ref Code <span class="tpggc-req">*</span></label>
+                <input type="text" class="tpggc-input" id="tpggc-course-ref" placeholder="TGS-2024043419" autocomplete="off" />
+            </div>
+        </div>
+        <div class="tpggc-grid">
+            <div class="tpggc-field">
+                <label class="tpggc-label">NRIC</label>
+                <input type="text" class="tpggc-input" id="tpggc-nric" placeholder="S1234567A" autocomplete="off" />
+            </div>
+            <div class="tpggc-field">
+                <label class="tpggc-label">NRIC Type</label>
+                <select class="tpggc-select" id="tpggc-nric-type">
+                    <option value="SC">Singapore Citizen (SC)</option>
+                    <option value="PR">Permanent Resident (PR)</option>
+                    <option value="LTVP">LTVP+</option>
+                    <option value="FOREIGNER">Foreigner</option>
+                </select>
+            </div>
+            <div class="tpggc-field">
+                <label class="tpggc-label">SME?</label>
+                <select class="tpggc-select" id="tpggc-sme">
+                    <option value="No">No</option>
+                    <option value="Yes">Yes</option>
+                </select>
+            </div>
+        </div>
+        <div class="tpggc-grid">
+            <div class="tpggc-field">
+                <label class="tpggc-label">Employer Sponsored?</label>
+                <select class="tpggc-select" id="tpggc-sponsored" onchange="tpggcSponsoredChange()">
+                    <option value="No">No</option>
+                    <option value="Yes">Yes</option>
+                </select>
+            </div>
+            <div class="tpggc-field">
+                <label class="tpggc-label">Date of Birth</label>
+                <input type="date" class="tpggc-input" id="tpggc-dob" placeholder="dd/mm/yyyy" />
+            </div>
+            <div class="tpggc-field">
+                <label class="tpggc-label">Sponsoring Employer UEN</label>
+                <input type="text" class="tpggc-input" id="tpggc-sp-uen" placeholder="Optional" autocomplete="off" />
+            </div>
+        </div>
+        <button type="button" class="tpggc-calc" onclick="tpggcCalcPersonalised()">Calculate Personalised Grant</button>
+    </div>
+
+    <!-- Baseline Scheme tab -->
+    <div id="tpggc-baseline" style="display:none;">
+        <div class="tpggc-grid-2">
+            <div class="tpggc-field">
+                <label class="tpggc-label">Course Ref Code <span class="tpggc-req">*</span></label>
+                <input type="text" class="tpggc-input" id="tpggc-bl-course-ref" placeholder="TGS-2024043419" autocomplete="off" />
+            </div>
+            <div class="tpggc-field">
+                <label class="tpggc-label">NRIC Type</label>
+                <select class="tpggc-select" id="tpggc-bl-nric-type">
+                    <option value="SC">Singapore Citizen (SC)</option>
+                    <option value="PR">Permanent Resident (PR)</option>
+                    <option value="LTVP">LTVP+</option>
+                </select>
+            </div>
+        </div>
+        <button type="button" class="tpggc-calc" onclick="tpggcCalcBaseline()">Calculate Baseline Grant</button>
+    </div>
+
+    <pre class="tpggc-result" id="tpggc-result"></pre>
+
+    <div class="tpg-footer-brand">Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y') ?></div>
+</div>
+<script type="text/javascript">
+(function(){
+    function val(id){var el=document.getElementById(id);return el?el.value.trim():'';}
+    window.tpggcTab = function(name){
+        document.getElementById('tpggc-tab-personalised').classList.toggle('active', name === 'personalised');
+        document.getElementById('tpggc-tab-baseline').classList.toggle('active',     name === 'baseline');
+        document.getElementById('tpggc-personalised').style.display = (name === 'personalised') ? '' : 'none';
+        document.getElementById('tpggc-baseline').style.display     = (name === 'baseline')     ? '' : 'none';
+        var box = document.getElementById('tpggc-result');
+        if (box) { box.textContent = ''; box.style.display = 'none'; }
+    };
+    window.tpggcSponsoredChange = function(){
+        var isSponsored = (document.getElementById('tpggc-sponsored').value === 'Yes');
+        var spUen = document.getElementById('tpggc-sp-uen');
+        if (spUen) spUen.placeholder = isSponsored ? 'Required' : 'Optional';
+    };
+    window.tpggcCalcPersonalised = function(){
+        if (!val('tpggc-course-ref')) { alert('Course Ref Code is required.'); return; }
+        var payload = {
+            grantCalculators: { individual: {
+                uen:                val('tpggc-uen'),
+                courseRefCode:      val('tpggc-course-ref'),
+                trainee: {
+                    id:               val('tpggc-nric'),
+                    idType:           val('tpggc-nric-type'),
+                    dateOfBirth:      val('tpggc-dob'),
+                },
+                isSme:                val('tpggc-sme') === 'Yes',
+                isSponsored:          val('tpggc-sponsored') === 'Yes',
+                sponsoringEmployerUen: val('tpggc-sp-uen'),
+            } }
+        };
+        // Simple grant heuristic for demo: 70% SC, 50% PR, 90% SME-sponsored (rough numbers)
+        var basePct = (val('tpggc-nric-type') === 'SC') ? 70 : (val('tpggc-nric-type') === 'PR' ? 50 : 0);
+        if (val('tpggc-sme') === 'Yes' && val('tpggc-sponsored') === 'Yes') basePct = 90;
+        var box = document.getElementById('tpggc-result');
+        box.style.display = 'block';
+        box.textContent = 'Estimated Grant: ' + basePct + '% of course fee\n\n'
+                        + 'Request payload (preview):\n' + JSON.stringify(payload, null, 2);
+    };
+    window.tpggcCalcBaseline = function(){
+        if (!val('tpggc-bl-course-ref')) { alert('Course Ref Code is required.'); return; }
+        var payload = {
+            grantCalculators: { baseline: {
+                courseRefCode: val('tpggc-bl-course-ref'),
+                idType:        val('tpggc-bl-nric-type'),
+            } }
+        };
+        var basePct = (val('tpggc-bl-nric-type') === 'SC') ? 70 : (val('tpggc-bl-nric-type') === 'PR' ? 50 : 30);
+        var box = document.getElementById('tpggc-result');
+        box.style.display = 'block';
+        box.textContent = 'Baseline Grant: ' + basePct + '% of course fee\n\n'
+                        + 'Request payload (preview):\n' + JSON.stringify(payload, null, 2);
+    };
+})();
+</script>
+<?php endif; ?>
+
+<?php /* ===== TPG Management: Search Grant (Admin only) ===== */ ?>
+<?php if ($_tpgActive && $_tpgPage === 'search_grant'): ?>
+<style>
+.tpgsg-card{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:26px 30px;margin-bottom:18px}
+.tpgsg-card-title{font-size:18px;font-weight:700;color:#fff;margin:0 0 22px}
+.tpgsg-label{display:block;font-size:14px;font-weight:700;color:#fff;margin-bottom:10px}
+.tpgsg-input{width:100%;padding:14px 16px !important;background:#334155 !important;border:1px solid #475569 !important;border-radius:10px !important;color:#f1f5f9 !important;font-size:14px;outline:none;box-sizing:border-box;font-family:inherit}
+.tpgsg-input:focus{border-color:#60a5fa !important}
+.tpgsg-input::placeholder{color:#94a3b8}
+.tpgsg-actions{display:flex;justify-content:flex-end;margin-top:24px}
+button.tpgsg-search,button.tpgsg-search:hover{background:#5bb8c9 !important;background-image:linear-gradient(180deg,#6bc6d7,#5bb8c9) !important;color:#fff !important;border:none !important;padding:13px 26px !important;font-size:14px !important;font-weight:700 !important;border-radius:10px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;display:inline-flex;align-items:center;gap:8px}
+.tpgsg-empty{padding:80px 24px;text-align:center;color:#94a3b8}
+.tpgsg-empty-icon{display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;color:#475569;margin-bottom:18px}
+.tpgsg-empty-title{color:#cbd5e1;font-size:16px;font-weight:600;margin-bottom:8px}
+.tpgsg-empty-desc{color:#64748b;font-size:13px}
+.tpgsg-detail-table{width:100%;border-collapse:collapse;font-size:14px}
+.tpgsg-detail-table td{padding:14px 16px;border-bottom:1px solid #1f2937}
+.tpgsg-detail-table td:first-child{color:#94a3b8;font-weight:600;width:240px;white-space:nowrap}
+.tpgsg-detail-table td:last-child{color:#f1f5f9}
+</style>
+<div id="dash-panel-tpg-searchgrant" class="tpg-wrap">
+    <div class="tpg-app-tabs">
+        <span class="tpg-app-label">SSG APP</span>
+        <button type="button" class="tpg-app-tab active">App 1</button>
+        <button type="button" class="tpg-app-tab">App 2</button>
+        <button type="button" class="tpg-app-tab">App 3</button>
+        <button type="button" class="tpg-app-tab">App 4</button>
+    </div>
+    <h1 class="tpg-title">Search Grant</h1>
+
+    <div class="tpgsg-card">
+        <h2 class="tpgsg-card-title">Grant Search Parameters</h2>
+        <label class="tpgsg-label">Course Run ID</label>
+        <input type="text" class="tpgsg-input" id="tpgsg-run-id" placeholder="e.g. 1234567" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();tpgsgSearch();}" />
+        <div class="tpgsg-actions">
+            <button type="button" class="tpgsg-search" onclick="tpgsgSearch()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                Search Grant
+            </button>
+        </div>
+    </div>
+
+    <div class="tpgsg-card" id="tpgsg-results-card">
+        <div id="tpgsg-empty">
+            <div class="tpgsg-empty">
+                <div class="tpgsg-empty-icon">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                </div>
+                <div class="tpgsg-empty-title">Enter details to search</div>
+                <div class="tpgsg-empty-desc">Provide Course Run ID to fetch grant details</div>
+            </div>
+        </div>
+        <div id="tpgsg-results" style="display:none;"></div>
+    </div>
+
+    <div class="tpg-footer-brand">Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y') ?></div>
+</div>
+<script type="text/javascript">
+(function(){
+    var TPGSG_URL = <?php echo json_encode(Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/searchGrant')) ?>;
+    function escapeHtml(s){ s = s||''; return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+    window.tpgsgSearch = function(){
+        var run = document.getElementById('tpgsg-run-id').value.trim();
+        if (!run) { alert('Enter a Course Run ID first.'); return; }
+        var empty = document.getElementById('tpgsg-empty');
+        var box   = document.getElementById('tpgsg-results');
+        empty.style.display = 'none';
+        box.style.display = 'block';
+        box.innerHTML = '<div class="tpgsg-empty"><div class="tpgsg-empty-title">Loading…</div></div>';
+
+        fetch(TPGSG_URL + '?run_id=' + encodeURIComponent(run), { credentials: 'same-origin' })
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+                if (!d.success) {
+                    box.innerHTML = '<div class="tpgsg-empty"><div class="tpgsg-empty-title">Not found</div><div class="tpgsg-empty-desc">' + escapeHtml(d.message || 'No grant data for that run.') + '</div></div>';
+                    return;
+                }
+                var g = d.grant || {};
+                var rows = [
+                    ['Course Run ID',     g.run_id],
+                    ['Course Run Label',  g.course_run_label],
+                    ['Course Code',       g.course_code],
+                    ['Course Name',       g.course_name],
+                    ['Session',           g.session_title],
+                    ['Enrolled Learners', g.enrolment_count],
+                    ['Estimated Grant Per Learner', g.estimated_grant_per_learner],
+                    ['Estimated Total Grant',       g.estimated_total_grant],
+                    ['Grant Status',      g.status],
+                ];
+                var html = '<table class="tpgsg-detail-table">';
+                rows.forEach(function(r){
+                    html += '<tr><td>' + escapeHtml(r[0]) + '</td><td>' + escapeHtml(r[1] || '—') + '</td></tr>';
+                });
+                html += '</table>';
+                box.innerHTML = html;
+            })
+            .catch(function(err){
+                box.innerHTML = '<div class="tpgsg-empty"><div class="tpgsg-empty-title">Network error</div><div class="tpgsg-empty-desc">' + escapeHtml(err.message) + '</div></div>';
+            });
+    };
+})();
+</script>
+<?php endif; ?>
+
+<?php /* ===== TPG Management: View Grant Status (Admin only) ===== */ ?>
+<?php if ($_tpgActive && $_tpgPage === 'view_grant_status'): ?>
+<style>
+.tpgvg-card{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:26px 30px;margin-bottom:18px}
+.tpgvg-card-title{font-size:18px;font-weight:700;color:#fff;margin:0 0 6px}
+.tpgvg-card-subtitle{color:#94a3b8;font-size:14px;margin:0 0 22px}
+.tpgvg-row{display:flex;gap:12px;align-items:stretch}
+.tpgvg-input{flex:1;padding:14px 16px !important;background:#334155 !important;border:1px solid #475569 !important;border-radius:10px !important;color:#f1f5f9 !important;font-size:14px;outline:none;box-sizing:border-box;font-family:inherit}
+.tpgvg-input:focus{border-color:#60a5fa !important}
+.tpgvg-input::placeholder{color:#94a3b8}
+button.tpgvg-search,button.tpgvg-search:hover{background:#5bb8c9 !important;background-image:linear-gradient(180deg,#6bc6d7,#5bb8c9) !important;color:#fff !important;border:none !important;padding:14px 30px !important;font-size:14px !important;font-weight:700 !important;border-radius:10px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.tpgvg-empty{padding:80px 24px;text-align:center;color:#94a3b8}
+.tpgvg-empty-icon{display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;color:#475569;margin-bottom:18px}
+.tpgvg-empty-title{color:#cbd5e1;font-size:16px;font-weight:600;margin-bottom:8px}
+.tpgvg-empty-desc{color:#64748b;font-size:13px}
+.tpgvg-detail-table{width:100%;border-collapse:collapse;font-size:14px}
+.tpgvg-detail-table td{padding:14px 16px;border-bottom:1px solid #1f2937}
+.tpgvg-detail-table td:first-child{color:#94a3b8;font-weight:600;width:240px;white-space:nowrap}
+.tpgvg-detail-table td:last-child{color:#f1f5f9}
+.tpgvg-status-pill{display:inline-block;padding:5px 14px;border-radius:999px;font-size:12px;font-weight:700;letter-spacing:.3px}
+.tpgvg-status-approved{background:rgba(16,185,129,.18);color:#34d399}
+.tpgvg-status-pending{background:rgba(250,204,21,.16);color:#facc15}
+.tpgvg-status-rejected{background:rgba(239,68,68,.16);color:#f87171}
+</style>
+<div id="dash-panel-tpg-viewgrantstatus" class="tpg-wrap">
+    <div class="tpg-app-tabs">
+        <span class="tpg-app-label">SSG APP</span>
+        <button type="button" class="tpg-app-tab active">App 1</button>
+        <button type="button" class="tpg-app-tab">App 2</button>
+        <button type="button" class="tpg-app-tab">App 3</button>
+        <button type="button" class="tpg-app-tab">App 4</button>
+    </div>
+    <h1 class="tpg-title">View Grant Status</h1>
+
+    <div class="tpgvg-card">
+        <h2 class="tpgvg-card-title">Search Grant Status</h2>
+        <p class="tpgvg-card-subtitle">Enter Grant ID - e.g. GRN-2512-016146</p>
+        <div class="tpgvg-row">
+            <input type="text" class="tpgvg-input" id="tpgvg-id" placeholder="Enter search query..." autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();tpgvgSearch();}" />
+            <button type="button" class="tpgvg-search" onclick="tpgvgSearch()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                Search
+            </button>
+        </div>
+    </div>
+
+    <div class="tpgvg-card" id="tpgvg-results-card">
+        <div id="tpgvg-empty">
+            <div class="tpgvg-empty">
+                <div class="tpgvg-empty-icon">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                </div>
+                <div class="tpgvg-empty-title">No search results yet</div>
+                <div class="tpgvg-empty-desc">Enter a search query above to fetch grant status information</div>
+            </div>
+        </div>
+        <div id="tpgvg-results" style="display:none;"></div>
+    </div>
+
+    <div class="tpg-footer-brand">Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y') ?></div>
+</div>
+<script type="text/javascript">
+(function(){
+    var TPGVG_URL = <?php echo json_encode(Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/viewGrantStatus')) ?>;
+    function escapeHtml(s){ s = s||''; return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+    window.tpgvgSearch = function(){
+        var q = document.getElementById('tpgvg-id').value.trim();
+        if (!q) { alert('Enter a Grant ID first.'); return; }
+        var empty = document.getElementById('tpgvg-empty');
+        var box   = document.getElementById('tpgvg-results');
+        empty.style.display = 'none';
+        box.style.display = 'block';
+        box.innerHTML = '<div class="tpgvg-empty"><div class="tpgvg-empty-title">Loading…</div></div>';
+        fetch(TPGVG_URL + '?grant_id=' + encodeURIComponent(q), { credentials: 'same-origin' })
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+                if (!d.success) {
+                    box.innerHTML = '<div class="tpgvg-empty"><div class="tpgvg-empty-title">Not found</div><div class="tpgvg-empty-desc">' + escapeHtml(d.message || 'No grant matched that ID.') + '</div></div>';
+                    return;
+                }
+                var g = d.grant || {};
+                var pillClass = 'tpgvg-status-pending';
+                if ((g.status||'').toLowerCase() === 'approved') pillClass = 'tpgvg-status-approved';
+                if ((g.status||'').toLowerCase() === 'rejected') pillClass = 'tpgvg-status-rejected';
+                var statusCell = '<span class="tpgvg-status-pill ' + pillClass + '">' + escapeHtml(g.status||'Pending') + '</span>';
+                var rows = [
+                    ['Grant ID',          g.grant_id],
+                    ['Course Run ID',     g.run_id],
+                    ['Course Run Label',  g.course_run_label],
+                    ['Course Code',       g.course_code],
+                    ['Course Name',       g.course_name],
+                    ['Session',           g.session_title],
+                    ['Enrolled Learners', g.enrolment_count],
+                    ['Grant Amount',      g.grant_amount],
+                    ['Submitted',         g.submitted_at],
+                ];
+                var html = '<table class="tpgvg-detail-table">';
+                rows.forEach(function(r){
+                    html += '<tr><td>' + escapeHtml(r[0]) + '</td><td>' + escapeHtml(r[1] || '—') + '</td></tr>';
+                });
+                html += '<tr><td>Status</td><td>' + statusCell + '</td></tr>';
+                html += '</table>';
+                box.innerHTML = html;
+            })
+            .catch(function(err){
+                box.innerHTML = '<div class="tpgvg-empty"><div class="tpgvg-empty-title">Network error</div><div class="tpgvg-empty-desc">' + escapeHtml(err.message) + '</div></div>';
+            });
+    };
+})();
+</script>
+<?php endif; ?>
+
+<?php /* ===== TPG Management: Search Course Runs (Admin only) ===== */ ?>
+<?php if ($_tpgActive && $_tpgPage === 'search_course_runs'): ?>
+<style>
+.tpgsr-card{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:26px 30px;margin-bottom:18px}
+.tpgsr-card-title{font-size:18px;font-weight:700;color:#fff;margin:0 0 22px}
+.tpgsr-label{display:block;font-size:14px;font-weight:700;color:#fff;margin-bottom:10px}
+.tpgsr-row{display:flex;gap:12px;align-items:stretch}
+.tpgsr-input{flex:1;padding:14px 16px !important;background:#334155 !important;border:1px solid #475569 !important;border-radius:10px !important;color:#f1f5f9 !important;font-size:14px;outline:none;box-sizing:border-box;font-family:inherit}
+.tpgsr-input:focus{border-color:#60a5fa !important}
+.tpgsr-input::placeholder{color:#94a3b8}
+button.tpgsr-search,button.tpgsr-search:hover{background:#5bb8c9 !important;background-image:linear-gradient(180deg,#6bc6d7,#5bb8c9) !important;color:#fff !important;border:none !important;padding:14px 30px !important;font-size:14px !important;font-weight:700 !important;border-radius:10px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.tpgsr-empty{padding:80px 24px;text-align:center;color:#94a3b8}
+.tpgsr-empty-icon{display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;color:#475569;margin-bottom:18px}
+.tpgsr-empty-title{color:#cbd5e1;font-size:16px;font-weight:600;margin-bottom:8px}
+.tpgsr-empty-desc{color:#64748b;font-size:13px}
+.tpgsr-table-wrap{overflow-x:auto}
+.tpgsr-table{width:100%;border-collapse:collapse;font-size:13px}
+.tpgsr-table th{text-align:left;color:#94a3b8;font-weight:600;font-size:12px;letter-spacing:.5px;padding:14px;border-bottom:1px solid #334155;text-transform:uppercase;white-space:nowrap}
+.tpgsr-table td{padding:14px;border-bottom:1px solid #1f2937;color:#e2e8f0}
+.tpgsr-runid-pill{display:inline-block;padding:3px 10px;border-radius:6px;background:rgba(96,165,250,.15);color:#60a5fa;font-weight:700;font-size:12px;letter-spacing:.3px}
+</style>
+<div id="dash-panel-tpg-searchcourseruns" class="tpg-wrap">
+    <div class="tpg-app-tabs">
+        <span class="tpg-app-label">SSG APP</span>
+        <button type="button" class="tpg-app-tab active">App 1</button>
+        <button type="button" class="tpg-app-tab">App 2</button>
+        <button type="button" class="tpg-app-tab">App 3</button>
+        <button type="button" class="tpg-app-tab">App 4</button>
+    </div>
+    <h1 class="tpg-title">Get Course Runs By Course Code</h1>
+
+    <div class="tpgsr-card">
+        <h2 class="tpgsr-card-title">Course Run Search</h2>
+        <label class="tpgsr-label">Course Code</label>
+        <div class="tpgsr-row">
+            <input type="text" class="tpgsr-input" id="tpgsr-code" placeholder="e.g. TGS-2024052076" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();tpgsrSearch();}" />
+            <button type="button" class="tpgsr-search" onclick="tpgsrSearch()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                Search Course Runs
+            </button>
+        </div>
+    </div>
+
+    <div class="tpgsr-card" id="tpgsr-results-card">
+        <div id="tpgsr-empty">
+            <div class="tpgsr-empty">
+                <div class="tpgsr-empty-icon">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                </div>
+                <div class="tpgsr-empty-title">Enter Course Code to search</div>
+                <div class="tpgsr-empty-desc">Provide a Course Code to fetch all associated course runs from SSG</div>
+            </div>
+        </div>
+        <div id="tpgsr-results" style="display:none;"></div>
+    </div>
+
+    <div class="tpg-footer-brand">Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y') ?></div>
+</div>
+<script type="text/javascript">
+(function(){
+    var TPGSR_URL = <?php echo json_encode(Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/searchCourseRuns')) ?>;
+    function escapeHtml(s){ s = s||''; return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+    window.tpgsrSearch = function(){
+        var code = document.getElementById('tpgsr-code').value.trim();
+        if (!code) { alert('Enter a Course Code first.'); return; }
+        var empty = document.getElementById('tpgsr-empty');
+        var box   = document.getElementById('tpgsr-results');
+        empty.style.display = 'none';
+        box.style.display = 'block';
+        box.innerHTML = '<div class="tpgsr-empty"><div class="tpgsr-empty-title">Loading…</div></div>';
+        fetch(TPGSR_URL + '?code=' + encodeURIComponent(code), { credentials: 'same-origin' })
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+                if (!d.success) {
+                    box.innerHTML = '<div class="tpgsr-empty"><div class="tpgsr-empty-title">Not found</div><div class="tpgsr-empty-desc">' + escapeHtml(d.message || 'No course matched that code.') + '</div></div>';
+                    return;
+                }
+                if (!d.runs || !d.runs.length) {
+                    box.innerHTML = '<div class="tpgsr-empty"><div class="tpgsr-empty-title">No course runs scheduled</div><div class="tpgsr-empty-desc">' + escapeHtml(d.course_name || code) + ' has no scheduled course runs yet.</div></div>';
+                    return;
+                }
+                var html = '<div style="margin-bottom:16px;color:#cbd5e1;font-size:14px;">'
+                         + '<strong>' + escapeHtml(d.course_code) + '</strong> — ' + escapeHtml(d.course_name)
+                         + ' <span style="color:#94a3b8;margin-left:6px;">(' + d.runs.length + ' run' + (d.runs.length===1?'':'s') + ')</span>'
+                         + '</div>'
+                         + '<div class="tpgsr-table-wrap"><table class="tpgsr-table"><thead><tr>'
+                         + '<th>Run ID</th><th>Course Run Label</th><th>Session</th><th>Enrolments</th><th>Trainers</th>'
+                         + '</tr></thead><tbody>';
+                d.runs.forEach(function(r){
+                    html += '<tr>'
+                         +    '<td><span class="tpgsr-runid-pill">' + escapeHtml(String(r.run_id)) + '</span></td>'
+                         +    '<td>' + escapeHtml(r.course_run_label || '—') + '</td>'
+                         +    '<td>' + escapeHtml(r.session_title || '—') + '</td>'
+                         +    '<td>' + escapeHtml(String(r.enrolment_count || 0)) + '</td>'
+                         +    '<td>' + escapeHtml(r.trainer_names || '—') + '</td>'
+                         +  '</tr>';
+                });
+                html += '</tbody></table></div>';
+                box.innerHTML = html;
+            })
+            .catch(function(err){
+                box.innerHTML = '<div class="tpgsr-empty"><div class="tpgsr-empty-title">Network error</div><div class="tpgsr-empty-desc">' + escapeHtml(err.message) + '</div></div>';
+            });
+    };
+})();
+</script>
+<?php endif; ?>
+
+<?php /* ===== TPG Management: View Course Run (Admin only) ===== */ ?>
+<?php if ($_tpgActive && $_tpgPage === 'view_course_run'): ?>
+<style>
+.tpgvr-card{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:26px 30px;margin-bottom:18px}
+.tpgvr-card-title{font-size:18px;font-weight:700;color:#fff;margin:0 0 22px}
+.tpgvr-label{display:block;font-size:14px;font-weight:700;color:#fff;margin-bottom:10px}
+.tpgvr-row{display:flex;gap:12px;align-items:stretch}
+.tpgvr-input{flex:1;padding:14px 16px !important;background:#334155 !important;border:1px solid #475569 !important;border-radius:10px !important;color:#f1f5f9 !important;font-size:14px;outline:none;box-sizing:border-box;font-family:inherit}
+.tpgvr-input:focus{border-color:#60a5fa !important}
+.tpgvr-input::placeholder{color:#94a3b8}
+button.tpgvr-view,button.tpgvr-view:hover{background:#5bb8c9 !important;background-image:linear-gradient(180deg,#6bc6d7,#5bb8c9) !important;color:#fff !important;border:none !important;padding:14px 30px !important;font-size:14px !important;font-weight:700 !important;border-radius:10px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.tpgvr-empty{padding:80px 24px;text-align:center;color:#94a3b8}
+.tpgvr-empty-icon{display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;color:#475569;margin-bottom:18px}
+.tpgvr-empty-title{color:#cbd5e1;font-size:16px;font-weight:600;margin-bottom:8px}
+.tpgvr-empty-desc{color:#64748b;font-size:13px}
+.tpgvr-detail-table{width:100%;border-collapse:collapse;font-size:14px}
+.tpgvr-detail-table td{padding:14px 16px;border-bottom:1px solid #1f2937}
+.tpgvr-detail-table td:first-child{color:#94a3b8;font-weight:600;width:240px;white-space:nowrap}
+.tpgvr-detail-table td:last-child{color:#f1f5f9}
+</style>
+<div id="dash-panel-tpg-viewcourserun" class="tpg-wrap">
+    <div class="tpg-app-tabs">
+        <span class="tpg-app-label">SSG APP</span>
+        <button type="button" class="tpg-app-tab active">App 1</button>
+        <button type="button" class="tpg-app-tab">App 2</button>
+        <button type="button" class="tpg-app-tab">App 3</button>
+        <button type="button" class="tpg-app-tab">App 4</button>
+    </div>
+    <h1 class="tpg-title">View Course Run</h1>
+
+    <div class="tpgvr-card">
+        <h2 class="tpgvr-card-title">Course Run Lookup</h2>
+        <label class="tpgvr-label">Course Run ID</label>
+        <div class="tpgvr-row">
+            <input type="text" class="tpgvr-input" id="tpgvr-id" placeholder="e.g. 1234567" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();tpgvrView();}" />
+            <button type="button" class="tpgvr-view" onclick="tpgvrView()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                View Course Run
+            </button>
+        </div>
+    </div>
+
+    <div class="tpgvr-card" id="tpgvr-results-card">
+        <div id="tpgvr-empty">
+            <div class="tpgvr-empty">
+                <div class="tpgvr-empty-icon">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                </div>
+                <div class="tpgvr-empty-title">Enter Course Run ID to view details</div>
+                <div class="tpgvr-empty-desc">Provide a Course Run ID (e.g. 1234567) to fetch details from SSG</div>
+            </div>
+        </div>
+        <div id="tpgvr-results" style="display:none;"></div>
+    </div>
+
+    <div class="tpg-footer-brand">Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y') ?></div>
+</div>
+<script type="text/javascript">
+(function(){
+    var TPGVR_URL = <?php echo json_encode(Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/runLookup')) ?>;
+    function escapeHtml(s){ s = s||''; return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+    window.tpgvrView = function(){
+        var id = document.getElementById('tpgvr-id').value.trim();
+        if (!id) { alert('Enter a Course Run ID first.'); return; }
+        var empty = document.getElementById('tpgvr-empty');
+        var box   = document.getElementById('tpgvr-results');
+        empty.style.display = 'none';
+        box.style.display = 'block';
+        box.innerHTML = '<div class="tpgvr-empty"><div class="tpgvr-empty-title">Loading…</div></div>';
+        fetch(TPGVR_URL + '?run_id=' + encodeURIComponent(id), { credentials: 'same-origin' })
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+                if (!d.success) {
+                    box.innerHTML = '<div class="tpgvr-empty"><div class="tpgvr-empty-title">Not found</div><div class="tpgvr-empty-desc">' + escapeHtml(d.message || 'No course run matched that ID.') + '</div></div>';
+                    return;
+                }
+                var r = d.run || {};
+                var rows = [
+                    ['Course Run ID',     r.run_id],
+                    ['Course Run Label',  r.course_run_label],
+                    ['Course Code',       r.course_code],
+                    ['Course Name',       r.course_name],
+                    ['Session Title',     r.session_title],
+                    ['Product ID',        r.product_id],
+                ];
+                var html = '<table class="tpgvr-detail-table">';
+                rows.forEach(function(row){
+                    html += '<tr><td>' + escapeHtml(row[0]) + '</td><td>' + escapeHtml(row[1] || '—') + '</td></tr>';
+                });
+                html += '</table>';
+                box.innerHTML = html;
+            })
+            .catch(function(err){
+                box.innerHTML = '<div class="tpgvr-empty"><div class="tpgvr-empty-title">Network error</div><div class="tpgvr-empty-desc">' + escapeHtml(err.message) + '</div></div>';
+            });
+    };
+})();
+</script>
+<?php endif; ?>
+
+<?php /* ===== TPG Management: Edit Course Run (Admin only) ===== */ ?>
+<?php if ($_tpgActive && $_tpgPage === 'edit_course_run'): ?>
+<div id="dash-panel-tpg-editcourserun" class="tpg-wrap">
+    <div class="tpg-app-tabs">
+        <span class="tpg-app-label">SSG APP</span>
+        <button type="button" class="tpg-app-tab active">App 1</button>
+        <button type="button" class="tpg-app-tab">App 2</button>
+        <button type="button" class="tpg-app-tab">App 3</button>
+        <button type="button" class="tpg-app-tab">App 4</button>
+    </div>
+    <h1 class="tpg-title">Edit Course Run</h1>
+
+    <div class="tpgas-card">
+        <h2 class="tpgas-card-title">Course Run Lookup</h2>
+        <div class="tpgas-row">
+            <div class="tpgas-input-wrap">
+                <label class="tpgas-label"><span class="tpgas-req">*</span> Course Run ID</label>
+                <input type="text" class="tpgas-input" id="tpger-run-id" placeholder="e.g. 1234567" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();tpgerFetch();}" />
+            </div>
+            <button type="button" class="tpgas-fetch" onclick="tpgerFetch()">Fetch Data</button>
+        </div>
+        <pre class="tpgas-result" id="tpger-result"></pre>
+    </div>
+
+    <!-- Editable form (revealed after Fetch Data succeeds) -->
+    <div class="tpgas-card" id="tpger-edit-card" style="display:none;">
+        <h2 class="tpgas-card-title">Edit Run Details</h2>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px 24px;">
+            <div>
+                <label class="tpgas-label">Session Title</label>
+                <input type="text" class="tpgas-input" id="tpger-title" />
+            </div>
+            <div>
+                <label class="tpgas-label">Course Code (read-only)</label>
+                <input type="text" class="tpgas-input" id="tpger-course-code" readonly style="opacity:.65;cursor:not-allowed" />
+            </div>
+            <div>
+                <label class="tpgas-label">Course Name (read-only)</label>
+                <input type="text" class="tpgas-input" id="tpger-course-name" readonly style="opacity:.65;cursor:not-allowed" />
+            </div>
+            <div>
+                <label class="tpgas-label">Course Run Label</label>
+                <input type="text" class="tpgas-input" id="tpger-run-label" readonly style="opacity:.65;cursor:not-allowed" />
+            </div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:14px;margin-top:24px;">
+            <button type="button" class="tpgas-fetch" style="background:transparent !important;background-image:none !important;border:1px solid #475569 !important;color:#e2e8f0 !important;font-weight:600 !important;" onclick="tpgerCancel()">Cancel</button>
+            <button type="button" class="tpgas-fetch" onclick="tpgerSave()">Save Changes</button>
+        </div>
+    </div>
+
+    <div class="tpg-footer-brand">Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y') ?></div>
+</div>
+<script type="text/javascript">
+(function(){
+    var TPGER_LOOKUP_URL = <?php echo json_encode(Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/runLookup')) ?>;
+    var TPGER_SAVE_URL   = <?php echo json_encode(Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/editCourseRun')) ?>;
+    window.__tpgerCurrentRunId = null;
+    window.tpgerFetch = function(){
+        var input = document.getElementById('tpger-run-id');
+        var box   = document.getElementById('tpger-result');
+        var card  = document.getElementById('tpger-edit-card');
+        var runId = input.value.trim();
+        if (!runId) { alert('Enter a Course Run ID first.'); input.focus(); return; }
+        box.style.display = 'block';
+        box.textContent = 'Fetching run ' + runId + '…';
+        card.style.display = 'none';
+        fetch(TPGER_LOOKUP_URL + '?run_id=' + encodeURIComponent(runId), { credentials: 'same-origin' })
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+                if (!d.success) { box.textContent = d.message || 'Course Run not found.'; return; }
+                box.style.display = 'none';
+                var r = d.run || {};
+                window.__tpgerCurrentRunId = r.run_id;
+                document.getElementById('tpger-title').value       = r.session_title    || '';
+                document.getElementById('tpger-course-code').value = r.course_code      || '';
+                document.getElementById('tpger-course-name').value = r.course_name      || '';
+                document.getElementById('tpger-run-label').value   = r.course_run_label || '';
+                card.style.display = 'block';
+            })
+            .catch(function(err){ box.textContent = 'Network error: ' + err.message; });
+    };
+    window.tpgerCancel = function(){
+        document.getElementById('tpger-edit-card').style.display = 'none';
+        document.getElementById('tpger-run-id').value = '';
+        window.__tpgerCurrentRunId = null;
+    };
+    window.tpgerSave = function(){
+        if (!window.__tpgerCurrentRunId) { alert('No run loaded.'); return; }
+        var fd = new FormData();
+        fd.append('form_key', '<?php echo Mage::getSingleton('core/session')->getFormKey() ?>');
+        fd.append('run_id', window.__tpgerCurrentRunId);
+        fd.append('session_title', document.getElementById('tpger-title').value);
+        fetch(TPGER_SAVE_URL, { method: 'POST', body: fd, credentials: 'same-origin' })
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+                if (!d.success) { alert(d.message || 'Save failed.'); return; }
+                alert('Saved successfully.');
+                tpgerCancel();
+            })
+            .catch(function(err){ alert('Network error: ' + err.message); });
+    };
+})();
+</script>
+<?php endif; ?>
+
+<?php /* ===== TPG Management: Upload Course Runs (Admin only) ===== */ ?>
+<?php if ($_tpgActive && $_tpgPage === 'upload_course_runs'): ?>
+<style>
+.tpgup-card{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:32px;margin-bottom:18px}
+.tpgup-heading{font-size:22px;font-weight:700;color:#fff;text-align:center;margin:0 0 8px}
+.tpgup-subheading{color:#94a3b8;font-size:14px;text-align:center;margin:0 0 24px}
+.tpgup-drop{display:block;position:relative;border:2px dashed #475569;border-radius:14px;padding:60px 24px;text-align:center;color:#cbd5e1;background:rgba(15,23,42,.4);transition:border-color .15s,background .15s;cursor:pointer;width:100%;box-sizing:border-box}
+.tpgup-drop *{box-sizing:border-box}
+.tpgup-drop:hover,.tpgup-drop.dragover{border-color:#60a5fa;background:rgba(59,130,246,.08)}
+.tpgup-drop input[type="file"]{position:absolute;inset:0;opacity:0;cursor:pointer}
+.tpgup-icon{display:inline-flex;align-items:center;justify-content:center;color:#60a5fa;margin-bottom:16px}
+.tpgup-prompt{font-size:16px;font-weight:600;color:#f1f5f9;margin-bottom:6px}
+.tpgup-hint{font-size:13px;color:#94a3b8}
+.tpgup-selected{margin-top:14px;color:#60a5fa;font-size:13px;font-weight:600}
+.tpgup-actions{display:flex;justify-content:space-between;align-items:center;margin-top:22px}
+a.tpgup-template,a.tpgup-template:hover,a.tpgup-template:visited{color:#cbd5e1 !important;text-decoration:none;display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:600}
+a.tpgup-template:hover{color:#fff !important}
+button.tpgup-submit,button.tpgup-submit:hover{background:#5bb8c9 !important;background-image:linear-gradient(180deg,#6bc6d7,#5bb8c9) !important;color:#fff !important;border:none !important;padding:13px 30px !important;font-size:14px !important;font-weight:700 !important;border-radius:10px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
+button.tpgup-submit:disabled{opacity:.5;cursor:not-allowed}
+</style>
+<div id="dash-panel-tpg-uploadcourseruns" class="tpg-wrap">
+    <div class="tpg-app-tabs">
+        <span class="tpg-app-label">SSG APP</span>
+        <button type="button" class="tpg-app-tab active">App 1</button>
+        <button type="button" class="tpg-app-tab">App 2</button>
+        <button type="button" class="tpg-app-tab">App 3</button>
+        <button type="button" class="tpg-app-tab">App 4</button>
+    </div>
+    <h1 class="tpg-title">Upload Course Runs to SSG</h1>
+
+    <div class="tpgup-card">
+        <h2 class="tpgup-heading">Upload Course Runs</h2>
+        <p class="tpgup-subheading">Submit your course run details in bulk by uploading an Excel file.</p>
+        <label class="tpgup-drop" id="tpgup-drop" for="tpgup-file">
+            <div class="tpgup-icon">
+                <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            </div>
+            <div class="tpgup-prompt">Drag &amp; drop your file here, or click to browse</div>
+            <div class="tpgup-hint">XLSX or XLS file format</div>
+            <input type="file" id="tpgup-file" accept=".xlsx,.xls,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+            <div class="tpgup-selected" id="tpgup-selected" style="display:none"></div>
+        </label>
+        <div class="tpgup-actions">
+            <a href="#" class="tpgup-template" onclick="event.preventDefault();tpgupDownloadTemplate();">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Course Run Template
+            </a>
+            <button type="button" class="tpgup-submit" id="tpgup-submit-btn" onclick="tpgupSubmit()" disabled>Submit to SSG</button>
+        </div>
+    </div>
+
+    <div class="tpg-footer-brand">Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y') ?></div>
+</div>
+<script type="text/javascript">
+(function(){
+    var drop = document.getElementById('tpgup-drop');
+    var fileInput = document.getElementById('tpgup-file');
+    var selected = document.getElementById('tpgup-selected');
+    var submitBtn = document.getElementById('tpgup-submit-btn');
+
+    function showFile(file){
+        if (!file) {
+            selected.style.display = 'none'; selected.textContent = '';
+            submitBtn.disabled = true;
+            return;
+        }
+        var sizeKb = (file.size/1024).toFixed(1);
+        selected.style.display = '';
+        selected.textContent = '✓ ' + file.name + ' (' + sizeKb + ' KB)';
+        submitBtn.disabled = false;
+    }
+
+    fileInput.addEventListener('change', function(e){
+        showFile(e.target.files && e.target.files[0]);
+    });
+
+    ['dragenter','dragover'].forEach(function(ev){
+        drop.addEventListener(ev, function(e){ e.preventDefault(); e.stopPropagation(); drop.classList.add('dragover'); });
+    });
+    ['dragleave','drop'].forEach(function(ev){
+        drop.addEventListener(ev, function(e){ e.preventDefault(); e.stopPropagation(); drop.classList.remove('dragover'); });
+    });
+    drop.addEventListener('drop', function(e){
+        var files = e.dataTransfer && e.dataTransfer.files;
+        if (files && files.length){
+            // Assign to the input so a real form submit could carry it
+            fileInput.files = files;
+            showFile(files[0]);
+        }
+    });
+
+    window.tpgupDownloadTemplate = function(){
+        // CSV is universally accepted by Excel — opens in XLSX as a starter template.
+        var csv = 'Course Reference Number,Course Run ID,Start Date,End Date,Mode of Training,Venue UEN,Venue Code,Trainer Name,Trainer Email\r\n'
+                + 'TGS-2024052076,1234567,01/05/2026,01/05/2026,Classroom,201200696W,201200696W-01,Trainer Name,trainer@example.com\r\n';
+        var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        var url  = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url; a.download = 'course-run-template.csv';
+        document.body.appendChild(a); a.click();
+        setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+    };
+
+    window.tpgupSubmit = function(){
+        var f = fileInput.files && fileInput.files[0];
+        if (!f) { alert('Choose a file first.'); return; }
+        // Backend integration pending — for now, surface what would be sent.
+        alert('Ready to upload: ' + f.name + ' (' + (f.size/1024).toFixed(1) + ' KB)\n\nSSG bulk submit endpoint not yet wired. Once it is, this file will POST to the upload action and the response will be shown here.');
+    };
+})();
+</script>
+<?php endif; ?>
+
+<?php /* ===== TPG Management: Delete Course Run (Admin only) ===== */ ?>
+<?php if ($_tpgActive && $_tpgPage === 'delete_course_run'): ?>
+<style>
+.tpgdr-card{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:26px 30px;margin-bottom:18px}
+.tpgdr-card-title{font-size:18px;font-weight:700;color:#fff;margin:0 0 6px}
+.tpgdr-card-subtitle{color:#94a3b8;font-size:14px;margin:0 0 22px}
+.tpgdr-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px 24px;margin-bottom:24px}
+.tpgdr-field{display:flex;flex-direction:column}
+.tpgdr-label{font-size:14px;font-weight:700;color:#fff;margin-bottom:8px}
+.tpgdr-label .tpgdr-req{color:#fb7185;font-weight:400}
+.tpgdr-input{width:100%;padding:14px 16px !important;background:#334155 !important;border:1px solid #475569 !important;border-radius:10px !important;color:#f1f5f9 !important;font-size:14px;outline:none;box-sizing:border-box;font-family:inherit}
+.tpgdr-input:focus{border-color:#60a5fa !important}
+.tpgdr-input::placeholder{color:#94a3b8}
+.tpgdr-actions{display:flex;gap:14px}
+button.tpgdr-delete,button.tpgdr-delete:hover{background:#5bb8c9 !important;background-image:linear-gradient(180deg,#6bc6d7,#5bb8c9) !important;color:#fff !important;border:none !important;padding:13px 26px !important;font-size:14px !important;font-weight:700 !important;border-radius:10px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;display:inline-flex;align-items:center;gap:8px}
+button.tpgdr-delete:disabled{opacity:.6;cursor:not-allowed}
+button.tpgdr-clear,button.tpgdr-clear:hover{background:transparent !important;background-image:none !important;border:1px solid #475569 !important;color:#e2e8f0 !important;padding:13px 26px !important;font-size:14px !important;font-weight:600 !important;border-radius:10px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
+button.tpgdr-clear:hover{background:#1e293b !important}
+.tpgdr-result{margin-top:18px;padding:18px;background:#0f172a;border:1px solid #334155;border-radius:10px;color:#cbd5e1;font-size:13px;font-family:'SFMono-Regular',Consolas,monospace;white-space:pre;overflow:auto;display:none}
+@media(max-width:900px){.tpgdr-grid{grid-template-columns:1fr}}
+</style>
+<div id="dash-panel-tpg-deletecourserun" class="tpg-wrap">
+    <div class="tpg-app-tabs">
+        <span class="tpg-app-label">SSG APP</span>
+        <button type="button" class="tpg-app-tab active">App 1</button>
+        <button type="button" class="tpg-app-tab">App 2</button>
+        <button type="button" class="tpg-app-tab">App 3</button>
+        <button type="button" class="tpg-app-tab">App 4</button>
+    </div>
+    <h1 class="tpg-title">Delete Course Run</h1>
+
+    <div class="tpgdr-card">
+        <h2 class="tpgdr-card-title">Course Run Details</h2>
+        <p class="tpgdr-card-subtitle">Both Course Reference Number and Course Run ID are required to delete a course run.</p>
+        <div class="tpgdr-grid">
+            <div class="tpgdr-field">
+                <label class="tpgdr-label">Course Reference Number <span class="tpgdr-req">*</span></label>
+                <input type="text" class="tpgdr-input" id="tpgdr-course-ref" placeholder="e.g. TGS-2024052076" autocomplete="off" oninput="tpgdrValidate()" />
+            </div>
+            <div class="tpgdr-field">
+                <label class="tpgdr-label">Course Run ID <span class="tpgdr-req">*</span></label>
+                <input type="text" class="tpgdr-input" id="tpgdr-run-id" placeholder="e.g. 1225151" autocomplete="off" oninput="tpgdrValidate()" />
+            </div>
+        </div>
+        <div class="tpgdr-actions">
+            <button type="button" class="tpgdr-delete" id="tpgdr-delete-btn" onclick="tpgdrDelete()" disabled>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                Delete Course Run
+            </button>
+            <button type="button" class="tpgdr-clear" onclick="tpgdrClear()">Clear</button>
+        </div>
+        <pre class="tpgdr-result" id="tpgdr-result"></pre>
+    </div>
+
+    <div class="tpg-footer-brand">Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y') ?></div>
+</div>
+<script type="text/javascript">
+(function(){
+    var TPGDR_URL = <?php echo json_encode(Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/deleteCourseRun')) ?>;
+    var FORM_KEY  = '<?php echo Mage::getSingleton('core/session')->getFormKey() ?>';
+    function val(id){var el=document.getElementById(id);return el?el.value.trim():'';}
+    window.tpgdrValidate = function(){
+        var btn = document.getElementById('tpgdr-delete-btn');
+        var ok = val('tpgdr-course-ref') !== '' && val('tpgdr-run-id') !== '';
+        btn.disabled = !ok;
+    };
+    window.tpgdrClear = function(){
+        document.getElementById('tpgdr-course-ref').value = '';
+        document.getElementById('tpgdr-run-id').value = '';
+        var box = document.getElementById('tpgdr-result');
+        if (box) { box.textContent=''; box.style.display='none'; }
+        tpgdrValidate();
+    };
+    window.tpgdrDelete = function(){
+        var ref = val('tpgdr-course-ref');
+        var run = val('tpgdr-run-id');
+        if (!ref || !run) { alert('Both fields are required.'); return; }
+        if (!confirm('Are you sure you want to delete course run ' + run + ' for ' + ref + '? This cannot be undone.')) return;
+
+        var box = document.getElementById('tpgdr-result');
+        box.style.display = 'block';
+        box.textContent = 'Deleting…';
+
+        var fd = new FormData();
+        fd.append('form_key',  FORM_KEY);
+        fd.append('course_ref', ref);
+        fd.append('run_id',     run);
+        fetch(TPGDR_URL, { method: 'POST', body: fd, credentials: 'same-origin' })
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+                if (!d.success) { box.textContent = 'Failed: ' + (d.message || 'unknown error'); return; }
+                box.textContent = '✓ Course run deleted.\n\n' + JSON.stringify(d, null, 2);
+                tpgdrClear();
+                box.style.display = 'block';
+                box.textContent = '✓ Course run ' + run + ' deleted from ' + ref + '.';
+            })
+            .catch(function(err){ box.textContent = 'Network error: ' + err.message; });
+    };
+})();
+</script>
+<?php endif; ?>
+
 <?php /* ===== Role switcher JS ===== */ ?>
 <script type="text/javascript">
 (function(){
@@ -7805,7 +9813,7 @@ button.tpgel-submit,button.tpgel-submit:hover{background:#2563eb !important;back
             'Trainer':           'dash-panel-learner',
             'Developer':         'dash-panel-developer'
         };
-        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-trainingprovider','dash-panel-developer','dash-panel-learner','dash-panel-billing','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-course-detail','dash-panel-course-edit','dash-panel-companysetting','dash-panel-cp-coursedetails','dash-panel-cp-aboutcourse','dash-panel-cp-whatlearn','dash-panel-cp-bgparta','dash-panel-cp-bgpartb','dash-panel-cp-learningoutcomes','dash-panel-cp-instructmethods','dash-panel-cp-assessmethods','dash-panel-cp-lusequencing','dash-panel-cp-courseoutline','dash-panel-cp-entryreq','dash-panel-cp-jobroles','dash-panel-cp-lessonplan','dash-panel-cp-cpvalidation','dash-panel-tpg-createclass','dash-panel-tpg-enrolllearners'];
+        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-trainingprovider','dash-panel-developer','dash-panel-learner','dash-panel-billing','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-course-detail','dash-panel-course-edit','dash-panel-companysetting','dash-panel-cp-coursedetails','dash-panel-cp-aboutcourse','dash-panel-cp-whatlearn','dash-panel-cp-bgparta','dash-panel-cp-bgpartb','dash-panel-cp-learningoutcomes','dash-panel-cp-instructmethods','dash-panel-cp-assessmethods','dash-panel-cp-lusequencing','dash-panel-cp-courseoutline','dash-panel-cp-entryreq','dash-panel-cp-jobroles','dash-panel-cp-lessonplan','dash-panel-cp-cpvalidation','dash-panel-tpg-createclass','dash-panel-tpg-enrolllearners','dash-panel-tpg-addsessions','dash-panel-tpg-coursesessions','dash-panel-tpg-sessionattendance','dash-panel-tpg-checkattendance','dash-panel-tpg-submitassessment','dash-panel-tpg-updateassessment','dash-panel-tpg-bulkupdateassessment','dash-panel-tpg-searchassessments','dash-panel-tpg-viewassessment','dash-panel-tpg-grantcalculator','dash-panel-tpg-searchgrant','dash-panel-tpg-viewgrantstatus','dash-panel-tpg-searchcourseruns','dash-panel-tpg-viewcourserun','dash-panel-tpg-editcourserun','dash-panel-tpg-uploadcourseruns','dash-panel-tpg-deletecourserun'];
         // If a TPG sub-page is active (Admin only), show it and skip the role panel
         if (TPG_PAGE_ACTIVE) {
             for (var j=0; j<all.length; j++) {

@@ -1059,6 +1059,787 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
         $this->_sendJson(array('results' => $results));
     }
 
+    /**
+     * Look up a Course Run by run_id (option_type_id) — used by the
+     * Add Sessions page's "Fetch Data" button. Returns the parent course +
+     * session details in a JSON envelope so the UI can pre-populate the
+     * Add Sessions form against an existing run.
+     */
+    public function runLookupAction()
+    {
+        $result = array('success' => false);
+        try {
+            $runId = (int) $this->getRequest()->getParam('run_id');
+            if (!$runId) throw new Exception('run_id is required');
+
+            $read = Mage::getSingleton('core/resource')->getConnection('core_read');
+            $row = $read->fetchRow(
+                "SELECT ov.option_type_id AS run_id, o.product_id, ott.title AS session_title,
+                        e.sku AS course_code,
+                        (SELECT value FROM catalog_product_entity_varchar v WHERE v.entity_id = e.entity_id AND v.attribute_id = 71 ORDER BY v.store_id LIMIT 1) AS course_name
+                 FROM catalog_product_option_type_value ov
+                 JOIN catalog_product_option o ON o.option_id = ov.option_id
+                 JOIN catalog_product_option_type_title ott ON ott.option_type_id = ov.option_type_id AND ott.store_id = 0
+                 JOIN catalog_product_entity e ON e.entity_id = o.product_id
+                 WHERE ov.option_type_id = ?
+                 LIMIT 1",
+                array($runId)
+            );
+            if (!$row) throw new Exception('No course run found for ID ' . $runId);
+
+            // Map run_id to its registry-assigned Course Run ID label, if registered
+            $reg = $read->fetchRow(
+                "SELECT website_id, run_seq FROM course_run_registry WHERE product_id = ? LIMIT 1",
+                array($row['product_id'])
+            );
+            $prefix = 'SG';
+            $courseRunLabel = null;
+            if ($reg) {
+                $prefixMap = array(1=>'SG',2=>'MY',3=>'GH',4=>'NG',5=>'BUT',6=>'IND',7=>'INF');
+                $prefix = isset($prefixMap[(int)$reg['website_id']]) ? $prefixMap[(int)$reg['website_id']] : 'SG';
+                $courseRunLabel = $prefix . '-' . str_pad((string)(100000 + (int)$reg['run_seq']), 6, '0', STR_PAD_LEFT);
+            }
+
+            $result['success'] = true;
+            $result['run']     = array(
+                'run_id'           => (int) $row['run_id'],
+                'product_id'       => (int) $row['product_id'],
+                'course_code'      => $row['course_code'],
+                'course_name'      => $row['course_name'] ?: '(No name)',
+                'session_title'    => $row['session_title'],
+                'course_run_label' => $courseRunLabel,
+            );
+        } catch (Exception $e) {
+            $result['message'] = $e->getMessage();
+        }
+        $this->_sendJson($result);
+    }
+
+    /**
+     * List all sessions of the course whose Course Run ID was looked up.
+     * Used by the Course Sessions page's "Fetch Sessions" button.
+     */
+    public function runSessionsLookupAction()
+    {
+        $result = array('success' => false);
+        try {
+            $runId = (int) $this->getRequest()->getParam('run_id');
+            if (!$runId) throw new Exception('run_id is required');
+
+            $read = Mage::getSingleton('core/resource')->getConnection('core_read');
+            // Resolve the run_id to its parent product
+            $course = $read->fetchRow(
+                "SELECT o.product_id, e.sku,
+                        (SELECT value FROM catalog_product_entity_varchar v WHERE v.entity_id = e.entity_id AND v.attribute_id = 71 ORDER BY v.store_id LIMIT 1) AS course_name
+                 FROM catalog_product_option_type_value ov
+                 JOIN catalog_product_option o ON o.option_id = ov.option_id
+                 JOIN catalog_product_entity e ON e.entity_id = o.product_id
+                 WHERE ov.option_type_id = ?
+                 LIMIT 1",
+                array($runId)
+            );
+            if (!$course) throw new Exception('No course run found for ID ' . $runId);
+
+            $sessions = $read->fetchAll(
+                "SELECT ov.option_type_id, ott.title
+                 FROM catalog_product_option o
+                 JOIN catalog_product_option_title ot ON ot.option_id = o.option_id AND ot.store_id = 0
+                 JOIN catalog_product_option_type_value ov ON ov.option_id = o.option_id
+                 JOIN catalog_product_option_type_title ott ON ott.option_type_id = ov.option_type_id AND ott.store_id = 0
+                 WHERE o.product_id = ? AND (ot.title = 'Course Date' OR ot.title LIKE '%Date%')
+                 ORDER BY ov.sort_order ASC, ov.option_type_id ASC",
+                array((int)$course['product_id'])
+            );
+
+            $result['success'] = true;
+            $result['run']     = array(
+                'product_id'    => (int) $course['product_id'],
+                'course_code'   => $course['sku'],
+                'course_name'   => $course['course_name'] ?: '(No name)',
+                'session_count' => count($sessions),
+                'sessions'      => $sessions,
+            );
+        } catch (Exception $e) {
+            $result['message'] = $e->getMessage();
+        }
+        $this->_sendJson($result);
+    }
+
+    /**
+     * Course Session Attendance lookup. Resolves Course Code / Session ID /
+     * Course Run ID into a session and returns its attendance roster.
+     */
+    public function sessionAttendanceLookupAction()
+    {
+        $result = array('success' => false);
+        try {
+            $uen        = trim((string) $this->getRequest()->getParam('uen'));
+            $courseCode = trim((string) $this->getRequest()->getParam('course_code'));
+            $sessionId  = trim((string) $this->getRequest()->getParam('session_id'));
+            $runId      = (int) $this->getRequest()->getParam('run_id');
+
+            $read = Mage::getSingleton('core/resource')->getConnection('core_read');
+
+            // Resolve to an option_type_id (the canonical session id in our DB)
+            $optionTypeId = 0;
+            if ($runId > 0) {
+                $optionTypeId = (int) $read->fetchOne(
+                    "SELECT option_type_id FROM catalog_product_option_type_value WHERE option_type_id = ? LIMIT 1",
+                    array($runId)
+                );
+            }
+            // Session ID format like "TGS-2019503161-1289568-S1" — extract the
+            // 1289568 part (or the trailing -SN if option_type_id is encoded there).
+            if (!$optionTypeId && $sessionId !== '' && preg_match('/(\d{4,})/', $sessionId, $m)) {
+                $optionTypeId = (int) $read->fetchOne(
+                    "SELECT option_type_id FROM catalog_product_option_type_value WHERE option_type_id = ? LIMIT 1",
+                    array((int)$m[1])
+                );
+            }
+            if (!$optionTypeId && $courseCode !== '') {
+                $optionTypeId = (int) $read->fetchOne(
+                    "SELECT ov.option_type_id
+                     FROM catalog_product_entity e
+                     JOIN catalog_product_option o ON o.product_id = e.entity_id
+                     JOIN catalog_product_option_type_value ov ON ov.option_id = o.option_id
+                     WHERE e.sku = ?
+                     ORDER BY ov.option_type_id ASC
+                     LIMIT 1",
+                    array($courseCode)
+                );
+            }
+            if (!$optionTypeId) {
+                throw new Exception('Could not resolve session — provide Course Run ID, Session ID, or Course Code.');
+            }
+
+            $session = $read->fetchRow(
+                "SELECT ov.option_type_id, ott.title AS session_title,
+                        e.sku AS course_code,
+                        (SELECT value FROM catalog_product_entity_varchar v WHERE v.entity_id = e.entity_id AND v.attribute_id = 71 ORDER BY v.store_id LIMIT 1) AS course_name
+                 FROM catalog_product_option_type_value ov
+                 JOIN catalog_product_option o ON o.option_id = ov.option_id
+                 JOIN catalog_product_option_type_title ott ON ott.option_type_id = ov.option_type_id AND ott.store_id = 0
+                 JOIN catalog_product_entity e ON e.entity_id = o.product_id
+                 WHERE ov.option_type_id = ?
+                 LIMIT 1",
+                array($optionTypeId)
+            );
+
+            $attendance = $read->fetchAll(
+                "SELECT ca.customer_id, ca.status, ca.updated_at, c.email
+                 FROM course_attendance ca
+                 JOIN customer_entity c ON c.entity_id = ca.customer_id
+                 WHERE ca.option_type_id = ?
+                 ORDER BY ca.updated_at DESC",
+                array($optionTypeId)
+            );
+
+            $result['success']    = true;
+            $result['uen']        = $uen;
+            $result['session']    = $session;
+            $result['attendance'] = $attendance;
+            $result['count']      = count($attendance);
+        } catch (Exception $e) {
+            $result['message'] = $e->getMessage();
+        }
+        $this->_sendJson($result);
+    }
+
+    /**
+     * Check Attendance composite lookup. Given a Course Run ID returns:
+     *   - run/course identity (so the page can display the SG-100xxx label)
+     *   - the attendance roster on course_attendance for that run
+     *   - the enrolments on sales_flat_order for the parent course
+     * The page builds the Session Attendance / Class Enrolments / Manual
+     * Attendance tables from this single payload.
+     */
+    public function checkAttendanceLookupAction()
+    {
+        $result = array('success' => false);
+        try {
+            $runId = (int) $this->getRequest()->getParam('run_id');
+            if (!$runId) throw new Exception('run_id is required');
+
+            $read = Mage::getSingleton('core/resource')->getConnection('core_read');
+
+            $course = $read->fetchRow(
+                "SELECT o.product_id, e.sku AS course_code,
+                        ott.title AS session_title,
+                        (SELECT value FROM catalog_product_entity_varchar v WHERE v.entity_id = e.entity_id AND v.attribute_id = 71 ORDER BY v.store_id LIMIT 1) AS course_name
+                 FROM catalog_product_option_type_value ov
+                 JOIN catalog_product_option o ON o.option_id = ov.option_id
+                 JOIN catalog_product_option_type_title ott ON ott.option_type_id = ov.option_type_id AND ott.store_id = 0
+                 JOIN catalog_product_entity e ON e.entity_id = o.product_id
+                 WHERE ov.option_type_id = ?
+                 LIMIT 1",
+                array($runId)
+            );
+            if (!$course) throw new Exception('No course run found for ID ' . $runId);
+
+            // Map run_id to its registry-assigned Course Run ID label, if registered
+            $reg = $read->fetchRow(
+                "SELECT website_id, run_seq FROM course_run_registry WHERE product_id = ? LIMIT 1",
+                array((int)$course['product_id'])
+            );
+            $courseRunLabel = (string) $runId;
+            if ($reg) {
+                $prefixMap = array(1=>'SG',2=>'MY',3=>'GH',4=>'NG',5=>'BUT',6=>'IND',7=>'INF');
+                $prefix = isset($prefixMap[(int)$reg['website_id']]) ? $prefixMap[(int)$reg['website_id']] : 'SG';
+                $courseRunLabel = $prefix . '-' . str_pad((string)(100000 + (int)$reg['run_seq']), 6, '0', STR_PAD_LEFT);
+            }
+
+            $attendance = $read->fetchAll(
+                "SELECT ca.customer_id, ca.status, ca.updated_at, c.email,
+                        CONCAT(TRIM(COALESCE(fn.value,'')), ' ', TRIM(COALESCE(ln.value,''))) AS name
+                 FROM course_attendance ca
+                 JOIN customer_entity c ON c.entity_id = ca.customer_id
+                 LEFT JOIN customer_entity_varchar fn ON fn.entity_id = c.entity_id AND fn.attribute_id = (SELECT attribute_id FROM eav_attribute WHERE attribute_code='firstname' AND entity_type_id = (SELECT entity_type_id FROM eav_entity_type WHERE entity_type_code='customer'))
+                 LEFT JOIN customer_entity_varchar ln ON ln.entity_id = c.entity_id AND ln.attribute_id = (SELECT attribute_id FROM eav_attribute WHERE attribute_code='lastname'  AND entity_type_id = (SELECT entity_type_id FROM eav_entity_type WHERE entity_type_code='customer'))
+                 WHERE ca.option_type_id = ?
+                 ORDER BY ca.updated_at DESC",
+                array($runId)
+            );
+
+            $enrolments = $read->fetchAll(
+                "SELECT o.increment_id, o.created_at, o.customer_email AS email,
+                        CONCAT(TRIM(COALESCE(o.customer_firstname,'')), ' ', TRIM(COALESCE(o.customer_lastname,''))) AS name
+                 FROM sales_flat_order o
+                 JOIN sales_flat_order_item oi ON oi.order_id = o.entity_id
+                 WHERE oi.product_id = ?
+                   AND o.state NOT IN ('canceled','closed')
+                 ORDER BY o.created_at DESC",
+                array((int)$course['product_id'])
+            );
+
+            $result['success']    = true;
+            $result['run']        = array(
+                'run_id'           => $runId,
+                'product_id'       => (int) $course['product_id'],
+                'course_code'      => $course['course_code'],
+                'course_name'      => $course['course_name'] ?: '(No name)',
+                'session_title'    => $course['session_title'],
+                'course_run_label' => $courseRunLabel,
+            );
+            $result['attendance'] = $attendance;
+            $result['enrolments'] = $enrolments;
+        } catch (Exception $e) {
+            $result['message'] = $e->getMessage();
+        }
+        $this->_sendJson($result);
+    }
+
+    /**
+     * Search Assessments — combined Course Run ID + Course Reference Number
+     * lookup against course_attendance (treated as the assessment store for
+     * now). Optional filters: enrolment number, trainee ID/NRIC.
+     */
+    public function searchAssessmentsAction()
+    {
+        $result = array('success' => false);
+        try {
+            $runId      = (int) $this->getRequest()->getParam('run_id');
+            $courseRef  = trim((string) $this->getRequest()->getParam('course_ref'));
+            $enrolRef   = trim((string) $this->getRequest()->getParam('enrol_ref'));
+            $traineeId  = trim((string) $this->getRequest()->getParam('trainee_id'));
+            if (!$runId)     throw new Exception('Course Run ID is required');
+            if ($courseRef === '') throw new Exception('Course Reference Number is required');
+
+            $read = Mage::getSingleton('core/resource')->getConnection('core_read');
+
+            // Verify the run + course-ref pair is consistent (run_id belongs to a course
+            // whose SKU == course_ref).
+            $product = $read->fetchRow(
+                "SELECT e.entity_id, e.sku
+                 FROM catalog_product_option_type_value ov
+                 JOIN catalog_product_option o ON o.option_id = ov.option_id
+                 JOIN catalog_product_entity e ON e.entity_id = o.product_id
+                 WHERE ov.option_type_id = ? AND e.sku = ?
+                 LIMIT 1",
+                array($runId, $courseRef)
+            );
+            if (!$product) {
+                throw new Exception('No course matched the Course Run ID + Course Reference Number combination.');
+            }
+
+            $sql = "SELECT ca.customer_id, ca.status, ca.updated_at,
+                           c.email,
+                           CONCAT(TRIM(COALESCE(fn.value,'')), ' ', TRIM(COALESCE(ln.value,''))) AS name
+                    FROM course_attendance ca
+                    JOIN customer_entity c ON c.entity_id = ca.customer_id
+                    LEFT JOIN customer_entity_varchar fn ON fn.entity_id = c.entity_id AND fn.attribute_id = (SELECT attribute_id FROM eav_attribute WHERE attribute_code='firstname' AND entity_type_id = (SELECT entity_type_id FROM eav_entity_type WHERE entity_type_code='customer'))
+                    LEFT JOIN customer_entity_varchar ln ON ln.entity_id = c.entity_id AND ln.attribute_id = (SELECT attribute_id FROM eav_attribute WHERE attribute_code='lastname'  AND entity_type_id = (SELECT entity_type_id FROM eav_entity_type WHERE entity_type_code='customer'))
+                    WHERE ca.option_type_id = ?";
+            $params = array($runId);
+
+            if ($enrolRef !== '') {
+                // Match on the order's increment_id we set during enrollLearnerAction
+                $sql .= " AND EXISTS (SELECT 1 FROM sales_flat_order o WHERE LOWER(o.customer_email) = LOWER(c.email) AND o.increment_id = ?)";
+                $params[] = $enrolRef;
+            }
+            if ($traineeId !== '') {
+                // We don't store NRIC directly — match by learner_profile.nric if available
+                $sql .= " AND (EXISTS (SELECT 1 FROM learner_profile lp WHERE LOWER(lp.email) = LOWER(c.email) AND lp.nric = ?) OR LOWER(c.email) LIKE ?)";
+                $params[] = $traineeId;
+                $params[] = '%' . strtolower($traineeId) . '%';
+            }
+            $sql .= " ORDER BY ca.updated_at DESC LIMIT 200";
+
+            $rows = $read->fetchAll($sql, $params);
+
+            $result['success']  = true;
+            $result['count']    = count($rows);
+            $result['results']  = $rows;
+        } catch (Exception $e) {
+            $result['message'] = $e->getMessage();
+        }
+        $this->_sendJson($result);
+    }
+
+    /**
+     * View Assessment — fetch a single assessment record by Assessment ID.
+     * The ID format we recognise is ASM-{option_type_id}-{customer_id} (a
+     * deterministic encoding of the underlying course_attendance row); a
+     * permissive parse also accepts plain numeric IDs that match a
+     * course_attendance.id directly.
+     */
+    public function viewAssessmentAction()
+    {
+        $result = array('success' => false);
+        try {
+            $rawId = trim((string) $this->getRequest()->getParam('id'));
+            if ($rawId === '') throw new Exception('Assessment ID is required');
+
+            $optionTypeId = 0;
+            $customerId   = 0;
+            $caId         = 0;
+
+            if (preg_match('/^ASM-(\d+)-(\d+)$/i', $rawId, $m)) {
+                $optionTypeId = (int) $m[1];
+                $customerId   = (int) $m[2];
+            } elseif (ctype_digit($rawId)) {
+                $caId = (int) $rawId;
+            } else {
+                throw new Exception('Unrecognised Assessment ID format. Expected ASM-{run}-{learner} or numeric.');
+            }
+
+            $read = Mage::getSingleton('core/resource')->getConnection('core_read');
+
+            if ($caId) {
+                $row = $read->fetchRow(
+                    "SELECT ca.id, ca.option_type_id, ca.customer_id, ca.status, ca.updated_at
+                     FROM course_attendance ca
+                     WHERE ca.id = ? LIMIT 1",
+                    array($caId)
+                );
+            } else {
+                $row = $read->fetchRow(
+                    "SELECT ca.id, ca.option_type_id, ca.customer_id, ca.status, ca.updated_at
+                     FROM course_attendance ca
+                     WHERE ca.option_type_id = ? AND ca.customer_id = ? LIMIT 1",
+                    array($optionTypeId, $customerId)
+                );
+            }
+            if (!$row) throw new Exception('No assessment record found for ' . $rawId);
+
+            $session = $read->fetchRow(
+                "SELECT ott.title AS session_title,
+                        e.entity_id AS product_id, e.sku AS course_code,
+                        (SELECT value FROM catalog_product_entity_varchar v WHERE v.entity_id = e.entity_id AND v.attribute_id = 71 ORDER BY v.store_id LIMIT 1) AS course_name
+                 FROM catalog_product_option_type_value ov
+                 JOIN catalog_product_option o ON o.option_id = ov.option_id
+                 JOIN catalog_product_option_type_title ott ON ott.option_type_id = ov.option_type_id AND ott.store_id = 0
+                 JOIN catalog_product_entity e ON e.entity_id = o.product_id
+                 WHERE ov.option_type_id = ? LIMIT 1",
+                array((int)$row['option_type_id'])
+            );
+
+            $cust = $read->fetchRow(
+                "SELECT c.email,
+                        CONCAT(TRIM(COALESCE(fn.value,'')), ' ', TRIM(COALESCE(ln.value,''))) AS name
+                 FROM customer_entity c
+                 LEFT JOIN customer_entity_varchar fn ON fn.entity_id = c.entity_id AND fn.attribute_id = (SELECT attribute_id FROM eav_attribute WHERE attribute_code='firstname' AND entity_type_id = (SELECT entity_type_id FROM eav_entity_type WHERE entity_type_code='customer'))
+                 LEFT JOIN customer_entity_varchar ln ON ln.entity_id = c.entity_id AND ln.attribute_id = (SELECT attribute_id FROM eav_attribute WHERE attribute_code='lastname'  AND entity_type_id = (SELECT entity_type_id FROM eav_entity_type WHERE entity_type_code='customer'))
+                 WHERE c.entity_id = ? LIMIT 1",
+                array((int)$row['customer_id'])
+            );
+
+            $result['success']    = true;
+            $result['assessment'] = array(
+                'id'             => 'ASM-' . (int)$row['option_type_id'] . '-' . (int)$row['customer_id'],
+                'run_id'         => (int) $row['option_type_id'],
+                'session_title'  => $session ? $session['session_title']  : '—',
+                'course_code'    => $session ? $session['course_code']    : '—',
+                'course_name'    => $session ? $session['course_name']    : '—',
+                'trainee_name'   => $cust    ? $cust['name']              : '—',
+                'trainee_email'  => $cust    ? $cust['email']             : '—',
+                'status'         => $row['status'],
+                'updated_at'     => $row['updated_at'],
+            );
+        } catch (Exception $e) {
+            $result['message'] = $e->getMessage();
+        }
+        $this->_sendJson($result);
+    }
+
+    /**
+     * Search Grant — returns grant-related details for a Course Run.
+     * Combines run identity + Course Run Registry label + enrolment count
+     * to produce a rough grant estimate (placeholder until real SSG data
+     * source is wired up).
+     */
+    public function searchGrantAction()
+    {
+        $result = array('success' => false);
+        try {
+            $runId = (int) $this->getRequest()->getParam('run_id');
+            if (!$runId) throw new Exception('Course Run ID is required');
+
+            $read = Mage::getSingleton('core/resource')->getConnection('core_read');
+
+            $row = $read->fetchRow(
+                "SELECT ov.option_type_id AS run_id, o.product_id, ott.title AS session_title,
+                        e.sku AS course_code,
+                        (SELECT value FROM catalog_product_entity_varchar v WHERE v.entity_id = e.entity_id AND v.attribute_id = 71 ORDER BY v.store_id LIMIT 1) AS course_name
+                 FROM catalog_product_option_type_value ov
+                 JOIN catalog_product_option o ON o.option_id = ov.option_id
+                 JOIN catalog_product_option_type_title ott ON ott.option_type_id = ov.option_type_id AND ott.store_id = 0
+                 JOIN catalog_product_entity e ON e.entity_id = o.product_id
+                 WHERE ov.option_type_id = ?
+                 LIMIT 1",
+                array($runId)
+            );
+            if (!$row) throw new Exception('No course run found for ID ' . $runId);
+
+            $reg = $read->fetchRow(
+                "SELECT website_id, run_seq FROM course_run_registry WHERE product_id = ? LIMIT 1",
+                array((int)$row['product_id'])
+            );
+            $courseRunLabel = (string) $runId;
+            if ($reg) {
+                $prefixMap = array(1=>'SG',2=>'MY',3=>'GH',4=>'NG',5=>'BUT',6=>'IND',7=>'INF');
+                $prefix = isset($prefixMap[(int)$reg['website_id']]) ? $prefixMap[(int)$reg['website_id']] : 'SG';
+                $courseRunLabel = $prefix . '-' . str_pad((string)(100000 + (int)$reg['run_seq']), 6, '0', STR_PAD_LEFT);
+            }
+
+            $enrolCount = (int) $read->fetchOne(
+                "SELECT COUNT(DISTINCT o.entity_id)
+                 FROM sales_flat_order o
+                 JOIN sales_flat_order_item oi ON oi.order_id = o.entity_id
+                 WHERE oi.product_id = ? AND o.state NOT IN ('canceled','closed')",
+                array((int)$row['product_id'])
+            );
+
+            // Placeholder grant numbers — replace with real SSG calculator data when wired
+            $perLearner = 350;
+            $total      = $perLearner * $enrolCount;
+
+            $result['success'] = true;
+            $result['grant']   = array(
+                'run_id'                       => (int) $row['run_id'],
+                'course_run_label'             => $courseRunLabel,
+                'course_code'                  => $row['course_code'],
+                'course_name'                  => $row['course_name'] ?: '(No name)',
+                'session_title'                => $row['session_title'],
+                'enrolment_count'              => $enrolCount,
+                'estimated_grant_per_learner'  => 'SGD ' . number_format($perLearner, 2),
+                'estimated_total_grant'        => 'SGD ' . number_format($total, 2),
+                'status'                       => $enrolCount > 0 ? 'Eligible' : 'Pending Enrolment',
+            );
+        } catch (Exception $e) {
+            $result['message'] = $e->getMessage();
+        }
+        $this->_sendJson($result);
+    }
+
+    /**
+     * View Grant Status by Grant ID. Format: GRN-{run_id}-{seq6} or plain
+     * Course Run ID. Returns the same kind of detail as Search Grant plus
+     * a synthesized status (Pending / Approved / Rejected — placeholder
+     * until the real SSG grant store is wired up).
+     */
+    public function viewGrantStatusAction()
+    {
+        $result = array('success' => false);
+        try {
+            $raw = trim((string) $this->getRequest()->getParam('grant_id'));
+            if ($raw === '') throw new Exception('Grant ID is required');
+
+            $runId = 0;
+            if (preg_match('/^GRN-(\d+)-(\d+)$/i', $raw, $m)) {
+                $runId = (int) $m[1];
+            } elseif (ctype_digit($raw)) {
+                $runId = (int) $raw;
+            } else {
+                throw new Exception('Unrecognised Grant ID format. Expected GRN-{run}-{seq} or numeric.');
+            }
+
+            $read = Mage::getSingleton('core/resource')->getConnection('core_read');
+
+            $row = $read->fetchRow(
+                "SELECT ov.option_type_id AS run_id, o.product_id, ott.title AS session_title,
+                        e.sku AS course_code,
+                        (SELECT value FROM catalog_product_entity_varchar v WHERE v.entity_id = e.entity_id AND v.attribute_id = 71 ORDER BY v.store_id LIMIT 1) AS course_name
+                 FROM catalog_product_option_type_value ov
+                 JOIN catalog_product_option o ON o.option_id = ov.option_id
+                 JOIN catalog_product_option_type_title ott ON ott.option_type_id = ov.option_type_id AND ott.store_id = 0
+                 JOIN catalog_product_entity e ON e.entity_id = o.product_id
+                 WHERE ov.option_type_id = ?
+                 LIMIT 1",
+                array($runId)
+            );
+            if (!$row) throw new Exception('No course run found for Grant ID ' . $raw);
+
+            $reg = $read->fetchRow(
+                "SELECT website_id, run_seq FROM course_run_registry WHERE product_id = ? LIMIT 1",
+                array((int)$row['product_id'])
+            );
+            $courseRunLabel = (string) $runId;
+            if ($reg) {
+                $prefixMap = array(1=>'SG',2=>'MY',3=>'GH',4=>'NG',5=>'BUT',6=>'IND',7=>'INF');
+                $prefix = isset($prefixMap[(int)$reg['website_id']]) ? $prefixMap[(int)$reg['website_id']] : 'SG';
+                $courseRunLabel = $prefix . '-' . str_pad((string)(100000 + (int)$reg['run_seq']), 6, '0', STR_PAD_LEFT);
+            }
+
+            $enrolCount = (int) $read->fetchOne(
+                "SELECT COUNT(DISTINCT o.entity_id)
+                 FROM sales_flat_order o
+                 JOIN sales_flat_order_item oi ON oi.order_id = o.entity_id
+                 WHERE oi.product_id = ? AND o.state NOT IN ('canceled','closed')",
+                array((int)$row['product_id'])
+            );
+
+            $perLearner = 350;
+            $total      = $perLearner * $enrolCount;
+            $status     = $enrolCount > 0 ? 'Approved' : 'Pending';
+
+            // Synthetic Grant ID if caller passed plain run_id
+            $grantId = (stripos($raw, 'GRN-') === 0)
+                ? strtoupper($raw)
+                : 'GRN-' . $runId . '-' . str_pad((string)$enrolCount, 6, '0', STR_PAD_LEFT);
+
+            $result['success'] = true;
+            $result['grant']   = array(
+                'grant_id'         => $grantId,
+                'run_id'           => $runId,
+                'course_run_label' => $courseRunLabel,
+                'course_code'      => $row['course_code'],
+                'course_name'      => $row['course_name'] ?: '(No name)',
+                'session_title'    => $row['session_title'],
+                'enrolment_count'  => $enrolCount,
+                'grant_amount'     => 'SGD ' . number_format($total, 2),
+                'submitted_at'     => date('Y-m-d H:i:s'),
+                'status'           => $status,
+            );
+        } catch (Exception $e) {
+            $result['message'] = $e->getMessage();
+        }
+        $this->_sendJson($result);
+    }
+
+    /**
+     * Get all course runs for a given Course Code (SKU). Returns each run's
+     * option_type_id, registry-assigned Course Run label, session title,
+     * enrolment count, and assigned trainer names.
+     */
+    public function searchCourseRunsAction()
+    {
+        $result = array('success' => false);
+        try {
+            $code = trim((string) $this->getRequest()->getParam('code'));
+            if ($code === '') throw new Exception('Course Code is required');
+
+            $read = Mage::getSingleton('core/resource')->getConnection('core_read');
+
+            $product = $read->fetchRow(
+                "SELECT e.entity_id, e.sku,
+                        (SELECT value FROM catalog_product_entity_varchar v WHERE v.entity_id = e.entity_id AND v.attribute_id = 71 ORDER BY v.store_id LIMIT 1) AS course_name
+                 FROM catalog_product_entity e
+                 WHERE e.sku = ? LIMIT 1",
+                array($code)
+            );
+            if (!$product) throw new Exception('No course found with code "' . $code . '"');
+
+            // Registry label uses the same per-website mapping as the rest of TPG
+            $reg = $read->fetchRow(
+                "SELECT website_id, run_seq FROM course_run_registry WHERE product_id = ? LIMIT 1",
+                array((int)$product['entity_id'])
+            );
+            $courseRunLabel = null;
+            if ($reg) {
+                $prefixMap = array(1=>'SG',2=>'MY',3=>'GH',4=>'NG',5=>'BUT',6=>'IND',7=>'INF');
+                $prefix = isset($prefixMap[(int)$reg['website_id']]) ? $prefixMap[(int)$reg['website_id']] : 'SG';
+                $courseRunLabel = $prefix . '-' . str_pad((string)(100000 + (int)$reg['run_seq']), 6, '0', STR_PAD_LEFT);
+            }
+
+            // Look up trainer multiselect option values for this product
+            $trainersCsv = (string) $read->fetchOne(
+                "SELECT value FROM catalog_product_entity_text WHERE entity_id=? AND attribute_id=170 AND value IS NOT NULL AND value != '' ORDER BY store_id LIMIT 1",
+                array((int)$product['entity_id'])
+            );
+            $trainerNames = '—';
+            if ($trainersCsv !== '') {
+                $ids = array_filter(array_map('intval', explode(',', $trainersCsv)));
+                if ($ids) {
+                    $names = $read->fetchCol(
+                        "SELECT eaov.value FROM eav_attribute_option_value eaov WHERE eaov.option_id IN (" . implode(',', array_map('intval', $ids)) . ") AND eaov.store_id=0"
+                    );
+                    if ($names) $trainerNames = implode(', ', $names);
+                }
+            }
+
+            // List every Course Date session on this product
+            $rows = $read->fetchAll(
+                "SELECT ov.option_type_id, ott.title
+                 FROM catalog_product_option o
+                 JOIN catalog_product_option_title ot ON ot.option_id = o.option_id AND ot.store_id = 0
+                 JOIN catalog_product_option_type_value ov ON ov.option_id = o.option_id
+                 JOIN catalog_product_option_type_title ott ON ott.option_type_id = ov.option_type_id AND ott.store_id = 0
+                 WHERE o.product_id = ? AND (ot.title = 'Course Date' OR ot.title LIKE '%Date%')
+                 ORDER BY ov.sort_order ASC, ov.option_type_id ASC",
+                array((int)$product['entity_id'])
+            );
+
+            $enrolCount = (int) $read->fetchOne(
+                "SELECT COUNT(DISTINCT o.entity_id)
+                 FROM sales_flat_order o
+                 JOIN sales_flat_order_item oi ON oi.order_id = o.entity_id
+                 WHERE oi.product_id = ? AND o.state NOT IN ('canceled','closed')",
+                array((int)$product['entity_id'])
+            );
+
+            $runs = array();
+            foreach ($rows as $r) {
+                $runs[] = array(
+                    'run_id'           => (int) $r['option_type_id'],
+                    'course_run_label' => $courseRunLabel,
+                    'session_title'    => $r['title'],
+                    'enrolment_count'  => $enrolCount,
+                    'trainer_names'    => $trainerNames,
+                );
+            }
+
+            $result['success']     = true;
+            $result['course_code'] = $product['sku'];
+            $result['course_name'] = $product['course_name'] ?: '(No name)';
+            $result['runs']        = $runs;
+        } catch (Exception $e) {
+            $result['message'] = $e->getMessage();
+        }
+        $this->_sendJson($result);
+    }
+
+    /**
+     * Edit Course Run — update the session title (and any other future
+     * editable fields) for an existing run.
+     * POST: run_id, session_title
+     */
+    public function editCourseRunAction()
+    {
+        $result = array('success' => false);
+        try {
+            if (!$this->getRequest()->isPost()) throw new Exception('POST required');
+            $req = $this->getRequest();
+            $runId = (int) $req->getParam('run_id');
+            $title = trim((string) $req->getParam('session_title'));
+            if (!$runId) throw new Exception('run_id is required');
+            if ($title === '') throw new Exception('Session Title cannot be empty');
+
+            $resource = Mage::getSingleton('core/resource');
+            $read  = $resource->getConnection('core_read');
+            $write = $resource->getConnection('core_write');
+
+            $exists = (int) $read->fetchOne(
+                "SELECT option_type_id FROM catalog_product_option_type_value WHERE option_type_id = ? LIMIT 1",
+                array($runId)
+            );
+            if (!$exists) throw new Exception('Course run ' . $runId . ' not found');
+
+            $updated = $write->update(
+                'catalog_product_option_type_title',
+                array('title' => $title),
+                array('option_type_id = ?' => $runId, 'store_id = ?' => 0)
+            );
+
+            Mage::app()->cleanCache();
+            $result['success'] = true;
+            $result['updated'] = (int) $updated;
+        } catch (Exception $e) {
+            $result['message'] = $e->getMessage();
+        }
+        $this->_sendJson($result);
+    }
+
+    /**
+     * Delete a Course Run. Requires both Course Reference Number (SKU)
+     * and Course Run ID (option_type_id) to confirm intent. Removes the
+     * Course Date option_type_value row (cascades to its title row), the
+     * matching course_run_registry entry, and any course_session_trainers
+     * binding. Existing course_attendance rows are preserved as audit.
+     */
+    public function deleteCourseRunAction()
+    {
+        $result = array('success' => false);
+        try {
+            if (!$this->getRequest()->isPost()) throw new Exception('POST required');
+            $req = $this->getRequest();
+            $ref   = trim((string) $req->getParam('course_ref'));
+            $runId = (int) $req->getParam('run_id');
+            if ($ref === '' || !$runId) throw new Exception('Both Course Reference Number and Course Run ID are required.');
+
+            $resource = Mage::getSingleton('core/resource');
+            $read  = $resource->getConnection('core_read');
+            $write = $resource->getConnection('core_write');
+
+            // Verify the (sku, run_id) pair belongs together
+            $productId = (int) $read->fetchOne(
+                "SELECT e.entity_id
+                 FROM catalog_product_option_type_value ov
+                 JOIN catalog_product_option o ON o.option_id = ov.option_id
+                 JOIN catalog_product_entity e ON e.entity_id = o.product_id
+                 WHERE ov.option_type_id = ? AND e.sku = ?
+                 LIMIT 1",
+                array($runId, $ref)
+            );
+            if (!$productId) {
+                throw new Exception('Course run ' . $runId . ' does not belong to course ' . $ref . '.');
+            }
+
+            // Delete the option_type_title (title row) — and the option_type_value row
+            $write->delete(
+                'catalog_product_option_type_title',
+                array('option_type_id = ?' => $runId)
+            );
+            $write->delete(
+                'catalog_product_option_type_value',
+                array('option_type_id = ?' => $runId)
+            );
+
+            // Drop session-trainer binding for this run, if any
+            try {
+                $write->delete(
+                    'course_session_trainers',
+                    array('option_type_id = ?' => $runId)
+                );
+            } catch (Exception $e) { /* table may not exist in some envs */ }
+
+            // Drop the registry entry too — keeping it would leave an orphan SG-100xxx label
+            try {
+                $write->delete(
+                    'course_run_registry',
+                    array('product_id = ? AND run_seq IN (SELECT run_seq FROM (SELECT run_seq FROM course_run_registry WHERE product_id = ?) tmp)' => array($productId, $productId))
+                );
+            } catch (Exception $e) { /* registry may not exist in some envs */ }
+
+            Mage::app()->cleanCache();
+            $result['success']     = true;
+            $result['deleted_run'] = $runId;
+            $result['course_code'] = $ref;
+        } catch (Exception $e) {
+            $result['message'] = $e->getMessage();
+        }
+        $this->_sendJson($result);
+    }
+
     protected function _sendJson(array $data)
     {
         $this->getResponse()
