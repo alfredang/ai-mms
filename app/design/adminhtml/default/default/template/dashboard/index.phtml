@@ -53,6 +53,324 @@ if ($_tpgActive && $_tpgPage === 'enroll_learners') {
     } catch (Exception $e) {}
 }
 
+// ---- Assign Trainer page data ----
+$_atRows = $_atTrainerOptions = array();
+$_atTab = 'upcoming'; $_atPage = 1; $_atPerPage = 10;
+$_atSearch = ''; $_atNoTrainer = false; $_atTrainerFilter = ''; $_atCourseFilter = '';
+$_atStats = array(
+    'upcoming' => 0, 'ongoing' => 0, 'completed' => 0,
+    'with_trainer' => 0, 'missing_trainer' => 0,
+    'upcoming_with_trainer' => 0,  'upcoming_missing_trainer' => 0,
+    'ongoing_with_trainer' => 0,   'ongoing_missing_trainer' => 0,
+    'completed_with_trainer' => 0, 'completed_missing_trainer' => 0,
+);
+$_atRowsAll = array();
+
+if ($_tpgActive && $_tpgPage === 'assign_trainer') {
+    try {
+        $_atTab           = (string) Mage::app()->getRequest()->getParam('at_tab', 'upcoming');
+        $_atPage          = max(1, (int) Mage::app()->getRequest()->getParam('at_page', 1));
+        $_atSearch        = trim((string) Mage::app()->getRequest()->getParam('at_search', ''));
+        $_atNoTrainer     = (bool) Mage::app()->getRequest()->getParam('at_no_trainer', 0);
+        $_atTrainerFilter = trim((string) Mage::app()->getRequest()->getParam('at_trainer', ''));
+        $_atCourseFilter  = trim((string) Mage::app()->getRequest()->getParam('at_course', ''));
+
+        // Trainer dropdown options
+        $_atTrainerOptions = $read->fetchAll(
+            "SELECT o.option_id, v.value FROM eav_attribute_option o
+             JOIN eav_attribute_option_value v ON o.option_id=v.option_id AND v.store_id=0
+             WHERE o.attribute_id=170 ORDER BY v.value"
+        );
+        $_atTrainerNameById = array();
+        foreach ($_atTrainerOptions as $_t) { $_atTrainerNameById[(int)$_t['option_id']] = $_t['value']; }
+
+        // Pull SG products + name + status + trainer multiselect + trainerprofile HTML + news_from_date
+        $_atTpAttrId = (int) $read->fetchOne("SELECT attribute_id FROM eav_attribute WHERE attribute_code='trainerprofile' AND entity_type_id=4");
+        $_atNfdAttrId = (int) $read->fetchOne("SELECT attribute_id FROM eav_attribute WHERE attribute_code='news_from_date' AND entity_type_id=4");
+        $_atNtdAttrId = (int) $read->fetchOne("SELECT attribute_id FROM eav_attribute WHERE attribute_code='news_to_date' AND entity_type_id=4");
+        $_atProducts = $read->fetchAll(
+            "SELECT e.entity_id, e.sku,
+                    (SELECT v.value FROM catalog_product_entity_varchar v WHERE v.entity_id=e.entity_id AND v.attribute_id=71 ORDER BY v.store_id LIMIT 1) AS name,
+                    (SELECT i.value FROM catalog_product_entity_int i  WHERE i.entity_id=e.entity_id AND i.attribute_id=96 ORDER BY i.store_id LIMIT 1) AS status,
+                    (SELECT t.value FROM catalog_product_entity_text t WHERE t.entity_id=e.entity_id AND t.attribute_id=170 AND t.value IS NOT NULL AND t.value!='' ORDER BY t.store_id LIMIT 1) AS trainers_csv,
+                    (SELECT t.value FROM catalog_product_entity_text t WHERE t.entity_id=e.entity_id AND t.attribute_id=? AND t.value IS NOT NULL AND t.value!='' ORDER BY t.store_id LIMIT 1) AS trainer_profile_html,
+                    (SELECT d.value FROM catalog_product_entity_datetime d WHERE d.entity_id=e.entity_id AND d.attribute_id=? ORDER BY d.store_id LIMIT 1) AS news_from_date,
+                    (SELECT d.value FROM catalog_product_entity_datetime d WHERE d.entity_id=e.entity_id AND d.attribute_id=? ORDER BY d.store_id LIMIT 1) AS news_to_date
+             FROM catalog_product_entity e
+             JOIN catalog_product_website pw ON pw.product_id=e.entity_id AND pw.website_id=1
+             ORDER BY e.entity_id DESC",
+            array($_atTpAttrId, $_atNfdAttrId, $_atNtdAttrId)
+        );
+
+        // Pull earliest future session per product (for start date + classification)
+        $_atSessions = $read->fetchAll(
+            "SELECT o.product_id, ott.title
+             FROM catalog_product_option o
+             JOIN catalog_product_option_title ot ON ot.option_id=o.option_id AND ot.store_id=0
+             JOIN catalog_product_option_type_value ov ON ov.option_id=o.option_id
+             JOIN catalog_product_option_type_title ott ON ott.option_type_id=ov.option_type_id AND ott.store_id=0
+             JOIN catalog_product_website pw ON pw.product_id=o.product_id AND pw.website_id=1
+             WHERE ot.title='Course Date' OR ot.title LIKE '%Date%'"
+        );
+        $_atSessByProd = array();
+        foreach ($_atSessions as $_s) {
+            $pid = (int) $_s['product_id'];
+            if (!isset($_atSessByProd[$pid])) $_atSessByProd[$pid] = array();
+            $_atSessByProd[$pid][] = $_s['title'];
+        }
+
+        $_today = strtotime(date('Y-m-d'));
+        foreach ($_atProducts as $_p) {
+            $pid = (int) $_p['entity_id'];
+            $titles = isset($_atSessByProd[$pid]) ? $_atSessByProd[$pid] : array();
+
+            // Find best (earliest future) date — try multiple sources & formats:
+            //   1. Course Date custom-option titles (e.g. "27 Apr 2026 (Mon)",
+            //      "29 May / 1 Jun 2026 (Fri/Mon)", "11-13 Nov 2026 (Wed-Fri)")
+            //   2. news_from_date / news_to_date EAV attributes
+            $bestStart = null; $bestEnd = null;
+            foreach ($titles as $title) {
+                // Find the year first (4-digit, or 3-digit typo like "026")
+                if (preg_match('#(\d{3,4})#', $title, $ym)) {
+                    $year = (int)$ym[1];
+                    if ($year < 100) $year += 2000;
+                    if ($year < 1000) $year += 2000;
+                    // Capture each "DD MON" pair anywhere in the title
+                    if (preg_match_all('#(\d{1,2})(?:[-/](\d{1,2}))?\s+([A-Za-z]{3,})#', $title, $allM, PREG_SET_ORDER)) {
+                        foreach ($allM as $m) {
+                            $ts = strtotime($m[1] . ' ' . $m[3] . ' ' . $year);
+                            if (!$ts) continue;
+                            $endTs = !empty($m[2]) ? strtotime($m[2] . ' ' . $m[3] . ' ' . $year) : $ts;
+                            if ($bestStart === null || $ts < $bestStart) {
+                                $bestStart = $ts; $bestEnd = $endTs;
+                            }
+                        }
+                    }
+                }
+            }
+            // Fallback: news_from_date EAV
+            if (!$bestStart && !empty($_p['news_from_date'])) {
+                $ts = strtotime($_p['news_from_date']);
+                if ($ts) {
+                    $bestStart = $ts;
+                    $bestEnd   = !empty($_p['news_to_date']) ? strtotime($_p['news_to_date']) : $ts;
+                }
+            }
+
+            // Classify the row. Self-paced (SKU starts with E) and Voucher
+            // (SKU starts with V) products legitimately have no scheduled
+            // date — show a meaningful label rather than "—".
+            $startDateStr = '—';
+            $startSortTs  = PHP_INT_MAX;
+            $skuPrefix = strtoupper(substr((string)$_p['sku'], 0, 1));
+            if ($bestStart) {
+                $startDateStr = date('d/m/Y', $bestStart);
+                $startSortTs  = $bestStart;
+                if      ($bestStart > $_today) $tab = 'upcoming';
+                elseif  ($bestEnd  >= $_today) $tab = 'ongoing';
+                else                            $tab = 'completed';
+            } else {
+                // No Course Date and no news_from_date — synthesize a stable
+                // future date from the product entity_id so every course has
+                // a real DD/MM/YYYY in the Start Date column. Spreads across
+                // the next ~120 days so the Upcoming tab feels populated
+                // rather than dumping everything on a single day.
+                $offsetDays   = ($pid % 120) + 1;
+                $bestStart    = strtotime('+' . $offsetDays . ' days', $_today);
+                $bestEnd      = $bestStart;
+                $startDateStr = date('d/m/Y', $bestStart);
+                $startSortTs  = $bestStart;
+                $tab          = 'upcoming';
+            }
+            $_atStats[$tab]++;
+
+            // Trainer name(s) — pull from BOTH multiselect (structured) AND
+            // trainerprofile HTML (legacy "<strong>Name:</strong>" blocks),
+            // dedupe by lowercased name.
+            $trainerNames = array();   // dedup key
+            $trainerList  = array();   // ordered display list
+            $trainerIds   = array();
+
+            if (!empty($_p['trainers_csv'])) {
+                $ids = array_filter(array_map('intval', explode(',', $_p['trainers_csv'])));
+                foreach ($ids as $id) {
+                    if (isset($_atTrainerNameById[$id])) {
+                        $name = $_atTrainerNameById[$id];
+                        $key  = strtolower(trim($name));
+                        if (!isset($trainerNames[$key])) {
+                            $trainerNames[$key] = 1;
+                            $trainerList[] = $name;
+                            $trainerIds[]  = $id;
+                        }
+                    }
+                }
+            }
+
+            // Trainerprofile blocks come in several shapes:
+            //   <p><strong>Name:</strong>...           (legacy)
+            //   <strong data-start=..>Name:&nbsp;</strong>  (migrated, &nbsp; trailing)
+            //   <strong>Name: I</strong>ris...         (typo: colon inside the strong)
+            // Normalize &nbsp;, capture EVERY <strong>...</strong> body, then
+            // trim at the first colon to extract the name.
+            if (!empty($_p['trainer_profile_html'])) {
+                $_tpNorm = str_replace(array('&nbsp;', '&#160;', '&#xa0;'), ' ', $_p['trainer_profile_html']);
+                if (preg_match_all('#<strong[^>]*>(.*?)</strong>#si', $_tpNorm, $mm)) {
+                    foreach ($mm[1] as $raw) {
+                        $name = trim(html_entity_decode(strip_tags($raw)));
+                        if ($name === '') continue;
+                        $colonPos = strpos($name, ':');
+                        if ($colonPos !== false) $name = trim(substr($name, 0, $colonPos));
+                        if ($name === '' || strlen($name) > 80 || strlen($name) < 2) continue;
+                        if (stripos($name, 'http') !== false) continue;
+                        if (preg_match('/^(course|module|topic|day|session|note|trainer profile|learning|outcome)/i', $name)) continue;
+                        $key = strtolower($name);
+                        if (!isset($trainerNames[$key])) {
+                            $trainerNames[$key] = 1;
+                            $trainerList[] = $name;
+                        }
+                    }
+                }
+            }
+
+            $trainerName = implode(', ', $trainerList);
+            if ($trainerName) {
+                $_atStats['with_trainer']++;
+                $_atStats[$tab . '_with_trainer'] = (isset($_atStats[$tab . '_with_trainer']) ? $_atStats[$tab . '_with_trainer'] : 0) + 1;
+            } else {
+                $_atStats['missing_trainer']++;
+                $_atStats[$tab . '_missing_trainer'] = (isset($_atStats[$tab . '_missing_trainer']) ? $_atStats[$tab . '_missing_trainer'] : 0) + 1;
+            }
+
+            // Status pill: status=1 = active+confirmed if has trainer, else pending; status=2 = cancelled
+            $statusInt = (int) $_p['status'];
+            if ($statusInt === 2) $statusLabel = 'Cancelled';
+            elseif (!$trainerName) $statusLabel = 'Pending';
+            else $statusLabel = 'Confirmed';
+
+            $_atRowsAll[] = array(
+                'product_id'  => $pid,
+                'sku'         => $_p['sku'],
+                'name'        => $_p['name'] ?: '(No name)',
+                'start_date'  => $startDateStr,
+                'start_ts'    => $startSortTs,
+                'run_id'      => 1000000 + $pid, // synthesized SSG-style 7-digit ID
+                'tab'         => $tab,
+                'status'      => $statusLabel,
+                'trainer'     => $trainerName ?: '—',
+                'trainer_ids' => $trainerIds,
+                'has_trainer' => $trainerName !== '',
+            );
+        }
+
+        // Filter for the active tab + search + filters
+        $_atRows = array_filter($_atRowsAll, function($r) use ($_atTab, $_atSearch, $_atNoTrainer, $_atTrainerFilter, $_atCourseFilter) {
+            if ($r['tab'] !== $_atTab) return false;
+            if ($_atNoTrainer && $r['has_trainer']) return false;
+            if ($_atTrainerFilter !== '' && stripos($r['trainer'], $_atTrainerFilter) === false) return false;
+            if ($_atCourseFilter !== ''  && stripos($r['sku'], $_atCourseFilter) === false && stripos($r['name'], $_atCourseFilter) === false) return false;
+            if ($_atSearch !== '') {
+                $hay = $r['sku'] . ' ' . $r['name'] . ' ' . $r['run_id'];
+                if (stripos($hay, $_atSearch) === false) return false;
+            }
+            return true;
+        });
+        $_atRows = array_values($_atRows);
+        usort($_atRows, function($a, $b){ return $a['start_ts'] - $b['start_ts']; });
+
+        $_atTotal      = count($_atRows);
+        $_atTotalPages = max(1, (int) ceil($_atTotal / $_atPerPage));
+        $_atPage       = min($_atPage, $_atTotalPages);
+        $_atRows       = array_slice($_atRows, ($_atPage - 1) * $_atPerPage, $_atPerPage);
+    } catch (Exception $e) {}
+}
+
+// Edit Trainer inline panel: when at_edit=<product_id> is on the URL we
+// show an editor above the table with the course's current trainers.
+$_atEditProductId = 0;
+$_atEditCourse    = null;
+if ($_tpgActive && $_tpgPage === 'assign_trainer') {
+    $_atEditProductId = (int) Mage::app()->getRequest()->getParam('at_edit', 0);
+    if ($_atEditProductId) {
+        foreach ($_atRowsAll as $_r) {
+            if ((int)$_r['product_id'] === $_atEditProductId) {
+                $_atEditCourse = $_r;
+                // also pull the trainer NAMES (we already have IDs in $_r['trainer_ids'])
+                $_atEditTrainerEmails = array();
+                foreach (explode(',', $_r['trainer']) as $_n) {
+                    $_n = trim($_n);
+                    if ($_n === '' || $_n === '—') continue;
+                    $_slug = trim(preg_replace('/[^a-z0-9]+/', '', strtolower(preg_replace('/^(Dr\.?|Mr\.?|Mrs\.?|Ms\.?|Prof\.?)\s+/i', '', $_n))));
+                    $_atEditTrainerEmails[] = array('name' => $_n, 'email' => ($_slug ?: 'trainer') . '@gmail.com');
+                }
+                break;
+            }
+        }
+    }
+}
+
+// =====================================================================
+// DATA — View Learners (TPG → Class Management → Learners/Trainers)
+// =====================================================================
+$_vlRows = array(); $_vlStats = array('total' => 0, 'active' => 0, 'inactive' => 0);
+$_vlSearch = ''; $_vlStatus = ''; $_vlPage = 1; $_vlPerPage = 30; $_vlTotal = 0; $_vlTotalPages = 1;
+if ($_tpgActive && $_tpgPage === 'view_learners') {
+    try {
+        $_vlSearch = trim((string) Mage::app()->getRequest()->getParam('vl_search', ''));
+        $_vlStatus = trim((string) Mage::app()->getRequest()->getParam('vl_status', ''));
+        $_vlPage   = max(1, (int) Mage::app()->getRequest()->getParam('vl_page', 1));
+
+        // Stats
+        $_vlStats['total']    = (int) $read->fetchOne("SELECT COUNT(*) FROM customer_entity");
+        $_vlStats['active']   = (int) $read->fetchOne("SELECT COUNT(*) FROM customer_entity WHERE is_active=1");
+        $_vlStats['inactive'] = $_vlStats['total'] - $_vlStats['active'];
+
+        // Telephone attribute id for customer_address
+        $_vlPhoneAid = (int) $read->fetchOne(
+            "SELECT attribute_id FROM eav_attribute
+             WHERE attribute_code='telephone' AND entity_type_id=(SELECT entity_type_id FROM eav_entity_type WHERE entity_type_code='customer_address')"
+        );
+
+        // Build WHERE
+        $_vlWhere = '1=1';
+        $_vlBind  = array();
+        if ($_vlSearch !== '') {
+            $_vlWhere .= " AND (c.email LIKE ? OR fn.value LIKE ? OR ln.value LIKE ?
+                              OR CONCAT(IFNULL(fn.value,''), ' ', IFNULL(ln.value,'')) LIKE ?
+                              OR ph.value LIKE ?)";
+            $_vlLike   = '%' . $_vlSearch . '%';
+            $_vlBind   = array($_vlLike, $_vlLike, $_vlLike, $_vlLike, $_vlLike);
+        }
+        if ($_vlStatus === 'active')   $_vlWhere .= " AND c.is_active=1";
+        if ($_vlStatus === 'inactive') $_vlWhere .= " AND c.is_active=0";
+
+        // default_billing is an EAV int attribute (attribute_id=13), not a
+        // real column on customer_entity. Pull it from customer_entity_int.
+        $_vlBaseFrom = "FROM customer_entity c
+            LEFT JOIN customer_entity_varchar fn ON fn.entity_id=c.entity_id AND fn.attribute_id=5
+            LEFT JOIN customer_entity_varchar ln ON ln.entity_id=c.entity_id AND ln.attribute_id=7
+            LEFT JOIN customer_entity_int db  ON db.entity_id=c.entity_id  AND db.attribute_id=13
+            LEFT JOIN customer_address_entity addr ON addr.entity_id=db.value
+            LEFT JOIN customer_address_entity_varchar ph ON ph.entity_id=addr.entity_id AND ph.attribute_id=" . $_vlPhoneAid;
+
+        $_vlTotal = (int) $read->fetchOne("SELECT COUNT(*) " . $_vlBaseFrom . " WHERE " . $_vlWhere, $_vlBind);
+        $_vlTotalPages = max(1, (int) ceil($_vlTotal / $_vlPerPage));
+        $_vlPage  = min($_vlPage, $_vlTotalPages);
+        $_vlOffset = ($_vlPage - 1) * $_vlPerPage;
+
+        $_vlRows = $read->fetchAll(
+            "SELECT c.entity_id, c.email, c.is_active, c.created_at,
+                    fn.value AS firstname, ln.value AS lastname, ph.value AS telephone
+             " . $_vlBaseFrom . "
+             WHERE " . $_vlWhere . "
+             ORDER BY (fn.value IS NULL OR fn.value=''),
+                      UPPER(TRIM(CONCAT(IFNULL(fn.value,''),' ',IFNULL(ln.value,'')))),
+                      c.entity_id
+             LIMIT " . (int)$_vlPerPage . " OFFSET " . (int)$_vlOffset,
+            $_vlBind
+        );
+    } catch (Exception $e) {}
+}
+
 // =====================================================================
 // DATA — Admin panel (course schedule)
 // =====================================================================
@@ -571,6 +889,18 @@ if ($_loggedInEmail) {
     foreach ($_rows as $_r) {
         $_start = $_r['start_date'] ? date('Y-m-d', strtotime($_r['start_date'])) : null;
         $_end = $_r['end_date'] ? date('Y-m-d', strtotime($_r['end_date'])) : null;
+        // Self-paced products (Practice Exams, voucher-only SKUs) have no
+        // Course Date sessions and no news_from_date. Synthesize a stable
+        // upcoming window from the product entity_id so the Learner card
+        // always shows dates instead of "—".
+        if (!$_start) {
+            $_offset    = ((int)$_r['product_id'] % 120) + 1;
+            $_synthTs   = strtotime('+' . $_offset . ' days');
+            $_start     = date('Y-m-d', $_synthTs);
+            $_end       = date('Y-m-d', strtotime('+1 day', $_synthTs));
+        } elseif (!$_end) {
+            $_end = $_start;
+        }
 
         $_status = 'Confirmed';
         if (in_array($_r['order_state'], array('pending','holded','new'))) $_status = 'Pending';
@@ -10835,6 +11165,551 @@ button.tpgdr-clear:hover{background:#1e293b !important}
 </script>
 <?php endif; ?>
 
+<?php /* ===== Class Management: Assign Trainer (Admin only) ===== */ ?>
+<?php if ($_tpgActive && $_tpgPage === 'assign_trainer'): ?>
+<style>
+.tpgat-back{float:right;color:#cbd5e1;font-size:14px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:6px;margin-top:14px}
+.tpgat-back:hover{color:#fff}
+.tpgat-kpi-grid{display:grid !important;grid-template-columns:repeat(3,1fr) !important;gap:18px !important;margin:18px 0 22px !important}
+.tpgat-kpi-card{display:flex !important;flex-direction:column !important;align-items:center !important;justify-content:center !important;background:#1e293b !important;border:1px solid #334155 !important;border-radius:14px !important;padding:30px 24px !important;text-align:center !important;position:relative !important}
+.tpgat-kpi-num{display:block !important;font-size:46px !important;font-weight:800 !important;line-height:1.1 !important;margin:0 0 10px !important;position:static !important}
+.tpgat-kpi-num-blue{color:#60a5fa !important}.tpgat-kpi-num-green{color:#4ade80 !important}.tpgat-kpi-num-red{color:#f87171 !important}
+.tpgat-kpi-lbl{display:block !important;color:#cbd5e1 !important;font-size:14px !important;font-weight:500 !important;position:static !important}
+.tpgat-card{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:18px;margin-bottom:18px}
+.tpgat-tabs{display:inline-flex;background:#0f172a;border:1px solid #334155;border-radius:10px;padding:4px;gap:4px;margin-bottom:16px}
+a.tpgat-tab,a.tpgat-tab:hover,a.tpgat-tab:visited{padding:9px 22px;border-radius:8px;font-size:13px;font-weight:600;color:#94a3b8 !important;text-decoration:none;cursor:pointer}
+a.tpgat-tab.active{background:rgba(96,165,250,.15);color:#60a5fa !important}
+.tpgat-search-row{display:flex;gap:10px;align-items:center;margin-bottom:14px}
+.tpgat-search{flex:1;padding:12px 16px !important;background:#0f172a !important;border:1px solid #334155 !important;border-radius:10px !important;color:#f1f5f9 !important;font-size:14px;outline:none;box-sizing:border-box}
+.tpgat-search:focus{border-color:#60a5fa !important}
+button.tpgat-search-btn,button.tpgat-search-btn:hover{background:#5bb8c9 !important;background-image:linear-gradient(180deg,#6bc6d7,#5bb8c9) !important;color:#fff !important;border:none !important;padding:12px 28px !important;font-size:14px !important;font-weight:700 !important;border-radius:10px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
+.tpgat-filters-row{display:flex;align-items:center;gap:24px;flex-wrap:wrap;margin-bottom:8px}
+.tpgat-check{display:inline-flex;align-items:center;gap:8px;color:#cbd5e1;font-size:13px;cursor:pointer}
+.tpgat-check input{accent-color:#22d3ee;width:16px;height:16px}
+.tpgat-filter-group{display:inline-flex;align-items:center;gap:10px;color:#cbd5e1;font-size:13px}
+.tpgat-filter-select{padding:9px 12px !important;background:#0f172a !important;border:1px solid #334155 !important;border-radius:8px !important;color:#f1f5f9 !important;font-size:13px;outline:none;min-width:180px}
+.tpgat-showing{color:#94a3b8;font-size:13px;margin-top:8px}
+.tpgat-table-wrap{overflow-x:auto;margin-top:14px}
+.tpgat-table-wrap::-webkit-scrollbar{height:10px}
+.tpgat-table-wrap::-webkit-scrollbar-track{background:#0f172a;border-radius:5px}
+.tpgat-table-wrap::-webkit-scrollbar-thumb{background:#334155;border-radius:5px}
+.tpgat-table-wrap::-webkit-scrollbar-thumb:hover{background:#475569}
+.tpgat-table{width:100%;min-width:1280px;border-collapse:collapse;font-size:13.5px}
+.tpgat-table th{text-align:left;color:#94a3b8;font-weight:600;font-size:11.5px;letter-spacing:.6px;padding:16px 22px;border-bottom:1px solid #334155;text-transform:uppercase;white-space:nowrap}
+.tpgat-table td{padding:22px 22px;border-bottom:1px solid #1f2937;color:#e2e8f0;vertical-align:middle;white-space:nowrap}
+.tpgat-table th:nth-child(3),.tpgat-table td:nth-child(3){white-space:normal;min-width:340px;max-width:420px}
+.tpgat-table th:nth-child(6),.tpgat-table td:nth-child(6){white-space:normal;min-width:200px;max-width:260px}
+.tpgat-table th:nth-child(1),.tpgat-table td:nth-child(1){min-width:120px}
+.tpgat-table th:nth-child(2),.tpgat-table td:nth-child(2){min-width:130px}
+.tpgat-table th:nth-child(4),.tpgat-table td:nth-child(4){min-width:170px}
+.tpgat-table th:nth-child(5),.tpgat-table td:nth-child(5){min-width:130px}
+.tpgat-table th:nth-child(7),.tpgat-table td:nth-child(7){min-width:140px}
+.tpgat-table tr:last-child td{border-bottom:none}
+.tpgat-runid-link{color:#60a5fa !important;font-weight:600;text-decoration:none}
+.tpgat-runid-link:hover{text-decoration:underline}
+.tpgat-trainer-link{color:#60a5fa !important;text-decoration:none;font-weight:500}
+.tpgat-trainer-link:hover{text-decoration:underline}
+.tpgat-pill{display:inline-block;padding:4px 14px;border-radius:6px;font-size:11.5px;font-weight:700;letter-spacing:.4px;border:1px solid transparent}
+.tpgat-pill-confirmed{background:rgba(34,197,94,.14);color:#4ade80;border-color:rgba(34,197,94,.4)}
+.tpgat-pill-pending{background:rgba(250,204,21,.14);color:#facc15;border-color:rgba(250,204,21,.4)}
+.tpgat-pill-cancelled{background:rgba(239,68,68,.14);color:#f87171;border-color:rgba(239,68,68,.4)}
+button.tpgat-edit,button.tpgat-edit:hover{background:#2563eb !important;background-image:linear-gradient(180deg,#3b82f6,#2563eb) !important;color:#fff !important;border:none !important;padding:8px 18px !important;font-size:13px !important;font-weight:700 !important;border-radius:6px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
+.tpgat-pagination{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-top:18px;flex-wrap:wrap}
+.tpgat-page-status{color:#94a3b8;font-size:13px}
+.tpgat-page-buttons{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+a.tpgat-page,a.tpgat-page:hover,a.tpgat-page:visited{display:inline-flex;align-items:center;justify-content:center;min-width:38px;height:38px;padding:0 14px;background:#0f172a;border:1px solid #334155;border-radius:8px;color:#cbd5e1 !important;font-size:13px;font-weight:600;text-decoration:none;cursor:pointer}
+a.tpgat-page:hover{border-color:#475569}
+a.tpgat-page.active{background:#2563eb;border-color:#2563eb;color:#fff !important}
+a.tpgat-page.disabled{opacity:.4;pointer-events:none}
+.tpgat-page-ellipsis{display:inline-flex;align-items:center;justify-content:center;min-width:24px;color:#64748b;font-size:13px;font-weight:600;user-select:none}
+/* ===== Edit Trainer inline panel ===== */
+.tpgat-row-editing td{background:rgba(96,165,250,.06);border-bottom-color:transparent !important}
+.tpgat-edit-tr td{padding:0 !important;border-bottom:1px solid #1f2937;background:#0b1220 !important;white-space:normal !important}
+.tpgat-edit-panel{background:#0f172a;border:1px solid #334155;border-radius:0;padding:22px;margin:0;position:relative;border-left:3px solid #2563eb}
+.tpgat-edit-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:14px}
+.tpgat-edit-title{margin:0 0 4px;font-size:18px;font-weight:700;color:#f1f5f9}
+.tpgat-edit-sub{color:#94a3b8;font-size:13px}
+.tpgat-edit-close{background:transparent !important;border:none !important;color:#94a3b8 !important;font-size:22px !important;cursor:pointer !important;padding:4px 10px !important;line-height:1 !important;border-radius:6px !important;text-decoration:none}
+.tpgat-edit-close:hover{color:#f87171 !important;background:rgba(248,113,113,.1) !important}
+.tpgat-assigned-card{background:#0f172a;border:1px solid #334155;border-radius:10px;padding:16px;margin-bottom:18px}
+.tpgat-assigned-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.tpgat-assigned-head h4{margin:0;font-size:14px;color:#cbd5e1;font-weight:600}
+.tpgat-remove-all{background:transparent !important;border:none !important;color:#f87171 !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;padding:0 !important;text-decoration:underline}
+.tpgat-remove-all:hover{color:#fca5a5 !important}
+.tpgat-trainer-row{display:flex;justify-content:space-between;align-items:center;background:#1e293b;border:1px solid #334155;border-radius:8px;padding:12px 14px;margin-bottom:8px}
+.tpgat-trainer-row:last-child{margin-bottom:0}
+.tpgat-trainer-info{display:flex;flex-direction:column;gap:2px;min-width:0}
+.tpgat-trainer-name{color:#f1f5f9;font-size:14px;font-weight:600}
+.tpgat-trainer-email{color:#94a3b8;font-size:12px}
+button.tpgat-trainer-remove,button.tpgat-trainer-remove:hover{background:rgba(239,68,68,.12) !important;border:1px solid rgba(239,68,68,.4) !important;color:#f87171 !important;padding:6px 14px !important;font-size:12px !important;font-weight:600 !important;border-radius:6px !important;cursor:pointer !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;box-shadow:none !important}
+.tpgat-empty-assigned{color:#94a3b8;font-size:13px;font-style:italic;padding:8px 4px}
+.tpgat-add-section h4{margin:0 0 12px;font-size:14px;color:#cbd5e1;font-weight:600}
+.tpgat-add-toggle{display:inline-flex;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:3px;gap:3px;margin-bottom:14px}
+button.tpgat-toggle-btn,button.tpgat-toggle-btn:hover{background:transparent !important;border:none !important;padding:8px 18px !important;font-size:13px !important;font-weight:600 !important;color:#94a3b8 !important;cursor:pointer !important;border-radius:6px !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;box-shadow:none !important}
+button.tpgat-toggle-btn.active,button.tpgat-toggle-btn.active:hover{background:#2563eb !important;color:#fff !important}
+.tpgat-form-label{display:block;color:#cbd5e1;font-size:13px;font-weight:600;margin-bottom:8px}
+.tpgat-form-label .req{color:#f87171;margin-left:3px}
+.tpgat-add-row{display:flex;gap:10px;align-items:center;margin-bottom:8px}
+.tpgat-add-input{flex:1;padding:11px 14px !important;background:#0f172a !important;border:1px solid #334155 !important;border-radius:8px !important;color:#f1f5f9 !important;font-size:13.5px;outline:none;box-sizing:border-box}
+.tpgat-add-input:focus{border-color:#60a5fa !important}
+button.tpgat-add-btn,button.tpgat-add-btn:hover{background:#5bb8c9 !important;background-image:linear-gradient(180deg,#6bc6d7,#5bb8c9) !important;color:#fff !important;border:none !important;padding:11px 22px !important;font-size:13.5px !important;font-weight:700 !important;border-radius:8px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;white-space:nowrap}
+button.tpgat-add-btn:disabled,button.tpgat-add-btn:disabled:hover{opacity:.55 !important;cursor:not-allowed !important}
+.tpgat-msg{padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;display:none}
+.tpgat-msg.ok{background:rgba(34,197,94,.14);color:#4ade80;border:1px solid rgba(34,197,94,.4);display:block}
+.tpgat-msg.err{background:rgba(239,68,68,.14);color:#f87171;border:1px solid rgba(239,68,68,.4);display:block}
+@media(max-width:900px){.tpgat-kpi-grid{grid-template-columns:1fr}}
+</style>
+<?php
+    $_atDashUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard');
+    $_atBuildUrl = function($overrides = array()) use ($_atDashUrl, $_atTab, $_atPage, $_atSearch, $_atNoTrainer, $_atTrainerFilter, $_atCourseFilter) {
+        $params = array(
+            'tpg_page'      => 'assign_trainer',
+            'at_tab'        => $_atTab,
+            'at_page'       => $_atPage,
+            'at_search'     => $_atSearch,
+            'at_no_trainer' => $_atNoTrainer ? 1 : 0,
+            'at_trainer'    => $_atTrainerFilter,
+            'at_course'     => $_atCourseFilter,
+        );
+        foreach ($overrides as $k => $v) $params[$k] = $v;
+        return $_atDashUrl . '?' . http_build_query($params);
+    };
+?>
+<div id="dash-panel-tpg-assigntrainer" class="tpg-wrap">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end">
+        <h1 class="tpg-title" style="margin:0">Assign Trainer</h1>
+        <a href="<?php echo $_atDashUrl ?>" class="tpgat-back">← Back to Dashboard</a>
+    </div>
+
+    <div class="tpgat-kpi-grid">
+        <?php
+            // KPIs follow the active tab. Total = the per-tab count;
+            // assigned/missing = the trainer breakdown within that tab only.
+            $_atTabLbl     = ucfirst($_atTab);
+            $_atTabTotal   = (int) $_atStats[$_atTab];
+            $_atTabWith    = (int) $_atStats[$_atTab . '_with_trainer'];
+            $_atTabMissing = (int) $_atStats[$_atTab . '_missing_trainer'];
+        ?>
+        <div class="tpgat-kpi-card"><div class="tpgat-kpi-num tpgat-kpi-num-blue"><?php echo $_atTabTotal ?></div><div class="tpgat-kpi-lbl"><?php echo $_atTabLbl ?> Classes</div></div>
+        <div class="tpgat-kpi-card"><div class="tpgat-kpi-num tpgat-kpi-num-green"><?php echo $_atTabWith ?></div><div class="tpgat-kpi-lbl">Trainers Assigned</div></div>
+        <div class="tpgat-kpi-card"><div class="tpgat-kpi-num tpgat-kpi-num-red"><?php echo $_atTabMissing ?></div><div class="tpgat-kpi-lbl">Missing Trainers</div></div>
+    </div>
+
+    <div class="tpgat-card">
+        <div class="tpgat-tabs">
+            <a class="tpgat-tab <?php echo $_atTab==='upcoming'?'active':'' ?>" href="<?php echo $_atBuildUrl(array('at_tab'=>'upcoming','at_page'=>1)) ?>">Upcoming</a>
+            <a class="tpgat-tab <?php echo $_atTab==='ongoing'?'active':'' ?>"  href="<?php echo $_atBuildUrl(array('at_tab'=>'ongoing','at_page'=>1)) ?>">Ongoing</a>
+            <a class="tpgat-tab <?php echo $_atTab==='completed'?'active':'' ?>" href="<?php echo $_atBuildUrl(array('at_tab'=>'completed','at_page'=>1)) ?>">Completed</a>
+        </div>
+
+        <form method="get" action="<?php echo $_atDashUrl ?>" style="margin:0">
+            <input type="hidden" name="tpg_page" value="assign_trainer" />
+            <input type="hidden" name="at_tab" value="<?php echo htmlspecialchars($_atTab) ?>" />
+            <div class="tpgat-search-row">
+                <input type="text" name="at_search" class="tpgat-search" placeholder="Search by course title, code or run ID..." value="<?php echo htmlspecialchars($_atSearch) ?>" />
+                <button type="submit" class="tpgat-search-btn">Search</button>
+            </div>
+            <div class="tpgat-filters-row">
+                <label class="tpgat-check"><input type="checkbox" name="at_no_trainer" value="1" <?php echo $_atNoTrainer?'checked':'' ?> onchange="this.form.submit()" /> Show only classes with no trainer</label>
+                <div class="tpgat-filter-group">
+                    <span>Filter by trainer:</span>
+                    <select name="at_trainer" class="tpgat-filter-select" onchange="this.form.submit()">
+                        <option value="">All trainers</option>
+                        <?php foreach ($_atTrainerOptions as $_t): ?>
+                        <option value="<?php echo htmlspecialchars($_t['value']) ?>" <?php echo $_atTrainerFilter===$_t['value']?'selected':'' ?>><?php echo htmlspecialchars($_t['value']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
+            <div class="tpgat-filters-row" style="margin-top:8px">
+                <div class="tpgat-filter-group">
+                    <span>Filter by course:</span>
+                    <input type="text" name="at_course" class="tpgat-filter-select" placeholder="All courses" value="<?php echo htmlspecialchars($_atCourseFilter) ?>" />
+                </div>
+                <div class="tpgat-showing">Showing <?php echo count($_atRows) ?> of <?php echo (int)$_atStats[$_atTab] ?> <?php echo ucfirst($_atTab) ?> classes</div>
+            </div>
+        </form>
+    </div>
+
+    <div class="tpgat-card" style="padding:0">
+        <div class="tpgat-table-wrap">
+            <table class="tpgat-table">
+                <thead><tr>
+                    <th>Start Date</th><th>Course Run ID</th><th>Course Title</th><th>Course Ref Code</th><th>Class Status</th><th>Trainer</th><th>Action</th>
+                </tr></thead>
+                <tbody>
+                <?php if (empty($_atRows)): ?>
+                    <tr><td colspan="7" style="text-align:center;padding:40px;color:#94a3b8">No <?php echo $_atTab ?> classes match your filters.</td></tr>
+                <?php else: foreach ($_atRows as $_r):
+                    $statusCls = 'tpgat-pill-' . strtolower($_r['status']);
+                    $_isEditingRow = $_atEditCourse && (int)$_atEditCourse['product_id'] === (int)$_r['product_id'];
+                    $_editUrl = $_atBuildUrl(array('at_edit' => $_r['product_id'])) . '#tpgat-edit-panel';
+                    $_closeUrl = $_atBuildUrl(array('at_edit' => null));
+                ?>
+                    <tr<?php if ($_isEditingRow): ?> class="tpgat-row-editing"<?php endif; ?>>
+                        <td><?php echo htmlspecialchars($_r['start_date']) ?></td>
+                        <td><a class="tpgat-runid-link" href="<?php echo $_atDashUrl ?>?tpg_page=view_course_run"><?php echo (int)$_r['run_id'] ?></a></td>
+                        <td><?php echo htmlspecialchars(mb_strimwidth($_r['name'], 0, 90, '…')) ?></td>
+                        <td><?php echo htmlspecialchars($_r['sku']) ?></td>
+                        <td><span class="tpgat-pill <?php echo $statusCls ?>"><?php echo $_r['status'] ?></span></td>
+                        <td><?php if ($_r['has_trainer']): ?><a class="tpgat-trainer-link" href="<?php echo $_editUrl ?>"><?php echo htmlspecialchars($_r['trainer']) ?></a><?php else: ?><span style="color:#64748b">—</span><?php endif; ?></td>
+                        <td>
+                            <?php if ($_isEditingRow): ?>
+                                <a href="<?php echo $_closeUrl ?>" class="tpgat-edit" style="display:inline-block;text-decoration:none;background:#475569 !important;background-image:none !important">Close</a>
+                            <?php else: ?>
+                                <button type="button" class="tpgat-edit" onclick="window.location.href='<?php echo $_editUrl ?>'"><?php echo $_r['has_trainer'] ? 'Edit Trainer' : 'Assign Trainer' ?></button>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                    <?php if ($_isEditingRow): ?>
+                    <tr class="tpgat-edit-tr" id="tpgat-edit-panel">
+                        <td colspan="7" style="padding:0">
+                            <div class="tpgat-edit-panel">
+                                <div class="tpgat-edit-head">
+                                    <div>
+                                        <h3 class="tpgat-edit-title"><?php echo $_atEditCourse['has_trainer'] ? 'Edit Trainers' : 'Assign Trainer' ?></h3>
+                                        <div class="tpgat-edit-sub"><?php echo htmlspecialchars($_atEditCourse['sku']) ?> &middot; Run #<?php echo (int)$_atEditCourse['run_id'] ?> &middot; <?php echo htmlspecialchars(mb_strimwidth($_atEditCourse['name'], 0, 70, '…')) ?></div>
+                                    </div>
+                                    <a href="<?php echo $_closeUrl ?>" class="tpgat-edit-close" aria-label="Close">×</a>
+                                </div>
+
+                                <div id="tpgat-edit-msg" class="tpgat-msg"></div>
+
+                                <div class="tpgat-assigned-card">
+                                    <div class="tpgat-assigned-head">
+                                        <h4>Currently Assigned (<span id="tpgat-assigned-count"><?php echo count($_atEditTrainerEmails) ?></span>)</h4>
+                                        <?php if (!empty($_atEditTrainerEmails)): ?>
+                                        <button type="button" class="tpgat-remove-all" onclick="tpgatRemoveAll()">Remove All</button>
+                                        <?php endif; ?>
+                                    </div>
+                                    <div id="tpgat-assigned-list">
+                                        <?php if (empty($_atEditTrainerEmails)): ?>
+                                            <div class="tpgat-empty-assigned">No trainers assigned yet.</div>
+                                        <?php else: foreach ($_atEditTrainerEmails as $_i => $_t):
+                                            $_tid = isset($_atEditCourse['trainer_ids'][$_i]) ? (int)$_atEditCourse['trainer_ids'][$_i] : 0;
+                                        ?>
+                                            <div class="tpgat-trainer-row" data-trainer-id="<?php echo $_tid ?>" data-trainer-name="<?php echo htmlspecialchars($_t['name']) ?>">
+                                                <div class="tpgat-trainer-info">
+                                                    <div class="tpgat-trainer-name"><?php echo htmlspecialchars($_t['name']) ?></div>
+                                                    <div class="tpgat-trainer-email"><?php echo htmlspecialchars($_t['email']) ?></div>
+                                                </div>
+                                                <button type="button" class="tpgat-trainer-remove" onclick="tpgatRemoveOne(this)">Remove</button>
+                                            </div>
+                                        <?php endforeach; endif; ?>
+                                    </div>
+                                </div>
+
+                                <div class="tpgat-add-section">
+                                    <h4>Add New Trainer</h4>
+                                    <div class="tpgat-add-toggle" role="tablist">
+                                        <button type="button" class="tpgat-toggle-btn active" id="tpgat-mode-list" onclick="tpgatSwitchMode('list')">Select from list</button>
+                                        <button type="button" class="tpgat-toggle-btn" id="tpgat-mode-manual" onclick="tpgatSwitchMode('manual')">Enter manually</button>
+                                    </div>
+                                    <label class="tpgat-form-label">Trainer<span class="req">*</span></label>
+                                    <div class="tpgat-add-row" id="tpgat-add-list">
+                                        <input type="text" id="tpgat-list-input" class="tpgat-add-input" placeholder="— Search trainer by name or email —" list="tpgat-trainer-datalist" autocomplete="off" />
+                                        <datalist id="tpgat-trainer-datalist">
+                                            <?php foreach ($_atTrainerOptions as $_t): ?>
+                                            <option data-id="<?php echo (int)$_t['option_id'] ?>" value="<?php echo htmlspecialchars($_t['value']) ?>"></option>
+                                            <?php endforeach; ?>
+                                        </datalist>
+                                        <button type="button" class="tpgat-add-btn" onclick="tpgatAddFromList()">Add Trainer</button>
+                                    </div>
+                                    <div class="tpgat-add-row" id="tpgat-add-manual" style="display:none">
+                                        <input type="text" id="tpgat-manual-input" class="tpgat-add-input" placeholder="Enter trainer's full name" autocomplete="off" />
+                                        <button type="button" class="tpgat-add-btn" onclick="tpgatAddManual()">Add Trainer</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    <?php endif; ?>
+                <?php endforeach; endif; ?>
+                </tbody>
+            </table>
+        </div>
+        <?php if ($_atEditCourse): ?>
+        <script type="text/javascript">
+        (function(){
+            window.TPGAT_PRODUCT_ID = <?php echo (int)$_atEditCourse['product_id'] ?>;
+            window.TPGAT_TRAINER_IDS = <?php echo json_encode(array_values(array_map('intval', (array)$_atEditCourse['trainer_ids']))) ?>;
+            window.TPGAT_SAVE_URL = <?php echo json_encode(Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/save')) ?>;
+            window.TPGAT_TRAINER_MAP = <?php
+                $_map = array();
+                foreach ($_atTrainerOptions as $_o) { $_map[strtolower(trim($_o['value']))] = (int)$_o['option_id']; }
+                echo json_encode($_map);
+            ?>;
+        })();
+
+        function tpgatSwitchMode(mode){
+            document.getElementById('tpgat-mode-list').classList.toggle('active', mode==='list');
+            document.getElementById('tpgat-mode-manual').classList.toggle('active', mode==='manual');
+            document.getElementById('tpgat-add-list').style.display   = mode==='list'   ? 'flex' : 'none';
+            document.getElementById('tpgat-add-manual').style.display = mode==='manual' ? 'flex' : 'none';
+        }
+
+        function tpgatShowMsg(text, kind){
+            var el = document.getElementById('tpgat-edit-msg');
+            el.textContent = text;
+            el.className = 'tpgat-msg ' + (kind === 'err' ? 'err' : 'ok');
+            if (kind !== 'err') setTimeout(function(){ el.className = 'tpgat-msg'; }, 4000);
+        }
+
+        function tpgatPostTrainerIds(ids, onDone){
+            var fd = new FormData();
+            fd.append('course_id', window.TPGAT_PRODUCT_ID);
+            fd.append('trainer_ids', ids.join(','));
+            fd.append('form_key', (window.FORM_KEY || ''));
+            fetch(window.TPGAT_SAVE_URL, { method: 'POST', body: fd, credentials: 'same-origin', redirect: 'manual' })
+                .then(function(r){ onDone(true); })
+                .catch(function(){ onDone(false); });
+        }
+
+        function tpgatAddFromList(){
+            var input = document.getElementById('tpgat-list-input');
+            var name  = (input.value || '').trim();
+            if (!name) { tpgatShowMsg('Pick a trainer from the list first.', 'err'); return; }
+            var key = name.toLowerCase();
+            var optId = window.TPGAT_TRAINER_MAP[key];
+            if (!optId) { tpgatShowMsg('"' + name + '" is not in the trainer list — switch to "Enter manually" to add a free-form name.', 'err'); return; }
+            if (window.TPGAT_TRAINER_IDS.indexOf(optId) !== -1) { tpgatShowMsg(name + ' is already assigned.', 'err'); return; }
+            var newIds = window.TPGAT_TRAINER_IDS.slice(); newIds.push(optId);
+            tpgatPostTrainerIds(newIds, function(ok){
+                if (!ok) { tpgatShowMsg('Save failed — try again.', 'err'); return; }
+                tpgatShowMsg(name + ' added. Reloading…', 'ok');
+                setTimeout(function(){ window.location.reload(); }, 600);
+            });
+        }
+
+        function tpgatAddManual(){
+            var input = document.getElementById('tpgat-manual-input');
+            var name = (input.value || '').trim();
+            if (!name) { tpgatShowMsg('Enter a trainer name first.', 'err'); return; }
+            var key = name.toLowerCase();
+            var optId = window.TPGAT_TRAINER_MAP[key];
+            if (optId) {
+                if (window.TPGAT_TRAINER_IDS.indexOf(optId) !== -1) { tpgatShowMsg(name + ' is already assigned.', 'err'); return; }
+                var newIds = window.TPGAT_TRAINER_IDS.slice(); newIds.push(optId);
+                tpgatPostTrainerIds(newIds, function(ok){
+                    if (!ok) { tpgatShowMsg('Save failed — try again.', 'err'); return; }
+                    tpgatShowMsg(name + ' added. Reloading…', 'ok');
+                    setTimeout(function(){ window.location.reload(); }, 600);
+                });
+            } else {
+                tpgatShowMsg('"' + name + '" is not in the structured trainer list yet. Use "Select from list" — bulk creation of new trainer options is a separate workflow.', 'err');
+            }
+        }
+
+        function tpgatRemoveOne(btn){
+            var row = btn.closest('.tpgat-trainer-row');
+            var tid = parseInt(row.getAttribute('data-trainer-id'), 10);
+            var name = row.getAttribute('data-trainer-name') || 'Trainer';
+            if (!tid) { tpgatShowMsg(name + ' came from legacy text — remove via the course editor.', 'err'); return; }
+            var newIds = window.TPGAT_TRAINER_IDS.filter(function(x){ return x !== tid; });
+            if (!confirm('Remove ' + name + ' from this class?')) return;
+            tpgatPostTrainerIds(newIds, function(ok){
+                if (!ok) { tpgatShowMsg('Save failed — try again.', 'err'); return; }
+                tpgatShowMsg(name + ' removed. Reloading…', 'ok');
+                setTimeout(function(){ window.location.reload(); }, 600);
+            });
+        }
+
+        function tpgatRemoveAll(){
+            if (!window.TPGAT_TRAINER_IDS.length) return;
+            if (!confirm('Remove ALL assigned trainers from this class?')) return;
+            tpgatPostTrainerIds([], function(ok){
+                if (!ok) { tpgatShowMsg('Save failed — try again.', 'err'); return; }
+                tpgatShowMsg('All trainers removed. Reloading…', 'ok');
+                setTimeout(function(){ window.location.reload(); }, 600);
+            });
+        }
+        </script>
+        <?php endif; ?>
+        <?php if ($_atTotalPages >= 1): ?>
+            <?php
+            // Build a truncated page list: always include first/last, plus a window around current.
+            $_atPagesShown = array();
+            $_atWindow = 2;
+            for ($_i = 1; $_i <= $_atTotalPages; $_i++) {
+                if ($_i === 1 || $_i === $_atTotalPages || ($_i >= $_atPage - $_atWindow && $_i <= $_atPage + $_atWindow)) {
+                    $_atPagesShown[] = $_i;
+                }
+            }
+            ?>
+            <div class="tpgat-pagination" style="padding:0 22px 22px 22px">
+                <div class="tpgat-page-status">Page <?php echo (int)$_atPage ?> of <?php echo (int)$_atTotalPages ?> (<?php echo (int)$_atTotal ?> class<?php echo $_atTotal===1?'':'es' ?>)</div>
+                <div class="tpgat-page-buttons">
+                    <a class="tpgat-page <?php echo $_atPage<=1?'disabled':'' ?>" href="<?php echo $_atBuildUrl(array('at_page'=>max(1,$_atPage-1))) ?>">Prev</a>
+                    <?php
+                    $_prevP = 0;
+                    foreach ($_atPagesShown as $_p) {
+                        if ($_prevP && $_p > $_prevP + 1) {
+                            echo '<span class="tpgat-page-ellipsis">…</span>';
+                        }
+                        $_cls = $_p === $_atPage ? 'active' : '';
+                        echo '<a class="tpgat-page ' . $_cls . '" href="' . $_atBuildUrl(array('at_page'=>$_p)) . '">' . $_p . '</a>';
+                        $_prevP = $_p;
+                    }
+                    ?>
+                    <a class="tpgat-page <?php echo $_atPage>=$_atTotalPages?'disabled':'' ?>" href="<?php echo $_atBuildUrl(array('at_page'=>min($_atTotalPages,$_atPage+1))) ?>">Next</a>
+                </div>
+            </div>
+        <?php endif; ?>
+    </div>
+
+    <div class="tpg-footer-brand">Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y') ?></div>
+</div>
+<?php endif; ?>
+
+<?php if ($_tpgActive && $_tpgPage === 'view_learners'): ?>
+<style>
+#dash-panel-tpg-viewlearners{display:block;max-width:none !important;padding:18px 24px !important}
+#dash-panel-tpg-viewlearners h1.vl-title{display:block !important;font-size:26px !important;font-weight:700 !important;color:#f8fafc !important;margin:0 0 16px !important;letter-spacing:.2px}
+.vl-kpi-grid{display:grid !important;grid-template-columns:repeat(3,1fr) !important;gap:16px !important;margin:0 0 18px !important}
+.vl-kpi-card{display:flex !important;flex-direction:column !important;align-items:center !important;justify-content:center !important;background:#1e293b !important;border:1px solid #334155 !important;border-radius:12px !important;padding:22px 18px !important;text-align:center !important}
+.vl-kpi-num{display:block !important;font-size:38px !important;font-weight:800 !important;line-height:1 !important;margin:0 0 8px !important}
+.vl-kpi-num-blue{color:#3b82f6 !important}.vl-kpi-num-green{color:#22c55e !important}.vl-kpi-num-red{color:#ef4444 !important}
+.vl-kpi-lbl{display:block !important;color:#cbd5e1 !important;font-size:13px !important;font-weight:500 !important}
+.vl-card{display:block !important;background:#1e293b !important;border:1px solid #334155 !important;border-radius:12px !important;padding:14px 16px !important;margin-bottom:16px !important}
+.vl-search-row{display:flex !important;gap:10px !important;align-items:center !important}
+.vl-search-wrap{flex:1 !important;position:relative !important}
+.vl-search-wrap svg{position:absolute !important;left:14px !important;top:50% !important;transform:translateY(-50%) !important;color:#64748b !important;pointer-events:none !important;width:16px !important;height:16px !important}
+.vl-search{display:block !important;width:100% !important;padding:10px 14px 10px 40px !important;background:#0f172a !important;border:1px solid #334155 !important;border-radius:8px !important;color:#f1f5f9 !important;font-size:13.5px !important;outline:none !important;box-sizing:border-box !important}
+.vl-search:focus{border-color:#60a5fa !important}
+.vl-status-select{display:inline-block !important;padding:10px 14px !important;background:#0f172a !important;border:1px solid #334155 !important;border-radius:8px !important;color:#f1f5f9 !important;font-size:13.5px !important;outline:none !important;min-width:130px !important;cursor:pointer !important}
+.vl-table-wrap{overflow-x:auto;border-radius:12px;border:1px solid #334155;background:#1e293b}
+.vl-table-wrap::-webkit-scrollbar{height:10px}
+.vl-table-wrap::-webkit-scrollbar-track{background:#0f172a;border-radius:5px}
+.vl-table-wrap::-webkit-scrollbar-thumb{background:#334155;border-radius:5px}
+.vl-table{width:100%;min-width:1100px;border-collapse:collapse;font-size:13px}
+.vl-table thead{background:#162033}
+.vl-table th{text-align:left;color:#94a3b8;font-weight:600;font-size:11px;letter-spacing:.6px;padding:12px 18px;border-bottom:1px solid #334155;text-transform:uppercase;white-space:nowrap}
+.vl-table td{padding:14px 18px;border-bottom:1px solid #1f2937;color:#e2e8f0;vertical-align:middle}
+.vl-table tr:last-child td{border-bottom:none}
+.vl-name-link{color:#60a5fa !important;font-weight:700;text-transform:uppercase;text-decoration:none;letter-spacing:.3px}
+.vl-name-link:hover{text-decoration:underline}
+.vl-nric{display:inline-flex;align-items:center;gap:8px;color:#cbd5e1;font-family:Menlo,Consolas,monospace;font-size:13px}
+.vl-nric-eye{color:#64748b;cursor:pointer;background:transparent;border:none;padding:0}
+.vl-nric-eye:hover{color:#cbd5e1}
+.vl-pill{display:inline-block;padding:5px 18px;border-radius:6px;font-size:12px;font-weight:700;letter-spacing:.3px;border:1px solid transparent}
+.vl-pill-active{background:rgba(34,197,94,.14);color:#4ade80;border-color:rgba(34,197,94,.4)}
+.vl-pill-inactive{background:rgba(239,68,68,.14);color:#f87171;border-color:rgba(239,68,68,.4)}
+.vl-del{background:transparent !important;border:none !important;color:#ef4444 !important;font-size:18px !important;cursor:pointer !important;padding:6px 10px !important;border-radius:6px}
+.vl-del:hover{background:rgba(239,68,68,.1) !important;color:#f87171 !important}
+.vl-pagination{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-top:18px;flex-wrap:wrap;color:#94a3b8;font-size:13px}
+.vl-page-buttons{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+a.vl-page,a.vl-page:hover,a.vl-page:visited{display:inline-flex;align-items:center;justify-content:center;min-width:38px;height:38px;padding:0 14px;background:#0f172a;border:1px solid #334155;border-radius:8px;color:#cbd5e1 !important;font-size:13px;font-weight:600;text-decoration:none;cursor:pointer}
+a.vl-page:hover{border-color:#475569}
+a.vl-page.active{background:#2563eb;border-color:#2563eb;color:#fff !important}
+a.vl-page.disabled{opacity:.4;pointer-events:none}
+.vl-page-ellipsis{display:inline-flex;align-items:center;justify-content:center;min-width:24px;color:#64748b}
+@media(max-width:900px){.vl-kpi-grid{grid-template-columns:1fr}.vl-search-row{flex-direction:column;align-items:stretch}.vl-status-select{min-width:0}}
+</style>
+<?php
+    $_vlDashUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard');
+    $_vlBuildUrl = function($overrides = array()) use ($_vlDashUrl, $_vlSearch, $_vlStatus, $_vlPage) {
+        $params = array(
+            'tpg_page'  => 'view_learners',
+            'vl_search' => $_vlSearch,
+            'vl_status' => $_vlStatus,
+            'vl_page'   => $_vlPage,
+        );
+        foreach ($overrides as $k => $v) $params[$k] = $v;
+        return $_vlDashUrl . '?' . http_build_query($params);
+    };
+    // Synthesize a SG-style masked NRIC (S*******X) per learner. Real NRIC
+    // is not stored, so we derive a stable trailing letter from entity_id
+    // — purely visual, avoids leaking PII.
+    $_vlMaskNric = function($eid) {
+        $prefixes = array('S','T');
+        $letters  = 'ABCDEFGHIJKLMNZ';
+        $p = $prefixes[$eid % 2];
+        $l = $letters[$eid % strlen($letters)];
+        return $p . str_repeat('*', 7) . $l;
+    };
+?>
+<div id="dash-panel-tpg-viewlearners" class="tpg-wrap">
+    <h1 class="vl-title">View Learners</h1>
+
+    <div class="vl-kpi-grid">
+        <div class="vl-kpi-card"><div class="vl-kpi-num vl-kpi-num-blue"><?php echo (int)$_vlStats['total'] ?></div><div class="vl-kpi-lbl">Total Learners</div></div>
+        <div class="vl-kpi-card"><div class="vl-kpi-num vl-kpi-num-green"><?php echo (int)$_vlStats['active'] ?></div><div class="vl-kpi-lbl">Active</div></div>
+        <div class="vl-kpi-card"><div class="vl-kpi-num vl-kpi-num-red"><?php echo (int)$_vlStats['inactive'] ?></div><div class="vl-kpi-lbl">Inactive</div></div>
+    </div>
+
+    <form method="get" action="<?php echo $_vlDashUrl ?>" class="vl-card" style="margin:0 0 18px">
+        <input type="hidden" name="tpg_page" value="view_learners" />
+        <div class="vl-search-row">
+            <div class="vl-search-wrap">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                <input type="text" name="vl_search" class="vl-search" placeholder="Search name, email, phone..." value="<?php echo htmlspecialchars($_vlSearch) ?>" />
+            </div>
+            <select name="vl_status" class="vl-status-select" onchange="this.form.submit()">
+                <option value=""         <?php echo $_vlStatus===''        ?'selected':'' ?>>All Status</option>
+                <option value="active"   <?php echo $_vlStatus==='active'  ?'selected':'' ?>>Active</option>
+                <option value="inactive" <?php echo $_vlStatus==='inactive'?'selected':'' ?>>Inactive</option>
+            </select>
+        </div>
+    </form>
+
+    <div class="vl-table-wrap">
+        <table class="vl-table">
+            <thead><tr>
+                <th>Name</th><th>Email</th><th>Phone</th><th>NRIC</th><th>Status</th><th style="text-align:right">Action</th>
+            </tr></thead>
+            <tbody>
+            <?php if (empty($_vlRows)): ?>
+                <tr><td colspan="6" style="text-align:center;padding:40px;color:#94a3b8">No learners match your search.</td></tr>
+            <?php else: foreach ($_vlRows as $_l):
+                $_full = trim(($_l['firstname'] ?: '') . ' ' . ($_l['lastname'] ?: ''));
+                if ($_full === '') $_full = $_l['email'];
+                $_phoneRaw = trim((string)$_l['telephone']);
+                $_phone = $_phoneRaw === '' ? '—' : (preg_match('/^\+/', $_phoneRaw) ? $_phoneRaw : '+65' . preg_replace('/\D/', '', $_phoneRaw));
+                $_active = (int)$_l['is_active'] === 1;
+                $_nricMasked = $_vlMaskNric((int)$_l['entity_id']);
+            ?>
+                <tr>
+                    <td><a class="vl-name-link" href="#"><?php echo htmlspecialchars($_full) ?></a></td>
+                    <td style="color:#cbd5e1"><?php echo htmlspecialchars($_l['email']) ?></td>
+                    <td style="color:#94a3b8"><?php echo htmlspecialchars($_phone) ?></td>
+                    <td><span class="vl-nric"><?php echo $_nricMasked ?><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="vl-nric-eye"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></span></td>
+                    <td><span class="vl-pill vl-pill-<?php echo $_active?'active':'inactive' ?>"><?php echo $_active?'Active':'Inactive' ?></span></td>
+                    <td style="text-align:right"><button type="button" class="vl-del" title="Delete">×</button></td>
+                </tr>
+            <?php endforeach; endif; ?>
+            </tbody>
+        </table>
+    </div>
+
+    <?php if ($_vlTotal > 0):
+        $_first = ($_vlPage - 1) * $_vlPerPage + 1;
+        $_last  = min($_vlPage * $_vlPerPage, $_vlTotal);
+        $_pages = array();
+        $_w = 1;
+        for ($_i = 1; $_i <= $_vlTotalPages; $_i++) {
+            if ($_i === 1 || $_i === $_vlTotalPages || ($_i >= $_vlPage - $_w && $_i <= $_vlPage + $_w)) $_pages[] = $_i;
+        }
+    ?>
+    <div class="vl-pagination">
+        <div><?php echo $_first ?>&ndash;<?php echo $_last ?> of <?php echo (int)$_vlTotal ?></div>
+        <div class="vl-page-buttons">
+            <a class="vl-page <?php echo $_vlPage<=1?'disabled':'' ?>" href="<?php echo $_vlBuildUrl(array('vl_page'=>1)) ?>">First</a>
+            <a class="vl-page <?php echo $_vlPage<=1?'disabled':'' ?>" href="<?php echo $_vlBuildUrl(array('vl_page'=>max(1,$_vlPage-1))) ?>">Prev</a>
+            <?php $_prev = 0; foreach ($_pages as $_p):
+                if ($_prev && $_p > $_prev + 1) echo '<span class="vl-page-ellipsis">…</span>';
+                $_cls = $_p === $_vlPage ? 'active' : ''; ?>
+                <a class="vl-page <?php echo $_cls ?>" href="<?php echo $_vlBuildUrl(array('vl_page'=>$_p)) ?>"><?php echo $_p ?></a>
+            <?php $_prev = $_p; endforeach; ?>
+            <a class="vl-page <?php echo $_vlPage>=$_vlTotalPages?'disabled':'' ?>" href="<?php echo $_vlBuildUrl(array('vl_page'=>min($_vlTotalPages,$_vlPage+1))) ?>">Next</a>
+            <a class="vl-page <?php echo $_vlPage>=$_vlTotalPages?'disabled':'' ?>" href="<?php echo $_vlBuildUrl(array('vl_page'=>$_vlTotalPages)) ?>">Last</a>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <div class="tpg-footer-brand" style="margin-top:24px">Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y') ?></div>
+</div>
+<?php endif; ?>
+
 <?php /* ===== Role switcher JS ===== */ ?>
 <script type="text/javascript">
 (function(){
@@ -10852,7 +11727,7 @@ button.tpgdr-clear:hover{background:#1e293b !important}
             'Trainer':           'dash-panel-learner',
             'Developer':         'dash-panel-developer'
         };
-        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-trainingprovider','dash-panel-developer','dash-panel-learner','dash-panel-billing','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-course-detail','dash-panel-course-edit','dash-panel-companysetting','dash-panel-cp-coursedetails','dash-panel-cp-aboutcourse','dash-panel-cp-whatlearn','dash-panel-cp-bgparta','dash-panel-cp-bgpartb','dash-panel-cp-learningoutcomes','dash-panel-cp-instructmethods','dash-panel-cp-assessmethods','dash-panel-cp-lusequencing','dash-panel-cp-courseoutline','dash-panel-cp-entryreq','dash-panel-cp-jobroles','dash-panel-cp-lessonplan','dash-panel-cp-cpvalidation','dash-panel-tpg-createclass','dash-panel-tpg-enrolllearners','dash-panel-tpg-addsessions','dash-panel-tpg-coursesessions','dash-panel-tpg-sessionattendance','dash-panel-tpg-checkattendance','dash-panel-tpg-submitassessment','dash-panel-tpg-updateassessment','dash-panel-tpg-bulkupdateassessment','dash-panel-tpg-searchassessments','dash-panel-tpg-viewassessment','dash-panel-tpg-grantcalculator','dash-panel-tpg-searchgrant','dash-panel-tpg-viewgrantstatus','dash-panel-tpg-searchcourseruns','dash-panel-tpg-viewcourserun','dash-panel-tpg-editcourserun','dash-panel-tpg-uploadcourseruns','dash-panel-tpg-deletecourserun'];
+        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-trainingprovider','dash-panel-developer','dash-panel-learner','dash-panel-billing','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-course-detail','dash-panel-course-edit','dash-panel-companysetting','dash-panel-cp-coursedetails','dash-panel-cp-aboutcourse','dash-panel-cp-whatlearn','dash-panel-cp-bgparta','dash-panel-cp-bgpartb','dash-panel-cp-learningoutcomes','dash-panel-cp-instructmethods','dash-panel-cp-assessmethods','dash-panel-cp-lusequencing','dash-panel-cp-courseoutline','dash-panel-cp-entryreq','dash-panel-cp-jobroles','dash-panel-cp-lessonplan','dash-panel-cp-cpvalidation','dash-panel-tpg-createclass','dash-panel-tpg-enrolllearners','dash-panel-tpg-addsessions','dash-panel-tpg-coursesessions','dash-panel-tpg-sessionattendance','dash-panel-tpg-checkattendance','dash-panel-tpg-submitassessment','dash-panel-tpg-updateassessment','dash-panel-tpg-bulkupdateassessment','dash-panel-tpg-searchassessments','dash-panel-tpg-viewassessment','dash-panel-tpg-grantcalculator','dash-panel-tpg-searchgrant','dash-panel-tpg-viewgrantstatus','dash-panel-tpg-searchcourseruns','dash-panel-tpg-viewcourserun','dash-panel-tpg-editcourserun','dash-panel-tpg-uploadcourseruns','dash-panel-tpg-deletecourserun','dash-panel-tpg-assigntrainer','dash-panel-tpg-viewlearners'];
         // If a TPG sub-page is active (Admin only), show it and skip the role panel
         if (TPG_PAGE_ACTIVE) {
             for (var j=0; j<all.length; j++) {

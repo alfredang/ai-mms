@@ -38,6 +38,24 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 if ($trValExisting !== false && $trValExisting !== null) {
                     $product->setData('trainers', $trValExisting);
                 }
+                // Preserve news_from_date / news_to_date the same way — without
+                // this, a partial save (e.g. trainer-only AJAX from the Assign
+                // Trainer panel) can clear the dates if Magento's load didn't
+                // populate them onto the model from the active store scope.
+                foreach (array('news_from_date', 'news_to_date') as $_dateAttr) {
+                    $_dAid = (int)$read->fetchOne(
+                        "SELECT attribute_id FROM eav_attribute WHERE attribute_code=? AND entity_type_id=4",
+                        array($_dateAttr)
+                    );
+                    if (!$_dAid) continue;
+                    $_dVal = $read->fetchOne(
+                        "SELECT value FROM catalog_product_entity_datetime WHERE entity_id=? AND attribute_id=? AND value IS NOT NULL ORDER BY store_id LIMIT 1",
+                        array($courseId, $_dAid)
+                    );
+                    if ($_dVal !== false && $_dVal !== null && $_dVal !== '') {
+                        $product->setData($_dateAttr, $_dVal);
+                    }
+                }
             } catch (Exception $e) {}
 
             // Basic fields

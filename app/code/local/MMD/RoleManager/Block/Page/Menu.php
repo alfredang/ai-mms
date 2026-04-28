@@ -57,16 +57,27 @@ class MMD_RoleManager_Block_Page_Menu extends Mage_Adminhtml_Block_Page_Menu
             }
         }
 
-        // Rename customer sub-items: Customer → Learner
-        if (isset($menu['customer']['children'])) {
-            $childRenames = array(
-                'manage' => 'Manage Learners',
-                'group'  => 'Learner Groups',
-                'online' => 'Online Learners',
-            );
-            foreach ($childRenames as $childKey => $childLabel) {
-                if (isset($menu['customer']['children'][$childKey])) {
-                    $menu['customer']['children'][$childKey]['label'] = $childLabel;
+        // Rename customer sub-items: Customer → Learner.
+        // Also hijack the top-nav URL: clicking "View Learners" or "Manage
+        // Learners" from the Magento admin top bar should land on our custom
+        // dashboard panel (?tpg_page=view_learners), not the legacy customer
+        // grid at adminhtml/customer/index.
+        if (isset($menu['customer'])) {
+            $vlUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('tpg_page' => 'view_learners'));
+            $menu['customer']['url'] = $vlUrl;
+            if (isset($menu['customer']['children'])) {
+                $childRenames = array(
+                    'manage' => 'Manage Learners',
+                    'group'  => 'Learner Groups',
+                    'online' => 'Online Learners',
+                );
+                foreach ($childRenames as $childKey => $childLabel) {
+                    if (isset($menu['customer']['children'][$childKey])) {
+                        $menu['customer']['children'][$childKey]['label'] = $childLabel;
+                    }
+                }
+                if (isset($menu['customer']['children']['manage'])) {
+                    $menu['customer']['children']['manage']['url'] = $vlUrl;
                 }
             }
         }
