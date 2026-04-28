@@ -898,6 +898,8 @@ if ($_editMode) {
             $_editCourseData = array(
                 'name'        => $_editProd->getName() ?: '',
                 'sku'         => $_editProd->getSku() ?: '',
+                'status'      => (int) $_editProd->getStatus(),
+                'url_key'     => (string) $_editProd->getData('url_key'),
                 'image'       => $_selectedCourse['image'],
                 'image_url'   => $_imgUrlRaw,
                 'description' => $_editProd->getData('description') ?: '',
@@ -2683,50 +2685,77 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
 
         <!-- ===== Tab: Images ===== -->
         <div class="dcf-tab-panel" data-tab="images">
-            <div class="dcf-section">
-                <div class="dcf-section-title">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                    Images
-                </div>
-                <div style="background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.25);color:#93c5fd;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px;">
-                    Image type and information need to be specified for each store view.
-                </div>
-                <div style="background:#283548;border:1px solid #384a60;border-radius:8px;overflow:hidden;">
-                    <table style="width:100%;border-collapse:collapse;font-size:13px;">
-                        <thead>
-                            <tr style="background:#334155;color:#cbd5e1;">
-                                <th style="padding:10px 12px;text-align:left;font-weight:600;">Image</th>
-                                <th style="padding:10px 12px;text-align:left;font-weight:600;">Label</th>
-                                <th style="padding:10px 12px;text-align:left;font-weight:600;">Sort Order</th>
-                                <th style="padding:10px 12px;text-align:center;font-weight:600;">Base Image</th>
-                                <th style="padding:10px 12px;text-align:center;font-weight:600;">Small Image</th>
-                                <th style="padding:10px 12px;text-align:center;font-weight:600;">Thumbnail</th>
-                                <th style="padding:10px 12px;text-align:center;font-weight:600;">Exclude</th>
-                                <th style="padding:10px 12px;text-align:center;font-weight:600;">Remove</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php if ($_editCourseData['image']): ?>
-                            <tr style="border-top:1px solid #384a60;">
-                                <td style="padding:10px 12px;"><img src="<?php echo htmlspecialchars($_editCourseData['image']) ?>" style="width:80px;border-radius:4px;" /></td>
-                                <td style="padding:10px 12px;"><input type="text" class="dcf-input" value="<?php echo htmlspecialchars($_editCourseData['name']) ?>" /></td>
-                                <td style="padding:10px 12px;"><input type="number" class="dcf-input" value="1" style="width:60px;" /></td>
-                                <td style="padding:10px 12px;text-align:center;"><input type="radio" name="img_base" checked /></td>
-                                <td style="padding:10px 12px;text-align:center;"><input type="radio" name="img_small" checked /></td>
-                                <td style="padding:10px 12px;text-align:center;"><input type="radio" name="img_thumb" checked /></td>
-                                <td style="padding:10px 12px;text-align:center;"><input type="checkbox" /></td>
-                                <td style="padding:10px 12px;text-align:center;"><input type="checkbox" /></td>
-                            </tr>
-                            <?php else: ?>
-                            <tr><td colspan="8" style="padding:24px;color:#64748b;text-align:center;">No image yet.</td></tr>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
-                </div>
-                <div style="margin-top:12px;color:#64748b;font-size:12px;">Maximum width and height dimension for upload image is 5000.</div>
-                <div style="margin-top:10px;display:flex;gap:8px;justify-content:flex-end;">
-                    <button type="button" style="background:#475569;color:#fff;border:none;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">Browse Files…</button>
-                    <button type="button" style="background:#2563eb;color:#fff;border:none;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">Upload Files</button>
+            <div class="dcf-mag">
+                <div class="dcf-mag-bar">Images</div>
+                <div class="dcf-mag-body">
+                    <div style="background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.25);color:#93c5fd;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px;">
+                        Read live from the product's media gallery. Toggle Exclude / Remove and pick which image is the Base / Small / Thumbnail. Save Changes commits everything. (File upload uses Magento's standard product editor for now.)
+                    </div>
+                    <?php
+                    // Live media gallery + currently-assigned image roles.
+                    $_imgRows = array();
+                    try {
+                        $_imgRoles = array(
+                            'image'       => (string) $_editProd->getData('image'),
+                            'small_image' => (string) $_editProd->getData('small_image'),
+                            'thumbnail'   => (string) $_editProd->getData('thumbnail'),
+                        );
+                        $_galleryImages = $_editProd->getMediaGalleryImages();
+                        if ($_galleryImages) {
+                            foreach ($_galleryImages as $_gi) {
+                                $_imgRows[] = array(
+                                    'value_id' => (int) $_gi->getValueId(),
+                                    'file'     => (string) $_gi->getFile(),
+                                    'url'      => (string) $_gi->getUrl(),
+                                    'label'    => (string) $_gi->getLabel(),
+                                    'position' => (int) $_gi->getPosition(),
+                                    'disabled' => (int) $_gi->getDisabled(),
+                                );
+                            }
+                        }
+                    } catch (Exception $_imgEx) { /* fall through to empty */ }
+                    ?>
+                    <input type="hidden" name="_images_loaded" value="1" />
+                    <div style="background:#283548;border:1px solid #384a60;border-radius:8px;overflow:hidden;">
+                        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                            <thead>
+                                <tr style="background:#334155;color:#cbd5e1;">
+                                    <th style="padding:10px 12px;text-align:left;font-weight:600;">Image</th>
+                                    <th style="padding:10px 12px;text-align:left;font-weight:600;">Label</th>
+                                    <th style="padding:10px 12px;text-align:left;font-weight:600;">Sort</th>
+                                    <th style="padding:10px 12px;text-align:center;font-weight:600;">Base</th>
+                                    <th style="padding:10px 12px;text-align:center;font-weight:600;">Small</th>
+                                    <th style="padding:10px 12px;text-align:center;font-weight:600;">Thumb</th>
+                                    <th style="padding:10px 12px;text-align:center;font-weight:600;">Exclude</th>
+                                    <th style="padding:10px 12px;text-align:center;font-weight:600;">Remove</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php if (empty($_imgRows)): ?>
+                                <tr><td colspan="8" style="padding:24px;color:#64748b;text-align:center;">No images in the gallery yet.</td></tr>
+                                <?php else: foreach ($_imgRows as $_ir):
+                                    $_isBase  = ($_imgRoles['image']       === $_ir['file']);
+                                    $_isSmall = ($_imgRoles['small_image'] === $_ir['file']);
+                                    $_isThumb = ($_imgRoles['thumbnail']   === $_ir['file']);
+                                ?>
+                                <tr style="border-top:1px solid #384a60;color:#e2e8f0;">
+                                    <td style="padding:10px 12px;"><img src="<?php echo htmlspecialchars($_ir['url']) ?>" style="width:80px;border-radius:4px;" /></td>
+                                    <td style="padding:10px 12px;"><input type="text" class="dcf-input" name="img_label[<?php echo (int)$_ir['value_id'] ?>]" value="<?php echo htmlspecialchars($_ir['label']) ?>" /></td>
+                                    <td style="padding:10px 12px;"><input type="number" class="dcf-input" name="img_position[<?php echo (int)$_ir['value_id'] ?>]" value="<?php echo (int)$_ir['position'] ?>" style="width:64px;" /></td>
+                                    <td style="padding:10px 12px;text-align:center;"><input type="radio" name="img_role_image" value="<?php echo htmlspecialchars($_ir['file']) ?>"<?php echo $_isBase  ? ' checked' : '' ?> /></td>
+                                    <td style="padding:10px 12px;text-align:center;"><input type="radio" name="img_role_small_image" value="<?php echo htmlspecialchars($_ir['file']) ?>"<?php echo $_isSmall ? ' checked' : '' ?> /></td>
+                                    <td style="padding:10px 12px;text-align:center;"><input type="radio" name="img_role_thumbnail" value="<?php echo htmlspecialchars($_ir['file']) ?>"<?php echo $_isThumb ? ' checked' : '' ?> /></td>
+                                    <td style="padding:10px 12px;text-align:center;"><input type="checkbox" name="img_disabled[<?php echo (int)$_ir['value_id'] ?>]" value="1"<?php echo $_ir['disabled'] ? ' checked' : '' ?> /></td>
+                                    <td style="padding:10px 12px;text-align:center;"><input type="checkbox" name="img_remove[<?php echo (int)$_ir['value_id'] ?>]" value="1" /></td>
+                                </tr>
+                                <?php endforeach; endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#64748b;">
+                        <span><?php echo count($_imgRows) ?> image(s) in gallery</span>
+                        <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/catalog_product/edit', array('id' => $_selectedCourse['id'])) ?>#product_info_tabs_images" target="_blank" style="color:#60a5fa;text-decoration:none;">Open in Magento product editor (for upload) →</a>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2879,262 +2908,420 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
 
         <!-- ===== Tab: Websites ===== -->
         <div class="dcf-tab-panel" data-tab="websites">
-            <div class="dcf-section">
-                <div class="dcf-section-title">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                    Product in Websites
-                </div>
-                <div style="background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.25);color:#93c5fd;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px;">
-                    Items that you don't want to show in the catalog or search results should have status 'Disabled' in the desired store.
-                </div>
-                <?php
-                $_websites = array(
-                    'Main Website' => array('checked'=>true,  'stores'=>array('Main Website Store'=>array('Singapore Store View'))),
-                    'Malaysia'     => array('checked'=>false, 'stores'=>array('Malaysia'=>array('Malaysia Store View'))),
-                    'Ghana'        => array('checked'=>false, 'stores'=>array('Ghana'=>array('Ghana Store View'))),
-                    'Nigeria'      => array('checked'=>false, 'stores'=>array('Nigeria'=>array('Nigeria Store View'))),
-                    'Bhutan'       => array('checked'=>false, 'stores'=>array('Bhutan'=>array('Bhutan Store View'))),
-                    'India'        => array('checked'=>false, 'stores'=>array('India'=>array('India Store View'))),
-                    'Infotech'     => array('checked'=>false, 'stores'=>array('Infotech'=>array('Infotech'))),
-                );
-                foreach ($_websites as $_wn => $_wd): ?>
-                <div style="margin-bottom:12px;">
-                    <label style="display:flex;align-items:center;gap:8px;color:#f1f5f9;font-weight:600;font-size:14px;cursor:pointer;">
-                        <input type="checkbox" name="websites[]" value="<?php echo htmlspecialchars($_wn) ?>"<?php echo $_wd['checked'] ? ' checked' : '' ?> style="accent-color:#2563eb;width:16px;height:16px;" />
-                        <?php echo htmlspecialchars($_wn) ?>
-                    </label>
-                    <?php foreach ($_wd['stores'] as $_sn => $_svs): ?>
-                    <div style="margin-left:24px;color:#cbd5e1;font-size:13.5px;font-weight:500;margin-top:6px;"><?php echo htmlspecialchars($_sn) ?></div>
-                    <?php foreach ($_svs as $_sv): ?>
-                    <div style="margin-left:48px;color:#94a3b8;font-size:13px;margin-top:4px;"><?php echo htmlspecialchars($_sv) ?></div>
-                    <?php endforeach; ?>
+            <div class="dcf-mag">
+                <div class="dcf-mag-bar">Product in Websites</div>
+                <div class="dcf-mag-body">
+                    <div style="background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.25);color:#93c5fd;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px;">
+                        Items that you don't want to show in the catalog or search results should have status 'Disabled' in the desired store.
+                    </div>
+                    <?php
+                    // Live website / store / store-view tree from Magento.
+                    $_websites = Mage::app()->getWebsites();
+                    $_currentWebIds = array_map('intval', (array) $_editProd->getWebsiteIds());
+                    ?>
+                    <input type="hidden" name="_websites_loaded" value="1" />
+                    <?php foreach ($_websites as $_w): ?>
+                    <div style="margin-bottom:12px;">
+                        <label style="display:flex;align-items:center;gap:8px;color:#f1f5f9;font-weight:600;font-size:14px;cursor:pointer;">
+                            <input type="checkbox" name="websites[]" value="<?php echo (int)$_w->getId() ?>"<?php echo in_array((int)$_w->getId(), $_currentWebIds, true) ? ' checked' : '' ?> style="accent-color:#2563eb;width:16px;height:16px;" />
+                            <?php echo htmlspecialchars($_w->getName()) ?>
+                        </label>
+                        <?php foreach ($_w->getGroups() as $_g): ?>
+                        <div style="margin-left:24px;color:#cbd5e1;font-size:13.5px;font-weight:500;margin-top:6px;"><?php echo htmlspecialchars($_g->getName()) ?></div>
+                        <?php foreach ($_g->getStores() as $_sv): ?>
+                        <div style="margin-left:48px;color:#94a3b8;font-size:13px;margin-top:4px;"><?php echo htmlspecialchars($_sv->getName()) ?></div>
+                        <?php endforeach; ?>
+                        <?php endforeach; ?>
+                    </div>
                     <?php endforeach; ?>
                 </div>
-                <?php endforeach; ?>
             </div>
         </div>
 
         <!-- ===== Tab: Categories ===== -->
         <div class="dcf-tab-panel" data-tab="categories">
-            <div class="dcf-section">
-                <div class="dcf-section-title">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-                    Courses Categories
+            <div class="dcf-mag">
+                <div class="dcf-mag-bar">Courses Categories</div>
+                <div class="dcf-mag-body">
+                    <?php
+                    // Load the live category tree from the catalog. We pull all active
+                    // categories with their level (for indent), name, parent_id, and
+                    // product_count, then walk them in path order so children follow
+                    // their parent. Pre-check the boxes for whichever categories the
+                    // course is currently assigned to.
+                    $_catTreeRows = array();
+                    $_currentCatIds = array();
+                    try {
+                        $_catRead = Mage::getSingleton('core/resource')->getConnection('core_read');
+                        $_catTreeRows = $_catRead->fetchAll(
+                            "SELECT e.entity_id, e.level, e.path, e.parent_id,
+                                    COALESCE(nameStore.value, nameDef.value, '') AS name,
+                                    COALESCE(activeStore.value, activeDef.value, 1) AS is_active,
+                                    (SELECT COUNT(*) FROM catalog_category_product cp WHERE cp.category_id = e.entity_id) AS product_count
+                             FROM catalog_category_entity e
+                             LEFT JOIN eav_attribute na   ON na.entity_type_id = e.entity_type_id AND na.attribute_code = 'name'
+                             LEFT JOIN catalog_category_entity_varchar nameDef   ON nameDef.entity_id = e.entity_id   AND nameDef.attribute_id = na.attribute_id AND nameDef.store_id = 0
+                             LEFT JOIN catalog_category_entity_varchar nameStore ON nameStore.entity_id = e.entity_id AND nameStore.attribute_id = na.attribute_id AND nameStore.store_id != 0
+                             LEFT JOIN eav_attribute aa   ON aa.entity_type_id = e.entity_type_id AND aa.attribute_code = 'is_active'
+                             LEFT JOIN catalog_category_entity_int activeDef    ON activeDef.entity_id = e.entity_id    AND activeDef.attribute_id = aa.attribute_id AND activeDef.store_id = 0
+                             LEFT JOIN catalog_category_entity_int activeStore  ON activeStore.entity_id = e.entity_id  AND activeStore.attribute_id = aa.attribute_id AND activeStore.store_id != 0
+                             WHERE e.level > 0
+                             ORDER BY e.path ASC"
+                        );
+                        $_currentCatIds = array_map('intval', (array) $_editProd->getCategoryIds());
+                    } catch (Exception $_catEx) { /* if tables not present, fall through to empty list */ }
+                    ?>
+                    <?php if (empty($_catTreeRows)): ?>
+                    <div style="color:#64748b;font-size:13px;">No catalog categories found.</div>
+                    <?php else: ?>
+                    <input type="hidden" name="_categories_loaded" value="1" />
+                    <div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:14px 16px;max-height:520px;overflow-y:auto;">
+                        <?php foreach ($_catTreeRows as $_cat):
+                            $_lvl   = (int) $_cat['level'];
+                            $_indent = max(0, ($_lvl - 1) * 18);
+                            $_id    = (int) $_cat['entity_id'];
+                            $_isOn  = in_array($_id, $_currentCatIds, true);
+                            $_dim   = ((int)$_cat['is_active']) ? '' : 'opacity:.5;';
+                        ?>
+                        <label style="display:block;margin:4px 0 4px <?php echo $_indent ?>px;color:#cbd5e1;font-size:13.5px;cursor:pointer;<?php echo $_dim ?>">
+                            <input type="checkbox" name="categories[]" value="<?php echo $_id ?>"<?php echo $_isOn ? ' checked' : '' ?> style="accent-color:#2563eb;margin-right:8px;" />
+                            <?php echo htmlspecialchars($_cat['name']) ?:'(unnamed)' ?>
+                            <span style="color:#64748b;">(<?php echo (int) $_cat['product_count'] ?>)</span>
+                        </label>
+                        <?php endforeach; ?>
+                    </div>
+                    <div style="margin-top:10px;color:#64748b;font-size:12px;">
+                        <?php echo count($_catTreeRows) ?> categories &middot; this course is currently in <?php echo count($_currentCatIds) ?>
+                    </div>
+                    <?php endif; ?>
                 </div>
-                <?php
-                $_catTree = array(
-                    array(0, 'Default Category', 0),
-                    array(1, 'Adult Courses', 1371),
-                    array(2, 'Infocomm Technology', 945),
-                    array(3, 'Artificial Intelligence', 210),
-                    array(4, 'Generative AI', 117),
-                    array(5, 'Prompt Engineering', 3),
-                    array(5, 'GenAI Content Creation', 60),
-                    array(5, 'GenAI Video Creation', 6),
-                    array(5, 'RAG &amp; Fine Tuning', 16),
-                    array(5, 'AI Ethics &amp; Governance', 8),
-                    array(4, 'Agentic AI', 71),
-                    array(4, 'OpenClaw', 9),
-                    array(4, 'Machine Learning', 81),
-                    array(4, 'Vibe Coding', 37),
-                    array(4, 'Voice and Video Agents', 5),
-                    array(3, 'Data Management', 131),
-                    array(3, 'Programming', 124),
-                    array(3, 'Quantum Computing', 6),
-                    array(3, 'Cloud Computing', 119),
-                    array(3, 'Cyber Security', 71),
-                    array(2, 'Media &amp; Design', 178),
-                    array(2, 'Robotics &amp; IoT', 41),
-                    array(2, 'Digital Marketing', 59),
-                    array(2, 'Business &amp; Soft Skills', 154),
-                    array(2, 'Financial Services', 57),
-                );
-                foreach ($_catTree as $_cat):
-                    $_indent = $_cat[0] * 18; ?>
-                <label style="display:block;margin:4px 0 4px <?php echo $_indent ?>px;color:#cbd5e1;font-size:13.5px;cursor:pointer;">
-                    <input type="checkbox" name="categories[]" value="<?php echo $_cat[1] ?>" style="accent-color:#2563eb;margin-right:8px;" />
-                    <?php echo $_cat[1] ?> <span style="color:#64748b;">(<?php echo $_cat[2] ?>)</span>
-                </label>
-                <?php endforeach; ?>
-                <div style="margin-top:14px;color:#64748b;font-size:12px;font-style:italic;">Wireframe — actual catalog tree from catalog_category_entity will be wired in a follow-up.</div>
             </div>
         </div>
 
         <?php
-        // Grid-style placeholder tabs (Related, Up-sells, Cross-sells, etc.)
-        // — same Magento layout: filter row + grid + empty state.
-        $_gridTabs = array(
-            'related'    => array('Related Products',      array('ID','Name','Type','Attrib. Set Name','Status','Visibility','Course Code','Price','Position')),
-            'upsells'    => array('Up-sells',              array('ID','Name','Type','Attrib. Set Name','Status','Visibility','Course Code','Price','Position')),
-            'crosssells' => array('Cross-sells',           array('ID','Name','Type','Attrib. Set Name','Status','Visibility','Course Code','Price','Position')),
+        // ===== Related / Up-sells / Cross-sells — wired to catalog_product_link =====
+        // Each tab pre-loads the linked products via the appropriate Magento
+        // collection. The form has a remove-checkbox per row + a position field,
+        // plus a small "Add by SKU" input. CoursesaveController applies the diff
+        // when *_links_loaded is set.
+        $_linkTabs = array(
+            'related'    => array(
+                'title' => 'Related Products',
+                'links' => $_editProd->getRelatedProductCollection()->addAttributeToSelect('name')->addAttributeToSelect('sku')->addAttributeToSelect('price')->addAttributeToSelect('status'),
+                'flag'  => '_related_loaded',
+                'name'  => 'related',
+            ),
+            'upsells'    => array(
+                'title' => 'Up-sells',
+                'links' => $_editProd->getUpSellProductCollection()->addAttributeToSelect('name')->addAttributeToSelect('sku')->addAttributeToSelect('price')->addAttributeToSelect('status'),
+                'flag'  => '_upsells_loaded',
+                'name'  => 'upsells',
+            ),
+            'crosssells' => array(
+                'title' => 'Cross-sells',
+                'links' => $_editProd->getCrossSellProductCollection()->addAttributeToSelect('name')->addAttributeToSelect('sku')->addAttributeToSelect('price')->addAttributeToSelect('status'),
+                'flag'  => '_crosssells_loaded',
+                'name'  => 'crosssells',
+            ),
         );
-        foreach ($_gridTabs as $_gtKey => $_gtInfo): ?>
+        foreach ($_linkTabs as $_gtKey => $_gtInfo): ?>
         <div class="dcf-tab-panel" data-tab="<?php echo $_gtKey ?>">
-            <div class="dcf-section">
-                <div class="dcf-section-title"><?php echo htmlspecialchars($_gtInfo[0]) ?></div>
-                <div style="background:#283548;border:1px solid #384a60;border-radius:8px;overflow:hidden;">
-                    <table style="width:100%;border-collapse:collapse;font-size:13px;">
-                        <thead>
-                            <tr style="background:#334155;color:#cbd5e1;">
-                                <th style="padding:10px 12px;text-align:left;font-weight:600;width:36px;"><input type="checkbox" /></th>
-                                <?php foreach ($_gtInfo[1] as $_h): ?><th style="padding:10px 12px;text-align:left;font-weight:600;"><?php echo $_h ?></th><?php endforeach; ?>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr><td colspan="<?php echo count($_gtInfo[1]) + 1 ?>" style="padding:32px;color:#64748b;text-align:center;">No records found.</td></tr>
-                        </tbody>
-                    </table>
+            <div class="dcf-mag">
+                <div class="dcf-mag-bar"><?php echo htmlspecialchars($_gtInfo['title']) ?></div>
+                <div class="dcf-mag-body">
+                    <input type="hidden" name="<?php echo $_gtInfo['flag'] ?>" value="1" />
+                    <div style="background:#283548;border:1px solid #384a60;border-radius:8px;overflow:hidden;">
+                        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                            <thead>
+                                <tr style="background:#334155;color:#cbd5e1;">
+                                    <th style="padding:10px 12px;text-align:left;font-weight:600;width:36px;">Remove</th>
+                                    <th style="padding:10px 12px;text-align:left;font-weight:600;">ID</th>
+                                    <th style="padding:10px 12px;text-align:left;font-weight:600;">Name</th>
+                                    <th style="padding:10px 12px;text-align:left;font-weight:600;">SKU</th>
+                                    <th style="padding:10px 12px;text-align:left;font-weight:600;">Status</th>
+                                    <th style="padding:10px 12px;text-align:left;font-weight:600;">Price</th>
+                                    <th style="padding:10px 12px;text-align:left;font-weight:600;">Position</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php
+                                $_linkRows = 0;
+                                try {
+                                    foreach ($_gtInfo['links'] as $_lp):
+                                        $_linkRows++;
+                                        $_lpStatus = (int) $_lp->getStatus();
+                                        $_lpPos = (int) $_lp->getPosition();
+                                ?>
+                                <tr style="border-top:1px solid #384a60;color:#e2e8f0;">
+                                    <td style="padding:10px 12px;text-align:center;"><input type="checkbox" name="<?php echo $_gtInfo['name'] ?>_remove[<?php echo (int)$_lp->getId() ?>]" value="1" /></td>
+                                    <td style="padding:10px 12px;color:#94a3b8;"><?php echo (int)$_lp->getId() ?></td>
+                                    <td style="padding:10px 12px;"><?php echo htmlspecialchars((string)$_lp->getName()) ?></td>
+                                    <td style="padding:10px 12px;color:#cbd5e1;font-family:monospace;font-size:12px;"><?php echo htmlspecialchars((string)$_lp->getSku()) ?></td>
+                                    <td style="padding:10px 12px;color:<?php echo $_lpStatus === 1 ? '#22c55e' : '#ef4444' ?>;"><?php echo $_lpStatus === 1 ? 'Enabled' : 'Disabled' ?></td>
+                                    <td style="padding:10px 12px;">$<?php echo number_format((float)$_lp->getPrice(), 2) ?></td>
+                                    <td style="padding:10px 12px;"><input type="number" class="dcf-input" name="<?php echo $_gtInfo['name'] ?>_position[<?php echo (int)$_lp->getId() ?>]" value="<?php echo $_lpPos ?>" style="width:64px;" /></td>
+                                </tr>
+                                <?php
+                                    endforeach;
+                                } catch (Exception $_lkEx) {}
+                                if ($_linkRows === 0): ?>
+                                <tr><td colspan="7" style="padding:32px;color:#64748b;text-align:center;">No <?php echo strtolower($_gtInfo['title']) ?> linked yet.</td></tr>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div style="margin-top:14px;display:flex;gap:8px;align-items:center;">
+                        <input type="text" class="dcf-input" name="<?php echo $_gtInfo['name'] ?>_add_skus" placeholder="Add by SKU (comma-separated, e.g. TGS-2024001234, TGS-2024005678)" style="flex:1;" />
+                        <span style="color:#64748b;font-size:12px;">(adds on save)</span>
+                    </div>
                 </div>
-                <div style="margin-top:8px;color:#64748b;font-size:12px;font-style:italic;">Wireframe — product picker grid will be wired in a follow-up.</div>
             </div>
         </div>
         <?php endforeach; ?>
 
+        <?php
+        // ===== Read-only data tabs (Reviews / Tagging / Customers Tagged) =====
+        // Single connection used for all three.
+        $_roReviews = array();
+        $_roTags = array();
+        $_roTagCustomers = array();
+        try {
+            $_roRead = Mage::getSingleton('core/resource')->getConnection('core_read');
+            // Reviews — joined with review_detail for the user-visible content
+            $_roReviews = $_roRead->fetchAll(
+                "SELECT r.review_id, r.created_at, r.status_id, rd.title, rd.nickname, rd.detail, rd.store_id
+                 FROM review r
+                 LEFT JOIN review_detail rd ON rd.review_id = r.review_id
+                 WHERE r.entity_pk_value = ?
+                 ORDER BY r.created_at DESC",
+                array($_selectedCourseId)
+            );
+            $_roReviewStatusMap = array(1 => 'Approved', 2 => 'Pending', 3 => 'Not Approved');
+            // Tags — distinct tags + how many customers have used them on this course
+            $_roTags = $_roRead->fetchAll(
+                "SELECT t.tag_id, t.name, t.status, COUNT(DISTINCT tr.customer_id) AS use_count
+                 FROM tag t
+                 INNER JOIN tag_relation tr ON tr.tag_id = t.tag_id
+                 WHERE tr.product_id = ?
+                 GROUP BY t.tag_id, t.name, t.status
+                 ORDER BY t.name ASC",
+                array($_selectedCourseId)
+            );
+            $_roTagStatusMap = array(0 => 'Disabled', 1 => 'Pending', 2 => 'Approved');
+            // Customers who tagged this course — first/last name pulled via EAV
+            $_fnAttr = (int) $_roRead->fetchOne("SELECT attribute_id FROM eav_attribute WHERE entity_type_id=1 AND attribute_code='firstname'");
+            $_lnAttr = (int) $_roRead->fetchOne("SELECT attribute_id FROM eav_attribute WHERE entity_type_id=1 AND attribute_code='lastname'");
+            $_roTagCustomers = $_roRead->fetchAll(
+                "SELECT DISTINCT ce.entity_id, ce.email,
+                        fn.value AS firstname, ln.value AS lastname,
+                        t.name AS subject_name
+                 FROM tag_relation tr
+                 INNER JOIN customer_entity ce ON ce.entity_id = tr.customer_id
+                 INNER JOIN tag t ON t.tag_id = tr.tag_id
+                 LEFT JOIN customer_entity_varchar fn ON fn.entity_id = ce.entity_id AND fn.attribute_id = ?
+                 LEFT JOIN customer_entity_varchar ln ON ln.entity_id = ce.entity_id AND ln.attribute_id = ?
+                 WHERE tr.product_id = ?
+                 ORDER BY ln.value ASC, fn.value ASC",
+                array($_fnAttr, $_lnAttr, $_selectedCourseId)
+            );
+        } catch (Exception $_roEx) { /* tables may be absent on a stripped DB — leave empties */ }
+        ?>
+
         <!-- ===== Tab: Courses Reviews ===== -->
         <div class="dcf-tab-panel" data-tab="reviews">
-            <div class="dcf-section">
-                <div class="dcf-section-title">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-                    Courses Reviews
-                </div>
-                <div style="background:#283548;border:1px solid #384a60;border-radius:8px;overflow:hidden;">
-                    <table style="width:100%;border-collapse:collapse;font-size:13px;">
-                        <thead>
-                            <tr style="background:#334155;color:#cbd5e1;">
-                                <?php foreach (array('ID','Created On','Status','Title','Nickname','Review','Visible In','Type','Course Name','Product SKU','Action') as $_h): ?>
-                                <th style="padding:10px 12px;text-align:left;font-weight:600;"><?php echo $_h ?></th>
-                                <?php endforeach; ?>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr><td colspan="11" style="padding:32px;color:#64748b;text-align:center;">No reviews yet.</td></tr>
-                        </tbody>
-                    </table>
+            <div class="dcf-mag">
+                <div class="dcf-mag-bar">Courses Reviews <span style="color:#94a3b8;font-weight:500;font-size:13px;">(<?php echo count($_roReviews) ?>)</span></div>
+                <div class="dcf-mag-body">
+                    <div style="background:#283548;border:1px solid #384a60;border-radius:8px;overflow:hidden;">
+                        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                            <thead>
+                                <tr style="background:#334155;color:#cbd5e1;">
+                                    <?php foreach (array('ID','Created On','Status','Title','Nickname','Review','Store') as $_h): ?>
+                                    <th style="padding:10px 12px;text-align:left;font-weight:600;"><?php echo $_h ?></th>
+                                    <?php endforeach; ?>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php if (empty($_roReviews)): ?>
+                                <tr><td colspan="7" style="padding:32px;color:#64748b;text-align:center;">No reviews yet.</td></tr>
+                                <?php else: foreach ($_roReviews as $_rv):
+                                    $_st = isset($_roReviewStatusMap[(int)$_rv['status_id']]) ? $_roReviewStatusMap[(int)$_rv['status_id']] : '—';
+                                    $_stCls = ((int)$_rv['status_id'] === 1) ? '#22c55e' : (((int)$_rv['status_id']) === 2 ? '#f59e0b' : '#ef4444');
+                                    $_dt  = $_rv['created_at'] ? date('M j, Y g:i A', strtotime($_rv['created_at'])) : '—';
+                                ?>
+                                <tr style="border-top:1px solid #384a60;color:#e2e8f0;">
+                                    <td style="padding:10px 12px;color:#94a3b8;"><?php echo (int)$_rv['review_id'] ?></td>
+                                    <td style="padding:10px 12px;"><?php echo $_dt ?></td>
+                                    <td style="padding:10px 12px;color:<?php echo $_stCls ?>;"><?php echo $_st ?></td>
+                                    <td style="padding:10px 12px;"><?php echo htmlspecialchars((string)$_rv['title']) ?></td>
+                                    <td style="padding:10px 12px;color:#cbd5e1;"><?php echo htmlspecialchars((string)$_rv['nickname']) ?></td>
+                                    <td style="padding:10px 12px;color:#94a3b8;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><?php echo htmlspecialchars((string)$_rv['detail']) ?></td>
+                                    <td style="padding:10px 12px;color:#64748b;">#<?php echo (int)$_rv['store_id'] ?></td>
+                                </tr>
+                                <?php endforeach; endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- ===== Tab: Courses Tagging ===== -->
         <div class="dcf-tab-panel" data-tab="tagging">
-            <div class="dcf-section">
-                <div class="dcf-section-title">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-                    Courses Tagging
-                </div>
-                <div style="background:#283548;border:1px solid #384a60;border-radius:8px;overflow:hidden;">
-                    <table style="width:100%;border-collapse:collapse;font-size:13px;">
-                        <thead>
-                            <tr style="background:#334155;color:#cbd5e1;">
-                                <th style="padding:10px 12px;text-align:left;font-weight:600;">Subject Name</th>
-                                <th style="padding:10px 12px;text-align:left;font-weight:600;"># of Use</th>
-                                <th style="padding:10px 12px;text-align:left;font-weight:600;">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr><td colspan="3" style="padding:32px;color:#64748b;text-align:center;">No tags yet.</td></tr>
-                        </tbody>
-                    </table>
+            <div class="dcf-mag">
+                <div class="dcf-mag-bar">Courses Tagging <span style="color:#94a3b8;font-weight:500;font-size:13px;">(<?php echo count($_roTags) ?>)</span></div>
+                <div class="dcf-mag-body">
+                    <div style="background:#283548;border:1px solid #384a60;border-radius:8px;overflow:hidden;">
+                        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                            <thead>
+                                <tr style="background:#334155;color:#cbd5e1;">
+                                    <th style="padding:10px 12px;text-align:left;font-weight:600;">Subject Name</th>
+                                    <th style="padding:10px 12px;text-align:left;font-weight:600;"># of Use</th>
+                                    <th style="padding:10px 12px;text-align:left;font-weight:600;">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php if (empty($_roTags)): ?>
+                                <tr><td colspan="3" style="padding:32px;color:#64748b;text-align:center;">No tags yet.</td></tr>
+                                <?php else: foreach ($_roTags as $_tg):
+                                    $_tst = isset($_roTagStatusMap[(int)$_tg['status']]) ? $_roTagStatusMap[(int)$_tg['status']] : '—';
+                                ?>
+                                <tr style="border-top:1px solid #384a60;color:#e2e8f0;">
+                                    <td style="padding:10px 12px;"><?php echo htmlspecialchars((string)$_tg['name']) ?></td>
+                                    <td style="padding:10px 12px;color:#cbd5e1;"><?php echo (int)$_tg['use_count'] ?></td>
+                                    <td style="padding:10px 12px;color:<?php echo ((int)$_tg['status'] === 2 ? '#22c55e' : ((int)$_tg['status'] === 1 ? '#f59e0b' : '#ef4444')) ?>;"><?php echo $_tst ?></td>
+                                </tr>
+                                <?php endforeach; endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- ===== Tab: Customers Tagged Product ===== -->
         <div class="dcf-tab-panel" data-tab="customers-tagged">
-            <div class="dcf-section">
-                <div class="dcf-section-title">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-                    Customers Tagged Product
-                </div>
-                <div style="background:#283548;border:1px solid #384a60;border-radius:8px;overflow:hidden;">
-                    <table style="width:100%;border-collapse:collapse;font-size:13px;">
-                        <thead>
-                            <tr style="background:#334155;color:#cbd5e1;">
-                                <?php foreach (array('First Name','Middle Name','Last Name','Email','Subject Name') as $_h): ?>
-                                <th style="padding:10px 12px;text-align:left;font-weight:600;"><?php echo $_h ?></th>
-                                <?php endforeach; ?>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr><td colspan="5" style="padding:32px;color:#64748b;text-align:center;">No customers have tagged this course.</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- ===== Tab: Course Schedule ===== -->
-        <div class="dcf-tab-panel" data-tab="schedule">
-            <div class="dcf-section">
-                <div class="dcf-section-title">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                    Course Schedule
-                </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:flex-start;margin-bottom:18px;">
-                    <div>
-                        <div class="dcf-label">Options Templates:</div>
-                        <select multiple size="6" class="dcf-select" name="schedule_options_templates[]" style="height:auto;">
-                            <option>(SG) WSQ-A02 Tues/Sun 1st wk</option>
-                            <option>(SG) WSQ-A03 Wed/Sat 1st wk</option>
-                            <option>(SG) WSQ-A04 Thurs/Sun 1st wk</option>
-                            <option>(SG) WSQ-A05 Fri/Sat 1st wk</option>
-                            <option selected>(SG) WSQ-A06 Mon/Sat 2nd wk</option>
-                        </select>
-                        <label style="display:flex;align-items:center;gap:6px;margin-top:10px;color:#cbd5e1;font-size:13px;">
-                            <input type="checkbox" name="schedule_keep_options_on_unlink" style="accent-color:#2563eb;" />
-                            Keep Options on Unlink
-                        </label>
-                    </div>
-                    <div style="color:#94a3b8;font-size:13px;line-height:1.6;">
-                        Select Options Templates and Save the product to apply options or <a href="#" style="color:#60a5fa;">click here</a> to define.
-                        <label style="display:flex;align-items:center;gap:6px;margin-top:14px;color:#cbd5e1;">
-                            <input type="checkbox" name="schedule_enable_absolute_price" style="accent-color:#2563eb;" />
-                            Enable Absolute Price
-                        </label>
-                    </div>
-                </div>
-                <button type="button" style="background:#2563eb;color:#fff;border:none;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:18px;">+ Add New Option</button>
-
-                <!-- Sample Options Template card (Course Date) -->
-                <div style="background:#283548;border:1px solid #384a60;border-radius:10px;padding:16px;margin-bottom:14px;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-                        <div style="color:#cbd5e1;font-weight:600;">Options Template: (SG) WSQ-A06 Mon/Sat 2nd wk</div>
-                        <button type="button" style="background:#7f1d1d;color:#fecaca;border:none;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">Delete Option</button>
-                    </div>
-                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:12px;">
-                        <div><div class="dcf-label" style="margin-bottom:4px;">Title <span class="dcf-required">*</span></div><input type="text" class="dcf-input" value="Course Date" /></div>
-                        <div><div class="dcf-label" style="margin-bottom:4px;">Input Type <span class="dcf-required">*</span></div><select class="dcf-select"><option>Drop-down</option><option>Radio Buttons</option><option>Checkbox</option><option>Multiple Select</option><option>Area</option></select></div>
-                        <div><div class="dcf-label" style="margin-bottom:4px;">Is Required</div><select class="dcf-select"><option>Yes</option><option>No</option></select></div>
-                        <div><div class="dcf-label" style="margin-bottom:4px;">View Mode</div><select class="dcf-select"><option>Visible</option><option>Hidden</option></select></div>
-                        <div><div class="dcf-label" style="margin-bottom:4px;">Sort Order</div><input type="number" class="dcf-input" value="1" /></div>
-                    </div>
-                    <div style="background:#1e293b;border:1px solid #384a60;border-radius:8px;overflow:hidden;">
+            <div class="dcf-mag">
+                <div class="dcf-mag-bar">Customers Tagged Product <span style="color:#94a3b8;font-weight:500;font-size:13px;">(<?php echo count($_roTagCustomers) ?>)</span></div>
+                <div class="dcf-mag-body">
+                    <div style="background:#283548;border:1px solid #384a60;border-radius:8px;overflow:hidden;">
                         <table style="width:100%;border-collapse:collapse;font-size:13px;">
                             <thead>
                                 <tr style="background:#334155;color:#cbd5e1;">
-                                    <?php foreach (array('Id','Title','Course Date','Price','Price Type','Course Code','Sort Order','Pax','Default','Image') as $_h): ?>
-                                    <th style="padding:8px 10px;text-align:left;font-weight:600;"><?php echo $_h ?></th>
+                                    <?php foreach (array('First Name','Last Name','Email','Subject Name') as $_h): ?>
+                                    <th style="padding:10px 12px;text-align:left;font-weight:600;"><?php echo $_h ?></th>
                                     <?php endforeach; ?>
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr style="border-top:1px solid #384a60;">
-                                    <td style="padding:8px 10px;color:#94a3b8;">300x485</td>
-                                    <td style="padding:8px 10px;"><input type="text" class="dcf-input" value="21 Mar 2026 (Sat)" /></td>
-                                    <td style="padding:8px 10px;"><input type="date" class="dcf-input" value="2026-03-21" /></td>
-                                    <td style="padding:8px 10px;"><input type="number" class="dcf-input" value="0.00" style="width:80px;" /></td>
-                                    <td style="padding:8px 10px;"><select class="dcf-select"><option>Fixed</option><option>Percent</option></select></td>
-                                    <td style="padding:8px 10px;"><input type="text" class="dcf-input" /></td>
-                                    <td style="padding:8px 10px;"><input type="number" class="dcf-input" value="190" style="width:70px;" /></td>
-                                    <td style="padding:8px 10px;"><input type="number" class="dcf-input" style="width:60px;" /></td>
-                                    <td style="padding:8px 10px;text-align:center;"><input type="radio" name="default_session_300x485" /></td>
-                                    <td style="padding:8px 10px;"><button type="button" style="background:#2563eb;color:#fff;border:none;padding:4px 10px;border-radius:4px;font-size:12px;cursor:pointer;">+ Add Image</button></td>
+                                <?php if (empty($_roTagCustomers)): ?>
+                                <tr><td colspan="4" style="padding:32px;color:#64748b;text-align:center;">No customers have tagged this course.</td></tr>
+                                <?php else: foreach ($_roTagCustomers as $_tc): ?>
+                                <tr style="border-top:1px solid #384a60;color:#e2e8f0;">
+                                    <td style="padding:10px 12px;"><?php echo htmlspecialchars((string)$_tc['firstname']) ?></td>
+                                    <td style="padding:10px 12px;"><?php echo htmlspecialchars((string)$_tc['lastname']) ?></td>
+                                    <td style="padding:10px 12px;color:#cbd5e1;"><?php echo htmlspecialchars((string)$_tc['email']) ?></td>
+                                    <td style="padding:10px 12px;color:#94a3b8;"><?php echo htmlspecialchars((string)$_tc['subject_name']) ?></td>
                                 </tr>
+                                <?php endforeach; endif; ?>
                             </tbody>
                         </table>
                     </div>
-                    <button type="button" style="margin-top:10px;background:#475569;color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">+ Add New Row</button>
                 </div>
-                <div style="color:#64748b;font-size:12px;font-style:italic;">Wireframe — only one Options Template card shown. The full editor will repeat this block for each template (Course Date, Course Time, Sponsorship, Funding Eligibility, Trainee Names, etc.) when wired up.</div>
+            </div>
+        </div>
+
+        <!-- ===== Tab: Course Schedule (read live custom options) ===== -->
+        <div class="dcf-tab-panel" data-tab="schedule">
+            <div class="dcf-mag">
+                <div class="dcf-mag-bar">Course Schedule</div>
+                <div class="dcf-mag-body">
+                    <?php
+                    // Load every Magento custom option on this product, with its values.
+                    // The "Course Date"-style sessions used by the project are stored as
+                    // type='drop_down' options whose option_type_value rows are the dates.
+                    $_csOptions = array();
+                    try {
+                        $_optColl = Mage::getModel('catalog/product_option')
+                            ->getCollection()
+                            ->addProductToFilter($_selectedCourseId)
+                            ->addTitleToResult(0)
+                            ->addPriceToResult(0)
+                            ->addValuesToResult(0);
+                        foreach ($_optColl as $_o) {
+                            $_vals = array();
+                            foreach ($_o->getValuesCollection() as $_v) {
+                                $_vals[] = array(
+                                    'id'       => (int) $_v->getId(),
+                                    'title'    => (string) $_v->getTitle(),
+                                    'price'    => (float) $_v->getPrice(),
+                                    'sku'      => (string) $_v->getSku(),
+                                    'sort'     => (int) $_v->getSortOrder(),
+                                );
+                            }
+                            $_csOptions[] = array(
+                                'id'        => (int) $_o->getId(),
+                                'title'     => (string) $_o->getTitle(),
+                                'type'      => (string) $_o->getType(),
+                                'required'  => (int) $_o->getIsRequire(),
+                                'sort'      => (int) $_o->getSortOrder(),
+                                'values'    => $_vals,
+                            );
+                        }
+                    } catch (Exception $_csEx) { /* tables present but query may fail on a stripped DB */ }
+                    ?>
+                    <div style="background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.25);color:#93c5fd;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px;">
+                        Read-only view of this product's custom options (Course Date, Sponsorship, Funding Eligibility, etc.). To <strong>add</strong> or <strong>remove</strong> dates, use the existing session manager on the read-only course page or Magento's product editor.
+                        <div style="margin-top:8px;">
+                            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id' => $_selectedCourse['id'], 'mode' => 'edit')) . $_devBackSuffix ?>" style="color:#60a5fa;font-weight:600;">→ Open project session manager</a>
+                            &nbsp;·&nbsp;
+                            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/catalog_product/edit', array('id' => $_selectedCourse['id'])) ?>#product_info_tabs_customoptions_tab" target="_blank" style="color:#60a5fa;font-weight:600;">→ Open in Magento product editor</a>
+                        </div>
+                    </div>
+                    <?php if (empty($_csOptions)): ?>
+                    <div style="background:#1e293b;border:1px dashed #475569;border-radius:8px;padding:32px;text-align:center;color:#64748b;">No custom options defined for this course yet.</div>
+                    <?php else: foreach ($_csOptions as $_co): ?>
+                    <div style="background:#283548;border:1px solid #384a60;border-radius:10px;padding:16px;margin-bottom:14px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px;">
+                            <div style="color:#f1f5f9;font-weight:700;font-size:15px;"><?php echo htmlspecialchars($_co['title']) ?></div>
+                            <div style="color:#94a3b8;font-size:12px;">
+                                <span style="background:#334155;border-radius:4px;padding:2px 8px;margin-right:6px;"><?php echo htmlspecialchars($_co['type']) ?></span>
+                                <?php echo $_co['required'] ? '<span style="color:#fbbf24;">required</span>' : 'optional' ?>
+                                · sort <?php echo (int)$_co['sort'] ?>
+                                · option_id <?php echo (int)$_co['id'] ?>
+                            </div>
+                        </div>
+                        <?php if (empty($_co['values'])): ?>
+                        <div style="color:#64748b;font-size:13px;font-style:italic;">No values (e.g. for a text-area or single-value option).</div>
+                        <?php else: ?>
+                        <div style="background:#1e293b;border:1px solid #384a60;border-radius:8px;overflow:hidden;">
+                            <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                                <thead>
+                                    <tr style="background:#334155;color:#cbd5e1;">
+                                        <th style="padding:8px 10px;text-align:left;font-weight:600;">option_type_id</th>
+                                        <th style="padding:8px 10px;text-align:left;font-weight:600;">Title</th>
+                                        <th style="padding:8px 10px;text-align:left;font-weight:600;">Price</th>
+                                        <th style="padding:8px 10px;text-align:left;font-weight:600;">SKU</th>
+                                        <th style="padding:8px 10px;text-align:left;font-weight:600;">Sort</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($_co['values'] as $_v): ?>
+                                    <tr style="border-top:1px solid #384a60;color:#e2e8f0;">
+                                        <td style="padding:8px 10px;color:#94a3b8;font-family:monospace;"><?php echo (int)$_v['id'] ?></td>
+                                        <td style="padding:8px 10px;"><?php echo htmlspecialchars($_v['title']) ?></td>
+                                        <td style="padding:8px 10px;"><?php echo $_v['price'] > 0 ? '$' . number_format($_v['price'], 2) : '—' ?></td>
+                                        <td style="padding:8px 10px;color:#cbd5e1;font-family:monospace;font-size:12px;"><?php echo htmlspecialchars($_v['sku']) ?:'—' ?></td>
+                                        <td style="padding:8px 10px;color:#94a3b8;"><?php echo (int)$_v['sort'] ?></td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                        <?php endif; ?>
+                    </div>
+                    <?php endforeach; endif; ?>
+                </div>
             </div>
         </div>
 

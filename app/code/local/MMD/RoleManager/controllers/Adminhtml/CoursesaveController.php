@@ -190,6 +190,88 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 $product->setStockData(array_merge((array) $product->getStockData(), $_stockOverrides));
             }
 
+            // === Categories tab ===
+            // Only update category assignments if the Categories tab was actually
+            // rendered (the hidden _categories_loaded flag confirms that). Without
+            // this guard, a save from any other context would wipe all categories
+            // because unchecked checkboxes don't submit, leaving categories[] empty.
+            if ($req->getParam('_categories_loaded')) {
+                $_catIds = (array) $req->getParam('categories', array());
+                $_catIds = array_values(array_unique(array_filter(array_map('intval', $_catIds))));
+                $product->setCategoryIds($_catIds);
+            }
+
+            // === Websites tab — same guard pattern as Categories ===
+            if ($req->getParam('_websites_loaded')) {
+                $_webIds = (array) $req->getParam('websites', array());
+                $_webIds = array_values(array_unique(array_filter(array_map('intval', $_webIds))));
+                $product->setWebsiteIds($_webIds);
+            }
+
+            // === Images tab — labels, positions, disabled flags, role assignments,
+            //    and per-row removal. The actual file upload happens in Magento's
+            //    standard product editor; here we only manage existing rows.
+            if ($req->getParam('_images_loaded')) {
+                $_imgGallery = (array) $product->getMediaGallery('images');
+                $_imgRemove   = (array) $req->getParam('img_remove',   array());
+                $_imgLabel    = (array) $req->getParam('img_label',    array());
+                $_imgPosition = (array) $req->getParam('img_position', array());
+                $_imgDisabled = (array) $req->getParam('img_disabled', array());
+                foreach ($_imgGallery as &$_imgRow) {
+                    $_vid = (int) (isset($_imgRow['value_id']) ? $_imgRow['value_id'] : 0);
+                    if ($_vid <= 0) continue;
+                    if (!empty($_imgRemove[$_vid])) {
+                        $_imgRow['removed'] = 1;
+                    } else {
+                        if (isset($_imgLabel[$_vid]))    $_imgRow['label']    = (string) $_imgLabel[$_vid];
+                        if (isset($_imgPosition[$_vid])) $_imgRow['position'] = (int)    $_imgPosition[$_vid];
+                        $_imgRow['disabled'] = !empty($_imgDisabled[$_vid]) ? 1 : 0;
+                    }
+                }
+                unset($_imgRow);
+                $product->setMediaGallery(array('images' => $_imgGallery, 'values' => isset($product->getMediaGallery()['values']) ? $product->getMediaGallery()['values'] : array()));
+                // Role assignments — base / small / thumbnail point at a file path.
+                foreach (array('image' => 'img_role_image', 'small_image' => 'img_role_small_image', 'thumbnail' => 'img_role_thumbnail') as $_attr => $_param) {
+                    $_v = $req->getParam($_param);
+                    if ($_v !== null && $_v !== '') $product->setData($_attr, (string) $_v);
+                }
+            }
+
+            // === Related / Up-sells / Cross-sells — diff against current links ===
+            //    Each tab has a remove[] map, a position[] map, and an add_skus
+            //    free-text. We rebuild the link set per-tab from those.
+            $_linkConfigs = array(
+                'related'    => array('flag' => '_related_loaded',    'getter' => 'getRelatedProductCollection',   'setter' => 'setRelatedLinkData'),
+                'upsells'    => array('flag' => '_upsells_loaded',    'getter' => 'getUpSellProductCollection',    'setter' => 'setUpSellLinkData'),
+                'crosssells' => array('flag' => '_crosssells_loaded', 'getter' => 'getCrossSellProductCollection', 'setter' => 'setCrossSellLinkData'),
+            );
+            foreach ($_linkConfigs as $_lkKey => $_lkCfg) {
+                if (!$req->getParam($_lkCfg['flag'])) continue;
+                $_remove   = (array) $req->getParam($_lkKey . '_remove',   array());
+                $_position = (array) $req->getParam($_lkKey . '_position', array());
+                $_addSkusRaw = (string) $req->getParam($_lkKey . '_add_skus', '');
+                $_linkData = array();
+                // Existing rows that weren't marked for removal
+                foreach ($product->{$_lkCfg['getter']}() as $_lp) {
+                    $_pid = (int) $_lp->getId();
+                    if (!empty($_remove[$_pid])) continue;
+                    $_pos = isset($_position[$_pid]) ? (int) $_position[$_pid] : (int) $_lp->getPosition();
+                    $_linkData[$_pid] = array('position' => $_pos);
+                }
+                // New rows resolved from the free-text SKU input
+                if ($_addSkusRaw !== '') {
+                    foreach (preg_split('/[\s,]+/', $_addSkusRaw) as $_sku) {
+                        $_sku = trim($_sku);
+                        if ($_sku === '') continue;
+                        $_addPid = (int) Mage::getModel('catalog/product')->getResource()->getIdBySku($_sku);
+                        if ($_addPid > 0 && $_addPid !== (int) $courseId && !isset($_linkData[$_addPid])) {
+                            $_linkData[$_addPid] = array('position' => 0);
+                        }
+                    }
+                }
+                $product->{$_lkCfg['setter']}($_linkData);
+            }
+
             $product->save();
 
             // Save courseware URLs into the dedicated course_courseware table (upsert by product_id).

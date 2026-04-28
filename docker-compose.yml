@@ -20,7 +20,7 @@ services:
       # shebang). Same restart semantics — no rebuild needed.
       - ./docker/entrypoint.sh:/usr/local/bin/entrypoint.sh
     environment:
-      - MAGE_IS_DEVELOPER_MODE=0
+      - MAGE_IS_DEVELOPER_MODE=1
     depends_on:
       db_mysql:
         condition: service_healthy
