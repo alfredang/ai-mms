@@ -12570,29 +12570,58 @@ button.bue-process:disabled,button.bue-process:disabled:hover{opacity:.55 !impor
                      FROM catalog_product_entity e
                      WHERE e.entity_id = ?", array($_sePid)
                 );
-                // Pull REAL order fields per enrolment — no DISTINCT here so
-                // each order is one row in the result table (matches SSG-style
-                // detail listing). Includes grand_total + billing company so
-                // the Payment + Employer columns reflect actual data.
+                // Compile enrolments from EVERY product that shares this
+                // course's name. SSG treats variants like C135 / M333 as
+                // one course; aggregating their order rows shows the full
+                // learner population under a single Course Run ID search.
+                $_seSiblingIds = array((int)$_sePid);
+                if (!empty($_seCourse['name'])) {
+                    $_sibIds = $read->fetchCol(
+                        "SELECT DISTINCT e.entity_id
+                         FROM catalog_product_entity e
+                         JOIN catalog_product_entity_varchar v ON v.entity_id=e.entity_id AND v.attribute_id=71
+                         WHERE v.value = ? AND e.entity_id <> ?",
+                        array($_seCourse['name'], (int)$_sePid)
+                    );
+                    foreach ((array)$_sibIds as $_sid) $_seSiblingIds[] = (int)$_sid;
+                    $_seSiblingIds = array_values(array_unique(array_filter($_seSiblingIds)));
+                }
+
+                // Pull REAL order fields per enrolment from ALL sibling products,
+                // and tag the row with the SKU it came from so duplicates can
+                // be deduped by (email, increment_id).
                 $_seLearners = $read->fetchAll(
                     "SELECT o.entity_id AS order_id, o.increment_id,
                             LOWER(o.customer_email) AS email,
                             o.customer_firstname, o.customer_lastname,
                             o.customer_id, o.created_at, o.status, o.state,
                             o.grand_total, o.total_paid,
-                            ba.company AS billing_company
+                            ba.company AS billing_company,
+                            oi.sku AS item_sku, oi.product_id AS item_product_id
                      FROM sales_flat_order o
                      JOIN sales_flat_order_item oi ON oi.order_id = o.entity_id
                      LEFT JOIN sales_flat_order_address ba
                             ON ba.parent_id = o.entity_id AND ba.address_type = 'billing'
-                     WHERE oi.product_id = ?
-                     ORDER BY o.created_at DESC",
-                    array($_sePid)
+                     WHERE oi.product_id IN (" . implode(',', array_map('intval', $_seSiblingIds)) . ")
+                     ORDER BY o.created_at DESC"
                 );
+                // Dedup identical (email, increment_id) pairs — same purchase
+                // shouldn't appear twice if it spans multiple sibling rows.
+                $_seSeen = array(); $_seDeduped = array();
+                foreach ($_seLearners as $_row) {
+                    $key = $_row['email'] . '|' . $_row['increment_id'];
+                    if (isset($_seSeen[$key])) continue;
+                    $_seSeen[$key] = 1;
+                    $_seDeduped[] = $_row;
+                }
+                $_seLearners = $_seDeduped;
+
                 $_seResult = array(
-                    'run_id'    => $_seRunId,
-                    'course'    => $_seCourse,
-                    'learners'  => $_seLearners,
+                    'run_id'        => $_seRunId,
+                    'course'        => $_seCourse,
+                    'learners'      => $_seLearners,
+                    'sibling_count' => count($_seSiblingIds),
+                    'sibling_ids'   => $_seSiblingIds,
                 );
             }
         } catch (Exception $e) {}
@@ -12795,7 +12824,12 @@ a.se-clear-btn:hover{border-color:#475569 !important;color:#f1f5f9 !important}
 
             <div class="se-summary">
                 <div class="se-summary-h">Total Records Found: <?php echo count($_seRows) ?></div>
-                <div class="se-summary-sub">Course: <?php echo htmlspecialchars($_c['name'] ?: '(No name)') ?></div>
+                <div class="se-summary-sub">
+                    Course: <?php echo htmlspecialchars($_c['name'] ?: '(No name)') ?>
+                    <?php if ($_seResult['sibling_count'] > 1): ?>
+                        &middot; compiled across <?php echo (int)$_seResult['sibling_count'] ?> products with the same course code
+                    <?php endif; ?>
+                </div>
             </div>
 
             <?php if (empty($_seRows)): ?>
