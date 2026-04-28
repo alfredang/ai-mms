@@ -9,19 +9,16 @@ class MMD_Enhancedsalesgrid_Block_Sales_Order_Grid_Renderer_Options extends Mage
     */
     public function render(Varien_Object $row)
     {
-        $arr = unserialize($row->getProduct_options());
-		
-		if(is_array($arr['options']))
-		{  /*return print_r($arr['options']);*/
-		  $return ="";
-		  foreach($arr['options'] as $opt)
-		  {
-		    $return .="<b>".$opt['label']."</b>: ".$opt['value']."<br/>";
-		  }
-		  return $return;
-		}else
-		{
-		 return "------";
-		}
+        $raw = $row->getProduct_options();
+        $arr = is_string($raw) && $raw !== '' ? @unserialize($raw) : false;
+
+        if (is_array($arr) && !empty($arr['options']) && is_array($arr['options'])) {
+            $return = "";
+            foreach ($arr['options'] as $opt) {
+                $return .= "<b>" . $opt['label'] . "</b>: " . $opt['value'] . "<br/>";
+            }
+            return $return;
+        }
+        return "------";
     }
 }

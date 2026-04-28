@@ -461,7 +461,6 @@ document.observe('dom:loaded', function() {
     function initModernPagination() {
         var grids = $$('.grid');
         if (grids.length === 0) {
-            setTimeout(initModernPagination, 300);
             return;
         }
         // Remove any existing pagination (handles grid AJAX reloads)
@@ -471,18 +470,29 @@ document.observe('dom:loaded', function() {
             buildPagination(grid);
         });
     }
-    setTimeout(initModernPagination, 600);
+    // Initial load: try a few times because grid markup can render late
+    // (varienGrid sometimes does its own setup post-DOM-ready).
+    [120, 400, 900, 1800].each(function(d) { setTimeout(initModernPagination, d); });
 
-    // Re-run after grid AJAX reloads: observe DOM changes in grid wrappers
-    // and also re-run RSS removal
-    (function() {
-        var observer = new MutationObserver(function(mutations) {
+    // Re-run on grid AJAX reloads inside #page:main-container.
+    // The observer is RE-ATTACHED whenever instant-nav PJAX swaps the
+    // content area (the old #page:main-container node is destroyed by
+    // the swap, so its observer would otherwise become orphaned).
+    var paginationObserver = null;
+    function attachPaginationObserver() {
+        if (paginationObserver) {
+            try { paginationObserver.disconnect(); } catch (e) {}
+        }
+        paginationObserver = new MutationObserver(function(mutations) {
             var gridChanged = false;
             mutations.each(function(m) {
                 if (m.addedNodes.length > 0) {
                     for (var i = 0; i < m.addedNodes.length; i++) {
                         var node = m.addedNodes[i];
-                        if (node.nodeType === 1 && (node.classList.contains('grid') || node.querySelector && node.querySelector('.grid'))) {
+                        if (node.nodeType === 1 && (
+                            (node.classList && node.classList.contains('grid')) ||
+                            (node.querySelector && node.querySelector('.grid'))
+                        )) {
                             gridChanged = true;
                         }
                     }
@@ -492,19 +502,31 @@ document.observe('dom:loaded', function() {
                 setTimeout(function() {
                     initModernPagination();
                     removeRssLinks();
-                    // Also re-init filters if they got lost
                     if ($$('.advanced-filter-panel').length === 0) {
                         buildFilterPanels();
                     }
                 }, 200);
             }
         });
-        // Observe grid wrapper areas
         var mainContainer = document.body.down('#page\\:main-container');
         if (mainContainer) {
-            observer.observe(mainContainer, { childList: true, subtree: true });
+            paginationObserver.observe(mainContainer, { childList: true, subtree: true });
         }
-    })();
+    }
+    attachPaginationObserver();
+
+    // PJAX swap (instant-nav.js) replaces #anchor-content's children
+    // wholesale, destroying the old #page:main-container node our observer
+    // was bound to. Re-init pagination + observer after every swap.
+    document.addEventListener('instant-nav:after-swap', function() {
+        // Stagger because varienGrid may build its DOM after the swap completes.
+        [80, 400, 900].each(function(d) {
+            setTimeout(function() {
+                initModernPagination();
+                attachPaginationObserver();
+            }, d);
+        });
+    });
 
     function buildPagination(grid) {
         // Find the pager associated with this grid
