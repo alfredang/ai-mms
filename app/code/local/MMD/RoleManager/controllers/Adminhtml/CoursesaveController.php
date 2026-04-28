@@ -201,6 +201,37 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 $product->setCategoryIds($_catIds);
             }
 
+            // === Group Price (Prices tab) ===
+            if ($req->getParam('_group_price_loaded')) {
+                $_gpRaw = (array) $req->getParam('group_price', array());
+                $_gpClean = array();
+                foreach ($_gpRaw as $_row) {
+                    if (!is_array($_row)) continue;
+                    $_gpClean[] = array(
+                        'website_id' => (int) (isset($_row['website_id']) ? $_row['website_id'] : 0),
+                        'cust_group' => (int) (isset($_row['cust_group']) ? $_row['cust_group'] : 0),
+                        'price'      => (float) (isset($_row['price']) ? $_row['price'] : 0),
+                    );
+                }
+                $product->setGroupPrice($_gpClean);
+            }
+
+            // === Tier Price (Prices tab) ===
+            if ($req->getParam('_tier_price_loaded')) {
+                $_tpRaw = (array) $req->getParam('tier_price', array());
+                $_tpClean = array();
+                foreach ($_tpRaw as $_row) {
+                    if (!is_array($_row)) continue;
+                    $_tpClean[] = array(
+                        'website_id' => (int) (isset($_row['website_id']) ? $_row['website_id'] : 0),
+                        'cust_group' => (int) (isset($_row['cust_group']) ? $_row['cust_group'] : 0),
+                        'price_qty'  => (int) (isset($_row['price_qty']) ? max(1, (int)$_row['price_qty']) : 1),
+                        'price'      => (float) (isset($_row['price']) ? $_row['price'] : 0),
+                    );
+                }
+                $product->setTierPrice($_tpClean);
+            }
+
             // === Websites tab — same guard pattern as Categories ===
             if ($req->getParam('_websites_loaded')) {
                 $_webIds = (array) $req->getParam('websites', array());
@@ -209,8 +240,9 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             }
 
             // === Images tab — labels, positions, disabled flags, role assignments,
-            //    and per-row removal. The actual file upload happens in Magento's
-            //    standard product editor; here we only manage existing rows.
+            //    per-row removal, AND new file uploads. New files go via Magento's
+            //    media backend, are added to the gallery, and (if no role is set on
+            //    an existing image) automatically claim base/small/thumbnail.
             if ($req->getParam('_images_loaded')) {
                 $_imgGallery = (array) $product->getMediaGallery('images');
                 $_imgRemove   = (array) $req->getParam('img_remove',   array());
@@ -234,6 +266,36 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 foreach (array('image' => 'img_role_image', 'small_image' => 'img_role_small_image', 'thumbnail' => 'img_role_thumbnail') as $_attr => $_param) {
                     $_v = $req->getParam($_param);
                     if ($_v !== null && $_v !== '') $product->setData($_attr, (string) $_v);
+                }
+
+                // New uploads — multi-file <input name="image_upload[]">.
+                if (!empty($_FILES['image_upload']['name'][0])) {
+                    try {
+                        $_mediaBackend = $product->getResource()->getAttribute('media_gallery')->getBackend();
+                        $_uploadDir = Mage::getBaseDir('media') . DS . 'tmp' . DS . 'catalog' . DS . 'product';
+                        if (!is_dir($_uploadDir)) @mkdir($_uploadDir, 0775, true);
+                        $_count = count($_FILES['image_upload']['name']);
+                        $_isFirstUploadFile = empty($_imgGallery); // assign roles only if no existing media
+                        for ($_i = 0; $_i < $_count; $_i++) {
+                            if (empty($_FILES['image_upload']['tmp_name'][$_i])) continue;
+                            if ((int) $_FILES['image_upload']['error'][$_i] !== UPLOAD_ERR_OK) continue;
+                            $_origName = (string) $_FILES['image_upload']['name'][$_i];
+                            // Move tmp to media/tmp/ and pass to addImage
+                            $_safe = preg_replace('/[^A-Za-z0-9._-]/', '_', $_origName);
+                            $_dst  = $_uploadDir . DS . uniqid('up_') . '_' . $_safe;
+                            if (!@move_uploaded_file($_FILES['image_upload']['tmp_name'][$_i], $_dst)) continue;
+                            // Decide which media attributes to claim.
+                            // First-ever upload: take base/small/thumbnail. Otherwise just add to gallery.
+                            $_claim = $_isFirstUploadFile && $_i === 0
+                                ? array('image', 'small_image', 'thumbnail')
+                                : array();
+                            try {
+                                $_mediaBackend->addImage($product, $_dst, $_claim, true /*move=true → clean up tmp*/, false /*exclude*/);
+                            } catch (Exception $_addEx) {
+                                // try-add-failed → ignore that file but continue
+                            }
+                        }
+                    } catch (Exception $_upEx) { /* keep saving the rest */ }
                 }
             }
 

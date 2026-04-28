@@ -1940,7 +1940,7 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
 @media(max-width:1100px){.dcf-two-col{grid-template-columns:1fr}}
 </style>
 <div id="dash-panel-course-edit">
-<form id="dcf-form" method="post" action="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/save') ?>">
+<form id="dcf-form" method="post" enctype="multipart/form-data" action="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/save') ?>">
 <input type="hidden" name="form_key" value="<?php echo Mage::getSingleton('core/session')->getFormKey() ?>" />
 <input type="hidden" name="course_id" value="<?php echo (int)$_selectedCourse['id'] ?>" />
 <input type="hidden" name="continue_edit" id="dcf-continue-edit" value="" />
@@ -2106,20 +2106,64 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                         </div>
                         <div class="dcf-row-scope">[WEBSITE]</div>
                     </div>
+                    <?php
+                    // Customer groups + websites for the price-rule selectors
+                    $_priceCustGroups = array();
+                    foreach (Mage::getModel('customer/group')->getCollection() as $_g) {
+                        $_priceCustGroups[(int)$_g->getId()] = (string)$_g->getCustomerGroupCode();
+                    }
+                    $_priceWebsites = array();
+                    foreach (Mage::app()->getWebsites() as $_w) {
+                        $_priceWebsites[(int)$_w->getId()] = (string)$_w->getName();
+                    }
+                    $_groupPrices = array();
+                    foreach ((array)$_editProd->getGroupPrice() as $_gp) {
+                        $_groupPrices[] = array(
+                            'website_id' => (int)(isset($_gp['website_id']) ? $_gp['website_id'] : 0),
+                            'cust_group' => (int)(isset($_gp['cust_group']) ? $_gp['cust_group'] : 0),
+                            'price'      => (float)(isset($_gp['price']) ? $_gp['price'] : 0),
+                        );
+                    }
+                    $_tierPrices = array();
+                    foreach ((array)$_editProd->getTierPrice() as $_tp) {
+                        $_tierPrices[] = array(
+                            'website_id' => (int)(isset($_tp['website_id']) ? $_tp['website_id'] : 0),
+                            'cust_group' => (int)(isset($_tp['cust_group']) ? $_tp['cust_group'] : 0),
+                            'price_qty'  => (float)(isset($_tp['price_qty']) ? $_tp['price_qty'] : 1),
+                            'price'      => (float)(isset($_tp['price']) ? $_tp['price'] : 0),
+                        );
+                    }
+                    ?>
                     <div class="dcf-row">
                         <div class="dcf-row-label">Group Price</div>
                         <div class="dcf-row-input">
+                            <input type="hidden" name="_group_price_loaded" value="1" />
                             <div style="background:#283548;border:1px solid #384a60;border-radius:8px;overflow:hidden;">
-                                <?php echo $_priceTblHead ?>
-                                    <th style="padding:10px 14px;text-align:left;font-weight:600;">Website</th>
-                                    <th style="padding:10px 14px;text-align:left;font-weight:600;">Customer Group</th>
-                                    <th style="padding:10px 14px;text-align:left;font-weight:600;">Price</th>
-                                    <th style="padding:10px 14px;text-align:right;font-weight:600;">Action</th>
-                                </tr></thead>
-                                <tbody><tr><td colspan="4" style="padding:14px;color:#64748b;text-align:center;">No group prices yet.</td></tr></tbody>
+                                <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                                    <thead>
+                                        <tr style="background:#334155;color:#cbd5e1;">
+                                            <th style="padding:10px 14px;text-align:left;font-weight:600;">Website</th>
+                                            <th style="padding:10px 14px;text-align:left;font-weight:600;">Customer Group</th>
+                                            <th style="padding:10px 14px;text-align:left;font-weight:600;">Price</th>
+                                            <th style="padding:10px 14px;text-align:right;font-weight:600;width:80px;">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="dcf-grouppx-body">
+                                        <?php foreach ($_groupPrices as $_i => $_gp): ?>
+                                        <tr style="border-top:1px solid #384a60;">
+                                            <td style="padding:8px 12px;"><select class="dcf-select" name="group_price[<?php echo $_i ?>][website_id]"><?php foreach ($_priceWebsites as $_wid => $_wn): ?><option value="<?php echo $_wid ?>"<?php echo $_wid === $_gp['website_id'] ? ' selected' : '' ?>><?php echo htmlspecialchars($_wn) ?></option><?php endforeach; ?></select></td>
+                                            <td style="padding:8px 12px;"><select class="dcf-select" name="group_price[<?php echo $_i ?>][cust_group]"><?php foreach ($_priceCustGroups as $_cgid => $_cgn): ?><option value="<?php echo $_cgid ?>"<?php echo $_cgid === $_gp['cust_group'] ? ' selected' : '' ?>><?php echo htmlspecialchars($_cgn) ?></option><?php endforeach; ?></select></td>
+                                            <td style="padding:8px 12px;"><input type="number" step="0.01" class="dcf-input" name="group_price[<?php echo $_i ?>][price]" value="<?php echo number_format($_gp['price'], 2, '.', '') ?>" /></td>
+                                            <td style="padding:8px 12px;text-align:right;"><button type="button" onclick="this.closest('tr').remove()" style="background:#7f1d1d;color:#fecaca;border:none;padding:4px 10px;border-radius:4px;font-size:12px;cursor:pointer;">Remove</button></td>
+                                        </tr>
+                                        <?php endforeach; ?>
+                                        <?php if (empty($_groupPrices)): ?>
+                                        <tr id="dcf-grouppx-empty"><td colspan="4" style="padding:14px;color:#64748b;text-align:center;">No group prices yet.</td></tr>
+                                        <?php endif; ?>
+                                    </tbody>
                                 </table>
                             </div>
-                            <button type="button" style="margin-top:10px;background:#2563eb;color:#fff;border:none;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">+ Add Group Price</button>
+                            <button type="button" onclick="dcfAddGroupPriceRow()" style="margin-top:10px;background:#2563eb;color:#fff;border:none;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">+ Add Group Price</button>
                         </div>
                         <div class="dcf-row-scope">[WEBSITE]</div>
                     </div>
@@ -2152,18 +2196,35 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                     <div class="dcf-row">
                         <div class="dcf-row-label">Tier Price</div>
                         <div class="dcf-row-input">
+                            <input type="hidden" name="_tier_price_loaded" value="1" />
                             <div style="background:#283548;border:1px solid #384a60;border-radius:8px;overflow:hidden;">
-                                <?php echo $_priceTblHead ?>
-                                    <th style="padding:10px 14px;text-align:left;font-weight:600;">Website</th>
-                                    <th style="padding:10px 14px;text-align:left;font-weight:600;">Customer Group</th>
-                                    <th style="padding:10px 14px;text-align:left;font-weight:600;">Pax</th>
-                                    <th style="padding:10px 14px;text-align:left;font-weight:600;">Price</th>
-                                    <th style="padding:10px 14px;text-align:right;font-weight:600;">Action</th>
-                                </tr></thead>
-                                <tbody><tr><td colspan="5" style="padding:14px;color:#64748b;text-align:center;">No tier prices yet.</td></tr></tbody>
+                                <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                                    <thead>
+                                        <tr style="background:#334155;color:#cbd5e1;">
+                                            <th style="padding:10px 14px;text-align:left;font-weight:600;">Website</th>
+                                            <th style="padding:10px 14px;text-align:left;font-weight:600;">Customer Group</th>
+                                            <th style="padding:10px 14px;text-align:left;font-weight:600;">Pax</th>
+                                            <th style="padding:10px 14px;text-align:left;font-weight:600;">Price</th>
+                                            <th style="padding:10px 14px;text-align:right;font-weight:600;width:80px;">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="dcf-tierpx-body">
+                                        <?php foreach ($_tierPrices as $_i => $_tp): ?>
+                                        <tr style="border-top:1px solid #384a60;">
+                                            <td style="padding:8px 12px;"><select class="dcf-select" name="tier_price[<?php echo $_i ?>][website_id]"><?php foreach ($_priceWebsites as $_wid => $_wn): ?><option value="<?php echo $_wid ?>"<?php echo $_wid === $_tp['website_id'] ? ' selected' : '' ?>><?php echo htmlspecialchars($_wn) ?></option><?php endforeach; ?></select></td>
+                                            <td style="padding:8px 12px;"><select class="dcf-select" name="tier_price[<?php echo $_i ?>][cust_group]"><?php foreach ($_priceCustGroups as $_cgid => $_cgn): ?><option value="<?php echo $_cgid ?>"<?php echo $_cgid === $_tp['cust_group'] ? ' selected' : '' ?>><?php echo htmlspecialchars($_cgn) ?></option><?php endforeach; ?></select></td>
+                                            <td style="padding:8px 12px;"><input type="number" step="1" min="1" class="dcf-input" name="tier_price[<?php echo $_i ?>][price_qty]" value="<?php echo (int)$_tp['price_qty'] ?>" style="width:80px;" /></td>
+                                            <td style="padding:8px 12px;"><input type="number" step="0.01" class="dcf-input" name="tier_price[<?php echo $_i ?>][price]" value="<?php echo number_format($_tp['price'], 2, '.', '') ?>" /></td>
+                                            <td style="padding:8px 12px;text-align:right;"><button type="button" onclick="this.closest('tr').remove()" style="background:#7f1d1d;color:#fecaca;border:none;padding:4px 10px;border-radius:4px;font-size:12px;cursor:pointer;">Remove</button></td>
+                                        </tr>
+                                        <?php endforeach; ?>
+                                        <?php if (empty($_tierPrices)): ?>
+                                        <tr id="dcf-tierpx-empty"><td colspan="5" style="padding:14px;color:#64748b;text-align:center;">No tier prices yet.</td></tr>
+                                        <?php endif; ?>
+                                    </tbody>
                                 </table>
                             </div>
-                            <button type="button" style="margin-top:10px;background:#2563eb;color:#fff;border:none;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">+ Add Tier</button>
+                            <button type="button" onclick="dcfAddTierPriceRow()" style="margin-top:10px;background:#2563eb;color:#fff;border:none;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">+ Add Tier</button>
                         </div>
                         <div class="dcf-row-scope">[WEBSITE]</div>
                     </div>
@@ -2752,9 +2813,14 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                             </tbody>
                         </table>
                     </div>
+                    <div style="margin-top:14px;padding-top:14px;border-top:1px solid #334155;">
+                        <div style="font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Upload new images</div>
+                        <input type="file" name="image_upload[]" accept="image/*" multiple style="color:#cbd5e1;font-size:13px;" />
+                        <div style="margin-top:6px;color:#64748b;font-size:12px;">JPG / PNG / GIF / WebP. Files are added to the gallery on Save Changes. The first uploaded image becomes the new Base / Small / Thumbnail unless one is already selected above.</div>
+                    </div>
                     <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#64748b;">
                         <span><?php echo count($_imgRows) ?> image(s) in gallery</span>
-                        <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/catalog_product/edit', array('id' => $_selectedCourse['id'])) ?>#product_info_tabs_images" target="_blank" style="color:#60a5fa;text-decoration:none;">Open in Magento product editor (for upload) →</a>
+                        <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/catalog_product/edit', array('id' => $_selectedCourse['id'])) ?>#product_info_tabs_images" target="_blank" style="color:#60a5fa;text-decoration:none;">Open in Magento product editor →</a>
                     </div>
                 </div>
             </div>
@@ -3368,6 +3434,47 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
     }
     bind('course_name', 'general_course_name');
     bind('course_code', 'general_course_code');
+})();
+
+// Group / Tier price row builders. Build one HTML template each from PHP
+// data (websites + customer groups already rendered above) so we don't
+// have to round-trip to the server when the user clicks +Add.
+(function(){
+    var WS = <?php echo json_encode($_priceWebsites) ?>;
+    var CG = <?php echo json_encode($_priceCustGroups) ?>;
+    function wsOpts() {
+        var s = ''; for (var k in WS) s += '<option value="' + k + '">' + WS[k] + '</option>'; return s;
+    }
+    function cgOpts() {
+        var s = ''; for (var k in CG) s += '<option value="' + k + '">' + CG[k] + '</option>'; return s;
+    }
+    window.dcfAddGroupPriceRow = function() {
+        var body = document.getElementById('dcf-grouppx-body');
+        var empty = document.getElementById('dcf-grouppx-empty'); if (empty) empty.remove();
+        var i = body.querySelectorAll('tr').length;
+        var tr = document.createElement('tr');
+        tr.style.borderTop = '1px solid #384a60';
+        tr.innerHTML =
+            '<td style="padding:8px 12px;"><select class="dcf-select" name="group_price[' + i + '][website_id]">' + wsOpts() + '</select></td>' +
+            '<td style="padding:8px 12px;"><select class="dcf-select" name="group_price[' + i + '][cust_group]">' + cgOpts() + '</select></td>' +
+            '<td style="padding:8px 12px;"><input type="number" step="0.01" class="dcf-input" name="group_price[' + i + '][price]" value="0.00" /></td>' +
+            '<td style="padding:8px 12px;text-align:right;"><button type="button" onclick="this.closest(\'tr\').remove()" style="background:#7f1d1d;color:#fecaca;border:none;padding:4px 10px;border-radius:4px;font-size:12px;cursor:pointer;">Remove</button></td>';
+        body.appendChild(tr);
+    };
+    window.dcfAddTierPriceRow = function() {
+        var body = document.getElementById('dcf-tierpx-body');
+        var empty = document.getElementById('dcf-tierpx-empty'); if (empty) empty.remove();
+        var i = body.querySelectorAll('tr').length;
+        var tr = document.createElement('tr');
+        tr.style.borderTop = '1px solid #384a60';
+        tr.innerHTML =
+            '<td style="padding:8px 12px;"><select class="dcf-select" name="tier_price[' + i + '][website_id]">' + wsOpts() + '</select></td>' +
+            '<td style="padding:8px 12px;"><select class="dcf-select" name="tier_price[' + i + '][cust_group]">' + cgOpts() + '</select></td>' +
+            '<td style="padding:8px 12px;"><input type="number" step="1" min="1" class="dcf-input" name="tier_price[' + i + '][price_qty]" value="1" style="width:80px;" /></td>' +
+            '<td style="padding:8px 12px;"><input type="number" step="0.01" class="dcf-input" name="tier_price[' + i + '][price]" value="0.00" /></td>' +
+            '<td style="padding:8px 12px;text-align:right;"><button type="button" onclick="this.closest(\'tr\').remove()" style="background:#7f1d1d;color:#fecaca;border:none;padding:4px 10px;border-radius:4px;font-size:12px;cursor:pointer;">Remove</button></td>';
+        body.appendChild(tr);
+    };
 })();
 </script>
 </div>
