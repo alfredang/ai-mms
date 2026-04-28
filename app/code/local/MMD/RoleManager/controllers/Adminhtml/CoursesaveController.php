@@ -2339,6 +2339,67 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
         $this->_sendJson($result);
     }
 
+    /**
+     * Unenrol a learner from a course. Only deletes orders we created via
+     * enrollLearnerAction (increment_id starts with "ENROL-") so a real-money
+     * sales order can never be wiped from the inline Assign Learners panel.
+     * POST: course_entity_id, learner_email
+     * Returns JSON { success, deleted, message? }
+     */
+    public function removeLearnerAction()
+    {
+        $result = array('success' => false);
+        try {
+            if (!$this->getRequest()->isPost()) throw new Exception('POST required');
+            $req   = $this->getRequest();
+            $pid   = (int) $req->getParam('course_entity_id');
+            $email = strtolower(trim((string) $req->getParam('learner_email')));
+            if (!$pid || $email === '') {
+                throw new Exception('course_entity_id and learner_email are required');
+            }
+
+            $resource = Mage::getSingleton('core/resource');
+            $read  = $resource->getConnection('core_read');
+            $write = $resource->getConnection('core_write');
+
+            $rows = $read->fetchAll(
+                "SELECT o.entity_id AS order_id, oi.item_id, o.increment_id
+                 FROM sales_flat_order o
+                 JOIN sales_flat_order_item oi ON oi.order_id = o.entity_id
+                 WHERE LOWER(o.customer_email) = ? AND oi.product_id = ?",
+                array($email, $pid)
+            );
+
+            $deleted = 0; $skippedExternal = 0;
+            foreach ($rows as $r) {
+                if (strpos((string)$r['increment_id'], 'ENROL-') !== 0) {
+                    $skippedExternal++;
+                    continue;
+                }
+                $write->delete('sales_flat_order_item', array('item_id = ?' => (int)$r['item_id']));
+                $remain = (int) $read->fetchOne(
+                    "SELECT COUNT(*) FROM sales_flat_order_item WHERE order_id = ?",
+                    array((int)$r['order_id'])
+                );
+                if ($remain === 0) {
+                    $write->delete('sales_flat_order', array('entity_id = ?' => (int)$r['order_id']));
+                }
+                $deleted++;
+            }
+            if ($deleted === 0) {
+                if ($skippedExternal > 0) {
+                    throw new Exception('This learner came from a real customer order (not the Enrol flow). Cancel the order through Sales → Orders instead.');
+                }
+                throw new Exception('No enrolment found for this learner on that course.');
+            }
+            $result['success'] = true;
+            $result['deleted'] = $deleted;
+        } catch (Exception $e) {
+            $result['message'] = $e->getMessage();
+        }
+        $this->_sendJson($result);
+    }
+
     protected function _sendJson(array $data)
     {
         $this->getResponse()

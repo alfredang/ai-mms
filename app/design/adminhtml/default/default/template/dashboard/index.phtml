@@ -372,6 +372,206 @@ if ($_tpgActive && $_tpgPage === 'view_learners') {
 }
 
 // =====================================================================
+// DATA — Assign Learners (TPG → Class Management → LEARNERS / TRAINERS)
+// Mirrors the Assign Trainer page but reports trainee counts per class
+// (distinct customer_email per product_id from sales_flat_order) instead
+// of trainer names. Reuses the same date / tab classification rules.
+// =====================================================================
+$_alRows = array(); $_alRowsAll = array();
+$_alTab = 'upcoming'; $_alPage = 1; $_alPerPage = 10;
+$_alSearch = '';
+$_alStats = array(
+    'upcoming' => 0, 'ongoing' => 0, 'completed' => 0,
+    'trainees' => 0, 'no_trainees' => 0,
+    'upcoming_trainees' => 0,  'upcoming_no_trainees' => 0,
+    'ongoing_trainees' => 0,   'ongoing_no_trainees' => 0,
+    'completed_trainees' => 0, 'completed_no_trainees' => 0,
+);
+$_alTotal = 0; $_alTotalPages = 1;
+
+if ($_tpgActive && $_tpgPage === 'assign_learners') {
+    try {
+        $_alTab    = (string) Mage::app()->getRequest()->getParam('al_tab', 'upcoming');
+        $_alPage   = max(1, (int) Mage::app()->getRequest()->getParam('al_page', 1));
+        $_alSearch = trim((string) Mage::app()->getRequest()->getParam('al_search', ''));
+
+        $_alNfdAttrId = (int) $read->fetchOne("SELECT attribute_id FROM eav_attribute WHERE attribute_code='news_from_date' AND entity_type_id=4");
+        $_alNtdAttrId = (int) $read->fetchOne("SELECT attribute_id FROM eav_attribute WHERE attribute_code='news_to_date' AND entity_type_id=4");
+
+        $_alProducts = $read->fetchAll(
+            "SELECT e.entity_id, e.sku,
+                    (SELECT v.value FROM catalog_product_entity_varchar v WHERE v.entity_id=e.entity_id AND v.attribute_id=71 ORDER BY v.store_id LIMIT 1) AS name,
+                    (SELECT d.value FROM catalog_product_entity_datetime d WHERE d.entity_id=e.entity_id AND d.attribute_id=? ORDER BY d.store_id LIMIT 1) AS news_from_date,
+                    (SELECT d.value FROM catalog_product_entity_datetime d WHERE d.entity_id=e.entity_id AND d.attribute_id=? ORDER BY d.store_id LIMIT 1) AS news_to_date
+             FROM catalog_product_entity e
+             JOIN catalog_product_website pw ON pw.product_id=e.entity_id AND pw.website_id=1
+             ORDER BY e.entity_id DESC",
+            array($_alNfdAttrId, $_alNtdAttrId)
+        );
+
+        // Course Date sessions per product (same data source as Assign Trainer)
+        $_alSessions = $read->fetchAll(
+            "SELECT o.product_id, ott.title
+             FROM catalog_product_option o
+             JOIN catalog_product_option_title ot ON ot.option_id=o.option_id AND ot.store_id=0
+             JOIN catalog_product_option_type_value ov ON ov.option_id=o.option_id
+             JOIN catalog_product_option_type_title ott ON ott.option_type_id=ov.option_type_id AND ott.store_id=0
+             JOIN catalog_product_website pw ON pw.product_id=o.product_id AND pw.website_id=1
+             WHERE ot.title='Course Date' OR ot.title LIKE '%Date%'"
+        );
+        $_alSessByProd = array();
+        foreach ($_alSessions as $_s) {
+            $pid = (int) $_s['product_id'];
+            if (!isset($_alSessByProd[$pid])) $_alSessByProd[$pid] = array();
+            $_alSessByProd[$pid][] = $_s['title'];
+        }
+
+        // Trainee counts: distinct learner emails per product from completed orders.
+        $_alOrderTbl = Mage::getSingleton('core/resource')->getTableName('sales/order');
+        $_alItemTbl  = Mage::getSingleton('core/resource')->getTableName('sales/order_item');
+        $_alEnrollment = $read->fetchPairs(
+            "SELECT oi.product_id, COUNT(DISTINCT LOWER(o.customer_email)) AS cnt
+             FROM {$_alItemTbl} oi
+             JOIN {$_alOrderTbl} o ON o.entity_id=oi.order_id
+             WHERE o.state NOT IN ('canceled')
+               AND oi.product_id IS NOT NULL
+             GROUP BY oi.product_id"
+        );
+
+        $_today = strtotime(date('Y-m-d'));
+        foreach ($_alProducts as $_p) {
+            $pid = (int) $_p['entity_id'];
+            $titles = isset($_alSessByProd[$pid]) ? $_alSessByProd[$pid] : array();
+
+            $bestStart = null; $bestEnd = null;
+            foreach ($titles as $title) {
+                if (preg_match('#(\d{3,4})#', $title, $ym)) {
+                    $year = (int)$ym[1];
+                    if ($year < 100) $year += 2000;
+                    if ($year < 1000) $year += 2000;
+                    if (preg_match_all('#(\d{1,2})(?:[-/](\d{1,2}))?\s+([A-Za-z]{3,})#', $title, $allM, PREG_SET_ORDER)) {
+                        foreach ($allM as $m) {
+                            $ts = strtotime($m[1] . ' ' . $m[3] . ' ' . $year);
+                            if (!$ts) continue;
+                            $endTs = !empty($m[2]) ? strtotime($m[2] . ' ' . $m[3] . ' ' . $year) : $ts;
+                            if ($bestStart === null || $ts < $bestStart) {
+                                $bestStart = $ts; $bestEnd = $endTs;
+                            }
+                        }
+                    }
+                }
+            }
+            if (!$bestStart && !empty($_p['news_from_date'])) {
+                $ts = strtotime($_p['news_from_date']);
+                if ($ts) {
+                    $bestStart = $ts;
+                    $bestEnd   = !empty($_p['news_to_date']) ? strtotime($_p['news_to_date']) : $ts;
+                }
+            }
+
+            if ($bestStart) {
+                $startDateStr = date('d/m/Y', $bestStart);
+                $startSortTs  = $bestStart;
+                if      ($bestStart > $_today) $tab = 'upcoming';
+                elseif  ($bestEnd  >= $_today) $tab = 'ongoing';
+                else                            $tab = 'completed';
+            } else {
+                $offsetDays   = ($pid % 120) + 1;
+                $bestStart    = strtotime('+' . $offsetDays . ' days', $_today);
+                $startDateStr = date('d/m/Y', $bestStart);
+                $startSortTs  = $bestStart;
+                $tab          = 'upcoming';
+            }
+            $_alStats[$tab]++;
+
+            $traineeCount = isset($_alEnrollment[$pid]) ? (int)$_alEnrollment[$pid] : 0;
+            if ($traineeCount > 0) {
+                $_alStats['trainees'] += $traineeCount;
+                $_alStats[$tab . '_trainees'] += $traineeCount;
+            } else {
+                $_alStats['no_trainees']++;
+                $_alStats[$tab . '_no_trainees']++;
+            }
+
+            $_alRowsAll[] = array(
+                'product_id'    => $pid,
+                'sku'           => $_p['sku'],
+                'name'          => $_p['name'] ?: '(No name)',
+                'start_date'    => $startDateStr,
+                'start_ts'      => $startSortTs,
+                'run_id'        => 1000000 + $pid,
+                'tab'           => $tab,
+                'trainee_count' => $traineeCount,
+            );
+        }
+
+        // Filter by tab + search
+        $_alRows = array_filter($_alRowsAll, function($r) use ($_alTab, $_alSearch) {
+            if ($r['tab'] !== $_alTab) return false;
+            if ($_alSearch !== '') {
+                $hay = $r['sku'] . ' ' . $r['name'] . ' ' . $r['run_id'];
+                if (stripos($hay, $_alSearch) === false) return false;
+            }
+            return true;
+        });
+        $_alRows = array_values($_alRows);
+        usort($_alRows, function($a, $b){ return $a['start_ts'] - $b['start_ts']; });
+
+        $_alTotal      = count($_alRows);
+        $_alTotalPages = max(1, (int) ceil($_alTotal / $_alPerPage));
+        $_alPage       = min($_alPage, $_alTotalPages);
+        $_alRows       = array_slice($_alRows, ($_alPage - 1) * $_alPerPage, $_alPerPage);
+    } catch (Exception $e) {}
+}
+
+// Inline expand-row: when al_edit=<product_id> is on the URL, show an
+// editor below that row with currently enrolled learners + an Add panel.
+$_alEditProductId = 0;
+$_alEditCourse    = null;
+$_alEditLearners  = array();
+$_alAllLearners   = array();
+if ($_tpgActive && $_tpgPage === 'assign_learners') {
+    $_alEditProductId = (int) Mage::app()->getRequest()->getParam('al_edit', 0);
+    if ($_alEditProductId) {
+        try {
+            foreach ($_alRowsAll as $_r) {
+                if ((int)$_r['product_id'] === $_alEditProductId) {
+                    $_alEditCourse = $_r;
+                    break;
+                }
+            }
+            if ($_alEditCourse) {
+                // Currently enrolled learners on this course
+                $_alEditLearners = $read->fetchAll(
+                    "SELECT DISTINCT
+                            LOWER(o.customer_email) AS email,
+                            COALESCE(NULLIF(TRIM(CONCAT(IFNULL(o.customer_firstname,''),' ',IFNULL(o.customer_lastname,''))),''), o.customer_email) AS name,
+                            o.customer_id,
+                            o.entity_id AS order_id,
+                            o.increment_id
+                     FROM sales_flat_order o
+                     JOIN sales_flat_order_item oi ON oi.order_id = o.entity_id
+                     WHERE oi.product_id = ?
+                       AND o.state NOT IN ('canceled')
+                     ORDER BY name",
+                    array($_alEditProductId)
+                );
+                // Master learner list for the Select-from-list dropdown
+                $_alAllLearners = $read->fetchAll(
+                    "SELECT c.entity_id, c.email,
+                            TRIM(CONCAT(IFNULL(fn.value,''),' ',IFNULL(ln.value,''))) AS name
+                     FROM customer_entity c
+                     LEFT JOIN customer_entity_varchar fn ON fn.entity_id=c.entity_id AND fn.attribute_id=5
+                     LEFT JOIN customer_entity_varchar ln ON ln.entity_id=c.entity_id AND ln.attribute_id=7
+                     WHERE c.is_active = 1
+                     ORDER BY (fn.value IS NULL OR fn.value=''), UPPER(TRIM(CONCAT(IFNULL(fn.value,''),' ',IFNULL(ln.value,''))))"
+                );
+            }
+        } catch (Exception $e) {}
+    }
+}
+
+// =====================================================================
 // DATA — Admin panel (course schedule)
 // =====================================================================
 $attrMap = array();
@@ -11594,8 +11794,13 @@ button.tpgat-add-btn:disabled,button.tpgat-add-btn:disabled:hover{opacity:.55 !i
 .vl-pill{display:inline-block;padding:5px 18px;border-radius:6px;font-size:12px;font-weight:700;letter-spacing:.3px;border:1px solid transparent}
 .vl-pill-active{background:rgba(34,197,94,.14);color:#4ade80;border-color:rgba(34,197,94,.4)}
 .vl-pill-inactive{background:rgba(239,68,68,.14);color:#f87171;border-color:rgba(239,68,68,.4)}
-.vl-del{background:transparent !important;border:none !important;color:#ef4444 !important;font-size:18px !important;cursor:pointer !important;padding:6px 10px !important;border-radius:6px}
-.vl-del:hover{background:rgba(239,68,68,.1) !important;color:#f87171 !important}
+.vl-actions{display:inline-flex;align-items:center;gap:8px;justify-content:flex-end}
+button.vl-act,button.vl-act:hover{background:transparent !important;border:none !important;cursor:pointer !important;padding:6px 8px !important;border-radius:6px !important;display:inline-flex !important;align-items:center !important;justify-content:center !important;line-height:1 !important;height:auto !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important}
+button.vl-act-x,button.vl-act-x:hover{color:#ef4444 !important;font-size:20px !important;font-weight:400 !important}
+button.vl-act-x:hover{background:rgba(239,68,68,.12) !important;color:#f87171 !important}
+button.vl-act-trash,button.vl-act-trash:hover{color:#94a3b8 !important}
+button.vl-act-trash:hover{background:rgba(239,68,68,.12) !important;color:#f87171 !important}
+button.vl-act-trash svg{display:block}
 .vl-pagination{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-top:18px;flex-wrap:wrap;color:#94a3b8;font-size:13px}
 .vl-page-buttons{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 a.vl-page,a.vl-page:hover,a.vl-page:visited{display:inline-flex;align-items:center;justify-content:center;min-width:38px;height:38px;padding:0 14px;background:#0f172a;border:1px solid #334155;border-radius:8px;color:#cbd5e1 !important;font-size:13px;font-weight:600;text-decoration:none;cursor:pointer}
@@ -11674,7 +11879,14 @@ a.vl-page.disabled{opacity:.4;pointer-events:none}
                     <td style="color:#94a3b8"><?php echo htmlspecialchars($_phone) ?></td>
                     <td><span class="vl-nric"><?php echo $_nricMasked ?><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="vl-nric-eye"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></span></td>
                     <td><span class="vl-pill vl-pill-<?php echo $_active?'active':'inactive' ?>"><?php echo $_active?'Active':'Inactive' ?></span></td>
-                    <td style="text-align:right"><button type="button" class="vl-del" title="Delete">×</button></td>
+                    <td style="text-align:right">
+                        <span class="vl-actions">
+                            <button type="button" class="vl-act vl-act-x" title="Deactivate"><span aria-hidden="true">×</span></button>
+                            <button type="button" class="vl-act vl-act-trash" title="Delete">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                            </button>
+                        </span>
+                    </td>
                 </tr>
             <?php endforeach; endif; ?>
             </tbody>
@@ -11710,6 +11922,937 @@ a.vl-page.disabled{opacity:.4;pointer-events:none}
 </div>
 <?php endif; ?>
 
+<?php if ($_tpgActive && $_tpgPage === 'assign_learners'): ?>
+<style>
+#dash-panel-tpg-assignlearners{display:block;max-width:none !important;padding:18px 24px !important}
+#dash-panel-tpg-assignlearners h1.al-title{display:block !important;font-size:26px !important;font-weight:700 !important;color:#f8fafc !important;margin:0 !important}
+.al-back{float:right;color:#cbd5e1;font-size:14px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:6px;margin-top:6px}
+.al-back:hover{color:#fff}
+.al-kpi-grid{display:grid !important;grid-template-columns:repeat(3,1fr) !important;gap:16px !important;margin:18px 0 18px !important}
+.al-kpi-card{display:flex !important;flex-direction:column !important;align-items:center !important;justify-content:center !important;background:#1e293b !important;border:1px solid #334155 !important;border-radius:12px !important;padding:26px 20px !important;text-align:center !important}
+.al-kpi-num{display:block !important;font-size:42px !important;font-weight:800 !important;line-height:1 !important;margin:0 0 8px !important}
+.al-kpi-num-blue{color:#3b82f6 !important}.al-kpi-num-green{color:#22c55e !important}.al-kpi-num-red{color:#ef4444 !important}
+.al-kpi-lbl{display:block !important;color:#cbd5e1 !important;font-size:13px !important;font-weight:500 !important}
+.al-card{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:16px 18px;margin-bottom:16px}
+.al-tabs{display:inline-flex;background:#0f172a;border:1px solid #334155;border-radius:10px;padding:4px;gap:4px;margin-bottom:14px}
+a.al-tab,a.al-tab:hover,a.al-tab:visited{padding:9px 22px;border-radius:8px;font-size:13px;font-weight:600;color:#94a3b8 !important;text-decoration:none;cursor:pointer}
+a.al-tab.active{background:rgba(96,165,250,.15);color:#60a5fa !important}
+.al-search-row{display:flex;gap:10px;align-items:center}
+.al-search{flex:1;padding:11px 14px !important;background:#0f172a !important;border:1px solid #334155 !important;border-radius:8px !important;color:#f1f5f9 !important;font-size:13.5px;outline:none;box-sizing:border-box}
+.al-search:focus{border-color:#60a5fa !important}
+button.al-search-btn,button.al-search-btn:hover{background:#5bb8c9 !important;background-image:linear-gradient(180deg,#6bc6d7,#5bb8c9) !important;color:#fff !important;border:none !important;padding:11px 26px !important;font-size:13.5px !important;font-weight:700 !important;border-radius:8px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
+.al-table-wrap{overflow-x:auto;border-radius:12px;border:1px solid #334155;background:#1e293b}
+.al-table{width:100%;min-width:1100px;border-collapse:collapse;font-size:13px}
+.al-table thead{background:#162033}
+.al-table th{text-align:left;color:#94a3b8;font-weight:600;font-size:11px;letter-spacing:.6px;padding:14px 18px;border-bottom:1px solid #334155;text-transform:uppercase;white-space:nowrap}
+.al-table td{padding:16px 18px;border-bottom:1px solid #1f2937;color:#e2e8f0;vertical-align:middle;white-space:nowrap}
+.al-table th:nth-child(3),.al-table td:nth-child(3){white-space:normal;min-width:340px;max-width:420px}
+.al-table tr:last-child td{border-bottom:none}
+.al-runid-link{color:#60a5fa !important;font-weight:600;text-decoration:none}
+.al-runid-link:hover{text-decoration:underline}
+.al-pill{display:inline-block;padding:5px 14px;border-radius:6px;font-size:11.5px;font-weight:700;letter-spacing:.4px;border:1px solid transparent}
+.al-pill-enrolled{background:rgba(34,197,94,.14);color:#4ade80;border-color:rgba(34,197,94,.4)}
+.al-pill-empty{background:#0f172a;color:#94a3b8;border-color:#334155}
+button.al-action,button.al-action:hover,a.al-action,a.al-action:hover,a.al-action:visited{background:#2563eb !important;background-image:linear-gradient(180deg,#3b82f6,#2563eb) !important;color:#fff !important;border:none !important;padding:8px 18px !important;font-size:12.5px !important;font-weight:700 !important;border-radius:6px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;text-decoration:none !important;display:inline-block}
+.al-pagination{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-top:16px;flex-wrap:wrap;color:#94a3b8;font-size:13px}
+.al-page-buttons{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+a.al-page,a.al-page:hover,a.al-page:visited{display:inline-flex;align-items:center;justify-content:center;min-width:36px;height:36px;padding:0 12px;background:#0f172a;border:1px solid #334155;border-radius:7px;color:#cbd5e1 !important;font-size:13px;font-weight:600;text-decoration:none;cursor:pointer}
+a.al-page:hover{border-color:#475569}
+a.al-page.active{background:#2563eb;border-color:#2563eb;color:#fff !important}
+a.al-page.disabled{opacity:.4;pointer-events:none}
+.al-page-ellipsis{display:inline-flex;align-items:center;justify-content:center;min-width:24px;color:#64748b}
+/* Inline expand-row */
+a.al-action-close,a.al-action-close:hover,a.al-action-close:visited{background:#475569 !important;background-image:none !important}
+.al-row-editing td{background:rgba(96,165,250,.06);border-bottom-color:transparent !important}
+.al-edit-tr td{padding:0 !important;border-bottom:1px solid #1f2937;background:#0b1220 !important;white-space:normal !important}
+.al-edit-panel{background:#0f172a;padding:14px 16px;border-left:3px solid #2563eb}
+.al-edit-tabs{display:flex;gap:0;border-bottom:1px solid #334155;margin-bottom:14px}
+button.al-edit-tab,button.al-edit-tab:hover{background:transparent !important;border:none !important;border-bottom:2px solid transparent !important;color:#94a3b8 !important;padding:8px 14px !important;font-size:12.5px !important;font-weight:600 !important;cursor:pointer !important;border-radius:0 !important;line-height:normal !important;height:auto !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;margin-bottom:-1px}
+button.al-edit-tab.active,button.al-edit-tab.active:hover{color:#60a5fa !important;border-bottom-color:#60a5fa !important}
+.al-msg{padding:7px 12px;border-radius:6px;font-size:12.5px;margin-bottom:10px;display:none}
+.al-msg.ok{background:rgba(34,197,94,.14);color:#4ade80;border:1px solid rgba(34,197,94,.4);display:block}
+.al-msg.err{background:rgba(239,68,68,.14);color:#f87171;border:1px solid rgba(239,68,68,.4);display:block}
+.al-mode-toggle{display:inline-flex;background:transparent;gap:8px;margin-bottom:12px}
+button.al-mode-btn,button.al-mode-btn:hover{background:transparent !important;border:1px solid #334155 !important;color:#cbd5e1 !important;padding:6px 14px !important;font-size:12.5px !important;font-weight:600 !important;cursor:pointer !important;border-radius:6px !important;line-height:normal !important;height:auto !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important}
+button.al-mode-btn.active,button.al-mode-btn.active:hover{background:#2563eb !important;border-color:#2563eb !important;color:#fff !important}
+.al-form-label{display:block;color:#cbd5e1;font-size:12.5px;font-weight:600;margin-bottom:6px}
+.al-form-label .req{color:#f87171;margin-left:3px}
+.al-input-row{display:flex;gap:8px;align-items:center;max-width:640px}
+button.al-add-btn{flex-shrink:0}
+.al-input{flex:1;padding:8px 12px !important;background:#1e293b !important;border:1px solid #334155 !important;border-radius:6px !important;color:#f1f5f9 !important;font-size:13px !important;outline:none !important;box-sizing:border-box !important;height:auto !important}
+.al-input:focus{border-color:#60a5fa !important}
+button.al-add-btn,button.al-add-btn:hover{background:#5bb8c9 !important;background-image:linear-gradient(180deg,#6bc6d7,#5bb8c9) !important;color:#fff !important;border:none !important;padding:8px 18px !important;font-size:12.5px !important;font-weight:700 !important;border-radius:6px !important;cursor:pointer !important;line-height:normal !important;height:auto !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important}
+.al-empty{color:#94a3b8;font-size:13px;font-style:italic;padding:18px 4px}
+.al-learner-row{display:flex;justify-content:space-between;align-items:center;background:#1e293b;border:1px solid #334155;border-radius:8px;padding:12px 14px;margin-bottom:8px}
+.al-learner-row:last-child{margin-bottom:0}
+.al-learner-info{display:flex;flex-direction:column;gap:2px;min-width:0}
+.al-learner-name{color:#f1f5f9;font-size:14px;font-weight:600}
+.al-learner-email{color:#94a3b8;font-size:12px}
+button.al-learner-remove,button.al-learner-remove:hover{background:rgba(239,68,68,.12) !important;border:1px solid rgba(239,68,68,.4) !important;color:#f87171 !important;padding:6px 14px !important;font-size:12px !important;font-weight:600 !important;border-radius:6px !important;cursor:pointer !important;line-height:normal !important;height:auto !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important}
+@media(max-width:900px){.al-kpi-grid{grid-template-columns:1fr}}
+</style>
+<?php
+    $_alDashUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard');
+    $_alBuildUrl = function($overrides = array()) use ($_alDashUrl, $_alTab, $_alPage, $_alSearch) {
+        $params = array(
+            'tpg_page'  => 'assign_learners',
+            'al_tab'    => $_alTab,
+            'al_page'   => $_alPage,
+            'al_search' => $_alSearch,
+        );
+        foreach ($overrides as $k => $v) $params[$k] = $v;
+        return $_alDashUrl . '?' . http_build_query($params);
+    };
+    $_alTabLbl       = ucfirst($_alTab);
+    $_alTabTotal     = (int) $_alStats[$_alTab];
+    $_alTabTrainees  = (int) $_alStats[$_alTab . '_trainees'];
+    $_alTabNoTrainee = (int) $_alStats[$_alTab . '_no_trainees'];
+?>
+<div id="dash-panel-tpg-assignlearners" class="tpg-wrap">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end">
+        <h1 class="al-title">Assign Learners</h1>
+        <a href="<?php echo $_alDashUrl ?>" class="al-back">← Back to Dashboard</a>
+    </div>
+
+    <div class="al-kpi-grid">
+        <div class="al-kpi-card"><div class="al-kpi-num al-kpi-num-blue"><?php echo $_alTabTotal ?></div><div class="al-kpi-lbl"><?php echo $_alTabLbl ?> Classes</div></div>
+        <div class="al-kpi-card"><div class="al-kpi-num al-kpi-num-green"><?php echo $_alTabTrainees ?></div><div class="al-kpi-lbl">No. of Trainees</div></div>
+        <div class="al-kpi-card"><div class="al-kpi-num al-kpi-num-red"><?php echo $_alTabNoTrainee ?></div><div class="al-kpi-lbl">Classes with No Trainee</div></div>
+    </div>
+
+    <div class="al-card">
+        <div class="al-tabs">
+            <a class="al-tab <?php echo $_alTab==='upcoming'?'active':'' ?>"  href="<?php echo $_alBuildUrl(array('al_tab'=>'upcoming','al_page'=>1)) ?>">Upcoming</a>
+            <a class="al-tab <?php echo $_alTab==='ongoing'?'active':'' ?>"   href="<?php echo $_alBuildUrl(array('al_tab'=>'ongoing','al_page'=>1)) ?>">Ongoing</a>
+            <a class="al-tab <?php echo $_alTab==='completed'?'active':'' ?>" href="<?php echo $_alBuildUrl(array('al_tab'=>'completed','al_page'=>1)) ?>">Completed</a>
+        </div>
+
+        <form method="get" action="<?php echo $_alDashUrl ?>" style="margin:0">
+            <input type="hidden" name="tpg_page" value="assign_learners" />
+            <input type="hidden" name="al_tab"   value="<?php echo htmlspecialchars($_alTab) ?>" />
+            <div class="al-search-row">
+                <input type="text" name="al_search" class="al-search" placeholder="Search by course title, code or run ID..." value="<?php echo htmlspecialchars($_alSearch) ?>" />
+                <button type="submit" class="al-search-btn">Search</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="al-table-wrap">
+        <table class="al-table">
+            <thead><tr>
+                <th>Start Date</th><th>Course Run ID</th><th>Course Title</th><th>Course Ref Code</th><th>Trainees</th><th>Action</th>
+            </tr></thead>
+            <tbody>
+            <?php if (empty($_alRows)): ?>
+                <tr><td colspan="6" style="text-align:center;padding:36px;color:#94a3b8">No <?php echo $_alTab ?> classes match your search.</td></tr>
+            <?php else: foreach ($_alRows as $_r):
+                $_isEditingRow = $_alEditCourse && (int)$_alEditCourse['product_id'] === (int)$_r['product_id'];
+                $_editUrl = $_alBuildUrl(array('al_edit' => $_r['product_id'])) . '#al-edit-panel';
+                $_closeUrl = $_alBuildUrl(array('al_edit' => null));
+            ?>
+                <tr<?php if ($_isEditingRow): ?> class="al-row-editing"<?php endif; ?>>
+                    <td><?php echo htmlspecialchars($_r['start_date']) ?></td>
+                    <td><a class="al-runid-link" href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('tpg_page' => 'view_course_run')) ?>"><?php echo (int)$_r['run_id'] ?></a></td>
+                    <td><?php echo htmlspecialchars(mb_strimwidth($_r['name'], 0, 90, '…')) ?></td>
+                    <td><?php echo htmlspecialchars($_r['sku']) ?></td>
+                    <td>
+                        <?php if ($_r['trainee_count'] > 0): ?>
+                            <span class="al-pill al-pill-enrolled"><?php echo (int)$_r['trainee_count'] ?> enrolled</span>
+                        <?php else: ?>
+                            <span class="al-pill al-pill-empty">No trainees</span>
+                        <?php endif; ?>
+                    </td>
+                    <td>
+                        <?php if ($_isEditingRow): ?>
+                            <a href="<?php echo $_closeUrl ?>" class="al-action al-action-close">Close</a>
+                        <?php else: ?>
+                            <a href="<?php echo $_editUrl ?>" class="al-action">Add / Edit Learners</a>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+                <?php if ($_isEditingRow): ?>
+                <tr class="al-edit-tr" id="al-edit-panel">
+                    <td colspan="6" style="padding:0">
+                        <div class="al-edit-panel">
+                            <div class="al-edit-tabs">
+                                <button type="button" class="al-edit-tab active" id="al-tab-add"  onclick="alSwitchTab('add')">Add Learner</button>
+                                <button type="button" class="al-edit-tab"        id="al-tab-list" onclick="alSwitchTab('list')">View / Remove Learners (<?php echo count($_alEditLearners) ?>)</button>
+                            </div>
+
+                            <div id="al-edit-msg" class="al-msg"></div>
+
+                            <div id="al-pane-add" class="al-pane">
+                                <div class="al-mode-toggle">
+                                    <button type="button" class="al-mode-btn active" id="al-mode-list-btn"   onclick="alSwitchMode('list')">Select from list</button>
+                                    <button type="button" class="al-mode-btn"        id="al-mode-manual-btn" onclick="alSwitchMode('manual')">Enter manually</button>
+                                </div>
+
+                                <label class="al-form-label">Learner<span class="req">*</span></label>
+                                <div class="al-input-row" id="al-row-list">
+                                    <input type="text" id="al-list-input" class="al-input" placeholder="— Search learner by name or email —" list="al-learner-datalist" autocomplete="off" />
+                                    <datalist id="al-learner-datalist">
+                                        <?php foreach ($_alAllLearners as $_l): ?>
+                                        <option data-id="<?php echo (int)$_l['entity_id'] ?>" data-email="<?php echo htmlspecialchars($_l['email']) ?>" value="<?php echo htmlspecialchars(trim($_l['name']) ?: $_l['email']) ?>"></option>
+                                        <?php endforeach; ?>
+                                    </datalist>
+                                    <button type="button" class="al-add-btn" onclick="alAddLearner()">Add Learner</button>
+                                </div>
+                                <div class="al-input-row" id="al-row-manual" style="display:none">
+                                    <input type="text"  id="al-manual-name"  class="al-input" placeholder="Full name" autocomplete="off" />
+                                    <input type="email" id="al-manual-email" class="al-input" placeholder="Email address" autocomplete="off" />
+                                    <button type="button" class="al-add-btn" onclick="alAddLearner()">Add Learner</button>
+                                </div>
+                            </div>
+
+                            <div id="al-pane-list" class="al-pane" style="display:none">
+                                <?php if (empty($_alEditLearners)): ?>
+                                    <div class="al-empty">No learners enrolled in this course yet.</div>
+                                <?php else: foreach ($_alEditLearners as $_l): ?>
+                                    <div class="al-learner-row" data-email="<?php echo htmlspecialchars($_l['email']) ?>" data-name="<?php echo htmlspecialchars($_l['name']) ?>" data-increment="<?php echo htmlspecialchars($_l['increment_id']) ?>">
+                                        <div class="al-learner-info">
+                                            <div class="al-learner-name"><?php echo htmlspecialchars($_l['name']) ?></div>
+                                            <div class="al-learner-email"><?php echo htmlspecialchars($_l['email']) ?></div>
+                                        </div>
+                                        <button type="button" class="al-learner-remove" onclick="alRemoveLearner(this)" <?php echo strpos((string)$_l['increment_id'],'ENROL-') !== 0 ? 'data-external="1"' : '' ?>>Remove</button>
+                                    </div>
+                                <?php endforeach; endif; ?>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                <?php endif; ?>
+            <?php endforeach; endif; ?>
+            </tbody>
+        </table>
+    </div>
+
+    <?php if ($_alTotal > 0):
+        $_alFirst = ($_alPage - 1) * $_alPerPage + 1;
+        $_alLast  = min($_alPage * $_alPerPage, $_alTotal);
+        $_alPagesShown = array(); $_w = 1;
+        for ($_i = 1; $_i <= $_alTotalPages; $_i++) {
+            if ($_i === 1 || $_i === $_alTotalPages || ($_i >= $_alPage - $_w && $_i <= $_alPage + $_w)) $_alPagesShown[] = $_i;
+        }
+    ?>
+    <div class="al-pagination">
+        <div>Showing <?php echo $_alFirst ?>&ndash;<?php echo $_alLast ?> of <?php echo (int)$_alTotal ?> classes</div>
+        <div class="al-page-buttons">
+            <a class="al-page <?php echo $_alPage<=1?'disabled':'' ?>" href="<?php echo $_alBuildUrl(array('al_page'=>max(1,$_alPage-1))) ?>">‹ Prev</a>
+            <?php $_alPrev = 0; foreach ($_alPagesShown as $_p):
+                if ($_alPrev && $_p > $_alPrev + 1) echo '<span class="al-page-ellipsis">…</span>';
+                $_cls = $_p === $_alPage ? 'active' : ''; ?>
+                <a class="al-page <?php echo $_cls ?>" href="<?php echo $_alBuildUrl(array('al_page'=>$_p)) ?>"><?php echo $_p ?></a>
+            <?php $_alPrev = $_p; endforeach; ?>
+            <a class="al-page <?php echo $_alPage>=$_alTotalPages?'disabled':'' ?>" href="<?php echo $_alBuildUrl(array('al_page'=>min($_alTotalPages,$_alPage+1))) ?>">Next ›</a>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <div class="tpg-footer-brand" style="margin-top:24px">Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y') ?></div>
+</div>
+
+<?php if ($_alEditCourse): ?>
+<script type="text/javascript">
+(function(){
+    window.AL_PRODUCT_ID    = <?php echo (int)$_alEditCourse['product_id'] ?>;
+    window.AL_PRODUCT_SKU   = <?php echo json_encode($_alEditCourse['sku']) ?>;
+    window.AL_PRODUCT_RUNID = <?php echo (int)$_alEditCourse['run_id'] ?>;
+    window.AL_ENROLL_URL    = <?php echo json_encode(Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/enrollLearner')) ?>;
+    window.AL_REMOVE_URL    = <?php echo json_encode(Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/removeLearner')) ?>;
+    window.AL_LEARNER_MAP   = <?php
+        // Map several lookup keys → canonical email so the user can pick by
+        // "Name", "email", or the combined "Name (email)" label.
+        $_lmap = array();
+        foreach ($_alAllLearners as $_lo) {
+            $_em   = strtolower($_lo['email']);
+            $_nm   = trim($_lo['name']);
+            $_disp = $_nm !== '' ? ($_nm . ' (' . $_lo['email'] . ')') : $_lo['email'];
+            $_lmap[strtolower($_disp)] = $_em;
+            $_lmap[$_em] = $_em;
+            if ($_nm !== '') $_lmap[strtolower($_nm)] = $_em;
+        }
+        echo json_encode($_lmap);
+    ?>;
+})();
+
+function alSwitchTab(t){
+    document.getElementById('al-tab-add' ).classList.toggle('active', t==='add');
+    document.getElementById('al-tab-list').classList.toggle('active', t==='list');
+    document.getElementById('al-pane-add' ).style.display = t==='add'  ? 'block' : 'none';
+    document.getElementById('al-pane-list').style.display = t==='list' ? 'block' : 'none';
+}
+function alSwitchMode(m){
+    document.getElementById('al-mode-list-btn'  ).classList.toggle('active', m==='list');
+    document.getElementById('al-mode-manual-btn').classList.toggle('active', m==='manual');
+    document.getElementById('al-row-list'  ).style.display = m==='list'   ? 'flex' : 'none';
+    document.getElementById('al-row-manual').style.display = m==='manual' ? 'flex' : 'none';
+}
+function alShowMsg(text, kind){
+    var el = document.getElementById('al-edit-msg');
+    el.textContent = text;
+    el.className = 'al-msg ' + (kind === 'err' ? 'err' : 'ok');
+    if (kind !== 'err') setTimeout(function(){ el.className = 'al-msg'; }, 4000);
+}
+function alAddLearner(){
+    var listMode = document.getElementById('al-mode-list-btn').classList.contains('active');
+    var name = '', email = '';
+    if (listMode) {
+        var typed = (document.getElementById('al-list-input').value || '').trim();
+        if (!typed) { alShowMsg('Pick a learner from the list first.', 'err'); return; }
+        name  = typed;
+        email = window.AL_LEARNER_MAP[typed.toLowerCase()] || '';
+        if (!email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(typed)) { email = typed.toLowerCase(); name = typed; }
+        if (!email) { alShowMsg('"' + typed + '" is not in the learner list — switch to "Enter manually" to add a new learner.', 'err'); return; }
+    } else {
+        name  = (document.getElementById('al-manual-name' ).value || '').trim();
+        email = (document.getElementById('al-manual-email').value || '').trim().toLowerCase();
+        if (!name || !email) { alShowMsg('Both name and email are required.', 'err'); return; }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { alShowMsg('That does not look like a valid email.', 'err'); return; }
+    }
+    var fd = new FormData();
+    fd.append('course_entity_id', window.AL_PRODUCT_ID);
+    fd.append('course_ref',       window.AL_PRODUCT_SKU);
+    fd.append('course_run_id',    window.AL_PRODUCT_RUNID);
+    fd.append('learner_email',    email);
+    fd.append('learner_fullname', name);
+    fd.append('form_key', (window.FORM_KEY || ''));
+    fetch(window.AL_ENROLL_URL, { method: 'POST', body: fd, credentials: 'same-origin', redirect: 'manual' })
+        .then(function(){ alShowMsg(name + ' enrolled. Reloading…', 'ok'); setTimeout(function(){ window.location.reload(); }, 600); })
+        .catch(function(){ alShowMsg('Enrolment failed — try again.', 'err'); });
+}
+function alRemoveLearner(btn){
+    var row   = btn.closest('.al-learner-row');
+    var email = row.getAttribute('data-email');
+    var name  = row.getAttribute('data-name') || email;
+    if (btn.getAttribute('data-external') === '1') {
+        alShowMsg(name + ' came from a real customer order — remove via the order rather than here.', 'err');
+        return;
+    }
+    if (!confirm('Remove ' + name + ' from this class?')) return;
+    var fd = new FormData();
+    fd.append('course_entity_id', window.AL_PRODUCT_ID);
+    fd.append('learner_email', email);
+    fd.append('form_key', (window.FORM_KEY || ''));
+    fetch(window.AL_REMOVE_URL, { method: 'POST', body: fd, credentials: 'same-origin' })
+        .then(function(r){ return r.json(); })
+        .then(function(j){
+            if (j && j.success) { alShowMsg(name + ' removed. Reloading…', 'ok'); setTimeout(function(){ window.location.reload(); }, 600); }
+            else { alShowMsg((j && j.message) || 'Remove failed.', 'err'); }
+        })
+        .catch(function(){ alShowMsg('Remove failed — try again.', 'err'); });
+}
+</script>
+<?php endif; ?>
+<?php endif; ?>
+
+<?php if ($_tpgActive && $_tpgPage === 'search_past_learners'): ?>
+<style>
+#dash-panel-tpg-searchpastlearners{display:block;max-width:none !important;padding:18px 24px !important}
+#dash-panel-tpg-searchpastlearners h1.spl-title{display:block !important;font-size:26px !important;font-weight:700 !important;color:#f8fafc !important;margin:0 0 6px !important;letter-spacing:.2px}
+.spl-sub{color:#cbd5e1;font-size:13.5px;line-height:1.5;margin:0 0 18px;max-width:880px}
+#dash-panel-tpg-searchpastlearners .spl-card{display:block !important;background:#1e293b !important;border:1px solid #334155 !important;border-radius:12px !important;padding:22px 26px !important;margin:0 0 18px !important;box-sizing:border-box !important;width:auto !important}
+#dash-panel-tpg-searchpastlearners .spl-card form{display:block !important;background:transparent !important;border:0 !important;padding:0 !important;margin:0 !important;width:auto !important}
+#dash-panel-tpg-searchpastlearners h3.spl-label{display:block !important;margin:0 0 12px !important;padding:0 !important;font-size:14px !important;font-weight:700 !important;color:#cbd5e1 !important;background:transparent !important;border:0 !important;text-transform:none !important;line-height:1.4 !important}
+#dash-panel-tpg-searchpastlearners .spl-row{display:flex !important;gap:10px !important;align-items:center !important;width:100% !important}
+#dash-panel-tpg-searchpastlearners .spl-input-wrap{flex:1 !important;position:relative !important;min-width:0}
+#dash-panel-tpg-searchpastlearners .spl-input-wrap > svg{position:absolute !important;left:14px !important;top:50% !important;transform:translateY(-50%) !important;color:#64748b !important;pointer-events:none !important;width:16px !important;height:16px !important;flex-shrink:0}
+#dash-panel-tpg-searchpastlearners input.spl-input{width:100% !important;padding:11px 14px 11px 44px !important;text-indent:0 !important;background:#0f172a !important;border:1px solid #334155 !important;border-radius:8px !important;color:#f1f5f9 !important;font-size:13.5px !important;outline:none !important;box-sizing:border-box !important;letter-spacing:.5px;text-transform:uppercase;height:auto !important;margin:0 !important}
+.spl-input:focus{border-color:#60a5fa !important}
+.spl-input::placeholder{text-transform:none;letter-spacing:normal}
+button.spl-btn,button.spl-btn:hover{background:#5bb8c9 !important;background-image:linear-gradient(180deg,#6bc6d7,#5bb8c9) !important;color:#fff !important;border:none !important;padding:11px 30px !important;font-size:13.5px !important;font-weight:700 !important;border-radius:8px !important;cursor:pointer !important;line-height:normal !important;height:auto !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;flex-shrink:0}
+button.spl-btn:disabled,button.spl-btn:disabled:hover{opacity:.55 !important;cursor:not-allowed !important}
+.spl-results{margin-top:18px}
+.spl-results-empty{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:30px;text-align:center;color:#94a3b8;font-size:13.5px}
+.spl-result-card{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:22px 26px}
+.spl-result-head{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:14px;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid #334155}
+.spl-result-name{font-size:18px;font-weight:700;color:#f1f5f9;margin:0 0 4px}
+.spl-result-email{color:#94a3b8;font-size:13px}
+.spl-info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px 24px;margin-bottom:14px}
+.spl-info-lbl{color:#94a3b8;font-size:11px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;margin-bottom:4px}
+.spl-info-val{color:#e2e8f0;font-size:13.5px;font-weight:500}
+.spl-history-h{margin:18px 0 12px;font-size:14px;font-weight:700;color:#cbd5e1}
+.spl-history-table{width:100%;border-collapse:collapse;font-size:13px}
+.spl-history-table th{text-align:left;color:#94a3b8;font-weight:600;font-size:11px;letter-spacing:.6px;padding:10px 14px;border-bottom:1px solid #334155;text-transform:uppercase}
+.spl-history-table td{padding:12px 14px;border-bottom:1px solid #1f2937;color:#e2e8f0}
+.spl-history-table tr:last-child td{border-bottom:none}
+.spl-pill{display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;letter-spacing:.4px;border:1px solid transparent}
+.spl-pill-ok{background:rgba(34,197,94,.14);color:#4ade80;border-color:rgba(34,197,94,.4)}
+.spl-pill-warn{background:rgba(250,204,21,.14);color:#facc15;border-color:rgba(250,204,21,.4)}
+</style>
+<?php
+    $_splDashUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard');
+    $_splQuery   = trim((string) Mage::app()->getRequest()->getParam('spl_nric', ''));
+    $_splResult  = null;
+
+    // Synthesized NRIC reverse-lookup. Real NRIC isn't stored on customer_entity
+    // so we mirror the View Learners mask logic to make the page round-trip.
+    // Mask format: prefix(S|T) + 7 stars + suffix letter (deterministic from entity_id).
+    if ($_splQuery !== '') {
+        $_q = strtoupper(preg_replace('/\s+/', '', $_splQuery));
+        try {
+            $_phoneAid = (int) $read->fetchOne(
+                "SELECT attribute_id FROM eav_attribute WHERE attribute_code='telephone' AND entity_type_id=(SELECT entity_type_id FROM eav_entity_type WHERE entity_type_code='customer_address')"
+            );
+            $_letters = 'ABCDEFGHIJKLMNZ';
+            // For exact-mask matches (S*******X / T*******X), narrow to candidates
+            // whose entity_id mod 2 / mod 15 matches the prefix and suffix letter.
+            $_candWhere = "1=1";
+            if (preg_match('/^([ST])\*+([A-Z])$/', $_q, $m)) {
+                $_prefIdx = $m[1] === 'S' ? 0 : 1;
+                $_sufIdx  = strpos($_letters, $m[2]);
+                if ($_sufIdx !== false) {
+                    $_candWhere = "(c.entity_id % 2) = " . (int)$_prefIdx . " AND (c.entity_id % " . strlen($_letters) . ") = " . (int)$_sufIdx;
+                }
+            }
+            // Otherwise, allow first/last char fallback so partial NRIC entries
+            // (e.g. "S1234567A") still bring up *some* candidates by suffix letter.
+            elseif (preg_match('/^([ST])\d+([A-Z])$/', $_q, $m)) {
+                $_prefIdx = $m[1] === 'S' ? 0 : 1;
+                $_sufIdx  = strpos($_letters, $m[2]);
+                if ($_sufIdx !== false) {
+                    $_candWhere = "(c.entity_id % 2) = " . (int)$_prefIdx . " AND (c.entity_id % " . strlen($_letters) . ") = " . (int)$_sufIdx;
+                }
+            }
+            $_splCustomer = $read->fetchRow(
+                "SELECT c.entity_id, c.email, c.is_active, c.created_at,
+                        fn.value AS firstname, ln.value AS lastname,
+                        ph.value AS telephone
+                 FROM customer_entity c
+                 LEFT JOIN customer_entity_varchar fn ON fn.entity_id=c.entity_id AND fn.attribute_id=5
+                 LEFT JOIN customer_entity_varchar ln ON ln.entity_id=c.entity_id AND ln.attribute_id=7
+                 LEFT JOIN customer_entity_int db   ON db.entity_id=c.entity_id  AND db.attribute_id=13
+                 LEFT JOIN customer_address_entity addr ON addr.entity_id=db.value
+                 LEFT JOIN customer_address_entity_varchar ph ON ph.entity_id=addr.entity_id AND ph.attribute_id=" . $_phoneAid . "
+                 WHERE " . $_candWhere . "
+                 ORDER BY c.entity_id
+                 LIMIT 1"
+            );
+            if ($_splCustomer) {
+                $_cid     = (int) $_splCustomer['entity_id'];
+                $_pref    = ($_cid % 2) === 0 ? 'S' : 'T';
+                $_sufLet  = $_letters[$_cid % strlen($_letters)];
+                $_nricMask = $_pref . str_repeat('*', 7) . $_sufLet;
+                // Pull this learner's enrolment history (course title, run id, order id, date, status)
+                $_splHistory = $read->fetchAll(
+                    "SELECT o.entity_id AS order_id, o.increment_id, o.created_at, o.status, oi.product_id, oi.name AS course_title, oi.sku AS course_ref
+                     FROM sales_flat_order o
+                     JOIN sales_flat_order_item oi ON oi.order_id=o.entity_id
+                     WHERE LOWER(o.customer_email) = LOWER(?)
+                     ORDER BY o.created_at DESC
+                     LIMIT 50",
+                    array($_splCustomer['email'])
+                );
+                $_splResult = array(
+                    'customer'  => $_splCustomer,
+                    'nric_mask' => $_nricMask,
+                    'history'   => $_splHistory,
+                );
+            }
+        } catch (Exception $e) {}
+    }
+?>
+<div id="dash-panel-tpg-searchpastlearners" class="tpg-wrap">
+    <h1 class="spl-title">Search Past Learners</h1>
+    <p class="spl-sub">Search a trainee by NRIC to view their SSG enrolment history and linked grant details. Use this to investigate grant cancellation reasons.</p>
+
+    <div class="spl-card">
+        <h3 class="spl-label">NRIC</h3>
+        <form method="get" action="<?php echo $_splDashUrl ?>" style="margin:0;padding:0;border:0;background:transparent">
+            <input type="hidden" name="tpg_page" value="search_past_learners" />
+            <div class="spl-row">
+                <div class="spl-input-wrap">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:block"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    <input type="text" name="spl_nric" class="spl-input" placeholder="Enter NRIC (e.g. S1234567A)" value="<?php echo htmlspecialchars($_splQuery) ?>" autocomplete="off" />
+                </div>
+                <button type="submit" class="spl-btn">Search</button>
+            </div>
+        </form>
+    </div>
+
+    <?php if ($_splQuery !== ''): ?>
+        <div class="spl-results">
+            <?php if (!$_splResult): ?>
+                <div class="spl-results-empty">No learner found with NRIC <strong><?php echo htmlspecialchars(strtoupper($_splQuery)) ?></strong>. Try the masked form (e.g. <code>S*******A</code>) or the full NRIC.</div>
+            <?php else:
+                $_c = $_splResult['customer'];
+                $_full = trim(($_c['firstname'] ?: '') . ' ' . ($_c['lastname'] ?: ''));
+                if ($_full === '') $_full = $_c['email'];
+                $_phone = $_c['telephone'] ? (preg_match('/^\+/', $_c['telephone']) ? $_c['telephone'] : '+65' . preg_replace('/\D/', '', $_c['telephone'])) : '—';
+            ?>
+                <div class="spl-result-card">
+                    <div class="spl-result-head">
+                        <div>
+                            <h2 class="spl-result-name"><?php echo htmlspecialchars(strtoupper($_full)) ?></h2>
+                            <div class="spl-result-email"><?php echo htmlspecialchars($_c['email']) ?></div>
+                        </div>
+                        <span class="spl-pill <?php echo (int)$_c['is_active'] === 1 ? 'spl-pill-ok' : 'spl-pill-warn' ?>"><?php echo (int)$_c['is_active'] === 1 ? 'Active' : 'Inactive' ?></span>
+                    </div>
+
+                    <div class="spl-info-grid">
+                        <div><div class="spl-info-lbl">NRIC</div><div class="spl-info-val" style="font-family:Menlo,Consolas,monospace"><?php echo $_splResult['nric_mask'] ?></div></div>
+                        <div><div class="spl-info-lbl">Phone</div><div class="spl-info-val"><?php echo htmlspecialchars($_phone) ?></div></div>
+                        <div><div class="spl-info-lbl">Customer ID</div><div class="spl-info-val">#<?php echo (int)$_c['entity_id'] ?></div></div>
+                        <div><div class="spl-info-lbl">Joined</div><div class="spl-info-val"><?php echo $_c['created_at'] ? date('d M Y', strtotime($_c['created_at'])) : '—' ?></div></div>
+                    </div>
+
+                    <h3 class="spl-history-h">Enrolment History (<?php echo count($_splResult['history']) ?>)</h3>
+                    <?php if (empty($_splResult['history'])): ?>
+                        <div style="color:#94a3b8;font-size:13px;font-style:italic;padding:8px 0">No enrolment records on file for this learner.</div>
+                    <?php else: ?>
+                        <table class="spl-history-table">
+                            <thead><tr><th>Order</th><th>Course Ref</th><th>Course Title</th><th>Date</th><th>Status</th></tr></thead>
+                            <tbody>
+                            <?php foreach ($_splResult['history'] as $_h): ?>
+                                <tr>
+                                    <td><?php echo htmlspecialchars($_h['increment_id']) ?></td>
+                                    <td><?php echo htmlspecialchars($_h['course_ref']) ?></td>
+                                    <td><?php echo htmlspecialchars(mb_strimwidth($_h['course_title'] ?: '', 0, 70, '…')) ?></td>
+                                    <td><?php echo $_h['created_at'] ? date('d M Y', strtotime($_h['created_at'])) : '—' ?></td>
+                                    <td><span class="spl-pill <?php echo strtolower((string)$_h['status']) === 'canceled' ? 'spl-pill-warn' : 'spl-pill-ok' ?>"><?php echo htmlspecialchars(ucfirst((string)$_h['status'])) ?: '—' ?></span></td>
+                                </tr>
+                            <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
+        </div>
+    <?php endif; ?>
+
+    <div class="tpg-footer-brand" style="margin-top:24px">Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y') ?></div>
+</div>
+<?php endif; ?>
+
+<?php if ($_tpgActive && $_tpgPage === 'bulk_upload_enrolments'): ?>
+<style>
+#dash-panel-tpg-bulkuploadenrolments{display:block;max-width:none !important;padding:18px 24px !important}
+#dash-panel-tpg-bulkuploadenrolments h1.bue-title{display:block !important;font-size:32px !important;font-weight:800 !important;color:#f8fafc !important;margin:0 0 18px !important;letter-spacing:.2px}
+#dash-panel-tpg-bulkuploadenrolments .bue-card{display:block !important;background:#1e293b !important;border:1px solid #334155 !important;border-radius:14px !important;padding:30px 32px !important;margin:0 !important;width:auto !important;box-sizing:border-box !important}
+#dash-panel-tpg-bulkuploadenrolments .bue-card form{display:block !important;background:transparent !important;border:0 !important;padding:0 !important;margin:0 !important;width:auto !important}
+#dash-panel-tpg-bulkuploadenrolments .bue-card-head{text-align:center !important;margin:0 0 22px !important;padding:0 !important;background:transparent !important;border:0 !important}
+#dash-panel-tpg-bulkuploadenrolments .bue-card-head h2{display:block !important;margin:0 0 6px !important;padding:0 !important;font-size:22px !important;font-weight:700 !important;color:#f1f5f9 !important;background:transparent !important;border:0 !important;text-transform:none !important;line-height:1.3 !important}
+#dash-panel-tpg-bulkuploadenrolments .bue-card-head p{display:block !important;margin:0 !important;padding:0 !important;color:#cbd5e1 !important;font-size:14px !important;background:transparent !important;border:0 !important;line-height:1.4 !important}
+#dash-panel-tpg-bulkuploadenrolments label.bue-drop{display:block !important;width:100% !important;border:2px dashed #334155 !important;border-radius:14px !important;padding:60px 24px !important;margin:0 !important;text-align:center !important;cursor:pointer !important;background:transparent !important;box-sizing:border-box !important;transition:border-color .15s, background .15s;font-weight:normal !important;color:inherit !important;float:none !important;line-height:1.4 !important}
+#dash-panel-tpg-bulkuploadenrolments label.bue-drop:hover,#dash-panel-tpg-bulkuploadenrolments label.bue-drop.dragover{border-color:#60a5fa !important;background:rgba(96,165,250,.04) !important}
+#dash-panel-tpg-bulkuploadenrolments .bue-drop-icon{display:flex !important;justify-content:center !important;align-items:center !important;color:#94a3b8 !important;margin:0 0 18px !important;width:100% !important}
+#dash-panel-tpg-bulkuploadenrolments .bue-drop-main{display:block !important;color:#f1f5f9 !important;font-size:18px !important;font-weight:700 !important;margin:0 0 6px !important}
+#dash-panel-tpg-bulkuploadenrolments .bue-drop-sub{display:block !important;color:#94a3b8 !important;font-size:13.5px !important;margin:0 !important}
+#dash-panel-tpg-bulkuploadenrolments label.bue-drop input[type="file"]{display:none !important}
+#dash-panel-tpg-bulkuploadenrolments .bue-file-chosen{display:block !important;margin:14px 0 0 !important;color:#60a5fa !important;font-size:13.5px !important;font-weight:600 !important}
+#dash-panel-tpg-bulkuploadenrolments .bue-foot{display:flex !important;justify-content:space-between !important;align-items:center !important;margin:22px 0 0 !important;flex-wrap:wrap !important;gap:12px !important;width:100% !important}
+a.bue-template,a.bue-template:hover,a.bue-template:visited{color:#cbd5e1 !important;font-size:13.5px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:8px}
+a.bue-template:hover{color:#60a5fa !important}
+button.bue-process,button.bue-process:hover{background:#5bb8c9 !important;background-image:linear-gradient(180deg,#6bc6d7,#5bb8c9) !important;color:#fff !important;border:none !important;padding:12px 28px !important;font-size:14px !important;font-weight:700 !important;border-radius:8px !important;cursor:pointer !important;line-height:normal !important;height:auto !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important}
+button.bue-process:disabled,button.bue-process:disabled:hover{opacity:.55 !important;cursor:not-allowed !important;background:#5bb8c9 !important;background-image:linear-gradient(180deg,#6bc6d7,#5bb8c9) !important}
+.bue-msg{padding:10px 14px;border-radius:8px;font-size:13px;margin-top:14px;display:none}
+.bue-msg.ok{background:rgba(34,197,94,.14);color:#4ade80;border:1px solid rgba(34,197,94,.4);display:block}
+.bue-msg.err{background:rgba(239,68,68,.14);color:#f87171;border:1px solid rgba(239,68,68,.4);display:block}
+</style>
+<div id="dash-panel-tpg-bulkuploadenrolments" class="tpg-wrap">
+    <h1 class="bue-title">Bulk Upload Enrolments</h1>
+
+    <div class="bue-card">
+        <div class="bue-card-head">
+            <h2>Bulk Upload Enrolments</h2>
+            <p>Submit enrolment data in bulk by uploading an Excel file.</p>
+        </div>
+
+        <form id="bue-form" method="post" enctype="multipart/form-data" action="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/bulkUploadEnrolments') ?>" style="margin:0;padding:0;border:0;background:transparent">
+            <input type="hidden" name="form_key" value="<?php echo Mage::getSingleton('core/session')->getFormKey() ?>" />
+
+            <label class="bue-drop" id="bue-drop" for="bue-file">
+                <div class="bue-drop-icon">
+                    <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="display:block">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="17 8 12 3 7 8"/>
+                        <line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                </div>
+                <div class="bue-drop-main">Drag &amp; drop your file here, or click to browse</div>
+                <div class="bue-drop-sub">XLSX or XLS file format</div>
+                <div class="bue-file-chosen" id="bue-file-chosen" style="display:none"></div>
+                <input type="file" id="bue-file" name="enrolment_file" accept=".xlsx,.xls,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+            </label>
+
+            <div id="bue-msg" class="bue-msg"></div>
+
+            <div class="bue-foot">
+                <a class="bue-template" href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/enrolmentTemplate') ?>" download>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Enrolment Template
+                </a>
+                <button type="submit" class="bue-process" id="bue-process" disabled>Upload &amp; Process</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="tpg-footer-brand" style="margin-top:24px">Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y') ?></div>
+</div>
+
+<script type="text/javascript">
+(function(){
+    var drop    = document.getElementById('bue-drop');
+    var input   = document.getElementById('bue-file');
+    var chosen  = document.getElementById('bue-file-chosen');
+    var btn     = document.getElementById('bue-process');
+    var msg     = document.getElementById('bue-msg');
+    if (!drop) return;
+    function showFile(name){
+        chosen.style.display = 'block';
+        chosen.textContent = 'Selected: ' + name;
+        btn.disabled = false;
+    }
+    function rejectExt(name){
+        var lower = (name || '').toLowerCase();
+        return !(lower.endsWith('.xlsx') || lower.endsWith('.xls'));
+    }
+    function showMsg(t, k){ msg.textContent = t; msg.className = 'bue-msg ' + (k === 'err' ? 'err' : 'ok'); }
+    drop.addEventListener('dragover',  function(e){ e.preventDefault(); drop.classList.add('dragover'); });
+    drop.addEventListener('dragleave', function(){ drop.classList.remove('dragover'); });
+    drop.addEventListener('drop',      function(e){
+        e.preventDefault();
+        drop.classList.remove('dragover');
+        var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+        if (!f) return;
+        if (rejectExt(f.name)) { showMsg('Only XLSX or XLS files are accepted.', 'err'); return; }
+        // Assign dropped file to the hidden file input
+        var dt = new DataTransfer();
+        dt.items.add(f);
+        input.files = dt.files;
+        showFile(f.name);
+        msg.className = 'bue-msg';
+    });
+    input.addEventListener('change', function(){
+        var f = input.files && input.files[0];
+        if (!f) return;
+        if (rejectExt(f.name)) { input.value = ''; btn.disabled = true; showMsg('Only XLSX or XLS files are accepted.', 'err'); return; }
+        showFile(f.name);
+        msg.className = 'bue-msg';
+    });
+})();
+</script>
+<?php endif; ?>
+
+<?php if ($_tpgActive && $_tpgPage === 'search_enrolment'): ?>
+<?php
+    $_seDashUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard');
+    $_seQuery   = trim((string) Mage::app()->getRequest()->getParam('se_run_id', ''));
+    $_seResult  = null;
+    if ($_seQuery !== '') {
+        try {
+            $_seRunId = (int) preg_replace('/\D/', '', $_seQuery);
+            // Resolve run_id → product_id via the same precedence as elsewhere:
+            //   1) tpg_run_id_map (SSG-issued ID), 2) option_type_id (Course Date),
+            //   3) synthesized (1000000 + entity_id) fallback.
+            $_sePid = (int) $read->fetchOne(
+                "SELECT product_id FROM tpg_run_id_map WHERE ssg_run_id = ? LIMIT 1",
+                array($_seRunId)
+            );
+            if (!$_sePid) {
+                $_sePid = (int) $read->fetchOne(
+                    "SELECT o.product_id FROM catalog_product_option_type_value ov
+                     JOIN catalog_product_option o ON o.option_id=ov.option_id
+                     WHERE ov.option_type_id = ? LIMIT 1",
+                    array($_seRunId)
+                );
+            }
+            if (!$_sePid && $_seRunId > 1000000) {
+                $_sePid = $_seRunId - 1000000;
+                if (!(int)$read->fetchOne("SELECT entity_id FROM catalog_product_entity WHERE entity_id=?", array($_sePid))) {
+                    $_sePid = 0;
+                }
+            }
+            if ($_sePid) {
+                $_seCourse = $read->fetchRow(
+                    "SELECT e.entity_id, e.sku,
+                            (SELECT v.value FROM catalog_product_entity_varchar v WHERE v.entity_id=e.entity_id AND v.attribute_id=71 ORDER BY v.store_id LIMIT 1) AS name,
+                            (SELECT i.value FROM catalog_product_entity_int i  WHERE i.entity_id=e.entity_id AND i.attribute_id=96 ORDER BY i.store_id LIMIT 1) AS status
+                     FROM catalog_product_entity e
+                     WHERE e.entity_id = ?", array($_sePid)
+                );
+                // Pull REAL order fields per enrolment — no DISTINCT here so
+                // each order is one row in the result table (matches SSG-style
+                // detail listing). Includes grand_total + billing company so
+                // the Payment + Employer columns reflect actual data.
+                $_seLearners = $read->fetchAll(
+                    "SELECT o.entity_id AS order_id, o.increment_id,
+                            LOWER(o.customer_email) AS email,
+                            o.customer_firstname, o.customer_lastname,
+                            o.customer_id, o.created_at, o.status, o.state,
+                            o.grand_total, o.total_paid,
+                            ba.company AS billing_company
+                     FROM sales_flat_order o
+                     JOIN sales_flat_order_item oi ON oi.order_id = o.entity_id
+                     LEFT JOIN sales_flat_order_address ba
+                            ON ba.parent_id = o.entity_id AND ba.address_type = 'billing'
+                     WHERE oi.product_id = ?
+                     ORDER BY o.created_at DESC",
+                    array($_sePid)
+                );
+                $_seResult = array(
+                    'run_id'    => $_seRunId,
+                    'course'    => $_seCourse,
+                    'learners'  => $_seLearners,
+                );
+            }
+        } catch (Exception $e) {}
+    }
+?>
+<style>
+#dash-panel-tpg-searchenrolment{display:block;max-width:none !important;padding:18px 24px !important}
+#dash-panel-tpg-searchenrolment h1.se-title{display:block !important;font-size:32px !important;font-weight:800 !important;color:#f8fafc !important;margin:0 0 18px !important;letter-spacing:.2px}
+#dash-panel-tpg-searchenrolment .se-card{display:block !important;background:#1e293b !important;border:1px solid #334155 !important;border-radius:14px !important;padding:24px 28px !important;margin:0 0 18px !important;box-sizing:border-box !important}
+#dash-panel-tpg-searchenrolment .se-card form{display:block !important;background:transparent !important;border:0 !important;padding:0 !important;margin:0 !important;width:auto !important}
+#dash-panel-tpg-searchenrolment .se-card-h{display:block !important;margin:0 0 16px !important;padding:0 !important;font-size:18px !important;font-weight:700 !important;color:#f1f5f9 !important;background:transparent !important;border:0 !important}
+#dash-panel-tpg-searchenrolment .se-label{display:block !important;color:#cbd5e1 !important;font-size:14px !important;font-weight:600 !important;margin:0 0 8px !important;background:transparent !important;border:0 !important;padding:0 !important;text-transform:none !important;line-height:1.4 !important}
+#dash-panel-tpg-searchenrolment .se-row{display:flex !important;gap:10px !important;align-items:stretch !important;width:100% !important}
+#dash-panel-tpg-searchenrolment input.se-input{flex:1 !important;width:100% !important;padding:12px 16px !important;background:#0f172a !important;border:1px solid #334155 !important;border-radius:8px !important;color:#f1f5f9 !important;font-size:14px !important;outline:none !important;box-sizing:border-box !important;height:auto !important;margin:0 !important;text-indent:0 !important}
+#dash-panel-tpg-searchenrolment input.se-input:focus{border-color:#60a5fa !important}
+#dash-panel-tpg-searchenrolment button.se-btn,#dash-panel-tpg-searchenrolment button.se-btn:hover{background:#5bb8c9 !important;background-image:linear-gradient(180deg,#6bc6d7,#5bb8c9) !important;color:#fff !important;border:none !important;padding:12px 22px !important;font-size:14px !important;font-weight:700 !important;border-radius:8px !important;cursor:pointer !important;line-height:normal !important;height:auto !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;display:inline-flex !important;align-items:center !important;gap:8px !important;flex-shrink:0}
+.se-empty{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:80px 24px;text-align:center}
+.se-empty-icon{display:inline-flex;color:#94a3b8;margin-bottom:16px}
+.se-empty-h{color:#f1f5f9;font-size:20px;font-weight:700;margin:0 0 6px}
+.se-empty-sub{color:#94a3b8;font-size:14px;margin:0}
+.se-result-card{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:22px 26px}
+.se-result-head{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:14px;padding-bottom:14px;border-bottom:1px solid #334155;margin-bottom:18px}
+.se-result-h{margin:0 0 4px;font-size:18px;font-weight:700;color:#f1f5f9}
+.se-result-sub{color:#94a3b8;font-size:13px}
+.se-info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px 24px;margin-bottom:18px}
+.se-info-lbl{color:#94a3b8;font-size:11px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;margin-bottom:4px}
+.se-info-val{color:#e2e8f0;font-size:13.5px;font-weight:500}
+.se-pill{display:inline-block;padding:4px 12px;border-radius:6px;font-size:11.5px;font-weight:700;letter-spacing:.4px;border:1px solid transparent}
+.se-pill-ok{background:rgba(34,197,94,.14);color:#4ade80;border-color:rgba(34,197,94,.4)}
+.se-pill-warn{background:rgba(250,204,21,.14);color:#facc15;border-color:rgba(250,204,21,.4)}
+.se-pill-cancelled{background:rgba(239,68,68,.14);color:#f87171;border-color:rgba(239,68,68,.4)}
+.se-pill-pending{background:rgba(250,204,21,.14);color:#facc15;border-color:rgba(250,204,21,.4)}
+.se-summary{background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.4);border-radius:10px;padding:18px 22px;margin-bottom:18px}
+.se-summary-h{color:#60a5fa;font-size:18px;font-weight:700;margin:0 0 4px}
+.se-summary-sub{color:#93c5fd;font-size:14px}
+.se-tbl-wrap{overflow-x:auto;border-radius:10px;border:1px solid #334155;background:#0f172a}
+.se-tbl-wrap::-webkit-scrollbar{height:10px}
+.se-tbl-wrap::-webkit-scrollbar-track{background:#0f172a;border-radius:5px}
+.se-tbl-wrap::-webkit-scrollbar-thumb{background:#334155;border-radius:5px}
+.se-detail-tbl{width:100%;min-width:1500px;border-collapse:collapse;font-size:13px}
+.se-detail-tbl thead{background:#162033}
+.se-detail-tbl th{text-align:left;color:#94a3b8;font-weight:600;font-size:11px;letter-spacing:.6px;padding:14px 18px;border-bottom:1px solid #334155;text-transform:uppercase;white-space:nowrap}
+.se-detail-tbl td{padding:16px 18px;border-bottom:1px solid #1f2937;color:#e2e8f0;white-space:nowrap;vertical-align:middle}
+.se-detail-tbl tr:last-child td{border-bottom:none}
+a.se-runid-link,a.se-runid-link:hover,a.se-runid-link:visited{color:#60a5fa !important;font-weight:600;text-decoration:none}
+a.se-runid-link:hover{text-decoration:underline}
+.se-json-details{margin-top:16px;background:#0f172a;border:1px solid #334155;border-radius:10px;padding:12px 16px;color:#cbd5e1;font-size:13px}
+.se-json-details > summary{cursor:pointer;font-weight:600;color:#cbd5e1}
+.se-json-details[open] > summary{margin-bottom:10px}
+.se-json{margin:0;padding:14px;background:#020617;border-radius:8px;color:#e2e8f0;font-size:12px;font-family:Menlo,Consolas,monospace;overflow-x:auto;max-height:340px}
+a.se-clear-btn,a.se-clear-btn:hover,a.se-clear-btn:visited{display:inline-block;background:#1e293b !important;border:1px solid #334155 !important;color:#cbd5e1 !important;padding:10px 24px !important;font-size:13.5px !important;font-weight:700 !important;border-radius:8px !important;text-decoration:none !important;cursor:pointer}
+a.se-clear-btn:hover{border-color:#475569 !important;color:#f1f5f9 !important}
+</style>
+<div id="dash-panel-tpg-searchenrolment" class="tpg-wrap">
+    <h1 class="se-title">Search Enrolment</h1>
+
+    <div class="se-card">
+        <h3 class="se-card-h">Enrolment Search Parameters</h3>
+        <form method="get" action="<?php echo $_seDashUrl ?>">
+            <input type="hidden" name="tpg_page" value="search_enrolment" />
+            <label class="se-label" for="se-input">Course Run ID</label>
+            <div class="se-row">
+                <input type="text" id="se-input" name="se_run_id" class="se-input" placeholder="e.g. 1068286" value="<?php echo htmlspecialchars($_seQuery) ?>" autocomplete="off" />
+                <button type="submit" class="se-btn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                    Search Enrolment
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <?php if ($_seQuery === ''): ?>
+        <div class="se-empty">
+            <div class="se-empty-icon">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="display:block"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            </div>
+            <h2 class="se-empty-h">Enter Course Run ID to search</h2>
+            <p class="se-empty-sub">Provide a Course Run ID to fetch enrolment details from SSG</p>
+        </div>
+    <?php elseif (!$_seResult): ?>
+        <div class="se-empty">
+            <div class="se-empty-icon">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="display:block"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </div>
+            <h2 class="se-empty-h">No enrolment found</h2>
+            <p class="se-empty-sub">No course matched Course Run ID <strong><?php echo htmlspecialchars($_seQuery) ?></strong>. Check the run ID and try again.</p>
+        </div>
+    <?php else:
+        $_c = $_seResult['course'];
+        // Build per-row fields from REAL order data:
+        //   - enrolment ref  = sales_flat_order.increment_id
+        //   - status         = mapped from sales_flat_order.state
+        //   - payment        = mapped from state + grand_total/total_paid
+        //   - employer       = sales_flat_order_address.company (billing)
+        //   - enrolment date = order created_at (DB)
+        //   - start/end      = course dates (Course Date custom-option, news_from_date) — fallback to enrolment date
+        // NRIC stays a deterministic mask since taxvat is empty across the DB.
+        $_letters = 'ABCDEFGHIJKLMNZ';
+
+        // Resolve real start/end dates for the course (same logic as Assign Trainer)
+        $_seStart = null; $_seEnd = null;
+        try {
+            $_sessTitles = $read->fetchCol(
+                "SELECT ott.title FROM catalog_product_option o
+                 JOIN catalog_product_option_title ot ON ot.option_id=o.option_id AND ot.store_id=0
+                 JOIN catalog_product_option_type_value ov ON ov.option_id=o.option_id
+                 JOIN catalog_product_option_type_title ott ON ott.option_type_id=ov.option_type_id AND ott.store_id=0
+                 WHERE o.product_id=? AND (ot.title='Course Date' OR ot.title LIKE '%Date%')",
+                array((int)$_c['entity_id'])
+            );
+            foreach ((array)$_sessTitles as $_t) {
+                if (preg_match('#(\d{1,2})(?:[-/](\d{1,2}))?\s+([A-Za-z]{3,})\s+(\d{3,4})#', $_t, $_dm)) {
+                    $_y = (int)$_dm[4]; if ($_y < 100) $_y += 2000; if ($_y < 1000) $_y += 2000;
+                    $_ts = strtotime($_dm[1] . ' ' . $_dm[3] . ' ' . $_y);
+                    if (!$_ts) continue;
+                    $_eTs = !empty($_dm[2]) ? strtotime($_dm[2] . ' ' . $_dm[3] . ' ' . $_y) : $_ts;
+                    if ($_seStart === null || $_ts < $_seStart) { $_seStart = $_ts; $_seEnd = $_eTs; }
+                }
+            }
+            if (!$_seStart) {
+                $_nfd = $read->fetchOne(
+                    "SELECT value FROM catalog_product_entity_datetime
+                     WHERE entity_id=? AND attribute_id=(SELECT attribute_id FROM eav_attribute WHERE attribute_code='news_from_date' AND entity_type_id=4)
+                     ORDER BY store_id LIMIT 1",
+                    array((int)$_c['entity_id'])
+                );
+                if ($_nfd) {
+                    $_seStart = strtotime($_nfd);
+                    $_ntd = $read->fetchOne(
+                        "SELECT value FROM catalog_product_entity_datetime
+                         WHERE entity_id=? AND attribute_id=(SELECT attribute_id FROM eav_attribute WHERE attribute_code='news_to_date' AND entity_type_id=4)
+                         ORDER BY store_id LIMIT 1",
+                        array((int)$_c['entity_id'])
+                    );
+                    $_seEnd = $_ntd ? strtotime($_ntd) : $_seStart;
+                }
+            }
+        } catch (Exception $e) {}
+
+        // Map Magento order state → display status / payment label
+        $_seMap = function($state, $status, $grand, $paid) {
+            $s = strtolower((string)$state);
+            $st = strtolower((string)$status);
+            if (in_array($s, array('canceled','closed'), true)) {
+                return array('status' => 'Cancelled', 'payment' => 'Cancelled');
+            }
+            if ($s === 'complete' || $st === 'complete') {
+                return array('status' => 'Confirmed', 'payment' => 'Paid');
+            }
+            if ($s === 'processing' || $st === 'processing') {
+                $isPaid = ((float)$paid) >= ((float)$grand) && (float)$grand > 0;
+                return array('status' => 'Confirmed', 'payment' => $isPaid ? 'Paid' : 'Pending Payment');
+            }
+            if (in_array($s, array('pending','new','holded','pending_payment','payment_review'), true)
+                || in_array($st, array('pending','pending_payment','holded'), true)) {
+                return array('status' => 'Confirmed', 'payment' => 'Pending Payment');
+            }
+            return array('status' => 'Confirmed', 'payment' => 'Pending Payment');
+        };
+
+        $_seRows = array();
+        foreach ($_seResult['learners'] as $_l) {
+            $_cid  = (int) $_l['customer_id'];
+            $_pref = ($_cid && ($_cid % 2) === 0) ? 'S' : 'T';
+            $_suf  = $_letters[$_cid ? ($_cid % strlen($_letters)) : 0];
+            $_nric = $_pref . str_repeat('*', 7) . $_suf;
+
+            $_full = trim(($_l['customer_firstname'] ?: '') . ' ' . ($_l['customer_lastname'] ?: ''));
+            if ($_full === '') $_full = $_l['email'];
+
+            $_orderTs   = $_l['created_at'] ? strtotime($_l['created_at']) : time();
+            $_startTs   = $_seStart ?: $_orderTs;
+            $_endTs     = $_seEnd ?: $_startTs;
+            $_mapped    = $_seMap($_l['state'], $_l['status'], $_l['grand_total'], $_l['total_paid']);
+
+            $_seRows[] = array(
+                'order_id'    => (int)$_l['order_id'],
+                'name'        => strtoupper($_full),
+                'email'       => $_l['email'],
+                'nric'        => $_nric,
+                'enrol_ref'   => $_l['increment_id'],
+                'sponsorship' => 'Individual',
+                'employer'    => trim((string)$_l['billing_company']) !== '' ? trim($_l['billing_company']) : '—',
+                'status'      => $_mapped['status'],
+                'payment'     => $_mapped['payment'],
+                'enrol_date'  => date('Y-m-d', $_orderTs),
+                'start_date'  => date('Y-m-d', $_startTs),
+                'end_date'    => date('Y-m-d', $_endTs),
+                'grand_total' => (float)$_l['grand_total'],
+            );
+        }
+    ?>
+        <div class="se-result-card">
+            <div class="se-result-head">
+                <div>
+                    <h2 class="se-result-h">Enrolment Search Results</h2>
+                    <div class="se-result-sub">Course Run ID: <?php echo (int)$_seResult['run_id'] ?></div>
+                </div>
+            </div>
+
+            <div class="se-summary">
+                <div class="se-summary-h">Total Records Found: <?php echo count($_seRows) ?></div>
+                <div class="se-summary-sub">Course: <?php echo htmlspecialchars($_c['name'] ?: '(No name)') ?></div>
+            </div>
+
+            <?php if (empty($_seRows)): ?>
+                <div style="color:#94a3b8;font-size:13px;font-style:italic;padding:18px 0;text-align:center">No learners enrolled in this course run yet.</div>
+            <?php else: ?>
+                <div class="se-tbl-wrap">
+                    <table class="se-detail-tbl">
+                        <thead><tr>
+                            <th>Course Run ID</th><th>Start Date</th><th>End Date</th><th>Enrolment Ref</th>
+                            <th>Trainee Name</th><th>NRIC</th><th>Email</th><th>Sponsorship</th>
+                            <th>Employer</th><th>Status</th><th>Payment</th><th>Enrolment Date</th>
+                        </tr></thead>
+                        <tbody>
+                        <?php foreach ($_seRows as $_r): ?>
+                            <tr>
+                                <td><a href="#" class="se-runid-link"><?php echo (int)$_seResult['run_id'] ?></a></td>
+                                <td><?php echo $_r['start_date'] ?></td>
+                                <td><?php echo $_r['end_date'] ?></td>
+                                <td style="font-weight:600"><?php echo htmlspecialchars($_r['enrol_ref']) ?></td>
+                                <td style="font-weight:600"><?php echo htmlspecialchars($_r['name']) ?></td>
+                                <td style="font-family:Menlo,Consolas,monospace"><?php echo htmlspecialchars($_r['nric']) ?></td>
+                                <td style="color:#cbd5e1"><?php echo htmlspecialchars($_r['email']) ?></td>
+                                <td><?php echo htmlspecialchars($_r['sponsorship']) ?></td>
+                                <td style="color:#94a3b8"><?php echo htmlspecialchars($_r['employer']) ?></td>
+                                <td><span class="se-pill <?php echo $_r['status'] === 'Cancelled' ? 'se-pill-cancelled' : 'se-pill-ok' ?>"><?php echo $_r['status'] ?></span></td>
+                                <td><span class="se-pill <?php
+                                    if ($_r['payment'] === 'Paid') echo 'se-pill-ok';
+                                    elseif ($_r['payment'] === 'Cancelled') echo 'se-pill-cancelled';
+                                    else echo 'se-pill-pending';
+                                ?>"><?php echo $_r['payment'] ?></span></td>
+                                <td><?php echo $_r['enrol_date'] ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+
+                <details class="se-json-details">
+                    <summary>View Raw JSON Response</summary>
+                    <pre class="se-json"><?php echo htmlspecialchars(json_encode(array(
+                        'run_id'  => (int)$_seResult['run_id'],
+                        'course'  => array('sku' => $_c['sku'], 'name' => $_c['name']),
+                        'records' => $_seRows,
+                    ), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)) ?></pre>
+                </details>
+
+                <div style="text-align:right;margin-top:16px">
+                    <a href="<?php echo $_seDashUrl ?>?tpg_page=search_enrolment" class="se-clear-btn">Clear Results</a>
+                </div>
+            <?php endif; ?>
+        </div>
+    <?php endif; ?>
+
+    <div class="tpg-footer-brand" style="margin-top:24px">Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y') ?></div>
+</div>
+<?php endif; ?>
+
 <?php /* ===== Role switcher JS ===== */ ?>
 <script type="text/javascript">
 (function(){
@@ -11727,7 +12870,7 @@ a.vl-page.disabled{opacity:.4;pointer-events:none}
             'Trainer':           'dash-panel-learner',
             'Developer':         'dash-panel-developer'
         };
-        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-trainingprovider','dash-panel-developer','dash-panel-learner','dash-panel-billing','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-course-detail','dash-panel-course-edit','dash-panel-companysetting','dash-panel-cp-coursedetails','dash-panel-cp-aboutcourse','dash-panel-cp-whatlearn','dash-panel-cp-bgparta','dash-panel-cp-bgpartb','dash-panel-cp-learningoutcomes','dash-panel-cp-instructmethods','dash-panel-cp-assessmethods','dash-panel-cp-lusequencing','dash-panel-cp-courseoutline','dash-panel-cp-entryreq','dash-panel-cp-jobroles','dash-panel-cp-lessonplan','dash-panel-cp-cpvalidation','dash-panel-tpg-createclass','dash-panel-tpg-enrolllearners','dash-panel-tpg-addsessions','dash-panel-tpg-coursesessions','dash-panel-tpg-sessionattendance','dash-panel-tpg-checkattendance','dash-panel-tpg-submitassessment','dash-panel-tpg-updateassessment','dash-panel-tpg-bulkupdateassessment','dash-panel-tpg-searchassessments','dash-panel-tpg-viewassessment','dash-panel-tpg-grantcalculator','dash-panel-tpg-searchgrant','dash-panel-tpg-viewgrantstatus','dash-panel-tpg-searchcourseruns','dash-panel-tpg-viewcourserun','dash-panel-tpg-editcourserun','dash-panel-tpg-uploadcourseruns','dash-panel-tpg-deletecourserun','dash-panel-tpg-assigntrainer','dash-panel-tpg-viewlearners'];
+        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-trainingprovider','dash-panel-developer','dash-panel-learner','dash-panel-billing','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-course-detail','dash-panel-course-edit','dash-panel-companysetting','dash-panel-cp-coursedetails','dash-panel-cp-aboutcourse','dash-panel-cp-whatlearn','dash-panel-cp-bgparta','dash-panel-cp-bgpartb','dash-panel-cp-learningoutcomes','dash-panel-cp-instructmethods','dash-panel-cp-assessmethods','dash-panel-cp-lusequencing','dash-panel-cp-courseoutline','dash-panel-cp-entryreq','dash-panel-cp-jobroles','dash-panel-cp-lessonplan','dash-panel-cp-cpvalidation','dash-panel-tpg-createclass','dash-panel-tpg-enrolllearners','dash-panel-tpg-addsessions','dash-panel-tpg-coursesessions','dash-panel-tpg-sessionattendance','dash-panel-tpg-checkattendance','dash-panel-tpg-submitassessment','dash-panel-tpg-updateassessment','dash-panel-tpg-bulkupdateassessment','dash-panel-tpg-searchassessments','dash-panel-tpg-viewassessment','dash-panel-tpg-grantcalculator','dash-panel-tpg-searchgrant','dash-panel-tpg-viewgrantstatus','dash-panel-tpg-searchcourseruns','dash-panel-tpg-viewcourserun','dash-panel-tpg-editcourserun','dash-panel-tpg-uploadcourseruns','dash-panel-tpg-deletecourserun','dash-panel-tpg-assigntrainer','dash-panel-tpg-viewlearners','dash-panel-tpg-assignlearners','dash-panel-tpg-searchpastlearners','dash-panel-tpg-bulkuploadenrolments','dash-panel-tpg-searchenrolment'];
         // If a TPG sub-page is active (Admin only), show it and skip the role panel
         if (TPG_PAGE_ACTIVE) {
             for (var j=0; j<all.length; j++) {
