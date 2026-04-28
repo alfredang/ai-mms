@@ -111,6 +111,35 @@ $otpVerifyUrl = Mage::helper('adminhtml')->getUrl('adminhtml/otp/verify', array(
     .login-footer a:hover { color: #94a3b8; }
     .login-footer .site-link { display: block; margin-top: 10px; color: #60a5fa; font-size: 12px; }
     .login-footer .site-link:hover { color: #93c5fd; }
+    /* Policy modal — shared shell for Privacy Policy / Acceptable Use Policy / Feedback */
+    .lp-modal-backdrop { position: fixed; inset: 0; background: rgba(7, 12, 22, 0.78); display: none; align-items: center; justify-content: center; z-index: 9999; padding: 24px; }
+    .lp-modal-backdrop.is-open { display: flex; }
+    .lp-modal { background: #1e293b; border: 1px solid #334155; border-radius: 14px; width: 100%; max-width: 720px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 30px 80px rgba(0,0,0,0.5); }
+    .lp-modal-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; border-bottom: 1px solid #334155; }
+    .lp-modal-title { color: #f8fafc; font-size: 18px; font-weight: 700; margin: 0; }
+    .lp-modal-close { background: transparent; border: none; color: #94a3b8; font-size: 22px; cursor: pointer; padding: 4px 8px; line-height: 1; border-radius: 6px; }
+    .lp-modal-close:hover { color: #f1f5f9; background: rgba(255,255,255,0.06); }
+    .lp-modal-body { padding: 22px 28px; overflow-y: auto; color: #cbd5e1; font-size: 14px; line-height: 1.6; flex: 1; text-align: left; }
+    .lp-modal-body h3 { color: #f1f5f9; font-size: 15px; font-weight: 700; margin: 22px 0 10px; }
+    .lp-modal-body h3:first-child { margin-top: 0; }
+    .lp-modal-body p { margin: 0 0 12px; }
+    .lp-modal-body ul { margin: 0 0 14px 0; padding-left: 22px; }
+    .lp-modal-body li { margin-bottom: 4px; }
+    .lp-modal-body a { color: #60a5fa; }
+    .lp-modal-foot { padding: 14px 24px; border-top: 1px solid #334155; display: flex; justify-content: flex-end; gap: 10px; }
+    .lp-modal-foot button { background: #2563eb; color: #fff; border: none; padding: 9px 22px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .lp-modal-foot button:hover { background: #1d4ed8; }
+    .lp-modal-foot button.lp-btn-secondary { background: transparent; color: #cbd5e1; border: 1px solid #475569; }
+    .lp-modal-foot button.lp-btn-secondary:hover { background: rgba(255,255,255,0.05); color: #f1f5f9; }
+    /* Feedback / generic form rows inside the modal body */
+    .lp-form-field { margin-bottom: 16px; }
+    .lp-form-field:last-child { margin-bottom: 0; }
+    .lp-form-label { color: #f1f5f9; font-size: 13.5px; font-weight: 600; margin-bottom: 6px; display: block; }
+    .lp-form-label .lp-required { color: #f87171; margin-left: 2px; }
+    .lp-form-input, .lp-form-textarea { width: 100%; padding: 10px 14px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #f1f5f9; font-size: 14px; font-family: inherit; outline: none; box-sizing: border-box; line-height: 1.5; }
+    .lp-form-input:focus, .lp-form-textarea:focus { border-color: #60a5fa; }
+    .lp-form-input::placeholder, .lp-form-textarea::placeholder { color: #64748b; }
+    .lp-form-textarea { min-height: 110px; resize: vertical; }
 
     /* OTP input */
     .otp-row { display: flex; gap: 8px; justify-content: center; margin: 20px 0; }
@@ -206,9 +235,9 @@ $otpVerifyUrl = Mage::helper('adminhtml')->getUrl('adminhtml/otp/verify', array(
             </div>
 
             <div class="login-footer">
-                <a href="#">Privacy Policy</a>
-                <a href="#">Acceptable Use Policy</a>
-                <a href="#">Feedback</a>
+                <a href="#" onclick="event.preventDefault();lpOpenModal('privacy');">Privacy Policy</a>
+                <a href="#" onclick="event.preventDefault();lpOpenModal('aup');">Acceptable Use Policy</a>
+                <a href="#" onclick="event.preventDefault();lpOpenModal('feedback');">Feedback</a>
                 <div style="margin-top:10px;">
                     Browse our WSQ courses at<br/>
                     <a href="https://www.tertiarycourses.com.sg/" class="site-link">https://www.tertiarycourses.com.sg/</a>
@@ -331,6 +360,199 @@ $otpVerifyUrl = Mage::helper('adminhtml')->getUrl('adminhtml/otp/verify', array(
         xhr.onerror = function() { btn.disabled = false; btn.innerHTML = 'Verify &amp; Login'; alert('Network error'); };
         xhr.send('email=' + encodeURIComponent(email) + '&otp=' + encodeURIComponent(otp) + '&form_key=<?php echo $formKey ?>');
     }
+    //]]>
+    </script>
+
+    <!-- Policy modals — shared shell, one panel per policy. Add more by
+         dropping another <div class="lp-modal-panel" data-policy="..."> inside. -->
+    <div class="lp-modal-backdrop" id="lp-modal" onclick="if(event.target===this)lpCloseModal();">
+        <div class="lp-modal" role="dialog" aria-modal="true" aria-labelledby="lp-modal-title">
+            <div class="lp-modal-head">
+                <h2 class="lp-modal-title" id="lp-modal-title">Policy</h2>
+                <button type="button" class="lp-modal-close" aria-label="Close" onclick="lpCloseModal()">&times;</button>
+            </div>
+            <div class="lp-modal-body" id="lp-modal-body"></div>
+            <div class="lp-modal-foot" id="lp-modal-foot"></div>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+    //<![CDATA[
+    var LP_POLICIES = {
+        privacy: {
+            title: 'Privacy Policy',
+            html: '\
+                <h3>1. Introduction</h3>\
+                <p>Tertiary Infotech Academy Pte Ltd ("we", "our", or "us") is committed to protecting your personal data in accordance with the Personal Data Protection Act 2012 (PDPA) of Singapore. This Privacy Policy explains how we collect, use, disclose, and protect your personal data when you use our Learning Management System (LMS) and Training Management System (TMS).</p>\
+                <h3>2. Personal Data We Collect</h3>\
+                <p>We may collect the following types of personal data:</p>\
+                <ul>\
+                    <li>Full name, email address, and contact number</li>\
+                    <li>NRIC/FIN (last 4 characters) for SSG-funded course enrolment</li>\
+                    <li>Date of birth, gender, and nationality</li>\
+                    <li>Educational qualifications and employment details</li>\
+                    <li>Course enrolment, attendance, and assessment records</li>\
+                    <li>Login credentials and system usage logs</li>\
+                    <li>Payment and billing information (where applicable)</li>\
+                </ul>\
+                <h3>3. Purposes of Data Collection</h3>\
+                <p>Your personal data is collected and used for the following purposes:</p>\
+                <ul>\
+                    <li>Processing course enrolment and registration</li>\
+                    <li>Managing training schedules, attendance, and assessments</li>\
+                    <li>Issuing certificates of completion</li>\
+                    <li>Submitting enrolment and attendance data to SkillsFuture Singapore (SSG)</li>\
+                    <li>Communicating course updates, schedules, and administrative matters</li>\
+                    <li>Improving our training programmes and system functionality</li>\
+                    <li>Complying with legal and regulatory requirements</li>\
+                </ul>\
+                <h3>4. Disclosure of Personal Data</h3>\
+                <p>We may disclose your personal data to:</p>\
+                <ul>\
+                    <li>SkillsFuture Singapore (SSG) for grant claims and course reporting</li>\
+                    <li>Government agencies as required by law</li>\
+                    <li>Authorised trainers and assessors involved in your course</li>\
+                    <li>Third-party service providers who assist in system hosting and maintenance</li>\
+                </ul>\
+                <p>We do not sell or rent your personal data to any third party.</p>\
+                <h3>5. Data Protection and Security</h3>\
+                <p>We implement reasonable security measures to protect your personal data from unauthorised access, collection, use, disclosure, or similar risks. These include:</p>\
+                <ul>\
+                    <li>Encrypted password storage using industry-standard hashing</li>\
+                    <li>Role-based access controls to limit data access</li>\
+                    <li>Secure HTTPS connections for all data transmissions</li>\
+                    <li>Regular security reviews and system updates</li>\
+                </ul>\
+                <h3>6. Retention of Personal Data</h3>\
+                <p>We retain your personal data only for as long as necessary to fulfil the purposes for which it was collected, or as required by applicable laws and regulations. When data is no longer needed, it will be securely disposed of.</p>\
+                <h3>7. Your Rights</h3>\
+                <p>Under the PDPA, you have the right to:</p>\
+                <ul>\
+                    <li>Access your personal data held by us</li>\
+                    <li>Request corrections to inaccurate or incomplete data</li>\
+                    <li>Withdraw consent for the collection, use, or disclosure of your data</li>\
+                </ul>\
+                <p>To exercise any of these rights, please contact our Data Protection Officer.</p>\
+                <h3>8. Cookies and Usage Data</h3>\
+                <p>Our system may use cookies and similar technologies to maintain your login session and improve user experience. These do not collect personally identifiable information beyond what is necessary for system functionality.</p>\
+                <h3>9. Changes to This Policy</h3>\
+                <p>We may update this Privacy Policy from time to time. Any changes will be reflected on this page with an updated revision date. Continued use of the system constitutes acceptance of the revised policy.</p>\
+                <h3>10. Contact Us</h3>\
+                <p>If you have any questions about this Privacy Policy or wish to make a data access or correction request, please contact us at:</p>\
+                <p><strong>Tertiary Infotech Academy Pte Ltd</strong><br/>Email: <a href="mailto:dpo@tertiaryinfotechacademypteltd.com">dpo@tertiaryinfotechacademypteltd.com</a></p>'
+        },
+        aup: {
+            title: 'Acceptable Use Policy',
+            html: '\
+                <h3>1. Purpose</h3>\
+                <p>This Acceptable Use Policy ("AUP") governs the use of the Learning Management System (LMS) and Training Management System (TMS) operated by Tertiary Infotech Academy Pte Ltd. By accessing or using the system, you agree to comply with this policy.</p>\
+                <h3>2. Authorised Use</h3>\
+                <p>The system is provided for the following purposes:</p>\
+                <ul>\
+                    <li>Accessing course materials, schedules, and learning resources</li>\
+                    <li>Completing assessments, quizzes, and assignments</li>\
+                    <li>Viewing attendance records and course progress</li>\
+                    <li>Communicating with trainers and administrators regarding course matters</li>\
+                    <li>Managing training operations (for authorised staff only)</li>\
+                </ul>\
+                <h3>3. Prohibited Conduct</h3>\
+                <p>Users must not:</p>\
+                <ul>\
+                    <li>Share login credentials with any other person</li>\
+                    <li>Attempt to access accounts, data, or system areas not authorised to them</li>\
+                    <li>Upload, transmit, or store any malicious software, viruses, or harmful code</li>\
+                    <li>Use the system to harass, intimidate, or discriminate against any person</li>\
+                    <li>Copy, distribute, or reproduce course materials without prior written consent</li>\
+                    <li>Attempt to reverse-engineer, decompile, or tamper with the system</li>\
+                    <li>Use the system for any commercial purpose unrelated to the training programmes</li>\
+                    <li>Deliberately overload or disrupt system performance</li>\
+                    <li>Misrepresent identity or impersonate another user</li>\
+                </ul>\
+                <h3>4. Account Security</h3>\
+                <p>Users are responsible for:</p>\
+                <ul>\
+                    <li>Maintaining the confidentiality of their login credentials</li>\
+                    <li>Logging out after each session, especially on shared devices</li>\
+                    <li>Notifying the administrator immediately if they suspect unauthorised access to their account</li>\
+                    <li>Changing their password promptly if instructed to do so</li>\
+                </ul>\
+                <h3>5. Intellectual Property</h3>\
+                <p>All course materials, content, assessments, and resources available on the system are the intellectual property of Tertiary Infotech Academy Pte Ltd or its licensors. Users may not reproduce, distribute, or create derivative works from these materials without explicit permission.</p>\
+                <h3>6. Data Integrity</h3>\
+                <p>Users must:</p>\
+                <ul>\
+                    <li>Provide accurate and truthful information when required</li>\
+                    <li>Not alter, delete, or tamper with records, attendance data, or assessment submissions</li>\
+                    <li>Report any data discrepancies to the system administrator promptly</li>\
+                </ul>\
+                <h3>7. Monitoring and Enforcement</h3>\
+                <p>Tertiary Infotech Academy Pte Ltd reserves the right to:</p>\
+                <ul>\
+                    <li>Monitor system usage to ensure compliance with this policy</li>\
+                    <li>Investigate suspected violations of this policy</li>\
+                    <li>Suspend or terminate access for users who violate this policy</li>\
+                    <li>Report illegal activities to the relevant authorities</li>\
+                </ul>\
+                <h3>8. Consequences of Violation</h3>\
+                <p>Violations of this AUP may result in:</p>\
+                <ul>\
+                    <li>Temporary suspension of system access</li>\
+                    <li>Permanent termination of user account</li>\
+                    <li>Removal from enrolled courses</li>\
+                    <li>Reporting to SkillsFuture Singapore (SSG) where applicable</li>\
+                    <li>Legal action where warranted</li>\
+                </ul>\
+                <h3>9. System Availability</h3>\
+                <p>While we strive to maintain system availability, Tertiary Infotech Academy Pte Ltd does not guarantee uninterrupted access. Scheduled maintenance will be communicated in advance where possible. We are not liable for any loss arising from system downtime.</p>\
+                <h3>10. Amendments</h3>\
+                <p>Tertiary Infotech Academy Pte Ltd reserves the right to amend this Acceptable Use Policy at any time. Users will be notified of significant changes. Continued use of the system after amendments constitutes acceptance of the updated policy.</p>\
+                <h3>11. Contact</h3>\
+                <p>If you have questions about this policy or need to report a violation, please contact:</p>\
+                <p><strong>Tertiary Infotech Academy Pte Ltd</strong><br/>Email: <a href="mailto:admin@tertiaryinfotechacademypteltd.com">admin@tertiaryinfotechacademypteltd.com</a></p>'
+        },
+        feedback: {
+            title: 'Feedback',
+            html: '\
+                <div class="lp-form-field">\
+                    <label class="lp-form-label">Name <span class="lp-required">*</span></label>\
+                    <input type="text" class="lp-form-input" placeholder="Your name" />\
+                </div>\
+                <div class="lp-form-field">\
+                    <label class="lp-form-label">Email <span class="lp-required">*</span></label>\
+                    <input type="email" class="lp-form-input" placeholder="your@email.com" />\
+                </div>\
+                <div class="lp-form-field">\
+                    <label class="lp-form-label">Tel</label>\
+                    <input type="tel" class="lp-form-input" placeholder="Your phone number" />\
+                </div>\
+                <div class="lp-form-field">\
+                    <label class="lp-form-label">Message <span class="lp-required">*</span></label>\
+                    <textarea class="lp-form-textarea" placeholder="Your feedback or message..."></textarea>\
+                </div>',
+            foot: '\
+                <button type="button" class="lp-btn-secondary" onclick="lpCloseModal()">Cancel</button>\
+                <button type="button" onclick="lpCloseModal()">Send Feedback</button>'
+        }
+    };
+    function lpOpenModal(key) {
+        var p = LP_POLICIES[key]; if (!p) return;
+        document.getElementById('lp-modal-title').textContent = p.title;
+        document.getElementById('lp-modal-body').innerHTML = p.html;
+        // Per-policy footer override (e.g. Feedback uses Cancel + Send Feedback);
+        // anything else falls back to a single Close button.
+        document.getElementById('lp-modal-foot').innerHTML = p.foot ||
+            '<button type="button" onclick="lpCloseModal()">Close</button>';
+        document.getElementById('lp-modal-body').scrollTop = 0;
+        document.getElementById('lp-modal').classList.add('is-open');
+        document.body.style.overflow = 'hidden';
+    }
+    function lpCloseModal() {
+        document.getElementById('lp-modal').classList.remove('is-open');
+        document.body.style.overflow = '';
+    }
+    document.addEventListener('keydown', function(e){
+        if (e.key === 'Escape') lpCloseModal();
+    });
     //]]>
     </script>
 </body>
