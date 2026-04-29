@@ -174,7 +174,13 @@ class MMD_RoleManager_Model_Observer
      */
     protected function _roleControllerMap()
     {
+        // Heavy catalog admin (categories / products / attributes) —
+        // structural, dev-side. Marketing doesn't reach these.
         $catalogAdmin = array('admin', 'developer', 'training_provider');
+        // Marketing-side catalog tools (search terms, reviews, urlrewrite,
+        // sitemap, tags / subjects) — exposed in the Marketing sidebar's
+        // "Marketing Management" group, so Marketing must reach them too.
+        $catalogMkt   = array('admin', 'developer', 'marketing', 'training_provider');
         $cmsRoles     = array('admin', 'marketing', 'training_provider');
         $promoRoles   = array('admin', 'marketing', 'training_provider');
         $salesRoles   = array('admin', 'trainer', 'training_provider');
@@ -183,19 +189,20 @@ class MMD_RoleManager_Model_Observer
         $superOnly    = array('training_provider');
 
         return array(
-            // Catalog
+            // Catalog — heavy admin
             'adminhtml_catalog_category'          => $catalogAdmin,
             'adminhtml_catalog_product'           => $catalogAdmin,
             'adminhtml_catalog_product_attribute' => $catalogAdmin,
             'adminhtml_catalog_product_set'       => $catalogAdmin,
-            'adminhtml_catalog_product_review'    => $catalogAdmin,
-            'adminhtml_catalog_search'            => $catalogAdmin,
-            'adminhtml_urlrewrite'                => $catalogAdmin,
-            'adminhtml_sitemap'                   => $catalogAdmin,
-            'adminhtml_tag'                       => $catalogAdmin,
-            'adminhtml_tag_product'               => $catalogAdmin,
-            'adminhtml_tag_customer'              => $catalogAdmin,
             'adminhtml_googleshopping_items'      => $catalogAdmin,
+            // Catalog — also exposed to marketing via the Marketing sidebar
+            'adminhtml_catalog_product_review'    => $catalogMkt,
+            'adminhtml_catalog_search'            => $catalogMkt,
+            'adminhtml_urlrewrite'                => $catalogMkt,
+            'adminhtml_sitemap'                   => $catalogMkt,
+            'adminhtml_tag'                       => $catalogMkt,
+            'adminhtml_tag_product'               => $catalogMkt,
+            'adminhtml_tag_customer'              => $catalogMkt,
 
             // Customer
             'adminhtml_customer'                  => array('admin', 'training_provider'),
