@@ -354,6 +354,138 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
 
             $product->save();
 
+            // === Course Schedule tab — edit/remove existing custom_option values
+            //     and append new ones. Mirrors the schema used by addSessionAction()
+            //     and deleteSessionAction(): catalog_product_option_type_value (the
+            //     row), _type_title (per-store title), _type_price (per-store price).
+            //     All writes are scoped to options owned by THIS product so a
+            //     forged option_type_id can't touch another course's data.
+            if ($req->getParam('_schedule_loaded')) {
+                $_resource     = Mage::getSingleton('core/resource');
+                $_read         = $_resource->getConnection('core_read');
+                $_write        = $_resource->getConnection('core_write');
+                $_optTable     = $_resource->getTableName('catalog/product_option');
+                $_optTypeTable = $_resource->getTableName('catalog/product_option_type_value');
+                $_optTypeTitle = $_resource->getTableName('catalog/product_option_type_title');
+                $_optTypePrice = $_resource->getTableName('catalog/product_option_type_price');
+
+                // Build the set of option_ids that belong to this product — we'll
+                // reject any POSTed value/option_id outside this set.
+                $_ownedOptionIds = $_read->fetchCol(
+                    "SELECT option_id FROM {$_optTable} WHERE product_id = ?",
+                    array($courseId)
+                );
+                $_ownedOptionIds = array_map('intval', $_ownedOptionIds);
+
+                // Same lookup for option_type_value rows (so we can verify each
+                // value_id is on one of THIS product's options).
+                $_ownedValueIds = array();
+                if (!empty($_ownedOptionIds)) {
+                    $_ownedValueIds = $_read->fetchCol(
+                        "SELECT option_type_id FROM {$_optTypeTable} WHERE option_id IN (" . implode(',', $_ownedOptionIds) . ")"
+                    );
+                    $_ownedValueIds = array_map('intval', $_ownedValueIds);
+                }
+
+                // 1. Remove rows the user marked for deletion. delete from
+                //    _type_value cascades to _title and _price via FK.
+                $_removeMap = (array) $req->getParam('schedule_remove', array());
+                foreach ($_removeMap as $_vid => $_flag) {
+                    $_vid = (int) $_vid;
+                    if ($_flag !== '1' || $_vid <= 0) continue;
+                    if (!in_array($_vid, $_ownedValueIds, true)) continue;
+                    $_write->delete($_optTypeTable, array('option_type_id = ?' => $_vid));
+                }
+
+                // 2. Update existing rows (title / price / sort_order). We re-fetch
+                //    the owned set after deletion to skip rows the user removed.
+                $_remainingValueIds = array_diff($_ownedValueIds, array_map('intval', array_keys(array_filter($_removeMap, function($v){ return $v === '1'; }))));
+                $_valueMap = (array) $req->getParam('schedule_value', array());
+                foreach ($_valueMap as $_vid => $_fields) {
+                    $_vid = (int) $_vid;
+                    if ($_vid <= 0 || !in_array($_vid, $_remainingValueIds, true)) continue;
+                    $_title = isset($_fields['title']) ? trim((string) $_fields['title']) : null;
+                    $_priceRaw = isset($_fields['price']) ? trim((string) $_fields['price']) : null;
+                    $_sort  = isset($_fields['sort'])  ? (int) $_fields['sort']  : null;
+
+                    if ($_title !== null && $_title !== '') {
+                        $_write->update(
+                            $_optTypeTitle,
+                            array('title' => $_title),
+                            $_write->quoteInto('option_type_id = ? AND store_id = 0', $_vid)
+                        );
+                    }
+                    if ($_sort !== null) {
+                        $_write->update(
+                            $_optTypeTable,
+                            array('sort_order' => $_sort),
+                            $_write->quoteInto('option_type_id = ?', $_vid)
+                        );
+                    }
+                    if ($_priceRaw !== null) {
+                        $_priceVal = $_priceRaw === '' ? 0.0 : (float) $_priceRaw;
+                        // _type_price row may not exist (free sessions skip it).
+                        // Upsert: try update, insert if no row was affected.
+                        $_existsPrice = (int) $_read->fetchOne(
+                            "SELECT option_type_price_id FROM {$_optTypePrice} WHERE option_type_id = ? AND store_id = 0",
+                            array($_vid)
+                        );
+                        if ($_existsPrice) {
+                            $_write->update(
+                                $_optTypePrice,
+                                array('price' => $_priceVal, 'price_type' => 'fixed'),
+                                $_write->quoteInto('option_type_price_id = ?', $_existsPrice)
+                            );
+                        } elseif ($_priceVal > 0) {
+                            $_write->insert($_optTypePrice, array(
+                                'option_type_id' => $_vid,
+                                'store_id'       => 0,
+                                'price'          => $_priceVal,
+                                'price_type'     => 'fixed',
+                            ));
+                        }
+                    }
+                }
+
+                // 3. Insert new rows queued by the "+ Add session" button.
+                $_newMap = (array) $req->getParam('schedule_new', array());
+                foreach ($_newMap as $_optId => $_rows) {
+                    $_optId = (int) $_optId;
+                    if (!in_array($_optId, $_ownedOptionIds, true)) continue;
+                    if (!is_array($_rows)) continue;
+                    foreach ($_rows as $_row) {
+                        if (!is_array($_row)) continue;
+                        $_title = isset($_row['title']) ? trim((string) $_row['title']) : '';
+                        if ($_title === '') continue;  // skip blank rows
+                        $_sort  = isset($_row['sort'])  ? (int) $_row['sort']  : 0;
+                        $_priceRaw = isset($_row['price']) ? trim((string) $_row['price']) : '';
+                        $_priceVal = $_priceRaw === '' ? 0.0 : (float) $_priceRaw;
+
+                        $_write->insert($_optTypeTable, array(
+                            'option_id'  => $_optId,
+                            'sku'        => '',
+                            'sort_order' => $_sort,
+                        ));
+                        $_newVid = (int) $_write->lastInsertId();
+                        $_write->insert($_optTypeTitle, array(
+                            'option_type_id' => $_newVid,
+                            'store_id'       => 0,
+                            'title'          => $_title,
+                        ));
+                        if ($_priceVal > 0) {
+                            $_write->insert($_optTypePrice, array(
+                                'option_type_id' => $_newVid,
+                                'store_id'       => 0,
+                                'price'          => $_priceVal,
+                                'price_type'     => 'fixed',
+                            ));
+                        }
+                    }
+                }
+
+                Mage::app()->cleanCache();
+            }
+
             // Save courseware URLs into the dedicated course_courseware table (upsert by product_id).
             // Only runs if the form actually submitted any courseware_* field.
             $_cwFields = array(

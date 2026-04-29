@@ -2870,136 +2870,6 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
             }
             </script>
 
-            <div class="dcf-section">
-                <div class="dcf-section-title">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                    Trainers
-                </div>
-                <style>
-                .tr-picker-wrap{}
-                .tr-picker-label{font-weight:700;color:#fff;font-size:14px;margin-bottom:8px}
-                .tr-picker-search{width:100%;padding:12px 16px;background:#1e293b;border:1px solid #334155;border-radius:10px;color:#e2e8f0;font-size:14px;outline:none;box-sizing:border-box}
-                .tr-picker-search:focus{border-color:#60a5fa}
-                .tr-picker-list{background:#1e293b;border:1px solid #334155;border-radius:10px;max-height:280px;overflow-y:auto;margin-top:10px}
-                .tr-picker-list::-webkit-scrollbar{width:10px}
-                .tr-picker-list::-webkit-scrollbar-thumb{background:#475569;border-radius:10px;border:2px solid #1e293b}
-                .tr-picker-item{padding:12px 16px;cursor:pointer;color:#e2e8f0;font-size:14px;border-bottom:1px solid #334155;display:flex;align-items:center;gap:14px}
-                .tr-picker-name{flex:1;min-width:0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-                .tr-picker-email{flex:1;min-width:0;text-align:right;color:#94a3b8;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-                .tr-picker-item:last-child{border-bottom:none}
-                .tr-picker-item:hover{background:#283548}
-                .tr-picker-item.selected{background:rgba(37,99,235,.15);color:#93c5fd;font-weight:600}
-                .tr-picker-item.hidden{display:none}
-                .tr-picker-count{color:#94a3b8;font-size:12px;margin:16px 0 10px}
-                .tr-picker-tags{display:flex;flex-wrap:wrap;gap:8px}
-                .tr-picker-tag{background:rgba(37,99,235,.15);border:1px solid rgba(37,99,235,.4);border-radius:18px;padding:6px 14px;color:#93c5fd;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:8px}
-                .tr-picker-tag-x{color:#60a5fa;cursor:pointer;font-weight:700;font-size:15px;line-height:1}
-                .tr-picker-tag-x:hover{color:#fb7185}
-                </style>
-                <input type="hidden" name="trainer_ids" id="trainer-ids" value="<?php echo htmlspecialchars(implode(',', $_editCourseData['assigned_ids'])) ?>" />
-                <input type="hidden" name="legacy_trainer_remove" id="legacy-trainer-remove" value="" />
-                <div class="tr-picker-wrap">
-                    <div class="tr-picker-label">Add Trainer</div>
-                    <input type="text" class="tr-picker-search" id="trainer-search" placeholder="Search active trainer by name or email" oninput="trFilterList(this.value)" autocomplete="off" />
-                    <div class="tr-picker-list" id="trainer-list">
-                        <?php foreach ($_editCourseData['all_trainers'] as $_tid => $_tnm):
-                            $_temail = isset($_editCourseData['all_trainer_emails'][$_tid]) ? $_editCourseData['all_trainer_emails'][$_tid] : '';
-                            $_isSel = in_array($_tid, $_editCourseData['assigned_ids']);
-                        ?>
-                        <div class="tr-picker-item<?php echo $_isSel ? ' selected' : '' ?>" data-id="<?php echo (int)$_tid ?>" data-name="<?php echo htmlspecialchars($_tnm) ?>" data-search="<?php echo strtolower($_tnm . ' ' . $_temail) ?>" onclick="trToggle(this)">
-                            <span class="tr-picker-name"><?php echo htmlspecialchars($_tnm) ?></span>
-                            <span class="tr-picker-email"><?php echo htmlspecialchars($_temail) ?></span>
-                            <?php if ($_isSel): ?>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                            <?php endif; ?>
-                        </div>
-                        <?php endforeach; ?>
-                    </div>
-                    <?php $_totalAssigned = count($_editCourseData['assigned_ids']) + count($_editCourseData['legacy_trainers']); ?>
-                    <div class="tr-picker-count" id="trainer-count"><?php echo $_totalAssigned ?> assigned trainer<?php echo $_totalAssigned === 1 ? '' : 's' ?></div>
-                    <div class="tr-picker-tags" id="trainer-tags">
-                        <?php foreach ($_editCourseData['assigned_ids'] as $_aid): if (isset($_editCourseData['all_trainers'][$_aid])): ?>
-                        <span class="tr-picker-tag" data-id="<?php echo (int)$_aid ?>"><?php echo htmlspecialchars($_editCourseData['all_trainers'][$_aid]) ?> <span class="tr-picker-tag-x" onclick="trRemove(<?php echo (int)$_aid ?>)">&times;</span></span>
-                        <?php endif; endforeach; ?>
-                        <?php foreach ($_editCourseData['legacy_trainers'] as $_lt): ?>
-                        <span class="tr-picker-tag" data-legacy="<?php echo htmlspecialchars($_lt) ?>"><?php echo htmlspecialchars($_lt) ?> <span class="tr-picker-tag-x" onclick="trRemoveLegacy('<?php echo htmlspecialchars(addslashes($_lt), ENT_QUOTES) ?>', this)">&times;</span></span>
-                        <?php endforeach; ?>
-                    </div>
-                </div>
-                <script>
-                (function(){
-                    var hidden = document.getElementById('trainer-ids');
-                    window.trFilterList = function(q) {
-                        q = q.toLowerCase();
-                        var items = document.querySelectorAll('#trainer-list .tr-picker-item');
-                        for (var i = 0; i < items.length; i++) {
-                            var hay = items[i].getAttribute('data-search') || items[i].getAttribute('data-name').toLowerCase();
-                            items[i].classList.toggle('hidden', q && hay.indexOf(q) === -1);
-                        }
-                    };
-                    function rebuildTags() {
-                        var ids = (hidden.value || '').split(',').filter(Boolean);
-                        var tags = document.getElementById('trainer-tags');
-                        // Preserve legacy tags (data-legacy attribute)
-                        var legacyTags = Array.prototype.slice.call(tags.querySelectorAll('.tr-picker-tag[data-legacy]'));
-                        var count = document.getElementById('trainer-count');
-                        tags.innerHTML = '';
-                        ids.forEach(function(id){
-                            var item = document.querySelector('#trainer-list .tr-picker-item[data-id="' + id + '"]');
-                            if (!item) return;
-                            var span = document.createElement('span');
-                            span.className = 'tr-picker-tag';
-                            span.setAttribute('data-id', id);
-                            span.innerHTML = (item.querySelector('.tr-picker-name') || item).textContent.trim() + ' <span class="tr-picker-tag-x">&times;</span>';
-                            span.querySelector('.tr-picker-tag-x').onclick = function(){ trRemove(parseInt(id, 10)); };
-                            tags.appendChild(span);
-                        });
-                        // Re-append legacy tags
-                        legacyTags.forEach(function(t){ tags.appendChild(t); });
-                        var total = ids.length + legacyTags.length;
-                        count.textContent = total + ' assigned trainer' + (total === 1 ? '' : 's');
-                    }
-                    window.trToggle = function(el) {
-                        var id = el.getAttribute('data-id');
-                        var ids = (hidden.value || '').split(',').filter(Boolean);
-                        var idx = ids.indexOf(id);
-                        if (idx >= 0) {
-                            ids.splice(idx, 1);
-                            el.classList.remove('selected');
-                            var check = el.querySelector('svg');
-                            if (check) check.remove();
-                        } else {
-                            ids.push(id);
-                            el.classList.add('selected');
-                            if (!el.querySelector('svg')) {
-                                el.insertAdjacentHTML('beforeend', '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>');
-                            }
-                        }
-                        hidden.value = ids.join(',');
-                        rebuildTags();
-                    };
-                    window.trRemove = function(id) {
-                        var el = document.querySelector('#trainer-list .tr-picker-item[data-id="' + id + '"]');
-                        if (el) trToggle(el);
-                    };
-                    window.trRemoveLegacy = function(name, el) {
-                        var rm = document.getElementById('legacy-trainer-remove');
-                        var cur = (rm.value || '').split('|').filter(Boolean);
-                        cur.push(name);
-                        rm.value = cur.join('|');
-                        // remove the tag from DOM
-                        var tag = el.closest('.tr-picker-tag');
-                        if (tag) tag.remove();
-                        // update count
-                        var count = document.getElementById('trainer-count');
-                        var ids = (document.getElementById('trainer-ids').value || '').split(',').filter(Boolean);
-                        var legacyCount = document.querySelectorAll('.tr-picker-tag[data-legacy]').length;
-                        var total = ids.length + legacyCount;
-                        count.textContent = total + ' assigned trainer' + (total === 1 ? '' : 's');
-                    };
-                })();
-                </script>
-            </div>
         </div>
 
         <!-- RIGHT COLUMN: Course Content (mirrors read-only layout) -->
@@ -3259,18 +3129,142 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
         <!-- ===== Tab: Trainer Details ===== -->
         <div class="dcf-tab-panel" data-tab="trainer-details">
             <div class="dcf-mag">
-                <div class="dcf-mag-bar">Trainer Details</div>
+                <div class="dcf-mag-bar">Trainer Profile</div>
                 <div class="dcf-mag-body">
                     <div class="dcf-row">
                         <div class="dcf-row-label">Trainer Profile</div>
-                        <div class="dcf-row-input"><textarea class="dcf-textarea dcf-textarea-rich" name="trainer_profile" placeholder="HTML supported — trainer background, qualifications, experience..."></textarea></div>
+                        <div class="dcf-row-input"><textarea class="dcf-textarea dcf-textarea-rich" name="trainer_profile" placeholder="HTML supported — trainer background, qualifications, experience..."><?php echo htmlspecialchars((string) $_editProd->getData('trainerprofile')) ?></textarea></div>
                         <div class="dcf-row-scope">[STORE VIEW]</div>
                     </div>
                 </div>
             </div>
-            <div class="dcf-placeholder" style="margin-top:14px;">
-                <strong>Trainer assignment</strong>
-                The trainer multi-select picker lives in the Course Details tab. Use that for now.
+
+            <!-- Trainer multi-select picker (moved here from Course Details tab) -->
+            <div class="dcf-section" style="margin-top:14px;">
+                <div class="dcf-section-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    Assigned Trainers
+                </div>
+                <style>
+                .tr-picker-wrap{}
+                .tr-picker-label{font-weight:700;color:#fff;font-size:14px;margin-bottom:8px}
+                .tr-picker-search{width:100%;padding:12px 16px;background:#1e293b;border:1px solid #334155;border-radius:10px;color:#e2e8f0;font-size:14px;outline:none;box-sizing:border-box}
+                .tr-picker-search:focus{border-color:#60a5fa}
+                .tr-picker-list{background:#1e293b;border:1px solid #334155;border-radius:10px;max-height:280px;overflow-y:auto;margin-top:10px}
+                .tr-picker-list::-webkit-scrollbar{width:10px}
+                .tr-picker-list::-webkit-scrollbar-thumb{background:#475569;border-radius:10px;border:2px solid #1e293b}
+                .tr-picker-item{padding:12px 16px;cursor:pointer;color:#e2e8f0;font-size:14px;border-bottom:1px solid #334155;display:flex;align-items:center;gap:14px}
+                .tr-picker-name{flex:1;min-width:0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+                .tr-picker-email{flex:1;min-width:0;text-align:right;color:#94a3b8;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+                .tr-picker-item:last-child{border-bottom:none}
+                .tr-picker-item:hover{background:#283548}
+                .tr-picker-item.selected{background:rgba(37,99,235,.15);color:#93c5fd;font-weight:600}
+                .tr-picker-item.hidden{display:none}
+                .tr-picker-count{color:#94a3b8;font-size:12px;margin:16px 0 10px}
+                .tr-picker-tags{display:flex;flex-wrap:wrap;gap:8px}
+                .tr-picker-tag{background:rgba(37,99,235,.15);border:1px solid rgba(37,99,235,.4);border-radius:18px;padding:6px 14px;color:#93c5fd;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:8px}
+                .tr-picker-tag-x{color:#60a5fa;cursor:pointer;font-weight:700;font-size:15px;line-height:1}
+                .tr-picker-tag-x:hover{color:#fb7185}
+                </style>
+                <input type="hidden" name="trainer_ids" id="trainer-ids" value="<?php echo htmlspecialchars(implode(',', $_editCourseData['assigned_ids'])) ?>" />
+                <input type="hidden" name="legacy_trainer_remove" id="legacy-trainer-remove" value="" />
+                <div class="tr-picker-wrap">
+                    <div class="tr-picker-label">Add Trainer</div>
+                    <input type="text" class="tr-picker-search" id="trainer-search" placeholder="Search active trainer by name or email" oninput="trFilterList(this.value)" autocomplete="off" />
+                    <div class="tr-picker-list" id="trainer-list">
+                        <?php foreach ($_editCourseData['all_trainers'] as $_tid => $_tnm):
+                            $_temail = isset($_editCourseData['all_trainer_emails'][$_tid]) ? $_editCourseData['all_trainer_emails'][$_tid] : '';
+                            $_isSel = in_array($_tid, $_editCourseData['assigned_ids']);
+                        ?>
+                        <div class="tr-picker-item<?php echo $_isSel ? ' selected' : '' ?>" data-id="<?php echo (int)$_tid ?>" data-name="<?php echo htmlspecialchars($_tnm) ?>" data-search="<?php echo strtolower($_tnm . ' ' . $_temail) ?>" onclick="trToggle(this)">
+                            <span class="tr-picker-name"><?php echo htmlspecialchars($_tnm) ?></span>
+                            <span class="tr-picker-email"><?php echo htmlspecialchars($_temail) ?></span>
+                            <?php if ($_isSel): ?>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            <?php endif; ?>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <?php $_totalAssigned = count($_editCourseData['assigned_ids']) + count($_editCourseData['legacy_trainers']); ?>
+                    <div class="tr-picker-count" id="trainer-count"><?php echo $_totalAssigned ?> assigned trainer<?php echo $_totalAssigned === 1 ? '' : 's' ?></div>
+                    <div class="tr-picker-tags" id="trainer-tags">
+                        <?php foreach ($_editCourseData['assigned_ids'] as $_aid): if (isset($_editCourseData['all_trainers'][$_aid])): ?>
+                        <span class="tr-picker-tag" data-id="<?php echo (int)$_aid ?>"><?php echo htmlspecialchars($_editCourseData['all_trainers'][$_aid]) ?> <span class="tr-picker-tag-x" onclick="trRemove(<?php echo (int)$_aid ?>)">&times;</span></span>
+                        <?php endif; endforeach; ?>
+                        <?php foreach ($_editCourseData['legacy_trainers'] as $_lt): ?>
+                        <span class="tr-picker-tag" data-legacy="<?php echo htmlspecialchars($_lt) ?>"><?php echo htmlspecialchars($_lt) ?> <span class="tr-picker-tag-x" onclick="trRemoveLegacy('<?php echo htmlspecialchars(addslashes($_lt), ENT_QUOTES) ?>', this)">&times;</span></span>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <script>
+                (function(){
+                    var hidden = document.getElementById('trainer-ids');
+                    window.trFilterList = function(q) {
+                        q = q.toLowerCase();
+                        var items = document.querySelectorAll('#trainer-list .tr-picker-item');
+                        for (var i = 0; i < items.length; i++) {
+                            var hay = items[i].getAttribute('data-search') || items[i].getAttribute('data-name').toLowerCase();
+                            items[i].classList.toggle('hidden', q && hay.indexOf(q) === -1);
+                        }
+                    };
+                    function rebuildTags() {
+                        var ids = (hidden.value || '').split(',').filter(Boolean);
+                        var tags = document.getElementById('trainer-tags');
+                        var legacyTags = Array.prototype.slice.call(tags.querySelectorAll('.tr-picker-tag[data-legacy]'));
+                        var count = document.getElementById('trainer-count');
+                        tags.innerHTML = '';
+                        ids.forEach(function(id){
+                            var item = document.querySelector('#trainer-list .tr-picker-item[data-id="' + id + '"]');
+                            if (!item) return;
+                            var span = document.createElement('span');
+                            span.className = 'tr-picker-tag';
+                            span.setAttribute('data-id', id);
+                            span.innerHTML = (item.querySelector('.tr-picker-name') || item).textContent.trim() + ' <span class="tr-picker-tag-x">&times;</span>';
+                            span.querySelector('.tr-picker-tag-x').onclick = function(){ trRemove(parseInt(id, 10)); };
+                            tags.appendChild(span);
+                        });
+                        legacyTags.forEach(function(t){ tags.appendChild(t); });
+                        var total = ids.length + legacyTags.length;
+                        count.textContent = total + ' assigned trainer' + (total === 1 ? '' : 's');
+                    }
+                    window.trToggle = function(el) {
+                        var id = el.getAttribute('data-id');
+                        var ids = (hidden.value || '').split(',').filter(Boolean);
+                        var idx = ids.indexOf(id);
+                        if (idx >= 0) {
+                            ids.splice(idx, 1);
+                            el.classList.remove('selected');
+                            var check = el.querySelector('svg');
+                            if (check) check.remove();
+                        } else {
+                            ids.push(id);
+                            el.classList.add('selected');
+                            if (!el.querySelector('svg')) {
+                                el.insertAdjacentHTML('beforeend', '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>');
+                            }
+                        }
+                        hidden.value = ids.join(',');
+                        rebuildTags();
+                    };
+                    window.trRemove = function(id) {
+                        var el = document.querySelector('#trainer-list .tr-picker-item[data-id="' + id + '"]');
+                        if (el) trToggle(el);
+                    };
+                    window.trRemoveLegacy = function(name, el) {
+                        var rm = document.getElementById('legacy-trainer-remove');
+                        var cur = (rm.value || '').split('|').filter(Boolean);
+                        cur.push(name);
+                        rm.value = cur.join('|');
+                        var tag = el.closest('.tr-picker-tag');
+                        if (tag) tag.remove();
+                        var count = document.getElementById('trainer-count');
+                        var ids = (document.getElementById('trainer-ids').value || '').split(',').filter(Boolean);
+                        var legacyCount = document.querySelectorAll('.tr-picker-tag[data-legacy]').length;
+                        var total = ids.length + legacyCount;
+                        count.textContent = total + ' assigned trainer' + (total === 1 ? '' : 's');
+                    };
+                })();
+                </script>
             </div>
         </div>
 
@@ -3866,57 +3860,101 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                         }
                     } catch (Exception $_csEx) { /* tables present but query may fail on a stripped DB */ }
                     ?>
+                    <input type="hidden" name="_schedule_loaded" value="1" />
+                    <style>
+                    .cs-tbl{width:100%;border-collapse:collapse;font-size:13px;background:#1e293b;border-radius:8px;overflow:hidden;border:1px solid #384a60}
+                    .cs-tbl thead tr{background:#334155;color:#cbd5e1}
+                    .cs-tbl th{padding:8px 10px;text-align:left;font-weight:600;font-size:12px}
+                    .cs-tbl td{padding:6px 10px;color:#e2e8f0;border-top:1px solid #384a60;vertical-align:middle}
+                    .cs-tbl tr.cs-marked-remove td{opacity:.45;text-decoration:line-through}
+                    .cs-input{width:100%;padding:6px 10px;background:#0f172a;border:1px solid #475569;border-radius:6px;color:#e2e8f0;font-size:13px;box-sizing:border-box}
+                    .cs-input:focus{outline:none;border-color:#60a5fa}
+                    .cs-input.cs-w-price{width:90px}
+                    .cs-input.cs-w-sort{width:64px}
+                    .cs-id{color:#94a3b8;font-family:monospace;font-size:12px}
+                    .cs-add-btn{margin-top:10px;padding:8px 14px;background:rgba(34,211,238,.12);border:1px solid rgba(34,211,238,.4);color:#22d3ee;border-radius:8px;font-size:12.5px;font-weight:600;cursor:pointer}
+                    .cs-add-btn:hover{background:rgba(34,211,238,.22)}
+                    .cs-rm-btn{padding:5px 10px;background:rgba(248,113,113,.12);border:1px solid rgba(248,113,113,.35);color:#fca5a5;border-radius:6px;font-size:11.5px;font-weight:600;cursor:pointer}
+                    .cs-rm-btn:hover{background:rgba(248,113,113,.22)}
+                    .cs-rm-btn.active{background:rgba(248,113,113,.3);color:#fff}
+                    </style>
                     <div style="background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.25);color:#93c5fd;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px;">
-                        Read-only view of this product's custom options (Course Date, Sponsorship, Funding Eligibility, etc.). To <strong>add</strong> or <strong>remove</strong> dates, use the existing session manager on the read-only course page or Magento's product editor.
-                        <div style="margin-top:8px;">
-                            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id' => $_selectedCourse['id'], 'mode' => 'edit')) . $_devBackSuffix ?>" style="color:#60a5fa;font-weight:600;">→ Open project session manager</a>
-                            &nbsp;·&nbsp;
-                            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/catalog_product/edit', array('id' => $_selectedCourse['id'])) ?>#product_info_tabs_customoptions_tab" target="_blank" style="color:#60a5fa;font-weight:600;">→ Open in Magento product editor</a>
-                        </div>
+                        Edit each session's <strong>title</strong>, <strong>price</strong>, or <strong>sort order</strong> below. Use <strong>Remove</strong> to mark a row for deletion or <strong>+ Add session</strong> to queue a new row. Save Changes commits everything in one go.
                     </div>
                     <?php if (empty($_csOptions)): ?>
-                    <div style="background:#1e293b;border:1px dashed #475569;border-radius:8px;padding:32px;text-align:center;color:#64748b;">No custom options defined for this course yet.</div>
-                    <?php else: foreach ($_csOptions as $_co): ?>
-                    <div style="background:#283548;border:1px solid #384a60;border-radius:10px;padding:16px;margin-bottom:14px;">
+                    <div style="background:#1e293b;border:1px dashed #475569;border-radius:8px;padding:32px;text-align:center;color:#64748b;">No custom options defined for this course yet. Use the project session manager (read-only view → "Add Session") to create the first one.</div>
+                    <?php else: foreach ($_csOptions as $_co): $_oid = (int) $_co['id']; ?>
+                    <div style="background:#283548;border:1px solid #384a60;border-radius:10px;padding:16px;margin-bottom:14px;" data-option-id="<?php echo $_oid ?>">
                         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px;">
                             <div style="color:#f1f5f9;font-weight:700;font-size:15px;"><?php echo htmlspecialchars($_co['title']) ?></div>
                             <div style="color:#94a3b8;font-size:12px;">
                                 <span style="background:#334155;border-radius:4px;padding:2px 8px;margin-right:6px;"><?php echo htmlspecialchars($_co['type']) ?></span>
                                 <?php echo $_co['required'] ? '<span style="color:#fbbf24;">required</span>' : 'optional' ?>
                                 · sort <?php echo (int)$_co['sort'] ?>
-                                · option_id <?php echo (int)$_co['id'] ?>
+                                · option_id <?php echo $_oid ?>
                             </div>
                         </div>
-                        <?php if (empty($_co['values'])): ?>
-                        <div style="color:#64748b;font-size:13px;font-style:italic;">No values (e.g. for a text-area or single-value option).</div>
-                        <?php else: ?>
-                        <div style="background:#1e293b;border:1px solid #384a60;border-radius:8px;overflow:hidden;">
-                            <table style="width:100%;border-collapse:collapse;font-size:13px;">
-                                <thead>
-                                    <tr style="background:#334155;color:#cbd5e1;">
-                                        <th style="padding:8px 10px;text-align:left;font-weight:600;">option_type_id</th>
-                                        <th style="padding:8px 10px;text-align:left;font-weight:600;">Title</th>
-                                        <th style="padding:8px 10px;text-align:left;font-weight:600;">Price</th>
-                                        <th style="padding:8px 10px;text-align:left;font-weight:600;">SKU</th>
-                                        <th style="padding:8px 10px;text-align:left;font-weight:600;">Sort</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php foreach ($_co['values'] as $_v): ?>
-                                    <tr style="border-top:1px solid #384a60;color:#e2e8f0;">
-                                        <td style="padding:8px 10px;color:#94a3b8;font-family:monospace;"><?php echo (int)$_v['id'] ?></td>
-                                        <td style="padding:8px 10px;"><?php echo htmlspecialchars($_v['title']) ?></td>
-                                        <td style="padding:8px 10px;"><?php echo $_v['price'] > 0 ? '$' . number_format($_v['price'], 2) : '—' ?></td>
-                                        <td style="padding:8px 10px;color:#cbd5e1;font-family:monospace;font-size:12px;"><?php echo htmlspecialchars($_v['sku']) ?:'—' ?></td>
-                                        <td style="padding:8px 10px;color:#94a3b8;"><?php echo (int)$_v['sort'] ?></td>
-                                    </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        </div>
-                        <?php endif; ?>
+                        <table class="cs-tbl">
+                            <thead>
+                                <tr>
+                                    <th style="width:60px;">ID</th>
+                                    <th>Title</th>
+                                    <th style="width:110px;">Price</th>
+                                    <th style="width:80px;">Sort</th>
+                                    <th style="width:90px;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cs-rows-<?php echo $_oid ?>">
+                                <?php foreach ($_co['values'] as $_v): $_vid = (int) $_v['id']; ?>
+                                <tr data-value-id="<?php echo $_vid ?>">
+                                    <td class="cs-id"><?php echo $_vid ?></td>
+                                    <td><input type="text" class="cs-input" name="schedule_value[<?php echo $_vid ?>][title]" value="<?php echo htmlspecialchars($_v['title']) ?>" /></td>
+                                    <td><input type="number" step="0.01" class="cs-input cs-w-price" name="schedule_value[<?php echo $_vid ?>][price]" value="<?php echo $_v['price'] > 0 ? number_format($_v['price'], 2, '.', '') : '' ?>" placeholder="0.00" /></td>
+                                    <td><input type="number" step="1" class="cs-input cs-w-sort" name="schedule_value[<?php echo $_vid ?>][sort]" value="<?php echo (int) $_v['sort'] ?>" /></td>
+                                    <td>
+                                        <input type="hidden" name="schedule_remove[<?php echo $_vid ?>]" value="0" />
+                                        <button type="button" class="cs-rm-btn" onclick="csToggleRemove(this, <?php echo $_vid ?>)">Remove</button>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                        <button type="button" class="cs-add-btn" onclick="csAddRow(<?php echo $_oid ?>)">+ Add session</button>
                     </div>
                     <?php endforeach; endif; ?>
+                    <script>
+                    (function(){
+                        var newCounter = {};  // per-option_id new-row counter
+                        window.csAddRow = function(optionId) {
+                            newCounter[optionId] = (newCounter[optionId] || 0) + 1;
+                            var n = newCounter[optionId];
+                            var tbody = document.getElementById('cs-rows-' + optionId);
+                            if (!tbody) return;
+                            var tr = document.createElement('tr');
+                            tr.setAttribute('data-new', n);
+                            tr.innerHTML =
+                                '<td class="cs-id" style="color:#22d3ee;">new</td>' +
+                                '<td><input type="text" class="cs-input" name="schedule_new[' + optionId + '][' + n + '][title]" placeholder="e.g. 27 May 2026 (Tue)" /></td>' +
+                                '<td><input type="number" step="0.01" class="cs-input cs-w-price" name="schedule_new[' + optionId + '][' + n + '][price]" placeholder="0.00" /></td>' +
+                                '<td><input type="number" step="1" class="cs-input cs-w-sort" name="schedule_new[' + optionId + '][' + n + '][sort]" value="0" /></td>' +
+                                '<td><button type="button" class="cs-rm-btn" onclick="this.closest(\'tr\').remove()">Cancel</button></td>';
+                            tbody.appendChild(tr);
+                            tr.querySelector('input').focus();
+                        };
+                        window.csToggleRemove = function(btn, valueId) {
+                            var tr = btn.closest('tr');
+                            var hidden = tr.querySelector('input[name="schedule_remove[' + valueId + ']"]');
+                            if (!hidden) return;
+                            var marked = hidden.value === '1';
+                            hidden.value = marked ? '0' : '1';
+                            tr.classList.toggle('cs-marked-remove', !marked);
+                            btn.classList.toggle('active', !marked);
+                            btn.textContent = marked ? 'Remove' : 'Undo';
+                            // Disable inputs in marked-for-remove rows so they don't waste a save round-trip
+                            tr.querySelectorAll('input.cs-input').forEach(function(el){ el.disabled = !marked; });
+                        };
+                    })();
+                    </script>
                 </div>
             </div>
         </div>
