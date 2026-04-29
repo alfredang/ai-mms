@@ -2610,6 +2610,11 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
 
     protected function _isAllowed()
     {
-        return true;
+        // Course / class / enrolment / attendance management. Trainers
+        // legitimately use addSession, attendance lookups, etc.; learners
+        // and marketing-only users have no business here.
+        return Mage::helper('mmd_rolemanager')->isRoleAllowed(array(
+            'training_provider', 'admin', 'developer', 'trainer',
+        ));
     }
 }

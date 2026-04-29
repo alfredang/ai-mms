@@ -64,8 +64,14 @@ class MMD_RoleManager_Model_Observer
     }
 
     /**
-     * Before every admin controller action, redirect to role selection
-     * if user hasn't chosen a role yet.
+     * Before every admin controller action:
+     *   1. If the user has multiple roles and hasn't picked one yet,
+     *      redirect to role selection.
+     *   2. Otherwise enforce the per-role allow-list (`_roleControllerMap`)
+     *      so that e.g. a Marketing-only user can't reach
+     *      adminhtml/sitemap or adminhtml/customer even when the standard
+     *      Magento _isAllowed() check is missing or permissive on that
+     *      controller. Defense in depth.
      */
     public function onPredispatch(Varien_Event_Observer $observer)
     {
@@ -75,31 +81,189 @@ class MMD_RoleManager_Model_Observer
                 return;
             }
 
-            $needsSelect = $session->getNeedsRoleSelect();
-            if (!$needsSelect) {
-                return;
-            }
-
             $controller = $observer->getEvent()->getControllerAction();
             $actionName = $controller->getFullActionName();
+            $module     = $controller->getRequest()->getModuleName();
+            $ctrl       = $controller->getRequest()->getControllerName();
+            $key        = $module . '_' . $ctrl;
 
-            // Allow role selection and logout actions
-            $allowed = array(
-                'adminhtml_roleselect_index',
-                'adminhtml_roleselect_choose',
-                'adminhtml_index_logout',
-            );
-            if (in_array($actionName, $allowed)) {
+            // 1. Multi-role users haven't picked yet → push to role select
+            if ($session->getNeedsRoleSelect()) {
+                $allowedDuringSelect = array(
+                    'adminhtml_roleselect_index',
+                    'adminhtml_roleselect_choose',
+                    'adminhtml_index_logout',
+                );
+                if (in_array($actionName, $allowedDuringSelect, true)) {
+                    return;
+                }
+                $controller->getResponse()->setRedirect(
+                    Mage::helper('adminhtml')->getUrl('adminhtml/roleselect/index')
+                );
+                $controller->setFlag('', Mage_Core_Controller_Varien_Action::FLAG_NO_DISPATCH, true);
                 return;
             }
 
-            // Redirect to role selection
+            // 2. Per-role allow-list. Whitelisted controllers always pass
+            //    (login, dashboard, role-select / -switch, own profile,
+            //    Magento housekeeping like ajax/system_account block_widget).
+            //    Custom MMD controllers do their own _isAllowed checks via
+            //    Helper::isRoleAllowed and aren't included here.
+            $whitelist = $this->_aclWhitelist();
+            if (in_array($key, $whitelist, true)) {
+                return;
+            }
+
+            // Look up the allowed role list for this controller
+            $map = $this->_roleControllerMap();
+            if (!isset($map[$key])) {
+                return; // not in our map — fall through to Magento default ACL
+            }
+
+            $activeRole = Mage::helper('mmd_rolemanager')->getActiveRoleCode();
+            if (in_array($activeRole, $map[$key], true)) {
+                return; // permitted
+            }
+
+            // Block — render the standard Access Denied page
+            Mage::getSingleton('adminhtml/session')->addError(
+                Mage::helper('adminhtml')->__('Access denied.')
+            );
             $controller->getResponse()->setRedirect(
-                Mage::helper('adminhtml')->getUrl('adminhtml/roleselect/index')
+                Mage::helper('adminhtml')->getUrl('adminhtml/index/denied')
             );
             $controller->setFlag('', Mage_Core_Controller_Varien_Action::FLAG_NO_DISPATCH, true);
         } catch (Exception $e) {
             Mage::logException($e);
         }
+    }
+
+    /**
+     * Controllers that are always available regardless of active role.
+     */
+    protected function _aclWhitelist()
+    {
+        return array(
+            // Admin login + standard navigation
+            'adminhtml_index',
+            'adminhtml_dashboard',
+            // Role selection / switching / management UI
+            'adminhtml_roleselect',
+            'adminhtml_roleswitch',
+            // Own account
+            'adminhtml_system_account',
+            // CMS WYSIWYG ajax (variables, widgets, image browser)
+            'adminhtml_cms_wysiwyg_images',
+            'adminhtml_cms_wysiwyg',
+            // Magento housekeeping JSON endpoints used across roles
+            'adminhtml_ajax',
+            'adminhtml_notification',
+            'adminhtml_messages',
+            // Adminhtml support paths used internally
+            'adminhtml_oauth_authorize',
+            'adminhtml_oauth_authorize_simple',
+            'adminhtml_oauth_authorize_confirm',
+        );
+    }
+
+    /**
+     * Map of `<module>_<controller>` => list of role codes allowed to reach it.
+     * Anything not listed here falls through to Magento's standard ACL check.
+     * Custom MMD controllers (coursesave, attendance, etc.) have their own
+     * Helper::isRoleAllowed gates and aren't duplicated here.
+     */
+    protected function _roleControllerMap()
+    {
+        $catalogAdmin = array('admin', 'developer', 'training_provider');
+        $cmsRoles     = array('admin', 'marketing', 'training_provider');
+        $promoRoles   = array('admin', 'marketing', 'training_provider');
+        $salesRoles   = array('admin', 'trainer', 'training_provider');
+        $reportRoles  = array('admin', 'trainer', 'training_provider');
+        $sysDevRoles  = array('admin', 'developer', 'training_provider');
+        $superOnly    = array('training_provider');
+
+        return array(
+            // Catalog
+            'adminhtml_catalog_category'          => $catalogAdmin,
+            'adminhtml_catalog_product'           => $catalogAdmin,
+            'adminhtml_catalog_product_attribute' => $catalogAdmin,
+            'adminhtml_catalog_product_set'       => $catalogAdmin,
+            'adminhtml_catalog_product_review'    => $catalogAdmin,
+            'adminhtml_catalog_search'            => $catalogAdmin,
+            'adminhtml_urlrewrite'                => $catalogAdmin,
+            'adminhtml_sitemap'                   => $catalogAdmin,
+            'adminhtml_tag'                       => $catalogAdmin,
+            'adminhtml_tag_product'               => $catalogAdmin,
+            'adminhtml_tag_customer'              => $catalogAdmin,
+            'adminhtml_googleshopping_items'      => $catalogAdmin,
+
+            // Customer
+            'adminhtml_customer'                  => array('admin', 'training_provider'),
+            'adminhtml_customer_group'            => array('admin', 'training_provider'),
+            'adminhtml_customer_online'           => array('admin', 'training_provider'),
+
+            // Sales
+            'adminhtml_sales_order'               => $salesRoles,
+            'adminhtml_sales_order_invoice'       => $salesRoles,
+            'adminhtml_sales_order_shipment'      => $salesRoles,
+            'adminhtml_sales_order_creditmemo'    => $salesRoles,
+            'adminhtml_sales_invoice'             => $salesRoles,
+            'adminhtml_sales_shipment'            => $salesRoles,
+            'adminhtml_sales_creditmemo'          => $salesRoles,
+            'adminhtml_sales_billing_agreement'   => array('admin', 'training_provider'),
+            'adminhtml_sales_transactions'        => array('admin', 'training_provider'),
+            'adminhtml_recurring_profile'         => array('admin', 'training_provider'),
+            'adminhtml_promo_quote'               => $promoRoles,
+            'adminhtml_promo_catalog'             => $promoRoles,
+
+            // Promotions / CMS / Newsletter — marketing & admin
+            'adminhtml_widget_instance'           => $cmsRoles,
+            'adminhtml_cms_page'                  => $cmsRoles,
+            'adminhtml_cms_block'                 => $cmsRoles,
+            'adminhtml_newsletter_problem'        => $cmsRoles,
+            'adminhtml_newsletter_queue'          => $cmsRoles,
+            'adminhtml_newsletter_subscriber'     => $cmsRoles,
+            'adminhtml_newsletter_template'       => $cmsRoles,
+
+            // Reports
+            'adminhtml_report'                    => $reportRoles,
+            'adminhtml_report_sales'              => $reportRoles,
+            'adminhtml_report_shopcart'           => $reportRoles,
+            'adminhtml_report_product'            => $reportRoles,
+            'adminhtml_report_customer'           => $reportRoles,
+            'adminhtml_report_review'             => $reportRoles,
+            'adminhtml_report_tag'                => $reportRoles,
+            'adminhtml_report_search'             => $reportRoles,
+            'adminhtml_report_statistics'         => $reportRoles,
+
+            // System / dev tools
+            'adminhtml_system_config'             => $sysDevRoles,
+            'adminhtml_system_design'             => $sysDevRoles,
+            'adminhtml_system_store'              => array('admin', 'training_provider'),
+            'adminhtml_system_email_template'     => $cmsRoles,
+            'adminhtml_system_currency'           => array('admin', 'training_provider'),
+            'adminhtml_system_currencysymbol'     => array('admin', 'training_provider'),
+            'adminhtml_system_variable'           => $cmsRoles,
+            'adminhtml_system_storage_media_synchronize' => $sysDevRoles,
+            'adminhtml_system_backup'             => $sysDevRoles,
+            'adminhtml_cache'                     => $sysDevRoles,
+            'adminhtml_index_management'          => $sysDevRoles,
+            'adminhtml_log'                       => $sysDevRoles,
+            'adminhtml_extensions'                => $sysDevRoles,
+            'adminhtml_process'                   => $sysDevRoles,
+            'adminhtml_api_user'                  => $sysDevRoles,
+            'adminhtml_api_role'                  => $sysDevRoles,
+            'adminhtml_api2_role'                 => $sysDevRoles,
+            'adminhtml_api2_attribute'            => $sysDevRoles,
+
+            // Permissions — Super Admin only
+            'adminhtml_permissions_role'          => $superOnly,
+            'adminhtml_permissions_user'          => $superOnly,
+            'adminhtml_permissions_block'         => $superOnly,
+            'adminhtml_permissions_variable'      => $superOnly,
+
+            // Custom Role Management UI — Super Admin + Admin
+            'adminhtml_rolemanagement'            => array('admin', 'training_provider'),
+        );
     }
 }

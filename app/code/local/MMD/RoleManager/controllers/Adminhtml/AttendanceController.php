@@ -353,6 +353,8 @@ class MMD_RoleManager_Adminhtml_AttendanceController extends Mage_Adminhtml_Cont
 
     protected function _isAllowed()
     {
-        return true;
+        return Mage::helper('mmd_rolemanager')->isRoleAllowed(array(
+            'training_provider', 'admin', 'trainer',
+        ));
     }
 }

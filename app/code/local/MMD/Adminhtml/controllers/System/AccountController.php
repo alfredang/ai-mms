@@ -4,6 +4,22 @@ require_once Mage::getModuleDir('controllers', 'Mage_Adminhtml') . '/System/Acco
 class MMD_Adminhtml_System_AccountController extends Mage_Adminhtml_System_AccountController
 {
     /**
+     * The parent gates My Account behind the `system/myaccount` ACL
+     * resource, which only Super Admin / Administrators groups grant.
+     * That's wrong for this LMS — a Learner / Trainer / Marketing user
+     * still has to be able to view and edit their own profile (name,
+     * email, password, profile image). Allow any authenticated admin
+     * regardless of role group; this only exposes their OWN record,
+     * not other users'.
+     *
+     * @return bool
+     */
+    protected function _isAllowed()
+    {
+        return Mage::getSingleton('admin/session')->isLoggedIn();
+    }
+
+    /**
      * Save account without requiring current password.
      * Handles profile fields + image upload.
      */

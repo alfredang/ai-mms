@@ -15,6 +15,10 @@ class MMD_RoleManager_Adminhtml_SeometadataController extends Mage_Adminhtml_Con
 
     protected function _isAllowed()
     {
-        return true;
+        // SEO metadata is shared between marketing (campaigns) and
+        // developers (technical SEO setup).
+        return Mage::helper('mmd_rolemanager')->isRoleAllowed(array(
+            'training_provider', 'admin', 'marketing', 'developer',
+        ));
     }
 }

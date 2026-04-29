@@ -67,6 +67,15 @@ class MMD_RoleManager_Adminhtml_RolemanagementController extends Mage_Adminhtml_
                 }
             }
 
+            // Mirror the primary role into Magento's standard admin_role
+            // table so hasAssigned2Role() at login succeeds. applyRoleAcl()
+            // upserts the 'U' row pointing at the matching G group; without
+            // this, the user has roles in our custom map but no admin_role
+            // membership and gets "Access denied" on login.
+            if (is_array($roles) && count($roles) > 0) {
+                Mage::helper('mmd_rolemanager')->applyRoleAcl($userId, $roles[0]);
+            }
+
             $result['success'] = true;
             $result['message'] = 'User updated successfully';
         } catch (Exception $e) {
@@ -145,6 +154,12 @@ class MMD_RoleManager_Adminhtml_RolemanagementController extends Mage_Adminhtml_
 
     protected function _isAllowed()
     {
-        return Mage::getSingleton('admin/session')->isLoggedIn();
+        // Role assignment + user enable/disable + delete — only roles
+        // that are themselves administrative. A learner / trainer /
+        // marketing user URL-typing here would otherwise be able to grant
+        // themselves Super Admin.
+        return Mage::helper('mmd_rolemanager')->isRoleAllowed(array(
+            'training_provider', 'admin',
+        ));
     }
 }

@@ -27,6 +27,9 @@ class MMD_RoleManager_Adminhtml_CpgeneratorController extends Mage_Adminhtml_Con
 
     protected function _isAllowed()
     {
-        return true;
+        // Coupon generation is a marketing/admin function.
+        return Mage::helper('mmd_rolemanager')->isRoleAllowed(array(
+            'training_provider', 'admin', 'marketing',
+        ));
     }
 }

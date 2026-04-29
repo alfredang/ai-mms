@@ -607,6 +607,32 @@ textarea:focus, select:focus, .input-text:focus {
     outline: none !important;
 }
 select option { background: var(--d5) !important; color: var(--t1) !important; }
+/* Optgroup headers inside <select> dropdowns. Browsers paint these with the
+   system default (often near-black on Windows / black on macOS) which is
+   unreadable on our slate-700 dropdown background. Visible on System >
+   Configuration and Catalog > Attributes' input-type dropdown. */
+select optgroup {
+    background: var(--d5) !important;
+    color: var(--t4) !important;
+    font-weight: 700 !important;
+    font-style: normal !important;
+}
+select optgroup option {
+    background: var(--d5) !important;
+    color: var(--t1) !important;
+    font-weight: normal !important;
+}
+/* Fieldset legends — the section titles inside System > Configuration and
+   anywhere else Magento groups fields. Browser default is black, which
+   disappears against the dark panel background. */
+fieldset legend,
+.fieldset legend {
+    color: var(--t1) !important;
+    background: transparent !important;
+    padding: 0 8px !important;
+    font-weight: 700 !important;
+    font-size: 13px !important;
+}
 /* Browser autofill — Chrome / Edge force a hardcoded pale-yellow background
    on autofilled fields, which makes our dark inputs unreadable. The trick is
    an inset box-shadow large enough to cover the field; the browser paints the

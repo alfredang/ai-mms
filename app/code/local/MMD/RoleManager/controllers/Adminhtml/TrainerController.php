@@ -369,7 +369,9 @@ class MMD_RoleManager_Adminhtml_TrainerController extends Mage_Adminhtml_Control
 
     protected function _isAllowed()
     {
-        return Mage::getSingleton('admin/session')->isLoggedIn();
+        return Mage::helper('mmd_rolemanager')->isRoleAllowed(array(
+            'training_provider', 'admin',
+        ));
     }
 
     protected function _sendJson(array $data)

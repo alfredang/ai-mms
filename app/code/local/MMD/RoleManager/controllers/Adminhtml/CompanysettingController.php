@@ -78,6 +78,8 @@ class MMD_RoleManager_Adminhtml_CompanysettingController extends Mage_Adminhtml_
 
     protected function _isAllowed()
     {
-        return true;
+        return Mage::helper('mmd_rolemanager')->isRoleAllowed(array(
+            'training_provider', 'admin',
+        ));
     }
 }

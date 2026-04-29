@@ -126,6 +126,36 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
         }
     }
 
+    /**
+     * Per-page role gate. Returns true if the user's CURRENT active role
+     * (the one selected via View As / role-select) is in the allowed list,
+     * AND they're logged in. Used by custom controllers to enforce role
+     * restrictions on actions that don't map to standard Magento ACL
+     * resources.
+     *
+     * Why this exists in addition to Magento's ACL: many of our custom
+     * controllers (CoursesaveController, RolemanagementController, etc.)
+     * historically had `_isAllowed() { return true; }`, which let any
+     * authenticated admin hit them — including the role assignment UI,
+     * which would have allowed a learner-only user to assign themselves
+     * Super Admin via URL-typing.
+     *
+     * Also blocks switched roles correctly: a user with both admin and
+     * learner roles, currently switched to Learner, won't pass an
+     * isRoleAllowed(['admin']) check until they switch back via View As.
+     *
+     * @param string|array $allowedRoles single code or list of codes
+     * @return bool
+     */
+    public function isRoleAllowed($allowedRoles)
+    {
+        if (!Mage::getSingleton('admin/session')->isLoggedIn()) {
+            return false;
+        }
+        $allowedRoles = is_array($allowedRoles) ? $allowedRoles : array($allowedRoles);
+        return in_array($this->getActiveRoleCode(), $allowedRoles, true);
+    }
+
     public function applyRoleAcl($userId, $roleCode)
     {
         $resource  = Mage::getSingleton('core/resource');
@@ -152,11 +182,33 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
             return false;
         }
 
-        $write->update(
-            $roleTable,
-            array('parent_id' => $groupRoleId),
-            $write->quoteInto("user_id = ? AND role_type = 'U'", (int) $userId)
+        // Update the user's existing 'U' row, OR create one if missing.
+        // The 'U' row is what Magento's auth checks via hasAssigned2Role() —
+        // a user without it is rejected at login regardless of how many
+        // mmd_user_role_map entries they have. We explicitly upsert here
+        // so users created via the custom Role Management UI (which only
+        // writes to mmd_user_role_map) can actually log in.
+        $existing = $write->fetchOne(
+            "SELECT role_id FROM {$roleTable} WHERE user_id = ? AND role_type = 'U'",
+            (int) $userId
         );
+        if ($existing) {
+            $write->update(
+                $roleTable,
+                array('parent_id' => $groupRoleId),
+                $write->quoteInto("user_id = ? AND role_type = 'U'", (int) $userId)
+            );
+        } else {
+            $user = Mage::getModel('admin/user')->load((int) $userId);
+            $write->insert($roleTable, array(
+                'parent_id'  => $groupRoleId,
+                'tree_level' => 2,
+                'sort_order' => 0,
+                'role_type'  => 'U',
+                'user_id'    => (int) $userId,
+                'role_name'  => $user->getUsername() ?: ('user_' . $userId),
+            ));
+        }
 
         Mage::getSingleton('admin/session')->setAcl(Mage::getResourceModel('admin/acl')->loadAcl());
         return true;
