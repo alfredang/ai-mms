@@ -155,6 +155,32 @@
                 window.location.href = data.url;
                 return;
             }
+            // Bail out of PJAX if the new page's <head> references any
+            // <script src> the current page hasn't already loaded. Magento
+            // gates ExtJS / WYSIWYG / etc. behind layout handles that only
+            // fire on specific pages (catalog_category, urlrewrite, product
+            // attribute edit, etc.) — those scripts get added to <head> on a
+            // full pageload but PJAX never updates <head>, so inline body
+            // scripts that depend on `Ext` / `tinyMCE` / etc. would error
+            // out. Detecting it here keeps PJAX fast for the common case
+            // while gracefully reloading for these few heavyweight pages.
+            var loadedSrcs = {};
+            document.head.querySelectorAll('script[src]').forEach(function(s) {
+                loadedSrcs[s.src] = true;
+            });
+            var needsFullLoad = false;
+            doc.head.querySelectorAll('script[src]').forEach(function(s) {
+                if (!s.src) return;
+                // Resolve relative URLs against current location for fair compare.
+                var resolved;
+                try { resolved = new URL(s.getAttribute('src'), data.url).href; }
+                catch (e) { resolved = s.src; }
+                if (!loadedSrcs[resolved]) needsFullLoad = true;
+            });
+            if (needsFullLoad) {
+                window.location.href = data.url;
+                return;
+            }
             if (doc.title) document.title = doc.title;
             // Sync body class — Magento sets per-page body classes (e.g.
             // `adminhtml-catalog-product`) that some CSS selectors depend on.
