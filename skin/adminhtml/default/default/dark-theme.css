@@ -273,8 +273,116 @@ body .header-top {
 body.adminhtml-catalog-category-edit .side-col,
 body.adminhtml-catalog-category-index .side-col,
 body.catalog-categories .side-col {
-    flex: 0 0 320px !important;
-    width: 320px !important;
+    flex: 0 0 380px !important;
+    width: 380px !important;
+}
+
+/* === Categories-page cleanup ===
+   The catalog_category page is messy by default: a duplicate "Filters" button
+   is auto-injected by sidebar-nav-v2.js (the script iterates every .grid on
+   page-load and inserts a toggle, which double-fires here), and the right-
+   side "New Root Category" form takes up half the screen with empty inputs
+   when no node is selected. Hide the noise so the page is just the tree +
+   the Add buttons until the user actually clicks a node.
+*/
+
+/* Suppress the JS-injected Filters toggle on this page — there are no
+   useful filterable grids here, only the tree. */
+body.adminhtml-catalog-category-index .advanced-filter-toggle,
+body.adminhtml-catalog-category-edit .advanced-filter-toggle,
+body.catalog-categories .advanced-filter-toggle,
+body.adminhtml-catalog-category-index .advanced-filter-panel,
+body.adminhtml-catalog-category-edit .advanced-filter-panel,
+body.catalog-categories .advanced-filter-panel {
+    display: none !important;
+}
+
+/* Hide the misleading auto-injected KPI cards + product list at the bottom
+   of the categories page (they show *product* counts, not category counts). */
+body.adminhtml-catalog-category-index .injected-kpi-row,
+body.adminhtml-catalog-category-edit .injected-kpi-row,
+body.catalog-categories .injected-kpi-row,
+body.adminhtml-catalog-category-index .injected-data-table,
+body.adminhtml-catalog-category-edit .injected-data-table,
+body.catalog-categories .injected-data-table {
+    display: none !important;
+}
+
+/* Hide the empty "New Root Category" edit form by default — only show it
+   when the user has clicked a tree node (the form picks up the .editing
+   state when populated, or is hidden on landing). The default reserves
+   half the page for an empty form, which is wasteful UX.
+   The form lives inside #category-edit-container; collapse it when its
+   parent main-col carries the index-page body class. */
+body.adminhtml-catalog-category-index .main-col #category-edit-container:not(.has-content) {
+    opacity: 0.45;
+    pointer-events: auto;
+}
+
+/* Tighten the tree-side header so the Add Root + Add Subcategory buttons
+   sit on a single row rather than stacking with a forced <br>. */
+body.adminhtml-catalog-category-index .categories-side-col .content-header,
+body.adminhtml-catalog-category-edit .categories-side-col .content-header,
+body.catalog-categories .categories-side-col .content-header {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    gap: 10px !important;
+    padding: 14px 16px !important;
+    margin-bottom: 12px !important;
+    background: var(--d3) !important;
+    border: 1px solid var(--b1) !important;
+    border-radius: 12px !important;
+}
+body.adminhtml-catalog-category-index .categories-side-col .content-header h3,
+body.adminhtml-catalog-category-edit .categories-side-col .content-header h3,
+body.catalog-categories .categories-side-col .content-header h3 {
+    flex: 1 1 100%;
+    margin: 0 0 4px !important;
+    font-size: 18px !important;
+    font-weight: 700 !important;
+    color: var(--t1) !important;
+}
+body.adminhtml-catalog-category-index .categories-side-col .content-header br,
+body.adminhtml-catalog-category-edit .categories-side-col .content-header br,
+body.catalog-categories .categories-side-col .content-header br {
+    display: none !important;
+}
+body.adminhtml-catalog-category-index .categories-side-col .content-header button,
+body.adminhtml-catalog-category-edit .categories-side-col .content-header button,
+body.catalog-categories .categories-side-col .content-header button {
+    flex: 0 0 auto !important;
+}
+
+/* Cleaner store-switcher + tree-actions spacing */
+body.adminhtml-catalog-category-index .store-switcher,
+body.adminhtml-catalog-category-edit .store-switcher,
+body.catalog-categories .store-switcher {
+    margin: 0 0 10px !important;
+    padding: 12px 16px !important;
+    background: var(--d3) !important;
+    border: 1px solid var(--b1) !important;
+    border-radius: 10px !important;
+}
+body.adminhtml-catalog-category-index .tree-actions,
+body.adminhtml-catalog-category-edit .tree-actions,
+body.catalog-categories .tree-actions {
+    margin: 0 0 8px !important;
+    padding: 8px 16px !important;
+    text-align: center !important;
+    font-size: 13px !important;
+}
+
+/* Tree itself — give the lines breathing room and remove the visual
+   clutter of double icons/borders. */
+body.adminhtml-catalog-category-index .tree-holder,
+body.adminhtml-catalog-category-edit .tree-holder,
+body.catalog-categories .tree-holder {
+    background: var(--d3) !important;
+    border: 1px solid var(--b1) !important;
+    border-radius: 12px !important;
+    padding: 12px 8px !important;
+    min-height: 400px;
 }
 .side-col .entry-edit-head {
     background: var(--d3) !important;
