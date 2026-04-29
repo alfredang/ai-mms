@@ -279,6 +279,14 @@ class MMD_RoleManager_Model_Observer
 
             // Custom Role Management UI — Super Admin + Admin
             'adminhtml_rolemanagement'            => array('admin', 'training_provider'),
+
+            // Tax (GST in this LMS' Super Admin + Admin sidebars)
+            'adminhtml_tax_rule'                  => array('admin', 'training_provider'),
+            'adminhtml_tax_class'                 => array('admin', 'training_provider'),
+            'adminhtml_tax_rate'                  => array('admin', 'training_provider'),
+
+            // Custom MMD route: Course Schedules ("Manage Templates")
+            'mmd_customoptions_options'           => array('admin', 'training_provider'),
         );
     }
 }

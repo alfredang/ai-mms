@@ -30,7 +30,22 @@
  */
 
 class MMD_Adminhtml_Customoptions_OptionsController extends Mage_Adminhtml_Controller_Action {
-    
+
+    /**
+     * Course Schedules / custom-options template management. Exposed in
+     * the Super Admin + Admin sidebars under "Course Schedules" (and
+     * legacy Catalog menu paths). The parent class' default _isAllowed
+     * returns false because no ADMIN_RESOURCE is declared on this
+     * controller, so without an explicit override the page is unreachable
+     * for everyone — even Super Admin.
+     */
+    protected function _isAllowed()
+    {
+        return Mage::helper('mmd_rolemanager')->isRoleAllowed(array(
+            'training_provider', 'admin',
+        ));
+    }
+
     public function indexAction() {
         $this->_title($this->__('APO'))->_title($this->__('Manage Templates'));
         $this->loadLayout()
