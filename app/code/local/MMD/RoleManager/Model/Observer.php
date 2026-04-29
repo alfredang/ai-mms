@@ -81,6 +81,14 @@ class MMD_RoleManager_Model_Observer
                 return;
             }
 
+            // Refresh the session ACL on every request so live sessions
+            // pick up any admin_rule changes (e.g. from migrations or the
+            // Role Management UI) without needing a log-out / role switch.
+            // Admin_role + admin_rule are small tables; the rebuild cost
+            // is negligible compared to the silent-failure surface area
+            // of a stale cached ACL.
+            $session->setAcl(Mage::getResourceModel('admin/acl')->loadAcl());
+
             $controller = $observer->getEvent()->getControllerAction();
             $actionName = $controller->getFullActionName();
             $module     = $controller->getRequest()->getModuleName();
