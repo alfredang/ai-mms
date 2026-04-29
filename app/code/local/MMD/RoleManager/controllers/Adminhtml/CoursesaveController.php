@@ -2532,6 +2532,70 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
         $this->_sendJson($result);
     }
 
+    /**
+     * Re-point a Course Run ID at a different course in tpg_run_id_map.
+     * Used by the Search Enrolment "Fix Mapping" button when the inferred
+     * course doesn't match what the official SSG deployment shows.
+     * POST: ssg_run_id, course_sku
+     * Returns JSON { success, run_id, sku, course_name?, message? }
+     */
+    public function fixRunMappingAction()
+    {
+        $result = array('success' => false);
+        try {
+            if (!$this->getRequest()->isPost()) throw new Exception('POST required');
+            $req   = $this->getRequest();
+            $runId = (int) $req->getParam('ssg_run_id');
+            $sku   = trim((string) $req->getParam('course_sku'));
+            if (!$runId || $sku === '') {
+                throw new Exception('ssg_run_id and course_sku are required');
+            }
+
+            $resource = Mage::getSingleton('core/resource');
+            $read  = $resource->getConnection('core_read');
+            $write = $resource->getConnection('core_write');
+
+            $row = $read->fetchRow(
+                "SELECT e.entity_id, e.sku,
+                        (SELECT v.value FROM catalog_product_entity_varchar v WHERE v.entity_id=e.entity_id AND v.attribute_id=71 ORDER BY v.store_id LIMIT 1) AS name
+                 FROM catalog_product_entity e WHERE e.sku = ? LIMIT 1",
+                array($sku)
+            );
+            if (!$row) {
+                throw new Exception('No course found with SKU "' . $sku . '"');
+            }
+
+            $exists = (int) $read->fetchOne(
+                "SELECT COUNT(*) FROM tpg_run_id_map WHERE ssg_run_id = ?",
+                array($runId)
+            );
+            if ($exists) {
+                $write->update('tpg_run_id_map',
+                    array(
+                        'product_id'     => (int)$row['entity_id'],
+                        'course_code'    => $row['sku'],
+                        'option_type_id' => null,
+                    ),
+                    array('ssg_run_id = ?' => $runId)
+                );
+            } else {
+                $write->insert('tpg_run_id_map', array(
+                    'ssg_run_id'  => $runId,
+                    'product_id'  => (int)$row['entity_id'],
+                    'course_code' => $row['sku'],
+                ));
+            }
+
+            $result['success']     = true;
+            $result['run_id']      = $runId;
+            $result['sku']         = $row['sku'];
+            $result['course_name'] = $row['name'];
+        } catch (Exception $e) {
+            $result['message'] = $e->getMessage();
+        }
+        $this->_sendJson($result);
+    }
+
     protected function _sendJson(array $data)
     {
         $this->getResponse()
