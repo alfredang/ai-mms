@@ -44,6 +44,22 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
         'training_provider' => 6,
     );
 
+    // Maps a role code to the admin_role group name (role_type='G') that
+    // applyRoleAcl() should point the user's parent_id at. Group rows + their
+    // admin_rule grants live in install-1.0.0.php / upgrade-1.0.0-1.1.0.php /
+    // migration 031-developer-acl-group.sql. Note the asymmetry:
+    // training_provider is labeled "Super Admin" everywhere in the UI and
+    // gets the wildcard-grant Super Admin group, not the narrower
+    // "Training Provider" group seeded in upgrade-1.0.0-1.1.0.php.
+    protected $_roleAclGroup = array(
+        'learner'           => 'Learner',
+        'trainer'           => 'Trainer',
+        'developer'         => 'Developer',
+        'marketing'         => 'Marketing',
+        'admin'             => 'Admin',
+        'training_provider' => 'Super Admin',
+    );
+
     public function getAllRoles()
     {
         return $this->_roleLabels;
@@ -116,11 +132,21 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
         $write     = $resource->getConnection('core_write');
         $roleTable = $resource->getTableName('admin/role');
 
-        // Temporarily assign all roles to Administrators (full access)
-        // TODO: restore per-role ACL once role permissions are configured
+        // Resolve the ACL group for this role; fall back to Administrators
+        // so a missing group row never locks an admin out.
+        $groupName   = isset($this->_roleAclGroup[$roleCode])
+            ? $this->_roleAclGroup[$roleCode]
+            : 'Administrators';
         $groupRoleId = $write->fetchOne(
-            "SELECT role_id FROM {$roleTable} WHERE role_name = 'Administrators' AND role_type = 'G'"
+            "SELECT role_id FROM {$roleTable} WHERE role_name = ? AND role_type = 'G'",
+            $groupName
         );
+
+        if (!$groupRoleId && $groupName !== 'Administrators') {
+            $groupRoleId = $write->fetchOne(
+                "SELECT role_id FROM {$roleTable} WHERE role_name = 'Administrators' AND role_type = 'G'"
+            );
+        }
 
         if (!$groupRoleId) {
             return false;
@@ -129,7 +155,7 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
         $write->update(
             $roleTable,
             array('parent_id' => $groupRoleId),
-            "user_id = {$userId} AND role_type = 'U'"
+            $write->quoteInto("user_id = ? AND role_type = 'U'", (int) $userId)
         );
 
         Mage::getSingleton('admin/session')->setAcl(Mage::getResourceModel('admin/acl')->loadAcl());
