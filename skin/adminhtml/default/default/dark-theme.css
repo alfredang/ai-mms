@@ -384,6 +384,143 @@ body.catalog-categories .tree-holder {
     padding: 12px 8px !important;
     min-height: 400px;
 }
+
+/* === Sidebar-style category tree ===
+   Replace Ext.tree's dotted indent lines, sprite-based +/- expanders,
+   and yellow-folder icons with a clean sidebar-like layout: a single
+   chevron caret per parent that rotates on expand, no clutter, hover
+   state matching the sidebar. */
+body.adminhtml-catalog-category-index #tree-div .x-tree-elbow,
+body.adminhtml-catalog-category-edit #tree-div .x-tree-elbow,
+body.catalog-categories #tree-div .x-tree-elbow,
+body.adminhtml-catalog-category-index #tree-div .x-tree-elbow-end,
+body.adminhtml-catalog-category-edit #tree-div .x-tree-elbow-end,
+body.catalog-categories #tree-div .x-tree-elbow-end,
+body.adminhtml-catalog-category-index #tree-div .x-tree-elbow-line,
+body.adminhtml-catalog-category-edit #tree-div .x-tree-elbow-line,
+body.catalog-categories #tree-div .x-tree-elbow-line,
+body.adminhtml-catalog-category-index #tree-div .x-tree-icon,
+body.adminhtml-catalog-category-edit #tree-div .x-tree-icon,
+body.catalog-categories #tree-div .x-tree-icon {
+    /* Hide indent dots + folder icons */
+    background: none !important;
+    visibility: hidden !important;
+    width: 4px !important;
+}
+
+/* Override the +/- sprite expanders into a clean chevron caret.
+   Ext.tree uses .x-tree-elbow-plus / .x-tree-elbow-end-plus for collapsed
+   state, .x-tree-elbow-minus / .x-tree-elbow-end-minus for expanded. */
+body.adminhtml-catalog-category-index #tree-div .x-tree-elbow-plus,
+body.adminhtml-catalog-category-edit #tree-div .x-tree-elbow-plus,
+body.catalog-categories #tree-div .x-tree-elbow-plus,
+body.adminhtml-catalog-category-index #tree-div .x-tree-elbow-end-plus,
+body.adminhtml-catalog-category-edit #tree-div .x-tree-elbow-end-plus,
+body.catalog-categories #tree-div .x-tree-elbow-end-plus,
+body.adminhtml-catalog-category-index #tree-div .x-tree-elbow-minus,
+body.adminhtml-catalog-category-edit #tree-div .x-tree-elbow-minus,
+body.catalog-categories #tree-div .x-tree-elbow-minus,
+body.adminhtml-catalog-category-index #tree-div .x-tree-elbow-end-minus,
+body.adminhtml-catalog-category-edit #tree-div .x-tree-elbow-end-minus,
+body.catalog-categories #tree-div .x-tree-elbow-end-minus {
+    background: none !important;
+    visibility: visible !important;
+    position: relative !important;
+    width: 18px !important;
+    height: 22px !important;
+    cursor: pointer !important;
+    display: inline-block !important;
+}
+body.adminhtml-catalog-category-index #tree-div .x-tree-elbow-plus::before,
+body.adminhtml-catalog-category-edit #tree-div .x-tree-elbow-plus::before,
+body.catalog-categories #tree-div .x-tree-elbow-plus::before,
+body.adminhtml-catalog-category-index #tree-div .x-tree-elbow-end-plus::before,
+body.adminhtml-catalog-category-edit #tree-div .x-tree-elbow-end-plus::before,
+body.catalog-categories #tree-div .x-tree-elbow-end-plus::before,
+body.adminhtml-catalog-category-index #tree-div .x-tree-elbow-minus::before,
+body.adminhtml-catalog-category-edit #tree-div .x-tree-elbow-minus::before,
+body.catalog-categories #tree-div .x-tree-elbow-minus::before,
+body.adminhtml-catalog-category-index #tree-div .x-tree-elbow-end-minus::before,
+body.adminhtml-catalog-category-edit #tree-div .x-tree-elbow-end-minus::before,
+body.catalog-categories #tree-div .x-tree-elbow-end-minus::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 4px;
+    width: 10px;
+    height: 10px;
+    transform: translateY(-50%);
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='9 18 15 12 9 6'/></svg>");
+    background-repeat: no-repeat;
+    background-size: contain;
+    transition: transform 0.18s ease;
+}
+/* Rotate the chevron 90deg when the node is expanded */
+body.adminhtml-catalog-category-index #tree-div .x-tree-elbow-minus::before,
+body.adminhtml-catalog-category-edit #tree-div .x-tree-elbow-minus::before,
+body.catalog-categories #tree-div .x-tree-elbow-minus::before,
+body.adminhtml-catalog-category-index #tree-div .x-tree-elbow-end-minus::before,
+body.adminhtml-catalog-category-edit #tree-div .x-tree-elbow-end-minus::before,
+body.catalog-categories #tree-div .x-tree-elbow-end-minus::before {
+    transform: translateY(-50%) rotate(90deg);
+}
+
+/* Tree node row — sidebar-style hover/active */
+body.adminhtml-catalog-category-index #tree-div .x-tree-node,
+body.adminhtml-catalog-category-edit #tree-div .x-tree-node,
+body.catalog-categories #tree-div .x-tree-node {
+    line-height: 1.5 !important;
+}
+body.adminhtml-catalog-category-index #tree-div .x-tree-node-el,
+body.adminhtml-catalog-category-edit #tree-div .x-tree-node-el,
+body.catalog-categories #tree-div .x-tree-node-el {
+    border-radius: 6px !important;
+    padding: 4px 8px !important;
+    margin: 2px 0 !important;
+    transition: background 0.12s !important;
+}
+body.adminhtml-catalog-category-index #tree-div .x-tree-node-el:hover,
+body.adminhtml-catalog-category-edit #tree-div .x-tree-node-el:hover,
+body.catalog-categories #tree-div .x-tree-node-el:hover {
+    background: rgba(96,165,250,0.06) !important;
+}
+body.adminhtml-catalog-category-index #tree-div .x-tree-node-anchor,
+body.adminhtml-catalog-category-edit #tree-div .x-tree-node-anchor,
+body.catalog-categories #tree-div .x-tree-node-anchor {
+    color: var(--t2) !important;
+    text-decoration: none !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    padding: 4px 6px !important;
+    border-radius: 4px !important;
+}
+body.adminhtml-catalog-category-index #tree-div .x-tree-node-anchor span,
+body.adminhtml-catalog-category-edit #tree-div .x-tree-node-anchor span,
+body.catalog-categories #tree-div .x-tree-node-anchor span {
+    color: var(--t2) !important;
+    background: none !important;
+}
+body.adminhtml-catalog-category-index #tree-div .x-tree-node-anchor:hover span,
+body.adminhtml-catalog-category-edit #tree-div .x-tree-node-anchor:hover span,
+body.catalog-categories #tree-div .x-tree-node-anchor:hover span {
+    color: var(--blue) !important;
+}
+/* Selected/active node */
+body.adminhtml-catalog-category-index #tree-div .x-tree-selected,
+body.adminhtml-catalog-category-edit #tree-div .x-tree-selected,
+body.catalog-categories #tree-div .x-tree-selected,
+body.adminhtml-catalog-category-index #tree-div .x-tree-node-anchor.x-tree-selected,
+body.adminhtml-catalog-category-edit #tree-div .x-tree-node-anchor.x-tree-selected,
+body.catalog-categories #tree-div .x-tree-node-anchor.x-tree-selected {
+    background: rgba(96,165,250,0.12) !important;
+    border-left: 3px solid var(--blue) !important;
+}
+body.adminhtml-catalog-category-index #tree-div .x-tree-selected span,
+body.adminhtml-catalog-category-edit #tree-div .x-tree-selected span,
+body.catalog-categories #tree-div .x-tree-selected span {
+    color: var(--blue) !important;
+    font-weight: 600 !important;
+}
 .side-col .entry-edit-head {
     background: var(--d3) !important;
     border-bottom: 1px solid var(--b1) !important;
