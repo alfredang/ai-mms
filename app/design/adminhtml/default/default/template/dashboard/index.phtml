@@ -13658,21 +13658,40 @@ function uefClear(){
     window.showDeveloperSubPanel = showDeveloperSubPanel;
 
     function applyInitialPanel() {
-        showPanel(role);
-        // If URL hash requests a sub-panel, switch to it
+        // Sub-panel selection — query string `?panel=` is the new style
+        // (gives each panel its own URL, browser back/forward works) and
+        // is preferred. Hash style `#anchor` is kept as a fallback for
+        // legacy in-page nav. Resolve sub-panel BEFORE the default
+        // showPanel() call so we don't paint the role's main dashboard
+        // for a frame and then flip to the requested sub-panel.
+        var qsPanel = '';
+        try {
+            qsPanel = (new URLSearchParams(window.location.search)).get('panel') || '';
+        } catch (e) {}
         var hash = window.location.hash;
-        if (hash === '#trainers' && (role === 'Admin' || role === 'Super Admin' || role === 'Marketing')) {
+
+        if ((qsPanel === 'companysetting' || hash === '#companysetting')
+            && (role === 'Admin' || role === 'Super Admin' || role === 'Marketing')) {
+            showAdminSubPanel('companysetting');
+            return;
+        }
+        if ((qsPanel === 'trainers' || hash === '#trainers')
+            && (role === 'Admin' || role === 'Super Admin' || role === 'Marketing')) {
             showAdminSubPanel('trainers');
+            return;
         }
         if (hash && hash.indexOf('#cp-') === 0 && role === 'Developer') {
             showDeveloperSubPanel(hash.substring(4));
+            return;
         }
-        if (hash === '#companysetting' && (role === 'Admin' || role === 'Super Admin' || role === 'Marketing')) {
-            showAdminSubPanel('companysetting');
-        }
-        if (hash === '#billing' && (role === 'Learner' || role === 'Trainer')) {
+        if ((qsPanel === 'billing' || hash === '#billing')
+            && (role === 'Learner' || role === 'Trainer')) {
             showTrainerSubPanel('billing');
+            return;
         }
+
+        // No specific panel requested — show the role's default panel.
+        showPanel(role);
     }
 
     if (document.readyState === 'loading') {
