@@ -20,6 +20,21 @@
                     </role_map>
                 </entities>
             </mmd_rolemanager_mysql4>
+            <!-- WYSIWYG plugin path overrides — OpenMage core points at
+                 tinymce/plugins/openmage*.js paths that don't exist; we
+                 redirect to the legacy tiny_mce/plugins/magento*.js paths
+                 that do. Without this, every WYSIWYG editor 404s on plugin
+                 load and silently fails to attach. -->
+            <core>
+                <rewrite>
+                    <variable_config>MMD_RoleManager_Model_Wysiwyg_VariableConfig</variable_config>
+                </rewrite>
+            </core>
+            <widget>
+                <rewrite>
+                    <widget_config>MMD_RoleManager_Model_Wysiwyg_WidgetConfig</widget_config>
+                </rewrite>
+            </widget>
         </models>
 
         <blocks>
@@ -77,6 +92,14 @@
                     </mmd_rolemanager_predispatch>
                 </observers>
             </controller_action_predispatch>
+            <cms_wysiwyg_config_prepare>
+                <observers>
+                    <mmd_rolemanager_wysiwyg>
+                        <class>mmd_rolemanager/observer</class>
+                        <method>onWysiwygConfigPrepare</method>
+                    </mmd_rolemanager_wysiwyg>
+                </observers>
+            </cms_wysiwyg_config_prepare>
         </events>
     </global>
 

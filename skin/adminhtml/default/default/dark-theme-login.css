@@ -79,6 +79,20 @@ body#page-login {
     outline: none;
 }
 
+/* Browser autofill on saved-credentials login — Chrome/Edge forces a
+   pale-yellow background which is unreadable here. Inset box-shadow masks
+   the autofill paint with our slate-700; long transition keeps it from
+   flashing back to yellow on field focus changes. */
+.login-form .input-text:-webkit-autofill,
+.login-form .input-text:-webkit-autofill:hover,
+.login-form .input-text:-webkit-autofill:focus,
+.login-form .input-text:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 1000px #334155 inset !important;
+    -webkit-text-fill-color: #f1f5f9 !important;
+    caret-color: #f1f5f9 !important;
+    transition: background-color 5000s ease-in-out 0s;
+}
+
 /* Buttons */
 .login-form .form-buttons {
     display: flex !important;

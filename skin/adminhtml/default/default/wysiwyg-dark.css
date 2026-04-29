@@ -1,0 +1,63 @@
+/*
+ * TinyMCE iframe content stylesheet — loaded into the WYSIWYG editor's
+ * sandboxed iframe so that text the user is writing matches the dark admin
+ * theme around it. The iframe is a separate document and inherits no CSS
+ * from the parent page; this file is wired up via the
+ * `cms_wysiwyg_config_prepare` observer in MMD_RoleManager which adds the
+ * URL of this file to the TinyMCE `content_css` setting.
+ *
+ * Keep this file minimal — it only needs to make the editor body
+ * readable. Anything fancier risks looking inconsistent with the
+ * frontend theme that actually renders the saved HTML.
+ */
+
+html, body {
+    background: #1e293b !important;       /* slate-800 — slightly lighter than admin bg so it reads as a "card" */
+    color: #f1f5f9 !important;             /* slate-100 */
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 14px;
+    line-height: 1.55;
+    margin: 8px 12px;
+}
+
+a { color: #60a5fa; }                       /* blue-400 */
+a:hover { color: #93c5fd; }                 /* blue-300 */
+
+h1, h2, h3, h4, h5, h6 {
+    color: #f8fafc;                         /* slate-50 */
+    margin-top: 1em;
+    margin-bottom: 0.5em;
+}
+
+p { margin: 0 0 0.8em; }
+
+table { border-collapse: collapse; }
+table th, table td {
+    border: 1px solid #475569;              /* slate-600 */
+    padding: 6px 10px;
+}
+table th { background: #334155; }           /* slate-700 */
+
+blockquote {
+    border-left: 3px solid #475569;
+    padding-left: 12px;
+    color: #cbd5e1;                         /* slate-300 */
+    margin-left: 0;
+}
+
+code, pre {
+    background: #0f172a;                    /* slate-900 */
+    color: #f1f5f9;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+    font-size: 12.5px;
+}
+pre { padding: 10px 12px; overflow-x: auto; }
+
+hr { border: none; border-top: 1px solid #475569; margin: 1em 0; }
+
+img { max-width: 100%; height: auto; }
+
+/* Selection — match admin's blue accent */
+::selection { background: rgba(96, 165, 250, 0.4); color: #fff; }

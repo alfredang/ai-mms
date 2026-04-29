@@ -607,6 +607,22 @@ textarea:focus, select:focus, .input-text:focus {
     outline: none !important;
 }
 select option { background: var(--d5) !important; color: var(--t1) !important; }
+/* Browser autofill — Chrome / Edge force a hardcoded pale-yellow background
+   on autofilled fields, which makes our dark inputs unreadable. The trick is
+   an inset box-shadow large enough to cover the field; the browser paints the
+   autofill bg behind that shadow, so the visible color is ours. The long
+   transition delays Chrome's gradient animation back to yellow. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+    -webkit-box-shadow: 0 0 0 1000px var(--d5) inset !important;
+    -webkit-text-fill-color: var(--t1) !important;
+    caret-color: var(--t1) !important;
+    transition: background-color 5000s ease-in-out 0s;
+}
 /* Validation */
 input.validation-failed, textarea.validation-failed {
     border-color: var(--red) !important;
@@ -829,4 +845,139 @@ dl.accordion dd, .accordion-body { background: var(--d3) !important; border: 1px
     border-radius: 6px !important;
     border: 1px solid var(--b1) !important;
     box-shadow: 0 1px 4px rgba(0,0,0,0.2) !important;
+}
+
+/* === 21. TinyMCE 3 toolbar reset =====================================
+   Generic admin rules in sidebar-nav.css scoped to `.admin-main button`
+   (display:inline-flex, min-height:36px, padding:7px 18px) inflate every
+   TinyMCE 3 toolbar button and break the toolbar's tight table layout.
+   Same for selects. We prefix the reset with `.admin-main .defaultSkin`
+   to bump specificity past `.admin-main button` regardless of CSS load
+   order, but we DON'T touch widths on TinyMCE's layout tables — that's
+   handled by TinyMCE's bundled themes/advanced/skins/default/ui.css.
+   ==================================================================== */
+.admin-main .defaultSkin {
+    display: block;                      /* full-width container */
+    width: 100%;
+    border: 1px solid var(--b2) !important;
+    border-radius: 6px !important;
+    overflow: hidden !important;
+    background: var(--d3) !important;
+}
+/* The whole editor lives inside a span/div wrapper Magento adds. Make sure
+   it claims full width too. */
+.admin-main span.mceEditor {
+    display: block !important;
+    width: 100% !important;
+}
+/* Layout table — let TinyMCE's own CSS manage width (it sets 100% there).
+   Just neutralize our `table { background: var(--d3) }` and the `.grid table
+   { width: 100% }` rule (which is scoped to .grid anyway, but be explicit). */
+.admin-main .defaultSkin table.mceLayout {
+    background: transparent !important;
+    border-collapse: collapse !important;
+    border-spacing: 0 !important;
+}
+.admin-main .defaultSkin table.mceLayout > tbody > tr > td {
+    background: transparent !important;
+    border: 0 !important;
+    padding: 0 !important;
+    vertical-align: top !important;
+}
+/* Toolbar table cells — pack tightly. Each cell holds one button or
+   one dropdown; let TinyMCE size them. */
+.admin-main .defaultSkin table.mceToolbar {
+    background: transparent !important;
+}
+.admin-main .defaultSkin table.mceToolbar td,
+.admin-main .defaultSkin .mceToolbar td {
+    background: transparent !important;
+    border: 0 !important;
+    padding: 0 !important;
+    vertical-align: middle !important;
+    color: inherit !important;
+}
+/* Reset every button inside the editor — match TinyMCE 3 ui.css expectations
+   (no padding, no border, no min-height, inline-block, small font). */
+.admin-main .defaultSkin button,
+.admin-main .defaultSkin a.mceButton,
+.admin-main .defaultSkin .mceButton,
+.admin-main .defaultSkin .mceListBox a.mceText {
+    display: inline-block !important;
+    background: transparent !important;
+    background-image: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    min-height: 0 !important;
+    height: auto !important;
+    box-shadow: none !important;
+    font-size: 11px !important;
+    font-weight: normal !important;
+    text-shadow: none !important;
+    letter-spacing: 0 !important;
+    transition: none !important;
+    color: var(--t2) !important;
+    vertical-align: middle !important;
+    align-items: initial !important;
+    justify-content: initial !important;
+    gap: 0 !important;
+    text-transform: none !important;
+}
+.admin-main .defaultSkin button:hover,
+.admin-main .defaultSkin a.mceButton:hover {
+    background: transparent !important;
+    transform: none !important;
+    box-shadow: none !important;
+}
+/* Dropdowns: Styles, Heading, Font Family, Font Size. TinyMCE's listboxes
+   are actually <a> elements with text inside (.mceText). The standard
+   <select> rules below apply only when a real <select> is rendered. */
+.admin-main .defaultSkin select,
+.admin-main .defaultSkin input[type="text"] {
+    padding: 1px 4px !important;
+    border-radius: 0 !important;
+    border: 1px solid var(--b2) !important;
+    font-size: 11px !important;
+    height: auto !important;
+    min-height: 0 !important;
+    background: var(--d5) !important;
+    color: var(--t1) !important;
+    box-shadow: none !important;
+    transition: none !important;
+}
+.admin-main .defaultSkin .mceListBox a.mceText {
+    color: var(--t2) !important;
+    padding: 0 4px !important;
+    font-size: 11px !important;
+}
+.admin-main .defaultSkin .mceListBoxMenu {
+    background: var(--d4) !important;
+    border: 1px solid var(--b2) !important;
+}
+.admin-main .defaultSkin .mceListBoxMenu a {
+    color: var(--t2) !important;
+}
+.admin-main .defaultSkin .mceListBoxMenu a:hover {
+    background: var(--d6) !important;
+    color: var(--t1) !important;
+}
+/* Iframe area — fill width, dark inside via wysiwyg-dark.css content_css. */
+.admin-main .defaultSkin td.mceIframeContainer,
+.admin-main .defaultSkin .mceIframeContainer {
+    background: #1e293b !important;
+}
+.admin-main .defaultSkin .mceIframeContainer iframe {
+    width: 100% !important;
+    background: #1e293b;
+}
+/* Status bar at bottom — dark and small */
+.admin-main .defaultSkin .mceStatusbar,
+.admin-main .defaultSkin .mceStatusbar div,
+.admin-main .defaultSkin td.mceStatusbar {
+    background: var(--d4) !important;
+    color: var(--t4) !important;
+    font-size: 11px !important;
+    border-top: 1px solid var(--b1) !important;
 }

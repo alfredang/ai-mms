@@ -32,6 +32,38 @@ class MMD_RoleManager_Model_Observer
     }
 
     /**
+     * Inject our dark content stylesheet into TinyMCE's iframe so that text
+     * being edited matches the dark admin theme around it. Without this,
+     * Magento's WYSIWYG opens with a default white iframe (black-on-white)
+     * which is jarring in the dark UI. Hook is dispatched by
+     * Mage_Cms_Model_Wysiwyg_Config::getConfig() right before the JS config
+     * is rendered.
+     */
+    public function onWysiwygConfigPrepare(Varien_Event_Observer $observer)
+    {
+        try {
+            $config = $observer->getEvent()->getConfig();
+            if (!$config) {
+                return;
+            }
+            $cssUrl = Mage::getBaseUrl('skin') . 'adminhtml/default/default/wysiwyg-dark.css';
+            $existing = (string) $config->getData('content_css');
+            // content_css can take a comma-separated list — append rather than
+            // overwrite so any per-store frontend stylesheet is preserved.
+            $config->setData(
+                'content_css',
+                $existing === '' ? $cssUrl : $existing . ',' . $cssUrl
+            );
+            // body_class doubles as a CSS hook in case the frontend stylesheet
+            // wants to know it's being rendered inside the admin editor.
+            $bodyClass = trim((string) $config->getData('body_class') . ' wysiwyg-dark');
+            $config->setData('body_class', $bodyClass);
+        } catch (Exception $e) {
+            Mage::logException($e);
+        }
+    }
+
+    /**
      * Before every admin controller action, redirect to role selection
      * if user hasn't chosen a role yet.
      */
