@@ -151,8 +151,20 @@ document.observe('dom:loaded', function() {
     }
     setTimeout(initAdvancedFilters, 500);
 
+    // tr.filter is hidden by sidebar-nav.css with the assumption that
+    // buildFilterPanels() will extract its inputs into a collapsible
+    // panel + Filters toggle. If any step below fails (no Search button
+    // anchor, no extractable fields, missing content-header to host the
+    // toggle, etc.), un-hide the original inline filter row so the user
+    // still has a way to filter the grid.
+    function unhideInlineFilters(grid) {
+        var row = grid.down('tr.filter');
+        if (row) row.style.setProperty('display', 'table-row', 'important');
+    }
+
     function buildFilterPanels() {
     $$('.grid').each(function(grid) {
+        try {
         var filterRow = grid.down('tr.filter');
         if (!filterRow) return;
 
@@ -230,7 +242,10 @@ document.observe('dom:loaded', function() {
             });
         });
 
-        if (fields.length === 0) return;
+        if (fields.length === 0) {
+            unhideInlineFilters(grid);
+            return;
+        }
 
         // Build the filter panel
         var panel = new Element('div', { 'class': 'advanced-filter-panel' });
@@ -396,6 +411,7 @@ document.observe('dom:loaded', function() {
         }
 
         // Insert toggle button into content-header or before the grid area
+        var togglePlaced = false;
         if (contentHeader) {
             // Find or create a buttons area
             var btnContainer = contentHeader.down('.content-buttons');
@@ -408,17 +424,34 @@ document.observe('dom:loaded', function() {
             }
             if (btnContainer) {
                 btnContainer.insert({ top: toggleBtn });
+                togglePlaced = true;
             } else {
                 contentHeader.insert(toggleBtn);
+                togglePlaced = true;
             }
         } else if (gridWrapper && gridWrapper.parentNode) {
             gridWrapper.parentNode.insertBefore(toggleBtn, gridWrapper);
+            togglePlaced = true;
         }
 
         // Insert panel before the grid wrapper (which contains massaction + grid)
         var panelRef = gridWrapper || grid;
         if (panelRef && panelRef.parentNode) {
             panelRef.parentNode.insertBefore(panel, panelRef);
+        }
+
+        // No Filters toggle ended up anywhere on the page — fall back
+        // to showing the original inline filter row so the user can
+        // still search.
+        if (!togglePlaced) {
+            unhideInlineFilters(grid);
+        }
+        } catch (e) {
+            // Anything unexpected (DOM shape we didn't anticipate) — fall
+            // back to the inline filter row rather than leaving the user
+            // with no filter UI at all.
+            unhideInlineFilters(grid);
+            if (window.console && console.warn) console.warn('[buildFilterPanels]', e);
         }
     });
     } // end buildFilterPanels
@@ -521,13 +554,18 @@ document.observe('dom:loaded', function() {
 
     // PJAX swap (instant-nav.js) replaces #anchor-content's children
     // wholesale, destroying the old #page:main-container node our observer
-    // was bound to. Re-init pagination + observer after every swap.
+    // was bound to. Re-init pagination + filter panel + observer after
+    // every swap. Without re-running initAdvancedFilters, any grid that
+    // gets PJAX-loaded ends up with no filter UI at all (the inline
+    // tr.filter is hidden by CSS, and the JS replacement only ran on
+    // the initial page load).
     document.addEventListener('instant-nav:after-swap', function() {
         // Stagger because varienGrid may build its DOM after the swap completes.
         [80, 400, 900].each(function(d) {
             setTimeout(function() {
                 initModernPagination();
                 attachPaginationObserver();
+                initAdvancedFilters();
             }, d);
         });
     });
