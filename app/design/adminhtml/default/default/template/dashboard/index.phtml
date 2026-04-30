@@ -617,6 +617,23 @@ $cT = $typeAid  ? "vtype.value AS type_id,"    : "NULL AS type_id,";
 $cS = $startAid ? "dstart.value AS start_date," : "NULL AS start_date,";
 $cE = $endAid   ? "dend.value AS end_date,"     : "NULL AS end_date,";
 
+// Time filter from sidebar (Ongoing/Upcoming/Completed Classes links).
+// Applied as a SQL WHERE clause so it works regardless of the
+// 300-row LIMIT and JS load timing. "Ongoing" is lenient — a course
+// that has started and has no explicit end is treated as still running.
+$_dashFilter = (string) Mage::app()->getRequest()->getParam('dash_filter', '');
+$_dashFilterWhere = '';
+if ($startAid && $endAid) {
+    if ($_dashFilter === 'ongoing') {
+        $_dashFilterWhere = "WHERE dstart.value IS NOT NULL AND dstart.value <= '{$today}'
+                              AND (dend.value IS NULL OR dend.value = '' OR dend.value >= '{$today}')";
+    } elseif ($_dashFilter === 'upcoming') {
+        $_dashFilterWhere = "WHERE dstart.value IS NOT NULL AND dstart.value > '{$today}'";
+    } elseif ($_dashFilter === 'completed') {
+        $_dashFilterWhere = "WHERE dend.value IS NOT NULL AND dend.value <> '' AND dend.value < '{$today}'";
+    }
+}
+
 $courseRows = $read->fetchAll("
     SELECT p.entity_id AS run_id, p.sku AS ref_code, vname.value AS course_title,
            {$cT} {$cS} {$cE} vstatus.value AS status_val, COALESCE(lc.cnt,0) AS learners
@@ -627,8 +644,49 @@ $courseRows = $read->fetchAll("
     LEFT JOIN (SELECT oi.product_id, COUNT(DISTINCT oi.order_id) AS cnt
                FROM sales_flat_order_item oi INNER JOIN sales_flat_order o ON oi.order_id=o.entity_id AND o.state NOT IN ('canceled','holded')
                GROUP BY oi.product_id) lc ON p.entity_id=lc.product_id
+    {$_dashFilterWhere}
     ORDER BY dstart.value DESC, p.entity_id DESC LIMIT 300
 ");
+
+// For the filtered KPI tiles — totals before LIMIT, plus learner sum
+$_dashFilterTotal = 0;
+$_dashFilterLearners = 0;
+$_dashFilterConfirmed = 0;  // upcoming view: split out Confirmed vs Pending
+$_dashFilterPending   = 0;
+if ($_dashFilter !== '' && $startAid && $endAid) {
+    $_dashFilterTotal = (int) $read->fetchOne("
+        SELECT COUNT(DISTINCT p.entity_id)
+        FROM catalog_product_entity p
+        {$sS} {$sE}
+        {$_dashFilterWhere}
+    ");
+    $_dashFilterLearners = (int) $read->fetchOne("
+        SELECT COALESCE(SUM(lc.cnt),0) FROM (
+            SELECT p.entity_id,
+                   COALESCE((SELECT COUNT(DISTINCT oi.order_id)
+                             FROM sales_flat_order_item oi
+                             INNER JOIN sales_flat_order o ON oi.order_id=o.entity_id
+                             WHERE oi.product_id=p.entity_id AND o.state NOT IN ('canceled','holded')),0) AS cnt
+            FROM catalog_product_entity p
+            {$sS} {$sE}
+            {$_dashFilterWhere}
+        ) lc
+    ");
+    if ($_dashFilter === 'upcoming') {
+        $_dashFilterConfirmed = (int) $read->fetchOne("
+            SELECT COUNT(DISTINCT p.entity_id)
+            FROM catalog_product_entity p
+            {$sS} {$sE}
+            LEFT JOIN catalog_product_entity_int vstatus ON p.entity_id=vstatus.entity_id AND vstatus.attribute_id={$statusAid} AND vstatus.store_id=0
+            {$_dashFilterWhere} AND vstatus.value = 1
+        ");
+        $_dashFilterPending = max(0, $_dashFilterTotal - $_dashFilterConfirmed);
+    }
+}
+// Trainer counts surfaced on the Upcoming Classes view (mirrors the
+// AI-LMS-TMS reference layout: Local / TPG / Unassigned).
+$_trainerTpgCount        = (int) $read->fetchOne("SELECT COUNT(DISTINCT relation_id) FROM {$trainerTable} WHERE status=1");
+$_unassignedTrainerCount = max(0, ($_dashFilter === 'upcoming' ? $_dashFilterTotal : $upcomingCount) - $assignedLocal);
 
 // =====================================================================
 // DATA — Training Provider panel (training analytics)
@@ -1584,15 +1642,57 @@ body.adminhtml-dashboard-index .main-col-inner{padding-top:0 !important;margin-t
 <?php /* ===== PANEL 1: Admin — Course Schedule ===== */ ?>
 <div id="dash-panel-admin" style="display:none;">
 <div class="dash-wrap">
-    <h1 class="dash-title">Admin Dashboard</h1>
+    <?php
+    $_dashTitle = 'Admin Dashboard';
+    if ($_dashFilter === 'ongoing')   $_dashTitle = 'Ongoing Classes';
+    if ($_dashFilter === 'upcoming')  $_dashTitle = 'Upcoming Classes';
+    if ($_dashFilter === 'completed') $_dashTitle = 'Completed Classes';
+    ?>
+    <?php if ($_dashFilter === 'upcoming'): ?>
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:18px;">
+        <h1 class="dash-title" style="margin:0;"><?php echo $_dashTitle ?></h1>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;">
+            <button type="button" onclick="window.location.reload()" style="background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px;cursor:pointer;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>Refresh</button>
+            <button type="button" style="background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:600;cursor:pointer;">Sync Google Calendar</button>
+            <button type="button" style="background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:600;cursor:pointer;">Check Calendar</button>
+            <button type="button" style="background:#334155;color:#fbbf24;border:1px solid #475569;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px;cursor:pointer;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Invite All Pending</button>
+            <button type="button" style="background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:600;cursor:pointer;">Assign to TPG</button>
+            <button type="button" style="background:#22d3ee;color:#0f172a;border:none;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:700;display:inline-flex;align-items:center;gap:6px;cursor:pointer;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Import Course Run</button>
+        </div>
+    </div>
+    <?php elseif ($_dashFilter === 'completed'): ?>
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:18px;">
+        <h1 class="dash-title" style="margin:0;"><?php echo $_dashTitle ?></h1>
+        <button type="button" style="background:#22d3ee;color:#0f172a;border:none;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:700;cursor:pointer;">Sync from SSG</button>
+    </div>
+    <?php else: ?>
+    <h1 class="dash-title"><?php echo $_dashTitle ?></h1>
+    <?php endif; ?>
 
-    <div class="dash-kpi-grid">
+    <div class="dash-kpi-grid" data-assigned-local="<?php echo (int)$assignedLocal ?>">
+        <?php if ($_dashFilter === 'ongoing'): ?>
+        <div class="dash-kpi-card"><div class="dash-kpi-num"><?php echo number_format($_dashFilterTotal) ?></div><div class="dash-kpi-lbl">Ongoing Classes Found</div></div>
+        <div class="dash-kpi-card"><div class="dash-kpi-num"><?php echo number_format($_dashFilterLearners) ?></div><div class="dash-kpi-lbl">Learners In Session</div></div>
+        <div class="dash-kpi-card"><div class="dash-kpi-num"><?php echo number_format($assignedLocal) ?></div><div class="dash-kpi-lbl">Active Trainers</div></div>
+        <?php elseif ($_dashFilter === 'upcoming'): ?>
+        <div class="dash-kpi-card"><div class="dash-kpi-num" style="color:#3b82f6;"><?php echo number_format($_dashFilterTotal) ?></div><div class="dash-kpi-lbl">Upcoming Classes</div></div>
+        <div class="dash-kpi-card"><div class="dash-kpi-num" style="color:#22c55e;"><?php echo number_format($_dashFilterConfirmed) ?></div><div class="dash-kpi-lbl">Confirmed Classes</div></div>
+        <div class="dash-kpi-card"><div class="dash-kpi-num" style="color:#f59e0b;"><?php echo number_format($_dashFilterPending) ?></div><div class="dash-kpi-lbl">Pending Classes</div></div>
+        <div class="dash-kpi-card"><div class="dash-kpi-num" style="color:#22c55e;"><?php echo number_format($assignedLocal) ?></div><div class="dash-kpi-lbl">Trainer (Local)</div></div>
+        <div class="dash-kpi-card"><div class="dash-kpi-num" style="color:#22d3ee;"><?php echo number_format($_trainerTpgCount) ?></div><div class="dash-kpi-lbl">Trainer (TPG)</div></div>
+        <div class="dash-kpi-card"><div class="dash-kpi-num" style="color:#a855f7;"><?php echo number_format($_unassignedTrainerCount) ?></div><div class="dash-kpi-lbl">Unassigned Trainers</div></div>
+        <?php elseif ($_dashFilter === 'completed'): ?>
+        <div class="dash-kpi-card"><div class="dash-kpi-num" style="color:#3b82f6;"><?php echo number_format($_dashFilterTotal) ?></div><div class="dash-kpi-lbl">Completed Classes Found</div></div>
+        <div class="dash-kpi-card"><div class="dash-kpi-num" style="color:#3b82f6;"><?php echo number_format($_dashFilterLearners) ?></div><div class="dash-kpi-lbl">Total Graduated Learners</div></div>
+        <div class="dash-kpi-card"><div class="dash-kpi-num" style="color:#3b82f6;"><?php echo number_format($_trainerTpgCount) ?></div><div class="dash-kpi-lbl">Involved Trainers</div></div>
+        <?php else: ?>
         <div class="dash-kpi-card"><div class="dash-kpi-num"><?php echo number_format($ongoingCount) ?></div><div class="dash-kpi-lbl">Ongoing Classes</div></div>
         <div class="dash-kpi-card"><div class="dash-kpi-num"><?php echo number_format($upcomingCount) ?></div><div class="dash-kpi-lbl">Upcoming Classes</div></div>
         <div class="dash-kpi-card"><div class="dash-kpi-num"><?php echo number_format($completedCount) ?></div><div class="dash-kpi-lbl">Completed Classes</div></div>
         <div class="dash-kpi-card"><div class="dash-kpi-num"><?php echo number_format($assignedLocal) ?></div><div class="dash-kpi-lbl">Assigned Trainers (Local) for Upcoming</div></div>
         <div class="dash-kpi-card"><div class="dash-kpi-num"><?php echo number_format($missingLocal) ?></div><div class="dash-kpi-lbl">Missing Trainers (Local) for Upcoming</div></div>
         <div class="dash-kpi-card"><div class="dash-kpi-num"><?php echo number_format($missingTpg) ?></div><div class="dash-kpi-lbl">Missing Trainers (TPG) for Upcoming</div></div>
+        <?php endif; ?>
     </div>
 
     <div class="dash-search-wrap">
@@ -1654,8 +1754,9 @@ body.adminhtml-dashboard-index .main-col-inner{padding-top:0 !important;margin-t
                     $ttl   = htmlspecialchars($row['course_title'] ?: '(No Name)');
                     $rcode = htmlspecialchars($row['ref_code']);
                     $sraw  = $row['start_date'] ? date('Y-m-d', strtotime($row['start_date'])) : '';
+                    $eraw  = $row['end_date']   ? date('Y-m-d', strtotime($row['end_date']))   : '';
                 ?>
-                <tr data-title="<?php echo strtolower($ttl) ?>" data-ref="<?php echo strtolower($rcode) ?>" data-type="<?php echo htmlspecialchars($tlbl) ?>" data-status="<?php echo $slbl ?>" data-start="<?php echo $sraw ?>">
+                <tr data-title="<?php echo strtolower($ttl) ?>" data-ref="<?php echo strtolower($rcode) ?>" data-type="<?php echo htmlspecialchars($tlbl) ?>" data-status="<?php echo $slbl ?>" data-start="<?php echo $sraw ?>" data-end="<?php echo $eraw ?>">
                     <td class="run-id"><?php echo (int)$row['run_id'] ?></td>
                     <td><a href="#" class="dash-course-link" onclick="event.preventDefault();var p=window._dashPage||1;window.location.href='<?php echo $viewUrl ?>from_page/'+p+'/';"><?php echo $ttl ?></a> <a href="<?php echo $eurl ?>" title="Edit in Magento" style="color:#64748b;text-decoration:none;margin-left:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></a></td>
                     <td><?php echo $rcode ?></td>
@@ -13734,16 +13835,27 @@ function uefClear(){
     } catch(e) {}
 
     // Admin/Super Admin sub-view switcher (Dashboard <-> View Trainers)
-    function showAdminSubPanel(name) {
+    function showAdminSubPanel(name, filter) {
         var r = role;
         if (r !== 'Admin' && r !== 'Super Admin' && r !== 'Marketing') return;
-        var panelMap = { trainers: 'dash-panel-trainers', companysetting: 'dash-panel-companysetting', dashboard: (r === 'Admin' ? 'dash-panel-admin' : 'dash-panel-superadmin') };
+        var panelMap = { admin: 'dash-panel-admin', trainers: 'dash-panel-trainers', companysetting: 'dash-panel-companysetting', dashboard: (r === 'Admin' ? 'dash-panel-admin' : 'dash-panel-superadmin') };
         var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-trainingprovider','dash-panel-learner','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-trainers','dash-panel-companysetting'];
         for (var i=0; i<all.length; i++) { var el = document.getElementById(all[i]); if (el) el.style.display = 'none'; }
         var t = document.getElementById(panelMap[name] || panelMap.dashboard);
         if (t) t.style.display = '';
+        if (window.applyDashTimeFilter) window.applyDashTimeFilter(filter || '');
     }
     window.showAdminSubPanel = showAdminSubPanel;
+
+    // Time-based filter for the admin master class list. Filter is one of:
+    // '' (all), 'ongoing', 'upcoming', 'completed'. The page title and
+    // KPI tiles are now rendered server-side from the ?dash_filter query
+    // param, so JS just stores the filter and defers row pagination to
+    // dashFilter().
+    window.applyDashTimeFilter = function(filter) {
+        window._dashTimeFilter = filter || '';
+        if (typeof window.dashFilter === 'function') window.dashFilter();
+    };
 
     // Developer sub-view switcher (CP Generator pages)
     function showDeveloperSubPanel(name) {
@@ -13769,8 +13881,11 @@ function uefClear(){
         // showPanel() call so we don't paint the role's main dashboard
         // for a frame and then flip to the requested sub-panel.
         var qsPanel = '';
+        var qsFilter = '';
         try {
-            qsPanel = (new URLSearchParams(window.location.search)).get('panel') || '';
+            var qs = new URLSearchParams(window.location.search);
+            qsPanel  = qs.get('panel') || '';
+            qsFilter = qs.get('dash_filter') || '';
         } catch (e) {}
         var hash = window.location.hash;
 
@@ -13782,6 +13897,10 @@ function uefClear(){
         if ((qsPanel === 'trainers' || hash === '#trainers')
             && (role === 'Admin' || role === 'Super Admin' || role === 'Marketing')) {
             showAdminSubPanel('trainers');
+            return;
+        }
+        if (qsFilter && (role === 'Admin' || role === 'Super Admin' || role === 'Marketing')) {
+            showAdminSubPanel('admin', qsFilter);
             return;
         }
         if (hash && hash.indexOf('#cp-') === 0 && role === 'Developer') {
@@ -13842,6 +13961,8 @@ window.dashFilter = function(resetPage) {
     var stat = (document.getElementById('fStatus')  ||{value:''}).value.toLowerCase().trim();
     var df   = (document.getElementById('fDateFrom')||{value:''}).value;
     var dt   = (document.getElementById('fDateTo')  ||{value:''}).value;
+    var timeFilter = window._dashTimeFilter || '';
+    var today = new Date(); today.setHours(0,0,0,0);
     var rows = document.querySelectorAll('#dashTableBody tr');
     window._dashMatchedRows = [];
     for (var i=0; i<rows.length; i++) {
@@ -13852,8 +13973,16 @@ window.dashFilter = function(resetPage) {
         if (type && (r.getAttribute('data-type')||'').toLowerCase()!==type) match=false;
         if (stat && (r.getAttribute('data-status')||'').toLowerCase()!==stat) match=false;
         var rs=r.getAttribute('data-start')||'';
+        var re=r.getAttribute('data-end')||'';
         if (df && rs && rs<df) match=false;
         if (dt && rs && rs>dt) match=false;
+        if (match && timeFilter) {
+            var sd = rs ? new Date(rs) : null; if (sd) sd.setHours(0,0,0,0);
+            var ed = re ? new Date(re) : null; if (ed) ed.setHours(0,0,0,0);
+            if (timeFilter === 'ongoing')  match = !!(sd && ed && sd <= today && ed >= today);
+            if (timeFilter === 'upcoming') match = !!(sd && sd > today);
+            if (timeFilter === 'completed')match = !!(ed && ed < today);
+        }
         r.style.display = 'none';
         if (match) window._dashMatchedRows.push(r);
     }
