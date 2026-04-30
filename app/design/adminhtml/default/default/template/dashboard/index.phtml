@@ -4522,9 +4522,19 @@ body.lcd-drawer-open .admin-topbar{z-index:1 !important}
 </style>
 <div id="dash-panel-course-detail">
 <?php
-$_courseRunId = str_pad(((int)$_selectedCourse['id']) * 4321 % 9999999, 7, '0', STR_PAD_LEFT);
-$_digitalAttId = 'RA' . str_pad(((int)$_selectedCourse['id']) * 13, 6, '0', STR_PAD_LEFT);
-$_courseRefCode = 'TGS-' . (2024000000 + ((int)$_selectedCourse['id']) * 17);
+$_lcdCourseId = (int) $_selectedCourse['id'];
+// Course Run ID — match the My Classes / dev cards: real registry entry
+// first, then the SG-{100000+rank} fallback the dev card uses, so the
+// same product shows the same Run ID across every view.
+if (isset($_lmcRunMap[$_lcdCourseId])) {
+    $_courseRunId = $_lmcRunMap[$_lcdCourseId];
+} elseif (isset($_devRankMap[$_lcdCourseId])) {
+    $_courseRunId = $_devPrefix . '-' . (100000 + (int)$_devRankMap[$_lcdCourseId]);
+} else {
+    $_courseRunId = str_pad($_lcdCourseId * 4321 % 9999999, 7, '0', STR_PAD_LEFT);
+}
+$_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
+$_courseRefCode = 'TGS-' . (2024000000 + $_lcdCourseId * 17);
 ?>
 <!-- Course Menu drawer (slides in from the left) -->
 <div class="lcd-drawer-backdrop" id="lcd-drawer-backdrop" onclick="lcdCloseDrawer()"></div>
