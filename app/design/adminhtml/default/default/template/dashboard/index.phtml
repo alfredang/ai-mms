@@ -5137,6 +5137,54 @@ $_courseRefCode = 'TGS-' . (2024000000 + ((int)$_selectedCourse['id']) * 17);
         <?php endforeach; ?>
     </div>
 
+    <!-- TRAINER: Certificate & TRAQOM Survey -->
+    <div class="lcd-section" id="traqom-survey">
+        <div class="lcd-section-title" style="cursor:pointer" onclick="var c=this.nextElementSibling;c.style.display=c.style.display==='none'?'':'none';this.querySelector('.lcd-caret').style.transform=c.style.display==='none'?'':'rotate(180deg)'">Certificate &amp; TRAQOM Survey <svg class="lcd-caret" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition:transform .2s"><polyline points="6 9 12 15 18 9"/></svg></div>
+        <div class="lcd-qr-content" style="display:none">
+            <?php $_certUrl = 'https://example.com/certificate-demo'; $_traqomUrl = 'https://example.com/traqom-survey-demo'; ?>
+            <div style="display:flex;gap:20px;flex-wrap:wrap;margin-top:16px;">
+                <!-- Certificate Delivery -->
+                <div style="flex:1;min-width:280px;background:#1e293b;border:1px solid #334155;border-radius:12px;overflow:hidden;">
+                    <div style="background:#2563eb;padding:12px 16px;display:flex;align-items:center;gap:10px;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        <span style="color:#fff;font-size:14px;font-weight:700;">Certificate Delivery</span>
+                    </div>
+                    <div style="padding:20px;text-align:center;">
+                        <div style="background:#fff;border-radius:8px;padding:12px;display:inline-block;margin-bottom:14px;">
+                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=<?php echo urlencode($_certUrl) ?>" alt="Certificate QR" width="160" height="160" style="display:block;" />
+                        </div>
+                        <div style="color:#cbd5e1;font-size:13px;margin-bottom:14px;">Scan to receive your certificate</div>
+                        <div style="color:#94a3b8;font-size:12px;word-break:break-all;margin-bottom:14px;"><?php echo htmlspecialchars($_certUrl) ?></div>
+                        <div style="display:flex;gap:8px;">
+                            <a href="#" onclick="return false;" style="flex:1;display:block;background:#2563eb;color:#fff !important;text-decoration:none !important;padding:10px;border-radius:8px;font-size:13px;font-weight:600;text-align:center;cursor:default;">Open Link</a>
+                            <button type="button" onclick="navigator.clipboard.writeText('<?php echo $_certUrl ?>')" style="background:#334155 !important;background-image:none !important;color:#e2e8f0 !important;border:1px solid #475569 !important;border-radius:8px !important;padding:10px 16px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;">Copy</button>
+                        </div>
+                        <div style="color:#94a3b8;font-size:12px;margin-top:14px;">Course Ref: <strong style="color:#fff;"><?php echo $_courseRefCode ?></strong></div>
+                    </div>
+                </div>
+                <!-- TRAQOM Survey -->
+                <div style="flex:1;min-width:280px;background:#1e293b;border:1px solid #334155;border-radius:12px;overflow:hidden;">
+                    <div style="background:#0d9488;padding:12px 16px;display:flex;align-items:center;gap:10px;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        <span style="color:#fff;font-size:14px;font-weight:700;">TRAQOM Survey</span>
+                    </div>
+                    <div style="padding:20px;text-align:center;">
+                        <div style="background:#fff;border-radius:8px;padding:12px;display:inline-block;margin-bottom:14px;">
+                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=<?php echo urlencode($_traqomUrl) ?>" alt="TRAQOM QR" width="160" height="160" style="display:block;" />
+                        </div>
+                        <div style="color:#cbd5e1;font-size:13px;margin-bottom:14px;">Your feedback helps us improve</div>
+                        <div style="color:#94a3b8;font-size:12px;word-break:break-all;margin-bottom:14px;"><?php echo htmlspecialchars($_traqomUrl) ?></div>
+                        <div style="display:flex;gap:8px;">
+                            <a href="#" onclick="return false;" style="flex:1;display:block;background:#0d9488;color:#fff !important;text-decoration:none !important;padding:10px;border-radius:8px;font-size:13px;font-weight:600;text-align:center;cursor:default;">Open Link</a>
+                            <button type="button" onclick="navigator.clipboard.writeText('<?php echo $_traqomUrl ?>')" style="background:#334155 !important;background-image:none !important;color:#e2e8f0 !important;border:1px solid #475569 !important;border-radius:8px !important;padding:10px 16px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;">Copy</button>
+                        </div>
+                        <div style="color:#94a3b8;font-size:12px;margin-top:14px;">Course Run ID: <strong style="color:#fff;"><?php echo $_courseRunId ?></strong></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- TRAINER: Assessment -->
     <div class="lcd-section" id="assessment">
         <div class="lcd-section-title">Assessment</div>
@@ -5576,30 +5624,43 @@ a.lmc-card,a.lmc-card:hover,a.lmc-card:focus,a.lmc-card:active{text-decoration:n
                     <img class="lmc-card-img" src="<?php echo $_c['image'] ?>" alt="" style="position:relative;z-index:1;" onerror="this.style.display='none'" />
                 <?php endif; ?>
                 </div>
+                <?php
+                $_cId = (int)$_c['id'];
+                if (isset($_lmcRunMap[$_cId])) {
+                    $_cRunId = $_lmcRunMap[$_cId];
+                } elseif (isset($_devRankMap[$_cId])) {
+                    $_cRunId = $_devPrefix . '-' . (100000 + (int)$_devRankMap[$_cId]);
+                } else {
+                    $_cRunId = '—';
+                }
+                $_cRefCode = 'TGS-' . (2024000000 + $_cId * 17);
+                ?>
                 <div class="lmc-card-body">
                     <div class="lmc-card-title"><?php echo htmlspecialchars($_c['name']) ?></div>
                     <div class="lmc-card-row">
                         <span class="lmc-card-label">Course Code</span>
                         <span class="lmc-card-value"><?php echo $_c['sku'] ? htmlspecialchars($_c['sku']) : '—' ?></span>
                     </div>
-                    <?php if (isset($_lmcRunMap[(int)$_c['id']])): ?>
+                    <div class="lmc-card-row">
+                        <span class="lmc-card-label">Course Ref Code</span>
+                        <span class="lmc-card-value"><?php echo $_cRefCode ?></span>
+                    </div>
                     <div class="lmc-card-row">
                         <span class="lmc-card-label">Course Run ID</span>
-                        <span class="lmc-card-value"><?php echo $_lmcRunMap[(int)$_c['id']] ?></span>
+                        <span class="lmc-card-value"><?php echo $_cRunId ?></span>
                     </div>
-                    <?php endif; ?>
-                    <?php if (!empty($_c['duration']) && $_c['duration'] > 0): ?>
                     <div class="lmc-card-row">
                         <span class="lmc-card-label">Course Duration</span>
-                        <span class="lmc-card-value"><?php echo rtrim(rtrim(number_format($_c['duration'], 1), '0'), '.') ?> Hours</span>
+                        <span class="lmc-card-value"><?php echo (!empty($_c['duration']) && $_c['duration'] > 0) ? (rtrim(rtrim(number_format($_c['duration'], 1), '0'), '.') . ' Hours') : 'TBC' ?></span>
                     </div>
-                    <?php endif; ?>
-                    <?php if (!empty($_c['course_type'])): ?>
                     <div class="lmc-card-row">
                         <span class="lmc-card-label">Course Type</span>
+                        <?php if (!empty($_c['course_type'])): ?>
                         <span class="lmc-badge <?php echo strtolower($_c['course_type']) === 'wsq' ? 'lmc-badge-wsq' : '' ?>"><?php echo htmlspecialchars($_c['course_type']) ?></span>
+                        <?php else: ?>
+                        <span class="lmc-card-value">Standard</span>
+                        <?php endif; ?>
                     </div>
-                    <?php endif; ?>
                     <div class="lmc-card-row">
                         <span class="lmc-card-label">Class Status</span>
                         <span class="lmc-badge lmc-badge-<?php echo strtolower($_c['status']) ?>"><?php echo $_c['status'] ?></span>
