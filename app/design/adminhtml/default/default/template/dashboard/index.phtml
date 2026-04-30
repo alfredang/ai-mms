@@ -574,6 +574,25 @@ if ($_tpgActive && $_tpgPage === 'assign_learners') {
 // =====================================================================
 // DATA — Admin panel (course schedule)
 // =====================================================================
+// Defaults so any variable referenced later in the template works even
+// when the active role isn't admin (in which case the dash-panel-admin
+// markup is never visible anyway). Skipping this block for non-admin
+// roles cuts ~10+ heavy queries off every page load — material because
+// every role-swap reloads the dashboard.
+$attrMap = array(); $nameAid = 71; $typeAid = $startAid = $endAid = $statusAid = 0;
+$ongoingCount = $upcomingCount = $completedCount = 0;
+$assignedLocal = $missingLocal = $missingTpg = 0;
+$classTypeOptions = array();
+$sT = $sS = $sE = ''; $cT = 'NULL AS type_id,'; $cS = 'NULL AS start_date,'; $cE = 'NULL AS end_date,';
+$_dashFilter = (string) Mage::app()->getRequest()->getParam('dash_filter', '');
+$_dashFilterWhere = '';
+$courseRows = array();
+$_dashFilterTotal = $_dashFilterLearners = $_dashFilterConfirmed = $_dashFilterPending = 0;
+$_trainerLocalCount = $_trainerTpgCount = $_unassignedTrainerCount = 0;
+$today = date('Y-m-d H:i:s');
+$trainerTable = $resource->getTableName('courses_trainers');
+
+if ($activeRole === 'admin'):
 $attrMap = array();
 foreach ($read->fetchAll("SELECT attribute_id, attribute_code FROM eav_attribute WHERE entity_type_id=4 AND attribute_code IN ('name','software','news_from_date','news_to_date','status')") as $r) {
     $attrMap[$r['attribute_code']] = (int)$r['attribute_id'];
@@ -687,11 +706,18 @@ if ($_dashFilter !== '' && $startAid && $endAid) {
 // AI-LMS-TMS reference layout: Local / TPG / Unassigned).
 $_trainerTpgCount        = (int) $read->fetchOne("SELECT COUNT(DISTINCT relation_id) FROM {$trainerTable} WHERE status=1");
 $_unassignedTrainerCount = max(0, ($_dashFilter === 'upcoming' ? $_dashFilterTotal : $upcomingCount) - $assignedLocal);
+endif; // end if ($activeRole === 'admin')
 
 // =====================================================================
 // DATA — Training Provider panel (training analytics)
 // =====================================================================
+// Defaults for non-Super-Admin roles. Same pattern as Admin section.
 $tpToday = date('Y-m-d H:i:s');
+$tpTotalLearners = $tpGrantsApplied = $tpClaimsDisbursed = 0;
+$tpForecastRows = $ageRows = array(); $tpAvailableYears = array();
+$tpSelectedYear = (int) date('Y');
+
+if ($activeRole === 'training_provider'):
 
 // KPI 1: Total Learners Enrolled (distinct emails, non-canceled)
 $tpTotalLearners = (int)$read->fetchOne("SELECT COUNT(DISTINCT customer_email) FROM sales_flat_order WHERE state NOT IN ('canceled','holded')");
@@ -775,13 +801,22 @@ foreach ($tpSponsorRows as $sr) {
     $label = isset($sponsorMap[$sr['grp']]) ? $sponsorMap[$sr['grp']] : $sr['grp'];
     $tpSponsors[] = array('label' => $label, 'value' => (int)$sr['cnt']);
 }
+endif; // end if ($activeRole === 'training_provider')
 
-function tpFmt($v) { return '$' . number_format($v, 0); }
+if (!function_exists('tpFmt')) {
+    function tpFmt($v) { return '$' . number_format($v, 0); }
+}
 
 // =====================================================================
 // DATA — View Trainers panel
 // =====================================================================
+// Trainers panel data is used by both Admin and Super Admin (both
+// sidebars expose "View Trainers"). Skip for everyone else.
 $trainersTable = $resource->getTableName('courses_trainers');
+$tnTotal = $tnAclp = $tnNonAclp = 0;
+$trainerRows = array();
+
+if ($activeRole === 'admin' || $activeRole === 'training_provider'):
 $tnTotal = (int)$read->fetchOne("SELECT COUNT(*) FROM {$trainersTable}");
 // Use trainer_type column if it exists, else fallback to estimate
 $_tnCols = array_flip($read->fetchCol("SHOW COLUMNS FROM {$trainersTable}"));
@@ -794,13 +829,23 @@ if (isset($_tnCols['trainer_type'])) {
 }
 
 $trainerRows = $read->fetchAll("SELECT * FROM {$trainersTable} ORDER BY title ASC LIMIT 300");
+endif; // end if (admin || training_provider)
 
 // =====================================================================
 // DATA — Super Admin panel (charts / revenue)
 // =====================================================================
+// Heaviest set of queries on the page: aggregate orders, sales, recent
+// searches across stores. Only Super Admin sees this panel. Skip for
+// everyone else.
 $storeId       = (int) $this->getRequest()->getParam('store', 0);
 $countryFilter = $this->getRequest()->getParam('country', '');
 $countryTabs   = array('' => 'ALL','SG' => 'Singapore','MY' => 'Malaysia','GH' => 'Ghana','NG' => 'Nigeria','BT' => 'Bhutan','IN' => 'India','IT' => 'Infotech');
+$countryStoreId = 0;
+$ordersByCountry = $recentSearches = $recentRequests = array();
+$_searchStoreFilter = $countryStoreId;
+$revenue30 = $orders30 = $newCustomers30 = 0;
+
+if ($activeRole === 'training_provider'):
 $countryStoreMap = array('SG' => 1, 'MY' => 2, 'GH' => 3, 'NG' => 4, 'BT' => 5, 'IN' => 6, 'IT' => 7);
 $countryStoreId = isset($countryStoreMap[$countryFilter]) ? $countryStoreMap[$countryFilter] : 0;
 
@@ -897,6 +942,7 @@ foreach ($coc as $row) {
     $code = $row->getData('country_code');
     $ordersByCountry[] = array('country' => isset($cnames[$code]) ? $cnames[$code] : $code, 'count' => (int)$row->getData('order_count'));
 }
+endif; // end if ($activeRole === 'training_provider')
 
 // =====================================================================
 // DATA — Learner Billing History
