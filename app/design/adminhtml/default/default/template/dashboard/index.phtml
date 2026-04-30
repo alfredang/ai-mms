@@ -716,6 +716,17 @@ $tpToday = date('Y-m-d H:i:s');
 $tpTotalLearners = $tpGrantsApplied = $tpClaimsDisbursed = 0;
 $tpForecastRows = $ageRows = array(); $tpAvailableYears = array();
 $tpSelectedYear = (int) date('Y');
+// dash-panel-trainingprovider markup is emitted for every role (it
+// just gets hidden by JS when not active), so every variable it
+// references unconditionally needs a real default — otherwise we
+// fatal on undefined functions / Notice-cascade and blank the page.
+$tpFcLearners = $tpFcGrants = $tpFcClaims = 0;
+$tpByMonth = $tpCourseRanking = $tpSponsors = array();
+$tpAgeGroups = array(
+    '20-25' => 0, '26-30' => 0, '31-35' => 0,
+    '36-40' => 0, '41-45' => 0, '46-50' => 0, '51+' => 0
+);
+$tpStatuses = array('Confirmed' => 0, 'Cancelled' => 0);
 
 if ($activeRole === 'training_provider'):
 
@@ -844,20 +855,34 @@ $countryStoreId = 0;
 $ordersByCountry = $recentSearches = $recentRequests = array();
 $_searchStoreFilter = $countryStoreId;
 $revenue30 = $orders30 = $newCustomers30 = 0;
+// These are emitted unconditionally inside dash-panel-superadmin's
+// markup (rendered for every role even if hidden), so they need
+// real defaults regardless of the role gate below.
+$totalOrders = $monthOrders = $productCount = 0;
+$totalRevenue = 0.0;
+$salesByMonth = $popularCourses = $popularSearches = array();
+
+// _dashFmt is referenced by dash-panel-superadmin markup for every
+// role, so the declaration must always exist. _dashCountry is only
+// called inside the gate, but we declare it alongside for symmetry
+// and so future callers don't trip the same fatal.
+if (!function_exists('_dashCountry')) {
+    function _dashCountry($collection, $cc) {
+        if (!$cc) return;
+        $collection->getSelect()->join(
+            array('soa' => Mage::getSingleton('core/resource')->getTableName('sales/order_address')),
+            'main_table.entity_id = soa.parent_id AND soa.address_type = "billing"', array()
+        );
+        $collection->getSelect()->where('soa.country_id = ?', $cc);
+    }
+}
+if (!function_exists('_dashFmt')) {
+    function _dashFmt($a) { return Mage::helper('core')->currency($a, true, false); }
+}
 
 if ($activeRole === 'training_provider'):
 $countryStoreMap = array('SG' => 1, 'MY' => 2, 'GH' => 3, 'NG' => 4, 'BT' => 5, 'IN' => 6, 'IT' => 7);
 $countryStoreId = isset($countryStoreMap[$countryFilter]) ? $countryStoreMap[$countryFilter] : 0;
-
-function _dashCountry($collection, $cc) {
-    if (!$cc) return;
-    $collection->getSelect()->join(
-        array('soa' => Mage::getSingleton('core/resource')->getTableName('sales/order_address')),
-        'main_table.entity_id = soa.parent_id AND soa.address_type = "billing"', array()
-    );
-    $collection->getSelect()->where('soa.country_id = ?', $cc);
-}
-function _dashFmt($a) { return Mage::helper('core')->currency($a, true, false); }
 
 $oc = Mage::getResourceModel('reports/order_collection');
 if ($storeId) $oc->addFieldToFilter('store_id', $storeId);
