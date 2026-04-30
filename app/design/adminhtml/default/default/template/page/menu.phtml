@@ -85,7 +85,7 @@
         <div class="tools-group-items">
             <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/catalog_category') ?>" class="tools-sub-item"><span>Course Categories</span></a>
             <a href="<?php echo Mage::helper('adminhtml')->getUrl('mmd/customoptions_options') ?>" class="tools-sub-item"><span>Course Schedules</span></a>
-            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('panel' => 'trainers')) ?>" class="tools-sub-item"><span>View Trainers</span></a>
+            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('panel' => 'trainers')) ?>" class="tools-sub-item" data-no-pjax onclick="if (window.showAdminSubPanel && window.location.pathname.indexOf('/dashboard') !== -1) { window.showAdminSubPanel('trainers'); history.replaceState(null,'',this.href); event.preventDefault(); return false; }"><span>View Trainers</span></a>
         </div>
     </div>
     <div class="tools-group<?php echo _so(array('catalog_search','review','urlrewrite','sitemap')) ?>">
@@ -124,7 +124,7 @@
             <svg class="tools-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
         </div>
         <div class="tools-group-items">
-            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('panel' => 'companysetting')) ?>" class="tools-sub-item"><span>Configuration</span></a>
+            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('panel' => 'companysetting')) ?>" class="tools-sub-item" data-no-pjax onclick="if (window.showAdminSubPanel && window.location.pathname.indexOf('/dashboard') !== -1) { window.showAdminSubPanel('companysetting'); history.replaceState(null,'',this.href); event.preventDefault(); return false; }"><span>Configuration</span></a>
             <a href="<?php echo $sysUsersUrl ?>" class="tools-sub-item"><span>Users</span></a>
             <a href="<?php echo $sysRolesUrl ?>" class="tools-sub-item"><span>Roles</span></a>
             <a href="<?php echo $sysCacheUrl ?>" class="tools-sub-item"><span>Cache Management</span></a>
@@ -165,7 +165,7 @@
         <div class="tools-group-items">
             <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/catalog_category') ?>" class="tools-sub-item"><span>Course Categories</span></a>
             <a href="<?php echo Mage::helper('adminhtml')->getUrl('mmd/customoptions_options') ?>" class="tools-sub-item"><span>Course Schedules</span></a>
-            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('panel' => 'trainers')) ?>" class="tools-sub-item"><span>View Trainers</span></a>
+            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('panel' => 'trainers')) ?>" class="tools-sub-item" data-no-pjax onclick="if (window.showAdminSubPanel && window.location.pathname.indexOf('/dashboard') !== -1) { window.showAdminSubPanel('trainers'); history.replaceState(null,'',this.href); event.preventDefault(); return false; }"><span>View Trainers</span></a>
             <div class="tools-group" style="margin:0;">
                 <div class="tools-group-toggle" onclick="toggleToolGroup(this)" style="padding:8px 12px;">
                     <span style="font-size:11px;font-weight:600;color:#64748b;letter-spacing:.5px;">LEARNERS / TRAINERS</span>
