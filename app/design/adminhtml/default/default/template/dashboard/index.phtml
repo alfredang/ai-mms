@@ -7672,6 +7672,300 @@ window.cncSubmit = function(ev) {
 </script>
 </div><!-- end dash-panel-createclass -->
 
+<?php /* ===== PANEL: Assign Trainer (Admin only) ===== */ ?>
+<?php
+// Data prep — only runs when this panel is the active sub-view, otherwise
+// the page pays for ~3 extra queries on every dashboard load.
+$_atActive = ($activeRole === 'admin') && (Mage::app()->getRequest()->getParam('panel') === 'assign_trainer');
+$_atKpi = array('upcoming' => 0, 'ongoing' => 0, 'completed' => 0, 'assigned' => 0, 'missing' => 0);
+$_atRows = array();
+$_atTrainerOpts = array();
+$_atCourseTitles = array();
+if ($_atActive) {
+    try {
+        $_atTrainersAttrId = (int) $read->fetchOne("SELECT attribute_id FROM eav_attribute WHERE attribute_code='trainers' AND entity_type_id=4");
+        // Trainer option_id → name (for dropdown + name resolution)
+        if ($_atTrainersAttrId) {
+            $_atTrainerOpts = $read->fetchPairs(
+                "SELECT eaov.option_id, eaov.value
+                 FROM eav_attribute_option eao
+                 JOIN eav_attribute_option_value eaov ON eao.option_id=eaov.option_id AND eaov.store_id=0
+                 WHERE eao.attribute_id=?
+                 ORDER BY eaov.value",
+                array($_atTrainersAttrId)
+            );
+        }
+        // Class list with start/end + trainers CSV. Active products only.
+        $_atProducts = $read->fetchAll(
+            "SELECT e.entity_id, e.sku,
+                    (SELECT v.value FROM catalog_product_entity_varchar v WHERE v.entity_id=e.entity_id AND v.attribute_id=71 ORDER BY v.store_id LIMIT 1) AS name,
+                    (SELECT i.value FROM catalog_product_entity_int i WHERE i.entity_id=e.entity_id AND i.attribute_id={$statusAid} ORDER BY i.store_id LIMIT 1) AS status_val,
+                    (SELECT d.value FROM catalog_product_entity_datetime d WHERE d.entity_id=e.entity_id AND d.attribute_id={$startAid} ORDER BY d.store_id LIMIT 1) AS news_from_date,
+                    (SELECT d.value FROM catalog_product_entity_datetime d WHERE d.entity_id=e.entity_id AND d.attribute_id={$endAid} ORDER BY d.store_id LIMIT 1) AS news_to_date,
+                    " . ($_atTrainersAttrId ? "(SELECT t.value FROM catalog_product_entity_text t WHERE t.entity_id=e.entity_id AND t.attribute_id={$_atTrainersAttrId} ORDER BY t.store_id LIMIT 1)" : "NULL") . " AS trainers_csv
+             FROM catalog_product_entity e
+             ORDER BY (SELECT d.value FROM catalog_product_entity_datetime d WHERE d.entity_id=e.entity_id AND d.attribute_id={$startAid} ORDER BY d.store_id LIMIT 1) ASC,
+                      e.entity_id ASC
+             LIMIT 600"
+        );
+        $_atToday = strtotime(date('Y-m-d'));
+        foreach ($_atProducts as $_p) {
+            $_pid = (int) $_p['entity_id'];
+            $_sd = $_p['news_from_date'] ? strtotime($_p['news_from_date']) : 0;
+            $_ed = $_p['news_to_date']   ? strtotime($_p['news_to_date'])   : 0;
+            $_sv = (int) $_p['status_val'];
+            // Bucket by date
+            $_tab = '';
+            if ($_sd && $_ed && $_sd <= $_atToday && $_ed >= $_atToday) $_tab = 'ongoing';
+            elseif ($_sd && $_sd > $_atToday) $_tab = 'upcoming';
+            elseif ($_ed && $_ed < $_atToday) $_tab = 'completed';
+            // Status label
+            if ($_sv !== 1) { $_lbl = 'Cancelled'; $_cls = 'at-badge-cancelled'; }
+            elseif (!$_sd) { $_lbl = 'Pending';   $_cls = 'at-badge-pending'; }
+            else           { $_lbl = 'Confirmed'; $_cls = 'at-badge-confirmed'; }
+            // Trainer names from CSV of option_ids
+            $_tnames = array();
+            $_tcsv = trim((string) $_p['trainers_csv']);
+            if ($_tcsv !== '') {
+                foreach (explode(',', $_tcsv) as $_oid) {
+                    $_oid = (int) trim($_oid);
+                    if ($_oid && isset($_atTrainerOpts[$_oid])) $_tnames[] = $_atTrainerOpts[$_oid];
+                }
+            }
+            // Synthesised Run ID — same scheme as dev card
+            $_runId = isset($_lmcRunMap[$_pid]) ? $_lmcRunMap[$_pid] : '';
+            if ($_runId === '' && isset($_devRankMap[$_pid])) {
+                $_runId = $_devPrefix . '-' . (100000 + (int)$_devRankMap[$_pid]);
+            }
+            if ($_runId === '') $_runId = (string) (1000000 + $_pid);
+            $_atRows[] = array(
+                'pid'        => $_pid,
+                'sku'        => $_p['sku'],
+                'title'      => $_p['name'] ?: '(No Name)',
+                'run_id'     => $_runId,
+                'start_date' => $_sd ? date('d/m/Y', $_sd) : '—',
+                'start_iso'  => $_sd ? date('Y-m-d', $_sd) : '',
+                'tab'        => $_tab,
+                'status'     => $_lbl,
+                'status_cls' => $_cls,
+                'trainers'   => $_tnames,
+            );
+            $_atCourseTitles[$_p['name']] = true;
+            if ($_tab === 'upcoming') $_atKpi['upcoming']++;
+            if ($_tab === 'ongoing')  $_atKpi['ongoing']++;
+            if ($_tab === 'completed')$_atKpi['completed']++;
+            if ($_tab === 'upcoming') {
+                if (!empty($_tnames)) $_atKpi['assigned']++;
+                else                  $_atKpi['missing']++;
+            }
+        }
+        ksort($_atCourseTitles);
+        $_atCourseTitles = array_keys($_atCourseTitles);
+    } catch (Exception $e) {}
+}
+?>
+<div id="dash-panel-assigntrainer" style="display:none;">
+<style>
+.at-wrap{max-width:1400px;margin:0 auto;padding:24px 28px;color:#e2e8f0}
+.at-header{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:22px}
+.at-title{font-size:28px;font-weight:700;color:#fff;margin:0}
+.at-back-link{color:#fff;font-size:14px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.at-back-link:hover{color:#93c5fd}
+.at-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:22px}
+.at-kpi{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:32px 24px;text-align:center}
+.at-kpi-num{font-size:48px;font-weight:700;line-height:1;margin-bottom:10px;margin-top:0;height:auto}
+.at-kpi-num.at-num-up{color:#3b82f6}
+.at-kpi-num.at-num-assigned{color:#22c55e}
+.at-kpi-num.at-num-missing{color:#ef4444}
+.at-kpi-lbl{font-size:14px;color:#94a3b8;font-weight:500}
+.at-tabs{display:inline-flex;background:#0f172a;border:1px solid #334155;border-radius:10px;padding:4px;margin-bottom:18px;gap:2px}
+button.at-tab,button.at-tab:hover,button.at-tab:focus{padding:9px 22px !important;background:transparent !important;background-image:none !important;border:none !important;color:#94a3b8 !important;font-size:14px !important;font-weight:600 !important;cursor:pointer !important;border-radius:7px !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;transition:all .15s !important}
+button.at-tab:hover{color:#cbd5e1 !important}
+button.at-tab.active,button.at-tab.active:hover,button.at-tab.active:focus{background:#2563eb !important;color:#fff !important}
+.at-search-row{display:flex;gap:10px;margin-bottom:14px}
+.at-search-input{flex:1;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:11px 14px;color:#e2e8f0;font-size:14px;outline:none}
+.at-search-input:focus{border-color:#60a5fa}
+.at-search-input::placeholder{color:#64748b}
+button.at-search-btn,button.at-search-btn:hover,button.at-search-btn:focus{padding:11px 28px !important;background:#22d3ee !important;background-image:none !important;color:#0f172a !important;border:none !important;border-radius:8px !important;font-size:14px !important;font-weight:700 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
+button.at-search-btn:hover{background:#06b6d4 !important}
+.at-filters-row{display:flex;align-items:center;flex-wrap:wrap;gap:18px;margin-bottom:14px;font-size:13px}
+.at-checkbox-wrap{display:inline-flex;align-items:center;gap:8px;color:#cbd5e1;cursor:pointer}
+.at-checkbox-wrap input{width:16px;height:16px;cursor:pointer}
+.at-filter-label{color:#94a3b8}
+.at-select{background:#0f172a;border:1px solid #334155;border-radius:8px;padding:8px 12px;color:#e2e8f0;font-size:13px;outline:none;min-width:200px}
+.at-counter{color:#94a3b8;font-size:13px;margin-left:auto}
+.at-table-wrap{background:#1e293b;border:1px solid #334155;border-radius:12px;overflow:hidden;margin-bottom:18px}
+table.at-table{width:100%;border-collapse:collapse;color:#e2e8f0}
+.at-table thead th{background:#0f172a;color:#94a3b8;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:14px 16px;text-align:left;border-bottom:1px solid #334155}
+.at-table tbody td{padding:16px;border-bottom:1px solid #283548;font-size:13px;color:#cbd5e1;vertical-align:top}
+.at-table tbody tr:last-child td{border-bottom:none}
+.at-table tbody tr:hover{background:rgba(30,58,99,.25)}
+.at-run-id{color:#22d3ee;font-weight:600}
+.at-badge{display:inline-block;padding:3px 12px;border-radius:5px;font-size:12px;font-weight:600}
+.at-badge-confirmed{background:rgba(34,197,94,.15);color:#86efac;border:1px solid rgba(34,197,94,.3)}
+.at-badge-pending{background:rgba(245,158,11,.15);color:#fcd34d;border:1px solid rgba(245,158,11,.3)}
+.at-badge-cancelled{background:rgba(239,68,68,.15);color:#fca5a5;border:1px solid rgba(239,68,68,.3)}
+.at-trainer-pill{display:inline-block;padding:3px 10px;border-radius:5px;background:rgba(59,130,246,.18);color:#93c5fd;border:1px solid rgba(59,130,246,.3);font-size:12px;font-weight:500;margin-right:4px;margin-bottom:2px}
+.at-trainer-empty{color:#64748b;font-style:italic}
+.at-empty{padding:48px 20px;text-align:center;color:#64748b;font-size:14px}
+.at-pager{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;color:#94a3b8;font-size:13px}
+.at-pager-info{}
+.at-pager-ctrls{display:flex;gap:6px}
+button.at-pg-btn,button.at-pg-btn:hover,button.at-pg-btn:focus{padding:6px 12px !important;background:#0f172a !important;background-image:none !important;color:#cbd5e1 !important;border:1px solid #334155 !important;border-radius:6px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;min-width:34px !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
+button.at-pg-btn:hover{background:#1e293b !important}
+button.at-pg-btn.active,button.at-pg-btn.active:hover{background:#2563eb !important;border-color:#2563eb !important;color:#fff !important}
+button.at-pg-btn.disabled,button.at-pg-btn.disabled:hover{opacity:.45;cursor:not-allowed !important;background:#0f172a !important}
+@media(max-width:900px){.at-kpis{grid-template-columns:1fr}}
+</style>
+<div class="at-wrap">
+    <div class="at-header">
+        <h1 class="at-title">Assign Trainer</h1>
+        <a class="at-back-link" href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard') ?>">Back to Dashboard</a>
+    </div>
+
+    <div class="at-kpis">
+        <div class="at-kpi"><div class="at-kpi-num at-num-up"><?php echo number_format($_atKpi['upcoming']) ?></div><div class="at-kpi-lbl">Upcoming Classes</div></div>
+        <div class="at-kpi"><div class="at-kpi-num at-num-assigned"><?php echo number_format($_atKpi['assigned']) ?></div><div class="at-kpi-lbl">Trainers Assigned</div></div>
+        <div class="at-kpi"><div class="at-kpi-num at-num-missing"><?php echo number_format($_atKpi['missing']) ?></div><div class="at-kpi-lbl">Missing Trainers</div></div>
+    </div>
+
+    <div class="at-tabs">
+        <button type="button" class="at-tab active" data-tab="upcoming" onclick="atSetTab(this)">Upcoming</button>
+        <button type="button" class="at-tab" data-tab="ongoing" onclick="atSetTab(this)">Ongoing</button>
+        <button type="button" class="at-tab" data-tab="completed" onclick="atSetTab(this)">Completed</button>
+    </div>
+
+    <div class="at-search-row">
+        <input type="text" id="at-search" class="at-search-input" placeholder="Search by course title, code or run ID..." oninput="atRender()" />
+        <button type="button" class="at-search-btn" onclick="atRender()">Search</button>
+    </div>
+
+    <div class="at-filters-row">
+        <label class="at-checkbox-wrap"><input type="checkbox" id="at-no-trainer" onchange="atRender()" /> Show only classes with no trainer</label>
+        <span class="at-filter-label">Filter by trainer:</span>
+        <select id="at-filter-trainer" class="at-select" onchange="atRender()">
+            <option value="">All trainers</option>
+            <?php foreach ($_atTrainerOpts as $_oid => $_tname): ?>
+            <option value="<?php echo htmlspecialchars($_tname) ?>"><?php echo htmlspecialchars($_tname) ?></option>
+            <?php endforeach; ?>
+        </select>
+        <span class="at-filter-label">Filter by course:</span>
+        <select id="at-filter-course" class="at-select" onchange="atRender()">
+            <option value="">All courses</option>
+            <?php foreach ($_atCourseTitles as $_ct): ?>
+            <option value="<?php echo htmlspecialchars($_ct) ?>"><?php echo htmlspecialchars($_ct) ?></option>
+            <?php endforeach; ?>
+        </select>
+        <span id="at-counter" class="at-counter"></span>
+    </div>
+
+    <div class="at-table-wrap">
+        <table class="at-table">
+            <thead><tr>
+                <th>Start Date</th>
+                <th>Course Run ID</th>
+                <th>Course Title</th>
+                <th>Course Ref Code</th>
+                <th>Class Status</th>
+                <th>Trainer</th>
+            </tr></thead>
+            <tbody id="at-tbody">
+                <?php foreach ($_atRows as $_r): ?>
+                <tr data-tab="<?php echo $_r['tab'] ?>" data-title="<?php echo strtolower(htmlspecialchars($_r['title'])) ?>" data-sku="<?php echo strtolower(htmlspecialchars($_r['sku'])) ?>" data-run="<?php echo strtolower(htmlspecialchars($_r['run_id'])) ?>" data-trainers="<?php echo strtolower(htmlspecialchars(implode('|', $_r['trainers']))) ?>" data-trainers-empty="<?php echo empty($_r['trainers']) ? '1' : '0' ?>" data-course="<?php echo htmlspecialchars($_r['title']) ?>">
+                    <td><?php echo $_r['start_date'] ?></td>
+                    <td><span class="at-run-id"><?php echo htmlspecialchars($_r['run_id']) ?></span></td>
+                    <td><?php echo htmlspecialchars($_r['title']) ?></td>
+                    <td><?php echo htmlspecialchars($_r['sku']) ?></td>
+                    <td><span class="at-badge <?php echo $_r['status_cls'] ?>"><?php echo $_r['status'] ?></span></td>
+                    <td><?php if (empty($_r['trainers'])): ?><span class="at-trainer-empty">— No trainer —</span><?php else: foreach ($_r['trainers'] as $_tn): ?><span class="at-trainer-pill"><?php echo htmlspecialchars($_tn) ?></span><?php endforeach; endif; ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+        <div id="at-no-results" class="at-empty" style="display:none;">No classes match your filters.</div>
+        <div class="at-pager">
+            <div id="at-pager-info" class="at-pager-info"></div>
+            <div id="at-pager-ctrls" class="at-pager-ctrls"></div>
+        </div>
+    </div>
+</div>
+<script type="text/javascript">
+window._atTab = 'upcoming';
+window._atPage = 1;
+window._atPerPage = 10;
+
+window.atSetTab = function(btn) {
+    var tabs = document.querySelectorAll('.at-tab');
+    for (var i = 0; i < tabs.length; i++) tabs[i].classList.remove('active');
+    btn.classList.add('active');
+    window._atTab = btn.getAttribute('data-tab');
+    window._atPage = 1;
+    atRender();
+};
+
+window.atRender = function() {
+    var rows = document.querySelectorAll('#at-tbody tr');
+    var q = (document.getElementById('at-search')||{value:''}).value.toLowerCase().trim();
+    var noTrainer = (document.getElementById('at-no-trainer')||{checked:false}).checked;
+    var trainerFilter = (document.getElementById('at-filter-trainer')||{value:''}).value.toLowerCase().trim();
+    var courseFilter = (document.getElementById('at-filter-course')||{value:''}).value;
+    var matched = [];
+    for (var i = 0; i < rows.length; i++) {
+        var r = rows[i];
+        var match = true;
+        if (r.getAttribute('data-tab') !== window._atTab) match = false;
+        if (match && q) {
+            var hay = (r.getAttribute('data-title')||'') + ' ' + (r.getAttribute('data-sku')||'') + ' ' + (r.getAttribute('data-run')||'');
+            if (hay.indexOf(q) === -1) match = false;
+        }
+        if (match && noTrainer && r.getAttribute('data-trainers-empty') !== '1') match = false;
+        if (match && trainerFilter && (r.getAttribute('data-trainers')||'').indexOf(trainerFilter) === -1) match = false;
+        if (match && courseFilter && r.getAttribute('data-course') !== courseFilter) match = false;
+        r.style.display = 'none';
+        if (match) matched.push(r);
+    }
+    var perPage = window._atPerPage;
+    var total = matched.length;
+    var pages = Math.max(1, Math.ceil(total / perPage));
+    if (window._atPage > pages) window._atPage = pages;
+    if (window._atPage < 1) window._atPage = 1;
+    var startIdx = (window._atPage - 1) * perPage;
+    var endIdx = Math.min(startIdx + perPage, total);
+    for (var j = startIdx; j < endIdx; j++) matched[j].style.display = '';
+
+    var tabLabel = window._atTab.charAt(0).toUpperCase() + window._atTab.slice(1);
+    var counter = document.getElementById('at-counter');
+    if (counter) counter.textContent = total === 0 ? 'No ' + tabLabel + ' classes' : 'Showing ' + total + ' of ' + total + ' ' + tabLabel + ' classes';
+
+    var info = document.getElementById('at-pager-info');
+    if (info) info.textContent = total === 0 ? '' : 'Page ' + window._atPage + ' of ' + pages + ' (' + total + ' classes)';
+
+    var ne = document.getElementById('at-no-results');
+    if (ne) ne.style.display = total === 0 ? '' : 'none';
+
+    var c = document.getElementById('at-pager-ctrls');
+    if (c) {
+        c.innerHTML = '';
+        function btn(label, page, opts) {
+            opts = opts || {};
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'at-pg-btn' + (opts.active ? ' active' : '') + (opts.disabled ? ' disabled' : '');
+            b.textContent = label;
+            if (!opts.disabled && page) b.onclick = function() { window._atPage = page; atRender(); };
+            c.appendChild(b);
+        }
+        if (total > 0) {
+            btn('Prev', window._atPage - 1, { disabled: window._atPage <= 1 });
+            for (var p = 1; p <= pages; p++) btn(String(p), p, { active: p === window._atPage });
+            btn('Next', window._atPage + 1, { disabled: window._atPage >= pages });
+        }
+    }
+};
+(function(){ if (document.getElementById('at-tbody')) atRender(); })();
+</script>
+</div><!-- end dash-panel-assigntrainer -->
+
 
 <?php /* ===== Role switcher JS ===== */ ?>
 <script type="text/javascript">
@@ -7758,8 +8052,8 @@ window.cncSubmit = function(ev) {
     function showAdminSubPanel(name, filter) {
         var r = role;
         if (r !== 'Admin' && r !== 'Super Admin' && r !== 'Marketing') return;
-        var panelMap = { admin: 'dash-panel-admin', trainers: 'dash-panel-trainers', companysetting: 'dash-panel-companysetting', createclass: 'dash-panel-createclass', dashboard: (r === 'Admin' ? 'dash-panel-admin' : 'dash-panel-superadmin') };
-        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-learner','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-trainers','dash-panel-companysetting','dash-panel-createclass'];
+        var panelMap = { admin: 'dash-panel-admin', trainers: 'dash-panel-trainers', companysetting: 'dash-panel-companysetting', createclass: 'dash-panel-createclass', assigntrainer: 'dash-panel-assigntrainer', dashboard: (r === 'Admin' ? 'dash-panel-admin' : 'dash-panel-superadmin') };
+        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-learner','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-trainers','dash-panel-companysetting','dash-panel-createclass','dash-panel-assigntrainer'];
         for (var i=0; i<all.length; i++) { var el = document.getElementById(all[i]); if (el) el.style.display = 'none'; }
         var t = document.getElementById(panelMap[name] || panelMap.dashboard);
         if (t) t.style.display = '';
@@ -7822,6 +8116,11 @@ window.cncSubmit = function(ev) {
         if ((qsPanel === 'create_class' || qsPanel === 'createclass' || hash === '#create-class')
             && (role === 'Admin' || role === 'Super Admin')) {
             showAdminSubPanel('createclass');
+            return;
+        }
+        if ((qsPanel === 'assign_trainer' || qsPanel === 'assigntrainer' || hash === '#assign-trainer')
+            && (role === 'Admin' || role === 'Super Admin')) {
+            showAdminSubPanel('assigntrainer');
             return;
         }
         if (qsFilter && (role === 'Admin' || role === 'Super Admin' || role === 'Marketing')) {
