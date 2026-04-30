@@ -58,13 +58,7 @@ class MMD_RoleManager_Block_Page_Menu extends Mage_Adminhtml_Block_Page_Menu
         }
 
         // Rename customer sub-items: Customer → Learner.
-        // Also hijack the top-nav URL: clicking "View Learners" or "Manage
-        // Learners" from the Magento admin top bar should land on our custom
-        // dashboard panel (?tpg_page=view_learners), not the legacy customer
-        // grid at adminhtml/customer/index.
         if (isset($menu['customer'])) {
-            $vlUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('tpg_page' => 'view_learners'));
-            $menu['customer']['url'] = $vlUrl;
             if (isset($menu['customer']['children'])) {
                 $childRenames = array(
                     'manage' => 'Manage Learners',
@@ -76,13 +70,12 @@ class MMD_RoleManager_Block_Page_Menu extends Mage_Adminhtml_Block_Page_Menu
                         $menu['customer']['children'][$childKey]['label'] = $childLabel;
                     }
                 }
-                if (isset($menu['customer']['children']['manage'])) {
-                    $menu['customer']['children']['manage']['url'] = $vlUrl;
-                }
             }
         }
 
-        // Add Role Management as a top-level menu item for Super Admin
+        // Role Management appears as a top-level menu item for the Super Admin role
+        // (whose internal role code is still 'training_provider' — the role rename
+        // is decoupled from this surface cleanup).
         $roleCode = Mage::helper('mmd_rolemanager')->getActiveRoleCode();
         if ($roleCode === 'training_provider') {
             $roleMgmtUrl = Mage::helper('adminhtml')->getUrl('adminhtml/rolemanagement/index');

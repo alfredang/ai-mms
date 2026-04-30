@@ -1,8 +1,7 @@
 <?php
 /**
  * SEO Metadata Generator
- * Matches the LMS reference: WSQ / Non-WSQ toggle, course details form,
- * AI-generation button, and right-side info panel.
+ * Course details form + AI-generation button + right-side info panel.
  */
 ?>
 
@@ -15,10 +14,6 @@
 .seo-two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
 .seo-card{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:24px;margin-bottom:16px}
 .seo-card-label{font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin:0 0 14px}
-.seo-toggle{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-button.seo-toggle-btn,button.seo-toggle-btn:hover,button.seo-toggle-btn:focus,button.seo-toggle-btn:active{padding:16px !important;background:#334155 !important;background-image:none !important;border:1px solid #475569 !important;border-radius:10px !important;color:#e2e8f0 !important;font-size:15px !important;font-weight:600 !important;cursor:pointer !important;text-align:center !important;transition:all .15s !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
-button.seo-toggle-btn:hover{background:#475569 !important}
-button.seo-toggle-btn.active,button.seo-toggle-btn.active:hover,button.seo-toggle-btn.active:focus{background:#2563eb !important;background-image:none !important;border-color:#3b82f6 !important;color:#fff !important}
 .seo-field{margin-bottom:18px}
 .seo-field:last-child{margin-bottom:0}
 .seo-field label{display:block;font-size:14px;font-weight:600;color:#fff;margin-bottom:8px}
@@ -48,14 +43,6 @@ button.seo-toggle-btn.active,button.seo-toggle-btn.active:hover,button.seo-toggl
         <!-- LEFT: Form -->
         <div>
             <div class="seo-card">
-                <div class="seo-card-label">Select Course Type</div>
-                <div class="seo-toggle">
-                    <button type="button" class="seo-toggle-btn" id="seo-btn-wsq" onclick="seoSetType('wsq')">WSQ Course</button>
-                    <button type="button" class="seo-toggle-btn active" id="seo-btn-nonwsq" onclick="seoSetType('nonwsq')">Non-WSQ Course</button>
-                </div>
-            </div>
-
-            <div class="seo-card">
                 <div class="seo-card-label">Course Details</div>
                 <div class="seo-field">
                     <label>Course Title</label>
@@ -82,8 +69,8 @@ button.seo-toggle-btn.active,button.seo-toggle-btn.active:hover,button.seo-toggl
                 <div class="seo-info-icon" id="seo-info-icon">
                     <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
                 </div>
-                <h2 class="seo-info-title" id="seo-info-title">SEO for Non-WSQ Course</h2>
-                <p class="seo-info-desc" id="seo-info-desc">Fill in the course details and generate SEO metadata with region-specific meta titles (Singapore, Malaysia, International), keywords, description, course description, and job roles.</p>
+                <h2 class="seo-info-title" id="seo-info-title">SEO Metadata</h2>
+                <p class="seo-info-desc" id="seo-info-desc">Fill in the course details and generate SEO metadata with region-specific meta titles, keywords, description, course description, and job roles.</p>
             </div>
         </div>
     </div>
@@ -93,23 +80,6 @@ button.seo-toggle-btn.active,button.seo-toggle-btn.active:hover,button.seo-toggl
 </div>
 
 <script type="text/javascript">
-window.seoSetType = function(type) {
-    var wsq = document.getElementById('seo-btn-wsq');
-    var nonwsq = document.getElementById('seo-btn-nonwsq');
-    var title = document.getElementById('seo-info-title');
-    var desc = document.getElementById('seo-info-desc');
-    if (type === 'wsq') {
-        wsq.classList.add('active');
-        nonwsq.classList.remove('active');
-        if (title) title.textContent = 'SEO for WSQ Course';
-        if (desc) desc.textContent = 'Fill in the course details and generate SEO metadata tailored for WSQ-accredited courses including funding information, TSC competencies, and accreditation keywords.';
-    } else {
-        nonwsq.classList.add('active');
-        wsq.classList.remove('active');
-        if (title) title.textContent = 'SEO for Non-WSQ Course';
-        if (desc) desc.textContent = 'Fill in the course details and generate SEO metadata with region-specific meta titles (Singapore, Malaysia, International), keywords, description, course description, and job roles.';
-    }
-};
 window.seoGenerate = function() {
     var title = document.getElementById('seo-title').value.trim();
     if (!title) {
