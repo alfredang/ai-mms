@@ -5137,6 +5137,112 @@ $_courseRefCode = 'TGS-' . (2024000000 + ((int)$_selectedCourse['id']) * 17);
         <?php endforeach; ?>
     </div>
 
+    <!-- TRAINER: Assessment -->
+    <div class="lcd-section" id="assessment">
+        <div class="lcd-section-title">Assessment</div>
+        <div style="margin-bottom:18px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                    <span style="font-size:15px;font-weight:700;color:#fff;">Written Exam</span>
+                </div>
+                <span style="background:rgba(34,197,94,.15);color:#22c55e;border:1px solid rgba(34,197,94,.3);padding:4px 12px;border-radius:6px;font-size:11px;font-weight:700;letter-spacing:.3px;">Published</span>
+            </div>
+            <div class="lcd-tile" style="margin-bottom:0;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                <div class="lcd-tile-body">
+                    <div class="lcd-tile-title">Open Assessment Link</div>
+                    <div class="lcd-tile-sub">Click to open external form</div>
+                </div>
+                <button type="button" style="background:transparent !important;background-image:none !important;color:#cbd5e1 !important;border:1px solid #475569 !important;border-radius:8px !important;padding:8px 20px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;">Unpublish</button>
+            </div>
+        </div>
+        <div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                    <span style="font-size:15px;font-weight:700;color:#fff;">Practical Exam</span>
+                </div>
+                <span style="background:rgba(34,197,94,.15);color:#22c55e;border:1px solid rgba(34,197,94,.3);padding:4px 12px;border-radius:6px;font-size:11px;font-weight:700;letter-spacing:.3px;">Published</span>
+            </div>
+            <div class="lcd-tile" style="margin-bottom:0;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                <div class="lcd-tile-body">
+                    <div class="lcd-tile-title">Open Assessment Link</div>
+                    <div class="lcd-tile-sub">Click to open external form</div>
+                </div>
+                <button type="button" style="background:transparent !important;background-image:none !important;color:#cbd5e1 !important;border:1px solid #475569 !important;border-radius:8px !important;padding:8px 20px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;">Unpublish</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TRAINER: Assessment Grading -->
+    <div class="lcd-section" id="assessment-grading">
+        <div class="lcd-section-title">Assessment Grading</div>
+        <div class="lcd-tile" style="margin-bottom:8px;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            <div class="lcd-tile-body">
+                <div class="lcd-tile-title">Assessment Record Link</div>
+                <div class="lcd-tile-sub">Click to open</div>
+            </div>
+        </div>
+        <div class="lcd-tile">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            <div class="lcd-tile-body">
+                <div class="lcd-tile-title">Assessment Grading</div>
+                <div class="lcd-tile-sub">Open Assessment Grading for Course Run <?php echo $_courseRunId ?></div>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        </div>
+    </div>
+
+    <!-- TRAINER: Assessment Summary Record -->
+    <?php
+    $_asrLearners = array();
+    if (!empty($_selectedCourseId)) {
+        try {
+            $_asrLearners = $read->fetchAll(
+                "SELECT DISTINCT
+                        LOWER(o.customer_email) AS email,
+                        COALESCE(NULLIF(TRIM(CONCAT(IFNULL(o.customer_firstname,''),' ',IFNULL(o.customer_lastname,''))),''), o.customer_email) AS name
+                 FROM sales_flat_order o
+                 JOIN sales_flat_order_item oi ON oi.order_id = o.entity_id
+                 WHERE oi.product_id = ?
+                   AND o.state NOT IN ('canceled')
+                 ORDER BY name",
+                array((int)$_selectedCourseId)
+            );
+        } catch (Exception $e) {}
+    }
+    ?>
+    <div class="lcd-section" id="assessment-summary">
+        <div class="lcd-section-title">Assessment Summary Record</div>
+        <div style="background:#1a2744;border:1px solid #2d4a7c;border-radius:10px;padding:18px 20px;">
+            <div style="font-size:14px;font-weight:700;color:#fff;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:14px;">Upload Learner Summary Record</div>
+            <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-end;">
+                <div style="flex:1;min-width:200px;">
+                    <div style="font-size:12px;color:#94a3b8;margin-bottom:6px;">Select Learner <span style="color:#64748b;font-weight:400;">(<?php echo count($_asrLearners) ?> enrolled)</span></div>
+                    <select style="width:100%;padding:10px 14px;background:#1e293b;border:1px solid #475569;border-radius:8px;color:#e2e8f0;font-size:14px;appearance:auto;">
+                        <option value="">Choose a learner...</option>
+                        <?php foreach ($_asrLearners as $_asrL): ?>
+                        <option value="<?php echo htmlspecialchars($_asrL['email']) ?>"><?php echo htmlspecialchars($_asrL['name']) ?> &lt;<?php echo htmlspecialchars($_asrL['email']) ?>&gt;</option>
+                        <?php endforeach; ?>
+                        <?php if (empty($_asrLearners)): ?>
+                        <option value="" disabled>No learners enrolled in this course yet</option>
+                        <?php endif; ?>
+                    </select>
+                </div>
+                <div style="flex:1;min-width:200px;">
+                    <div style="font-size:12px;color:#94a3b8;margin-bottom:6px;">Upload File</div>
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <button type="button" style="background:#2563eb !important;background-image:none !important;color:#fff !important;border:none !important;border-radius:8px !important;padding:10px 20px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;white-space:nowrap;">Choose File</button>
+                        <span style="color:#64748b;font-size:13px;">No file chosen</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <?php else: ?>
     <!-- LEARNER sections -->
     <div class="lcd-section" id="google-meet">
@@ -5255,84 +5361,6 @@ $_courseRefCode = 'TGS-' . (2024000000 + ((int)$_selectedCourse['id']) * 17);
         </div>
     </div>
 
-    <div class="lcd-section" id="assessment">
-        <div class="lcd-section-title">Assessment</div>
-        <?php if ($activeRole === 'trainer'): ?>
-        <div style="margin-bottom:18px;">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                <span style="font-size:15px;font-weight:700;color:#fff;">Written Exam</span>
-            </div>
-            <div class="lcd-tile" style="margin-bottom:0;">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                <div class="lcd-tile-body">
-                    <div class="lcd-tile-title">Open Assessment Link</div>
-                    <div class="lcd-tile-sub">Click to open external form</div>
-                </div>
-                <button type="button" style="background:#5bb8c9 !important;background-image:none !important;color:#fff !important;border:none !important;border-radius:8px !important;padding:8px 20px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;">Publish</button>
-            </div>
-        </div>
-        <div>
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                <span style="font-size:15px;font-weight:700;color:#fff;">Practical Exam</span>
-            </div>
-            <div class="lcd-tile" style="margin-bottom:0;">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                <div class="lcd-tile-body">
-                    <div class="lcd-tile-title">Open Assessment Link</div>
-                    <div class="lcd-tile-sub">Click to open external form</div>
-                </div>
-                <button type="button" style="background:#5bb8c9 !important;background-image:none !important;color:#fff !important;border:none !important;border-radius:8px !important;padding:8px 20px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;">Publish</button>
-            </div>
-        </div>
-        <?php endif; ?>
-    </div>
-
-    <?php if ($activeRole === 'trainer'): ?>
-    <!-- TRAINER: Assessment Grading -->
-    <div class="lcd-section" id="assessment-grading">
-        <div class="lcd-section-title">Assessment Grading</div>
-        <div class="lcd-tile" style="margin-bottom:8px;">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-            <div class="lcd-tile-body">
-                <div class="lcd-tile-title">Assessment Record Link</div>
-                <div class="lcd-tile-sub">Click to open</div>
-            </div>
-        </div>
-        <div class="lcd-tile">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-            <div class="lcd-tile-body">
-                <div class="lcd-tile-title">Assessment Grading</div>
-                <div class="lcd-tile-sub">Open Assessment Grading for Course Run <?php echo $_courseRunId ?></div>
-            </div>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-        </div>
-    </div>
-
-    <!-- TRAINER: Assessment Summary Record -->
-    <div class="lcd-section" id="assessment-summary">
-        <div class="lcd-section-title">Assessment Summary Record</div>
-        <div style="background:#1a2744;border:1px solid #2d4a7c;border-radius:10px;padding:18px 20px;">
-            <div style="font-size:14px;font-weight:700;color:#fff;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:14px;">Upload Learner Summary Record</div>
-            <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-end;">
-                <div style="flex:1;min-width:200px;">
-                    <div style="font-size:12px;color:#94a3b8;margin-bottom:6px;">Select Learner</div>
-                    <select style="width:100%;padding:10px 14px;background:#1e293b;border:1px solid #475569;border-radius:8px;color:#e2e8f0;font-size:14px;appearance:auto;">
-                        <option>Choose a learner...</option>
-                    </select>
-                </div>
-                <div style="flex:1;min-width:200px;">
-                    <div style="font-size:12px;color:#94a3b8;margin-bottom:6px;">Upload File</div>
-                    <div style="display:flex;align-items:center;gap:12px;">
-                        <button type="button" style="background:#2563eb !important;background-image:none !important;color:#fff !important;border:none !important;border-radius:8px !important;padding:10px 20px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;white-space:nowrap;">Choose File</button>
-                        <span style="color:#64748b;font-size:13px;">No file chosen</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <?php endif; ?>
     <?php endif; ?>
 
     <?php if ($activeRole !== 'developer'): ?>
@@ -5348,14 +5376,29 @@ $_courseRefCode = 'TGS-' . (2024000000 + ((int)$_selectedCourse['id']) * 17);
         </div>
         <?php if ($activeRole === 'trainer'): ?>
         <div style="color:#94a3b8;font-size:13px;margin-bottom:14px;">Upload personalized course materials for learners.</div>
-        <?php endif; ?>
+        <div style="display:flex;align-items:center;gap:14px;background:#0f172a;border:1px solid #1f2937;border-radius:10px;padding:14px 16px;">
+            <div style="width:40px;height:40px;border-radius:8px;background:rgba(37,99,235,.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            </div>
+            <div style="flex:1;min-width:0;">
+                <div style="color:#f1f5f9;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Attendance-Navigating Digital Threats.pptx</div>
+                <div style="color:#94a3b8;font-size:12px;margin-top:2px;">Uploaded by consult@sgventure-consulting.com &nbsp;&bull;&nbsp; 25/04/2026</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+                <a href="javascript:void(0);" title="Open" style="width:32px;height:32px;border-radius:6px;border:1px solid #334155;background:transparent;display:inline-flex;align-items:center;justify-content:center;color:#cbd5e1;text-decoration:none;">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                </a>
+                <button type="button" title="Delete" style="width:32px;height:32px;border-radius:6px;border:1px solid rgba(239,68,68,.4) !important;background:transparent !important;background-image:none !important;color:#ef4444 !important;display:inline-flex !important;align-items:center !important;justify-content:center !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;padding:0 !important;line-height:normal !important;height:32px !important;">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
+                </button>
+            </div>
+        </div>
+        <?php else: ?>
         <div class="lcd-empty-box">
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
             <div class="lcd-empty-title">No additional documents</div>
-            <?php if ($activeRole === 'trainer'): ?>
-            <div style="color:#64748b;font-size:12px;margin-top:4px;">Click "Upload Files" to add materials.</div>
-            <?php endif; ?>
         </div>
+        <?php endif; ?>
     </div>
 
 
@@ -6353,7 +6396,7 @@ $gatExt = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
     </div>
 
     <?php /* Add New Trainer modal */ ?>
-    <div id="trnAddOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:flex-start;justify-content:center;overflow-y:auto;padding:40px 20px;">
+    <div id="trnAddOverlay" style="display:none;position:fixed;top:0;left:250px;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:1500;align-items:flex-start;justify-content:center;overflow-y:auto;padding:40px 20px;">
         <div style="background:var(--d1);border:1px solid var(--b1);border-radius:14px;width:100%;max-width:920px;padding:28px 32px;">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
                 <h2 style="font-size:24px;font-weight:700;color:var(--t1);margin:0;">Add New Trainer</h2>
@@ -6428,7 +6471,7 @@ $gatExt = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
 </div>
 
     <?php /* Bulk Upload modal */ ?>
-    <div id="trnBulkOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:flex-start;justify-content:center;overflow-y:auto;padding:40px 20px;">
+    <div id="trnBulkOverlay" style="display:none;position:fixed;top:0;left:250px;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:1500;align-items:flex-start;justify-content:center;overflow-y:auto;padding:40px 20px;">
         <div style="background:var(--d1);border:1px solid var(--b1);border-radius:14px;width:100%;max-width:980px;padding:28px 32px;">
             <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px;">
                 <a href="#" onclick="event.preventDefault();trnCloseBulkModal()" style="color:var(--t2);text-decoration:none;font-size:13px;display:inline-flex;align-items:center;gap:4px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> Back to Trainers</a>
@@ -13700,6 +13743,14 @@ function uefClear(){
         applyInitialPanel();
     }
     window.addEventListener('hashchange', applyInitialPanel);
+    // PJAX (instant-nav.js) swaps the page body without reloading the
+    // <head> scripts, so DOMContentLoaded doesn't re-fire on subsequent
+    // navigations. Re-run sub-panel resolution after every swap so links
+    // like ?panel=trainers / ?panel=companysetting still take effect.
+    document.addEventListener('instant-nav:after-swap', applyInitialPanel);
+    // Also handle browser back/forward — popstate fires on history nav
+    // even when the URL only differs in its query string.
+    window.addEventListener('popstate', applyInitialPanel);
 
     // Expose for header role switcher
     window.__applyDashboardRole = showPanel;
