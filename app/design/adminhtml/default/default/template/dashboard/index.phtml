@@ -759,14 +759,23 @@ if (count($tpForecastRows) > 0) {
     $tpFcClaims   = round($tpFcClaims   / $n * 3, 2);
 }
 
-// Chart 1: Learners Enrolled by Month (last 12 months)
+// Chart 1: Learners Enrolled by Month (last 12 months) — single GROUP BY
+// instead of 12 sequential per-month COUNTs. Months with zero orders just
+// don't appear in the rowset and fall through to the (int) default below.
+$_tpbmStart = date('Y-m-01 00:00:00', strtotime('-11 months'));
+$_tpbmRows = $read->fetchPairs(
+    "SELECT DATE_FORMAT(created_at,'%Y-%m') AS ym,
+            COUNT(DISTINCT customer_email) AS cnt
+     FROM sales_flat_order
+     WHERE created_at >= '{$_tpbmStart}'
+       AND state NOT IN ('canceled','holded')
+     GROUP BY ym"
+);
 $tpByMonth = array();
 for ($i = 11; $i >= 0; $i--) {
-    $mY   = date('Y', strtotime("-$i months"));
-    $mM   = date('m', strtotime("-$i months"));
-    $mLbl = date('M Y', strtotime("-$i months"));
-    $cnt  = (int)$read->fetchOne("SELECT COUNT(DISTINCT customer_email) FROM sales_flat_order WHERE YEAR(created_at)='{$mY}' AND MONTH(created_at)='{$mM}' AND state NOT IN ('canceled','holded')");
-    $tpByMonth[] = array('label' => $mLbl, 'value' => $cnt);
+    $ym  = date('Y-m', strtotime("-$i months"));
+    $lbl = date('M Y', strtotime("-$i months"));
+    $tpByMonth[] = array('label' => $lbl, 'value' => (int)(isset($_tpbmRows[$ym]) ? $_tpbmRows[$ym] : 0));
 }
 
 // Chart 2: Course Ranking by Enrollment (top 10)
@@ -906,18 +915,37 @@ $mc->addFieldToFilter('created_at', array('gteq' => date('Y-m-01 00:00:00')));
 _dashCountry($mc, $countryFilter);
 $monthOrders = (int)$mc->getSize();
 
+// Sales by month chart — single GROUP BY query instead of building 12
+// reports/order_collection objects in a loop. Each collection round-trip
+// previously rebuilt the full sales/order subselect with the same JOINs,
+// so this is the heaviest of the dashboard's old N+1 patterns.
+$_smStart  = date('Y-m-01 00:00:00', strtotime('-11 months'));
+$_smOrderT = $resource->getTableName('sales/order');
+$_smWhere  = "o.created_at >= '{$_smStart}' AND o.state NOT IN ('canceled','new')";
+if ($storeId) {
+    $_smWhere .= " AND o.store_id = " . (int)$storeId;
+}
+if ($countryFilter) {
+    $_smAddrT = $resource->getTableName('sales/order_address');
+    $_smSql = "SELECT DATE_FORMAT(o.created_at,'%Y-%m') AS ym,
+                      COALESCE(SUM(o.base_grand_total),0) AS mt
+               FROM {$_smOrderT} o
+               JOIN {$_smAddrT} a ON a.parent_id=o.entity_id AND a.address_type='billing'
+               WHERE {$_smWhere} AND a.country_id = " . $read->quote($countryFilter) . "
+               GROUP BY ym";
+} else {
+    $_smSql = "SELECT DATE_FORMAT(o.created_at,'%Y-%m') AS ym,
+                      COALESCE(SUM(o.base_grand_total),0) AS mt
+               FROM {$_smOrderT} o
+               WHERE {$_smWhere}
+               GROUP BY ym";
+}
+$_smRows = $read->fetchPairs($_smSql);
 $salesByMonth = array();
-for ($i=11; $i>=0; $i--) {
-    $mS = date('Y-m-01 00:00:00', strtotime("-$i months"));
-    $mE = date('Y-m-t 23:59:59',  strtotime("-$i months"));
-    $mC = Mage::getResourceModel('reports/order_collection');
-    if ($storeId) $mC->addFieldToFilter('store_id', $storeId);
-    $mC->addFieldToFilter('state', array('nin' => array(Mage_Sales_Model_Order::STATE_CANCELED, Mage_Sales_Model_Order::STATE_NEW)));
-    $mC->addFieldToFilter('created_at', array('gteq' => $mS));
-    $mC->addFieldToFilter('created_at', array('lteq' => $mE));
-    _dashCountry($mC, $countryFilter);
-    $mC->getSelect()->columns(array('mt' => new Zend_Db_Expr('SUM(main_table.base_grand_total)')));
-    $salesByMonth[] = array('label' => date('M Y', strtotime("-$i months")), 'value' => round((float)$mC->getFirstItem()->getData('mt'), 2));
+for ($i = 11; $i >= 0; $i--) {
+    $ym  = date('Y-m', strtotime("-$i months"));
+    $lbl = date('M Y', strtotime("-$i months"));
+    $salesByMonth[] = array('label' => $lbl, 'value' => round((float)(isset($_smRows[$ym]) ? $_smRows[$ym] : 0), 2));
 }
 
 $pp = Mage::getResourceModel('reports/product_sold_collection');
