@@ -450,7 +450,11 @@ document.observe('dom:loaded', function() {
             }
         });
         $$('.link-rss').each(function(el) { el.remove(); });
-        $$('img[src*="rss"]').each(function(img) { img.remove(); });
+        // Only the actual feed icons in pagers / link rows. The bare
+        // `[src*="rss"]` form was over-broad — any user-uploaded image
+        // whose URL happened to contain "rss" (e.g. assets/rss-feed.png)
+        // would be deleted from the page.
+        $$('img[src*="/rss/"], img[src$="rss.gif"], img[src$="rss.png"], .pager img[src*="rss"]').each(function(img) { img.remove(); });
     }
     removeRssLinks();
     // Also run after grid loads since RSS links can be in AJAX-loaded pagers
@@ -748,10 +752,27 @@ document.observe('dom:loaded', function() {
     // Per-row action dropdowns for Magento admin grids
     // Replaces the bulk mass-action bar with individual row actions
     // ============================================================
+    // If we can't successfully replace the mass-action bar with per-row
+    // dropdowns (no .massaction in DOM, no grids, no rows got a dropdown),
+    // un-hide the original mass-action bar so the user still has a way
+    // to perform bulk actions. Without this fallback any grid that
+    // doesn't fit our injection assumptions becomes effectively
+    // read-only — see the Orphaned Role Resources page for the symptom.
+    function unhideMassactionFallback() {
+        document.querySelectorAll('.admin-main .massaction, .admin-main .grid .massaction').forEach(function(el) {
+            el.style.setProperty('display', 'block', 'important');
+        });
+    }
+
     function injectRowActions() {
-        // Find the mass action bar to get available actions
         var massSelect = document.querySelector('.massaction select');
-        if (!massSelect) return;
+        if (!massSelect) {
+            // Some pages render no .massaction at all (e.g. Orphaned
+            // Resources). Nothing to inject — but also nothing to hide,
+            // so just bail. The block-level override on those pages
+            // adds a real top-right button.
+            return;
+        }
 
         var actions = [];
         for (var i = 0; i < massSelect.options.length; i++) {
@@ -760,12 +781,18 @@ document.observe('dom:loaded', function() {
                 actions.push({ label: opt.text, value: opt.value });
             }
         }
-        if (actions.length === 0) return;
+        if (actions.length === 0) {
+            unhideMassactionFallback();
+            return;
+        }
 
-        // Find the grid table
         var tables = document.querySelectorAll('.grid table.data');
-        if (tables.length === 0) return;
+        if (tables.length === 0) {
+            unhideMassactionFallback();
+            return;
+        }
 
+        var injectedAny = false;
         tables.forEach(function(table) {
             // Add ACTIONS header
             var headings = table.querySelector('tr.headings');
@@ -847,8 +874,17 @@ document.observe('dom:loaded', function() {
                 wrap.appendChild(menu);
                 td.appendChild(wrap);
                 row.appendChild(td);
+                injectedAny = true;
             }
         });
+
+        // No data rows actually got a dropdown (empty grid, all rows
+        // already have one, or row checkboxes are missing). Fall back
+        // to showing the original mass-action bar so users can still
+        // invoke bulk actions manually.
+        if (!injectedAny) {
+            unhideMassactionFallback();
+        }
 
         // Close menus on outside click
         document.addEventListener('click', function() {
@@ -878,19 +914,23 @@ document.observe('dom:loaded', function() {
     function removeCheckboxColumn() {
         var tables = document.querySelectorAll('.grid table.data');
         tables.forEach(function(table) {
+            // Only hide the first column if it's actually a checkbox column.
+            // Detect by inspecting the first body row: if its first cell has
+            // an <input type="checkbox">, then the entire first column (head
+            // + body + col) is the mass-action checkbox column. The previous
+            // heuristic also hid first columns that were just empty or
+            // centered, which over-fired on grids whose intentional first
+            // column happened to be narrow/blank.
+            var firstBodyRow = table.querySelector('tbody tr');
+            if (!firstBodyRow || !firstBodyRow.children.length) return;
+            if (!firstBodyRow.children[0].querySelector('input[type="checkbox"]')) return;
+
             var rows = table.querySelectorAll('tr');
             for (var r = 0; r < rows.length; r++) {
                 var cells = rows[r].children;
                 if (cells.length === 0) continue;
-                var first = cells[0];
-                // Check if first cell is the checkbox column (contains checkbox, is empty, or is narrow)
-                var hasCheckbox = first.querySelector('input[type="checkbox"]');
-                var isEmpty = first.textContent.trim() === '' && !first.querySelector('img');
-                if (hasCheckbox || (isEmpty && first.tagName === 'TH') || (first.classList.contains('a-center') && (hasCheckbox || isEmpty))) {
-                    first.style.display = 'none';
-                }
+                cells[0].style.display = 'none';
             }
-            // Also hide first col element if it exists
             var cols = table.querySelectorAll('col');
             if (cols.length > 0 && cols[0]) {
                 cols[0].style.width = '0';

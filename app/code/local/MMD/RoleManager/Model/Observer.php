@@ -276,6 +276,10 @@ class MMD_RoleManager_Model_Observer
             'adminhtml_permissions_user'          => $superOnly,
             'adminhtml_permissions_block'         => $superOnly,
             'adminhtml_permissions_variable'      => $superOnly,
+            // Orphaned resources — admin needs to clean these up too,
+            // and developer's admin/system grant gives them access via
+            // the standard ACL anyway.
+            'adminhtml_permissions_orphanedresource' => array('training_provider', 'admin', 'developer'),
 
             // Custom Role Management UI — Super Admin + Admin
             'adminhtml_rolemanagement'            => array('admin', 'training_provider'),
