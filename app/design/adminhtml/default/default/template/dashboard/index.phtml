@@ -2393,6 +2393,124 @@ function devSetView(view) {
                     </select>
                 </div>
             </div>
+
+                <?php
+                // Course Scheduler: date dropdown + edit + add.
+                $_schedulerRows = array();
+                try {
+                    $_optColl = Mage::getModel('catalog/product_option')
+                        ->getCollection()
+                        ->addProductToFilter($_selectedCourseId)
+                        ->addTitleToResult(0)
+                        ->addValuesToResult(0);
+                    foreach ($_optColl as $_o) {
+                        if ((string)$_o->getType() !== 'drop_down') {
+                            continue;
+                        }
+                        foreach ($_o->getValuesCollection() as $_v) {
+                            $_schedulerRows[] = array(
+                                'value_id' => (int)$_v->getId(),
+                                'option_id' => (int)$_o->getId(),
+                                'option_title' => (string)$_o->getTitle(),
+                                'title' => (string)$_v->getTitle(),
+                            );
+                        }
+                    }
+                } catch (Exception $_scEx) {}
+                ?>
+                <div class="dcf-section" style="margin-top:14px;background:linear-gradient(180deg,#1d2a3e 0%,#182538 100%);border:1px solid #334155;">
+                    <div class="dcf-section-title">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        Course Scheduler
+                    </div>
+                    <?php if (empty($_schedulerRows)): ?>
+                    <div style="background:#1e293b;border:1px dashed #475569;border-radius:8px;padding:16px;color:#94a3b8;font-size:12px;">
+                        No course timings found yet. Add sessions in the Schedule tab first.
+                    </div>
+                    <?php else: ?>
+                    <div style="font-size:12px;color:#94a3b8;margin-bottom:10px;">
+                        Select a date from the dropdown, edit it, or add a new date.
+                    </div>
+                    <div style="background:#121b2a;border:1px solid #334155;border-radius:10px;padding:12px;">
+                    <div style="font-size:11px;color:#64748b;letter-spacing:.4px;text-transform:uppercase;margin-bottom:6px;">Current Sessions</div>
+                    <select id="dcf-scheduler-date-select" class="dcf-input" style="appearance:auto;background:#243349;border-color:#3c4f67;">
+                        <?php foreach ($_schedulerRows as $_i => $_sr): ?>
+                        <?php
+                            $_rawTitle = (string)$_sr['title'];
+                            $_cleanTitle = preg_replace('/\([^)]*\)/', '', $_rawTitle);
+                            $_cleanTitle = preg_replace('/\s+/', ' ', trim($_cleanTitle));
+                            $_ts = strtotime($_cleanTitle);
+                            $_fmtTitle = $_ts ? date('j M Y (D)', $_ts) : $_rawTitle;
+                        ?>
+                        <option
+                            value="<?php echo (int)$_sr['value_id'] ?>"
+                            data-option-id="<?php echo (int)$_sr['option_id'] ?>"
+                            data-title="<?php echo htmlspecialchars($_fmtTitle) ?>"
+                            <?php echo $_i === 0 ? 'selected' : '' ?>>
+                            <?php echo htmlspecialchars($_fmtTitle) ?>
+                        </option>
+                        <?php endforeach; ?>
+                    </select>
+                    </div>
+
+                    <div style="display:flex;gap:8px;margin-top:12px;align-items:flex-end;justify-content:flex-end;">
+                        <button type="button" id="dcf-scheduler-update-btn" style="background:#2563eb;color:#fff;border:none;padding:10px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Edit</button>
+                    </div>
+                    <div id="dcf-scheduler-edit-modal" style="display:none;position:fixed;inset:0;background:radial-gradient(circle at 20% 0%,rgba(56,189,248,.15),rgba(2,6,23,.92) 55%);backdrop-filter:blur(3px);z-index:9999;align-items:center;justify-content:center;padding:16px;">
+                        <div style="width:100%;max-width:430px;background:linear-gradient(180deg,#1f2f47 0%,#162338 100%);border:1px solid #3b4f6a;box-shadow:0 20px 40px rgba(2,6,23,.55), inset 0 1px 0 rgba(148,163,184,.12);border-radius:14px;padding:18px;">
+                            <div style="font-size:12px;color:#7dd3fc;letter-spacing:.8px;text-transform:uppercase;margin-bottom:6px;font-weight:700;">Course Scheduler</div>
+                            <div style="font-size:20px;color:#f8fafc;font-weight:700;line-height:1.2;margin-bottom:10px;">Edit Session Date</div>
+                            <div id="dcf-scheduler-edit-modal-current" style="color:#cbd5e1;font-size:13px;margin-bottom:10px;background:#0f1c2e;border:1px solid #334155;border-radius:10px;padding:10px 12px;"></div>
+                            <div style="font-size:11px;color:#94a3b8;letter-spacing:.4px;text-transform:uppercase;margin-bottom:6px;">New Date</div>
+                            <input id="dcf-scheduler-edit-modal-date-display" type="text" class="dcf-input" readonly style="background:#263752;border:1px solid #49607f;color:#f8fafc;font-weight:700;cursor:default;" />
+                            <div style="margin:10px auto 0 auto;background:#f8fafc;border:1px solid #cbd5e1;border-radius:10px;padding:10px;max-width:360px;">
+                                <div id="dcf-cal-month-label" style="text-align:center;color:#0f172a;font-size:18px;font-weight:700;line-height:1.2;margin-bottom:8px;"></div>
+                                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                                    <button type="button" id="dcf-cal-prev" style="background:transparent;color:#1e3a5f;border:none;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:22px;line-height:1;">&#8249;</button>
+                                    <div style="display:flex;gap:8px;align-items:center;">
+                                        <select id="dcf-cal-month-select" style="width:auto;min-width:120px;height:40px;padding:5px 8px;background:#ffffff;border:1px solid #cbd5e1;color:#0f172a;font-weight:700;font-size:12px;line-height:1.2;appearance:auto;-webkit-appearance:menulist;-moz-appearance:menulist;border-radius:8px;">
+                                            <option value="0">January</option><option value="1">February</option><option value="2">March</option><option value="3">April</option><option value="4">May</option><option value="5">June</option><option value="6">July</option><option value="7">August</option><option value="8">September</option><option value="9">October</option><option value="10">November</option><option value="11">December</option>
+                                        </select>
+                                        <select id="dcf-cal-year-select" style="width:auto;min-width:84px;height:40px;padding:5px 8px;background:#ffffff;border:1px solid #cbd5e1;color:#0f172a;font-weight:700;font-size:12px;line-height:1.2;appearance:auto;-webkit-appearance:menulist;-moz-appearance:menulist;border-radius:8px;"></select>
+                                    </div>
+                                    <button type="button" id="dcf-cal-next" style="background:transparent;color:#1e3a5f;border:none;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:22px;line-height:1;">&#8250;</button>
+                                </div>
+                                <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;font-size:11px;color:#1e3a5f;font-weight:700;margin-bottom:6px;text-align:center;">
+                                    <div>Su</div><div>Mo</div><div>Tu</div><div>We</div><div>Th</div><div>Fr</div><div>Sa</div>
+                                </div>
+                                <div id="dcf-cal-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;"></div>
+                            </div>
+                            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;">
+                                <button type="button" id="dcf-scheduler-edit-cancel-btn" style="background:#334155;color:#e2e8f0;border:1px solid #475569;padding:10px 16px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;">Cancel</button>
+                                <button type="button" id="dcf-scheduler-edit-confirm-btn" style="background:linear-gradient(180deg,#67c9ec 0%,#4ca8cf 100%);color:#fff;border:1px solid rgba(125,211,252,.55);padding:10px 16px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 8px 20px rgba(56,189,248,.25);">Confirm</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="display:flex;gap:8px;margin-top:10px;align-items:flex-end;">
+                        <div style="flex:1;">
+                            <div style="font-size:11px;color:#64748b;letter-spacing:.4px;text-transform:uppercase;margin-bottom:6px;">Add Single Date</div>
+                            <input id="dcf-scheduler-add-date" type="date" class="dcf-input" />
+                        </div>
+                        <button type="button" id="dcf-scheduler-add-btn" style="background:#0f766e;color:#fff;border:none;padding:10px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Add Date</button>
+                    </div>
+                    <div style="margin-top:12px;background:#121b2a;border:1px solid #334155;border-radius:10px;padding:12px;">
+                        <div style="font-size:11px;color:#64748b;letter-spacing:.4px;text-transform:uppercase;margin-bottom:8px;">Auto Scheduler</div>
+                        <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;">
+                            <div style="display:grid;grid-template-columns:1fr;gap:8px;">
+                                <input id="dcf-scheduler-auto-start" type="date" class="dcf-input" title="From date" placeholder="From date" />
+                                <input id="dcf-scheduler-auto-end" type="date" class="dcf-input" title="To date" placeholder="To date" />
+                            </div>
+                            <button type="button" id="dcf-scheduler-auto-btn" style="background:#7c3aed;color:#fff;border:none;padding:10px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Auto Schedule</button>
+                        </div>
+                        <div style="color:#94a3b8;font-size:12px;margin-top:8px;">Pattern-based generation using existing dates and selected range.</div>
+                    </div>
+
+                    <div style="font-size:12px;color:#94a3b8;margin-top:8px;">
+                        Updates map to existing session rows. New dates are queued via the same schedule save fields.
+                    </div>
+                    <?php endif; ?>
+                </div>
             <script>
             function dcfUpdateTotal() {
                 var t = parseFloat(document.getElementById('dcf-training-hours').value) || 0;
@@ -2401,6 +2519,386 @@ function devSetView(view) {
                 var el = document.getElementById('dcf-total-hours');
                 if (el) el.textContent = total > 0 ? (total % 1 === 0 ? total : total.toFixed(1)) + ' hours' : '—';
             }
+            (function(){
+                var css = '' +
+                    '#dcf-cal-month-select,#dcf-cal-year-select{' +
+                    'color:#0f172a !important;background:#ffffff !important;font-size:12px !important;' +
+                    'font-weight:700 !important;line-height:1.2 !important;text-indent:0 !important;}' +
+                    '#dcf-cal-month-select option,#dcf-cal-year-select option{' +
+                    'color:#0f172a !important;background:#ffffff !important;}';
+                var style = document.createElement('style');
+                style.type = 'text/css';
+                style.appendChild(document.createTextNode(css));
+                document.head.appendChild(style);
+            })();
+            document.addEventListener('change', function(e){
+                var sel = e.target;
+                if (!sel || sel.id !== 'dcf-scheduler-date-select') return;
+                var opt = sel.options[sel.selectedIndex];
+            });
+
+            document.addEventListener('DOMContentLoaded', function(){
+                var selectEl = document.getElementById('dcf-scheduler-date-select');
+                var addEl = document.getElementById('dcf-scheduler-add-date');
+                var updateBtn = document.getElementById('dcf-scheduler-update-btn');
+                var addBtn = document.getElementById('dcf-scheduler-add-btn');
+                var autoBtn = document.getElementById('dcf-scheduler-auto-btn');
+                var autoStartEl = document.getElementById('dcf-scheduler-auto-start');
+                var autoEndEl = document.getElementById('dcf-scheduler-auto-end');
+                var editModalEl = document.getElementById('dcf-scheduler-edit-modal');
+                var editModalDateDisplayEl = document.getElementById('dcf-scheduler-edit-modal-date-display');
+                var editModalCurrentEl = document.getElementById('dcf-scheduler-edit-modal-current');
+                var editModalCancelBtn = document.getElementById('dcf-scheduler-edit-cancel-btn');
+                var editModalConfirmBtn = document.getElementById('dcf-scheduler-edit-confirm-btn');
+                var calGridEl = document.getElementById('dcf-cal-grid');
+                var calMonthSelectEl = document.getElementById('dcf-cal-month-select');
+                var calYearSelectEl = document.getElementById('dcf-cal-year-select');
+                var calPrevBtn = document.getElementById('dcf-cal-prev');
+                var calNextBtn = document.getElementById('dcf-cal-next');
+                var editState = null;
+                var calViewDate = null;
+                var calSelectedDate = null;
+                if (!selectEl) return;
+                if (autoStartEl && autoEndEl) {
+                    var syncDetailRange = function(){
+                        var from = autoStartEl.value || '';
+                        autoEndEl.min = from;
+                        if (autoEndEl.value && from && autoEndEl.value < from) {
+                            autoEndEl.value = from;
+                        }
+                    };
+                    autoStartEl.addEventListener('change', syncDetailRange);
+                    autoEndEl.addEventListener('change', syncDetailRange);
+                    syncDetailRange();
+                }
+
+                var parseSessionDate = function(raw){
+                    if (!raw) return null;
+                    var cleaned = String(raw).replace(/\([^)]*\)/g, '').replace(/\s+/g, ' ').trim();
+                    var d = new Date(cleaned);
+                    if (isNaN(d.getTime())) return null;
+                    d.setHours(0,0,0,0);
+                    return d;
+                };
+                var toYmd = function(d){
+                    if (!d) return '';
+                    var y = d.getFullYear();
+                    var m = String(d.getMonth() + 1).padStart(2, '0');
+                    var day = String(d.getDate()).padStart(2, '0');
+                    return y + '-' + m + '-' + day;
+                };
+                var formatSessionDate = function(d){
+                    var day = d.getDate();
+                    var mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
+                    var yr = d.getFullYear();
+                    var wk = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()];
+                    return day + ' ' + mon + ' ' + yr + ' (' + wk + ')';
+                };
+                var sameDay = function(a,b){
+                    return !!a && !!b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+                };
+                var initYearOptions = function(baseYear){
+                    if (!calYearSelectEl) return;
+                    calYearSelectEl.innerHTML = '';
+                    for (var y = baseYear - 10; y <= baseYear + 10; y++) {
+                        var o = document.createElement('option');
+                        o.value = String(y);
+                        o.textContent = String(y);
+                        calYearSelectEl.appendChild(o);
+                    }
+                };
+                var renderEditCalendar = function(){
+                    if (!calGridEl || !calViewDate) return;
+                    calGridEl.innerHTML = '';
+                    var y = calViewDate.getFullYear();
+                    var m = calViewDate.getMonth();
+                    var monthLabelEl = document.getElementById('dcf-cal-month-label');
+                    if (monthLabelEl && calMonthSelectEl && calMonthSelectEl.options[m]) {
+                        monthLabelEl.textContent = calMonthSelectEl.options[m].text + ' ' + y;
+                    }
+                    if (calMonthSelectEl) {
+                        calMonthSelectEl.value = String(m);
+                        if (parseInt(calMonthSelectEl.value, 10) !== m && calMonthSelectEl.options[m]) {
+                            calMonthSelectEl.selectedIndex = m;
+                        }
+                    }
+                    if (calYearSelectEl) {
+                        if (!calYearSelectEl.options.length) initYearOptions(y);
+                        var hasY = false;
+                        for (var yi=0; yi<calYearSelectEl.options.length; yi++) {
+                            if (parseInt(calYearSelectEl.options[yi].value, 10) === y) { hasY = true; break; }
+                        }
+                        if (!hasY) initYearOptions(y);
+                        calYearSelectEl.value = String(y);
+                        if (parseInt(calYearSelectEl.value, 10) !== y) {
+                            for (var ys=0; ys<calYearSelectEl.options.length; ys++) {
+                                if (parseInt(calYearSelectEl.options[ys].value, 10) === y) {
+                                    calYearSelectEl.selectedIndex = ys;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    var first = new Date(y, m, 1);
+                    first.setHours(0,0,0,0);
+                    var start = new Date(first.getTime());
+                    start.setDate(1 - first.getDay());
+                    for (var i=0;i<42;i++){
+                        var d = new Date(start.getTime());
+                        d.setDate(start.getDate() + i);
+                        d.setHours(0,0,0,0);
+                        var isOther = d.getMonth() !== m;
+                        var isSel = sameDay(d, calSelectedDate);
+                        var btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.textContent = d.getDate();
+                        btn.style.border = isSel ? '1px solid #2563eb' : '1px solid transparent';
+                        btn.style.borderRadius = '7px';
+                        btn.style.padding = '5px 0';
+                        btn.style.fontSize = '12px';
+                        btn.style.fontWeight = isSel ? '700' : '500';
+                        btn.style.cursor = 'pointer';
+                        btn.style.width = '100%';
+                        btn.style.minWidth = '0';
+                        btn.style.display = 'flex';
+                        btn.style.alignItems = 'center';
+                        btn.style.justifyContent = 'center';
+                        btn.style.background = isSel ? '#dbeafe' : 'transparent';
+                        btn.style.color = isSel ? '#1d4ed8' : (isOther ? '#94a3b8' : '#1e3a5f');
+                        btn.dataset.ymd = toYmd(d);
+                        btn.addEventListener('click', function(){
+                            var picked = parseYmd(this.dataset.ymd || '');
+                            if (!picked) return;
+                            calSelectedDate = picked;
+                            if (editModalDateDisplayEl) editModalDateDisplayEl.value = formatSessionDate(picked);
+                            renderEditCalendar();
+                        });
+                        calGridEl.appendChild(btn);
+                    }
+                };
+                var inferStepDays = function(dateArr){
+                    if (dateArr.length < 2) return 7;
+                    var ts = dateArr.map(function(x){ return x.getTime(); }).sort(function(a,b){ return a-b; });
+                    var freq = {};
+                    for (var i=1;i<ts.length;i++){
+                        var diff = Math.round((ts[i]-ts[i-1]) / 86400000);
+                        if (diff <= 0) continue;
+                        freq[diff] = (freq[diff] || 0) + 1;
+                    }
+                    var best = 7, bestN = -1;
+                    for (var k in freq){
+                        if (freq[k] > bestN){ best = parseInt(k,10); bestN = freq[k]; }
+                    }
+                    return best;
+                };
+                var collectKnownDates = function(){
+                    var out = [];
+                    for (var i=0;i<selectEl.options.length;i++){
+                        var t = selectEl.options[i].getAttribute('data-title') || selectEl.options[i].text || '';
+                        var d = parseSessionDate(t);
+                        if (d) out.push(d);
+                    }
+                    return out;
+                };
+                var parseYmd = function(v){
+                    if (!v) return null;
+                    var d = new Date(v + 'T00:00:00');
+                    if (isNaN(d.getTime())) return null;
+                    d.setHours(0,0,0,0);
+                    return d;
+                };
+
+                var prime = function(){
+                    var opt = selectEl.options[selectEl.selectedIndex];
+                };
+                prime();
+
+                if (updateBtn) {
+                    updateBtn.addEventListener('click', function(){
+                        var opt = selectEl.options[selectEl.selectedIndex];
+                        var valueId = opt ? opt.value : '';
+                        if (!valueId || !opt || !editModalEl || !editModalDateDisplayEl || !editModalCurrentEl) return;
+                        var currentDate = parseSessionDate(opt.getAttribute('data-title') || opt.text || '');
+                        calSelectedDate = currentDate ? new Date(currentDate.getTime()) : new Date();
+                        calSelectedDate.setHours(0,0,0,0);
+                        var now = new Date();
+                        calViewDate = new Date(now.getFullYear(), now.getMonth(), 1);
+                        initYearOptions(calViewDate.getFullYear());
+                        editModalDateDisplayEl.value = formatSessionDate(calSelectedDate);
+                        var previousTitle = opt.getAttribute('data-title') || opt.text || '';
+                        editState = { valueId: valueId, previousTitle: previousTitle, currentDate: currentDate };
+                        editModalCurrentEl.textContent = 'Current: ' + previousTitle;
+                        renderEditCalendar();
+                        editModalEl.style.display = 'flex';
+                    });
+                }
+                if (calPrevBtn) {
+                    calPrevBtn.addEventListener('click', function(){
+                        if (!calViewDate) return;
+                        calViewDate = new Date(calViewDate.getFullYear(), calViewDate.getMonth() - 1, 1);
+                        renderEditCalendar();
+                    });
+                }
+                if (calNextBtn) {
+                    calNextBtn.addEventListener('click', function(){
+                        if (!calViewDate) return;
+                        calViewDate = new Date(calViewDate.getFullYear(), calViewDate.getMonth() + 1, 1);
+                        renderEditCalendar();
+                    });
+                }
+                if (calMonthSelectEl) {
+                    calMonthSelectEl.addEventListener('change', function(){
+                        if (!calViewDate) return;
+                        calViewDate = new Date(calViewDate.getFullYear(), parseInt(this.value, 10), 1);
+                        renderEditCalendar();
+                    });
+                }
+                if (calYearSelectEl) {
+                    calYearSelectEl.addEventListener('change', function(){
+                        if (!calViewDate) return;
+                        calViewDate = new Date(parseInt(this.value, 10), calViewDate.getMonth(), 1);
+                        renderEditCalendar();
+                    });
+                }
+                if (editModalCancelBtn && editModalEl) {
+                    editModalCancelBtn.addEventListener('click', function(){
+                        editModalEl.style.display = 'none';
+                        editState = null;
+                    });
+                }
+                if (editModalConfirmBtn && editModalEl) {
+                    editModalConfirmBtn.addEventListener('click', function(){
+                        if (!editState) return;
+                        var picked = calSelectedDate ? new Date(calSelectedDate.getTime()) : null;
+                        if (!picked || isNaN(picked.getTime())) return;
+                        var newTitle = formatSessionDate(picked);
+                        if (newTitle === editState.previousTitle) {
+                            editModalEl.style.display = 'none';
+                            editState = null;
+                            return;
+                        }
+                        var confirmed = window.confirm('Change session date from "' + editState.previousTitle + '" to "' + newTitle + '"?');
+                        if (!confirmed) return;
+                        var opt = selectEl.options[selectEl.selectedIndex];
+                        if (!opt) return;
+                        var titleInput = document.querySelector('input[name="schedule_value[' + editState.valueId + '][title]"]');
+                        if (titleInput) titleInput.value = newTitle;
+                        opt.text = newTitle;
+                        opt.setAttribute('data-title', newTitle);
+                        editModalEl.style.display = 'none';
+                        editState = null;
+                    });
+                }
+                if (editModalEl) {
+                    editModalEl.addEventListener('click', function(e){
+                        if (e.target === editModalEl) {
+                            editModalEl.style.display = 'none';
+                            editState = null;
+                        }
+                    });
+                }
+
+                if (addBtn) {
+                    addBtn.addEventListener('click', function(){
+                        var picked = addEl && addEl.value ? new Date(addEl.value + 'T00:00:00') : null;
+                        if (!picked || isNaN(picked.getTime())) return;
+                        var newTitle = formatSessionDate(picked);
+                        var currentOpt = selectEl.options[selectEl.selectedIndex];
+                        var optionId = currentOpt ? (currentOpt.getAttribute('data-option-id') || '') : '';
+                        if (!optionId) return;
+
+                        // Determine next row index for schedule_new[optionId][n][...]
+                        var n = 1;
+                        while (document.querySelector('input[name="schedule_new[' + optionId + '][' + n + '][title]"]')) n++;
+
+                        var hiddenWrap = document.getElementById('dcf-scheduler-hidden-new');
+                        if (!hiddenWrap) {
+                            hiddenWrap = document.createElement('div');
+                            hiddenWrap.id = 'dcf-scheduler-hidden-new';
+                            hiddenWrap.style.display = 'none';
+                            selectEl.parentNode.appendChild(hiddenWrap);
+                        }
+                        var mk = function(name, val){
+                            var i = document.createElement('input');
+                            i.type = 'hidden';
+                            i.name = name;
+                            i.value = val;
+                            hiddenWrap.appendChild(i);
+                        };
+                        mk('schedule_new[' + optionId + '][' + n + '][title]', newTitle);
+                        mk('schedule_new[' + optionId + '][' + n + '][price]', '');
+                        mk('schedule_new[' + optionId + '][' + n + '][sort]', '0');
+
+                        // Add locally to dropdown for immediate UX.
+                        var pseudoId = 'new-' + optionId + '-' + n;
+                        var newOpt = document.createElement('option');
+                        newOpt.value = pseudoId;
+                        newOpt.text = newTitle;
+                        newOpt.setAttribute('data-option-id', optionId);
+                        newOpt.setAttribute('data-title', newTitle);
+                        selectEl.appendChild(newOpt);
+                        selectEl.value = pseudoId;
+                        if (addEl) addEl.value = '';
+                    });
+                }
+
+                if (autoBtn) {
+                    autoBtn.addEventListener('click', function(){
+                        var currentOpt = selectEl.options[selectEl.selectedIndex];
+                        var optionId = currentOpt ? (currentOpt.getAttribute('data-option-id') || '') : '';
+                        if (!optionId) return;
+                        var count = 24;
+                        var rangeStart = parseYmd(autoStartEl && autoStartEl.value ? autoStartEl.value : '');
+                        var rangeEnd = parseYmd(autoEndEl && autoEndEl.value ? autoEndEl.value : '');
+                        if (rangeStart && rangeEnd && rangeEnd.getTime() < rangeStart.getTime()) return;
+
+                        var known = collectKnownDates();
+                        if (!known.length) return;
+                        known.sort(function(a,b){ return a.getTime()-b.getTime(); });
+                        var step = inferStepDays(known);
+                        var cursor = new Date(known[known.length - 1].getTime());
+
+                        var added = 0;
+                        var guard = 0;
+                        while (added < count && guard < 365) {
+                            guard++;
+                            cursor = new Date(cursor.getTime() + (step * 86400000));
+                            if (rangeStart && cursor.getTime() < rangeStart.getTime()) continue;
+                            if (rangeEnd && cursor.getTime() > rangeEnd.getTime()) break;
+                            var newTitle = formatSessionDate(cursor);
+                            var n = 1;
+                            while (document.querySelector('input[name="schedule_new[' + optionId + '][' + n + '][title]"]')) n++;
+
+                            var hiddenWrap = document.getElementById('dcf-scheduler-hidden-new');
+                            if (!hiddenWrap) {
+                                hiddenWrap = document.createElement('div');
+                                hiddenWrap.id = 'dcf-scheduler-hidden-new';
+                                hiddenWrap.style.display = 'none';
+                                selectEl.parentNode.appendChild(hiddenWrap);
+                            }
+                            var mk = function(name, val){
+                                var i = document.createElement('input');
+                                i.type = 'hidden';
+                                i.name = name;
+                                i.value = val;
+                                hiddenWrap.appendChild(i);
+                            };
+                            mk('schedule_new[' + optionId + '][' + n + '][title]', newTitle);
+                            mk('schedule_new[' + optionId + '][' + n + '][price]', '');
+                            mk('schedule_new[' + optionId + '][' + n + '][sort]', '0');
+
+                            var pseudoId = 'new-' + optionId + '-' + n;
+                            var newOpt = document.createElement('option');
+                            newOpt.value = pseudoId;
+                            newOpt.text = newTitle;
+                            newOpt.setAttribute('data-option-id', optionId);
+                            newOpt.setAttribute('data-title', newTitle);
+                            selectEl.appendChild(newOpt);
+                            added++;
+                        }
+                    });
+                }
+            });
             </script>
 
         </div>
@@ -3695,12 +4193,57 @@ function devSetView(view) {
                                 <?php endforeach; ?>
                             </tbody>
                         </table>
-                        <button type="button" class="cs-add-btn" onclick="csAddRow(<?php echo $_oid ?>)">+ Add session</button>
+                        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                            <button type="button" class="cs-add-btn" onclick="csAddRow(<?php echo $_oid ?>)">+ Add session</button>
+                            <div style="display:flex;flex-direction:column;gap:8px;">
+                                <input type="date" id="cs-auto-start-<?php echo $_oid ?>" class="cs-input" style="width:180px;" title="From date" />
+                                <input type="date" id="cs-auto-end-<?php echo $_oid ?>" class="cs-input" style="width:180px;" title="To date" />
+                            </div>
+                            <button type="button" class="cs-add-btn" style="background:#7c3aed;" onclick="csAutoSchedule(<?php echo $_oid ?>)">Auto Schedule</button>
+                            <span style="color:#94a3b8;font-size:12px;">Pattern within date range</span>
+                        </div>
                     </div>
                     <?php endforeach; endif; ?>
                     <script>
                     (function(){
                         var newCounter = {};  // per-option_id new-row counter
+                        function parseSessionDate(raw){
+                            if (!raw) return null;
+                            var cleaned = String(raw).replace(/\([^)]*\)/g, '').replace(/\s+/g, ' ').trim();
+                            var d = new Date(cleaned);
+                            if (isNaN(d.getTime())) return null;
+                            d.setHours(0,0,0,0);
+                            return d;
+                        }
+                        function formatSessionDate(d){
+                            var day = d.getDate();
+                            var mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
+                            var yr = d.getFullYear();
+                            var wk = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()];
+                            return day + ' ' + mon + ' ' + yr + ' (' + wk + ')';
+                        }
+                        function inferStepDays(dateArr){
+                            if (dateArr.length < 2) return 7;
+                            var ts = dateArr.map(function(x){ return x.getTime(); }).sort(function(a,b){ return a-b; });
+                            var freq = {};
+                            for (var i=1;i<ts.length;i++){
+                                var diff = Math.round((ts[i]-ts[i-1]) / 86400000);
+                                if (diff <= 0) continue;
+                                freq[diff] = (freq[diff] || 0) + 1;
+                            }
+                            var best = 7, bestN = -1;
+                            for (var k in freq){
+                                if (freq[k] > bestN){ best = parseInt(k,10); bestN = freq[k]; }
+                            }
+                            return best;
+                        }
+                        function parseYmd(v){
+                            if (!v) return null;
+                            var d = new Date(v + 'T00:00:00');
+                            if (isNaN(d.getTime())) return null;
+                            d.setHours(0,0,0,0);
+                            return d;
+                        }
                         window.csAddRow = function(optionId) {
                             newCounter[optionId] = (newCounter[optionId] || 0) + 1;
                             var n = newCounter[optionId];
@@ -3717,6 +4260,40 @@ function devSetView(view) {
                             tbody.appendChild(tr);
                             tr.querySelector('input').focus();
                         };
+                        window.csAutoSchedule = function(optionId) {
+                            var tbody = document.getElementById('cs-rows-' + optionId);
+                            if (!tbody) return;
+                            var startEl = document.getElementById('cs-auto-start-' + optionId);
+                            var endEl = document.getElementById('cs-auto-end-' + optionId);
+                            var addCount = 24;
+                            var rangeStart = parseYmd(startEl && startEl.value ? startEl.value : '');
+                            var rangeEnd = parseYmd(endEl && endEl.value ? endEl.value : '');
+                            if (rangeStart && rangeEnd && rangeEnd.getTime() < rangeStart.getTime()) return;
+
+                            var dateVals = [];
+                            tbody.querySelectorAll('input[name^="schedule_value["][name$="][title]"],input[name^="schedule_new[' + optionId + ']"][name$="][title]"]').forEach(function(inp){
+                                var d = parseSessionDate(inp.value || '');
+                                if (d) dateVals.push(d);
+                            });
+                            if (!dateVals.length) return;
+                            dateVals.sort(function(a,b){ return a.getTime()-b.getTime(); });
+                            var step = inferStepDays(dateVals);
+                            var cursor = new Date(dateVals[dateVals.length - 1].getTime());
+
+                            var added = 0;
+                            var guard = 0;
+                            while (added < addCount && guard < 365) {
+                                guard++;
+                                cursor = new Date(cursor.getTime() + (step * 86400000));
+                                if (rangeStart && cursor.getTime() < rangeStart.getTime()) continue;
+                                if (rangeEnd && cursor.getTime() > rangeEnd.getTime()) break;
+                                csAddRow(optionId);
+                                var n = newCounter[optionId];
+                                var titleInput = tbody.querySelector('input[name="schedule_new[' + optionId + '][' + n + '][title]"]');
+                                if (titleInput) titleInput.value = formatSessionDate(cursor);
+                                added++;
+                            }
+                        };
                         window.csToggleRemove = function(btn, valueId) {
                             var tr = btn.closest('tr');
                             var hidden = tr.querySelector('input[name="schedule_remove[' + valueId + ']"]');
@@ -3729,6 +4306,24 @@ function devSetView(view) {
                             // Disable inputs in marked-for-remove rows so they don't waste a save round-trip
                             tr.querySelectorAll('input.cs-input').forEach(function(el){ el.disabled = !marked; });
                         };
+                        window.csSyncRange = function(optionId) {
+                            var startEl = document.getElementById('cs-auto-start-' + optionId);
+                            var endEl = document.getElementById('cs-auto-end-' + optionId);
+                            if (!startEl || !endEl) return;
+                            var from = startEl.value || '';
+                            endEl.min = from;
+                            if (endEl.value && from && endEl.value < from) {
+                                endEl.value = from;
+                            }
+                        };
+                        document.querySelectorAll('input[id^="cs-auto-start-"]').forEach(function(el){
+                            el.addEventListener('change', function(){
+                                var optionId = this.id.replace('cs-auto-start-', '');
+                                window.csSyncRange(optionId);
+                            });
+                            var optionId = el.id.replace('cs-auto-start-', '');
+                            window.csSyncRange(optionId);
+                        });
                     })();
                     </script>
                 </div>

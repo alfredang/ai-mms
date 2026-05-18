@@ -21,6 +21,11 @@ if [ ! -f "$LOCAL_XML" ]; then
     exec apache2-foreground
 fi
 
+if [ "${SKIP_MIGRATIONS:-0}" = "1" ]; then
+    echo "entrypoint: SKIP_MIGRATIONS=1, skipping migrations"
+    exec apache2-foreground
+fi
+
 # Clear Magento runtime cache so template/config/layout changes in this
 # deploy are picked up on first request. Dockerfile clears at build time,
 # but Coolify volume mounts can shadow that; this guarantees freshness.

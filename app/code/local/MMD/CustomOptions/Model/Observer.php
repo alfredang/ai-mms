@@ -274,12 +274,20 @@ class MMD_CustomOptions_Model_Observer {
                                     }                            
                                     $optionTotalQty = ($customoptionsIsOnetime?$optionQty:$optionQty*$qty);
 
-                                    if ($customoptionsQty!=='' && substr($customoptionsQty, 0, 1)!='x' && $customoptionsQty>0) {
-                                        $customoptionsQty = $customoptionsQty - $optionTotalQty;
-                                        if ($customoptionsQty<0) $customoptionsQty = 0;
-                                        // model 'catalog/product_option_value' - do not use!
-                                        $connection->update($tablePrefix . 'catalog_product_option_type_value', array('customoptions_qty'=>$customoptionsQty), 'option_type_id = '.$optionTypeId);
-                                    }    
+                                    // Atomic option-level seat reduction (authoritative backend path).
+                                    $this->_reserveOptionSeatsAtomic($connection, $tablePrefix, (int)$optionTypeId, (float)$optionTotalQty);
+
+                                    // Immutable schedule snapshot for audit (order-side truth).
+                                    $this->_storeScheduleSnapshot(
+                                        $connection,
+                                        $tablePrefix,
+                                        $orderItem,
+                                        $option,
+                                        $productOptionValueModel,
+                                        (int)$optionTypeId,
+                                        (float)$optionQty,
+                                        (float)$optionTotalQty
+                                    );
 
                                     if ($sku!=='') {
                                         $product = Mage::getModel('catalog/product')->loadByAttribute('sku', $sku);
@@ -475,6 +483,103 @@ class MMD_CustomOptions_Model_Observer {
 
         
         return $this;
+    }
+
+    /**
+     * Atomically decrement option-level inventory for selected schedule rows.
+     * Supports:
+     * - empty qty: unlimited
+     * - "x..." prefixed qty: unlimited (legacy MMD convention)
+     */
+    protected function _reserveOptionSeatsAtomic($connection, $tablePrefix, $optionTypeId, $decrementQty)
+    {
+        $decrementQty = (float)$decrementQty;
+        if ($decrementQty <= 0) {
+            return;
+        }
+
+        $connection->beginTransaction();
+        try {
+            $select = $connection->select()
+                ->from($tablePrefix . 'catalog_product_option_type_value', array('customoptions_qty'))
+                ->where('option_type_id = ?', (int)$optionTypeId)
+                ->forUpdate(true);
+            $row = $connection->fetchRow($select);
+            if (!$row || !array_key_exists('customoptions_qty', $row)) {
+                $connection->commit();
+                return;
+            }
+
+            $rawQty = (string)$row['customoptions_qty'];
+            if ($rawQty === '' || substr($rawQty, 0, 1) === 'x') {
+                $connection->commit();
+                return; // unlimited
+            }
+
+            $currentQty = (float)$rawQty;
+            if ($currentQty < $decrementQty) {
+                Mage::throwException(
+                    Mage::helper('cataloginventory')->__(
+                        'The requested quantity for this scheduled session is no longer available.'
+                    )
+                );
+            }
+
+            $nextQty = $currentQty - $decrementQty;
+            if ($nextQty < 0) {
+                $nextQty = 0;
+            }
+            $connection->update(
+                $tablePrefix . 'catalog_product_option_type_value',
+                array('customoptions_qty' => $nextQty),
+                'option_type_id = ' . (int)$optionTypeId
+            );
+            $connection->commit();
+        } catch (Exception $e) {
+            $connection->rollBack();
+            throw $e;
+        }
+    }
+
+    /**
+     * Persist immutable schedule snapshot per ordered option row.
+     */
+    protected function _storeScheduleSnapshot(
+        $connection,
+        $tablePrefix,
+        $orderItem,
+        $option,
+        $productOptionValueModel,
+        $optionTypeId,
+        $optionQty,
+        $optionTotalQty
+    ) {
+        try {
+            $meta = array(
+                'option_id'          => isset($option['option_id']) ? (int)$option['option_id'] : 0,
+                'option_type'        => isset($option['option_type']) ? (string)$option['option_type'] : '',
+                'option_value'       => isset($option['option_value']) ? (string)$option['option_value'] : '',
+                'option_qty'         => (float)$optionQty,
+                'option_total_qty'   => (float)$optionTotalQty,
+            );
+            $snapshot = array(
+                'order_id'          => (int)$orderItem->getOrderId(),
+                'order_item_id'     => (int)$orderItem->getId(),
+                'product_id'        => (int)$orderItem->getProductId(),
+                'option_id'         => (int)$meta['option_id'],
+                'option_type_id'    => (int)$optionTypeId,
+                'schedule_label'    => isset($option['label']) ? (string)$option['label'] : '',
+                'schedule_text'     => (string)$productOptionValueModel->getTitle(),
+                'seat_qty'          => (float)$optionTotalQty,
+                'unit_price'        => (float)$orderItem->getPrice(),
+                'delivery_mode'     => '',
+                'snapshot_json'     => json_encode($meta),
+                'created_at'        => now(),
+            );
+            $connection->insert($tablePrefix . 'custom_options_schedule_snapshot', $snapshot);
+        } catch (Exception $e) {
+            Mage::logException($e);
+        }
     }
     
     public function insertNewOrderItem($sku, $optionType, $orderItem, $optionModel, $productOptions, $store, $optionId, $optionTypeId, $connection, $tablePrefix, $reduce, $orderTotalQtyOrdered, $customoptionsIsOnetime, $finalProductPrice, $productTaxClassId) {

@@ -139,7 +139,17 @@ foreach ($pending as $f) {
             $stmt = trim($stmt);
             if ($stmt === '') continue;
             try {
-                $pdo->exec($stmt);
+                // SELECT/SHOW/DESCRIBE/EXPLAIN need query()+fetchAll() so
+                // MySQL result sets are fully consumed before the next stmt.
+                if (preg_match('/^(SELECT|SHOW|DESCRIBE|EXPLAIN)\b/i', $stmt) === 1) {
+                    $q = $pdo->query($stmt);
+                    if ($q !== false) {
+                        $q->fetchAll();
+                        $q->closeCursor();
+                    }
+                } else {
+                    $pdo->exec($stmt);
+                }
             } catch (PDOException $stmtErr) {
                 $code = (int)($stmtErr->errorInfo[1] ?? 0);
                 if ($tolerantMode && in_array($code, $tolerantErrors, true)) {

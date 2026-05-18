@@ -7,5 +7,3 @@
 -- If you need to reset a specific admin's password, do it through Admin →
 -- Users in the admin UI or via a targeted one-off SQL, never a blanket
 -- migration against all rows.
-
-SELECT 1;

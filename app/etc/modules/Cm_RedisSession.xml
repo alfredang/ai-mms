@@ -33,11 +33,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 <config>
   <modules>
     <Cm_RedisSession>
-      <!-- Disabled. Module rewrites core_resource/session to its own
-           Redis-backed handler, which fails when Redis isn't running.
-           Sessions live in MySQL instead (see <session_save>db</session_save>
-           in app/etc/local.xml + migration 027 for core_session table). -->
-      <active>false</active>
+      <active>true</active>
       <codePool>community</codePool>
     </Cm_RedisSession>
   </modules>

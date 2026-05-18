@@ -1,5 +1,15 @@
 -- Give every admin user all 6 roles (Learner, Trainer, Developer, Marketing,
 -- Admin, Super Admin). INSERT IGNORE preserves existing is_primary flags.
+CREATE TABLE IF NOT EXISTS mmd_user_role_map (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    user_id MEDIUMINT(8) UNSIGNED NOT NULL,
+    role_code VARCHAR(32) NOT NULL,
+    is_primary TINYINT(1) NOT NULL DEFAULT 0,
+    created_at DATETIME NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY UNQ_USER_ROLE (user_id, role_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
 INSERT IGNORE INTO mmd_user_role_map (user_id, role_code, is_primary, created_at)
 SELECT u.user_id, r.code, 0, NOW()
 FROM admin_user u

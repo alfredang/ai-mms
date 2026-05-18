@@ -48,7 +48,7 @@ class Cm_RedisSession_Model_Session implements SessionHandlerInterface
     public function __construct($config = array())
     {
         $this->sessionHandler = new \Cm\RedisSession\Handler(
-            Cm_RedisSession_Model_Session_Config::create($config['session_name'] ?? 'default'),
+            new Cm_RedisSession_Model_Session_Config($config['session_name'] ?? 'default'),
             new Cm_RedisSession_Model_Session_Logger(),
             Mage::registry('controller')
               && Mage::app()->getFrontController()->getAction()
@@ -68,7 +68,14 @@ class Cm_RedisSession_Model_Session implements SessionHandlerInterface
      */
     public function setSaveHandler()
     {
-        session_set_save_handler($this);
+        session_set_save_handler(
+            array($this, 'open'),
+            array($this, 'close'),
+            array($this, 'read'),
+            array($this, 'write'),
+            array($this, 'destroy'),
+            array($this, 'gc')
+        );
         return $this;
     }
 
