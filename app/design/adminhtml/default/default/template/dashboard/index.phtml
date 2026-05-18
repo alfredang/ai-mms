@@ -2691,6 +2691,65 @@ function devSetView(view) {
                     }
                     return best;
                 };
+                var isWeekend = function(d){
+                    var day = d.getDay();
+                    return day === 0 || day === 6;
+                };
+                var generatePatternDates = function(known, rangeStart, rangeEnd, count){
+                    var out = [];
+                    var seen = {};
+                    known.forEach(function(d){ seen[toYmd(d)] = 1; });
+                    var weekendDates = known.filter(isWeekend);
+                    var weekdayDates = known.filter(function(d){ return !isWeekend(d); });
+
+                    // Preferred rule: alternate weekday/weekend; each stream repeats every 4 weeks.
+                    if (weekendDates.length && weekdayDates.length) {
+                        weekendDates.sort(function(a,b){ return a.getTime()-b.getTime(); });
+                        weekdayDates.sort(function(a,b){ return a.getTime()-b.getTime(); });
+                        var lastKnown = known.slice().sort(function(a,b){ return a.getTime()-b.getTime(); }).pop();
+                        var lastWeekend = new Date(weekendDates[weekendDates.length - 1].getTime());
+                        var lastWeekday = new Date(weekdayDates[weekdayDates.length - 1].getTime());
+                        var nextType = isWeekend(lastKnown) ? 'weekday' : 'weekend';
+                        var guardAlt = 0;
+                        while (out.length < count && guardAlt < 1200) {
+                            guardAlt++;
+                            var candidate = null;
+                            if (nextType === 'weekday') {
+                                candidate = new Date(lastWeekday.getTime() + (28 * 86400000));
+                                lastWeekday = new Date(candidate.getTime());
+                                nextType = 'weekend';
+                            } else {
+                                candidate = new Date(lastWeekend.getTime() + (28 * 86400000));
+                                lastWeekend = new Date(candidate.getTime());
+                                nextType = 'weekday';
+                            }
+                            var keyAlt = toYmd(candidate);
+                            if (rangeStart && candidate.getTime() < rangeStart.getTime()) continue;
+                            if (rangeEnd && candidate.getTime() > rangeEnd.getTime()) continue;
+                            if (seen[keyAlt]) continue;
+                            seen[keyAlt] = 1;
+                            out.push(candidate);
+                        }
+                        return out;
+                    }
+
+                    // Fallback when only one stream exists in historical data.
+                    known.sort(function(a,b){ return a.getTime()-b.getTime(); });
+                    var step = inferStepDays(known);
+                    var cursor = new Date(known[known.length - 1].getTime());
+                    var guard = 0;
+                    while (out.length < count && guard < 365) {
+                        guard++;
+                        cursor = new Date(cursor.getTime() + (step * 86400000));
+                        var key = toYmd(cursor);
+                        if (rangeStart && cursor.getTime() < rangeStart.getTime()) continue;
+                        if (rangeEnd && cursor.getTime() > rangeEnd.getTime()) continue;
+                        if (seen[key]) continue;
+                        seen[key] = 1;
+                        out.push(new Date(cursor.getTime()));
+                    }
+                    return out;
+                };
                 var collectKnownDates = function(){
                     var out = [];
                     for (var i=0;i<selectEl.options.length;i++){
@@ -2854,18 +2913,9 @@ function devSetView(view) {
 
                         var known = collectKnownDates();
                         if (!known.length) return;
-                        known.sort(function(a,b){ return a.getTime()-b.getTime(); });
-                        var step = inferStepDays(known);
-                        var cursor = new Date(known[known.length - 1].getTime());
-
-                        var added = 0;
-                        var guard = 0;
-                        while (added < count && guard < 365) {
-                            guard++;
-                            cursor = new Date(cursor.getTime() + (step * 86400000));
-                            if (rangeStart && cursor.getTime() < rangeStart.getTime()) continue;
-                            if (rangeEnd && cursor.getTime() > rangeEnd.getTime()) break;
-                            var newTitle = formatSessionDate(cursor);
+                        var generated = generatePatternDates(known, rangeStart, rangeEnd, count);
+                        for (var gi = 0; gi < generated.length; gi++) {
+                            var newTitle = formatSessionDate(generated[gi]);
                             var n = 1;
                             while (document.querySelector('input[name="schedule_new[' + optionId + '][' + n + '][title]"]')) n++;
 
@@ -2894,7 +2944,6 @@ function devSetView(view) {
                             newOpt.setAttribute('data-option-id', optionId);
                             newOpt.setAttribute('data-title', newTitle);
                             selectEl.appendChild(newOpt);
-                            added++;
                         }
                     });
                 }
@@ -4237,12 +4286,75 @@ function devSetView(view) {
                             }
                             return best;
                         }
+                        function isWeekend(d){
+                            var day = d.getDay();
+                            return day === 0 || day === 6;
+                        }
                         function parseYmd(v){
                             if (!v) return null;
                             var d = new Date(v + 'T00:00:00');
                             if (isNaN(d.getTime())) return null;
                             d.setHours(0,0,0,0);
                             return d;
+                        }
+                        function toYmd(d){
+                            var y = d.getFullYear();
+                            var m = String(d.getMonth() + 1).padStart(2, '0');
+                            var day = String(d.getDate()).padStart(2, '0');
+                            return y + '-' + m + '-' + day;
+                        }
+                        function generatePatternDates(dateVals, rangeStart, rangeEnd, addCount){
+                            var out = [];
+                            var seen = {};
+                            dateVals.forEach(function(d){ seen[toYmd(d)] = 1; });
+                            var weekendDates = dateVals.filter(isWeekend);
+                            var weekdayDates = dateVals.filter(function(d){ return !isWeekend(d); });
+
+                            if (weekendDates.length && weekdayDates.length) {
+                                weekendDates.sort(function(a,b){ return a.getTime()-b.getTime(); });
+                                weekdayDates.sort(function(a,b){ return a.getTime()-b.getTime(); });
+                                var lastKnown = dateVals.slice().sort(function(a,b){ return a.getTime()-b.getTime(); }).pop();
+                                var lastWeekend = new Date(weekendDates[weekendDates.length - 1].getTime());
+                                var lastWeekday = new Date(weekdayDates[weekdayDates.length - 1].getTime());
+                                var nextType = isWeekend(lastKnown) ? 'weekday' : 'weekend';
+                                var guardAlt = 0;
+                                while (out.length < addCount && guardAlt < 1200) {
+                                    guardAlt++;
+                                    var candidate = null;
+                                    if (nextType === 'weekday') {
+                                        candidate = new Date(lastWeekday.getTime() + (28 * 86400000));
+                                        lastWeekday = new Date(candidate.getTime());
+                                        nextType = 'weekend';
+                                    } else {
+                                        candidate = new Date(lastWeekend.getTime() + (28 * 86400000));
+                                        lastWeekend = new Date(candidate.getTime());
+                                        nextType = 'weekday';
+                                    }
+                                    var keyAlt = toYmd(candidate);
+                                    if (rangeStart && candidate.getTime() < rangeStart.getTime()) continue;
+                                    if (rangeEnd && candidate.getTime() > rangeEnd.getTime()) continue;
+                                    if (seen[keyAlt]) continue;
+                                    seen[keyAlt] = 1;
+                                    out.push(candidate);
+                                }
+                                return out;
+                            }
+
+                            dateVals.sort(function(a,b){ return a.getTime()-b.getTime(); });
+                            var step = inferStepDays(dateVals);
+                            var cursor = new Date(dateVals[dateVals.length - 1].getTime());
+                            var guard = 0;
+                            while (out.length < addCount && guard < 365) {
+                                guard++;
+                                cursor = new Date(cursor.getTime() + (step * 86400000));
+                                var key = toYmd(cursor);
+                                if (rangeStart && cursor.getTime() < rangeStart.getTime()) continue;
+                                if (rangeEnd && cursor.getTime() > rangeEnd.getTime()) continue;
+                                if (seen[key]) continue;
+                                seen[key] = 1;
+                                out.push(new Date(cursor.getTime()));
+                            }
+                            return out;
                         }
                         window.csAddRow = function(optionId) {
                             newCounter[optionId] = (newCounter[optionId] || 0) + 1;
@@ -4276,22 +4388,12 @@ function devSetView(view) {
                                 if (d) dateVals.push(d);
                             });
                             if (!dateVals.length) return;
-                            dateVals.sort(function(a,b){ return a.getTime()-b.getTime(); });
-                            var step = inferStepDays(dateVals);
-                            var cursor = new Date(dateVals[dateVals.length - 1].getTime());
-
-                            var added = 0;
-                            var guard = 0;
-                            while (added < addCount && guard < 365) {
-                                guard++;
-                                cursor = new Date(cursor.getTime() + (step * 86400000));
-                                if (rangeStart && cursor.getTime() < rangeStart.getTime()) continue;
-                                if (rangeEnd && cursor.getTime() > rangeEnd.getTime()) break;
+                            var generated = generatePatternDates(dateVals, rangeStart, rangeEnd, addCount);
+                            for (var g=0; g<generated.length; g++) {
                                 csAddRow(optionId);
                                 var n = newCounter[optionId];
                                 var titleInput = tbody.querySelector('input[name="schedule_new[' + optionId + '][' + n + '][title]"]');
-                                if (titleInput) titleInput.value = formatSessionDate(cursor);
-                                added++;
+                                if (titleInput) titleInput.value = formatSessionDate(generated[g]);
                             }
                         };
                         window.csToggleRemove = function(btn, valueId) {
