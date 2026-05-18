@@ -2900,6 +2900,7 @@ function devSetView(view) {
                         var count = 24;
                         var rangeStart = parseYmd(autoStartEl && autoStartEl.value ? autoStartEl.value : '');
                         var rangeEnd = parseYmd(autoEndEl && autoEndEl.value ? autoEndEl.value : '');
+                        if (!rangeStart || !rangeEnd) return;
                         if (rangeStart && rangeEnd && rangeEnd.getTime() < rangeStart.getTime()) return;
 
                         var known = collectKnownDates();
@@ -4187,6 +4188,48 @@ function devSetView(view) {
                     <?php if (empty($_csOptions)): ?>
                     <div style="background:#1e293b;border:1px dashed #475569;border-radius:8px;padding:32px;text-align:center;color:#64748b;">No custom options defined for this course yet. Use the project session manager (read-only view → "Add Session") to create the first one.</div>
                     <?php else: foreach ($_csOptions as $_co): $_oid = (int) $_co['id']; ?>
+                    <?php
+                        // Auto scheduler should only apply to date-based options.
+                        $_optTitleLower = strtolower((string)$_co['title']);
+                        $_addLabel = '+ Add Session';
+                        if (strpos($_optTitleLower, 'date') !== false) {
+                            $_addLabel = '+ Add Date';
+                        } elseif (strpos($_optTitleLower, 'time') !== false) {
+                            $_addLabel = '+ Add Time';
+                        } elseif (strpos($_optTitleLower, 'sponsorship') !== false) {
+                            $_addLabel = '+ Add Sponsorship';
+                        } elseif (strpos($_optTitleLower, 'eligibility') !== false) {
+                            $_addLabel = '+ Add Eligibility';
+                        } elseif (strpos($_optTitleLower, 'message') !== false || strpos($_optTitleLower, 'trainee') !== false) {
+                            $_addLabel = '+ Add Entry';
+                        } elseif (strpos($_optTitleLower, 'mode') !== false) {
+                            $_addLabel = '+ Add Mode';
+                        } elseif (strpos($_optTitleLower, 'delivery') !== false) {
+                            $_addLabel = '+ Add Delivery';
+                        } else {
+                            $_titleBase = trim((string)preg_replace('/\([^)]*\)/', '', (string)$_co['title']));
+                            $_titleBase = trim((string)preg_replace('/\s+/', ' ', $_titleBase));
+                            if ($_titleBase !== '' && strlen($_titleBase) <= 24) {
+                                $_addLabel = '+ Add ' . $_titleBase;
+                            } elseif ((string)$_co['type'] === 'area' || (string)$_co['type'] === 'field') {
+                                $_addLabel = '+ Add Entry';
+                            } else {
+                                $_addLabel = '+ Add Option';
+                            }
+                        }
+                        $_isDateOption = (stripos((string)$_co['title'], 'date') !== false);
+                        if (!$_isDateOption) {
+                            foreach ((array)$_co['values'] as $_cv) {
+                                $_cvTitle = isset($_cv['title']) ? (string)$_cv['title'] : '';
+                                $_cvClean = preg_replace('/\([^)]*\)/', '', $_cvTitle);
+                                $_cvClean = preg_replace('/\s+/', ' ', trim((string)$_cvClean));
+                                if ($_cvClean !== '' && strtotime($_cvClean) !== false) {
+                                    $_isDateOption = true;
+                                    break;
+                                }
+                            }
+                        }
+                    ?>
                     <div style="background:#283548;border:1px solid #384a60;border-radius:10px;padding:16px;margin-bottom:14px;" data-option-id="<?php echo $_oid ?>">
                         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px;">
                             <div style="color:#f1f5f9;font-weight:700;font-size:15px;"><?php echo htmlspecialchars($_co['title']) ?></div>
@@ -4223,19 +4266,23 @@ function devSetView(view) {
                             </tbody>
                         </table>
                         <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid #3f5068;">
-                            <button type="button" class="cs-add-btn cs-schedule-action-btn cs-add-session" onclick="csAddRow(<?php echo $_oid ?>)">+ Add Session</button>
-                            <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
-                                <div style="display:flex;flex-direction:column;gap:4px;">
-                                    <div style="font-size:11px;color:#94a3b8;letter-spacing:.4px;text-transform:uppercase;">From</div>
-                                    <input type="date" id="cs-auto-start-<?php echo $_oid ?>" class="cs-input" style="width:170px;height:38px;" title="From date" />
+                            <button type="button" class="cs-add-btn cs-schedule-action-btn cs-add-session" onclick="csAddRow(<?php echo $_oid ?>)"><?php echo htmlspecialchars($_addLabel) ?></button>
+                            <?php if ($_isDateOption): ?>
+                                <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
+                                    <div style="display:flex;flex-direction:column;gap:4px;">
+                                        <div style="font-size:11px;color:#94a3b8;letter-spacing:.4px;text-transform:uppercase;">From</div>
+                                        <input type="date" id="cs-auto-start-<?php echo $_oid ?>" class="cs-input" style="width:170px;height:38px;" title="From date" />
+                                    </div>
+                                    <div style="display:flex;flex-direction:column;gap:4px;">
+                                        <div style="font-size:11px;color:#94a3b8;letter-spacing:.4px;text-transform:uppercase;">To</div>
+                                        <input type="date" id="cs-auto-end-<?php echo $_oid ?>" class="cs-input" style="width:170px;height:38px;" title="To date" />
+                                    </div>
                                 </div>
-                                <div style="display:flex;flex-direction:column;gap:4px;">
-                                    <div style="font-size:11px;color:#94a3b8;letter-spacing:.4px;text-transform:uppercase;">To</div>
-                                    <input type="date" id="cs-auto-end-<?php echo $_oid ?>" class="cs-input" style="width:170px;height:38px;" title="To date" />
-                                </div>
-                            </div>
-                            <button type="button" class="cs-add-btn cs-schedule-action-btn cs-auto-session" onclick="csAutoSchedule(<?php echo $_oid ?>)">Auto Schedule</button>
-                            <span style="color:#94a3b8;font-size:12px;line-height:44px;">Pattern within selected range</span>
+                                <button type="button" class="cs-add-btn cs-schedule-action-btn cs-auto-session" onclick="csAutoSchedule(<?php echo $_oid ?>)">Auto Schedule</button>
+                                <span style="color:#94a3b8;font-size:12px;line-height:44px;">Pattern within selected range</span>
+                            <?php else: ?>
+                                <span style="color:#94a3b8;font-size:12px;line-height:44px;">Auto scheduler is available for Date options only.</span>
+                            <?php endif; ?>
                         </div>
                     </div>
                     <?php endforeach; endif; ?>
@@ -4363,9 +4410,12 @@ function devSetView(view) {
                             if (!tbody) return;
                             var startEl = document.getElementById('cs-auto-start-' + optionId);
                             var endEl = document.getElementById('cs-auto-end-' + optionId);
+                            // Auto scheduling is date-only; non-date options won't have range inputs.
+                            if (!startEl || !endEl) return;
                             var addCount = 24;
                             var rangeStart = parseYmd(startEl && startEl.value ? startEl.value : '');
                             var rangeEnd = parseYmd(endEl && endEl.value ? endEl.value : '');
+                            if (!rangeStart || !rangeEnd) return;
                             if (rangeStart && rangeEnd && rangeEnd.getTime() < rangeStart.getTime()) return;
 
                             var dateVals = [];
