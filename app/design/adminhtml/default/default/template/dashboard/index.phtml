@@ -1571,12 +1571,12 @@ $_devFilterType = (string) Mage::app()->getRequest()->getParam('dev_type', '');
 $_devFilterQuery = trim((string) Mage::app()->getRequest()->getParam('dev_q', ''));
 // Courseware filter:
 //   ''        = all
-//   'missing' = no row in course_courseware, OR all 11 URL columns empty
-//   'partial' = row exists and between 1 and 10 URLs are filled
-//   'all'     = row exists and all 11 URLs are filled
+//   'missing' = no row in course_courseware, OR all 5 URL columns empty
+//   'partial' = row exists and between 1 and 4 URLs are filled
+//   'all'     = row exists and all 5 URLs are filled
 $_devFilterCourseware = (string) Mage::app()->getRequest()->getParam('dev_courseware', '');
-$_devCwCount = array(); // product_id => count of non-empty URLs (0..11)
-$_devCwTotal = 10;      // number of URL columns we care about — must match the SUM-over-CASE in the count query below + the $_cwFields array in the edit form
+$_devCwCount = array(); // product_id => count of non-empty URLs (0..5)
+$_devCwTotal = 5;       // number of URL columns we care about — must match the SUM-over-CASE in the count query below + the $_cwFields array in the edit form
 $_devTotalCount = 0;
 $_devTotalPages = 1;
 $_devTotalAll = 0;
@@ -1590,15 +1590,10 @@ if ($activeRole === 'developer' && in_array($_devFilterCourseware, array('missin
         $_cwRows = $_cwRead->fetchAll(
             "SELECT product_id,
                 ((COALESCE(lesson_plan_url,'')        != '') +
-                 (COALESCE(learner_guide_url,'')      != '') +
-                 (COALESCE(facilitator_guide_url,'')  != '') +
-                 (COALESCE(assessment_plan_url,'')    != '') +
                  (COALESCE(learner_slides_url,'')     != '') +
                  (COALESCE(trainer_slides_url,'')     != '') +
                  (COALESCE(courseware_link,'')        != '') +
-                 (COALESCE(brochure_link,'')          != '') +
-                 (COALESCE(assessment_record_link,'') != '') +
-                 (COALESCE(assessment_summary_url,'') != '')
+                 (COALESCE(brochure_link,'')          != '')
                 ) AS filled
              FROM course_courseware"
         );
@@ -1993,13 +1988,12 @@ function devSetView(view) {
 <input type="hidden" name="dev_back" value="<?php echo htmlspecialchars($_devBack) ?>" />
 <div class="dcf-wrap">
     <div class="dcf-header">
-        <div style="flex:1;min-width:0;">
-            <h1 class="dcf-title"><?php echo htmlspecialchars($_editCourseData['name']) ?></h1>
+        <h1 class="dcf-title"><?php echo htmlspecialchars($_editCourseData['name']) ?></h1>
+        <div class="dcf-header-row2">
             <?php if ($_editCourseData['sku']): ?>
             <div class="dcf-title-sub"><?php echo htmlspecialchars($_editCourseData['sku']) ?></div>
             <?php endif; ?>
-        </div>
-        <div class="dcf-actions">
+            <div class="dcf-actions">
             <button type="button" class="dcf-btn dcf-btn-cancel" onclick="window.location.href='<?php echo $_devBackUrl ?>'">Cancel</button>
             <button type="button" class="dcf-btn dcf-btn-edit" onclick="window.location.href='<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id'=>$_selectedCourse['id'], 'mode'=>'edit')) . $_devBackSuffix ?>'">Exit Edit</button>
             <button type="button" class="dcf-btn dcf-btn-save-cont" onclick="document.getElementById('dcf-continue-edit').value='1';document.getElementById('dcf-form').submit();">Save &amp; Continue</button>
@@ -2007,6 +2001,7 @@ function devSetView(view) {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                 Save Changes
             </button>
+            </div>
         </div>
     </div>
 
@@ -2028,10 +2023,7 @@ function devSetView(view) {
             'trainer-details'  => 'Trainer Details',
             'images'           => 'Images',
             'meta'             => 'Meta Information',
-            'recurring'        => 'Recurring Profile',
             'design'           => 'Design',
-            'gift'             => 'Gift Options',
-            'inventory'        => 'Inventory',
             'websites'         => 'Websites',
             'categories'       => 'Categories',
             'related'          => 'Related Products',
@@ -2220,7 +2212,7 @@ function devSetView(view) {
                                             <td style="padding:8px 12px;"><select class="dcf-select" name="group_price[<?php echo $_i ?>][website_id]"><?php foreach ($_priceWebsites as $_wid => $_wn): ?><option value="<?php echo $_wid ?>"<?php echo $_wid === $_gp['website_id'] ? ' selected' : '' ?>><?php echo htmlspecialchars($_wn) ?></option><?php endforeach; ?></select></td>
                                             <td style="padding:8px 12px;"><select class="dcf-select" name="group_price[<?php echo $_i ?>][cust_group]"><?php foreach ($_priceCustGroups as $_cgid => $_cgn): ?><option value="<?php echo $_cgid ?>"<?php echo $_cgid === $_gp['cust_group'] ? ' selected' : '' ?>><?php echo htmlspecialchars($_cgn) ?></option><?php endforeach; ?></select></td>
                                             <td style="padding:8px 12px;"><input type="number" step="0.01" class="dcf-input" name="group_price[<?php echo $_i ?>][price]" value="<?php echo number_format($_gp['price'], 2, '.', '') ?>" /></td>
-                                            <td style="padding:8px 12px;text-align:right;"><button type="button" onclick="this.closest('tr').remove()" style="background:#7f1d1d;color:#fecaca;border:none;padding:4px 10px;border-radius:4px;font-size:12px;cursor:pointer;">Remove</button></td>
+                                            <td style="padding:8px 12px;text-align:right;"><button type="button" class="cs-rm-btn" title="Remove" aria-label="Remove" onclick="this.closest('tr').remove()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>
                                         </tr>
                                         <?php endforeach; ?>
                                         <?php if (empty($_groupPrices)): ?>
@@ -2281,7 +2273,7 @@ function devSetView(view) {
                                             <td style="padding:8px 12px;"><select class="dcf-select" name="tier_price[<?php echo $_i ?>][cust_group]"><?php foreach ($_priceCustGroups as $_cgid => $_cgn): ?><option value="<?php echo $_cgid ?>"<?php echo $_cgid === $_tp['cust_group'] ? ' selected' : '' ?>><?php echo htmlspecialchars($_cgn) ?></option><?php endforeach; ?></select></td>
                                             <td style="padding:8px 12px;"><input type="number" step="1" min="1" class="dcf-input" name="tier_price[<?php echo $_i ?>][price_qty]" value="<?php echo (int)$_tp['price_qty'] ?>" style="width:80px;" /></td>
                                             <td style="padding:8px 12px;"><input type="number" step="0.01" class="dcf-input" name="tier_price[<?php echo $_i ?>][price]" value="<?php echo number_format($_tp['price'], 2, '.', '') ?>" /></td>
-                                            <td style="padding:8px 12px;text-align:right;"><button type="button" onclick="this.closest('tr').remove()" style="background:#7f1d1d;color:#fecaca;border:none;padding:4px 10px;border-radius:4px;font-size:12px;cursor:pointer;">Remove</button></td>
+                                            <td style="padding:8px 12px;text-align:right;"><button type="button" class="cs-rm-btn" title="Remove" aria-label="Remove" onclick="this.closest('tr').remove()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>
                                         </tr>
                                         <?php endforeach; ?>
                                         <?php if (empty($_tierPrices)): ?>
@@ -2349,15 +2341,10 @@ function devSetView(view) {
                     <input type="text" class="dcf-input" name="course_code" value="<?php echo htmlspecialchars($_editCourseData['sku']) ?>" style="font-family:monospace;letter-spacing:.5px;" placeholder="e.g. C432" />
                 </div>
 
-                <div class="dcf-field">
-                    <div class="dcf-label">Funding Validity</div>
-                    <?php
-                    $_rawFunding = $_editProd->getData('news_to_date');
-                    $_fundingInput = $_rawFunding ? date('Y-m-d', strtotime($_rawFunding)) : '';
-                    ?>
-                    <input type="date" class="dcf-input" name="funding_validity" value="<?php echo $_fundingInput ?>" />
-                    <div style="font-size:11px;color:#64748b;margin-top:4px;">Date until which the course funding is valid</div>
-                </div>
+                <?php /* Funding Validity field removed per request
+                     (deleted from the course form / project website).
+                     The news_to_date attribute is no longer editable
+                     here; its stored value is left untouched. */ ?>
 
                 <div class="dcf-field">
                     <div class="dcf-label" style="font-size:13px;font-weight:700;color:#f1f5f9;text-transform:none;letter-spacing:0;margin-bottom:10px;">Duration <span style="color:#fb7185;">*</span></div>
@@ -2390,6 +2377,10 @@ function devSetView(view) {
                     <select class="dcf-input" name="course_type_select" style="appearance:auto;">
                         <option value="">— Select —</option>
                         <option value="Non-funded" <?php echo $_editCourseData['course_type'] === 'Non-funded' ? 'selected' : '' ?>>Non-funded</option>
+                        <option value="WSQ" <?php echo $_editCourseData['course_type'] === 'WSQ' ? 'selected' : '' ?>>WSQ</option>
+                        <option value="IBF" <?php echo $_editCourseData['course_type'] === 'IBF' ? 'selected' : '' ?>>IBF</option>
+                        <option value="CASL" <?php echo $_editCourseData['course_type'] === 'CASL' ? 'selected' : '' ?>>CASL</option>
+                        <option value="HRDF" <?php echo $_editCourseData['course_type'] === 'HRDF' ? 'selected' : '' ?>>HRDF</option>
                     </select>
                 </div>
             </div>
@@ -2954,54 +2945,26 @@ function devSetView(view) {
 
         <!-- RIGHT COLUMN: Course Content (mirrors read-only layout) -->
         <div class="dcf-col-right">
-            <!-- Virtual Meeting — dedicated section. The link is rendered
+            <!-- Google Meet — dedicated section. The link is rendered
                  to learners and trainers when the class type is Virtual or
                  Hybrid; Physical classes show "N/A" regardless. -->
             <div class="dcf-section">
                 <div class="dcf-section-title">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
-                    Virtual Meeting
+                    Google Meet
                 </div>
                 <input type="url" class="dcf-input" name="courseware_google_meet_url" value="<?php echo htmlspecialchars((string)$_courseware['google_meet_url']) ?>" placeholder="https://meet.google.com/..." />
                 <div style="font-size:12px;color:#94a3b8;margin-top:8px;">Shown to learners and trainers when class type is Virtual or Hybrid. Physical classes show "N/A" regardless of any saved value.</div>
             </div>
 
 
-            <!-- Additional Documents — replaces the previous hardcoded
-                 sample row. Each filename + URL pair is one document.
-                 An empty filename row is dropped on save. -->
-            <div class="dcf-section">
-                <div class="dcf-section-title">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                    Additional Documents
-                </div>
-                <div id="dcf-doc-list">
-                    <?php if (!empty($_courseDocuments)): ?>
-                    <?php foreach ($_courseDocuments as $_doc): ?>
-                    <div class="dcf-doc-row">
-                        <input type="text"  class="dcf-input" name="course_doc_filename[]" value="<?php echo htmlspecialchars((string)$_doc['filename']) ?>" placeholder="Filename (e.g. handout.pdf)" />
-                        <input type="url"   class="dcf-input" name="course_doc_url[]"      value="<?php echo htmlspecialchars((string)$_doc['file_url']) ?>"   placeholder="https://..." />
-                        <button type="button" class="dcf-doc-rm" onclick="this.parentElement.remove()">Remove</button>
-                    </div>
-                    <?php endforeach; ?>
-                    <?php endif; ?>
-                </div>
-                <button type="button" class="dcf-doc-add" onclick="dcfAddDoc()">+ Add Document</button>
-                <script>
-                window.dcfAddDoc = function() {
-                    var list = document.getElementById('dcf-doc-list');
-                    if (!list) return;
-                    var row = document.createElement('div');
-                    row.className = 'dcf-doc-row';
-                    row.innerHTML =
-                        '<input type="text" class="dcf-input" name="course_doc_filename[]" placeholder="Filename (e.g. handout.pdf)" />' +
-                        '<input type="url" class="dcf-input" name="course_doc_url[]" placeholder="https://..." />' +
-                        '<button type="button" class="dcf-doc-rm" onclick="this.parentElement.remove()">Remove</button>';
-                    list.appendChild(row);
-                };
-                </script>
-                <div style="font-size:12px;color:#94a3b8;margin-top:8px;">Each row becomes one document on the trainer/learner course detail. Removing a row and saving deletes that document. Uploader email and date are stamped automatically on save.</div>
-            </div>
+            <?php /* Additional Documents section removed per request
+                 (deleted from the course form / project website). The
+                 CoursesaveController doc-save block is already guarded
+                 with `if (is_array($req->getParam('course_doc_filename')))`
+                 so, with no course_doc_*[] inputs submitted, it skips
+                 entirely — existing course_documents rows are preserved,
+                 not wiped. */ ?>
 
             <div class="dcf-section">
                 <div class="dcf-section-title">
@@ -3011,32 +2974,14 @@ function devSetView(view) {
                 <textarea class="dcf-textarea dcf-textarea-rich" name="learning_outcomes" placeholder="Enter course topics and learning units (HTML supported)..."><?php echo htmlspecialchars($_editCourseData['learning_outcomes']) ?></textarea>
             </div>
 
-            <!-- Assessment Methods -->
-            <div class="dcf-section">
-                <div class="dcf-section-title">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                    Assessment Methods
-                </div>
-                <div style="font-size:12px;color:#94a3b8;margin-bottom:14px;">Select the assessment methods for this course. A link field will appear for each selected method.</div>
-                <?php $_assessMethods = array(
-                    'written'    => 'Written Exam',
-                    'practical'  => 'Practical Exam',
-                    'case_study' => 'Case Study',
-                    'role_play'  => 'Role Play',
-                    'oral'       => 'Oral Questioning',
-                    'project'    => 'Project',
-                    'assignment' => 'Assignment',
-                ); ?>
-                <?php foreach ($_assessMethods as $_ak => $_al): ?>
-                <div class="dcf-assess-box">
-                    <label class="dcf-assess-row">
-                        <input type="checkbox" name="assess_<?php echo $_ak ?>" onchange="this.closest('.dcf-assess-box').classList.toggle('dcf-assess-checked', this.checked)" />
-                        <span><?php echo $_al ?></span>
-                    </label>
-                    <div class="dcf-assess-url"><input type="text" class="dcf-input" name="url_<?php echo $_ak ?>" value="" placeholder="Paste URL" /></div>
-                </div>
-                <?php endforeach; ?>
-            </div>
+            <!-- Assessment Methods section removed per request
+                 (deleted from the course edit / editing / view pages).
+                 The dcf-form previously rendered Written Exam / Practical
+                 Exam / Case Study / Role Play / Oral Questioning /
+                 Project / Assignment checkboxes + per-method URL fields
+                 (assess_* / url_* inputs). Save handlers tolerate the
+                 absent fields (they simply aren't submitted). -->
+            <?php /* assessment-methods block deleted */ ?>
 
             <!-- Lesson section with rich topic/link cards -->
             <div class="dcf-section">
@@ -3446,15 +3391,10 @@ function devSetView(view) {
                 <?php
                 $_cwFields = array(
                     'lesson_plan_url'        => 'Lesson Plan URL',
-                    'learner_guide_url'      => 'Learner Guide URL',
-                    'facilitator_guide_url'  => 'Facilitator Guide URL',
-                    'assessment_plan_url'    => 'Assessment Plan URL',
                     'learner_slides_url'     => 'Learner Slides URL',
                     'trainer_slides_url'     => 'Trainer Slides URL',
                     'courseware_link'        => 'Courseware Link',
                     'brochure_link'          => 'Brochure Link',
-                    'assessment_record_link' => 'Assessment Record Link',
-                    'assessment_summary_url' => 'Assessment Summary Record URL',
                 );
                 foreach ($_cwFields as $_k => $_lbl):
                 ?>
@@ -4236,7 +4176,7 @@ function devSetView(view) {
                                     <td><input type="number" step="1" class="cs-input cs-w-sort" name="schedule_value[<?php echo $_vid ?>][sort]" value="<?php echo (int) $_v['sort'] ?>" /></td>
                                     <td>
                                         <input type="hidden" name="schedule_remove[<?php echo $_vid ?>]" value="0" />
-                                        <button type="button" class="cs-rm-btn" onclick="csToggleRemove(this, <?php echo $_vid ?>)">Remove</button>
+                                        <button type="button" class="cs-rm-btn" title="Remove" aria-label="Remove" onclick="csToggleRemove(this, <?php echo $_vid ?>)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>
@@ -4368,7 +4308,7 @@ function devSetView(view) {
                                 '<td><input type="text" class="cs-input" name="schedule_new[' + optionId + '][' + n + '][title]" placeholder="e.g. 27 May 2026 (Tue)" /></td>' +
                                 '<td><input type="number" step="0.01" class="cs-input cs-w-price" name="schedule_new[' + optionId + '][' + n + '][price]" placeholder="0.00" /></td>' +
                                 '<td><input type="number" step="1" class="cs-input cs-w-sort" name="schedule_new[' + optionId + '][' + n + '][sort]" value="0" /></td>' +
-                                '<td><button type="button" class="cs-rm-btn" onclick="this.closest(\'tr\').remove()">Cancel</button></td>';
+                                '<td><button type="button" class="cs-rm-btn" title="Cancel" aria-label="Cancel" onclick="this.closest(\'tr\').remove()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>';
                             tbody.appendChild(tr);
                             tr.querySelector('input').focus();
                         };
@@ -4404,7 +4344,11 @@ function devSetView(view) {
                             hidden.value = marked ? '0' : '1';
                             tr.classList.toggle('cs-marked-remove', !marked);
                             btn.classList.toggle('active', !marked);
-                            btn.textContent = marked ? 'Remove' : 'Undo';
+                            var _trash = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+                            var _undo = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/></svg>';
+                            btn.title = marked ? 'Remove' : 'Undo';
+                            btn.setAttribute('aria-label', btn.title);
+                            btn.innerHTML = marked ? _trash : _undo;
                             // Disable inputs in marked-for-remove rows so they don't waste a save round-trip
                             tr.querySelectorAll('input.cs-input').forEach(function(el){ el.disabled = !marked; });
                         };
@@ -4435,7 +4379,7 @@ function devSetView(view) {
         </div><!-- /.dcf-tab-content -->
     </div><!-- /.dcf-tab-layout -->
 
-    <div class="dcf-footer">Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y') ?></div>
+    <?php /* per-panel footer removed — the single site footer is page.phtml's .admin-page-footer */ ?>
 </div>
 </form>
 <script>
@@ -4499,7 +4443,7 @@ function devSetView(view) {
             '<td style="padding:8px 12px;"><select class="dcf-select" name="group_price[' + i + '][website_id]">' + wsOpts() + '</select></td>' +
             '<td style="padding:8px 12px;"><select class="dcf-select" name="group_price[' + i + '][cust_group]">' + cgOpts() + '</select></td>' +
             '<td style="padding:8px 12px;"><input type="number" step="0.01" class="dcf-input" name="group_price[' + i + '][price]" value="0.00" /></td>' +
-            '<td style="padding:8px 12px;text-align:right;"><button type="button" onclick="this.closest(\'tr\').remove()" style="background:#7f1d1d;color:#fecaca;border:none;padding:4px 10px;border-radius:4px;font-size:12px;cursor:pointer;">Remove</button></td>';
+            '<td style="padding:8px 12px;text-align:right;"><button type="button" class="cs-rm-btn" title="Remove" aria-label="Remove" onclick="this.closest(\'tr\').remove()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>';
         body.appendChild(tr);
     };
     window.dcfAddTierPriceRow = function() {
@@ -4513,7 +4457,7 @@ function devSetView(view) {
             '<td style="padding:8px 12px;"><select class="dcf-select" name="tier_price[' + i + '][cust_group]">' + cgOpts() + '</select></td>' +
             '<td style="padding:8px 12px;"><input type="number" step="1" min="1" class="dcf-input" name="tier_price[' + i + '][price_qty]" value="1" style="width:80px;" /></td>' +
             '<td style="padding:8px 12px;"><input type="number" step="0.01" class="dcf-input" name="tier_price[' + i + '][price]" value="0.00" /></td>' +
-            '<td style="padding:8px 12px;text-align:right;"><button type="button" onclick="this.closest(\'tr\').remove()" style="background:#7f1d1d;color:#fecaca;border:none;padding:4px 10px;border-radius:4px;font-size:12px;cursor:pointer;">Remove</button></td>';
+            '<td style="padding:8px 12px;text-align:right;"><button type="button" class="cs-rm-btn" title="Remove" aria-label="Remove" onclick="this.closest(\'tr\').remove()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>';
         body.appendChild(tr);
     };
 })();
@@ -4747,15 +4691,10 @@ function devSetView(view) {
             <?php
             $_cwLabels = array(
                 'lesson_plan_url'        => 'Lesson Plan URL',
-                'learner_guide_url'      => 'Learner Guide URL',
-                'facilitator_guide_url'  => 'Facilitator Guide URL',
-                'assessment_plan_url'    => 'Assessment Plan URL',
                 'learner_slides_url'     => 'Learner Slides URL',
                 'trainer_slides_url'     => 'Trainer Slides URL',
                 'courseware_link'        => 'Courseware Link',
                 'brochure_link'          => 'Brochure Link',
-                'assessment_record_link' => 'Assessment Record Link',
-                'assessment_summary_url' => 'Assessment Summary Record URL',
             );
             $_hasAnyCw = false;
             foreach ($_courseware as $_v) if ($_v !== '') { $_hasAnyCw = true; break; }
@@ -4783,7 +4722,7 @@ function devSetView(view) {
         </div>
     </div>
 
-    <div class="dce-footer">Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y') ?></div>
+    <?php /* per-panel footer removed — the single site footer is page.phtml's .admin-page-footer */ ?>
 </div>
 </div>
 <?php else: ?>
@@ -5001,20 +4940,18 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
     // here and only available via the edit form, so a course that had
     // 3 saved URLs (Courseware Link + Trainer Slides + Learner Slides)
     // would only render 2 tiles. Now all stored URLs render even if
-    // they're identical to another field — duplicates intentionally
-    // surface so the user can see exactly what was saved per slot.
-    // assessment_record_link / assessment_summary_url stay out — each
-    // has its own dedicated section below. Empty URLs are skipped by
-    // the foreach so the section may render fewer tiles depending on
-    // what's saved.
+    // Trimmed per request to the five courseware links we keep:
+    // Courseware Link, Learner Slides, Trainer Slides, Brochure Link,
+    // Lesson Plan. Learner Guide / Facilitator Guide / Assessment Plan /
+    // Assessment Record / Assessment Summary were removed everywhere
+    // (form, read-only view, and the developer link-count filter).
+    // Empty URLs are still skipped by the foreach below.
     $_devCwLabels = array(
         'courseware_link'        => 'Courseware Link',
-        'lesson_plan_url'        => 'Lesson Plan',
-        'learner_guide_url'      => 'Learner Guide',
-        'facilitator_guide_url'  => 'Facilitator Guide',
         'learner_slides_url'     => 'Learner Slides',
         'trainer_slides_url'     => 'Trainer Slides',
-        'assessment_plan_url'    => 'Assessment Plan',
+        'brochure_link'          => 'Brochure Link',
+        'lesson_plan_url'        => 'Lesson Plan',
     );
     $_devCwSaved = array();
     foreach ($_devCwLabels as $_k => $_lbl) {
@@ -5309,7 +5246,7 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
         </div>
     </div>
 
-    <div class="lcd-footer">Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y') ?></div>
+    <?php /* per-panel footer removed — the single site footer is page.phtml's .admin-page-footer */ ?>
 
     <?php elseif ($activeRole === 'trainer'): ?>
     <!-- Attendance feature deleted 2026-05-07. The trainer-facing
@@ -5727,7 +5664,7 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
     </div>
     <?php endif; ?>
 
-    <div class="lcd-footer">Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y') ?></div>
+    <?php /* per-panel footer removed — the single site footer is page.phtml's .admin-page-footer */ ?>
     <?php endif; ?>
     </div><!-- end lcd-main-content -->
 </div><!-- end lcd-wrap -->
@@ -5882,7 +5819,7 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
             <?php endforeach; ?>
         </div>
         <?php endif; ?>
-        <div style="text-align:center;padding:18px 20px;margin:20px -24px 0;background:#111827;border-top:1px solid #1e293b;color:#94a3b8;font-size:13px;">Powered by <strong style="color:#f1f5f9;">Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y') ?></div>
+        <?php /* per-panel footer removed — the single site footer is page.phtml's .admin-page-footer */ ?>
     </div>
 <script type="text/javascript">
 function lmcFilter(type, btn) {

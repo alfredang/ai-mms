@@ -188,38 +188,94 @@ body:has(.dcf-edit-sidebar) .sidebar-toggle { display: none !important; }
     text-align: left !important;
     text-transform: none !important;
     font-family: inherit !important;
-    font-size: 15px !important;
+    font-size: 13.5px !important;
     font-weight: 500 !important;
     line-height: 1.3 !important;
-    color: #e2e8f0 !important;
-    padding: 14px 20px !important;
+    color: #94a3b8 !important;
+    padding: 12px 20px !important;
     margin: 0 !important;
     border-radius: 0 !important;
     box-shadow: none !important;
     text-shadow: none !important;
     height: auto !important;
 }
-.dcf-edit-sidebar .lms-nav-item span {
+/* The label sits in an inner <span>; §18's `.admin-main button span`
+   forces it white. Scope the gray onto the span itself with high
+   specificity (+ body .admin-main) so it actually wins. */
+body .admin-main .dcf-edit-sidebar .lms-nav-item span {
     text-align: left !important;
     flex: 0 0 auto !important;
     width: auto !important;
+    color: #94a3b8 !important;
 }
-.dcf-edit-sidebar .lms-nav-item:hover {
-    background: rgba(255,255,255,0.05) !important;
-    color: #f8fafc !important;
+body .admin-main .dcf-edit-sidebar .lms-nav-item:hover,
+body .admin-main .dcf-edit-sidebar .lms-nav-item:hover span {
+    background: transparent !important;
+    color: #94a3b8 !important;
 }
-.dcf-edit-sidebar .lms-nav-item.active {
-    background: rgba(34,211,238,0.08) !important;
-    color: #22d3ee !important;
-    border-left-color: #22d3ee !important;
+body .admin-main .dcf-edit-sidebar .lms-nav-item.active,
+body .admin-main .dcf-edit-sidebar .lms-nav-item.active span {
+    background: rgba(37,139,182,0.12) !important;
+    color: #258bb6 !important;
+}
+body .admin-main .dcf-edit-sidebar .lms-nav-item.active {
+    border-left-color: #258bb6 !important;
+}
+/* Collapsible dcf editor sidebar — JS injects .dcf-rail-toggle and
+   toggles body.dcf-rail-collapsed. */
+/* Plain chevron icon, no blue button — matches page.phtml's
+   .sidebar-toggle. `body .admin-main` specificity beats §18's
+   `.admin-main button { background: var(--btn-primary) }`. */
+body .admin-main .dcf-rail-toggle {
+    display: flex !important; align-items: center !important;
+    justify-content: flex-end !important;
+    width: 100% !important; padding: 8px 14px !important;
+    background: none !important; background-image: none !important;
+    border: none !important;
+    border-bottom: 2px solid rgba(148,163,184,0.22) !important;
+    border-radius: 0 !important;
+    color: var(--t4) !important; cursor: pointer !important;
+    box-shadow: none !important; text-shadow: none !important;
+    transform: none !important; min-height: 0 !important;
+    height: auto !important;
+}
+body .admin-main .dcf-rail-toggle:hover {
+    background: none !important; color: #cbd5e1 !important;
+}
+body .admin-main .dcf-rail-toggle .dcf-rail-caret {
+    transition: transform .2s ease !important; flex: 0 0 auto !important;
+}
+/* Collapsed = narrow icon-rail, NOT hidden — mirrors the project's
+   standard sidebar (body.sidebar-collapsed → 60px). The toggle stays
+   visible so the rail can be re-opened without a page reload. */
+body.dcf-rail-collapsed .dcf-edit-sidebar {
+    width: 60px !important; padding: 14px 0 !important;
+    overflow: hidden !important;
+}
+body.dcf-rail-collapsed .admin-main { margin-left: 60px !important; }
+body.dcf-rail-collapsed .dcf-edit-sidebar-title { display: none !important; }
+body.dcf-rail-collapsed .dcf-edit-sidebar .lms-nav-item span,
+body.dcf-rail-collapsed .dcf-edit-sidebar .lms-nav-item svg {
+    display: none !important;
+}
+body.dcf-rail-collapsed .dcf-edit-sidebar .lms-nav-item {
+    justify-content: center !important; padding: 14px 0 !important;
+}
+/* Keep the toggle reachable when collapsed: centre the chevron. */
+body.dcf-rail-collapsed .dcf-rail-toggle {
+    justify-content: center !important; padding: 8px 0 !important;
 }
 
 /* Editing form — same layout as read-only view, just with input fields */
 .dcf-wrap{max-width:1400px;margin:0 auto}
-.dcf-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:16px}
+.dcf-header{display:flex;flex-direction:column;align-items:stretch;margin-bottom:18px;gap:12px}
 .dcf-title{font-size:24px;font-weight:700;color:#fff;flex:1;margin:0;line-height:1.3}
-.dcf-title-sub{display:inline-block;background:rgba(34,211,238,.12);border:1px solid rgba(34,211,238,.25);color:#22d3ee;font-size:12px;font-weight:700;padding:4px 10px;border-radius:6px;margin-top:8px;letter-spacing:.3px}
-.dcf-actions{display:flex;gap:10px;flex-wrap:wrap;flex-shrink:0}
+/* Row 2: course-code badge (left) on the same line as the action
+   buttons (right). Title <h1> stays on its own row above. */
+.dcf-header-row2{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.dcf-header-row2 .dcf-actions{margin-left:auto}
+.dcf-title-sub{display:inline-block;background:rgba(34,211,238,.12);border:1px solid rgba(34,211,238,.25);color:#22d3ee;font-size:12px;font-weight:700;padding:4px 10px;border-radius:6px;margin-top:0;letter-spacing:.3px}
+.dcf-actions{display:flex;gap:10px;flex-wrap:wrap;flex-shrink:0;justify-content:flex-end}
 button.dcf-btn,a.dcf-btn{display:inline-flex !important;align-items:center !important;gap:6px !important;border-radius:8px !important;padding:10px 20px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;text-decoration:none !important;background-image:none !important;border:none !important}
 button.dcf-btn-cancel{background:#334155 !important;color:#e2e8f0 !important;border:1px solid #475569 !important}
 button.dcf-btn-edit{background:#334155 !important;color:#e2e8f0 !important;border:1px solid #475569 !important}
@@ -433,11 +489,16 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                     .cs-input.cs-w-price{width:90px}
                     .cs-input.cs-w-sort{width:64px}
                     .cs-id{color:#94a3b8;font-family:monospace;font-size:12px}
-                    .cs-add-btn{margin-top:10px;padding:8px 14px;background:rgba(34,211,238,.12);border:1px solid rgba(34,211,238,.4);color:#22d3ee;border-radius:8px;font-size:12.5px;font-weight:600;cursor:pointer}
-                    .cs-add-btn:hover{background:rgba(34,211,238,.22)}
-                    .cs-rm-btn{padding:5px 10px;background:rgba(248,113,113,.12);border:1px solid rgba(248,113,113,.35);color:#fca5a5;border-radius:6px;font-size:11.5px;font-weight:600;cursor:pointer}
-                    .cs-rm-btn:hover{background:rgba(248,113,113,.22)}
-                    .cs-rm-btn.active{background:rgba(248,113,113,.3);color:#fff}
+                    /* Scoped under body .admin-main + !important so the
+                       §18 generic blue-button rule (which was turning
+                       these into blank blue boxes) can't win. */
+                    body .admin-main .cs-add-btn{display:inline-flex !important;align-items:center !important;justify-content:center !important;gap:0 !important;margin-top:10px !important;width:34px !important;min-width:34px !important;height:30px !important;min-height:30px !important;padding:0 !important;background:transparent !important;background-image:none !important;border:1px solid rgba(34,211,238,.45) !important;color:#22d3ee !important;border-radius:8px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;line-height:1 !important}
+                    body .admin-main .cs-add-btn:hover{background:rgba(34,211,238,.18) !important;border-color:#22d3ee !important;color:#22d3ee !important}
+                    body .admin-main .cs-add-btn svg{width:16px !important;height:16px !important;display:block !important}
+                    body .admin-main .cs-rm-btn{display:inline-flex !important;align-items:center !important;justify-content:center !important;width:30px !important;min-width:30px !important;height:28px !important;min-height:28px !important;padding:0 !important;background:transparent !important;background-image:none !important;border:1px solid var(--b2,#475569) !important;color:var(--t4,#9ca3af) !important;border-radius:6px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;line-height:1 !important}
+                    body .admin-main .cs-rm-btn svg{width:15px !important;height:15px !important;display:block !important}
+                    body .admin-main .cs-rm-btn:hover{background:rgba(96,165,250,.12) !important;border-color:var(--blue,#60a5fa) !important;color:var(--blue,#60a5fa) !important}
+                    body .admin-main .cs-rm-btn.active{background:var(--blue,#2563eb) !important;border-color:var(--blue,#2563eb) !important;color:#fff !important}
 
 /* --- Block 11 (template line 4219) --- */
 .dce-wrap{max-width:1400px;margin:0 auto}

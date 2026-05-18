@@ -41,6 +41,33 @@ class MMD_SingaporePrice_Model_Catalog_Product_Type_Price
     extends MMD_CustomOptions_Model_Catalog_Product_Type_Price
 {
     /**
+     * Defensive guard against the recurring "$0 in cart, $350 on page"
+     * bug. A special_price of exactly 0 is never meaningful for a paid
+     * course (see migrations 076 / 077). When products are re-saved or
+     * re-imported the bad special_price=0 EAV row comes back: Magento's
+     * final-price math then collapses the cart line to $0, while the
+     * product page + GST still show the real fee (getCatalogPrice reads
+     * the untouched `price` attribute, not special_price). The one-shot
+     * cleanup migrations don't catch rows created after they ran, so
+     * neutralise a zero special_price here — every final-price
+     * computation flows through this model, so the cart can never be
+     * zeroed by it again. Genuinely-free courses use a regular price of
+     * 0 (not special_price=0) and are unaffected.
+     *
+     * @param Mage_Catalog_Model_Product $product
+     * @param float                       $qty
+     * @return float
+     */
+    public function getFinalPrice($qty, $product)
+    {
+        $sp = $product->getSpecialPrice();
+        if ($sp !== null && $sp !== false && $sp !== '' && (float) $sp == 0.0) {
+            $product->setSpecialPrice(false);
+        }
+        return parent::getFinalPrice($qty, $product);
+    }
+
+    /**
      * After the parent has resolved the option-loaded final price,
      * apply the SG funding-discount percent if the buyer selected a
      * Funding-Eligibility radio whose label maps to a configured
@@ -63,6 +90,27 @@ class MMD_SingaporePrice_Model_Catalog_Product_Type_Price
 
         $percent = $this->_fundingDiscountPercent($product, $helper);
         if ($percent <= 0) {
+            // No funding discount → the SG course fee is simply the
+            // catalog price plus any priced option add-ons (e.g. the
+            // +$130 starter kit). Floor to that. This is mechanism-
+            // independent: whatever zeroed the parent's final price
+            // (a recurring special_price=0 row, a stale/collapsed
+            // catalog_product_index_price.final_price, a 100%-off
+            // catalog price rule, a final_price data override, …) can
+            // no longer make the cart $0 while the product page + frozen
+            // GST still show the real fee via getCatalogPrice(). SG
+            // courses never use special_price / catalog-rule discounts —
+            // the ONLY legitimate discount is the funding option handled
+            // in the percent>0 branch below (076/077 policy). So
+            // flooring here cannot mask an intended discount.
+            $catalogPrice = $helper->getCatalogPrice($product);
+            if ($catalogPrice > 0) {
+                $optionAddOns = (float) $product->getBaseCustomoptionsPrice();
+                $expected     = $catalogPrice + $optionAddOns;
+                if ($expected > $finalPrice) {
+                    return $expected;
+                }
+            }
             return $finalPrice;
         }
 

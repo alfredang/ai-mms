@@ -27,6 +27,28 @@
                      '/save',   '/disable','/enable',  '/clone',  '/duplicate',
                      '/reset',  '/refresh','/clear'];
 
+    // Heavyweight pages that MUST do a full browser navigation, never
+    // PJAX. The category admin boots an ExtJS tree (ext-tree.js /
+    // builder.js, gated behind the can_load_ext_js layout handle). The
+    // needsFullLoad heuristic in pjaxNavigate only catches this when the
+    // ExtJS <script src> aren't already in <head>; if you arrive from a
+    // page that already loaded them, PJAX proceeds and the Ext tree
+    // re-inits into a half-swapped DOM → "Cannot read properties of
+    // undefined (reading 'removeChild')" + a stuck "Please wait…" mask.
+    // Forcing a full load here makes it deterministic instead of
+    // "sometimes".
+    var FULL_LOAD = ['/catalog_category'];
+
+    function isFullLoadPath(a) {
+        var path = '';
+        try { path = (new URL(a.href, location.href)).pathname.toLowerCase(); }
+        catch (e) { return false; }
+        for (var i = 0; i < FULL_LOAD.length; i++) {
+            if (path.indexOf(FULL_LOAD[i]) !== -1) return true;
+        }
+        return false;
+    }
+
     function isInternalNav(a) {
         if (!a || !a.href) return false;
         if (a.target && a.target !== '_self') return false;
@@ -45,6 +67,7 @@
     }
     function isSafeForPrefetch(a) {
         if (!isInternalNav(a)) return false;
+        if (isFullLoadPath(a)) return false; // no PJAX → no point prefetching
         var path = '';
         try { path = (new URL(a.href, location.href)).pathname.toLowerCase(); } catch (e) {}
         for (var i = 0; i < DANGEROUS.length; i++) {
@@ -235,9 +258,9 @@
         if (e.button !== undefined && e.button !== 0) return;
         var a = e.target.closest && e.target.closest('a');
         if (!a || !isInternalNav(a)) return;
-        if (a.dataset.noPjax !== undefined) {
+        if (a.dataset.noPjax !== undefined || isFullLoadPath(a)) {
             startBar();
-            return; // let the browser do a normal navigation
+            return; // let the browser do a normal (full) navigation
         }
         // Same-page anchor — let the browser handle it.
         try {

@@ -1,0 +1,75 @@
+<?php
+/**
+ * Order totals (order email, frontend order view, print).
+ *
+ * Ultimo override: prepend a "Total" (pre-subsidy course fee) and
+ * "Subsidy" (amount funded/subsidised) row above the existing
+ * Subtotal / Grand Total (Excl.Tax) / GST / Grand Total (Incl.Tax)
+ * lines, so funded learners see the full fee and what was taken off.
+ *
+ * SG GST is frozen at gst_rate x catalog list price (see
+ * MMD_SingaporePrice::freezeSgGstOnCatalogPrice). So the pre-subsidy
+ * catalog Total is recoverable from the order without loading the
+ * product: Total = tax_amount / gst_rate. Subsidy = Total - Subtotal
+ * (the order subtotal already holds the discounted/nett fee).
+ *
+ * Only shown for SG / Infotech stores (where the freeze applies) and
+ * only when there is an actual subsidy (Total > Subtotal). Every other
+ * store / non-funded order renders exactly as before.
+ *
+ * @var $this Mage_Sales_Block_Order_Totals
+ */
+$_order = $this->getOrder();
+$_showSubsidy = false;
+if ($_order) {
+    try {
+        $_sgh = Mage::helper('mmd_singaporeprice');
+        if ($_sgh->isActive((int) $_order->getStoreId())) {
+            $_gstRate  = (float) $_sgh->getGstRate();
+            $_taxAmt   = (float) $_order->getTaxAmount();
+            $_subtotal = (float) $_order->getSubtotal();
+            if ($_gstRate > 0 && $_taxAmt > 0) {
+                $_catalogTotal = round($_taxAmt / $_gstRate, 2);
+                $_subsidyAmt   = round($_catalogTotal - $_subtotal, 2);
+                if ($_subsidyAmt > 0.005) {
+                    $_showSubsidy = true;
+                }
+            }
+        }
+    } catch (Exception $_e) {
+        $_showSubsidy = false;
+    }
+}
+?>
+<?php if ($_showSubsidy): ?>
+    <tr class="total-fee">
+        <td <?php echo $this->getLabelProperties() ?>><strong><?php echo $this->__('Total') ?></strong></td>
+        <td <?php echo $this->getValueProperties() ?>><strong><?php echo $_order->formatPrice($_catalogTotal) ?></strong></td>
+    </tr>
+    <tr class="total-subsidy">
+        <td <?php echo $this->getLabelProperties() ?>><?php echo $this->__('Subsidy') ?></td>
+        <td <?php echo $this->getValueProperties() ?>><?php echo $_order->formatPrice($_subsidyAmt) ?></td>
+    </tr>
+<?php endif; ?>
+<?php foreach ($this->getTotals() as $_code => $_total): ?>
+    <?php if ($_total->getBlockName()): ?>
+        <?php echo $this->getChildHtml($_total->getBlockName(), false); ?>
+    <?php else:?>
+    <tr class="<?php echo $_code?>">
+        <td <?php echo $this->getLabelProperties()?>>
+            <?php if ($_total->getStrong()):?>
+            <strong><?php echo $this->escapeHtml($_total->getLabel());?></strong>
+            <?php else:?>
+            <?php echo $this->escapeHtml($_total->getLabel());?>
+            <?php endif?>
+        </td>
+        <td <?php echo $this->getValueProperties()?>>
+            <?php if ($_total->getStrong()):?>
+            <strong><?php echo $this->formatValue($_total) ?></strong>
+            <?php else:?>
+            <?php echo $this->formatValue($_total) ?>
+            <?php endif?>
+        </td>
+    </tr>
+    <?php endif?>
+<?php endforeach?>

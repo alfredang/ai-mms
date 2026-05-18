@@ -3775,3 +3775,134 @@ body.adminhtml-system_currency-index .admin-main .grid.currency-rate-list .old-r
     font-size: 11px;
     color: var(--t4, #64748b);
 }
+
+/* ============================================================
+   Course editing (catalog_product/edit) — sidebar matches the
+   project sidebar + collapsible side-col & sections.
+   Scoped to body.adminhtml-catalog-product-edit, tokens only.
+   High specificity (incl. #product_info_tabs id + a/span/strong)
+   so it beats legacy + the relocated-tabs rules. Covers both the
+   in-place .side-col and the JS-relocated .tabs-relocated strip. ============================================================ */
+body.adminhtml-catalog-product-edit .side-col,
+body.adminhtml-catalog-product-edit .side-col .entry-edit-head,
+body.adminhtml-catalog-product-edit .side-col .content-header {
+    background: transparent !important;
+    border: none !important;
+}
+body.adminhtml-catalog-product-edit .side-col h3,
+body.adminhtml-catalog-product-edit .side-col .entry-edit-head h4 {
+    font-weight: 700 !important;
+    font-size: 12px !important;
+    line-height: 1.4 !important;
+    color: var(--t4) !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.6px !important;
+    background: transparent !important;
+    padding: 12px 20px !important;
+    margin: 0 !important;
+    border: none !important;
+}
+body.adminhtml-catalog-product-edit .side-col ul#product_info_tabs li a,
+body.adminhtml-catalog-product-edit .side-col ul#product_info_tabs li a span,
+body.adminhtml-catalog-product-edit .side-col ul#product_info_tabs li a strong,
+body.adminhtml-catalog-product-edit .side-col ul.tabs li a,
+body.adminhtml-catalog-product-edit .side-col ul.tabs li a span,
+body.adminhtml-catalog-product-edit .side-col ul.tabs li a.tab-item-link,
+body.adminhtml-catalog-product-edit ul.tabs.tabs-relocated li a,
+body.adminhtml-catalog-product-edit ul.tabs.tabs-relocated li a span {
+    color: var(--t4) !important;
+    font-size: 13.5px !important;
+    font-weight: 500 !important;
+    background: transparent !important;
+    background-image: none !important;
+    border-bottom: none !important;
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+}
+body.adminhtml-catalog-product-edit .side-col ul#product_info_tabs li a,
+body.adminhtml-catalog-product-edit .side-col ul.tabs li a {
+    padding: 12px 20px !important;
+    display: flex !important;
+    align-items: center !important;
+    line-height: 1.3 !important;
+}
+body.adminhtml-catalog-product-edit .side-col ul#product_info_tabs li a:hover,
+body.adminhtml-catalog-product-edit .side-col ul#product_info_tabs li a:hover span,
+body.adminhtml-catalog-product-edit .side-col ul.tabs li a:hover {
+    color: var(--t4) !important;
+    background: transparent !important;
+}
+body.adminhtml-catalog-product-edit .side-col ul#product_info_tabs li a.active,
+body.adminhtml-catalog-product-edit .side-col ul#product_info_tabs li a.active span,
+body.adminhtml-catalog-product-edit .side-col ul.tabs li a.active,
+body.adminhtml-catalog-product-edit .side-col ul.tabs li a.active span {
+    color: var(--blue) !important;
+    background: rgba(37, 139, 182, 0.12) !important;
+}
+
+/* Collapsible side-col — JS injects .cpe-sidecol-toggle, toggles
+   body.cpe-sidecol-collapsed. */
+body.adminhtml-catalog-product-edit .cpe-sidecol-toggle {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 6px !important;
+    width: 100% !important;
+    padding: 8px 12px !important;
+    background: transparent !important;
+    border: none !important;
+    border-bottom: 1px solid var(--b1) !important;
+    color: var(--t4) !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    text-transform: none !important;
+    box-shadow: none !important;
+}
+body.adminhtml-catalog-product-edit .cpe-sidecol-toggle svg {
+    transition: transform 0.2s ease;
+    flex: 0 0 auto;
+}
+body.adminhtml-catalog-product-edit.cpe-sidecol-collapsed .side-col {
+    width: 0 !important;
+    min-width: 0 !important;
+    flex: 0 0 0 !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+    border: none !important;
+}
+body.adminhtml-catalog-product-edit.cpe-sidecol-collapsed .main-col {
+    margin-left: 0 !important;
+    width: 100% !important;
+    flex: 1 1 auto !important;
+}
+
+/* Collapsible form sections — JS adds .cpe-caret on
+   .entry-edit > .entry-edit-head and toggles .cpe-collapsed. */
+body.adminhtml-catalog-product-edit .entry-edit > .entry-edit-head {
+    cursor: pointer !important;
+    display: flex !important;
+    align-items: center !important;
+    background: transparent !important;
+    border-bottom: 1px solid var(--b1) !important;
+}
+body.adminhtml-catalog-product-edit .entry-edit > .entry-edit-head .cpe-caret {
+    margin-left: auto !important;
+    transition: transform 0.2s ease;
+    flex: 0 0 auto;
+}
+body.adminhtml-catalog-product-edit .entry-edit.cpe-collapsed > .entry-edit-head .cpe-caret {
+    transform: rotate(-90deg);
+}
+body.adminhtml-catalog-product-edit .entry-edit.cpe-collapsed > fieldset,
+body.adminhtml-catalog-product-edit .entry-edit.cpe-collapsed > .fieldset {
+    display: none !important;
+}
+
+/* Tabs removed from the course editor (Recurring Profile / Gift
+   Options / Inventory) — JS deletes them; CSS hides any that slip
+   through before the JS runs (no flash). */
+body.adminhtml-catalog-product-edit li.cpe-tab-hidden,
+body.adminhtml-catalog-product-edit .cpe-tab-content-hidden {
+    display: none !important;
+}

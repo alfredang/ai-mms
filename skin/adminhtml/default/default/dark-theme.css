@@ -785,6 +785,53 @@ div.collapseable::after {
 .grid table.data tbody td .row-action-wrap {
     overflow: visible !important;
 }
+/* The per-row "Actions ▾" dropdown is injected into a brand-new <td>
+   with no class (sidebar-nav-v2.js → injectRowActions), so the generic
+   `.grid table.data tbody td { overflow:hidden }` truncation rule
+   clipped the absolutely-positioned .row-action-menu down to the
+   compact one-line cell height — the menu showed as a squashed sliver.
+   Let the cell (and its row) that hosts the dropdown overflow so the
+   menu can drop out of the cell fully. */
+.grid table.data tbody td:has(.row-action-wrap),
+.grid table.data tbody td:has(.row-action-menu),
+.grid table.data tbody tr:has(.row-action-wrap.open) td {
+    overflow: visible !important;
+}
+/* Sit the open menu above neighbouring rows / sticky headers. */
+.row-action-wrap.open .row-action-menu {
+    z-index: 1000 !important;
+}
+/* The rounded .grid card uses overflow:hidden for its corners, which
+   would still clip a menu opened on the lower rows. Relax it ONLY while
+   a row menu is open (transient), so the card keeps its clipped corners
+   the rest of the time. */
+.grid:has(.row-action-wrap.open) {
+    overflow: visible !important;
+}
+/* Universal safety net: on short grids the open menu can drop past the
+   .grid box and be clipped by a CONTAINER above it instead. While ANY
+   row-action menu is open, relax overflow on every wrapper that could
+   clip it — every admin grid's dropdown is .row-action-wrap inside
+   .grid table.data (injectRowActions), so this covers all of them on
+   all pages. Transient (open-state only) → no effect on normal layout
+   or the rounded-card look. */
+.grid table.data:has(.row-action-wrap.open),
+.grid table.data:has(.row-action-wrap.open) tbody,
+.grid table.data:has(.row-action-wrap.open) tbody tr,
+div:has(> .grid .row-action-wrap.open),
+.col-main:has(.row-action-wrap.open),
+.main-col:has(.row-action-wrap.open),
+.main-col-inner:has(.row-action-wrap.open),
+.box:has(.row-action-wrap.open),
+.box-left:has(.row-action-wrap.open),
+.box-right:has(.row-action-wrap.open),
+.entry-edit:has(.row-action-wrap.open),
+.dash-wrap:has(.row-action-wrap.open),
+.middle:has(.row-action-wrap.open),
+[id="anchor-content"]:has(.row-action-wrap.open),
+[id="page:main-container"]:has(.row-action-wrap.open) {
+    overflow: visible !important;
+}
 .grid table.data tbody tr:hover td { background: rgba(37,139,182,0.06) !important; }
 
 /* === 7. DATA GRIDS (most critical) === */
@@ -1529,8 +1576,20 @@ body.has-overlay-sidecol .side-col.side-col-overlay {
     min-width: 0 !important;
     display: block !important;
 }
+/* Open the flyout flush against the RIGHT edge of the fixed admin
+   sidebar, not at viewport x=0. The overlay's z-index (1500) is above
+   the admin sidebar's (1200), but the overlay is nested inside
+   .admin-main so it's confined to that ancestor's stacking context and
+   the fixed .admin-sidebar (width 250px, 60px collapsed) still paints
+   over its left edge. Offsetting `left` by the sidebar width sidesteps
+   the stacking-context trap entirely — the panel opens fully visible
+   beside the sidebar. `body.sidebar-collapsed` (sidebar-nav.css) shrinks
+   the sidebar to 60px, so match that. */
 body.has-overlay-sidecol.side-col-overlay-open .side-col.side-col-overlay {
-    left: 0 !important;
+    left: 250px !important;
+}
+body.has-overlay-sidecol.sidebar-collapsed.side-col-overlay-open .side-col.side-col-overlay {
+    left: 60px !important;
 }
 body.has-overlay-sidecol .side-col-overlay-toggle-wrap {
     margin: 12px 0 8px !important;
@@ -1649,43 +1708,45 @@ html.is-order-view ul#sales_order_view_tabs li a.active span {
     box-shadow: none !important;
     margin: 0 0 -2px 0 !important;
 }
-/* === Order View — tabs + action buttons on ONE row ===
-   order-view-actions-row.js wraps the relocated tabs UL and the
-   .form-buttons into #ovActionsRow. Tabs sit left, action buttons
-   right, sharing a single underline. The "Order # … | <date>" <h3>
-   stays in .content-header on its own row above. */
-body.is-order-view #ovActionsRow,
-html.is-order-view #ovActionsRow {
+/* === Admin edit pages — header buttons aligned onto the tabs row ===
+   admin-actions-row.js wraps the tab <ul> and the header buttons
+   (.form-buttons / .content-buttons) into #adminActionsRow on EVERY
+   tabbed edit page (CMS Page, Category, Product, Product Attribute,
+   Customer, Order View, Catalog/Cart Price Rule, Newsletter Template,
+   Admin User/Role, the MMD custom edit pages, …). Tabs left, buttons
+   right, one shared underline; the page-title <h3> stays in
+   .content-header on its own row above. Not body-scoped — the JS only
+   creates #adminActionsRow where the pattern exists. */
+#adminActionsRow {
     display: flex !important;
     align-items: flex-end !important;
     justify-content: space-between !important;
     flex-wrap: wrap !important;
     gap: 4px 16px !important;
-    margin: 2px 0 18px 0 !important;
+    margin: 2px 0 16px 0 !important;
     border-bottom: 2px solid var(--b1) !important;
 }
-/* Tabs UL now lives inside the row: drop its own underline/margin and
-   let it take the left side; the row owns the border. */
-body.is-order-view #ovActionsRow ul#sales_order_view_tabs,
-html.is-order-view #ovActionsRow ul#sales_order_view_tabs {
+/* Tab <ul> now lives in the row: it takes the left side, the row owns
+   the underline. */
+#adminActionsRow ul.tabs,
+#adminActionsRow ul.tabs-horiz {
     border-bottom: none !important;
     margin: 0 !important;
+    padding: 0 !important;
     flex: 1 1 auto !important;
     width: auto !important;
 }
-/* Smaller tabs */
-body.is-order-view ul#sales_order_view_tabs li a,
-html.is-order-view ul#sales_order_view_tabs li a,
-body.is-order-view ul#sales_order_view_tabs li a.active,
-html.is-order-view ul#sales_order_view_tabs li a.active {
+/* Slightly smaller tab links so the merged row stays compact. */
+#adminActionsRow ul.tabs li a,
+#adminActionsRow ul.tabs-horiz li a,
+#adminActionsRow ul.tabs li a.active,
+#adminActionsRow ul.tabs-horiz li a.active {
     padding: 6px 11px !important;
     font-size: 12px !important;
 }
-/* Action buttons grouped on the right of the row */
-body.is-order-view #ovActionsRow .form-buttons,
-html.is-order-view #ovActionsRow .form-buttons,
-body.is-order-view #ovActionsRow .content-buttons,
-html.is-order-view #ovActionsRow .content-buttons {
+/* Header buttons grouped on the right. */
+#adminActionsRow .form-buttons,
+#adminActionsRow .content-buttons {
     display: flex !important;
     flex-wrap: wrap !important;
     gap: 6px !important;
@@ -1695,8 +1756,8 @@ html.is-order-view #ovActionsRow .content-buttons {
     text-align: right !important;
     flex: 0 0 auto !important;
 }
-body.is-order-view #ovActionsRow .form-buttons button,
-html.is-order-view #ovActionsRow .form-buttons button {
+#adminActionsRow .form-buttons button,
+#adminActionsRow .content-buttons button {
     margin: 0 !important;
     float: none !important;
 }
@@ -3753,4 +3814,17 @@ html body[class*="customoptions-options-edit"] [id^="option_"] tfoot button {
 html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
     height: 40px !important;
     min-height: 40px !important;
+}
+
+/* === Course-detail view: remove Course Sessions + Additional Documents ===
+   Requested removal of the "Course Sessions" and "Additional Documents"
+   section boxes (and their left-nav links) from the learner / trainer /
+   developer "View Course" panel. The same ids/classes render in every
+   role variant inside the ~12k-line dashboard template, so hide by id —
+   role-agnostic and safe (no structural edits to that churned file). */
+#dash-panel-course-detail .lcd-section#course-sessions,
+#dash-panel-course-detail .lcd-section#additional-documents,
+#dash-panel-course-detail .lcd-nav-item[href="#course-sessions"],
+#dash-panel-course-detail .lcd-nav-item[href="#additional-documents"] {
+    display: none !important;
 }
