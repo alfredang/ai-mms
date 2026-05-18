@@ -4106,6 +4106,46 @@ function devSetView(view) {
             <div class="dcf-mag">
                 <div class="dcf-mag-bar">Course Schedule</div>
                 <div class="dcf-mag-body">
+                    <style>
+                    .cs-schedule-action-btn{
+                        height:44px !important;
+                        min-height:44px !important;
+                        min-width:170px !important;
+                        width:auto !important;
+                        max-width:none !important;
+                        padding:0 18px !important;
+                        border-radius:10px !important;
+                        display:inline-flex !important;
+                        align-items:center !important;
+                        justify-content:center !important;
+                        font-size:14px !important;
+                        font-weight:700 !important;
+                        line-height:1 !important;
+                        white-space:nowrap !important;
+                        box-sizing:border-box !important;
+                    }
+                    .cs-schedule-action-btn.cs-add-session{
+                        min-width:160px !important;
+                    }
+                    .cs-schedule-action-btn.cs-auto-session{
+                        min-width:170px !important;
+                        background:#7c3aed !important;
+                    }
+                    body .admin-main .dcf-tab-panel[data-tab="schedule"] .cs-add-btn.cs-schedule-action-btn{
+                        width:auto !important;
+                        min-width:170px !important;
+                        max-width:none !important;
+                        padding:0 18px !important;
+                        text-indent:0 !important;
+                        overflow:visible !important;
+                    }
+                    body .admin-main .dcf-tab-panel[data-tab="schedule"] .cs-add-btn.cs-schedule-action-btn.cs-add-session{
+                        min-width:190px !important;
+                    }
+                    body .admin-main .dcf-tab-panel[data-tab="schedule"] .cs-add-btn.cs-schedule-action-btn.cs-auto-session{
+                        min-width:200px !important;
+                    }
+                    </style>
                     <?php
                     // Load every Magento custom option on this product, with its values.
                     // The "Course Date"-style sessions used by the project are stored as
@@ -4182,14 +4222,20 @@ function devSetView(view) {
                                 <?php endforeach; ?>
                             </tbody>
                         </table>
-                        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                            <button type="button" class="cs-add-btn" onclick="csAddRow(<?php echo $_oid ?>)">+ Add session</button>
-                            <div style="display:flex;flex-direction:column;gap:8px;">
-                                <input type="date" id="cs-auto-start-<?php echo $_oid ?>" class="cs-input" style="width:180px;" title="From date" />
-                                <input type="date" id="cs-auto-end-<?php echo $_oid ?>" class="cs-input" style="width:180px;" title="To date" />
+                        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid #3f5068;">
+                            <button type="button" class="cs-add-btn cs-schedule-action-btn cs-add-session" onclick="csAddRow(<?php echo $_oid ?>)">+ Add Session</button>
+                            <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
+                                <div style="display:flex;flex-direction:column;gap:4px;">
+                                    <div style="font-size:11px;color:#94a3b8;letter-spacing:.4px;text-transform:uppercase;">From</div>
+                                    <input type="date" id="cs-auto-start-<?php echo $_oid ?>" class="cs-input" style="width:170px;height:38px;" title="From date" />
+                                </div>
+                                <div style="display:flex;flex-direction:column;gap:4px;">
+                                    <div style="font-size:11px;color:#94a3b8;letter-spacing:.4px;text-transform:uppercase;">To</div>
+                                    <input type="date" id="cs-auto-end-<?php echo $_oid ?>" class="cs-input" style="width:170px;height:38px;" title="To date" />
+                                </div>
                             </div>
-                            <button type="button" class="cs-add-btn" style="background:#7c3aed;" onclick="csAutoSchedule(<?php echo $_oid ?>)">Auto Schedule</button>
-                            <span style="color:#94a3b8;font-size:12px;">Pattern within date range</span>
+                            <button type="button" class="cs-add-btn cs-schedule-action-btn cs-auto-session" onclick="csAutoSchedule(<?php echo $_oid ?>)">Auto Schedule</button>
+                            <span style="color:#94a3b8;font-size:12px;line-height:44px;">Pattern within selected range</span>
                         </div>
                     </div>
                     <?php endforeach; endif; ?>
