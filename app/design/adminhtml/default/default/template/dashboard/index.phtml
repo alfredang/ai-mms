@@ -1700,14 +1700,10 @@ if ($_editMode) {
 $_courseware = array(
     'lesson_plan_url'        => '',
     'learner_guide_url'      => '',
-    'facilitator_guide_url'  => '',
-    'assessment_plan_url'    => '',
     'learner_slides_url'     => '',
     'trainer_slides_url'     => '',
     'courseware_link'        => '',
     'brochure_link'          => '',
-    'assessment_record_link' => '',
-    'assessment_summary_url' => '',
     'google_meet_url'        => '',
     'certificate_url'        => '',
 );
@@ -3773,12 +3769,34 @@ function devSetView(view) {
                             }
                         }
                         if (empty($_seed) && $_loRaw !== ''
-                            && preg_match_all('#<strong>\s*((?:LU|Lesson|Topic|Module)\s*\d+[^<]*?)\s*</strong>#i', $_loRaw, $_lm)) {
-                            foreach ($_lm[1] as $_t) {
+                            && preg_match('#<strong>\s*(?:LU|Lesson|Topic|Module)\s*\d+#i', $_loRaw)) {
+                            // Split on each LU heading so the T#: … lines
+                            // listed under it (legacy Course-Topics HTML)
+                            // seed as Section rows, not just the LU title.
+                            $_sdParts = preg_split(
+                                '#<strong>\s*((?:LU|Lesson|Topic|Module)\s*\d+[^<]*?)\s*</strong>#i',
+                                $_loRaw, -1, PREG_SPLIT_DELIM_CAPTURE
+                            );
+                            for ($_sdPi = 1; $_sdPi < count($_sdParts); $_sdPi += 2) {
+                                $_sdT = trim(html_entity_decode($_sdParts[$_sdPi]), " :\t\n\r\0\x0B");
+                                if ($_sdT === '') continue;
+                                $_sdBody = isset($_sdParts[$_sdPi + 1]) ? $_sdParts[$_sdPi + 1] : '';
+                                $_sdSubs = array();
+                                if (preg_match_all('#<em>(.*?)</em>#is', $_sdBody, $_sdEm)) {
+                                    foreach ($_sdEm[1] as $_st) {
+                                        $_st = trim(html_entity_decode(strip_tags($_st)), " :\t\n\r\0\x0B");
+                                        if ($_st !== '') $_sdSubs[] = $_st;
+                                    }
+                                } else {
+                                    foreach (preg_split('#</?(?:p|li|br|div)[^>]*>#i', $_sdBody) as $_ln) {
+                                        $_ln = trim(html_entity_decode(strip_tags($_ln)), " :\t\n\r\0\x0B");
+                                        if ($_ln !== '') $_sdSubs[] = $_ln;
+                                    }
+                                }
                                 $_seed[] = array(
-                                    'title'  => trim(html_entity_decode($_t), " :\t\n\r\0\x0B"),
-                                    'subsec' => '',
-                                    'links'  => array(),
+                                    'title'   => $_sdT,
+                                    'subsecs' => $_sdSubs,
+                                    'links'   => array(),
                                 );
                             }
                         }
@@ -5678,7 +5696,6 @@ if (isset($_lmcRunMap[$_lcdCourseId])) {
 } else {
     $_courseRunId = str_pad($_lcdCourseId * 4321 % 9999999, 7, '0', STR_PAD_LEFT);
 }
-$_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
 ?>
 <!-- Course Menu drawer (slides in from the left) -->
 <div class="lcd-drawer-backdrop" id="lcd-drawer-backdrop" onclick="lcdCloseDrawer()"></div>
@@ -5711,9 +5728,6 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
         <div class="lcd-detail-row"><span class="lcd-detail-label">Course Title</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['name']) ?></span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Course Code</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['sku'] ?: '—') ?></span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Course Run ID</span><span class="lcd-detail-value"><?php echo $_courseRunId ?></span></div>
-        <?php if ($activeRole !== 'learner' && $activeRole !== 'trainer'): ?>
-        <div class="lcd-detail-row"><span class="lcd-detail-label">Digital Attendance ID</span><span class="lcd-detail-value"><?php echo $_digitalAttId ?></span></div>
-        <?php endif; ?>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Start Date</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['start_date']) ?></span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">End Date</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['end_date']) ?></span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Class Type</span><span class="lcd-badge <?php echo $_modeBadgeCls ?>"><?php echo htmlspecialchars($_modeLabel) ?></span></div>
@@ -5729,21 +5743,13 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
             <?php if ($_courseManagerActive): /* Google Meet nav link removed — not shown in developer view */ ?>
             <a href="#courseware" class="lcd-nav-item" onclick="return lcdNavTo(this,'courseware')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span>Courseware</span></a>
             <a href="#lesson" class="lcd-nav-item active" onclick="return lcdNavTo(this,'lesson')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>Lesson</span></a>
-            <a href="#assessment" class="lcd-nav-item" onclick="return lcdNavTo(this,'assessment')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Assessment</span></a>
-            <a href="#assessment-grading" class="lcd-nav-item" onclick="return lcdNavTo(this,'assessment-grading')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg><span>Assessment Grading</span></a>
-            <a href="#assessment-summary" class="lcd-nav-item" onclick="return lcdNavTo(this,'assessment-summary')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Assessment Summary Record</span></a>
             <a href="#course-sessions" class="lcd-nav-item" onclick="return lcdNavTo(this,'course-sessions')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span>Course Sessions</span></a>
             <a href="#additional-documents" class="lcd-nav-item" onclick="return lcdNavTo(this,'additional-documents')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Additional Documents</span></a>
             <?php elseif ($activeRole === 'trainer'): ?>
             <a href="#courseware" class="lcd-nav-item" onclick="return lcdNavTo(this,'courseware')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span>Courseware Link</span></a>
-            <a href="#assessment-grading" class="lcd-nav-item" onclick="return lcdNavTo(this,'assessment-grading')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg><span>Assessment Grading</span></a>
-            <a href="#assessment-summary" class="lcd-nav-item" onclick="return lcdNavTo(this,'assessment-summary')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Assessment Summary Record</span></a>
-            <a href="#courseware" class="lcd-nav-item" onclick="return lcdNavTo(this,'courseware')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Facilitator Guide</span></a>
             <a href="#courseware" class="lcd-nav-item" onclick="return lcdNavTo(this,'courseware')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Trainer Slides</span></a>
-            <a href="#courseware" class="lcd-nav-item" onclick="return lcdNavTo(this,'courseware')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Assessment Plan</span></a>
             <div style="height:1px;background:#1e293b;margin:6px 0;"></div>
             <a href="#lesson" class="lcd-nav-item active" onclick="return lcdNavTo(this,'lesson')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>Lesson</span></a>
-            <a href="#assessment-grading" class="lcd-nav-item" onclick="return lcdNavTo(this,'assessment-grading')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg><span>Grading</span></a>
             <a href="#additional-documents" class="lcd-nav-item" onclick="return lcdNavTo(this,'additional-documents')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Additional Documents</span></a>
             <?php else: ?>
             <a href="#learner-slides" class="lcd-nav-item" onclick="return lcdNavTo(this,'learner-slides')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/></svg><span>Learner Slides</span></a>
@@ -5762,9 +5768,6 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
         <div class="lcd-detail-row"><span class="lcd-detail-label">Course Title</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['name']) ?></span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Course Code</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['sku'] ?: '—') ?></span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Course Run ID</span><span class="lcd-detail-value"><?php echo $_courseRunId ?></span></div>
-        <?php if ($activeRole !== 'learner' && $activeRole !== 'trainer'): ?>
-        <div class="lcd-detail-row"><span class="lcd-detail-label">Digital Attendance ID</span><span class="lcd-detail-value"><?php echo $_digitalAttId ?></span></div>
-        <?php endif; ?>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Start Date</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['start_date']) ?></span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">End Date</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['end_date']) ?></span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Class Type</span><span class="lcd-badge <?php echo $_modeBadgeCls ?>"><?php echo htmlspecialchars($_modeLabel) ?></span></div>
@@ -5779,9 +5782,6 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
             <?php if ($_courseManagerActive): /* Google Meet nav link removed — not shown in developer view */ ?>
             <a href="#courseware" class="lcd-nav-item" onclick="return lcdNavTo(this,'courseware')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span>Courseware</span></a>
             <a href="#lesson" class="lcd-nav-item active" onclick="return lcdNavTo(this,'lesson')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>Lesson</span></a>
-            <a href="#assessment" class="lcd-nav-item" onclick="return lcdNavTo(this,'assessment')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Assessment</span></a>
-            <a href="#assessment-grading" class="lcd-nav-item" onclick="return lcdNavTo(this,'assessment-grading')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg><span>Assessment Grading</span></a>
-            <a href="#assessment-summary" class="lcd-nav-item" onclick="return lcdNavTo(this,'assessment-summary')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Assessment Summary Record</span></a>
             <a href="#course-sessions" class="lcd-nav-item" onclick="return lcdNavTo(this,'course-sessions')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span>Course Sessions</span></a>
             <a href="#additional-documents" class="lcd-nav-item" onclick="return lcdNavTo(this,'additional-documents')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Additional Documents</span></a>
             <?php else: ?>
@@ -5928,12 +5928,31 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
             }
         }
         if (empty($_devLessonTopics) && $_descRaw !== ''
-            && preg_match_all('#<strong>\s*((?:LU|Lesson|Topic|Module)\s*\d+[^<]*?)\s*</strong>#i', $_descRaw, $_ltm)) {
-            foreach ($_ltm[1] as $_lt) {
-                $_lt = trim(html_entity_decode($_lt), " :\t\n\r\0\x0B");
-                if ($_lt !== '') {
-                    $_devLessonTopics[] = array('title' => $_lt, 'subsecs' => array(), 'links' => array());
+            && preg_match('#<strong>\s*(?:LU|Lesson|Topic|Module)\s*\d+#i', $_descRaw)) {
+            // Split on each LU heading so we also collect the
+            // <em>T#: …</em> sub-topic lines that follow it (legacy
+            // Course-Topics HTML lists the T#s under each LU).
+            $_dvParts = preg_split(
+                '#<strong>\s*((?:LU|Lesson|Topic|Module)\s*\d+[^<]*?)\s*</strong>#i',
+                $_descRaw, -1, PREG_SPLIT_DELIM_CAPTURE
+            );
+            for ($_dvPi = 1; $_dvPi < count($_dvParts); $_dvPi += 2) {
+                $_lt = trim(html_entity_decode($_dvParts[$_dvPi]), " :\t\n\r\0\x0B");
+                if ($_lt === '') continue;
+                $_dvBody = isset($_dvParts[$_dvPi + 1]) ? $_dvParts[$_dvPi + 1] : '';
+                $_dvSubs = array();
+                if (preg_match_all('#<em>(.*?)</em>#is', $_dvBody, $_dvEm)) {
+                    foreach ($_dvEm[1] as $_st) {
+                        $_st = trim(html_entity_decode(strip_tags($_st)), " :\t\n\r\0\x0B");
+                        if ($_st !== '') $_dvSubs[] = $_st;
+                    }
+                } else {
+                    foreach (preg_split('#</?(?:p|li|br|div)[^>]*>#i', $_dvBody) as $_ln) {
+                        $_ln = trim(html_entity_decode(strip_tags($_ln)), " :\t\n\r\0\x0B");
+                        if ($_ln !== '') $_dvSubs[] = $_ln;
+                    }
                 }
+                $_devLessonTopics[] = array('title' => $_lt, 'subsecs' => $_dvSubs, 'links' => array());
             }
         }
     } catch (Exception $e) {}
@@ -5990,15 +6009,6 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
             </div>
         </div>
     </div>
-
-    <!-- DEVELOPER: Assessment / Assessment Grading / Assessment Summary
-         Record sections removed 2026-05-06 per product decision. The
-         underlying URLs (assessment_plan_url, assessment_record_link,
-         assessment_summary_url) are still saved on course_courseware via
-         the developer edit form, but the read-only display tiles for
-         them on the course detail page were removed. Re-introduce by
-         restoring the deleted block from git history if these displays
-         come back into scope. -->
 
     <!-- DEVELOPER: Course Sessions -->
     <?php
@@ -6155,13 +6165,6 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
     <?php /* per-panel footer removed — the single site footer is page.phtml's .admin-page-footer */ ?>
 
     <?php elseif ($activeRole === 'trainer'): ?>
-    <!-- Attendance feature deleted 2026-05-07. The trainer-facing
-         Attendance section (and the standalone E-Attendance page,
-         AttendanceController, and migration 053's entry_mode column)
-         all came out together. Trainer course detail now starts
-         straight at the Google Meet section. -->
-    <?php /* Trainer Manual Attendance section + ~170 lines of JS deleted
-            2026-05-07. Feature retired. Google Meet section follows. */ ?>
 
     <!-- TRAINER: Google Meet — N/A for Physical, real link for Virtual/Hybrid. -->
     <?php
@@ -6400,12 +6403,32 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
             }
         }
         if (empty($_sharedLessonTopics) && $_sharedDescRaw !== ''
-            && preg_match_all('#<strong>\s*((?:LU|Lesson|Topic|Module)\s*\d+[^<]*?)\s*</strong>#i', $_sharedDescRaw, $_sltm)) {
-            foreach ($_sltm[1] as $_lt) {
-                $_lt = trim(html_entity_decode($_lt), " :\t\n\r\0\x0B");
-                if ($_lt !== '') {
-                    $_sharedLessonTopics[] = array('title' => $_lt, 'subsecs' => array(), 'links' => array());
+            && preg_match('#<strong>\s*(?:LU|Lesson|Topic|Module)\s*\d+#i', $_sharedDescRaw)) {
+            // Split on each LU/Lesson/Topic/Module heading so we also
+            // collect the <em>T#: …</em> sub-topic lines that follow it
+            // (legacy Course-Topics HTML lists the T#s under each LU).
+            // Earlier code only kept the <strong> titles and dropped them.
+            $_shParts = preg_split(
+                '#<strong>\s*((?:LU|Lesson|Topic|Module)\s*\d+[^<]*?)\s*</strong>#i',
+                $_sharedDescRaw, -1, PREG_SPLIT_DELIM_CAPTURE
+            );
+            for ($_shPi = 1; $_shPi < count($_shParts); $_shPi += 2) {
+                $_lt = trim(html_entity_decode($_shParts[$_shPi]), " :\t\n\r\0\x0B");
+                if ($_lt === '') continue;
+                $_shBody = isset($_shParts[$_shPi + 1]) ? $_shParts[$_shPi + 1] : '';
+                $_shSubs = array();
+                if (preg_match_all('#<em>(.*?)</em>#is', $_shBody, $_shEm)) {
+                    foreach ($_shEm[1] as $_st) {
+                        $_st = trim(html_entity_decode(strip_tags($_st)), " :\t\n\r\0\x0B");
+                        if ($_st !== '') $_shSubs[] = $_st;
+                    }
+                } else {
+                    foreach (preg_split('#</?(?:p|li|br|div)[^>]*>#i', $_shBody) as $_ln) {
+                        $_ln = trim(html_entity_decode(strip_tags($_ln)), " :\t\n\r\0\x0B");
+                        if ($_ln !== '') $_shSubs[] = $_ln;
+                    }
                 }
+                $_sharedLessonTopics[] = array('title' => $_lt, 'subsecs' => $_shSubs, 'links' => array());
             }
         }
     } catch (Exception $e) {}
@@ -6555,10 +6578,10 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
             <?php if ($_certState === 'completed'): ?>
             <div class="lcd-cert-title">Course Completed</div>
-            <div class="lcd-cert-sub">This course ended on <?php echo htmlspecialchars(date('d M Y', strtotime((string)$_certEnd))) ?>. Your certificate will be issued once the trainer has finalised your assessment record.</div>
+            <div class="lcd-cert-sub">This course ended on <?php echo htmlspecialchars(date('d M Y', strtotime((string)$_certEnd))) ?>. Your certificate will be issued shortly.</div>
             <?php elseif ($_certState === 'in_progress'): ?>
             <div class="lcd-cert-title">In Progress</div>
-            <div class="lcd-cert-sub">You're enrolled in this course<?php if ($_certEnd): ?> (ends <?php echo htmlspecialchars(date('d M Y', strtotime((string)$_certEnd))) ?>)<?php endif; ?>. Your certificate will be available here once the course is complete and your attendance / assessment is finalised.</div>
+            <div class="lcd-cert-sub">You're enrolled in this course<?php if ($_certEnd): ?> (ends <?php echo htmlspecialchars(date('d M Y', strtotime((string)$_certEnd))) ?>)<?php endif; ?>. Your certificate will be available here once the course is complete.</div>
             <?php elseif ($activeRole === 'learner'): ?>
             <div class="lcd-cert-title">Not Enrolled</div>
             <div class="lcd-cert-sub">You don't have an active enrolment for this course. Once you enrol and complete it, your certificate will appear here.</div>
@@ -6818,12 +6841,7 @@ function lmcSetView(view, btn) {
 </div>
 
 
-<?php /* ===== PANEL: Certificate History (Learner sub-view) =====
-        Re-added 2026-05-07 after the earlier `sed -i '5300,5863d'`
-        deletion removed it along with dash-panel-eattendance. Iterates
-        the learner's $_learnerCourses, surfacing any class with an
-        end_date as a row in the history table; classes whose end_date
-        has passed render as "Issued", future end_dates as "Pending". */ ?>
+<?php /* ===== PANEL: Certificate History (Learner sub-view) ===== */ ?>
 <div id="dash-panel-certhistory" style="display:none;">
 <div class="edt-wrap" style="max-width:1200px;">
     <h1 class="edt-title">Certificate History</h1>
@@ -8859,10 +8877,6 @@ $_csv = function ($path, $default = '') use ($_cs) {
             <div class="cs-toggle-row">
                 <span>Upcoming Classes Threshold (Days)</span>
                 <span class="cs-status enabled" style="margin-left:auto">365 days</span>
-            </div>
-            <div class="cs-toggle-row">
-                <span>Certificate Attendance Threshold (%)</span>
-                <span class="cs-status enabled" style="margin-left:auto">60%</span>
             </div>
             <div class="cs-toggle-row">
                 <span>Auto Send Pro Forma Invoice Upon Course Confirmation</span>

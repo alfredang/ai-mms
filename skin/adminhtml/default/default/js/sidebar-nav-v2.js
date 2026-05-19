@@ -8,7 +8,19 @@
 // waiting for dom:loaded. Used by the Order View horizontal-tabs layout.
 (function () {
     var p = (window.location.pathname || '').toLowerCase();
-    if (p.indexOf('/sales_order/view/') !== -1) {
+    // Order View drives the horizontal-tabs relocation + the dense,
+    // readable styling (bigger fonts, outlined toolbar buttons).
+    // Invoice View and Transaction View are the same
+    // Widget_Form_Container layout — identical .form-buttons /
+    // .form-list / .box-head / .order-totals markup — so they reuse
+    // the same marker. The tab-relocation code self-guards on
+    // #sales_order_view_tabs (which those two pages don't have), so
+    // it's an inert no-op there; only the styling carries over.
+    if (p.indexOf('/sales_order/view/') !== -1
+        || p.indexOf('/sales_invoice/view/') !== -1
+        || p.indexOf('/sales_order_invoice/view/') !== -1
+        || p.indexOf('/sales_transactions/view/') !== -1
+        || p.indexOf('/sales_transaction/view/') !== -1) {
         document.documentElement.classList.add('is-order-view');
     }
 })();

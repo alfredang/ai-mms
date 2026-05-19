@@ -44,14 +44,14 @@
     --brand: #2563eb;            /* Tertiary admin primary accent */
     --brand-2: #3b82f6;
     --ring: rgba(96,165,250,0.45);   /* focus-visible ring */
-    /* SINGLE BUTTON COLOR — sky blue. Used by every backend button
-       (Submit, Save, Flush, Delete, Cancel, Add). Matches the
-       canonical cache-page Submit pill. See backend-design SKILL.md. */
-    --btn-sky:        #65b7d5;
-    --btn-sky-hover:  #55a9c9;
-    --btn-sky-active: #4a98b6;
-    --btn-primary:        linear-gradient(180deg, #65b7d5 0%, #55a9c9 100%);
-    --btn-primary-hover:  linear-gradient(180deg, #55a9c9 0%, #4a98b6 100%);
+    /* SINGLE BUTTON COLOR — navy blue. Used by every backend button
+       (Submit, Save, Flush, Delete, Cancel, Add). Token names kept as
+       --btn-sky-* for backwards-compatibility with existing rules. */
+    --btn-sky:        #2563eb;
+    --btn-sky-hover:  #1d4ed8;
+    --btn-sky-active: #1e40af;
+    --btn-primary:        linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+    --btn-primary-hover:  linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
     --btn-success: linear-gradient(180deg, #10b981 0%, #059669 100%);
     --btn-success-hover: linear-gradient(180deg, #059669 0%, #047857 100%);
     --btn-danger: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
@@ -1745,6 +1745,9 @@ html.is-order-view ul#sales_order_view_tabs li a span {
     border: none !important;
     outline: none !important;
     box-shadow: none !important;
+    font-size: 22.5px !important;
+    font-weight: inherit !important;
+    line-height: 1.2 !important;
 }
 body.is-order-view ul#sales_order_view_tabs li a:hover,
 html.is-order-view ul#sales_order_view_tabs li a:hover {
@@ -1758,15 +1761,26 @@ html.is-order-view ul#sales_order_view_tabs li a.active span {
     background: transparent !important;
     background-image: none !important;
     color: var(--blue) !important;
+    font-size: 22.5px !important;
     font-weight: 600 !important;
-    border-top: none !important;
-    border-left: none !important;
-    border-right: none !important;
-    border-bottom: 2px solid var(--blue) !important;
+    border: none !important;
     border-radius: 0 !important;
     outline: none !important;
     box-shadow: none !important;
+}
+/* The active underline goes on the <a> ONLY. Magento's markup is
+   <a class="active"><span>…</span></a>; putting border-bottom on both
+   drew two stacked blue lines (the reported "double line"). The inner
+   span explicitly keeps no bottom border. */
+body.is-order-view ul#sales_order_view_tabs li a.active,
+html.is-order-view ul#sales_order_view_tabs li a.active {
+    border-bottom: 2px solid var(--blue) !important;
     margin: 0 0 -2px 0 !important;
+}
+body.is-order-view ul#sales_order_view_tabs li a.active span,
+html.is-order-view ul#sales_order_view_tabs li a.active span {
+    border-bottom: none !important;
+    margin: 0 !important;
 }
 /* === Admin edit pages — header buttons aligned onto the tabs row ===
    admin-actions-row.js wraps the tab <ul> and the header buttons
@@ -1842,7 +1856,7 @@ body.is-order-view .content-header h3,
 html.is-order-view .content-header h3,
 body.is-order-view .content-header h3.icon-head,
 html.is-order-view .content-header h3.icon-head {
-    font-size: 16px !important;
+    font-size: 26px !important;
     font-weight: 700 !important;
     line-height: 1.25 !important;
     margin: 0 0 6px !important;
@@ -1875,6 +1889,43 @@ html.is-order-view .box {
     margin-bottom: 12px !important;
     box-shadow: none !important;
 }
+/* boxes.css floats .box-left/.box-right at width:48.5%. At the larger
+   font the left column's values (date, store path, long email) spilled
+   past their float and painted over the right column ("clipping into
+   each other"). Lock each box to its half with border-box + hidden
+   overflow, force the inner .form-list to a fixed-layout 100%-width
+   table, and hard-wrap every label/value so nothing bleeds across. */
+body.is-order-view .box-left,
+html.is-order-view .box-left,
+body.is-order-view .box-right,
+html.is-order-view .box-right {
+    box-sizing: border-box !important;
+    width: 49% !important;
+    overflow: hidden !important;
+}
+body.is-order-view .box-left .form-list,
+html.is-order-view .box-left .form-list,
+body.is-order-view .box-right .form-list,
+html.is-order-view .box-right .form-list {
+    width: 100% !important;
+    table-layout: fixed !important;
+}
+body.is-order-view .box-left .form-list td,
+html.is-order-view .box-left .form-list td,
+body.is-order-view .box-left .form-list th,
+html.is-order-view .box-left .form-list th,
+body.is-order-view .box-right .form-list td,
+html.is-order-view .box-right .form-list td,
+body.is-order-view .box-right .form-list th,
+html.is-order-view .box-right .form-list th,
+body.is-order-view .box-left .order-account-information td,
+html.is-order-view .box-left .order-account-information td,
+body.is-order-view .box-right .order-account-information td,
+html.is-order-view .box-right .order-account-information td {
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow-wrap: anywhere !important;
+}
 /* Section header bars inside the order view */
 body.is-order-view .entry-edit-head,
 html.is-order-view .entry-edit-head,
@@ -1889,7 +1940,7 @@ body.is-order-view .box-head h4,
 html.is-order-view .box-head h4,
 body.is-order-view .box-head h3,
 html.is-order-view .box-head h3 {
-    font-size: 12px !important;
+    font-size: 22.5px !important;
     font-weight: 700 !important;
     text-transform: uppercase !important;
     letter-spacing: 0.4px !important;
@@ -1904,13 +1955,28 @@ html.is-order-view .form-list td,
 body.is-order-view .form-list th,
 html.is-order-view .form-list th {
     padding: 4px 10px 4px 0 !important;
-    font-size: 12px !important;
+    font-size: 22.5px !important;
     line-height: 1.45 !important;
 }
 body.is-order-view .order-account-information td,
 html.is-order-view .order-account-information td {
     padding: 4px 10px 4px 0 !important;
-    font-size: 12px !important;
+    font-size: 22.5px !important;
+}
+/* "Billing Address" is an <address> element and the "Funding/Payment
+   Information" block is whatever getPaymentHtml() emits — neither is a
+   .form-list, so they kept the small legacy size. Bump both to 20px
+   (per request). The payment/funding text is targeted via the fieldset
+   that follows the .head-payment-method header (:has is used elsewhere
+   in this file already). */
+body.is-order-view address,
+html.is-order-view address,
+body.is-order-view .entry-edit:has(.head-payment-method) .fieldset,
+html.is-order-view .entry-edit:has(.head-payment-method) .fieldset,
+body.is-order-view .entry-edit:has(.head-payment-method) .fieldset *,
+html.is-order-view .entry-edit:has(.head-payment-method) .fieldset * {
+    font-size: 20px !important;
+    line-height: 1.5 !important;
 }
 /* Items Ordered grid + Order Totals — compact cells */
 body.is-order-view .grid table.data th,
@@ -1925,17 +1991,114 @@ html.is-order-view .order-totals th {
     font-size: 12px !important;
     line-height: 1.4 !important;
 }
+/* Items Ordered grid: the Course cell is tall (nested options table)
+   while Magento renders every other column vertical-align:middle, so
+   their values float to the row's vertical centre and read as
+   misaligned. Top-align every cell so each column's value sits on the
+   same line as the course title, and force one consistent size /
+   weight / line-height across the value columns (Item Status …
+   Row Total) — including the inner <span>/<strong> the renderer wraps
+   prices in, which were rendering bold/uneven. First column (Course)
+   keeps its own title styling; the nested options sub-table lives
+   inside it so :not(:first-child) leaves it alone. */
+body.is-order-view .grid table.data td,
+html.is-order-view .grid table.data td {
+    vertical-align: top !important;
+}
+/* sidebar-nav.css §14 forces `.admin-main .grid tbody tr td
+   { vertical-align:middle }` and Magento's renderer adds per-column
+   .a-center / .a-right classes — together the values floated to the
+   row's centre and sat at different x-offsets than their (left)
+   headers. Pin EVERY header + cell of the order-items table
+   (.order-tables raises specificity past §14) to top-left so each
+   value lines up directly under its column header. */
+body.is-order-view .grid table.data.order-tables td,
+html.is-order-view .grid table.data.order-tables td,
+body.is-order-view .grid table.data.order-tables th,
+html.is-order-view .grid table.data.order-tables th,
+body.is-order-view .grid table.data.order-tables td.a-center,
+html.is-order-view .grid table.data.order-tables td.a-center,
+body.is-order-view .grid table.data.order-tables td.a-right,
+html.is-order-view .grid table.data.order-tables td.a-right,
+body.is-order-view .grid table.data.order-tables th.a-center,
+html.is-order-view .grid table.data.order-tables th.a-center {
+    vertical-align: top !important;
+    text-align: left !important;
+}
+/* The remaining offset: Price/Subtotal wrap their value in a
+   .price-excl-tax / .price-incl-tax block led by an "Excl./Incl. Tax:"
+   .label, so the visible number starts a line below the plain-text
+   columns (Item Status) and the Pax/qty block. Drop the redundant tax
+   labels, flatten the price wrappers to a zero-margin block, and give
+   every value cell the same top padding so the first value of every
+   column lands on one line. */
+body.is-order-view .grid table.data.order-tables tbody td:not(:first-child),
+html.is-order-view .grid table.data.order-tables tbody td:not(:first-child) {
+    padding: 9px 10px !important;
+    vertical-align: top !important;
+}
+body.is-order-view .grid table.data.order-tables tbody td:not(:first-child) .label,
+html.is-order-view .grid table.data.order-tables tbody td:not(:first-child) .label {
+    display: none !important;
+}
+body.is-order-view .grid table.data.order-tables tbody td:not(:first-child) .price-excl-tax,
+html.is-order-view .grid table.data.order-tables tbody td:not(:first-child) .price-excl-tax,
+body.is-order-view .grid table.data.order-tables tbody td:not(:first-child) .price-incl-tax,
+html.is-order-view .grid table.data.order-tables tbody td:not(:first-child) .price-incl-tax {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: 1.4 !important;
+}
+/* Value columns: size every descendant, not just span/strong. The Pax
+   (qty) column renders its "Ordered/Invoiced/…" labels in other tags
+   (div/small/em), so the two "Ordered" cells came out at different
+   sizes. `td:not(:first-child) *` makes the whole value column text
+   uniform; the Course cell (first child) is untouched. */
+body.is-order-view .grid table.data tbody > tr > td:not(:first-child),
+html.is-order-view .grid table.data tbody > tr > td:not(:first-child),
+body.is-order-view .grid table.data tbody > tr > td:not(:first-child) *,
+html.is-order-view .grid table.data tbody > tr > td:not(:first-child) * {
+    font-size: 12px !important;
+    font-weight: 400 !important;
+    line-height: 1.4 !important;
+}
 /* Tighter tab bar */
 body.is-order-view ul#sales_order_view_tabs li a,
 html.is-order-view ul#sales_order_view_tabs li a {
     padding: 7px 14px !important;
-    font-size: 12px !important;
+    font-size: 22.5px !important;
 }
 body.is-order-view ul#sales_order_view_tabs,
 html.is-order-view ul#sales_order_view_tabs { margin: 4px 0 12px 0 !important; }
 /* Comments History box compact */
 body.is-order-view #order_history_block textarea,
-html.is-order-view #order_history_block textarea { min-height: 60px !important; font-size: 12px !important; }
+html.is-order-view #order_history_block textarea { min-height: 60px !important; font-size: 22.5px !important; }
+/* Bring the rest of the Comments History section (Add Order Comments
+   text, Status label + select, Comment label, checkbox labels, and the
+   posted-note list) up to the page's 22.5px so it stops looking small.
+   The Submit Comment button keeps its own styled size. */
+body.is-order-view #order_history_block,
+html.is-order-view #order_history_block,
+body.is-order-view #order_history_block label,
+html.is-order-view #order_history_block label,
+body.is-order-view #order_history_block select,
+html.is-order-view #order_history_block select,
+body.is-order-view #order_history_block .note-list,
+html.is-order-view #order_history_block .note-list,
+body.is-order-view #order_history_block .note-list li,
+html.is-order-view #order_history_block .note-list li,
+body.is-order-view #order_history_block .note-list strong,
+html.is-order-view #order_history_block .note-list strong,
+body.is-order-view #order_history_block .note-list small,
+html.is-order-view #order_history_block .note-list small,
+body.is-order-view #order_history_block .note-list span,
+html.is-order-view #order_history_block .note-list span,
+body.is-order-view #order_history_block .note-list a,
+html.is-order-view #order_history_block .note-list a {
+    font-size: 22.5px !important;
+    line-height: 1.5 !important;
+}
 /* Kill the blue selected/hover accents on the Items Ordered grid —
    it's a read-only summary, the long blue left-bar (tr.selected td
    border-left) and per-row hover highlight just look like noise here.
@@ -1951,6 +2114,106 @@ html.is-order-view .grid table.data tbody tr:hover td {
     background: transparent !important;
     border-left: 0 !important;
     box-shadow: none !important;
+}
+/* The "white flash" on hover: legacy boxes.css paints several
+   Items-Ordered sub-elements solid #fff with !important — most
+   importantly `.grid tr.read` (Magento's grid JS toggles `.read` on
+   hover → the flash), plus `.grid tbody.odd tr`, `.grid table.border
+   td`, and the nested item-options sub-table `.grid tr .form-list tr`.
+   Flatten all of them to transparent so the row stays on the dark
+   surface (row separation already comes from the §14 hairlines). */
+body.is-order-view .grid tr.read,
+html.is-order-view .grid tr.read,
+body.is-order-view .grid tbody.odd tr,
+html.is-order-view .grid tbody.odd tr,
+body.is-order-view .grid tbody.even tr,
+html.is-order-view .grid tbody.even tr,
+body.is-order-view .grid table.border td,
+html.is-order-view .grid table.border td,
+body.is-order-view .grid tr .form-list tr,
+html.is-order-view .grid tr .form-list tr,
+body.is-order-view .grid .form-list td,
+html.is-order-view .grid .form-list td,
+body.is-order-view .grid .form-list th,
+html.is-order-view .grid .form-list th,
+body.is-order-view .grid .item-options,
+html.is-order-view .grid .item-options {
+    background: transparent !important;
+    box-shadow: none !important;
+}
+/* Same legacy #fff hits inputs/selects rendered inside the items grid
+   (e.g. the status box). Keep them transparent per the admin hard
+   rule — border only, never a white/gray fill. */
+body.is-order-view .grid input.input-text,
+html.is-order-view .grid input.input-text,
+body.is-order-view .grid select,
+html.is-order-view .grid select,
+body.is-order-view .grid textarea,
+html.is-order-view .grid textarea {
+    background: transparent !important;
+}
+/* Order-view toolbar: make every action button (Edit / Cancel / Send
+   Email / Hold / Invoice / Reorder …) match the quiet outline style of
+   the Back button — per request. Sales_Order_View extends
+   Widget_Form_Container, whose container.phtml wraps the buttons in
+   <p class="form-buttons"> (header + footer) — NOT .content-buttons.
+   Scoped to .form-buttons on the order view page only, so other admin
+   pages keep the filled primary button and the comment-submit /
+   address links are untouched. Specificity (0,3,2) beats §18. */
+body.is-order-view .form-buttons button,
+html.is-order-view .form-buttons button,
+body.is-order-view .form-buttons button.scalable,
+html.is-order-view .form-buttons button.scalable,
+body.is-order-view .form-buttons input[type="submit"],
+html.is-order-view .form-buttons input[type="submit"] {
+    background: transparent !important;
+    background-image: none !important;
+    border: 1px solid var(--blue) !important;
+    color: var(--blue) !important;
+    box-shadow: none !important;
+}
+body.is-order-view .form-buttons button span,
+html.is-order-view .form-buttons button span,
+body.is-order-view .form-buttons button span span,
+html.is-order-view .form-buttons button span span {
+    color: var(--blue) !important;
+}
+body.is-order-view .form-buttons button:hover,
+html.is-order-view .form-buttons button:hover,
+body.is-order-view .form-buttons button.scalable:hover,
+html.is-order-view .form-buttons button.scalable:hover {
+    background: rgba(96, 165, 250, 0.12) !important;
+    border-color: var(--blue) !important;
+    box-shadow: none !important;
+}
+/* Transaction View: the legacy "Transaction Data" box ships a light
+   #fafafa background + #d6d6d6 border from boxes.css (.log-details).
+   Re-skin it as a dark card using the standard tokens so it matches
+   the rest of the admin and the grids right below it. Cells go
+   transparent (no gray fill — see the hard rule) with the same muted
+   label / bright value split + ~14px size used elsewhere on this page. */
+body.is-order-view .log-details,
+html.is-order-view .log-details {
+    background: var(--d3) !important;
+    border: 1px solid var(--b1) !important;
+    border-radius: 10px !important;
+    padding: 14px 18px !important;
+}
+body.is-order-view .log-details table th,
+html.is-order-view .log-details table th,
+body.is-order-view .log-details table td,
+html.is-order-view .log-details table td {
+    background: transparent !important;
+    font-size: 14px !important;
+    line-height: 1.5 !important;
+}
+body.is-order-view .log-details table th,
+html.is-order-view .log-details table th {
+    color: var(--t4) !important;
+}
+body.is-order-view .log-details table td,
+html.is-order-view .log-details table td {
+    color: var(--t1) !important;
 }
 
 /* === Registrations page (sales_order index) — top-bar tidy ===

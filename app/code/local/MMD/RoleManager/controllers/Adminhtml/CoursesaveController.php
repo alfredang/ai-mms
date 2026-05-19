@@ -66,9 +66,6 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             if (($v = $req->getParam('duration'))     !== null && $v !== '') $product->setData('duration', $v);
             if (($v = $req->getParam('training_hours')) !== null && $v !== '') $product->setData('duration', $v);
             if (($v = $req->getParam('price'))        !== null && $v !== '') $product->setPrice((float)$v);
-            if (($v = $req->getParam('funding_validity')) !== null && $v !== '') {
-                $product->setData('news_to_date', $v);
-            }
 
             // Trainer multiselect (primary source)
             $trainerIdsChanged = false;
@@ -462,10 +459,9 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             // Save courseware URLs into the dedicated course_courseware table (upsert by product_id).
             // Only runs if the form actually submitted any courseware_* field.
             $_cwFields = array(
-                'lesson_plan_url', 'learner_guide_url', 'facilitator_guide_url',
-                'assessment_plan_url', 'learner_slides_url', 'trainer_slides_url',
+                'lesson_plan_url', 'learner_guide_url',
+                'learner_slides_url', 'trainer_slides_url',
                 'courseware_link', 'brochure_link',
-                'assessment_record_link', 'assessment_summary_url',
                 'google_meet_url', 'certificate_url',
             );
             $_cwAny = false;
