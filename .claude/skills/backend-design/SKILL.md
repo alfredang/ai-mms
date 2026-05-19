@@ -55,6 +55,191 @@ Defined in `dark-theme.css` `:root`:
 If a needed shade doesn't exist, add a token to `:root` — don't drop a raw hex
 into a component rule.
 
+## Minimalist button system (canonical for new code — `dark-theme.css` end block)
+
+For any new admin UI in MMD custom modules (dashboard, course editor, role-manager,
+marketing newsletter, etc.) **use the `mm-btn` family**. Lives at the bottom of
+`dark-theme.css` so it loads on every admin page, scoped with `.admin-main` to bump
+specificity past `sidebar-nav.css`'s generic `.admin-main button` rule.
+
+| Class | Use | Spec |
+|---|---|---|
+| `.mm-btn` | Base / neutral. Transparent fill, slate border, lightens on hover. | 34px tall, `padding: 7px 14px`, `font: 13px/1 500`, `border-radius: 6px` |
+| `.mm-btn-primary` | The one solid blue action per area (Save Changes, Submit). | Same size; `bg #2563eb`, white text, no gradient, no shadow |
+| `.mm-btn-ghost` | Cancel / secondary / Upload. Same as `.mm-btn` but explicit. | Identical to base |
+| `.mm-btn-sm` | Inline / row actions in tables. | 28px tall, `padding: 5px 11px`, `font: 12px`, `border-radius: 5px` |
+| `.mm-btn-icon` | Square icon-only (close, hamburger). | 34×34px, no horizontal padding |
+
+The override also catches **legacy chunky classes** so existing per-feature buttons
+inherit the minimalist look automatically — no template churn needed:
+
+- `button.dcf-btn`, `button.dcf-btn-save`, `button.dcf-btn-cancel`, `button.dcf-btn-edit`, `button.dcf-btn-save-cont`
+- `button[class*="-btn-primary"]` → `dash-btn-primary`, `trn-btn-primary`, `cnc-btn-primary`, `alm-btn-primary`, `el-btn-primary`, `cp-btn-primary`, `atm-btn-primary`
+- `button[class*="-btn-secondary"]`, `button[class*="-btn-cancel"]`, `button[class*="-btn-ghost"]`
+- `button.at-action-btn`, `button.al-action-btn` → auto-shrink to `mm-btn-sm` size
+
+**Out of scope** — these are intentionally not styled by the mm-btn block: Magento's
+native `.scalable` / `.form-button` toolbar buttons on catalog/sales grids and System →
+Configuration. Those still go through `sidebar-nav.css` §18/§16 (below).
+
+Anti-patterns to avoid:
+- Inline `style="background:#2563eb;padding:10px 20px;..."` on a button. Use `mm-btn-primary`.
+- A new per-feature button class (`my-feature-btn`). Use the mm-btn family.
+- Gradient backgrounds, drop shadows, `text-transform:uppercase`, `letter-spacing`. All banned.
+
+## Minimalist table (`mm-table` — `dark-theme.css` end block)
+
+For tables in **MMD custom panels** (dashboard tabs, role-manager lists, marketing
+panels, course-editor sub-lists) use the `.mm-table` class. Lives at the bottom of
+`dark-theme.css`, scoped with `.admin-main` to beat generic admin table rules.
+
+**Native Magento grids (`.grid`, sales/customers/catalog) keep their existing
+§14/§20 styling — do NOT opt them into `.mm-table`.** This component is for
+brand-new MMD tables only.
+
+Specs (all opt-in via class):
+
+| Class | Use |
+|---|---|
+| `.mm-table` | Base. Transparent cells, hairline `tr+tr` row separators, small uppercase muted header, 6×10 padding, single-line cells with ellipsis truncation. |
+| `.mm-table.mm-table-tight` | Denser variant — 4×8 padding, 11.5px font. |
+| `td.num` / `th.num` | Right-align (numeric / IDs). |
+| `td.center` / `th.center` | Center-align. |
+| `td.muted` | Dimmed (`--t4`) — metadata, secondary IDs. |
+| `td.faint` | Most dimmed (`--t5`) — store IDs, faint footnotes. |
+| `td.strong` | Bumped to `--t1` + weight 500 — primary label / title cell. |
+| `td.status` | Pairs with inline `style="color:var(--green/yellow/red)"` for status. |
+| `td.wrap` | Opt back into wrapping for a long-content column. |
+| `.mm-table-empty` | Empty-state row (`<td colspan="N" class="mm-table-empty">…`). |
+
+Anti-patterns:
+- Inline `<style>` block next to a `.mm-table` re-declaring padding/colors — extend the component or use a utility class.
+- Adding `background:#…` to `<td>` (re-introduces gray cells).
+- Zebra striping. Hairline-only separation is the canonical look.
+- Putting `.mm-table` on a Magento native `.grid` (will fight §14).
+
+Reference: the **Course Review** table in `dashboard/index.phtml` (tab `data-tab="reviews"`).
+
+## Minimalist pagination (admin-wide — `admin-dashboard.css`)
+
+For any paged table in MMD admin panels (dashboards, role manager, course
+manager, etc.) the pager is **flat text only — no buttons, no borders, no
+chips**. The global rule lives in
+`skin/adminhtml/default/default/admin-dashboard.css` and matches any class
+ending in `-pg-btn` or `-page-btn` (e.g. `dash-pg-btn`, `al-pg-btn`,
+`at-pg-btn`, `dev-page-btn`) plus the legacy `pagination-btn`. Works on
+both `<button>` and `<a>` elements.
+
+Specs:
+- Container: `display:flex; gap:14px; align-items:center` — applied via
+  `[class$="-pager-ctrls"]`.
+- Item: `background:transparent`, `border:0`, `box-shadow:none`,
+  `padding:2px 4px`, `font-size:12px`, `font-weight:400`, `color:#64748b`.
+- Hover (not disabled): `color:#e2e8f0`. Nothing else changes.
+- Active page: `color:#22d3ee`, `font-weight:600`. No background.
+- Disabled (Prev at page 1, Next at last page): `opacity:.35`,
+  `cursor:not-allowed`.
+- Ellipsis: a `<span class="…-pg-ellipsis">` with `color:#475569`.
+
+Markup convention (used by every existing pager):
+```js
+var b = document.createElement('button');
+b.className = '<prefix>-pg-btn' + (opts.active ? ' active' : '')
+                                + (opts.disabled ? ' disabled' : '');
+b.textContent = label;     // 'Prev', '1', '2', …, 'Next'
+```
+
+Hard rules:
+- **Never reintroduce filled "chip" pagination** (sky-blue background,
+  rounded border, fixed `32×32` cells). The retired
+  `button.pagination-btn` block in `sidebar-nav.css` was deliberately
+  collapsed to a one-line comment pointer — don't restore it.
+- New pagers MUST adopt the `-pg-btn` / `-pager-ctrls` / `-pg-ellipsis`
+  suffix so the global rule applies automatically. No new bespoke CSS.
+- The OpenMage legacy adminhtml `<button>` style ships a gradient + border;
+  the global rule beats it via specificity + `!important`. Don't strip the
+  `!important`s.
+
+Reference implementation: dashboard master table pager
+(`dashRenderPager` in `dashboard/index.phtml`).
+
+## Grid Action column — icon-only (global rewrite)
+
+Every adminhtml grid column declared as `'type' => 'action'` renders as
+**icon buttons**, not text links or dropdowns. This is wired by a class
+rewrite of `Mage_Adminhtml_Block_Widget_Grid_Column_Renderer_Action` to
+`MMD_Adminhtml_Block_Widget_Grid_Column_Renderer_Action`
+(see `app/code/local/MMD/Adminhtml/etc/config.xml`, key
+`widget_grid_column_renderer_action`). Because the rewrite is global, you
+do **not** add a `'renderer' => …` key on the column — the standard
+`type => action` already resolves to the icon renderer.
+
+How the renderer maps captions to icons:
+- Caption is lowercased + stripped of HTML, then substring-matched.
+- `view` / `show` → eye, `edit` → pencil, `delete` / `remove` → trash,
+  `cancel` → ×, `print` / `pdf` → printer, `send` / `email` → paper plane.
+- Anything unmatched falls back to the raw caption text inside the same
+  styled anchor, so a new uncategorised action stays clickable.
+
+Per-row markup (auto-emitted):
+```html
+<div class="mmd-grid-actions">
+  <a class="mmd-grid-action mmd-grid-action--view"   title="View"   href="…">SVG</a>
+  <a class="mmd-grid-action mmd-grid-action--cancel" title="Cancel" href="…" onclick="…">SVG</a>
+</div>
+```
+
+CSS is the existing `.mmd-grid-actions` / `.mmd-grid-action[--view|--edit|--delete|--cancel|--print|--send]`
+block in `dark-theme.css`. Hover tints: cancel turns red (`#f87171`),
+the rest tint blue (`#60a5fa`). Each anchor is a 26×26 ghost square with
+a 1px border — same shape as the toolbar icon-only buttons described below.
+
+Hard rules:
+- **Never set `'renderer' => '…'` on an action column** — that bypasses
+  the global rewrite and you'll get inconsistent text-link cells.
+- **Never extend the icon table per-grid**. Add new icons to the
+  `_icons` array in the global renderer so every grid benefits.
+- Action columns should be **narrow** — 60–90px depending on icon count.
+  Don't reserve the legacy 110px+ that the text-link version needed.
+
+## Icon-only buttons (28×28 ghost pattern)
+
+For toolbar icons (Editor/HTML mode toggle on rich-text textareas, delete row, etc.)
+the canonical pattern is a **28×28 transparent square with a thin border**, holding a
+14×14 SVG stroke icon. Reference implementation: `applyBtnStyle()` in
+`skin/adminhtml/default/default/js/course-topics-tools.js`.
+
+Specs:
+- `28×28` exact, `border-radius: 5px`
+- `background: transparent`, `border: 1px solid #475569` (active state: `border-color: #60a5fa`)
+- 14×14 SVG with `stroke-width: 2`, `stroke-linecap: round`, `stroke-linejoin: round`, `fill: none`
+- Inline `!important` styles to win against the generic `.admin-main button` rule
+
+When clustering multiple icon buttons in a row, gap them with 4–6px. Group them in a
+flex container above the textarea / field they control.
+
+## Minimalist checkbox (admin-wide — `dark-theme.css`)
+
+Flat, no native gray inner box. The global rule is in `dark-theme.css` (the
+`input[type="checkbox"]` block).
+
+Specs:
+- `16×16`, `border-radius: 4px`, `1.5px solid #475569`, transparent background
+- `appearance: none` — kills the native browser checkbox entirely
+- Hover: border lightens to `#64748b`
+- Checked: solid `#2563eb` fill + inline white SVG checkmark (encoded as `data:image/svg+xml` so no extra HTTP request)
+- Indeterminate: solid blue + horizontal dash (use `el.indeterminate = true` from JS for tri-state)
+- Focus: 2px blue outline with 2px offset
+- Disabled: 40% opacity
+
+**Carve-out:** `.dcf-toggle-sw input[type="checkbox"]` resets back to invisible
+(`width:0;height:0;opacity:0`) because the iOS-style slider sibling does the visual
+work. If you build a new custom toggle (radio pill, switch), follow the same pattern:
+hide the native input, render your own element, sync via `:checked`.
+
+Don't reintroduce `accent-color` — once we went `appearance:none` the gray inner box
+is gone and `accent-color` is moot.
+
 ## Buttons (the canonical component — `sidebar-nav.css` §18)
 
 One language everywhere. Don't restyle buttons per page.
@@ -172,8 +357,10 @@ Keep overrides in a clearly commented, numbered section at the end of
 ## Checklist before finishing any admin UI change
 
 1. No raw hex/px-padding that a token or §18/§14 rule already covers.
-2. Buttons use the semantic classes; one primary per area.
-3. Interactive elements have a `--ring` `:focus-visible` state.
-4. New override is body-class/id scoped and won't leak to other grids.
-5. **No gray backgrounds** on `<input>`, `<textarea>`, or `<td>` — transparent + border only. (See "Hard rule" section above.)
-6. Verified in the dark theme at the actual page. CSS/JS merging is on in admin — after editing `sidebar-nav.css`, flush **System → Cache Management → JavaScript/CSS Cache** before hard-refresh, or the bundled `media/css/HASH.css` will still serve the old rules.
+2. Buttons in **new MMD UI** use the `mm-btn` family (`.mm-btn-primary` / `.mm-btn-ghost` / `.mm-btn-sm`). One primary per area. No inline `style="background:..."`, no gradients, no shadows, no uppercase. Native Magento `.scalable` toolbar buttons stay on §18/§16.
+3. Icon-only buttons follow the 28×28 ghost pattern (transparent + thin border + 14×14 stroke SVG). Reference `applyBtnStyle()` in `course-topics-tools.js`.
+4. Checkboxes inherit the global minimalist style — no `accent-color`, no per-page checkbox CSS, no native gray fill. If a checkbox must look different (sliders, toggles), hide the input and render a sibling element.
+5. Interactive elements have a `--ring` `:focus-visible` state.
+6. New override is body-class/id scoped and won't leak to other grids.
+7. **No gray backgrounds** on `<input>`, `<textarea>`, or `<td>` — transparent + border only. (See "Hard rule" section above.)
+8. Verified in the dark theme at the actual page. CSS/JS merging is on in admin — after editing `sidebar-nav.css`, flush **System → Cache Management → JavaScript/CSS Cache** before hard-refresh, or the bundled `media/css/HASH.css` will still serve the old rules.

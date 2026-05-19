@@ -24,12 +24,84 @@
 
 /* --- Block 1 (template line 1337) --- */
 /* ---- Admin schedule dashboard ---- */
-.dash-wrap{padding:28px 32px;background:var(--d1);min-height:100vh}
+.dash-wrap{padding:28px 0;background:var(--d1);min-height:100vh}
 .dash-title{font-size:28px;font-weight:700;color:var(--t1);margin:0 0 28px}
 .dash-kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:32px}
 .dash-kpi-card{background:#1f2937;border:1px solid var(--b1);border-radius:12px;padding:28px 24px;text-align:center}
 .dash-kpi-num{font-size:42px;font-weight:700;color:#22d3ee;line-height:1.1;margin-bottom:8px}
 .dash-kpi-lbl{font-size:14px;color:var(--t2);font-weight:500}
+.dash-detail-modal{position:fixed;inset:0;background:rgba(2,6,23,.78);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:60px 20px;overflow-y:auto}
+.dash-detail-card{background:#0f172a;border:1px solid #1e293b;border-radius:14px;width:100%;max-width:880px;box-shadow:0 24px 80px rgba(0,0,0,.6);display:flex;flex-direction:column;max-height:calc(100vh - 120px)}
+.dash-detail-head{display:flex;align-items:flex-start;justify-content:space-between;padding:20px 24px;border-bottom:1px solid #1e293b;gap:12px}
+.dash-detail-title{font-size:18px;font-weight:700;color:#f1f5f9;line-height:1.3}
+.dash-detail-sub{font-size:13px;color:#94a3b8;margin-top:2px}
+button.dash-detail-close,
+.dash-detail-head button.dash-detail-close{background:transparent !important;background-image:none !important;border:0 !important;box-shadow:none !important;border-radius:0 !important;color:#94a3b8 !important;font-size:26px !important;font-weight:400 !important;line-height:1 !important;cursor:pointer;padding:0 4px !important;text-shadow:none !important;height:auto !important;min-width:0 !important}
+button.dash-detail-close:hover,
+.dash-detail-head button.dash-detail-close:hover{background:transparent !important;color:#f1f5f9 !important}
+.dash-detail-body{padding:20px 24px;overflow-y:auto;flex:1 1 auto}
+.dash-detail-grid{display:flex;flex-direction:column;gap:6px;margin-bottom:20px;padding:0}
+.dash-detail-cell{background:transparent;border:0;border-radius:0;padding:0;display:flex;align-items:baseline;gap:8px}
+.dash-detail-lbl{font-size:13px;color:#94a3b8;text-transform:none;letter-spacing:0;margin:0;font-weight:500;min-width:120px}
+.dash-detail-lbl::after{content:":"}
+.dash-detail-val{font-size:13px;color:#f1f5f9;font-weight:600}
+.dash-detail-section-head{display:flex;align-items:center;justify-content:space-between;margin:0 0 8px;gap:12px}
+.dash-detail-h4{font-size:13px;font-weight:700;color:#cbd5e1;text-transform:uppercase;letter-spacing:.04em;margin:0}
+.dash-detail-count{color:#64748b;font-weight:500}
+a.dash-detail-iconbtn{display:inline-flex;align-items:center;gap:5px;color:#22d3ee;text-decoration:none;font-size:12px;font-weight:600;padding:2px 4px;border-radius:6px;transition:color .15s}
+a.dash-detail-iconbtn:hover{color:#67e8f9}
+a.dash-detail-rm{display:inline-flex;color:#64748b;text-decoration:none;padding:2px;border-radius:4px;transition:color .15s}
+a.dash-detail-rm:hover{color:#ef4444}
+.dash-detail-table-wrap{border:1px solid #1e293b;border-radius:8px;overflow:hidden}
+.dash-detail-table{width:100%;border-collapse:collapse;font-size:13px}
+.dash-detail-table thead th{background:#1e293b;color:#94a3b8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.04em;text-align:left;padding:8px 12px;border-bottom:1px solid #334155}
+.dash-detail-table tbody td{padding:8px 12px;color:#e2e8f0;border-bottom:1px solid #1e293b}
+.dash-detail-table tbody tr:last-child td{border-bottom:0}
+.dash-detail-empty{color:#64748b;text-align:center;padding:14px !important}
+.dash-detail-foot{display:flex;justify-content:flex-end;gap:24px;padding:14px 24px;border-top:1px solid #1e293b;align-items:center}
+a.dash-detail-btn,
+button.dash-detail-btn,
+.dash-detail-foot a.dash-detail-btn,
+.dash-detail-foot button.dash-detail-btn{background:transparent !important;background-image:none !important;background-color:transparent !important;border:0 !important;box-shadow:none !important;border-radius:0 !important;padding:4px 0 !important;color:#94a3b8 !important;font-size:13px !important;font-weight:500 !important;text-shadow:none !important;text-decoration:none !important;display:inline-flex !important;align-items:center;gap:6px;cursor:pointer;height:auto !important;min-width:0 !important;line-height:1.2 !important;transition:color .15s ease}
+a.dash-detail-btn:hover,
+button.dash-detail-btn:hover{background:transparent !important;color:#e2e8f0 !important}
+.dash-detail-foot a.dash-detail-btn--primary,
+.dash-detail-foot .dash-detail-btn--primary{color:#22d3ee !important}
+.dash-detail-foot a.dash-detail-btn--primary:hover,
+.dash-detail-foot .dash-detail-btn--primary:hover{color:#67e8f9 !important}
+.dash-detail-link{color:#64748b;text-decoration:none;margin-left:4px;display:inline-flex;vertical-align:middle}
+.dash-detail-link:hover{color:#22d3ee}
+.dash-summary-full{background:#1f2937;border:1px solid var(--b1,#384a60);border-radius:10px;overflow:hidden;margin-top:18px;display:flex;flex-direction:column}
+.dash-summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:12px;margin-top:12px}
+.dash-summary-card{background:#1f2937;border:1px solid var(--b1,#384a60);border-radius:10px;overflow:hidden;display:flex;flex-direction:column}
+.dash-summary-head{padding:10px 14px;border-bottom:1px solid var(--b1,#384a60);font-size:12px;font-weight:600;color:#cbd5e1;text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:baseline;gap:8px}
+.dash-summary-sub{font-size:10px;color:#64748b;font-weight:500;text-transform:none;letter-spacing:0}
+.dash-summary-body{overflow-x:auto}
+.dash-summary-table{width:100%;border-collapse:collapse;font-size:12px}
+.dash-summary-table thead th{text-align:left;padding:6px 10px;color:#94a3b8;font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--b1,#384a60);background:transparent;white-space:nowrap}
+.dash-summary-table tbody td{padding:5px 10px;color:#e2e8f0;border-bottom:1px solid rgba(56,74,96,.4);vertical-align:middle;white-space:nowrap}
+.dash-summary-table tbody tr:last-child td{border-bottom:0}
+.dash-summary-table tbody tr:hover td{background:rgba(34,211,238,.04)}
+.dash-summary-table a{color:#22d3ee;text-decoration:none}
+.dash-summary-table a:hover{color:#67e8f9;text-decoration:underline}
+.dash-summary-table--compact tbody td{padding:4px 10px;line-height:1.4}
+.dash-summary-trunc{max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dash-summary-empty{color:#64748b;text-align:center;padding:14px !important}
+a.dash-summary-icon{display:inline-flex;color:#64748b;padding:2px;border-radius:4px;transition:color .15s}
+a.dash-summary-icon:hover{color:#22d3ee;text-decoration:none}
+.dash-action-bar{display:flex;flex-wrap:wrap;gap:20px;align-items:center;margin:14px 0 18px;padding:0 4px}
+button.dash-action-link,
+.dash-action-bar button.dash-action-link,
+.dash-action-bar .dash-action-link{background:transparent !important;background-image:none !important;background-color:transparent !important;border:0 !important;box-shadow:none !important;border-radius:0 !important;padding:4px 0 !important;color:#94a3b8 !important;font-size:13px !important;font-weight:500 !important;text-shadow:none !important;display:inline-flex !important;align-items:center;gap:6px;cursor:pointer;transition:color .15s ease;line-height:1.2 !important;height:auto !important;min-width:0 !important}
+button.dash-action-link:hover,
+.dash-action-bar button.dash-action-link:hover,
+.dash-action-bar .dash-action-link:hover{background:transparent !important;color:#e2e8f0 !important}
+.dash-action-bar .dash-action-link svg{opacity:.7}
+.dash-action-bar .dash-action-link:hover svg{opacity:1}
+.dash-action-bar .dash-action-link--warn{color:#f59e0b !important}
+.dash-action-bar .dash-action-link--warn:hover{color:#fbbf24 !important}
+.dash-action-bar .dash-action-link--accent{color:#22d3ee !important}
+.dash-action-bar .dash-action-link--accent:hover{color:#67e8f9 !important}
 .dash-search-wrap{background:#1f2937;border:1px solid var(--b1);border-radius:12px;padding:24px}
 .dash-search-label{font-size:13px;color:#94a3b8;margin-bottom:10px}
 .dash-search-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
@@ -45,31 +117,100 @@
 .dash-adv-filters.is-open{display:grid}
 .dash-adv-label{font-size:12px;color:#94a3b8;margin-bottom:4px}
 .dash-adv-input,.dash-adv-select{width:100%;background:#111827!important;border:1px solid var(--b1)!important;border-radius:8px;color:var(--t2)!important;font-size:13px;padding:8px 10px!important;box-sizing:border-box}
+/* Admin dashboard course table — minimalist (matches .mm-table tokens) */
 .dash-table-wrap{margin-top:16px;overflow-x:auto}
-.dash-table{width:100%;border-collapse:collapse;font-size:13px}
-.dash-table thead th{text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.6px;padding:8px 12px;border-bottom:1px solid var(--b1);white-space:nowrap}
-.dash-table tbody tr{border-bottom:1px solid #1a2535;transition:background .12s}
-.dash-table tbody tr:hover{background:rgba(34,211,238,.04)}
-.dash-table tbody td{padding:7px 12px;color:var(--t2);vertical-align:middle;font-size:12.5px}
-.dash-table td.run-id{color:#64748b;font-size:12px}
-.dash-course-link{color:#22d3ee!important;text-decoration:none!important;font-weight:500}
-.dash-course-link:hover{color:#06b6d4!important;text-decoration:underline!important}
-.dash-badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500}
-.badge-type{background:#1f2937;color:#94a3b8;border:1px solid #2d3f55}
-.badge-type-virtual{background:rgba(59,130,246,.15);color:#60a5fa;border:1px solid rgba(59,130,246,.4)}
-.badge-type-physical{background:#1f2937;color:#94a3b8;border:1px solid #2d3f55}
-.badge-confirmed{color:#10b981;border:1px solid #10b981;background:transparent}
-.badge-pending{color:#f59e0b;border:1px solid #f59e0b;background:transparent}
-.badge-cancelled{color:#ef4444;border:1px solid #ef4444;background:transparent}
+.dash-table{width:100%;border-collapse:collapse;font-size:12px;background:transparent;table-layout:auto}
+.dash-table thead th{
+    text-align:left;font:700 12px/1.4 inherit;color:var(--t4,#94a3b8);
+    text-transform:uppercase;letter-spacing:.6px;
+    padding:6px 10px;border-bottom:1px solid var(--b1,#384a60);
+    background:transparent !important;white-space:nowrap;
+}
+.dash-table tbody tr{background:transparent !important;border:0}
+.dash-table tbody tr + tr td{border-top:1px solid var(--b1,#384a60)}
+.dash-table tbody tr:hover td{background:transparent !important;color:var(--t1,#f1f5f9)}
+.dash-table tbody td{
+    padding:6px 10px;color:var(--t2,#e2e8f0);vertical-align:middle;
+    background:transparent !important;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.dash-table td.run-id{color:var(--t4,#94a3b8);font-size:11.5px}
+/* Course title gets the widest column + ellipsis when too long */
+.dash-table thead th:nth-child(2),
+.dash-table tbody td:nth-child(2){max-width:420px}
+.dash-course-link{color:var(--t1,#f1f5f9) !important;text-decoration:none !important;font-weight:500}
+.dash-course-link:hover{color:var(--blue,#60a5fa) !important;text-decoration:underline !important}
+/* Status / type pills — transparent, thin colored border + matching text. */
+.dash-badge{
+    display:inline-block;padding:1px 8px;border-radius:999px;
+    font-size:11px;font-weight:500;line-height:1.5;
+    background:transparent !important;
+}
+.badge-type,
+.badge-type-virtual,
+.badge-type-physical{color:var(--t4,#94a3b8);border:1px solid var(--b1,#384a60)}
+.badge-confirmed{color:var(--green,#22c55e);border:1px solid var(--green,#22c55e)}
+.badge-pending{color:var(--yellow,#f59e0b);border:1px solid var(--yellow,#f59e0b)}
+.badge-cancelled{color:var(--red,#ef4444);border:1px solid var(--red,#ef4444)}
+/* Calendar / row-action icon button — transparent ghost, thin border */
+a.dash-icon-btn{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:24px;height:24px;border-radius:5px;
+    background:transparent !important;
+    border:1px solid var(--b2,#475569);
+    color:var(--t4,#94a3b8);
+    text-decoration:none !important;
+    transition:border-color .12s ease, color .12s ease;
+}
+a.dash-icon-btn:hover{
+    border-color:var(--blue,#60a5fa);
+    color:var(--blue,#60a5fa);
+    background:transparent !important;
+}
 .dash-no-results{text-align:center;padding:40px;color:#64748b;font-size:14px}
 .dash-pager{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;font-size:12px;color:#94a3b8;flex-wrap:wrap}
 .dash-pager-info{color:#64748b}
-.dash-pager-ctrls{display:flex;gap:4px;align-items:center}
-.dash-pg-btn{background:transparent;border:1px solid var(--b1);color:var(--t2);padding:5px 10px;border-radius:6px;font-size:12px;cursor:pointer;min-width:32px;transition:background .12s,border-color .12s}
-.dash-pg-btn:hover:not(.disabled){background:#1e293b;border-color:var(--b2)}
-.dash-pg-btn.active{background:#22d3ee;color:#0f172a;border-color:#22d3ee;font-weight:600}
-.dash-pg-btn.disabled{opacity:.4;cursor:not-allowed}
-.dash-pg-ellipsis{color:#64748b;padding:0 4px}
+/* ===== Minimalist admin pagination (global) =====
+   Flat text only. No backgrounds, no borders, no chips. Matches any pager
+   item class ending in `-pg-btn`, `-page-btn`, or matching `pagination-btn`.
+   Both <button> and <a> elements supported. Overrides the OpenMage legacy
+   adminhtml button gradient/border via specificity + !important. Match
+   this design for every new paged table. */
+[class*="-pager-ctrls"],
+.dev-pagination,
+.modern-pagination{display:flex !important;gap:14px !important;align-items:center;justify-content:center;background:transparent !important;border:0 !important;padding:0 !important}
+button[class*="-pg-btn"],
+a[class*="-pg-btn"],
+button[class*="-page-btn"],
+a[class*="-page-btn"],
+button.pagination-btn,
+a.pagination-btn{display:inline-block !important;background:transparent !important;background-color:transparent !important;background-image:none !important;border:0 !important;box-shadow:none !important;color:#64748b !important;padding:2px 4px !important;border-radius:0 !important;font-size:12px !important;font-weight:400 !important;cursor:pointer;min-width:0 !important;height:auto !important;line-height:1.4 !important;text-shadow:none !important;text-decoration:none !important;transition:color .12s}
+button[class*="-pg-btn"]:hover:not(.disabled),
+a[class*="-pg-btn"]:hover:not(.disabled),
+button[class*="-page-btn"]:hover:not(.disabled),
+a[class*="-page-btn"]:hover:not(.disabled),
+button.pagination-btn:hover:not(.disabled),
+a.pagination-btn:hover:not(.disabled){color:#e2e8f0 !important;background:transparent !important;border:0 !important;box-shadow:none !important;text-decoration:none !important}
+button[class*="-pg-btn"]:focus,button[class*="-pg-btn"]:active,
+a[class*="-pg-btn"]:focus,a[class*="-pg-btn"]:active,
+button[class*="-page-btn"]:focus,button[class*="-page-btn"]:active,
+a[class*="-page-btn"]:focus,a[class*="-page-btn"]:active,
+button.pagination-btn:focus,button.pagination-btn:active{outline:none !important;box-shadow:none !important;background:transparent !important;border:0 !important}
+button[class*="-pg-btn"].active,
+a[class*="-pg-btn"].active,
+button[class*="-page-btn"].active,
+a[class*="-page-btn"].active,
+button.pagination-btn.active,
+a.pagination-btn.active{color:#22d3ee !important;font-weight:600 !important;background:transparent !important;border:0 !important}
+button[class*="-pg-btn"].disabled,
+a[class*="-pg-btn"].disabled,
+button[class*="-page-btn"].disabled,
+a[class*="-page-btn"].disabled,
+button.pagination-btn.disabled,
+a.pagination-btn.disabled{opacity:.35 !important;cursor:not-allowed;pointer-events:none}
+[class*="-pg-ellipsis"],
+[class*="-page-ellipsis"],
+.pagination-ellipsis{color:#475569 !important;padding:0 2px !important;background:transparent !important}
 
 /* --- Block 2 (template line 1393) --- */
 /* Kill top gap: the admin layout's .middle has ~24px padding and .content-header has
@@ -139,16 +280,37 @@ body.adminhtml-dashboard-index .main-col-inner{padding-top:0 !important;margin-t
 .dev-grid.dev-grid-list .dev-card-title{display:flex;flex-direction:column}
 @media(max-width:1024px){.dev-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:640px){.dev-grid{grid-template-columns:1fr}}
-.dev-country-tabs{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 24px}
-a.dev-country-btn,a.dev-country-btn:hover,a.dev-country-btn:focus,a.dev-country-btn:active,button.dev-country-btn,button.dev-country-btn:hover,button.dev-country-btn:focus,button.dev-country-btn:active{padding:9px 20px !important;background:#1e293b !important;background-image:none !important;border:1px solid #334155 !important;border-radius:8px !important;color:#94a3b8 !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;display:inline-flex !important;align-items:center !important;gap:6px !important;text-decoration:none !important}
-a.dev-country-btn:hover,button.dev-country-btn:hover{background:#334155 !important;color:#e2e8f0 !important}
-a.dev-country-btn.active,a.dev-country-btn.active:hover,a.dev-country-btn.active:focus,button.dev-country-btn.active,button.dev-country-btn.active:hover,button.dev-country-btn.active:focus{background:#2563eb !important;background-image:none !important;border-color:#3b82f6 !important;color:#fff !important}
-.dev-pagination{display:flex;justify-content:center;align-items:center;gap:6px;margin:28px 0 10px;flex-wrap:wrap}
-.dev-pagination a.dev-page-btn,.dev-pagination a.dev-page-btn:hover{display:inline-flex;align-items:center;justify-content:center;min-width:36px;height:36px;padding:0 12px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#94a3b8;font-size:13px;font-weight:600;text-decoration:none !important;transition:all .15s}
-.dev-pagination a.dev-page-btn:hover{background:#334155;color:#fff}
-.dev-pagination a.dev-page-btn.active{background:#2563eb;border-color:#3b82f6;color:#fff}
-.dev-pagination a.dev-page-btn.disabled{opacity:.4;pointer-events:none}
-.dev-page-ellipsis{color:#64748b;padding:0 4px}
+.dev-country-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 18px}
+/* Country/store filter pills — match the mm-btn family.
+   Default = ghost (transparent + thin border), active = solid blue primary. */
+a.dev-country-btn,a.dev-country-btn:hover,a.dev-country-btn:focus,a.dev-country-btn:active,
+button.dev-country-btn,button.dev-country-btn:hover,button.dev-country-btn:focus,button.dev-country-btn:active{
+    display:inline-flex !important;align-items:center !important;gap:6px !important;
+    height:28px !important;min-height:28px !important;padding:2px 14px !important;
+    background:transparent !important;background-image:none !important;
+    border:1px solid var(--b2,#475569) !important;border-radius:6px !important;
+    color:var(--t3,#cbd5e1) !important;
+    font:500 12px/1 inherit !important;text-transform:none !important;letter-spacing:0 !important;
+    cursor:pointer !important;text-decoration:none !important;
+    box-shadow:none !important;text-shadow:none !important
+}
+a.dev-country-btn:hover,button.dev-country-btn:hover{
+    background:rgba(96,165,250,.08) !important;
+    border-color:var(--blue,#60a5fa) !important;
+    color:var(--t1,#f1f5f9) !important
+}
+a.dev-country-btn.active,a.dev-country-btn.active:hover,a.dev-country-btn.active:focus,
+button.dev-country-btn.active,button.dev-country-btn.active:hover,button.dev-country-btn.active:focus{
+    background:#2563eb !important;background-image:none !important;
+    border-color:#2563eb !important;
+    color:#fff !important
+}
+/* Legacy filled-chip `.dev-pagination` rules retired 2026-05-19 — the
+   global minimalist pager block (further down this file) now styles
+   `[class$="-page-btn"]` / `[class$="-pg-btn"]` uniformly. Keep this
+   container declaration only for layout (margin); colors/borders come
+   from the global rule. */
+.dev-pagination{margin:28px 0 10px;flex-wrap:wrap}
 
 /* --- Block 4 (template line 2092) --- */
 /* Editing mode replaces the project's standard left sidebar (Manage Courses,
@@ -174,7 +336,9 @@ body:has(.dcf-edit-sidebar) .sidebar-toggle { display: none !important; }
    nav links in the role sidebars — kill default user-agent button styling
    and admin-theme button overrides, and explicitly left-align the text. */
 .dcf-edit-sidebar .lms-nav-item,
-.dcf-edit-sidebar button.lms-nav-item {
+.dcf-edit-sidebar button.lms-nav-item,
+.dcf-edit-sidebar .dcf-nav-group-head,
+.dcf-edit-sidebar button.dcf-nav-group-head {
     cursor: pointer !important;
     background: transparent !important;
     background-image: none !important;
@@ -199,6 +363,7 @@ body:has(.dcf-edit-sidebar) .sidebar-toggle { display: none !important; }
     text-shadow: none !important;
     height: auto !important;
 }
+.dcf-edit-sidebar .dcf-nav-group-head { gap: 8px !important; }
 /* The label sits in an inner <span>; §18's `.admin-main button span`
    forces it white. Scope the gray onto the span itself with high
    specificity (+ body .admin-main) so it actually wins. */
@@ -221,6 +386,45 @@ body .admin-main .dcf-edit-sidebar .lms-nav-item.active span {
 body .admin-main .dcf-edit-sidebar .lms-nav-item.active {
     border-left-color: #258bb6 !important;
 }
+
+/* Collapsible nav group (e.g. "Marketing" wrapping Meta/Related/Up-sells/Cross-sells).
+   Base typography inherited from the shared .lms-nav-item / .dcf-nav-group-head rule above. */
+.dcf-edit-sidebar .dcf-nav-group{display:block;width:100%}
+/* §18 forces .admin-main button span to white+bold — defeat it on the group head
+   so the label matches the muted-gray of Course Review. */
+body .admin-main .dcf-edit-sidebar .dcf-nav-group-head span{
+    flex:0 0 auto !important;
+    text-align:left !important;
+    font-weight:500 !important;
+    color:#94a3b8 !important
+}
+body .admin-main .dcf-edit-sidebar .dcf-nav-group-head:hover,
+body .admin-main .dcf-edit-sidebar .dcf-nav-group-head:hover span{
+    background:transparent !important;
+    color:#cbd5e1 !important
+}
+/* Chevron sits on the right edge of the row */
+.dcf-edit-sidebar .dcf-nav-group-chev{
+    margin-left:auto !important;
+    flex:0 0 auto !important
+}
+.dcf-edit-sidebar .dcf-nav-group-chev{
+    flex:0 0 auto;color:#64748b;
+    transition:transform .15s ease
+}
+.dcf-edit-sidebar .dcf-nav-group:not(.collapsed) .dcf-nav-group-chev{transform:rotate(90deg)}
+.dcf-edit-sidebar .dcf-nav-group-body{display:block}
+.dcf-edit-sidebar .dcf-nav-group.collapsed .dcf-nav-group-body{display:none}
+/* Indent the child tabs inside a group so the hierarchy is obvious */
+body .admin-main .dcf-edit-sidebar .dcf-nav-group-body .lms-nav-item{
+    padding-left:32px !important;
+    font-size:13px !important
+}
+/* Collapsed-rail mode: hide the chevron + label, just show nothing for groups
+   (the parent's icon-only rail isn't meaningful for a heading-only row). */
+body.dcf-rail-collapsed .dcf-edit-sidebar .dcf-nav-group-head{display:none !important}
+body.dcf-rail-collapsed .dcf-edit-sidebar .dcf-nav-group .dcf-nav-group-body{display:block !important}
+body.dcf-rail-collapsed .dcf-edit-sidebar .dcf-nav-group-body .lms-nav-item{padding-left:0 !important}
 /* Collapsible dcf editor sidebar — JS injects .dcf-rail-toggle and
    toggles body.dcf-rail-collapsed. */
 /* Plain chevron icon, no blue button — matches page.phtml's
@@ -267,9 +471,9 @@ body.dcf-rail-collapsed .dcf-rail-toggle {
 }
 
 /* Editing form — same layout as read-only view, just with input fields */
-.dcf-wrap{max-width:1400px;margin:0 auto}
+.dcf-wrap{max-width:1400px;margin:0}
 .dcf-header{display:flex;flex-direction:column;align-items:stretch;margin-bottom:18px;gap:12px}
-.dcf-title{font-size:24px;font-weight:700;color:#fff;flex:1;margin:0;line-height:1.3}
+.dcf-title{font-size:28px;font-weight:700;color:var(--t1,#f1f5f9);flex:1;margin:0;line-height:1.2}
 /* Row 2: course-code badge (left) on the same line as the action
    buttons (right). Title <h1> stays on its own row above. */
 .dcf-header-row2{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
@@ -305,14 +509,13 @@ button.dcf-btn-save{background:#2563eb !important;color:#fff !important}
 .dcf-mag{background:#1e293b;border:1px solid #334155;border-radius:10px;margin-bottom:16px;overflow:hidden}
 .dcf-mag-bar{background:linear-gradient(to bottom,#334155,#2a374a);color:#f1f5f9;padding:13px 22px;font-size:15px;font-weight:700;border-bottom:1px solid #1e293b;display:flex;align-items:center;justify-content:space-between;gap:8px}
 .dcf-mag-bar .dcf-mag-action{background:#0e7490;color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer}
-.dcf-mag-body{padding:18px 24px}
+.dcf-mag-body{padding:8px 24px}
 /* Magento-style 3-column row: label | input | scope tag */
-.dcf-row{display:grid;grid-template-columns:220px minmax(0,1fr) 110px;gap:18px;align-items:flex-start;padding:12px 0;border-bottom:1px solid rgba(51,65,85,.4)}
-.dcf-row:last-child{border-bottom:none}
-.dcf-row-label{font-size:13.5px;color:#cbd5e1;line-height:1.4;padding-top:11px}
+.dcf-row{display:grid;grid-template-columns:220px minmax(0,1fr) 110px;gap:18px;align-items:flex-start;padding:6px 0;border-bottom:none}
+.dcf-row-label{font-size:13.5px;color:#cbd5e1;line-height:1.4;padding-top:9px}
 .dcf-row-label .dcf-required{color:#f87171;margin-left:2px}
 .dcf-row-input{min-width:0}
-.dcf-row-scope{color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:.5px;padding-top:13px;text-align:right;font-weight:500}
+.dcf-row-scope{color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:.5px;padding-top:11px;text-align:right;font-weight:500}
 .dcf-row-help{color:#64748b;font-size:12px;margin-top:6px;line-height:1.5}
 @media(max-width:1100px){.dcf-row{grid-template-columns:1fr;gap:4px}.dcf-row-label{padding-top:0}.dcf-row-scope{padding-top:0;text-align:left}}
 /* Legacy stacked field — kept for Course Details / project-specific sections that don't use rows */
@@ -358,10 +561,33 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                 .lsn-topic-drag:hover{color:#cbd5e1}
                 .lsn-topic-drag span{display:block;width:14px;height:2px;background:currentColor;border-radius:1px;pointer-events:none}
                 .lsn-topic-title{flex:1;background:transparent;border:none;color:#f1f5f9;font-size:15px;font-weight:700;outline:none;padding:4px 0;font-family:inherit}
-                .lsn-topic-btn{background:transparent;border:none;cursor:pointer;padding:6px;display:flex;color:#94a3b8;border-radius:6px}
-                .lsn-topic-btn:hover{background:rgba(255,255,255,.05);color:#e2e8f0}
-                .lsn-topic-btn.lsn-del{color:#fb7185}
-                .lsn-topic-btn.lsn-del:hover{color:#f43f5e}
+                .lsn-topic-btn,
+                .lsn-topic-btn:hover,
+                .lsn-topic-btn:focus,
+                .lsn-topic-btn:active{
+                    background:transparent !important;
+                    background-image:none !important;
+                    border:1px solid #475569 !important;
+                    border-radius:5px !important;
+                    cursor:pointer;
+                    padding:0 !important;
+                    width:26px !important;
+                    height:26px !important;
+                    display:inline-flex !important;
+                    align-items:center !important;
+                    justify-content:center !important;
+                    color:#cbd5e1 !important;
+                    box-shadow:none !important;
+                    text-shadow:none !important;
+                    transform:none !important;
+                    font-size:0 !important;
+                }
+                .lsn-topic-btn:hover{background:rgba(96,165,250,.12) !important;border-color:#60a5fa !important;color:#60a5fa !important}
+                .lsn-topic-btn.lsn-del,
+                .lsn-topic-btn.lsn-del:hover,
+                .lsn-topic-btn.lsn-del:focus{color:#fb7185 !important}
+                .lsn-topic-btn.lsn-del:hover{background:rgba(248,113,113,.10) !important;border-color:#f87171 !important;color:#f87171 !important}
+                .lsn-topic-btn svg{width:14px !important;height:14px !important;stroke:currentColor !important;fill:none !important;display:block !important}
                 .lsn-topic-body{padding:14px 16px;display:none}
                 .lsn-topic.open .lsn-topic-body{display:block}
                 .lsn-topic.open .lsn-caret-svg{transform:rotate(180deg)}
@@ -382,16 +608,22 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                 .lsn-tag-yt {background:#f87171}   /* red    */
                 .lsn-tag-act{background:#c084fc}   /* purple */
                 .lsn-tag-qz {background:#22c55e}   /* green  */
-                .lsn-subsec-del{background:transparent;border:none;cursor:pointer;color:#64748b;padding:4px;border-radius:4px;display:flex;flex-shrink:0}
-                .lsn-subsec-del:hover{color:#fb7185}
+                .lsn-subsec-del,
+                .lsn-subsec-del:hover,
+                .lsn-subsec-del:focus,
+                .lsn-subsec-del:active{background:transparent !important;background-image:none !important;border:1px solid #475569 !important;cursor:pointer;color:#94a3b8 !important;padding:0 !important;width:24px !important;height:24px !important;border-radius:5px !important;display:inline-flex !important;align-items:center !important;justify-content:center !important;flex-shrink:0;box-shadow:none !important;text-shadow:none !important;transform:none !important;font-size:0 !important}
+                .lsn-subsec-del:hover{background:rgba(248,113,113,.10) !important;border-color:#f87171 !important;color:#f87171 !important}
                 .lsn-add-subsec{background:transparent;border:1px dashed #475569;border-radius:8px;color:#94a3b8;font-size:13px;font-weight:600;cursor:pointer;padding:8px 12px;display:inline-flex;align-items:center;gap:6px;margin-bottom:14px}
                 .lsn-add-subsec:hover{border-color:#22c55e;color:#22c55e}
                 .lsn-link-title{flex:1;min-width:0;background:transparent;border:none;color:#f1f5f9;font-size:14px;font-weight:600;outline:none;padding:4px 6px;border-radius:4px;font-family:inherit}
                 .lsn-link-title:focus{background:rgba(96,165,250,.1)}
                 .lsn-link-url{flex:1;min-width:0;background:transparent;border:none;color:#cbd5e1;font-size:13px;outline:none;padding:4px 6px;border-radius:4px;font-family:monospace;overflow:hidden;text-overflow:ellipsis}
                 .lsn-link-url:focus{background:rgba(96,165,250,.1);color:#f1f5f9}
-                .lsn-link-del{background:transparent;border:none;cursor:pointer;color:#64748b;padding:4px;border-radius:4px;display:flex}
-                .lsn-link-del:hover{color:#fb7185}
+                .lsn-link-del,
+                .lsn-link-del:hover,
+                .lsn-link-del:focus,
+                .lsn-link-del:active{background:transparent !important;background-image:none !important;border:1px solid #475569 !important;cursor:pointer;color:#94a3b8 !important;padding:0 !important;width:24px !important;height:24px !important;border-radius:5px !important;display:inline-flex !important;align-items:center !important;justify-content:center !important;box-shadow:none !important;text-shadow:none !important;transform:none !important;font-size:0 !important}
+                .lsn-link-del:hover{background:rgba(248,113,113,.10) !important;border-color:#f87171 !important;color:#f87171 !important}
                 /* Compact action row — five buttons inline, one line. The
                    higher-specificity `button.lsn-add-btn` + !important wins
                    over admin's default blue button block. */
@@ -479,16 +711,33 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                 .tr-picker-tag-x:hover{color:#fb7185}
 
 /* --- Block 10 (template line 4032) --- */
-                    .cs-tbl{width:100%;border-collapse:collapse;font-size:13px;background:#1e293b;border-radius:8px;overflow:hidden;border:1px solid #384a60}
-                    .cs-tbl thead tr{background:#334155;color:#cbd5e1}
-                    .cs-tbl th{padding:8px 10px;text-align:left;font-weight:600;font-size:12px}
-                    .cs-tbl td{padding:6px 10px;color:#e2e8f0;border-top:1px solid #384a60;vertical-align:middle}
+                    /* Course Schedule editor — collapsible per-option sections */
+                    .cs-opt{background:transparent;border-top:1px solid var(--b1,#384a60);padding:0}
+                    .cs-opt:last-of-type{border-bottom:1px solid var(--b1,#384a60)}
+                    body .admin-main button.cs-opt-head{display:flex !important;align-items:center !important;gap:10px !important;width:100% !important;background:transparent !important;background-image:none !important;border:0 !important;border-radius:0 !important;padding:12px 4px !important;cursor:pointer !important;text-align:left !important;color:var(--t1,#f1f5f9) !important;font:600 14px/1.2 inherit !important;text-transform:none !important;letter-spacing:0 !important;box-shadow:none !important;text-shadow:none !important;height:auto !important;min-height:0 !important}
+                    body .admin-main button.cs-opt-head:hover{background:rgba(96,165,250,.05) !important}
+                    .cs-opt-chev{flex:0 0 auto;color:var(--t4,#94a3b8);transition:transform .15s ease}
+                    .cs-opt:not(.cs-collapsed) .cs-opt-chev{transform:rotate(90deg)}
+                    .cs-opt-title{flex:0 0 auto;margin-right:auto}
+                    .cs-opt-meta{display:none}
+                    .cs-opt-body{padding:4px 4px 14px;display:block}
+                    .cs-opt.cs-collapsed .cs-opt-body{display:none}
+
+                    /* Course Schedule editor — minimalist, compact (matches .mm-table-tight) */
+                    .cs-tbl{width:100%;border-collapse:collapse;font-size:11.5px;background:transparent}
+                    .cs-tbl thead tr{background:transparent}
+                    .cs-tbl th{padding:4px 8px;text-align:left;background:transparent;font:700 11px/1.4 inherit;text-transform:uppercase;letter-spacing:.6px;color:var(--t4,#94a3b8);border-bottom:1px solid var(--b1,#384a60)}
+                    .cs-tbl td{padding:2px 8px;color:var(--t2,#e2e8f0);background:transparent;vertical-align:middle;line-height:1}
+                    .cs-tbl tbody tr + tr td{border-top:1px solid var(--b1,#384a60)}
                     .cs-tbl tr.cs-marked-remove td{opacity:.45;text-decoration:line-through}
-                    .cs-input{width:100%;padding:6px 10px;background:#0f172a;border:1px solid #475569;border-radius:6px;color:#e2e8f0;font-size:13px;box-sizing:border-box}
-                    .cs-input:focus{outline:none;border-color:#60a5fa}
-                    .cs-input.cs-w-price{width:90px}
-                    .cs-input.cs-w-sort{width:64px}
-                    .cs-id{color:#94a3b8;font-family:monospace;font-size:12px}
+                    .cs-input{width:100%;height:24px;padding:2px 8px;background:transparent !important;border:1px solid var(--b2,#475569);border-radius:5px;color:var(--t2,#e2e8f0);font-size:12px;line-height:1;box-sizing:border-box}
+                    .cs-input:focus{outline:none;border-color:var(--blue,#60a5fa);background:rgba(96,165,250,.06) !important}
+                    .cs-input.cs-w-price{width:84px}
+                    .cs-input.cs-w-sort{width:78px}
+                    .cs-id{color:var(--t4,#94a3b8);font-family:monospace;font-size:11.5px}
+                    /* Shrink the row-action trash so it doesn't bloat the row */
+                    body .admin-main .cs-tbl .cs-rm-btn{width:24px !important;min-width:24px !important;height:22px !important;min-height:22px !important;border-radius:4px !important}
+                    body .admin-main .cs-tbl .cs-rm-btn svg{width:12px !important;height:12px !important}
                     /* Scoped under body .admin-main + !important so the
                        §18 generic blue-button rule (which was turning
                        these into blank blue boxes) can't win. */
@@ -498,12 +747,12 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                     body .admin-main .cs-rm-btn{display:inline-flex !important;align-items:center !important;justify-content:center !important;width:30px !important;min-width:30px !important;height:28px !important;min-height:28px !important;padding:0 !important;background:transparent !important;background-image:none !important;border:1px solid var(--b2,#475569) !important;color:var(--t4,#9ca3af) !important;border-radius:6px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;line-height:1 !important}
                     body .admin-main .cs-rm-btn svg{width:15px !important;height:15px !important;display:block !important}
                     body .admin-main .cs-rm-btn:hover{background:rgba(96,165,250,.12) !important;border-color:var(--blue,#60a5fa) !important;color:var(--blue,#60a5fa) !important}
-                    body .admin-main .cs-rm-btn.active{background:var(--blue,#2563eb) !important;border-color:var(--blue,#2563eb) !important;color:#fff !important}
+                    body .admin-main .cs-rm-btn.active{background:#2563eb !important;border-color:#2563eb !important;color:#fff !important}
 
 /* --- Block 11 (template line 4219) --- */
-.dce-wrap{max-width:1400px;margin:0 auto}
+.dce-wrap{max-width:1400px;margin:0}
 .dce-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:16px}
-.dce-title{font-size:24px;font-weight:700;color:#fff;flex:1;margin:0;line-height:1.3}
+.dce-title{font-size:28px;font-weight:700;color:var(--t1,#f1f5f9);flex:1;margin:0;line-height:1.2}
 .dce-title-sub{display:inline-block;background:rgba(34,211,238,.12);border:1px solid rgba(34,211,238,.25);color:#22d3ee;font-size:12px;font-weight:700;padding:4px 10px;border-radius:6px;margin-top:8px;letter-spacing:.3px}
 .dce-actions{display:flex;gap:10px;flex-shrink:0}
 button.dce-cancel-btn,button.dce-cancel-btn:hover,button.dce-cancel-btn:focus{background:#334155 !important;background-image:none !important;color:#e2e8f0 !important;border:1px solid #475569 !important;border-radius:8px !important;padding:10px 24px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
@@ -580,7 +829,8 @@ div.dce-value::-webkit-scrollbar-thumb:hover{background:#64748b}
                         .dce-topic-empty{color:#64748b;font-size:13px;font-style:italic;padding:8px 0}
 
 /* --- Block 13 (template line 4564) --- */
-.lcd-wrap{padding:0;max-width:1600px;margin:0 auto}
+.lcd-wrap{padding:0;max-width:1600px;margin:0;font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Roboto,sans-serif}
+.lcd-wrap,.lcd-wrap *{font-family:inherit}
 .lcd-two-col{display:flex;gap:24px;align-items:flex-start}
 /* Default (100% zoom / normal width): sidebar hidden, button visible */
 .lcd-sidebar-details{display:none;width:280px;min-width:280px;flex-shrink:0;background:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px;position:sticky;top:70px;max-height:calc(100vh - 90px);overflow-y:auto}
@@ -768,7 +1018,7 @@ a.lmc-card,a.lmc-card:hover,a.lmc-card:focus,a.lmc-card:active{text-decoration:n
 .lmc-card-footer{padding:12px 18px;border-top:1px solid rgba(255,255,255,.08);display:flex;justify-content:space-between;align-items:center;margin-top:auto}
 .lmc-card-footer span{color:#60a5fa;font-size:13px;font-weight:600}
 .lmc-card-footer .lmc-arrow{width:28px;height:28px;border-radius:50%;background:#2563eb;display:flex;align-items:center;justify-content:center;transition:background .15s}
-.lmc-card:hover .lmc-arrow{background:#3b82f6}
+.lmc-card:hover .lmc-arrow{background:#1d4ed8}
 .lmc-card:hover .lmc-card-title{color:#60a5fa}
 .lmc-card-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0}
 .lmc-card-label{color:#94a3b8;font-size:12px;font-weight:600}
@@ -780,7 +1030,7 @@ a.lmc-card,a.lmc-card:hover,a.lmc-card:focus,a.lmc-card:active{text-decoration:n
 .lmc-card-footer{padding:10px 14px;border-top:1px solid #374151;display:flex;justify-content:space-between;align-items:center;margin-top:auto}
 .lmc-card-footer span{color:#e5e7eb;font-size:13px;font-weight:600}
 .lmc-card-footer .lmc-arrow{width:28px;height:28px;border-radius:50%;background:#2563eb;display:flex;align-items:center;justify-content:center;transition:background .15s}
-.lmc-card:hover .lmc-arrow{background:#3b82f6}
+.lmc-card:hover .lmc-arrow{background:#1d4ed8}
 .lmc-empty{text-align:center;padding:60px 20px;color:#6b7280}
 .lmc-empty svg{margin-bottom:12px;opacity:.5}
 @media(max-width:1024px){.lmc-grid{grid-template-columns:repeat(2,1fr)}.lmc-kpi{grid-template-columns:repeat(3,1fr)}}
@@ -940,7 +1190,7 @@ a.lmc-card,a.lmc-card:hover,a.lmc-card:focus,a.lmc-card:active{text-decoration:n
         .trn-fld:focus{outline:none;border-color:#22d3ee}
 
 /* --- Block 23 (template line 7292) --- */
-.cp-wrap{max-width:1000px;margin:0 auto;padding:0 0 60px}
+.cp-wrap{max-width:1000px;margin:0;padding:0 0 60px}
 .cp-header{margin-bottom:24px}
 .cp-header h1{font-size:26px;font-weight:700;color:var(--t1);margin:0 0 6px}
 .cp-header p{font-size:13px;color:#94a3b8;margin:0}
@@ -1548,8 +1798,8 @@ if ($_cncActive) {
 <div id="dash-panel-createclass" style="display:none;">
 
 /* --- Block 26 (template line 9052) --- */
-.cnc-wrap{max-width:1100px;margin:0 auto;padding:24px 28px;color:#e2e8f0}
-.cnc-title{font-size:30px;font-weight:700;color:#fff;margin:0 0 8px}
+.cnc-wrap{max-width:1100px;margin:0;padding:24px 0;color:#e2e8f0}
+.cnc-title{font-size:28px;font-weight:700;color:var(--t1,#f1f5f9);margin:0 0 8px;line-height:1.2}
 .cnc-subtitle{font-size:18px;font-weight:600;color:#cbd5e1;margin:0 0 20px}
 .cnc-card{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:22px 24px;margin-bottom:18px}
 .cnc-card-title{font-size:18px;font-weight:700;color:#fff;margin:0 0 18px}
@@ -1599,11 +1849,11 @@ button.cnc-btn,button.cnc-btn:hover,button.cnc-btn:focus{padding:11px 26px !impo
 button.cnc-btn-cancel,button.cnc-btn-cancel:hover,button.cnc-btn-cancel:focus{background:transparent !important;background-image:none !important;color:#cbd5e1 !important;border-color:#475569 !important}
 button.cnc-btn-cancel:hover{background:#1e293b !important}
 button.cnc-btn-primary,button.cnc-btn-primary:hover,button.cnc-btn-primary:focus{background:#2563eb !important;background-image:none !important;color:#fff !important;border-color:#2563eb !important}
-button.cnc-btn-primary:hover{background:#3b82f6 !important;border-color:#3b82f6 !important}
+button.cnc-btn-primary:hover{background:#1d4ed8 !important;border-color:#1d4ed8 !important}
 @media(max-width:900px){.cnc-row,.cnc-row-3,.cnc-row-4{grid-template-columns:1fr}}
 
 /* --- Block 27 (template line 9756) --- */
-.at-wrap{max-width:1400px;margin:0 auto;padding:24px 28px;color:#e2e8f0}
+.at-wrap{max-width:1400px;margin:0;padding:24px 0;color:#e2e8f0}
 .at-header{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:22px}
 .at-title{font-size:28px;font-weight:700;color:#fff;margin:0}
 .at-back-link{color:#fff;font-size:14px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
@@ -1692,9 +1942,9 @@ button.at-pg-btn.disabled,button.at-pg-btn.disabled:hover{opacity:.45;cursor:not
 
 /* --- Block 28 (template line 10655) --- */
 /* Assign Learners — mirrors Assign Trainer styles (al- prefix). */
-.al-wrap{max-width:1400px;margin:0 auto;padding:24px 28px;color:#e2e8f0}
+.al-wrap{max-width:1400px;margin:0;padding:24px 0;color:#e2e8f0}
 .al-header{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:22px}
-.al-title{font-size:28px;font-weight:700;color:#fff;margin:0}
+.al-title{font-size:28px;font-weight:700;color:var(--t1,#f1f5f9);margin:0;line-height:1.2}
 .al-back-link{color:#fff;font-size:14px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
 .al-back-link:hover{color:#93c5fd}
 .al-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:22px}
@@ -1780,7 +2030,7 @@ button.alm-trainer-remove:hover{color:#ef4444 !important}
 button.al-action-close,button.al-action-close:hover,button.al-action-close:focus{background:rgba(100,116,139,.18) !important;color:#cbd5e1 !important;border-color:rgba(100,116,139,.4) !important}
 
 /* --- Block 30 (template line 11420) --- */
-.el-wrap{max-width:1400px;margin:0 auto;padding:24px 28px;color:#e2e8f0}
+.el-wrap{max-width:1400px;margin:0;padding:24px 0;color:#e2e8f0}
 .el-header{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:22px}
 .el-title{font-size:28px;font-weight:700;color:#fff;margin:0}
 .el-back-link{color:#fff;font-size:14px;font-weight:600;text-decoration:none}
@@ -1840,9 +2090,9 @@ button.el-btn-primary:hover{background:#1d4ed8 !important}
 @media(max-width:900px){.el-row,.el-split{grid-template-columns:1fr}}
 
 /* --- Block 31 (template line 12075) --- */
-.mn-wrap{max-width:1500px;margin:0 auto;padding:24px 28px;color:#e2e8f0}
+.mn-wrap{max-width:1500px;margin:0;padding:24px 0;color:#e2e8f0}
 .mn-head{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:18px}
-.mn-title{font-size:28px;font-weight:700;color:#fff;margin:0}
+.mn-title{font-size:28px;font-weight:700;color:var(--t1,#f1f5f9);margin:0;line-height:1.2}
 .mn-sub{font-size:13px;color:#94a3b8;margin:4px 0 0}
 .mn-stub-pill{display:inline-block;margin-left:8px;padding:3px 8px;border-radius:6px;background:rgba(245,158,11,.18);color:#fcd34d;border:1px solid rgba(245,158,11,.4);font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
 .mn-toprow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:18px;margin-bottom:18px}
@@ -2008,3 +2258,28 @@ button.mn-vp-btn.active,button.mn-vp-btn.active:hover,button.mn-vp-btn.active:fo
 .mn-draft-modal-stage[data-vp="mobile"] iframe.mn-iframe{width:390px;max-width:100%;height:100%;min-height:600px;border-radius:18px;box-shadow:0 4px 20px rgba(0,0,0,.35);background:#fff}
 .mn-draft-modal-loading{flex:1;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px;font-style:italic}
 @keyframes mnFadeIn{from{opacity:0}to{opacity:1}}
+
+/* Minimalist button system moved to dark-theme.css so it applies
+   on every admin page (this file only loads on dashboard surfaces). */
+
+/* ===== Global page-title type ramp =====
+   Every admin page heading collapses to one canonical size — 28px / 700 —
+   regardless of which panel it lives in. Each MMD panel previously
+   declared its own `.dash-title`, `.dev-title`, `.edt-title`,
+   `.lmc-title`, `.trn-title`, `.dce-title`, `.cnc-title`, `.at-title`,
+   `.al-title`, `.el-title` with bespoke sizes (24/26/28px). The single
+   selector below normalises all of them; existing per-class rules above
+   keep their non-typographic properties (margins, line-height tweaks).
+   Native Magento `.content-header h3` is rolled in for parity on stock
+   admin pages (Cache, System Config, customer grid, etc.). */
+.admin-main h1[class*="-title"],
+.admin-main h2.lmc-title,
+.admin-main .content-header h3,
+.admin-main .content-header h3.icon-head{
+  font-size:28px !important;
+  font-weight:700 !important;
+  color:var(--t1,#f1f5f9) !important;
+  line-height:1.2 !important;
+  margin:0 0 24px !important;
+  text-shadow:none !important;
+}

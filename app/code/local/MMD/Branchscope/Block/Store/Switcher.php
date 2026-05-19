@@ -22,6 +22,22 @@ class MMD_Branchscope_Block_Store_Switcher extends Mage_Adminhtml_Block_Store_Sw
             return '';
         }
 
+        // Roles that don't get a branch switcher:
+        //  - learner / trainer: scoped to their own registration country.
+        //  - developer: course catalog is shared across all countries
+        //    (one product = all branches), so a per-country pill is noise.
+        //  - marketing: campaigns and newsletter content are authored
+        //    cross-country; the operator doesn't pick a branch here.
+        // Other roles (admin, training_provider, super admin) still see
+        // the pills.
+        try {
+            $_activeRole = Mage::helper('mmd_rolemanager')->getActiveRoleCode();
+            if (in_array($_activeRole, array('learner', 'trainer', 'developer', 'marketing'), true)) {
+                return '';
+            }
+        } catch (Exception $e) { /* role helper unavailable — render normally */ }
+          catch (Error $e)     { /* same */ }
+
         /** @var MMD_Branchscope_Helper_Data $helper */
         $helper = Mage::helper('branchscope');
 

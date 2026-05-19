@@ -253,13 +253,14 @@ class MMD_Enhancedsalesgrid_Block_Sales_Order_Grid extends Mage_Adminhtml_Block_
         if (Mage::getSingleton('admin/session')->isAllowed('sales/order/actions/view')) {
             $this->addColumn('action', array(
                 'header'   => Mage::helper('sales')->__('Action'),
-                'width'    => '110px',
+                'width'    => '88px',
                 'type'     => 'action',
-                // No custom renderer — `type => action` uses the core
-                // Mage_Adminhtml_..._Renderer_Action which renders the
-                // `actions` array below. The previously-referenced
-                // MMD_..._Renderer_Actionlinks class was never committed,
-                // so createBlock() returned false and fataled the grid.
+                // No per-grid renderer — `type => action` resolves to
+                // the global Mage_Adminhtml_..._Renderer_Action, which is
+                // rewritten by MMD_Adminhtml's blocks rewrite to emit
+                // icon buttons for every admin grid. Single source of
+                // truth lives at
+                // app/code/local/MMD/Adminhtml/Block/Widget/Grid/Column/Renderer/Action.php.
                 'getter'   => 'getId',
                 'actions'  => array(
                     array(

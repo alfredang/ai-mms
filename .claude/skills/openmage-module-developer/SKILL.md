@@ -326,6 +326,56 @@ Use `MMD_RoleManager_Helper_Data::isRoleAllowed(['admin', 'training_provider'])`
    - Click loads without "Page not found" (if so → admin router block missing).
 3. Run the `openmage-code-reviewer` skill on the new files.
 
+## Custom grid column renderers (Edit/Delete icons, badges, custom HTML)
+
+When a grid needs a custom action column — e.g. inline Edit + Delete **icons** instead of the legacy `<select>` "Actions ▾" dropdown produced by `'type' => 'action'` — write a renderer block and wire it up by **block alias**, not class name.
+
+**Renderer class** — extend `Mage_Adminhtml_Block_Widget_Grid_Column_Renderer_Abstract` and implement `render(Varien_Object $row)`. File goes under your module's `Block/.../Renderer/` dir following the standard class-name→path mapping. Example: [Action.php](app/code/local/MMD/Adminhtml/Block/Customoptions/Options/Renderer/Action.php).
+
+**Grid wire-up** — in `_prepareColumns()`:
+
+```php
+$this->addColumn('action', array(
+    'header'    => $helper->__('Action'),
+    'width'     => 80,
+    'renderer'  => 'mmd/customoptions_options_renderer_action',  // block ALIAS — NOT a class name
+    'filter'    => false,
+    'sortable'  => false,
+    'is_system' => true,
+));
+```
+
+**Gotcha — `renderer` must be a block alias.** Magento resolves it via `getLayout()->createBlock($rendererClass)` in [Mage_Adminhtml_Block_Widget_Grid_Column::getRenderer()](app/code/core/Mage/Adminhtml/Block/Widget/Grid/Column.php). Passing a fully-qualified PHP class name like `'MMD_Adminhtml_Block_Foo_Renderer_Bar'` silently fails — `createBlock()` returns false, the column falls back to its default type renderer (which for `type=action` is the `<select>` dropdown), and you spend an hour wondering why nothing changed. Always use `vendor_alias/path_to_class`.
+
+**Gotcha — don't set `'type' => 'action'` alongside `'renderer'`.** If `type=action` is present and the renderer alias is invalid, you get the dropdown back. Remove `type` entirely when supplying a custom renderer (`type` is only used as a fallback when `renderer` is empty).
+
+**Verify the renderer is being invoked** (don't trust your screenshot — browser caching lies):
+
+```bash
+docker exec ai-mms-web-1 php -r '
+require "/var/www/html/app/Mage.php"; Mage::app("admin");
+$col = Mage::app()->getLayout()->createBlock("adminhtml/widget_grid_column")
+    ->setData(array("renderer" => "your/alias_here"));
+echo get_class($col->getRenderer()) . PHP_EOL;
+echo $col->getRenderer()->render(new Varien_Object(array("id" => 1)));
+'
+```
+
+If this prints `Mage_Adminhtml_Block_Widget_Grid_Column_Renderer_Text` (or similar generic), your alias didn't resolve — fix the alias or class location.
+
+## Cache invalidation after PHP class changes — the OPcache trap
+
+`rm -rf var/cache/*` alone is **not enough** when you change PHP class files (`.php`), only when you change layout XML / config XML / phtml. OPcache caches compiled bytecode and the old class definition will keep running until the PHP process restarts.
+
+Full reload procedure after editing a PHP class:
+
+```bash
+docker exec ai-mms-web-1 sh -c 'rm -rf /var/www/html/var/cache/* /var/www/html/var/full_page_cache/* /var/www/html/var/tmp/*'
+docker restart ai-mms-web-1
+```
+
+Then on the browser side: hard-reload is often not enough either — open DevTools → Network → tick **Disable cache**, or test in Incognito. If a user reports "no change" after a code edit, suspect (in order): OPcache → browser cache → Blocks HTML cache → your assumption that the file actually changed (verify with `docker exec ... grep` inside the container, not from the host).
+
 ## Don't
 
 - Don't use `app/code/local/<Vendor>/Foo/sql/...mysql4-install...php`. Use `migrations/NNN-*.sql`.

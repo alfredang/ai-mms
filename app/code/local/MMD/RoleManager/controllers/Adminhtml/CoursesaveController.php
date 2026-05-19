@@ -114,8 +114,15 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 $product->setData('trainerprofile', $html);
             }
             if (($v = $req->getParam('learning_outcomes')) !== null) $product->setData('description', $v);
+            if (($v = $req->getParam('course_description')) !== null) $product->setData('short_description', $v);
             if (($v = $req->getParam('who_should_attend')) !== null) $product->setData('whoshouldattend', $v);
             if (($v = $req->getParam('prerequisite'))      !== null) $product->setData('prerequisite', $v);
+
+            // Course Information fields (back the storefront rightData tab):
+            // sessions (text), level (select option_id), additional_note (textarea).
+            if (($v = $req->getParam('sessions'))        !== null) $product->setData('sessions',        $v === '' ? null : $v);
+            if (($v = $req->getParam('level'))           !== null) $product->setData('level',           $v === '' ? null : (int)$v);
+            if (($v = $req->getParam('additional_note')) !== null) $product->setData('additional_note', $v);
 
             // SEO
             if (($v = $req->getParam('meta_title'))        !== null) $product->setMetaTitle($v);
@@ -136,21 +143,18 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             // URL-redirect checkbox is only in the General tab — absence means unchecked.
             $product->setData('save_rewrites_history', $req->getParam('general_url_redirect') ? 1 : 0);
 
-            // === Prices tab ===
-            if (($v = $req->getParam('prices_price'))        !== null && $v !== '') $product->setData('price', (float)$v);
-            if (($v = $req->getParam('prices_special_price')) !== null) $product->setData('special_price',     $v === '' ? null : (float)$v);
-            if (($v = $req->getParam('prices_special_from_date')) !== null) $product->setData('special_from_date', $v ?: null);
-            if (($v = $req->getParam('prices_special_to_date'))   !== null) $product->setData('special_to_date',   $v ?: null);
-            if (($v = $req->getParam('prices_cost'))         !== null) $product->setData('cost',          $v === '' ? null : (float)$v);
-            if (($v = $req->getParam('prices_msrp'))         !== null) $product->setData('msrp',          $v === '' ? null : (float)$v);
-            if (($v = $req->getParam('prices_msrp_enabled')) !== null) $product->setData('msrp_enabled',  $v);
-            if (($v = $req->getParam('prices_msrp_display_actual_price_type')) !== null) $product->setData('msrp_display_actual_price_type', $v);
+            // === Price (lives on the General tab) ===
+            // Other Magento pricing attributes (special_price, cost, msrp,
+            // msrp_enabled, msrp_display_actual_price_type, group_price,
+            // tier_price) are intentionally not edited here. Existing DB
+            // values are preserved because the inputs aren't submitted —
+            // $req->getParam(...) returns null and the setData calls are
+            // skipped. If those values ever need editing, the standard
+            // Magento product editor still works.
+            if (($v = $req->getParam('prices_price')) !== null && $v !== '') $product->setData('price', (float)$v);
 
             // === Trainer Details tab — Trainer Profile rich text ===
             if (($v = $req->getParam('trainer_profile')) !== null) $product->setData('trainerprofile', $v);
-
-            // === Recurring Profile ===
-            if (($v = $req->getParam('recurring_profile_enabled')) !== null) $product->setData('is_recurring', (int)$v);
 
             // === Design tab ===
             foreach (array(
@@ -217,37 +221,6 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 $_catIds = (array) $req->getParam('categories', array());
                 $_catIds = array_values(array_unique(array_filter(array_map('intval', $_catIds))));
                 $product->setCategoryIds($_catIds);
-            }
-
-            // === Group Price (Prices tab) ===
-            if ($req->getParam('_group_price_loaded')) {
-                $_gpRaw = (array) $req->getParam('group_price', array());
-                $_gpClean = array();
-                foreach ($_gpRaw as $_row) {
-                    if (!is_array($_row)) continue;
-                    $_gpClean[] = array(
-                        'website_id' => (int) (isset($_row['website_id']) ? $_row['website_id'] : 0),
-                        'cust_group' => (int) (isset($_row['cust_group']) ? $_row['cust_group'] : 0),
-                        'price'      => (float) (isset($_row['price']) ? $_row['price'] : 0),
-                    );
-                }
-                $product->setGroupPrice($_gpClean);
-            }
-
-            // === Tier Price (Prices tab) ===
-            if ($req->getParam('_tier_price_loaded')) {
-                $_tpRaw = (array) $req->getParam('tier_price', array());
-                $_tpClean = array();
-                foreach ($_tpRaw as $_row) {
-                    if (!is_array($_row)) continue;
-                    $_tpClean[] = array(
-                        'website_id' => (int) (isset($_row['website_id']) ? $_row['website_id'] : 0),
-                        'cust_group' => (int) (isset($_row['cust_group']) ? $_row['cust_group'] : 0),
-                        'price_qty'  => (int) (isset($_row['price_qty']) ? max(1, (int)$_row['price_qty']) : 1),
-                        'price'      => (float) (isset($_row['price']) ? $_row['price'] : 0),
-                    );
-                }
-                $product->setTierPrice($_tpClean);
             }
 
             // === Websites tab — same guard pattern as Categories ===

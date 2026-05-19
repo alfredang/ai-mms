@@ -1230,11 +1230,71 @@ input.validation-failed, textarea.validation-failed {
    <td><strong>email</strong></td> directly without form-list wrappers. */
 .box-left .order-account-information td,
 .box-right .order-account-information td { word-break: break-word !important; white-space: normal !important; }
-/* Checkbox */
+/* Checkbox — minimalist admin-wide design.
+   Flat 16x16, transparent unchecked, solid blue + SVG check when checked.
+   Uses appearance:none so the native gray inner box is gone. The SVG check
+   is encoded as data:image/svg so no extra HTTP request is needed. */
 input[type="checkbox"] {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
     width: 16px !important;
     height: 16px !important;
-    accent-color: var(--blue) !important;
+    min-width: 16px !important;
+    min-height: 16px !important;
+    background: transparent !important;
+    background-image: none !important;
+    border: 1.5px solid #475569 !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+    vertical-align: middle !important;
+    margin: 0 6px 0 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    transition: background-color .12s ease, border-color .12s ease !important;
+    flex-shrink: 0 !important;
+    position: relative !important;
+}
+input[type="checkbox"]:hover {
+    border-color: #64748b !important;
+}
+input[type="checkbox"]:checked {
+    background: #2563eb !important;
+    border-color: #2563eb !important;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='3.5 8.5 6.5 11.5 12.5 5'/></svg>") !important;
+    background-size: 14px 14px !important;
+    background-position: center !important;
+    background-repeat: no-repeat !important;
+}
+input[type="checkbox"]:focus-visible {
+    outline: 2px solid #60a5fa !important;
+    outline-offset: 2px !important;
+}
+input[type="checkbox"]:disabled {
+    opacity: .4 !important;
+    cursor: not-allowed !important;
+}
+input[type="checkbox"]:indeterminate {
+    background: #2563eb !important;
+    border-color: #2563eb !important;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='2.5' stroke-linecap='round'><line x1='4' y1='8' x2='12' y2='8'/></svg>") !important;
+    background-size: 14px 14px !important;
+    background-position: center !important;
+    background-repeat: no-repeat !important;
+}
+
+/* Don't override the dcf-toggle switch's hidden input — that uses
+   `opacity:0;width:0;height:0` to be visually replaced by the slider. */
+.dcf-toggle-sw input[type="checkbox"] {
+    appearance: auto !important;
+    -webkit-appearance: auto !important;
+    width: 0 !important;
+    height: 0 !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    opacity: 0 !important;
 }
 
 /* === 12. Tabs === */
@@ -3251,8 +3311,12 @@ body[class*="customoptions-options-index"] table.data tbody tr {
     transition: background 0.12s, color 0.12s, border-color 0.12s !important;
 }
 .mmd-grid-action:hover { background: rgba(96, 165, 250, 0.12) !important; }
+.mmd-grid-action--view:hover   { color: #60a5fa !important; border-color: #60a5fa !important; }
 .mmd-grid-action--edit:hover   { color: #60a5fa !important; border-color: #60a5fa !important; }
 .mmd-grid-action--delete:hover { color: #f87171 !important; border-color: #f87171 !important; }
+/* Hide the legacy " | " separators emitted by some custom Actionlinks renderers
+   when they fall inside an .mmd-grid-actions wrapper (icons handle separation). */
+.mmd-grid-actions { line-height: 1 !important; }
 
 /* === Course Manager — Edit Template page (Template Options editor) ===
    Body class: adminhtml-mmd-customoptions-options-edit
@@ -3827,4 +3891,221 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
 #dash-panel-course-detail .lcd-nav-item[href="#course-sessions"],
 #dash-panel-course-detail .lcd-nav-item[href="#additional-documents"] {
     display: none !important;
+}
+
+/* ============================================================
+   Minimalist button system — admin-wide
+   Adopted 2026-05-18. Lives in dark-theme.css because that
+   stylesheet is loaded on every admin page (via main.xml),
+   so any page using these classes — dashboard, RoleManager,
+   Marketing Newsletter, Course Pricing, MMD custom modules
+   anywhere — gets the same look without per-page CSS.
+
+   Scope = unprefixed (file is admin-only). Targets only buttons
+   that opt-in via these class patterns; Magento's native
+   .scalable / .form-button toolbar buttons are intentionally
+   untouched to avoid breaking core admin grids/modals.
+
+   Canonical classes for new code:
+     .mm-btn               base / ghost
+     .mm-btn-primary       primary action (solid blue)
+     .mm-btn-ghost         secondary / cancel
+     .mm-btn-sm            small variant (28px tall)
+     .mm-btn-icon          square 34x34 icon-only
+   ============================================================ */
+
+.admin-main button.dcf-btn,
+.admin-main a.dcf-btn,
+.admin-main button[class*="-btn-primary"],
+.admin-main button[class*="-btn-secondary"],
+.admin-main button[class*="-btn-cancel"],
+.admin-main button[class*="-btn-edit"],
+.admin-main button[class*="-btn-save"],
+.admin-main button[class*="-btn-ghost"],
+.admin-main button.mm-btn,
+.admin-main a.mm-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    padding: 7px 14px !important;
+    height: 34px !important;
+    min-height: 34px !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    line-height: 1 !important;
+    border-radius: 6px !important;
+    border: 1px solid transparent !important;
+    cursor: pointer !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+    background-image: none !important;
+    transition: background-color .12s ease, border-color .12s ease, color .12s ease !important;
+    white-space: nowrap !important;
+}
+
+.admin-main button.dcf-btn-save,
+.admin-main button[class*="-btn-primary"],
+.admin-main button.mm-btn-primary {
+    background: #2563eb !important;
+    color: #fff !important;
+    border-color: #2563eb !important;
+    box-shadow: none !important;
+}
+.admin-main button.dcf-btn-save:hover,
+.admin-main button[class*="-btn-primary"]:hover,
+.admin-main button.mm-btn-primary:hover {
+    background: #1d4ed8 !important;
+    border-color: #1d4ed8 !important;
+    box-shadow: none !important;
+}
+
+.admin-main button.dcf-btn-save-cont {
+    background: transparent !important;
+    color: #cbd5e1 !important;
+    border-color: #475569 !important;
+    box-shadow: none !important;
+}
+.admin-main button.dcf-btn-save-cont:hover {
+    background: #334155 !important;
+    border-color: #64748b !important;
+    color: #f1f5f9 !important;
+    box-shadow: none !important;
+}
+
+.admin-main button.dcf-btn-cancel,
+.admin-main button.dcf-btn-edit,
+.admin-main button[class*="-btn-secondary"],
+.admin-main button[class*="-btn-cancel"],
+.admin-main button[class*="-btn-ghost"],
+.admin-main button.mm-btn-ghost,
+.admin-main button.mm-btn {
+    background: transparent !important;
+    color: #cbd5e1 !important;
+    border-color: #334155 !important;
+    box-shadow: none !important;
+}
+.admin-main button.dcf-btn-cancel:hover,
+.admin-main button.dcf-btn-edit:hover,
+.admin-main button[class*="-btn-secondary"]:hover,
+.admin-main button[class*="-btn-cancel"]:hover,
+.admin-main button[class*="-btn-ghost"]:hover,
+.admin-main button.mm-btn-ghost:hover,
+.admin-main button.mm-btn:hover {
+    background: #1e293b !important;
+    border-color: #475569 !important;
+    color: #f1f5f9 !important;
+    box-shadow: none !important;
+}
+
+.admin-main button.dcf-btn[disabled],
+.admin-main button.mm-btn[disabled],
+.admin-main button[class*="-btn-"][disabled] {
+    opacity: .45 !important;
+    cursor: not-allowed !important;
+}
+
+.admin-main button.mm-btn-sm,
+.admin-main button.at-action-btn,
+.admin-main button.al-action-btn {
+    height: 28px !important;
+    min-height: 28px !important;
+    padding: 5px 11px !important;
+    font-size: 12px !important;
+    border-radius: 5px !important;
+}
+
+.admin-main button.mm-btn-icon {
+    width: 34px !important;
+    padding: 0 !important;
+}
+
+/* ============================================================
+   Minimalist Table Component — opt-in via class="mm-table"
+   ------------------------------------------------------------
+   Reusable table style for MMD-custom admin panels (dashboard,
+   role-manager, marketing, etc.). Does NOT touch native Magento
+   grids — those keep §14/§20 styling in sidebar-nav.css.
+
+     class="mm-table"                base (one record per row)
+     <td class="num">                right-aligned numeric
+     <td class="muted">              dimmed metadata text
+     <td class="nowrap">             force single line (default)
+     <td class="wrap">               opt back into wrapping
+     <td class="ellipsis">           truncate w/ ellipsis
+
+   Cells are transparent (no gray fills, no zebra). Row separation
+   is a single hairline. Header is small, uppercase, muted.
+   ============================================================ */
+.admin-main table.mm-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: transparent;
+    font-size: 12px;
+    table-layout: auto;
+}
+
+.admin-main table.mm-table th,
+.admin-main table.mm-table td {
+    padding: 6px 10px;
+    background: transparent !important;
+    text-align: left;
+    vertical-align: middle;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.admin-main table.mm-table thead th {
+    font: 700 11px/1.4 inherit;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--t4, #94a3b8);
+    border-bottom: 1px solid var(--b1, #384a60);
+    background: transparent !important;
+}
+
+.admin-main table.mm-table tbody td {
+    color: var(--t2, #e2e8f0);
+}
+
+.admin-main table.mm-table tbody tr + tr td {
+    border-top: 1px solid var(--b1, #384a60);
+}
+
+/* No hover fill (would re-introduce gray); use subtle text shift only */
+.admin-main table.mm-table tbody tr:hover td {
+    background: transparent !important;
+}
+
+/* Cell utility classes */
+.admin-main table.mm-table td.num,
+.admin-main table.mm-table th.num    { text-align: right; }
+.admin-main table.mm-table td.center,
+.admin-main table.mm-table th.center { text-align: center; }
+.admin-main table.mm-table td.muted  { color: var(--t4, #94a3b8); }
+.admin-main table.mm-table td.faint  { color: var(--t5, #64748b); }
+.admin-main table.mm-table td.strong { color: var(--t1, #f1f5f9); font-weight: 500; }
+.admin-main table.mm-table td.wrap,
+.admin-main table.mm-table th.wrap   { white-space: normal; overflow: visible; text-overflow: clip; }
+.admin-main table.mm-table td.nowrap { white-space: nowrap; }
+
+/* Empty-state row */
+.admin-main table.mm-table .mm-table-empty {
+    padding: 24px !important;
+    color: var(--t5, #64748b);
+    text-align: center !important;
+    white-space: normal;
+}
+
+/* Status pill cell (inline color via style="color:..."; class adds weight) */
+.admin-main table.mm-table td.status { font-weight: 500; }
+
+/* Compact variant — even tighter rows for dense lists */
+.admin-main table.mm-table.mm-table-tight th,
+.admin-main table.mm-table.mm-table-tight td {
+    padding: 4px 8px;
+    font-size: 11.5px;
 }
