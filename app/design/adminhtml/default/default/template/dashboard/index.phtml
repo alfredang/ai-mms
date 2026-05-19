@@ -2566,6 +2566,8 @@ function devSetView(view) {
                 var parseSessionDate = function(raw){
                     if (!raw) return null;
                     var cleaned = String(raw).replace(/\([^)]*\)/g, '').replace(/\s+/g, ' ').trim();
+                    // Support double-day labels like "24/25 Aug 2026" by anchoring on first day.
+                    cleaned = cleaned.replace(/^(\d{1,2})\/\d{1,2}\s+([A-Za-z]{3,})\s+(\d{4})$/, '$1 $2 $3');
                     var d = new Date(cleaned);
                     if (isNaN(d.getTime())) return null;
                     d.setHours(0,0,0,0);
@@ -2584,6 +2586,39 @@ function devSetView(view) {
                     var yr = d.getFullYear();
                     var wk = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()];
                     return day + ' ' + mon + ' ' + yr + ' (' + wk + ')';
+                };
+                var detectSpanDaysFromTitle = function(raw){
+                    var txt = String(raw || '').replace(/\([^)]*\)/g, '').replace(/\s+/g, ' ').trim();
+                    var m = txt.match(/^(\d{1,2})\/(\d{1,2})\s+[A-Za-z]{3,}\s+\d{4}$/);
+                    if (!m) return 1;
+                    var d1 = parseInt(m[1], 10), d2 = parseInt(m[2], 10);
+                    if (!isNaN(d1) && !isNaN(d2) && d2 >= d1) return (d2 - d1 + 1);
+                    return 2;
+                };
+                var inferSpanDaysFromSelect = function(){
+                    var freq = {};
+                    for (var i=0;i<selectEl.options.length;i++){
+                        var t = selectEl.options[i].getAttribute('data-title') || selectEl.options[i].text || '';
+                        var s = detectSpanDaysFromTitle(t);
+                        freq[s] = (freq[s] || 0) + 1;
+                    }
+                    var best = 1, bestN = -1;
+                    for (var k in freq){
+                        if (freq[k] > bestN){ best = parseInt(k, 10); bestN = freq[k]; }
+                    }
+                    return best > 1 ? best : 1;
+                };
+                var formatSessionRange = function(startDate, spanDays){
+                    spanDays = parseInt(spanDays, 10);
+                    if (!spanDays || spanDays < 2) return formatSessionDate(startDate);
+                    var endDate = new Date(startDate.getTime() + ((spanDays - 1) * 86400000));
+                    var mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][startDate.getMonth()];
+                    var yr = startDate.getFullYear();
+                    var wk = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+                    if (endDate.getMonth() === startDate.getMonth() && endDate.getFullYear() === startDate.getFullYear()) {
+                        return startDate.getDate() + '/' + endDate.getDate() + ' ' + mon + ' ' + yr + ' (' + wk[startDate.getDay()] + '/' + wk[endDate.getDay()] + ')';
+                    }
+                    return formatSessionDate(startDate) + ' / ' + formatSessionDate(endDate);
                 };
                 var sameDay = function(a,b){
                     return !!a && !!b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
@@ -2905,9 +2940,10 @@ function devSetView(view) {
 
                         var known = collectKnownDates();
                         if (!known.length) return;
+                        var spanDays = inferSpanDaysFromSelect();
                         var generated = generatePatternDates(known, rangeStart, rangeEnd, count);
                         for (var gi = 0; gi < generated.length; gi++) {
-                            var newTitle = formatSessionDate(generated[gi]);
+                            var newTitle = formatSessionRange(generated[gi], spanDays);
                             var n = 1;
                             while (document.querySelector('input[name="schedule_new[' + optionId + '][' + n + '][title]"]')) n++;
 
@@ -4292,6 +4328,8 @@ function devSetView(view) {
                         function parseSessionDate(raw){
                             if (!raw) return null;
                             var cleaned = String(raw).replace(/\([^)]*\)/g, '').replace(/\s+/g, ' ').trim();
+                            // Support double-day labels like "24/25 Aug 2026" by anchoring on first day.
+                            cleaned = cleaned.replace(/^(\d{1,2})\/\d{1,2}\s+([A-Za-z]{3,})\s+(\d{4})$/, '$1 $2 $3');
                             var d = new Date(cleaned);
                             if (isNaN(d.getTime())) return null;
                             d.setHours(0,0,0,0);
@@ -4303,6 +4341,38 @@ function devSetView(view) {
                             var yr = d.getFullYear();
                             var wk = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()];
                             return day + ' ' + mon + ' ' + yr + ' (' + wk + ')';
+                        }
+                        function detectSpanDaysFromTitle(raw){
+                            var txt = String(raw || '').replace(/\([^)]*\)/g, '').replace(/\s+/g, ' ').trim();
+                            var m = txt.match(/^(\d{1,2})\/(\d{1,2})\s+[A-Za-z]{3,}\s+\d{4}$/);
+                            if (!m) return 1;
+                            var d1 = parseInt(m[1], 10), d2 = parseInt(m[2], 10);
+                            if (!isNaN(d1) && !isNaN(d2) && d2 >= d1) return (d2 - d1 + 1);
+                            return 2;
+                        }
+                        function inferSpanDaysFromRows(tbody, optionId){
+                            var freq = {};
+                            tbody.querySelectorAll('input[name^="schedule_value["][name$="][title]"],input[name^="schedule_new[' + optionId + ']"][name$="][title]"]').forEach(function(inp){
+                                var s = detectSpanDaysFromTitle(inp.value || '');
+                                freq[s] = (freq[s] || 0) + 1;
+                            });
+                            var best = 1, bestN = -1;
+                            for (var k in freq){
+                                if (freq[k] > bestN){ best = parseInt(k, 10); bestN = freq[k]; }
+                            }
+                            return best > 1 ? best : 1;
+                        }
+                        function formatSessionRange(startDate, spanDays){
+                            spanDays = parseInt(spanDays, 10);
+                            if (!spanDays || spanDays < 2) return formatSessionDate(startDate);
+                            var endDate = new Date(startDate.getTime() + ((spanDays - 1) * 86400000));
+                            var mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][startDate.getMonth()];
+                            var yr = startDate.getFullYear();
+                            var wk = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+                            if (endDate.getMonth() === startDate.getMonth() && endDate.getFullYear() === startDate.getFullYear()) {
+                                return startDate.getDate() + '/' + endDate.getDate() + ' ' + mon + ' ' + yr + ' (' + wk[startDate.getDay()] + '/' + wk[endDate.getDay()] + ')';
+                            }
+                            return formatSessionDate(startDate) + ' / ' + formatSessionDate(endDate);
                         }
                         function inferStepDays(dateArr){
                             if (dateArr.length < 2) return 7;
@@ -4424,12 +4494,13 @@ function devSetView(view) {
                                 if (d) dateVals.push(d);
                             });
                             if (!dateVals.length) return;
+                            var spanDays = inferSpanDaysFromRows(tbody, optionId);
                             var generated = generatePatternDates(dateVals, rangeStart, rangeEnd, addCount);
                             for (var g=0; g<generated.length; g++) {
                                 csAddRow(optionId);
                                 var n = newCounter[optionId];
                                 var titleInput = tbody.querySelector('input[name="schedule_new[' + optionId + '][' + n + '][title]"]');
-                                if (titleInput) titleInput.value = formatSessionDate(generated[g]);
+                                if (titleInput) titleInput.value = formatSessionRange(generated[g], spanDays);
                             }
                         };
                         window.csToggleRemove = function(btn, valueId) {
