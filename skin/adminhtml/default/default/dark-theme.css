@@ -2001,6 +2001,98 @@ html.is-order-view .grid table.data.order-tables tbody td:not(:first-child) .pri
     padding: 0 !important;
     line-height: 1.4 !important;
 }
+/* Make every value column read identically: same weight (Price /
+   Subtotal were <strong> bold), same size, top-aligned. And flatten
+   the Pax/qty column — its renderer wraps the value in a bordered
+   .qty-table that sat lower in its own box; strip the box so "Ordered"
+   sits top-left like the plain-text columns. */
+body.is-order-view .grid table.data.order-tables tbody td:not(:first-child),
+html.is-order-view .grid table.data.order-tables tbody td:not(:first-child),
+body.is-order-view .grid table.data.order-tables tbody td:not(:first-child) *,
+html.is-order-view .grid table.data.order-tables tbody td:not(:first-child) * {
+    font-weight: 400 !important;
+    font-size: 15px !important;
+    line-height: 1.4 !important;
+    vertical-align: top !important;
+}
+body.is-order-view .grid table.data.order-tables tbody td:not(:first-child) table,
+html.is-order-view .grid table.data.order-tables tbody td:not(:first-child) table,
+body.is-order-view .grid table.data.order-tables tbody td:not(:first-child) .qty-table,
+html.is-order-view .grid table.data.order-tables tbody td:not(:first-child) .qty-table,
+body.is-order-view .grid table.data.order-tables tbody td:not(:first-child) .qty-table td,
+html.is-order-view .grid table.data.order-tables tbody td:not(:first-child) .qty-table td {
+    border: 0 !important;
+    background: transparent !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: auto !important;
+}
+/* Course-cell option values were TRUNCATED, not clipped: Magento's
+   name.phtml splits a long option value into a visible part + a hidden
+   remainder <span id="id…"> (Prototype .hide() => inline display:none,
+   shown only on hover) plus a "…" <span id="dots…">. So the full text
+   is in the DOM (copy-paste sees it) but not displayed. Reveal the
+   remainder (author !important beats the inline display:none), drop
+   the "…", and let the value wrap so the whole option shows in-table. */
+body.is-order-view .order-tables dl.item-options dd span[id^="id"],
+html.is-order-view .order-tables dl.item-options dd span[id^="id"] {
+    display: inline !important;
+}
+body.is-order-view .order-tables dl.item-options dd span[id^="dots"],
+html.is-order-view .order-tables dl.item-options dd span[id^="dots"] {
+    display: none !important;
+}
+body.is-order-view .order-tables dl.item-options dd,
+html.is-order-view .order-tables dl.item-options dd {
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow-wrap: anywhere !important;
+}
+/* The option label (dt) + value (dd) were being laid out side-by-side,
+   so the value sat far right of the Course cell and got clipped at
+   100% zoom (only visible zoomed-out). Force a STACKED, full-width,
+   wrapping layout — label on its own line, value directly beneath —
+   so every option always shows in full inside the Course column
+   without any horizontal clipping or zooming. */
+body.is-order-view .order-tables dl.item-options,
+html.is-order-view .order-tables dl.item-options,
+body.is-order-view .order-tables dl.item-options dt,
+html.is-order-view .order-tables dl.item-options dt,
+body.is-order-view .order-tables dl.item-options dd,
+html.is-order-view .order-tables dl.item-options dd {
+    display: block !important;
+    float: none !important;
+    width: auto !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-align: left !important;
+}
+body.is-order-view .order-tables dl.item-options dt,
+html.is-order-view .order-tables dl.item-options dt {
+    margin: 6px 0 1px !important;
+    padding: 0 !important;
+    font-weight: 600 !important;
+}
+body.is-order-view .order-tables dl.item-options dd,
+html.is-order-view .order-tables dl.item-options dd {
+    margin: 0 !important;
+    padding: 0 0 4px 0 !important;
+    color: #cbd5e1 !important;
+}
+/* Let the Course cell + its inner wrappers grow/wrap to fit the
+   stacked options instead of clipping them. */
+body.is-order-view .order-tables tbody td:first-child,
+html.is-order-view .order-tables tbody td:first-child,
+body.is-order-view .order-tables .item-text,
+html.is-order-view .order-tables .item-text,
+body.is-order-view .order-tables .item-container,
+html.is-order-view .order-tables .item-container {
+    overflow: visible !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+}
 /* (Removed: items value-column / tab-bar / comments-history font-size
    overrides — standard admin theme sizes apply.) */
 /* Kill the blue selected/hover accents on the Items Ordered grid —

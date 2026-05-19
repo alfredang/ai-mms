@@ -6,6 +6,14 @@
 /* === 1. Layout Shell === */
 .admin-sidebar-layout {
     display: flex !important;
+    /* COLUMN, not the default row. .admin-sidebar is position:fixed
+       (out of flow), so the only in-flow flex children are .admin-main
+       and .admin-page-footer. In a row they sat side-by-side and the
+       footer became a tall right-hand column == the "void" that
+       followed across pages. Column stacks them (content above,
+       footer pushed to the bottom by its margin-top:auto) and lets
+       .admin-main stretch to full width instead of shrink-wrapping. */
+    flex-direction: column !important;
     min-height: 100vh !important;
     background: var(--d1) !important;
 }
@@ -389,7 +397,12 @@ body button.sidebar-toggle:hover {
    LMS-TMS "Powered by Tertiary Infotech Academy Pte Ltd © YYYY" line
    so every role / page in the admin has consistent footer branding. */
 .admin-page-footer {
-    padding: 18px 24px;
+    /* extra left padding clears the position:fixed 250px sidebar so
+       the centred text + top border align with the content area, not
+       under the sidebar. */
+    padding: 18px 24px 18px 274px;
+    box-sizing: border-box;
+    width: 100%;
     text-align: center;
     font-size: 13px;
     color: #94a3b8;
@@ -397,6 +410,9 @@ body button.sidebar-toggle:hover {
     background: transparent;
     margin-top: auto;
     flex-shrink: 0;
+}
+body.sidebar-collapsed .admin-page-footer {
+    padding-left: 84px;
 }
 .admin-page-footer strong {
     color: #cbd5e1;
