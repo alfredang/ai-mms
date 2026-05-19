@@ -7,22 +7,27 @@
 // scoped to specific pages applies on the very first paint without
 // waiting for dom:loaded. Used by the Order View horizontal-tabs layout.
 (function () {
-    var p = (window.location.pathname || '').toLowerCase();
-    // Order View drives the horizontal-tabs relocation + the dense,
-    // readable styling (bigger fonts, outlined toolbar buttons).
-    // Invoice View and Transaction View are the same
-    // Widget_Form_Container layout — identical .form-buttons /
-    // .form-list / .box-head / .order-totals markup — so they reuse
-    // the same marker. The tab-relocation code self-guards on
-    // #sales_order_view_tabs (which those two pages don't have), so
-    // it's an inert no-op there; only the styling carries over.
-    if (p.indexOf('/sales_order/view/') !== -1
-        || p.indexOf('/sales_invoice/view/') !== -1
-        || p.indexOf('/sales_order_invoice/view/') !== -1
-        || p.indexOf('/sales_transactions/view/') !== -1
-        || p.indexOf('/sales_transaction/view/') !== -1) {
-        document.documentElement.classList.add('is-order-view');
+    // Order View drives the horizontal-tabs relocation + the
+    // readable styling. Invoice View and Transaction View are the
+    // same Widget_Form_Container layout (identical .form-buttons /
+    // .form-list / .box-head / .order-totals markup) so they reuse
+    // the same marker; the tab-relocation code self-guards on
+    // #sales_order_view_tabs (absent there) so it's an inert no-op.
+    //
+    // IMPORTANT: the marker lives on <html>, which instant-nav does
+    // NOT swap. So this must TOGGLE (add AND remove) on every
+    // navigation — otherwise the class sticks after you leave an
+    // invoice/order view and its scoped CSS (full-width .admin-main
+    // pin, fonts) "follows" onto unrelated pages, leaving the void.
+    var RE = /\/sales_order\/view\/|\/sales_invoice\/view\/|\/sales_order_invoice\/view\/|\/sales_transactions\/view\/|\/sales_transaction\/view\//;
+    function syncOrderViewClass() {
+        var p = (window.location.pathname || '').toLowerCase();
+        document.documentElement.classList.toggle('is-order-view', RE.test(p));
     }
+    syncOrderViewClass();
+    // Re-evaluate after every instant-nav PJAX swap and on back/fwd.
+    document.addEventListener('instant-nav:after-swap', syncOrderViewClass);
+    window.addEventListener('popstate', syncOrderViewClass);
 })();
 
 // On Order View detail pages, physically move the tabs UL out of the

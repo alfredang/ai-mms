@@ -1745,9 +1745,6 @@ html.is-order-view ul#sales_order_view_tabs li a span {
     border: none !important;
     outline: none !important;
     box-shadow: none !important;
-    font-size: 22.5px !important;
-    font-weight: inherit !important;
-    line-height: 1.2 !important;
 }
 body.is-order-view ul#sales_order_view_tabs li a:hover,
 html.is-order-view ul#sales_order_view_tabs li a:hover {
@@ -1761,7 +1758,6 @@ html.is-order-view ul#sales_order_view_tabs li a.active span {
     background: transparent !important;
     background-image: none !important;
     color: var(--blue) !important;
-    font-size: 22.5px !important;
     font-weight: 600 !important;
     border: none !important;
     border-radius: 0 !important;
@@ -1835,73 +1831,31 @@ html.is-order-view ul#sales_order_view_tabs li a.active span {
     margin: 0 !important;
     float: none !important;
 }
-/* === Order View — global 20% shrink ===
-   Scale the whole order-view content area down to 80% so text, padding,
-   tables, cards and gaps all shrink proportionally in one go (on top of
-   the COMPACT density tweaks below). Scoped to the content column only,
-   so the shared top bar and left sidebar keep their normal size. `zoom`
-   (not transform:scale) so layout/flow reflows naturally with no width
-   compensation or clipping. */
-body.is-order-view .main-col-inner,
-html.is-order-view .main-col-inner {
-    zoom: 0.8;
-}
-
-/* === Order View — COMPACT density (match standard Magento size) ===
-   The global dark-theme card/button/font rules inflate this page well
-   beyond Magento's default. Scope a tighter set to body.is-order-view
-   ONLY (every other admin page keeps the roomier styling). Values
-   chosen to mirror stock Magento admin order-view density. */
-body.is-order-view .content-header h3,
-html.is-order-view .content-header h3,
-body.is-order-view .content-header h3.icon-head,
-html.is-order-view .content-header h3.icon-head {
-    font-size: 26px !important;
-    font-weight: 700 !important;
-    line-height: 1.25 !important;
-    margin: 0 0 6px !important;
-}
-/* Action buttons row (Back / Edit / Cancel / Send Email / …) */
-body.is-order-view .content-header button,
-html.is-order-view .content-header button,
-body.is-order-view .content-buttons button,
-html.is-order-view .content-buttons button,
-body.is-order-view .content-header .form-button,
-html.is-order-view .content-header .form-button {
-    padding: 5px 12px !important;
-    font-size: 12px !important;
-    font-weight: 600 !important;
-    border-radius: 5px !important;
-    box-shadow: none !important;
-}
-body.is-order-view .content-buttons,
-html.is-order-view .content-buttons { gap: 6px !important; }
-/* Cards / panels */
-body.is-order-view .entry-edit,
-html.is-order-view .entry-edit,
-body.is-order-view .box-left,
-html.is-order-view .box-left,
-body.is-order-view .box-right,
-html.is-order-view .box-right,
-body.is-order-view .box,
-html.is-order-view .box {
-    border-radius: 8px !important;
-    margin-bottom: 12px !important;
-    box-shadow: none !important;
-}
-/* boxes.css floats .box-left/.box-right at width:48.5%. At the larger
-   font the left column's values (date, store path, long email) spilled
-   past their float and painted over the right column ("clipping into
-   each other"). Lock each box to its half with border-box + hidden
-   overflow, force the inner .form-list to a fixed-layout 100%-width
-   table, and hard-wrap every label/value so nothing bleeds across. */
+/* === Order / Invoice / Transaction view ===
+   The old "COMPACT density" + "20% zoom" override (and the whole stack
+   of per-page font-size rules layered on top of it) was removed per
+   request — these pages now use the standard admin theme typography &
+   density. Only genuine bug / structural fixes are kept below
+   (outlined toolbar buttons, dark Transaction-Data card, items-grid
+   alignment, no white-flash, two-column containment). No font-size or
+   zoom overrides remain. */
+/* boxes.css floats .box-left/.box-right at width:48.5%. The theme's
+   base font can still let the left column's long values (date, store
+   path, long email) spill past their float and paint over the right
+   column ("clipping into each other"). Lock each box to its half with
+   border-box, force the inner .form-list to a fixed-layout 100%-width
+   table, and hard-wrap every label/value so nothing bleeds across.
+   Structural only — no font/density change. */
 body.is-order-view .box-left,
 html.is-order-view .box-left,
 body.is-order-view .box-right,
 html.is-order-view .box-right {
     box-sizing: border-box !important;
     width: 49% !important;
-    overflow: hidden !important;
+    /* visible (not hidden): at full width the 49% columns have room,
+       values wrap inside their own column, so nothing needs clipping
+       — hidden was only masking the zoom-cramped overflow. */
+    overflow: visible !important;
 }
 body.is-order-view .box-left .form-list,
 html.is-order-view .box-left .form-list,
@@ -1926,70 +1880,67 @@ html.is-order-view .box-right .order-account-information td {
     word-break: break-word !important;
     overflow-wrap: anywhere !important;
 }
-/* Section header bars inside the order view */
-body.is-order-view .entry-edit-head,
-html.is-order-view .entry-edit-head,
-body.is-order-view .box-head,
-html.is-order-view .box-head {
-    padding: 8px 12px !important;
-    min-height: 0 !important;
+/* (Removed: section-header / fieldset / form-list / account-info /
+   address / funding / items-grid / order-totals font-size & density
+   overrides — these now use the standard admin theme sizes.) */
+/* Per request: set the readable content on these pages to 15px (one
+   consistent size — no per-element cascade). Page title kept a little
+   larger so it still reads as a heading. */
+body.is-order-view .content-header h3,
+html.is-order-view .content-header h3,
+body.is-order-view .content-header h3.icon-head,
+html.is-order-view .content-header h3.icon-head {
+    font-size: 18px !important;
 }
-body.is-order-view .entry-edit-head h4,
-html.is-order-view .entry-edit-head h4,
+body.is-order-view .box-head h3,
+html.is-order-view .box-head h3,
 body.is-order-view .box-head h4,
 html.is-order-view .box-head h4,
-body.is-order-view .box-head h3,
-html.is-order-view .box-head h3 {
-    font-size: 22.5px !important;
-    font-weight: 700 !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.4px !important;
-}
-/* Read-only info rows (Order Date / Status / Account / Billing …) */
-body.is-order-view .fieldset,
-html.is-order-view .fieldset,
-body.is-order-view fieldset.np,
-html.is-order-view fieldset.np { padding: 10px 14px !important; }
+body.is-order-view .entry-edit-head h4,
+html.is-order-view .entry-edit-head h4,
 body.is-order-view .form-list td,
 html.is-order-view .form-list td,
 body.is-order-view .form-list th,
-html.is-order-view .form-list th {
-    padding: 4px 10px 4px 0 !important;
-    font-size: 22.5px !important;
-    line-height: 1.45 !important;
-}
+html.is-order-view .form-list th,
 body.is-order-view .order-account-information td,
-html.is-order-view .order-account-information td {
-    padding: 4px 10px 4px 0 !important;
-    font-size: 22.5px !important;
-}
-/* "Billing Address" is an <address> element and the "Funding/Payment
-   Information" block is whatever getPaymentHtml() emits — neither is a
-   .form-list, so they kept the small legacy size. Bump both to 20px
-   (per request). The payment/funding text is targeted via the fieldset
-   that follows the .head-payment-method header (:has is used elsewhere
-   in this file already). */
+html.is-order-view .order-account-information td,
 body.is-order-view address,
 html.is-order-view address,
 body.is-order-view .entry-edit:has(.head-payment-method) .fieldset,
 html.is-order-view .entry-edit:has(.head-payment-method) .fieldset,
 body.is-order-view .entry-edit:has(.head-payment-method) .fieldset *,
-html.is-order-view .entry-edit:has(.head-payment-method) .fieldset * {
-    font-size: 20px !important;
-    line-height: 1.5 !important;
-}
-/* Items Ordered grid + Order Totals — compact cells */
+html.is-order-view .entry-edit:has(.head-payment-method) .fieldset *,
+body.is-order-view .log-details table th,
+html.is-order-view .log-details table th,
+body.is-order-view .log-details table td,
+html.is-order-view .log-details table td,
 body.is-order-view .grid table.data th,
 html.is-order-view .grid table.data th,
 body.is-order-view .grid table.data td,
 html.is-order-view .grid table.data td,
+body.is-order-view .grid table.data tbody > tr > td:not(:first-child) *,
+html.is-order-view .grid table.data tbody > tr > td:not(:first-child) *,
 body.is-order-view .order-totals td,
 html.is-order-view .order-totals td,
 body.is-order-view .order-totals th,
-html.is-order-view .order-totals th {
-    padding: 6px 10px !important;
-    font-size: 12px !important;
-    line-height: 1.4 !important;
+html.is-order-view .order-totals th,
+body.is-order-view ul#sales_order_view_tabs li a,
+html.is-order-view ul#sales_order_view_tabs li a,
+body.is-order-view ul#sales_order_view_tabs li a span,
+html.is-order-view ul#sales_order_view_tabs li a span,
+body.is-order-view #order_history_block,
+html.is-order-view #order_history_block,
+body.is-order-view #order_history_block label,
+html.is-order-view #order_history_block label,
+body.is-order-view #order_history_block select,
+html.is-order-view #order_history_block select,
+body.is-order-view #order_history_block textarea,
+html.is-order-view #order_history_block textarea,
+body.is-order-view #order_history_block .note-list,
+html.is-order-view #order_history_block .note-list,
+body.is-order-view #order_history_block .note-list *,
+html.is-order-view #order_history_block .note-list * {
+    font-size: 15px !important;
 }
 /* Items Ordered grid: the Course cell is tall (nested options table)
    while Magento renders every other column vertical-align:middle, so
@@ -2050,55 +2001,8 @@ html.is-order-view .grid table.data.order-tables tbody td:not(:first-child) .pri
     padding: 0 !important;
     line-height: 1.4 !important;
 }
-/* Value columns: size every descendant, not just span/strong. The Pax
-   (qty) column renders its "Ordered/Invoiced/…" labels in other tags
-   (div/small/em), so the two "Ordered" cells came out at different
-   sizes. `td:not(:first-child) *` makes the whole value column text
-   uniform; the Course cell (first child) is untouched. */
-body.is-order-view .grid table.data tbody > tr > td:not(:first-child),
-html.is-order-view .grid table.data tbody > tr > td:not(:first-child),
-body.is-order-view .grid table.data tbody > tr > td:not(:first-child) *,
-html.is-order-view .grid table.data tbody > tr > td:not(:first-child) * {
-    font-size: 12px !important;
-    font-weight: 400 !important;
-    line-height: 1.4 !important;
-}
-/* Tighter tab bar */
-body.is-order-view ul#sales_order_view_tabs li a,
-html.is-order-view ul#sales_order_view_tabs li a {
-    padding: 7px 14px !important;
-    font-size: 22.5px !important;
-}
-body.is-order-view ul#sales_order_view_tabs,
-html.is-order-view ul#sales_order_view_tabs { margin: 4px 0 12px 0 !important; }
-/* Comments History box compact */
-body.is-order-view #order_history_block textarea,
-html.is-order-view #order_history_block textarea { min-height: 60px !important; font-size: 22.5px !important; }
-/* Bring the rest of the Comments History section (Add Order Comments
-   text, Status label + select, Comment label, checkbox labels, and the
-   posted-note list) up to the page's 22.5px so it stops looking small.
-   The Submit Comment button keeps its own styled size. */
-body.is-order-view #order_history_block,
-html.is-order-view #order_history_block,
-body.is-order-view #order_history_block label,
-html.is-order-view #order_history_block label,
-body.is-order-view #order_history_block select,
-html.is-order-view #order_history_block select,
-body.is-order-view #order_history_block .note-list,
-html.is-order-view #order_history_block .note-list,
-body.is-order-view #order_history_block .note-list li,
-html.is-order-view #order_history_block .note-list li,
-body.is-order-view #order_history_block .note-list strong,
-html.is-order-view #order_history_block .note-list strong,
-body.is-order-view #order_history_block .note-list small,
-html.is-order-view #order_history_block .note-list small,
-body.is-order-view #order_history_block .note-list span,
-html.is-order-view #order_history_block .note-list span,
-body.is-order-view #order_history_block .note-list a,
-html.is-order-view #order_history_block .note-list a {
-    font-size: 22.5px !important;
-    line-height: 1.5 !important;
-}
+/* (Removed: items value-column / tab-bar / comments-history font-size
+   overrides — standard admin theme sizes apply.) */
 /* Kill the blue selected/hover accents on the Items Ordered grid —
    it's a read-only summary, the long blue left-bar (tr.selected td
    border-left) and per-row hover highlight just look like noise here.
@@ -2204,8 +2108,6 @@ html.is-order-view .log-details table th,
 body.is-order-view .log-details table td,
 html.is-order-view .log-details table td {
     background: transparent !important;
-    font-size: 14px !important;
-    line-height: 1.5 !important;
 }
 body.is-order-view .log-details table th,
 html.is-order-view .log-details table th {
@@ -2214,6 +2116,101 @@ html.is-order-view .log-details table th {
 body.is-order-view .log-details table td,
 html.is-order-view .log-details table td {
     color: var(--t1) !important;
+}
+
+/* === Sales pages — use the full content width ===
+   page.phtml renders content WITHOUT a .main-col wrapper when the page
+   has no left side-col (Registrations list, Invoices list, order /
+   invoice / transaction views). The dark-theme width rules only stretch
+   .main-col, so on these pages the grid/content sat at its natural
+   width with a big empty strip on the right. Force the .middle content
+   column and the grid/list wrappers to span the full width — scoped to
+   the sales pages ONLY (the [class*="adminhtml-sales_*"] body classes +
+   is-order-view), so side-col pages like Categories / Reviews are
+   completely untouched. */
+/* ROOT CAUSE (confirmed via inspect: #anchor-content.middle was 434px
+   wide): .admin-main is a flex child with `flex:1; min-width:0`. On
+   the sparse no-side-col sales pages its content's min-content is tiny,
+   so it shrink-wrapped to ~434px instead of filling — leaving the huge
+   void. A definite width on .admin-main stops the shrink-wrap; it
+   already declares `max-width: calc(100vw - 260px)` (and -60px when the
+   sidebar is collapsed), so pin `width` to the SAME calc. Scoped to the
+   sales pages only. */
+body[class*="adminhtml-sales_order"] .admin-main,
+body[class*="adminhtml-sales-order"]  .admin-main,
+body[class*="adminhtml-sales_invoice"] .admin-main,
+body[class*="adminhtml-sales-invoice"] .admin-main,
+body[class*="adminhtml-sales_transactions"] .admin-main,
+body[class*="adminhtml-sales-transactions"] .admin-main,
+html.is-order-view .admin-main {
+    width: calc(100vw - 260px) !important;
+    max-width: calc(100vw - 260px) !important;
+    flex: 1 1 auto !important;
+    box-sizing: border-box !important;
+}
+body.sidebar-collapsed[class*="adminhtml-sales_order"] .admin-main,
+body.sidebar-collapsed[class*="adminhtml-sales-order"]  .admin-main,
+body.sidebar-collapsed[class*="adminhtml-sales_invoice"] .admin-main,
+body.sidebar-collapsed[class*="adminhtml-sales-invoice"] .admin-main,
+body.sidebar-collapsed[class*="adminhtml-sales_transactions"] .admin-main,
+body.sidebar-collapsed[class*="adminhtml-sales-transactions"] .admin-main,
+html.is-order-view body.sidebar-collapsed .admin-main {
+    width: calc(100vw - 60px) !important;
+    max-width: calc(100vw - 60px) !important;
+}
+body[class*="adminhtml-sales_order"] .admin-main .middle,
+body[class*="adminhtml-sales-order"]  .admin-main .middle,
+body[class*="adminhtml-sales_invoice"] .admin-main .middle,
+body[class*="adminhtml-sales-invoice"] .admin-main .middle,
+body[class*="adminhtml-sales_transactions"] .admin-main .middle,
+body[class*="adminhtml-sales-transactions"] .admin-main .middle,
+html.is-order-view .admin-main .middle {
+    width: auto !important;
+    max-width: none !important;
+    float: none !important;
+    margin: 0 !important;
+}
+body[class*="adminhtml-sales_order"] .admin-main .middle > *,
+body[class*="adminhtml-sales-order"]  .admin-main .middle > *,
+body[class*="adminhtml-sales_invoice"] .admin-main .middle > *,
+body[class*="adminhtml-sales-invoice"] .admin-main .middle > *,
+body[class*="adminhtml-sales_transactions"] .admin-main .middle > *,
+body[class*="adminhtml-sales-transactions"] .admin-main .middle > *,
+html.is-order-view .admin-main .middle > *,
+body[class*="adminhtml-sales_order"] .admin-main .grid,
+body[class*="adminhtml-sales-order"]  .admin-main .grid,
+body[class*="adminhtml-sales_invoice"] .admin-main .grid,
+body[class*="adminhtml-sales-invoice"] .admin-main .grid,
+body[class*="adminhtml-sales_transactions"] .admin-main .grid,
+body[class*="adminhtml-sales-transactions"] .admin-main .grid,
+html.is-order-view .admin-main .grid,
+body[class*="adminhtml-sales_order"] .admin-main [id$="_grid"],
+body[class*="adminhtml-sales-order"]  .admin-main [id$="_grid"],
+body[class*="adminhtml-sales_invoice"] .admin-main [id$="_grid"],
+body[class*="adminhtml-sales-invoice"] .admin-main [id$="_grid"],
+body[class*="adminhtml-sales_transactions"] .admin-main [id$="_grid"],
+body[class*="adminhtml-sales-transactions"] .admin-main [id$="_grid"],
+html.is-order-view .admin-main [id$="_grid"],
+body[class*="adminhtml-sales_order"] .admin-main .hor-scroll,
+body[class*="adminhtml-sales-order"]  .admin-main .hor-scroll,
+body[class*="adminhtml-sales_invoice"] .admin-main .hor-scroll,
+body[class*="adminhtml-sales-invoice"] .admin-main .hor-scroll,
+body[class*="adminhtml-sales_transactions"] .admin-main .hor-scroll,
+body[class*="adminhtml-sales-transactions"] .admin-main .hor-scroll,
+html.is-order-view .admin-main .hor-scroll {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    float: none !important;
+}
+body[class*="adminhtml-sales_order"] .admin-main .grid table,
+body[class*="adminhtml-sales-order"]  .admin-main .grid table,
+body[class*="adminhtml-sales_invoice"] .admin-main .grid table,
+body[class*="adminhtml-sales-invoice"] .admin-main .grid table,
+body[class*="adminhtml-sales_transactions"] .admin-main .grid table,
+body[class*="adminhtml-sales-transactions"] .admin-main .grid table,
+html.is-order-view .admin-main .grid table {
+    width: 100% !important;
 }
 
 /* === Registrations page (sales_order index) — top-bar tidy ===
