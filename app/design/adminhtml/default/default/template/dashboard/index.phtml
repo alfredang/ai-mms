@@ -2932,7 +2932,7 @@ function devSetView(view) {
                             <div style="font-size:20px;color:#f8fafc;font-weight:700;line-height:1.2;margin-bottom:10px;">Edit Session Date</div>
                             <div id="dcf-scheduler-edit-modal-current" style="color:#cbd5e1;font-size:13px;margin-bottom:10px;background:#0f1c2e;border:1px solid #334155;border-radius:10px;padding:10px 12px;"></div>
                             <div style="font-size:11px;color:#94a3b8;letter-spacing:.4px;text-transform:uppercase;margin-bottom:6px;">New Date</div>
-                            <input id="dcf-scheduler-edit-modal-date-display" type="text" class="dcf-input" readonly style="background:#263752;border:1px solid #49607f;color:#f8fafc;font-weight:700;cursor:default;" />
+                            <input id="dcf-scheduler-edit-modal-date-display" type="text" class="dcf-input" placeholder="e.g. 21 Mar 2026 or 21/03/2026" style="background:#263752;border:1px solid #49607f;color:#f8fafc;font-weight:700;" />
                             <div style="margin:10px auto 0 auto;background:#f8fafc;border:1px solid #cbd5e1;border-radius:10px;padding:10px;max-width:360px;">
                                 <div id="dcf-cal-month-label" style="text-align:center;color:#0f172a;font-size:18px;font-weight:700;line-height:1.2;margin-bottom:8px;"></div>
                                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
@@ -2960,7 +2960,11 @@ function devSetView(view) {
                     <div style="display:flex;gap:8px;margin-top:10px;align-items:flex-end;">
                         <div style="flex:1;">
                             <div style="font-size:11px;color:#64748b;letter-spacing:.4px;text-transform:uppercase;margin-bottom:6px;">Add Single Date</div>
-                            <input id="dcf-scheduler-add-date" type="date" class="dcf-input" />
+                            <div style="display:flex;gap:6px;align-items:center;">
+                                <input id="dcf-scheduler-add-date" type="text" class="dcf-input" placeholder="e.g. 21 Mar 2026 or 21/03/2026" />
+                                <input id="dcf-scheduler-add-date-picker" type="date" style="position:absolute;opacity:0;width:1px;height:1px;border:0;padding:0;" tabindex="-1" />
+                                <button type="button" id="dcf-scheduler-add-date-picker-btn" style="width:40px;height:40px;border-radius:8px;border:1px solid #475569;background:#1e293b;color:#cbd5e1;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;line-height:1;" aria-label="Open calendar">&#128197;</button>
+                            </div>
                         </div>
                         <button type="button" id="dcf-scheduler-add-btn" style="background:#0f766e;color:#fff;border:none;padding:10px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Add Date</button>
                     </div>
@@ -2968,8 +2972,16 @@ function devSetView(view) {
                         <div style="font-size:11px;color:#64748b;letter-spacing:.4px;text-transform:uppercase;margin-bottom:8px;">Auto Scheduler</div>
                         <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;">
                             <div style="display:grid;grid-template-columns:1fr;gap:8px;">
-                                <input id="dcf-scheduler-auto-start" type="date" class="dcf-input" title="From date" placeholder="From date" />
-                                <input id="dcf-scheduler-auto-end" type="date" class="dcf-input" title="To date" placeholder="To date" />
+                                <div style="display:flex;gap:6px;align-items:center;">
+                                    <input id="dcf-scheduler-auto-start" type="text" class="dcf-input" title="From date" placeholder="From (e.g. 21/03/2026)" />
+                                    <input id="dcf-scheduler-auto-start-picker" type="date" style="position:absolute;opacity:0;width:1px;height:1px;border:0;padding:0;" tabindex="-1" />
+                                    <button type="button" id="dcf-scheduler-auto-start-picker-btn" style="width:40px;height:40px;border-radius:8px;border:1px solid #475569;background:#1e293b;color:#cbd5e1;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;line-height:1;" aria-label="Open calendar">&#128197;</button>
+                                </div>
+                                <div style="display:flex;gap:6px;align-items:center;">
+                                    <input id="dcf-scheduler-auto-end" type="text" class="dcf-input" title="To date" placeholder="To (e.g. 22/05/2027)" />
+                                    <input id="dcf-scheduler-auto-end-picker" type="date" style="position:absolute;opacity:0;width:1px;height:1px;border:0;padding:0;" tabindex="-1" />
+                                    <button type="button" id="dcf-scheduler-auto-end-picker-btn" style="width:40px;height:40px;border-radius:8px;border:1px solid #475569;background:#1e293b;color:#cbd5e1;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;line-height:1;" aria-label="Open calendar">&#128197;</button>
+                                </div>
                             </div>
                             <button type="button" id="dcf-scheduler-auto-btn" style="background:#7c3aed;color:#fff;border:none;padding:10px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Auto Schedule</button>
                         </div>
@@ -2979,6 +2991,7 @@ function devSetView(view) {
                     <div style="font-size:12px;color:#94a3b8;margin-top:8px;">
                         Updates map to existing session rows. New dates are queued via the same schedule save fields.
                     </div>
+                    <div id="dcf-scheduler-error" style="display:none;margin-top:8px;padding:8px 10px;border-radius:8px;border:1px solid #7f1d1d;background:#2b1013;color:#fecaca;font-size:12px;font-weight:600;"></div>
                     <?php endif; ?>
                 </div>
             <script>
@@ -3010,11 +3023,17 @@ function devSetView(view) {
             document.addEventListener('DOMContentLoaded', function(){
                 var selectEl = document.getElementById('dcf-scheduler-date-select');
                 var addEl = document.getElementById('dcf-scheduler-add-date');
+                var addPickerEl = document.getElementById('dcf-scheduler-add-date-picker');
+                var addPickerBtn = document.getElementById('dcf-scheduler-add-date-picker-btn');
                 var updateBtn = document.getElementById('dcf-scheduler-update-btn');
                 var addBtn = document.getElementById('dcf-scheduler-add-btn');
                 var autoBtn = document.getElementById('dcf-scheduler-auto-btn');
                 var autoStartEl = document.getElementById('dcf-scheduler-auto-start');
+                var autoStartPickerEl = document.getElementById('dcf-scheduler-auto-start-picker');
+                var autoStartPickerBtn = document.getElementById('dcf-scheduler-auto-start-picker-btn');
                 var autoEndEl = document.getElementById('dcf-scheduler-auto-end');
+                var autoEndPickerEl = document.getElementById('dcf-scheduler-auto-end-picker');
+                var autoEndPickerBtn = document.getElementById('dcf-scheduler-auto-end-picker-btn');
                 var editModalEl = document.getElementById('dcf-scheduler-edit-modal');
                 var editModalDateDisplayEl = document.getElementById('dcf-scheduler-edit-modal-date-display');
                 var editModalCurrentEl = document.getElementById('dcf-scheduler-edit-modal-current');
@@ -3029,25 +3048,33 @@ function devSetView(view) {
                 var calViewDate = null;
                 var calSelectedDate = null;
                 if (!selectEl) return;
-                if (autoStartEl && autoEndEl) {
-                    var syncDetailRange = function(){
-                        var from = autoStartEl.value || '';
-                        autoEndEl.min = from;
-                        if (autoEndEl.value && from && autoEndEl.value < from) {
-                            autoEndEl.value = from;
-                        }
-                    };
-                    autoStartEl.addEventListener('change', syncDetailRange);
-                    autoEndEl.addEventListener('change', syncDetailRange);
-                    syncDetailRange();
-                }
-
                 var parseSessionDate = function(raw){
                     if (!raw) return null;
                     var cleaned = String(raw).replace(/\([^)]*\)/g, '').replace(/\s+/g, ' ').trim();
                     // Support double-day labels like "24/25 Aug 2026" by anchoring on first day.
                     cleaned = cleaned.replace(/^(\d{1,2})\/\d{1,2}\s+([A-Za-z]{3,})\s+(\d{4})$/, '$1 $2 $3');
                     var d = new Date(cleaned);
+                    if (isNaN(d.getTime())) return null;
+                    d.setHours(0,0,0,0);
+                    return d;
+                };
+                var parseFlexibleDate = function(v){
+                    if (!v) return null;
+                    var s = String(v).trim().replace(/\s+/g, ' ');
+                    // ISO yyyy-mm-dd
+                    var mIso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+                    if (mIso) {
+                        var dIso = new Date(parseInt(mIso[1],10), parseInt(mIso[2],10)-1, parseInt(mIso[3],10));
+                        if (!isNaN(dIso.getTime())) { dIso.setHours(0,0,0,0); return dIso; }
+                    }
+                    // dd/mm/yyyy
+                    var mDmy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+                    if (mDmy) {
+                        var dDmy = new Date(parseInt(mDmy[3],10), parseInt(mDmy[2],10)-1, parseInt(mDmy[1],10));
+                        if (!isNaN(dDmy.getTime())) { dDmy.setHours(0,0,0,0); return dDmy; }
+                    }
+                    // "d Mon yyyy" and similar
+                    var d = new Date(s);
                     if (isNaN(d.getTime())) return null;
                     d.setHours(0,0,0,0);
                     return d;
@@ -3059,6 +3086,83 @@ function devSetView(view) {
                     var day = String(d.getDate()).padStart(2, '0');
                     return y + '-' + m + '-' + day;
                 };
+                var formatInputDate = function(d){
+                    var day = String(d.getDate()).padStart(2, '0');
+                    var mon = String(d.getMonth() + 1).padStart(2, '0');
+                    var yr = d.getFullYear();
+                    return day + '/' + mon + '/' + yr;
+                };
+                var bindDatePicker = function(textEl, pickerEl, pickerBtn){
+                    if (!textEl || !pickerEl || !pickerBtn) return;
+                    var isOpen = false;
+                    var closePicker = function(){
+                        isOpen = false;
+                        var keepVal = pickerEl.value;
+                        try {
+                            pickerEl.type = 'text';
+                            pickerEl.type = 'date';
+                            pickerEl.value = keepVal;
+                        } catch (e) {}
+                        pickerEl.blur();
+                        textEl.focus();
+                    };
+                    var openPicker = function(){
+                        var rect = pickerBtn.getBoundingClientRect();
+                        var anchorLeft = Math.max(8, Math.round(rect.right + 10));
+                        var anchorTop = Math.max(8, Math.round(rect.bottom + 6));
+                        pickerEl.style.position = 'fixed';
+                        pickerEl.style.left = anchorLeft + 'px';
+                        pickerEl.style.top = anchorTop + 'px';
+                        pickerEl.style.opacity = '0';
+                        pickerEl.style.zIndex = '2147483647';
+                        pickerEl.style.pointerEvents = 'auto';
+                        var parsed = parseFlexibleDate(textEl.value || '');
+                        if (parsed) pickerEl.value = toYmd(parsed);
+                        // Force layout so first open uses the anchored position.
+                        void pickerEl.offsetWidth;
+                        pickerEl.focus();
+                        isOpen = true;
+                        if (typeof pickerEl.showPicker === 'function') {
+                            setTimeout(function(){ pickerEl.showPicker(); }, 0);
+                            return;
+                        }
+                        var prev = {
+                            position: pickerEl.style.position,
+                            left: pickerEl.style.left,
+                            top: pickerEl.style.top,
+                            opacity: pickerEl.style.opacity,
+                            zIndex: pickerEl.style.zIndex,
+                            pointerEvents: pickerEl.style.pointerEvents
+                        };
+                        pickerEl.click();
+                        setTimeout(function(){
+                            pickerEl.style.position = prev.position;
+                            pickerEl.style.left = prev.left;
+                            pickerEl.style.top = prev.top;
+                            pickerEl.style.opacity = prev.opacity;
+                            pickerEl.style.zIndex = prev.zIndex;
+                            pickerEl.style.pointerEvents = prev.pointerEvents;
+                        }, 0);
+                    };
+                    pickerBtn.addEventListener('click', function(e){
+                        e.preventDefault();
+                        if (isOpen) { closePicker(); return; }
+                        openPicker();
+                    });
+                    pickerEl.addEventListener('change', function(){
+                        var picked = parseFlexibleDate(pickerEl.value || '');
+                        if (picked) textEl.value = formatInputDate(picked);
+                        closePicker();
+                        textEl.focus();
+                    });
+                    pickerEl.addEventListener('blur', function(){ isOpen = false; });
+                    pickerEl.addEventListener('keydown', function(e){
+                        if (e.key === 'Escape' || e.keyCode === 27) closePicker();
+                    });
+                };
+                bindDatePicker(addEl, addPickerEl, addPickerBtn);
+                bindDatePicker(autoStartEl, autoStartPickerEl, autoStartPickerBtn);
+                bindDatePicker(autoEndEl, autoEndPickerEl, autoEndPickerBtn);
                 var formatSessionDate = function(d){
                     var day = d.getDate();
                     var mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
@@ -3265,17 +3369,27 @@ function devSetView(view) {
                     return out;
                 };
                 var parseYmd = function(v){
-                    if (!v) return null;
-                    var d = new Date(v + 'T00:00:00');
-                    if (isNaN(d.getTime())) return null;
-                    d.setHours(0,0,0,0);
-                    return d;
+                    return parseFlexibleDate(v);
+                };
+                var schedulerErrorEl = document.getElementById('dcf-scheduler-error');
+                var showSchedulerError = function(msg){
+                    if (!schedulerErrorEl) return;
+                    schedulerErrorEl.textContent = msg || 'Invalid date.';
+                    schedulerErrorEl.style.display = '';
+                };
+                var clearSchedulerError = function(){
+                    if (!schedulerErrorEl) return;
+                    schedulerErrorEl.textContent = '';
+                    schedulerErrorEl.style.display = 'none';
                 };
 
                 var prime = function(){
                     var opt = selectEl.options[selectEl.selectedIndex];
                 };
                 prime();
+                if (addEl) addEl.addEventListener('input', clearSchedulerError);
+                if (autoStartEl) autoStartEl.addEventListener('input', clearSchedulerError);
+                if (autoEndEl) autoEndEl.addEventListener('input', clearSchedulerError);
 
                 if (updateBtn) {
                     updateBtn.addEventListener('click', function(){
@@ -3364,12 +3478,20 @@ function devSetView(view) {
 
                 if (addBtn) {
                     addBtn.addEventListener('click', function(){
-                        var picked = addEl && addEl.value ? new Date(addEl.value + 'T00:00:00') : null;
-                        if (!picked || isNaN(picked.getTime())) return;
+                        var addSource = addEl ? addEl.value : '';
+                        var picked = parseYmd(addSource);
+                        if (!picked || isNaN(picked.getTime())) {
+                            showSchedulerError('Invalid date. Use format like 21/03/2026 or 21 Mar 2026.');
+                            return;
+                        }
                         var newTitle = formatSessionDate(picked);
                         var currentOpt = selectEl.options[selectEl.selectedIndex];
                         var optionId = currentOpt ? (currentOpt.getAttribute('data-option-id') || '') : '';
-                        if (!optionId) return;
+                        if (!optionId) {
+                            showSchedulerError('Please select a current session first.');
+                            return;
+                        }
+                        clearSchedulerError();
 
                         // Determine next row index for schedule_new[optionId][n][...]
                         var n = 1;
@@ -3403,6 +3525,7 @@ function devSetView(view) {
                         selectEl.appendChild(newOpt);
                         selectEl.value = pseudoId;
                         if (addEl) addEl.value = '';
+                        clearSchedulerError();
                     });
                 }
 
@@ -3412,15 +3535,31 @@ function devSetView(view) {
                         var optionId = currentOpt ? (currentOpt.getAttribute('data-option-id') || '') : '';
                         if (!optionId) return;
                         var count = 24;
-                        var rangeStart = parseYmd(autoStartEl && autoStartEl.value ? autoStartEl.value : '');
-                        var rangeEnd = parseYmd(autoEndEl && autoEndEl.value ? autoEndEl.value : '');
-                        if (!rangeStart || !rangeEnd) return;
-                        if (rangeStart && rangeEnd && rangeEnd.getTime() < rangeStart.getTime()) return;
+                        var autoStartSource = (autoStartEl && autoStartEl.value) ? autoStartEl.value : '';
+                        var autoEndSource = (autoEndEl && autoEndEl.value) ? autoEndEl.value : '';
+                        var rangeStart = parseYmd(autoStartSource);
+                        var rangeEnd = parseYmd(autoEndSource);
+                        if (!rangeStart || !rangeEnd) {
+                            showSchedulerError('Please enter valid From and To dates.');
+                            return;
+                        }
+                        if (rangeStart && rangeEnd && rangeEnd.getTime() < rangeStart.getTime()) {
+                            showSchedulerError('To date cannot be earlier than From date.');
+                            return;
+                        }
 
                         var known = collectKnownDates();
-                        if (!known.length) return;
+                        if (!known.length) {
+                            showSchedulerError('No valid existing session dates found to generate from.');
+                            return;
+                        }
+                        clearSchedulerError();
                         var spanDays = inferSpanDaysFromSelect();
                         var generated = generatePatternDates(known, rangeStart, rangeEnd, count);
+                        if (!generated.length) {
+                            showSchedulerError('No dates generated for the selected range.');
+                            return;
+                        }
                         for (var gi = 0; gi < generated.length; gi++) {
                             var newTitle = formatSessionRange(generated[gi], spanDays);
                             var n = 1;
@@ -3452,6 +3591,7 @@ function devSetView(view) {
                             newOpt.setAttribute('data-title', newTitle);
                             selectEl.appendChild(newOpt);
                         }
+                        clearSchedulerError();
                     });
                 }
             });
@@ -4805,15 +4945,24 @@ function devSetView(view) {
                                 <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
                                     <div style="display:flex;flex-direction:column;gap:4px;">
                                         <div style="font-size:11px;color:#94a3b8;letter-spacing:.4px;text-transform:uppercase;">From</div>
-                                        <input type="date" id="cs-auto-start-<?php echo $_oid ?>" class="cs-input" style="width:170px;height:38px;" title="From date" />
+                                        <div style="display:flex;gap:6px;align-items:center;">
+                                            <input type="text" id="cs-auto-start-<?php echo $_oid ?>" class="cs-input cs-auto-start-input" style="width:170px;height:38px;" title="From date" placeholder="e.g. 21/03/2026" />
+                                            <input type="date" id="cs-auto-start-picker-<?php echo $_oid ?>" style="position:absolute;opacity:0;width:1px;height:1px;border:0;padding:0;" tabindex="-1" />
+                                            <button type="button" id="cs-auto-start-picker-btn-<?php echo $_oid ?>" style="width:36px;height:36px;border-radius:8px;border:1px solid #475569;background:#1e293b;color:#cbd5e1;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;line-height:1;" aria-label="Open calendar">&#128197;</button>
+                                        </div>
                                     </div>
                                     <div style="display:flex;flex-direction:column;gap:4px;">
                                         <div style="font-size:11px;color:#94a3b8;letter-spacing:.4px;text-transform:uppercase;">To</div>
-                                        <input type="date" id="cs-auto-end-<?php echo $_oid ?>" class="cs-input" style="width:170px;height:38px;" title="To date" />
+                                        <div style="display:flex;gap:6px;align-items:center;">
+                                            <input type="text" id="cs-auto-end-<?php echo $_oid ?>" class="cs-input cs-auto-end-input" style="width:170px;height:38px;" title="To date" placeholder="e.g. 22/05/2027" />
+                                            <input type="date" id="cs-auto-end-picker-<?php echo $_oid ?>" style="position:absolute;opacity:0;width:1px;height:1px;border:0;padding:0;" tabindex="-1" />
+                                            <button type="button" id="cs-auto-end-picker-btn-<?php echo $_oid ?>" style="width:36px;height:36px;border-radius:8px;border:1px solid #475569;background:#1e293b;color:#cbd5e1;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;line-height:1;" aria-label="Open calendar">&#128197;</button>
+                                        </div>
                                     </div>
                                 </div>
                                 <button type="button" class="cs-add-btn cs-schedule-action-btn cs-auto-session" onclick="csAutoSchedule(<?php echo $_oid ?>)">Auto Schedule</button>
                                 <span style="color:#94a3b8;font-size:12px;line-height:44px;">Pattern within selected range</span>
+                                <span id="cs-error-<?php echo $_oid ?>" style="display:none;color:#fecaca;background:#2b1013;border:1px solid #7f1d1d;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:600;line-height:1.4;"></span>
                             <?php else: ?>
                                 <span style="color:#94a3b8;font-size:12px;line-height:44px;">Auto scheduler is available for Date options only.</span>
                             <?php endif; ?>
@@ -4837,6 +4986,24 @@ function devSetView(view) {
                             // Support double-day labels like "24/25 Aug 2026" by anchoring on first day.
                             cleaned = cleaned.replace(/^(\d{1,2})\/\d{1,2}\s+([A-Za-z]{3,})\s+(\d{4})$/, '$1 $2 $3');
                             var d = new Date(cleaned);
+                            if (isNaN(d.getTime())) return null;
+                            d.setHours(0,0,0,0);
+                            return d;
+                        }
+                        function parseFlexibleDate(v){
+                            if (!v) return null;
+                            var s = String(v).trim().replace(/\s+/g, ' ');
+                            var mIso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+                            if (mIso) {
+                                var dIso = new Date(parseInt(mIso[1],10), parseInt(mIso[2],10)-1, parseInt(mIso[3],10));
+                                if (!isNaN(dIso.getTime())) { dIso.setHours(0,0,0,0); return dIso; }
+                            }
+                            var mDmy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+                            if (mDmy) {
+                                var dDmy = new Date(parseInt(mDmy[3],10), parseInt(mDmy[2],10)-1, parseInt(mDmy[1],10));
+                                if (!isNaN(dDmy.getTime())) { dDmy.setHours(0,0,0,0); return dDmy; }
+                            }
+                            var d = new Date(s);
                             if (isNaN(d.getTime())) return null;
                             d.setHours(0,0,0,0);
                             return d;
@@ -4900,11 +5067,25 @@ function devSetView(view) {
                             return day === 0 || day === 6;
                         }
                         function parseYmd(v){
-                            if (!v) return null;
-                            var d = new Date(v + 'T00:00:00');
-                            if (isNaN(d.getTime())) return null;
-                            d.setHours(0,0,0,0);
-                            return d;
+                            return parseFlexibleDate(v);
+                        }
+                        function showCsError(optionId, msg){
+                            var el = document.getElementById('cs-error-' + optionId);
+                            if (!el) return;
+                            el.textContent = msg || 'Invalid date.';
+                            el.style.display = 'inline-block';
+                        }
+                        function clearCsError(optionId){
+                            var el = document.getElementById('cs-error-' + optionId);
+                            if (!el) return;
+                            el.textContent = '';
+                            el.style.display = 'none';
+                        }
+                        function formatInputDate(d){
+                            var day = String(d.getDate()).padStart(2, '0');
+                            var mon = String(d.getMonth() + 1).padStart(2, '0');
+                            var yr = d.getFullYear();
+                            return day + '/' + mon + '/' + yr;
                         }
                         function toYmd(d){
                             var y = d.getFullYear();
@@ -4965,6 +5146,77 @@ function devSetView(view) {
                             }
                             return out;
                         }
+                        function bindOptionDatePicker(optionId, prefix){
+                            var textEl = document.getElementById(prefix + '-' + optionId);
+                            var pickerEl = document.getElementById(prefix + '-picker-' + optionId);
+                            var pickerBtn = document.getElementById(prefix + '-picker-btn-' + optionId);
+                            if (!textEl || !pickerEl || !pickerBtn) return;
+                            var isOpen = false;
+                            var closePicker = function(){
+                                isOpen = false;
+                                var keepVal = pickerEl.value;
+                                try {
+                                    pickerEl.type = 'text';
+                                    pickerEl.type = 'date';
+                                    pickerEl.value = keepVal;
+                                } catch (e) {}
+                                pickerEl.blur();
+                                textEl.focus();
+                            };
+                            function openPicker(){
+                                var rect = pickerBtn.getBoundingClientRect();
+                                var anchorLeft = Math.max(8, Math.round(rect.right + 10));
+                                var anchorTop = Math.max(8, Math.round(rect.bottom + 6));
+                                pickerEl.style.position = 'fixed';
+                                pickerEl.style.left = anchorLeft + 'px';
+                                pickerEl.style.top = anchorTop + 'px';
+                                pickerEl.style.opacity = '0';
+                                pickerEl.style.zIndex = '2147483647';
+                                pickerEl.style.pointerEvents = 'auto';
+                                var parsed = parseFlexibleDate(textEl.value || '');
+                                if (parsed) pickerEl.value = toYmd(parsed);
+                                // Force layout so first open uses the anchored position.
+                                void pickerEl.offsetWidth;
+                                pickerEl.focus();
+                                isOpen = true;
+                                if (typeof pickerEl.showPicker === 'function') {
+                                    setTimeout(function(){ pickerEl.showPicker(); }, 0);
+                                    return;
+                                }
+                                var prev = {
+                                    position: pickerEl.style.position,
+                                    left: pickerEl.style.left,
+                                    top: pickerEl.style.top,
+                                    opacity: pickerEl.style.opacity,
+                                    zIndex: pickerEl.style.zIndex,
+                                    pointerEvents: pickerEl.style.pointerEvents
+                                };
+                                pickerEl.click();
+                                setTimeout(function(){
+                                    pickerEl.style.position = prev.position;
+                                    pickerEl.style.left = prev.left;
+                                    pickerEl.style.top = prev.top;
+                                    pickerEl.style.opacity = prev.opacity;
+                                    pickerEl.style.zIndex = prev.zIndex;
+                                    pickerEl.style.pointerEvents = prev.pointerEvents;
+                                }, 0);
+                            }
+                            pickerBtn.addEventListener('click', function(e){
+                                e.preventDefault();
+                                if (isOpen) { closePicker(); return; }
+                                openPicker();
+                            });
+                            pickerEl.addEventListener('change', function(){
+                                var picked = parseFlexibleDate(pickerEl.value || '');
+                                if (picked) textEl.value = formatInputDate(picked);
+                                closePicker();
+                                textEl.focus();
+                            });
+                            pickerEl.addEventListener('blur', function(){ isOpen = false; });
+                            pickerEl.addEventListener('keydown', function(e){
+                                if (e.key === 'Escape' || e.keyCode === 27) closePicker();
+                            });
+                        }
                         window.csAddRow = function(optionId) {
                             newCounter[optionId] = (newCounter[optionId] || 0) + 1;
                             var n = newCounter[optionId];
@@ -4989,25 +5241,42 @@ function devSetView(view) {
                             // Auto scheduling is date-only; non-date options won't have range inputs.
                             if (!startEl || !endEl) return;
                             var addCount = 24;
-                            var rangeStart = parseYmd(startEl && startEl.value ? startEl.value : '');
-                            var rangeEnd = parseYmd(endEl && endEl.value ? endEl.value : '');
-                            if (!rangeStart || !rangeEnd) return;
-                            if (rangeStart && rangeEnd && rangeEnd.getTime() < rangeStart.getTime()) return;
+                            var startSource = (startEl && startEl.value) ? startEl.value : '';
+                            var endSource = (endEl && endEl.value) ? endEl.value : '';
+                            var rangeStart = parseYmd(startSource);
+                            var rangeEnd = parseYmd(endSource);
+                            if (!rangeStart || !rangeEnd) {
+                                showCsError(optionId, 'Please enter valid From and To dates.');
+                                return;
+                            }
+                            if (rangeStart && rangeEnd && rangeEnd.getTime() < rangeStart.getTime()) {
+                                showCsError(optionId, 'To date cannot be earlier than From date.');
+                                return;
+                            }
 
                             var dateVals = [];
                             tbody.querySelectorAll('input[name^="schedule_value["][name$="][title]"],input[name^="schedule_new[' + optionId + ']"][name$="][title]"]').forEach(function(inp){
                                 var d = parseSessionDate(inp.value || '');
                                 if (d) dateVals.push(d);
                             });
-                            if (!dateVals.length) return;
+                            if (!dateVals.length) {
+                                showCsError(optionId, 'No valid existing session dates found to generate from.');
+                                return;
+                            }
+                            clearCsError(optionId);
                             var spanDays = inferSpanDaysFromRows(tbody, optionId);
                             var generated = generatePatternDates(dateVals, rangeStart, rangeEnd, addCount);
+                            if (!generated.length) {
+                                showCsError(optionId, 'No dates generated for the selected range.');
+                                return;
+                            }
                             for (var g=0; g<generated.length; g++) {
                                 csAddRow(optionId);
                                 var n = newCounter[optionId];
                                 var titleInput = tbody.querySelector('input[name="schedule_new[' + optionId + '][' + n + '][title]"]');
                                 if (titleInput) titleInput.value = formatSessionRange(generated[g], spanDays);
                             }
+                            clearCsError(optionId);
                         };
                         window.csToggleRemove = function(btn, valueId) {
                             var tr = btn.closest('tr');
@@ -5029,19 +5298,31 @@ function devSetView(view) {
                             var startEl = document.getElementById('cs-auto-start-' + optionId);
                             var endEl = document.getElementById('cs-auto-end-' + optionId);
                             if (!startEl || !endEl) return;
-                            var from = startEl.value || '';
-                            endEl.min = from;
-                            if (endEl.value && from && endEl.value < from) {
-                                endEl.value = from;
+                            var from = parseFlexibleDate(startEl.value || '');
+                            var to = parseFlexibleDate(endEl.value || '');
+                            if (from && to && to.getTime() < from.getTime()) {
+                                endEl.value = formatInputDate(from);
                             }
                         };
-                        document.querySelectorAll('input[id^="cs-auto-start-"]').forEach(function(el){
+                        document.querySelectorAll('input.cs-auto-start-input').forEach(function(el){
                             el.addEventListener('change', function(){
                                 var optionId = this.id.replace('cs-auto-start-', '');
+                                clearCsError(optionId);
                                 window.csSyncRange(optionId);
+                            });
+                            el.addEventListener('input', function(){
+                                var optionId = this.id.replace('cs-auto-start-', '');
+                                clearCsError(optionId);
                             });
                             var optionId = el.id.replace('cs-auto-start-', '');
                             window.csSyncRange(optionId);
+                            var endEl = document.getElementById('cs-auto-end-' + optionId);
+                            if (endEl) {
+                                endEl.addEventListener('input', function(){ clearCsError(optionId); });
+                                endEl.addEventListener('change', function(){ clearCsError(optionId); });
+                            }
+                            bindOptionDatePicker(optionId, 'cs-auto-start');
+                            bindOptionDatePicker(optionId, 'cs-auto-end');
                         });
                     })();
                     </script>
