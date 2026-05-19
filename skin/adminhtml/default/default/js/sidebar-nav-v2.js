@@ -1092,6 +1092,14 @@ document.observe('dom:loaded', function() {
             // Invoices grid has its own merged View+PDF icon column
             // (see consolidateInvoiceActions below).
             if (table.id === 'sales_invoice_grid_table') return;
+            // Skip grids whose PHP action column already rendered icon
+            // buttons via the global MMD action renderer — those grids
+            // get per-row icons and shouldn't be stamped with an extra
+            // "Actions ▾" dropdown.
+            if (table.querySelector('.mmd-grid-actions')) return;
+            // Likewise, if injectEditDeleteActions already stamped a
+            // per-row Edit/Delete icon cell, don't add a second column.
+            if (table.querySelector('.row-edit-actions')) return;
             // Add ACTIONS header
             var headings = table.querySelector('tr.headings');
             if (headings && !headings.querySelector('.row-actions-th')) {

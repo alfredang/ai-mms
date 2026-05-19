@@ -22,6 +22,54 @@ OpenMage 1.x (Magento 1 LTS v20.12.3) customized as a Course Registration + LMS 
 - **Country-specific funding hooks** matter for marketing & checkout: SG SkillsFuture / WSQ / IBF, MY HRDC. Don't strip these references when refactoring storefront templates.
 - **The admin panel is rebranded** as "Tertiary Infotech Academy — Magento Management System". Treat the admin as a TMS for instructors + operations staff, not a generic e-commerce backoffice.
 
+## Pre-push verification (MANDATORY)
+
+**Never `git push` until localhost is verified error-free.** Production redeploys
+on every push to `main` (Coolify) and a broken push takes the whole admin down
+for the build window. Localhost is the safety net.
+
+Before `git push`:
+
+1. **Lint every changed PHP file** inside the container:
+   ```bash
+   docker exec ai-mms-web-1 php -l /var/www/html/<path>
+   ```
+   Repeat per file. Lint clean ≠ runtime clean (next step matters more).
+
+2. **For class rewrites / block overrides / observers** — confirm the class
+   actually instantiates against the live config:
+   ```bash
+   docker exec ai-mms-web-1 php -r "
+     require_once '/var/www/html/app/Mage.php';
+     Mage::app();
+     \$b = Mage::app()->getLayout()->createBlock('<alias>');
+     var_dump(get_class(\$b));   // must print the rewritten class
+   "
+   ```
+   If `createBlock` returns `bool(false)` the class is broken / missing / its
+   parent fails to load. Common cause: registering a rewrite in `config.xml`
+   without committing the matching class file (`git status` will show the
+   file as untracked).
+
+3. **Hit the affected route via HTTP** and confirm no fatal:
+   ```bash
+   curl -sS -o /tmp/p.html -w "HTTP=%{http_code}\n" -L \
+       'http://localhost:8080/tigerdragon/<route>'
+   grep -c "Fatal error\|Uncaught" /tmp/p.html   # must print 0
+   ```
+
+4. **Check that every new file is tracked** before pushing:
+   ```bash
+   git status --short | grep '^??'   # nothing config.xml-referenced should appear here
+   ```
+   A common failure: editing config.xml to register a rewrite, creating the
+   class file alongside it, but never running `git add` on the new file. The
+   rewrite ships without its implementation and production fatals.
+
+If any of the four checks fails, **do not push** — fix locally first, re-run
+the checks, then push. After pushing, watch `/version.txt` to confirm the
+new build timestamp before considering the change live.
+
 ## Development Commands
 
 ```bash

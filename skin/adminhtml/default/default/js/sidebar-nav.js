@@ -685,6 +685,13 @@ document.observe('dom:loaded', function() {
         if (tables.length === 0) return;
 
         tables.forEach(function(table) {
+            // Skip grids whose PHP action column already rendered icon
+            // buttons (via the global MMD action renderer). Those grids
+            // get per-row icons; we don't want to also stamp an "Actions ▾"
+            // dropdown on top.
+            if (table.querySelector('.mmd-grid-actions')) return;
+            if (table.querySelector('.row-edit-actions')) return;
+
             // Add ACTIONS header
             var headings = table.querySelector('tr.headings');
             if (headings && !headings.querySelector('.row-actions-th')) {

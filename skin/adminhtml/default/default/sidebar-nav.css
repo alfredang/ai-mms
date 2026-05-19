@@ -904,13 +904,18 @@ body.sidebar-collapsed .admin-main {
     white-space: nowrap;
 }
 
-/* === 14. Grid Overhaul === */
+/* === 14. Grid Overhaul ===
+   Converged to the .mm-table aesthetic (the dashboard "Latest 20
+   Registrations" look): the grid sits FLUSH on the page surface —
+   no card bg, no border, no radius, no glow — with uppercase muted
+   headers, transparent cells, and a single 1px hairline between rows
+   (no zebra, no per-cell borders, no hover fill). Tokens only. */
 .admin-main .grid {
-    background: var(--d3) !important;
-    border: 1px solid var(--b1) !important;
-    border-radius: 12px !important;
-    overflow: hidden !important;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    overflow-x: auto !important;
+    box-shadow: none !important;
     margin-top: 0 !important;
 }
 
@@ -929,33 +934,32 @@ body.sidebar-collapsed .admin-main {
 
 /* ===== FUTURISTIC GRID THEME ===== */
 
-/* Grid wrapper — dark with subtle glow border */
+/* Flush, transparent table — no card bg / border / radius / glow. */
 .admin-main .grid table,
 .admin-main .grid .data,
-.admin-main .grid {
-    background: #0a0f1a !important;
-}
+.admin-main .grid,
 .admin-main .grid table.data {
-    border: 1px solid rgba(37,139,182,0.12) !important;
-    border-radius: 10px !important;
-    overflow: hidden !important;
-    box-shadow: 0 0 30px rgba(37,139,182,0.03), 0 4px 20px rgba(0,0,0,0.3) !important;
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
 }
 
-/* Grid header — same font + size as body cells; differentiation is weight
-   + accent color only. No uppercase, no letter-spacing, no text-shadow. */
+/* Header — small UPPERCASE muted label, single bottom hairline,
+   transparent (matches .mm-table thead). */
 .admin-main .grid th,
 .admin-main .grid tr.headings th {
-    background: rgba(37,139,182,0.04) !important;
-    color: #258bb6 !important;
-    border-bottom: 1px solid rgba(37,139,182,0.15) !important;
+    background: transparent !important;
+    color: var(--t4, #94a3b8) !important;
+    border-bottom: 1px solid var(--b1, #384a60) !important;
     border-right: none !important;
-    font-weight: 600 !important;
-    padding: 10px 16px !important;
-    text-transform: none !important;
-    font-size: 12.5px !important;
-    letter-spacing: 0 !important;
-    line-height: 1.5 !important;
+    border-left: none !important;
+    font-weight: 700 !important;
+    padding: 6px 10px !important;
+    text-transform: uppercase !important;
+    font-size: 11px !important;
+    letter-spacing: 0.6px !important;
+    line-height: 1.4 !important;
     white-space: nowrap !important;
     text-shadow: none !important;
 }
@@ -963,7 +967,8 @@ body.sidebar-collapsed .admin-main {
     border-right: none !important;
 }
 
-/* Grid data cells — sleek dark rows */
+/* Data cells — transparent, compact, hairline only BETWEEN rows
+   (tr + tr), no per-cell border, no zebra, no glow. */
 .admin-main .grid td,
 .admin-main .grid tr td,
 .admin-main .grid tr.even td,
@@ -971,30 +976,31 @@ body.sidebar-collapsed .admin-main {
 .admin-main .grid tbody tr td,
 .admin-main .grid tbody tr:nth-child(even) td,
 .admin-main .grid tbody tr:nth-child(odd) td {
-    padding: 10px 16px !important;
-    font-size: 12.5px !important;
-    border-bottom: 1px solid rgba(37,139,182,0.06) !important;
-    border-right: none !important;
-    border-left: none !important;
+    padding: 6px 10px !important;
+    font-size: 12px !important;
+    border: none !important;
     line-height: 1.5 !important;
     vertical-align: middle !important;
-    color: #94a3b8 !important;
-    background: #0a0f1a !important;
-    transition: all 0.2s ease !important;
+    color: var(--t2, #e2e8f0) !important;
+    background: transparent !important;
+    transition: none !important;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+}
+.admin-main .grid tbody tr + tr td {
+    border-top: 1px solid var(--b1, #384a60) !important;
 }
 .admin-main .grid td:last-child {
     border-right: none !important;
 }
 .admin-main .grid td a {
-    font-size: 12.5px !important;
-    color: #258bb6 !important;
-    text-shadow: 0 0 6px rgba(37,139,182,0.2);
-    transition: all 0.2s !important;
+    font-size: 12px !important;
+    color: var(--blue, #258bb6) !important;
+    text-shadow: none !important;
+    transition: color 0.15s !important;
 }
 .admin-main .grid td a:hover {
-    color: #67e8f9 !important;
-    text-shadow: 0 0 12px rgba(37,139,182,0.4) !important;
+    color: var(--blue2, #67e8f9) !important;
+    text-shadow: none !important;
 }
 
 /* Row hover / on-mouse / selected — TEXT-ONLY highlight, no background.
@@ -1019,14 +1025,16 @@ body table.data tr.selected td {
     background-color: transparent !important;
     background-image: none !important;
 }
+/* Flat hover: no colour shift, no border tint, no accent line —
+   matches .mm-table (which has no hover effect at all). Background
+   stays transparent (handled by the rule above). */
 body .grid tr:hover td,
 body .grid tr.on-mouse td,
 body .grid tr.selected td,
 body table.data tr:hover td,
 body table.data tr.on-mouse td,
 body table.data tr.selected td {
-    color: var(--btn-sky, #65b7d5) !important;
-    border-bottom-color: rgba(101,183,213,0.18) !important;
+    color: var(--t2, #e2e8f0) !important;
 }
 body .grid tr:hover td a,
 body .grid tr.on-mouse td a,
@@ -1034,30 +1042,22 @@ body .grid tr.selected td a,
 body table.data tr:hover td a,
 body table.data tr.on-mouse td a,
 body table.data tr.selected td a {
-    color: var(--btn-sky, #65b7d5) !important;
+    color: var(--blue, #258bb6) !important;
 }
-
-/* Left accent line on hover */
 .admin-main .grid tbody tr {
     position: relative;
 }
 .admin-main .grid tbody tr:hover td:first-child {
-    box-shadow: inset 3px 0 0 var(--btn-sky, #65b7d5) !important;
+    box-shadow: none !important;
 }
 
-/* Alternating rows — darker shade, no light bg */
-.admin-main .grid tbody tr:nth-child(even) td {
-    background: #0e1525 !important;
-}
-
-/* Override any Magento inline even/odd row backgrounds */
-.admin-main .grid tr[class*="even"] td {
-    background: #0e1525 !important;
-    color: #94a3b8 !important;
-}
+/* No zebra — single hairline (tr + tr) is the only row separation,
+   exactly like .mm-table. Kill the legacy alternating shades. */
+.admin-main .grid tbody tr:nth-child(even) td,
+.admin-main .grid tr[class*="even"] td,
 .admin-main .grid tr[class*="odd"] td {
-    background: #0a0f1a !important;
-    color: #94a3b8 !important;
+    background: transparent !important;
+    color: var(--t2, #e2e8f0) !important;
 }
 
 /* Checkbox column hidden via JS (removeCheckboxColumn function) */
@@ -3878,4 +3878,30 @@ body.adminhtml-catalog-product-edit .entry-edit.cpe-collapsed > .fieldset {
 body.adminhtml-catalog-product-edit li.cpe-tab-hidden,
 body.adminhtml-catalog-product-edit .cpe-tab-content-hidden {
     display: none !important;
+}
+
+/* ============================================================
+   Search Terms grid — compact rows + narrow icon action column.
+   Per backend-design skill: 6–10px cell padding for grids; action
+   columns 60–90px. Global icon renderer already supplies SVG
+   icons for the action cell via the widget_grid_column_renderer_action
+   rewrite; this block just tightens spacing on this route.
+   ============================================================ */
+body.adminhtml-catalog_search-index .admin-main .grid table.data th,
+body.adminhtml-catalog_search-index .admin-main .grid table.data tr.headings th {
+    padding: 6px 12px !important;
+    line-height: 1.4 !important;
+}
+body.adminhtml-catalog_search-index .admin-main .grid table.data td,
+body.adminhtml-catalog_search-index .admin-main .grid table.data tbody tr td,
+body.adminhtml-catalog_search-index .admin-main .grid table.data tbody tr:nth-child(even) td,
+body.adminhtml-catalog_search-index .admin-main .grid table.data tbody tr:nth-child(odd) td {
+    padding: 6px 12px !important;
+    line-height: 1.4 !important;
+}
+/* Action column narrow — icon-only cell does not need the legacy width. */
+body.adminhtml-catalog_search-index #catalogSearchGrid_table th:last-child,
+body.adminhtml-catalog_search-index #catalogSearchGrid_table td:last-child {
+    width: 72px !important;
+    text-align: center !important;
 }

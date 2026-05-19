@@ -4873,12 +4873,21 @@ function devSetView(view) {
                         foreach ($_optColl as $_o) {
                             $_vals = array();
                             foreach ($_o->getValuesCollection() as $_v) {
+                                // reg_course is stored as m/d/y (e.g. "03/21/26"); HTML date input
+                                // needs Y-m-d. Convert here, save handler reverses it.
+                                $_regRaw = (string) $_v->getRegCourse();
+                                $_regIso = '';
+                                if ($_regRaw !== '') {
+                                    $_dt = DateTime::createFromFormat('n/j/y', $_regRaw);
+                                    if ($_dt instanceof DateTime) $_regIso = $_dt->format('Y-m-d');
+                                }
                                 $_vals[] = array(
-                                    'id'       => (int) $_v->getId(),
-                                    'title'    => (string) $_v->getTitle(),
-                                    'price'    => (float) $_v->getPrice(),
-                                    'sku'      => (string) $_v->getSku(),
-                                    'sort'     => (int) $_v->getSortOrder(),
+                                    'id'         => (int) $_v->getId(),
+                                    'title'      => (string) $_v->getTitle(),
+                                    'price'      => (float) $_v->getPrice(),
+                                    'sku'        => (string) $_v->getSku(),
+                                    'sort'       => (int) $_v->getSortOrder(),
+                                    'reg_course' => $_regIso,
                                 );
                             }
                             $_csOptions[] = array(
@@ -4962,6 +4971,7 @@ function devSetView(view) {
                                 <tr>
                                     <th style="width:60px;">ID</th>
                                     <th>Title</th>
+                                    <th style="width:140px;">Date</th>
                                     <th style="width:110px;">Price</th>
                                     <th style="width:80px;">Sort</th>
                                     <th style="width:90px;">Action</th>
@@ -4972,6 +4982,7 @@ function devSetView(view) {
                                 <tr data-value-id="<?php echo $_vid ?>">
                                     <td class="cs-id"><?php echo $_vid ?></td>
                                     <td><input type="text" class="cs-input" name="schedule_value[<?php echo $_vid ?>][title]" value="<?php echo htmlspecialchars($_v['title']) ?>" /></td>
+                                    <td><input type="date" class="cs-input" name="schedule_value[<?php echo $_vid ?>][reg_course]" value="<?php echo htmlspecialchars($_v['reg_course']) ?>" /></td>
                                     <td><input type="number" step="0.01" class="cs-input cs-w-price" name="schedule_value[<?php echo $_vid ?>][price]" value="<?php echo $_v['price'] > 0 ? number_format($_v['price'], 2, '.', '') : '' ?>" placeholder="0.00" /></td>
                                     <td><input type="number" step="1" class="cs-input cs-w-sort" name="schedule_value[<?php echo $_vid ?>][sort]" value="<?php echo (int) $_v['sort'] ?>" /></td>
                                     <td>
@@ -5270,6 +5281,7 @@ function devSetView(view) {
                             tr.innerHTML =
                                 '<td class="cs-id" style="color:#22d3ee;">new</td>' +
                                 '<td><input type="text" class="cs-input" name="schedule_new[' + optionId + '][' + n + '][title]" placeholder="e.g. 27 May 2026 (Tue)" /></td>' +
+                                '<td><input type="date" class="cs-input" name="schedule_new[' + optionId + '][' + n + '][reg_course]" /></td>' +
                                 '<td><input type="number" step="0.01" class="cs-input cs-w-price" name="schedule_new[' + optionId + '][' + n + '][price]" placeholder="0.00" /></td>' +
                                 '<td><input type="number" step="1" class="cs-input cs-w-sort" name="schedule_new[' + optionId + '][' + n + '][sort]" value="0" /></td>' +
                                 '<td><button type="button" class="cs-rm-btn" title="Cancel" aria-label="Cancel" onclick="this.closest(\'tr\').remove()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>';

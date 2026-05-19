@@ -377,6 +377,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                     $_title = isset($_fields['title']) ? trim((string) $_fields['title']) : null;
                     $_priceRaw = isset($_fields['price']) ? trim((string) $_fields['price']) : null;
                     $_sort  = isset($_fields['sort'])  ? (int) $_fields['sort']  : null;
+                    $_regIso = isset($_fields['reg_course']) ? trim((string) $_fields['reg_course']) : null;
 
                     if ($_title !== null && $_title !== '') {
                         $_write->update(
@@ -389,6 +390,19 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                         $_write->update(
                             $_optTypeTable,
                             array('sort_order' => $_sort),
+                            $_write->quoteInto('option_type_id = ?', $_vid)
+                        );
+                    }
+                    if ($_regIso !== null) {
+                        // HTML date input is Y-m-d; reg_course column stores m/d/y. Empty clears.
+                        $_regOut = '';
+                        if ($_regIso !== '') {
+                            $_dt = DateTime::createFromFormat('Y-m-d', $_regIso);
+                            if ($_dt instanceof DateTime) $_regOut = $_dt->format('n/j/y');
+                        }
+                        $_write->update(
+                            $_optTypeTable,
+                            array('reg_course' => $_regOut),
                             $_write->quoteInto('option_type_id = ?', $_vid)
                         );
                     }
@@ -430,11 +444,18 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                         $_sort  = isset($_row['sort'])  ? (int) $_row['sort']  : 0;
                         $_priceRaw = isset($_row['price']) ? trim((string) $_row['price']) : '';
                         $_priceVal = $_priceRaw === '' ? 0.0 : (float) $_priceRaw;
+                        $_regIso = isset($_row['reg_course']) ? trim((string) $_row['reg_course']) : '';
+                        $_regOut = '';
+                        if ($_regIso !== '') {
+                            $_dt = DateTime::createFromFormat('Y-m-d', $_regIso);
+                            if ($_dt instanceof DateTime) $_regOut = $_dt->format('n/j/y');
+                        }
 
                         $_write->insert($_optTypeTable, array(
                             'option_id'  => $_optId,
                             'sku'        => '',
                             'sort_order' => $_sort,
+                            'reg_course' => $_regOut,
                         ));
                         $_newVid = (int) $_write->lastInsertId();
                         $_write->insert($_optTypeTitle, array(
