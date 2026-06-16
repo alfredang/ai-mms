@@ -22,6 +22,12 @@ class MMD_Branchscope_Block_Store_Switcher extends Mage_Adminhtml_Block_Store_Sw
             return '';
         }
 
+        // Country instances (MMS_MODE=country) only have one store view
+        // configured — the Store View bar is meaningless and confusing there.
+        if (getenv('MMS_MODE') === 'country') {
+            return '';
+        }
+
         // Roles that don't get a branch switcher:
         //  - learner / trainer: scoped to their own registration country.
         // Everyone else (developer, marketing, admin, super-admin) sees
