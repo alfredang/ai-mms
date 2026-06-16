@@ -35,14 +35,21 @@
 require_once __DIR__ . '/../../app/Mage.php';
 Mage::app();
 
-$args    = array_slice($argv, 1);
-$dryRun  = in_array('--dry-run', $args, true);
-$confirm = in_array('--confirm', $args, true);
+$args       = array_slice($argv, 1);
+$dryRun     = in_array('--dry-run', $args, true);
+$confirm    = in_array('--confirm', $args, true);
+$verifyHttp = in_array('--verify-http', $args, true);
 
 if (!$dryRun && !$confirm) {
     fwrite(STDERR, "Usage:\n");
-    fwrite(STDERR, "  --dry-run   count what would be cleared; write nothing\n");
-    fwrite(STDERR, "  --confirm   UPDATE redirect=NULL on stale rows\n");
+    fwrite(STDERR, "  --dry-run    [--verify-http]  count what would be cleared; write nothing\n");
+    fwrite(STDERR, "  --confirm    [--verify-http]  UPDATE redirect=NULL on stale rows\n");
+    fwrite(STDERR, "\n");
+    fwrite(STDERR, "  --verify-http  before clearing a candidate, HEAD the live URL and KEEP\n");
+    fwrite(STDERR, "                 it if the server returns 200. Catches false positives\n");
+    fwrite(STDERR, "                 like operator-curated /media/*.pdf redirects and any\n");
+    fwrite(STDERR, "                 category page that routes outside core_url_rewrite.\n");
+    fwrite(STDERR, "                 Parallel via curl_multi — ~30s on ~1000 candidates.\n");
     exit(1);
 }
 if ($dryRun && $confirm) {
@@ -157,9 +164,68 @@ foreach ($rows as $r) {
     ];
 }
 
+// Optional HTTP safety net: HEAD each candidate URL against the live
+// site. 200 → demote from CLEAR back to KEEP (catches direct-file
+// redirects like /media/*.pdf and any category page routed outside
+// core_url_rewrite). Parallel via curl_multi so ~1000 candidates
+// finish in ~30s, not 25 min serially.
+if ($verifyHttp && !empty($toClear)) {
+    $unique = array_values(array_unique(array_column($toClear, 'redirect')));
+    echo "verifying " . count($unique) . " unique URLs against live site...\n";
+    $verified = [];
+    $i = 0;
+    foreach (array_chunk($unique, 25) as $batch) {
+        $mh = curl_multi_init();
+        $handles = [];
+        foreach ($batch as $u) {
+            $ch = curl_init($u);
+            curl_setopt_array($ch, [
+                CURLOPT_NOBODY         => true,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_TIMEOUT        => 8,
+                CURLOPT_CONNECTTIMEOUT => 4,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_USERAGENT      => 'mmd-stale-redirect-cleanup/1.0',
+            ]);
+            curl_multi_add_handle($mh, $ch);
+            $handles[(int) $ch] = ['ch' => $ch, 'url' => $u];
+        }
+        do {
+            curl_multi_exec($mh, $running);
+            curl_multi_select($mh, 1.0);
+        } while ($running > 0);
+        foreach ($handles as $h) {
+            $code = (int) curl_getinfo($h['ch'], CURLINFO_HTTP_CODE);
+            $verified[$h['url']] = ($code === 200);
+            curl_multi_remove_handle($mh, $h['ch']);
+            curl_close($h['ch']);
+        }
+        curl_multi_close($mh);
+        $i += count($batch);
+        if ($i % 200 === 0 || $i === count($unique)) {
+            echo "  ... $i / " . count($unique) . "\n";
+        }
+    }
+    $stillStale = [];
+    $rescued    = 0;
+    foreach ($toClear as $t) {
+        if (!empty($verified[$t['redirect']])) {
+            $rescued++;
+            $kept++;
+        } else {
+            $stillStale[] = $t;
+        }
+    }
+    $toClear = $stillStale;
+    echo "  rescued (200 OK on live): " . number_format($rescued) . "\n";
+    echo "  confirmed stale (non-200): " . number_format(count($toClear)) . "\n";
+}
+
 echo "\n=== Plan ===\n";
-echo "  keep:  " . number_format($kept)           . "  (routable; "
-   . number_format($external) . " external)\n";
+echo "  keep:  " . number_format($kept)           . "  (routable"
+   . ($external > 0 ? "; " . number_format($external) . " external" : "")
+   . ($verifyHttp ? "; HTTP-verified" : "")
+   . ")\n";
 echo "  CLEAR: " . number_format(count($toClear)) . "  (stale — redirect → NULL)\n";
 
 if (!empty($toClear)) {
