@@ -1,11 +1,20 @@
 <?php
 /**
  * For every SG-store catalogsearch_query row with NO redirect set,
- * find the SG-store product whose name + url_key best match the
- * query_text. If a confident match exists, write its full
- * https://www.tertiarycourses.com.sg/<url_key>.html into `redirect`
+ * find the SG-store product whose name + canonical request_path best
+ * match the query_text. If a confident match exists, write the full
+ * https://www.tertiarycourses.com.sg/<request_path> into `redirect`
  * and set num_results = 1. If nothing matches confidently, DELETE the
  * row.
+ *
+ * URL source: core_url_rewrite (is_system=1, category_id IS NULL —
+ * the canonical flat URL the storefront router actually serves), NOT
+ * catalog_product_entity_varchar.url_key (which can be a stale EAV
+ * value pointing at a retired URL that 404s). The
+ * MMD_SearchFallback_ResultController would clear any stale redirect
+ * on the first customer hit anyway, but generating routable URLs in
+ * the first place avoids the "search shows results page once, then
+ * redirect goes empty" oddity.
  *
  * Two-phase, operator-driven (same shape as
  * prune-bad-url-redirects.php):
@@ -120,20 +129,34 @@ if ($confirm) {
 echo ($dryRun ? "[DRY RUN] " : "[CONFIRM] ")
    . "building SG product index...\n";
 
-$urlKeyAttr = (int) $conn->fetchOne("SELECT attribute_id FROM eav_attribute WHERE attribute_code='url_key' AND entity_type_id=(SELECT entity_type_id FROM eav_entity_type WHERE entity_type_code='catalog_product')");
 $nameAttr   = (int) $conn->fetchOne("SELECT attribute_id FROM eav_attribute WHERE attribute_code='name'    AND entity_type_id=(SELECT entity_type_id FROM eav_entity_type WHERE entity_type_code='catalog_product')");
 $statusAttr = (int) $conn->fetchOne("SELECT attribute_id FROM eav_attribute WHERE attribute_code='status'  AND entity_type_id=(SELECT entity_type_id FROM eav_entity_type WHERE entity_type_code='catalog_product')");
 $visibAttr  = (int) $conn->fetchOne("SELECT attribute_id FROM eav_attribute WHERE attribute_code='visibility' AND entity_type_id=(SELECT entity_type_id FROM eav_entity_type WHERE entity_type_code='catalog_product')");
-if (!$urlKeyAttr || !$nameAttr || !$statusAttr || !$visibAttr) {
-    fwrite(STDERR, "ERROR: missing EAV attribute(s) (url_key/name/status/visibility)\n");
+if (!$nameAttr || !$statusAttr || !$visibAttr) {
+    fwrite(STDERR, "ERROR: missing EAV attribute(s) (name/status/visibility)\n");
     exit(3);
 }
 
-// SG store-view value wins; fall back to admin (store 0) value.
+// Source of truth = core_url_rewrite (the actual storefront router),
+// NOT catalog_product_entity_varchar.url_key. A product can be enabled
+// + search-visible AND still have NO rewrite row (retired URL, indexer
+// never ran, etc.) — its url_key is then a stale EAV value that 404s
+// on the storefront. The MMD_SearchFallback ResultController clears
+// such stale redirects on the first customer hit; we avoid generating
+// them in the first place by pinning targets to actual rewrite rows.
+//
+// Filters:
+//   - cur.store_id = SG (canonical flat URL is per-store on this site)
+//   - cur.is_system = 1   (Magento-generated, current — not a manual RP)
+//   - cur.options NULL/'' (excludes Permanent Redirect rows that just
+//                          bounce to another URL — we want the final
+//                          destination, not a 301-chain)
+//   - cur.category_id IS NULL (the FlatCategoryUrl canonical — no
+//                              parent-category prefix)
 $products = $conn->fetchAll("
     SELECT cpe.entity_id, cpe.sku,
            COALESCE(name_s.value, name_g.value) AS name,
-           COALESCE(uk_s.value,   uk_g.value)   AS url_key
+           cur.request_path
       FROM catalog_product_entity cpe
       JOIN catalog_product_entity_int s
         ON s.entity_id = cpe.entity_id
@@ -145,6 +168,12 @@ $products = $conn->fetchAll("
        AND v.attribute_id = $visibAttr
        AND v.store_id IN (0, $STORE_ID)
        AND v.value IN (3, 4)
+      JOIN core_url_rewrite cur
+        ON cur.product_id = cpe.entity_id
+       AND cur.store_id = $STORE_ID
+       AND cur.is_system = 1
+       AND cur.category_id IS NULL
+       AND (cur.options IS NULL OR cur.options = '')
  LEFT JOIN catalog_product_entity_varchar name_s
         ON name_s.entity_id = cpe.entity_id
        AND name_s.attribute_id = $nameAttr
@@ -153,28 +182,20 @@ $products = $conn->fetchAll("
         ON name_g.entity_id = cpe.entity_id
        AND name_g.attribute_id = $nameAttr
        AND name_g.store_id = 0
- LEFT JOIN catalog_product_entity_varchar uk_s
-        ON uk_s.entity_id = cpe.entity_id
-       AND uk_s.attribute_id = $urlKeyAttr
-       AND uk_s.store_id = $STORE_ID
- LEFT JOIN catalog_product_entity_varchar uk_g
-        ON uk_g.entity_id = cpe.entity_id
-       AND uk_g.attribute_id = $urlKeyAttr
-       AND uk_g.store_id = 0
   GROUP BY cpe.entity_id
 ");
 
 $index = [];
 foreach ($products as $p) {
-    if (empty($p['url_key'])) continue;
+    if (empty($p['request_path'])) continue;
     $toks = array_unique(array_merge(
-        $tokenize($p['url_key']),
+        $tokenize($p['request_path']),
         $tokenize($p['name'])
     ));
     if (empty($toks)) continue;
     $index[] = [
         'sku'       => $p['sku'],
-        'url'       => $BASE_URL . $p['url_key'] . '.html',
+        'url'       => $BASE_URL . $p['request_path'],
         'tokens'    => array_flip($toks), // dict for O(1) lookup
         'tok_count' => count($toks),
     ];
