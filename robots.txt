@@ -38,19 +38,18 @@ Disallow: /sendfriend/
 Disallow: /poll/
 Disallow: /newsletter/
 
-# Disallow URL parameters (layered nav, sort, store switcher)
-# NOTE: /*?p= (pagination) is intentionally NOT disallowed. Paginated
-# views must be crawlable so Googlebot can read the X-Robots-Tag:
-# noindex, follow header served for ?p= URLs (see .htaccess). Blocking
-# them in robots.txt is what put them in the "Indexed, though blocked
-# by robots.txt" GSC report in the first place.
-Disallow: /*?dir=
-Disallow: /*?order=
-Disallow: /*?price=
-Disallow: /*?cat=
-Disallow: /*?manufacturer=
-Disallow: /*?limit=
-Disallow: /*?mode=
+# URL parameters (layered nav, sort, limit, pagination).
+# NOTE: dir/order/price/cat/manufacturer/limit/mode/p are intentionally
+# NOT disallowed. Faceted-nav / sort / limit / paginated views must be
+# crawlable so Googlebot can read the X-Robots-Tag: noindex, follow header
+# served for these param URLs (see .htaccess). Blocking them in robots.txt
+# is exactly what put them in the "Indexed, though blocked by robots.txt"
+# GSC report — a disallowed URL can never be fetched to see the noindex,
+# so it never leaves the index. Unblock + noindex,follow is the only way
+# to deindex them while keeping product links crawlable.
+#
+# Session / store-switch params stay blocked: they only ever 302-redirect,
+# so they produce crawl noise, not indexable content.
 Disallow: /*?___store=
 Disallow: /*?___from_store=
 Disallow: /*?SID=

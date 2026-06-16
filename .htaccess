@@ -418,11 +418,16 @@ Redirect 301 /project-management-sme-chinese.html https://www.tertiarycourses.co
     RewriteRule ^catalog/seo_sitemap(/|$) - [E=noindex_url:1]
     RewriteRule ^customer/account(/|$) - [E=noindex_url:1]
 
-    ## Paginated listings (?p=2, ?p=3 ...) — noindex the thin/duplicate
-    ## paginated view but keep "follow" so links are still crawled. Matches
-    ## only when a p= page param is actually present, so the canonical flat
-    ## URL (/<url-key>.html with no query) stays fully indexable.
-    RewriteCond %{QUERY_STRING} (^|&)p=[0-9] [NC]
+    ## Faceted-nav / sort / limit / paginated listing URLs — noindex the
+    ## thin/duplicate filter & sort variants but keep "follow" so product
+    ## links are still crawled. Covers the catalog toolbar params (p, limit,
+    ## dir, order, mode) and layered-nav filters (cat, price, manufacturer,
+    ## level, progromming_language). Matches only when one of these params is
+    ## actually present, so the canonical flat URL (/<url-key>.html with no
+    ## query) stays fully indexable. These params are UNBLOCKED in robots.txt
+    ## so Googlebot can fetch the URL and read this header (a robots.txt
+    ## Disallow would keep them stuck in "Indexed, though blocked by robots.txt").
+    RewriteCond %{QUERY_STRING} (^|&)(p|limit|dir|order|mode|cat|price|manufacturer|level|progromming_language)=[^&]* [NC]
     RewriteRule ^ - [E=noindex_follow_url:1]
 
     RewriteCond %{REQUEST_URI} !^/(media|skin|js)/
