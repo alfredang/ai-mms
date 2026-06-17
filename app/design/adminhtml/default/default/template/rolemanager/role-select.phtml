@@ -41,6 +41,12 @@
             background: rgba(96, 165, 250, 0.12) !important;
             box-shadow: 0 0 0 1px #60a5fa, 0 0 10px rgba(96, 165, 250, 0.3) !important;
         }
+        /* Larger title to match login page */
+        html body:has(.role-select-card) .role-select-card .rs-title {
+            font-size: 28px !important;
+            font-weight: 700 !important;
+            line-height: 1.25 !important;
+        }
         /* Bigger subtitle + Welcome, with breathing room below Welcome */
         html body:has(.role-select-card) .role-select-card .rs-subtitle {
             font-size: 15px !important;
@@ -49,11 +55,78 @@
             margin-bottom: 20px !important;
         }
         html body:has(.role-select-card) .role-select-card .rs-welcome {
-            font-size: 13.5px !important;
+            font-size: 17px !important;
+            font-weight: 700 !important;
+            letter-spacing: 0 !important;
+            color: #f1f5f9 !important;
+            margin-bottom: 6px !important;
+            text-align: center;
+        }
+        html body:has(.role-select-card) .role-select-card .rs-instruction {
+            font-size: 14px !important;
+            color: #94a3b8 !important;
+            margin: 0 0 28px !important;
+            text-align: center;
+            line-height: 1.45;
+        }
+        /* Larger role-card text + secondary description line */
+        html body:has(.role-select-card) .role-select-card .role-card-name {
+            color: #f1f5f9 !important;
+            font-size: 17px !important;
+            font-weight: 700 !important;
+            line-height: 1.3 !important;
+            margin-bottom: 2px !important;
+        }
+        html body:has(.role-select-card) .role-select-card .role-card-desc {
+            color: #94a3b8 !important;
+            font-size: 13px !important;
+            font-weight: 400 !important;
+            line-height: 1.4 !important;
+        }
+        /* Cleaner footer: tone down sign-in link, mute policy links */
+        html body:has(.role-select-card) .role-select-card .rs-footer > a {
+            display: inline-block !important;
+            color: #60a5fa !important;
+            font-size: 13px !important;
+            text-decoration: underline !important;
+            text-transform: none !important;
+            letter-spacing: 0 !important;
             font-weight: 600 !important;
-            letter-spacing: 1.4px !important;
+            margin-bottom: 18px !important;
+        }
+        html body:has(.role-select-card) .role-select-card .rs-footer > a:hover {
             color: #93c5fd !important;
-            margin-bottom: 36px !important;
+        }
+        html body:has(.role-select-card) .role-select-card .rs-policy-links { margin: 0 !important; padding: 0 !important; border: 0 !important; }
+        html body:has(.role-select-card) .role-select-card .rs-policy-links a {
+            color: #64748b !important;
+            font-size: 12px !important;
+            text-transform: none !important;
+            letter-spacing: 0 !important;
+            text-decoration: none !important;
+            margin: 0 10px !important;
+            font-weight: 400 !important;
+        }
+        html body:has(.role-select-card) .role-select-card .rs-policy-links a:hover {
+            color: #94a3b8 !important;
+        }
+        html body:has(.role-select-card) .role-select-card .rs-site-link {
+            margin-top: 14px !important;
+            color: #94a3b8 !important;
+            font-size: 12px !important;
+            line-height: 1.6 !important;
+        }
+        html body:has(.role-select-card) .role-select-card .rs-site-link a {
+            color: #60a5fa !important;
+            font-size: 12px !important;
+            text-decoration: none !important;
+            text-transform: none !important;
+            letter-spacing: 0 !important;
+            font-weight: 400 !important;
+            margin: 0 !important;
+        }
+        html body:has(.role-select-card) .role-select-card .rs-site-link a:hover {
+            color: #93c5fd !important;
         }
     </style>
 </head>
@@ -66,6 +139,7 @@
         <p class="rs-subtitle">Learning Management System</p>
 
         <p class="rs-welcome">Welcome back, <?php echo htmlspecialchars($fullName) ?>!</p>
+        <p class="rs-instruction">You have access to multiple roles. Please select one to continue:</p>
 
         <?php foreach ($roles as $roleCode): ?>
         <form method="post" action="<?php echo $chooseUrl ?>" style="display:inline">
@@ -75,6 +149,9 @@
                 <span class="role-card-icon"><?php echo $helper->getRoleIcon($roleCode) ?></span>
                 <div class="role-card-info">
                     <div class="role-card-name"><?php echo htmlspecialchars($helper->getRoleLabel($roleCode)) ?></div>
+                    <?php $desc = $helper->getRoleDescription($roleCode); if ($desc): ?>
+                    <div class="role-card-desc"><?php echo htmlspecialchars($desc) ?></div>
+                    <?php endif; ?>
                 </div>
                 <span class="role-card-arrow">&#x203A;</span>
             </button>
@@ -83,7 +160,18 @@
 
         <div class="rs-footer">
             <a href="<?php echo $logoutUrl ?>">Sign in with a different account</a>
+            <div class="rs-policy-links">
+                <a href="#" onclick="event.preventDefault();lpOpenModal('privacy');">Privacy Policy</a>
+                <a href="#" onclick="event.preventDefault();lpOpenModal('aup');">Acceptable Use Policy</a>
+                <a href="#" onclick="event.preventDefault();lpOpenModal('feedback');">Feedback</a>
+            </div>
+            <div class="rs-site-link">
+                Browse our WSQ courses at<br/>
+                <a href="https://www.tertiarycourses.com.sg/">https://www.tertiarycourses.com.sg/</a>
+            </div>
         </div>
     </div>
+
+    <?php include Mage::getDesign()->getTemplateFilename('page/policy-modal.phtml'); ?>
 </body>
 </html>

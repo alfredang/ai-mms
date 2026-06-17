@@ -172,7 +172,12 @@ button.rm-role-toggle:hover,.rm-role-toggle.rm-role-toggle:hover{opacity:.85 !im
    mirrors the backend-design system: outlined cards (1px border, transparent
    fill), blue glow on hover, compact 6/10/14 vertical rhythm, utilitarian
    uppercase labels. */
-body:has(.role-select-card) * { box-sizing: border-box; margin: 0; padding: 0; }
+/* Scoped to .role-select-card descendants ONLY. Previously this was
+   `body:has(.role-select-card) *` which leaked into the policy modal
+   (rendered as a sibling of .role-select-card) and stripped its
+   padding — making the modal look cramped and unstyled. */
+body:has(.role-select-card) .role-select-card,
+body:has(.role-select-card) .role-select-card * { box-sizing: border-box; margin: 0; padding: 0; }
 body:has(.role-select-card) {
     background: #0f172a !important;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif !important;
@@ -202,11 +207,11 @@ body:has(.role-select-card) {
     .rs-title {
         text-align: center;
         color: #f9fafb;
-        font-size: 19px;
-        font-weight: 600;
+        font-size: 28px;
+        font-weight: 700;
         letter-spacing: -0.01em;
         margin-bottom: 8px;
-        line-height: 1.3;
+        line-height: 1.25;
     }
     .rs-subtitle {
         text-align: center;
@@ -264,13 +269,20 @@ body:has(.role-select-card) {
         text-align: center !important;
         flex-shrink: 0 !important;
     }
-    .role-card-info { flex: 1 !important; min-width: 0 !important; }
+    .role-card-info { flex: 1 !important; min-width: 0 !important; text-align: left; }
     .role-card-name {
-        color: #f9fafb !important;
-        font-size: 13px !important;
-        font-weight: 500 !important;
-        line-height: 1.2 !important;
+        color: #f1f5f9 !important;
+        font-size: 17px !important;
+        font-weight: 700 !important;
+        line-height: 1.3 !important;
         letter-spacing: 0 !important;
+        margin-bottom: 2px !important;
+    }
+    .role-card-desc {
+        color: #94a3b8 !important;
+        font-size: 13px !important;
+        font-weight: 400 !important;
+        line-height: 1.4 !important;
     }
     .role-card-arrow {
         color: #6b7280 !important;
@@ -285,19 +297,50 @@ body:has(.role-select-card) {
 
     .rs-footer {
         text-align: center;
-        margin-top: 32px;
-        padding-top: 24px;
+        margin-top: 28px;
+        padding-top: 20px;
         border-top: 1px solid #374151;
     }
-    .rs-footer a {
+    /* First-line action: "Sign in with a different account" — underlined blue, normal case */
+    .rs-footer > a {
+        display: inline-block;
         color: #60a5fa;
-        font-size: 11.5px;
-        text-decoration: none;
-        text-transform: uppercase;
-        letter-spacing: 0.8px;
-        font-weight: 500;
+        font-size: 13px;
+        text-decoration: underline;
+        text-transform: none;
+        letter-spacing: 0;
+        font-weight: 600;
+        margin-bottom: 18px;
     }
-    .rs-footer a:hover { color: #3b82f6; text-decoration: underline; }
+    .rs-footer > a:hover { color: #93c5fd; }
+    /* Second-line policy links: muted gray, comfortably spaced */
+    .rs-policy-links { margin: 0; }
+    .rs-policy-links a {
+        color: #64748b !important;
+        font-size: 12px !important;
+        text-transform: none !important;
+        letter-spacing: 0 !important;
+        text-decoration: none !important;
+        margin: 0 10px !important;
+        font-weight: 400 !important;
+    }
+    .rs-policy-links a:hover { color: #94a3b8 !important; text-decoration: none !important; }
+    .rs-site-link {
+        margin-top: 14px;
+        color: #94a3b8;
+        font-size: 12px;
+        line-height: 1.6;
+    }
+    .rs-site-link a {
+        color: #60a5fa !important;
+        font-size: 12px !important;
+        text-decoration: none !important;
+        text-transform: none !important;
+        letter-spacing: 0 !important;
+        font-weight: 400 !important;
+        margin: 0 !important;
+    }
+    .rs-site-link a:hover { color: #93c5fd !important; }
 
 /* --- cpgenerator.phtml --- */
 .cp-page{background:var(--d1);min-height:calc(100vh - 60px);padding:32px;color:var(--t1)}
