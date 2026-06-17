@@ -6,6 +6,29 @@
  */
 class MMD_Catalogmanagement_Block_Adminhtml_Catalog_Category_Tab_Product extends Mage_Adminhtml_Block_Catalog_Category_Tab_Product
 {
+    /**
+     * Show products in the same order they appear on the storefront category
+     * page (sort by `position` ascending). Stock Magento defaults to entity_id
+     * which surfaces newest-added products first — confusing for ops who
+     * expect the admin grid to mirror the public list. With this override
+     * + the 10/20/30 sparse-position convention (see
+     * scripts/maintenance/renumber-category-product-positions.php) inserting
+     * a new course between #20 and #30 just means typing 25 — no renumbering.
+     *
+     * Why __construct (not _construct): the parent
+     * Mage_Adminhtml_Block_Catalog_Category_Tab_Product::__construct() calls
+     * setDefaultSort('entity_id') AFTER Varien_Object::__construct triggers
+     * the _construct() hook. Overriding _construct here would set our value
+     * first and then get overwritten when control returns. Overriding
+     * __construct lets us re-set the value AFTER parent runs.
+     */
+    public function __construct()
+    {
+        parent::__construct();
+        $this->setDefaultSort('position');
+        $this->setDefaultDir('ASC');
+    }
+
     protected function _getStore()
     {
         $storeId = (int) $this->getRequest()->getParam('store', 0);
