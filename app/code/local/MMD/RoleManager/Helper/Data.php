@@ -112,6 +112,19 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
      */
     public function getActiveCountryCode()
     {
+        // 0. Country instances have exactly one market. MMS_COUNTRY_CODE is
+        //    authoritative — the Store View bar is hidden so there is no
+        //    branchscope pick, and the seed admin email doesn't carry a
+        //    country prefix, so both steps 1 and 2 would silently fall
+        //    through to the SG default and stamp every class as SG.
+        if (getenv('MMS_MODE') === 'country') {
+            $cc    = strtoupper((string) getenv('MMS_COUNTRY_CODE'));
+            $valid = array('MY', 'GH', 'NG', 'BT', 'IN');
+            if (in_array($cc, $valid, true)) {
+                return $cc;
+            }
+        }
+
         // 1. Branchscope session pick wins ONLY if the user explicitly
         //    picked a branch (URL ?store= or stored session value). The
         //    Branchscope default of Singapore is not enough to override
