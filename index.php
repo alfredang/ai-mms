@@ -74,52 +74,62 @@ ini_set('display_errors', 1);
 
 umask(0);
 
-/* Store or website code */
-//$mageRunCode = isset($_SERVER['MAGE_RUN_CODE']) ? $_SERVER['MAGE_RUN_CODE'] : '';
-
-/* Run store or run website */
-//$mageRunType = isset($_SERVER['MAGE_RUN_TYPE']) ? $_SERVER['MAGE_RUN_TYPE'] : 'store';
-
-switch($_SERVER['HTTP_HOST']) {
-    case 'tertiarycourses.com.sg':
-    case 'www.tertiarycourses.com.sg':
-        $mageRunCode = 'base';
-        $mageRunType = 'website';
-    break;
-    case 'tertiarycourses.com.my':
-    case 'www.tertiarycourses.com.my':
-        $mageRunCode = 'malaysia';
-        $mageRunType = 'website';
-    break;
-    case 'tertiarycourses.com.bt':
-    case 'www.tertiarycourses.bt':
-        $mageRunCode = 'bhutan';
-        $mageRunType = 'website';
+// Country instances (MMS_MODE=country) bypass domain-based routing — the
+// correct website is forced directly from MMS_COUNTRY_CODE so the store
+// is served correctly even when accessed via IP before DNS is set up.
+if (getenv('MMS_MODE') === 'country') {
+    $countryWebsiteMap = [
+        'GH' => 'ghana',
+        'MY' => 'malaysia',
+        'NG' => 'nigeria',
+        'BT' => 'bhutan',
+        'IN' => 'india',
+    ];
+    $cc = strtoupper((string)getenv('MMS_COUNTRY_CODE'));
+    $mageRunCode = $countryWebsiteMap[$cc] ?? 'base';
+    $mageRunType = 'website';
+} else {
+    switch($_SERVER['HTTP_HOST']) {
+        case 'tertiarycourses.com.sg':
+        case 'www.tertiarycourses.com.sg':
+            $mageRunCode = 'base';
+            $mageRunType = 'website';
         break;
-    case 'tertiarycourses.com.gh':
-    case 'www.tertiarycourses.com.gh':
-        $mageRunCode = 'ghana';
-        $mageRunType = 'website';
-    break;
-    case 'tertiarycourses.com.ng':
-    case 'www.tertiarycourses.com.ng':
-        $mageRunCode = 'nigeria';
-        $mageRunType = 'website';
-    break;
-    case 'tertiarycourses.in':
-    case 'www.tertiarycourses.in':
-            $mageRunCode = 'india';
+        case 'tertiarycourses.com.my':
+        case 'www.tertiarycourses.com.my':
+            $mageRunCode = 'malaysia';
             $mageRunType = 'website';
-    break;
-    case 'tertiaryinfotech.edu.sg':
-    case 'www.tertiaryinfotech.edu.sg':
-            $mageRunCode = 'infotech';
+        break;
+        case 'tertiarycourses.com.bt':
+        case 'www.tertiarycourses.bt':
+            $mageRunCode = 'bhutan';
             $mageRunType = 'website';
-    break;
-    default:
-        $mageRunCode = 'base';
-        $mageRunType = 'website';
-    break;
+            break;
+        case 'tertiarycourses.com.gh':
+        case 'www.tertiarycourses.com.gh':
+            $mageRunCode = 'ghana';
+            $mageRunType = 'website';
+        break;
+        case 'tertiarycourses.com.ng':
+        case 'www.tertiarycourses.com.ng':
+            $mageRunCode = 'nigeria';
+            $mageRunType = 'website';
+        break;
+        case 'tertiarycourses.in':
+        case 'www.tertiarycourses.in':
+                $mageRunCode = 'india';
+                $mageRunType = 'website';
+        break;
+        case 'tertiaryinfotech.edu.sg':
+        case 'www.tertiaryinfotech.edu.sg':
+                $mageRunCode = 'infotech';
+                $mageRunType = 'website';
+        break;
+        default:
+            $mageRunCode = 'base';
+            $mageRunType = 'website';
+        break;
+    }
 }
 
 Mage::run($mageRunCode, $mageRunType);

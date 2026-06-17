@@ -258,6 +258,36 @@ if [ -n "${SG_SYNC_API_KEY:-}" ]; then
         || echo "entrypoint: WARNING — SG_SYNC_API_KEY sync failed (non-fatal)"
 fi
 
+# Country instances: write MMS_BASE_URL into core_config_data so Magento
+# generates correct links for the current URL (IP during setup, domain after
+# DNS). Runs every boot so changing MMS_BASE_URL in Coolify + redeploy is
+# enough to update the URLs — no manual DB edit needed.
+if [ "${MMS_MODE:-}" = "country" ] && [ -n "${MMS_BASE_URL:-}" ] && [ -n "${MMS_COUNTRY_CODE:-}" ]; then
+    php -r "
+        require '/var/www/html/app/Mage.php';
+        Mage::app('admin');
+        \$url  = rtrim(getenv('MMS_BASE_URL'), '/') . '/';
+        \$ccMap = ['GH'=>'ghana','MY'=>'malaysia','NG'=>'nigeria','BT'=>'bhutan','IN'=>'india'];
+        \$cc   = strtoupper(getenv('MMS_COUNTRY_CODE'));
+        \$code = \$ccMap[\$cc] ?? '';
+        if (!\$code) { echo 'skip'; exit; }
+        \$website = Mage::getModel('core/website')->load(\$code, 'code');
+        if (!\$website->getId()) { echo 'skip'; exit; }
+        \$wid  = (int)\$website->getId();
+        \$sid  = (int)\$website->getDefaultStore()->getId();
+        \$cfg  = Mage::getModel('core/config');
+        \$cfg->saveConfig('web/unsecure/base_url', \$url, 'websites', \$wid);
+        \$cfg->saveConfig('web/secure/base_url',   \$url, 'websites', \$wid);
+        if (\$sid) {
+            \$cfg->saveConfig('web/unsecure/base_url', \$url, 'stores', \$sid);
+            \$cfg->saveConfig('web/secure/base_url',   \$url, 'stores', \$sid);
+        }
+        echo 'ok';
+    " 2>/dev/null | grep -q ok \
+        && echo "entrypoint: base URL set to ${MMS_BASE_URL}/ for ${MMS_COUNTRY_CODE}" \
+        || echo "entrypoint: WARNING — base URL update failed (non-fatal)"
+fi
+
 # One-shot reindex: catalog_url + catalog_category_flat. Required after the
 # MMD_FlatCategoryUrl module shipped — module changes the URL builder but
 # does NOT itself rewrite existing core_url_rewrite rows or category url_path
