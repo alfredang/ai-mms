@@ -36,9 +36,15 @@
             <?php if($this->getCategoryId()): ?>
                 <button type="button" id="mmd-sort-courses-btn"
                         class="scalable"
-                        title="<?php echo Mage::helper('core')->quoteEscape('Recompute the Position column in steps of 10: WSQ courses first (SG), then by highest views and shortest duration. Click Save Category afterwards to persist.') ?>"
-                        onclick="mmdSortCourses(<?php echo (int)$this->getCategoryId() ?>); return false;">
+                        title="<?php echo Mage::helper('core')->quoteEscape('Recompute Position in steps of 10: WSQ courses first, then by highest views and shortest duration. Saved automatically.') ?>"
+                        onclick="mmdSortCourses(<?php echo (int)$this->getCategoryId() ?>, 'popularity'); return false;">
                     <span><span><span><?php echo Mage::helper('catalog')->__('Sort Courses') ?></span></span></span>
+                </button>
+                <button type="button" id="mmd-sort-alpha-btn"
+                        class="scalable"
+                        title="<?php echo Mage::helper('core')->quoteEscape('Recompute Position in steps of 10: WSQ courses first, then strictly alphabetical (A-Z). Deterministic — same order every click. Saved automatically.') ?>"
+                        onclick="mmdSortCourses(<?php echo (int)$this->getCategoryId() ?>, 'alpha'); return false;">
+                    <span><span><span><?php echo Mage::helper('catalog')->__('Sort A-Z (WSQ First)') ?></span></span></span>
                 </button>
             <?php endif; ?>
             <?php echo $this->getSaveButtonHtml() ?>
@@ -263,9 +269,14 @@
     $('active_tab_id').tabsJsObject = <?php echo $_tabsJsObject ?>;
 <?php endif; ?>
 
-function mmdSortCourses(categoryId) {
-    var btn = $('mmd-sort-courses-btn');
-    if (btn) { btn.disabled = true; btn.addClassName('disabled'); }
+function mmdSortCourses(categoryId, mode) {
+    mode = mode || 'popularity';
+    // Both buttons share this handler — disable whichever one was clicked.
+    var btnIds = ['mmd-sort-courses-btn', 'mmd-sort-alpha-btn'];
+    btnIds.forEach(function (id) {
+        var b = $(id);
+        if (b) { b.disabled = true; b.addClassName('disabled'); }
+    });
     // Must use the adminhtml URL helper — the form block's $this->getUrl
     // returns a FRONTEND URL (no admin /key/<hash>/ segment), which would
     // 404 or redirect to the storefront and silently fail the sort.
@@ -276,52 +287,71 @@ function mmdSortCourses(categoryId) {
     var storeId = storeMatch ? storeMatch[1] : '0';
     new Ajax.Request(url, {
         method: 'get',
-        parameters: { category_id: categoryId, store: storeId },
+        parameters: { category_id: categoryId, store: storeId, mode: mode },
         onSuccess: function (t) {
             var data;
             try { data = t.responseText.evalJSON(true); } catch (e) { data = null; }
-            if (btn) { btn.disabled = false; btn.removeClassName('disabled'); }
+            btnIds.forEach(function (id) {
+                var b = $(id);
+                if (b) { b.disabled = false; b.removeClassName('disabled'); }
+            });
             if (!data || !data.positions) {
                 alert('Sort Courses failed: ' + (data && data.error ? data.error : 'invalid response'));
                 return;
             }
             var positions = data.positions;
+            var n = Object.keys(positions).length;
+            // Controller already wrote positions to the DB + queued an index
+            // refresh. We DON'T reload (the category edit URL can get into a
+            // post-submit state that bounces the admin to the category list),
+            // so instead patch the visible position inputs in-place. The
+            // other grid pages will show the new values when the user
+            // paginates — each grid page re-fetches from the DB.
+            if (data.persisted) {
+                var patched = 0;
+                $$('#category_tab_content input.checkbox').each(function (cb) {
+                    var pid = cb.value;
+                    if (!positions.hasOwnProperty(pid)) return;
+                    if (cb.positionElement) {
+                        cb.positionElement.value = positions[pid];
+                    }
+                    patched++;
+                });
+                var modeLabel = (mode === 'alpha') ? 'A-Z' : 'popularity';
+                alert('Sorted ' + n + ' course(s) by ' + modeLabel + '. Saved to database, storefront cache refreshed. '
+                    + patched + ' visible rows updated — flip grid pages to see the rest.');
+                return;
+            }
+            // Legacy fall-back (controller didn't persist) — patch what's
+            // visible + the hidden map, ask user to click Save Category.
             var updated = 0;
-            // The position input's name attribute is just "position" for every
-            // row (Magento's grid input renderer uses the column id only) — we
-            // can't key off the input itself. Instead iterate the row
-            // checkboxes (whose value IS the product id) and follow the
-            // checkbox.positionElement linkage that categoryProductRowInit set up.
             $$('#category_tab_content input.checkbox').each(function (cb) {
                 var pid = cb.value;
                 if (!positions.hasOwnProperty(pid)) return;
                 var newPos = positions[pid];
                 if (cb.positionElement) {
-                    // Enable the input even if the row isn't currently checked,
-                    // otherwise Magento ignores it on save.
                     cb.positionElement.disabled = false;
                     cb.positionElement.value = newPos;
                 }
-                // Force-check the row so the product stays assigned to the
-                // category with its new position.
                 if (!cb.checked && typeof <?php echo isset($_gridJsObject) ? $_gridJsObject : 'null' ?> !== 'undefined' && <?php echo isset($_gridJsObject) ? $_gridJsObject : 'null' ?>) {
                     <?php echo isset($_gridJsObject) ? $_gridJsObject : '' ?>.setCheckboxChecked(cb, true);
                 }
                 categoryProducts.set(pid, newPos);
                 updated++;
             });
-            // Mirror every returned position into the hidden category_products
-            // map — covers products on grid pages we haven't rendered yet.
             for (var pid2 in positions) {
                 if (positions.hasOwnProperty(pid2)) {
                     categoryProducts.set(pid2, positions[pid2]);
                 }
             }
             $('in_category_products').value = categoryProducts.toQueryString();
-            alert('Sorted ' + Object.keys(positions).length + ' course(s); patched ' + updated + ' visible row(s). Click "Save Category" to apply.');
+            alert('Sorted ' + n + ' course(s); patched ' + updated + ' visible row(s). Click "Save Category" to apply.');
         },
         onFailure: function (t) {
-            if (btn) { btn.disabled = false; btn.removeClassName('disabled'); }
+            btnIds.forEach(function (id) {
+                var b = $(id);
+                if (b) { b.disabled = false; b.removeClassName('disabled'); }
+            });
             alert('Sort Courses request failed (HTTP ' + t.status + ')');
         }
     });

@@ -24,6 +24,15 @@ class MMD_Catalogmanagement_Adminhtml_CategorysortController extends Mage_Adminh
                 throw new Exception('category_id is required');
             }
             $storeId = (int) $this->getRequest()->getParam('store', 0);
+            // mode=popularity (default — existing button): WSQ first, then
+            //   views ↓, duration ↑, name A→Z.
+            // mode=alpha (new "Sort A-Z (WSQ First)" button): WSQ first, then
+            //   alphabetical only. Deterministic — same input → same output
+            //   every time, no traffic-based drift.
+            $mode = $this->getRequest()->getParam('mode', 'popularity');
+            if (!in_array($mode, array('popularity', 'alpha'), true)) {
+                $mode = 'popularity';
+            }
 
             $res   = Mage::getSingleton('core/resource');
             $read  = $res->getConnection('core_read');
@@ -110,35 +119,52 @@ class MMD_Catalogmanagement_Adminhtml_CategorysortController extends Mage_Adminh
 
             $rows = array();
             foreach ($productIds as $pid) {
-                $sku   = (string)(isset($skuByPid[$pid]) ? $skuByPid[$pid] : '');
-                $isWsq = (stripos($sku, 'TGS-') === 0);
+                $name  = (string)(isset($namesByPid[$pid]) ? $namesByPid[$pid] : '');
+                // WSQ tier = name starts with "WSQ" (case-insensitive).
+                // Intentionally name-based rather than SKU-based, because
+                // some TGS-prefixed SKUs are IBF / non-WSQ courses that
+                // share the SkillsFuture funding pattern but should NOT
+                // outrank actual WSQ-titled courses on the storefront.
+                $isWsq = (stripos($name, 'WSQ') === 0);
                 $rows[] = array(
                     'pid'      => (int) $pid,
                     'is_wsq'   => $isWsq ? 1 : 0,
                     'views'    => (int)(isset($viewsByPid[$pid]) ? $viewsByPid[$pid] : 0),
                     'duration' => (float)(isset($durationByPid[$pid]) ? $durationByPid[$pid] : 0),
-                    'name'     => (string)(isset($namesByPid[$pid]) ? $namesByPid[$pid] : ''),
+                    'name'     => $name,
                 );
             }
 
-            usort($rows, function ($a, $b) {
-                // Rule 1: WSQ group first (1 before 0)
-                if ($a['is_wsq'] !== $b['is_wsq']) {
-                    return $b['is_wsq'] - $a['is_wsq'];
-                }
-                // Rule 2a: Views desc
-                if ($a['views'] !== $b['views']) {
-                    return $b['views'] - $a['views'];
-                }
-                // Rule 2b: Duration asc — courses with no duration sink to the bottom
-                $da = $a['duration'] > 0 ? $a['duration'] : PHP_INT_MAX;
-                $db = $b['duration'] > 0 ? $b['duration'] : PHP_INT_MAX;
-                if ($da != $db) {
-                    return ($da < $db) ? -1 : 1;
-                }
-                // Stable tiebreaker: name asc
-                return strnatcasecmp($a['name'], $b['name']);
-            });
+            if ($mode === 'alpha') {
+                // Deterministic A-Z mode — WSQ first, then alphabetical.
+                // No views, no duration — same input always produces the
+                // same order on every click.
+                usort($rows, function ($a, $b) {
+                    if ($a['is_wsq'] !== $b['is_wsq']) {
+                        return $b['is_wsq'] - $a['is_wsq'];
+                    }
+                    return strnatcasecmp($a['name'], $b['name']);
+                });
+            } else {
+                usort($rows, function ($a, $b) {
+                    // Rule 1: WSQ group first (1 before 0)
+                    if ($a['is_wsq'] !== $b['is_wsq']) {
+                        return $b['is_wsq'] - $a['is_wsq'];
+                    }
+                    // Rule 2a: Views desc
+                    if ($a['views'] !== $b['views']) {
+                        return $b['views'] - $a['views'];
+                    }
+                    // Rule 2b: Duration asc — courses with no duration sink to the bottom
+                    $da = $a['duration'] > 0 ? $a['duration'] : PHP_INT_MAX;
+                    $db = $b['duration'] > 0 ? $b['duration'] : PHP_INT_MAX;
+                    if ($da != $db) {
+                        return ($da < $db) ? -1 : 1;
+                    }
+                    // Stable tiebreaker: name asc
+                    return strnatcasecmp($a['name'], $b['name']);
+                });
+            }
 
             $positions = array();
             $step = 10;
@@ -146,11 +172,60 @@ class MMD_Catalogmanagement_Adminhtml_CategorysortController extends Mage_Adminh
                 $positions[(int)$r['pid']] = ($i + 1) * $step;
             }
 
+            // Persist positions directly to catalog_category_product so ALL
+            // courses get the new value — not just the 20 in the visible
+            // pagination of the admin grid. Earlier behavior relied on the
+            // user clicking "Save Category" which only submits the visible
+            // rows + a hidden map, and we were losing rows on long lists.
+            // Wrapped in a transaction so a mid-write failure rolls back to
+            // the original order.
+            $write = $res->getConnection('core_write');
+            $write->beginTransaction();
+            try {
+                foreach ($positions as $pid => $pos) {
+                    $write->update(
+                        $tCcp,
+                        array('position' => (int) $pos),
+                        array('category_id = ?' => (int) $categoryId, 'product_id = ?' => (int) $pid)
+                    );
+                }
+                $write->commit();
+            } catch (Exception $e) {
+                $write->rollBack();
+                throw $e;
+            }
+
+            // Reindex + cache flush so the storefront category page reflects
+            // the new order immediately (no manual "Flush Cache" step
+            // required from ops). Each call wrapped individually so a
+            // failure in one path (e.g. reindex throws) doesn't prevent
+            // the others from running.
+            try {
+                $indexer = Mage::getModel('index/indexer')->getProcessByCode('catalog_category_product');
+                if ($indexer) {
+                    $indexer->reindexAll();
+                }
+            } catch (Exception $e) {
+                Mage::logException($e);
+            }
+            try {
+                // Invalidate cached HTML / blocks for catalog category +
+                // product. Covers the layout cache and any full-page cache
+                // keyed on these tags. Cheaper than a full Mage::app()->cleanCache().
+                Mage::app()->cleanCache(array(
+                    Mage_Catalog_Model_Category::CACHE_TAG,
+                    Mage_Catalog_Model_Product::CACHE_TAG,
+                ));
+            } catch (Exception $e) {
+                Mage::logException($e);
+            }
+
             $this->getResponse()
                 ->setHeader('Content-Type', 'application/json')
                 ->setBody(Zend_Json::encode(array(
                     'positions' => $positions,
                     'count'     => count($positions),
+                    'persisted' => true,
                     'store_id'  => $storeId,
                 )));
         } catch (Exception $e) {
