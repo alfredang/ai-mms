@@ -2760,6 +2760,86 @@ document.observe('dom:loaded', function() {
     });
 
     // ============================================================
+    // CustomOptions Edit page — hide the dead "Children" column
+    // ============================================================
+    // The inner select-type values table (each row of "Physical
+    // Classroom Training", "Synchronised Teaching using ZOOM", etc.)
+    // includes a legacy MMD dependent-options column with a
+    // rule-chooser icon ("Select Children"). The icon click is a
+    // no-op in this LMS — class formation runs through the cron
+    // pipeline, not Magento's native dependent options. Hide column-
+    // wide. dark-theme.css already hides the header and the icon/input
+    // via :has(); this JS provides the suspenders by finding the
+    // column index of th.type-dependent-ids and explicitly hiding the
+    // matching td in every row — catches browsers / merge bundles
+    // where :has() doesn't apply for whatever reason.
+    function hideCustomOptionsChildrenColumn() {
+        var bc = document.body.className || '';
+        if (bc.indexOf('customoptions-options-edit') === -1) return;
+
+        document.querySelectorAll('th.type-dependent-ids').forEach(function (th) {
+            if (th.dataset.mmdChildrenHidden) return;
+            th.dataset.mmdChildrenHidden = '1';
+            th.style.setProperty('display', 'none', 'important');
+
+            var table = th.closest('table');
+            if (!table) return;
+            var headerRow = th.parentNode;
+            var idx = Array.prototype.indexOf.call(headerRow.children, th);
+            if (idx < 0) return;
+
+            // Hide the same column-index cell in every row of every
+            // tbody inside the table.
+            for (var b = 0; b < table.tBodies.length; b++) {
+                var rows = table.tBodies[b].rows;
+                for (var r = 0; r < rows.length; r++) {
+                    var cell = rows[r].cells[idx];
+                    if (cell) cell.style.setProperty('display', 'none', 'important');
+                }
+            }
+        });
+
+        // Also catch rows added dynamically by productOption.add /
+        // selectOptionType.add (new option-values inserted after the
+        // initial render). MutationObserver picks them up — re-runs
+        // the same idx-lookup logic per new row.
+        var alreadyObserving = document.body.dataset.mmdChildrenObserverAttached;
+        if (alreadyObserving) return;
+        document.body.dataset.mmdChildrenObserverAttached = '1';
+        var observer = new MutationObserver(function (mutations) {
+            mutations.forEach(function (m) {
+                m.addedNodes && m.addedNodes.forEach(function (n) {
+                    if (n.nodeType !== 1) return;
+                    // For each added <tr> (or container with <tr>s),
+                    // find its host table's column index and hide.
+                    var rows = (n.tagName === 'TR') ? [n] : n.querySelectorAll && Array.from(n.querySelectorAll('tr'));
+                    if (!rows || !rows.length) return;
+                    rows.forEach(function (tr) {
+                        var t = tr.closest('table');
+                        if (!t) return;
+                        var th = t.querySelector('th.type-dependent-ids');
+                        if (!th) return;
+                        var hr = th.parentNode;
+                        var idx = Array.prototype.indexOf.call(hr.children, th);
+                        if (idx < 0) return;
+                        var cell = tr.cells && tr.cells[idx];
+                        if (cell) cell.style.setProperty('display', 'none', 'important');
+                    });
+                });
+            });
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+    }
+    [200, 600, 1500, 3000].forEach(function (d) {
+        setTimeout(hideCustomOptionsChildrenColumn, d);
+    });
+    document.addEventListener('instant-nav:after-swap', function () {
+        [200, 600, 1500].forEach(function (d) {
+            setTimeout(hideCustomOptionsChildrenColumn, d);
+        });
+    });
+
+    // ============================================================
     // Product Options → Table Conversion (Order Detail Page)
     // Transforms text-block options into a structured table
     // ============================================================

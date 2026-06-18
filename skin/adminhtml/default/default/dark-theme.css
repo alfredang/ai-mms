@@ -4583,6 +4583,30 @@ body[class*="customoptions-options-edit"] table.option-header > tr:first-child:n
     padding: 4px 6px !important;
 }
 
+/* Hide the dead "Children" column in the inner select-type values
+   table (each row of "Physical Classroom Training", "Synchronised
+   Teaching using ZOOM", etc.). The column ships the legacy MMD
+   dependent-options picker — a "Select Children" rule-chooser icon
+   plus an input that records dependent option-value IDs. The popup
+   doesn't fire (icon click is a no-op) and the LMS doesn't use the
+   dependent-options feature anyway — class formation runs through
+   the cron-driven course_runs / course_run_enrolments pipeline, not
+   Magento's native option dependencies.
+   Belt: hide every known element of the column. JS in
+   sidebar-nav-v2.js → hideCustomOptionsChildrenColumn provides the
+   suspenders by also hiding the parent <td> via column-index lookup
+   (catches cases where :has() doesn't apply because of CSS-merge
+   quirks or browsers without :has() support). */
+body[class*="customoptions-options-edit"] th.type-dependent-ids,
+body[class*="customoptions-options-edit"] td:has(> input.input-children),
+body[class*="customoptions-options-edit"] td:has(input.input-children) {
+    display: none !important;
+}
+body[class*="customoptions-options-edit"] input.input-children,
+body[class*="customoptions-options-edit"] img[src*="rule_chooser_trigger"] {
+    display: none !important;
+}
+
 /* Toggle button — slim pill positioned where the JS injects it (next
    to the "Add New Option" button on the page-action row). */
 .mmd-advanced-toggle {
