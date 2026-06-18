@@ -267,7 +267,7 @@ if [ "${MMS_MODE:-}" = "country" ] && [ -n "${MMS_BASE_URL:-}" ] && [ -n "${MMS_
         require '/var/www/html/app/Mage.php';
         Mage::app('admin');
         \$url  = rtrim(getenv('MMS_BASE_URL'), '/') . '/';
-        \$ccMap = ['GH'=>'ghana','MY'=>'malaysia','NG'=>'nigeria','BT'=>'bhutan','IN'=>'india'];
+        \$ccMap = ['NG'=>'nigeria'];
         \$cc   = strtoupper(getenv('MMS_COUNTRY_CODE'));
         \$code = \$ccMap[\$cc] ?? '';
         if (!\$code) { echo 'skip'; exit; }
@@ -286,6 +286,17 @@ if [ "${MMS_MODE:-}" = "country" ] && [ -n "${MMS_BASE_URL:-}" ] && [ -n "${MMS_
     " 2>/dev/null | grep -q ok \
         && echo "entrypoint: base URL set to ${MMS_BASE_URL}/ for ${MMS_COUNTRY_CODE}" \
         || echo "entrypoint: WARNING — base URL update failed (non-fatal)"
+fi
+
+# Generate active Google Sitemap XML files immediately after migrations. The
+# sitemap table is DB-managed, while media/root XML files are runtime artifacts
+# on the Coolify volume; without this, /sitemap.xml can 404 until cron runs.
+if [ -f /var/www/html/scripts/seo/generate-sitemaps.php ]; then
+    echo "entrypoint: generating active sitemap XML files..."
+    php /var/www/html/scripts/seo/generate-sitemaps.php \
+        || echo "entrypoint: WARNING — sitemap generation failed (non-fatal)"
+    chown www-data:www-data /var/www/html/sitemap_*.xml 2>/dev/null || true
+    chmod a+r /var/www/html/sitemap_*.xml 2>/dev/null || true
 fi
 
 # One-shot reindex: catalog_url + catalog_category_flat. Required after the
