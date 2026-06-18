@@ -4984,3 +4984,29 @@ body .grid table.data tbody tr:hover > td a {
 :root[data-theme="light"] body .grid table.data tbody tr:hover > td a {
     color: var(--brand, #2563eb) !important;
 }
+
+/* Specificity exception: the Registrations grid (sales_order) has
+   ID-level overrides at line ~3808 that pin every td/tr to
+   `background: transparent !important` so the .dcf-mag chrome shows
+   through. That rule wins (1,0,0) vs §21's class-only (0,2,2), so
+   the hover glow above never reaches it. Re-add the glow with a
+   matching ID selector — (1,2,2) beats (1,0,0) by class-count. */
+#sales_order_grid_table tbody tr:hover > td,
+#sales_order_grid_table tr:hover > td {
+    background: rgba(37, 139, 182, 0.10) !important;
+    color: var(--t1, #f1f5f9) !important;
+    transition: background 0.12s ease !important;
+}
+#sales_order_grid_table tbody tr:hover > td a,
+#sales_order_grid_table tr:hover > td a {
+    color: var(--blue2, #67e8f9) !important;
+}
+:root[data-theme="light"] #sales_order_grid_table tbody tr:hover > td,
+:root[data-theme="light"] #sales_order_grid_table tr:hover > td {
+    background: rgba(37, 99, 235, 0.06) !important;
+    color: var(--t1, #0f172a) !important;
+}
+:root[data-theme="light"] #sales_order_grid_table tbody tr:hover > td a,
+:root[data-theme="light"] #sales_order_grid_table tr:hover > td a {
+    color: var(--brand, #2563eb) !important;
+}
