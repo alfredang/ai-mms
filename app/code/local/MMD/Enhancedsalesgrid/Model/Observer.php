@@ -98,9 +98,32 @@ class MMD_Enhancedsalesgrid_Model_Observer
             );
            
         }
-		 $select->group('main_table.entity_id');  
-		
+		 $select->group('main_table.entity_id');
+
 		$select->distinct(true);
-           		 
+
+        // General Search (`?q=`) — Reg #, learner name (denormalised
+        // on the grid table as billing_name), customer email, and
+        // course name (sales_flat_order_item.name). MUST be added
+        // here, not in the Grid block's _prepareCollection: Magento's
+        // Widget_Grid::_prepareCollection calls $collection->load()
+        // BEFORE control returns to the subclass, so a where() added
+        // in the block would only land on subsequent getSize() count
+        // queries — the main row-list query had already executed
+        // unfiltered. This observer fires inside load(), before the
+        // SQL runs, so the WHERE actually filters.
+        if (strpos($route, 'adminhtml/sales_order/') === 0) {
+            $q = trim((string) $req->getParam('q', ''));
+            if ($q !== '') {
+                $adapter = $collection->getConnection();
+                $like = $adapter->quote('%' . $q . '%');
+                $select->where(
+                    'main_table.increment_id LIKE ' . $like
+                    . ' OR sales_flat_order.customer_email LIKE ' . $like
+                    . ' OR main_table.billing_name LIKE ' . $like
+                    . ' OR sales_flat_order_item.name LIKE ' . $like
+                );
+            }
+        }
     }
 }

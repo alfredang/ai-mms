@@ -26,16 +26,12 @@ class MMD_Enhancedsalesgrid_Block_Sales_Order_Grid extends Mage_Adminhtml_Block_
         // sales_order_grid_collection_load_before observer so it covers every
         // code path that loads this collection — see MMD_Enhancedsalesgrid_Model_Observer.
 
-        $q = trim((string) $this->getRequest()->getParam('q', ''));
-        if ($q !== '') {
-            $like = $adapter->quote('%' . $q . '%');
-            $collection->getSelect()->where(
-                'main_table.increment_id LIKE ' . $like
-                . ' OR sales_flat_order.customer_email LIKE ' . $like
-                . ' OR sales_flat_order.billing_name LIKE ' . $like
-                . ' OR sales_flat_order_item.name LIKE ' . $like
-            );
-        }
+        // q-filter handling moved to MMD_Enhancedsalesgrid_Model_Observer::
+        // salesOrderGridCollectionLoadBefore. Mage_Adminhtml_Block_Widget_Grid::
+        // _prepareCollection (which parent::_prepareCollection() above ends up
+        // calling) already invokes $collection->load() — so any where() added
+        // here lands AFTER the row-load query has executed. The observer fires
+        // strictly before the SQL runs, so the WHERE actually filters.
         return $this;
     }
 
