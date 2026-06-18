@@ -4943,3 +4943,44 @@ img[id$="_trig"] {
 img[id$="_trig"]:hover {
     opacity: 0.75 !important;
 }
+
+/* === 21. Universal admin-grid row hover glow ======================
+   Restores a subtle hover wash on every admin grid row so users get
+   clear "this is interactive" feedback. §14 above intentionally
+   killed all hover backgrounds for a flat reading state — this rule
+   layers a 10% blue-cyan wash back on TRUE :hover only (not the
+   legacy `.on-mouse` / `.selected` classes Magento's grid JS adds
+   permanently after a click; those keep §14's flat transparent state
+   so the page doesn't get "stuck" highlighted).
+   Cell-text and link colors get a small lift so the row feels lit
+   rather than just shaded. Transition keeps the wash from popping.
+   Light-mode variant tints with brand-blue at 5% for visibility
+   against the white surface.
+   Scoped via `body .grid tbody tr:hover > td` (specificity 0,2,2)
+   which beats §14's `body .grid tr:hover td` (specificity 0,2,2 +
+   appears earlier in the file → this rule wins by cascade order).
+   Per-page overrides (sales_order_status, system_currency,
+   catalog_search, system_store) only touch base cell padding /
+   borders and don't redeclare :hover, so this rule reaches them. */
+body .grid tbody tr:hover > td,
+body .grid table.data tbody tr:hover > td {
+    background: rgba(37, 139, 182, 0.10) !important;
+    transition: background 0.12s ease !important;
+}
+body .grid tbody tr:hover > td,
+body .grid table.data tbody tr:hover > td {
+    color: var(--t1, #f1f5f9) !important;
+}
+body .grid tbody tr:hover > td a,
+body .grid table.data tbody tr:hover > td a {
+    color: var(--blue2, #67e8f9) !important;
+}
+:root[data-theme="light"] body .grid tbody tr:hover > td,
+:root[data-theme="light"] body .grid table.data tbody tr:hover > td {
+    background: rgba(37, 99, 235, 0.06) !important;
+    color: var(--t1, #0f172a) !important;
+}
+:root[data-theme="light"] body .grid tbody tr:hover > td a,
+:root[data-theme="light"] body .grid table.data tbody tr:hover > td a {
+    color: var(--brand, #2563eb) !important;
+}
