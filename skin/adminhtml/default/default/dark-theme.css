@@ -3139,6 +3139,32 @@ dl.accordion dd, .accordion-body { background: var(--d3) !important; border: 1px
 .calendar table { background: var(--d3) !important; }
 .calendar .title, .calendar .headrow { background: var(--d4) !important; color: var(--t1) !important; }
 .calendar td, .calendar th { color: var(--t3) !important; }
+/* Day-name header row (Mon Tue Wed Thu Fri Sat Sun) — js/calendar/calendar-blue.css
+   hardcodes color:#000 on .name and a light-blue #bdf background, which the
+   --t3 rule above stomps to muted-on-dark = nearly invisible. Lift to --t1 on
+   the slightly raised --d4 surface so they read clearly. */
+.calendar thead .daynames,
+.calendar thead .daynames td,
+.calendar thead .name {
+    background: var(--d4) !important;
+    color: var(--t1) !important;
+    font-weight: 600 !important;
+}
+.calendar thead .weekend {
+    color: var(--t2) !important;
+}
+/* Week-number left column (.wn cells in both thead and tbody) — same fix:
+   the upstream stylesheet sets background:#bdf, our --t3 muting turns the
+   row numbers into wallpaper. Brighter text + matching --d4 surface so the
+   column reads as a sidebar instead of a smudge. */
+.calendar table .wn,
+.calendar thead .wn,
+.calendar tbody .wn {
+    background: var(--d4) !important;
+    color: var(--t2) !important;
+    border-right: 1px solid var(--b1) !important;
+    font-weight: 500 !important;
+}
 .calendar td.selected { background: var(--blue3) !important; color: #fff !important; border-radius: 4px !important; }
 .calendar td:hover { background: var(--d5) !important; }
 /* Popups */
