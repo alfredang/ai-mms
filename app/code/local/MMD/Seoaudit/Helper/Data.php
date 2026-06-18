@@ -8,8 +8,7 @@
  *   - SG WSQ (TGS-) → title MUST contain "WSQ" + end with brand suffix +
  *                     description SHOULD mention funding.
  *   - SG non-WSQ (C…) → brand suffix; MUST NOT mention WSQ/SkillsFuture.
- *   - MY (M…) → brand suffix; description MUST mention HRDF / HRD Corp.
- *   - GH/NG/BT/IN → brand suffix only; no funding language.
+ *   - NG → brand suffix only; no funding language.
  *
  * Sample size is capped (SAMPLE_LIMIT) so the page stays responsive even
  * on the 2k+ product catalog.
@@ -21,11 +20,7 @@ class MMD_Seoaudit_Helper_Data extends Mage_Core_Helper_Abstract
     /** Per-store brand suffix and segment hints. Keyed by store code. */
     protected $_storeProfiles = array(
         'singapore' => array('country' => 'Singapore', 'suffix' => '| Tertiary Courses Singapore', 'fundingKeywords' => array('SkillsFuture', 'SFEC', 'UTAP', 'WSQ', 'Absentee Payroll', 'PSEA', 'IBF', 'MCES')),
-        'malaysia'  => array('country' => 'Malaysia',  'suffix' => '| Tertiary Courses Malaysia',  'fundingKeywords' => array('HRDF', 'HRD Corp', 'HRDC')),
-        'ghana'     => array('country' => 'Ghana',     'suffix' => '| Tertiary Courses Ghana',     'fundingKeywords' => array()),
         'nigeria'   => array('country' => 'Nigeria',   'suffix' => '| Tertiary Courses Nigeria',   'fundingKeywords' => array()),
-        'bhutan'    => array('country' => 'Bhutan',    'suffix' => '| Tertiary Courses Bhutan',    'fundingKeywords' => array()),
-        'india'     => array('country' => 'India',     'suffix' => '| Tertiary Courses India',     'fundingKeywords' => array()),
     );
 
     /**
@@ -103,8 +98,6 @@ class MMD_Seoaudit_Helper_Data extends Mage_Core_Helper_Abstract
         $suffix          = $profile['suffix'];
         $fundingKeywords = $profile['fundingKeywords'];
         $isSg            = ($storeCode === 'default');
-        $isMy            = ($storeCode === 'malaysia');
-
         $rules = array(
             'missing_title'           => array('label' => 'Missing meta title',                       'count' => 0, 'examples' => array()),
             'missing_description'     => array('label' => 'Missing meta description',                 'count' => 0, 'examples' => array()),
@@ -114,7 +107,6 @@ class MMD_Seoaudit_Helper_Data extends Mage_Core_Helper_Abstract
             'wsq_title_missing'       => array('label' => 'SG WSQ (TGS-) title missing "WSQ" token',  'count' => 0, 'examples' => array()),
             'wsq_desc_no_funding'     => array('label' => 'SG WSQ description missing funding hook',  'count' => 0, 'examples' => array()),
             'sg_non_wsq_funding_leak' => array('label' => 'SG non-WSQ (C-prefix) mentions WSQ / SkillsFuture',  'count' => 0, 'examples' => array()),
-            'my_desc_no_hrdf'         => array('label' => 'MY description missing HRDF / HRD Corp hook',        'count' => 0, 'examples' => array()),
         );
 
         $sampleSize = 0;
@@ -161,10 +153,6 @@ class MMD_Seoaudit_Helper_Data extends Mage_Core_Helper_Abstract
                 if ($this->_containsAny($title . ' ' . $desc, array('WSQ', 'SkillsFuture', 'SFEC'))) {
                     $hit('sg_non_wsq_funding_leak');
                 }
-            } elseif ($segment === 'my' && $desc !== '') {
-                if (!$this->_containsAny($desc, array('HRDF', 'HRD Corp', 'HRDC'))) {
-                    $hit('my_desc_no_hrdf');
-                }
             }
         }
 
@@ -194,9 +182,6 @@ class MMD_Seoaudit_Helper_Data extends Mage_Core_Helper_Abstract
                 return 'sg_non_wsq';
             }
             return 'sg_non_wsq'; // treat anything else on SG conservatively
-        }
-        if ($storeCode === 'malaysia') {
-            return 'my';
         }
         return 'other';
     }

@@ -145,7 +145,7 @@ endif;
 if ($activeRole === 'admin' && $_dashOnAdminMaster):
 
 // Country scope from the **Branchscope pill strip** (All / Singapore /
-// Malaysia / …). 0 = All Stores → no website filter applied; KPIs and
+// Nigeria). 0 = All Stores → no website filter applied; KPIs and
 // the master list aggregate across every website. Each store_id maps
 // 1:1 to its website_id in this install (core_store rows 1–7), so we
 // pass the same integer straight through as the website filter.
@@ -156,7 +156,7 @@ if ($_adminWid > 0) {
     $_adminWidOrder  = " AND cs.website_id={$_adminWid} ";
 } else {
     // "All Stores" — drop every per-website filter so counts and rows
-    // aggregate across SG/MY/GH/NG/BT/IN/Infotech.
+// aggregate across SG/NG.
     $_adminWidJoin   = '';
     $_adminWidJoinCo = '';
     $_adminWidOrder  = '';
@@ -575,9 +575,9 @@ endif; // end if (admin || training_provider)
 // panel. $countryFilter is derived from the same store id so the
 // existing billing-address country filters stay correct.
 $storeId       = (int) Mage::helper('branchscope')->getActiveStoreId();
-$_storeToCc    = array(1 => 'SG', 2 => 'MY', 3 => 'GH', 4 => 'NG', 5 => 'BT', 6 => 'IN', 7 => 'IT');
+$_storeToCc    = array(1 => 'SG', 4 => 'NG');
 $countryFilter = isset($_storeToCc[$storeId]) ? $_storeToCc[$storeId] : '';
-$countryTabs   = array('' => 'ALL','SG' => 'Singapore','MY' => 'Malaysia','GH' => 'Ghana','NG' => 'Nigeria','BT' => 'Bhutan','IN' => 'India','IT' => 'Infotech');
+$countryTabs   = array('' => 'ALL','SG' => 'Singapore','NG' => 'Nigeria');
 $countryStoreId = 0;
 $ordersByCountry = $recentSearches = $recentRequests = array();
 $_searchStoreFilter = $countryStoreId;
@@ -608,7 +608,7 @@ if (!function_exists('_dashFmt')) {
 }
 
 if ($activeRole === 'training_provider'):
-$countryStoreMap = array('SG' => 1, 'MY' => 2, 'GH' => 3, 'NG' => 4, 'BT' => 5, 'IN' => 6, 'IT' => 7);
+$countryStoreMap = array('SG' => 1, 'NG' => 4);
 $countryStoreId = isset($countryStoreMap[$countryFilter]) ? $countryStoreMap[$countryFilter] : 0;
 
 $oc = Mage::getResourceModel('reports/order_collection');
@@ -723,7 +723,7 @@ if ($storeId) $coc->addFieldToFilter('store_id', $storeId);
 $coc->addFieldToFilter('state', array('nin' => array(Mage_Sales_Model_Order::STATE_CANCELED, Mage_Sales_Model_Order::STATE_NEW)));
 $coc->getSelect()->join(array('soa2' => Mage::getSingleton('core/resource')->getTableName('sales/order_address')), 'main_table.entity_id=soa2.parent_id AND soa2.address_type="billing"', array());
 $coc->getSelect()->columns(array('country_code' => 'soa2.country_id', 'order_count' => new Zend_Db_Expr('COUNT(main_table.entity_id)')))->group('soa2.country_id')->order('order_count DESC')->limit(10);
-$cnames = array('SG'=>'Singapore','MY'=>'Malaysia','GH'=>'Ghana','NG'=>'Nigeria','BT'=>'Bhutan','US'=>'United States','IN'=>'India','AU'=>'Australia','GB'=>'United Kingdom','PH'=>'Philippines');
+$cnames = array('SG'=>'Singapore','GH'=>'Ghana','NG'=>'Nigeria','US'=>'United States','IN'=>'India','AU'=>'Australia','GB'=>'United Kingdom','PH'=>'Philippines');
 $ordersByCountry = array();
 foreach ($coc as $row) {
     $code = $row->getData('country_code');
@@ -1346,7 +1346,7 @@ if ($_loggedInEmail && ($activeRole === 'learner' || $activeRole === 'trainer'))
 // a course gets registered the first time an admin schedules it,
 // and keeps its sequential number thereafter. Courses that haven't been
 // scheduled don't get a Course Run ID row on the card.
-$_lmcCountryPrefix = array(1=>'SG', 2=>'MY', 3=>'GH', 4=>'NG', 5=>'BUT', 6=>'IND', 7=>'INF');
+$_lmcCountryPrefix = array(1=>'SG', 4=>'NG');
 $_lmcRunMap        = array(); // product_id => "SG-100000"
 try {
     $_lmcRead = Mage::getSingleton('core/resource')->getConnection('core_read');
@@ -1374,13 +1374,12 @@ try {
 // The existing $_seoStoreId block further down re-derives the same
 // resolution for SEO Meta; once this rolls out we can drop that.
 $_pageStoreToCountry = array(
-    1 => 'Singapore', 2 => 'Malaysia', 3 => 'Ghana',
-    4 => 'Nigeria',   5 => 'Bhutan',   6 => 'India',
+    1 => 'Singapore', 3 => 'Ghana', 4 => 'Nigeria',
 );
-// In country-mode instances (GH/MY/NG/etc.) only show SG + own country pill.
+// In country-mode instances (NG/etc.) only show SG + own country pill.
 if (strtolower((string) getenv('MMS_MODE')) === 'country') {
     $_mmsCountryCode = strtoupper((string) getenv('MMS_COUNTRY_CODE'));
-    $_mmsCodeToStore = array('SG'=>1,'MY'=>2,'GH'=>3,'NG'=>4,'BT'=>5,'IN'=>6);
+    $_mmsCodeToStore = array('SG'=>1,'GH'=>3,'NG'=>4);
     $_mmsOwnStore = isset($_mmsCodeToStore[$_mmsCountryCode]) ? $_mmsCodeToStore[$_mmsCountryCode] : null;
     foreach (array_keys($_pageStoreToCountry) as $_mmsStoreId) {
         if ($_mmsStoreId !== 1 && $_mmsStoreId !== $_mmsOwnStore) {
@@ -1712,7 +1711,7 @@ if ($_selectedCourseId) {
               the user lands on Ongoing / Upcoming / Completed Classes. */ ?>
     <?php if ($_dashFilter === ''): ?>
     <?php
-        $_storeShort = array(1 => 'SG', 2 => 'MY', 3 => 'GH', 4 => 'NG', 5 => 'BT', 6 => 'ID', 7 => 'IN');
+        $_storeShort = array(1 => 'SG', 4 => 'NG');
         $_extIcon    = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>';
     ?>
 
@@ -2031,12 +2030,8 @@ $_devCurPage = max(1, (int) Mage::app()->getRequest()->getParam('dev_page', 1));
 $_devStoreToCountry = array(
     0 => 'All',
     1 => 'Singapore',
-    2 => 'Malaysia',
     3 => 'Ghana',
     4 => 'Nigeria',
-    5 => 'Bhutan',
-    6 => 'India',
-    7 => 'Infotech',
 );
 $_devCountryToStore = array_flip($_devStoreToCountry);
 
@@ -2054,7 +2049,7 @@ if ($_devLegacyCountry !== '' && $_devReq->getParam('store', null) === null
 // catalog in one list. Only honour an EXPLICIT ?store= in the URL — we
 // intentionally ignore branchscope's session stickiness here, otherwise a
 // Singapore pill picked on some other admin page bleeds in and hides
-// other-country courses (e.g. Malaysia M945).
+// other-country courses (e.g. Nigeria).
 $_devStoreParam = Mage::app()->getRequest()->getParam('store', null);
 if ($_devStoreParam !== null && ctype_digit((string) $_devStoreParam)) {
     $_devActiveStoreId = (int) $_devStoreParam;
@@ -2082,27 +2077,16 @@ if ($_devFilterQuery !== '')      $_devBackParams['dev_q']          = $_devFilte
 $_devBackQs = http_build_query($_devBackParams);
 // "All" → website_id 0 (treated as "no country filter" everywhere below)
 // Canonical branch order across the admin (matches store_id ordering):
-// All → Singapore (1) → Malaysia (2) → Ghana (3) → Nigeria (4) →
-// Bhutan (5) → India (6) → Infotech (7).
+// All → Singapore (1) → Ghana (3) → Nigeria (4).
 $_devCountryMap = array(
     'All'       => 0,
     'Singapore' => 1,
-    'Malaysia'  => 2,
-    'Ghana'     => 3,
     'Nigeria'   => 4,
-    'Bhutan'    => 5,
-    'India'     => 6,
-    'Infotech'  => 7,
 );
 $_devCountryPrefix = array(
     0 => 'ALL',
     1 => 'SG',
-    2 => 'MY',
-    3 => 'GH',
     4 => 'NG',
-    5 => 'BUT',
-    6 => 'IND',
-    7 => 'INF',
 );
 $_devAllowedCountries = array_keys($_devCountryMap);
 if (!in_array($_devCountry, $_devAllowedCountries)) $_devCountry = 'All';
@@ -2215,17 +2199,15 @@ try {
 } catch (Exception $e) {}
 
 // Country / store badges per card. Look up catalog_product_website rows for
-// the products on this page so each card can show small SG / MY / NG / GH /
-// BT / IN pills indicating which country storefronts carry the course.
+// the products on this page so each card can show small SG / NG
+// pills indicating which country storefronts carry the course.
 // Keyed by product_id → array of website_ids (matches $_devCountryMap).
 $_devProductWebsites = array();
 $_devWebsiteLabels   = array(
-    1 => 'SG', 2 => 'MY', 3 => 'GH', 4 => 'NG',
-    5 => 'BT', 6 => 'IN', 7 => 'INF',
+    1 => 'SG', 4 => 'NG',
 );
 $_devWebsiteFlags    = array(
-    1 => '🇸🇬', 2 => '🇲🇾', 3 => '🇬🇭', 4 => '🇳🇬',
-    5 => '🇧🇹', 6 => '🇮🇳', 7 => '',
+    1 => '🇸🇬', 4 => '🇳🇬', 7 => '',
 );
 if (!empty($_devCourses)) {
     try {
@@ -2644,8 +2626,7 @@ function devSetView(view) {
 //   1. ?store=N    2. ?dev_country=<Name>    3. dev_back's dev_country/store
 //   4. admin session branchscope    5. fall back to Singapore.
 $_seoStoreToCountry = array(
-    1 => 'Singapore', 2 => 'Malaysia', 3 => 'Ghana',
-    4 => 'Nigeria',   5 => 'Bhutan',   6 => 'India',
+    1 => 'Singapore', 4 => 'Nigeria',
 );
 $_seoCountryToStore = array_flip($_seoStoreToCountry);
 $_seoStoreId = 0;
@@ -2687,8 +2668,7 @@ $_seoActiveCountry = isset($_seoStoreToCountry[$_seoStoreId])
     ? $_seoStoreToCountry[$_seoStoreId]
     : 'Singapore';
 $_dcfStoreFlag = array(
-    'Singapore' => 'SG', 'Malaysia' => 'MY', 'Ghana' => 'GH',
-    'Nigeria'   => 'NG', 'Bhutan'   => 'BT', 'India'  => 'IN',
+    'Singapore' => 'SG', 'Nigeria' => 'NG',
 );
 $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
 ?>
@@ -3092,7 +3072,7 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                  'hint' => 'On the SG store the standardised SKU-based writeup may take precedence (TGS-* → Cert + OpenCerts; others → Cert only); other stores render this content.'],
                 ['code' => 'funding_and_grant', 'label' => 'Funding and Grant',
                  'placeholder' => 'WSQ funding narrative (SFC / UTAP / PSEA / SFEC) and/or HRD Corp Claimable content (HTML supported)...',
-                 'hint' => 'Single shared block — renders inside the WSQ Funding card on SG WSQ courses (fee tiles auto-compute from product price; do NOT enter fee tables here), and as the Funding and Grant card on MY courses.'],
+                 'hint' => 'Single shared block — renders inside the WSQ Funding card on SG WSQ courses (fee tiles auto-compute from product price; do NOT enter fee tables here), and as the Funding and Grant card on other active country stores.'],
             ];
             foreach ($_cmsPanels as $_pn): ?>
             <div class="dcf-section">
@@ -3152,7 +3132,7 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                 </div>
                 <?php else: ?>
                 <div style="font-size:11px;color:#94a3b8;background:rgba(148,163,184,.08);border:1px solid rgba(148,163,184,.2);padding:6px 10px;border-radius:6px;margin:0 0 8px;">
-                    Generate Brochure is unavailable: this course isn't assigned to any of the supported country storefronts (SG / MY / GH / NG / BT / IN). Assign it to a country in the Websites tab first.
+                    Generate Brochure is unavailable: this course isn't assigned to any of the supported country storefronts (SG / NG). Assign it to a country in the Websites tab first.
                 </div>
                 <?php endif; ?>
                 <?php endif; ?>
@@ -4031,7 +4011,7 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                    button renders into the bottom row of the cover PNG. Ephemeral:
                    not persisted to a course attribute; the admin re-picks per
                    regeneration. Defaults are country-aware: SG → WSQ/MCES/UTAP,
-                   MY → HRDF, other countries → none ticked. */
+                   other countries → none ticked. */
                 $_ciHelper = Mage::helper('mmd_courseimage');
                 $_aiBadges = $_ciHelper->getAllBadges();
                 $_aiProduct = (!empty($_selectedCourse['id']))
@@ -4229,7 +4209,7 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                 // THAT country's value (or the scope-0 default if no
                 // per-country override exists yet). Without this the inputs
                 // always show scope-0 and the admin can't see what was
-                // previously generated for Malaysia / Ghana / etc.
+                // previously generated for Malaysia / Nigeria / etc.
                 if ($_seoStoreId > 0 && !empty($_editCourseData) && isset($_selectedCourseId)) {
                     try {
                         $_seoProdAtCountry = Mage::getModel('catalog/product')
@@ -4253,14 +4233,14 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                 //   the correct EAV scope, independent of $_seoStoreId.
                 //
                 //   Layout:
-                //     [SG-WSQ] [SG-NonWSQ] [MY-HRDF] [Others] | [All Stores]
+                //     [SG-WSQ] [SG-NonWSQ] [Others] | [All Stores]
                 //
                 //   "All Stores" = single AI call (multi-store prompt)
-                //   that produces 6 country titles + shared keywords +
-                //   2 description variants, persisted to all 6 store
+                //   that produces active country titles + shared keywords,
+                //   persisted to all active store
                 //   scopes server-side. See aiSeoAllStoresAction.
                 $_seoOtherStoreId = in_array($_seoStoreId, array(3,4,5,6), true) ? $_seoStoreId : 3;
-                $_seoOtherCountry = $_seoStoreToCountry[$_seoOtherStoreId] ?? 'Ghana';
+                $_seoOtherCountry = $_seoStoreToCountry[$_seoOtherStoreId] ?? 'Nigeria';
                 ?>
                 <div class="dcf-mag-bar" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
                     <span>SEO Meta</span>
@@ -4273,16 +4253,12 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2l2.4 6.4L21 11l-6.6 2.6L12 20l-2.4-6.4L3 11l6.6-2.6z"/></svg>
                             SG-NonWSQ
                         </button>
-                        <button type="button" class="ai-seo-btn" data-mode="hrdf" data-country="Malaysia" data-target-store="2" style="background:rgba(251,146,60,.1);border:1px solid rgba(251,146,60,.45);color:#fb923c;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;" title="HRD Corp Funded course (Malaysia). Writes to Malaysia store.">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2l2.4 6.4L21 11l-6.6 2.6L12 20l-2.4-6.4L3 11l6.6-2.6z"/></svg>
-                            MY-HRDF
-                        </button>
-                        <button type="button" class="ai-seo-btn" data-mode="non_wsq" data-country="<?php echo htmlspecialchars($_seoOtherCountry) ?>" data-target-store="<?php echo (int) $_seoOtherStoreId ?>" style="background:rgba(148,163,184,.1);border:1px solid rgba(148,163,184,.4);color:#94a3b8;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;" title="Other countries (GH/NG/BT/IN). Writes to the currently-active country's store (defaults to Ghana).">
+                        <button type="button" class="ai-seo-btn" data-mode="non_wsq" data-country="<?php echo htmlspecialchars($_seoOtherCountry) ?>" data-target-store="<?php echo (int) $_seoOtherStoreId ?>" style="background:rgba(148,163,184,.1);border:1px solid rgba(148,163,184,.4);color:#94a3b8;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;" title="Nigeria store. Writes to the currently-active country's store (defaults to Nigeria).">
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2l2.4 6.4L21 11l-6.6 2.6L12 20l-2.4-6.4L3 11l6.6-2.6z"/></svg>
                             Others (<?php echo htmlspecialchars($_seoOtherCountry) ?>)
                         </button>
                         <span style="width:1px;height:22px;background:var(--b1);margin:0 4px;"></span>
-                        <button type="button" id="ai-seo-all-stores-btn" style="background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.5);color:#22c55e;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;" title="Generate SEO for this course across ALL 6 country stores in one click. Single multi-store AI prompt.">
+                        <button type="button" id="ai-seo-all-stores-btn" style="background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.5);color:#22c55e;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;" title="Generate SEO for this course across ALL 3 country stores in one click. Single multi-store AI prompt.">
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12h4l3-9 4 18 3-9h4"/></svg>
                             All Stores (this course)
                         </button>
@@ -4446,7 +4422,7 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                         // Only repopulate the form when the generated values
                         // were written to the store currently displayed in
                         // the form (the hidden seo_target_store_id input).
-                        // Otherwise we'd flash MY/GH copy into the SG form.
+                        // Otherwise we'd flash NG copy into the SG form.
                         var displayedStore = (FORM.querySelector('[name="seo_target_store_id"]') || {}).value || '0';
                         if (String(displayedStore) === String(targetStoreId)) {
                             var setField = function(name, value) {
@@ -4483,12 +4459,12 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                 }
 
                 function generateAllStores(btn) {
-                    if (!confirm('Generate SEO meta across all 6 country stores for this course?\n\nThis runs one multi-store AI prompt and writes the result to SG, MY, GH, NG, BT, IN scope. Existing meta on those stores will be replaced.')) return;
+                    if (!confirm('Generate SEO meta across both country stores for this course?\n\nThis runs one multi-store AI prompt and writes the result to SG and NG scope. Existing meta on those stores will be replaced.')) return;
                     var origHtml = btn.innerHTML;
                     btn.disabled = true;
                     btn.style.opacity = '.6';
                     btn.style.cursor = 'wait';
-                    btn.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:ai-seo-spin 0.7s linear infinite;"></span> Generating for 6 stores…';
+                    btn.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:ai-seo-spin 0.7s linear infinite;"></span> Generating for 3 stores…';
                     startProgress();
 
                     var fd = new FormData();
@@ -9636,18 +9612,14 @@ $_credPaths = array(
     'mmd_email/google/refresh_token',
     'mmd_company/api/kael_review_key',
     'mmd_company/whatsapp/singapore',
-    'mmd_company/whatsapp/malaysia',
-    'mmd_company/whatsapp/ghana',
     'mmd_company/whatsapp/nigeria',
-    'mmd_company/whatsapp/bhutan',
-    'mmd_company/whatsapp/india',
 );
 $_creds = array();
 foreach ($_credPaths as $_cp) {
     $_creds[$_cp] = (string) Mage::getStoreConfig($_cp);
 }
 
-/* Per-website SMTP creds. MY/GH/NG/BT/IN use SMTP as their primary
+/* Per-website SMTP creds. NG uses SMTP as its primary
    transport. SG also gets a card here so SMTP creds are available as a
    fallback for the order-email path when Gmail OAuth is unavailable
    (token revoked, quota hit, API unreachable). Each row reads at the
@@ -9655,11 +9627,7 @@ foreach ($_credPaths as $_cp) {
    when an order / contact-us fires at run time. */
 $_smtpWebsites = array(
     'singapore' => array('id' => 1, 'label' => 'Singapore (fallback)', 'code' => 'SG'),
-    'malaysia'  => array('id' => 2, 'label' => 'Malaysia',             'code' => 'MY'),
-    'ghana'     => array('id' => 3, 'label' => 'Ghana',                'code' => 'GH'),
     'nigeria'   => array('id' => 4, 'label' => 'Nigeria',              'code' => 'NG'),
-    'bhutan'    => array('id' => 5, 'label' => 'Bhutan',               'code' => 'BT'),
-    'india'     => array('id' => 6, 'label' => 'India',                'code' => 'IN'),
 );
 
 /* Reusable inline-SVG icon helper for the SMTP section. Keeps the
@@ -9943,16 +9911,12 @@ $_credMask = function ($v) {
 
         <?php
         $_waAny = $_creds['mmd_company/whatsapp/singapore']
-               || $_creds['mmd_company/whatsapp/malaysia']
-               || $_creds['mmd_company/whatsapp/ghana']
-               || $_creds['mmd_company/whatsapp/nigeria']
-               || $_creds['mmd_company/whatsapp/bhutan']
-               || $_creds['mmd_company/whatsapp/india'];
+               || $_creds['mmd_company/whatsapp/nigeria'];
         ?>
         <div class="crd-card<?php echo $_waAny ? ' has-value' : '' ?>">
             <h3><span class="crd-dot"></span>WhatsApp Business (per-store)</h3>
             <p class="crd-sub" style="margin:0 0 12px;">
-                Drives the storefront WhatsApp float button. International format, digits only, no <code>+</code> or spaces. SG example: <code>6588666375</code>. MY example: <code>601123244187</code>. Leave a country blank to hide the float button on that store.
+                Drives the storefront WhatsApp float button. International format, digits only, no <code>+</code> or spaces. Leave a country blank to hide the float button on that store.
             </p>
             <div class="crd-row">
                 <label class="crd-label">🇸🇬 Singapore</label>
@@ -9961,34 +9925,10 @@ $_credMask = function ($v) {
                     placeholder="6588666375" />
             </div>
             <div class="crd-row">
-                <label class="crd-label">🇲🇾 Malaysia</label>
-                <input type="text" class="crd-input" name="whatsapp_malaysia"
-                    value="<?php echo htmlspecialchars($_creds['mmd_company/whatsapp/malaysia']) ?>"
-                    placeholder="601123244187" />
-            </div>
-            <div class="crd-row">
-                <label class="crd-label">🇬🇭 Ghana</label>
-                <input type="text" class="crd-input" name="whatsapp_ghana"
-                    value="<?php echo htmlspecialchars($_creds['mmd_company/whatsapp/ghana']) ?>"
-                    placeholder="233…" />
-            </div>
-            <div class="crd-row">
                 <label class="crd-label">🇳🇬 Nigeria</label>
                 <input type="text" class="crd-input" name="whatsapp_nigeria"
                     value="<?php echo htmlspecialchars($_creds['mmd_company/whatsapp/nigeria']) ?>"
                     placeholder="234…" />
-            </div>
-            <div class="crd-row">
-                <label class="crd-label">🇧🇹 Bhutan</label>
-                <input type="text" class="crd-input" name="whatsapp_bhutan"
-                    value="<?php echo htmlspecialchars($_creds['mmd_company/whatsapp/bhutan']) ?>"
-                    placeholder="975…" />
-            </div>
-            <div class="crd-row">
-                <label class="crd-label">🇮🇳 India</label>
-                <input type="text" class="crd-input" name="whatsapp_india"
-                    value="<?php echo htmlspecialchars($_creds['mmd_company/whatsapp/india']) ?>"
-                    placeholder="91…" />
             </div>
         </div>
 
@@ -10030,7 +9970,7 @@ $_credMask = function ($v) {
             </summary>
             <p class="crd-sub" style="margin:14px 0 18px;">
                 <strong>Singapore</strong> sends via Gmail OAuth (configured above) and uses these SMTP credentials only as a <em>fallback</em> when the OAuth path is unavailable (token revoked / quota hit / Gmail API down).
-                <strong>Other stores</strong> (MY / GH / NG / BT / IN) use SMTP as the primary transport.
+                <strong>Nigeria</strong> uses SMTP as the primary transport.
                 For each country, fill Host + Username + Password and click <strong>Save Credentials</strong> — SMTP turns on automatically. Use <strong>Send Test</strong> to verify before relying on it for real orders.
             </p>
 
@@ -10065,16 +10005,12 @@ $_credMask = function ($v) {
                 <h4 style="margin:18px 0 8px;color:#f1f5f9;font-size:13px;">Step 1 — Find which mailbox sends mail for the country</h4>
                 <p style="margin:0 0 8px;">Typical convention (already deployed):</p>
                 <ul style="margin:0 0 12px 18px;padding:0;">
-                    <li><code style="background:#1e293b;padding:1px 6px;border-radius:3px;font-size:12px;">sales@tertiarycourses.com.my</code> — Malaysia</li>
-                    <li><code style="background:#1e293b;padding:1px 6px;border-radius:3px;font-size:12px;">sales@tertiarycourses.com.gh</code> — Ghana</li>
                     <li><code style="background:#1e293b;padding:1px 6px;border-radius:3px;font-size:12px;">sales@tertiarycourses.com.ng</code> — Nigeria</li>
-                    <li><code style="background:#1e293b;padding:1px 6px;border-radius:3px;font-size:12px;">sales@tertiarycourses.bt</code> — Bhutan</li>
-                    <li><code style="background:#1e293b;padding:1px 6px;border-radius:3px;font-size:12px;">sales@tertiarycourses.co.in</code> — India</li>
                 </ul>
                 <p style="margin:0 0 4px;color:#94a3b8;font-size:12px;">Verify the mailbox exists in <a href="https://admin.google.com/ac/users" target="_blank" style="color:#65b7d5;">Google Workspace Admin → Directory → Users</a>.</p>
 
                 <h4 style="margin:18px 0 8px;color:#f1f5f9;font-size:13px;">Step 2 — Sign in as that mailbox (NOT as admin)</h4>
-                <p style="margin:0 0 6px;">Open an <strong>incognito window</strong> → <a href="https://accounts.google.com" target="_blank" style="color:#65b7d5;">accounts.google.com</a> → sign in as the country mailbox (e.g. <code style="background:#1e293b;padding:1px 6px;border-radius:3px;font-size:12px;">sales@tertiarycourses.com.my</code>).</p>
+                <p style="margin:0 0 6px;">Open an <strong>incognito window</strong> → <a href="https://accounts.google.com" target="_blank" style="color:#65b7d5;">accounts.google.com</a> → sign in as the country mailbox (e.g. <code style="background:#1e293b;padding:1px 6px;border-radius:3px;font-size:12px;">sales@tertiarycourses.com.ng</code>).</p>
                 <p style="margin:0 0 4px;color:#94a3b8;font-size:12px;">If you don't know the password, from the Workspace admin console click <strong>Reset Password</strong> on that user, set a temporary one, then use it.</p>
 
                 <h4 style="margin:18px 0 8px;color:#f1f5f9;font-size:13px;">Step 3 — Confirm 2-Step Verification is ON</h4>
@@ -10083,7 +10019,7 @@ $_credMask = function ($v) {
                 <h4 style="margin:18px 0 8px;color:#f1f5f9;font-size:13px;">Step 4 — Generate the App Password</h4>
                 <p style="margin:0 0 6px;">Open <a href="https://myaccount.google.com/apppasswords" target="_blank" style="color:#65b7d5;"><strong>myaccount.google.com/apppasswords</strong></a> (this URL only works after 2SV is on; there's no sidebar link).</p>
                 <ol style="margin:0 0 6px 18px;padding:0;">
-                    <li>App name: <code style="background:#1e293b;padding:1px 6px;border-radius:3px;font-size:12px;">MMS &lt;Country&gt; SMTP</code> (e.g. "MMS Malaysia SMTP")</li>
+                    <li>App name: <code style="background:#1e293b;padding:1px 6px;border-radius:3px;font-size:12px;">MMS Nigeria SMTP</code></li>
                     <li>Click <strong>Create</strong></li>
                     <li>Google shows a <strong>16-character password</strong> like <code style="background:#1e293b;padding:1px 6px;border-radius:3px;font-size:12px;">abcd efgh ijkl mnop</code></li>
                     <li><strong style="color:#fbbf24;">Copy it immediately</strong> — Google won't show it again; you'd have to generate a new one.</li>
@@ -10092,7 +10028,7 @@ $_credMask = function ($v) {
                 <h4 style="margin:18px 0 8px;color:#f1f5f9;font-size:13px;">Step 5 — Paste into the country's card below</h4>
                 <ol style="margin:0 0 6px 18px;padding:0;">
                     <li>Click the <strong>Gmail / Workspace</strong> quick-fill button → Host / Port / SSL / Auth fill themselves</li>
-                    <li><strong>Username</strong>: the country mailbox (e.g. <code style="background:#1e293b;padding:1px 6px;border-radius:3px;font-size:12px;">sales@tertiarycourses.com.my</code>)</li>
+                    <li><strong>Username</strong>: the country mailbox (e.g. <code style="background:#1e293b;padding:1px 6px;border-radius:3px;font-size:12px;">sales@tertiarycourses.com.ng</code>)</li>
                     <li><strong>Password</strong>: paste the 16-char App Password (spaces ok, Google strips them)</li>
                     <li>Click <strong>Save Credentials</strong> at the bottom of the page — status pill flips to <span style="color:#34d399;font-weight:600;">Active</span></li>
                 </ol>
@@ -10107,7 +10043,7 @@ $_credMask = function ($v) {
 
                 <h4 style="margin:18px 0 8px;color:#f1f5f9;font-size:13px;">Step 7 — End-to-end check on the live site</h4>
                 <ul style="margin:0 0 6px 18px;padding:0;">
-                    <li><strong>Contact-us auto-reply</strong>: submit a test enquiry on the country storefront (e.g. <code style="background:#1e293b;padding:1px 6px;border-radius:3px;font-size:12px;">tertiarycourses.com.my/contact/</code>). The reply should land within ~30 seconds, branded "Tertiary Courses &lt;Country&gt;" with a country-relevant course recommendation.</li>
+                    <li><strong>Contact-us auto-reply</strong>: submit a test enquiry on the Nigeria storefront (e.g. <code style="background:#1e293b;padding:1px 6px;border-radius:3px;font-size:12px;">tertiarycourses.com.ng/contact/</code>). The reply should land within ~30 seconds, branded "Tertiary Courses Nigeria" with a country-relevant course recommendation.</li>
                     <li><strong>Order email</strong>: place a small test order on the country storefront. Course-registration email lands in the customer mailbox via SMTP.</li>
                 </ul>
 
@@ -10133,11 +10069,7 @@ $_credMask = function ($v) {
         <?php
         $_userPlaceholders = array(
             'singapore' => 'sales@tertiarycourses.com.sg',
-            'malaysia'  => 'sales@tertiarycourses.com.my',
-            'ghana'     => 'sales@tertiarycourses.com.gh',
             'nigeria'   => 'sales@tertiarycourses.com.ng',
-            'bhutan'    => 'sales@tertiarycourses.bt',
-            'india'     => 'sales@tertiarycourses.co.in',
         );
         ?>
         <?php foreach ($_smtpWebsites as $_code => $_w):
@@ -12689,40 +12621,12 @@ if ($_elActive) {
             'cc'      => '+65',
             'phonePh' => '98765432',
         ),
-        'MY' => array(
-            'idTypes' => array('IC' => 'IC (NRIC)', 'PASSPORT' => 'Passport', 'OTHERS' => 'Others'),
-            'idPh'    => 'e.g., 850123-14-5678',
-            'namePh'  => 'e.g., Ahmad bin Abdullah',
-            'cc'      => '+60',
-            'phonePh' => '123456789',
-        ),
-        'GH' => array(
-            'idTypes' => array('GHANA_CARD' => 'Ghana Card', 'PASSPORT' => 'Passport', 'OTHERS' => 'Others'),
-            'idPh'    => 'e.g., GHA-123456789-1',
-            'namePh'  => 'e.g., Kwame Asante',
-            'cc'      => '+233',
-            'phonePh' => '244123456',
-        ),
         'NG' => array(
             'idTypes' => array('NIN' => 'NIN', 'BVN' => 'BVN', 'PASSPORT' => 'Passport', 'OTHERS' => 'Others'),
             'idPh'    => 'e.g., 12345678901',
             'namePh'  => 'e.g., Adebayo Okonkwo',
             'cc'      => '+234',
             'phonePh' => '8012345678',
-        ),
-        'BT' => array(
-            'idTypes' => array('CID' => 'CID', 'PASSPORT' => 'Passport', 'OTHERS' => 'Others'),
-            'idPh'    => 'e.g., 11801001234',
-            'namePh'  => 'e.g., Tashi Wangmo',
-            'cc'      => '+975',
-            'phonePh' => '17123456',
-        ),
-        'IN' => array(
-            'idTypes' => array('AADHAAR' => 'Aadhaar', 'PAN' => 'PAN', 'PASSPORT' => 'Passport', 'OTHERS' => 'Others'),
-            'idPh'    => 'e.g., 1234 5678 9012',
-            'namePh'  => 'e.g., Priya Sharma',
-            'cc'      => '+91',
-            'phonePh' => '9876543210',
         ),
     );
     $_elNp = isset($_elNpDefaults[$_elCC]) ? $_elNpDefaults[$_elCC] : $_elNpDefaults['SG'];

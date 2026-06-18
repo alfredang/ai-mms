@@ -78,7 +78,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                         throw new Exception(
                             '"C…" and "TGS-…" course codes are reserved for SG-synced courses '
                             . 'and cannot be used in this country instance. '
-                            . 'Use your country prefix (e.g. GH…, MY…, NG…) instead.'
+                            . 'Use your country prefix (e.g. NG…) instead.'
                         );
                     }
                 }
@@ -200,10 +200,10 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             // SEO — per-country store view.
             //
             // The dashboard template emits a hidden seo_target_store_id
-            // matching the country tab the admin is on (1=SG, 2=MY, …).
+            // matching the country tab the admin is on (1=SG, 3=GH, …).
             // When that's > 0 we persist the three meta fields at THAT
             // store view only (via saveAttribute, scoped writes), so
-            // generating for Malaysia doesn't overwrite Singapore's meta
+            // generating for one country doesn't overwrite Singapore's meta
             // and vice versa. Without a target (0 = default scope) we
             // fall back to the historical behaviour: write at scope 0.
             $_seoTargetStoreId = (int) $req->getParam('seo_target_store_id', 0);
@@ -1565,24 +1565,19 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
 
             // Mode → prompt template + input shape.
             //   wsq    = SG WSQ-funded course (training/competency inputs)
-            //   hrdf   = MY HRD Corp Funded course (same input shape as
-            //            wsq, but title gets "HRD Corp Funded" prefix +
-            //            "| Tertiary Courses Malaysia" suffix)
             //   non_wsq = generic Non-WSQ (course_name / key_topics /
-            //             course_highlights — used for SG non-funded, MY
-            //             non-funded, and all other countries)
+            //             course_highlights — used for SG non-funded and
+            //             all other countries)
             $mode   = (string) $this->getRequest()->getParam('mode');
             $tplMap = array(
                 'wsq'     => 'wsq.md',
-                'hrdf'    => 'hrdf.md',
                 'non_wsq' => 'non-wsq.md',
             );
             if (!isset($tplMap[$mode])) {
                 $mode = 'non_wsq';
             }
             $isWsq    = ($mode === 'wsq');
-            $isHrdf   = ($mode === 'hrdf');
-            $isWsqLike = $isWsq || $isHrdf;   // share input field shape
+            $isWsqLike = $isWsq;
 
             $tplFile = Mage::getBaseDir('code')
                 . '/local/MMD/RoleManager/etc/ai-seo/'
@@ -1596,17 +1591,11 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             // ("... | Tertiary Courses Singapore"). Whitelisted so a typo
             // or injection in the POST can't pollute the prompt.
             $countryWhitelist = array(
-                'Singapore', 'Malaysia', 'Nigeria', 'Ghana', 'Bhutan', 'India',
+                'Singapore', 'Nigeria',
             );
             $country = (string) $this->getRequest()->getParam('country');
             if (!in_array($country, $countryWhitelist, true)) {
                 $country = 'Singapore';
-            }
-
-            // For HRDF the country is locked to Malaysia regardless of
-            // what the client sent — the template hardcodes the suffix.
-            if ($isHrdf) {
-                $country = 'Malaysia';
             }
 
             $vals = $isWsqLike ? array(
@@ -1805,11 +1794,11 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
 
     /**
      * Generate SEO meta for ONE course across ALL country store views in a
-     * single AI call (the multi-store prompt produces 6 country titles +
+     * single AI call (the multi-store prompt produces 5 country titles +
      * shared keywords + 2 description variants), then persist each piece
      * to the appropriate store scope.
      *
-     * Cost: 1 Claude call per product instead of 6.
+     * Cost: 1 Claude call per product instead of 5.
      */
     public function aiSeoAllStoresAction()
     {
@@ -1891,7 +1880,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             if (!class_exists('\\Mpdf\\Mpdf')) {
                 throw new Exception('mPDF not installed — run composer require mpdf/mpdf');
             }
-            // Supported scope: six country storefronts (SG/MY/GH/NG/BT/IN).
+            // Supported scope: two country storefronts (SG/NG).
             //
             // Country pick:
             //   1. Trust the POST `wid` first — that's the Store-View
@@ -1903,8 +1892,8 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             //   2. Accept View-As ONLY when the course is actually
             //      published there. Brochures pull country-scoped
             //      venue / store_info / price — generating a "-SG.pdf"
-            //      for an MY-only course would produce a Frankenstein
-            //      with SG venue + product's HRDF badge + wrong price.
+            //      for another-country course would produce a Frankenstein
+            //      with SG venue + wrong price.
             //      Roles don't override this: even developers must
             //      have the course on the country they're generating
             //      for. The Store-View bar already lets any role
@@ -1915,7 +1904,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             //
             // Throws only when the course isn't on any supported
             // country (e.g. Infotech-only or wholly-unassigned).
-            $supported   = array(1, 2, 3, 4, 5, 6);
+            $supported   = array(1, 4);
             $productWids = $this->_courseWebsiteIds((int) $product->getId());
 
             $viewAsWid = (int) $this->getRequest()->getParam('wid');
@@ -1937,7 +1926,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 }
             }
             if ($broWid <= 0) {
-                throw new Exception('This course is not assigned to any of the supported country storefronts (SG / MY / GH / NG / BT / IN). Assign it to a country before generating a brochure.');
+                throw new Exception('This course is not assigned to any of the supported country storefronts (SG / NG). Assign it to a country before generating a brochure.');
             }
 
             $context = $this->_collectBrochureContext($product, $broWid);
@@ -2033,26 +2022,19 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
         // ---- Funding badges (plain text), filtered per country ------
         // getProductBadges() returns every funding tag set on the
         // product — for a course on multiple sites that can include
-        // both SG schemes (WSQ, SkillsFuture Credit, etc.) AND MY's
-        // HRDF. The brochure must show only the badges that apply to
-        // the country it's being generated for, else an MY brochure
-        // ends up advertising "WSQ funding" (Singapore-only) or an SG
-        // brochure shows "HRDF" (Malaysia-only).
+        // SG schemes (WSQ, SkillsFuture Credit, etc.). The brochure must
+        // show only the badges that apply to the country it's being generated
+        // for, else a non-SG brochure ends up advertising SG funding.
         //
         // Canonical badge map per country (CLAUDE.md):
         //   SG → WSQ, SkillsFuture Credit, PSEA, UTAP, IBF, SFEC,
         //        Absentee Payroll, MCES
-        //   MY → HRDF
-        //   GH/NG/BT/IN → no funding badges yet (the schemes haven't
+        //   NG → no funding badges yet (the schemes haven't
         //        been wired in; leave empty rather than show wrong ones)
         $countryBadgeMap = array(
             1 => array('WSQ', 'SkillsFuture Credit', 'PSEA', 'UTAP', 'IBF',
                        'SFEC', 'Absentee Payroll', 'MCES'),
-            2 => array('HRDF'),
-            3 => array(),
             4 => array(),
-            5 => array(),
-            6 => array(),
         );
         $allowedBadges = $countryBadgeMap[(int) $activeWid] ?? array();
         $badges = array();
@@ -2136,8 +2118,8 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
         // ---- Storefront product URL (registration link) ------------
         // Builds against the COUNTRY'S PRODUCTION domain so the link
         // in the printed brochure always lands on the right storefront
-        // — clicking an MY brochure's Sign Up link opens
-        // tertiarycourses.com.my, GH → tertiarycourses.com.gh, etc.
+        // — clicking a GH brochure's Sign Up link opens
+        // tertiarycourses.com.ng, etc.
         // (the Apache vhost routes via MAGE_RUN_CODE on the Host
         // header — see /var/www/html/.htaccess SetEnvIf lines).
         // Mage::getBaseUrl() / $product->getProductUrl() would point
@@ -2146,11 +2128,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
         // learners.
         $prodHosts = array(
             1 => 'https://www.tertiarycourses.com.sg/',
-            2 => 'https://www.tertiarycourses.com.my/',
-            3 => 'https://www.tertiarycourses.com.gh/',
             4 => 'https://www.tertiarycourses.com.ng/',
-            5 => 'https://www.tertiarycourses.bt/',
-            6 => 'https://www.tertiarycourses.co.in/',
         );
         $prodBase = $prodHosts[(int) $activeWid] ?? $prodHosts[1];
         $registrationUrl = '';
@@ -2248,7 +2226,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
         //        CMS block wins; falls back to the per-store global
         //        `course_certification` CMS block (created by migration
         //        143 — carries "Certificate of Completion from Tertiary
-        //        Courses" for MY/GH/NG/BT/IN). If still empty, the
+        //        Courses" for NG). If still empty, the
         //        Certification card is suppressed.
         $certificateHtml = $cmsHtml('certification');
         if ($isSg) {
@@ -2280,7 +2258,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
         // Block identifier convention in this DB:
         //   SG (1)  → sg_venue_address           (KL — Singapore HQ)
         //   SG  ┕ special-case SKU TGS-2025053916 → sg_venue_address_hydroponics
-        //   MY/GH/NG/BT/IN (2-6) → my_venue_address scoped to the
+        //   NG (4) → my_venue_address scoped to the
         //          active store (each non-SG store has its own row in
         //          cms_block_store with that country's address). Yes,
         //          the identifier is `my_*` for all of them — naming
@@ -2347,7 +2325,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             // Read the provider name from the DB per country —
             // general/store_information/name carries the consumer
             // brand for each storefront: Tertiary Courses Singapore /
-            // Malaysia / Ghana / Nigeria / Bhutan / India. Falls back
+            // Nigeria. Falls back
             // to the academy umbrella brand if the row is empty.
             'store_name'         => (string) ($store['name'] ?: 'Tertiary Infotech Academy'),
             'store_phone'        => (string) ($store['phone'] ?? ''),
@@ -2428,11 +2406,10 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
         }
 
         // Country code → folder name (matches the actual Drive folder
-        // names exactly: "Singapore", "Malaysia", "Ghana", "Nigeria",
-        // "Bhutan", "India"). Anything else aborts cleanly.
+        // names exactly: "Singapore", "Nigeria".
+        // Anything else aborts cleanly.
         $countryNames = array(
-            'SG' => 'Singapore', 'MY' => 'Malaysia', 'GH' => 'Ghana',
-            'NG' => 'Nigeria',   'BT' => 'Bhutan',   'IN' => 'India',
+            'SG' => 'Singapore', 'NG' => 'Nigeria',
         );
         $folderName = $countryNames[strtoupper((string) $countryCode)] ?? '';
         if ($folderName === '') {
@@ -2443,9 +2420,9 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             );
         }
 
-        // Shared Drive (or folder inside it) that holds the 6 country
-        // subfolders — Singapore / Malaysia / Ghana / Nigeria / Bhutan
-        // / India. Must be a Shared Drive (not My Drive) because
+        // Shared Drive (or folder inside it) that holds the country
+        // subfolders — Singapore / Nigeria.
+        // Must be a Shared Drive (not My Drive) because
         // service accounts can't own files in a personal Drive — they
         // hit a "storage quota exceeded" error.
         $parentFolderId = '16S5PAreCxFQ7Kcbu7eE6djMfhNq7wz2B';
@@ -2461,7 +2438,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             // Drive UI, so the lookup would fail with "folder not
             // found." Access is still bounded: the SA has no GCP IAM
             // role and only sees folders explicitly shared with its
-            // email (parent "5 Course Brochures" + 6 country subfolders).
+            // email (parent "5 Course Brochures" + 5 country subfolders).
             $client->setScopes(array(\Google\Service\Drive::DRIVE));
             $drive = new \Google\Service\Drive($client);
 
@@ -2616,7 +2593,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
      */
     protected function _brochureCountryCodeForWebsite($wid)
     {
-        $map = array(1 => 'SG', 2 => 'MY', 3 => 'GH', 4 => 'NG', 5 => 'BT', 6 => 'IN');
+        $map = array(1 => 'SG', 4 => 'NG');
         return $map[(int) $wid] ?? 'SG';
     }
 
@@ -2631,11 +2608,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
     {
         $map = array(
             1 => 'S$',  // Singapore
-            2 => 'RM ', // Malaysia
-            3 => 'GHS ',// Ghana
             4 => 'NGN ',// Nigeria
-            5 => 'Nu ', // Bhutan
-            6 => 'INR ',// India
         );
         return $map[(int) $wid] ?? '$';
     }
@@ -2942,7 +2915,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
         // training-provider brand that pairs with the
         // Infotech_Academy.png logo on page 1. Country-specific
         // consumer brand (Tertiary Courses Singapore / Malaysia /
-        // Ghana / …) still ships from the DB and shows up in the
+        // Nigeria / …) still ships from the DB and shows up in the
         // body's contact card + footer, but the header band stays
         // academy-branded so the document reads as "an academy
         // brochure for a {country} storefront" rather than swapping
@@ -3069,8 +3042,8 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
         $html = ob_get_clean();
 
         // Where to write — one file per (SKU, country). Multi-country
-        // courses (E001 lives on all 6 sites) thus end up with up to
-        // six brochure PDFs side-by-side:
+        // courses (E001 lives on all 5 sites) thus end up with up to
+        // five brochure PDFs side-by-side:
         //   <SKU>-SG.pdf, <SKU>-MY.pdf, <SKU>-GH.pdf, …
         // Per-store CMS-block textareas point each storefront at its
         // own file.
@@ -3184,8 +3157,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
     protected function _buildAiSeoStub($mode, array $vals, $product)
     {
         $isWsq  = ($mode === 'wsq');
-        $isHrdf = ($mode === 'hrdf');
-        $isWsqLike = $isWsq || $isHrdf;
+        $isWsqLike = $isWsq;
 
         $name = $isWsqLike
             ? trim($vals['course_title'] ?? '')
@@ -3194,9 +3166,8 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
         if ($name === '') $name = 'Course';
 
         // Country supplied by the caller (already whitelisted in aiSeoAction).
-        // Drives the brand suffix and geo-language. HRDF is Malaysia-only.
+        // Drives the brand suffix and geo-language.
         $country = trim((string) ($vals['country'] ?? '')) ?: 'Singapore';
-        if ($isHrdf) $country = 'Malaysia';
 
         // ---------- Meta Title ----------
         // No truncation; Google trims SERP titles itself at ~60 chars and
@@ -3204,8 +3175,6 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
         // the full name. Keep it human-readable.
         if ($isWsq) {
             $title = $name . ' | WSQ Course | Tertiary Courses ' . $country;
-        } elseif ($isHrdf) {
-            $title = 'HRD Corp Funded ' . $name . ' | Tertiary Courses Malaysia';
         } else {
             $title = $name . ' | Tertiary Courses ' . $country;
         }
@@ -3256,17 +3225,12 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
         $kws = array();
         if ($isWsq) {
             $kws[] = 'WSQ ' . $firstWord . ' course ' . $country;
-        } elseif ($isHrdf) {
-            $kws[] = 'HRD Corp Funded ' . $firstWord . ' course Malaysia';
         }
         $kws[] = $firstWord . ' training ' . $country;
         foreach ($topicWords as $w) $kws[] = ucfirst($w);
         if ($isWsq) {
             $kws[] = 'SkillsFuture credit eligible';
             $kws[] = 'WSQ funded course';
-        } elseif ($isHrdf) {
-            $kws[] = 'HRDC claimable';
-            $kws[] = 'SBL Khas eligible';
         } else {
             $kws[] = 'professional training course';
         }
@@ -3292,8 +3256,6 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
         }
         if ($isWsq) {
             $desc = 'Learn ' . $name . ' through this WSQ-certified course in ' . $country . '.' . $topicTail . ' Up to 70% WSQ funding subsidy available.';
-        } elseif ($isHrdf) {
-            $desc = 'Learn ' . $name . ' through this HRD Corp funded course in Malaysia.' . $topicTail . ' HRDC claimable under SBL Khas.';
         } else {
             $desc = 'Master ' . $name . ' with hands-on training in ' . $country . '.' . $topicTail . ' Practical skills for working professionals.';
         }

@@ -60,7 +60,7 @@ deny from 78.128.113.18
 #     subdomains for everyone who has hit the apex.
 #   - `preload` is a one-way submission to Chrome's hardcoded list — leave
 #     until we've run with bare HSTS for ≥3 months with no incidents.
-# All five primary hosts (tertiaryinfotech.edu.sg + tertiarycourses.com.{sg,my,gh,ng})
+# Active storefront hosts.
 # already serve HTTPS cleanly — verified 2026-05-26.
 <IfModule mod_headers.c>
     Header always set Strict-Transport-Security "max-age=31536000"
@@ -69,13 +69,9 @@ deny from 78.128.113.18
 
 ############################################
 ## Domain to Store View mapping
-## tertiaryinfotech.edu.sg → Infotech store view
-SetEnvIf Host ^(www\.)?tertiaryinfotech\.edu\.sg$ MAGE_RUN_CODE=infotech
-SetEnvIf Host ^(www\.)?tertiaryinfotech\.edu\.sg$ MAGE_RUN_TYPE=store
-
-## Redirect non-www to www for tertiaryinfotech.edu.sg
-RewriteCond %{HTTP_HOST} ^tertiaryinfotech\.edu\.sg$ [NC]
-RewriteRule ^(.*)$ https://www.tertiaryinfotech.edu.sg/$1 [L,R=301]
+## Retired store domains redirect to Singapore so they do not serve duplicate default-store pages.
+RewriteCond %{HTTP_HOST} ^(www\.)?(tertiarycourses\.com\.my|tertiarycourses\.com\.gh|tertiarycourses\.bt|tertiarycourses\.(co\.)?in|tertiaryinfotech\.edu\.sg)$ [NC]
+RewriteRule ^(.*)$ https://www.tertiarycourses.com.sg/$1 [L,R=301]
 
 ## tertiarycourses.com.ng → Nigeria store view
 SetEnvIf Host ^(www\.)?tertiarycourses\.com\.ng$ MAGE_RUN_CODE=nigeria
@@ -84,22 +80,6 @@ SetEnvIf Host ^(www\.)?tertiarycourses\.com\.ng$ MAGE_RUN_TYPE=store
 ## Redirect non-www to www for tertiarycourses.com.ng
 RewriteCond %{HTTP_HOST} ^tertiarycourses\.com\.ng$ [NC]
 RewriteRule ^(.*)$ https://www.tertiarycourses.com.ng/$1 [L,R=301]
-
-## tertiarycourses.com.gh → Ghana store view
-SetEnvIf Host ^(www\.)?tertiarycourses\.com\.gh$ MAGE_RUN_CODE=ghana
-SetEnvIf Host ^(www\.)?tertiarycourses\.com\.gh$ MAGE_RUN_TYPE=store
-
-## Redirect non-www to www for tertiarycourses.com.gh
-RewriteCond %{HTTP_HOST} ^tertiarycourses\.com\.gh$ [NC]
-RewriteRule ^(.*)$ https://www.tertiarycourses.com.gh/$1 [L,R=301]
-
-## tertiarycourses.com.my → Malaysia store view
-SetEnvIf Host ^(www\.)?tertiarycourses\.com\.my$ MAGE_RUN_CODE=malaysia
-SetEnvIf Host ^(www\.)?tertiarycourses\.com\.my$ MAGE_RUN_TYPE=store
-
-## Redirect non-www to www for tertiarycourses.com.my
-RewriteCond %{HTTP_HOST} ^tertiarycourses\.com\.my$ [NC]
-RewriteRule ^(.*)$ https://www.tertiarycourses.com.my/$1 [L,R=301]
 
 ## tertiarycourses.com.sg → Singapore store view
 SetEnvIf Host ^(www\.)?tertiarycourses\.com\.sg$ MAGE_RUN_CODE=singapore
@@ -117,24 +97,8 @@ RewriteRule ^(.*)$ https://www.tertiarycourses.com.sg/$1 [L,R=301]
 RewriteCond %{HTTP_HOST} ^(www\.)?tertiarycourses\.com\.sg$ [NC]
 RewriteRule ^sitemap\.xml$ /sitemap_singapore.xml [L]
 
-RewriteCond %{HTTP_HOST} ^(www\.)?tertiarycourses\.com\.my$ [NC]
-RewriteRule ^sitemap\.xml$ /sitemap_malaysia.xml [L]
-
-RewriteCond %{HTTP_HOST} ^(www\.)?tertiarycourses\.com\.gh$ [NC]
-RewriteRule ^sitemap\.xml$ /sitemap_ghana.xml [L]
-
 RewriteCond %{HTTP_HOST} ^(www\.)?tertiarycourses\.com\.ng$ [NC]
 RewriteRule ^sitemap\.xml$ /sitemap_nigeria.xml [L]
-
-RewriteCond %{HTTP_HOST} ^(www\.)?tertiaryinfotech\.edu\.sg$ [NC]
-RewriteRule ^sitemap\.xml$ /sitemap_infotech.xml [L]
-
-## Reserved (DNS not yet pointed at this hosting):
-##   tertiarycourses.bt     → sitemap_bhutan.xml
-##   tertiarycourses.com.in → sitemap_india.xml
-## Sitemap files are still generated daily by cron so they're ready when DNS cuts over;
-## just uncomment the matching RewriteCond/RewriteRule block here and re-enable the
-## Sitemap: line in robots.txt + add the store_id to $_hreflangMap in head.phtml.
 
 ############################################
 ## uncomment these lines for CGI mode
@@ -217,8 +181,8 @@ RewriteRule ^sitemap\.xml$ /sitemap_infotech.xml [L]
 ## the proxy). The browser then parsed raw gzip/brotli bytes as JavaScript →
 ## syntax error → varien/accordion.js + opcheckout.js never defined Accordion/
 ## Checkout → `new Accordion()` in the OnePage init threw → the checkout
-## accordion never bound → the 4 checkout steps rendered but would not expand
-## (www.tertiarycourses.com.my). The runtime mod_brotli / mod_deflate output
+## accordion never bound → the 4 checkout steps rendered but would not expand.
+## The runtime mod_brotli / mod_deflate output
 ## filters above ALWAYS emit the correct Content-Encoding, so we revert to the
 ## known-good runtime-compression path. Re-enable only once the proxy is
 ## confirmed to preserve the manual Content-Encoding header end-to-end.
@@ -680,11 +644,6 @@ deny from 185.86.106.179
 
 
 Redirect 301 /project-consultancy.html https://www.tertiarycourses.com.sg
-Redirect 301 /popular-hrdf-courses-malaysia.html https://www.tertiarycourses.com.my
-Redirect 301 /python-computer-science-tuition-singapore.html https://www.tertiarycourses.com.my/python-computer-science-tuition-malaysia.html
-
-Redirect 301 /python-coding-kids-singapore.html https://www.tertiarycourses.com.my/python-for-kids-workshops.html
-Redirect 301 /python-computer-science-tuition-malaysia.html https://www.tertiarycourses.com.my/python-for-kids-workshops.html
 
 Redirect 301 /pytohn-machine-learning-with-scikit-learn-trai http://www.tertiarycourses.com.sg/python-machine-learning-with-scikits-learn-training.html
 Redirect 301 /ebook-publishing-and-distribution-essential-tr http://www.tertiarycourses.com.sg/ebook-publishing-and-distribution-essential-training.html

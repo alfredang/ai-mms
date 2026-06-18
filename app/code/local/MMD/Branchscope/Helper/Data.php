@@ -84,8 +84,7 @@ class MMD_Branchscope_Helper_Data extends Mage_Core_Helper_Abstract
         $devCountry = (string) $req->getParam('dev_country', '');
         if ($devCountry !== '' && $req->getParam(self::URL_PARAM, null) === null) {
             $map = array(
-                'All' => 0, 'Singapore' => 1, 'Malaysia' => 2, 'Ghana' => 3,
-                'Nigeria' => 4, 'Bhutan' => 5, 'India' => 6, 'Infotech' => 7,
+                'All' => 0, 'Singapore' => 1, 'Nigeria' => 4,
             );
             if (isset($map[$devCountry])) {
                 $req->setParam(self::URL_PARAM, $map[$devCountry]);
@@ -104,7 +103,7 @@ class MMD_Branchscope_Helper_Data extends Mage_Core_Helper_Abstract
 
     /**
      * Pill option list: [ ['id'=>0,'name'=>'All'], ['id'=>1,'name'=>'Singapore'], ... ]
-     * Ordered by store_id ASC which by design maps to SG, MY, GH, NG, BT, IN, Infotech.
+     * Ordered by store_id ASC which by design maps to SG, NG.
      *
      * @return array
      */
@@ -129,34 +128,27 @@ class MMD_Branchscope_Helper_Data extends Mage_Core_Helper_Abstract
 
     /**
      * Canonical pill set used by the global Store View bar (mirrors the
-     * Edit Course inline design). Six country stores (SG/MY/GH/NG/BT/IN)
-     * plus the Infotech corporate site as a separate trailing pill —
-     * Infotech is its own store view (store_id=7), not a subdomain of
-     * Singapore, so operators get one pill per store. Excludes admin
-     * (store_id=0) only. Each option carries a 2-letter `code` for the
+     * Edit Course inline design). Two active country stores
+     * (SG/NG). Excludes admin (store_id=0) only.
+     * Each option carries a 2-letter `code` for the
      * pill badge, matching the class_id prefix scheme (SG000042 etc.).
      *
      * @return array
      */
     public function getCountryStorePillOptions()
     {
-        // Map preserves the desired pill order; Infotech ('TI') sits last.
+        // Map preserves the desired pill order.
         $codeMap = array(
             1 => 'SG',
-            2 => 'MY',
-            3 => 'GH',
             4 => 'NG',
-            5 => 'BT',
-            6 => 'IN',
-            7 => 'TI', // Tertiary Infotech corporate
         );
 
-        // In country mode (standalone GH/MY/NG/etc. instance) only show SG +
+        // In country mode (standalone NG/etc. instance) only show SG +
         // the instance's own country pill. All other stores live in the DB
         // (copied from the SG seed) but are irrelevant to this operator.
         if (strtolower((string) getenv('MMS_MODE')) === 'country') {
             $countryCode  = strtoupper((string) getenv('MMS_COUNTRY_CODE'));
-            $codeToId     = array_flip($codeMap); // e.g. 'GH' => 3
+            $codeToId     = array_flip($codeMap); // e.g. 'NG' => 4
             $countryStoreId = isset($codeToId[$countryCode]) ? (int) $codeToId[$countryCode] : null;
             $allowed = array(1); // SG always shown
             if ($countryStoreId && $countryStoreId !== 1) {

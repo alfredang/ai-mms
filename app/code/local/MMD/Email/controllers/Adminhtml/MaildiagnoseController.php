@@ -28,11 +28,7 @@ class MMD_Email_Adminhtml_MaildiagnoseController extends Mage_Adminhtml_Controll
      */
     protected $_smtpWebsites = array(
         'singapore' => array('id' => 1, 'label' => 'Singapore (fallback)'),
-        'malaysia'  => array('id' => 2, 'label' => 'Malaysia'),
-        'ghana'     => array('id' => 3, 'label' => 'Ghana'),
         'nigeria'   => array('id' => 4, 'label' => 'Nigeria'),
-        'bhutan'    => array('id' => 5, 'label' => 'Bhutan'),
-        'india'     => array('id' => 6, 'label' => 'India'),
     );
 
     /**
@@ -104,11 +100,7 @@ class MMD_Email_Adminhtml_MaildiagnoseController extends Mage_Adminhtml_Controll
             'gmail_refresh_token'  => 'mmd_email/google/refresh_token',
             'kael_review_key'      => 'mmd_company/api/kael_review_key',
             'whatsapp_singapore'   => 'mmd_company/whatsapp/singapore',
-            'whatsapp_malaysia'    => 'mmd_company/whatsapp/malaysia',
-            'whatsapp_ghana'       => 'mmd_company/whatsapp/ghana',
             'whatsapp_nigeria'     => 'mmd_company/whatsapp/nigeria',
-            'whatsapp_bhutan'      => 'mmd_company/whatsapp/bhutan',
-            'whatsapp_india'       => 'mmd_company/whatsapp/india',
         ];
 
         try {
@@ -137,8 +129,8 @@ class MMD_Email_Adminhtml_MaildiagnoseController extends Mage_Adminhtml_Controll
                 ]);
             }
 
-            // Per-website SMTP cards (Malaysia / Ghana / Nigeria / Bhutan /
-            // India). Fields are `smtp_<code>_<field>` and each writes to
+            // Per-website SMTP cards (Nigeria).
+            // Fields are `smtp_<code>_<field>` and each writes to
             // smtppro/general/* at scope=websites, scope_id=<website_id>.
             // Passwords go through core/encrypt before they hit the row so
             // SMTPPro's runtime decrypt round-trip works as it does for the

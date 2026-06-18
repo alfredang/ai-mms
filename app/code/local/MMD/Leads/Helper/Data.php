@@ -30,10 +30,9 @@ class MMD_Leads_Helper_Data extends Mage_Core_Helper_Abstract
      * recommendation pool to the storefront's course-code convention:
      *
      *   SG → TGS-…  (WSQ/SkillsFuture course reference convention)
-     *   MY/GH/NG/BT/IN → '' (no prefix filter — the storefront's visible
+     *   NG → '' (no prefix filter — the storefront's visible
      *   catalog already scopes the pool to that country, and there's no
-     *   distinct SKU marker for HRDF / regional courses since MY uses the
-     *   shared C-prefix / K-prefix numbering as the rest of the catalog).
+     *   distinct SKU marker for regional courses).
      *
      * MIN_RECOMMEND_SCORE is the minimum keyword score a course must reach
      * to be recommended — below it the auto-reply shows the generic
@@ -139,11 +138,7 @@ class MMD_Leads_Helper_Data extends Mage_Core_Helper_Abstract
     {
         static $map = array(
             'singapore' => 'Tertiary Courses Singapore',
-            'malaysia'  => 'Tertiary Courses Malaysia',
-            'ghana'     => 'Tertiary Courses Ghana',
             'nigeria'   => 'Tertiary Courses Nigeria',
-            'bhutan'    => 'Tertiary Courses Bhutan',
-            'india'     => 'Tertiary Courses India',
         );
         try {
             $code = Mage::app()->getStore($storeId)->getCode();
@@ -305,14 +300,7 @@ class MMD_Leads_Helper_Data extends Mage_Core_Helper_Abstract
                     . 'We will apply the Workforce Skills Qualifications (WSQ) subsidy on your behalf, and '
                     . 'you may use your SkillsFuture Singapore Credit to offset the remaining course fee.</p>';
                 break;
-            case 'hrdf':
-                $intro = 'We recommend the following HRD Corp claimable course based on your query:';
-                $portalRow = '';
-                $fundingNote = '<p style="margin:0 0 14px;">This course is claimable under HRD Corp (HRDF). '
-                    . 'Our training consultants can help your company process the HRD Corp grant application '
-                    . '— just reply to this email with your employer details.</p>';
-                break;
-            default: // generic — GH/NG/BT/IN
+            default: // generic — NG
                 $intro = 'We recommend the following course based on your query:';
                 $portalRow = '';
                 $fundingNote = '';
@@ -386,8 +374,7 @@ class MMD_Leads_Helper_Data extends Mage_Core_Helper_Abstract
      * Per-store recommender configuration.
      *   kind        — drives copy in buildCourseInfoHtml ('wsq' shows the
      *                 SkillsFuture/WSQ funding note + MySkillsFuture link;
-     *                 'hrdf' shows the HRD Corp note; 'generic' shows just
-     *                 the course card with no funding hook).
+     *                 'generic' shows just the course card with no funding hook).
      *   sku_prefix  — SKU LIKE filter used to scope the recommendation pool
      *                 to courses with the storefront's course-code convention.
      *
@@ -403,15 +390,7 @@ class MMD_Leads_Helper_Data extends Mage_Core_Helper_Abstract
         switch ($code) {
             case 'singapore':
                 return array('kind' => 'wsq',     'sku_prefix' => self::WSQ_SKU_PREFIX, 'exclude_sku_prefix' => '');
-            case 'malaysia':
-                // Catalog is shared across websites, so TGS- (SG WSQ) courses
-                // are visible to MY too. Exclude them so the recommender
-                // doesn't suggest a Singapore-only WSQ course to a MY lead.
-                return array('kind' => 'hrdf',    'sku_prefix' => '', 'exclude_sku_prefix' => self::WSQ_SKU_PREFIX);
-            case 'ghana':
             case 'nigeria':
-            case 'bhutan':
-            case 'india':
                 return array('kind' => 'generic', 'sku_prefix' => '', 'exclude_sku_prefix' => self::WSQ_SKU_PREFIX);
         }
         return null;

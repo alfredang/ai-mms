@@ -134,7 +134,7 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
                 $bs = Mage::helper('branchscope');
                 if ($bs->hasExplicitChoice()) {
                     $storeId = (int) $bs->getActiveStoreId();
-                    $reverse = array(1 => 'SG', 2 => 'MY', 3 => 'GH', 4 => 'NG', 5 => 'BT', 6 => 'IN');
+                    $reverse = array(1 => 'SG', 4 => 'NG');
                     if ($storeId > 0 && isset($reverse[$storeId])) {
                         return $reverse[$storeId];
                     }
@@ -150,7 +150,7 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
         $email = strtolower((string) $user->getEmail());
         if (preg_match('/^admin\.([a-z]{2})@/', $email, $m)) {
             $cc = strtoupper($m[1]);
-            $valid = array('SG', 'MY', 'GH', 'NG', 'BT', 'IN');
+            $valid = array('SG', 'NG');
             if (in_array($cc, $valid, true)) return $cc;
         }
 
@@ -160,29 +160,29 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
 
     public function getActiveWebsiteId()
     {
-        $map = array('SG' => 1, 'MY' => 2, 'GH' => 3, 'NG' => 4, 'BT' => 5, 'IN' => 6);
+        $map = array('SG' => 1, 'NG' => 4);
         $cc  = $this->getActiveCountryCode();
         return isset($map[$cc]) ? $map[$cc] : 1;
     }
 
     public function getActiveCountryName()
     {
-        $names = array('SG' => 'Singapore', 'MY' => 'Malaysia', 'GH' => 'Ghana', 'NG' => 'Nigeria', 'BT' => 'Bhutan', 'IN' => 'India');
+        $names = array('SG' => 'Singapore', 'NG' => 'Nigeria');
         $cc    = $this->getActiveCountryCode();
         return isset($names[$cc]) ? $names[$cc] : 'Singapore';
     }
 
     public function getActiveCountryRunPrefix()
     {
-        $prefix = array('SG' => 'SG', 'MY' => 'MY', 'GH' => 'GH', 'NG' => 'NG', 'BT' => 'BT', 'IN' => 'IN');
+        $prefix = array('SG' => 'SG', 'NG' => 'NG');
         $cc     = $this->getActiveCountryCode();
         return isset($prefix[$cc]) ? $prefix[$cc] : 'SG';
     }
 
     /**
      * Country prefix for a product based on its primary website.
-     * Drives the Run ID prefix (SG-100000, MY-100000, GH-100000…) so a
-     * class created on the Malaysia catalog displays MY- on the trainer
+     * Drives the Run ID prefix (SG-100000, GH-100000, NG-100000…) so a
+     * class created on a country catalog displays that country on the trainer
      * card regardless of who's viewing it. Cached per request.
      */
     public function getRunIdPrefixForProduct($productId)
@@ -206,7 +206,7 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
 
     /**
      * Per-country Run ID. Numbering resets per country, so the first
-     * Malaysia class is MY-100000, first Ghana is GH-100000, etc. The
+     * Nigeria class is NG-100000, etc. The
      * rank is computed by ordering course_runs.run_id ascending and
      * counting how many earlier runs share the same country website.
      * Built once per request and cached.
@@ -274,7 +274,7 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
 
     protected function _getWebsiteIdToPrefixMap()
     {
-        return array(1 => 'SG', 2 => 'MY', 3 => 'GH', 4 => 'NG', 5 => 'BT', 6 => 'IN', 7 => 'INF');
+        return array(1 => 'SG', 4 => 'NG');
     }
 
     protected function _getPerCountryRunRank($runId)
@@ -444,7 +444,7 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
      * Must stay in sync with store setup and $_storeToCc2 in index.phtml.
      */
     public static $websiteToCountryCode = array(
-        1 => 'SG', 2 => 'MY', 3 => 'GH', 4 => 'NG', 5 => 'BT', 6 => 'IN', 7 => 'SG',
+        1 => 'SG', 4 => 'NG',
     );
 
     /**

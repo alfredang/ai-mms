@@ -79,11 +79,7 @@ umask(0);
 // is served correctly even when accessed via IP before DNS is set up.
 if (getenv('MMS_MODE') === 'country') {
     $countryWebsiteMap = [
-        'GH' => 'ghana',
-        'MY' => 'malaysia',
         'NG' => 'nigeria',
-        'BT' => 'bhutan',
-        'IN' => 'india',
     ];
     $cc = strtoupper((string)getenv('MMS_COUNTRY_CODE'));
     $mageRunCode = $countryWebsiteMap[$cc] ?? 'base';
@@ -95,35 +91,10 @@ if (getenv('MMS_MODE') === 'country') {
             $mageRunCode = 'base';
             $mageRunType = 'website';
         break;
-        case 'tertiarycourses.com.my':
-        case 'www.tertiarycourses.com.my':
-            $mageRunCode = 'malaysia';
-            $mageRunType = 'website';
-        break;
-        case 'tertiarycourses.com.bt':
-        case 'www.tertiarycourses.bt':
-            $mageRunCode = 'bhutan';
-            $mageRunType = 'website';
-            break;
-        case 'tertiarycourses.com.gh':
-        case 'www.tertiarycourses.com.gh':
-            $mageRunCode = 'ghana';
-            $mageRunType = 'website';
-        break;
         case 'tertiarycourses.com.ng':
         case 'www.tertiarycourses.com.ng':
             $mageRunCode = 'nigeria';
             $mageRunType = 'website';
-        break;
-        case 'tertiarycourses.in':
-        case 'www.tertiarycourses.in':
-                $mageRunCode = 'india';
-                $mageRunType = 'website';
-        break;
-        case 'tertiaryinfotech.edu.sg':
-        case 'www.tertiaryinfotech.edu.sg':
-                $mageRunCode = 'infotech';
-                $mageRunType = 'website';
         break;
         default:
             $mageRunCode = 'base';

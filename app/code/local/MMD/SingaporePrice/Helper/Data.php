@@ -9,15 +9,13 @@
  *     total         = fee_displayed + gst
  *
  * x = catalog list price; y = funding-discount percent from Company
- * Settings (mmd_company/sg_funding/*). Singapore-only (storeId 1) and
- * the Infotech edu store (storeId 7); other stores are not the
- * concern of this module.
+     * Settings (mmd_company/sg_funding/*). Singapore-only (storeId 1);
+     * other stores are not the concern of this module.
  */
 class MMD_SingaporePrice_Helper_Data extends Mage_Core_Helper_Abstract
 {
     /** Stores this module applies to (id values). */
     const STORE_SG       = 1;
-    const STORE_INFOTECH = 7;
 
     /** GST rate. Loaded from mmd_company/gst/rate with a 9% fallback. */
     public function getGstRate()
@@ -36,7 +34,7 @@ class MMD_SingaporePrice_Helper_Data extends Mage_Core_Helper_Abstract
         if ($storeId === null) {
             $storeId = (int) Mage::app()->getStore()->getId();
         }
-        return ($storeId == self::STORE_SG || $storeId == self::STORE_INFOTECH);
+        return ($storeId == self::STORE_SG);
     }
 
     /**

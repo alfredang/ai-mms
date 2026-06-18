@@ -109,8 +109,8 @@ class MMD_SingaporePrice_Model_Observer
      * tax_amount = discounted_subtotal × rate onto each item + the
      * address. We rewrite those values to the catalog-price-based amount.
      *
-     * Active only when isActive(storeId) is true (SG storeId 1 or
-     * Infotech storeId 7). Other stores: no-op.
+     * Active only when isActive(storeId) is true (SG storeId 1).
+     * Other stores: no-op.
      */
     public function freezeSgGstOnCatalogPrice($observer)
     {

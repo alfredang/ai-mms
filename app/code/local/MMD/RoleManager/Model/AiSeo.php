@@ -13,11 +13,7 @@
 class MMD_RoleManager_Model_AiSeo
 {
     const STORE_SG = 1;
-    const STORE_MY = 2;
-    const STORE_GH = 3;
     const STORE_NG = 4;
-    const STORE_BT = 5;
-    const STORE_IN = 6;
 
     /**
      * Multi-store generate for ONE product. Returns:
@@ -59,36 +55,14 @@ class MMD_RoleManager_Model_AiSeo
 
         $kw      = (string) ($sections['meta_keywords']    ?? '');
         $descDef = (string) ($sections['meta_description'] ?? '');
-        $descMY  = (string) ($sections['meta_description_for_malaysia'] ?? $descDef);
-
         $perStore = array(
             self::STORE_SG => array(
                 'meta_title'       => (string) ($sections['meta_title'] ?? ''),
                 'meta_keyword'     => $kw,
                 'meta_description' => $descDef,
             ),
-            self::STORE_MY => array(
-                'meta_title'       => (string) ($sections['meta_title_for_malaysia'] ?? ''),
-                'meta_keyword'     => $kw,
-                'meta_description' => $descMY,
-            ),
-            self::STORE_GH => array(
-                'meta_title'       => (string) ($sections['meta_title_for_ghana'] ?? ''),
-                'meta_keyword'     => $kw,
-                'meta_description' => $descDef,
-            ),
             self::STORE_NG => array(
                 'meta_title'       => (string) ($sections['meta_title_for_nigeria'] ?? ''),
-                'meta_keyword'     => $kw,
-                'meta_description' => $descDef,
-            ),
-            self::STORE_BT => array(
-                'meta_title'       => (string) ($sections['meta_title_for_bhutan'] ?? ''),
-                'meta_keyword'     => $kw,
-                'meta_description' => $descDef,
-            ),
-            self::STORE_IN => array(
-                'meta_title'       => (string) ($sections['meta_title_for_india'] ?? ''),
                 'meta_keyword'     => $kw,
                 'meta_description' => $descDef,
             ),

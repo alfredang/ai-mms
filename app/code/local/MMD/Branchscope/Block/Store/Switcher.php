@@ -131,9 +131,8 @@ class MMD_Branchscope_Block_Store_Switcher extends Mage_Adminhtml_Block_Store_Sw
         // Same markup as Edit Course's inline Store View bar
         // (template/dashboard/index.phtml, .dcf-store-switcher) — same
         // class names so the page CSS (now hoisted to admin-dashboard.css)
-        // styles both identically. 7 storefront pills: SG / MY / GH / NG
-        // / BT / IN + Infotech (corporate site, treated as a 7th store
-        // not a subdomain of SG). Admin store (id=0, "All") is excluded.
+        // styles both identically. Active storefront pills: SG / NG.
+        // Admin store (id=0, "All") is excluded.
         $activeId = (int) $helper->getActiveStoreId();
         $options  = $helper->getCountryStorePillOptions();
 

@@ -24,11 +24,7 @@ class MMD_Auditfix_Model_Cron_ScanSeo extends MMD_Auditfix_Model_Cron_AbstractSc
      *  same segment-aware findings. Keyed by Magento store code. */
     protected $_storeProfiles = array(
         'singapore' => array('suffix' => '| Tertiary Courses Singapore', 'funding' => array('SkillsFuture', 'SFEC', 'UTAP', 'WSQ', 'Absentee Payroll', 'PSEA', 'IBF', 'MCES')),
-        'malaysia'  => array('suffix' => '| Tertiary Courses Malaysia',  'funding' => array('HRDF', 'HRD Corp', 'HRDC')),
-        'ghana'     => array('suffix' => '| Tertiary Courses Ghana',     'funding' => array()),
         'nigeria'   => array('suffix' => '| Tertiary Courses Nigeria',   'funding' => array()),
-        'bhutan'    => array('suffix' => '| Tertiary Courses Bhutan',    'funding' => array()),
-        'india'     => array('suffix' => '| Tertiary Courses India',     'funding' => array()),
     );
 
     protected function scannerCode() { return 'scan_seo'; }
@@ -102,7 +98,7 @@ class MMD_Auditfix_Model_Cron_ScanSeo extends MMD_Auditfix_Model_Cron_AbstractSc
     }
 
     /**
-     * Per-store segment-aware checks: brand suffix, WSQ token, MY HRDF,
+     * Per-store segment-aware checks: brand suffix, WSQ token,
      * SG non-WSQ funding leak, title length. Reads catalog at the store's
      * scope so each country's meta values are evaluated correctly.
      */
@@ -115,7 +111,6 @@ class MMD_Auditfix_Model_Cron_ScanSeo extends MMD_Auditfix_Model_Cron_AbstractSc
         $suffix    = $profile['suffix'];
         $funding   = $profile['funding'];
         $isSgStore = ($storeCode === 'singapore' || $storeCode === 'default');
-        $isMyStore = ($storeCode === 'malaysia');
 
         $col = Mage::getModel('catalog/product')->getCollection()
             ->setStoreId($storeId)
@@ -184,17 +179,6 @@ class MMD_Auditfix_Model_Cron_ScanSeo extends MMD_Auditfix_Model_Cron_AbstractSc
                     'title' => 'SG non-WSQ (C-prefix) leaks WSQ/SkillsFuture language',
                     'entity_type' => 'product', 'entity_id' => (int)$p->getId(), 'store_id' => $storeId,
                     'detail' => "[$storeCode] SKU {$sku} — non-WSQ course title/desc mentions WSQ/SkillsFuture/SFEC/Funded. Per seo-audit §4a, those tokens are reserved for TGS- courses.",
-                ));
-                $logged++;
-            }
-
-            // MY — description must mention HRDF/HRD Corp/HRDC
-            if ($isMyStore && $desc !== '' && !$this->_containsAny($desc, array('HRDF', 'HRD Corp', 'HRDC'))) {
-                $this->helper()->logIssue(array(
-                    'source' => 'cron_scan_seo', 'category' => 'seo', 'severity' => 'medium',
-                    'title' => 'MY description missing HRDF / HRD Corp hook',
-                    'entity_type' => 'product', 'entity_id' => (int)$p->getId(), 'store_id' => $storeId,
-                    'detail' => "[$storeCode] SKU {$sku} — MY meta description must mention HRDF, HRD Corp, or HRDC per the seo-audit skill §4a.",
                 ));
                 $logged++;
             }

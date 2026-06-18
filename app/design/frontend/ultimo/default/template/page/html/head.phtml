@@ -56,18 +56,14 @@ elseif(strpos($currentUrl,'/checkout/') !== false) {
 /* ----------------------------------------------------------------------
  * SEO: self-canonical + cross-store hreflang cluster.
  *
- * Without this, every country domain (.com.my / .com.ng / .com.gh / .com.sg)
+ * Without this, every country domain (.com.ng / .com.gh / .bt / .in / .com.sg)
  * looks like a duplicate of the others to Google, and ~6,450 pages end up in
  * "Crawled - currently not indexed" (Search Console, 2026-05).
  *
  * Per-page strategy:
  *   - Product/category pages: per-store URL is resolved from core_url_rewrite
- *     so different per-store url_keys (e.g. /…-malaysia.html) are honoured.
+ *     so different per-store url_keys are honoured.
  *   - Everything else (homepage, CMS, search): swap the host on the current path.
- *
- * Infotech (store_id=7) is excluded from the hreflang cluster because it is
- * a different brand (Tertiary Infotech Academy), not a country variant of
- * the Tertiary Courses storefront. It still gets a self-canonical.
  * ---------------------------------------------------------------------- */
 $_curStore = Mage::app()->getStore();
 $_curStoreId = (int) $_curStore->getId();
@@ -84,12 +80,8 @@ $_selfCanonical = $_curBase . $_curPath;
 // To enable a reserved store: confirm DNS resolves to this hosting, then add the
 // store_id => 'en-XX' line and the matching .htaccess sitemap rewrite + robots
 // Sitemap directive.
-// Reserved (not yet live): 5 = bhutan, 6 = india. Infotech (7) is intentionally
-// outside the cluster — it's a different brand, not a country variant.
 $_hreflangMap = [
     1 => 'en-SG', // singapore
-    2 => 'en-MY', // malaysia
-    3 => 'en-GH', // ghana
     4 => 'en-NG', // nigeria
 ];
 

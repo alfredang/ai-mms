@@ -76,29 +76,28 @@ class MMD_CourseImage_Helper_Data extends Mage_Core_Helper_Abstract
      * Per-website default-checked badges. The cover renderer is country-
      * neutral, but admins want country-appropriate funding badges pre-ticked
      * so the common case is one-click. Map keyed by website code (see
-     * Mage::app()->getWebsites()): base = Singapore, malaysia = MY, others
+     * Mage::app()->getWebsites()): base = Singapore, others
      * default to none so we don't show SG-only funding hooks in NG/GH/IN.
      */
     public function getDefaultBadgesForWebsite(string $websiteCode): array
     {
         $map = [
             'base'     => ['WSQ', 'MCES', 'UTAP'],
-            'malaysia' => ['HRDF'],
         ];
         return $map[$websiteCode] ?? [];
     }
 
     /**
-     * Only Singapore ('base') and Malaysia have country-specific funding
-     * schemes (SkillsFuture/WSQ/MCES/UTAP for SG, HRDF for MY). Ghana,
-     * Nigeria, Bhutan, and India share the same generated PNG via
+     * Only Singapore ('base') has country-specific funding schemes
+     * (SkillsFuture/WSQ/MCES/UTAP). Nigeria
+     * share the same generated PNG via
      * course_image_url but must render WITHOUT the FUNDING AVAILABLE header
      * and chip row — those schemes don't exist in those markets and would
      * be misleading on the cover.
      */
     public function isFundingEligibleWebsite(string $websiteCode): bool
     {
-        return $websiteCode === 'base' || $websiteCode === 'malaysia';
+        return $websiteCode === 'base';
     }
 
     /**
@@ -125,7 +124,7 @@ class MMD_CourseImage_Helper_Data extends Mage_Core_Helper_Abstract
     /**
      * Badges that are *legitimate* to surface on a given country's storefront.
      * Used as a per-website whitelist applied AFTER the product-tag fetch so
-     * data leakage across stores (e.g. an MY-coded product showing HRDF on
+     * data leakage across stores (e.g. a tagged product showing HRDF on
      * its GH listing because the catalog is shared) never reaches the chip
      * renderer. Unknown website codes return the full vocabulary so any new
      * country we add starts permissive and tightens as we learn its rules.
@@ -134,14 +133,10 @@ class MMD_CourseImage_Helper_Data extends Mage_Core_Helper_Abstract
     {
         $map = [
             'base'     => ['WSQ', 'SkillsFuture Credit', 'PSEA', 'UTAP', 'IBF', 'SFEC', 'Absentee Payroll', 'MCES'],
-            'malaysia' => ['HRDF'],
-            // Ghana / Nigeria / Bhutan / India have no government funding
+            // Nigeria has no government funding
             // schemes we model — explicit empty list so HRDF/WSQ never bleed
             // through from a shared product.
-            'ghana'    => [],
             'nigeria'  => [],
-            'bhutan'   => [],
-            'india'    => [],
         ];
         return array_key_exists($websiteCode, $map) ? $map[$websiteCode] : $this->getAllBadges();
     }
