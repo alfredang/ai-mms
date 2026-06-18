@@ -2673,6 +2673,93 @@ document.observe('dom:loaded', function() {
     });
 
     // ============================================================
+    // CustomOptions Edit page — "Show Advanced" toggle
+    // ============================================================
+    // dark-theme.css hides rows 2-3 of every <table.option-header>
+    // on the customoptions-options-edit page so the option editor
+    // reads as one neat row. Those rows hold the legacy "Div CSS
+    // Class" / "Description" inputs — rarely used on course-schedule
+    // templates but we still want them reachable on demand.
+    //
+    // This injector appends ONE extra <tr.mmd-advanced-toggle-row>
+    // per option-header table, directly below the main inputs row,
+    // with the toggle button in the last cell so it sits visually
+    // under the "Delete Option" column. Every toggle flips the same
+    // body class (.show-advanced-options) so clicking any one keeps
+    // every option in sync. Preference persists per-browser via
+    // localStorage so operators stay in their preferred mode across
+    // reloads.
+    function injectCustomOptionsAdvancedToggle() {
+        var bc = document.body.className || '';
+        if (bc.indexOf('customoptions-options-edit') === -1) return;
+
+        // Restore saved preference once (per page load). Subsequent
+        // re-runs (from the staggered timers) won't double-add it.
+        try {
+            if (localStorage.getItem('mmd:show-advanced-options') === '1') {
+                document.body.classList.add('show-advanced-options');
+            }
+        } catch (e) { /* storage disabled — ignore */ }
+
+        // Update every existing toggle's label/state to match the body.
+        function syncAllLabels() {
+            var on = document.body.classList.contains('show-advanced-options');
+            var label = on ? 'Hide Advanced' : 'Show Advanced';
+            document.querySelectorAll('.mmd-advanced-toggle').forEach(function (b) {
+                b.textContent = label;
+                b.setAttribute('aria-pressed', on ? 'true' : 'false');
+            });
+        }
+
+        // Inject the toggle into the empty <td>&nbsp;</td> at the
+        // end of each option-header's main inputs row. That cell
+        // sits directly to the right of the LEARNER GROUPS dropdown
+        // ("NOT LOGGED IN") and on the same baseline, so the pill
+        // reads as part of that row instead of floating below the
+        // table. The cell is otherwise unused by Magento — it's
+        // emitted purely to make the column count match the thead's
+        // Delete Option column above.
+        document.querySelectorAll('table.option-header').forEach(function (table) {
+            var firstRow = table.querySelector(':scope > tbody > tr:first-child')
+                        || (table.tBodies[0] && table.tBodies[0].rows[0]);
+            if (!firstRow) return;
+            // :scope > td gets only DIRECT children (avoids picking
+            // up a td nested inside the Customer Groups multiselect).
+            var lastCell = firstRow.querySelector(':scope > td:last-child');
+            if (!lastCell) return;
+            if (lastCell.querySelector('.mmd-advanced-toggle')) return;
+
+            // Clear the &nbsp; placeholder content before slotting in
+            // the button.
+            lastCell.innerHTML = '';
+
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'mmd-advanced-toggle';
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                var on = document.body.classList.toggle('show-advanced-options');
+                try {
+                    if (on) localStorage.setItem('mmd:show-advanced-options', '1');
+                    else    localStorage.removeItem('mmd:show-advanced-options');
+                } catch (err) { /* ignore */ }
+                syncAllLabels();
+            });
+            lastCell.appendChild(btn);
+        });
+
+        syncAllLabels();
+    }
+    [200, 600, 1500].forEach(function (d) {
+        setTimeout(injectCustomOptionsAdvancedToggle, d);
+    });
+    document.addEventListener('instant-nav:after-swap', function () {
+        [200, 600, 1500].forEach(function (d) {
+            setTimeout(injectCustomOptionsAdvancedToggle, d);
+        });
+    });
+
+    // ============================================================
     // Product Options → Table Conversion (Order Detail Page)
     // Transforms text-block options into a structured table
     // ============================================================

@@ -4547,6 +4547,85 @@ body[class*="customoptions-options-edit"] [id^="option_"] .label-cell {
     white-space: nowrap !important;
 }
 
+/* Collapse the legacy two-tier option-row layout into a single row.
+   catalog-product-edit-options-option.phtml emits a <table.option-header>
+   with FOUR row sections:
+     thead > tr  — column header labels (Title / Input Type / Is Required …)
+     tbody > tr  — main inputs (text box + dropdowns)
+     tbody > tr  — 12px spacer row carrying secondary sub-headers
+                   "Div CSS Class" and "Description"
+     tbody > tr  — sub-inputs for those two fields
+   For course-schedule templates the secondary fields are almost never
+   set (per-option Description duplicates the product-level description;
+   Div CSS Class is dev-only). They render as visible empty boxes that
+   make the option editor read as multiple stacked rows instead of one
+   clean line of inputs. Hide rows 2 and 3 by default so the header row
+   + main inputs row form a single neat band — the inputs stay in the
+   DOM so existing values still submit on save. The "Show Advanced"
+   toggle (injected by sidebar-nav-v2.js → injectCustomOptionsAdvancedToggle)
+   adds .show-advanced-options to <body>, which the second rule below
+   un-hides — reveal the legacy two-tier layout on demand. */
+body[class*="customoptions-options-edit"] table.option-header > tbody > tr:not(:first-child),
+body[class*="customoptions-options-edit"] table.option-header > tr:not(:first-child) {
+    display: none !important;
+}
+body[class*="customoptions-options-edit"].show-advanced-options table.option-header > tbody > tr:not(:first-child),
+body[class*="customoptions-options-edit"].show-advanced-options table.option-header > tr:not(:first-child) {
+    display: table-row !important;
+}
+/* Toggle lives in the empty <td> at the end of the main inputs row
+   — the cell directly to the right of the LEARNER GROUPS
+   "NOT LOGGED IN" dropdown. Center vertically so it sits on the
+   same baseline as the dropdown. */
+body[class*="customoptions-options-edit"] table.option-header > tbody > tr:first-child > td:last-child,
+body[class*="customoptions-options-edit"] table.option-header > tr:first-child:not(thead tr) > td:last-child {
+    vertical-align: middle !important;
+    padding: 4px 6px !important;
+}
+
+/* Toggle button — slim pill positioned where the JS injects it (next
+   to the "Add New Option" button on the page-action row). */
+.mmd-advanced-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 2px 14px;
+    margin-right: 8px;
+    background: transparent;
+    border: 1px solid var(--blue, #60a5fa);
+    border-radius: 6px;
+    color: var(--blue, #60a5fa);
+    font: 600 12px/1 inherit;
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease;
+    user-select: none;
+}
+.mmd-advanced-toggle:hover {
+    background: rgba(96, 165, 250, 0.10);
+    color: var(--blue2, #67e8f9);
+}
+body.show-advanced-options .mmd-advanced-toggle {
+    background: var(--blue, #60a5fa);
+    color: var(--d1, #0f172a);
+    border-color: var(--blue, #60a5fa);
+}
+body.show-advanced-options .mmd-advanced-toggle:hover {
+    background: var(--blue2, #67e8f9);
+    color: var(--d1, #0f172a);
+}
+
+/* Tighten the main row's vertical metrics — the 36px inline height
+   leaves an awkward gap when the inputs themselves are 32px tall. */
+body[class*="customoptions-options-edit"] table.option-header > tbody > tr:first-child,
+body[class*="customoptions-options-edit"] table.option-header > tr:first-child {
+    height: auto !important;
+}
+body[class*="customoptions-options-edit"] table.option-header > tbody > tr:first-child > td {
+    padding: 4px 6px !important;
+    vertical-align: middle !important;
+}
+
 /* All inputs, selects, textareas — consistent dark style */
 body[class*="customoptions-options-edit"] input[type="text"],
 body[class*="customoptions-options-edit"] input[type="number"],
