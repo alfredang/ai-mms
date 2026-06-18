@@ -14477,6 +14477,39 @@ document.addEventListener('keydown', function (ev) {
     // even when the URL only differs in its query string.
     window.addEventListener('popstate', applyInitialPanel);
 
+    // Sidebar "Create Trainer" links to ?panel=trainers&action=add so the
+    // page lands on the View Trainer grid AND pops the Add-New-Trainer
+    // modal — avoids the previous "?panel=create_trainer" route which
+    // had no matching panel and rendered the dashboard's default screen
+    // with no way to actually create a trainer.
+    // Run after applyInitialPanel so the trainers panel is visible by
+    // the time we open the modal. trnOpenAddModal is defined inside the
+    // panel's <script>, so we retry briefly if the panel JS hasn't
+    // wired up yet (it's deferred behind the panel's first render).
+    function applyTrainerAction() {
+        try {
+            var url    = new URL(window.location.href);
+            var panel  = url.searchParams.get('panel')  || '';
+            var action = url.searchParams.get('action') || '';
+            if (panel !== 'trainers' || action !== 'add') return;
+            var tries = 0;
+            (function open() {
+                if (typeof window.trnOpenAddModal === 'function') {
+                    window.trnOpenAddModal();
+                    return;
+                }
+                if (++tries < 30) setTimeout(open, 100); // up to 3s
+            })();
+        } catch (e) { /* ignore */ }
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', applyTrainerAction);
+    } else {
+        applyTrainerAction();
+    }
+    document.addEventListener('instant-nav:after-swap', applyTrainerAction);
+    window.addEventListener('popstate', applyTrainerAction);
+
     // Expose for header role switcher
     window.__applyDashboardRole = showPanel;
 })();
