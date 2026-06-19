@@ -79,7 +79,11 @@ umask(0);
 // is served correctly even when accessed via IP before DNS is set up.
 if (getenv('MMS_MODE') === 'country') {
     $countryWebsiteMap = [
+        'MY' => 'malaysia',
+        'GH' => 'ghana',
         'NG' => 'nigeria',
+        'BT' => 'bhutan',
+        'IN' => 'india',
     ];
     $cc = strtoupper((string)getenv('MMS_COUNTRY_CODE'));
     $mageRunCode = $countryWebsiteMap[$cc] ?? 'base';
