@@ -6146,3 +6146,121 @@ body[class*="adminhtml-catalog-product"] #product_option_box .template-title {
     border-color: #d1d5db !important;
     color: #111827 !important;
 }
+
+/* --- "Select Children" popup (#popup_children_show) ---
+   The popup is defined inline in catalog-product-edit-options-option.phtml
+   with `background: #FFFFFF` + black text, which makes it unreadable as a
+   white card over the dark theme. Override the inline styles for dark mode
+   AND swap the trigger icon (legacy gray rule_chooser_trigger.gif) for a
+   clean SVG list-icon that matches the rest of the icon-button language.
+   The trigger <img> carries an inline `onclick="productChildrenOptions.show()"`
+   so we must NOT hide it — only swap its rendered pixels via `content:` (a
+   well-supported replacement on <img> elements). */
+#popup_children_show {
+    background: var(--d2) !important;
+    border: 1px solid var(--b2) !important;
+    color: var(--t1) !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55) !important;
+    padding: 12px 14px !important;
+    border-radius: 8px !important;
+    min-width: 320px !important;
+    font: 13px/1.45 inherit !important;
+}
+#popup_children_show > div:first-child {
+    color: var(--t1) !important;
+    font-weight: 700 !important;
+    font-size: 13px !important;
+    letter-spacing: 0.2px !important;
+}
+/* Close "x" — was maroon (#800000), barely visible; switch to muted text. */
+#popup_children_show > div:nth-child(2) {
+    color: var(--t4) !important;
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    margin-top: -2px !important;
+}
+#popup_children_show > div:nth-child(2):hover {
+    color: var(--blue, #60a5fa) !important;
+}
+/* Section labels (the un-indented headers: "Course Date", "Course Time",
+   "Sponsorship") render as un-padded divs holding only text. The leaf
+   checkbox rows are indented with &nbsp;&nbsp;&nbsp;&nbsp; — gives us a
+   reliable visual cue but no class. Style every div generically; rows
+   will get checkbox styling from the input rule. */
+#popup_children_show div,
+#popup_children_show label {
+    color: var(--t1) !important;
+    line-height: 1.7 !important;
+}
+#popup_children_show label {
+    cursor: pointer !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+}
+#popup_children_show input[type="checkbox"] {
+    accent-color: var(--blue, #60a5fa) !important;
+    margin: 0 !important;
+}
+/* The "Done" button — was a tiny native button; theme it as a primary pill
+   matching the rest of the admin. */
+#popup_children_show button {
+    background: var(--blue, #60a5fa) !important;
+    background-image: none !important;
+    border: 1px solid var(--blue, #60a5fa) !important;
+    color: #0b1220 !important;
+    font: 600 12px/1 inherit !important;
+    height: 28px !important;
+    padding: 0 18px !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+}
+#popup_children_show button:hover {
+    background: var(--blue2, #67e8f9) !important;
+    border-color: var(--blue2, #67e8f9) !important;
+}
+/* Light-mode mirror — back to a clean white card. */
+:root[data-theme="light"] #popup_children_show {
+    background: #ffffff !important;
+    border-color: #e5e7eb !important;
+    color: #111827 !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18) !important;
+}
+:root[data-theme="light"] #popup_children_show div,
+:root[data-theme="light"] #popup_children_show label,
+:root[data-theme="light"] #popup_children_show > div:first-child {
+    color: #111827 !important;
+}
+:root[data-theme="light"] #popup_children_show > div:nth-child(2) {
+    color: #6b7280 !important;
+}
+:root[data-theme="light"] #popup_children_show button {
+    color: #ffffff !important;
+}
+
+/* Swap the rule_chooser_trigger.gif for a clean SVG list icon. Target the
+   <img.v-middle.pointer> inside each .input-children cell. Use `content:`
+   to replace the rendered pixels — the inline onclick stays intact. Sized
+   to match the surrounding 32px icon buttons so the column reads as one
+   icon family. */
+body[class*="adminhtml-catalog-product"] td:has(> input.input-children) img.v-middle.pointer,
+body[class*="adminhtml-catalog-product"] [id^="option_"] img[src*="rule_chooser_trigger"],
+body[class*="customoptions-options-edit"] [id^="option_"] img[src*="rule_chooser_trigger"] {
+    content: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2360a5fa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='4' width='18' height='16' rx='2'/><line x1='8' y1='9' x2='17' y2='9'/><line x1='8' y1='13' x2='17' y2='13'/><line x1='8' y1='17' x2='13' y2='17'/></svg>") !important;
+    width: 22px !important;
+    height: 22px !important;
+    padding: 3px !important;
+    border: 1px solid var(--blue, #60a5fa) !important;
+    border-radius: 6px !important;
+    box-sizing: border-box !important;
+    vertical-align: middle !important;
+    cursor: pointer !important;
+    background: transparent !important;
+}
+body[class*="adminhtml-catalog-product"] td:has(> input.input-children) img.v-middle.pointer:hover,
+body[class*="adminhtml-catalog-product"] [id^="option_"] img[src*="rule_chooser_trigger"]:hover,
+body[class*="customoptions-options-edit"] [id^="option_"] img[src*="rule_chooser_trigger"]:hover {
+    background: rgba(96, 165, 250, 0.10) !important;
+}
