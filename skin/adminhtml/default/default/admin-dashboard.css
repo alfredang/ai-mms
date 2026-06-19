@@ -2207,6 +2207,96 @@ button.alm-trainer-remove:hover{color:#ef4444 !important}
 .alm-empty{padding:14px;color:#64748b;font-size:14px;font-style:italic;text-align:center}
 button.al-action-close,button.al-action-close:hover,button.al-action-close:focus{background:rgba(100,116,139,.18) !important;color:#cbd5e1 !important;border-color:rgba(100,116,139,.4) !important}
 
+/* --- Light-mode mirror for the inline Add/Edit Learners editor ---
+   The dark variants above paint #0f172a backgrounds / #e2e8f0 text on
+   .alm-row td, .alm-inline, .alm-input, .alm-results, .alm-trainer-row.
+   On the light Assign Learners page that becomes a dark band against
+   the light page surface. Mirror every surface + text colour for
+   light mode. */
+:root[data-theme="light"] .alm-row td {
+    background: #ffffff !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+}
+:root[data-theme="light"] .alm-inline { color: #0f172a; }
+:root[data-theme="light"] .alm-tabs { border-bottom-color: #e2e8f0; }
+:root[data-theme="light"] button.alm-tab,
+:root[data-theme="light"] button.alm-tab:hover,
+:root[data-theme="light"] button.alm-tab:focus { color: #475569 !important; }
+:root[data-theme="light"] button.alm-tab:hover { color: #1e293b !important; }
+:root[data-theme="light"] button.alm-tab.active,
+:root[data-theme="light"] button.alm-tab.active:hover {
+    color: #2563eb !important;
+    border-bottom-color: #2563eb !important;
+}
+:root[data-theme="light"] button.alm-mode-btn,
+:root[data-theme="light"] button.alm-mode-btn:hover,
+:root[data-theme="light"] button.alm-mode-btn:focus {
+    background: #ffffff !important;
+    color: #1e293b !important;
+    border-color: #cbd5e1 !important;
+}
+:root[data-theme="light"] button.alm-mode-btn.active,
+:root[data-theme="light"] button.alm-mode-btn.active:hover {
+    background: #2563eb !important;
+    border-color: #2563eb !important;
+    color: #ffffff !important;
+}
+:root[data-theme="light"] .alm-field-label { color: #0f172a; }
+:root[data-theme="light"] .alm-input {
+    background: #ffffff;
+    border-color: #cbd5e1;
+    color: #0f172a;
+}
+:root[data-theme="light"] .alm-input::placeholder { color: #94a3b8; }
+:root[data-theme="light"] .alm-input:focus { border-color: #2563eb; }
+:root[data-theme="light"] .alm-input:-webkit-autofill,
+:root[data-theme="light"] .alm-input:-webkit-autofill:hover,
+:root[data-theme="light"] .alm-input:-webkit-autofill:focus,
+:root[data-theme="light"] .alm-input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+    -webkit-text-fill-color: #0f172a !important;
+    caret-color: #0f172a;
+}
+:root[data-theme="light"] .alm-results {
+    background: #ffffff;
+    border-color: #cbd5e1;
+}
+:root[data-theme="light"] .alm-result-row {
+    color: #0f172a;
+    border-bottom-color: #e2e8f0;
+}
+:root[data-theme="light"] .alm-result-row:hover {
+    background: rgba(37, 99, 235, 0.08);
+    color: #0f172a;
+}
+:root[data-theme="light"] .alm-result-empty { color: #64748b; }
+:root[data-theme="light"] button.alm-btn-primary,
+:root[data-theme="light"] button.alm-btn-primary:hover,
+:root[data-theme="light"] button.alm-btn-primary:focus {
+    background: #2563eb !important;
+    color: #ffffff !important;
+}
+:root[data-theme="light"] .alm-trainer-row {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+}
+:root[data-theme="light"] .alm-trainer-name { color: #0f172a; }
+:root[data-theme="light"] .alm-trainer-email { color: #475569; }
+:root[data-theme="light"] button.alm-trainer-remove,
+:root[data-theme="light"] button.alm-trainer-remove:hover,
+:root[data-theme="light"] button.alm-trainer-remove:focus {
+    color: #dc2626 !important;
+}
+:root[data-theme="light"] button.alm-trainer-remove:hover { color: #b91c1c !important; }
+:root[data-theme="light"] .alm-empty { color: #64748b; }
+:root[data-theme="light"] button.al-action-close,
+:root[data-theme="light"] button.al-action-close:hover,
+:root[data-theme="light"] button.al-action-close:focus {
+    background: rgba(100, 116, 139, 0.08) !important;
+    color: #1e293b !important;
+    border-color: #cbd5e1 !important;
+}
+
 /* --- Block 30 (template line 11420) --- */
 .el-wrap{max-width:1400px;margin:0;padding:24px 0;color:#e2e8f0}
 .el-header{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:22px}
