@@ -1479,24 +1479,35 @@ body textarea, body select, body .input-text {
     font-size: 13px !important;
     transition: border-color 0.15s ease, box-shadow 0.15s ease !important;
 }
-/* Native <select> dropdown panel — force light rendering in BOTH
-   themes. Attempting to dark-style the panel fights browser
-   inconsistencies (Chromium honors per-option color, Safari ignores
-   it, color-scheme: dark works on the closed select but the open
-   panel still misbehaves). Cheapest cross-browser fix: keep the
-   open panel light always so unselected items read clearly on every
-   page — closed-state styling stays themed by the existing select
-   rules above, only the open dropdown overlay falls back to a
-   white surface like the light theme already has. */
+/* Native <select> dropdown panel — theme-aware rendering.
+   Chromium honors per-option color + color-scheme on the open panel; the
+   Tertiary admin is Chromium-only in practice (Edge/Chrome on Windows),
+   so the prior "always light" workaround was overly cautious. Default
+   to dark in dark mode; light-mode mirror below restores the white
+   panel for the light theme. Highlighted (checked / hovered) option uses
+   a brand-blue tint for both themes. */
 select, option {
-    color-scheme: light !important;
+    color-scheme: dark !important;
 }
 select option {
-    background: #ffffff !important;
-    color: #0f172a !important;
+    background: var(--d2, #111827) !important;
+    color: var(--t1, #f9fafb) !important;
 }
 select option:checked,
 select option[selected] {
+    background: rgba(96, 165, 250, 0.18) !important;
+    color: var(--t1, #f9fafb) !important;
+}
+:root[data-theme="light"] select,
+:root[data-theme="light"] option {
+    color-scheme: light !important;
+}
+:root[data-theme="light"] select option {
+    background: #ffffff !important;
+    color: #0f172a !important;
+}
+:root[data-theme="light"] select option:checked,
+:root[data-theme="light"] select option[selected] {
     background: #dbeafe !important;
     color: #0f172a !important;
 }
@@ -1507,21 +1518,29 @@ textarea:focus, select:focus, .input-text:focus {
     box-shadow: 0 0 0 3px rgba(96,165,250,0.2) !important;
     outline: none !important;
 }
-/* Optgroup headers inside <select> dropdowns. Browsers paint these
-   with system defaults that don't match our light-rendered panel.
-   Match the light-mode chrome we forced above so groups read on the
-   white panel surface (System > Config and Catalog > Attributes use
-   these). */
+/* Optgroup headers inside <select> dropdowns — theme-aware. In dark mode
+   give them a slightly raised surface (--d3) so the group label reads
+   distinctly from the option rows below; light mode keeps the pale
+   slate header. (System > Config Store-View picker, Catalog > Attributes,
+   and several admin grids use optgroup-bearing selects.) */
 select optgroup {
-    background: #f1f5f9 !important;
-    color: #475569 !important;
+    background: var(--d3, #1f2937) !important;
+    color: var(--t3, #cbd5e1) !important;
     font-weight: 700 !important;
     font-style: normal !important;
 }
 select optgroup option {
+    background: var(--d2, #111827) !important;
+    color: var(--t1, #f9fafb) !important;
+    font-weight: normal !important;
+}
+:root[data-theme="light"] select optgroup {
+    background: #f1f5f9 !important;
+    color: #475569 !important;
+}
+:root[data-theme="light"] select optgroup option {
     background: #ffffff !important;
     color: #0f172a !important;
-    font-weight: normal !important;
 }
 /* Fieldset legends — the section titles inside System > Configuration and
    anywhere else Magento groups fields. Browser default is black, which
