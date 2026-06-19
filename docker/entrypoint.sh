@@ -267,7 +267,7 @@ if [ "${MMS_MODE:-}" = "country" ] && [ -n "${MMS_BASE_URL:-}" ] && [ -n "${MMS_
         require '/var/www/html/app/Mage.php';
         Mage::app('admin');
         \$url  = rtrim(getenv('MMS_BASE_URL'), '/') . '/';
-        \$ccMap = ['NG'=>'nigeria'];
+        \$ccMap = ['MY'=>'malaysia', 'GH'=>'ghana', 'NG'=>'nigeria', 'BT'=>'bhutan', 'IN'=>'india'];
         \$cc   = strtoupper(getenv('MMS_COUNTRY_CODE'));
         \$code = \$ccMap[\$cc] ?? '';
         if (!\$code) { echo 'skip'; exit; }
