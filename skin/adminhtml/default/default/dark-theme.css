@@ -5990,3 +5990,159 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
     box-shadow: 0 0 5px rgba(255, 59, 92, 0.4), inset 0 0 4px rgba(255, 59, 92, 0.1);
     font-variant-numeric: tabular-nums;
 }
+
+/* === catalog_product/edit → Custom Options panel — dark-mode mirror ====
+   The big custom-options block (the .option-box card with the
+   "Options Template: …" strip, the .option-header table with Title /
+   Input Type / … columns, and the per-row .values-table) ships its own
+   pale-green background from legacy boxes.css (`#e7efef`). The existing
+   dark-mode overrides above are body-class-scoped to
+   `customoptions-options-edit` (the standalone Manage Class Schedule
+   editor) and DO NOT match the catalog_product/edit body class
+   (`adminhtml-catalog-product-edit` / `…-new`). Mirror the visual fixes
+   here so the panel reads the same way on both routes.
+
+   Selectors target the panel DOM (.option-box / .option-header /
+   [id^="option_"]) rather than the body alone so we don't accidentally
+   restyle unrelated catalog_product widgets. */
+body[class*="adminhtml-catalog-product"] [id^="option_"],
+body[class*="adminhtml-catalog-product"] #product_option_box [id^="option_"] {
+    background: var(--d2) !important;
+    border: 1px solid var(--b1) !important;
+    border-radius: 10px !important;
+    padding: 12px !important;
+    margin-bottom: 14px !important;
+    color: var(--t2) !important;
+}
+body[class*="adminhtml-catalog-product"] #product_option_box .option-box,
+body[class*="adminhtml-catalog-product"] .options-box .option-box,
+body[class*="adminhtml-catalog-product"] .custom-options .option-box,
+body[class*="adminhtml-catalog-product"] [id^="option_"] .option-header,
+body[class*="adminhtml-catalog-product"] [id^="option_"] > div:first-child {
+    background: var(--d3) !important;
+    border: 1px solid var(--b1) !important;
+    border-radius: 8px !important;
+    padding: 10px 14px !important;
+    margin-bottom: 8px !important;
+    color: var(--t2) !important;
+}
+/* Column header labels — match the customoptions-options-edit treatment. */
+body[class*="adminhtml-catalog-product"] [id^="option_"] .option-header th,
+body[class*="adminhtml-catalog-product"] [id^="option_"] .option-header label,
+body[class*="adminhtml-catalog-product"] [id^="option_"] .label-cell {
+    background: transparent !important;
+    color: var(--t3) !important;
+    font: 600 11px/1.4 inherit !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.4px !important;
+    padding: 0 8px 4px 0 !important;
+    white-space: nowrap !important;
+}
+/* Inner option-values table (ID / TITLE / COURSE DATE / PRICE / PRICE TYPE /
+   COURSE CODE / SORT ORDER / DEFAULT / CHILDREN / IMAGE) — flatten cells
+   onto the dark wrapper. */
+body[class*="adminhtml-catalog-product"] [id^="option_"] table.option-header,
+body[class*="adminhtml-catalog-product"] [id^="option_"] table.values-table,
+body[class*="adminhtml-catalog-product"] [id^="option_"] table {
+    background: transparent !important;
+    border-collapse: separate !important;
+    border-spacing: 0 4px !important;
+    width: 100% !important;
+}
+body[class*="adminhtml-catalog-product"] [id^="option_"] table th,
+body[class*="adminhtml-catalog-product"] [id^="option_"] table td {
+    background: transparent !important;
+    border: none !important;
+    padding: 4px 6px !important;
+    vertical-align: middle !important;
+    color: var(--t2) !important;
+}
+body[class*="adminhtml-catalog-product"] [id^="option_"] table th {
+    font: 600 10.5px/1.3 inherit !important;
+    color: var(--t4) !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.4px !important;
+    padding-bottom: 6px !important;
+}
+/* All inputs / selects / textareas inside the custom-options panel — dark
+   fill, thin border, light text. Matches §20 and the customoptions-options-edit
+   block above. */
+body[class*="adminhtml-catalog-product"] #product_option_box input[type="text"],
+body[class*="adminhtml-catalog-product"] #product_option_box input[type="number"],
+body[class*="adminhtml-catalog-product"] #product_option_box input[type="email"],
+body[class*="adminhtml-catalog-product"] #product_option_box textarea,
+body[class*="adminhtml-catalog-product"] #product_option_box select,
+body[class*="adminhtml-catalog-product"] [id^="option_"] input[type="text"],
+body[class*="adminhtml-catalog-product"] [id^="option_"] input[type="number"],
+body[class*="adminhtml-catalog-product"] [id^="option_"] input[type="email"],
+body[class*="adminhtml-catalog-product"] [id^="option_"] textarea,
+body[class*="adminhtml-catalog-product"] [id^="option_"] select {
+    background: var(--d1) !important;
+    border: 1px solid var(--b2) !important;
+    color: var(--t1) !important;
+    border-radius: 6px !important;
+    padding: 6px 10px !important;
+    font-size: 12.5px !important;
+    line-height: 1.3 !important;
+    min-height: 32px !important;
+    box-shadow: none !important;
+}
+body[class*="adminhtml-catalog-product"] #product_option_box input:focus,
+body[class*="adminhtml-catalog-product"] #product_option_box select:focus,
+body[class*="adminhtml-catalog-product"] #product_option_box textarea:focus,
+body[class*="adminhtml-catalog-product"] [id^="option_"] input:focus,
+body[class*="adminhtml-catalog-product"] [id^="option_"] select:focus,
+body[class*="adminhtml-catalog-product"] [id^="option_"] textarea:focus {
+    outline: none !important;
+    border-color: var(--blue, #60a5fa) !important;
+    box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.18) !important;
+}
+/* The customer-group panel on the right ("NOT LOGGED IN" / "General"). */
+body[class*="adminhtml-catalog-product"] [id^="option_"] .group-customer,
+body[class*="adminhtml-catalog-product"] [id^="option_"] .customer-group,
+body[class*="adminhtml-catalog-product"] [id^="option_"] [id*="group"][class*="box"],
+body[class*="adminhtml-catalog-product"] #product_option_box .group-customer,
+body[class*="adminhtml-catalog-product"] #product_option_box .customer-group {
+    background: var(--d3) !important;
+    border: 1px solid var(--b1) !important;
+    border-radius: 8px !important;
+    padding: 8px 12px !important;
+    color: var(--t2) !important;
+}
+/* "Options Template:" strip at the top of the option block. */
+body[class*="adminhtml-catalog-product"] [id^="option_"] .template-title,
+body[class*="adminhtml-catalog-product"] #product_option_box .template-title {
+    color: var(--t2) !important;
+    background: transparent !important;
+}
+/* Light-mode mirror — restore the stock pale boxes.css look so the panel
+   stays readable when the admin toggles the light theme. */
+:root[data-theme="light"] body[class*="adminhtml-catalog-product"] [id^="option_"],
+:root[data-theme="light"] body[class*="adminhtml-catalog-product"] #product_option_box [id^="option_"],
+:root[data-theme="light"] body[class*="adminhtml-catalog-product"] #product_option_box .option-box,
+:root[data-theme="light"] body[class*="adminhtml-catalog-product"] [id^="option_"] .option-header,
+:root[data-theme="light"] body[class*="adminhtml-catalog-product"] [id^="option_"] > div:first-child {
+    background: #ffffff !important;
+    border-color: #e5e7eb !important;
+    color: #111827 !important;
+}
+:root[data-theme="light"] body[class*="adminhtml-catalog-product"] [id^="option_"] table th,
+:root[data-theme="light"] body[class*="adminhtml-catalog-product"] [id^="option_"] table td,
+:root[data-theme="light"] body[class*="adminhtml-catalog-product"] [id^="option_"] .option-header th,
+:root[data-theme="light"] body[class*="adminhtml-catalog-product"] [id^="option_"] .option-header label {
+    color: #374151 !important;
+}
+:root[data-theme="light"] body[class*="adminhtml-catalog-product"] #product_option_box input[type="text"],
+:root[data-theme="light"] body[class*="adminhtml-catalog-product"] #product_option_box input[type="number"],
+:root[data-theme="light"] body[class*="adminhtml-catalog-product"] #product_option_box input[type="email"],
+:root[data-theme="light"] body[class*="adminhtml-catalog-product"] #product_option_box textarea,
+:root[data-theme="light"] body[class*="adminhtml-catalog-product"] #product_option_box select,
+:root[data-theme="light"] body[class*="adminhtml-catalog-product"] [id^="option_"] input[type="text"],
+:root[data-theme="light"] body[class*="adminhtml-catalog-product"] [id^="option_"] input[type="number"],
+:root[data-theme="light"] body[class*="adminhtml-catalog-product"] [id^="option_"] input[type="email"],
+:root[data-theme="light"] body[class*="adminhtml-catalog-product"] [id^="option_"] textarea,
+:root[data-theme="light"] body[class*="adminhtml-catalog-product"] [id^="option_"] select {
+    background: #ffffff !important;
+    border-color: #d1d5db !important;
+    color: #111827 !important;
+}
