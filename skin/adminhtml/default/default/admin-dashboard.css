@@ -2107,6 +2107,77 @@ button.atm-btn,button.atm-btn:hover,button.atm-btn:focus{padding:10px 18px !impo
 button.atm-btn-primary,button.atm-btn-primary:hover{background:#22d3ee !important;color:#0f172a !important}
 button.atm-btn-primary[disabled]{opacity:.5;cursor:not-allowed !important}
 button.atm-btn-ghost,button.atm-btn-ghost:hover{background:transparent !important;color:#94a3b8 !important;border-color:#334155 !important}
+
+/* --- Light-mode mirror for the inline Assign Trainer editor (atm-*) ---
+   Same shape as the .alm-* (Add Learner) mirror added earlier — the
+   dark variants above paint #0f172a backgrounds + #e2e8f0 text, which
+   become a dark band on the light Assign Trainers page. */
+:root[data-theme="light"] .atm-row td {
+    background: #ffffff !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+}
+:root[data-theme="light"] .atm-inline { color: #0f172a; }
+:root[data-theme="light"] .atm-section {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+}
+:root[data-theme="light"] .atm-section-title { color: #0f172a; }
+:root[data-theme="light"] .atm-remove-all { color: #dc2626; }
+:root[data-theme="light"] .atm-remove-all:hover { color: #b91c1c; }
+:root[data-theme="light"] .atm-trainer-row {
+    background: #ffffff;
+    border-color: #e2e8f0;
+}
+:root[data-theme="light"] .atm-trainer-name { color: #0f172a; }
+:root[data-theme="light"] .atm-trainer-email { color: #64748b; }
+:root[data-theme="light"] .atm-trainer-remove { color: #dc2626; }
+:root[data-theme="light"] .atm-trainer-remove:hover { color: #b91c1c; }
+:root[data-theme="light"] .atm-add-title { color: #0f172a; }
+:root[data-theme="light"] button.atm-mode-btn,
+:root[data-theme="light"] button.atm-mode-btn:hover,
+:root[data-theme="light"] button.atm-mode-btn:focus {
+    background: #ffffff !important;
+    color: #1e293b !important;
+    border-color: #cbd5e1 !important;
+}
+:root[data-theme="light"] button.atm-mode-btn.active,
+:root[data-theme="light"] button.atm-mode-btn.active:hover {
+    background: #2563eb !important;
+    border-color: #2563eb !important;
+    color: #ffffff !important;
+}
+:root[data-theme="light"] .atm-field-label { color: #0f172a; }
+:root[data-theme="light"] .atm-input,
+:root[data-theme="light"] select.atm-input {
+    background: #ffffff;
+    border-color: #cbd5e1;
+    color: #0f172a;
+}
+:root[data-theme="light"] .atm-input::placeholder { color: #94a3b8; }
+:root[data-theme="light"] .atm-input:focus { border-color: #2563eb; }
+:root[data-theme="light"] button.atm-btn-primary,
+:root[data-theme="light"] button.atm-btn-primary:hover {
+    background: #2563eb !important;
+    color: #ffffff !important;
+}
+:root[data-theme="light"] button.atm-btn-ghost,
+:root[data-theme="light"] button.atm-btn-ghost:hover {
+    background: transparent !important;
+    color: #475569 !important;
+    border-color: #cbd5e1 !important;
+}
+/* Inline-styled foot borders + inline-styled invitation row pieces in
+   index.phtml:11840-11857. Hardcoded as #1e293b borders / #0f172a
+   select bg; override here for light. */
+:root[data-theme="light"] .atm-inline div[style*="border-top:1px solid #1e293b"] {
+    border-top-color: #e2e8f0 !important;
+}
+:root[data-theme="light"] #atm-invite-sel {
+    background: #ffffff !important;
+    color: #1e293b !important;
+    border-color: #cbd5e1 !important;
+}
+
 .at-empty{padding:48px 20px;text-align:center;color:#64748b;font-size:14px}
 .at-pager{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;color:#94a3b8;font-size:13px}
 .at-pager-info{}
