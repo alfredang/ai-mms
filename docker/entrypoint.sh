@@ -276,6 +276,8 @@ if [ "${MMS_MODE:-}" = "country" ] && [ -n "${MMS_BASE_URL:-}" ] && [ -n "${MMS_
         \$wid  = (int)\$website->getId();
         \$sid  = (int)\$website->getDefaultStore()->getId();
         \$cfg  = Mage::getModel('core/config');
+        \$cfg->saveConfig('web/unsecure/base_url', \$url, 'default', 0);
+        \$cfg->saveConfig('web/secure/base_url',   \$url, 'default', 0);
         \$cfg->saveConfig('web/unsecure/base_url', \$url, 'websites', \$wid);
         \$cfg->saveConfig('web/secure/base_url',   \$url, 'websites', \$wid);
         if (\$sid) {

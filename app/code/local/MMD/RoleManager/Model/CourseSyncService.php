@@ -383,7 +383,7 @@ class MMD_RoleManager_Model_CourseSyncService
                 ->setUrlKey($urlKey)
                 ->setIsActive(1)
                 ->setIsAnchor(1)
-                ->setIncludeInMenu(0)
+                ->setIncludeInMenu(1)
                 ->setStoreId(0);
             $cat->save();
             $catId = (int) $cat->getId();
