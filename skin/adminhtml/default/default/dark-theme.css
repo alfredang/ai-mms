@@ -4631,6 +4631,35 @@ body[class*="customoptions-options-edit"] table.option-header > tr:first-child:n
     padding: 4px 6px !important;
 }
 
+/* Trim the "Input Type" column. The type select holds short labels
+   ("Radio Buttons" / "Drop-down" / "Multiple Select") and naturally
+   sizes to ~120px. Without a constraint the auto-layout table
+   balanced column widths against the wider TITLE input next door,
+   leaving the Input Type column at ~250px.
+   Two-pronged approach because <table> auto-layout treats width on
+   td/th as a hint, not a rule:
+     1. Pin width/min-width/max-width on the header AND every
+        column-2 td so the browser's column-width algorithm gets a
+        single unambiguous answer.
+     2. Cap the select itself with max-width so even if the column
+        wanted to grow, its content can't push it wider.
+   html-prefix bumps specificity above any earlier customoptions
+   rule that left widths unspecified. */
+html body[class*="customoptions-options-edit"] table.option-header th.opt-type,
+html body[class*="customoptions-options-edit"] table.option-header > tbody > tr > td:nth-child(2),
+html body[class*="customoptions-options-edit"] table.option-header > tr:not(thead tr) > td:nth-child(2) {
+    width: 130px !important;
+    min-width: 130px !important;
+    max-width: 130px !important;
+    box-sizing: border-box !important;
+}
+html body[class*="customoptions-options-edit"] table.option-header > tbody > tr > td:nth-child(2) select,
+html body[class*="customoptions-options-edit"] table.option-header > tr:not(thead tr) > td:nth-child(2) select {
+    max-width: 120px !important;
+    min-width: 0 !important;
+    width: auto !important;
+}
+
 /* Hide the dead "Children" column in the inner select-type values
    table (each row of "Physical Classroom Training", "Synchronised
    Teaching using ZOOM", etc.). The column ships the legacy MMD
