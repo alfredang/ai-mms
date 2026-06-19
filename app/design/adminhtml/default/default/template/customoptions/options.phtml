@@ -67,6 +67,13 @@ body[class*="customoptions"] .dcf-mag.mmd-auto-card .mmd-auto-card-actions > but
 <div><?php echo $this->getGridHtml() ?></div>
 <script type="text/javascript">
 //<![CDATA[
+    // PHP-generated list URL so we don't have to reverse-engineer
+    // /index/ vs no-action and admin secret-URL-key segments from
+    // window.location — Mage::helper('adminhtml')->getUrl() emits
+    // the canonical, secret-key-included URL that Magento will
+    // round-trip through frontController validation. Trailing slash
+    // guaranteed.
+    var MMD_SCHEDULE_LIST_URL = <?php echo json_encode(rtrim(Mage::helper('adminhtml')->getUrl('*/customoptions_options/index'), '/') . '/'); ?>;
     (function injectScheduleSearch() {
         function go() {
             var firstCell = document.querySelector('#customoptionsOptionsGrid table.massaction > tbody > tr > td:first-child')
@@ -87,15 +94,20 @@ body[class*="customoptions"] .dcf-mag.mmd-auto-card .mmd-auto-card-actions > but
             input.value = titleFilter.value || '';
             input.style.cssText = 'width:320px;height:30px;padding:4px 10px;border-radius:6px;border:1px solid #2a3447;background:#0f172a;color:#e5e7eb;font-size:13px;box-sizing:border-box;vertical-align:middle;';
             input.addEventListener('keydown', function (e) {
-                if (e.keyCode === 13) {
-                    e.preventDefault();
-                    titleFilter.value = input.value;
-                    var grid = (typeof customoptionsOptionsGridJsObject !== 'undefined') ? customoptionsOptionsGridJsObject
-                             : (typeof customoptionsOptionsGrid !== 'undefined' ? customoptionsOptionsGrid : null);
-                    if (grid && grid.doFilter) {
-                        grid.doFilter();
-                    }
+                if (e.keyCode !== 13) return;
+                e.preventDefault();
+                titleFilter.value = input.value;
+                var val = (input.value || '').trim();
+                // Build the filter URL on top of the canonical
+                // PHP-emitted list URL (action segment + admin
+                // secret-URL-key already correct). Magento decodes
+                // the filter string with base64_decode + parse_str
+                // — see Mage_Adminhtml_Helper_Data::prepareFilterString.
+                var url = MMD_SCHEDULE_LIST_URL;
+                if (val) {
+                    url += 'filter/' + btoa('title=' + encodeURIComponent(val)) + '/';
                 }
+                window.location.href = url;
             });
             wrap.appendChild(input);
             firstCell.appendChild(wrap);
