@@ -1065,6 +1065,49 @@ button.lcd-drawer-close:hover{color:#fff !important;background:#1e293b !importan
 .lcd-badge-pending{background:rgba(245,158,11,.15);color:#fcd34d}
 .lcd-badge-cancelled{background:rgba(239,68,68,.15);color:#fca5a5;border:1px solid rgba(239,68,68,.3)}
 
+/* Light-mode mirrors for the .lcd-badge family. Dark-mode rules above
+   tuned pale-300 text colors for the dark surface; on a white page
+   those colors disappear. Bump each text colour to the 700-shade of
+   the same hue family so the badges stay distinct (green / amber /
+   red / purple / blue / teal) but readable. Keep the translucent
+   tinted backgrounds and 1px border (where present) — they read as
+   the same chip shape, just on a white card. */
+:root[data-theme="light"] .lcd-badge-neutral {
+    background: rgba(107, 114, 128, 0.12);
+    color: #374151;
+    border: 1px solid rgba(107, 114, 128, 0.30);
+}
+:root[data-theme="light"] .lcd-badge-virtual {
+    background: rgba(59, 130, 246, 0.12);
+    color: #1d4ed8;
+    border: 1px solid rgba(59, 130, 246, 0.35);
+}
+:root[data-theme="light"] .lcd-badge-physical {
+    background: rgba(168, 85, 247, 0.12);
+    color: #7e22ce;
+    border: 1px solid rgba(168, 85, 247, 0.35);
+}
+:root[data-theme="light"] .lcd-badge-hybrid {
+    background: rgba(20, 184, 166, 0.12);
+    color: #0f766e;
+    border: 1px solid rgba(20, 184, 166, 0.35);
+}
+:root[data-theme="light"] .lcd-badge-confirmed {
+    background: rgba(16, 185, 129, 0.12);
+    color: #047857;
+    border: 1px solid rgba(16, 185, 129, 0.35);
+}
+:root[data-theme="light"] .lcd-badge-pending {
+    background: rgba(245, 158, 11, 0.14);
+    color: #b45309;
+    border: 1px solid rgba(245, 158, 11, 0.35);
+}
+:root[data-theme="light"] .lcd-badge-cancelled {
+    background: rgba(239, 68, 68, 0.12);
+    color: #b91c1c;
+    border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
 /* Course Duration block */
 .lcd-duration-block{padding:12px 0 0;margin:6px 0 0}
 .lcd-duration-title{font-size:17px;font-weight:700;color:#fff;margin:0 0 8px}
