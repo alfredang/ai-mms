@@ -878,20 +878,23 @@ document.observe('dom:loaded', function() {
     });
 
     function buildPagination(grid) {
-        // Find the pager associated with this grid
+        // Find the pager associated with THIS grid only — never fall
+        // back to a page-wide first-pager lookup. The fallback used to
+        // grab document.body.down('.pager') which means every grid on
+        // a multi-grid page (e.g. the Manage Class Schedule edit view,
+        // which has one option-values grid per option + a hidden
+        // Courses tab grid) ends up reading the same pager and stamping
+        // identical "Showing 1-20 of 25 records" under every grid even
+        // when the grids have 3 / 4 / 25 rows each. If a grid has no
+        // pager in its own wrapper / parent-wrapper, it doesn't need a
+        // modern pagination bar (small enough to fit on one page).
         var gridWrapper = grid.up();
         var pager = null;
-
-        // Search in siblings and parent for .pager
         if (gridWrapper) {
             pager = gridWrapper.down('.pager');
             if (!pager && gridWrapper.up()) {
                 pager = gridWrapper.up().down('.pager');
             }
-        }
-        if (!pager) {
-            // Search broadly
-            pager = document.body.down('.pager');
         }
         if (!pager) return;
 

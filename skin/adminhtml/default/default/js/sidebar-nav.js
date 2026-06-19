@@ -447,20 +447,18 @@ document.observe('dom:loaded', function() {
     })();
 
     function buildPagination(grid) {
-        // Find the pager associated with this grid
+        // Find the pager associated with THIS grid only — never fall
+        // back to a page-wide first-pager lookup. See sidebar-nav-v2.js
+        // buildPagination for the rationale (multi-grid pages on
+        // customoptions Schedule Edit were stamping identical
+        // "Showing 1-20 of 25 records" under every grid).
         var gridWrapper = grid.up();
         var pager = null;
-
-        // Search in siblings and parent for .pager
         if (gridWrapper) {
             pager = gridWrapper.down('.pager');
             if (!pager && gridWrapper.up()) {
                 pager = gridWrapper.up().down('.pager');
             }
-        }
-        if (!pager) {
-            // Search broadly
-            pager = document.body.down('.pager');
         }
         if (!pager) return;
 
