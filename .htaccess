@@ -69,9 +69,40 @@ deny from 78.128.113.18
 
 ############################################
 ## Domain to Store View mapping
-## Retired store domains redirect to Singapore so they do not serve duplicate default-store pages.
+## This .htaccess is shared verbatim across the SG multi-store box AND every
+## standalone country-instance box (Ghana, and Malaysia/Bhutan/India to
+## follow) from the same git checkout. PassEnv exposes MMS_MODE (set by
+## docker/entrypoint.sh on country boxes) to RewriteCond's %{ENV:} lookup so
+## the "retired domain" redirect below can be skipped specifically on a
+## standalone box serving that exact domain — otherwise a country box's own
+## domain bounces to SG before Magento (and MAGE_RUN_CODE below) ever runs.
+## Incident 2026-06-19: Ghana's standalone box inherited this redirect
+## unconditionally and could never serve its own site until scoped here.
+PassEnv MMS_MODE
+
+## Retired-as-SG-substore domains redirect to Singapore so they do not serve
+## duplicate default-store pages. Skipped on a country-instance box (it only
+## ever serves its own domain anyway, so this only fires on the SG box).
+RewriteCond %{ENV:MMS_MODE} !^country$
 RewriteCond %{HTTP_HOST} ^(www\.)?(tertiarycourses\.com\.my|tertiarycourses\.com\.gh|tertiarycourses\.bt|tertiarycourses\.(co\.)?in|tertiaryinfotech\.edu\.sg)$ [NC]
 RewriteRule ^(.*)$ https://www.tertiarycourses.com.sg/$1 [L,R=301]
+
+## tertiarycourses.com.gh → Ghana store view (standalone country instance)
+SetEnvIf Host ^(www\.)?tertiarycourses\.com\.gh$ MAGE_RUN_CODE=ghana
+SetEnvIf Host ^(www\.)?tertiarycourses\.com\.gh$ MAGE_RUN_TYPE=store
+
+## Redirect non-www to www for tertiarycourses.com.gh
+RewriteCond %{HTTP_HOST} ^tertiarycourses\.com\.gh$ [NC]
+RewriteRule ^(.*)$ https://www.tertiarycourses.com.gh/$1 [L,R=301]
+
+## tertiarycourses.com.my → Malaysia store view (standalone country instance,
+## next in the fleet rollout per docs/country-instance-phases-1-3-handoff.md)
+SetEnvIf Host ^(www\.)?tertiarycourses\.com\.my$ MAGE_RUN_CODE=malaysia
+SetEnvIf Host ^(www\.)?tertiarycourses\.com\.my$ MAGE_RUN_TYPE=store
+
+## Redirect non-www to www for tertiarycourses.com.my
+RewriteCond %{HTTP_HOST} ^tertiarycourses\.com\.my$ [NC]
+RewriteRule ^(.*)$ https://www.tertiarycourses.com.my/$1 [L,R=301]
 
 ## tertiarycourses.com.ng → Nigeria store view
 SetEnvIf Host ^(www\.)?tertiarycourses\.com\.ng$ MAGE_RUN_CODE=nigeria
@@ -96,6 +127,9 @@ RewriteRule ^(.*)$ https://www.tertiarycourses.com.sg/$1 [L,R=301]
 ## rows seeded by migrations/163-per-store-sitemaps.sql).
 RewriteCond %{HTTP_HOST} ^(www\.)?tertiarycourses\.com\.sg$ [NC]
 RewriteRule ^sitemap\.xml$ /sitemap_singapore.xml [L]
+
+RewriteCond %{HTTP_HOST} ^(www\.)?tertiarycourses\.com\.gh$ [NC]
+RewriteRule ^sitemap\.xml$ /sitemap_ghana.xml [L]
 
 RewriteCond %{HTTP_HOST} ^(www\.)?tertiarycourses\.com\.ng$ [NC]
 RewriteRule ^sitemap\.xml$ /sitemap_nigeria.xml [L]
