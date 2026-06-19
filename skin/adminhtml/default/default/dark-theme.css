@@ -4724,6 +4724,51 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table tfoot butto
     background-size: 16px 16px !important;
     background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2360a5fa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'/><line x1='12' y1='8' x2='12' y2='16'/><line x1='8' y1='12' x2='16' y2='12'/></svg>") !important;
 }
+
+/* Add Image button — lives inside each option-value row (tbody), not
+   the tfoot. Same icon-button treatment as the three footer buttons:
+   32x32 outline pill, label hidden via the accessible pattern, native
+   tooltip on hover via the title="Add Image" attribute Magento's
+   Widget_Button already emits. Image-frame icon. */
+html body[class*="customoptions-options-edit"] [id^="option_"] table button.scalable[title="Add Image"] {
+    width: 32px !important;
+    height: 32px !important;
+    min-height: 32px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: transparent !important;
+    background-image: none !important;
+    border: 1px solid #60a5fa !important;
+    border-radius: 6px !important;
+    overflow: hidden !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    cursor: pointer !important;
+}
+html body[class*="customoptions-options-edit"] [id^="option_"] table button.scalable[title="Add Image"]:hover {
+    background: rgba(96, 165, 250, 0.10) !important;
+}
+html body[class*="customoptions-options-edit"] [id^="option_"] table button.scalable[title="Add Image"] > span {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    overflow: hidden !important;
+    clip: rect(0 0 0 0) !important;
+    white-space: nowrap !important;
+}
+html body[class*="customoptions-options-edit"] [id^="option_"] table button.scalable[title="Add Image"]::before {
+    content: '' !important;
+    display: block !important;
+    width: 16px !important;
+    height: 16px !important;
+    background-position: center center !important;
+    background-repeat: no-repeat !important;
+    background-size: 16px 16px !important;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2360a5fa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='2'/><circle cx='8.5' cy='8.5' r='1.5'/><polyline points='21 15 16 10 5 21'/></svg>") !important;
+}
 html body[class*="customoptions-options-edit"] table.option-header > tbody > tr > td:nth-child(2) select,
 html body[class*="customoptions-options-edit"] table.option-header > tr:not(thead tr) > td:nth-child(2) select {
     max-width: 120px !important;
