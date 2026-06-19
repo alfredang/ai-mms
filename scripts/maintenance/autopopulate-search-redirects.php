@@ -63,10 +63,17 @@
 require_once __DIR__ . '/../../app/Mage.php';
 Mage::app();
 
+// Active country stores after the 2026-06 retirement
+// (migration 205-remove-malaysia-infotech-stores.sql) — websites 2
+// (Malaysia), 3 (Ghana), 5 (Bhutan), 6 (India), 7 (Infotech) are
+// no longer routable. --all-stores only iterates SG + NG now.
+// Single-store mode (--store=<code>) accepts any code Magento can
+// resolve via getStore($code); if the code maps to a deleted store
+// the per-store try/catch in the dispatch loop logs the error and
+// moves on without aborting other stores.
 const COUNTRY_STORE_CODES = [
-    'singapore', 'malaysia', 'ghana',
-    'nigeria',   'bhutan',   'india',
-    'infotech',
+    'singapore',
+    'nigeria',
 ];
 
 $args       = array_slice($argv, 1);
