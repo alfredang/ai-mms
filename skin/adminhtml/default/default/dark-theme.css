@@ -6264,3 +6264,29 @@ body[class*="adminhtml-catalog-product"] [id^="option_"] img[src*="rule_chooser_
 body[class*="customoptions-options-edit"] [id^="option_"] img[src*="rule_chooser_trigger"]:hover {
     background: rgba(96, 165, 250, 0.10) !important;
 }
+
+/* tfoot "Add New Row" strip — same pale gradient leaks in on the
+   catalog_product/edit route. Mirror the customoptions-options-edit fix:
+   strip the legacy background, replace with a thin top hairline. */
+html body[class*="adminhtml-catalog-product"] [id^="option_"] tfoot,
+html body[class*="adminhtml-catalog-product"] [id^="option_"] tfoot tr,
+html body[class*="adminhtml-catalog-product"] [id^="option_"] tfoot td,
+html body[class*="adminhtml-catalog-product"] [id^="option_"] table tfoot,
+html body[class*="adminhtml-catalog-product"] [id^="option_"] table tfoot tr,
+html body[class*="adminhtml-catalog-product"] [id^="option_"] table tfoot td {
+    background: transparent !important;
+    background-image: none !important;
+    background-color: transparent !important;
+    border: none !important;
+    border-top: 1px solid var(--b1) !important;
+    color: var(--t2) !important;
+}
+html body[class*="adminhtml-catalog-product"] [id^="option_"] tfoot button {
+    margin: 6px auto !important;
+}
+:root[data-theme="light"] html body[class*="adminhtml-catalog-product"] [id^="option_"] tfoot,
+:root[data-theme="light"] html body[class*="adminhtml-catalog-product"] [id^="option_"] tfoot tr,
+:root[data-theme="light"] html body[class*="adminhtml-catalog-product"] [id^="option_"] tfoot td {
+    background: transparent !important;
+    border-top: 1px solid #e5e7eb !important;
+}
