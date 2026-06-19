@@ -55,6 +55,10 @@ Grouped by topic. Pointers only — full content lives in the linked files.
 - [Localhost curl + Host header follows 301 to prod](feedback_localhost_curl_host_header_redirects.md) — `curl -L http://localhost:8080 -H 'Host: tertiarycourses.com.sg'` reads PROD, not local. Drop -L or drop Host header when verifying local changes.
 - [HTTP 500 on every route after container restart → mod_headers dropped](feedback_apache_500_mod_headers.md) — diagnostic checklist; permanent fix lives in docker/entrypoint.sh
 
+## Multi-country instances
+
+- [Country DB seed drift can break guest pricing and category menus per-country](feedback_country_seed_drift_menu_and_guest_pricing.md) — each country runs its own DB cloned from a seed; missing `customer_group_id=0` row and `include_in_menu=0` on nav categories silently break one country's storefront while looking like "nothing renders, no errors"
+
 ## External references
 
 - [Magento.md — site customization playbook](../../../../../projects/tertiary/ai-mms/Magento.md) — repo-root field notebook on the non-obvious parts of this OpenMage install
