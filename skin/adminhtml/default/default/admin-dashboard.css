@@ -2150,23 +2150,27 @@ table.at-table{width:100%;border-collapse:collapse;color:#e2e8f0}
 .at-th-action,.at-td-action{text-align:right;white-space:nowrap}
 /* Trainer-action buttons (Assign Trainer / Edit Trainer in the
    assign_trainer panel) — no hover lift, no color shift, no transition.
-   The global .admin-main button hover rule changes background +
-   border-color and the global :active applies translateY(1px); coupled
-   with the transform transition that's the "slight movement" on hover.
-   Lock these buttons to a static visual by re-declaring the same
-   appearance on :hover / :focus / :focus-visible / :active and zeroing
-   the transition. */
-button.at-action-btn,
-button.at-action-btn:hover,
-button.at-action-btn:focus,
-button.at-action-btn:focus-visible,
-button.at-action-btn:active{
-    display:inline-block;
-    padding:7px 14px !important;
-    border-radius:6px !important;
+   Padding / min-height / height MUST match the higher-specificity rule
+   at dark-theme.css:5507 ("`.admin-main button.at-action-btn`") so the
+   button geometry is identical at rest and on :hover / :focus / :active
+   — otherwise the rest state takes the higher-specificity values and
+   only the hover state takes ours, and the button visibly grows on
+   hover. Bump specificity with the `.admin-main` prefix so this rule
+   wins everywhere too (matched specificity → source order, and this
+   file is the last skin sheet loaded). */
+.admin-main button.at-action-btn,
+.admin-main button.at-action-btn:hover,
+.admin-main button.at-action-btn:focus,
+.admin-main button.at-action-btn:focus-visible,
+.admin-main button.at-action-btn:active{
+    display:inline-block !important;
+    height:28px !important;
+    min-height:28px !important;
+    padding:5px 11px !important;
+    border-radius:5px !important;
     font-size:12px !important;
     font-weight:600 !important;
-    text-decoration:none;
+    text-decoration:none !important;
     border:1px solid !important;
     cursor:pointer !important;
     line-height:1 !important;
@@ -2176,24 +2180,22 @@ button.at-action-btn:active{
     box-shadow:none !important;
     text-shadow:none !important;
     text-transform:none !important;
-    height:auto !important;
     opacity:1 !important;
-    min-height:0 !important;
 }
-button.at-action-edit,
-button.at-action-edit:hover,
-button.at-action-edit:focus,
-button.at-action-edit:focus-visible,
-button.at-action-edit:active{
+.admin-main button.at-action-edit,
+.admin-main button.at-action-edit:hover,
+.admin-main button.at-action-edit:focus,
+.admin-main button.at-action-edit:focus-visible,
+.admin-main button.at-action-edit:active{
     background:rgba(59,130,246,.15) !important;
     color:#93c5fd !important;
     border-color:rgba(59,130,246,.4) !important;
 }
-button.at-action-assign,
-button.at-action-assign:hover,
-button.at-action-assign:focus,
-button.at-action-assign:focus-visible,
-button.at-action-assign:active{
+.admin-main button.at-action-assign,
+.admin-main button.at-action-assign:hover,
+.admin-main button.at-action-assign:focus,
+.admin-main button.at-action-assign:focus-visible,
+.admin-main button.at-action-assign:active{
     background:rgba(34,197,94,.15) !important;
     color:#86efac !important;
     border-color:rgba(34,197,94,.4) !important;
