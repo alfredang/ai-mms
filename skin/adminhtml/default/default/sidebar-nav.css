@@ -996,6 +996,18 @@ body.sidebar-collapsed .admin-main {
 .admin-main .grid td:last-child {
     border-right: none !important;
 }
+/* Uniform minimum row height across every admin grid. Without this, grids
+   whose rows have action icons or multi-line content (Invoices, Registrations,
+   Order list) render at ~46px while grids with only short single-line cells
+   (Transactions, sales_creditmemo, certain reports) collapse to ~32px — same
+   td padding everywhere, but content height drives the visual difference.
+   Pinning tr to 44px keeps every grid reading at the same density without
+   wasting vertical space on grids that legitimately have taller content
+   (browsers honor `tr { height }` as a minimum, so denser rows still grow
+   naturally if their content demands it). */
+.admin-main .grid table tbody tr {
+    height: 44px !important;
+}
 .admin-main .grid td a {
     font-size: 12px !important;
     color: var(--blue, #258bb6) !important;
