@@ -3988,3 +3988,15 @@ button.hsp-btn-submit{
 .admin-main .content-header.mmd-content-header-hidden {
     display: none !important;
 }
+
+/* URL Rewrite admin grid — hide the "200" page-size option. Rendering
+   200 rows × 8 columns through Magento's widget-grid column renderers
+   takes ~10s on prod (profiled in MMD_Adminhtml_Block_Urlrewrite_Grid).
+   The dropdown is hard-coded in core widget/grid.phtml, so the surgical
+   fix is hiding the option in CSS scoped to this route — no template
+   duplication, no risk of bleeding to other grids. Default page size
+   is set to 25 by the grid rewrite. */
+body.adminhtml-urlrewrite-index #urlrewriteGrid select[name="urlrewriteGrid_page_limit"] option[value="200"],
+body.adminhtml-urlrewrite-index select[name$="_page_limit"] option[value="200"] {
+    display: none !important;
+}
