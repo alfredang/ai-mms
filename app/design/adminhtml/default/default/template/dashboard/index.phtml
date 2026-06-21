@@ -14748,24 +14748,70 @@ window.trnReset = function() {
 <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.4/dist/Chart.min.js"></script>
 <script type="text/javascript">
 //<![CDATA[
-document.observe('dom:loaded', function(){
-    var cc={blue:'#60a5fa',blueDark:'#2563eb',green:'#10b981',purple:'#a78bfa',orange:'#f97316',grid:'rgba(148,163,184,0.1)',text:'#94a3b8'};
-    Chart.defaults.global.defaultFontColor=cc.text;
-    Chart.defaults.global.defaultFontFamily="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
-    Chart.defaults.global.legend.display=false;
-    Object.assign(Chart.defaults.global.tooltips,{backgroundColor:'#1f2937',titleFontColor:'#f8fafc',bodyFontColor:'#e2e8f0',borderColor:'#374151',borderWidth:1,cornerRadius:8});
+/* Wrap the Chart.js init in a re-runnable function so it survives PJAX
+   (instant-nav.js) swaps — DOMContentLoaded / dom:loaded only fires on
+   the first full load, but the dashboard body gets swapped in-place on
+   subsequent same-tab navigations, leaving the new <canvas> elements
+   without a Chart instance. That manifested as the Super Admin panel
+   rendering with empty chart cards until the user hard-refreshed or
+   role-swapped (both of which trigger a real reload).
 
-    var sd=<?php echo json_encode($salesByMonth) ?>;
-    new Chart(document.getElementById('salesByMonthChart').getContext('2d'),{type:'bar',data:{labels:sd.map(function(x){return x.label;}),datasets:[{data:sd.map(function(x){return x.value;}),backgroundColor:cc.blue,borderColor:cc.blueDark,borderWidth:1,barPercentage:.7}]},options:{responsive:true,maintainAspectRatio:false,scales:{xAxes:[{ticks:{fontColor:cc.text,fontSize:10,maxRotation:45},gridLines:{display:false}}],yAxes:[{ticks:{fontColor:cc.text,fontSize:11,callback:function(v){return'$'+v.toLocaleString();},beginAtZero:true},gridLines:{color:cc.grid}}]}}});
+   Re-runnable means:
+     1. Tear down any previous Chart instances we created (stored on
+        window.__dashCharts) so we don't leak canvases between swaps.
+     2. Re-bind freshly for the new DOM. */
+(function(){
+    function destroyDashCharts() {
+        if (!window.__dashCharts) return;
+        window.__dashCharts.forEach(function(c){
+            try { c.destroy(); } catch(e) {}
+        });
+        window.__dashCharts = [];
+    }
 
-    var cd=<?php echo json_encode($popularCourses) ?>;
-    new Chart(document.getElementById('popularCoursesChart').getContext('2d'),{type:'horizontalBar',data:{labels:cd.map(function(x){return x.name;}),datasets:[{data:cd.map(function(x){return x.qty;}),backgroundColor:cc.green,barPercentage:.7}]},options:{responsive:true,maintainAspectRatio:false,scales:{xAxes:[{ticks:{fontColor:cc.text,fontSize:11,beginAtZero:true},gridLines:{color:cc.grid}}],yAxes:[{ticks:{fontColor:cc.text,fontSize:10},gridLines:{display:false}}]}}});
+    function initDashCharts() {
+        if (typeof Chart === 'undefined') return;
+        // Bail if the super-admin panel isn't in the DOM (e.g. user
+        // landed on a different role's dashboard) — nothing to draw.
+        if (!document.getElementById('salesByMonthChart')) return;
+        destroyDashCharts();
+        window.__dashCharts = [];
 
-    var ps=<?php echo json_encode($popularSearches) ?>;
-    new Chart(document.getElementById('popularSearchesChart').getContext('2d'),{type:'horizontalBar',data:{labels:ps.map(function(x){var t=x.term||'';return t.length>35?t.substring(0,32)+'...':t;}),datasets:[{data:ps.map(function(x){return x.count;}),backgroundColor:cc.purple,barPercentage:.7}]},options:{responsive:true,maintainAspectRatio:false,scales:{xAxes:[{ticks:{fontColor:cc.text,fontSize:11,beginAtZero:true},gridLines:{color:cc.grid}}],yAxes:[{ticks:{fontColor:cc.text,fontSize:10},gridLines:{display:false}}]}}});
+        var cc={blue:'#60a5fa',blueDark:'#2563eb',green:'#10b981',purple:'#a78bfa',orange:'#f97316',grid:'rgba(148,163,184,0.1)',text:'#94a3b8'};
+        Chart.defaults.global.defaultFontColor=cc.text;
+        Chart.defaults.global.defaultFontFamily="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
+        Chart.defaults.global.legend.display=false;
+        Object.assign(Chart.defaults.global.tooltips,{backgroundColor:'#1f2937',titleFontColor:'#f8fafc',bodyFontColor:'#e2e8f0',borderColor:'#374151',borderWidth:1,cornerRadius:8});
 
-    var oc=<?php echo json_encode($ordersByCountry) ?>;
-    new Chart(document.getElementById('ordersByCountryChart').getContext('2d'),{type:'horizontalBar',data:{labels:oc.map(function(x){return x.country;}),datasets:[{data:oc.map(function(x){return x.count;}),backgroundColor:cc.orange,barPercentage:.7}]},options:{responsive:true,maintainAspectRatio:false,scales:{xAxes:[{ticks:{fontColor:cc.text,fontSize:11,beginAtZero:true},gridLines:{color:cc.grid}}],yAxes:[{ticks:{fontColor:cc.text,fontSize:10},gridLines:{display:false}}]}}});
-});
+        var sd=<?php echo json_encode($salesByMonth) ?>;
+        window.__dashCharts.push(new Chart(document.getElementById('salesByMonthChart').getContext('2d'),{type:'bar',data:{labels:sd.map(function(x){return x.label;}),datasets:[{data:sd.map(function(x){return x.value;}),backgroundColor:cc.blue,borderColor:cc.blueDark,borderWidth:1,barPercentage:.7}]},options:{responsive:true,maintainAspectRatio:false,scales:{xAxes:[{ticks:{fontColor:cc.text,fontSize:10,maxRotation:45},gridLines:{display:false}}],yAxes:[{ticks:{fontColor:cc.text,fontSize:11,callback:function(v){return'$'+v.toLocaleString();},beginAtZero:true},gridLines:{color:cc.grid}}]}}}));
+
+        var cd=<?php echo json_encode($popularCourses) ?>;
+        var pcEl = document.getElementById('popularCoursesChart');
+        if (pcEl) window.__dashCharts.push(new Chart(pcEl.getContext('2d'),{type:'horizontalBar',data:{labels:cd.map(function(x){return x.name;}),datasets:[{data:cd.map(function(x){return x.qty;}),backgroundColor:cc.green,barPercentage:.7}]},options:{responsive:true,maintainAspectRatio:false,scales:{xAxes:[{ticks:{fontColor:cc.text,fontSize:11,beginAtZero:true},gridLines:{color:cc.grid}}],yAxes:[{ticks:{fontColor:cc.text,fontSize:10},gridLines:{display:false}}]}}}));
+
+        var ps=<?php echo json_encode($popularSearches) ?>;
+        var psEl = document.getElementById('popularSearchesChart');
+        if (psEl) window.__dashCharts.push(new Chart(psEl.getContext('2d'),{type:'horizontalBar',data:{labels:ps.map(function(x){var t=x.term||'';return t.length>35?t.substring(0,32)+'...':t;}),datasets:[{data:ps.map(function(x){return x.count;}),backgroundColor:cc.purple,barPercentage:.7}]},options:{responsive:true,maintainAspectRatio:false,scales:{xAxes:[{ticks:{fontColor:cc.text,fontSize:11,beginAtZero:true},gridLines:{color:cc.grid}}],yAxes:[{ticks:{fontColor:cc.text,fontSize:10},gridLines:{display:false}}]}}}));
+
+        var oc=<?php echo json_encode($ordersByCountry) ?>;
+        var ocEl = document.getElementById('ordersByCountryChart');
+        if (ocEl) window.__dashCharts.push(new Chart(ocEl.getContext('2d'),{type:'horizontalBar',data:{labels:oc.map(function(x){return x.country;}),datasets:[{data:oc.map(function(x){return x.count;}),backgroundColor:cc.orange,barPercentage:.7}]},options:{responsive:true,maintainAspectRatio:false,scales:{xAxes:[{ticks:{fontColor:cc.text,fontSize:11,beginAtZero:true},gridLines:{color:cc.grid}}],yAxes:[{ticks:{fontColor:cc.text,fontSize:10},gridLines:{display:false}}]}}}));
+    }
+    window.initDashCharts = initDashCharts;
+
+    // First full load — Prototype.js dom:loaded (matches what was here
+    // before) plus a vanilla DOMContentLoaded fallback for safety.
+    if (document.observe) {
+        document.observe('dom:loaded', initDashCharts);
+    } else if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initDashCharts);
+    } else {
+        initDashCharts();
+    }
+    // PJAX swap — same hook applyInitialPanel uses. instant-nav.js fires
+    // this event after replacing the page body but before paint.
+    document.addEventListener('instant-nav:after-swap', initDashCharts);
+})();
 //]]>
 </script>
