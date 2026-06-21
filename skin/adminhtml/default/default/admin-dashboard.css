@@ -2148,10 +2148,56 @@ table.at-table{width:100%;border-collapse:collapse;color:#e2e8f0}
 .at-trainer-pill{display:inline-block;padding:3px 10px;border-radius:5px;background:rgba(59,130,246,.18);color:#93c5fd;border:1px solid rgba(59,130,246,.3);font-size:12px;font-weight:500;margin-right:4px;margin-bottom:2px}
 .at-trainer-empty{color:#64748b;font-style:italic}
 .at-th-action,.at-td-action{text-align:right;white-space:nowrap}
-button.at-action-btn,button.at-action-btn:hover,button.at-action-btn:focus{display:inline-block;padding:7px 14px !important;border-radius:6px !important;font-size:12px !important;font-weight:600 !important;text-decoration:none;border:1px solid !important;cursor:pointer !important;line-height:1 !important;transition:opacity .15s;background-image:none !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;height:auto !important}
-button.at-action-btn:hover{opacity:.85}
-button.at-action-edit,button.at-action-edit:hover,button.at-action-edit:focus{background:rgba(59,130,246,.15) !important;color:#93c5fd !important;border-color:rgba(59,130,246,.4) !important}
-button.at-action-assign,button.at-action-assign:hover,button.at-action-assign:focus{background:rgba(34,197,94,.15) !important;color:#86efac !important;border-color:rgba(34,197,94,.4) !important}
+/* Trainer-action buttons (Assign Trainer / Edit Trainer in the
+   assign_trainer panel) — no hover lift, no color shift, no transition.
+   The global .admin-main button hover rule changes background +
+   border-color and the global :active applies translateY(1px); coupled
+   with the transform transition that's the "slight movement" on hover.
+   Lock these buttons to a static visual by re-declaring the same
+   appearance on :hover / :focus / :focus-visible / :active and zeroing
+   the transition. */
+button.at-action-btn,
+button.at-action-btn:hover,
+button.at-action-btn:focus,
+button.at-action-btn:focus-visible,
+button.at-action-btn:active{
+    display:inline-block;
+    padding:7px 14px !important;
+    border-radius:6px !important;
+    font-size:12px !important;
+    font-weight:600 !important;
+    text-decoration:none;
+    border:1px solid !important;
+    cursor:pointer !important;
+    line-height:1 !important;
+    transition:none !important;
+    transform:none !important;
+    background-image:none !important;
+    box-shadow:none !important;
+    text-shadow:none !important;
+    text-transform:none !important;
+    height:auto !important;
+    opacity:1 !important;
+    min-height:0 !important;
+}
+button.at-action-edit,
+button.at-action-edit:hover,
+button.at-action-edit:focus,
+button.at-action-edit:focus-visible,
+button.at-action-edit:active{
+    background:rgba(59,130,246,.15) !important;
+    color:#93c5fd !important;
+    border-color:rgba(59,130,246,.4) !important;
+}
+button.at-action-assign,
+button.at-action-assign:hover,
+button.at-action-assign:focus,
+button.at-action-assign:focus-visible,
+button.at-action-assign:active{
+    background:rgba(34,197,94,.15) !important;
+    color:#86efac !important;
+    border-color:rgba(34,197,94,.4) !important;
+}
 
 /* Trainer inline editor (expands inside the table under the clicked row) */
 .atm-row td{padding:0 !important;background:#0f172a;border-bottom:1px solid #334155 !important}
