@@ -70,7 +70,7 @@ $categoryId = 3;
 
     <div class="block-title">
 
-        <strong><span><?php echo $this->renderBlockTitle(); ?></span></strong>
+        <strong><span><?php echo $this->__('Course Categories'); ?></span></strong>
 
     </div>
 
@@ -85,4 +85,30 @@ $categoryId = 3;
     </div>
 
 </div>
+
+<script type="text/javascript">
+//<![CDATA[
+(function () {
+    // Auto-expand the "Infocomm Technology" branch in the sidebar Course Categories menu.
+    function expandInfocomm() {
+        var items = document.querySelectorAll('.block-vertnav .accordion.vertnav > li');
+        if (!items.length) { return; }
+        var target = null;
+        for (var i = 0; i < items.length; i++) {
+            var link = items[i].querySelector('a');
+            if (link && /Infocomm Technology/i.test(link.textContent || link.innerText)) { target = items[i]; break; }
+        }
+        if (!target) { target = items[0]; }
+        target.className += ' active open';
+        var opener = target.querySelector('.opener');
+        if (opener) { opener.className += ' active'; }
+        var sub = target.querySelector('ul');
+        if (sub) { sub.style.display = 'block'; }
+    }
+    if (document.readyState !== 'loading') { expandInfocomm(); }
+    else { document.addEventListener('DOMContentLoaded', expandInfocomm); }
+    if (window.addEventListener) { window.addEventListener('load', expandInfocomm); }
+})();
+//]]>
+</script>
 
