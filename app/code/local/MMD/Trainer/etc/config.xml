@@ -1,0 +1,45 @@
+<?xml version="1.0"?>
+<!--
+  MMD_Trainer — Trainer Application lead magnet. The trainer-application.html
+  landing page posts to trainer/index/post; the controller enforces the same
+  invisible spam shield as Contact Us (honeypot + Cloudflare Turnstile), stores
+  the application in mmd_trainer_lead, and emails the trainer mailbox. Admin grid:
+  Marketing -> Trainer Application Leads (adminhtml/trainerlead).
+-->
+<config>
+    <modules><MMD_Trainer><version>1.0.0</version></MMD_Trainer></modules>
+    <global>
+        <helpers><mmd_trainer><class>MMD_Trainer_Helper</class></mmd_trainer></helpers>
+        <models>
+            <mmd_trainer>
+                <class>MMD_Trainer_Model</class>
+                <resourceModel>mmd_trainer_mysql4</resourceModel>
+            </mmd_trainer>
+            <mmd_trainer_mysql4>
+                <class>MMD_Trainer_Model_Mysql4</class>
+                <entities><lead><table>mmd_trainer_lead</table></lead></entities>
+            </mmd_trainer_mysql4>
+        </models>
+        <resources>
+            <mmd_trainer_write><connection><use>core_write</use></connection></mmd_trainer_write>
+            <mmd_trainer_read><connection><use>core_read</use></connection></mmd_trainer_read>
+        </resources>
+        <blocks><mmd_trainer><class>MMD_Trainer_Block</class></mmd_trainer></blocks>
+    </global>
+    <frontend>
+        <routers>
+            <mmd_trainer>
+                <use>standard</use>
+                <args><module>MMD_Trainer</module><frontName>trainer</frontName></args>
+            </mmd_trainer>
+        </routers>
+    </frontend>
+    <admin>
+        <routers><adminhtml><args><modules>
+            <mmd_trainer before="Mage_Adminhtml">MMD_Trainer_Adminhtml</mmd_trainer>
+        </modules></args></adminhtml></routers>
+    </admin>
+    <default>
+        <mmd_trainer><lead><recipient_email>angch@tertiaryinfotech.com</recipient_email></lead></mmd_trainer>
+    </default>
+</config>

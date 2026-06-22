@@ -1,0 +1,132 @@
+<?php
+/** Trainer Application form — posts to trainer/index/post. Honeypot + invisible Cloudflare Turnstile. */
+$ts        = Mage::helper('magentocaptcha/turnstile');
+$tsSiteKey = $ts->getSiteKey();
+$postUrl   = Mage::getUrl('trainer/index/post');
+?>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<style>
+.tct-form-wrap{max-width:760px;margin:34px auto 0;background:#fff;border:1px solid #e6e9ef;border-radius:16px;box-shadow:0 18px 50px rgba(15,23,42,.08);overflow:hidden}
+.tct-form-head{background:linear-gradient(135deg,#0f172a 0%,#14304a 100%);color:#fff;padding:26px 30px}
+.tct-form-head h3{color:#fff;margin:0 0 4px;font-size:24px;line-height:1.2}
+.tct-form-head p{color:#9fb3c8;margin:0;font-size:15px}
+.tct-form-body{padding:26px 30px 30px}
+.tct-row{display:flex;gap:16px;flex-wrap:wrap}
+.tct-field{flex:1 1 220px;margin-bottom:16px}
+.tct-field.tct-full{flex-basis:100%}
+.tct-field label{display:block;font-weight:600;color:#0f172a;font-size:14px;margin-bottom:6px}
+.tct-field label .req{color:#f4511e}
+.tct-field input,.tct-field select,.tct-field textarea{width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid #d6dbe4;border-radius:9px;font-size:15px;color:#0f172a;background:#fbfcfe}
+.tct-field input:focus,.tct-field select:focus,.tct-field textarea:focus{outline:none;border-color:#14b8a6;box-shadow:0 0 0 3px rgba(20,184,166,.16);background:#fff}
+.tct-field textarea{min-height:110px;resize:vertical}
+.tct-error{color:#dc2626;font-size:14px;margin:0 0 14px;min-height:1px}
+.tct-submit{display:inline-flex;align-items:center;gap:10px;background:#f4511e;color:#fff;border:0;border-radius:999px;padding:14px 30px;font-size:16px;font-weight:700;cursor:pointer;transition:background .15s}
+.tct-submit:hover{background:#d63c0c}
+.tct-submit svg{width:18px;height:18px}
+.tct-trust{display:flex;align-items:center;gap:8px;color:#64748b;font-size:13px;margin:16px 0 0}
+.tct-trust svg{width:16px;height:16px;color:#14b8a6}
+</style>
+
+<div class="tct-form-wrap" id="trainer-enquiry">
+  <div class="tct-form-head">
+    <h3><?php echo $this->__('Apply to Become a Trainer') ?></h3>
+    <p><?php echo $this->__('Tell us about your expertise and credentials — our team reviews every application.') ?></p>
+  </div>
+  <div class="tct-form-body">
+    <form action="<?php echo $postUrl ?>" method="post" id="trainerForm" name="trainerForm">
+      <div class="tct-error" id="trainer-error"></div>
+      <div class="tct-row">
+        <div class="tct-field"><label><?php echo $this->__('Full Name') ?> <span class="req">*</span></label>
+          <input type="text" name="name" maxlength="255" /></div>
+        <div class="tct-field"><label><?php echo $this->__('Email') ?> <span class="req">*</span></label>
+          <input type="email" name="email" maxlength="255" /></div>
+      </div>
+      <div class="tct-row">
+        <div class="tct-field"><label><?php echo $this->__('Phone / WhatsApp') ?></label>
+          <input type="text" name="telephone" maxlength="64" /></div>
+        <div class="tct-field"><label><?php echo $this->__('Highest Qualification') ?></label>
+          <select name="qualification">
+            <option value=""><?php echo $this->__('Select') ?></option>
+            <option>Diploma</option><option>Bachelor's Degree</option><option>Master's Degree</option>
+            <option>PhD</option><option>Professional Certification</option>
+          </select></div>
+      </div>
+      <div class="tct-row">
+        <div class="tct-field"><label><?php echo $this->__('ACLP Certified?') ?></label>
+          <select name="aclp"><option value=""><?php echo $this->__('Select') ?></option><option value="yes">Yes</option><option value="no">No</option></select></div>
+        <div class="tct-field"><label><?php echo $this->__('TAEPP Registered?') ?></label>
+          <select name="taepp"><option value=""><?php echo $this->__('Select') ?></option><option value="yes">Yes</option><option value="no">No</option></select></div>
+        <div class="tct-field"><label><?php echo $this->__('Years of Experience') ?></label>
+          <input type="text" name="years_experience" maxlength="16" placeholder="<?php echo $this->__('e.g. 5') ?>" /></div>
+      </div>
+      <div class="tct-field tct-full"><label><?php echo $this->__('Area of Expertise / Topics You Can Train') ?></label>
+        <input type="text" name="expertise" maxlength="255" placeholder="<?php echo $this->__('e.g. AI, Cyber Security, Data Analytics, Cloud') ?>" /></div>
+      <div class="tct-field tct-full"><label><?php echo $this->__('Brief Introduction') ?> <span class="req">*</span></label>
+        <textarea name="comment" placeholder="<?php echo $this->__('Your training experience, certifications, and the courses you would like to deliver.') ?>"></textarea></div>
+
+      <input type="hidden" name="source" value="trainer-application" />
+      <input type="text" name="hideit" id="trainer-hideit" value="" tabindex="-1" autocomplete="off" style="display:none !important;" />
+      <input type="hidden" name="cf-turnstile-response" id="trainer-turnstile-token" value="" />
+      <?php if ($tsSiteKey): ?>
+      <div class="cf-turnstile" data-sitekey="<?php echo $this->htmlEscape($tsSiteKey) ?>" data-size="invisible"
+           data-callback="onTrainerTurnstileSuccess" data-error-callback="onTrainerTurnstileError" data-expired-callback="onTrainerTurnstileExpired"></div>
+      <?php endif; ?>
+
+      <button type="submit" id="trainer-submit" class="tct-submit">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        <?php echo $this->__('Submit Application') ?>
+      </button>
+      <p class="tct-trust">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+        <?php echo $this->__('Your details stay private. We reply to shortlisted applicants.') ?>
+      </p>
+    </form>
+  </div>
+</div>
+
+<script type="text/javascript">
+(function () {
+    var TURNSTILE_ENABLED = <?php echo $tsSiteKey ? 'true' : 'false'; ?>;
+    var pendingSubmit = false;
+    function validateForm() {
+        var error = "", f = document.forms["trainerForm"];
+        if (!f["name"].value) { error += "Please enter your name<br/>"; }
+        if (!/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,})+$/.test(f["email"].value)) { error += "Please enter a valid email<br/>"; }
+        if (!f["comment"].value) { error += "Please add a brief introduction<br/>"; }
+        document.getElementById("trainer-error").innerHTML = error;
+        return error === "";
+    }
+    function doSubmit() {
+        var btn = document.getElementById("trainer-submit");
+        if (btn) { btn.disabled = true; }
+        document.forms["trainerForm"].submit();
+    }
+    window.onTrainerTurnstileSuccess = function (token) {
+        var input = document.getElementById("trainer-turnstile-token");
+        if (input) { input.value = token; }
+        if (pendingSubmit) { pendingSubmit = false; doSubmit(); }
+    };
+    window.onTrainerTurnstileError = function () {
+        pendingSubmit = false;
+        document.getElementById("trainer-error").innerHTML = "Spam check could not run. Please refresh the page and try again.";
+    };
+    window.onTrainerTurnstileExpired = function () {
+        var input = document.getElementById("trainer-turnstile-token");
+        if (input) { input.value = ""; }
+    };
+    document.addEventListener("DOMContentLoaded", function () {
+        var form = document.getElementById("trainerForm");
+        if (!form) { return; }
+        form.addEventListener("submit", function (e) {
+            e.preventDefault();
+            if (!validateForm()) { return; }
+            if (!TURNSTILE_ENABLED || typeof window.turnstile === "undefined") { doSubmit(); return; }
+            var input = document.getElementById("trainer-turnstile-token");
+            if (input && input.value) { doSubmit(); return; }
+            pendingSubmit = true;
+            try { window.turnstile.execute(); }
+            catch (err) { pendingSubmit = false; doSubmit(); }
+        });
+    });
+})();
+</script>
