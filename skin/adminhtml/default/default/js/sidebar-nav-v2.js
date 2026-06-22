@@ -3014,10 +3014,56 @@ document.addEventListener('DOMContentLoaded', function injectCmsPagesSearch() {
         console.log.apply(console, ['[mmd-config-expand-all]'].concat([].slice.call(arguments)));
     }
 
+    // Determine if a section is currently OPEN by checking what the user
+    // actually sees — the content <div>'s computed display. Magento's
+    // `<group>-state` hidden input isn't always emitted (the server-side
+    // Fieldset.php template only renders the head + content div, never
+    // the state input — that's created on the fly by Fieldset.toggleCollapse),
+    // and the head's `.open` class isn't applied until toggleCollapse fires
+    // the first time. So relying on either signal misreads pages that
+    // render with sections already-expanded from persisted backend state.
     function isHeadOpen(headEl) {
-        var stateEl = document.getElementById(headEl.id.replace(/-head$/, '-state'));
+        var groupId = headEl.id.replace(/-head$/, '');
+        var contentEl = document.getElementById(groupId);
+        if (contentEl) {
+            return getComputedStyle(contentEl).display !== 'none';
+        }
+        // Fallback if content div is missing (shouldn't happen in practice).
+        var stateEl = document.getElementById(groupId + '-state');
         if (stateEl) return String(stateEl.value) === '1';
         return headEl.classList.contains('open');
+    }
+
+    // Set a single section's open state directly via DOM, mirroring what
+    // Magento's Fieldset.applyCollapse() does:
+    //   - toggle .open on the head <a>
+    //   - toggle .active on the closest .section-config wrapper
+    //   - show/hide the content <div>
+    //   - keep the <group>-state hidden input in sync (creates one if
+    //     missing, to be a good citizen if Magento's code reads it later)
+    // Direct DOM manipulation avoids the state-machine drift inside
+    // Fieldset.toggleCollapse — which would happily "open" a section that
+    // was already visually open and produce no visible change.
+    function setHeadOpen(headEl, wantOpen) {
+        var groupId = headEl.id.replace(/-head$/, '');
+        var contentEl = document.getElementById(groupId);
+        var stateEl = document.getElementById(groupId + '-state');
+        var section = headEl.closest ? headEl.closest('.section-config') : null;
+
+        if (wantOpen) {
+            headEl.classList.add('open');
+            headEl.collapsed = 0;
+            if (section) section.classList.add('active');
+            if (contentEl) contentEl.style.display = '';
+        } else {
+            headEl.classList.remove('open');
+            headEl.collapsed = 1;
+            if (section) section.classList.remove('active');
+            if (contentEl) contentEl.style.display = 'none';
+        }
+        if (stateEl) {
+            stateEl.value = wantOpen ? '1' : '0';
+        }
     }
 
     function updateLabel() {
@@ -3114,9 +3160,6 @@ document.addEventListener('DOMContentLoaded', function injectCmsPagesSearch() {
 
             btn.addEventListener('click', function (e) {
                 e.preventDefault();
-                if (typeof Fieldset === 'undefined' || !Fieldset.toggleCollapse) {
-                    return;
-                }
                 var headsNow = document.querySelectorAll(
                     '.entry-edit-head.collapseable > a[id$="-head"]');
                 var anyOpen = false;
@@ -3127,8 +3170,7 @@ document.addEventListener('DOMContentLoaded', function injectCmsPagesSearch() {
                 for (var j = 0; j < headsNow.length; j++) {
                     var headEl = headsNow[j];
                     if (isHeadOpen(headEl) !== wantOpen) {
-                        var groupId = headEl.id.replace(/-head$/, '');
-                        try { Fieldset.toggleCollapse(groupId); } catch (e2) {}
+                        try { setHeadOpen(headEl, wantOpen); } catch (e2) {}
                     }
                 }
                 updateLabel();
