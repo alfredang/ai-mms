@@ -17,6 +17,24 @@ class MMD_Reindex_Model_Cron
     }
 
     /**
+     * Cron entry point — flush all caches. Scheduled hourly as a safety net so
+     * prod never serves a stale config / block / full-page cache for long (the
+     * recurring "live != local" symptom). Cheap; only the first requests after
+     * each flush rebuild the cache.
+     */
+    public function flushCache($schedule = null)
+    {
+        try {
+            Mage::app()->cleanCache();
+            Mage::app()->getCacheInstance()->flush();
+            Mage::log('cache flushed (scheduled hourly)', null, self::LOG);
+        } catch (Exception $e) {
+            Mage::logException($e);
+        }
+        return true;
+    }
+
+    /**
      * @param string $source 'cron' | 'manual'
      * @return array<string,string> indexer_code => 'ok' | 'fail: <message>'
      */

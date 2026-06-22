@@ -59,10 +59,17 @@
                 <schedule><config_path>crontab/mmd_reindex/schedule</config_path></schedule>
                 <run><model>mmd_reindex/cron::reindexAll</model></run>
             </mmd_reindex_scheduled>
+            <mmd_reindex_cache_flush>
+                <schedule><config_path>crontab/mmd_reindex/cache_flush_schedule</config_path></schedule>
+                <run><model>mmd_reindex/cron::flushCache</model></run>
+            </mmd_reindex_cache_flush>
         </jobs>
     </crontab>
     <default>
-        <crontab><mmd_reindex><schedule>0 3 * * *</schedule></mmd_reindex></crontab>
+        <crontab><mmd_reindex>
+            <schedule>0 3 * * *</schedule>
+            <cache_flush_schedule>0 * * * *</cache_flush_schedule>
+        </mmd_reindex></crontab>
         <mmd_reindex>
             <api>
                 <token>5e9b1d7c3a4f86e20b9c7d1a4f8e6c3b</token>
