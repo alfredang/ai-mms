@@ -1,0 +1,45 @@
+<?xml version="1.0"?>
+<!--
+  MMD_Customised — Customised Application lead magnet. The customised-application.html
+  landing page posts to customised/index/post; the controller enforces the same
+  invisible spam shield as Contact Us (honeypot + Cloudflare Turnstile), stores
+  the application in mmd_customised_lead, and emails the customised mailbox. Admin grid:
+  Marketing -> Customised Application Leads (adminhtml/customisedlead).
+-->
+<config>
+    <modules><MMD_Customised><version>1.0.0</version></MMD_Customised></modules>
+    <global>
+        <helpers><mmd_customised><class>MMD_Customised_Helper</class></mmd_customised></helpers>
+        <models>
+            <mmd_customised>
+                <class>MMD_Customised_Model</class>
+                <resourceModel>mmd_customised_mysql4</resourceModel>
+            </mmd_customised>
+            <mmd_customised_mysql4>
+                <class>MMD_Customised_Model_Mysql4</class>
+                <entities><lead><table>mmd_customised_lead</table></lead></entities>
+            </mmd_customised_mysql4>
+        </models>
+        <resources>
+            <mmd_customised_write><connection><use>core_write</use></connection></mmd_customised_write>
+            <mmd_customised_read><connection><use>core_read</use></connection></mmd_customised_read>
+        </resources>
+        <blocks><mmd_customised><class>MMD_Customised_Block</class></mmd_customised></blocks>
+    </global>
+    <frontend>
+        <routers>
+            <mmd_customised>
+                <use>standard</use>
+                <args><module>MMD_Customised</module><frontName>customised</frontName></args>
+            </mmd_customised>
+        </routers>
+    </frontend>
+    <admin>
+        <routers><adminhtml><args><modules>
+            <mmd_customised before="Mage_Adminhtml">MMD_Customised_Adminhtml</mmd_customised>
+        </modules></args></adminhtml></routers>
+    </admin>
+    <default>
+        <mmd_customised><lead><recipient_email>angch@tertiaryinfotech.com</recipient_email></lead></mmd_customised>
+    </default>
+</config>
