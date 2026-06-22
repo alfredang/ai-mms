@@ -216,7 +216,7 @@ class MMD_CourseImage_Adminhtml_CoursecoverController extends Mage_Adminhtml_Con
             }
 
             // Funding schemes (WSQ/SkillsFuture/HRDF/etc.) only exist in SG and
-            // MY. For Ghana / Nigeria / Bhutan / India the same generated PNG
+            // MY. For Nigeria the same generated PNG
             // must render WITHOUT the "FUNDING AVAILABLE" header and chip row,
             // so we strip badges before handing them to the renderer when the
             // selected store isn't on a funding-eligible website. Also skip
@@ -259,7 +259,7 @@ class MMD_CourseImage_Adminhtml_CoursecoverController extends Mage_Adminhtml_Con
 
             // Persist the URL onto course_image_url at the SELECTED store's
             // scope so each country can hold its own cover (SG/MY render with
-            // funding chips, GH/NG/BT/IN render without). The attribute is
+            // funding chips, GH/NG/IN render without). The attribute is
             // Store View scoped (migration 126); the scope-0 value remains as
             // the fallback default for stores that haven't been bulk-regenerated
             // yet. If the request didn't include a store_id we fall back to
@@ -302,7 +302,7 @@ class MMD_CourseImage_Adminhtml_CoursecoverController extends Mage_Adminhtml_Con
             // source of truth as the cover image. Idempotent + diff-based.
             // Skip the sync entirely for non-funding-eligible websites — the
             // tag table is shared across stores, so we'd otherwise seed
-            // funding chips on GH/NG/BT/IN listings whose covers no longer
+            // funding chips on GH/NG/IN listings whose covers no longer
             // show them. (The renderer already produced a chip-less PNG.)
             if ($allowFunding) {
                 try {

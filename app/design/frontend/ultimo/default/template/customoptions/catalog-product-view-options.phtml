@@ -141,7 +141,7 @@ if (count($_options) || ((string)Mage::getConfig()->getModuleConfig('OrganicInte
             },
             getProductPriceByQty: function() {
                 var prQty = this.getProductQty();
-                // SG/Infotech: MMD_CustomOptions resets getFinalPrice to 0
+                // SG: MMD_CustomOptions resets getFinalPrice to 0
                 // server-side, which made percent options always compute $0
                 // off (= no discount). Fall back to catalog getPrice so
                 // funding percents (50%, 70%) translate to dollars correctly.

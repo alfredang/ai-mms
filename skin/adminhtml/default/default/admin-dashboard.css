@@ -1997,15 +1997,6 @@ if ($_cncActive) {
             'postal'   => array('label' => 'Postcode',      'ph' => '101241',        'required' => true),
             'room'     => array('label' => 'Room',          'ph' => 'Conference 2',  'required' => true),
         ),
-        'BT' => array(
-            'block'    => array('label' => 'Building',      'ph' => 'Norzin Lam Building'),
-            'street'   => array('label' => 'Locality',      'ph' => 'Norzin Lam'),
-            'building' => array('label' => 'Dzongkhag',     'ph' => 'Thimphu'),
-            'floor'    => array('label' => 'Floor',         'ph' => '3rd Floor',     'required' => true),
-            'unit'     => array('label' => 'Unit',          'ph' => 'Suite 12',      'required' => true),
-            'postal'   => array('label' => 'Postal Code',   'ph' => '11001',         'required' => true),
-            'room'     => array('label' => 'Room',          'ph' => 'Training Hall', 'required' => true),
-        ),
         'IN' => array(
             'block'    => array('label' => 'Flat / House',  'ph' => '4B'),
             'street'   => array('label' => 'Building / Street','ph' => 'Hiranandani Gardens, Powai'),
@@ -2032,7 +2023,7 @@ if ($_cncActive) {
         // Available-courses dropdown — every named product on the
         // admin's country website. INNER JOIN catalog_product_website
         // scopes the list to the logged-in admin's market (SG / MY /
-        // GH / NG / BT / IN). LIMIT 5000 covers any market's full
+        // GH / NG / IN). LIMIT 5000 covers any market's full
         // catalog (largest is SG at ~1,300).
         $_cncCourses = $read->fetchAll(
             "SELECT e.entity_id, e.sku, v.value AS name

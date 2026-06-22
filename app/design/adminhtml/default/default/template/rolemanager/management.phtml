@@ -74,12 +74,12 @@ if ($attrFirstId && $attrLastId) {
 $storeRows = $read->fetchAll("SELECT store_id, code FROM " . $resource->getTableName('core/store'));
 $storeIdToCode = array();
 foreach ($storeRows as $sr) {
-    // Magento store codes here are like 'default','sg','my','gh','ng','bt','in'.
+    // Magento store codes here are like 'default','sg','my','gh','ng','in'.
     // Normalise to upper-case 2-letter country code. The default SG store is
     // commonly code='default' in this install.
     $c = strtoupper((string)$sr['code']);
     if ($c === 'DEFAULT' || $c === 'SG') $c = 'SG';
-    if (in_array($c, array('SG','MY','GH','NG','BT','IN'), true)) {
+    if (in_array($c, array('SG','MY','GH','NG','IN'), true)) {
         $storeIdToCode[(int)$sr['store_id']] = $c;
     }
 }
@@ -96,7 +96,7 @@ $learnerEditUrlBase = Mage::helper('adminhtml')->getUrl('adminhtml/customer/edit
  *   1. Country embedded anywhere in the email near "tertiarycourses.<cc>"
  *      — catches both proper TLD addresses and gmail/yahoo aliases that
  *      stuff the country code into the local part.
- *   2. Standard TLD ending (.com.my / .co.in / .bt / etc.)
+ *   2. Standard TLD ending (.com.my / .co.in / etc.)
  *   3. Default to SG. The LMS HQ is Singapore — operators without a
  *      country-explicit email are assumed to belong to the SG store
  *      rather than rendered as a dash.
@@ -110,7 +110,7 @@ function rm_inferStoreFromEmail($email) {
     //    The ".com" between brand and cc is optional; the ".<cc>" must be
     //    followed by either "@" or end-of-string so we don't match e.g.
     //    "ngugi@tertiaryinfotech.com" as NG.
-    $brandPattern = '/tertiarycourses(?:\.com)?\.(my|gh|ng|in|bt|sg)(?:@|$)/';
+    $brandPattern = '/tertiarycourses(?:\.com)?\.(my|gh|ng|in|sg)(?:@|$)/';
     if (preg_match($brandPattern, $email, $m)) {
         return strtoupper($m[1]);
     }
@@ -122,7 +122,6 @@ function rm_inferStoreFromEmail($email) {
         '.com.gh' => 'GH',
         '.com.ng' => 'NG',
         '.co.in'  => 'IN',
-        '.bt'     => 'BT',
     );
     foreach ($tldMap as $needle => $code) {
         if (substr($email, -strlen($needle)) === $needle) return $code;
@@ -137,7 +136,6 @@ $storeColors = array(
     'GH' => array('bg' => 'rgba(16,185,129,.12)', 'color' => '#10b981'),
     'NG' => array('bg' => 'rgba(34,197,94,.12)',  'color' => '#22c55e'),
     'IN' => array('bg' => 'rgba(168,85,247,.12)', 'color' => '#a855f7'),
-    'BT' => array('bg' => 'rgba(236,72,153,.12)', 'color' => '#ec4899'),
 );
 
 $totalUsers = count($rows);

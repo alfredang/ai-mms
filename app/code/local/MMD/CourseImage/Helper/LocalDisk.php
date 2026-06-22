@@ -9,7 +9,7 @@
  *
  * The returned URL is instance-relative: it uses the store's base_url so the
  * URL works whether the country domain is http://localhost:8082/ or
- * https://tertiarycourses.com.gh/. The country instance NEVER ends up with
+ * the country storefront. The country instance NEVER ends up with
  * an R2 or SG URL in course_image_url.
  */
 class MMD_CourseImage_Helper_LocalDisk extends Mage_Core_Helper_Abstract

@@ -72,15 +72,19 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Claude CLI — used by the admin "Generate SEO Meta with AI" button in the
-# Course Edit page (MMD_RoleManager CoursesaveController::aiSeoAction).
-# Authentication: docker-compose mounts the host's ~/.claude into /root/.claude
-# read-only so the existing host login is reused (no separate container auth).
-# Local-dev only for now; production rollout is a separate decision.
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs \
-    && npm install -g @anthropic-ai/claude-code \
-    && rm -rf /var/lib/apt/lists/*
+# Claude CLI — local-dev only fallback for the admin "Generate SEO Meta with AI"
+# button. Production uses the Anthropic API key path when configured, then falls
+# back to a deterministic stub; do not make production deploys depend on NodeSource
+# or npm availability.
+ARG INSTALL_CLAUDE_CLI=0
+RUN if [ "$INSTALL_CLAUDE_CLI" = "1" ]; then \
+        curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+        && apt-get install -y nodejs \
+        && npm install -g @anthropic-ai/claude-code \
+        && rm -rf /var/lib/apt/lists/*; \
+    else \
+        echo "Skipping local-only Claude CLI install"; \
+    fi
 
 # Set working directory
 WORKDIR /var/www/html

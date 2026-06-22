@@ -62,8 +62,8 @@
 
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 
-<?php /* SEO: per-store locale (en-SG/MY/GH/NG/BT/IN) — sends the country-specific language signal that matches the hreflang cluster in head.phtml. */ ?>
-<?php $_htmlLocale = [1=>'en-SG',2=>'en-MY',3=>'en-GH',4=>'en-NG',5=>'en-BT',6=>'en-IN',7=>'en-SG'][(int) Mage::app()->getStore()->getId()] ?? 'en'; ?>
+<?php /* SEO: per-store locale (en-SG/MY/GH/NG/IN) — sends the country-specific language signal that matches the hreflang cluster in head.phtml. */ ?>
+<?php $_htmlLocale = [1=>'en-SG',2=>'en-MY',3=>'en-GH',4=>'en-NG',6=>'en-IN',7=>'en-SG'][(int) Mage::app()->getStore()->getId()] ?? 'en'; ?>
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="<?php echo $_htmlLocale ?>" lang="<?php echo $_htmlLocale ?>">
 
 <head>
@@ -134,4 +134,3 @@
 </body>
 
 </html>
-

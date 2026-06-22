@@ -123,7 +123,7 @@ class MMD_Email_Model_Observer
      * which we've just set to our Gmail HTTPS sender.
      *
      * Scope: SG storefront + admin panel ONLY. Every other country store
-     * (MY/NG/GH/BT/IN) stays on Aschroder SMTPPro, which has its own
+     * (MY/NG/GH/IN) stays on Aschroder SMTPPro, which has its own
      * per-store SMTP credentials configured in core_config_data and
      * dispatches via an explicit transport (so even if Gmail were the
      * Zend_Mail default, SMTPPro's path would not pick it up — but we

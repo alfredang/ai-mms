@@ -1903,7 +1903,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             //      coherent brochure.
             //
             // Throws only when the course isn't on any supported
-            // country (e.g. Infotech-only or wholly-unassigned).
+            // active country.
             $supported   = array(1, 4);
             $productWids = $this->_courseWebsiteIds((int) $product->getId());
 
@@ -2231,7 +2231,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
         $certificateHtml = $cmsHtml('certification');
         if ($isSg) {
             $certificateHtml  = '<ul>';
-            $certificateHtml .= '<li><strong>Certificate of Completion from Tertiary Infotech</strong> - Upon meeting at least 75% attendance and passing the assessment(s), participants will receive a Certificate of Completion from Tertiary Infotech.</li>';
+            $certificateHtml .= '<li><strong>Certificate of Completion from Tertiary Courses</strong> - Upon meeting at least 75% attendance and passing the assessment(s), participants will receive a Certificate of Completion from Tertiary Courses.</li>';
             if ($isWsq) {
                 $certificateHtml .= '<li><strong>OpenCerts from SkillsFuture Singapore</strong> - After passing the assessment(s) and achieving at least 75% attendance, participants will receive an OpenCert (aka Statement of Achievement) from SkillsFuture Singapore, certifying that they have achieved the Competency Standard(s) in the above Skills Framework.</li>';
             }
@@ -2327,7 +2327,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             // brand for each storefront: Tertiary Courses Singapore /
             // Nigeria. Falls back
             // to the academy umbrella brand if the row is empty.
-            'store_name'         => (string) ($store['name'] ?: 'Tertiary Infotech Academy'),
+            'store_name'         => (string) ($store['name'] ?: 'Tertiary Courses'),
             'store_phone'        => (string) ($store['phone'] ?? ''),
             'store_email'        => $storeEmail,
             'store_address'      => (string) ($store['address'] ?? ''),
@@ -2446,9 +2446,8 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             // (multi-country admin workflow) don't repeat the lookup.
             // We list ALL subfolders of the parent in one query and
             // match by TRIMMED name in PHP — Drive's `name = '…'`
-            // operator is exact, but the country folders in this
-            // particular Drive have trailing whitespace ("Malaysia "
-            // etc.), so a literal match misses them.
+            // operator is exact, but some country folders in this
+            // Drive have trailing whitespace, so a literal match misses them.
             static $folderIdCache = null;
             if ($folderIdCache === null) {
                 $folderIdCache = array();
@@ -2565,7 +2564,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
      * Every website_id a course is assigned to. Used by the entry
      * gate to verify the admin's active country is one the course is
      * actually on (so you can't accidentally generate an MY brochure
-     * for an SG-only course while viewing as Malaysia). Sorted ASC
+     * for an SG-only course while viewing another country). Sorted ASC
      * for stable iteration.
      */
     protected function _courseWebsiteIds($productId)
@@ -2910,22 +2909,14 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
      */
     protected function _buildBrochureHeader(array $ctx)
     {
-        // Page-header band on continuation pages (page 2+). Always
-        // reads "TERTIARY INFOTECH ACADEMY" — the academy-level
-        // training-provider brand that pairs with the
-        // Infotech_Academy.png logo on page 1. Country-specific
-        // consumer brand (Tertiary Courses Singapore / Malaysia /
-        // Nigeria / …) still ships from the DB and shows up in the
-        // body's contact card + footer, but the header band stays
-        // academy-branded so the document reads as "an academy
-        // brochure for a {country} storefront" rather than swapping
-        // identity between pages.
+        // Page-header band on continuation pages (page 2+). Keep the
+        // consumer brand consistent with the storefront and sitemap.
         return '<table width="100%" cellpadding="0" cellspacing="0" '
              . 'style="border-bottom:0.5pt solid #2563eb;font-family:Helvetica,Arial,sans-serif;">'
              . '<tr>'
              .   '<td align="left" style="padding:0 0 2pt;'
              .     'font-size:9pt;color:#1e3a8a;letter-spacing:0.06em;'
-             .     'text-transform:uppercase;font-weight:700;vertical-align:bottom;">Tertiary Infotech Academy</td>'
+             .     'text-transform:uppercase;font-weight:700;vertical-align:bottom;">Tertiary Courses</td>'
              . '</tr>'
              . '</table>';
     }
@@ -2990,24 +2981,14 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
      */
     protected function _renderBrochurePdf($product, array &$context)
     {
-        // Brochure logo — uses the academy-level "Tertiary Infotech
-        // Academy" brand mark for SG (the parent company carrying the
-        // training accreditation). Other countries keep their own
-        // country-specific brand when the feature opens up to them.
-        // Falls back to the legacy logo.png if neither country-specific
-        // file nor the academy mark is present.
-        //
+        // Brochure logo.
         // Embed via base64 data: URI — mPDF's SetHTMLHeader() context
         // is sandboxed and won't reliably read filesystem paths even
         // for files in the same container. The data URI ships the
         // bytes inline so mPDF can decode them directly.
         $logoBase  = Mage::getBaseDir() . DS . 'skin' . DS . 'frontend'
                    . DS . 'ultimo' . DS . 'default' . DS . 'images' . DS;
-        // Academy brand is country-agnostic — "Tertiary Infotech
-        // Academy" is the training-provider entity, not the consumer
-        // storefront. Both SG and MY brochures use the same mark.
         $candidates = array(
-            $logoBase . 'Infotech_Academy.png',
             $logoBase . 'logo.png',
         );
         $context['logo_uri'] = '';
@@ -3297,8 +3278,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             // suffix and slugify to "meta_title_for_malaysia" etc.
             $rawLabel = preg_replace('/\s+for\s+singapore$/', '', $rawLabel);
             // Strip parens-wrapped country variants like "Meta Title (Default)"
-            // → "meta_title", and "Meta Description (Malaysia)" →
-            // "meta_description_for_malaysia" to share the same downstream
+            // -> "meta_title", and country-specific meta labels to share the same downstream
             // key shape regardless of which prompt produced the output.
             if (preg_match('/^(.*?)\s*\(([^)]+)\)\s*$/u', $rawLabel, $pm)) {
                 $base = trim($pm[1]);

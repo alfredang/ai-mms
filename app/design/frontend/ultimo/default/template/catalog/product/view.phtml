@@ -270,9 +270,8 @@
 	//
 	//   - Admin saved a localhost:8080/... link from local-dev and
 	//     pushed the CMS block content to prod. Without this override
-	//     the GH storefront would serve a localhost link to its
-	//     learners. The fresh build uses Ghana's MAGE_RUN_CODE host
-	//     instead.
+	//     a live storefront would serve a localhost link to its
+	//     learners. The fresh build uses the current store host instead.
 	//   - Cache-busting: every regenerate updates the file mtime, so
 	//     the `?v=<mtime>` ensures the new PDF is fetched even when
 	//     the browser / CDN cached an older version under the same
@@ -281,7 +280,7 @@
 	// Manual CMS-block overrides are only honoured when no file
 	// exists yet for this (SKU, store). Generated brochures own the
 	// link.
-	$_brochureCcMap = array(1 => 'SG', 2 => 'MY', 3 => 'GH', 4 => 'NG', 5 => 'BT', 6 => 'IN');
+	$_brochureCcMap = array(1 => 'SG', 4 => 'NG');
 	$_brochureStoreId = (int) Mage::app()->getStore()->getId();
 	if ($_courseSku !== '' && isset($_brochureCcMap[$_brochureStoreId])) {
 		$_brochureCc   = $_brochureCcMap[$_brochureStoreId];
@@ -352,7 +351,7 @@
 
 		$_isWsqCert = (stripos((string) $_product->getSku(), 'TGS-') === 0);
 		$_certificationHtml  = '<ul class="cert-bullets">';
-		$_certificationHtml .= '<li><strong>Certificate of Completion from Tertiary Infotech</strong> - Upon meeting at least 75% attendance and passing the assessment(s), participants will receive a Certificate of Completion from Tertiary Infotech.</li>';
+		$_certificationHtml .= '<li><strong>Certificate of Completion from Tertiary Courses</strong> - Upon meeting at least 75% attendance and passing the assessment(s), participants will receive a Certificate of Completion from Tertiary Courses.</li>';
 		if ($_isWsqCert) {
 			$_certificationHtml .= '<li><strong>OpenCerts from SkillsFuture Singapore</strong> - After passing the assessment(s) and achieving at least 75% attendance, participants will receive a OpenCert (aka Statement of Achievement) from SkillsFuture Singapore, certifying that they have achieved the Competency Standard(s) in the above Skills Framework.</li>';
 		}
@@ -370,7 +369,7 @@
 			$_certificationHtml .= $_pvMatch[0];
 		}
 	} else {
-		// Other stores (MY/GH/NG/BT/IN/Infotech): strip the heading variant
+		// Other active stores: strip the heading variant
 		// from short_description so it doesn't double-render, then resolve
 		// the cert body in priority order:
 		//   1. per-course cms/block `course_<sku>_certification`
@@ -387,10 +386,9 @@
 		unset($_certExtracted);
 	}
 
-	// (6) Funding and Grant — MY-side pattern. Per-course cms/block first,
-	// regex fallback for legacy content still in short_description.
-	// SG/GH/NG/BT/IN typically don't carry this section, so block + regex
-	// both return empty and no card renders.
+	// (6) Funding and Grant. Per-course cms/block first, regex fallback
+	// for legacy content still in short_description. Stores without this
+	// section return empty from both block and regex, so no card renders.
 	list($_fgExtracted, $shortDescription) = $_extractSection('Funding' . $_WS . '+(?:and|&amp;|&)' . $_WS . '+Grant', $shortDescription);
 	// Merged single block: funding_and_grant cms/block holds either WSQ
 	// narrative (SG WSQ) or HRD Corp content (MY) per course. When the WSQ
