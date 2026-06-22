@@ -1,0 +1,45 @@
+<?xml version="1.0"?>
+<!--
+  MMD_Hiring — Corporate Application lead magnet. The corporate-application.html
+  landing page posts to hiring/index/post; the controller enforces the same
+  invisible spam shield as Contact Us (honeypot + Cloudflare Turnstile), stores
+  the application in mmd_hiring_lead, and emails the corporate mailbox. Admin grid:
+  Marketing -> Corporate Application Leads (adminhtml/corporatelead).
+-->
+<config>
+    <modules><MMD_Hiring><version>1.0.0</version></MMD_Hiring></modules>
+    <global>
+        <helpers><mmd_hiring><class>MMD_Hiring_Helper</class></mmd_hiring></helpers>
+        <models>
+            <mmd_hiring>
+                <class>MMD_Hiring_Model</class>
+                <resourceModel>mmd_hiring_mysql4</resourceModel>
+            </mmd_hiring>
+            <mmd_hiring_mysql4>
+                <class>MMD_Hiring_Model_Mysql4</class>
+                <entities><lead><table>mmd_hiring_lead</table></lead></entities>
+            </mmd_hiring_mysql4>
+        </models>
+        <resources>
+            <mmd_hiring_write><connection><use>core_write</use></connection></mmd_hiring_write>
+            <mmd_hiring_read><connection><use>core_read</use></connection></mmd_hiring_read>
+        </resources>
+        <blocks><mmd_hiring><class>MMD_Hiring_Block</class></mmd_hiring></blocks>
+    </global>
+    <frontend>
+        <routers>
+            <mmd_hiring>
+                <use>standard</use>
+                <args><module>MMD_Hiring</module><frontName>corporate</frontName></args>
+            </mmd_hiring>
+        </routers>
+    </frontend>
+    <admin>
+        <routers><adminhtml><args><modules>
+            <mmd_hiring before="Mage_Adminhtml">MMD_Hiring_Adminhtml</mmd_hiring>
+        </modules></args></adminhtml></routers>
+    </admin>
+    <default>
+        <mmd_hiring><lead><recipient_email>angch@tertiaryinfotech.com</recipient_email></lead></mmd_hiring>
+    </default>
+</config>
