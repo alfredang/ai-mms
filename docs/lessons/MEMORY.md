@@ -58,6 +58,7 @@ Grouped by topic. Pointers only — full content lives in the linked files.
 ## Multi-country instances
 
 - [Country DB seed drift can break guest pricing and category menus per-country](feedback_country_seed_drift_menu_and_guest_pricing.md) — each country runs its own DB cloned from a seed; missing `customer_group_id=0` row and `include_in_menu=0` on nav categories silently break one country's storefront while looking like "nothing renders, no errors"
+- [Traefik gzip middleware can silently hang the HTTPS router only](feedback_traefik_gzip_middleware_https_hang.md) — gateway timeout on `https://` while `http://` works fine; the `gzip` compress middleware on the https router hangs with 0 bytes returned, even via pure loopback to Traefik; fix is disabling compression in Coolify, not an app/DB/network fix
 
 ## External references
 
