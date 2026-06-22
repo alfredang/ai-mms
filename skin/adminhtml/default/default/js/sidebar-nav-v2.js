@@ -2966,3 +2966,120 @@ document.addEventListener('DOMContentLoaded', function injectCmsPagesSearch() {
     });
     input.addEventListener('search', applyFilter);
 });
+
+// =========================================================================
+// System > Configuration : "Expand all / Collapse all" toggle.
+//
+// Every /tigerdragon/system_config/edit/section/<X>/ page renders its
+// groups as Magento accordion sections — <div class="entry-edit-head
+// collapseable"><a id="GROUP-head" onclick="Fieldset.toggleCollapse(
+// 'GROUP', '<state-url>'); return false;">Legend</a></div> + a content
+// <fieldset class="config collapseable" id="GROUP">.
+//
+// Pattern mirrors the Lesson editor's "Expand all topics" button
+// (template/dashboard/index.phtml around lsn-collapse-all): one button
+// next to the page chrome whose label flips based on whether any section
+// is currently open.
+//
+// Behaviour:
+//   - Any open  → click collapses every open section (label: "Collapse all")
+//   - All closed → click expands every section          (label: "Expand all")
+//
+// Implementation detail: we call Fieldset.toggleCollapse(groupId) WITHOUT
+// a saveThroughAjax url so the state isn't fanned out as N AJAX writes —
+// expand/collapse is a transient view operation, and saving per-section
+// state would also break the "all open / all closed" semantics on the
+// next page load.
+// =========================================================================
+onPageReady(function injectSystemConfigExpandAll() {
+    var body = document.body;
+    // Matches both "adminhtml-system_config-..." (underscore — actual)
+    // and "adminhtml-system-config-..." (hyphen — defensive).
+    if (!/adminhtml-system[_-]config-(edit|index)/.test(body.className)) return;
+
+    var heads = document.querySelectorAll('.entry-edit-head.collapseable > a[id$="-head"]');
+    if (heads.length < 2) return;  // nothing useful to toggle
+    if (document.getElementById('mmd-config-expand-all')) return;
+
+    // Inject the button into .content-header .form-buttons (the same cell
+    // that holds the Save Config button) so the two buttons sit on the
+    // same row. system/config/edit.phtml puts the Save Config button in
+    // <td class="form-buttons">; prepending here lands the Expand/Collapse
+    // button to the LEFT of Save Config — quiet cosmetic action first,
+    // primary submit action last, matching the rest of the admin.
+    var anchor = document.querySelector('.content-header .form-buttons')
+              || document.querySelector('.content-header');
+    if (!anchor) return;
+
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.id = 'mmd-config-expand-all';
+    btn.style.cssText = 'background:#334155;border:1px solid #475569;color:#cbd5e1;'
+        + 'font-size:12px;font-weight:600;padding:6px 12px;border-radius:6px;'
+        + 'cursor:pointer;display:inline-flex;align-items:center;gap:6px;'
+        + 'text-transform:none;letter-spacing:normal;line-height:normal;'
+        + 'margin-right:8px;vertical-align:middle;';
+    btn.innerHTML =
+        '<svg id="mmd-config-expand-all-icon" width="14" height="14" '
+            + 'viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+            + 'stroke-width="2" style="transition:transform .15s">'
+            + '<polyline points="6 9 12 15 18 9"/></svg>'
+        + '<span id="mmd-config-expand-all-lbl">Expand all</span>';
+
+    // Prepend so it sits to the left of Save Config inside the same cell.
+    anchor.insertBefore(btn, anchor.firstChild);
+
+    function isHeadOpen(headEl) {
+        var stateEl = document.getElementById(headEl.id.replace(/-head$/, '-state'));
+        if (stateEl) return String(stateEl.value) === '1';
+        return headEl.classList.contains('open');
+    }
+
+    function updateLabel() {
+        var headsNow = document.querySelectorAll(
+            '.entry-edit-head.collapseable > a[id$="-head"]');
+        var anyOpen = false;
+        for (var i = 0; i < headsNow.length; i++) {
+            if (isHeadOpen(headsNow[i])) { anyOpen = true; break; }
+        }
+        var lbl = document.getElementById('mmd-config-expand-all-lbl');
+        var icon = document.getElementById('mmd-config-expand-all-icon');
+        if (lbl)  lbl.textContent  = anyOpen ? 'Collapse all' : 'Expand all';
+        if (icon) icon.style.transform = anyOpen ? 'rotate(180deg)' : '';
+    }
+
+    btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        if (typeof Fieldset === 'undefined' || !Fieldset.toggleCollapse) {
+            return;  // Magento's tools.js hasn't loaded yet, very unlikely
+        }
+        var headsNow = document.querySelectorAll(
+            '.entry-edit-head.collapseable > a[id$="-head"]');
+        var anyOpen = false;
+        for (var i = 0; i < headsNow.length; i++) {
+            if (isHeadOpen(headsNow[i])) { anyOpen = true; break; }
+        }
+        var wantOpen = !anyOpen;  // any open → collapse; all closed → expand
+        for (var j = 0; j < headsNow.length; j++) {
+            var headEl = headsNow[j];
+            if (isHeadOpen(headEl) !== wantOpen) {
+                var groupId = headEl.id.replace(/-head$/, '');
+                try { Fieldset.toggleCollapse(groupId); } catch (e2) {}
+            }
+        }
+        updateLabel();
+    });
+
+    // Also flip the label when the user opens/closes an individual
+    // section via its own header click — keeps the toolbar accurate.
+    for (var k = 0; k < heads.length; k++) {
+        heads[k].addEventListener('click', function () {
+            // toggleCollapse fires synchronously on the head's onclick,
+            // so by the time our listener runs the state has already
+            // flipped. Defer one frame to be safe.
+            setTimeout(updateLabel, 0);
+        });
+    }
+
+    updateLabel();
+});
