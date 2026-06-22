@@ -19,7 +19,7 @@ class MMD_Reindex_Adminhtml_SchedulerController extends Mage_Adminhtml_Controlle
     {
         $session = Mage::getSingleton('adminhtml/session');
         try {
-            $res  = Mage::getModel('mmd_reindex/cron')->reindexAll();
+            $res  = Mage::getModel('mmd_reindex/cron')->run('manual');
             $fail = array_filter($res, function ($v) { return strpos($v, 'fail') === 0; });
             if (!empty($fail)) {
                 $session->addError($this->__('Reindex finished with %s error(s) of %s — see var/log/mmd_reindex.log.', count($fail), count($res)));

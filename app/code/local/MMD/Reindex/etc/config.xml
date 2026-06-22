@@ -13,7 +13,22 @@
     </modules>
     <global>
         <helpers><mmd_reindex><class>MMD_Reindex_Helper</class></mmd_reindex></helpers>
-        <models><mmd_reindex><class>MMD_Reindex_Model</class></mmd_reindex></models>
+        <models>
+            <mmd_reindex>
+                <class>MMD_Reindex_Model</class>
+                <resourceModel>mmd_reindex_mysql4</resourceModel>
+            </mmd_reindex>
+            <mmd_reindex_mysql4>
+                <class>MMD_Reindex_Model_Mysql4</class>
+                <entities>
+                    <log><table>mmd_reindex_log</table></log>
+                </entities>
+            </mmd_reindex_mysql4>
+        </models>
+        <resources>
+            <mmd_reindex_write><connection><use>core_write</use></connection></mmd_reindex_write>
+            <mmd_reindex_read><connection><use>core_read</use></connection></mmd_reindex_read>
+        </resources>
         <blocks><mmd_reindex><class>MMD_Reindex_Block</class></mmd_reindex></blocks>
     </global>
     <admin>

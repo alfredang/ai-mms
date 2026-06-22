@@ -11,6 +11,7 @@ $enabled = $this->getScheduleExpr() !== '';
     <div class="dcf-mag-bar">
         <span><?php echo $this->__('Reindex Scheduler') ?></span>
         <span class="mmd-auto-card-actions">
+            <a class="mm-btn" href="<?php echo $this->getUrl('adminhtml/reindexlog') ?>" style="margin-right:8px;"><?php echo $this->__('View Logs') ?></a>
             <form action="<?php echo $this->getRunUrl() ?>" method="post" style="display:inline;margin:0;"
                   onsubmit="return confirm('<?php echo $this->__('Run a full reindex now? This can take up to a minute.') ?>');">
                 <input type="hidden" name="form_key" value="<?php echo $this->getFormKey() ?>" />
