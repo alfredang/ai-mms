@@ -434,8 +434,12 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
         }
         $durationText = $durationDays . ' day' . ($durationDays === 1 ? '' : 's');
 
-        // Per Tertiary Infotech standard format — no emojis, official tone,
-        // LMS-TMS portal link for E-Attendance.
+        // Per Tertiary Infotech standard format — no emojis, official tone.
+        // WSQ courses (TGS- prefix) get an extra LMS-TMS portal link for
+        // E-Attendance + course materials. Non-WSQ courses (C-prefix SG,
+        // M-prefix MY/NG/GH/BT/IN) omit that line — those don't live in
+        // LMS-TMS so the link would 404 for trainers.
+        $isWsq = (stripos((string) $r['course_sku'], 'TGS-') === 0);
         $formatted = "Dear " . $trainerName . "\n"
             . "This is a gentle reminder for your upcoming training below.\n"
             . "Course Title: " . $r['course_title'] . "\n"
@@ -445,8 +449,9 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
             . "End Date: " . $endDateFmt . "\n"
             . "Course Duration: " . $durationText . "\n"
             . "Mode of Training: " . $modeLabel . "\n"
-            . "To view E-Attendance and course-related materials, please log in below:\n"
-            . "https://lms-tms.tertiaryinfotech.com\n"
+            . ($isWsq
+                ? "To view E-Attendance and course-related materials, please log in below:\nhttps://lms-tms.tertiaryinfotech.com\n"
+                : "")
             . "Training Admin, Tertiary Infotech Academy";
 
         $classSource = !empty($r['_class_source']) ? (string) $r['_class_source'] : 'mms';
