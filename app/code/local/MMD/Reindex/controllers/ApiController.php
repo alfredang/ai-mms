@@ -47,4 +47,30 @@ class MMD_Reindex_ApiController extends Mage_Core_Controller_Front_Action
             $res->setHttpResponseCode(500)->setBody(json_encode(array('ok' => false, 'error' => $e->getMessage())));
         }
     }
+
+    /**
+     * Cache-only refresh (faster than a full reindex).
+     *   GET /reindex/api/flush?token=<token>
+     */
+    public function flushAction()
+    {
+        $res = $this->getResponse();
+        $res->setHeader('Content-Type', 'application/json', true);
+        $res->setHeader('Cache-Control', 'no-store', true);
+
+        $token    = (string) $this->getRequest()->getParam('token');
+        $expected = (string) Mage::getStoreConfig('mmd_reindex/api/token');
+        if ($expected === '' || !hash_equals($expected, $token)) {
+            $res->setHttpResponseCode(403)->setBody(json_encode(array('ok' => false, 'error' => 'forbidden')));
+            return;
+        }
+        try {
+            Mage::app()->cleanCache();
+            Mage::app()->getCacheInstance()->flush();
+            $res->setBody(json_encode(array('ok' => true, 'flushed' => true)));
+        } catch (Exception $e) {
+            Mage::logException($e);
+            $res->setHttpResponseCode(500)->setBody(json_encode(array('ok' => false, 'error' => $e->getMessage())));
+        }
+    }
 }
