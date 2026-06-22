@@ -95,35 +95,23 @@ class MMD_MagentoCaptcha_IndexController extends Mage_Core_Controller_Front_Acti
                 Mage::throwException($this->__('Spam check failed. Please refresh the page and try again.'));
             }
 
-            // Resolve recipient(s). contacts/email/recipient_email supports a
-            // comma/semicolon-separated list so country stores can deliver to
-            // multiple mailboxes.
-            $rawRecipients = (string) Mage::getStoreConfig(self::XML_PATH_EMAIL_RECIPIENT);
-            $recipients = array_values(array_filter(array_map(
-                'trim',
-                preg_split('/[,;]+/', $rawRecipients) ?: array()
-            )));
-            if (empty($recipients)) {
-                Mage::throwException($this->__('Unable to submit your request. Please, try again later'));
-            }
+            // Notify staff via the shared branded HTML template (To:
+            // Tertiary Courses Singapore <sales@tertiarycourses.com.sg>,
+            // CC angch@/tansc@) — same layout every MMD lead form uses.
+            $sent = Mage::helper('mmd_leadmail')->notify(
+                'Website Enquiry',
+                (string)($post['name'] ?? ''),
+                (string)($post['email'] ?? ''),
+                (string)($post['telephone'] ?? ''),
+                array(
+                    array('Company', (string)($post['company'] ?? '')),
+                    array('Courses Interested', (string)($post['courses'] ?? '')),
+                    array('Course Code', (string)($post['course_code'] ?? '')),
+                ),
+                (string)($post['comment'] ?? '')
+            );
 
-            // Send.
-            $postObject = new Varien_Object();
-            $postObject->setData($post);
-
-            $mailTemplate = Mage::getModel('core/email_template');
-            /** @var Mage_Core_Model_Email_Template $mailTemplate */
-            $mailTemplate->setDesignConfig(array('area' => 'frontend'))
-                ->setReplyTo($post['email'])
-                ->sendTransactional(
-                    Mage::getStoreConfig(self::XML_PATH_EMAIL_TEMPLATE),
-                    Mage::getStoreConfig(self::XML_PATH_EMAIL_SENDER),
-                    $recipients,
-                    null,
-                    array('data' => $postObject)
-                );
-
-            if (!$mailTemplate->getSentSuccess()) {
+            if (!$sent) {
                 Mage::throwException($this->__('Unable to submit your request. Please, try again later'));
             }
 

@@ -1,0 +1,59 @@
+<?php $ts=Mage::helper('magentocaptcha/turnstile'); $k=$ts->getSiteKey(); $u=Mage::getUrl('coursefeedback/index/post'); ?>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<style>
+.tcfb-w{max-width:780px;margin:34px auto 0;background:#fff;border:1px solid #e6e9ef;border-radius:16px;box-shadow:0 18px 50px rgba(15,23,42,.08);overflow:hidden}
+.tcfb-h{background:linear-gradient(135deg,#0f172a,#14304a);color:#fff;padding:26px 30px}.tcfb-h h3{color:#fff;margin:0 0 4px;font-size:24px}.tcfb-h p{color:#9fb3c8;margin:0;font-size:15px}
+.tcfb-b{padding:24px 30px 30px}
+.tcfb-sec{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#0d9488;margin:18px 0 12px;padding-bottom:6px;border-bottom:1px solid #eef2f7}
+.tcfb-row{display:flex;gap:16px;flex-wrap:wrap}.tcfb-f{flex:1 1 220px;margin-bottom:14px}.tcfb-f.full{flex-basis:100%}
+.tcfb-f label{display:block;font-weight:600;color:#0f172a;font-size:14px;margin-bottom:6px}.tcfb-f label .r{color:#f4511e}
+.tcfb-f input,.tcfb-f textarea{width:100%;box-sizing:border-box;padding:11px 13px;border:1px solid #d6dbe4;border-radius:9px;font-size:15px;background:#fbfcfe}
+.tcfb-f input:focus,.tcfb-f textarea:focus{outline:none;border-color:#14b8a6;box-shadow:0 0 0 3px rgba(20,184,166,.16);background:#fff}.tcfb-f textarea{min-height:100px;resize:vertical}
+.tcfb-q{margin:0 0 16px}.tcfb-q .ql{font-weight:600;color:#0f172a;font-size:14px;margin-bottom:8px}
+.tcfb-scale{display:flex;gap:8px;flex-wrap:wrap}
+.tcfb-scale label{cursor:pointer}.tcfb-scale input{position:absolute;opacity:0;width:0;height:0}
+.tcfb-scale span{display:inline-flex;align-items:center;justify-content:center;width:42px;height:42px;border:1px solid #d6dbe4;border-radius:10px;font-weight:700;color:#475569;background:#fbfcfe;transition:.12s}
+.tcfb-scale input:checked + span{background:#0d9488;border-color:#0d9488;color:#fff;box-shadow:0 4px 12px rgba(13,148,136,.3)}
+.tcfb-scale label:hover span{border-color:#14b8a6}
+.tcfb-e{color:#dc2626;font-size:14px;margin:0 0 14px;min-height:1px}
+.tcfb-s{display:inline-flex;align-items:center;gap:10px;background:#f4511e;color:#fff;border:0;border-radius:999px;padding:14px 30px;font-size:16px;font-weight:700;cursor:pointer}.tcfb-s:hover{background:#d63c0c}
+</style>
+<?php
+$scale = function($field) {
+    $h = '<div class="tcfb-scale">';
+    for ($i = 1; $i <= 5; $i++) { $h .= '<label><input type="radio" name="' . $field . '" value="' . $i . '"/><span>' . $i . '</span></label>'; }
+    return $h . '</div>';
+};
+?>
+<div class="tcfb-w" id="feedback-enquiry">
+  <div class="tcfb-h"><h3><?php echo $this->__('Course Feedback Form') ?></h3><p><?php echo $this->__('Your feedback helps us improve our courses and trainers. Thank you!') ?></p></div>
+  <div class="tcfb-b"><form action="<?php echo $u ?>" method="post" id="fbForm" name="fbForm">
+    <div class="tcfb-e" id="fb-error"></div>
+    <div class="tcfb-sec"><?php echo $this->__('Your Details') ?></div>
+    <div class="tcfb-row"><div class="tcfb-f"><label><?php echo $this->__('Course Title') ?></label><input type="text" name="course" maxlength="255"/></div>
+      <div class="tcfb-f"><label><?php echo $this->__('Course Code') ?></label><input type="text" name="course_code" maxlength="64"/></div></div>
+    <div class="tcfb-row"><div class="tcfb-f"><label><?php echo $this->__('Trainer') ?></label><input type="text" name="trainer" maxlength="255"/></div>
+      <div class="tcfb-f"><label><?php echo $this->__('Your Full Name') ?> <span class="r">*</span></label><input type="text" name="name" maxlength="255"/></div></div>
+    <div class="tcfb-row"><div class="tcfb-f"><label><?php echo $this->__('Email') ?> <span class="r">*</span></label><input type="email" name="email" maxlength="255"/></div>
+      <div class="tcfb-f"><label><?php echo $this->__('Phone / WhatsApp') ?></label><input type="text" name="telephone" maxlength="64"/></div></div>
+    <div class="tcfb-row"><div class="tcfb-f"><label><?php echo $this->__('Class Start Date') ?></label><input type="text" name="class_start_date" maxlength="64" placeholder="<?php echo $this->__('e.g. 12 May 2026') ?>"/></div>
+      <div class="tcfb-f"><label><?php echo $this->__('Class End Date') ?></label><input type="text" name="class_end_date" maxlength="64"/></div></div>
+    <div class="tcfb-sec"><?php echo $this->__('Course Evaluation') ?></div>
+    <div class="tcfb-q"><div class="ql"><?php echo $this->__('Overall, how would you rate the course meeting the learning objectives?') ?> <span class="r">*</span></div><?php echo $scale('rating_objectives') ?></div>
+    <div class="tcfb-q"><div class="ql"><?php echo $this->__("Overall, how would you rate the trainer's knowledge in this subject matter?") ?> <span class="r">*</span></div><?php echo $scale('rating_trainer') ?></div>
+    <div class="tcfb-q"><div class="ql"><?php echo $this->__('Overall, how would you rate the training environment?') ?> <span class="r">*</span></div><?php echo $scale('rating_environment') ?></div>
+    <div class="tcfb-f full"><label><?php echo $this->__('Additional comments (optional)') ?></label><textarea name="comment"></textarea></div>
+    <input type="text" name="hideit" value="" tabindex="-1" autocomplete="off" style="display:none !important;"/>
+    <input type="hidden" name="cf-turnstile-response" id="fb-tk" value=""/>
+    <?php if ($k): ?><div class="cf-turnstile" data-sitekey="<?php echo $this->htmlEscape($k) ?>" data-size="invisible" data-callback="onFbTs" data-error-callback="onFbTsE" data-expired-callback="onFbTsX"></div><?php endif; ?>
+    <button type="submit" id="fb-submit" class="tcfb-s"><?php echo $this->__('Submit Feedback') ?></button>
+  </form></div>
+</div>
+<script>(function(){var EN=<?php echo $k?'true':'false'; ?>,ps=false;
+function v(){var e="",f=document.forms["fbForm"];if(!f["name"].value)e+="Please enter your name<br/>";if(!/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,})+$/.test(f["email"].value))e+="Please enter a valid email<br/>";
+function chk(n){return f[n]&&Array.prototype.slice.call(f[n].length?f[n]:[f[n]]).some(function(x){return x.checked;});}
+if(!chk("rating_objectives")||!chk("rating_trainer")||!chk("rating_environment"))e+="Please answer all three rating questions<br/>";
+document.getElementById("fb-error").innerHTML=e;return e==="";}
+function s(){var b=document.getElementById("fb-submit");if(b)b.disabled=true;document.forms["fbForm"].submit();}
+window.onFbTs=function(t){var i=document.getElementById("fb-tk");if(i)i.value=t;if(ps){ps=false;s();}};window.onFbTsE=function(){ps=false;document.getElementById("fb-error").innerHTML="Spam check could not run. Please refresh and try again.";};window.onFbTsX=function(){var i=document.getElementById("fb-tk");if(i)i.value="";};
+document.addEventListener("DOMContentLoaded",function(){var f=document.getElementById("fbForm");if(!f)return;f.addEventListener("submit",function(e){e.preventDefault();if(!v())return;if(!EN||typeof window.turnstile==="undefined"){s();return;}var i=document.getElementById("fb-tk");if(i&&i.value){s();return;}ps=true;try{window.turnstile.execute();}catch(x){ps=false;s();}});});})();</script>

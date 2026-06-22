@@ -1,0 +1,45 @@
+<?xml version="1.0"?>
+<!--
+  MMD_Reschedule — Corporate Application lead magnet. The corporate-application.html
+  landing page posts to reschedule/index/post; the controller enforces the same
+  invisible spam shield as Contact Us (honeypot + Cloudflare Turnstile), stores
+  the application in mmd_reschedule_lead, and emails the corporate mailbox. Admin grid:
+  Marketing -> Corporate Application Leads (adminhtml/corporatelead).
+-->
+<config>
+    <modules><MMD_Reschedule><version>1.0.0</version></MMD_Reschedule></modules>
+    <global>
+        <helpers><mmd_reschedule><class>MMD_Reschedule_Helper</class></mmd_reschedule></helpers>
+        <models>
+            <mmd_reschedule>
+                <class>MMD_Reschedule_Model</class>
+                <resourceModel>mmd_reschedule_mysql4</resourceModel>
+            </mmd_reschedule>
+            <mmd_reschedule_mysql4>
+                <class>MMD_Reschedule_Model_Mysql4</class>
+                <entities><lead><table>mmd_reschedule_lead</table></lead></entities>
+            </mmd_reschedule_mysql4>
+        </models>
+        <resources>
+            <mmd_reschedule_write><connection><use>core_write</use></connection></mmd_reschedule_write>
+            <mmd_reschedule_read><connection><use>core_read</use></connection></mmd_reschedule_read>
+        </resources>
+        <blocks><mmd_reschedule><class>MMD_Reschedule_Block</class></mmd_reschedule></blocks>
+    </global>
+    <frontend>
+        <routers>
+            <mmd_reschedule>
+                <use>standard</use>
+                <args><module>MMD_Reschedule</module><frontName>reschedule</frontName></args>
+            </mmd_reschedule>
+        </routers>
+    </frontend>
+    <admin>
+        <routers><adminhtml><args><modules>
+            <mmd_reschedule before="Mage_Adminhtml">MMD_Reschedule_Adminhtml</mmd_reschedule>
+        </modules></args></adminhtml></routers>
+    </admin>
+    <default>
+        <mmd_reschedule><lead><recipient_email>sales@tertiarycourses.com.sg</recipient_email></lead></mmd_reschedule>
+    </default>
+</config>

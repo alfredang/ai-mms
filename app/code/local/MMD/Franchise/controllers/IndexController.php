@@ -83,34 +83,9 @@ class MMD_Franchise_IndexController extends Mage_Core_Controller_Front_Action
     /** Email the franchise mailbox, reusing the contacts transactional template. */
     protected function _notify(MMD_Franchise_Model_Lead $lead)
     {
-        try {
-            $recipients = Mage::helper('mmd_franchise')->getRecipients();
-            $comment = "FRANCHISE PARTNERSHIP ENQUIRY\n"
-                . "Country / Region: " . $lead->getCountry() . "\n"
-                . "Company: " . $lead->getCompany() . "\n"
-                . "Phone / WhatsApp: " . $lead->getTelephone() . "\n\n"
-                . $lead->getMessage();
-
-            $data = new Varien_Object(array(
-                'name'      => $lead->getName(),
-                'email'     => $lead->getEmail(),
-                'telephone' => $lead->getTelephone(),
-                'comment'   => $comment,
-            ));
-
-            Mage::getModel('core/email_template')
-                ->setDesignConfig(array('area' => 'frontend'))
-                ->setReplyTo($lead->getEmail())
-                ->sendTransactional(
-                    Mage::getStoreConfig('contacts/email/email_template'),
-                    Mage::getStoreConfig('contacts/email/sender_email_identity'),
-                    $recipients,
-                    null,
-                    array('data' => $data)
-                );
-        } catch (Exception $e) {
-            // A mail hiccup must not lose the already-stored lead.
-            Mage::logException($e);
-        }
+        Mage::helper('mmd_leadmail')->notify('Franchise Partnership Enquiry', $lead->getName(), $lead->getEmail(), $lead->getTelephone(), array(
+            array('Country / Region', $lead->getCountry()),
+            array('Company', $lead->getCompany()),
+        ), $lead->getMessage());
     }
 }

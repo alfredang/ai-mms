@@ -46,15 +46,11 @@ class MMD_Customised_IndexController extends Mage_Core_Controller_Front_Action
     }
     protected function _notify($post, $name, $email)
     {
-        try {
-            $comment = "CUSTOMISED TRAINING ENQUIRY\n"
-                . "Company: " . ($post['company'] ?? '') . "\nNo. of Participants: " . ($post['num_pax'] ?? '')
-                . "\nTraining Topic: " . ($post['training_topic'] ?? '') . "\nPreferred Dates: " . ($post['preferred_dates'] ?? '')
-                . "\nPhone: " . ($post['telephone'] ?? '') . "\n\n" . ($post['comment'] ?? '');
-            $data = new Varien_Object(array('name' => $name, 'email' => $email, 'telephone' => (string)($post['telephone'] ?? ''), 'comment' => $comment));
-            Mage::getModel('core/email_template')->setDesignConfig(array('area' => 'frontend'))->setReplyTo($email)
-                ->sendTransactional(Mage::getStoreConfig('contacts/email/email_template'), Mage::getStoreConfig('contacts/email/sender_email_identity'),
-                    Mage::helper('mmd_customised')->getRecipients(), null, array('data' => $data));
-        } catch (Exception $e) { Mage::logException($e); }
+        Mage::helper('mmd_leadmail')->notify('Customised Training Enquiry', $name, $email, (string)($post['telephone'] ?? ''), array(
+            array('Company', (string)($post['company'] ?? '')),
+            array('No. of Participants', (string)($post['num_pax'] ?? '')),
+            array('Training Topic', (string)($post['training_topic'] ?? '')),
+            array('Preferred Dates', (string)($post['preferred_dates'] ?? '')),
+        ), (string)($post['comment'] ?? ''));
     }
 }

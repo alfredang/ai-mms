@@ -1,0 +1,34 @@
+<?php $ts=Mage::helper('magentocaptcha/turnstile'); $k=$ts->getSiteKey(); $u=Mage::getUrl('reschedule/index/post'); ?>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<style>
+.tcs-w{max-width:760px;margin:34px auto 0;background:#fff;border:1px solid #e6e9ef;border-radius:16px;box-shadow:0 18px 50px rgba(15,23,42,.08);overflow:hidden}
+.tcs-h{background:linear-gradient(135deg,#0f172a,#14304a);color:#fff;padding:26px 30px}.tcs-h h3{color:#fff;margin:0 0 4px;font-size:24px}.tcs-h p{color:#9fb3c8;margin:0;font-size:15px}
+.tcs-b{padding:26px 30px 30px}.tcs-row{display:flex;gap:16px;flex-wrap:wrap}.tcs-f{flex:1 1 220px;margin-bottom:16px}.tcs-f.full{flex-basis:100%}
+.tcs-f label{display:block;font-weight:600;color:#0f172a;font-size:14px;margin-bottom:6px}.tcs-f label .r{color:#f4511e}
+.tcs-f input,.tcs-f textarea{width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid #d6dbe4;border-radius:9px;font-size:15px;background:#fbfcfe}
+.tcs-f input:focus,.tcs-f textarea:focus{outline:none;border-color:#14b8a6;box-shadow:0 0 0 3px rgba(20,184,166,.16);background:#fff}.tcs-f textarea{min-height:110px;resize:vertical}
+.tcs-e{color:#dc2626;font-size:14px;margin:0 0 14px;min-height:1px}
+.tcs-s{display:inline-flex;align-items:center;gap:10px;background:#f4511e;color:#fff;border:0;border-radius:999px;padding:14px 30px;font-size:16px;font-weight:700;cursor:pointer}.tcs-s:hover{background:#d63c0c}
+</style>
+<div class="tcs-w" id="reschedule-enquiry">
+  <div class="tcs-h"><h3><?php echo $this->__('Request a Class Reschedule') ?></h3><p><?php echo $this->__('Need to move to a different class date? Submit the form and our team will confirm your new date.') ?></p></div>
+  <div class="tcs-b"><form action="<?php echo $u ?>" method="post" id="reschedForm" name="reschedForm">
+    <div class="tcs-e" id="resched-error"></div>
+    <div class="tcs-row"><div class="tcs-f"><label><?php echo $this->__('Full Name') ?> <span class="r">*</span></label><input type="text" name="name" maxlength="255"/></div>
+      <div class="tcs-f"><label><?php echo $this->__('Email') ?> <span class="r">*</span></label><input type="email" name="email" maxlength="255"/></div></div>
+    <div class="tcs-row"><div class="tcs-f"><label><?php echo $this->__('Phone / WhatsApp') ?></label><input type="text" name="telephone" maxlength="64"/></div>
+      <div class="tcs-f"><label><?php echo $this->__('Course Title / Code') ?></label><input type="text" name="course" maxlength="255"/></div></div>
+    <div class="tcs-row"><div class="tcs-f"><label><?php echo $this->__('Current Class Date') ?></label><input type="text" name="current_date" maxlength="64" placeholder="<?php echo $this->__('e.g. 12 May 2026') ?>"/></div>
+      <div class="tcs-f"><label><?php echo $this->__('Preferred New Date') ?></label><input type="text" name="preferred_date" maxlength="64" placeholder="<?php echo $this->__('e.g. 9 Jun 2026') ?>"/></div></div>
+    <div class="tcs-f full"><label><?php echo $this->__('Reason for Reschedule') ?> <span class="r">*</span></label><textarea name="comment"></textarea></div>
+    <input type="text" name="hideit" value="" tabindex="-1" autocomplete="off" style="display:none !important;"/>
+    <input type="hidden" name="cf-turnstile-response" id="resched-tk" value=""/>
+    <?php if ($k): ?><div class="cf-turnstile" data-sitekey="<?php echo $this->htmlEscape($k) ?>" data-size="invisible" data-callback="onRsTs" data-error-callback="onRsTsE" data-expired-callback="onRsTsX"></div><?php endif; ?>
+    <button type="submit" id="resched-submit" class="tcs-s"><?php echo $this->__('Submit Request') ?></button>
+  </form></div>
+</div>
+<script>(function(){var EN=<?php echo $k?'true':'false'; ?>,ps=false;
+function v(){var e="",f=document.forms["reschedForm"];if(!f["name"].value)e+="Please enter your name<br/>";if(!/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,})+$/.test(f["email"].value))e+="Please enter a valid email<br/>";if(!f["comment"].value)e+="Please state your reason<br/>";document.getElementById("resched-error").innerHTML=e;return e==="";}
+function s(){var b=document.getElementById("resched-submit");if(b)b.disabled=true;document.forms["reschedForm"].submit();}
+window.onRsTs=function(t){var i=document.getElementById("resched-tk");if(i)i.value=t;if(ps){ps=false;s();}};window.onRsTsE=function(){ps=false;document.getElementById("resched-error").innerHTML="Spam check could not run. Please refresh and try again.";};window.onRsTsX=function(){var i=document.getElementById("resched-tk");if(i)i.value="";};
+document.addEventListener("DOMContentLoaded",function(){var f=document.getElementById("reschedForm");if(!f)return;f.addEventListener("submit",function(e){e.preventDefault();if(!v())return;if(!EN||typeof window.turnstile==="undefined"){s();return;}var i=document.getElementById("resched-tk");if(i&&i.value){s();return;}ps=true;try{window.turnstile.execute();}catch(x){ps=false;s();}});});})();</script>

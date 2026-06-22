@@ -1,26 +1,15 @@
 name: Deploy
 
+# SG (+ NG) deploys via Coolify's own git webhook (auto-deploy on push), so it
+# is intentionally NOT triggered here — that avoided a duplicate build per push.
+# GH and MY have no webhook, so they still deploy through the Coolify API below.
+
 on:
   push:
     branches:
       - main
 
 jobs:
-  deploy-sg:
-    name: Redeploy Singapore (SG)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Trigger SG Coolify redeploy
-        run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 \
-            -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
-            "http://76.13.180.29:8000/api/v1/deploy?uuid=jsw40o4ss4kkowgcc8wo8skg&force=true")
-          echo "Coolify SG response: $STATUS"
-          if [ "$STATUS" != "200" ] && [ "$STATUS" != "201" ]; then
-            echo "SG deploy trigger failed with HTTP $STATUS"
-            exit 1
-          fi
-
   deploy-gh:
     name: Redeploy Ghana (GH)
     runs-on: ubuntu-latest

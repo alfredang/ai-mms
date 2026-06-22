@@ -77,32 +77,12 @@ class MMD_Trainer_IndexController extends Mage_Core_Controller_Front_Action
 
     protected function _notify(MMD_Trainer_Model_Lead $lead)
     {
-        try {
-            $recipients = Mage::helper('mmd_trainer')->getRecipients();
-            $comment = "TRAINER APPLICATION\n"
-                . "Highest Qualification: " . $lead->getQualification() . "\n"
-                . "Area of Expertise: " . $lead->getExpertise() . "\n"
-                . "ACLP Certified: " . ($lead->getAclp() ?: '-') . "\n"
-                . "TAEPP Registered: " . ($lead->getTaepp() ?: '-') . "\n"
-                . "Years of Experience: " . $lead->getYearsExperience() . "\n"
-                . "Phone: " . $lead->getTelephone() . "\n\n"
-                . $lead->getMessage();
-            $data = new Varien_Object(array(
-                'name'      => $lead->getName(),
-                'email'     => $lead->getEmail(),
-                'telephone' => $lead->getTelephone(),
-                'comment'   => $comment,
-            ));
-            Mage::getModel('core/email_template')
-                ->setDesignConfig(array('area' => 'frontend'))
-                ->setReplyTo($lead->getEmail())
-                ->sendTransactional(
-                    Mage::getStoreConfig('contacts/email/email_template'),
-                    Mage::getStoreConfig('contacts/email/sender_email_identity'),
-                    $recipients, null, array('data' => $data)
-                );
-        } catch (Exception $e) {
-            Mage::logException($e);
-        }
+        Mage::helper('mmd_leadmail')->notify('Trainer Application', $lead->getName(), $lead->getEmail(), $lead->getTelephone(), array(
+            array('Highest Qualification', $lead->getQualification()),
+            array('Area of Expertise', $lead->getExpertise()),
+            array('ACLP Certified', $lead->getAclp()),
+            array('TAEPP Registered', $lead->getTaepp()),
+            array('Years of Experience', $lead->getYearsExperience()),
+        ), $lead->getMessage());
     }
 }

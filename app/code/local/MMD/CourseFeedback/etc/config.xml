@@ -1,0 +1,45 @@
+<?xml version="1.0"?>
+<!--
+  MMD_CourseFeedback — Corporate Application lead magnet. The corporate-application.html
+  landing page posts to coursefeedback/index/post; the controller enforces the same
+  invisible spam shield as Contact Us (honeypot + Cloudflare Turnstile), stores
+  the application in mmd_coursefeedback_lead, and emails the corporate mailbox. Admin grid:
+  Marketing -> Corporate Application Leads (adminhtml/corporatelead).
+-->
+<config>
+    <modules><MMD_CourseFeedback><version>1.0.0</version></MMD_CourseFeedback></modules>
+    <global>
+        <helpers><mmd_coursefeedback><class>MMD_CourseFeedback_Helper</class></mmd_coursefeedback></helpers>
+        <models>
+            <mmd_coursefeedback>
+                <class>MMD_CourseFeedback_Model</class>
+                <resourceModel>mmd_coursefeedback_mysql4</resourceModel>
+            </mmd_coursefeedback>
+            <mmd_coursefeedback_mysql4>
+                <class>MMD_CourseFeedback_Model_Mysql4</class>
+                <entities><lead><table>mmd_coursefeedback_lead</table></lead></entities>
+            </mmd_coursefeedback_mysql4>
+        </models>
+        <resources>
+            <mmd_coursefeedback_write><connection><use>core_write</use></connection></mmd_coursefeedback_write>
+            <mmd_coursefeedback_read><connection><use>core_read</use></connection></mmd_coursefeedback_read>
+        </resources>
+        <blocks><mmd_coursefeedback><class>MMD_CourseFeedback_Block</class></mmd_coursefeedback></blocks>
+    </global>
+    <frontend>
+        <routers>
+            <mmd_coursefeedback>
+                <use>standard</use>
+                <args><module>MMD_CourseFeedback</module><frontName>coursefeedback</frontName></args>
+            </mmd_coursefeedback>
+        </routers>
+    </frontend>
+    <admin>
+        <routers><adminhtml><args><modules>
+            <mmd_coursefeedback before="Mage_Adminhtml">MMD_CourseFeedback_Adminhtml</mmd_coursefeedback>
+        </modules></args></adminhtml></routers>
+    </admin>
+    <default>
+        <mmd_coursefeedback><lead><recipient_email>sales@tertiarycourses.com.sg</recipient_email></lead></mmd_coursefeedback>
+    </default>
+</config>

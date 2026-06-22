@@ -35,14 +35,11 @@ class MMD_Hiring_IndexController extends Mage_Core_Controller_Front_Action
     }
     protected function _notify($post, $name, $email)
     {
-        try {
-            $comment = "JOB APPLICATION\nPosition: " . ($post['position'] ?? '') . "\nYears of Experience: " . ($post['years_experience'] ?? '')
-                . "\nExpertise: " . ($post['expertise'] ?? '') . "\nLinkedIn / Resume: " . ($post['linkedin'] ?? '')
-                . "\nPhone: " . ($post['telephone'] ?? '') . "\n\n" . ($post['comment'] ?? '');
-            $data = new Varien_Object(array('name' => $name, 'email' => $email, 'telephone' => (string)($post['telephone'] ?? ''), 'comment' => $comment));
-            Mage::getModel('core/email_template')->setDesignConfig(array('area' => 'frontend'))->setReplyTo($email)
-                ->sendTransactional(Mage::getStoreConfig('contacts/email/email_template'), Mage::getStoreConfig('contacts/email/sender_email_identity'),
-                    Mage::helper('mmd_hiring')->getRecipients(), null, array('data' => $data));
-        } catch (Exception $e) { Mage::logException($e); }
+        Mage::helper('mmd_leadmail')->notify('Job Application', $name, $email, (string)($post['telephone'] ?? ''), array(
+            array('Position', (string)($post['position'] ?? '')),
+            array('Years of Experience', (string)($post['years_experience'] ?? '')),
+            array('Expertise', (string)($post['expertise'] ?? '')),
+            array('LinkedIn / Resume', (string)($post['linkedin'] ?? '')),
+        ), (string)($post['comment'] ?? ''));
     }
 }

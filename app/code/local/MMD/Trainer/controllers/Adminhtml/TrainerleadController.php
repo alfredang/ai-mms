@@ -3,12 +3,12 @@ class MMD_Trainer_Adminhtml_TrainerleadController extends Mage_Adminhtml_Control
 {
     protected function _isAllowed()
     {
-        return Mage::getSingleton('admin/session')->isAllowed('admin/mmd_marketing/trainer_leads');
+        return Mage::getSingleton('admin/session')->isAllowed('admin/system/trainer_leads');
     }
     public function indexAction()
     {
-        $this->loadLayout()->_setActiveMenu('mmd_marketing/trainer_leads')
-            ->_title($this->__('Marketing'))->_title($this->__('Trainer Application Leads'));
+        $this->loadLayout()->_setActiveMenu('system/trainer_leads')
+            ->_title($this->__('System'))->_title($this->__('Trainer Application Leads'));
         $this->_addContent($this->getLayout()->createBlock('mmd_trainer/adminhtml_trainerlead'));
         $this->renderLayout();
     }

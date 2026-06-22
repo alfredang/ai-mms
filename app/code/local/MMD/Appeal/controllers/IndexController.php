@@ -28,11 +28,9 @@ class MMD_Appeal_IndexController extends Mage_Core_Controller_Front_Action
     }
     protected function _notify($post, $name, $email)
     {
-        try {
-            $comment = "ASSESSMENT APPEAL\nCourse: " . ($post['course'] ?? '') . "\nAssessment Date: " . ($post['assessment_date'] ?? '') . "\nPhone: " . ($post['telephone'] ?? '') . "\n\n" . ($post['comment'] ?? '');
-            $data = new Varien_Object(array('name' => $name, 'email' => $email, 'telephone' => (string)($post['telephone'] ?? ''), 'comment' => $comment));
-            Mage::getModel('core/email_template')->setDesignConfig(array('area' => 'frontend'))->setReplyTo($email)
-                ->sendTransactional(Mage::getStoreConfig('contacts/email/email_template'), Mage::getStoreConfig('contacts/email/sender_email_identity'), Mage::helper('mmd_appeal')->getRecipients(), null, array('data' => $data));
-        } catch (Exception $e) { Mage::logException($e); }
+        Mage::helper('mmd_leadmail')->notify('Assessment Appeal', $name, $email, (string)($post['telephone'] ?? ''), array(
+            array('Course Title / Code', (string)($post['course'] ?? '')),
+            array('Assessment Date', (string)($post['assessment_date'] ?? '')),
+        ), (string)($post['comment'] ?? ''));
     }
 }

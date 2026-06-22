@@ -1,0 +1,45 @@
+<?xml version="1.0"?>
+<!--
+  MMD_Refund — Corporate Application lead magnet. The corporate-application.html
+  landing page posts to refund/index/post; the controller enforces the same
+  invisible spam shield as Contact Us (honeypot + Cloudflare Turnstile), stores
+  the application in mmd_refund_lead, and emails the corporate mailbox. Admin grid:
+  Marketing -> Corporate Application Leads (adminhtml/corporatelead).
+-->
+<config>
+    <modules><MMD_Refund><version>1.0.0</version></MMD_Refund></modules>
+    <global>
+        <helpers><mmd_refund><class>MMD_Refund_Helper</class></mmd_refund></helpers>
+        <models>
+            <mmd_refund>
+                <class>MMD_Refund_Model</class>
+                <resourceModel>mmd_refund_mysql4</resourceModel>
+            </mmd_refund>
+            <mmd_refund_mysql4>
+                <class>MMD_Refund_Model_Mysql4</class>
+                <entities><lead><table>mmd_refund_lead</table></lead></entities>
+            </mmd_refund_mysql4>
+        </models>
+        <resources>
+            <mmd_refund_write><connection><use>core_write</use></connection></mmd_refund_write>
+            <mmd_refund_read><connection><use>core_read</use></connection></mmd_refund_read>
+        </resources>
+        <blocks><mmd_refund><class>MMD_Refund_Block</class></mmd_refund></blocks>
+    </global>
+    <frontend>
+        <routers>
+            <mmd_refund>
+                <use>standard</use>
+                <args><module>MMD_Refund</module><frontName>refund</frontName></args>
+            </mmd_refund>
+        </routers>
+    </frontend>
+    <admin>
+        <routers><adminhtml><args><modules>
+            <mmd_refund before="Mage_Adminhtml">MMD_Refund_Adminhtml</mmd_refund>
+        </modules></args></adminhtml></routers>
+    </admin>
+    <default>
+        <mmd_refund><lead><recipient_email>sales@tertiarycourses.com.sg</recipient_email></lead></mmd_refund>
+    </default>
+</config>
