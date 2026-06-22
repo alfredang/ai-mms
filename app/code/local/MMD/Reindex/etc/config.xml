@@ -42,6 +42,17 @@
             </adminhtml>
         </routers>
     </admin>
+    <frontend>
+        <routers>
+            <mmd_reindex>
+                <use>standard</use>
+                <args>
+                    <module>MMD_Reindex</module>
+                    <frontName>reindex</frontName>
+                </args>
+            </mmd_reindex>
+        </routers>
+    </frontend>
     <crontab>
         <jobs>
             <mmd_reindex_scheduled>
@@ -52,5 +63,10 @@
     </crontab>
     <default>
         <crontab><mmd_reindex><schedule>0 3 * * *</schedule></mmd_reindex></crontab>
+        <mmd_reindex>
+            <api>
+                <token>5e9b1d7c3a4f86e20b9c7d1a4f8e6c3b</token>
+            </api>
+        </mmd_reindex>
     </default>
 </config>
