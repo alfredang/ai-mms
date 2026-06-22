@@ -1,0 +1,45 @@
+<?xml version="1.0"?>
+<!--
+  MMD_Corporate — Corporate Application lead magnet. The corporate-application.html
+  landing page posts to corporate/index/post; the controller enforces the same
+  invisible spam shield as Contact Us (honeypot + Cloudflare Turnstile), stores
+  the application in mmd_corporate_lead, and emails the corporate mailbox. Admin grid:
+  Marketing -> Corporate Application Leads (adminhtml/corporatelead).
+-->
+<config>
+    <modules><MMD_Corporate><version>1.0.0</version></MMD_Corporate></modules>
+    <global>
+        <helpers><mmd_corporate><class>MMD_Corporate_Helper</class></mmd_corporate></helpers>
+        <models>
+            <mmd_corporate>
+                <class>MMD_Corporate_Model</class>
+                <resourceModel>mmd_corporate_mysql4</resourceModel>
+            </mmd_corporate>
+            <mmd_corporate_mysql4>
+                <class>MMD_Corporate_Model_Mysql4</class>
+                <entities><lead><table>mmd_corporate_lead</table></lead></entities>
+            </mmd_corporate_mysql4>
+        </models>
+        <resources>
+            <mmd_corporate_write><connection><use>core_write</use></connection></mmd_corporate_write>
+            <mmd_corporate_read><connection><use>core_read</use></connection></mmd_corporate_read>
+        </resources>
+        <blocks><mmd_corporate><class>MMD_Corporate_Block</class></mmd_corporate></blocks>
+    </global>
+    <frontend>
+        <routers>
+            <mmd_corporate>
+                <use>standard</use>
+                <args><module>MMD_Corporate</module><frontName>corporate</frontName></args>
+            </mmd_corporate>
+        </routers>
+    </frontend>
+    <admin>
+        <routers><adminhtml><args><modules>
+            <mmd_corporate before="Mage_Adminhtml">MMD_Corporate_Adminhtml</mmd_corporate>
+        </modules></args></adminhtml></routers>
+    </admin>
+    <default>
+        <mmd_corporate><lead><recipient_email>angch@tertiaryinfotech.com</recipient_email></lead></mmd_corporate>
+    </default>
+</config>
