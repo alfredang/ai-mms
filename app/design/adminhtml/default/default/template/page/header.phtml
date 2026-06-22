@@ -172,7 +172,8 @@ $roleIcons = array(
     <?php endif; ?>
 
     <div class="header-right">
-        <?php if ($_auditTotal > 0): ?>
+        <?php /* Audit bell is a Super Admin (training_provider) tool only. */ ?>
+        <?php if ($_auditTotal > 0 && $activeRole === MMD_RoleManager_Helper_Data::ROLE_TRAINING_PROVIDER): ?>
         <div class="audit-bell-wrap" id="audit-bell">
             <button type="button"
                     class="audit-bell-btn audit-bell-<?php echo $_aSeverity ?>"
