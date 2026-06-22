@@ -2252,9 +2252,17 @@ document.observe('dom:loaded', function() {
         //    second after every PJAX swap or page render. The Configuration
         //    pages aren't grid-style listings, so they don't want this
         //    treatment regardless.
+        //  - Any -edit / -new / -view route. These are form pages, not grid
+        //    listings. They often contain embedded "Used by …" widgets that
+        //    carry class="grid" (Funding Tag edit, CMS page edit, etc.) and
+        //    those incidental grids tripped the auto-wrap, hiding the
+        //    header's action buttons (Save / Back / Delete / Reset). Edit
+        //    forms already get their .form-buttons row flexed by
+        //    fixHeaderButtons() — they don't need the card wrap.
         var bodyCls = document.body.className;
         if (bodyCls.indexOf('adminhtml-dashboard-') !== -1) return;
         if (/adminhtml-system[_-]config-(edit|index)/.test(bodyCls)) return;
+        if (/-(edit|new|view)(\s|$)/.test(bodyCls)) return;
 
         var container = document.querySelector('#page\\:main-container, #anchor-content');
         if (!container) return;
