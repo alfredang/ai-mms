@@ -3266,3 +3266,20 @@ document.addEventListener('DOMContentLoaded', function injectCmsPagesSearch() {
         } catch (e) {}
     }, 500);
 })();
+
+/* FOUC suppression: mark the document ready AFTER the initial grid-card / header
+   restructuring above has run, so CSS can keep the admin content hidden for that
+   brief window and avoid the title "jump". requestAnimationFrame defers past the
+   other DOMContentLoaded handlers (which are registered earlier, so they run
+   first). A CSS animation failsafe reveals regardless, so this can never blank
+   the admin. */
+(function () {
+    function markReady() { document.documentElement.classList.add('mmd-ui-ready'); }
+    function onReady() { (window.requestAnimationFrame || function (f) { setTimeout(f, 16); })(markReady); }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', onReady);
+    } else {
+        onReady();
+    }
+    document.addEventListener('instant-nav:after-swap', markReady);
+})();

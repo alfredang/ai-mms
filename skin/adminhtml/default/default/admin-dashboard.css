@@ -4070,3 +4070,12 @@ body.adminhtml-urlrewrite-index #urlrewriteGrid select[name="urlrewriteGrid_page
 body.adminhtml-urlrewrite-index select[name$="_page_limit"] option[value="200"] {
     display: none !important;
 }
+
+/* === FOUC suppression for the grid-card restructure (title "jump") ===
+   Hide the admin main content until sidebar-nav-v2.js has hoisted the header
+   into the card (it adds html.mmd-ui-ready next frame). The animation is a hard
+   failsafe: even if the JS never runs, content reveals after 0.5s. Instant-nav
+   swaps keep mmd-ui-ready set, so navigation is never hidden. */
+@keyframes mmd-ui-failsafe-reveal { to { visibility: visible; } }
+html:not(.mmd-ui-ready) body[class*="adminhtml-"] .admin-main .middle { visibility: hidden; }
+body[class*="adminhtml-"] .admin-main .middle { animation: mmd-ui-failsafe-reveal 0s linear 0.5s forwards; }
