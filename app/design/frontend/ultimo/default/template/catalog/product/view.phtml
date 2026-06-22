@@ -386,6 +386,18 @@
 		unset($_certExtracted);
 	}
 
+	// "Free Certificate Practice Exams" card: render ONLY for courses in the
+	// Cert Prep Training category tree (cat 182) â not other WSQ/non-WSQ courses.
+	// exams.tertiaryinfotech.com hosts the free practice exams + exam vouchers.
+	$_hasPracticeExams = false;
+	$_courseCatIds = $_product->getCategoryIds();
+	if (!empty($_courseCatIds)) {
+		$_certPrepRoot = Mage::getModel('catalog/category')->load(182);
+		if ($_certPrepRoot->getId()) {
+			$_hasPracticeExams = (bool) array_intersect($_courseCatIds, (array) $_certPrepRoot->getAllChildren(true));
+		}
+	}
+
 	// (6) Funding and Grant. Per-course cms/block first, regex fallback
 	// for legacy content still in short_description. Stores without this
 	// section return empty from both block and regex, so no card renders.
@@ -746,6 +758,21 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 								<h3 class="course-policy-card__title">Certification</h3>
 							</header>
 							<div class="course-policy-card__body std"><?php echo $_certificationHtml; ?></div>
+						</section>
+					<?php endif; ?>
+
+					<?php if ($_hasPracticeExams): ?>
+						<section class="course-policy-card course-policy-card--practice">
+							<header class="course-policy-card__header">
+								<span class="course-policy-card__icon" aria-hidden="true">
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+								</span>
+								<h3 class="course-policy-card__title">Free Certificate Practice Exams</h3>
+							</header>
+							<div class="course-policy-card__body std">
+								<p>Take Free Certificate Practice Exams at <a href="https://exams.tertiaryinfotech.com" target="_blank" rel="noopener">exams.tertiaryinfotech.com</a>.</p>
+								<p>You can also purchase Certificate exam vouchers at <a href="https://exams.tertiaryinfotech.com" target="_blank" rel="noopener">exams.tertiaryinfotech.com</a>.</p>
+							</div>
 						</section>
 					<?php endif; ?>
 
