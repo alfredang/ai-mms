@@ -1,0 +1,45 @@
+<?xml version="1.0"?>
+<!--
+  MMD_Appeal — Corporate Application lead magnet. The corporate-application.html
+  landing page posts to appeal/index/post; the controller enforces the same
+  invisible spam shield as Contact Us (honeypot + Cloudflare Turnstile), stores
+  the application in mmd_appeal_lead, and emails the corporate mailbox. Admin grid:
+  Marketing -> Corporate Application Leads (adminhtml/corporatelead).
+-->
+<config>
+    <modules><MMD_Appeal><version>1.0.0</version></MMD_Appeal></modules>
+    <global>
+        <helpers><mmd_appeal><class>MMD_Appeal_Helper</class></mmd_appeal></helpers>
+        <models>
+            <mmd_appeal>
+                <class>MMD_Appeal_Model</class>
+                <resourceModel>mmd_appeal_mysql4</resourceModel>
+            </mmd_appeal>
+            <mmd_appeal_mysql4>
+                <class>MMD_Appeal_Model_Mysql4</class>
+                <entities><lead><table>mmd_appeal_lead</table></lead></entities>
+            </mmd_appeal_mysql4>
+        </models>
+        <resources>
+            <mmd_appeal_write><connection><use>core_write</use></connection></mmd_appeal_write>
+            <mmd_appeal_read><connection><use>core_read</use></connection></mmd_appeal_read>
+        </resources>
+        <blocks><mmd_appeal><class>MMD_Appeal_Block</class></mmd_appeal></blocks>
+    </global>
+    <frontend>
+        <routers>
+            <mmd_appeal>
+                <use>standard</use>
+                <args><module>MMD_Appeal</module><frontName>corporate</frontName></args>
+            </mmd_appeal>
+        </routers>
+    </frontend>
+    <admin>
+        <routers><adminhtml><args><modules>
+            <mmd_appeal before="Mage_Adminhtml">MMD_Appeal_Adminhtml</mmd_appeal>
+        </modules></args></adminhtml></routers>
+    </admin>
+    <default>
+        <mmd_appeal><lead><recipient_email>sales@tertiarycourses.com.sg</recipient_email></lead></mmd_appeal>
+    </default>
+</config>

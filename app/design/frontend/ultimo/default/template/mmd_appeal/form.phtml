@@ -1,0 +1,33 @@
+<?php $ts=Mage::helper('magentocaptcha/turnstile'); $k=$ts->getSiteKey(); $u=Mage::getUrl('appeal/index/post'); ?>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<style>
+.tca-w{max-width:760px;margin:34px auto 0;background:#fff;border:1px solid #e6e9ef;border-radius:16px;box-shadow:0 18px 50px rgba(15,23,42,.08);overflow:hidden}
+.tca-h{background:linear-gradient(135deg,#0f172a,#14304a);color:#fff;padding:26px 30px}.tca-h h3{color:#fff;margin:0 0 4px;font-size:24px}.tca-h p{color:#9fb3c8;margin:0;font-size:15px}
+.tca-b{padding:26px 30px 30px}.tca-row{display:flex;gap:16px;flex-wrap:wrap}.tca-f{flex:1 1 220px;margin-bottom:16px}.tca-f.full{flex-basis:100%}
+.tca-f label{display:block;font-weight:600;color:#0f172a;font-size:14px;margin-bottom:6px}.tca-f label .r{color:#f4511e}
+.tca-f input,.tca-f textarea{width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid #d6dbe4;border-radius:9px;font-size:15px;background:#fbfcfe}
+.tca-f input:focus,.tca-f textarea:focus{outline:none;border-color:#14b8a6;box-shadow:0 0 0 3px rgba(20,184,166,.16);background:#fff}.tca-f textarea{min-height:120px;resize:vertical}
+.tca-e{color:#dc2626;font-size:14px;margin:0 0 14px;min-height:1px}
+.tca-s{display:inline-flex;align-items:center;gap:10px;background:#f4511e;color:#fff;border:0;border-radius:999px;padding:14px 30px;font-size:16px;font-weight:700;cursor:pointer}.tca-s:hover{background:#d63c0c}
+</style>
+<div class="tca-w" id="appeal-enquiry">
+  <div class="tca-h"><h3><?php echo $this->__('Submit an Assessment Appeal') ?></h3><p><?php echo $this->__('Complete the form below and our assessment team will review your appeal.') ?></p></div>
+  <div class="tca-b"><form action="<?php echo $u ?>" method="post" id="appealForm" name="appealForm">
+    <div class="tca-e" id="appeal-error"></div>
+    <div class="tca-row"><div class="tca-f"><label><?php echo $this->__('Full Name') ?> <span class="r">*</span></label><input type="text" name="name" maxlength="255"/></div>
+      <div class="tca-f"><label><?php echo $this->__('Email') ?> <span class="r">*</span></label><input type="email" name="email" maxlength="255"/></div></div>
+    <div class="tca-row"><div class="tca-f"><label><?php echo $this->__('Phone / WhatsApp') ?></label><input type="text" name="telephone" maxlength="64"/></div>
+      <div class="tca-f"><label><?php echo $this->__('Assessment Date') ?></label><input type="text" name="assessment_date" maxlength="64" placeholder="<?php echo $this->__('e.g. 12 May 2026') ?>"/></div></div>
+    <div class="tca-f full"><label><?php echo $this->__('Course Title / Code') ?></label><input type="text" name="course" maxlength="255"/></div>
+    <div class="tca-f full"><label><?php echo $this->__('Reason for Appeal') ?> <span class="r">*</span></label><textarea name="comment" placeholder="<?php echo $this->__('Explain the grounds for your assessment appeal.') ?>"></textarea></div>
+    <input type="text" name="hideit" value="" tabindex="-1" autocomplete="off" style="display:none !important;"/>
+    <input type="hidden" name="cf-turnstile-response" id="appeal-tk" value=""/>
+    <?php if ($k): ?><div class="cf-turnstile" data-sitekey="<?php echo $this->htmlEscape($k) ?>" data-size="invisible" data-callback="onApTs" data-error-callback="onApTsE" data-expired-callback="onApTsX"></div><?php endif; ?>
+    <button type="submit" id="appeal-submit" class="tca-s"><?php echo $this->__('Submit Appeal') ?></button>
+  </form></div>
+</div>
+<script>(function(){var EN=<?php echo $k?'true':'false'; ?>,ps=false;
+function v(){var e="",f=document.forms["appealForm"];if(!f["name"].value)e+="Please enter your name<br/>";if(!/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,})+$/.test(f["email"].value))e+="Please enter a valid email<br/>";if(!f["comment"].value)e+="Please state your reason for appeal<br/>";document.getElementById("appeal-error").innerHTML=e;return e==="";}
+function s(){var b=document.getElementById("appeal-submit");if(b)b.disabled=true;document.forms["appealForm"].submit();}
+window.onApTs=function(t){var i=document.getElementById("appeal-tk");if(i)i.value=t;if(ps){ps=false;s();}};window.onApTsE=function(){ps=false;document.getElementById("appeal-error").innerHTML="Spam check could not run. Please refresh and try again.";};window.onApTsX=function(){var i=document.getElementById("appeal-tk");if(i)i.value="";};
+document.addEventListener("DOMContentLoaded",function(){var f=document.getElementById("appealForm");if(!f)return;f.addEventListener("submit",function(e){e.preventDefault();if(!v())return;if(!EN||typeof window.turnstile==="undefined"){s();return;}var i=document.getElementById("appeal-tk");if(i&&i.value){s();return;}ps=true;try{window.turnstile.execute();}catch(x){ps=false;s();}});});})();</script>
