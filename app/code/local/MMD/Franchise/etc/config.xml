@@ -1,0 +1,87 @@
+<?xml version="1.0"?>
+<!--
+  MMD_Franchise — Regional Franchise Partnership lead magnet.
+
+  Frontend: the franchising-application.html landing page posts to
+  franchise/index/post. The controller enforces the same invisible spam
+  shield as the Contact Us form (honeypot `hideit` + Cloudflare Turnstile via
+  MMD_MagentoCaptcha), stores the enquiry in mmd_franchise_lead, and emails
+  the franchise mailbox (angch@tertiaryinfotech.com).
+
+  Admin: Marketing -> Franchisee Leads grid (adminhtml/franchiselead),
+  mirroring the enquiry Leads grid (MMD_Leads).
+-->
+<config>
+    <modules>
+        <MMD_Franchise>
+            <version>1.0.0</version>
+        </MMD_Franchise>
+    </modules>
+
+    <global>
+        <helpers>
+            <mmd_franchise>
+                <class>MMD_Franchise_Helper</class>
+            </mmd_franchise>
+        </helpers>
+        <models>
+            <mmd_franchise>
+                <class>MMD_Franchise_Model</class>
+                <resourceModel>mmd_franchise_mysql4</resourceModel>
+            </mmd_franchise>
+            <mmd_franchise_mysql4>
+                <class>MMD_Franchise_Model_Mysql4</class>
+                <entities>
+                    <lead>
+                        <table>mmd_franchise_lead</table>
+                    </lead>
+                </entities>
+            </mmd_franchise_mysql4>
+        </models>
+        <resources>
+            <mmd_franchise_write>
+                <connection><use>core_write</use></connection>
+            </mmd_franchise_write>
+            <mmd_franchise_read>
+                <connection><use>core_read</use></connection>
+            </mmd_franchise_read>
+        </resources>
+        <blocks>
+            <mmd_franchise>
+                <class>MMD_Franchise_Block</class>
+            </mmd_franchise>
+        </blocks>
+    </global>
+
+    <frontend>
+        <routers>
+            <mmd_franchise>
+                <use>standard</use>
+                <args>
+                    <module>MMD_Franchise</module>
+                    <frontName>franchise</frontName>
+                </args>
+            </mmd_franchise>
+        </routers>
+    </frontend>
+
+    <admin>
+        <routers>
+            <adminhtml>
+                <args>
+                    <modules>
+                        <mmd_franchise before="Mage_Adminhtml">MMD_Franchise_Adminhtml</mmd_franchise>
+                    </modules>
+                </args>
+            </adminhtml>
+        </routers>
+    </admin>
+
+    <default>
+        <mmd_franchise>
+            <lead>
+                <recipient_email>angch@tertiaryinfotech.com</recipient_email>
+            </lead>
+        </mmd_franchise>
+    </default>
+</config>
