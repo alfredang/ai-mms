@@ -2241,9 +2241,20 @@ document.observe('dom:loaded', function() {
     // shipping their own .dcf-mag (Leads custom template) are detected
     // via .mmd-leads-wrap / .mmd-auto-card and skipped.
     function wrapMmdGridInCard() {
-        // Hard exclude: anything dashboard-related (course edit + the
-        // global admin dashboard, both of which have their own chrome).
-        if (document.body.className.indexOf('adminhtml-dashboard-') !== -1) return;
+        // Hard exclude:
+        //  - Dashboard (course edit + global admin dashboard have own chrome).
+        //  - System > Configuration (system_config/edit/section/X/). Some
+        //    config sections render fields inside a table that happens to
+        //    carry class="grid" (Magento's allowed-countries multiselect,
+        //    image-upload renderer, etc.). Without this exclusion the
+        //    grid-wrap path fires, hides the .content-header — and with it
+        //    the Save Config button + our Expand all toggle — for a split
+        //    second after every PJAX swap or page render. The Configuration
+        //    pages aren't grid-style listings, so they don't want this
+        //    treatment regardless.
+        var bodyCls = document.body.className;
+        if (bodyCls.indexOf('adminhtml-dashboard-') !== -1) return;
+        if (/adminhtml-system[_-]config-(edit|index)/.test(bodyCls)) return;
 
         var container = document.querySelector('#page\\:main-container, #anchor-content');
         if (!container) return;
@@ -3022,6 +3033,28 @@ document.addEventListener('DOMContentLoaded', function injectCmsPagesSearch() {
         if (icon) icon.style.transform = anyOpen ? 'rotate(180deg)' : '';
     }
 
+    // Pick the VISIBLE .content-header on the page, skipping the legacy
+    // .content-header-floating preview wrapper that boxes.css:659 ships
+    // with the admin theme. The floating header is position:fixed,
+    // display:none, lives OUTSIDE #anchor-content, and contains its own
+    // nested <div class="content-header"> — so a plain
+    // document.querySelector('.content-header') matches it first in DOM
+    // order and routes the button into the hidden wrapper. Additionally,
+    // because it's outside #anchor-content it SURVIVES PJAX swaps, so
+    // any button we inject there persists across navigations and makes
+    // every future "is button present?" check answer yes.
+    function findRealContentHeader() {
+        var headers = document.querySelectorAll('.content-header');
+        for (var i = 0; i < headers.length; i++) {
+            var h = headers[i];
+            if (h.classList.contains('content-header-floating')) continue;
+            if (h.closest('.content-header-floating')) continue;
+            if (getComputedStyle(h).display === 'none') continue;
+            return h;
+        }
+        return null;
+    }
+
     function tryInject() {
         try {
             var body = document.body;
@@ -3029,9 +3062,22 @@ document.addEventListener('DOMContentLoaded', function injectCmsPagesSearch() {
                 log('skip: body class does not match', body.className);
                 return false;
             }
-            if (document.getElementById('mmd-config-expand-all')) {
-                log('skip: button already present');
-                return true;  // already injected — done
+            var hdr = findRealContentHeader();
+            if (!hdr) {
+                log('skip: no visible .content-header');
+                return false;
+            }
+            var existing = document.getElementById('mmd-config-expand-all');
+            if (existing && hdr.contains(existing)) {
+                log('skip: button already present inside visible header');
+                return true;
+            }
+            if (existing) {
+                // Button lives in another container (the floating header from
+                // a previous page, or a stale element). Remove it so we can
+                // re-inject into the visible header.
+                log('removing stray button from another container');
+                existing.parentNode.removeChild(existing);
             }
             var heads = document.querySelectorAll(
                 '.entry-edit-head.collapseable > a[id$="-head"]');
@@ -3039,19 +3085,11 @@ document.addEventListener('DOMContentLoaded', function injectCmsPagesSearch() {
                 log('skip: heads count =', heads.length);
                 return false;  // not ready yet (DOM still being populated)
             }
-            // Note: we used to skip when heads.length < 2 ("expand all is
-            // meaningless for one section") — but the user explicitly wants
-            // the button on EVERY Configuration page for consistency. On a
-            // single-section page, the button just toggles that one section
-            // (same effect as clicking its header).
-            // Anchor candidates, in priority order. .form-buttons is the
-            // cell holding Save Config; .content-buttons is its alias on
-            // some Magento adminhtml templates; fall back to .content-header
-            // itself if neither cell exists (the button just lands above
-            // the title bar — still visible).
-            var anchor = document.querySelector('.content-header .form-buttons')
-                      || document.querySelector('.content-header .content-buttons')
-                      || document.querySelector('.content-header');
+            // Anchor candidates SCOPED to the visible header, so we never
+            // route the button into the floating preview header.
+            var anchor = hdr.querySelector('.form-buttons')
+                      || hdr.querySelector('.content-buttons')
+                      || hdr;
             if (!anchor) {
                 log('skip: no anchor found');
                 return false;
@@ -3139,11 +3177,18 @@ document.addEventListener('DOMContentLoaded', function injectCmsPagesSearch() {
 
     onPageReady(injectWithRetries);
 
-    // Safety net: if anything ever removes the button while we're still on
-    // a system_config page (e.g. a downstream script wipes .content-header
-    // children), put it back. The observer is cheap — only watches the
-    // body for child-list mutations and only acts when we're on the right
-    // page and the button is missing.
+    // Helper: is the button correctly placed inside the visible
+    // .content-header? (Used by both safety nets to decide whether to
+    // bail or trigger a re-inject.)
+    function buttonIsCorrectlyPlaced() {
+        var existing = document.getElementById('mmd-config-expand-all');
+        if (!existing) return false;
+        var hdr = findRealContentHeader();
+        return !!(hdr && hdr.contains(existing));
+    }
+
+    // Safety net 1: MutationObserver — re-inject if anything ever removes
+    // the button (or strands it in the floating preview header).
     if (typeof MutationObserver !== 'undefined') {
         var observerStarted = false;
         function startObserver() {
@@ -3151,13 +3196,23 @@ document.addEventListener('DOMContentLoaded', function injectCmsPagesSearch() {
             observerStarted = true;
             var observer = new MutationObserver(function () {
                 if (!/adminhtml-system[_-]config-(edit|index)/.test(document.body.className)) return;
-                if (document.getElementById('mmd-config-expand-all')) return;
+                if (buttonIsCorrectlyPlaced()) return;
                 if (!document.querySelector('.entry-edit-head.collapseable > a[id$="-head"]')) return;
                 tryInject();
             });
             observer.observe(document.body, { childList: true, subtree: true });
         }
-        // Start observer once body is available — onPageReady ensures DOM exists.
         onPageReady(startObserver);
     }
+
+    // Safety net 2: setInterval poll every 500ms — definitive last resort.
+    setInterval(function () {
+        try {
+            if (!/adminhtml-system[_-]config-(edit|index)/.test(document.body.className)) return;
+            if (buttonIsCorrectlyPlaced()) return;
+            if (!document.querySelector('.entry-edit-head.collapseable > a[id$="-head"]')) return;
+            log('safety-net interval tick: button missing or stranded, injecting');
+            tryInject();
+        } catch (e) {}
+    }, 500);
 })();
