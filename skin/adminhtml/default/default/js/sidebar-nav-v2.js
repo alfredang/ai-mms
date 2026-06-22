@@ -2994,8 +2994,14 @@ document.addEventListener('DOMContentLoaded', function injectCmsPagesSearch() {
 // Wrap in an IIFE so we can safely set up a MutationObserver that
 // survives PJAX swaps (the observer itself lives in the closure scope).
 (function () {
-    var DEBUG = false;  // flip to true in DevTools to trace
-    function log() { if (DEBUG && window.console) console.log.apply(console, ['[mmd-config-expand-all]'].concat([].slice.call(arguments))); }
+    // Diagnostic logging — turn off by setting window.__mmdConfigQuiet = true
+    // in DevTools. Default ON so we can see what's happening when the
+    // button mysteriously disappears.
+    function log() {
+        if (window.__mmdConfigQuiet) return;
+        if (!window.console) return;
+        console.log.apply(console, ['[mmd-config-expand-all]'].concat([].slice.call(arguments)));
+    }
 
     function isHeadOpen(headEl) {
         var stateEl = document.getElementById(headEl.id.replace(/-head$/, '-state'));
@@ -3029,10 +3035,15 @@ document.addEventListener('DOMContentLoaded', function injectCmsPagesSearch() {
             }
             var heads = document.querySelectorAll(
                 '.entry-edit-head.collapseable > a[id$="-head"]');
-            if (heads.length < 2) {
+            if (heads.length < 1) {
                 log('skip: heads count =', heads.length);
-                return false;  // not ready yet (or no sections on this page)
+                return false;  // not ready yet (DOM still being populated)
             }
+            // Note: we used to skip when heads.length < 2 ("expand all is
+            // meaningless for one section") — but the user explicitly wants
+            // the button on EVERY Configuration page for consistency. On a
+            // single-section page, the button just toggles that one section
+            // (same effect as clicking its header).
             // Anchor candidates, in priority order. .form-buttons is the
             // cell holding Save Config; .content-buttons is its alias on
             // some Magento adminhtml templates; fall back to .content-header
@@ -3105,6 +3116,7 @@ document.addEventListener('DOMContentLoaded', function injectCmsPagesSearch() {
     // + script execution, but some pages do further DOM work in onload
     // handlers that run a frame later. Try a few times to cover everyone.
     function injectWithRetries() {
+        log('injectWithRetries fired, readyState=', document.readyState, 'class=', document.body.className);
         if (tryInject()) return;
         var delays = [50, 150, 400, 1000];
         var i = 0;
@@ -3112,10 +3124,18 @@ document.addEventListener('DOMContentLoaded', function injectCmsPagesSearch() {
             if (tryInject()) return;
             if (i < delays.length) {
                 setTimeout(next, delays[i++]);
+            } else {
+                log('gave up retrying');
             }
         }
         setTimeout(next, delays[i++]);
     }
+
+    // Listen for the PJAX event directly too — gives us a clean log of
+    // every navigation regardless of what onPageReady() does.
+    document.addEventListener('instant-nav:after-swap', function (e) {
+        log('instant-nav:after-swap fired, url=', e && e.detail && e.detail.url);
+    });
 
     onPageReady(injectWithRetries);
 
