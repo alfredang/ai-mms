@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<!--
+  MMD_Reindex — scheduled catalog reindex + admin "Reindex Scheduler" page.
+
+  Cron job mmd_reindex_scheduled runs a full reindex (every index process) on a
+  configurable schedule (default daily 03:00, Asia/Singapore). Admins can view
+  the schedule, last-run result and per-index status, change the frequency, or
+  trigger an immediate reindex from System -> Reindex Scheduler.
+-->
+<config>
+    <modules>
+        <MMD_Reindex><version>1.0.0</version></MMD_Reindex>
+    </modules>
+    <global>
+        <helpers><mmd_reindex><class>MMD_Reindex_Helper</class></mmd_reindex></helpers>
+        <models><mmd_reindex><class>MMD_Reindex_Model</class></mmd_reindex></models>
+        <blocks><mmd_reindex><class>MMD_Reindex_Block</class></mmd_reindex></blocks>
+    </global>
+    <admin>
+        <routers>
+            <adminhtml>
+                <args>
+                    <modules>
+                        <mmd_reindex before="Mage_Adminhtml">MMD_Reindex_Adminhtml</mmd_reindex>
+                    </modules>
+                </args>
+            </adminhtml>
+        </routers>
+    </admin>
+    <crontab>
+        <jobs>
+            <mmd_reindex_scheduled>
+                <schedule><config_path>crontab/mmd_reindex/schedule</config_path></schedule>
+                <run><model>mmd_reindex/cron::reindexAll</model></run>
+            </mmd_reindex_scheduled>
+        </jobs>
+    </crontab>
+    <default>
+        <crontab><mmd_reindex><schedule>0 3 * * *</schedule></mmd_reindex></crontab>
+    </default>
+</config>

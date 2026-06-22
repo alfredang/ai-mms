@@ -1,0 +1,68 @@
+<?php
+/** @var MMD_Reindex_Block_Adminhtml_Scheduler $this */
+$statusMap = array(
+    'pending'         => array($this->__('Ready'),            'var(--green)'),
+    'working'         => array($this->__('Processing'),       'var(--blue)'),
+    'require_reindex' => array($this->__('Reindex required'), 'var(--yellow)'),
+);
+$enabled = $this->getScheduleExpr() !== '';
+?>
+<div class="dcf-mag mmd-auto-card">
+    <div class="dcf-mag-bar">
+        <span><?php echo $this->__('Reindex Scheduler') ?></span>
+        <span class="mmd-auto-card-actions">
+            <form action="<?php echo $this->getRunUrl() ?>" method="post" style="display:inline;margin:0;"
+                  onsubmit="return confirm('<?php echo $this->__('Run a full reindex now? This can take up to a minute.') ?>');">
+                <input type="hidden" name="form_key" value="<?php echo $this->getFormKey() ?>" />
+                <button type="submit" class="mm-btn-primary"><?php echo $this->__('Reindex Now') ?></button>
+            </form>
+        </span>
+    </div>
+    <div class="dcf-mag-body" style="padding:18px 22px;">
+
+        <h3 style="font:700 12px/1.4 inherit;color:var(--t4);text-transform:uppercase;letter-spacing:.6px;margin:0 0 10px;">
+            <?php echo $this->__('Schedule') ?>
+        </h3>
+        <form action="<?php echo $this->getSaveUrl() ?>" method="post" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 8px;">
+            <input type="hidden" name="form_key" value="<?php echo $this->getFormKey() ?>" />
+            <span style="color:var(--t4);font-size:12px;"><?php echo $this->__('Automatic full reindex runs') ?></span>
+            <select name="schedule" class="input-text" style="height:30px;width:auto;min-width:230px;">
+                <?php foreach ($this->getScheduleOptions() as $expr => $label): ?>
+                    <option value="<?php echo $this->escapeHtml($expr) ?>" <?php echo $expr === $this->getScheduleExpr() ? 'selected="selected"' : '' ?>>
+                        <?php echo $this->escapeHtml($label) ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+            <span style="color:var(--t5);font-size:11.5px;"><?php echo $this->__('server time, Asia/Singapore') ?></span>
+            <button type="submit" class="mm-btn"><?php echo $this->__('Save') ?></button>
+        </form>
+        <p style="margin:0 0 18px;color:var(--t5);font-size:11.5px;">
+            <?php echo $this->__('Currently') ?>:
+            <strong style="color:<?php echo $enabled ? 'var(--green)' : 'var(--t4)' ?>;"><?php echo $this->escapeHtml($this->getScheduleLabel()) ?></strong>
+            &nbsp;&middot;&nbsp; <?php echo $this->__('Last run') ?>: <strong style="color:var(--t2);"><?php echo $this->escapeHtml($this->getLastRunAt()) ?></strong>
+            <?php if ($this->getLastRunSeconds()): ?> (<?php echo $this->escapeHtml($this->getLastRunSeconds()) ?>s)<?php endif; ?>
+            &nbsp;&middot;&nbsp; <?php echo $this->__('Requires Magento cron to be running.') ?>
+        </p>
+
+        <h3 style="font:700 12px/1.4 inherit;color:var(--t4);text-transform:uppercase;letter-spacing:.6px;margin:0 0 8px;">
+            <?php echo $this->__('Index Status') ?>
+        </h3>
+        <table class="mm-table" style="width:100%;">
+            <thead><tr>
+                <th><?php echo $this->__('Index') ?></th>
+                <th class="center"><?php echo $this->__('Status') ?></th>
+                <th><?php echo $this->__('Last Reindexed') ?></th>
+            </tr></thead>
+            <tbody>
+            <?php foreach ($this->getProcesses() as $p): $s = $p->getStatus(); $m = isset($statusMap[$s]) ? $statusMap[$s] : array($s, 'var(--t4)'); ?>
+                <tr>
+                    <td class="strong"><?php echo $this->escapeHtml($p->getIndexer()->getName()) ?></td>
+                    <td class="center status" style="color:<?php echo $m[1] ?>;"><?php echo $this->escapeHtml($m[0]) ?></td>
+                    <td class="muted"><?php echo $p->getEndedAt() ? $this->formatDate($p->getEndedAt(), 'medium', true) : '&mdash;' ?></td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+
+    </div>
+</div>
