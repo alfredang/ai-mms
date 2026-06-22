@@ -2991,43 +2991,11 @@ document.addEventListener('DOMContentLoaded', function injectCmsPagesSearch() {
 // state would also break the "all open / all closed" semantics on the
 // next page load.
 // =========================================================================
-onPageReady(function injectSystemConfigExpandAll() {
-    var body = document.body;
-    // Matches both "adminhtml-system_config-..." (underscore — actual)
-    // and "adminhtml-system-config-..." (hyphen — defensive).
-    if (!/adminhtml-system[_-]config-(edit|index)/.test(body.className)) return;
-
-    var heads = document.querySelectorAll('.entry-edit-head.collapseable > a[id$="-head"]');
-    if (heads.length < 2) return;  // nothing useful to toggle
-    if (document.getElementById('mmd-config-expand-all')) return;
-
-    // Inject the button into .content-header .form-buttons (the same cell
-    // that holds the Save Config button) so the two buttons sit on the
-    // same row. system/config/edit.phtml puts the Save Config button in
-    // <td class="form-buttons">; prepending here lands the Expand/Collapse
-    // button to the LEFT of Save Config — quiet cosmetic action first,
-    // primary submit action last, matching the rest of the admin.
-    var anchor = document.querySelector('.content-header .form-buttons')
-              || document.querySelector('.content-header');
-    if (!anchor) return;
-
-    var btn = document.createElement('button');
-    btn.type = 'button';
-    btn.id = 'mmd-config-expand-all';
-    btn.style.cssText = 'background:#334155;border:1px solid #475569;color:#cbd5e1;'
-        + 'font-size:12px;font-weight:600;padding:6px 12px;border-radius:6px;'
-        + 'cursor:pointer;display:inline-flex;align-items:center;gap:6px;'
-        + 'text-transform:none;letter-spacing:normal;line-height:normal;'
-        + 'margin-right:8px;vertical-align:middle;';
-    btn.innerHTML =
-        '<svg id="mmd-config-expand-all-icon" width="14" height="14" '
-            + 'viewBox="0 0 24 24" fill="none" stroke="currentColor" '
-            + 'stroke-width="2" style="transition:transform .15s">'
-            + '<polyline points="6 9 12 15 18 9"/></svg>'
-        + '<span id="mmd-config-expand-all-lbl">Expand all</span>';
-
-    // Prepend so it sits to the left of Save Config inside the same cell.
-    anchor.insertBefore(btn, anchor.firstChild);
+// Wrap in an IIFE so we can safely set up a MutationObserver that
+// survives PJAX swaps (the observer itself lives in the closure scope).
+(function () {
+    var DEBUG = false;  // flip to true in DevTools to trace
+    function log() { if (DEBUG && window.console) console.log.apply(console, ['[mmd-config-expand-all]'].concat([].slice.call(arguments))); }
 
     function isHeadOpen(headEl) {
         var stateEl = document.getElementById(headEl.id.replace(/-head$/, '-state'));
@@ -3048,38 +3016,128 @@ onPageReady(function injectSystemConfigExpandAll() {
         if (icon) icon.style.transform = anyOpen ? 'rotate(180deg)' : '';
     }
 
-    btn.addEventListener('click', function (e) {
-        e.preventDefault();
-        if (typeof Fieldset === 'undefined' || !Fieldset.toggleCollapse) {
-            return;  // Magento's tools.js hasn't loaded yet, very unlikely
-        }
-        var headsNow = document.querySelectorAll(
-            '.entry-edit-head.collapseable > a[id$="-head"]');
-        var anyOpen = false;
-        for (var i = 0; i < headsNow.length; i++) {
-            if (isHeadOpen(headsNow[i])) { anyOpen = true; break; }
-        }
-        var wantOpen = !anyOpen;  // any open → collapse; all closed → expand
-        for (var j = 0; j < headsNow.length; j++) {
-            var headEl = headsNow[j];
-            if (isHeadOpen(headEl) !== wantOpen) {
-                var groupId = headEl.id.replace(/-head$/, '');
-                try { Fieldset.toggleCollapse(groupId); } catch (e2) {}
+    function tryInject() {
+        try {
+            var body = document.body;
+            if (!/adminhtml-system[_-]config-(edit|index)/.test(body.className)) {
+                log('skip: body class does not match', body.className);
+                return false;
             }
-        }
-        updateLabel();
-    });
+            if (document.getElementById('mmd-config-expand-all')) {
+                log('skip: button already present');
+                return true;  // already injected — done
+            }
+            var heads = document.querySelectorAll(
+                '.entry-edit-head.collapseable > a[id$="-head"]');
+            if (heads.length < 2) {
+                log('skip: heads count =', heads.length);
+                return false;  // not ready yet (or no sections on this page)
+            }
+            // Anchor candidates, in priority order. .form-buttons is the
+            // cell holding Save Config; .content-buttons is its alias on
+            // some Magento adminhtml templates; fall back to .content-header
+            // itself if neither cell exists (the button just lands above
+            // the title bar — still visible).
+            var anchor = document.querySelector('.content-header .form-buttons')
+                      || document.querySelector('.content-header .content-buttons')
+                      || document.querySelector('.content-header');
+            if (!anchor) {
+                log('skip: no anchor found');
+                return false;
+            }
 
-    // Also flip the label when the user opens/closes an individual
-    // section via its own header click — keeps the toolbar accurate.
-    for (var k = 0; k < heads.length; k++) {
-        heads[k].addEventListener('click', function () {
-            // toggleCollapse fires synchronously on the head's onclick,
-            // so by the time our listener runs the state has already
-            // flipped. Defer one frame to be safe.
-            setTimeout(updateLabel, 0);
-        });
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.id = 'mmd-config-expand-all';
+            btn.style.cssText = 'background:#334155;border:1px solid #475569;color:#cbd5e1;'
+                + 'font-size:12px;font-weight:600;padding:6px 12px;border-radius:6px;'
+                + 'cursor:pointer;display:inline-flex;align-items:center;gap:6px;'
+                + 'text-transform:none;letter-spacing:normal;line-height:normal;'
+                + 'margin-right:8px;vertical-align:middle;';
+            btn.innerHTML =
+                '<svg id="mmd-config-expand-all-icon" width="14" height="14" '
+                    + 'viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+                    + 'stroke-width="2" style="transition:transform .15s">'
+                    + '<polyline points="6 9 12 15 18 9"/></svg>'
+                + '<span id="mmd-config-expand-all-lbl">Expand all</span>';
+
+            anchor.insertBefore(btn, anchor.firstChild);
+
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                if (typeof Fieldset === 'undefined' || !Fieldset.toggleCollapse) {
+                    return;
+                }
+                var headsNow = document.querySelectorAll(
+                    '.entry-edit-head.collapseable > a[id$="-head"]');
+                var anyOpen = false;
+                for (var i = 0; i < headsNow.length; i++) {
+                    if (isHeadOpen(headsNow[i])) { anyOpen = true; break; }
+                }
+                var wantOpen = !anyOpen;
+                for (var j = 0; j < headsNow.length; j++) {
+                    var headEl = headsNow[j];
+                    if (isHeadOpen(headEl) !== wantOpen) {
+                        var groupId = headEl.id.replace(/-head$/, '');
+                        try { Fieldset.toggleCollapse(groupId); } catch (e2) {}
+                    }
+                }
+                updateLabel();
+            });
+
+            // Re-sync label when user clicks an individual section header.
+            for (var k = 0; k < heads.length; k++) {
+                heads[k].addEventListener('click', function () {
+                    setTimeout(updateLabel, 0);
+                });
+            }
+
+            updateLabel();
+            log('injected, heads=', heads.length, 'anchor=', anchor);
+            return true;
+        } catch (e) {
+            if (window.console) console.warn('[mmd-config-expand-all] inject failed', e);
+            return false;
+        }
     }
 
-    updateLabel();
-});
+    // Retry schedule — instant-nav:after-swap fires after innerHTML swap
+    // + script execution, but some pages do further DOM work in onload
+    // handlers that run a frame later. Try a few times to cover everyone.
+    function injectWithRetries() {
+        if (tryInject()) return;
+        var delays = [50, 150, 400, 1000];
+        var i = 0;
+        function next() {
+            if (tryInject()) return;
+            if (i < delays.length) {
+                setTimeout(next, delays[i++]);
+            }
+        }
+        setTimeout(next, delays[i++]);
+    }
+
+    onPageReady(injectWithRetries);
+
+    // Safety net: if anything ever removes the button while we're still on
+    // a system_config page (e.g. a downstream script wipes .content-header
+    // children), put it back. The observer is cheap — only watches the
+    // body for child-list mutations and only acts when we're on the right
+    // page and the button is missing.
+    if (typeof MutationObserver !== 'undefined') {
+        var observerStarted = false;
+        function startObserver() {
+            if (observerStarted) return;
+            observerStarted = true;
+            var observer = new MutationObserver(function () {
+                if (!/adminhtml-system[_-]config-(edit|index)/.test(document.body.className)) return;
+                if (document.getElementById('mmd-config-expand-all')) return;
+                if (!document.querySelector('.entry-edit-head.collapseable > a[id$="-head"]')) return;
+                tryInject();
+            });
+            observer.observe(document.body, { childList: true, subtree: true });
+        }
+        // Start observer once body is available — onPageReady ensures DOM exists.
+        onPageReady(startObserver);
+    }
+})();
