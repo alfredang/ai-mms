@@ -296,8 +296,19 @@ RewriteRule ^(.*)$ https://www.tertiarycourses.com.sg/$1 [L,R=301]
 
     RewriteBase /
 
+    ## This .htaccess is shared verbatim across the SG multi-store box AND every
+    ## standalone country-instance box (MY/GH/BT/IN) from the same git checkout.
+    ## PassEnv exposes MMS_MODE (set by docker/entrypoint.sh on country boxes) to
+    ## RewriteCond's %{ENV:} lookup so the blanket SG-redirect below is skipped on
+    ## a country box — otherwise its own domain bounces to SG before Magento ever
+    ## runs. Regression of the 2026-06-19 Ghana incident fix; reintroduced
+    ## 2026-06-23 when the NG-removal commit dropped this gate. Do not remove.
+    PassEnv MMS_MODE
+
     ## Non-SG public hosts redirect to Singapore so robots.txt, sitemap.xml,
-    ## and stale deep links cannot serve duplicate store pages.
+    ## and stale deep links cannot serve duplicate store pages. Skipped on a
+    ## country-instance box (it only ever serves its own domain anyway).
+    RewriteCond %{ENV:MMS_MODE} !^country$
     RewriteCond %{HTTP_HOST} !^(www\.)?tertiarycourses\.com\.sg$ [NC]
     RewriteCond %{HTTP_HOST} !^(localhost|127\.0\.0\.1)(:[0-9]+)?$ [NC]
     RewriteCond %{HTTP_HOST} !^$
