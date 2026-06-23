@@ -6,7 +6,7 @@ class MMD_CourseFeedback_Block_Adminhtml_Feedbacklead_Grid extends Mage_Adminhtm
     protected function _prepareColumns() {
         $h = Mage::helper('mmd_coursefeedback');
         $this->addColumn('lead_id', array('header'=>$h->__('ID'),'index'=>'lead_id','width'=>50));
-        $this->addColumn('created_at', array('header'=>$h->__('Received'),'index'=>'created_at','type'=>'datetime','width'=>140));
+        $this->addColumn('created_at', array('header'=>$h->__('Submission Date'),'index'=>'created_at','type'=>'datetime','width'=>140));
         $this->addColumn('name', array('header'=>$h->__('Name'),'index'=>'name'));
         $this->addColumn('email', array('header'=>$h->__('Email'),'index'=>'email'));
         $this->addColumn('course', array('header'=>$h->__('Course'),'index'=>'course'));

@@ -22,7 +22,7 @@ class MMD_Trainer_Block_Adminhtml_Trainerlead_Grid extends Mage_Adminhtml_Block_
         $h = Mage::helper('mmd_trainer');
         $yn = array('yes' => 'Yes', 'no' => 'No', '' => '-');
         $this->addColumn('lead_id', array('header' => $h->__('ID'), 'index' => 'lead_id', 'width' => 50));
-        $this->addColumn('created_at', array('header' => $h->__('Received'), 'index' => 'created_at', 'type' => 'datetime', 'width' => 150));
+        $this->addColumn('created_at', array('header' => $h->__('Submission Date'), 'index' => 'created_at', 'type' => 'datetime', 'width' => 150));
         $this->addColumn('name', array('header' => $h->__('Name'), 'index' => 'name'));
         $this->addColumn('email', array('header' => $h->__('Email'), 'index' => 'email'));
         $this->addColumn('telephone', array('header' => $h->__('Phone'), 'index' => 'telephone'));

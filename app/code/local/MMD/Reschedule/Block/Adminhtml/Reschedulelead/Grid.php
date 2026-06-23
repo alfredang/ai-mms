@@ -6,7 +6,7 @@ class MMD_Reschedule_Block_Adminhtml_Reschedulelead_Grid extends Mage_Adminhtml_
     protected function _prepareColumns() {
         $h = Mage::helper('mmd_reschedule');
         $this->addColumn('lead_id', array('header'=>$h->__('ID'),'index'=>'lead_id','width'=>50));
-        $this->addColumn('created_at', array('header'=>$h->__('Received'),'index'=>'created_at','type'=>'datetime','width'=>140));
+        $this->addColumn('created_at', array('header'=>$h->__('Submission Date'),'index'=>'created_at','type'=>'datetime','width'=>140));
         $this->addColumn('name', array('header'=>$h->__('Name'),'index'=>'name'));
         $this->addColumn('nric', array('header'=>$h->__('NRIC'),'index'=>'nric','width'=>90));
         $this->addColumn('email', array('header'=>$h->__('Email'),'index'=>'email'));
