@@ -292,7 +292,7 @@ Current `.dockerignore` excludes `media/` then re-includes the small theme dirs 
 
 ### Deployment
 
-- `.github/workflows/deploy.yml` triggers the Coolify API on push to `main` (force rebuild).
+- Every site (SG, NG, GH, MY) auto-deploys on push to `main` via its own Coolify instance's GitHub App git source — no GitHub Actions workflow involved. See `docs/country-instance-runbook.md` §3.4 for the GitHub App source setup (GH and MY were migrated off a GitHub-Actions-triggered Coolify API call on 2026-06-23; that workflow has been removed).
 - `Dockerfile` builds the image; `docker/entrypoint.sh` runs at container start:
   1. Clears Magento runtime cache (`var/cache`, `var/full_page_cache`, `var/tmp`, `var/locks`).
   2. Runs `migrations/apply.php` with retry/backoff while DB comes up.
