@@ -1,0 +1,59 @@
+<?xml version="1.0"?>
+<config>
+    <tabs>
+        <tertiary_infotech translate="label">
+            <label>Tertiary Infotech</label>
+            <sort_order>5</sort_order>
+        </tertiary_infotech>
+    </tabs>
+    <sections>
+        <mmd_leadmail translate="label">
+            <label>Lead Form Emails</label>
+            <tab>tertiary_infotech</tab>
+            <frontend_type>text</frontend_type>
+            <sort_order>10</sort_order>
+            <show_in_default>1</show_in_default>
+            <show_in_website>0</show_in_website>
+            <show_in_store>0</show_in_store>
+            <groups>
+                <notify translate="label comment">
+                    <label>Notification Recipients</label>
+                    <comment><![CDATA[These recipients receive every lead-form submission (Enquiry, Franchise, Trainer, Corporate, Customised, Hiring, Appeal, Refund, Class Reschedule, Course Feedback).<br/><br/><strong>The email body (with variables) is edited under System &rarr; Transactional Emails &rarr; "MMD Lead Notification".</strong> Available variables: <code>{{var lead_type}}</code>, <code>{{var name}}</code>, <code>{{var email}}</code>, <code>{{var telephone}}</code>, <code>{{var details_html}}</code>, <code>{{var message}}</code>.]]></comment>
+                    <frontend_type>text</frontend_type>
+                    <sort_order>10</sort_order>
+                    <show_in_default>1</show_in_default>
+                    <show_in_website>0</show_in_website>
+                    <show_in_store>0</show_in_store>
+                    <fields>
+                        <to_email translate="label comment">
+                            <label>Send To (primary recipients)</label>
+                            <comment>Comma-separated email addresses.</comment>
+                            <frontend_type>text</frontend_type>
+                            <sort_order>10</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                        </to_email>
+                        <to_name translate="label">
+                            <label>Send To display name</label>
+                            <frontend_type>text</frontend_type>
+                            <sort_order>20</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                        </to_name>
+                        <cc translate="label comment">
+                            <label>CC recipients</label>
+                            <comment>Comma-separated email addresses (optional).</comment>
+                            <frontend_type>text</frontend_type>
+                            <sort_order>30</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                        </cc>
+                    </fields>
+                </notify>
+            </groups>
+        </mmd_leadmail>
+    </sections>
+</config>

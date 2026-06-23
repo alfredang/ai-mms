@@ -6,6 +6,27 @@
             <mmd_leadmail><class>MMD_LeadMail_Helper</class></mmd_leadmail>
         </helpers>
     </global>
+    <adminhtml>
+        <acl>
+            <resources>
+                <admin>
+                    <children>
+                        <system>
+                            <children>
+                                <config>
+                                    <children>
+                                        <mmd_leadmail translate="title" module="mmd_leadmail">
+                                            <title>Lead Form Emails</title>
+                                        </mmd_leadmail>
+                                    </children>
+                                </config>
+                            </children>
+                        </system>
+                    </children>
+                </admin>
+            </resources>
+        </acl>
+    </adminhtml>
     <default>
         <mmd_leadmail>
             <notify>
