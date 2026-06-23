@@ -166,14 +166,50 @@ button.dash-detail-btn:hover{background:transparent !important;color:#e2e8f0 !im
 .dash-summary-head{padding:10px 14px;border-bottom:1px solid var(--b1,#384a60);font-size:12px;font-weight:600;color:#cbd5e1;text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:baseline;gap:8px}
 .dash-summary-sub{font-size:10px;color:#64748b;font-weight:500;text-transform:none;letter-spacing:0}
 .dash-summary-body{overflow-x:auto}
+/* Align to the canonical .admin-main .grid styling used by Transactions /
+   Invoices / Registrations / Search Terms / etc. so the dashboard's
+   Latest 20 Registrations table reads as the same component, not a
+   bespoke one. Same header weight (--t4 700 11px), same cell padding
+   (6px 10px), same --b1 hairline between rows (via tr + tr td) and
+   the same neutral --d5 hover. */
 .dash-summary-table{width:100%;border-collapse:collapse;font-size:12px}
-.dash-summary-table thead th{text-align:left;padding:6px 10px;color:#94a3b8;font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--b1,#384a60);background:transparent;white-space:nowrap}
-.dash-summary-table tbody td{padding:5px 10px;color:#e2e8f0;border-bottom:1px solid rgba(56,74,96,.4);vertical-align:middle;white-space:nowrap}
-.dash-summary-table tbody tr:last-child td{border-bottom:0}
-.dash-summary-table tbody tr:hover td{background:rgba(34,211,238,.04)}
-.dash-summary-table a{color:#22d3ee;text-decoration:none}
-.dash-summary-table a:hover{color:#67e8f9;text-decoration:underline}
-.dash-summary-table--compact tbody td{padding:4px 10px;line-height:1.4}
+.dash-summary-table thead th{
+    text-align:left;
+    background:transparent;
+    color:var(--t4,#94a3b8);
+    font-weight:700;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.6px;
+    line-height:1.4;
+    padding:6px 10px;
+    border-bottom:1px solid var(--b1,#384a60);
+    white-space:nowrap;
+}
+.dash-summary-table tbody tr{
+    height:44px;
+    transition:background .12s;
+}
+.dash-summary-table tbody tr + tr td{
+    border-top:1px solid var(--b1,#384a60);
+}
+.dash-summary-table tbody tr:hover td{
+    background:var(--d5,#243044);
+}
+.dash-summary-table tbody td{
+    padding:6px 10px;
+    font-size:12px;
+    line-height:1.5;
+    color:var(--t2,#e2e8f0);
+    vertical-align:middle;
+    white-space:nowrap;
+}
+.dash-summary-table a{color:var(--blue,#60a5fa);text-decoration:none}
+.dash-summary-table a:hover{color:var(--blue2,#67e8f9);text-decoration:underline}
+/* --compact variant is now a no-op — the canonical row height (44px) is
+   the right density for the dashboard table too. Keeping the selector so
+   existing markup keeps working. */
+.dash-summary-table--compact tbody td{}
 .dash-summary-trunc{max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dash-summary-empty{color:#64748b;text-align:center;padding:14px !important}
 a.dash-summary-icon{display:inline-flex;color:#64748b;padding:2px;border-radius:4px;transition:color .15s}
@@ -3178,7 +3214,9 @@ button.hsp-btn-submit{
 :root[data-theme="light"] .dash-summary-head { color:#0f172a !important; border-bottom-color:#e2e8f0 !important }
 :root[data-theme="light"] .dash-summary-sub { color:#64748b !important }
 :root[data-theme="light"] .dash-summary-table thead th { color:#64748b !important; border-bottom-color:#e2e8f0 !important }
-:root[data-theme="light"] .dash-summary-table tbody td { color:#1e293b !important; border-bottom-color:rgba(15,23,42,0.06) !important }
+:root[data-theme="light"] .dash-summary-table tbody td { color:#1e293b !important }
+:root[data-theme="light"] .dash-summary-table tbody tr + tr td { border-top-color:#e2e8f0 !important }
+:root[data-theme="light"] .dash-summary-table tbody tr:hover td { background:#f1f5f9 !important }
 :root[data-theme="light"] .dash-summary-empty { color:#64748b !important }
 
 /* Inline color overrides for cells with style="color:#cbd5e1" (Branch
