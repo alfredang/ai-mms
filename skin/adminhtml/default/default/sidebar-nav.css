@@ -867,16 +867,17 @@ body.sidebar-collapsed .admin-main {
 .admin-main .content-header td[style*="float"] {
     float: none !important;
 }
+/* Color / font-size / font-weight / line-height now come from the
+   unified global heading rule at the bottom of this file. Keep only
+   the properties this rule was uniquely contributing: zero out the
+   margin/padding so the .content-header wrapper handles spacing, wipe
+   the legacy boxes.css icon backgrounds, and let long titles ellipsis. */
 .admin-main .content-header h3,
 .admin-main .content-header h3.icon-head {
-    color: var(--t1) !important;
-    font-size: 28px !important;
-    font-weight: 700 !important;
     margin: 0 !important;
     padding: 0 !important;
     background: none !important;
     background-image: none !important;
-    line-height: 1.2 !important;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1259,11 +1260,11 @@ body table.data tr.selected td a {
     color: #64748b !important;
 }
 
-/* Page title — unified canonical size (no glow). 28px / 700.
-   See admin-dashboard.css → "Global page-title type ramp" for the
-   single source of truth that also normalises every MMD panel
-   `<h1 class="*-title">`. */
-.admin-main .content-header h3,
+/* Page title spans inside .content-header — the legacy boxes.css
+   ships .head-products / .head-sales-order / .head-customer as <span>
+   classes used as icon-headers. Headings are normalised by the unified
+   global heading rule at the bottom of this file; these span selectors
+   still need the title scale since they aren't h1/h2/h3 elements. */
 .admin-main .content-header .head-products,
 .admin-main .content-header .head-sales-order,
 .admin-main .content-header .head-customer {

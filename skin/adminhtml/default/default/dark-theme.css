@@ -386,16 +386,15 @@ body .header-top {
     padding: 0 !important;
 }
 .content-header h3, .content-header h3.icon-head {
+    /* color / font-size / font-weight / letter-spacing / text-transform
+       / margin now come from the unified global heading rule in
+       sidebar-nav.css. Keep only the legacy-boxes.css icon-background
+       wipe and the zero left-padding so this rule still earns its keep
+       outside of .admin-main (modals, side panels, etc.). */
     color: var(--t1) !important;
     background: none !important;
     background-image: none !important;
-    font-size: 18px !important;
-    font-weight: 700 !important;
-    letter-spacing: -0.1px !important;
-    text-transform: none !important;
     padding-left: 0 !important;
-    margin: 0 !important;
-    line-height: 1.2 !important;
 }
 /* Page container */
 #page\:main-container { padding: 16px 10px 16px 8px !important; }
@@ -3086,7 +3085,8 @@ ul.tabs-horiz li a.active {
     background-image: none !important;
     border-color: var(--b1) !important;
 }
-.dashboard .box-head h3 { color: var(--t1) !important; }
+/* `.dashboard .box-head h3` color rule removed — color now comes from the
+   unified global heading rule (also var(--t1)). */
 .dashboard .col2-set, .dashboard .col2-set .col-1, .dashboard .col2-set .col-2 { background: var(--d1) !important; }
 .dashboard .col-2 .box, .dashboard .col-2 .box .hor-scroll, .dashboard .col-2 .box .box-head, .dashboard .col-2 { background: var(--d3) !important; }
 .dashboard .box .totals, .dashboard .box .totals table,
@@ -3690,12 +3690,9 @@ body.adminhtml-permissions-user-new #edit_form hr {
     display: none !important;
 }
 
-/* Header row: title + button bar. Buttons get the "modal footer" treatment. */
-body.adminhtml-permissions-user-edit .content-header h3,
-body.adminhtml-permissions-user-new .content-header h3 {
-    font-size: 20px !important;
-    font-weight: 700 !important;
-}
+/* Header row: title + button bar. Buttons get the "modal footer" treatment.
+   (Per-page h3 size override removed — the unified global heading rule in
+   sidebar-nav.css now sets every h1/h2/h3 to 28px / 700 consistently.) */
 body.adminhtml-permissions-user-edit .content-header button.back,
 body.adminhtml-permissions-user-new .content-header button.back {
     background: transparent !important;
@@ -3865,13 +3862,8 @@ body[class*="adminhtml-system_config"] .content-header {
     margin: 0 0 4px !important;
 }
 body[class*="adminhtml-system_config"] .content-header > table { width: 100% !important; }
-body[class*="adminhtml-system_config"] .content-header h3 {
-    color: var(--t1) !important;
-    font: 700 18px/1.2 inherit !important;
-    text-transform: none !important;
-    letter-spacing: -0.1px !important;
-    margin: 0 !important;
-}
+/* Per-page h3 size override removed — unified by the global rule in
+   sidebar-nav.css ('.admin-main h1, h2, h3' → 28px / 700). */
 
 /* Section row — no card. Hairline between siblings. Kill ALL wrappers. */
 body[class*="adminhtml-system_config"] #config_edit_form .entry-edit,
@@ -4924,8 +4916,9 @@ body[class*="customoptions-options-edit"] [id*="group"][class*="box"] {
     color: var(--t2) !important;
 }
 
-/* Compact page header (Edit Template '...') */
-body[class*="customoptions-options-edit"] .content-header h3,
+/* Compact page header (Edit Template '...') — h3 now follows the global
+   28px rule; h4 keeps its compact 13px override here since it's used as
+   a sub-label on this page. */
 body[class*="customoptions-options-edit"] .content-header h4 {
     font-size: 18px !important;
     font-weight: 700 !important;
