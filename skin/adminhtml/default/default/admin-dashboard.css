@@ -206,10 +206,10 @@ button.dash-detail-btn:hover{background:transparent !important;color:#e2e8f0 !im
 }
 .dash-summary-table a{color:var(--blue,#60a5fa);text-decoration:none}
 .dash-summary-table a:hover{color:var(--blue2,#67e8f9);text-decoration:underline}
-/* --compact variant is now a no-op — the canonical row height (44px) is
-   the right density for the dashboard table too. Keeping the selector so
-   existing markup keeps working. */
-.dash-summary-table--compact tbody td{}
+/* '.dash-summary-table--compact' is now a no-op (canonical 44px row
+   height is the right density for the dashboard table too). Empty rule
+   removed — existing markup keeps working since CSS just ignores the
+   unmatched class name. */
 .dash-summary-trunc{max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dash-summary-empty{color:#64748b;text-align:center;padding:14px !important}
 a.dash-summary-icon{display:inline-flex;color:#64748b;padding:2px;border-radius:4px;transition:color .15s}

@@ -814,11 +814,13 @@ body.sidebar-collapsed .admin-main {
     gap: 12px !important;
 }
 .admin-main .content-header td {
+    /* border / background now inherited from the global .admin-main td
+       baseline. This rule keeps only the layout overrides that differ
+       from the baseline: zero padding so the header-table is tight, and
+       inline-flex + float:none so the title/buttons line up on one row. */
     display: inline-flex !important;
     align-items: center;
     padding: 0 !important;
-    border: none !important;
-    background: none !important;
     float: none !important;
 }
 .admin-main .content-header td:first-child {
@@ -991,25 +993,10 @@ body.sidebar-collapsed .admin-main {
     transition: none !important;
 }
 
-/* Data cells — transparent, compact, hairline only BETWEEN rows
-   (tr + tr), no per-cell border, no zebra, no glow. */
-.admin-main .grid td,
-.admin-main .grid tr td,
-.admin-main .grid tr.even td,
-.admin-main .grid tr.odd td,
-.admin-main .grid tbody tr td,
-.admin-main .grid tbody tr:nth-child(even) td,
-.admin-main .grid tbody tr:nth-child(odd) td {
-    padding: 6px 10px !important;
-    font-size: 12px !important;
-    border: none !important;
-    line-height: 1.5 !important;
-    vertical-align: middle !important;
-    color: var(--t2, #e2e8f0) !important;
-    background: transparent !important;
-    transition: none !important;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
-}
+/* Data cells — the global '.admin-main td' rule above already supplies the
+   transparent + compact + no-border baseline that this rule used to
+   re-assert. The grid-specific extras (hairline BETWEEN rows, hover bg,
+   etc.) live in their own dedicated rules below. */
 .admin-main .grid tbody tr + tr td {
     border-top: 1px solid var(--b1, #384a60) !important;
 }
@@ -1087,14 +1074,9 @@ body table.data tr.selected td a {
     box-shadow: none !important;
 }
 
-/* No zebra — single hairline (tr + tr) is the only row separation,
-   exactly like .mm-table. Kill the legacy alternating shades. */
-.admin-main .grid tbody tr:nth-child(even) td,
-.admin-main .grid tr[class*="even"] td,
-.admin-main .grid tr[class*="odd"] td {
-    background: transparent !important;
-    color: var(--t2, #e2e8f0) !important;
-}
+/* Zebra-stripe killer removed — the global '.admin-main td' rule above
+   already paints every td transparent + --t2, which is what the
+   alternating-row override used to assert. */
 
 /* Checkbox column hidden via JS (removeCheckboxColumn function) */
 
