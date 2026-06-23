@@ -1,8 +1,17 @@
 <?xml version="1.0"?>
+<!--
+  auditfix.css is loaded on every admin page via the <default> handle so
+  PJAX (instant-nav.js) swaps to the Audit Issues index always have the
+  stylesheet available in <head>. Previously it was scoped to
+  adminhtml_auditissues_index only; PJAX never updates <head>, so
+  navigating to that page from any other admin route rendered without
+  the audit-page styling until a full refresh re-ran the layout XML.
+  ~5KB on every page is a tiny price to avoid that class of bug.
+-->
 <layout>
-    <adminhtml_auditissues_index>
+    <default>
         <reference name="head">
             <action method="addCss"><name>auditfix.css</name></action>
         </reference>
-    </adminhtml_auditissues_index>
+    </default>
 </layout>
