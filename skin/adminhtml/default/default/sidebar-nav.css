@@ -980,8 +980,15 @@ body.sidebar-collapsed .admin-main {
    `.admin-main .grid …`) layer their extras on top: grid hairlines,
    hover, etc. Per-page rules that legitimately need a different td
    treatment (massaction toolbars, form-list layouts) just continue to
-   override via their own scoped selectors. */
-.admin-main td {
+   override via their own scoped selectors.
+
+   The `body` prefix bumps the selector to (0,1,2) so it equals the
+   legacy `.grid table td { border-width: 0 1px 1px 0 }` rule in
+   boxes.css line 143 and wins via source order (this file loads after
+   boxes.css). Without the prefix the selector resolves at (0,1,1) and
+   boxes.css's per-cell bottom+right borders leak through as a visible
+   grid pattern on every standard Magento admin grid. */
+body .admin-main td {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
     font-size: 12px !important;
     line-height: 1.5 !important;
