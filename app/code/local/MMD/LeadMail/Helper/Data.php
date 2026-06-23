@@ -15,7 +15,7 @@ class MMD_LeadMail_Helper_Data extends Mage_Core_Helper_Abstract
      * @param array  $rows      list of array($label, $value) extra fields
      * @param array  $extraTo   additional To: recipients beyond the configured one
      */
-    public function notify($leadType, $name, $email, $telephone, array $rows = array(), $message = '', array $extraTo = array())
+    public function notify($leadType, $name, $email, $telephone, array $rows = array(), $message = '', array $extraTo = array(), $ccOverride = null)
     {
         try {
             $details = '';
@@ -39,7 +39,9 @@ class MMD_LeadMail_Helper_Data extends Mage_Core_Helper_Abstract
 
             $toEmail = Mage::getStoreConfig('mmd_leadmail/notify/to_email');
             $toName  = Mage::getStoreConfig('mmd_leadmail/notify/to_name');
-            $cc      = array_filter(array_map('trim', explode(',', (string) Mage::getStoreConfig('mmd_leadmail/notify/cc'))));
+            $cc      = ($ccOverride !== null)
+                ? array_values(array_filter(array_map('trim', (array) $ccOverride)))
+                : array_filter(array_map('trim', explode(',', (string) Mage::getStoreConfig('mmd_leadmail/notify/cc'))));
             $sender  = Mage::getStoreConfig('contacts/email/sender_email_identity') ?: 'general';
 
             $tpl = Mage::getModel('core/email_template');

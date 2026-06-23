@@ -14,12 +14,16 @@
   <div class="tca-h"><h3><?php echo $this->__('Submit an Assessment Appeal') ?></h3><p><?php echo $this->__('Complete the form below and our assessment team will review your appeal.') ?></p></div>
   <div class="tca-b"><form action="<?php echo $u ?>" method="post" id="appealForm" name="appealForm">
     <div class="tca-e" id="appeal-error"></div>
-    <div class="tca-row"><div class="tca-f"><label><?php echo $this->__('Full Name') ?> <span class="r">*</span></label><input type="text" name="name" maxlength="255"/></div>
+    <div class="tca-row"><div class="tca-f"><label><?php echo $this->__('Name') ?> <span class="r">*</span></label><input type="text" name="name" maxlength="255"/></div>
       <div class="tca-f"><label><?php echo $this->__('Email') ?> <span class="r">*</span></label><input type="email" name="email" maxlength="255"/></div></div>
-    <div class="tca-row"><div class="tca-f"><label><?php echo $this->__('Phone / WhatsApp') ?></label><input type="text" name="telephone" maxlength="64"/></div>
-      <div class="tca-f"><label><?php echo $this->__('Assessment Date') ?></label><input type="text" name="assessment_date" maxlength="64" placeholder="<?php echo $this->__('e.g. 12 May 2026') ?>"/></div></div>
-    <div class="tca-f full"><label><?php echo $this->__('Course Title / Code') ?></label><input type="text" name="course" maxlength="255"/></div>
-    <div class="tca-f full"><label><?php echo $this->__('Reason for Appeal') ?> <span class="r">*</span></label><textarea name="comment" placeholder="<?php echo $this->__('Explain the grounds for your assessment appeal.') ?>"></textarea></div>
+    <div class="tca-row"><div class="tca-f"><label><?php echo $this->__('Phone') ?> <span class="r">*</span></label><input type="text" name="telephone" maxlength="64"/></div>
+      <div class="tca-f"><label><?php echo $this->__('NRIC') ?> <span class="r">*</span></label><input type="text" name="nric" maxlength="32"/></div></div>
+    <div class="tca-row"><div class="tca-f"><label><?php echo $this->__('Course Title') ?> <span class="r">*</span></label><input type="text" name="course" maxlength="255"/></div>
+      <div class="tca-f"><label><?php echo $this->__('Course Code') ?> <span class="r">*</span></label><input type="text" name="course_code" maxlength="64"/></div></div>
+    <div class="tca-row"><div class="tca-f"><label><?php echo $this->__('Course Start Date') ?> <span class="r">*</span></label><input type="text" name="course_start_date" maxlength="64" placeholder="<?php echo $this->__('e.g. 12 May 2026') ?>"/></div>
+      <div class="tca-f"><label><?php echo $this->__('Course End Date') ?> <span class="r">*</span></label><input type="text" name="course_end_date" maxlength="64" placeholder="<?php echo $this->__('e.g. 16 May 2026') ?>"/></div></div>
+    <div class="tca-f full"><label><?php echo $this->__('Assessment Date') ?> <span class="r">*</span></label><input type="text" name="assessment_date" maxlength="64" placeholder="<?php echo $this->__('e.g. 16 May 2026') ?>"/></div>
+    <div class="tca-f full"><label><?php echo $this->__('Reason to Appeal') ?> <span class="r">*</span></label><textarea name="comment" placeholder="<?php echo $this->__('Explain the grounds for your assessment appeal.') ?>"></textarea></div>
     <input type="text" name="hideit" value="" tabindex="-1" autocomplete="off" style="display:none !important;"/>
     <input type="hidden" name="cf-turnstile-response" id="appeal-tk" value=""/>
     <?php if ($k): ?><div class="cf-turnstile" data-sitekey="<?php echo $this->htmlEscape($k) ?>" data-size="invisible" data-callback="onApTs" data-error-callback="onApTsE" data-expired-callback="onApTsX"></div><?php endif; ?>
@@ -27,7 +31,18 @@
   </form></div>
 </div>
 <script>(function(){var EN=<?php echo $k?'true':'false'; ?>,ps=false;
-function v(){var e="",f=document.forms["appealForm"];if(!f["name"].value)e+="Please enter your name<br/>";if(!/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,})+$/.test(f["email"].value))e+="Please enter a valid email<br/>";if(!f["comment"].value)e+="Please state your reason for appeal<br/>";document.getElementById("appeal-error").innerHTML=e;return e==="";}
+function v(){var e="",f=document.forms["appealForm"];
+if(!f["name"].value)e+="Please enter your name<br/>";
+if(!/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,})+$/.test(f["email"].value))e+="Please enter a valid email<br/>";
+if(!f["telephone"].value)e+="Please enter your phone<br/>";
+if(!f["nric"].value)e+="Please enter your NRIC<br/>";
+if(!f["course"].value)e+="Please enter the course title<br/>";
+if(!f["course_code"].value)e+="Please enter the course code<br/>";
+if(!f["course_start_date"].value)e+="Please enter the course start date<br/>";
+if(!f["course_end_date"].value)e+="Please enter the course end date<br/>";
+if(!f["assessment_date"].value)e+="Please enter the assessment date<br/>";
+if(!f["comment"].value)e+="Please state your reason to appeal<br/>";
+document.getElementById("appeal-error").innerHTML=e;return e==="";}
 function s(){var b=document.getElementById("appeal-submit");if(b)b.disabled=true;document.forms["appealForm"].submit();}
 window.onApTs=function(t){var i=document.getElementById("appeal-tk");if(i)i.value=t;if(ps){ps=false;s();}};window.onApTsE=function(){ps=false;document.getElementById("appeal-error").innerHTML="Spam check could not run. Please refresh and try again.";};window.onApTsX=function(){var i=document.getElementById("appeal-tk");if(i)i.value="";};
 document.addEventListener("DOMContentLoaded",function(){var f=document.getElementById("appealForm");if(!f)return;f.addEventListener("submit",function(e){e.preventDefault();if(!v())return;if(!EN||typeof window.turnstile==="undefined"){s();return;}var i=document.getElementById("appeal-tk");if(i&&i.value){s();return;}ps=true;try{window.turnstile.execute();}catch(x){ps=false;s();}});});})();</script>
