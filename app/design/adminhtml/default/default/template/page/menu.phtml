@@ -356,6 +356,23 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
         <span>Manage Class Schedule</span>
     </a>
+    <div class="tools-group<?php echo _so(array('feedbackform','responses')) ?>">
+        <div class="tools-group-toggle" onclick="toggleToolGroup(this)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <span>Feedback Form</span>
+            <svg class="tools-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="tools-group-items">
+            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/formbuilder/index') ?>" class="tools-sub-item<?php echo (_so(array('formbuilder')) ? ' active' : '') ?>">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+                <span>Form Builder</span>
+            </a>
+            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/responses/index') ?>" class="tools-sub-item<?php echo (_so(array('responses')) ? ' active' : '') ?>">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                <span>Responses</span>
+            </a>
+        </div>
+    </div>
     <?php
         $wfgCategoriesAdmin = Mage::helper('mmd_workflowguides')->getGuidesForRole('admin');
         $wfgActiveAdmin = _wfgActiveGuide($wfgCategoriesAdmin, ($_ctrl === 'workflowguides') ? (string) $_req->getParam('guide') : '');
@@ -377,23 +394,6 @@
         </div>
     </div>
     <?php endif; ?>
-    <div class="tools-group<?php echo _so(array('feedbackform','responses')) ?>">
-        <div class="tools-group-toggle" onclick="toggleToolGroup(this)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-            <span>Feedback Form</span>
-            <svg class="tools-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-        </div>
-        <div class="tools-group-items">
-            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/formbuilder/index') ?>" class="tools-sub-item<?php echo (_so(array('formbuilder')) ? ' active' : '') ?>">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
-                <span>Form Builder</span>
-            </a>
-            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/responses/index') ?>" class="tools-sub-item<?php echo (_so(array('responses')) ? ' active' : '') ?>">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-                <span>Responses</span>
-            </a>
-        </div>
-    </div>
 </div>
 
 <!-- Marketing sidebar -->
@@ -821,6 +821,18 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
         <span>Manage Categories</span>
     </a>
+    <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/catalog_product_attribute') ?>" class="lms-nav-item">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+        <span>Attributes</span>
+    </a>
+    <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/tag') ?>" class="lms-nav-item">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+        <span>Funding Tags</span>
+    </a>
+    <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/coursecover/bulk') ?>" class="lms-nav-item<?php echo _so(array('coursecover')) ?>">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        <span>Bulk AI Covers</span>
+    </a>
     <?php
         $wfgCategoriesDev = Mage::helper('mmd_workflowguides')->getGuidesForRole('developer');
         $wfgActiveDev = _wfgActiveGuide($wfgCategoriesDev, ($_ctrl === 'workflowguides') ? (string) $_req->getParam('guide') : '');
@@ -842,18 +854,6 @@
         </div>
     </div>
     <?php endif; ?>
-    <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/catalog_product_attribute') ?>" class="lms-nav-item">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
-        <span>Attributes</span>
-    </a>
-    <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/tag') ?>" class="lms-nav-item">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-        <span>Funding Tags</span>
-    </a>
-    <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/coursecover/bulk') ?>" class="lms-nav-item<?php echo _so(array('coursecover')) ?>">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-        <span>Bulk AI Covers</span>
-    </a>
     <!-- URL Rewrite / Search Terms / Reviews & Ratings / Google Sitemap
          moved to Marketing role per product decision (they're SEO/content
          tools, not developer tools). -->
