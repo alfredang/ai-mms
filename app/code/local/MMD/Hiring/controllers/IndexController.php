@@ -28,7 +28,7 @@ class MMD_Hiring_IndexController extends Mage_Core_Controller_Front_Action
                 ->setIp($turnstile->getRemoteIp())->setUserAgent(substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255))
                 ->setStatus('new')->save();
             $this->_notify($post, $name, $email);
-            $session->addSuccess($this->__('Thank you for applying! We will review your application and contact shortlisted candidates.'));
+            $session->addSuccess($this->__('Thank you for your submission. We will respond in 7 working days. If you do not receive any response from us, please call our office hotline +65 6100 0613 for further assistance.'));
         } catch (Mage_Core_Exception $e) { $session->addError($e->getMessage()); }
         catch (Exception $e) { Mage::logException($e); $session->addError($this->__('Unable to submit your request. Please try again later.')); }
         $this->_redirect(self::RETURN_URL);

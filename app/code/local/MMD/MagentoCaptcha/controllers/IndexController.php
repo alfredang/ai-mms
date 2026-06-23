@@ -143,7 +143,7 @@ class MMD_MagentoCaptcha_IndexController extends Mage_Core_Controller_Front_Acti
             }
 
             $translate->setTranslateInline(true);
-            $session->addSuccess($this->__('Your inquiry was submitted and will be responded to as soon as possible. Thank you for contacting us.'));
+            $session->addSuccess($this->__('Thank you for your submission. We will respond in 7 working days. If you do not receive any response from us, please call our office hotline +65 6100 0613 for further assistance.'));
         } catch (Mage_Core_Exception $e) {
             $translate->setTranslateInline(true);
             Mage::logException($e);

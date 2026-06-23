@@ -64,7 +64,7 @@ class MMD_Trainer_IndexController extends Mage_Core_Controller_Front_Action
             $lead->save();
 
             $this->_notify($lead);
-            $session->addSuccess($this->__('Thank you! Your trainer application has been received — our team will review it and be in touch.'));
+            $session->addSuccess($this->__('Thank you for your submission. We will respond in 7 working days. If you do not receive any response from us, please call our office hotline +65 6100 0613 for further assistance.'));
         } catch (Mage_Core_Exception $e) {
             $session->addError($e->getMessage());
         } catch (Exception $e) {

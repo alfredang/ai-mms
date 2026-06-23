@@ -6,21 +6,33 @@
 .tcs-b{padding:26px 30px 30px}.tcs-row{display:flex;gap:16px;flex-wrap:wrap}.tcs-f{flex:1 1 220px;margin-bottom:16px}.tcs-f.full{flex-basis:100%}
 .tcs-f label{display:block;font-weight:600;color:#0f172a;font-size:14px;margin-bottom:6px}.tcs-f label .r{color:#f4511e}
 .tcs-f input,.tcs-f textarea{width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid #d6dbe4;border-radius:9px;font-size:15px;background:#fbfcfe}
-.tcs-f input:focus,.tcs-f textarea:focus{outline:none;border-color:#14b8a6;box-shadow:0 0 0 3px rgba(20,184,166,.16);background:#fff}.tcs-f textarea{min-height:110px;resize:vertical}
+.tcs-f input:focus,.tcs-f textarea:focus{outline:none;border-color:#14b8a6;box-shadow:0 0 0 3px rgba(20,184,166,.16);background:#fff}.tcs-f textarea{min-height:100px;resize:vertical}
+.tcs-hint{display:block;margin-top:6px;color:#64748b;font-size:13px}.tcs-hint a{color:#0d9488;font-weight:600}
 .tcs-e{color:#dc2626;font-size:14px;margin:0 0 14px;min-height:1px}
 .tcs-s{display:inline-flex;align-items:center;gap:10px;background:#f4511e;color:#fff;border:0;border-radius:999px;padding:14px 30px;font-size:16px;font-weight:700;cursor:pointer}.tcs-s:hover{background:#d63c0c}
 </style>
 <div class="tcs-w" id="reschedule-enquiry">
-  <div class="tcs-h"><h3><?php echo $this->__('Request a Class Reschedule') ?></h3><p><?php echo $this->__('Need to move to a different class date? Submit the form and our team will confirm your new date.') ?></p></div>
+  <div class="tcs-h"><h3><?php echo $this->__('Request a Class Reschedule') ?></h3><p><?php echo $this->__('Complete the form below and our team will confirm your new class date.') ?></p></div>
   <div class="tcs-b"><form action="<?php echo $u ?>" method="post" id="reschedForm" name="reschedForm">
     <div class="tcs-e" id="resched-error"></div>
-    <div class="tcs-row"><div class="tcs-f"><label><?php echo $this->__('Full Name') ?> <span class="r">*</span></label><input type="text" name="name" maxlength="255"/></div>
-      <div class="tcs-f"><label><?php echo $this->__('Email') ?> <span class="r">*</span></label><input type="email" name="email" maxlength="255"/></div></div>
-    <div class="tcs-row"><div class="tcs-f"><label><?php echo $this->__('Phone / WhatsApp') ?></label><input type="text" name="telephone" maxlength="64"/></div>
-      <div class="tcs-f"><label><?php echo $this->__('Course Title / Code') ?></label><input type="text" name="course" maxlength="255"/></div></div>
-    <div class="tcs-row"><div class="tcs-f"><label><?php echo $this->__('Current Class Date') ?></label><input type="text" name="current_date" maxlength="64" placeholder="<?php echo $this->__('e.g. 12 May 2026') ?>"/></div>
-      <div class="tcs-f"><label><?php echo $this->__('Preferred New Date') ?></label><input type="text" name="preferred_date" maxlength="64" placeholder="<?php echo $this->__('e.g. 9 Jun 2026') ?>"/></div></div>
-    <div class="tcs-f full"><label><?php echo $this->__('Reason for Reschedule') ?> <span class="r">*</span></label><textarea name="comment"></textarea></div>
+    <div class="tcs-row">
+      <div class="tcs-f"><label><?php echo $this->__('Name') ?> <span class="r">*</span></label><input type="text" name="name" maxlength="255"/></div>
+      <div class="tcs-f"><label><?php echo $this->__('NRIC') ?> <span class="r">*</span></label><input type="text" name="nric" maxlength="32"/></div>
+    </div>
+    <div class="tcs-row">
+      <div class="tcs-f"><label><?php echo $this->__('Email') ?> <span class="r">*</span></label><input type="email" name="email" maxlength="255"/></div>
+      <div class="tcs-f"><label><?php echo $this->__('Phone') ?> <span class="r">*</span></label><input type="text" name="telephone" maxlength="64"/></div>
+    </div>
+    <div class="tcs-row">
+      <div class="tcs-f"><label><?php echo $this->__('Course Title') ?> <span class="r">*</span></label><input type="text" name="course" maxlength="255"/></div>
+      <div class="tcs-f"><label><?php echo $this->__('Course Code') ?> <span class="r">*</span></label><input type="text" name="course_code" maxlength="64"/></div>
+    </div>
+    <div class="tcs-row">
+      <div class="tcs-f"><label><?php echo $this->__('Course Start Date') ?> <span class="r">*</span></label><input type="text" name="current_date" maxlength="64" placeholder="<?php echo $this->__('e.g. 12 May 2026') ?>"/></div>
+      <div class="tcs-f"><label><?php echo $this->__('Next Course Start Date') ?></label><input type="text" name="preferred_date" maxlength="64" placeholder="<?php echo $this->__('e.g. 9 Jun 2026') ?>"/>
+        <span class="tcs-hint"><?php echo $this->__('Please refer to the') ?> <a href="<?php echo Mage::getUrl('') ?>" target="_blank"><?php echo $this->__('course schedule on our website') ?></a> <?php echo $this->__('for available dates.') ?></span></div>
+    </div>
+    <div class="tcs-f full"><label><?php echo $this->__('Message') ?></label><textarea name="comment" placeholder="<?php echo $this->__('Anything else we should know? (optional)') ?>"></textarea></div>
     <input type="text" name="hideit" value="" tabindex="-1" autocomplete="off" style="display:none !important;"/>
     <input type="hidden" name="cf-turnstile-response" id="resched-tk" value=""/>
     <?php if ($k): ?><div class="cf-turnstile" data-sitekey="<?php echo $this->htmlEscape($k) ?>" data-size="invisible" data-callback="onRsTs" data-error-callback="onRsTsE" data-expired-callback="onRsTsX"></div><?php endif; ?>
@@ -28,7 +40,15 @@
   </form></div>
 </div>
 <script>(function(){var EN=<?php echo $k?'true':'false'; ?>,ps=false;
-function v(){var e="",f=document.forms["reschedForm"];if(!f["name"].value)e+="Please enter your name<br/>";if(!/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,})+$/.test(f["email"].value))e+="Please enter a valid email<br/>";if(!f["comment"].value)e+="Please state your reason<br/>";document.getElementById("resched-error").innerHTML=e;return e==="";}
+function v(){var e="",f=document.forms["reschedForm"];
+if(!f["name"].value)e+="Please enter your name<br/>";
+if(!f["nric"].value)e+="Please enter your NRIC<br/>";
+if(!/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,})+$/.test(f["email"].value))e+="Please enter a valid email<br/>";
+if(!f["telephone"].value)e+="Please enter your phone number<br/>";
+if(!f["course"].value)e+="Please enter the course title<br/>";
+if(!f["course_code"].value)e+="Please enter the course code<br/>";
+if(!f["current_date"].value)e+="Please enter the course start date<br/>";
+document.getElementById("resched-error").innerHTML=e;return e==="";}
 function s(){var b=document.getElementById("resched-submit");if(b)b.disabled=true;document.forms["reschedForm"].submit();}
 window.onRsTs=function(t){var i=document.getElementById("resched-tk");if(i)i.value=t;if(ps){ps=false;s();}};window.onRsTsE=function(){ps=false;document.getElementById("resched-error").innerHTML="Spam check could not run. Please refresh and try again.";};window.onRsTsX=function(){var i=document.getElementById("resched-tk");if(i)i.value="";};
 document.addEventListener("DOMContentLoaded",function(){var f=document.getElementById("reschedForm");if(!f)return;f.addEventListener("submit",function(e){e.preventDefault();if(!v())return;if(!EN||typeof window.turnstile==="undefined"){s();return;}var i=document.getElementById("resched-tk");if(i&&i.value){s();return;}ps=true;try{window.turnstile.execute();}catch(x){ps=false;s();}});});})();</script>

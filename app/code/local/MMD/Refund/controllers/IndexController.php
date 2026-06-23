@@ -24,7 +24,7 @@ class MMD_Refund_IndexController extends Mage_Core_Controller_Front_Action
                 array('Course Title / Code', (string) ($post['course'] ?? '')),
                 array('Order / Invoice No.', (string) ($post['order_ref'] ?? '')),
             ), $comment);
-            $session->addSuccess($this->__('Your refund request has been submitted. Our team will review it and respond to you.'));
+            $session->addSuccess($this->__('Thank you for your submission. We will respond in 7 working days. If you do not receive any response from us, please call our office hotline +65 6100 0613 for further assistance.'));
         } catch (Mage_Core_Exception $e) { $session->addError($e->getMessage()); }
         catch (Exception $e) { Mage::logException($e); $session->addError($this->__('Unable to submit your request. Please try again later.')); }
         $this->_redirect(self::RETURN_URL);

@@ -33,7 +33,7 @@ class MMD_CourseFeedback_IndexController extends Mage_Core_Controller_Front_Acti
                 array("Trainer's knowledge", $rT ? $rT . ' / 5' : ''),
                 array('Training environment', $rE ? $rE . ' / 5' : ''),
             ), $comment);
-            $session->addSuccess($this->__('Thank you for your feedback! We appreciate you taking the time to help us improve.'));
+            $session->addSuccess($this->__('Thank you for your submission. We will respond in 7 working days. If you do not receive any response from us, please call our office hotline +65 6100 0613 for further assistance.'));
         } catch (Mage_Core_Exception $e) { $session->addError($e->getMessage()); }
         catch (Exception $e) { Mage::logException($e); $session->addError($this->__('Unable to submit your request. Please try again later.')); }
         $this->_redirect(self::RETURN_URL);

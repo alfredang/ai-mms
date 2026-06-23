@@ -13,8 +13,9 @@ class MMD_LeadMail_Helper_Data extends Mage_Core_Helper_Abstract
     /**
      * @param string $leadType  e.g. "Trainer Application", "Franchise Enquiry"
      * @param array  $rows      list of array($label, $value) extra fields
+     * @param array  $extraTo   additional To: recipients beyond the configured one
      */
-    public function notify($leadType, $name, $email, $telephone, array $rows = array(), $message = '')
+    public function notify($leadType, $name, $email, $telephone, array $rows = array(), $message = '', array $extraTo = array())
     {
         try {
             $details = '';
@@ -43,9 +44,15 @@ class MMD_LeadMail_Helper_Data extends Mage_Core_Helper_Abstract
 
             $tpl = Mage::getModel('core/email_template');
             $tpl->setDesignConfig(array('area' => 'frontend', 'store' => Mage::app()->getStore()->getId()));
-            // Pre-create the Zend_Mail so CC survives sendTransactional().
+            // Pre-create the Zend_Mail so CC / extra-To survive sendTransactional().
             foreach ($cc as $ccAddr) {
                 $tpl->getMail()->addCc($ccAddr);
+            }
+            foreach ($extraTo as $toAddr) {
+                $toAddr = trim((string) $toAddr);
+                if ($toAddr !== '') {
+                    $tpl->getMail()->addTo($toAddr);
+                }
             }
             if ($email) {
                 $tpl->setReplyTo($email);

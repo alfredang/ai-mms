@@ -21,7 +21,7 @@ class MMD_Appeal_IndexController extends Mage_Core_Controller_Front_Action
                 ->setMessage($comment)->setSource('assessment-appeal')->setIp($turnstile->getRemoteIp())
                 ->setUserAgent(substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255))->setStatus('new')->save();
             $this->_notify($post, $name, $email);
-            $session->addSuccess($this->__('Your assessment appeal has been submitted. Our team will review and respond to you.'));
+            $session->addSuccess($this->__('Thank you for your submission. We will respond in 7 working days. If you do not receive any response from us, please call our office hotline +65 6100 0613 for further assistance.'));
         } catch (Mage_Core_Exception $e) { $session->addError($e->getMessage()); }
         catch (Exception $e) { Mage::logException($e); $session->addError($this->__('Unable to submit your request. Please try again later.')); }
         $this->_redirect(self::RETURN_URL);
