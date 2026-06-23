@@ -972,6 +972,25 @@ body.sidebar-collapsed .admin-main {
     border-right: none !important;
 }
 
+/* Global data-cell baseline — every <td> in .admin-main starts from the
+   canonical grid-cell look (system font / 12px / 1.5 / transparent / no
+   border / --t2 text). Higher-specificity rules below (like
+   `.admin-main .grid …`) layer their extras on top: grid hairlines,
+   hover, etc. Per-page rules that legitimately need a different td
+   treatment (massaction toolbars, form-list layouts) just continue to
+   override via their own scoped selectors. */
+.admin-main td {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+    font-size: 12px !important;
+    line-height: 1.5 !important;
+    vertical-align: middle !important;
+    color: var(--t2, #e2e8f0) !important;
+    padding: 6px 10px !important;
+    border: none !important;
+    background: transparent !important;
+    transition: none !important;
+}
+
 /* Data cells — transparent, compact, hairline only BETWEEN rows
    (tr + tr), no per-cell border, no zebra, no glow. */
 .admin-main .grid td,

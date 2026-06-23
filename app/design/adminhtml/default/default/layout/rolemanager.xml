@@ -6,11 +6,20 @@
                    name="role_switcher"
                    template="rolemanager/role-switcher.phtml" />
         </reference>
+        <!-- Load rolemanager.css globally on every admin page so PJAX
+             (instant-nav.js) swaps to .rm-table-bearing pages (e.g.
+             classes/index, rolemanagement/index, cpgenerator/index)
+             always have the stylesheet available. Previously this was
+             added only on five specific layout handles; PJAX never
+             updates <head>, so navigating from any other admin page
+             rendered the .rm-table elements unstyled until a full
+             refresh. ~10KB of CSS on every page is a tiny price for
+             not having to chase every CSS-bound new route. -->
+        <reference name="head">
+            <action method="addCss"><name>rolemanager.css</name></action>
+        </reference>
     </default>
 
-    <!-- RoleManager pages — load the extracted page-specific stylesheet
-         only on the screens that actually need it. MMD routes use
-         before="Mage_Adminhtml" so the handle is adminhtml_<ctrl>_<act>. -->
     <!-- Add Course button above the Manage Courses product grid -->
     <adminhtml_catalog_product_index>
         <reference name="content">
@@ -18,30 +27,4 @@
                    template="rolemanager/add-course-btn.phtml" />
         </reference>
     </adminhtml_catalog_product_index>
-
-    <adminhtml_rolemanagement_index>
-        <reference name="head">
-            <action method="addCss"><name>rolemanager.css</name></action>
-        </reference>
-    </adminhtml_rolemanagement_index>
-    <adminhtml_classes_index>
-        <reference name="head">
-            <action method="addCss"><name>rolemanager.css</name></action>
-        </reference>
-    </adminhtml_classes_index>
-    <adminhtml_roleselect_index>
-        <reference name="head">
-            <action method="addCss"><name>rolemanager.css</name></action>
-        </reference>
-    </adminhtml_roleselect_index>
-    <adminhtml_cpgenerator_index>
-        <reference name="head">
-            <action method="addCss"><name>rolemanager.css</name></action>
-        </reference>
-    </adminhtml_cpgenerator_index>
-    <adminhtml_seometadata_index>
-        <reference name="head">
-            <action method="addCss"><name>rolemanager.css</name></action>
-        </reference>
-    </adminhtml_seometadata_index>
 </layout>
