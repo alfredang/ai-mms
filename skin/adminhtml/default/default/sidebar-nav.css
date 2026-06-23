@@ -4843,23 +4843,50 @@ body .admin-main #anchor-content { padding-left: 0 !important; }
 .admin-main h6 {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
     font-weight: 700 !important;
-    line-height: 1.4 !important;
     text-shadow: none !important;
-    margin: 0 0 8px !important;
 }
-/* H1 — page-level. Reserved for top-of-page titles that
-   aren't inside a .dcf-mag-bar (rare). */
-.admin-main h1 { font-size: 22px !important; letter-spacing: 0 !important; text-transform: none !important; }
-/* H2 — large card / section-major (e.g. config section split). */
-.admin-main h2 { font-size: 18px !important; letter-spacing: 0 !important; text-transform: none !important; }
-/* H3 — standard card title. The everyday case. */
-.admin-main h3 { font-size: 14px !important; letter-spacing: 0 !important; text-transform: none !important; }
+/* H1 / H2 / H3 unified to the page-title scale used by every grid
+   page in the admin (Invoices / Transactions / Registrations / Search
+   Terms / etc.). Per project convention: h2 and h3 across the admin
+   render the same as h1 — there's no semantic "smaller heading" tier
+   in the design system. h4/h5/h6 stay as compact metadata labels. */
+.admin-main h1,
+.admin-main h2,
+.admin-main h3 {
+    font-size: 28px !important;
+    font-weight: 700 !important;
+    color: var(--t1, #f1f5f9) !important;
+    line-height: 1.2 !important;
+    margin: 0 0 24px !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+}
 /* H4 — form-panel head (.entry-edit-head h4, .box-head h4). */
-.admin-main h4 { font-size: 13px !important; letter-spacing: 0 !important; text-transform: none !important; }
+.admin-main h4 {
+    font-size: 13px !important;
+    line-height: 1.4 !important;
+    margin: 0 0 8px !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+}
 /* H5 — small uppercase sub-label (e.g. "Additional Cache Management"). */
-.admin-main h5 { font-size: 12px !important; letter-spacing: 0.6px !important; text-transform: uppercase !important; color: var(--t4, #94a3b8) !important; }
+.admin-main h5 {
+    font-size: 12px !important;
+    line-height: 1.4 !important;
+    margin: 0 0 8px !important;
+    letter-spacing: 0.6px !important;
+    text-transform: uppercase !important;
+    color: var(--t4, #94a3b8) !important;
+}
 /* H6 — smallest meta label. */
-.admin-main h6 { font-size: 11px !important; letter-spacing: 0.6px !important; text-transform: uppercase !important; color: var(--t4, #94a3b8) !important; }
+.admin-main h6 {
+    font-size: 11px !important;
+    line-height: 1.4 !important;
+    margin: 0 0 8px !important;
+    letter-spacing: 0.6px !important;
+    text-transform: uppercase !important;
+    color: var(--t4, #94a3b8) !important;
+}
 
 /* Page title bar — the .dcf-mag-bar title (wrapAdminGridInCard
    pulls the page name into a <span> inside the bar). Align it
