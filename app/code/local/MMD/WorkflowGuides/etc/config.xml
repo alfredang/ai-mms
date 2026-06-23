@@ -1,0 +1,54 @@
+<?xml version="1.0"?>
+<config>
+    <modules>
+        <MMD_WorkflowGuides>
+            <version>1.0.0</version>
+        </MMD_WorkflowGuides>
+    </modules>
+
+    <global>
+        <helpers>
+            <mmd_workflowguides>
+                <class>MMD_WorkflowGuides_Helper</class>
+            </mmd_workflowguides>
+        </helpers>
+    </global>
+
+    <admin>
+        <routers>
+            <adminhtml>
+                <args>
+                    <modules>
+                        <MMD_WorkflowGuides before="Mage_Adminhtml">MMD_WorkflowGuides_Adminhtml</MMD_WorkflowGuides>
+                    </modules>
+                </args>
+            </adminhtml>
+        </routers>
+    </admin>
+
+    <adminhtml>
+        <acl>
+            <resources>
+                <admin>
+                    <children>
+                        <mmd>
+                            <title>MMD</title>
+                            <children>
+                                <workflowguides translate="title" module="mmd_workflowguides">
+                                    <title>Workflow Guides</title>
+                                </workflowguides>
+                            </children>
+                        </mmd>
+                    </children>
+                </admin>
+            </resources>
+        </acl>
+        <layout>
+            <updates>
+                <mmd_workflowguides>
+                    <file>workflowguides.xml</file>
+                </mmd_workflowguides>
+            </updates>
+        </layout>
+    </adminhtml>
+</config>

@@ -27,6 +27,16 @@
     $accountUrl    = Mage::helper('adminhtml')->getUrl('adminhtml/system_account');
     $_p = Mage::app()->getRequest()->getPathInfo();
     function _so($k) { global $_p; foreach ((array)$k as $v) if (strpos($_p,$v)!==false) return ' open'; return ''; }
+    // Workflow Guides nav: picks the guide id to highlight in the sidebar
+    // dropdown — the one requested via ?guide=, or the first guide of the
+    // first non-empty category as a fallback (mirrors workflowguides/index.phtml).
+    function _wfgActiveGuide($categories, $requested) {
+        if ($requested) return $requested;
+        foreach ($categories as $cat) {
+            if (!empty($cat['guides'])) return $cat['guides'][0]['id'];
+        }
+        return '';
+    }
     // Active role — used below to gate super-admin-only DB queries and
     // expensive config-tabs enumeration to the one role that sees them.
     $activeRole = Mage::helper('mmd_rolemanager')->getActiveRoleCode();
@@ -346,6 +356,27 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
         <span>Manage Class Schedule</span>
     </a>
+    <?php
+        $wfgCategoriesAdmin = Mage::helper('mmd_workflowguides')->getGuidesForRole('admin');
+        $wfgActiveAdmin = _wfgActiveGuide($wfgCategoriesAdmin, ($_ctrl === 'workflowguides') ? (string) $_req->getParam('guide') : '');
+    ?>
+    <?php if (!empty($wfgCategoriesAdmin)): ?>
+    <div class="tools-group<?php echo _so(array('workflowguides')) ?>">
+        <div class="tools-group-toggle<?php echo ($_ctrl === 'workflowguides') ? ' active' : '' ?>" onclick="toggleToolGroup(this)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><line x1="9" y1="7" x2="15" y2="7"/><line x1="9" y1="11" x2="15" y2="11"/></svg>
+            <span>Workflow Guides</span>
+            <svg class="tools-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="tools-group-items">
+            <?php foreach ($wfgCategoriesAdmin as $wfgCat): ?>
+                <div class="wfg-nav-category-label"><?php echo $this->escapeHtml($wfgCat['label']) ?></div>
+                <?php foreach ($wfgCat['guides'] as $wfgGuide): ?>
+                    <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/workflowguides/index', array('guide' => $wfgGuide['id'])) ?>" class="tools-sub-item<?php echo ($wfgActiveAdmin === $wfgGuide['id']) ? ' active' : '' ?>"><span><?php echo $this->escapeHtml($wfgGuide['title']) ?></span></a>
+                <?php endforeach; ?>
+            <?php endforeach; ?>
+        </div>
+    </div>
+    <?php endif; ?>
     <div class="tools-group<?php echo _so(array('feedbackform','responses')) ?>">
         <div class="tools-group-toggle" onclick="toggleToolGroup(this)">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
@@ -447,6 +478,28 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         <span>E-Attendance</span>
     </a>
+
+    <?php
+        $wfgCategoriesTrainer = Mage::helper('mmd_workflowguides')->getGuidesForRole('trainer');
+        $wfgActiveTrainer = _wfgActiveGuide($wfgCategoriesTrainer, ($_ctrl === 'workflowguides') ? (string) $_req->getParam('guide') : '');
+    ?>
+    <?php if (!empty($wfgCategoriesTrainer)): ?>
+    <div class="tools-group<?php echo _so(array('workflowguides')) ?>">
+        <div class="tools-group-toggle<?php echo ($_ctrl === 'workflowguides') ? ' active' : '' ?>" onclick="toggleToolGroup(this)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><line x1="9" y1="7" x2="15" y2="7"/><line x1="9" y1="11" x2="15" y2="11"/></svg>
+            <span>Workflow Guides</span>
+            <svg class="tools-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="tools-group-items">
+            <?php foreach ($wfgCategoriesTrainer as $wfgCat): ?>
+                <div class="wfg-nav-category-label"><?php echo $this->escapeHtml($wfgCat['label']) ?></div>
+                <?php foreach ($wfgCat['guides'] as $wfgGuide): ?>
+                    <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/workflowguides/index', array('guide' => $wfgGuide['id'])) ?>" class="tools-sub-item<?php echo ($wfgActiveTrainer === $wfgGuide['id']) ? ' active' : '' ?>"><span><?php echo $this->escapeHtml($wfgGuide['title']) ?></span></a>
+                <?php endforeach; ?>
+            <?php endforeach; ?>
+        </div>
+    </div>
+    <?php endif; ?>
 
     <div class="sidebar-section-label">TOOLS</div>
 
@@ -768,6 +821,27 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
         <span>Manage Categories</span>
     </a>
+    <?php
+        $wfgCategoriesDev = Mage::helper('mmd_workflowguides')->getGuidesForRole('developer');
+        $wfgActiveDev = _wfgActiveGuide($wfgCategoriesDev, ($_ctrl === 'workflowguides') ? (string) $_req->getParam('guide') : '');
+    ?>
+    <?php if (!empty($wfgCategoriesDev)): ?>
+    <div class="tools-group<?php echo _so(array('workflowguides')) ?>">
+        <div class="tools-group-toggle<?php echo ($_ctrl === 'workflowguides') ? ' active' : '' ?>" onclick="toggleToolGroup(this)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><line x1="9" y1="7" x2="15" y2="7"/><line x1="9" y1="11" x2="15" y2="11"/></svg>
+            <span>Workflow Guides</span>
+            <svg class="tools-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="tools-group-items">
+            <?php foreach ($wfgCategoriesDev as $wfgCat): ?>
+                <div class="wfg-nav-category-label"><?php echo $this->escapeHtml($wfgCat['label']) ?></div>
+                <?php foreach ($wfgCat['guides'] as $wfgGuide): ?>
+                    <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/workflowguides/index', array('guide' => $wfgGuide['id'])) ?>" class="tools-sub-item<?php echo ($wfgActiveDev === $wfgGuide['id']) ? ' active' : '' ?>"><span><?php echo $this->escapeHtml($wfgGuide['title']) ?></span></a>
+                <?php endforeach; ?>
+            <?php endforeach; ?>
+        </div>
+    </div>
+    <?php endif; ?>
     <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/catalog_product_attribute') ?>" class="lms-nav-item">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
         <span>Attributes</span>

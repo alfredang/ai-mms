@@ -1,0 +1,52 @@
+<?php
+/**
+ * Workflow Guides — per-role, read-only step-by-step reference.
+ * Content comes from MMD_WorkflowGuides_Helper_Data::getGuidesForRole();
+ * the guide list itself now lives in the left sidebar nav (page/menu.phtml,
+ * "Workflow Guides" dropdown) — this template only renders the single
+ * active guide picked via the ?guide= request param.
+ */
+$roleCode = Mage::helper('mmd_rolemanager')->getActiveRoleCode();
+$categories = Mage::helper('mmd_workflowguides')->getGuidesForRole($roleCode);
+$requestedGuideId = (string) $this->getRequest()->getParam('guide');
+
+$activeGuide = null;
+$activeCategory = null;
+foreach ($categories as $cat) {
+    foreach ($cat['guides'] as $guide) {
+        if ($requestedGuideId === '' || $guide['id'] === $requestedGuideId) {
+            $activeGuide = $guide;
+            $activeCategory = $cat;
+            break 2;
+        }
+    }
+}
+?>
+<div class="wfg-wrap">
+    <?php if ($activeGuide): ?>
+        <div class="wfg-guide-header">
+            <h2><span class="wfg-guide-icon"><?php echo $this->escapeHtml($activeCategory['icon']) ?></span><?php echo $this->escapeHtml($activeGuide['title']) ?></h2>
+            <?php if (!empty($activeGuide['path'])): ?>
+                <p class="wfg-guide-path"><?php echo $this->escapeHtml($activeGuide['path']) ?></p>
+            <?php endif; ?>
+        </div>
+        <div class="wfg-steps-label"><?php echo $this->__('Workflow Steps') ?></div>
+        <div class="wfg-steps">
+            <?php foreach ($activeGuide['steps'] as $i => $step): ?>
+                <div class="wfg-step wfg-step-<?php echo strtolower($step['type']) ?>">
+                    <div class="wfg-step-num"><?php echo (int) $i + 1 ?></div>
+                    <div class="wfg-step-body">
+                        <div class="wfg-step-title-row">
+                            <span class="wfg-step-emoji"><?php echo ($step['type'] === 'ACTION') ? '🚀' : '⚙️' ?></span>
+                            <span class="wfg-step-title"><?php echo $this->escapeHtml($step['title']) ?></span>
+                            <span class="wfg-badge wfg-badge-<?php echo strtolower($step['type']) ?>"><?php echo $this->escapeHtml($step['type']) ?></span>
+                        </div>
+                        <p class="wfg-step-desc"><?php echo $this->escapeHtml($step['description']) ?></p>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    <?php else: ?>
+        <div class="wfg-empty"><?php echo $this->__('No guides are available for your role yet.') ?></div>
+    <?php endif; ?>
+</div>
