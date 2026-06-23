@@ -79,19 +79,22 @@ In the Coolify "Persistent Storage" or "Volumes" tab, ensure these volumes are a
 | `mysql_data` | `/var/lib/mysql` | DB data — **never delete** |
 | `media` | `/var/www/html/media` | ALL instance media (course covers, uploads, email logo) |
 
-### 3.4 Configure the webhook for auto-deploy
+### 3.4 Configure auto-deploy via the Coolify GitHub App source
 
-1. In Coolify, open the application → **"Webhooks"** tab.
-2. Copy the **Deploy Webhook URL**.
-3. In GitHub → repo Settings → Webhooks → **Add webhook**:
-   - Payload URL: paste the Coolify deploy webhook URL
-   - Content type: `application/json`
-   - Secret: use the Coolify-provided secret (or leave blank if Coolify doesn't generate one)
-   - Events: **Just the push event**
-   - Branch filter: `main`
-4. Click **Add webhook** and verify it shows a green check on first ping.
+Don't use a manually-pasted GitHub webhook — it requires repo-admin access on
+GitHub every time, and Coolify already has a self-managing alternative.
 
-Now every push to `main` redeploys **both** SG and this country instance automatically.
+1. In Coolify, open the application → **Configuration → Git Source**.
+2. Under **Change Git Source**, select the existing GitHub App source (e.g.
+   `ai-mms-gh`, listed under "Personal Account") instead of "Public GitHub".
+3. Click **Save**.
+4. Open the **Webhooks** tab to confirm — it should say *"You are using an
+   official Git App. You do not need manual webhooks."* If you still see a
+   manual "Deploy Webhook URL" prompt instead, the source switch didn't take;
+   re-check step 2.
+
+Now every push to `main` redeploys **both** SG and this country instance
+automatically — no GitHub Settings → Webhooks entry needed at all.
 
 ### 3.5 First deploy
 
