@@ -5147,6 +5147,14 @@ body.adminhtml-workflowguides-index .wfg-badge-logic {
     color: #b07cff;
 }
 
+/* Light-mode override: in light mode --d3 resolves to #ffffff (pure white
+   for cards), which made the step containers blend into the page surface.
+   Give them a light slate-gray so each step reads as a distinct card. */
+:root[data-theme="light"] body.adminhtml-workflowguides-index .wfg-step {
+    background: #f1f5f9 !important;
+    border-color: #000000 !important;
+}
+
 /* Workflow Guides sidebar-nav category label — non-clickable group header
    inside the "Workflow Guides" .tools-group-items dropdown (e.g. "Lesson
    Delivery", "Certificates"), same treatment as a tools-sub-item but inert. */
