@@ -652,17 +652,6 @@ button.dcf-btn-save{background:#2563eb !important;color:#fff !important}
 .dcf-mag.mmd-auto-card .dcf-mag-body table.data {
     background:#2a3548 !important;
 }
-/* Kill zebra striping inside the auto-card so every row reads as the same
-   gray card surface (matches Registrations, which kills its own zebra via
-   the #sales_order_grid_table ID rule). Without this, dark-theme.css §1228
-   paints every even row var(--d2) = #1e293b — a near-page-bg color that
-   makes the rows look darker than the surrounding card. */
-.dcf-mag.mmd-auto-card .dcf-mag-body .grid tr.even td,
-.dcf-mag.mmd-auto-card .dcf-mag-body .grid tr:nth-child(even) td,
-.dcf-mag.mmd-auto-card .dcf-mag-body table.data tr.even td,
-.dcf-mag.mmd-auto-card .dcf-mag-body table.data tr:nth-child(even) td {
-    background:transparent !important;
-}
 /* Magento-style 3-column row: label | input | scope tag */
 .dcf-row{display:grid;grid-template-columns:220px minmax(0,1fr) 110px;gap:18px;align-items:flex-start;padding:6px 0;border-bottom:none}
 .dcf-row-label{font-size:13.5px;color:#cbd5e1;line-height:1.4;padding-top:9px}
@@ -3291,10 +3280,6 @@ button.hsp-btn-submit{
 :root[data-theme="light"] .dcf-mag.mmd-auto-card .dcf-mag-body .grid,
 :root[data-theme="light"] .dcf-mag.mmd-auto-card .dcf-mag-body .hor-scroll,
 :root[data-theme="light"] .dcf-mag.mmd-auto-card .dcf-mag-body table.data { background:#ffffff !important }
-:root[data-theme="light"] .dcf-mag.mmd-auto-card .dcf-mag-body .grid tr.even td,
-:root[data-theme="light"] .dcf-mag.mmd-auto-card .dcf-mag-body .grid tr:nth-child(even) td,
-:root[data-theme="light"] .dcf-mag.mmd-auto-card .dcf-mag-body table.data tr.even td,
-:root[data-theme="light"] .dcf-mag.mmd-auto-card .dcf-mag-body table.data tr:nth-child(even) td { background:transparent !important }
 
 /* Rows / labels */
 :root[data-theme="light"] .dcf-row-label { color:#1e293b !important }
