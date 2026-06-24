@@ -1,0 +1,207 @@
+<?php
+/**
+ * "Generate Course Dates" panel on the Edit Template (class schedule) page.
+ *
+ * Hidden by default. On load it is relocated to sit directly below the button
+ * row (the theme relocates the varienTabs to right after .content-header and
+ * flows the form buttons into that row, so we anchor to the relocated tabs).
+ * The "Generate Course Dates" toolbar button toggles it via
+ * mmdScheduleGenToggle().
+ *
+ * Posts a schedule code + start/end range to customoptions_options/generateDates,
+ * which runs the native PHP port of the Google Apps Script generator and MERGES
+ * the resulting Course Date values into this template (idempotent).
+ *
+ * The schedule code is READ-ONLY here — it is fixed to the current template
+ * (derived from the title). A future enhancement on the main Manage Class
+ * Schedule page will make it selectable for bulk generation.
+ *
+ * Styling uses design tokens only so it matches the dark edit-page theme.
+ *
+ * @var Mage_Adminhtml_Block_Template $this
+ */
+$groupId     = (int) $this->getData('group_id');
+$storeId     = (int) $this->getData('store_id');
+$action      = $this->getData('form_action');
+$defaultCode = $this->getData('default_code');
+$formKey     = Mage::getSingleton('core/session')->getFormKey();
+?>
+<div id="mmd-schedule-gen" class="mmd-gen-panel" style="display:none;">
+    <div class="mmd-gen-head">
+        <span class="mmd-gen-title"><?php echo $this->__('Generate Course Dates') ?></span>
+        <button type="button" class="mmd-gen-close" title="<?php echo $this->__('Close') ?>"
+                onclick="mmdScheduleGenToggle(); return false;">&times;</button>
+    </div>
+    <p class="mmd-gen-note">
+        <?php echo $this->__('Choose a date range; matching class dates for this template\'s schedule code are generated and added to its "Course Date" option. Re-running the same range will not create duplicates. After generating, click "Save And Continue Edit" to apply the new dates to this template\'s assigned courses.') ?>
+    </p>
+    <form action="<?php echo $this->escapeHtml($action) ?>" method="post" id="mmd-schedule-gen-form">
+        <input type="hidden" name="form_key" value="<?php echo $formKey ?>" />
+        <input type="hidden" name="group_id" value="<?php echo $groupId ?>" />
+        <?php if ($storeId > 0): ?>
+        <input type="hidden" name="store" value="<?php echo $storeId ?>" />
+        <?php endif; ?>
+        <div class="mmd-gen-row">
+            <div class="mmd-gen-field">
+                <label for="mmd-gen-code"><?php echo $this->__('Schedule Code') ?></label>
+                <input type="text" id="mmd-gen-code" name="schedule_code" class="input-text"
+                       value="<?php echo $this->escapeHtml($defaultCode) ?>"
+                       readonly="readonly" title="<?php echo $this->__('Fixed to this template') ?>"
+                       style="width:84px;" />
+            </div>
+            <div class="mmd-gen-field">
+                <label for="mmd-gen-start"><?php echo $this->__('Start Date') ?></label>
+                <input type="date" id="mmd-gen-start" name="start_date" class="input-text" required />
+            </div>
+            <div class="mmd-gen-field">
+                <label for="mmd-gen-end"><?php echo $this->__('End Date') ?></label>
+                <input type="date" id="mmd-gen-end" name="end_date" class="input-text" required />
+            </div>
+            <div class="mmd-gen-field mmd-gen-action">
+                <button type="submit" class="mm-btn-primary"><?php echo $this->__('Generate Dates') ?></button>
+            </div>
+        </div>
+    </form>
+</div>
+<style>
+/* Inset panel — colours/typography from global tokens to match the edit page. */
+#mmd-schedule-gen.mmd-gen-panel {
+    clear: both;            /* drop below the floated title/buttons */
+    width: 100%;
+    box-sizing: border-box;
+    background: var(--d3);
+    border: 1px solid var(--b1);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 14px 0 20px;
+}
+#mmd-schedule-gen .mmd-gen-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+#mmd-schedule-gen .mmd-gen-title {
+    color: var(--t1);
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+}
+/* Bare-glyph close button — force past the global .admin-main button chrome. */
+#mmd-schedule-gen .mmd-gen-close {
+    background: transparent !important;
+    background-image: none !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    color: var(--t4) !important;
+    font-size: 20px !important;
+    line-height: 1 !important;
+    padding: 0 4px !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    cursor: pointer;
+}
+#mmd-schedule-gen .mmd-gen-close:hover { color: var(--t1) !important; background: transparent !important; }
+#mmd-schedule-gen .mmd-gen-note {
+    margin: 0 0 14px;
+    color: var(--t4);
+    font-size: 12px;
+    line-height: 1.5;
+    max-width: 820px;
+}
+#mmd-schedule-gen .mmd-gen-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 16px;
+}
+#mmd-schedule-gen .mmd-gen-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+#mmd-schedule-gen .mmd-gen-field label {
+    color: var(--t4);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    line-height: 1.2;
+}
+/* Equal input heights so every label sits on the same baseline. */
+#mmd-schedule-gen .mmd-gen-field .input-text {
+    height: 34px;
+    box-sizing: border-box;
+}
+#mmd-schedule-gen #mmd-gen-code[readonly] {
+    color: var(--t3);
+    cursor: not-allowed;
+    opacity: 0.9;
+}
+#mmd-schedule-gen .mmd-gen-action .mm-btn-primary {
+    height: 34px;
+}
+</style>
+<script type="text/javascript">
+//<![CDATA[
+(function () {
+    // Place the (hidden) panel directly below the button/tabs row, above the
+    // form. The form (#edit_form) is server-rendered and never moved by the
+    // theme's JS, and always sits below the .content-header + relocated tabs,
+    // so inserting the panel just before it is timing-independent. Fall back
+    // to after the relocated tabs / content-header if the form id changes.
+    function positionPanel() {
+        var panel = document.getElementById('mmd-schedule-gen');
+        if (!panel || panel.getAttribute('data-positioned')) { return; }
+        var form = document.getElementById('edit_form');
+        if (form && form.parentNode) {
+            form.parentNode.insertBefore(panel, form);
+            panel.setAttribute('data-positioned', '1');
+            return;
+        }
+        var main = document.querySelector('.main-col-inner') || document.body;
+        var anchor = main.querySelector('.tabs-relocated') || main.querySelector('.content-header');
+        if (anchor && anchor.parentNode) {
+            anchor.parentNode.insertBefore(panel, anchor.nextSibling);
+            panel.setAttribute('data-positioned', '1');
+        }
+    }
+
+    if (document.readyState !== 'loading') { positionPanel(); }
+    else { document.addEventListener('DOMContentLoaded', positionPanel); }
+    setTimeout(positionPanel, 200); // safety net
+
+    window.mmdScheduleGenToggle = function () {
+        var panel = document.getElementById('mmd-schedule-gen');
+        if (!panel) { return false; }
+        positionPanel();
+        var hidden = (panel.style.display === 'none' || panel.style.display === '');
+        panel.style.display = hidden ? 'block' : 'none';
+        if (hidden) {
+            try { panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) {}
+            var s = document.getElementById('mmd-gen-start');
+            if (s) { s.focus(); }
+        }
+        return false;
+    };
+
+    // Braille spinner on the Generate button while the synchronous POST runs
+    // (the page reloads on completion, which ends the animation naturally).
+    var form = document.getElementById('mmd-schedule-gen-form');
+    if (form) {
+        form.addEventListener('submit', function () {
+            var btn = form.querySelector('button[type="submit"]');
+            if (!btn) { return; }
+            var frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+            var i = 0;
+            btn.disabled = true;
+            btn.textContent = frames[0] + ' Generating…';
+            setInterval(function () {
+                i = (i + 1) % frames.length;
+                btn.textContent = frames[i] + ' Generating…';
+            }, 90);
+        });
+    }
+})();
+//]]>
+</script>

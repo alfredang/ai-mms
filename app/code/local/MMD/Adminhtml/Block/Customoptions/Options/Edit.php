@@ -66,6 +66,19 @@ class MMD_Adminhtml_Block_Customoptions_Options_Edit extends Mage_Adminhtml_Bloc
             'sort_order' => 10
                 ), -100);
 
+        // "Generate Course Dates" toggles the schedule-generate panel that the
+        // controller injects below the button row (only meaningful on an
+        // already-saved template). Level -1 (same as Back/Reset) + sort_order 5
+        // renders it left of Back.
+        if ((int) $this->getRequest()->getParam('group_id')) {
+            $this->_addButton('generate_dates', array(
+                'label'   => $helper->__('Generate Course Dates'),
+                'onclick' => 'mmdScheduleGenToggle(this); return false;',
+                'type'    => 'button',
+                'class'   => 'generate-dates',
+            ), -1, 5);
+        }
+
         $this->_formScripts[] = "
             function saveOptionsForm() {
                 applySelectedProducts('save')

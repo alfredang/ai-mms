@@ -78,8 +78,30 @@ class MMD_Adminhtml_Customoptions_OptionsController extends Mage_Adminhtml_Contr
             $this->_title($this->__('APO'))->_title($this->__('Manage Templates'))->_title($title);
             $this->loadLayout()
             ->_setActiveMenu('catalog/customoptions')
-            ->_addBreadcrumb($this->__('APO'), $this->__('Manage Templates'))
-            ->_addContent($this->getLayout()->createBlock('mmd/customoptions_options_edit'))
+            ->_addBreadcrumb($this->__('APO'), $this->__('Manage Templates'));
+
+            // Generate Course Dates panel — only for an already-saved template
+            // (needs a group_id to write into). Prefill the code from the title.
+            if ($id) {
+                $defaultCode = '';
+                if (preg_match('/([A-Ea-e]0*\d+)/', (string) $model->getTitle(), $cm)) {
+                    $defaultCode = strtoupper($cm[1]);
+                }
+                $genParams = array('group_id' => $id);
+                if ($storeId > 0) {
+                    $genParams['store'] = $storeId;
+                }
+                $this->_addContent(
+                    $this->getLayout()->createBlock('adminhtml/template')
+                        ->setTemplate('customoptions/schedule-generate.phtml')
+                        ->setData('group_id', $id)
+                        ->setData('store_id', $storeId)
+                        ->setData('form_action', $this->getUrl('*/*/generateDates', $genParams))
+                        ->setData('default_code', $defaultCode)
+                );
+            }
+
+            $this->_addContent($this->getLayout()->createBlock('mmd/customoptions_options_edit'))
             ->_addLeft($this->getLayout()->createBlock('adminhtml/store_switcher'))
             ->_addLeft($this->getLayout()->createBlock('mmd/customoptions_options_edit_tabs'));
 
@@ -676,6 +698,162 @@ class MMD_Adminhtml_Customoptions_OptionsController extends Mage_Adminhtml_Contr
             }
         }
         $this->_redirect('*/*/');
+    }
+
+    /**
+     * Auto-generate "Course Date" values for a template from a schedule code
+     * (A01-E04) over a start/end range, using the native PHP port of the
+     * Google Apps Script generator. Entries are MERGED into the template's
+     * Course Date option (idempotent — re-running the same range adds nothing
+     * because dedup is on reg_course + title). Propagation to assigned
+     * courses still happens through the normal Save / Apply-to-Products flow.
+     */
+    public function generateDatesAction()
+    {
+        $id      = (int) $this->getRequest()->getParam('group_id');
+        $code    = trim((string) $this->getRequest()->getParam('schedule_code'));
+        $start   = trim((string) $this->getRequest()->getParam('start_date'));
+        $end     = trim((string) $this->getRequest()->getParam('end_date'));
+        $storeId = (int) $this->getRequest()->getParam('store', 0);
+
+        $redirect = array('group_id' => $id);
+        if ($storeId > 0) {
+            $redirect['store'] = $storeId;
+        }
+
+        if ($id <= 0) {
+            Mage::getSingleton('adminhtml/session')->addError(
+                $this->__('Save the template before generating dates.')
+            );
+            return $this->_redirect('*/*/index');
+        }
+
+        $sd = DateTime::createFromFormat('Y-m-d', $start);
+        $ed = DateTime::createFromFormat('Y-m-d', $end);
+        if (!($sd instanceof DateTime) || !($ed instanceof DateTime)) {
+            Mage::getSingleton('adminhtml/session')->addError(
+                $this->__('Enter a valid start date and end date.')
+            );
+            return $this->_redirect('*/*/edit', $redirect);
+        }
+        if ($sd > $ed) {
+            Mage::getSingleton('adminhtml/session')->addError(
+                $this->__('Start date must be on or before the end date.')
+            );
+            return $this->_redirect('*/*/edit', $redirect);
+        }
+
+        $generator = Mage::getModel('mmd/schedule_generator');
+        if (!$generator->isKnownCode($code)) {
+            Mage::getSingleton('adminhtml/session')->addError($this->__(
+                "Schedule code '%s' is not a recognised slot. Use A01-A20, B01/03/05…21, C01-C04, D01-D04 or E01-E04.",
+                Mage::helper('core')->escapeHtml($code)
+            ));
+            return $this->_redirect('*/*/edit', $redirect);
+        }
+
+        $entries = $generator->generateForCode($code, $start, $end);
+        if (empty($entries)) {
+            Mage::getSingleton('adminhtml/session')->addNotice($this->__(
+                'No dates were generated for %s in that range.',
+                Mage::helper('core')->escapeHtml(strtoupper($code))
+            ));
+            return $this->_redirect('*/*/edit', $redirect);
+        }
+
+        try {
+            $group = Mage::getModel('customoptions/group')->load($id);
+            if (!$group->getId()) {
+                Mage::getSingleton('adminhtml/session')->addError($this->__('Template not found.'));
+                return $this->_redirect('*/*/index');
+            }
+
+            $hash = $group->getHashOptions();
+            $opts = $hash ? @unserialize($hash) : array();
+            if (!is_array($opts)) {
+                $opts = array();
+            }
+
+            // Locate the "Course Date" option, or create one if absent.
+            $cdOptId = null;
+            foreach ($opts as $optId => $opt) {
+                if (!empty($opt['title']) && strcasecmp(trim($opt['title']), 'course date') === 0) {
+                    $cdOptId = $optId;
+                    break;
+                }
+            }
+            if ($cdOptId === null) {
+                $cdOptId = 1;
+                foreach (array_keys($opts) as $k) {
+                    if ((int) $k >= $cdOptId) {
+                        $cdOptId = (int) $k + 1;
+                    }
+                }
+                $opts[$cdOptId] = array(
+                    'option_id'  => (string) $cdOptId,
+                    'title'      => 'Course Date',
+                    'type'       => 'drop_down',
+                    'is_require' => '1',
+                    'sort_order' => '1',
+                    'values'     => array(),
+                );
+            }
+            if (empty($opts[$cdOptId]['values']) || !is_array($opts[$cdOptId]['values'])) {
+                $opts[$cdOptId]['values'] = array();
+            }
+
+            // Dedup signatures + running id/sort counters from existing values.
+            $seen     = array();
+            $maxValId = 0;
+            $maxSort  = 0;
+            foreach ($opts[$cdOptId]['values'] as $vid => $v) {
+                $sig = strtolower(trim((isset($v['reg_course']) ? $v['reg_course'] : '') . '|' . (isset($v['title']) ? $v['title'] : '')));
+                $seen[$sig] = true;
+                $maxValId = max($maxValId, (int) $vid);
+                if (isset($v['sort_order'])) {
+                    $maxSort = max($maxSort, (int) $v['sort_order']);
+                }
+            }
+
+            $added = 0;
+            foreach ($entries as $e) {
+                $sig = strtolower(trim($e['reg_course'] . '|' . $e['title']));
+                if (isset($seen[$sig])) {
+                    continue;
+                }
+                $seen[$sig] = true;
+                $maxValId++;
+                $maxSort++;
+                $opts[$cdOptId]['values'][$maxValId] = array(
+                    'option_type_id'    => (string) $maxValId,
+                    'is_delete'         => '',
+                    'in_group_id'       => '',
+                    'title'             => $e['title'],
+                    'reg_course'        => $e['reg_course'],
+                    'price'             => '0.00',
+                    'price_type'        => 'fixed',
+                    'sku'               => '',
+                    'sort_order'        => (string) $maxSort,
+                    'customoptions_qty' => '',
+                    'dependent_ids'     => '',
+                    'images'            => array(),
+                );
+                $added++;
+            }
+
+            $group->setHashOptions(serialize($opts))->save();
+
+            $skipped = count($entries) - $added;
+            Mage::getSingleton('adminhtml/session')->addSuccess($this->__(
+                'Generated %d new Course Date entry/entries for %s (%d already present, skipped). Click "Save And Continue Edit" below to apply them to this template\'s assigned courses.',
+                $added, Mage::helper('core')->escapeHtml(strtoupper($code)), $skipped
+            ));
+        } catch (Exception $e) {
+            Mage::logException($e);
+            Mage::getSingleton('adminhtml/session')->addError($e->getMessage());
+        }
+
+        return $this->_redirect('*/*/edit', $redirect);
     }
 
     /**
