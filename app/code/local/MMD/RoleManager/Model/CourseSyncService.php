@@ -557,7 +557,7 @@ class MMD_RoleManager_Model_CourseSyncService
     /** Run catalog_url and flat catalog indexers. */
     private function _reindex()
     {
-        $indexerCodes = array('catalog_url', 'catalog_product_flat', 'catalog_category_flat');
+        $indexerCodes = array('catalog_url', 'catalog_product_flat', 'catalog_category_flat', 'catalogsearch_fulltext');
         foreach ($indexerCodes as $code) {
             try {
                 $indexer = Mage::getModel('index/process')->load($code, 'indexer_code');
