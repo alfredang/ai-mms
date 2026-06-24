@@ -639,18 +639,23 @@ button.dcf-btn-save{background:#2563eb !important;color:#fff !important}
 .dcf-mag-bar{background:linear-gradient(to bottom,#3b4a63,#2f3d52);color:#f1f5f9;padding:13px 22px;font-size:15px;font-weight:700;border-bottom:1px solid #1e293b;display:flex;align-items:center;justify-content:space-between;gap:8px}
 .dcf-mag-bar .dcf-mag-action{background:#0e7490;color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer}
 .dcf-mag-body{padding:8px 24px;background:#2a3548}
-/* Auto-wrapped grid pages: the table needs to read as a solid gray
-   card surface. Override the global `.admin-main .grid { background:
-   transparent }` rule inside the wrap so the card surface paints
-   through grid + hor-scroll + the .data table itself — gives the
-   same visible card body that Transactional Emails / Manage Tax
-   Rules have. Row cells stay transparent (global rule) so the gray
-   shows behind every cell. */
+/* Auto-wrapped grid pages (Invoices / Transactions / Search Terms etc.)
+   — drop the medium-gray card surface so the grid sits directly on the
+   page background, matching the Registrations page's flatter look.
+   `.dcf-mag.mmd-auto-card` overrides the base `.dcf-mag` chrome:
+   transparent fill, no border, no shadow, no rounded corners — only
+   the title bar at the top remains as a visual marker. */
+.dcf-mag.mmd-auto-card {
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+}
 .dcf-mag.mmd-auto-card .dcf-mag-body,
 .dcf-mag.mmd-auto-card .dcf-mag-body .grid,
 .dcf-mag.mmd-auto-card .dcf-mag-body .hor-scroll,
 .dcf-mag.mmd-auto-card .dcf-mag-body table.data {
-    background:#2a3548 !important;
+    background: transparent !important;
 }
 /* Magento-style 3-column row: label | input | scope tag */
 .dcf-row{display:grid;grid-template-columns:220px minmax(0,1fr) 110px;gap:18px;align-items:flex-start;padding:6px 0;border-bottom:none}
@@ -3276,10 +3281,18 @@ button.hsp-btn-submit{
 :root[data-theme="light"] .dcf-mag { background:#ffffff !important; border-color:#64748b !important }
 :root[data-theme="light"] .dcf-mag-bar { background:linear-gradient(to bottom,#f1f5f9,#e2e8f0) !important; color:#0f172a !important; border-bottom-color:#e2e8f0 !important }
 :root[data-theme="light"] .dcf-mag-body { background:#ffffff !important }
+/* Light-mode mirror for the new transparent auto-card chrome above —
+   the body/grid/hor-scroll/table.data all stay transparent so the
+   page background (light slate) shows through, matching the
+   Registrations page's flatter look. */
+:root[data-theme="light"] .dcf-mag.mmd-auto-card,
 :root[data-theme="light"] .dcf-mag.mmd-auto-card .dcf-mag-body,
 :root[data-theme="light"] .dcf-mag.mmd-auto-card .dcf-mag-body .grid,
 :root[data-theme="light"] .dcf-mag.mmd-auto-card .dcf-mag-body .hor-scroll,
-:root[data-theme="light"] .dcf-mag.mmd-auto-card .dcf-mag-body table.data { background:#ffffff !important }
+:root[data-theme="light"] .dcf-mag.mmd-auto-card .dcf-mag-body table.data {
+    background: transparent !important;
+    border-color: transparent !important;
+}
 
 /* Rows / labels */
 :root[data-theme="light"] .dcf-row-label { color:#1e293b !important }
