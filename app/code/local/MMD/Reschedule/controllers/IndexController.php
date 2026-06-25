@@ -32,7 +32,7 @@ class MMD_Reschedule_IndexController extends Mage_Core_Controller_Front_Action
             }
             $turnstile = Mage::helper('magentocaptcha/turnstile');
             if ($turnstile->isConfigured()) { $r = $turnstile->verify((string) ($post[MMD_MagentoCaptcha_Helper_Turnstile::TOKEN_FIELD] ?? ''), $turnstile->getRemoteIp()); if (empty($r['ok'])) { Mage::throwException($this->__('Spam check failed. Please refresh the page and try again.')); } }
-            Mage::getModel('mmd_reschedule/lead')->setStoreId(Mage::app()->getStore()->getId())->setStoreCode(Mage::app()->getStore()->getCode())
+            $lead = Mage::getModel('mmd_reschedule/lead')->setStoreId(Mage::app()->getStore()->getId())->setStoreCode(Mage::app()->getStore()->getCode())
                 ->setName($name)->setNric($nric)->setEmail($email)->setTelephone($telephone)
                 ->setCourse($course)->setCourseCode($courseCode)->setCourseStartDate($startDate)->setNextCourseStartDate($nextDate)
                 ->setMessage($comment)->setSource('class-reschedule')->setIp($turnstile->getRemoteIp())
@@ -45,6 +45,12 @@ class MMD_Reschedule_IndexController extends Mage_Core_Controller_Front_Action
                 array('Next Course Start Date', $nextDate),
             ), $comment, array(self::EXTRA_TO));
             $session->addSuccess($this->__('Thank you for your submission. We will respond in 7 working days. If you do not receive any response from us, please call our office hotline +65 6100 0613 for further assistance.'));
+            try {
+                Mage::helper('mmd_reschedule/googleCalendar')->syncRescheduleLead($lead);
+            } catch (Exception $gcalEx) {
+                Mage::logException($gcalEx);
+                $lead->setGcalStatus('error')->setGcalError(substr($gcalEx->getMessage(), 0, 65535))->save();
+            }
         } catch (Mage_Core_Exception $e) { $session->addError($e->getMessage()); }
         catch (Exception $e) { Mage::logException($e); $session->addError($this->__('Unable to submit your request. Please try again later.')); }
         $this->_redirect(self::RETURN_URL);

@@ -16,6 +16,7 @@ class MMD_Reschedule_Block_Adminhtml_Reschedulelead_Grid extends Mage_Adminhtml_
         $this->addColumn('current_date', array('header'=>$h->__('Course Start Date'),'index'=>'course_start_date'));
         $this->addColumn('preferred_date', array('header'=>$h->__('Next Start Date'),'index'=>'next_course_start_date'));
         $this->addColumn('status', array('header'=>$h->__('Status'),'index'=>'status','width'=>90,'type'=>'options','options'=>array('new'=>'New','confirmed'=>'Confirmed','closed'=>'Closed')));
+        $this->addColumn('gcal_status', array('header'=>$h->__('GCal'),'index'=>'gcal_status','width'=>80,'type'=>'options','options'=>array('pending'=>'Pending','synced'=>'Synced','error'=>'Error','skipped'=>'Skipped')));
         return parent::_prepareColumns();
     }
     public function getGridUrl() { return $this->getUrl('*/*/grid', array('_current'=>true)); }
