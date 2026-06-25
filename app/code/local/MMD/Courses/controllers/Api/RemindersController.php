@@ -105,6 +105,7 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
                 "SELECT cr.run_id, cr.class_id, cr.product_id, cr.course_sku,
                         cr.course_start_date, cr.course_end_date,
                         cr.course_start_time, cr.course_end_time,
+                        cr.num_sessions,
                         cr.mode_of_training, cr.venue_building,
                         cr.venue_street, cr.venue_floor, cr.venue_unit,
                         cr.postal_code, cr.room,
@@ -425,12 +426,19 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
         $startDateFmt = date('j M Y', strtotime($startDate));
         $endDateFmt   = date('j M Y', strtotime($endDate));
 
-        // Duration in days, inclusive of start and end day
-        $durationDays = 1;
-        $startTs = strtotime($startDate);
-        $endTs   = strtotime($endDate);
-        if ($startTs && $endTs && $endTs >= $startTs) {
-            $durationDays = (int) floor(($endTs - $startTs) / 86400) + 1;
+        // Duration in days. An explicit num_sessions wins (set for courses that
+        // skip days — e.g. Mon/Tue/Fri or two non-adjacent Sundays — where the
+        // calendar span over-counts the actual training days). When it's not
+        // set, fall back to the inclusive start..end span.
+        if (!empty($r['num_sessions'])) {
+            $durationDays = (int) $r['num_sessions'];
+        } else {
+            $durationDays = 1;
+            $startTs = strtotime($startDate);
+            $endTs   = strtotime($endDate);
+            if ($startTs && $endTs && $endTs >= $startTs) {
+                $durationDays = (int) floor(($endTs - $startTs) / 86400) + 1;
+            }
         }
         $durationText = $durationDays . ' day' . ($durationDays === 1 ? '' : 's');
 
@@ -497,6 +505,7 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
                 "SELECT cr.run_id, cr.class_id, cr.product_id, cr.course_sku,
                         cr.course_start_date, cr.course_end_date,
                         cr.course_start_time, cr.course_end_time,
+                        cr.num_sessions,
                         cr.mode_of_training, cr.venue_building,
                         cr.venue_street, cr.venue_floor, cr.venue_unit,
                         cr.postal_code, cr.room,
