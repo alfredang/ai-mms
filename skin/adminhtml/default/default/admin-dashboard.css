@@ -670,7 +670,11 @@ body #tiers_table select,
 body #tiers_table input:hover,
 body #tiers_table select:hover,
 body #tier_price_container input,
-body #tier_price_container select {
+body #tier_price_container select,
+body #media_gallery_content_grid input[type="text"],
+body #media_gallery_content_grid select,
+body #media_gallery_content_grid input[type="text"]:hover,
+body #media_gallery_content_grid select:hover {
     background:transparent !important;
     background-image:none !important;
     border:1px solid var(--b2) !important;
@@ -706,14 +710,17 @@ body #tier_price_container select:focus {
 body #group_prices_table td,
 body #group_prices_table tfoot tr,
 body #tiers_table td,
-body #tiers_table tfoot tr {
+body #tiers_table tfoot tr,
+body #media_gallery_content_grid td,
+body #media_gallery_content_grid tfoot tr {
     background:transparent !important;
     border-top-color:var(--b1) !important;
     border-right-color:var(--b1) !important;
     border-bottom-color:var(--b1) !important;
 }
 :root[data-theme="light"] body #group_prices_table td,
-:root[data-theme="light"] body #tiers_table td {
+:root[data-theme="light"] body #tiers_table td,
+:root[data-theme="light"] body #media_gallery_content_grid td {
     background:#ffffff !important;
     border-color:#cbd5e1 !important;
 }
@@ -722,6 +729,30 @@ body #tiers_table tfoot tr {
 :root[data-theme="light"] body #tiers_table tfoot tr,
 :root[data-theme="light"] body #tiers_table tfoot tr td {
     background:#f1f5f9 !important;
+}
+/* The uploader "Browse Files... / Upload Files" panel inside the
+   Images tab gets a hard #f9f9f9 fill from boxes.css:1390
+   (`.uploader .file-row { background-color:#f9f9f9 }`). Flatten to
+   transparent in dark mode so the card surface shows through. */
+body.adminhtml-catalog_product-edit .uploader .file-row {
+    background-color:transparent !important;
+    border-color:var(--b1) !important;
+}
+:root[data-theme="light"] body.adminhtml-catalog_product-edit .uploader .file-row {
+    background-color:#f9f9f9 !important;
+    border-color:#cbd5e1 !important;
+}
+
+/* Magento form rows that use a single `<td colspan="3" class="value">`
+   to occupy the full row (Images tab gallery, group/tier price rows,
+   etc.) collapse to the 180-220px label column because
+   admin-components.css §187 sets `.form-list tr { display: grid;
+   grid-template-columns: minmax(180px, 220px) minmax(260px, 1fr) auto
+   auto }` — colspan is meaningless once the tr is a grid container.
+   Restore intent by letting any td with a colspan attribute span all
+   grid tracks. */
+.form-list tr > td[colspan] {
+    grid-column: 1 / -1 !important;
 }
 /* Magento-style 3-column row: label | input | scope tag */
 .dcf-row{display:grid;grid-template-columns:220px minmax(0,1fr) 110px;gap:18px;align-items:flex-start;padding:6px 0;border-bottom:none}
