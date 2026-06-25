@@ -730,6 +730,42 @@ body #media_gallery_content_grid tfoot tr {
 :root[data-theme="light"] body #tiers_table tfoot tr td {
     background:#f1f5f9 !important;
 }
+/* System Config array-field widgets (e.g. Catalog Inventory > Minimum
+   Qty Allowed in Shopping Cart) render via system/config/form/field/
+   array.phtml — a `<div class="grid"><table class="border">` with
+   `<select>` + `<input>` cells. The same boxes.css:144
+   (`.grid table.border td { background:#fff !important }`) paints
+   the cells white in dark mode. Override on every system_config page
+   so the dark card surface shows through; light mode is unchanged. */
+body[class*="adminhtml-system_config-edit"] .grid table.border td,
+body[class*="adminhtml-system-config-edit"] .grid table.border td,
+body[class*="adminhtml-system_config-edit"] .grid table.border tr,
+body[class*="adminhtml-system-config-edit"] .grid table.border tr {
+    background:transparent !important;
+    border-color:var(--b1) !important;
+}
+body[class*="adminhtml-system_config-edit"] .grid table.border input[type="text"],
+body[class*="adminhtml-system-config-edit"] .grid table.border input[type="text"],
+body[class*="adminhtml-system_config-edit"] .grid table.border select,
+body[class*="adminhtml-system-config-edit"] .grid table.border select,
+body[class*="adminhtml-system_config-edit"] .grid table.border input[type="text"]:hover,
+body[class*="adminhtml-system-config-edit"] .grid table.border input[type="text"]:hover,
+body[class*="adminhtml-system_config-edit"] .grid table.border select:hover,
+body[class*="adminhtml-system-config-edit"] .grid table.border select:hover {
+    background:transparent !important;
+    background-image:none !important;
+    border:1px solid var(--b2) !important;
+    color:var(--t1) !important;
+    border-radius:6px !important;
+}
+body[class*="adminhtml-system_config-edit"] .grid table.border input[type="text"]:focus,
+body[class*="adminhtml-system-config-edit"] .grid table.border input[type="text"]:focus,
+body[class*="adminhtml-system_config-edit"] .grid table.border select:focus,
+body[class*="adminhtml-system-config-edit"] .grid table.border select:focus {
+    background:rgba(96,165,250,0.06) !important;
+    border-color:var(--blue) !important;
+}
+
 /* The uploader "Browse Files... / Upload Files" panel inside the
    Images tab gets a hard #f9f9f9 fill from boxes.css:1390
    (`.uploader .file-row { background-color:#f9f9f9 }`). Flatten to
