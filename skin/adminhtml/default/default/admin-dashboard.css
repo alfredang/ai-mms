@@ -652,6 +652,77 @@ button.dcf-btn-save{background:#2563eb !important;color:#fff !important}
 .dcf-mag.mmd-auto-card .dcf-mag-body table.data {
     background:#2a3548 !important;
 }
+/* Product Edit > Prices > Group Price / Tier Price inputs render white
+   in dark mode (boxes.css `input.input-text,textarea,select { background:#fff }`
+   is sneaking past the global transparent rule because the inputs are
+   injected by JS into a stock-Magento table-grid that the .grid input rule
+   in dark-theme.css matches but a different cascade ordering leaves white
+   on this specific page). Force transparent + a border to match every
+   other input in the admin. */
+body #group_prices_table input,
+body #group_prices_table select,
+body #group_prices_table input:hover,
+body #group_prices_table select:hover,
+body #group_prices_container input,
+body #group_prices_container select,
+body #tiers_table input,
+body #tiers_table select,
+body #tiers_table input:hover,
+body #tiers_table select:hover,
+body #tier_price_container input,
+body #tier_price_container select {
+    background:transparent !important;
+    background-image:none !important;
+    border:1px solid var(--b2) !important;
+    color:var(--t1) !important;
+    border-radius:6px !important;
+}
+body #group_prices_table input:focus,
+body #group_prices_table select:focus,
+body #group_prices_container input:focus,
+body #group_prices_container select:focus,
+body #tiers_table input:focus,
+body #tiers_table select:focus,
+body #tier_price_container input:focus,
+body #tier_price_container select:focus {
+    background:rgba(96,165,250,0.06) !important;
+    border-color:var(--blue) !important;
+}
+:root[data-theme="light"] body #group_prices_table input,
+:root[data-theme="light"] body #group_prices_table select,
+:root[data-theme="light"] body #tiers_table input,
+:root[data-theme="light"] body #tiers_table select {
+    background:#ffffff !important;
+    border-color:#cbd5e1 !important;
+    color:#0f172a !important;
+}
+/* Group / Tier Price table cells render with a hard #fff background in
+   dark mode — boxes.css:144 (`.grid table.border td { background:#fff
+   !important }`) is the painter; the dynamically-added rows have no
+   class on td so a class-scoped override won't catch them. Use an ID
+   selector to flatten EVERY td (tbody + tfoot) to transparent so the
+   dark card surface shows through. Light mode restores the legacy
+   look. */
+body #group_prices_table td,
+body #group_prices_table tfoot tr,
+body #tiers_table td,
+body #tiers_table tfoot tr {
+    background:transparent !important;
+    border-top-color:var(--b1) !important;
+    border-right-color:var(--b1) !important;
+    border-bottom-color:var(--b1) !important;
+}
+:root[data-theme="light"] body #group_prices_table td,
+:root[data-theme="light"] body #tiers_table td {
+    background:#ffffff !important;
+    border-color:#cbd5e1 !important;
+}
+:root[data-theme="light"] body #group_prices_table tfoot tr,
+:root[data-theme="light"] body #group_prices_table tfoot tr td,
+:root[data-theme="light"] body #tiers_table tfoot tr,
+:root[data-theme="light"] body #tiers_table tfoot tr td {
+    background:#f1f5f9 !important;
+}
 /* Magento-style 3-column row: label | input | scope tag */
 .dcf-row{display:grid;grid-template-columns:220px minmax(0,1fr) 110px;gap:18px;align-items:flex-start;padding:6px 0;border-bottom:none}
 .dcf-row-label{font-size:13.5px;color:#cbd5e1;line-height:1.4;padding-top:9px}
