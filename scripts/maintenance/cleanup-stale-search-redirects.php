@@ -316,6 +316,21 @@ function processStore(
 // ============================================================
 $targets = $allStores ? COUNTRY_STORE_CODES : [$storeCode];
 
+// Filter against the actual installed stores. Each country runs on its
+// own Coolify deployment with its own DB, so the SG instance only has
+// the SG store, the NG instance only has NG, etc. Stores in
+// COUNTRY_STORE_CODES that don't exist here are skipped silently
+// rather than logged as errors.
+$installed = array_map(
+    static fn($s) => $s->getCode(),
+    Mage::app()->getStores(true)
+);
+$missing = array_diff($targets, $installed);
+$targets = array_values(array_intersect($targets, $installed));
+foreach ($missing as $code) {
+    echo "skipping store '$code' — not installed on this instance\n";
+}
+
 $totals = ['cleared' => 0, 'kept' => 0, 'errored' => 0, 'skipped' => 0];
 foreach ($targets as $code) {
     try {
