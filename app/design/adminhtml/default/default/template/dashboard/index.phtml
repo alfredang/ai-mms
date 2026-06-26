@@ -14762,6 +14762,17 @@ window.trnReset = function() {
         window.__dashCharts) so we don't leak canvases between swaps.
      2. Re-bind freshly for the new DOM. */
 (function(){
+    var chartInitAttempts = 0;
+    var chartInitTimer = null;
+
+    function scheduleDashChartsInit() {
+        if (chartInitTimer) return;
+        chartInitTimer = setTimeout(function() {
+            chartInitTimer = null;
+            initDashCharts();
+        }, 80);
+    }
+
     function destroyDashCharts() {
         if (!window.__dashCharts) return;
         window.__dashCharts.forEach(function(c){
@@ -14771,7 +14782,11 @@ window.trnReset = function() {
     }
 
     function initDashCharts() {
-        if (typeof Chart === 'undefined') return;
+        if (typeof Chart === 'undefined') {
+            if (chartInitAttempts++ < 40) scheduleDashChartsInit();
+            return;
+        }
+        chartInitAttempts = 0;
         // Bail if the super-admin panel isn't in the DOM (e.g. user
         // landed on a different role's dashboard) — nothing to draw.
         if (!document.getElementById('salesByMonthChart')) return;
