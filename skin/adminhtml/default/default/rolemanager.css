@@ -20,8 +20,8 @@
 .rm-select{padding:10px 14px;background:#1f2937;border:1px solid #374151;border-radius:10px;color:#f1f5f9;font-size:13px;outline:none;min-width:140px}
 .rm-table{width:100%;border-collapse:separate;border-spacing:0}
 .rm-table th{text-align:left;padding:6px 10px;color:#64748b;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #1f2937;white-space:nowrap;line-height:1}
-.rm-table td{padding:4px 10px;border-bottom:1px solid #1f2937;vertical-align:middle;white-space:nowrap;line-height:1;height:28px}
-.rm-table tr:hover td{background:rgba(30,41,59,.5)}
+.rm-table td{padding:4px 10px;border-bottom:1px solid #1f2937;vertical-align:middle;white-space:nowrap;line-height:1;height:28px;transition:background .12s ease !important}
+.rm-table tbody tr:hover > td{background:rgba(37,139,182,.10) !important;color:var(--t1,#f1f5f9)}
 .rm-name{color:#f1f5f9;font-weight:500;font-size:12.5px;line-height:1}
 .rm-email{color:#94a3b8;font-size:12px;line-height:1}
 .rm-roles{display:flex;flex-wrap:nowrap;gap:4px}
@@ -442,7 +442,7 @@ a.rm-pagination-btn.active,
 :root[data-theme="light"] .rm-email{color:#475569}
 :root[data-theme="light"] .rm-table th{color:#475569;border-bottom-color:#cbd5e1}
 :root[data-theme="light"] .rm-table td{color:#0f172a;border-bottom-color:#e2e8f0}
-:root[data-theme="light"] .rm-table tr:hover td{background:rgba(37,99,235,.06)}
+:root[data-theme="light"] .rm-table tbody tr:hover > td{background:rgba(37,99,235,.06) !important;color:#0f172a}
 :root[data-theme="light"] .rm-search input,
 :root[data-theme="light"] .rm-select{background:#ffffff;border-color:#cbd5e1;color:#0f172a}
 :root[data-theme="light"] .rm-search svg{color:#94a3b8}
