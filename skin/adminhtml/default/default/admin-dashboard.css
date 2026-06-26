@@ -188,13 +188,13 @@ button.dash-detail-btn:hover{background:transparent !important;color:#e2e8f0 !im
 }
 .dash-summary-table tbody tr{
     height:44px;
-    transition:background .12s;
 }
 .dash-summary-table tbody tr + tr td{
     border-top:1px solid var(--b1,#384a60);
 }
-.dash-summary-table tbody tr:hover td{
-    background:var(--d5,#243044);
+.dash-summary-table tbody tr:hover > td{
+    background:rgba(37,139,182,.10) !important;
+    color:var(--t1,#f1f5f9);
 }
 .dash-summary-table tbody td{
     padding:6px 10px;
@@ -203,6 +203,7 @@ button.dash-detail-btn:hover{background:transparent !important;color:#e2e8f0 !im
     color:var(--t2,#e2e8f0);
     vertical-align:middle;
     white-space:nowrap;
+    transition:background .12s ease !important;
 }
 .dash-summary-table a{color:var(--blue,#60a5fa);text-decoration:none}
 .dash-summary-table a:hover{color:var(--blue2,#67e8f9);text-decoration:underline}
@@ -3351,7 +3352,7 @@ button.hsp-btn-submit{
 :root[data-theme="light"] .dash-summary-table thead th { color:#64748b !important; border-bottom-color:#e2e8f0 !important }
 :root[data-theme="light"] .dash-summary-table tbody td { color:#1e293b !important }
 :root[data-theme="light"] .dash-summary-table tbody tr + tr td { border-top-color:#e2e8f0 !important }
-:root[data-theme="light"] .dash-summary-table tbody tr:hover td { background:#f1f5f9 !important }
+:root[data-theme="light"] .dash-summary-table tbody tr:hover > td { background:rgba(37,99,235,.06) !important; color:#0f172a !important }
 :root[data-theme="light"] .dash-summary-empty { color:#64748b !important }
 
 /* Inline color overrides for cells with style="color:#cbd5e1" (Branch
