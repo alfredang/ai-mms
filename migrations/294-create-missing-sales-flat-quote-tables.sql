@@ -10,6 +10,14 @@
 --      Schema copied verbatim from
 --      app/code/core/Mage/Sales/sql/sales_setup/mysql4-install-1.4.0.0.php.
 --      Parents created before children to satisfy FK ordering.
+--      sql_mode is relaxed for this session because the legacy zero-date
+--      defaults ('0000-00-00 00:00:00') below are rejected by strict mode
+--      (error 1067) on instances where MySQL enforces NO_ZERO_DATE — this
+--      took GH down on first attempt (CREATE TABLE IF NOT EXISTS only skips
+--      validation when the table already exists; GH's didn't, so it hit
+--      real column validation). Matches the existing
+--      scripts/maintenance/cleanup-bloat.sql precedent.
+SET SESSION sql_mode = '';
 
 CREATE TABLE IF NOT EXISTS `sales_flat_quote` (
   `entity_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
