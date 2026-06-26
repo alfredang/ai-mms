@@ -378,7 +378,13 @@ class Hitpay_Pay_PaymentController extends Mage_Core_Controller_Front_Action {
                 if ($orderStatus == $orderState) {
                     $status = 'completed';
                 } else {
-                    $status = $orderStatus;
+                    // Order has already advanced past new_order_status (e.g. to
+                    // 'complete'): the payment is still confirmed, so report
+                    // 'completed' — NOT the raw Magento order status. The
+                    // awaiting-page JS only handles wait/error/pending/failed/
+                    // completed, so returning e.g. 'complete' left the spinner
+                    // hanging forever even though payment succeeded.
+                    $status = 'completed';
                 }
                 $redirect = Mage::getUrl('checkout/onepage/success');
             } else if ($status == 'failed') {

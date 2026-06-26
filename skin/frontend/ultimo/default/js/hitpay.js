@@ -35,7 +35,14 @@ $jHitpay(document).ready(function(){
                         $jHitpay('.payment_status_complete').show();
                         isStatusReceived = true;
                         setTimeout(function(){window.location.href = data.redirect;}, 5000);
+                    } else {
+                        // Unknown/unexpected status — keep polling instead of
+                        // freezing on the spinner (defensive guard).
+                        setTimeout(statusLoop, 2000);
                     }
+                }).fail(function () {
+                    // Transient network/AJAX error — retry rather than hang.
+                    setTimeout(statusLoop, 2000);
                 });
             }
         }
