@@ -63,13 +63,13 @@ class MMD_SingaporePrice_Helper_Data extends Mage_Core_Helper_Abstract
     public function getCatalogPrice(Mage_Catalog_Model_Product $product)
     {
         $p = (float) $product->getPrice();
-        if ($p > 0) {
-            return $p;
+        if ($p <= 0) {
+            // Fallback for products whose `price` attribute is missing —
+            // pull from the price index where final_price was repaired by
+            // migration 076/077.
+            $p = (float) $product->getFinalPrice();
         }
-        // Fallback for products whose `price` attribute is missing —
-        // pull from the price index where final_price was repaired by
-        // migration 076/077.
-        return (float) $product->getFinalPrice();
+        return (float) Mage::helper('core')->currency($p, false, false);
     }
 
     /** y = 0 by default; positive y = a discount the storefront should subtract. */

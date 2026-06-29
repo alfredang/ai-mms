@@ -645,6 +645,7 @@ HTML;
 $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getStore()->getId() == 7)
     ? $_product->getPrice()
     : $_product->getFinalPrice();
+$_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, false, false);
 ?>
 <input type="hidden" id="simpleProdPrice" name="simpleProdPrice" value="<?php echo $_simpleProdPrice ?>"/>
 <input type="hidden" id="gstProdPrice" name="gstProdPrice" value="<?php echo $_simpleProdPrice + ($_simpleProdPrice * 0.09) ?>"/>
@@ -864,7 +865,8 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 				$_wsqGst      = $_wsqPrice * 0.09;
 				$_wsqBaseline = $_wsqPrice * 0.50 + $_wsqGst;
 				$_wsqMces     = $_wsqPrice * 0.30 + $_wsqGst;
-				$_fmt = function ($v) { return '$' . number_format($v, 2); };
+				$_wsqCurrencySymbol = Mage::app()->getLocale()->currency(Mage::app()->getStore()->getCurrentCurrencyCode())->getSymbol();
+					$_fmt = function ($v) use ($_wsqCurrencySymbol) { return $_wsqCurrencySymbol . number_format($v, 2); };
 			?>
 				<section class="course-policy-card course-policy-card--wsq course-policy-card--wsq-in-primary">
 					<header class="course-policy-card__header">
