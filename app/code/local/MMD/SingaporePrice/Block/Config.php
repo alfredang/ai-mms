@@ -16,6 +16,13 @@ class MMD_SingaporePrice_Block_Config extends Mage_Core_Block_Template
         $helper  = Mage::helper('mmd_singaporeprice');
         $product = Mage::registry('current_product');
         $price   = $product ? $helper->getCatalogPrice($product) : 0.0;
+        // getCatalogPrice() returns the base-currency value (it also feeds
+        // MMD_SingaporePrice_Model_Catalog_Product_Type_Price's final-price
+        // calc, which must stay unconverted). Convert only here, for the
+        // JS-facing display value — converting inside the helper itself
+        // double-applies the rate once price.phtml converts getFinalPrice()
+        // again downstream.
+        $price = (float) Mage::helper('core')->currency($price, false, false);
 
         return Mage::helper('core')->jsonEncode(array(
             'active'         => $helper->isActive(),
