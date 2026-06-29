@@ -47,7 +47,54 @@ if (!$syncService || !$syncService->isConfigured()) {
     exit(2);
 }
 
-$localCurrency = (string) Mage::app()->getBaseCurrencyCode();
+// Bootstrapping via Mage::app('admin') (above) bypasses index.php's
+// MAGE_RUN_CODE routing entirely, so Mage::app()->getStore() resolves to
+// store_id=0 (admin) — NOT this country's actual website/store. Since
+// Catalog Price Scope is "Website" here, price lives in a PER-WEBSITE row
+// (e.g. store_id=3 for Ghana) separate from the store_id=0 default row.
+// Writing only to store_id=0 (as an earlier version of this script did)
+// never reaches the row the storefront actually reads — resolve the real
+// target store the same way index.php does, from MMS_COUNTRY_CODE.
+//
+// Mirrors the $countryWebsiteMap in index.php — keep both in sync if a
+// new country is added (see memory: ccMap duplication across the repo).
+$countryWebsiteMap = array(
+    'MY' => 'malaysia',
+    'GH' => 'ghana',
+    'NG' => 'nigeria',
+    'BT' => 'bhutan',
+    'IN' => 'india',
+);
+$targetStoreId = 0; // default: admin/global scope (correct for an SG-side run)
+if (strtolower((string) getenv('MMS_MODE')) === 'country') {
+    $cc = strtoupper((string) getenv('MMS_COUNTRY_CODE'));
+    $websiteCode = isset($countryWebsiteMap[$cc]) ? $countryWebsiteMap[$cc] : null;
+    if ($websiteCode === null) {
+        fwrite(STDERR, "ERROR: MMS_MODE=country but MMS_COUNTRY_CODE='$cc' is not in the website map. Refusing to guess a store scope.\n");
+        exit(2);
+    }
+    $resource = Mage::getSingleton('core/resource');
+    $read     = $resource->getConnection('core_read');
+    $websiteId = (int) $read->fetchOne("SELECT website_id FROM core_website WHERE code = ?", array($websiteCode));
+    if (!$websiteId) {
+        fwrite(STDERR, "ERROR: no core_website row for code='$websiteCode'.\n");
+        exit(2);
+    }
+    $targetStoreId = (int) $read->fetchOne(
+        "SELECT s.store_id FROM core_store s
+         JOIN core_store_group g ON g.group_id = s.group_id
+         WHERE g.website_id = ? AND s.store_id != 0
+         ORDER BY s.store_id ASC LIMIT 1",
+        array($websiteId)
+    );
+    if (!$targetStoreId) {
+        fwrite(STDERR, "ERROR: website_id=$websiteId ('$websiteCode') has no non-admin store view.\n");
+        exit(2);
+    }
+}
+fwrite(STDOUT, "Target store_id for price writes: $targetStoreId\n");
+
+$localCurrency = (string) Mage::app()->getStore($targetStoreId)->getBaseCurrencyCode();
 fwrite(STDOUT, "Local base currency: $localCurrency" . ($apply ? '' : ' (DRY RUN — pass --apply to write)') . "\n");
 
 /**
@@ -139,7 +186,7 @@ foreach ($skus as $sku) {
         if (!$entityId) {
             continue;
         }
-        $product = Mage::getModel('catalog/product')->setStoreId(0)->load($entityId);
+        $product = Mage::getModel('catalog/product')->setStoreId($targetStoreId)->load($entityId);
         if (!$product || !$product->getId()) {
             continue;
         }
