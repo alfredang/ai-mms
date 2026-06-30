@@ -212,59 +212,6 @@ try {
     </div>
 
     <?php if ($_tiCanManage): ?>
-    <style>
-    /* Light-mode overrides for the "Sync Trainers from LMS" card.
-       Colors are hardcoded via inline style="" attributes, so inline
-       cascade beats global theme CSS — we hook by the card's id +
-       [style*="<inline value>"] attribute selectors with !important
-       to flip just the dark tokens to slate counterparts.
-
-       Mapping:
-         #1e2132 (card bg)              -> #ffffff
-         #334155 (border)               -> #cbd5e1 slate-300
-         #1e293b (inner divider)        -> #e2e8f0 slate-200
-         #0f172a (input bg)             -> #ffffff
-         #e2e8f0 (headings / body)      -> #0f172a slate-900
-         #94a3b8 (muted secondary)      -> #475569 slate-600
-         #64748b / #475569              -> stay — already readable on white
-       Brand-blue accents (#2563eb button, #60a5fa icon) keep their
-       hue; the icon stroke color is set on the <svg> itself, so this
-       block doesn't need to retune them. */
-    :root[data-theme="light"] #ti-card[style*="background:#1e2132"] {
-        background:#ffffff !important;
-    }
-    :root[data-theme="light"] #ti-card[style*="border:1px solid #334155"] {
-        border-color:#cbd5e1 !important;
-    }
-    :root[data-theme="light"] #ti-card [style*="border-top:1px solid #1e293b"] {
-        border-top-color:#e2e8f0 !important;
-    }
-    :root[data-theme="light"] #ti-card [style*="background:#0f172a"][style*="border:1px solid #334155"] {
-        background:#ffffff !important;
-        border-color:#cbd5e1 !important;
-    }
-    :root[data-theme="light"] #ti-card [style*="color:#e2e8f0"] {
-        color:#0f172a !important;
-    }
-    :root[data-theme="light"] #ti-card [style*="color:#94a3b8"] {
-        color:#475569 !important;
-    }
-    :root[data-theme="light"] #ti-card input[type="text"],
-    :root[data-theme="light"] #ti-card input[type="password"] {
-        color:#0f172a !important;
-    }
-    :root[data-theme="light"] #ti-card input::placeholder {
-        color:#94a3b8 !important;
-    }
-    /* "Save" ghost button border */
-    :root[data-theme="light"] #ti-card button[style*="border:1px solid #334155"] {
-        border-color:#cbd5e1 !important;
-    }
-    /* "Pull from LMS now" — keep brand-blue + white text on both themes */
-    :root[data-theme="light"] #ti-card button[style*="background:#2563eb"] {
-        color:#ffffff !important;
-    }
-    </style>
     <!-- ===== Sync Trainers from LMS ===== -->
     <div id="ti-card" style="background:#1e2132;border:1px solid #334155;border-radius:12px;padding:18px 20px;margin-bottom:20px;">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;">
