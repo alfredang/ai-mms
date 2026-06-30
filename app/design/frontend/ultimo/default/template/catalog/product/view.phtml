@@ -89,10 +89,17 @@
 	// ---------------------------------------------------------------------
 	$_WS = '(?:\s|&nbsp;|\x{00A0}|\x{2007}|\x{202F})';
 	$_courseSku = (string) $_product->getSku();
-	$_courseSectionHtml = function (string $code) use ($_courseSku): string {
+	$_cmsBlockHtml = function (string $id): string {
+		static $cmsBlockHtmlCache = array();
+		if (!array_key_exists($id, $cmsBlockHtmlCache)) {
+			$cmsBlockHtmlCache[$id] = trim(Mage::app()->getLayout()->createBlock('cms/block')->setBlockId($id)->toHtml());
+		}
+		return $cmsBlockHtmlCache[$id];
+	};
+	$_courseSectionHtml = function (string $code) use ($_courseSku, $_cmsBlockHtml): string {
 		if ($_courseSku === '') return '';
 		$id = 'course_' . $_courseSku . '_' . $code;
-		return trim(Mage::app()->getLayout()->createBlock('cms/block')->setBlockId($id)->toHtml());
+		return $_cmsBlockHtml($id);
 	};
 
 	// (1) WSQ Funding wrapper — raw inner HTML of the SFC/UTAP/PSEA narrative.
@@ -378,7 +385,7 @@
 		list($_certExtracted, $shortDescription) = $_extractSection('(?:Certifications?|Certificate)', $shortDescription);
 		$_certificationHtml = $_courseSectionHtml('certification');
 		if ($_certificationHtml === '') {
-			$_certificationHtml = trim($this->getLayout()->createBlock('cms/block')->setBlockId('course_certification')->toHtml());
+			$_certificationHtml = $_cmsBlockHtml('course_certification');
 		}
 		if ($_certificationHtml === '') {
 			$_certificationHtml = $_certExtracted;
@@ -785,7 +792,7 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 					   directly above Post-Course Support for ALL stores. */
 					$_isMyStore    = (Mage::app()->getStore()->getId() == 2);
 					$_extraBlockId = ($attributeSetId == 21) ? 'tour_info' : 'grant';
-					$_extraHtml    = trim($this->getLayout()->createBlock('cms/block')->setBlockId($_extraBlockId)->toHtml());
+					$_extraHtml    = $_cmsBlockHtml($_extraBlockId);
 					?>
 
 					<?php /* Funding and Grant card was here previously — moved to the
@@ -1077,8 +1084,8 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 				// the right (secondary) column directly under the "Register
 				// Your Interest" CTA so the support context sits beside the
 				// commitment moment.
-				$_supportHtml = trim($this->getLayout()->createBlock('cms/block')->setBlockId('post_course_support')->toHtml());
-				$_cancelHtml  = trim($this->getLayout()->createBlock('cms/block')->setBlockId('course_cancellation_policy')->toHtml());
+				$_supportHtml = $_cmsBlockHtml('post_course_support');
+				$_cancelHtml  = $_cmsBlockHtml('course_cancellation_policy');
 				/* Additional Note renders in the right column directly above
 				   Post-Course Support for ALL stores. On MY, fold the grant /
 				   tour-info CMS block into the same card so the disclaimer +
