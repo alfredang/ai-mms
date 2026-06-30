@@ -185,14 +185,25 @@
 <?php 
 $providerId =  $_product->getProvider();
 if($providerId) {
-$products = Mage::getModel('catalog/product')->getCollection()->
-addFieldToFilter(array(
+$products = Mage::getModel('catalog/product')->getCollection()
+->addAttributeToSelect(array(
+    'name',
+    'small_image',
+    'price',
+    'special_price',
+    'special_from_date',
+    'special_to_date',
+    'tax_class_id',
+    'url_key',
+    'url_path',
+))
+->addFieldToFilter(array(
 	array('attribute'=>'provider','eq'=>$providerId),
 	
 ));
 
 
-if(count($products)>1) {
+if($products->getSize()>1) {
 ?>
 
     <div class=" grid12-12">
@@ -203,11 +214,11 @@ if(count($products)>1) {
     <div id="itemslider-upsell" class="itemslider  itemslider-responsive products-grid centered owl-carousel owl-theme">            
                    <?php foreach($products as $courseProduct) {
 					   if($_product->getId()!=$courseProduct->getId()) {
-					   $obj = Mage::getModel('catalog/product')->load($courseProduct->getId());
+					   $obj = $courseProduct;
 					    ?> <div class="item">
                     
                     
-                    <a class="product-image" title="<?php echo $obj->getName();?>" href="<?php echo $obj->getProductUrl(); ?>"><img height="100" width="150" alt="<?php echo $obj->getName();?>" src="<?php echo $this->helper('catalog/image')->init($obj, 'small_image')->resize(150,100); ?>"></a> 
+                    <a class="product-image" title="<?php echo $obj->getName();?>" href="<?php echo $obj->getProductUrl(); ?>"><img height="100" width="150" alt="<?php echo $obj->getName();?>" src="<?php echo $this->helper('catalog/image')->init($obj, 'small_image')->resize(150,100); ?>" loading="lazy" decoding="async"></a>
                     <h3 class="product-name"><a title="" href="<?php echo $obj->getProductUrl(); ?>"><?php echo $obj->getName();?></a></h3>                   <?php echo $this->getPriceHtml($obj, true) ?>
                     
                    
@@ -253,4 +264,3 @@ if(count($products)>1) {
 <?php } }?>
 </div>
 
-  
