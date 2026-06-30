@@ -19,6 +19,15 @@
 
 ![Screenshot](screenshot.png)
 
+## Admin Guide
+
+Step-by-step, screenshot-driven guides for running the LMS from the admin
+panel — see **[docs/admin-guide/](docs/admin-guide/)**:
+
+- [Admin guide index](docs/admin-guide/README.md) — logging in, the six country stores
+- [Changing a course fee](docs/admin-guide/changing-course-fees.md)
+- [Changing the currency conversion rate](docs/admin-guide/changing-currency-conversion.md)
+
 ## About
 
 **Tertiary Courses LMS** is a complete, production-grade course-registration and learning-management platform built on OpenMage 1.x (Magento 1 LTS) and customised for **Tertiary Infotech Academy**. Every product is a *course* (instructor-led trainings, workshops, certifications) — there is no physical inventory or shipping. The storefront *is* the course-registration portal, and the admin panel is rebranded as a Training Management System for instructors and operations staff.
@@ -27,14 +36,14 @@ This system runs as a **franchise model**:
 
 - 📚 **Courseware is supplied and supported by Tertiary Courses Singapore.** Franchisees plug into a shared, ready-made catalogue of WSQ / IBF / SkillsFuture-aligned courses — they don't have to author content from scratch.
 - 🛠️ **We set up and operate the LMS on the franchisee's own server.** Each franchisee gets their own country store (domain, currency, language, pricing, funding hooks) on a single shared install, deployed and maintained for them.
-- 🌏 **One install, many countries.** The platform already powers five country stores, each with its own domain and funding rules.
+- 🌏 **One install, many countries.** The platform already powers six country stores, each with its own domain and funding rules.
 
 ### Key Features
 
 | Feature | Description |
 |---------|-------------|
 | 🎓 **Course = Product** | Catalogue of instructor-led / live-online / hybrid courses — no stock, weight, or shipping. |
-| 🌐 **Multi-country franchise** | One install → five country stores (SG, MY, NG, GH, IN), each with its own domain, currency, language and pricing. |
+| 🌐 **Multi-country franchise** | One install → six country stores (SG, MY, NG, GH, BT, IN), each with its own domain, currency, language and pricing. |
 | 💰 **Funding & subsidy hooks** | SG SkillsFuture Credit / WSQ / IBF, MY HRDC — funding tiers (Baseline, MCES) auto-calculated. |
 | 🧾 **Pro Forma Invoices** | On-demand, self-sponsored SkillsFuture-claim pro formas with GST settled on the pre-subsidy list price. |
 | 🏫 **Automatic class formation** | Orders materialise into classes & rosters out-of-band via cron — the storefront HTTP path stays untouched. |
@@ -61,8 +70,8 @@ This system runs as a **franchise model**:
 ## Architecture
 
 ```
-                          COUNTRY STORES (one install, five domains)
-        🇸🇬 com.sg   🇲🇾 com.my   🇳🇬 com.ng   🇬🇭 com.gh   🇮🇳 co.in
+                          COUNTRY STORES (one install, six domains)
+   🇸🇬 com.sg  🇲🇾 com.my  🇳🇬 com.ng  🇬🇭 com.gh  🇧🇹 .bt  🇮🇳 co.in
                                        │
                                        ▼
 ┌──────────────────────────────────────────────────────────────────────────┐
