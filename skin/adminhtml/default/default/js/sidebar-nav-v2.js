@@ -3013,15 +3013,6 @@ document.addEventListener('DOMContentLoaded', function injectCmsPagesSearch() {
 // Wrap in an IIFE so we can safely set up a MutationObserver that
 // survives PJAX swaps (the observer itself lives in the closure scope).
 (function () {
-    // Diagnostic logging — turn off by setting window.__mmdConfigQuiet = true
-    // in DevTools. Default ON so we can see what's happening when the
-    // button mysteriously disappears.
-    function log() {
-        if (window.__mmdConfigQuiet) return;
-        if (!window.console) return;
-        console.log.apply(console, ['[mmd-config-expand-all]'].concat([].slice.call(arguments)));
-    }
-
     // Determine if a section is currently OPEN by checking what the user
     // actually sees — the content <div>'s computed display. Magento's
     // `<group>-state` hidden input isn't always emitted (the server-side
@@ -3113,30 +3104,25 @@ document.addEventListener('DOMContentLoaded', function injectCmsPagesSearch() {
         try {
             var body = document.body;
             if (!/adminhtml-system[_-]config-(edit|index)/.test(body.className)) {
-                log('skip: body class does not match', body.className);
                 return false;
             }
             var hdr = findRealContentHeader();
             if (!hdr) {
-                log('skip: no visible .content-header');
                 return false;
             }
             var existing = document.getElementById('mmd-config-expand-all');
             if (existing && hdr.contains(existing)) {
-                log('skip: button already present inside visible header');
                 return true;
             }
             if (existing) {
                 // Button lives in another container (the floating header from
                 // a previous page, or a stale element). Remove it so we can
                 // re-inject into the visible header.
-                log('removing stray button from another container');
                 existing.parentNode.removeChild(existing);
             }
             var heads = document.querySelectorAll(
                 '.entry-edit-head.collapseable > a[id$="-head"]');
             if (heads.length < 1) {
-                log('skip: heads count =', heads.length);
                 return false;  // not ready yet (DOM still being populated)
             }
             // Anchor candidates SCOPED to the visible header, so we never
@@ -3145,7 +3131,6 @@ document.addEventListener('DOMContentLoaded', function injectCmsPagesSearch() {
                       || hdr.querySelector('.content-buttons')
                       || hdr;
             if (!anchor) {
-                log('skip: no anchor found');
                 return false;
             }
 
@@ -3192,7 +3177,6 @@ document.addEventListener('DOMContentLoaded', function injectCmsPagesSearch() {
             }
 
             updateLabel();
-            log('injected, heads=', heads.length, 'anchor=', anchor);
             return true;
         } catch (e) {
             if (window.console) console.warn('[mmd-config-expand-all] inject failed', e);
@@ -3204,7 +3188,6 @@ document.addEventListener('DOMContentLoaded', function injectCmsPagesSearch() {
     // + script execution, but some pages do further DOM work in onload
     // handlers that run a frame later. Try a few times to cover everyone.
     function injectWithRetries() {
-        log('injectWithRetries fired, readyState=', document.readyState, 'class=', document.body.className);
         if (tryInject()) return;
         var delays = [50, 150, 400, 1000];
         var i = 0;
@@ -3212,18 +3195,10 @@ document.addEventListener('DOMContentLoaded', function injectCmsPagesSearch() {
             if (tryInject()) return;
             if (i < delays.length) {
                 setTimeout(next, delays[i++]);
-            } else {
-                log('gave up retrying');
             }
         }
         setTimeout(next, delays[i++]);
     }
-
-    // Listen for the PJAX event directly too — gives us a clean log of
-    // every navigation regardless of what onPageReady() does.
-    document.addEventListener('instant-nav:after-swap', function (e) {
-        log('instant-nav:after-swap fired, url=', e && e.detail && e.detail.url);
-    });
 
     onPageReady(injectWithRetries);
 
@@ -3261,7 +3236,6 @@ document.addEventListener('DOMContentLoaded', function injectCmsPagesSearch() {
             if (!/adminhtml-system[_-]config-(edit|index)/.test(document.body.className)) return;
             if (buttonIsCorrectlyPlaced()) return;
             if (!document.querySelector('.entry-edit-head.collapseable > a[id$="-head"]')) return;
-            log('safety-net interval tick: button missing or stranded, injecting');
             tryInject();
         } catch (e) {}
     }, 500);

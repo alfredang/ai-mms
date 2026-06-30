@@ -4387,7 +4387,6 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                     // regardless of which store-view tab the admin is on.
                     var country       = btn.getAttribute('data-country') || 'Singapore';
                     var targetStoreId = btn.getAttribute('data-target-store') || '0';
-                    console.log('[AI SEO] mode=' + mode + ' country=' + country + ' target_store=' + targetStoreId);
 
                     var fd = new FormData();
                     fd.append('form_key', window.FORM_KEY || '<?php echo Mage::getSingleton("core/session")->getFormKey() ?>');
@@ -8093,7 +8092,6 @@ window.trnShowToast = function(text, kind) {
 };
 
 // Override submit to handle both add and edit, with optimistic UX.
-window.trnSubmit_orig = window.trnSubmit;
 window.trnSubmit = function(e) {
     e.preventDefault();
     var isEdit = window._trnEditId > 0;
@@ -8246,7 +8244,6 @@ window.trnBulkSubmit = function() {
         });
 };
 
-// Original trnSubmit removed — unified version defined earlier handles both add + edit
 </script>
 
 <?php /* ===== PANELS: CP Generator (Developer) ===== */ ?>
