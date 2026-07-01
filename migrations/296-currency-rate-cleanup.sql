@@ -10,22 +10,26 @@
 
 -- -----------------------------------------------------------------------
 -- 1. Resolve the instance's effective base currency.
+--    DESC so the highest scope_id (most recently configured website) wins
+--    over any residual SG-seed website rows with a lower scope_id.
 -- -----------------------------------------------------------------------
 SET @base_currency = COALESCE(
     (SELECT value FROM core_config_data
      WHERE path = 'currency/options/base' AND scope = 'websites'
-     ORDER BY scope_id ASC LIMIT 1),
+     ORDER BY scope_id DESC LIMIT 1),
     (SELECT value FROM core_config_data
      WHERE path = 'currency/options/base' AND scope = 'default'
      LIMIT 1)
 );
 
 -- -----------------------------------------------------------------------
--- 2. Country instances only: remove ALL rates except the three allowed
---    pairs {local->local, local->SGD, local->USD}.
---    This covers both local-currency rows with wrong targets AND rows
---    from other source currencies (e.g. GHS->* or INR->* on the MY DB).
+-- 2+3. Country instances only: atomically remove all rates except the
+--    three allowed pairs {local->local, local->SGD, local->USD}, then
+--    ensure the identity row exists. Wrapped in a transaction so a
+--    mid-execution crash cannot leave the instance with zero rates.
 -- -----------------------------------------------------------------------
+START TRANSACTION;
+
 DELETE FROM directory_currency_rate
 WHERE @base_currency IS NOT NULL
   AND @base_currency != 'SGD'
@@ -34,18 +38,17 @@ WHERE @base_currency IS NOT NULL
       AND currency_to IN (@base_currency, 'SGD', 'USD')
   );
 
--- -----------------------------------------------------------------------
--- 3. Country instances only: ensure local->local (identity rate) exists.
--- -----------------------------------------------------------------------
 INSERT IGNORE INTO directory_currency_rate (currency_from, currency_to, rate)
 SELECT @base_currency, @base_currency, 1.0000
 FROM DUAL
 WHERE @base_currency IS NOT NULL
   AND @base_currency != 'SGD';
 
+COMMIT;
+
 -- -----------------------------------------------------------------------
 -- 4. All instances: add SGD->USD if not already present.
---    Rate is a placeholder (0.7400 ≈ current); update via
+--    Rate is a placeholder (~0.74 at time of writing); update via
 --    Admin > System > Manage Currency > Rates after deploy.
 -- -----------------------------------------------------------------------
 INSERT IGNORE INTO directory_currency_rate (currency_from, currency_to, rate)
