@@ -131,7 +131,13 @@ class MMD_RoleManager_Model_CourseSyncService
     /** GET one page from the SG export endpoint. */
     private function _fetchPage($page, $pageSize)
     {
-        $url = $this->getSgUrl() . '?page=' . $page . '&page_size=' . $pageSize;
+        // Tell SG which currency to convert price/special_price/custom-option
+        // fixed prices into before exporting, so this country's courses are
+        // created with a price already denominated in its own currency
+        // instead of a raw SGD number mislabelled as the local unit.
+        $currency = (string) Mage::app()->getBaseCurrencyCode();
+        $url = $this->getSgUrl() . '?page=' . $page . '&page_size=' . $pageSize
+            . '&currency=' . rawurlencode($currency);
         $ch  = curl_init($url);
         curl_setopt_array($ch, array(
             CURLOPT_RETURNTRANSFER => true,

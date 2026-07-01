@@ -8,11 +8,21 @@
   margin-left: 15px;
 }
 </style>
+<?php
+$_cmsBlockHtml = function ($id) {
+	static $cmsBlockHtmlCache = array();
+	if (!array_key_exists($id, $cmsBlockHtmlCache)) {
+		$cmsBlockHtmlCache[$id] = Mage::app()->getLayout()->createBlock('cms/block')->setBlockId($id)->toHtml();
+	}
+	return $cmsBlockHtmlCache[$id];
+};
+$_product = Mage::registry('current_product');
+?>
 <div class="nwp_upsell">
 	<div style="margin-top:15px;" class="latest-corses marginleft">
      <div class="latest-bgcourses policy" style="padding:10px;">
 	<h2>Payment Methods</h2>
-	<?php echo $this->getLayout()->createBlock('cms/block')->setBlockId('paymentmethods')->toHtml();  ?> 
+	<?php echo $_cmsBlockHtml('paymentmethods'); ?>
 	</div>
     </div>
 </div>
@@ -21,7 +31,7 @@
 	<div style="margin-top:15px;" class="latest-corses marginleft">
     <div class="latest-bgcourses policy" style="padding:10px;">
 	<h2>Cancellation Policy</h2>
-	<?php echo $this->getLayout()->createBlock('cms/block')->setBlockId('cancellation_policy')->toHtml();  ?> 
+	<?php echo $_cmsBlockHtml('cancellation_policy'); ?>
 	</div>
     </div>
 </div>
@@ -30,7 +40,7 @@
 	<div style="margin-top:15px;" class="latest-corses marginleft">
      <div class="latest-bgcourses policy" style="padding:10px;">
 	<h2>Replacement Policy</h2>
-	<?php echo $this->getLayout()->createBlock('cms/block')->setBlockId('replacementpolicy')->toHtml();  ?> 
+	<?php echo $_cmsBlockHtml('replacementpolicy'); ?>
 	</div>
     </div>
 </div>
@@ -39,20 +49,16 @@
 	<div style="margin-top:15px;" class="latest-corses marginleft">
      <div class="latest-bgcourses policy" style="padding:10px;">
 	<h2>Terms and Conditions</h2>
-	<?php echo $this->getLayout()->createBlock('cms/block')->setBlockId('termsandconditions')->toHtml();  ?> 
+	<?php echo $_cmsBlockHtml('termsandconditions'); ?>
 	</div>
     </div>
 </div>
 
 
 
-<?php 
+<?php
 
-$product_id = Mage::registry('current_product')->getId();
-$_product= Mage::getModel('catalog/product')->load($product_id);
-
-//$_product=$this->getProduct();
-$image=$this->helper('catalog/image')->init($_product, 'image');
+$image = $_product ? $this->helper('catalog/image')->init($_product, 'image') : '';
 
 $link_temp=$this->helper('core/url')->getCurrentUrl();
 if(strpos($link_temp,'?fb_comment_id')){

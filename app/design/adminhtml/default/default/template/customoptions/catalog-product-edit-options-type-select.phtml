@@ -754,7 +754,7 @@ if ($helper->isInventoryEnabled()) $width += 50;
         var nameRe = new RegExp('^product\\[options\\]\\[' + String(targetOptionId).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\]\\[values\\]\\[[^\\]]+\\]\\[reg_course\\]$');
         var allInputs = document.querySelectorAll('input[name$="[reg_course]"]');
         var pastRows = [];
-        var sample = [];
+        var scanned = 0;
         for (var j = 0; j < allInputs.length; j++) {
             var input = allInputs[j];
             if (!nameRe.test(input.name)) continue;
@@ -763,15 +763,12 @@ if ($helper->isInventoryEnabled()) $width += 50;
             var delHidden = tr.querySelector('input[name$="[is_delete]"]');
             if (delHidden && delHidden.value === '1') continue;
             var raw = (input.value || '').trim();
-            sample.push({name: input.name, value: raw});
+            scanned++;
             var d = mmdParseRegCourse(raw);
             if (d && d.getTime() < today.getTime()) pastRows.push(tr);
         }
-        if (window.console && console.log) {
-            console.log('[mmdDeletePastDateRows] courseDateOptionId=', targetOptionId, 'today=', today.toDateString(), 'scanned=', sample.length, 'matches=', pastRows.length, 'sample=', sample);
-        }
         if (!pastRows.length) {
-            alert('No past Course Date rows found in the "Course Date" option.\n\nScanned ' + sample.length + ' row(s).');
+            alert('No past Course Date rows found in the "Course Date" option.\n\nScanned ' + scanned + ' row(s).');
             return;
         }
         if (!confirm('Found ' + pastRows.length + ' past Course Date row' + (pastRows.length === 1 ? '' : 's') + ' in the "Course Date" option. Mark for deletion? Applied on Save.')) return;

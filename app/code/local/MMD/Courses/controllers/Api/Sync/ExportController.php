@@ -71,6 +71,13 @@ class MMD_Courses_Api_Sync_ExportController extends Mage_Core_Controller_Front_A
         $page   = max(1, (int) $this->getRequest()->getParam('page', 1));
         $pgSize = min(self::MAX_PAGE_SZ, max(1, (int) $this->getRequest()->getParam('page_size', self::DEFAULT_PAGE_SZ)));
 
+        // Country instances pass their own base currency so the exported
+        // price/special_price/fixed-option prices arrive already converted
+        // — the importer's PRICE RULE (P1) writes them verbatim on create,
+        // so an unconverted SGD number would otherwise be mislabelled as
+        // the country's own currency.
+        $rate = $this->_getConversionRate((string) $this->getRequest()->getParam('currency', ''));
+
         try {
             $resource = Mage::getSingleton('core/resource');
             $read     = $resource->getConnection('core_read');
@@ -93,7 +100,7 @@ class MMD_Courses_Api_Sync_ExportController extends Mage_Core_Controller_Front_A
             $courses = array();
             foreach ($skus as $sku) {
                 try {
-                    $courses[] = $this->_buildCourse($sku, $read, $attrLabelCache, $attrMetaCache);
+                    $courses[] = $this->_buildCourse($sku, $read, $attrLabelCache, $attrMetaCache, $rate);
                 } catch (Exception $e) {
                     Mage::log('SyncExport: skip sku=' . $sku . ' err=' . $e->getMessage(), Zend_Log::WARN, 'course-sync.log');
                 }
@@ -113,7 +120,7 @@ class MMD_Courses_Api_Sync_ExportController extends Mage_Core_Controller_Front_A
         }
     }
 
-    private function _buildCourse($sku, $read, array $labelCache, array $attrMeta)
+    private function _buildCourse($sku, $read, array $labelCache, array $attrMeta, $rate = null)
     {
         $tbl = Mage::getSingleton('core/resource');
 
@@ -164,12 +171,19 @@ class MMD_Courses_Api_Sync_ExportController extends Mage_Core_Controller_Front_A
                 $attrs[$code] = $val;
             }
         }
+        if ($rate) {
+            foreach (array('price', 'special_price') as $code) {
+                if ($attrs[$code] !== null) {
+                    $attrs[$code] = round((float) $attrs[$code] * $rate, 2);
+                }
+            }
+        }
 
         // Categories — export as url_key paths (no numeric IDs)
         $categories = $this->_getCategoryPaths($pid, $read);
 
         // Custom options (Course Date / Course Time) by title, no option IDs
-        $customOptions = $this->_getCustomOptions($pid, $read);
+        $customOptions = $this->_getCustomOptions($pid, $read, $rate);
 
         // Badge tags (canonical MMD_CourseImage vocabulary)
         $badges = $this->_getBadges($pid, $read);
@@ -269,7 +283,7 @@ class MMD_Courses_Api_Sync_ExportController extends Mage_Core_Controller_Front_A
     }
 
     /** Returns custom options by title (no option_id). */
-    private function _getCustomOptions($productId, $read)
+    private function _getCustomOptions($productId, $read, $rate = null)
     {
         $tbl   = Mage::getSingleton('core/resource');
         $optTbl    = $tbl->getTableName('catalog_product_option');
@@ -300,9 +314,16 @@ class MMD_Courses_Api_Sync_ExportController extends Mage_Core_Controller_Front_A
             );
             $valList = array();
             foreach ($values as $v) {
+                $price = $v['price'];
+                // Only "fixed" option prices are a currency amount — "percent"
+                // values are a percentage of the (already-converted) base
+                // price and must not be converted again.
+                if ($rate && $v['price_type'] === 'fixed' && $price !== null) {
+                    $price = round((float) $price * $rate, 2);
+                }
                 $valList[] = array(
                     'title'      => $v['title'],
-                    'price'      => $v['price'],
+                    'price'      => $price,
                     'price_type' => $v['price_type'],
                     'sort_order' => (int)$v['sort_order'],
                     'sku'        => $v['sku'],
@@ -341,6 +362,30 @@ class MMD_Courses_Api_Sync_ExportController extends Mage_Core_Controller_Front_A
             'HRDF', 'SFEC', 'Absentee Payroll', 'MCES',
         );
         return array_values(array_intersect($tags, $canonical));
+    }
+
+    /**
+     * Resolve the SG-base-currency -> requested-currency rate.
+     * Returns null when no conversion is needed/possible (blank/SGD-equal
+     * request, or no rate row) — callers then export the raw SGD number,
+     * same as before this existed.
+     */
+    private function _getConversionRate($requestedCurrency)
+    {
+        $target = strtoupper(trim((string) $requestedCurrency));
+        if ($target === '') {
+            return null;
+        }
+        $base = (string) Mage::app()->getBaseCurrencyCode();
+        if ($target === $base) {
+            return null;
+        }
+        $rate = Mage::getModel('directory/currency')->load($base)->getRate($target);
+        if (!$rate) {
+            Mage::log('SyncExport: no currency rate ' . $base . '->' . $target, Zend_Log::WARN, 'course-sync.log');
+            return null;
+        }
+        return (float) $rate;
     }
 
     private function _json($code, array $data)

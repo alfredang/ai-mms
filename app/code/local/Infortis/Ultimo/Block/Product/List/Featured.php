@@ -30,7 +30,7 @@ class Infortis_Ultimo_Block_Product_List_Featured extends Mage_Catalog_Block_Pro
   
 		$this->addData(array(
 
-			'cache_lifetime'    => 0,
+			'cache_lifetime'    => 86400,
 
 			'cache_tags'        => array(Mage_Catalog_Model_Product::CACHE_TAG),
 
