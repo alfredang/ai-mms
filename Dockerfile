@@ -105,15 +105,13 @@ COPY . /var/www/html/
 # on slower runners. Default 300s timeout would kill it mid-extract.
 RUN COMPOSER_PROCESS_TIMEOUT=0 composer install --no-dev --no-interaction --optimize-autoloader --ignore-platform-req=php
 
-# Disable Cm_RedisSession in the PRODUCTION image. Locally, docker-compose
-# ships a redis service and the host bind mount overrides this file, so the
-# module is active in dev. Production Coolify has no Redis service (yet);
-# without this sed, every prod request would crash trying to talk to Redis.
-# Two layers force the sed: (a) magento-composer-installer's copy+magento-force
-# overwrites our git-tracked Cm_RedisSession.xml with the vendor copy
-# (active=true) on every build, and (b) our own git-tracked version is also
-# active=true (so local dev works out of the box). Patch in place.
-# REMOVE THIS sed once a Redis service is provisioned in Coolify.
+# Keep Cm_RedisSession disabled in every image build. The module is disabled
+# in source (app/etc/modules/Cm_RedisSession.xml) due to a vendor package
+# incompatibility (missing UsernameConfigInterface), so PHP sessions stay on
+# MySQL regardless of Redis availability. The sed guards against a
+# magento-composer-installer copy that ships with active=true overwriting our
+# source file during composer install. Redis object cache is still used when
+# REDIS_HOST env is set — see entrypoint.sh patch-redis-in-local-xml.php.
 RUN sed -i 's|<active>true</active>|<active>false</active>|' \
     /var/www/html/app/etc/modules/Cm_RedisSession.xml
 

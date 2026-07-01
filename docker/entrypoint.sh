@@ -71,6 +71,15 @@ if [ ! -f "$LOCAL_XML" ]; then
     exec apache2-foreground
 fi
 
+# Inject Redis object-cache block into local.xml for non-country instances (SG prod).
+# Activate by setting REDIS_HOST=redis in Coolify env + adding a redis service.
+# Country instances (MMS_MODE=country) get Redis via generate-local-xml.sh above.
+# Sessions stay on MySQL — Cm_RedisSession stays disabled (vendor incompatibility).
+if [ -n "${REDIS_HOST:-}" ] && [ "${MMS_MODE:-}" != "country" ]; then
+    php /var/www/html/docker/patch-redis-in-local-xml.php \
+        || echo "entrypoint: WARNING — Redis cache local.xml patch failed (non-fatal)"
+fi
+
 apply_local_db_mode() {
     if [ "${LOCAL_DB_MODE:-0}" = "1" ]; then
         echo "entrypoint: LOCAL_DB_MODE=1 — applying local dev URL overrides..."

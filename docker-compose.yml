@@ -73,12 +73,12 @@ services:
     networks:
       - magento_net
 
-  # Redis backs the Magento object cache (Cm_Cache_Backend_Redis, db 0) and
-  # PHP sessions (Cm_RedisSession, db 1). LOCAL ONLY — production Coolify has
-  # no Redis service; the Dockerfile sed disables Cm_RedisSession.xml in the
-  # image, and production local.xml omits the <cache> block, so prod falls
-  # back to file cache + MySQL sessions. Re-enable in prod only after adding
-  # a Redis service in Coolify.
+  # Redis backs the Magento object cache (Cm_Cache_Backend_Redis, db 0).
+  # Sessions stay on MySQL — Cm_RedisSession is disabled (vendor incompatibility).
+  # LOCAL: this service runs alongside the web container; local.xml includes the
+  # <cache> block pointing here. PRODUCTION SG: add this service in Coolify and
+  # set REDIS_HOST=redis in the web service env — entrypoint.sh will inject the
+  # <cache> block automatically via docker/patch-redis-in-local-xml.php.
   redis:
     image: redis:7-alpine
     command: >
