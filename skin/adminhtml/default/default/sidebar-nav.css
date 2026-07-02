@@ -5201,3 +5201,58 @@ body.adminhtml-workflowguides-index .wfg-badge-logic {
     letter-spacing: 1px;
     padding: 8px 16px 4px 32px;
 }
+
+/* ============================================================
+   === 25. Global page-title + grid consistency (clean/minimalist)
+   One flush page-title treatment everywhere; single-row records.
+   Added 2026-07-02 per "make all backend pages consistent".
+   ============================================================ */
+
+/* 25a. Page-title bar → FLUSH heading (no gradient container).
+   Scope is ONLY the auto-wrapped page-title card (.mmd-auto-card).
+   Section-card headers inside Edit Course (.dcf-mag-bar that are NOT
+   inside .mmd-auto-card, e.g. "General" / "Inventory") keep their
+   gradient — do not touch them. */
+.admin-main .dcf-mag.mmd-auto-card {
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+    margin-bottom: 14px !important;
+}
+.admin-main .dcf-mag.mmd-auto-card > .dcf-mag-bar {
+    background: transparent !important;
+    background-image: none !important;
+    border: 0 !important;
+    border-bottom: 1px solid var(--b1) !important;
+    border-radius: 0 !important;
+    color: var(--t1) !important;
+    padding: 4px 2px 12px !important;
+    font-size: 18px !important;
+    font-weight: 700 !important;
+    margin-bottom: 14px !important;
+}
+/* grid body sits flush on the page surface, transparent like every
+   native Magento grid (no gray card wrapper behind the rows). */
+.admin-main .dcf-mag.mmd-auto-card > .dcf-mag-body,
+.admin-main .dcf-mag.mmd-auto-card .dcf-mag-body .grid,
+.admin-main .dcf-mag.mmd-auto-card .dcf-mag-body .hor-scroll,
+.admin-main .dcf-mag.mmd-auto-card .dcf-mag-body table.data {
+    background: transparent !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+
+/* 25b. Page-title SIZE + flush hairline for the whole page-title family
+   (.dash-title / .dev-page-title / .lmc-title / native .content-header h3)
+   is the ONE canonical rule in admin-dashboard.css §"Global page-title
+   type ramp" (18px + hairline). Deliberately not duplicated here — a
+   second spec was the dead-code landmine flagged in the 2026-07-02 audit. */
+
+/* 25c. One record = one row. Grid data cells never wrap; wide grids
+   scroll horizontally (the .hor-scroll wrapper + min-width already
+   handle overflow). Keeps every row a single, scannable line. */
+.admin-main .grid table.data td {
+    white-space: nowrap !important;
+}

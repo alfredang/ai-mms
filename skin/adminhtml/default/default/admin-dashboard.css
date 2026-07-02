@@ -2901,16 +2901,24 @@ button.mn-vp-btn.active,button.mn-vp-btn.active:hover,button.mn-vp-btn.active:fo
    selector below normalises all of them; existing per-class rules above
    keep their non-typographic properties (margins, line-height tweaks).
    Native Magento `.content-header h3` is rolled in for parity on stock
-   admin pages (Cache, System Config, customer grid, etc.). */
+   admin pages (Cache, System Config, customer grid, etc.).
+   2026-07-02: retuned to ONE flush 18px page-title spec with a hairline
+   underline (minimalist, no gradient container) so every page title —
+   custom MMD (.dash-title/.dev-page-title), native .content-header h3,
+   and the auto-wrapped .dcf-mag-bar (18px, see sidebar-nav.css §25a) —
+   reads identically. Single source of truth: do NOT re-add a competing
+   28px rule elsewhere. */
 .admin-main h1[class*="-title"],
 .admin-main h2.lmc-title,
 .admin-main .content-header h3,
 .admin-main .content-header h3.icon-head{
-  font-size:28px !important;
+  font-size:18px !important;
   font-weight:700 !important;
   color:var(--t1,#f1f5f9) !important;
-  line-height:1.2 !important;
-  margin:0 0 24px !important;
+  line-height:1.3 !important;
+  margin:0 0 16px !important;
+  padding:0 0 12px !important;
+  border-bottom:1px solid var(--b1,#374151) !important;
   text-shadow:none !important;
 }
 
