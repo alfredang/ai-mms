@@ -2907,9 +2907,19 @@ button.mn-vp-btn.active,button.mn-vp-btn.active:hover,button.mn-vp-btn.active:fo
    custom MMD (.dash-title/.dev-page-title), native .content-header h3,
    and the auto-wrapped .dcf-mag-bar (18px, see sidebar-nav.css §25a) —
    reads identically. Single source of truth: do NOT re-add a competing
-   28px rule elsewhere. */
+   28px rule elsewhere.
+
+   FRAMEWORK NET (do not turn back into a whitelist): a page title is any
+   <h1 class="*-title"> OR <h2 class="*-title"> that is NOT a card/modal
+   sub-heading. This auto-covers every current AND future MMD page title
+   (.dash-title, .dev-page-title, .rm-title, .lmc-title, .trn-title,
+   .seo-info-title, …) without listing each class. h1 *-title is always a
+   page title; for h2 we exclude *-card-title / *-modal-title (those are
+   panel/dialog sub-headings, e.g. .hsp-card-title, .lp-modal-title).
+   h3 *-title classes are all section/sidebar sub-titles → deliberately
+   NOT matched. New page: use an <h1 class="…-title"> and it just works. */
 .admin-main h1[class*="-title"],
-.admin-main h2.lmc-title,
+.admin-main h2[class*="-title"]:not([class*="card"]):not([class*="modal"]),
 .admin-main .content-header h3,
 .admin-main .content-header h3.icon-head{
   font-size:18px !important;

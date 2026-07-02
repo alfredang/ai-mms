@@ -250,7 +250,7 @@ $otpVerifyUrl = Mage::helper('adminhtml')->getUrl('adminhtml/otp/verify', array(
                     <h2 class="otp-verify-title">Verify your identity</h2>
                     <p class="otp-verify-sub">An OTP has been sent to<br/><strong id="otp-sent-email">your email</strong>.</p>
                     <div class="otp-row">
-                        <input type="text" id="otp-code" class="otp-digit" maxlength="6" inputmode="numeric" autocomplete="one-time-code" placeholder="______" oninput="otpInput(this)" />
+                        <input type="text" id="otp-code" class="otp-digit" maxlength="6" inputmode="numeric" autocomplete="one-time-code" placeholder="______" oninput="otpInput(this)" onpaste="otpPaste(event)" onfocus="this.select()" aria-label="6-digit OTP code" />
                     </div>
                     <p class="otp-sent-msg" id="otp-sent-text">OTP has been sent to your email address</p>
                     <p class="otp-spam-hint">If you don&rsquo;t see the OTP email in your inbox, please check the spam/all emails.</p>
@@ -348,6 +348,23 @@ $otpVerifyUrl = Mage::helper('adminhtml')->getUrl('adminhtml/otp/verify', array(
     function otpInput(el) {
         el.value = el.value.replace(/[^0-9]/g, '').slice(0, 6);
         if (el.value.length === 6) { verifyOtp(); }
+    }
+
+    // Paste handler: pull the OTP out of whatever was copied — a bare code,
+    // "Your OTP is 123 456", a code with dashes/spaces, etc. Prefer the first
+    // run of exactly 6 consecutive digits (the code as it appears in the
+    // email); fall back to the first 6 digits found. Auto-submits when full.
+    function otpPaste(e) {
+        var cd = e.clipboardData || window.clipboardData;
+        if (!cd) { return; } // let the default paste + oninput handle it
+        var text = cd.getData('text') || '';
+        var m = text.match(/\b(\d{6})\b/);
+        var code = m ? m[1] : (text.replace(/[^0-9]/g, '').slice(0, 6));
+        if (!code) { return; }
+        e.preventDefault();
+        var el = $('otp-code');
+        el.value = code;
+        if (code.length === 6) { verifyOtp(); }
     }
 
     function verifyOtp() {

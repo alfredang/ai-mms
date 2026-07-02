@@ -119,6 +119,54 @@ Defaults to use unless there's a specific reason otherwise:
 
 Anti-pattern: wrapping every section in a `--d3` card with 16-20px padding "for visual separation". On a dense admin page this stacks into nested-panel mush. Stack tightly, separate with thin lines, use a card only when truly needed.
 
+## Page title — ONE framework rule for every page (do not whitelist classes)
+
+Every admin page has exactly one page title, and it renders **identically
+everywhere**: flush on the page surface (no gradient container), `18px / 700`,
+`var(--t1)`, with a `1px var(--b1)` hairline underline and `0 0 12px` padding /
+`0 0 16px` margin. This is the minimalist look — a title, a hairline, then the
+content. No `.dcf-mag-bar` gradient behind a page title (that bar is only for
+**section-card** headers inside forms like Edit Course's "General"/"Inventory").
+
+**The single source of truth** is one rule in
+`skin/adminhtml/default/default/admin-dashboard.css` ("Global page-title type
+ramp"). It is a **framework net, not a whitelist** — it matches the whole
+page-title family by shape so new pages need zero CSS:
+
+```css
+.admin-main h1[class*="-title"],                                   /* every h1 *-title = page title */
+.admin-main h2[class*="-title"]:not([class*="card"]):not([class*="modal"]), /* h2 page titles, minus card/modal sub-heads */
+.admin-main .content-header h3,                                    /* native Magento page titles */
+.admin-main .content-header h3.icon-head { font-size:18px !important; … hairline … }
+```
+
+Why this shape:
+- An `<h1 class="…-title">` is *always* a page title — the net covers
+  `.dash-title`, `.dev-page-title`, `.att-title`, `.trn-title`, … and any future
+  one automatically.
+- `<h2 class="…-title">` is usually a page title (`.rm-title`, `.lmc-title`,
+  `.seo-info-title`) **except** card/modal sub-headings (`.hsp-card-title`,
+  `.lp-modal-title`) — hence the two `:not()` guards.
+- `<h3 class="…-title">` is *never* a page title (they're card / section /
+  sidebar sub-heads: `.el-card-title`, `.dcf-section-title`,
+  `.dcf-edit-sidebar-title`, …) — deliberately NOT matched.
+- The auto-wrapped grid title (`.dcf-mag.mmd-auto-card > .dcf-mag-bar`) is
+  flattened to the same 18px flush treatment in `sidebar-nav.css` §25a.
+
+**Rules for new admin pages:**
+1. Emit the page title as `<h1 class="…-title">` (or `<h2>` if the class does
+   NOT contain `card`/`modal`). It inherits the canonical look with no new CSS.
+2. Never give a page title its own `font-size` — that recreates the drift this
+   rule exists to kill. Section/card/sub headings use §"Section headers" or the
+   h4/h5/h6 ramp, never a `*-title` page-title class.
+3. Do NOT re-add a competing 28px page-title rule anywhere (a duplicate 18px
+   block was already a dead-code landmine — keep exactly one source of truth).
+
+Incident: page titles had drifted across ~15 bespoke per-module classes
+(`.rm-title` at 24px, `.dash-title` at 28px, native `.content-header h3` at
+28px, …); a class *whitelist* kept missing new ones (e.g. `h2.rm-title` on
+Upcoming Classes stayed huge). The shape-based net above ended the whack-a-mole.
+
 ## Where things live
 
 | File | Role |
