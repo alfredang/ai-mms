@@ -17,7 +17,7 @@ Magento "Catalog ▸ Manage Products" grid.
 ## Step 1 — Log in to the admin
 
 Go to <https://www.tertiaryinfotech.edu.sg/tigerdragon/> and sign in with your
-**email + password**.
+**email + password**. Select the Developer / Admin role.
 
 ## Step 2 — Open Manage Courses
 
