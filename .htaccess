@@ -454,9 +454,10 @@ ExpiresByType application/json "access plus 0 seconds"
 ## `immutable` told browsers to never revalidate for a YEAR, so every
 ## CSS/JS change was invisible to returning visitors until cache expiry
 ## — on prod as well as local. They now use `must-revalidate` with
-## max-age=0: the browser still gets a fast 304 (via ETag/Last-Modified)
-## when nothing changed, but picks up edits immediately on the next
-## request. The merged bundles under media/css|js/ are hash-named, so
+## a short max-age=600: repeat views within 10 minutes skip the ~56
+## conditional 304 round-trips entirely, and a shipped CSS/JS edit
+## still reaches returning visitors within 10 minutes (perf audit
+## 2026-07-02; was max-age=0 = 56 revalidation RTTs per repeat view). The merged bundles under media/css|js/ are hash-named, so
 ## a content change yields a new URL anyway — no immutable needed.
 ##
 ## Truly-static fonts/images don't share this problem (a visual change
@@ -467,7 +468,7 @@ ExpiresByType application/json "access plus 0 seconds"
         Header set Cache-Control "public, max-age=31536000, immutable"
     </FilesMatch>
     <FilesMatch "\.(css|js)$">
-        Header set Cache-Control "public, max-age=0, must-revalidate"
+        Header set Cache-Control "public, max-age=600, must-revalidate"
     </FilesMatch>
     <FilesMatch "\.(html?|json)$">
         Header set Cache-Control "no-cache, must-revalidate"

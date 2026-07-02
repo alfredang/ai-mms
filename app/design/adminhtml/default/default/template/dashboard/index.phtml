@@ -9684,27 +9684,27 @@ $_credMask = function ($v) {
 .crd-card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px 22px; margin-bottom: 18px; }
 .crd-card h3 { margin: 0 0 14px; color: #f1f5f9; font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
 .crd-card h3 .crd-dot { width: 8px; height: 8px; border-radius: 999px; background: #475569; }
-.crd-card.has-value h3 .crd-dot { background: #65b7d5; box-shadow: 0 0 0 3px rgba(101,183,213,0.15); }
+.crd-card.has-value h3 .crd-dot { background: #60a5fa; box-shadow: 0 0 0 3px rgba(96,165,250,0.15); }
 .crd-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; }
 .crd-row:last-child { margin-bottom: 0; }
 .crd-label { font-size: 12px; color: #94a3b8; font-weight: 500; }
 .crd-input { width: 100%; padding: 10px 12px; background: transparent; border: 1px solid #475569; border-radius: 8px; color: #f1f5f9; font-size: 13px; font-family: ui-monospace, monospace; outline: none; transition: border-color 0.15s; }
-.crd-input:focus { border-color: #65b7d5; box-shadow: 0 0 0 3px rgba(101,183,213,0.15); }
-.crd-input::placeholder { color: #64748b; font-family: system-ui, sans-serif; }
+.crd-input:focus { border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(96,165,250,0.15); }
+.crd-input::placeholder { color: #64748b; font-family: var(--font-sans); }
 .crd-input[readonly] { color: #94a3b8; }
 .crd-hint { font-size: 11px; color: #64748b; margin-top: 2px; }
 .crd-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
 .crd-actions--top { margin-top: 0; margin-bottom: 18px; }
 .crd-btn { padding: 10px 22px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: transform 0.1s; }
-.crd-btn-primary { background: linear-gradient(180deg, #65b7d5 0%, #55a9c9 100%); color: #fff; }
-.crd-btn-primary:hover { background: linear-gradient(180deg, #75c4df 0%, #65b7d5 100%); transform: translateY(-1px); }
+.crd-btn-primary { background: #2563eb; color: #fff; }
+.crd-btn-primary:hover { background: #3b82f6; transform: translateY(-1px); }
 .crd-btn-ghost { background: transparent; color: #94a3b8; border: 1px solid #475569; }
 .crd-btn-ghost:hover { color: #f1f5f9; border-color: #64748b; }
-.crd-toast { position: fixed; bottom: 20px; right: 20px; background: #1e293b; border: 1px solid #334155; border-left: 3px solid #65b7d5; color: #f1f5f9; padding: 12px 18px; border-radius: 8px; font-size: 13px; box-shadow: 0 10px 30px rgba(0,0,0,0.4); display: none; z-index: 9999; }
+.crd-toast { position: fixed; bottom: 20px; right: 20px; background: #1e293b; border: 1px solid #334155; border-left: 3px solid #60a5fa; color: #f1f5f9; padding: 12px 18px; border-radius: 8px; font-size: 13px; box-shadow: 0 10px 30px rgba(0,0,0,0.4); display: none; z-index: 9999; }
 .crd-toast.ok { border-left-color: #34d399; }
 .crd-toast.err { border-left-color: #f87171; color: #fecaca; }
 .crd-preset { padding: 4px 10px; font-size: 11px; background: #0f172a; color: #cbd5e1; border: 1px solid #334155; border-radius: 6px; cursor: pointer; font-weight: 500; transition: all 0.1s; }
-.crd-preset:hover { background: #1e293b; border-color: #65b7d5; color: #f1f5f9; }
+.crd-preset:hover { background: #1e293b; border-color: #60a5fa; color: #f1f5f9; }
 .crd-smtp-card select.crd-input { appearance: none; -webkit-appearance: none; background-image: linear-gradient(45deg, transparent 50%, #94a3b8 50%), linear-gradient(135deg, #94a3b8 50%, transparent 50%); background-position: calc(100% - 18px) 50%, calc(100% - 13px) 50%; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; padding-right: 32px; }
 /* Eye reveal — overlaid inside the input field's right edge. Strong
    resets needed because the surrounding admin CSS otherwise: (a) draws
@@ -9758,7 +9758,7 @@ $_credMask = function ($v) {
 .crd-smtp-collapse > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; padding: 6px 0; color: #cbd5e1; font-size: 13px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; user-select: none; }
 .crd-smtp-collapse > summary::-webkit-details-marker { display: none; }
 .crd-smtp-collapse > summary:hover { color: #f1f5f9; }
-.crd-smtp-collapse > summary:focus-visible { outline: 2px solid #65b7d5; outline-offset: 4px; border-radius: 4px; }
+.crd-smtp-collapse > summary:focus-visible { outline: 2px solid #60a5fa; outline-offset: 4px; border-radius: 4px; }
 .crd-smtp-collapse__chev { display: inline-flex; transition: transform 0.15s ease; color: #94a3b8; }
 .crd-smtp-collapse[open] .crd-smtp-collapse__chev { transform: rotate(90deg); }
 .crd-smtp-collapse__title { flex: 1 1 auto; }
@@ -9984,7 +9984,7 @@ $_credMask = function ($v) {
         ?>
         <details class="crd-guide"<?php echo $_anyCardEmpty ? ' open' : '' ?> style="margin:0 0 22px;background:#0f172a;border:1px solid #334155;border-radius:10px;overflow:hidden;">
             <summary style="padding:14px 18px;cursor:pointer;color:#f1f5f9;font-size:13px;font-weight:600;display:flex;align-items:center;gap:10px;list-style:none;user-select:none;">
-                <span style="color:#65b7d5;display:inline-flex;"><?php echo $_icon('book', 16) ?></span>
+                <span style="color:#60a5fa;display:inline-flex;"><?php echo $_icon('book', 16) ?></span>
                 How to set up SMTP for a country store
                 <span style="margin-left:auto;font-size:11px;color:#64748b;font-weight:500;">click to expand</span>
             </summary>
@@ -9992,10 +9992,10 @@ $_credMask = function ($v) {
 
                 <p style="margin:14px 0;color:#94a3b8;">Each country website ships transactional mail (orders, OTP, contact-us notifications, lead auto-replies) through its own SMTP relay. The flow below assumes you use Google Workspace per country — adapt to your provider as needed.</p>
 
-                <div style="background:#1e293b;border-left:3px solid #65b7d5;padding:10px 14px;border-radius:4px;margin:0 0 16px;display:flex;gap:10px;align-items:flex-start;">
-                    <span style="color:#65b7d5;flex-shrink:0;display:inline-flex;margin-top:2px;"><?php echo $_icon('bulb', 14) ?></span>
+                <div style="background:#1e293b;border-left:3px solid #60a5fa;padding:10px 14px;border-radius:4px;margin:0 0 16px;display:flex;gap:10px;align-items:flex-start;">
+                    <span style="color:#60a5fa;flex-shrink:0;display:inline-flex;margin-top:2px;"><?php echo $_icon('bulb', 14) ?></span>
                     <span>
-                        <strong style="color:#65b7d5;">Quick recap:</strong>
+                        <strong style="color:#60a5fa;">Quick recap:</strong>
                         Get an <strong>App Password</strong> from the country's mailbox → click <strong>Gmail / Workspace</strong> on the card → paste username + App Password → <strong>Save</strong> → <strong>Send Test</strong>.
                     </span>
                 </div>
@@ -10005,17 +10005,17 @@ $_credMask = function ($v) {
                 <ul style="margin:0 0 12px 18px;padding:0;">
                     <li><code style="background:#1e293b;padding:1px 6px;border-radius:3px;font-size:12px;">sales@tertiarycourses.com.ng</code> — Nigeria</li>
                 </ul>
-                <p style="margin:0 0 4px;color:#94a3b8;font-size:12px;">Verify the mailbox exists in <a href="https://admin.google.com/ac/users" target="_blank" style="color:#65b7d5;">Google Workspace Admin → Directory → Users</a>.</p>
+                <p style="margin:0 0 4px;color:#94a3b8;font-size:12px;">Verify the mailbox exists in <a href="https://admin.google.com/ac/users" target="_blank" style="color:#60a5fa;">Google Workspace Admin → Directory → Users</a>.</p>
 
                 <h4 style="margin:18px 0 8px;color:#f1f5f9;font-size:13px;">Step 2 — Sign in as that mailbox (NOT as admin)</h4>
-                <p style="margin:0 0 6px;">Open an <strong>incognito window</strong> → <a href="https://accounts.google.com" target="_blank" style="color:#65b7d5;">accounts.google.com</a> → sign in as the country mailbox (e.g. <code style="background:#1e293b;padding:1px 6px;border-radius:3px;font-size:12px;">sales@tertiarycourses.com.ng</code>).</p>
+                <p style="margin:0 0 6px;">Open an <strong>incognito window</strong> → <a href="https://accounts.google.com" target="_blank" style="color:#60a5fa;">accounts.google.com</a> → sign in as the country mailbox (e.g. <code style="background:#1e293b;padding:1px 6px;border-radius:3px;font-size:12px;">sales@tertiarycourses.com.ng</code>).</p>
                 <p style="margin:0 0 4px;color:#94a3b8;font-size:12px;">If you don't know the password, from the Workspace admin console click <strong>Reset Password</strong> on that user, set a temporary one, then use it.</p>
 
                 <h4 style="margin:18px 0 8px;color:#f1f5f9;font-size:13px;">Step 3 — Confirm 2-Step Verification is ON</h4>
-                <p style="margin:0 0 6px;">Go to <a href="https://myaccount.google.com/security" target="_blank" style="color:#65b7d5;">myaccount.google.com/security</a> → check the "2-Step Verification" tile. If it says "Off", click it and walk through the setup (SMS or Authenticator app). App Passwords don't exist without 2SV on.</p>
+                <p style="margin:0 0 6px;">Go to <a href="https://myaccount.google.com/security" target="_blank" style="color:#60a5fa;">myaccount.google.com/security</a> → check the "2-Step Verification" tile. If it says "Off", click it and walk through the setup (SMS or Authenticator app). App Passwords don't exist without 2SV on.</p>
 
                 <h4 style="margin:18px 0 8px;color:#f1f5f9;font-size:13px;">Step 4 — Generate the App Password</h4>
-                <p style="margin:0 0 6px;">Open <a href="https://myaccount.google.com/apppasswords" target="_blank" style="color:#65b7d5;"><strong>myaccount.google.com/apppasswords</strong></a> (this URL only works after 2SV is on; there's no sidebar link).</p>
+                <p style="margin:0 0 6px;">Open <a href="https://myaccount.google.com/apppasswords" target="_blank" style="color:#60a5fa;"><strong>myaccount.google.com/apppasswords</strong></a> (this URL only works after 2SV is on; there's no sidebar link).</p>
                 <ol style="margin:0 0 6px 18px;padding:0;">
                     <li>App name: <code style="background:#1e293b;padding:1px 6px;border-radius:3px;font-size:12px;">MMS Nigeria SMTP</code></li>
                     <li>Click <strong>Create</strong></li>
@@ -10035,7 +10035,7 @@ $_credMask = function ($v) {
                 <p style="margin:0 0 6px;">In the card's "test recipient" field enter your own email → click <strong>Send Test</strong>. Within a few seconds the inline result shows either:</p>
                 <ul style="margin:0 0 6px 18px;padding:0;">
                     <li><span style="color:#34d399;font-weight:600;">Accepted by smtp.gmail.com:587</span> → check your inbox, the test mail will be there</li>
-                    <li><span style="color:#fecaca;font-weight:600;">"Username and Password not accepted"</span> → wrong App Password (typo when pasting, or you copied the masked dots). Re-generate from <a href="https://myaccount.google.com/apppasswords" target="_blank" style="color:#65b7d5;">myaccount.google.com/apppasswords</a>.</li>
+                    <li><span style="color:#fecaca;font-weight:600;">"Username and Password not accepted"</span> → wrong App Password (typo when pasting, or you copied the masked dots). Re-generate from <a href="https://myaccount.google.com/apppasswords" target="_blank" style="color:#60a5fa;">myaccount.google.com/apppasswords</a>.</li>
                     <li><span style="color:#fecaca;font-weight:600;">Connection timed out</span> → wrong host (you're not on Gmail). Use a different preset or your provider's real SMTP host.</li>
                 </ul>
 
@@ -10163,7 +10163,7 @@ $_credMask = function ($v) {
             </div>
 
             <div class="crd-hint crd-hint-banner">
-                <span style="color:#65b7d5;display:inline-flex;vertical-align:-2px;margin-right:6px;"><?php echo $_icon('bulb', 14) ?></span>
+                <span style="color:#60a5fa;display:inline-flex;vertical-align:-2px;margin-right:6px;"><?php echo $_icon('bulb', 14) ?></span>
                 <?php if ($_code === 'singapore'): ?>
                     <strong>Singapore sends via Gmail OAuth (configured above) as the primary transport.</strong>
                     These SMTP credentials are used <em>only as a fallback</em> if the OAuth path fails (token revoked, quota exceeded, Gmail API unreachable). Keep them filled so the fallback works — clearing them removes the safety net.

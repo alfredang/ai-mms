@@ -12,6 +12,12 @@
        background rules cannot reach. */
     color-scheme: dark;
 
+    /* Canonical admin font stacks (aligned with the AI-LMS-TMS system-font
+       stack). EVERY admin font-family declaration must use these tokens —
+       see .claude/skills/backend-design/SKILL.md "One typography system". */
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+    --font-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+
     /* Neutral gray palette matching AI-LMS-TMS design system */
     --d0: #0b1120;
     --d1: #0f172a;
@@ -183,7 +189,7 @@
 body, html {
     background: var(--d1) !important;
     color: var(--t2) !important;
-    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif !important;
+    font-family: var(--font-sans) !important;
 }
 
 .wrapper { background: var(--d1) !important; }
@@ -5855,7 +5861,7 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
     padding: 14px 14px 12px;
     z-index: 1500;
     display: none;
-    font-family: 'Inter', 'SF Pro Text', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: var(--font-sans);
     color: #e5e7eb;
 }
 .audit-bell-wrap.open .audit-bell-dropdown { display: block; }
