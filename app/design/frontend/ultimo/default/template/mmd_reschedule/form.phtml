@@ -1,54 +1,717 @@
-<?php $ts=Mage::helper('magentocaptcha/turnstile'); $k=$ts->getSiteKey(); $u=Mage::getUrl('reschedule/index/post'); ?>
-<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<?php
+/**
+ * Class Reschedule multi-step form (Phase 1).
+ *
+ * Steps:
+ *   1. Email entry → send OTP
+ *   2. OTP verification
+ *   3. Enrolled course picker (MMS DB + LMS lookup)
+ *   4. Reschedule details + submit
+ *
+ * Manual fallback available if the user has no enrolled courses or clicks
+ * "fill in manually". Requires JavaScript.
+ *
+ * POST endpoints (all JSON): /reschedule/ajax/{sendotp,verifyotp,
+ *   getenrollments,getsiblingruns,submit}
+ */
+
+/** @var Mage_Core_Block_Template $this */
+$baseUrl    = Mage::getBaseUrl();
+$turnstile  = Mage::helper('magentocaptcha/turnstile');
+$tsEnabled  = $turnstile->isConfigured();
+$tsSiteKey  = $tsEnabled ? $turnstile->getSiteKey() : '';
+$tokenField = MMD_MagentoCaptcha_Helper_Turnstile::TOKEN_FIELD;
+?>
 <style>
-.tcs-w{max-width:760px;margin:34px auto 0;background:#fff;border:1px solid #e6e9ef;border-radius:16px;box-shadow:0 18px 50px rgba(15,23,42,.08);overflow:hidden}
-.tcs-h{background:linear-gradient(135deg,#0f172a,#14304a);color:#fff;padding:26px 30px}.tcs-h h3{color:#fff;margin:0 0 4px;font-size:24px}.tcs-h p{color:#9fb3c8;margin:0;font-size:15px}
-.tcs-b{padding:26px 30px 30px}.tcs-row{display:flex;gap:16px;flex-wrap:wrap}.tcs-f{flex:1 1 220px;margin-bottom:16px}.tcs-f.full{flex-basis:100%}
-.tcs-f label{display:block;font-weight:600;color:#0f172a;font-size:14px;margin-bottom:6px}.tcs-f label .r{color:#f4511e}
-.tcs-f input,.tcs-f textarea{width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid #d6dbe4;border-radius:9px;font-size:15px;background:#fbfcfe}
-.tcs-f input:focus,.tcs-f textarea:focus{outline:none;border-color:#14b8a6;box-shadow:0 0 0 3px rgba(20,184,166,.16);background:#fff}.tcs-f textarea{min-height:100px;resize:vertical}
-.tcs-hint{display:block;margin-top:6px;color:#64748b;font-size:13px}.tcs-hint a{color:#0d9488;font-weight:600}
-.tcs-e{color:#dc2626;font-size:14px;margin:0 0 14px;min-height:1px}
-.tcs-s{display:inline-flex;align-items:center;gap:10px;background:#f4511e;color:#fff;border:0;border-radius:999px;padding:14px 30px;font-size:16px;font-weight:700;cursor:pointer}.tcs-s:hover{background:#d63c0c}
+.rs-wrap{max-width:720px;margin:2rem auto;font-family:sans-serif;color:#1e293b}
+.rs-card{background:#fff;border-radius:10px;box-shadow:0 2px 12px rgba(0,0,0,.1);overflow:hidden}
+.rs-card-head{background:#1a2a4a;color:#fff;padding:1.25rem 1.5rem}
+.rs-card-head h2{margin:0;font-size:1.25rem;font-weight:600}
+.rs-card-head p{margin:.25rem 0 0;font-size:.85rem;color:#94a3b8}
+.rs-body{padding:1.5rem}
+.rs-progress{display:flex;align-items:center;margin-bottom:1.75rem}
+.rs-dot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;flex-shrink:0;background:#e2e8f0;color:#94a3b8;transition:background .2s,color .2s}
+.rs-dot.active{background:#0d9488;color:#fff}
+.rs-dot.done{background:#065f46;color:#fff}
+.rs-line{flex:1;height:2px;background:#e2e8f0;margin:0 6px;transition:background .2s}
+.rs-line.done{background:#0d9488}
+.rs-field{margin-bottom:1rem}
+.rs-field label{display:block;font-size:.85rem;font-weight:600;color:#374151;margin-bottom:.35rem}
+.rs-field input,.rs-field select,.rs-field textarea{width:100%;padding:.6rem .8rem;border:1.5px solid #d1d5db;border-radius:6px;font-size:.95rem;color:#111827;box-sizing:border-box;transition:border-color .2s,box-shadow .2s;background:#fff}
+.rs-field input:focus,.rs-field select:focus,.rs-field textarea:focus{outline:none;border-color:#0d9488;box-shadow:0 0 0 3px rgba(13,148,136,.15)}
+.rs-field input[readonly]{background:#f8fafc;color:#64748b}
+.rs-field textarea{min-height:90px;resize:vertical}
+.rs-hint{font-size:.78rem;color:#64748b;margin-top:.25rem}
+.rs-row{display:flex;gap:1rem}
+.rs-row .rs-field{flex:1}
+.rs-btn{display:inline-block;padding:.65rem 1.5rem;border:none;border-radius:6px;font-size:.95rem;font-weight:600;cursor:pointer;transition:opacity .15s}
+.rs-btn-primary{background:#f4511e;color:#fff}
+.rs-btn-primary:hover{opacity:.9}
+.rs-btn-secondary{background:#e2e8f0;color:#374151}
+.rs-btn-secondary:hover{background:#cbd5e1}
+.rs-btn:disabled{opacity:.5;cursor:not-allowed}
+.rs-btn-sm{padding:.45rem 1rem;font-size:.85rem}
+.rs-error{background:#fef2f2;border:1px solid #fca5a5;color:#dc2626;border-radius:6px;padding:.75rem 1rem;margin-bottom:1rem;font-size:.875rem;display:none}
+.rs-success{background:#f0fdf4;border:1px solid #86efac;color:#166534;border-radius:8px;padding:1.25rem 1.5rem;text-align:center;display:none}
+.rs-success h3{margin:0 0 .5rem;font-size:1.1rem}
+.rs-course-list{list-style:none;margin:0;padding:0}
+.rs-course-list li{border:1.5px solid #e2e8f0;border-radius:8px;margin-bottom:.6rem;transition:border-color .15s}
+.rs-course-list li label{display:flex;align-items:flex-start;gap:.75rem;padding:.75rem 1rem;cursor:pointer;width:100%;box-sizing:border-box}
+.rs-course-list input[type=radio]{margin-top:.2rem;accent-color:#0d9488;flex-shrink:0}
+.rs-course-meta{font-size:.85rem;color:#64748b;margin-top:.2rem}
+.rs-loading{color:#64748b;font-size:.9rem;padding:.5rem 0}
+.rs-divider{text-align:center;color:#94a3b8;font-size:.8rem;margin:1rem 0;display:flex;align-items:center;gap:.5rem}
+.rs-divider::before,.rs-divider::after{content:'';flex:1;height:1px;background:#e2e8f0}
+.rs-badge{display:inline-block;font-size:.7rem;font-weight:700;padding:.15rem .45rem;border-radius:4px;margin-left:.4rem;vertical-align:middle}
+.rs-badge-wsq{background:#dbeafe;color:#1e40af}
+.rs-badge-nonwsq{background:#fef3c7;color:#92400e}
+.rs-otp-inputs{display:flex;gap:.5rem;margin:.5rem 0}
+.rs-otp-inputs input{width:46px;height:52px;text-align:center;font-size:1.3rem;font-weight:700;letter-spacing:.05rem;border:1.5px solid #d1d5db;border-radius:6px;padding:0}
+.rs-otp-inputs input:focus{border-color:#0d9488;box-shadow:0 0 0 3px rgba(13,148,136,.15)}
+.rs-resend{font-size:.82rem;color:#0d9488;cursor:pointer;background:none;border:none;padding:0;text-decoration:underline}
+.rs-resend:disabled{color:#94a3b8;text-decoration:none;cursor:default}
+.rs-step{display:none}
+.rs-step.active{display:block}
+@media(max-width:540px){.rs-row{flex-direction:column;gap:0}.rs-otp-inputs input{width:40px;height:46px;font-size:1.1rem}}
 </style>
-<div class="tcs-w" id="reschedule-enquiry">
-  <div class="tcs-h"><h3><?php echo $this->__('Request a Class Reschedule') ?></h3><p><?php echo $this->__('Complete the form below and our team will confirm your new class date.') ?></p></div>
-  <div class="tcs-b"><form action="<?php echo $u ?>" method="post" id="reschedForm" name="reschedForm">
-    <div class="tcs-e" id="resched-error"></div>
-    <div class="tcs-row">
-      <div class="tcs-f"><label><?php echo $this->__('Name') ?> <span class="r">*</span></label><input type="text" name="name" maxlength="255"/></div>
-      <div class="tcs-f"><label><?php echo $this->__('NRIC') ?> <span class="r">*</span></label><input type="text" name="nric" maxlength="32"/></div>
+
+<div class="rs-wrap">
+ <div class="rs-card">
+  <div class="rs-card-head">
+   <h2>Class Reschedule Request</h2>
+   <p>Transfer to a different class date. Email verification required to protect your enrolment records.</p>
+  </div>
+  <div class="rs-body">
+
+   <!-- Progress bar -->
+   <div class="rs-progress" id="rs-progress">
+    <div class="rs-dot active" id="rs-d1">1</div>
+    <div class="rs-line" id="rs-l1"></div>
+    <div class="rs-dot" id="rs-d2">2</div>
+    <div class="rs-line" id="rs-l2"></div>
+    <div class="rs-dot" id="rs-d3">3</div>
+    <div class="rs-line" id="rs-l3"></div>
+    <div class="rs-dot" id="rs-d4">4</div>
+   </div>
+
+   <!-- Error banner (shared across steps) -->
+   <div class="rs-error" id="rs-error"></div>
+
+   <!-- ======================================================= STEP 1: Email -->
+   <div class="rs-step active" id="rs-step-1">
+    <p style="color:#374151;margin:0 0 1.25rem;font-size:.95rem;">
+     Enter the email address you used when enrolling for your course.
+     We&rsquo;ll send a one-time verification code.
+    </p>
+    <div class="rs-field">
+     <label for="rs-email">Email Address <span style="color:#dc2626">*</span></label>
+     <input type="email" id="rs-email" maxlength="255" placeholder="you@example.com" autocomplete="email">
     </div>
-    <div class="tcs-row">
-      <div class="tcs-f"><label><?php echo $this->__('Email') ?> <span class="r">*</span></label><input type="email" name="email" maxlength="255"/></div>
-      <div class="tcs-f"><label><?php echo $this->__('Phone') ?> <span class="r">*</span></label><input type="text" name="telephone" maxlength="64"/></div>
+    <button class="rs-btn rs-btn-primary" id="rs-btn-sendotp" onclick="rsSendOtp()">Send Verification Code</button>
+   </div>
+
+   <!-- ======================================================= STEP 2: OTP -->
+   <div class="rs-step" id="rs-step-2">
+    <p style="color:#374151;margin:0 0 1rem;font-size:.95rem;">
+     We sent a 6-digit code to <strong id="rs-otp-email-display"></strong>.
+     Enter it below &mdash; it expires in 15 minutes.
+    </p>
+    <div class="rs-field">
+     <label>Verification Code <span style="color:#dc2626">*</span></label>
+     <div class="rs-otp-inputs" id="rs-otp-boxes">
+      <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="one-time-code">
+      <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]">
+      <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]">
+      <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]">
+      <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]">
+      <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]">
+     </div>
     </div>
-    <div class="tcs-row">
-      <div class="tcs-f"><label><?php echo $this->__('Course Title') ?> <span class="r">*</span></label><input type="text" name="course" maxlength="255"/></div>
-      <div class="tcs-f"><label><?php echo $this->__('Course Code') ?> <span class="r">*</span></label><input type="text" name="course_code" maxlength="64"/></div>
+    <div style="margin-bottom:1rem">
+     <button class="rs-resend" id="rs-btn-resend" onclick="rsResendOtp()" disabled>Resend code</button>
+     <span id="rs-resend-timer" style="font-size:.8rem;color:#94a3b8;margin-left:.5rem"></span>
     </div>
-    <div class="tcs-row">
-      <div class="tcs-f"><label><?php echo $this->__('Course Start Date') ?> <span class="r">*</span></label><input type="text" name="current_date" maxlength="64" placeholder="<?php echo $this->__('e.g. 12 May 2026') ?>"/></div>
-      <div class="tcs-f"><label><?php echo $this->__('Next Course Start Date') ?></label><input type="text" name="preferred_date" maxlength="64" placeholder="<?php echo $this->__('e.g. 9 Jun 2026') ?>"/>
-        <span class="tcs-hint"><?php echo $this->__('Please refer to the') ?> <a href="<?php echo Mage::getUrl('') ?>" target="_blank"><?php echo $this->__('course schedule on our website') ?></a> <?php echo $this->__('for available dates.') ?></span></div>
+    <button class="rs-btn rs-btn-primary" id="rs-btn-verifyotp" onclick="rsVerifyOtp()">Verify Code</button>
+    <button class="rs-btn rs-btn-secondary" style="margin-left:.5rem" onclick="rsGoStep(1)">Back</button>
+   </div>
+
+   <!-- ======================================================= STEP 3: Course picker -->
+   <div class="rs-step" id="rs-step-3">
+    <p style="color:#374151;margin:0 0 1rem;font-size:.95rem;">Select the class you want to reschedule.</p>
+    <div id="rs-enrollments-loading" class="rs-loading">Loading your enrolled courses&hellip;</div>
+    <ul class="rs-course-list" id="rs-course-list" style="display:none"></ul>
+    <div id="rs-no-courses" style="display:none;color:#64748b;font-size:.9rem;margin-bottom:.75rem">
+     No upcoming enrolled courses found for this email.
     </div>
-    <div class="tcs-f full"><label><?php echo $this->__('Message') ?></label><textarea name="comment" placeholder="<?php echo $this->__('Anything else we should know? (optional)') ?>"></textarea></div>
-    <input type="text" name="hideit" value="" tabindex="-1" autocomplete="off" style="display:none !important;"/>
-    <input type="hidden" name="cf-turnstile-response" id="resched-tk" value=""/>
-    <?php if ($k): ?><div class="cf-turnstile" data-sitekey="<?php echo $this->htmlEscape($k) ?>" data-size="invisible" data-callback="onRsTs" data-error-callback="onRsTsE" data-expired-callback="onRsTsX"></div><?php endif; ?>
-    <button type="submit" id="resched-submit" class="tcs-s"><?php echo $this->__('Submit Request') ?></button>
-  </form></div>
+    <div class="rs-divider">or</div>
+    <button class="rs-btn rs-btn-secondary rs-btn-sm" onclick="rsShowFallback()">Fill in course details manually</button>
+    <div id="rs-step3-nav" style="display:none;margin-top:1.25rem">
+     <button class="rs-btn rs-btn-primary" id="rs-btn-tocourse" onclick="rsSelectCourse()" disabled>Next &rarr;</button>
+     <button class="rs-btn rs-btn-secondary" style="margin-left:.5rem" onclick="rsGoStep(1)">Back</button>
+    </div>
+   </div>
+
+   <!-- ======================================================= STEP 4: Details -->
+   <div class="rs-step" id="rs-step-4">
+    <!-- Hidden state fields -->
+    <input type="hidden" id="rs-run-id">
+    <input type="hidden" id="rs-target-run-id">
+    <input type="hidden" id="rs-is-wsq" value="0">
+    <input type="hidden" id="rs-course-code-h">
+
+    <div class="rs-row">
+     <div class="rs-field" style="flex:2">
+      <label>Course</label>
+      <input type="text" id="rs-course-title-display" readonly tabindex="-1">
+     </div>
+     <div class="rs-field" style="flex:1">
+      <label>Current Class Date</label>
+      <input type="text" id="rs-start-date-display" readonly tabindex="-1">
+     </div>
+    </div>
+
+    <!-- Target date: sibling-runs dropdown (WSQ, if LMS ready) or text input -->
+    <div id="rs-sibling-loading" class="rs-loading" style="display:none">Loading available dates&hellip;</div>
+    <div class="rs-field" id="rs-target-select-field" style="display:none">
+     <label for="rs-target-select">New Class Date <span style="color:#dc2626">*</span></label>
+     <select id="rs-target-select" onchange="rsOnTargetRunChange()">
+      <option value="">-- Select a date --</option>
+     </select>
+    </div>
+    <div class="rs-field" id="rs-target-text-field">
+     <label for="rs-next-date">Preferred New Date <span style="color:#dc2626">*</span></label>
+     <input type="text" id="rs-next-date" maxlength="64" placeholder="e.g. 9 Jun 2026">
+     <div class="rs-hint">
+      <a href="<?= $this->escapeHtml($baseUrl) ?>course-schedule.html" target="_blank"
+         style="color:#0d9488">View available class dates &rarr;</a>
+     </div>
+    </div>
+
+    <div class="rs-row">
+     <div class="rs-field">
+      <label for="rs-name">Full Name <span style="color:#dc2626">*</span></label>
+      <input type="text" id="rs-name" maxlength="255" autocomplete="name">
+     </div>
+     <div class="rs-field">
+      <label for="rs-nric">NRIC / Passport No. <span style="color:#dc2626">*</span></label>
+      <input type="text" id="rs-nric" maxlength="32">
+     </div>
+    </div>
+    <div class="rs-field">
+     <label for="rs-phone">Phone Number <span style="color:#dc2626">*</span></label>
+     <input type="tel" id="rs-phone" maxlength="64" autocomplete="tel">
+    </div>
+    <div class="rs-field">
+     <label for="rs-comment">Additional Notes (optional)</label>
+     <textarea id="rs-comment" placeholder="Any special requests or information for our team"></textarea>
+    </div>
+
+    <!-- Spam / Turnstile -->
+    <input type="text" id="rs-hideit" style="display:none" tabindex="-1" autocomplete="off">
+    <?php if ($tsEnabled): ?>
+    <div class="cf-turnstile"
+         data-sitekey="<?= $this->escapeHtml($tsSiteKey) ?>"
+         data-callback="rsOnTurnstile"
+         data-error-callback="rsOnTurnstileError"
+         data-expired-callback="rsOnTurnstileExpired"
+         data-size="invisible"></div>
+    <input type="hidden" id="rs-ts-token">
+    <?php endif; ?>
+
+    <div style="margin-top:1.25rem">
+     <button class="rs-btn rs-btn-primary" id="rs-btn-submit" onclick="rsSubmit()">Submit Reschedule Request</button>
+     <button class="rs-btn rs-btn-secondary" style="margin-left:.5rem" onclick="rsGoStep(3)">Back</button>
+    </div>
+   </div>
+
+   <!-- ======================================================= MANUAL FALLBACK -->
+   <div class="rs-step" id="rs-step-fallback">
+    <p style="color:#374151;margin:0 0 1rem;font-size:.9rem;">
+     Fill in your course details manually. Fields marked * are required.
+    </p>
+    <div class="rs-row">
+     <div class="rs-field">
+      <label for="rs-fb-name">Full Name <span style="color:#dc2626">*</span></label>
+      <input type="text" id="rs-fb-name" maxlength="255" autocomplete="name">
+     </div>
+     <div class="rs-field">
+      <label for="rs-fb-nric">NRIC / Passport No. <span style="color:#dc2626">*</span></label>
+      <input type="text" id="rs-fb-nric" maxlength="32">
+     </div>
+    </div>
+    <div class="rs-row">
+     <div class="rs-field">
+      <label for="rs-fb-email">Email Address <span style="color:#dc2626">*</span></label>
+      <input type="email" id="rs-fb-email" maxlength="255" autocomplete="email">
+     </div>
+     <div class="rs-field">
+      <label for="rs-fb-phone">Phone Number <span style="color:#dc2626">*</span></label>
+      <input type="tel" id="rs-fb-phone" maxlength="64" autocomplete="tel">
+     </div>
+    </div>
+    <div class="rs-row">
+     <div class="rs-field">
+      <label for="rs-fb-course">Course Title <span style="color:#dc2626">*</span></label>
+      <input type="text" id="rs-fb-course" maxlength="255">
+     </div>
+     <div class="rs-field">
+      <label for="rs-fb-code">Course Code <span style="color:#dc2626">*</span></label>
+      <input type="text" id="rs-fb-code" maxlength="64" placeholder="e.g. C099 or TGS-xxxxx">
+     </div>
+    </div>
+    <div class="rs-row">
+     <div class="rs-field">
+      <label for="rs-fb-startdate">Current Class Date <span style="color:#dc2626">*</span></label>
+      <input type="text" id="rs-fb-startdate" maxlength="64" placeholder="e.g. 12 May 2026">
+     </div>
+     <div class="rs-field">
+      <label for="rs-fb-nextdate">Preferred New Date</label>
+      <input type="text" id="rs-fb-nextdate" maxlength="64" placeholder="e.g. 9 Jun 2026">
+     </div>
+    </div>
+    <div class="rs-field">
+     <label for="rs-fb-comment">Additional Notes (optional)</label>
+     <textarea id="rs-fb-comment"></textarea>
+    </div>
+    <input type="text" id="rs-fb-hideit" style="display:none" tabindex="-1" autocomplete="off">
+    <?php if ($tsEnabled): ?>
+    <input type="hidden" id="rs-fb-ts-token">
+    <?php endif; ?>
+    <div style="margin-top:1.25rem">
+     <button class="rs-btn rs-btn-primary" id="rs-btn-fb-submit" onclick="rsFallbackSubmit()">Submit Reschedule Request</button>
+     <button class="rs-btn rs-btn-secondary" style="margin-left:.5rem" onclick="rsBackFromFallback()">Back</button>
+    </div>
+   </div>
+
+   <!-- ======================================================= SUCCESS -->
+   <div class="rs-success" id="rs-success">
+    <h3>&#10003; Request Submitted</h3>
+    <p id="rs-success-msg">Thank you for your submission. We will respond within 7 working days.</p>
+   </div>
+
+  </div><!-- /.rs-body -->
+ </div><!-- /.rs-card -->
 </div>
-<script>(function(){var EN=<?php echo $k?'true':'false'; ?>,ps=false;
-function v(){var e="",f=document.forms["reschedForm"];
-if(!f["name"].value)e+="Please enter your name<br/>";
-if(!f["nric"].value)e+="Please enter your NRIC<br/>";
-if(!/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,})+$/.test(f["email"].value))e+="Please enter a valid email<br/>";
-if(!f["telephone"].value)e+="Please enter your phone number<br/>";
-if(!f["course"].value)e+="Please enter the course title<br/>";
-if(!f["course_code"].value)e+="Please enter the course code<br/>";
-if(!f["current_date"].value)e+="Please enter the course start date<br/>";
-document.getElementById("resched-error").innerHTML=e;return e==="";}
-function s(){var b=document.getElementById("resched-submit");if(b)b.disabled=true;document.forms["reschedForm"].submit();}
-window.onRsTs=function(t){var i=document.getElementById("resched-tk");if(i)i.value=t;if(ps){ps=false;s();}};window.onRsTsE=function(){ps=false;document.getElementById("resched-error").innerHTML="Spam check could not run. Please refresh and try again.";};window.onRsTsX=function(){var i=document.getElementById("resched-tk");if(i)i.value="";};
-document.addEventListener("DOMContentLoaded",function(){var f=document.getElementById("reschedForm");if(!f)return;f.addEventListener("submit",function(e){e.preventDefault();if(!v())return;if(!EN||typeof window.turnstile==="undefined"){s();return;}var i=document.getElementById("resched-tk");if(i&&i.value){s();return;}ps=true;try{window.turnstile.execute();}catch(x){ps=false;s();}});});})();</script>
+
+<?php if ($tsEnabled): ?>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
+<?php endif; ?>
+
+<script>
+(function () {
+'use strict';
+
+var RS = {
+    email:          '',
+    verifiedEmail:  '',
+    selectedCourse: null,
+    resendTimer:    null,
+    resendCountdown:0,
+    tsEnabled:      <?= $tsEnabled ? 'true' : 'false' ?>,
+    isFallback:     false,
+    ajaxBase:       '<?= $this->escapeHtml(rtrim(Mage::getUrl('reschedule/ajax'), '/')) ?>/',
+};
+
+// ---- Utility -------------------------------------------------------
+
+function qs(id) { return document.getElementById(id); }
+
+function showError(msg) {
+    var el = qs('rs-error');
+    el.textContent = msg;
+    el.style.display = msg ? 'block' : 'none';
+    if (msg) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function setLoading(btnId, loading) {
+    var btn = qs(btnId);
+    if (!btn) return;
+    btn.disabled = loading;
+    if (loading) {
+        btn.dataset.origText = btn.textContent;
+        btn.textContent = 'Please wait…';
+    } else if (btn.dataset.origText) {
+        btn.textContent = btn.dataset.origText;
+    }
+}
+
+function post(action, data) {
+    var params = Object.keys(data).map(function(k) {
+        return encodeURIComponent(k) + '=' + encodeURIComponent(data[k]);
+    }).join('&');
+    return fetch(RS.ajaxBase + action, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params,
+        credentials: 'same-origin',
+    }).then(function(r) { return r.json(); });
+}
+
+// ---- Progress bar --------------------------------------------------
+
+function rsGoStep(n) {
+    showError('');
+    ['1','2','3','4','fallback'].forEach(function(s) {
+        var el = qs('rs-step-' + s);
+        if (el) el.classList.remove('active');
+    });
+    var target = qs('rs-step-' + n);
+    if (target) target.classList.add('active');
+
+    var showProgress = (n !== 'fallback');
+    qs('rs-progress').style.display = showProgress ? 'flex' : 'none';
+    if (!showProgress) return;
+
+    var stepNum = parseInt(n, 10);
+    for (var i = 1; i <= 4; i++) {
+        var dot  = qs('rs-d' + i);
+        var line = i < 4 ? qs('rs-l' + i) : null;
+        if (i < stepNum)       { dot.className = 'rs-dot done'; }
+        else if (i === stepNum){ dot.className = 'rs-dot active'; }
+        else                   { dot.className = 'rs-dot'; }
+        if (line) line.className = (i < stepNum) ? 'rs-line done' : 'rs-line';
+    }
+}
+window.rsGoStep = rsGoStep;
+
+// ---- Step 1: Send OTP ----------------------------------------------
+
+window.rsSendOtp = function() {
+    var email = qs('rs-email').value.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        showError('Please enter a valid email address.');
+        return;
+    }
+    RS.email = email;
+    setLoading('rs-btn-sendotp', true);
+    post('sendotp', { email: email }).then(function(r) {
+        setLoading('rs-btn-sendotp', false);
+        if (!r.ok) { showError(r.message || 'Could not send code. Please try again.'); return; }
+        qs('rs-otp-email-display').textContent = email;
+        rsGoStep(2);
+        rsStartResendTimer(60);
+        var boxes = qs('rs-otp-boxes').querySelectorAll('input');
+        if (boxes.length) boxes[0].focus();
+    }).catch(function() {
+        setLoading('rs-btn-sendotp', false);
+        showError('Network error. Please try again.');
+    });
+};
+
+window.rsResendOtp = function() {
+    post('sendotp', { email: RS.email }).then(function(r) {
+        if (!r.ok) { showError(r.message || 'Could not resend.'); return; }
+        showError('');
+        rsStartResendTimer(60);
+    }).catch(function() { showError('Network error.'); });
+};
+
+function rsStartResendTimer(secs) {
+    var btn = qs('rs-btn-resend');
+    var timerEl = qs('rs-resend-timer');
+    btn.disabled = true;
+    RS.resendCountdown = secs;
+    clearInterval(RS.resendTimer);
+    RS.resendTimer = setInterval(function() {
+        RS.resendCountdown--;
+        if (RS.resendCountdown <= 0) {
+            clearInterval(RS.resendTimer);
+            btn.disabled = false;
+            timerEl.textContent = '';
+        } else {
+            timerEl.textContent = '(' + RS.resendCountdown + 's)';
+        }
+    }, 1000);
+}
+
+// OTP box auto-advance + paste
+(function() {
+    document.addEventListener('DOMContentLoaded', function() {
+        var boxes = qs('rs-otp-boxes').querySelectorAll('input');
+        boxes.forEach(function(box, i) {
+            box.addEventListener('input', function() {
+                var val = box.value.replace(/\D/g, '');
+                box.value = val.charAt(0);
+                if (val && i < boxes.length - 1) boxes[i + 1].focus();
+            });
+            box.addEventListener('keydown', function(e) {
+                if (e.key === 'Backspace' && !box.value && i > 0) boxes[i - 1].focus();
+                if (e.key === 'ArrowLeft'  && i > 0)              boxes[i - 1].focus();
+                if (e.key === 'ArrowRight' && i < boxes.length-1) boxes[i + 1].focus();
+            });
+            box.addEventListener('paste', function(e) {
+                var text = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '');
+                e.preventDefault();
+                text.split('').slice(0, 6).forEach(function(ch, j) { if (boxes[j]) boxes[j].value = ch; });
+                var last = Math.min(text.length, boxes.length - 1);
+                if (boxes[last]) boxes[last].focus();
+            });
+        });
+    });
+})();
+
+// ---- Step 2: Verify OTP --------------------------------------------
+
+window.rsVerifyOtp = function() {
+    var boxes = qs('rs-otp-boxes').querySelectorAll('input');
+    var code  = Array.from(boxes).map(function(b) { return b.value; }).join('');
+    if (code.length !== 6) { showError('Please enter the full 6-digit code.'); return; }
+    setLoading('rs-btn-verifyotp', true);
+    post('verifyotp', { email: RS.email, code: code }).then(function(r) {
+        setLoading('rs-btn-verifyotp', false);
+        if (!r.ok) { showError(r.message || 'Invalid or expired code.'); return; }
+        RS.verifiedEmail = RS.email;
+        rsGoStep(3);
+        rsLoadEnrollments();
+    }).catch(function() {
+        setLoading('rs-btn-verifyotp', false);
+        showError('Network error. Please try again.');
+    });
+};
+
+// ---- Step 3: Enrollments -------------------------------------------
+
+function rsLoadEnrollments() {
+    qs('rs-enrollments-loading').style.display = 'block';
+    qs('rs-course-list').style.display         = 'none';
+    qs('rs-no-courses').style.display          = 'none';
+    qs('rs-step3-nav').style.display           = 'none';
+
+    post('getenrollments', {}).then(function(r) {
+        qs('rs-enrollments-loading').style.display = 'none';
+        if (!r.ok) { showError(r.message || 'Could not load enrolments.'); return; }
+        var courses = r.courses || [];
+        if (!courses.length) {
+            qs('rs-no-courses').style.display = 'block';
+            return;
+        }
+        var list = qs('rs-course-list');
+        list.innerHTML = '';
+        courses.forEach(function(c, idx) {
+            var li    = document.createElement('li');
+            var badge = c.is_wsq
+                ? '<span class="rs-badge rs-badge-wsq">WSQ</span>'
+                : '<span class="rs-badge rs-badge-nonwsq">Non-WSQ</span>';
+            var dateStr = c.course_start_date
+                ? c.course_start_date + (c.course_end_date && c.course_end_date !== c.course_start_date
+                    ? ' – ' + c.course_end_date : '')
+                : 'Date TBC';
+            li.innerHTML =
+                '<label>'
+                + '<input type="radio" name="rs_course" value="' + idx + '">'
+                + '<div><div style="font-weight:600">' + rsEsc(c.course_title) + badge + '</div>'
+                + '<div class="rs-course-meta">' + rsEsc(c.course_sku)
+                + ' &nbsp;&middot;&nbsp; ' + rsEsc(dateStr) + '</div></div>'
+                + '</label>';
+            li.querySelector('input').addEventListener('change', function() {
+                RS.selectedCourse = c;
+                qs('rs-btn-tocourse').disabled = false;
+            });
+            list.appendChild(li);
+        });
+        list.style.display      = 'block';
+        qs('rs-step3-nav').style.display = 'block';
+    }).catch(function() {
+        qs('rs-enrollments-loading').style.display = 'none';
+        showError('Network error loading courses. Please fill in manually.');
+    });
+}
+
+window.rsSelectCourse = function() {
+    if (!RS.selectedCourse) { showError('Please select a course.'); return; }
+    rsGoStep(4);
+    rsFillStep4(RS.selectedCourse);
+};
+
+function rsFillStep4(course) {
+    qs('rs-run-id').value             = course.run_id || '';
+    qs('rs-is-wsq').value             = course.is_wsq ? '1' : '0';
+    qs('rs-course-code-h').value      = course.course_sku || '';
+    qs('rs-course-title-display').value = course.course_title || '';
+    qs('rs-start-date-display').value   = course.course_start_date || '';
+    qs('rs-target-run-id').value      = '';
+
+    // Reset target fields
+    qs('rs-target-select-field').style.display = 'none';
+    qs('rs-target-text-field').style.display   = 'block';
+    qs('rs-sibling-loading').style.display     = 'none';
+    qs('rs-target-select').innerHTML = '<option value="">-- Select a date --</option>';
+    qs('rs-next-date').value = '';
+
+    if (course.is_wsq) {
+        qs('rs-sibling-loading').style.display   = 'block';
+        qs('rs-target-text-field').style.display = 'none';
+        post('getsiblingruns', { run_id: course.run_id }).then(function(r) {
+            qs('rs-sibling-loading').style.display = 'none';
+            if (r.ok && r.runs && r.runs.length) {
+                var sel = qs('rs-target-select');
+                r.runs.forEach(function(run) {
+                    var opt = document.createElement('option');
+                    // LMS may return different field names; try common ones
+                    opt.value       = run.id || run.uuid || run.courseRunId || '';
+                    opt.textContent = run.startDate || run.label || run.date || opt.value;
+                    sel.appendChild(opt);
+                });
+                qs('rs-target-select-field').style.display = 'block';
+            } else {
+                // LMS endpoint not yet available — show text fallback
+                qs('rs-target-text-field').style.display = 'block';
+            }
+        }).catch(function() {
+            qs('rs-sibling-loading').style.display  = 'none';
+            qs('rs-target-text-field').style.display = 'block';
+        });
+    }
+}
+
+window.rsOnTargetRunChange = function() {
+    var sel = qs('rs-target-select');
+    qs('rs-target-run-id').value = sel.value;
+};
+
+window.rsShowFallback = function() {
+    RS.isFallback = true;
+    if (RS.verifiedEmail) qs('rs-fb-email').value = RS.verifiedEmail;
+    rsGoStep('fallback');
+};
+
+window.rsBackFromFallback = function() {
+    RS.isFallback = false;
+    rsGoStep(RS.verifiedEmail ? 3 : 1);
+};
+
+// ---- Step 4: Submit ------------------------------------------------
+
+window.rsSubmit = function() {
+    showError('');
+    var name   = qs('rs-name').value.trim();
+    var nric   = qs('rs-nric').value.trim();
+    var phone  = qs('rs-phone').value.trim();
+    var course = qs('rs-course-title-display').value.trim();
+    var code   = qs('rs-course-code-h').value.trim();
+    var startD = qs('rs-start-date-display').value.trim();
+    var isWsq  = qs('rs-is-wsq').value === '1';
+    var usingSel = isWsq && qs('rs-target-select-field').style.display !== 'none';
+    var nextD  = usingSel
+        ? (qs('rs-target-select').options[qs('rs-target-select').selectedIndex] || {}).text || ''
+        : qs('rs-next-date').value.trim();
+
+    if (!name || !nric || !phone || !course || !code || !startD) {
+        showError('Please complete all required fields.'); return;
+    }
+
+    var payload = {
+        email:                 RS.verifiedEmail,
+        name:                  name,
+        nric:                  nric,
+        telephone:             phone,
+        course:                course,
+        course_code:           code,
+        course_start_date:     startD,
+        next_course_start_date:nextD,
+        run_id:                qs('rs-run-id').value,
+        target_run_id:         qs('rs-target-run-id').value,
+        is_wsq:                isWsq ? '1' : '0',
+        comment:               qs('rs-comment').value.trim(),
+        hideit:                qs('rs-hideit').value,
+    };
+
+    if (RS.tsEnabled) {
+        setLoading('rs-btn-submit', true);
+        window._rsPendingPayload = payload;
+        if (window.turnstile) window.turnstile.execute();
+        return;
+    }
+    rsDoSubmit(payload, false);
+};
+
+window.rsOnTurnstile = function(token) {
+    var tokenKey = '<?= $this->escapeHtml($tokenField) ?>';
+    if (RS.isFallback && window._rsFbPendingPayload) {
+        window._rsFbPendingPayload[tokenKey] = token;
+        rsDoSubmit(window._rsFbPendingPayload, true);
+    } else if (window._rsPendingPayload) {
+        window._rsPendingPayload[tokenKey] = token;
+        rsDoSubmit(window._rsPendingPayload, false);
+    }
+};
+window.rsOnTurnstileError = function() {
+    setLoading('rs-btn-submit', false);
+    setLoading('rs-btn-fb-submit', false);
+    showError('Security check failed. Please refresh the page and try again.');
+};
+window.rsOnTurnstileExpired = function() {
+    setLoading('rs-btn-submit', false);
+    setLoading('rs-btn-fb-submit', false);
+    showError('Security check expired. Please try again.');
+};
+
+function rsDoSubmit(payload, isFb) {
+    post('submit', payload).then(function(r) {
+        setLoading(isFb ? 'rs-btn-fb-submit' : 'rs-btn-submit', false);
+        if (!r.ok) { showError(r.message || 'Submission failed. Please try again.'); return; }
+        // Hide all steps; show success
+        ['1','2','3','4','fallback'].forEach(function(s) {
+            var el = qs('rs-step-' + s); if (el) el.classList.remove('active');
+        });
+        qs('rs-progress').style.display = 'none';
+        showError('');
+        qs('rs-success-msg').textContent = r.message || 'Thank you for your submission.';
+        qs('rs-success').style.display = 'block';
+    }).catch(function() {
+        setLoading(isFb ? 'rs-btn-fb-submit' : 'rs-btn-submit', false);
+        showError('Network error. Please try again or call +65 6100 0613.');
+    });
+}
+
+// ---- Fallback (manual) submit --------------------------------------
+
+window.rsFallbackSubmit = function() {
+    showError('');
+    var name  = qs('rs-fb-name').value.trim();
+    var nric  = qs('rs-fb-nric').value.trim();
+    var email = qs('rs-fb-email').value.trim();
+    var phone = qs('rs-fb-phone').value.trim();
+    var course= qs('rs-fb-course').value.trim();
+    var code  = qs('rs-fb-code').value.trim();
+    var start = qs('rs-fb-startdate').value.trim();
+
+    if (!name || !nric || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !phone || !course || !code || !start) {
+        showError('Please complete all required fields.'); return;
+    }
+    var isWsq = /^TGS-/i.test(code);
+    var payload = {
+        email:                 email,
+        name:                  name,
+        nric:                  nric,
+        telephone:             phone,
+        course:                course,
+        course_code:           code,
+        course_start_date:     start,
+        next_course_start_date:qs('rs-fb-nextdate').value.trim(),
+        run_id:                '',
+        target_run_id:         '',
+        is_wsq:                isWsq ? '1' : '0',
+        comment:               qs('rs-fb-comment').value.trim(),
+        hideit:                qs('rs-fb-hideit').value,
+    };
+
+    if (RS.tsEnabled) {
+        setLoading('rs-btn-fb-submit', true);
+        window._rsFbPendingPayload = payload;
+        if (window.turnstile) window.turnstile.execute();
+        return;
+    }
+    rsDoSubmit(payload, true);
+};
+
+// ---- HTML escape ---------------------------------------------------
+
+function rsEsc(s) {
+    return String(s || '')
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+})();
+</script>
