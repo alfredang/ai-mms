@@ -5256,3 +5256,95 @@ body.adminhtml-workflowguides-index .wfg-badge-logic {
 .admin-main .grid table.data td {
     white-space: nowrap !important;
 }
+
+/* ============================================================
+   === 26. GLOBAL GRID FRAMEWORK — one flat, professional table everywhere
+   Added 2026-07-03. Every admin grid renders identically regardless of the
+   underlying Magento table class (table.data / table.border) or zebra markup:
+   transparent cells, one font + size, single-row records, hairline row
+   separators, uppercase header. This out-specifies the legacy boxes.css
+   !important fills that made some grids (e.g. category "Category Products",
+   any table.border grid) look shaded while others stayed flat.
+
+   Specificity note: boxes.css paints '.grid table.border td' (0,2,2) and
+   '.grid tbody.odd/even tr(td)' (0,2,1)/(0,2,3) with !important. Every rule
+   below leads with '.admin-main .grid' + the same class(es) so it lands one
+   class higher and wins. Do NOT lower the specificity.
+   ============================================================ */
+
+/* 26a. CELLS — transparent, consistent type, single line (one record = one row).
+   Wide grids scroll horizontally via the .hor-scroll wrapper; nothing is hidden. */
+.admin-main .grid table td,
+.admin-main .grid table.data td,
+.admin-main .grid table.border td {
+    background: transparent !important;
+    background-image: none !important;
+    font-family: var(--font-sans) !important;
+    font-size: 12px !important;
+    line-height: 1.5 !important;
+    color: var(--t2, #e2e8f0) !important;
+    padding: 6px 10px !important;
+    vertical-align: middle !important;
+    white-space: nowrap !important;
+    border-left: none !important;
+    border-right: none !important;
+}
+
+/* 26b. ZEBRA OFF — kill boxes.css odd/even light+gray fills; rows separate by a
+   single hairline only (set below), never by alternating background. */
+.admin-main .grid tbody.odd tr,
+.admin-main .grid tbody.even tr,
+.admin-main .grid tbody.odd tr td,
+.admin-main .grid tbody.even tr td,
+.admin-main .grid tr.even,
+.admin-main .grid tr.odd,
+.admin-main .grid tr.even td,
+.admin-main .grid tr.odd td {
+    background: transparent !important;
+    background-image: none !important;
+}
+
+/* 26c. ROW SEPARATOR — one hairline between records; keep boxes.css .border
+   bottom borders off (26a already stripped left/right). */
+.admin-main .grid tbody tr + tr td {
+    border-top: 1px solid var(--b1, #384a60) !important;
+    border-bottom: none !important;
+}
+.admin-main .grid tbody tr:first-child td { border-top: none !important; }
+
+/* 26d. HEADER — flat, uppercase, no sprite background (boxes.css puts a
+   sort_row_bg.gif on tr.headings). Reset the row AND the cells. */
+.admin-main .grid tr.headings,
+.admin-main .grid table.border tr.headings,
+.admin-main .grid tr.headings th,
+.admin-main .grid table.border tr.headings th {
+    background: transparent !important;
+    background-image: none !important;
+    color: var(--t4, #94a3b8) !important;
+    font-family: var(--font-sans) !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.6px !important;
+    border-left: none !important;
+    border-right: none !important;
+    border-top: none !important;
+    border-bottom: 1px solid var(--b1, #384a60) !important;
+    white-space: nowrap !important;
+}
+
+/* 26e. HOVER — subtle blue wash on the whole row (no teal text, no zebra). */
+.admin-main .grid tbody tr:hover td,
+.admin-main .grid tbody tr.on-mouse td {
+    background: rgba(96,165,250,0.06) !important;
+    color: var(--t1, #f1f5f9) !important;
+}
+
+/* 26f. The whole grid table itself is transparent (no .border box outline);
+   the card/panel it lives in owns any surrounding chrome. */
+.admin-main .grid table,
+.admin-main .grid table.data,
+.admin-main .grid table.border {
+    background: transparent !important;
+    border: none !important;
+}
