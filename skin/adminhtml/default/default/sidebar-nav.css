@@ -5348,3 +5348,76 @@ body.adminhtml-workflowguides-index .wfg-badge-logic {
     background: transparent !important;
     border: none !important;
 }
+
+/* ============================================================
+   === 27. UNIVERSAL DATA-TABLE FRAMEWORK — custom MMD tables == native grids
+   Added 2026-07-03. §26 unified the native Magento .grid tables. This extends
+   the SAME flat spec to EVERY custom MMD data table so the whole backend has
+   one table look.
+
+   FRAMEWORK NET (do NOT turn back into a class whitelist): MMD data tables all
+   follow the `*-table` naming convention (dash-table, dash-detail-table,
+   dash-summary-table, al-table, at-table, trn-table, mm-table, …). Matching
+   `table[class*="-table"]` covers every current AND future one automatically —
+   no per-table patch. The one odd suffix (`.cs-tbl`) is added explicitly.
+
+   Canonical cell spec = §26 grid: transparent, var(--font-sans), 12px,
+   6px 10px padding, single-row (nowrap), hairline row separator, flat 11px
+   uppercase header. Cell text COLOR is intentionally NOT forced so .mm-table
+   semantic modifiers (td.muted/strong/status) keep working.
+   ============================================================ */
+
+/* 27a. Flatten card wrappers (…-table-wrap) so custom tables sit flush like grids. */
+.admin-main [class*="-table-wrap"] {
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+}
+
+/* 27b. CELLS — one type ramp + density + single row across the whole family. */
+.admin-main table[class*="-table"] tbody td,
+.admin-main table.cs-tbl tbody td {
+    background: transparent !important;
+    font-family: var(--font-sans) !important;
+    font-size: 12px !important;
+    line-height: 1.5 !important;
+    padding: 6px 10px !important;
+    vertical-align: middle !important;
+    white-space: nowrap !important;
+    border-left: none !important;
+    border-right: none !important;
+    border-bottom: none !important;
+}
+
+/* 27c. ROW SEPARATOR — one hairline between records. */
+.admin-main table[class*="-table"] tbody tr + tr td,
+.admin-main table.cs-tbl tbody tr + tr td {
+    border-top: 1px solid var(--b1, #384a60) !important;
+}
+
+/* 27d. HEADERS — flat, transparent, uppercase 11px (no header card / dark fill). */
+.admin-main table[class*="-table"] thead th,
+.admin-main table.cs-tbl thead th {
+    background: transparent !important;
+    background-image: none !important;
+    color: var(--t4, #94a3b8) !important;
+    font-family: var(--font-sans) !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.6px !important;
+    padding: 6px 10px !important;
+    text-align: left !important;
+    border-top: none !important;
+    border-left: none !important;
+    border-right: none !important;
+    border-bottom: 1px solid var(--b1, #384a60) !important;
+    white-space: nowrap !important;
+}
+
+/* 27e. HOVER — same subtle blue wash as native grids. */
+.admin-main table[class*="-table"] tbody tr:hover td,
+.admin-main table.cs-tbl tbody tr:hover td {
+    background: rgba(96,165,250,0.06) !important;
+}
