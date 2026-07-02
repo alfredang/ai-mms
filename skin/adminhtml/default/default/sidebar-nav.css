@@ -5421,3 +5421,52 @@ body.adminhtml-workflowguides-index .wfg-badge-logic {
 .admin-main table.cs-tbl tbody tr:hover td {
     background: rgba(96,165,250,0.06) !important;
 }
+
+/* ============================================================
+   === 28. LIGHT THEME — professional visibility polish
+   Added 2026-07-03. The dark theme's neon accents (cyan KPI numbers, blue
+   header sort-links) drop to low contrast / read as unprofessional on the
+   light surfaces. These light-only overrides restore strong, conventional
+   contrast. Scoped to :root[data-theme="light"] so the dark theme is
+   untouched; placed in §28 (end of the last-loaded stylesheet) to win.
+   ============================================================ */
+
+/* 28a. KPI numbers — cyan (#22d3ee) is washed out on light cards. Use the
+   brand blue for a strong, readable figure. Net covers every *-kpi-num. */
+:root[data-theme="light"] .admin-main [class*="kpi-num"],
+:root[data-theme="light"] .admin-main .dash-kpi-num {
+    color: #1d4ed8 !important;
+}
+
+/* 28b. KPI cards — flat slate (#e2e8f0) reads heavy. Clean white card with a
+   defined hairline + soft shadow separates it from the page professionally. */
+:root[data-theme="light"] .admin-main .dash-kpi-card,
+:root[data-theme="light"] .admin-main .lmc-kpi-card,
+:root[data-theme="light"] .admin-main .trn-kpi-card,
+:root[data-theme="light"] .admin-main .at-kpi-card,
+:root[data-theme="light"] .admin-main .al-kpi,
+:root[data-theme="light"] .admin-main .at-kpi {
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+}
+
+/* 28c. Grid header sort-links — blue link colour makes headers look like
+   body links. Mute them to slate so column headers read as headers; only
+   colour to brand blue on hover to signal sortability.
+   NOTE the :not() chain: the generic light-theme link rule in dark-theme.css
+   is `:root[data-theme="light"] .admin-main a:not([class*="btn"]):not(.button)
+   :not([class*="badge"]):not([class*="pill"])` = 7 classes. These header rules
+   repeat the SAME 4 :not clauses AND add the `.grid` context, landing at 8
+   classes so they win. Do NOT trim the :not chain — the blue link colour
+   returns the moment these drop below 7 classes. */
+:root[data-theme="light"] .admin-main .grid th a:not([class*="btn"]):not(.button):not([class*="badge"]):not([class*="pill"]),
+:root[data-theme="light"] .admin-main .grid tr.headings th a:not([class*="btn"]):not(.button):not([class*="badge"]):not([class*="pill"]),
+:root[data-theme="light"] .admin-main table[class*="-table"] thead th a:not([class*="btn"]):not(.button):not([class*="badge"]):not([class*="pill"]) {
+    color: #475569 !important;
+}
+:root[data-theme="light"] .admin-main .grid th a:not([class*="btn"]):not(.button):not([class*="badge"]):not([class*="pill"]):hover,
+:root[data-theme="light"] .admin-main .grid tr.headings th a:not([class*="btn"]):not(.button):not([class*="badge"]):not([class*="pill"]):hover,
+:root[data-theme="light"] .admin-main table[class*="-table"] thead th a:not([class*="btn"]):not(.button):not([class*="badge"]):not([class*="pill"]):hover {
+    color: #2563eb !important;
+}
