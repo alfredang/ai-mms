@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<config>
+    <sections>
+        <mmd_reschedule translate="label" module="mmd_reschedule">
+            <class>separator-top</class>
+            <label>Class Reschedule</label>
+            <tab>general</tab>
+            <sort_order>310</sort_order>
+            <show_in_default>1</show_in_default>
+            <show_in_website>1</show_in_website>
+            <show_in_store>0</show_in_store>
+            <groups>
+                <automation translate="label">
+                    <label>Automation</label>
+                    <sort_order>10</sort_order>
+                    <show_in_default>1</show_in_default>
+                    <show_in_website>1</show_in_website>
+                    <show_in_store>0</show_in_store>
+                    <fields>
+                        <non_wsq_mode translate="label comment">
+                            <label>Non-WSQ Reschedule Mode</label>
+                            <comment>Manual: each request sits as New until staff approve it in the admin grid. Auto: request is immediately acknowledged (staff still processes the actual schedule change).</comment>
+                            <type>select</type>
+                            <source_model>mmd_reschedule/source_nonwsqmode</source_model>
+                            <sort_order>10</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>1</show_in_website>
+                            <show_in_store>0</show_in_store>
+                        </non_wsq_mode>
+                    </fields>
+                </automation>
+            </groups>
+        </mmd_reschedule>
+    </sections>
+</config>
