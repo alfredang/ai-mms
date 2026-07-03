@@ -217,4 +217,67 @@ class MMD_Marketing_Helper_Mailerlite extends Mage_Core_Helper_Abstract
         }
         return $val;
     }
+
+    /** POST/PUT JSON to the MailerLite API. Returns decoded array or throws. */
+    protected function _send($method, $path, array $body)
+    {
+        $key = $this->_getKey();
+        if ($key === '') { throw new Exception('MailerLite key not configured'); }
+        $ch = curl_init(self::API_BASE . $path);
+        curl_setopt_array($ch, array(
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CUSTOMREQUEST  => $method,
+            CURLOPT_POSTFIELDS     => json_encode($body),
+            CURLOPT_TIMEOUT        => 20,
+            CURLOPT_HTTPHEADER     => array(
+                'Authorization: Bearer ' . $key,
+                'Content-Type: application/json',
+                'Accept: application/json',
+            ),
+        ));
+        $raw  = curl_exec($ch);
+        $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        @file_put_contents(Mage::getBaseDir('var') . '/log/mailerlite.log',
+            '[' . date('Y-m-d H:i:s') . "] {$method} {$path} http={$code} body=" . substr((string) $raw, 0, 500) . "\n", FILE_APPEND);
+        $data = json_decode((string) $raw, true);
+        if ($code < 200 || $code >= 300) {
+            throw new Exception('MailerLite ' . $method . ' ' . $path . ' HTTP ' . $code
+                . ': ' . (isset($data['message']) ? $data['message'] : substr((string) $raw, 0, 200)));
+        }
+        return is_array($data) ? $data : array();
+    }
+
+    /**
+     * Create a campaign for the SG group and schedule it for $sendAt (a local
+     * Asia/Singapore DateTime). Returns the MailerLite campaign id.
+     */
+    public function createAndSchedule($subject, $html, DateTime $sendAt, $groupId = null)
+    {
+        $groupId = $groupId ?: self::GROUP_ID_SG;
+        $cfg = Mage::helper('mmd_rolemanager')->getMarketingApiConfig();
+        $create = $this->_send('POST', '/campaigns', array(
+            'name'   => $subject,
+            'type'   => 'regular',
+            'groups' => array((string) $groupId),
+            'emails' => array(array(
+                'subject'   => $subject,
+                'from_name' => $cfg['from_name'] ?: 'Tertiary Courses',
+                'from'      => $cfg['from_email'] ?: 'noreply@tertiaryinfotech.com',
+                'content'   => $html,
+            )),
+        ));
+        $id = isset($create['data']['id']) ? (string) $create['data']['id'] : '';
+        if ($id === '') { throw new Exception('MailerLite create returned no campaign id'); }
+        // Schedule: MailerLite takes date/hours/minutes in the account timezone.
+        $this->_send('POST', '/campaigns/' . rawurlencode($id) . '/schedule', array(
+            'delivery' => 'scheduled',
+            'schedule' => array(
+                'date'    => $sendAt->format('Y-m-d'),
+                'hours'   => $sendAt->format('H'),
+                'minutes' => $sendAt->format('i'),
+            ),
+        ));
+        return $id;
+    }
 }

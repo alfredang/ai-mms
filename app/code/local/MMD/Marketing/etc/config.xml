@@ -46,5 +46,45 @@
                 <class>MMD_Marketing_Block</class>
             </mmd_marketing>
         </blocks>
+        <models>
+            <mmd_marketing>
+                <class>MMD_Marketing_Model</class>
+            </mmd_marketing>
+        </models>
     </global>
+
+    <!-- Public (no-login) route for the reviewer Approve / Request-changes links
+         in the review email. Authorisation is the signed token in the URL. -->
+    <frontend>
+        <routers>
+            <mmd_marketing>
+                <use>standard</use>
+                <args>
+                    <module>MMD_Marketing</module>
+                    <frontName>newsletter-review</frontName>
+                </args>
+            </mmd_marketing>
+        </routers>
+    </frontend>
+
+    <!-- Cron: SG-only autonomous flyer pipeline. Everything is gated by
+         mmd_marketing/newsletter/blast_enabled (default OFF) so these jobs are
+         inert on every instance until the SG admin toggles the feature on. -->
+    <crontab>
+        <jobs>
+            <!-- Mon &amp; Thu 10:00 — design a flyer for a popular upcoming class
+                 (next 2-3 weeks) and send it to the managers for approval. -->
+            <mmd_marketing_flyer_propose>
+                <schedule><cron_expr>0 10 * * 1,4</cron_expr></schedule>
+                <run><model>mmd_marketing/cron_flyer::propose</model></run>
+            </mmd_marketing_flyer_propose>
+            <!-- Hourly — after a manager requests changes, re-issue the freshly
+                 regenerated design for review, and expire stale proposals. Cheap
+                 no-op when nothing is pending. -->
+            <mmd_marketing_flyer_followup>
+                <schedule><cron_expr>15 * * * *</cron_expr></schedule>
+                <run><model>mmd_marketing/cron_flyer::followUp</model></run>
+            </mmd_marketing_flyer_followup>
+        </jobs>
+    </crontab>
 </config>
