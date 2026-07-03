@@ -143,6 +143,71 @@ class MMD_Marketing_Helper_Mailerlite extends Mage_Core_Helper_Abstract
         return $best;
     }
 
+    /** Recent sent campaigns with performance stats (opens, clicks, rates). */
+    public function getSentCampaigns($limit = 6)
+    {
+        $data = $this->_getCached('camp_sent_stats', function () {
+            return $this->_getJson('/campaigns?filter[status]=sent&limit=25');
+        });
+        if (!is_array($data) || empty($data['data'])) { return array(); }
+        $out = array();
+        foreach ($data['data'] as $c) {
+            $s = isset($c['stats']) && is_array($c['stats']) ? $c['stats'] : array();
+            $sent   = isset($s['sent']) ? (int) $s['sent'] : 0;
+            $opens  = isset($s['opens_count'])  ? (int) $s['opens_count']  : (isset($s['unique_opens_count'])  ? (int) $s['unique_opens_count']  : 0);
+            $clicks = isset($s['clicks_count']) ? (int) $s['clicks_count'] : (isset($s['unique_clicks_count']) ? (int) $s['unique_clicks_count'] : 0);
+            // MailerLite returns *_rate.float as a fraction (0..1); show as %.
+            $openR  = isset($s['open_rate']['float'])  ? (float) $s['open_rate']['float']  * 100 : ($sent ? $opens  / $sent * 100 : 0);
+            $clickR = isset($s['click_rate']['float']) ? (float) $s['click_rate']['float'] * 100 : ($sent ? $clicks / $sent * 100 : 0);
+            $out[] = array(
+                'name'       => (string) (isset($c['name']) ? $c['name'] : ''),
+                'sent_at'    => (string) (isset($c['finished_at']) ? $c['finished_at'] : (isset($c['created_at']) ? $c['created_at'] : '')),
+                'recipients' => $sent,
+                'opens'      => $opens,
+                'clicks'     => $clicks,
+                'open_rate'  => round($openR, 1),
+                'click_rate' => round($clickR, 1),
+            );
+            if (count($out) >= $limit) { break; }
+        }
+        return $out;
+    }
+
+    /** Upcoming scheduled ("ready") campaigns. */
+    public function getScheduledCampaigns()
+    {
+        $data = $this->_getCached('camp_scheduled', function () {
+            return $this->_getJson('/campaigns?filter[status]=ready&limit=25');
+        });
+        if (!is_array($data) || empty($data['data'])) { return array(); }
+        $out = array();
+        foreach ($data['data'] as $c) {
+            $out[] = array(
+                'name'          => (string) (isset($c['name']) ? $c['name'] : ''),
+                'scheduled_for' => (string) (isset($c['scheduled_for']) ? $c['scheduled_for'] : ''),
+                'subject'       => (string) (isset($c['emails'][0]['subject']) ? $c['emails'][0]['subject'] : ''),
+            );
+        }
+        return $out;
+    }
+
+    /** Top-line marketing performance for the dashboard header tiles. */
+    public function getPerformanceSummary()
+    {
+        $camps = $this->getSentCampaigns(50);
+        $n = count($camps); $orSum = 0; $crSum = 0; $reached = 0;
+        foreach ($camps as $c) { $orSum += $c['open_rate']; $crSum += $c['click_rate']; $reached += $c['recipients']; }
+        return array(
+            'subscribers_sg' => $this->getSubscribersSG(),
+            'subscribers_my' => $this->getSubscribersMY(),
+            'campaigns_30d'  => $this->getCampaignsSentLast30Days(),
+            'scheduled'      => count($this->getScheduledCampaigns()),
+            'avg_open_rate'  => $n ? round($orSum / $n, 1) : 0,
+            'avg_click_rate' => $n ? round($crSum / $n, 1) : 0,
+            'total_reached'  => $reached,
+        );
+    }
+
     // ---------- internal ----------
 
     protected function _getKey()
