@@ -5568,3 +5568,79 @@ body.adminhtml-workflowguides-index .wfg-badge-logic {
 :root[data-theme="light"] .admin-main table[class*="-table"] thead th a:not([class*="btn"]):not(.button):not([class*="badge"]):not([class*="pill"]):hover {
     color: #2563eb !important;
 }
+
+/* 29. Funding Tags grid — match the flat Transactions list.
+   Scoped to the main /tag/ funding-tags list; assigned/product/customer
+   tag sub-grids keep their embedded-grid containment. */
+body.adminhtml-tag-index .dcf-mag.mmd-auto-card,
+body[class*="adminhtml-tag-index"] .dcf-mag.mmd-auto-card {
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+}
+body.adminhtml-tag-index .dcf-mag.mmd-auto-card .dcf-mag-bar,
+body[class*="adminhtml-tag-index"] .dcf-mag.mmd-auto-card .dcf-mag-bar {
+    background: transparent !important;
+    background-image: none !important;
+    border-bottom: 1px solid var(--b1, #384a60) !important;
+    padding: 0 0 14px !important;
+}
+body.adminhtml-tag-index .dcf-mag.mmd-auto-card .dcf-mag-body,
+body[class*="adminhtml-tag-index"] .dcf-mag.mmd-auto-card .dcf-mag-body,
+body.adminhtml-tag-index .admin-main #tag_frame,
+body[class*="adminhtml-tag-index"] .admin-main #tag_frame,
+body.adminhtml-tag-index .admin-main #tag_tag_grid,
+body[class*="adminhtml-tag-index"] .admin-main #tag_tag_grid,
+body.adminhtml-tag-index .admin-main .grid,
+body[class*="adminhtml-tag-index"] .admin-main .grid,
+body.adminhtml-tag-index .admin-main .grid .hor-scroll,
+body[class*="adminhtml-tag-index"] .admin-main .grid .hor-scroll,
+body.adminhtml-tag-index .admin-main #tag_tag_grid_table,
+body[class*="adminhtml-tag-index"] .admin-main #tag_tag_grid_table {
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+}
+body.adminhtml-tag-index .admin-main .grid,
+body[class*="adminhtml-tag-index"] .admin-main .grid {
+    margin: 10px 0 0 !important;
+    overflow: visible !important;
+}
+body.adminhtml-tag-index #tag_tag_grid_table,
+body[class*="adminhtml-tag-index"] #tag_tag_grid_table,
+body.adminhtml-tag-index #tag_tag_grid_table thead,
+body[class*="adminhtml-tag-index"] #tag_tag_grid_table thead,
+body.adminhtml-tag-index #tag_tag_grid_table tbody,
+body[class*="adminhtml-tag-index"] #tag_tag_grid_table tbody,
+body.adminhtml-tag-index #tag_tag_grid_table tr,
+body[class*="adminhtml-tag-index"] #tag_tag_grid_table tr,
+body.adminhtml-tag-index #tag_tag_grid_table th,
+body[class*="adminhtml-tag-index"] #tag_tag_grid_table th,
+body.adminhtml-tag-index #tag_tag_grid_table td,
+body[class*="adminhtml-tag-index"] #tag_tag_grid_table td {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+body.adminhtml-tag-index #tag_tag_grid_table tr.headings th,
+body[class*="adminhtml-tag-index"] #tag_tag_grid_table tr.headings th {
+    border-bottom: 1px solid var(--b1, #384a60) !important;
+}
+body.adminhtml-tag-index #tag_tag_grid_table tbody tr + tr td,
+body[class*="adminhtml-tag-index"] #tag_tag_grid_table tbody tr + tr td {
+    border-top: 1px solid var(--b1, #384a60) !important;
+}
+body.adminhtml-tag-index #tag_tag_grid_table tbody tr:hover > td,
+body[class*="adminhtml-tag-index"] #tag_tag_grid_table tbody tr:hover > td {
+    background: rgba(37, 139, 182, 0.10) !important;
+    color: var(--t1, #f1f5f9) !important;
+    transition: background 0.12s ease !important;
+}
+:root[data-theme="light"] body.adminhtml-tag-index #tag_tag_grid_table tbody tr:hover > td,
+:root[data-theme="light"] body[class*="adminhtml-tag-index"] #tag_tag_grid_table tbody tr:hover > td {
+    background: rgba(37, 99, 235, 0.06) !important;
+    color: var(--t1, #0f172a) !important;
+}
