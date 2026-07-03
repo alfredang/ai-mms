@@ -12,7 +12,11 @@ INSERT INTO core_config_data (scope, scope_id, path, value)
 VALUES ('default', 0, 'smtppro/debug/cleanlog', '1')
 ON DUPLICATE KEY UPDATE value = '1';
 
-DELETE FROM smtppro_email_log WHERE log_at < DATE_SUB(NOW(), INTERVAL 30 DAY);
+SET @tbl := (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'smtppro_email_log');
+SET @sql := IF(@tbl > 0, 'DELETE FROM smtppro_email_log WHERE log_at < DATE_SUB(NOW(), INTERVAL 30 DAY)', 'DO 0');
+PREPARE s FROM @sql;
+EXECUTE s;
+DEALLOCATE PREPARE s;
 
 SET @idx := (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'cms_block' AND index_name = 'IDX_CMS_BLOCK_IDENTIFIER');
 SET @sql := IF(@idx = 0, 'ALTER TABLE cms_block ADD INDEX IDX_CMS_BLOCK_IDENTIFIER (identifier)', 'DO 0');
