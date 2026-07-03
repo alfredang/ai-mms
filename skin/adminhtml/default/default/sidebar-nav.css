@@ -5059,6 +5059,104 @@ body .grid table.data tbody tr:hover > td a {
     color: var(--brand, #2563eb) !important;
 }
 
+/* §22a — Sales list grids: Registrations + Invoices match Transactions.
+   The transactions grid reads as a flat list on the page surface: title row,
+   one separator, transparent table cells, and hairline row dividers. The
+   order/invoice grids inherit the global .dcf-mag card chrome plus explicit
+   #sales_order_grid gray-surface overrides above, so they look heavier. Scope
+   the correction to the two sales list indexes only. */
+body[class*="adminhtml-sales_order_index"] .dcf-mag.mmd-auto-card,
+body[class*="adminhtml-sales-order-index"] .dcf-mag.mmd-auto-card,
+body[class*="adminhtml-sales_invoice_index"] .dcf-mag.mmd-auto-card,
+body[class*="adminhtml-sales-invoice-index"] .dcf-mag.mmd-auto-card {
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+}
+body[class*="adminhtml-sales_order_index"] .dcf-mag.mmd-auto-card .dcf-mag-bar,
+body[class*="adminhtml-sales-order-index"] .dcf-mag.mmd-auto-card .dcf-mag-bar,
+body[class*="adminhtml-sales_invoice_index"] .dcf-mag.mmd-auto-card .dcf-mag-bar,
+body[class*="adminhtml-sales-invoice-index"] .dcf-mag.mmd-auto-card .dcf-mag-bar {
+    background: transparent !important;
+    background-image: none !important;
+    border-bottom: 1px solid var(--b1, #384a60) !important;
+    padding: 0 0 14px !important;
+}
+body[class*="adminhtml-sales_order_index"] .dcf-mag.mmd-auto-card .dcf-mag-body,
+body[class*="adminhtml-sales-order-index"] .dcf-mag.mmd-auto-card .dcf-mag-body,
+body[class*="adminhtml-sales_invoice_index"] .dcf-mag.mmd-auto-card .dcf-mag-body,
+body[class*="adminhtml-sales-invoice-index"] .dcf-mag.mmd-auto-card .dcf-mag-body,
+body[class*="adminhtml-sales_order_index"] .admin-main #sales_order_grid,
+body[class*="adminhtml-sales-order-index"] .admin-main #sales_order_grid,
+body[class*="adminhtml-sales_invoice_index"] .admin-main #sales_invoice_grid,
+body[class*="adminhtml-sales-invoice-index"] .admin-main #sales_invoice_grid,
+body[class*="adminhtml-sales_order_index"] .admin-main .grid,
+body[class*="adminhtml-sales-order-index"] .admin-main .grid,
+body[class*="adminhtml-sales_invoice_index"] .admin-main .grid,
+body[class*="adminhtml-sales-invoice-index"] .admin-main .grid,
+body[class*="adminhtml-sales_order_index"] .admin-main .grid .hor-scroll,
+body[class*="adminhtml-sales-order-index"] .admin-main .grid .hor-scroll,
+body[class*="adminhtml-sales_invoice_index"] .admin-main .grid .hor-scroll,
+body[class*="adminhtml-sales-invoice-index"] .admin-main .grid .hor-scroll,
+body[class*="adminhtml-sales_order_index"] .admin-main .grid table.data,
+body[class*="adminhtml-sales-order-index"] .admin-main .grid table.data,
+body[class*="adminhtml-sales_invoice_index"] .admin-main .grid table.data,
+body[class*="adminhtml-sales-invoice-index"] .admin-main .grid table.data {
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+}
+body[class*="adminhtml-sales_order_index"] .admin-main .grid,
+body[class*="adminhtml-sales-order-index"] .admin-main .grid,
+body[class*="adminhtml-sales_invoice_index"] .admin-main .grid,
+body[class*="adminhtml-sales-invoice-index"] .admin-main .grid {
+    margin: 10px 0 0 !important;
+    overflow: visible !important;
+}
+body[class*="adminhtml-sales_order_index"] #sales_order_grid_table,
+body[class*="adminhtml-sales-order-index"] #sales_order_grid_table,
+body[class*="adminhtml-sales_invoice_index"] #sales_invoice_grid_table,
+body[class*="adminhtml-sales-invoice-index"] #sales_invoice_grid_table,
+body[class*="adminhtml-sales_order_index"] #sales_order_grid_table thead,
+body[class*="adminhtml-sales-order-index"] #sales_order_grid_table thead,
+body[class*="adminhtml-sales_invoice_index"] #sales_invoice_grid_table thead,
+body[class*="adminhtml-sales-invoice-index"] #sales_invoice_grid_table thead,
+body[class*="adminhtml-sales_order_index"] #sales_order_grid_table tbody,
+body[class*="adminhtml-sales-order-index"] #sales_order_grid_table tbody,
+body[class*="adminhtml-sales_invoice_index"] #sales_invoice_grid_table tbody,
+body[class*="adminhtml-sales-invoice-index"] #sales_invoice_grid_table tbody,
+body[class*="adminhtml-sales_order_index"] #sales_order_grid_table tr,
+body[class*="adminhtml-sales-order-index"] #sales_order_grid_table tr,
+body[class*="adminhtml-sales_invoice_index"] #sales_invoice_grid_table tr,
+body[class*="adminhtml-sales-invoice-index"] #sales_invoice_grid_table tr,
+body[class*="adminhtml-sales_order_index"] #sales_order_grid_table th,
+body[class*="adminhtml-sales-order-index"] #sales_order_grid_table th,
+body[class*="adminhtml-sales_invoice_index"] #sales_invoice_grid_table th,
+body[class*="adminhtml-sales-invoice-index"] #sales_invoice_grid_table th,
+body[class*="adminhtml-sales_order_index"] #sales_order_grid_table td,
+body[class*="adminhtml-sales-order-index"] #sales_order_grid_table td,
+body[class*="adminhtml-sales_invoice_index"] #sales_invoice_grid_table td,
+body[class*="adminhtml-sales-invoice-index"] #sales_invoice_grid_table td {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+body[class*="adminhtml-sales_order_index"] #sales_order_grid_table tr.headings th,
+body[class*="adminhtml-sales-order-index"] #sales_order_grid_table tr.headings th,
+body[class*="adminhtml-sales_invoice_index"] #sales_invoice_grid_table tr.headings th,
+body[class*="adminhtml-sales-invoice-index"] #sales_invoice_grid_table tr.headings th {
+    border-bottom: 1px solid var(--b1, #384a60) !important;
+}
+body[class*="adminhtml-sales_order_index"] #sales_order_grid_table tbody tr + tr td,
+body[class*="adminhtml-sales-order-index"] #sales_order_grid_table tbody tr + tr td,
+body[class*="adminhtml-sales_invoice_index"] #sales_invoice_grid_table tbody tr + tr td,
+body[class*="adminhtml-sales-invoice-index"] #sales_invoice_grid_table tbody tr + tr td {
+    border-top: 1px solid var(--b1, #384a60) !important;
+}
+
 /* §22 — Workflow Guides page (MMD_WorkflowGuides). The guide list itself
    lives in the left sidebar nav (.tools-group "Workflow Guides" dropdown,
    styled by the §"tools-group" rules above); this page renders only the
