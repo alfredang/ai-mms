@@ -383,12 +383,15 @@ Redirect 301 /project-management-sme-chinese.html https://www.tertiarycourses.co
     ## thin/duplicate filter & sort variants but keep "follow" so product
     ## links are still crawled. Covers the catalog toolbar params (p, limit,
     ## dir, order, mode) and layered-nav filters (cat, price, manufacturer,
-    ## level, progromming_language). Matches only when one of these params is
-    ## actually present, so the canonical flat URL (/<url-key>.html with no
-    ## query) stays fully indexable. These params are UNBLOCKED in robots.txt
-    ## so Googlebot can fetch the URL and read this header (a robots.txt
-    ## Disallow would keep them stuck in "Indexed, though blocked by robots.txt").
-    RewriteCond %{QUERY_STRING} (^|&)(p|limit|dir|order|mode|cat|price|manufacturer|level|progromming_language)=[^&]* [NC]
+    ## level, progromming_language) plus session/store-switch params (SID,
+    ## ___store, ___from_store — same page content as the canonical, or a
+    ## redirect, so noindex,follow is safe either way). Matches only when one
+    ## of these params is actually present, so the canonical flat URL
+    ## (/<url-key>.html with no query) stays fully indexable. These params are
+    ## UNBLOCKED in robots.txt so Googlebot can fetch the URL and read this
+    ## header (a robots.txt Disallow would keep them stuck in
+    ## "Indexed, though blocked by robots.txt").
+    RewriteCond %{QUERY_STRING} (^|&)(p|limit|dir|order|mode|cat|price|manufacturer|level|progromming_language|SID|___store|___from_store)=[^&]* [NC]
     RewriteRule ^ - [E=noindex_follow_url:1]
 
     RewriteCond %{REQUEST_URI} !^/(media|skin|js)/
