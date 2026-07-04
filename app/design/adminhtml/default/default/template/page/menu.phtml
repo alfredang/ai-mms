@@ -145,9 +145,12 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
         <span>Audit Issues<?php if ($_auditOpenCount > 0): ?> <span class="lms-nav-badge"><?php echo $_auditOpenCount ?></span><?php endif; ?></span>
     </a>
-    <a href="<?php echo $_auditUrl ?>#cron-schedule" class="lms-nav-item<?php echo $_auditActive ?>">
+    <?php // Cron Jobs monitor — every configured job + heartbeat + run log
+          // (MMD_Auditfix CronjobsController; replaces the old anchor into
+          // the Audit Issues page which only listed the 3 audit scanners). ?>
+    <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/cronjobs/index') ?>" class="lms-nav-item<?php echo ($_ctrl === 'cronjobs') ? ' active' : '' ?>">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        <span>Cron Schedule</span>
+        <span>Cron Jobs</span>
     </a>
     <!-- Sales group removed from Super Admin sidebar — already shown under
          the Admin role; super-admin's job is configuration, not order ops. -->

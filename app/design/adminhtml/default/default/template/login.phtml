@@ -16,7 +16,11 @@ $otpVerifyUrl = Mage::helper('adminhtml')->getUrl('adminhtml/otp/verify', array(
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, nofollow" />
     <title>Tertiary Infotech Academy - Admin</title>
-    <link rel="icon" href="<?php echo $logoUrl ?>" type="image/png" />
+    <?php // Tab favicon = the frontend favicon (same as the storefront + admin
+          // shell head.phtml), not the wide admin-logo. $logoUrl still drives the
+          // logo image on the login card below. ?>
+    <link rel="icon" href="<?php echo Mage::getBaseUrl('media') ?>favicon/default/favicon_1.png" type="image/png" />
+    <link rel="shortcut icon" href="<?php echo Mage::getBaseUrl('media') ?>favicon/default/favicon_1.png" type="image/png" />
     <link type="text/css" rel="stylesheet" href="<?php echo $this->getSkinUrl('reset.css') ?>" media="all" />
     <link type="text/css" rel="stylesheet" href="<?php echo $this->getSkinUrl('boxes.css') ?>" media="all" />
     <script type="text/javascript" src="<?php echo $this->getJsUrl('prototype/prototype.js') ?>"></script>

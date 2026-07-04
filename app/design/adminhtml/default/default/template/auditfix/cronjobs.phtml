@@ -1,0 +1,156 @@
+<?php
+/**
+ * Cron Jobs monitor — super-admin.
+ *
+ * Three sections:
+ *   1. Heartbeat — when did ANY cron last execute (alive / stalled banner).
+ *   2. Configured jobs — every crontab/jobs entry in the merged config with
+ *      its schedule, target model::method, and last run outcome.
+ *   3. Run log — the most recent cron_schedule rows (Magento stamps status,
+ *      messages incl. exception text, and the schedule/execute/finish times
+ *      for every run — this IS the cron logging).
+ * Plus a tail of the marketing pipeline's own log file.
+ */
+$_res  = Mage::getSingleton('core/resource');
+$_read = $_res->getConnection('core_read');
+$_tbl  = $_res->getTableName('cron/schedule');
+
+// ---- 1. heartbeat ----------------------------------------------------------
+$_lastExec = null; $_pendingN = 0; $_errN24 = 0;
+try {
+    $_lastExec = $_read->fetchOne("SELECT MAX(executed_at) FROM {$_tbl}");
+    $_pendingN = (int) $_read->fetchOne("SELECT COUNT(*) FROM {$_tbl} WHERE status = 'pending' AND scheduled_at < NOW() - INTERVAL 30 MINUTE");
+    $_errN24   = (int) $_read->fetchOne("SELECT COUNT(*) FROM {$_tbl} WHERE status = 'error' AND scheduled_at > NOW() - INTERVAL 1 DAY");
+} catch (Exception $e) { /* table missing — heartbeat shows unknown */ }
+$_ageMin = $_lastExec ? (int) floor((time() - strtotime($_lastExec)) / 60) : null;
+$_alive  = ($_ageMin !== null && $_ageMin <= 15);
+
+// ---- 2. configured jobs (merged config) ------------------------------------
+$_jobs = array();
+foreach (array('crontab/jobs', 'default/crontab/jobs') as $_path) {
+    $_node = Mage::getConfig()->getNode($_path);
+    if (!$_node) { continue; }
+    foreach ($_node->children() as $_code => $_job) {
+        if (isset($_jobs[$_code])) { continue; }
+        $_expr = (string) $_job->schedule->cron_expr;
+        if ($_expr === '' && (string) $_job->schedule->config_path !== '') {
+            $_expr = (string) Mage::getStoreConfig((string) $_job->schedule->config_path);
+            $_expr = $_expr !== '' ? $_expr . ' (config)' : '(from config, unset)';
+        }
+        $_jobs[$_code] = array(
+            'expr' => $_expr !== '' ? $_expr : '—',
+            'run'  => (string) $_job->run->model,
+        );
+    }
+}
+ksort($_jobs);
+
+// last run per job in one query
+$_lastByJob = array();
+try {
+    foreach ($_read->fetchAll(
+        "SELECT s.job_code, s.status, s.executed_at, s.messages
+           FROM {$_tbl} s
+           JOIN (SELECT job_code, MAX(schedule_id) AS mid FROM {$_tbl}
+                 WHERE status <> 'pending' GROUP BY job_code) m
+             ON m.mid = s.schedule_id") as $_r) {
+        $_lastByJob[$_r['job_code']] = $_r;
+    }
+} catch (Exception $e) {}
+
+// ---- 3. run log -------------------------------------------------------------
+$_runs = array();
+try {
+    $_runs = $_read->fetchAll(
+        "SELECT job_code, status, messages, scheduled_at, executed_at, finished_at
+           FROM {$_tbl} ORDER BY schedule_id DESC LIMIT 100");
+} catch (Exception $e) {}
+
+// pipeline log tail
+$_mlog = Mage::getBaseDir('log') . DIRECTORY_SEPARATOR . 'marketing-cron.log';
+$_mtail = '';
+if (is_readable($_mlog)) {
+    $_lines = @file($_mlog);
+    if (is_array($_lines)) { $_mtail = implode('', array_slice($_lines, -30)); }
+}
+
+$_badge = function ($status) {
+    $map = array(
+        'success' => 'var(--green)', 'error' => 'var(--red)', 'missed' => 'var(--yellow)',
+        'running' => 'var(--blue)',  'pending' => 'var(--t4)',
+    );
+    $c = isset($map[$status]) ? $map[$status] : 'var(--t4)';
+    return '<span class="cj-pill" style="color:' . $c . ';border-color:currentColor;">' . htmlspecialchars(strtoupper($status)) . '</span>';
+};
+$_h = function ($s) { return htmlspecialchars((string) $s); };
+?>
+<div class="cj-wrap">
+    <h1 class="cj-title">Cron Jobs</h1>
+
+    <div class="cj-strip">
+        <?php if ($_ageMin === null): ?>
+            <span class="cj-pill" style="color:var(--t4);border-color:currentColor;">HEARTBEAT UNKNOWN</span>
+        <?php elseif ($_alive): ?>
+            <span class="cj-pill" style="color:var(--green);border-color:currentColor;">CRON ALIVE</span>
+            <span class="cj-meta">last execution <?php echo (int) $_ageMin ?> min ago</span>
+        <?php else: ?>
+            <span class="cj-pill" style="color:var(--red);border-color:currentColor;">CRON STALLED</span>
+            <span class="cj-meta">no job executed for <?php echo (int) $_ageMin ?> min — check the scheduler that invokes cron.php</span>
+        <?php endif; ?>
+        <?php if ($_errN24): ?><span class="cj-meta" style="color:var(--red);"><?php echo $_errN24 ?> error run(s) in 24h</span><?php endif; ?>
+        <?php if ($_pendingN): ?><span class="cj-meta" style="color:var(--yellow);"><?php echo $_pendingN ?> overdue pending row(s)</span><?php endif; ?>
+    </div>
+
+    <h3 class="cj-sub">Configured jobs (<?php echo count($_jobs) ?>)</h3>
+    <table class="mm-table cj-jobs-table">
+        <thead><tr><th>Job</th><th>Schedule</th><th>Runs</th><th>Last run</th><th>Status</th><th class="wrap">Last message</th></tr></thead>
+        <tbody>
+        <?php foreach ($_jobs as $_code => $_j): $_l = isset($_lastByJob[$_code]) ? $_lastByJob[$_code] : null; ?>
+            <tr>
+                <td class="strong"><?php echo $_h($_code) ?></td>
+                <td class="muted" style="font-family:var(--font-mono,monospace);"><?php echo $_h($_j['expr']) ?></td>
+                <td class="muted"><?php echo $_h($_j['run']) ?></td>
+                <td class="muted"><?php echo $_l && $_l['executed_at'] ? $_h($_l['executed_at']) : '—' ?></td>
+                <td><?php echo $_l ? $_badge($_l['status']) : '<span class="cj-pill" style="color:var(--t5);border-color:currentColor;">NEVER RAN</span>' ?></td>
+                <td class="wrap muted"><?php echo $_l ? $_h(mb_substr((string) $_l['messages'], 0, 160)) : '' ?></td>
+            </tr>
+        <?php endforeach; ?>
+        <?php if (empty($_jobs)): ?><tr><td colspan="6" class="mm-table-empty">No cron jobs configured.</td></tr><?php endif; ?>
+        </tbody>
+    </table>
+
+    <h3 class="cj-sub">Run log — latest 100 (from cron_schedule; errors keep the exception text)</h3>
+    <table class="mm-table mm-table-tight cj-log-table">
+        <thead><tr><th>Job</th><th>Status</th><th>Scheduled</th><th>Executed</th><th>Finished</th><th class="wrap">Message</th></tr></thead>
+        <tbody>
+        <?php foreach ($_runs as $_r): ?>
+            <tr>
+                <td class="strong"><?php echo $_h($_r['job_code']) ?></td>
+                <td><?php echo $_badge($_r['status']) ?></td>
+                <td class="muted"><?php echo $_h($_r['scheduled_at']) ?></td>
+                <td class="muted"><?php echo $_h($_r['executed_at'] ?: '—') ?></td>
+                <td class="muted"><?php echo $_h($_r['finished_at'] ?: '—') ?></td>
+                <td class="wrap muted"><?php echo $_h(mb_substr((string) $_r['messages'], 0, 200)) ?></td>
+            </tr>
+        <?php endforeach; ?>
+        <?php if (empty($_runs)): ?><tr><td colspan="6" class="mm-table-empty">No cron runs recorded yet.</td></tr><?php endif; ?>
+        </tbody>
+    </table>
+
+    <?php if ($_mtail !== ''): ?>
+    <h3 class="cj-sub">Marketing pipeline log (var/log/marketing-cron.log, last 30 lines)</h3>
+    <pre class="cj-logtail"><?php echo $_h($_mtail) ?></pre>
+    <?php endif; ?>
+</div>
+
+<style>
+/* Page-scoped, token-driven. Pills follow the outlined neon chip pattern. */
+.cj-wrap{max-width:1180px;}
+.cj-strip{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:0 0 18px;}
+.cj-pill{display:inline-block;font:700 10.5px var(--font-sans,inherit);letter-spacing:1.2px;text-transform:uppercase;
+         padding:4px 11px;border:1px solid;border-radius:2px;background:transparent;white-space:nowrap;}
+.cj-meta{font:400 12px var(--font-sans,inherit);color:var(--t4);}
+.cj-sub{font:700 12px/1.4 var(--font-sans,inherit);color:var(--t4);text-transform:uppercase;letter-spacing:.6px;margin:22px 0 8px;}
+.cj-logtail{background:var(--d3);border:1px solid var(--b1);border-radius:6px;padding:12px 14px;overflow-x:auto;
+            font:400 11.5px/1.6 var(--font-mono,monospace);color:var(--t3,#cbd5e1);max-height:320px;}
+</style>

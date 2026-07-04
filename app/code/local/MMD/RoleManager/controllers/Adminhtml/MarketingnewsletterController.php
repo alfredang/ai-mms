@@ -49,6 +49,9 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
             if (mb_strlen($q) < 2) { $result['success'] = true; return $this->_json($result); }
             $wid = (int) Mage::helper('mmd_rolemanager')->getActiveWebsiteId();
             $like = '%' . $q . '%';
+            // wsq=1 restricts to WSQ courses (TGS- SKU prefix) — used by the
+            // next-flyer queue, which only lines up WSQ courses.
+            $wsqOnly = (int) $this->getRequest()->getParam('wsq') === 1 ? " AND e.sku LIKE 'TGS-%'" : '';
             $rows = $this->_db('read')->fetchAll(
                 "SELECT e.entity_id AS id, e.sku, v.value AS name,
                         sd.value AS start_date, ed.value AS end_date
@@ -57,7 +60,7 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
                  INNER JOIN catalog_product_entity_varchar v ON v.entity_id = e.entity_id AND v.attribute_id = 71 AND v.store_id = 0 AND v.value <> ''
                  LEFT JOIN catalog_product_entity_datetime sd ON sd.entity_id = e.entity_id AND sd.attribute_id = 86 AND sd.store_id = 0
                  LEFT JOIN catalog_product_entity_datetime ed ON ed.entity_id = e.entity_id AND ed.attribute_id = 87 AND ed.store_id = 0
-                 WHERE LOWER(v.value) LIKE ? OR LOWER(e.sku) LIKE ?
+                 WHERE (LOWER(v.value) LIKE ? OR LOWER(e.sku) LIKE ?){$wsqOnly}
                  ORDER BY v.value ASC LIMIT 30",
                 array($wid, $like, $like)
             );
@@ -410,6 +413,102 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
             $result['newsletter_id'] = $nid;
             $result['message']       = 'Queued for approval — approval emails sent to both managers. '
                 . 'It schedules to MailerLite only after both approve (max 2 flyers/week).';
+        } catch (Exception $e) {
+            $result['message'] = $e->getMessage();
+        }
+        return $this->_json($result);
+    }
+
+    // ------------------------------------------------------------------
+    // Next-flyer queue — the admin lines up WSQ courses; the Mon/Thu
+    // proposer consumes the TOP row (Cron_Flyer::propose). Add / remove /
+    // drag-reorder from the Newsletters panel.
+    // ------------------------------------------------------------------
+
+    protected function _qTbl() { return 'mmd_marketing_flyer_queue'; }
+
+    public function flyerQueueListAction()
+    {
+        $result = array('success' => false, 'queue' => array());
+        try {
+            $result['queue'] = $this->_db('read')->fetchAll(
+                "SELECT q.queue_id, q.product_id, e.sku,
+                        (SELECT v.value FROM catalog_product_entity_varchar v
+                          WHERE v.entity_id = e.entity_id AND v.attribute_id = 71 AND v.store_id = 0 LIMIT 1) AS name,
+                        (SELECT pd.value FROM catalog_product_entity_decimal pd
+                          INNER JOIN eav_attribute pa ON pa.attribute_id = pd.attribute_id
+                          WHERE pd.entity_id = e.entity_id AND pa.attribute_code = 'price'
+                            AND pa.entity_type_id = 4 AND pd.store_id = 0 LIMIT 1) AS fee,
+                        (SELECT fv.value FROM catalog_product_entity_varchar fv
+                          INNER JOIN eav_attribute fa ON fa.attribute_id = fv.attribute_id
+                          WHERE fv.entity_id = e.entity_id AND fa.attribute_code = 'funding_validity'
+                            AND fa.entity_type_id = 4 AND fv.store_id = 0 LIMIT 1) AS funding_validity
+                   FROM " . $this->_qTbl() . " q
+                   JOIN catalog_product_entity e ON e.entity_id = q.product_id
+                  ORDER BY q.position ASC, q.queue_id ASC"
+            );
+            $result['success'] = true;
+        } catch (Exception $e) {
+            $result['message'] = $e->getMessage();
+        }
+        return $this->_json($result);
+    }
+
+    public function flyerQueueAddAction()
+    {
+        $result = array('success' => false);
+        try {
+            if (!$this->getRequest()->isPost()) throw new Exception('POST required');
+            $pid = (int) $this->getRequest()->getParam('course_id');
+            if (!$pid) throw new Exception('course_id required');
+            $sku = (string) $this->_db('read')->fetchOne(
+                'SELECT sku FROM catalog_product_entity WHERE entity_id = ?', array($pid));
+            if ($sku === '') throw new Exception('Course not found');
+            if (stripos($sku, 'TGS-') !== 0) throw new Exception('Only WSQ (TGS-) courses can join the flyer queue.');
+            $pos = (int) $this->_db('read')->fetchOne('SELECT COALESCE(MAX(position),0)+1 FROM ' . $this->_qTbl());
+            // UNIQUE(product_id) makes re-adding a no-op instead of a duplicate
+            $this->_db('write')->query(
+                'INSERT IGNORE INTO ' . $this->_qTbl() . ' (product_id, position) VALUES (?, ?)',
+                array($pid, $pos));
+            $result['success'] = true;
+        } catch (Exception $e) {
+            $result['message'] = $e->getMessage();
+        }
+        return $this->_json($result);
+    }
+
+    public function flyerQueueRemoveAction()
+    {
+        $result = array('success' => false);
+        try {
+            if (!$this->getRequest()->isPost()) throw new Exception('POST required');
+            $qid = (int) $this->getRequest()->getParam('queue_id');
+            if (!$qid) throw new Exception('queue_id required');
+            $this->_db('write')->delete($this->_qTbl(), array('queue_id = ?' => $qid));
+            $result['success'] = true;
+        } catch (Exception $e) {
+            $result['message'] = $e->getMessage();
+        }
+        return $this->_json($result);
+    }
+
+    /** POST order=<csv of queue_ids in the new order> (from drag-and-drop). */
+    public function flyerQueueReorderAction()
+    {
+        $result = array('success' => false);
+        try {
+            if (!$this->getRequest()->isPost()) throw new Exception('POST required');
+            $ids = array();
+            foreach (explode(',', (string) $this->getRequest()->getParam('order')) as $v) {
+                $v = (int) trim($v);
+                if ($v > 0) { $ids[] = $v; }
+            }
+            if (empty($ids)) throw new Exception('order required');
+            $w = $this->_db('write');
+            foreach ($ids as $i => $qid) {
+                $w->update($this->_qTbl(), array('position' => $i + 1), array('queue_id = ?' => $qid));
+            }
+            $result['success'] = true;
         } catch (Exception $e) {
             $result['message'] = $e->getMessage();
         }

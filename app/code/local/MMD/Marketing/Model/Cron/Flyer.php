@@ -59,15 +59,40 @@ class MMD_Marketing_Model_Cron_Flyer
             $this->_log('propose: skipped — weekly cap reached, no bookable Mon/Thu slot');
             return;
         }
-        $productId = $this->pickPopularUpcomingClass();
+        // The admin-curated next-flyer queue wins: consume the TOP course.
+        // Only when the queue is empty does the popular-class auto-pick run.
+        $productId = $this->popFlyerQueue();
         if (!$productId) {
-            $this->_log('propose: skipped — no popular upcoming class found in the next 2-3 weeks');
+            $productId = $this->pickPopularUpcomingClass();
+        }
+        if (!$productId) {
+            $this->_log('propose: skipped — flyer queue empty and no popular upcoming class found');
             return;
         }
         $newsletterId = $this->createProposal($productId);
         if ($newsletterId) {
             $this->sendForReview($newsletterId);
             $this->_log('propose: proposal #' . $newsletterId . ' for product ' . $productId . ' sent for review');
+        }
+    }
+
+    /**
+     * Pop the head of the admin-curated flyer queue (lowest position). The row
+     * is DELETED on consumption so each queued course produces exactly one
+     * proposal — no loop can re-propose it. Returns null when the queue is
+     * empty or the table doesn't exist yet.
+     */
+    public function popFlyerQueue()
+    {
+        try {
+            $row = $this->_read()->fetchRow(
+                'SELECT queue_id, product_id FROM mmd_marketing_flyer_queue ORDER BY position ASC, queue_id ASC LIMIT 1');
+            if (!$row) { return null; }
+            $this->_write()->delete('mmd_marketing_flyer_queue', array('queue_id = ?' => (int) $row['queue_id']));
+            $this->_log('propose: consumed flyer-queue head — product ' . (int) $row['product_id']);
+            return (int) $row['product_id'];
+        } catch (Exception $e) {
+            return null; // table missing (migration not applied) — fall back to auto-pick
         }
     }
 
@@ -84,12 +109,42 @@ class MMD_Marketing_Model_Cron_Flyer
         if (!$this->_guard()->isEnabled()) {
             return;
         }
-        // 1. Unsent pending proposals -> email both managers the approve/changes links.
+        // HARD RULE (admin, 2026-07-04) — NO EMAIL SPAM, NO INFINITE CRON LOOPS:
+        // per proposal, each manager receives AT MOST two emails, ever:
+        //   (a) the original approval email, sent ONCE (sending stamps
+        //       review_token, and only token-less rows are picked up here);
+        //   (b) ONE reminder 24h later to managers who haven't responded
+        //       (sending stamps _reminder_sent_at, checked before sending).
+        // After that: silence. The 5-day expiry below retires the proposal.
+        // Any future email added to this cron MUST carry a stamped-marker
+        // guard like these two — never send based on state that the send
+        // itself does not change.
+        // 1. Unsent pending proposals -> email both managers ONCE.
         $ids = $this->_read()->fetchCol('SELECT newsletter_id FROM ' . $this->_tbl()
             . " WHERE review_status = 'pending' AND (review_token IS NULL OR review_token = '')");
         foreach ($ids as $nid) {
             $this->sendForReview((int) $nid);
             $this->_log('followUp: emailed managers for unsent pending proposal #' . (int) $nid);
+        }
+        // 1b. ONE reminder, 24h after the original send, only to managers who
+        //     have not responded. _reminder_sent_at makes this fire at most once.
+        $rows = $this->_read()->fetchAll('SELECT * FROM ' . $this->_tbl()
+            . " WHERE review_status = 'pending' AND review_token IS NOT NULL AND review_token <> ''");
+        foreach ($rows as $row) {
+            $dec = json_decode((string) $row['review_decisions'], true);
+            if (!is_array($dec)) { $dec = array(); }
+            if (!empty($dec['_reminder_sent_at'])) { continue; }   // reminder already sent — never again
+            $sentAt = !empty($dec['_sent_at']) ? strtotime((string) $dec['_sent_at']) : strtotime((string) $row['created_at']);
+            if (!$sentAt || (time() - $sentAt) < 86400) { continue; }
+            $silent = array();
+            foreach ($this->_guard()->reviewers() as $r) {
+                $rl = strtolower($r);
+                if (empty($dec[$rl])) { $silent[] = $rl; }
+            }
+            if (empty($silent)) { continue; }
+            $this->sendForReview((int) $row['newsletter_id'], $silent, true);
+            $this->_log('followUp: 24h reminder for #' . (int) $row['newsletter_id']
+                . ' to ' . implode(',', $silent) . ' — FINAL email for this proposal');
         }
         // 2. Change requests -> regenerate (same course, fresh render) + re-send.
         $rows = $this->_read()->fetchAll('SELECT * FROM ' . $this->_tbl() . " WHERE review_status = 'changes_requested'");
@@ -210,8 +265,13 @@ class MMD_Marketing_Model_Cron_Flyer
         return (int) $conn->lastInsertId();
     }
 
-    /** Email the two managers the flyer + signed Approve / Request-changes links. */
-    public function sendForReview($newsletterId)
+    /**
+     * Email the managers the flyer + signed Approve / Request-changes links.
+     * $onlyEmails limits recipients (used by the 24h reminder to skip managers
+     * who already responded); $isReminder stamps _reminder_sent_at so the
+     * reminder can never repeat (see the HARD RULE in followUp()).
+     */
+    public function sendForReview($newsletterId, $onlyEmails = null, $isReminder = false)
     {
         $row = $this->_read()->fetchRow('SELECT * FROM ' . $this->_tbl() . ' WHERE newsletter_id = ?', array($newsletterId));
         if (!$row) { return false; }
@@ -221,6 +281,7 @@ class MMD_Marketing_Model_Cron_Flyer
         $slotTxt = $slot ? $slot->format('l, j M Y \a\t g:ia') : 'the next available slot';
 
         foreach ($g->reviewers() as $email) {
+            if (is_array($onlyEmails) && !in_array(strtolower($email), $onlyEmails, true)) { continue; }
             $tok = $g->signToken($newsletterId, $email);
             $approve = $base . '/newsletter-review/index/decide/id/' . $newsletterId . '/d/approve/e/' . rawurlencode($email) . '/t/' . $tok;
             $reject  = $base . '/newsletter-review/index/decide/id/' . $newsletterId . '/d/changes/e/'  . rawurlencode($email) . '/t/' . $tok;
@@ -241,15 +302,25 @@ class MMD_Marketing_Model_Cron_Flyer
                 $mail->setBodyHtml($html)
                      ->setFrom(Mage::getStoreConfig('trans_email/ident_general/email'), 'Tertiary Marketing')
                      ->addTo($email)
-                     ->setSubject('[Approval needed] ' . $row['subject']);
+                     ->setSubject(($isReminder ? '[Reminder] ' : '') . '[Approval needed] ' . $row['subject']);
                 $mail->send();   // uses the site's configured transport (SMTPPro on prod)
                 $this->_log('sendForReview: emailed ' . $email . ' for #' . $newsletterId);
             } catch (Exception $e) {
                 $this->_log('sendForReview mail to ' . $email . ' failed: ' . $e->getMessage());
             }
         }
+        // Stamp the anti-spam markers (see HARD RULE in followUp): the token marks
+        // "original email sent", _sent_at anchors the 24h reminder window, and
+        // _reminder_sent_at (reminders only) guarantees the reminder is final.
+        $dec = json_decode((string) $row['review_decisions'], true);
+        if (!is_array($dec)) { $dec = array(); }
+        if (empty($dec['_sent_at'])) { $dec['_sent_at'] = date('Y-m-d H:i:s'); }
+        if ($isReminder) { $dec['_reminder_sent_at'] = date('Y-m-d H:i:s'); }
         $this->_write()->update($this->_tbl(),
-            array('review_token' => $g->signToken($newsletterId, 'batch')),
+            array(
+                'review_token'     => $g->signToken($newsletterId, 'batch'),
+                'review_decisions' => json_encode($dec),
+            ),
             array('newsletter_id = ?' => $newsletterId));
         return true;
     }

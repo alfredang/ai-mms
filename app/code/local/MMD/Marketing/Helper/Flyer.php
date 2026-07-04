@@ -149,10 +149,10 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         if ($c['is_wsq'] && $feeF > 0) {
             $gstF  = $feeF * 0.09;
             $n40   = ($feeF - $feeF * 0.70) + $gstF;
-            $offerHtml = '<table role="presentation" style="margin-top:18px;"><tr>'
-                . '<td style="padding:0 10px 6px 0;"><span style="font:600 13.5px ' . $sans . ';color:#8fa1c6;"><s>S$' . number_format($feeF + $gstF, 0) . ' w/GST</s></span></td>'
-                . '<td style="padding:0 10px 6px 0;"><span style="display:inline-block;font:800 15px ' . $sans . ';color:#fff;background:#1d4ed8;padding:7px 13px;border-radius:999px;white-space:nowrap;">S$' . number_format($n40, 0) . ' nett &middot; age 40+</span></td>'
-                . '<td style="padding-bottom:6px;"><span style="font:700 12.5px ' . $sans . ';color:#7dd3fc;">as low as S$0 with SkillsFuture Credit</span></td>'
+            $offerHtml = '<table role="presentation" width="100%" style="margin-top:18px;"><tr>'
+                . '<td class="fl-stack" style="padding:0 10px 6px 0;"><span style="font:600 13.5px ' . $sans . ';color:#8fa1c6;"><s>S$' . number_format($feeF + $gstF, 0) . ' w/GST</s></span></td>'
+                . '<td class="fl-stack" style="padding:0 10px 6px 0;"><span style="display:inline-block;font:800 15px ' . $sans . ';color:#fff;background:#1d4ed8;padding:7px 13px;border-radius:999px;white-space:nowrap;">S$' . number_format($n40, 0) . ' nett &middot; age 40+</span></td>'
+                . '<td class="fl-stack" style="padding-bottom:6px;"><span style="font:700 12.5px ' . $sans . ';color:#7dd3fc;">as low as S$0 with SkillsFuture Credit</span></td>'
                 . '</tr></table>';
         }
 
@@ -187,7 +187,7 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
             );
             $srow = '';
             foreach ($steps as $s) {
-                $srow .= '<td width="33%" valign="top" style="padding:0 12px 0 0;">'
+                $srow .= '<td width="33%" valign="top" class="fl-stack" style="padding:0 12px 0 0;">'
                     . '<div style="font:800 12px ' . $sans . ';color:#fff;background:#2563eb;width:22px;height:22px;line-height:22px;text-align:center;border-radius:999px;">' . $s[0] . '</div>'
                     . '<div style="font:800 13.5px ' . $sans . ';color:#0a1020;margin-top:8px;">' . $s[1] . '</div>'
                     . '<div style="font:400 12.5px/1.5 ' . $sans . ';color:#42506a;margin-top:4px;">' . $s[2] . '</div>'
@@ -207,7 +207,7 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         $badgesHtml = '';
         foreach ($c['badges'] as $b) {
             list($fg,$bg) = array_pad(explode(';', isset($badgeColors[$b]) ? $badgeColors[$b] : '#475569;#eef2f7'), 2, '#eef2f7');
-            $badgesHtml .= '<td style="padding:0 8px 8px 0;"><span style="display:inline-block;font:700 11.5px/1 ' . $sans . ';color:' . $fg . ';background:' . $bg . ';padding:6px 11px;border-radius:999px;">' . $h($b) . '</span></td>';
+            $badgesHtml .= '<td class="fl-badge" style="padding:0 8px 8px 0;"><span style="display:inline-block;font:700 11.5px/1 ' . $sans . ';color:' . $fg . ';background:' . $bg . ';padding:6px 11px;border-radius:999px;">' . $h($b) . '</span></td>';
         }
 
         // ---- Next intakes (upcoming class dates) ----------------------------------
@@ -276,7 +276,22 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         // masks (they render invisible in Gmail/Outlook), HTML entities for punctuation so
         // it renders regardless of the client charset. This fragment is wrapped into a full
         // <html> document + unsubscribe link by Helper_Mailerlite before sending.
+        // Responsive block — the ONE allowed <style> in the fragment. The flyer's
+        // multi-column rows (offer strip, facts, funding steps, CTA+QR) have a
+        // combined min-width around 500px and clip on phones; under 480px they
+        // stack to a single column. Modern mobile clients (Gmail apps, iOS Mail)
+        // honour embedded media queries; clients that strip it just show the
+        // desktop layout, which is the safe fallback.
         return '<!-- Agentic flyer -->'
+        . '<style>@media only screen and (max-width:480px){'
+        .   '.fl-hero{padding:26px 20px 24px !important;}'
+        .   '.fl-h1{font-size:24px !important;}'
+        .   '.fl-stack{display:block !important;width:100% !important;box-sizing:border-box !important;padding-right:0 !important;}'
+        .   '.fl-stack+.fl-stack{padding-top:12px !important;}'
+        .   '.fl-fact{display:block !important;width:100% !important;box-sizing:border-box !important;border-right:0 !important;border-bottom:1px solid #e4e9f0;}'
+        .   '.fl-qr{padding-top:18px !important;text-align:left !important;}'
+        .   '.fl-badge{display:inline-block !important;}'
+        . '}</style>'
         . '<div style="background:#eef2f7;padding:28px 12px;font-family:' . $sans . ';">'
         . '<table role="presentation" width="640" cellpadding="0" cellspacing="0" align="center" style="max-width:640px;width:100%;background:#ffffff;border:1px solid #e4e9f0;border-radius:20px;overflow:hidden;">'
         // brand bar (mark + name + funded pill)
@@ -291,9 +306,9 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         . '</td></tr>'
         // hero — headline, hook, the OFFER (price drop) and a first CTA: the funnel
         // opens with the full value story instead of burying the price at the bottom
-        . '<tr><td style="background:#0a1020;padding:34px 30px 30px;">'
+        . '<tr><td class="fl-hero" style="background:#0a1020;padding:34px 30px 30px;">'
         .   '<div style="font:700 11px ' . $sans . ';letter-spacing:1.6px;text-transform:uppercase;color:#22d3ee;margin-bottom:14px;">Hands-on Workshop &middot; 1 Day' . ($c['is_wsq'] ? ' &middot; Up to 70% Funded' : '') . '</div>'
-        .   '<h1 style="margin:0;font:800 31px/1.12 ' . $sans . ';color:#ffffff;letter-spacing:-.6px;">' . $h($c['name']) . '</h1>'
+        .   '<h1 class="fl-h1" style="margin:0;font:800 31px/1.12 ' . $sans . ';color:#ffffff;letter-spacing:-.6px;">' . $h($c['name']) . '</h1>'
         .   ($hook ? '<div style="margin:16px 0 0;font:400 14.5px/1.55 ' . $sans . ';color:#b7c4e0;max-width:54ch;">' . $h($hook) . '</div>' : '')
         .   $offerHtml
         .   '<a href="' . $h($c['url']) . '" style="display:inline-block;margin-top:16px;background:#2563eb;color:#fff;text-decoration:none;font:700 14px ' . $sans . ';padding:12px 22px;border-radius:10px;">Claim my funded seat &rarr;</a>'
@@ -302,9 +317,9 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         // facts
         . '<tr><td style="background:#eef2f7;border-bottom:1px solid #e4e9f0;">'
         .   '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>'
-        .     '<td width="33%" style="padding:16px 20px;border-right:1px solid #e4e9f0;"><div style="font:700 10.5px ' . $sans . ';letter-spacing:.8px;text-transform:uppercase;color:#7c8aa3;">Duration</div><div style="font:800 17px ' . $sans . ';color:#0a1020;margin-top:4px;">' . $duration . '</div></td>'
-        .     '<td width="33%" style="padding:16px 20px;border-right:1px solid #e4e9f0;"><div style="font:700 10.5px ' . $sans . ';letter-spacing:.8px;text-transform:uppercase;color:#7c8aa3;">Format</div><div style="font:800 17px ' . $sans . ';color:#0a1020;margin-top:4px;">Classroom</div></td>'
-        .     '<td width="34%" style="padding:16px 20px;"><div style="font:700 10.5px ' . $sans . ';letter-spacing:.8px;text-transform:uppercase;color:#7c8aa3;">Full Fee</div><div style="font:800 17px ' . $sans . ';color:#0a1020;margin-top:4px;">S$' . $price . '<small style="font:600 11px ' . $sans . ';color:#7c8aa3;margin-left:2px;">+GST</small></div></td>'
+        .     '<td width="33%" class="fl-fact" style="padding:16px 20px;border-right:1px solid #e4e9f0;"><div style="font:700 10.5px ' . $sans . ';letter-spacing:.8px;text-transform:uppercase;color:#7c8aa3;">Duration</div><div style="font:800 17px ' . $sans . ';color:#0a1020;margin-top:4px;">' . $duration . '</div></td>'
+        .     '<td width="33%" class="fl-fact" style="padding:16px 20px;border-right:1px solid #e4e9f0;"><div style="font:700 10.5px ' . $sans . ';letter-spacing:.8px;text-transform:uppercase;color:#7c8aa3;">Format</div><div style="font:800 17px ' . $sans . ';color:#0a1020;margin-top:4px;">Classroom</div></td>'
+        .     '<td width="34%" class="fl-fact" style="padding:16px 20px;"><div style="font:700 10.5px ' . $sans . ';letter-spacing:.8px;text-transform:uppercase;color:#7c8aa3;">Full Fee</div><div style="font:800 17px ' . $sans . ';color:#0a1020;margin-top:4px;">S$' . $price . '<small style="font:600 11px ' . $sans . ';color:#7c8aa3;margin-left:2px;">+GST</small></div></td>'
         .   '</tr></table>'
         . '</td></tr>'
         // FUNNEL body: value stack -> urgency -> friction-killer -> proof of the offer
@@ -327,7 +342,7 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         .       '<a href="' . $h($c['url']) . '" style="display:inline-block;margin-top:16px;background:#2563eb;color:#fff;text-decoration:none;font:700 14px ' . $sans . ';padding:11px 20px;border-radius:10px;">Register now &rarr;</a>'
         .       '<div style="font:400 12px ' . $mono . ';color:#8fa1c6;margin-top:12px;">' . $h($host) . '</div>'
         .     '</td>'
-        .     '<td width="154" align="right" valign="middle"><table role="presentation" style="background:#fff;border-radius:14px;"><tr><td style="padding:12px;" align="center"><img src="' . $h($qr) . '" width="130" height="130" alt="Scan to register" style="display:block;border-radius:6px;"><div style="font:400 10px ' . $mono . ';letter-spacing:.6px;color:#64748b;margin-top:8px;">' . $h($c['sku']) . '</div></td></tr></table></td>'
+        .     '<td width="154" align="right" valign="middle" class="fl-stack fl-qr"><table role="presentation" style="background:#fff;border-radius:14px;"><tr><td style="padding:12px;" align="center"><img src="' . $h($qr) . '" width="130" height="130" alt="Scan to register" style="display:block;border-radius:6px;"><div style="font:400 10px ' . $mono . ';letter-spacing:.6px;color:#64748b;margin-top:8px;">' . $h($c['sku']) . '</div></td></tr></table></td>'
         .   '</tr></table>'
         . '</td></tr>'
         // lead magnet band — the funnel's fallback path for the not-yet-ready reader,

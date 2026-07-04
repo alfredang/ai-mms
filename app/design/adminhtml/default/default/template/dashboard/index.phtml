@@ -13341,22 +13341,16 @@ $_mnGuard   = null;
 $_mnCap     = array('designs' => 0, 'blasts' => 0, 'max' => 2, 'slot' => null, 'enabled' => false);
 if ($_mnActive) {
     try {
-        $_mnDrafts = Mage::getSingleton('core/resource')
-            ->getConnection('core_read')
-            ->fetchAll(
-                "SELECT newsletter_id, title, template_key, status, mailerlite_id, updated_at
-                 FROM " . Mage::getSingleton('core/resource')->getTableName('newsletters')
-              . " WHERE country_code = ?
-                 ORDER BY updated_at DESC LIMIT 30",
-                array($_mnCC)
-            );
         // Pipeline rows: every agentic flyer with its review state (newest first).
+        // Drafts are merged into this one table (2026-07-04) — no separate card.
         $_mnPipe = Mage::getSingleton('core/resource')->getConnection('core_read')->fetchAll(
-            "SELECT newsletter_id, title, subject, status, review_status, review_decisions,
-                    scheduled_send_at, mailerlite_id, is_auto, course_pids, created_at, updated_at
-             FROM " . Mage::getSingleton('core/resource')->getTableName('newsletters')
-          . " WHERE country_code = ? AND template_key = 'agentic_flyer'
-             ORDER BY newsletter_id DESC LIMIT 30",
+            "SELECT n.newsletter_id, n.title, n.subject, n.status, n.review_status, n.review_decisions,
+                    n.scheduled_send_at, n.mailerlite_id, n.is_auto, n.course_pids, n.created_at, n.updated_at,
+                    (SELECT e.sku FROM catalog_product_entity e
+                      WHERE e.entity_id = CAST(SUBSTRING_INDEX(n.course_pids, ',', 1) AS UNSIGNED) LIMIT 1) AS sku
+             FROM " . Mage::getSingleton('core/resource')->getTableName('newsletters') . " n
+             WHERE n.country_code = ? AND n.template_key = 'agentic_flyer'
+             ORDER BY n.newsletter_id DESC LIMIT 30",
             array($_mnCC)
         );
         $_mnGuard = Mage::helper('mmd_marketing/blastguard');
@@ -13443,29 +13437,41 @@ $_mnStageNames = array('Designed', 'Approval sent', 'Approved', 'Scheduled', 'Wa
         <div class="mn-pipe-empty">No agentic flyer in the pipeline yet. The cron proposes one every Monday &amp; Thursday 10:00 (when enabled).</div>
         <?php endif; ?>
 
-        <!-- data table: every proposal + live stage + approval controls -->
+        <!-- data table: drafts + proposals merged (2026-07-04) — one row per flyer
+             with stage, reviewers, approval-email date, schedule, source, preview
+             and icon actions (approve / request changes / delete). -->
         <?php if (!empty($_mnPipe)): ?>
         <table class="mn-ptable">
-            <thead><tr><th>Course</th><th>Stage</th><th>Reviewers</th><th>Scheduled / Sent</th><th>Source</th><th class="ta-r">Action</th></tr></thead>
+            <thead><tr><th>Course title</th><th>Code</th><th>Stage</th><th>Reviewers</th><th>Approval sent</th><th>Scheduled / Sent</th><th>Source</th><th class="center">Preview</th><th class="ta-r">Actions</th></tr></thead>
             <tbody>
             <?php foreach ($_mnPipe as $_r):
                 list($_ri, $_rlabel, $_rcss) = $_mnStage($_r);
                 $_dec = json_decode((string) $_r['review_decisions'], true);
-                $_na = is_array($_dec) ? count(array_filter($_dec, function ($d) { return $d === 'approve'; })) : 0;
-                $_pending = ((string) $_r['review_status'] === 'pending' || (string) $_r['review_status'] === 'changes_requested'); ?>
+                if (!is_array($_dec)) { $_dec = array(); }
+                $_na = count(array_filter($_dec, function ($d) { return $d === 'approve'; }));
+                $_sentAt = !empty($_dec['_sent_at']) ? date('j M · g:ia', strtotime($_dec['_sent_at'])) : '—';
+                $_pending  = ((string) $_r['review_status'] === 'pending' || (string) $_r['review_status'] === 'changes_requested');
+                $_deletable = !in_array((string) $_r['status'], array('scheduled', 'sent'), true); ?>
                 <tr>
                     <td class="strong"><?php echo htmlspecialchars($_r['title']) ?></td>
+                    <td class="muted" style="font-family:ui-monospace,Menlo,monospace;font-size:12px;"><?php echo htmlspecialchars($_r['sku'] ?: '—') ?></td>
                     <td><span class="mn-badge s-<?php echo $_rcss ?>"><?php echo htmlspecialchars($_rlabel) ?></span></td>
                     <td class="tnum"><?php echo (int)$_na ?>/2</td>
+                    <td class="muted"><?php echo htmlspecialchars($_sentAt) ?></td>
                     <td><?php echo !empty($_r['scheduled_send_at']) ? date('j M · g:ia', strtotime($_r['scheduled_send_at'])) : '—' ?></td>
                     <td class="muted"><?php echo ((int)$_r['is_auto'] ? 'Auto' : 'Manual') ?></td>
+                    <td class="center">
+                        <button type="button" class="mn-fq-act" title="Preview flyer" onclick="mnLoadDraft(<?php echo (int)$_r['newsletter_id'] ?>)">&#128065;</button>
+                    </td>
                     <td class="ta-r">
                         <?php if ($_pending): ?>
-                            <button type="button" class="mn-abtn ok" onclick="mnReview(<?php echo (int)$_r['newsletter_id'] ?>,'approve')">Approve</button>
-                            <button type="button" class="mn-abtn ghost" onclick="mnReview(<?php echo (int)$_r['newsletter_id'] ?>,'changes')">Changes</button>
-                        <?php else: ?>
-                            <span class="muted">—</span>
+                            <button type="button" class="mn-fq-act mn-fq-ok" title="Approve" onclick="mnReview(<?php echo (int)$_r['newsletter_id'] ?>,'approve')">&#10003;</button>
+                            <button type="button" class="mn-fq-act" title="Request changes" onclick="mnReview(<?php echo (int)$_r['newsletter_id'] ?>,'changes')">&#9998;</button>
                         <?php endif; ?>
+                        <?php if ($_deletable): ?>
+                            <button type="button" class="mn-fq-act mn-fq-del" title="Delete" onclick="mnDeleteDraft(<?php echo (int)$_r['newsletter_id'] ?>, <?php echo htmlspecialchars(json_encode($_r['title'])) ?>)">&times;</button>
+                        <?php endif; ?>
+                        <?php if (!$_pending && !$_deletable): ?><span class="muted">—</span><?php endif; ?>
                     </td>
                 </tr>
             <?php endforeach; ?>
@@ -13519,73 +13525,59 @@ $_mnStageNames = array('Designed', 'Approval sent', 'Approved', 'Scheduled', 'Wa
         .mn-abtn.ok:hover{background:#047857;}
         .mn-abtn.ghost{color:#cbd5e1;background:transparent;border-color:#334155;}
         .mn-abtn.ghost:hover{border-color:#475569;}
+        /* 26px ghost icon actions (design-system icon-button pattern) */
+        .mn-fq-act{width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;margin-left:4px;
+                   background:transparent;border:1px solid #334155;border-radius:5px;color:#cbd5e1;cursor:pointer;
+                   font:400 13px/1 -apple-system,Segoe UI,Arial,sans-serif;padding:0;}
+        .mn-fq-act:hover{border-color:#60a5fa;color:#60a5fa;}
+        .mn-fq-act.mn-fq-ok:hover{border-color:#34d399;color:#34d399;}
+        .mn-fq-act.mn-fq-del:hover{border-color:#f87171;color:#f87171;}
+        /* next-flyer queue table: drag affordances */
+        .mn-fq-table{margin:14px 0 4px;}
+        .mn-fq-row{cursor:grab;}
+        .mn-fq-row.mn-fq-dragging{opacity:.45;cursor:grabbing;}
+        .mn-fq-grip{color:#475569;font:700 13px/1 -apple-system,Segoe UI,Arial,sans-serif;letter-spacing:-2px;user-select:none;}
+        .mn-fq-row:hover .mn-fq-grip{color:#94a3b8;}
     </style>
 
-    <?php /* Simplified 2026-07-04 (admin request): there is only ONE template
-             (Agentic Flyer), so the Template picker card is gone — the flow is
-             just "pick a course → preview → queue". Drafts show only when they
-             exist, full-width, so a fresh page has zero dead cards. */ ?>
-    <?php if (!empty($_mnDrafts)): ?>
-    <div class="mn-toprow">
-        <div class="mn-card mn-drafts" style="grid-column:1/-1;">
-            <h3>Drafts (<?php echo count($_mnDrafts) ?>)</h3>
-            <div class="mn-drafts-list" id="mn-drafts-list">
-                <?php foreach ($_mnDrafts as $_d): ?>
-                    <div class="mn-draft" data-id="<?php echo (int)$_d['newsletter_id'] ?>">
-                        <button type="button" class="mn-draft-body" onclick="mnLoadDraft(<?php echo (int)$_d['newsletter_id'] ?>)" title="Preview newsletter">
-                            <div class="mn-draft-title"><?php echo htmlspecialchars($_d['title']) ?></div>
-                            <div class="mn-draft-meta">
-                                <?php echo htmlspecialchars($_d['template_key']) ?> ·
-                                <span class="mn-status-<?php echo htmlspecialchars($_d['status']) ?>"><?php echo htmlspecialchars(strtoupper($_d['status'])) ?></span>
-                                <?php if (!empty($_d['mailerlite_id'])): ?> · <?php echo htmlspecialchars($_d['mailerlite_id']) ?><?php endif; ?>
-                            </div>
-                        </button>
-                        <button type="button" class="mn-draft-edit" onclick="mnEditDraft(<?php echo (int)$_d['newsletter_id'] ?>)" aria-label="Edit draft" title="Edit draft">&#9998;</button>
-                        <button type="button" class="mn-draft-del" onclick="mnDeleteDraft(<?php echo (int)$_d['newsletter_id'] ?>, <?php echo htmlspecialchars(json_encode($_d['title'])) ?>)" aria-label="Delete draft" title="Delete draft">&times;</button>
-                    </div>
-                <?php endforeach; ?>
-            </div>
-        </div>
-    </div>
-    <?php endif; ?>
+    <?php /* Simplified 2026-07-04 (admin request): the Template picker card is
+             gone (only one template exists) and the Drafts card is merged into
+             the pipeline table above — one row per flyer with preview + icon
+             actions. The panel is now: pipeline table + next-flyer queue. */ ?>
 
     <div class="mn-grid">
-        <!-- LEFT: editor -->
-        <div class="mn-card">
-            <h3>Send a course flyer</h3>
+        <!-- LEFT: next-flyer queue (add WSQ courses, drag to reorder, delete;
+             the Mon/Thu proposer consumes the TOP row) -->
+        <div class="mn-card" style="grid-column:1/-1;">
+            <h3>Next flyer queue</h3>
             <div class="mn-fld">
-                <label>1 &middot; Pick a course</label>
-                <input type="text" id="mn-course-search" class="mn-input" placeholder="Search course title or code..." oninput="mnSearchCourses(this)" autocomplete="off" />
+                <label>Add WSQ courses &mdash; the pipeline sends the <b>top</b> course each Monday &amp; Thursday</label>
+                <input type="text" id="mn-course-search" class="mn-input" placeholder="Search WSQ course title or TGS code..." oninput="mnSearchCourses(this)" autocomplete="off" />
                 <div id="mn-search-results" class="mn-search-results"></div>
-                <div id="mn-pids" class="mn-pids"></div>
+                <div id="mn-pids" class="mn-pids" style="display:none;"></div>
             </div>
-
-            <div class="mn-fld">
-                <label>2 &middot; Check the preview on the right, then</label>
-            </div>
+            <table class="mm-table mn-fq-table" id="mn-queue-table">
+                <thead><tr>
+                    <th style="width:34px;"></th>
+                    <th style="width:26px;">#</th>
+                    <th>Course title</th>
+                    <th style="width:150px;">Course code</th>
+                    <th class="num" style="width:110px;">Course fee</th>
+                    <th style="width:190px;">Funding validity</th>
+                    <th class="center" style="width:80px;">Actions</th>
+                </tr></thead>
+                <tbody id="mn-queue-list"></tbody>
+            </table>
             <div class="mn-actions">
-                <button type="button" class="mn-btn mn-btn-cta" id="mn-push-btn" onclick="mnQueueApproval()" disabled>3 &middot; Queue for approval</button>
+                <button type="button" class="mn-btn mn-btn-cta" id="mn-push-btn" onclick="mnQueueApproval()" disabled>Send top of queue for approval now</button>
             </div>
-            <p style="margin:10px 2px 0;font:400 12px/1.5 -apple-system,Segoe UI,Arial,sans-serif;color:#64748b;">Both managers get an email with Approve / Request-changes buttons. It only goes to MailerLite after both approve (max <b>2 flyers per week</b>).</p>
+            <p style="margin:10px 2px 0;font:400 12px/1.5 -apple-system,Segoe UI,Arial,sans-serif;color:#64748b;">Drag &#8942;&#8942; to reorder &middot; &#128065; previews a flyer &middot; &times; removes it. Each proposal emails both managers Approve / Request-changes buttons; it only goes to MailerLite after both approve (max <b>2 flyers per week</b>).</p>
         </div>
 
-        <!-- RIGHT: live preview (desktop / mobile viewport toggle) -->
-        <div>
-            <div class="mn-preview">
-                <div class="mn-preview-head">
-                    <h3>Live Preview</h3>
-                    <div class="mn-vp-toggle" role="tablist" aria-label="Preview viewport">
-                        <button type="button" class="mn-vp-btn active" id="mn-vp-desktop" onclick="mnSetViewport('desktop')" role="tab" aria-selected="true">Desktop</button>
-                        <button type="button" class="mn-vp-btn" id="mn-vp-mobile" onclick="mnSetViewport('mobile')" role="tab" aria-selected="false">Mobile</button>
-                    </div>
-                    <span style="font-size:11px;color:#94a3b8" id="mn-preview-status">No content yet</span>
-                </div>
-                <div id="mn-preview-empty" class="mn-preview-empty">Search and pick a course above to preview its Agentic flyer.</div>
-                <div id="mn-preview-stage" class="mn-preview-stage" data-vp="desktop" style="display:none">
-                    <iframe id="mn-iframe" class="mn-iframe" srcdoc=""></iframe>
-                </div>
-            </div>
-        </div>
+        <?php /* The permanent Live Preview pane was removed 2026-07-04 (admin
+                 request) — the popup modal (same one drafts use, with its own
+                 Desktop/Mobile toggle) is the single preview surface, opened
+                 via the "Preview flyer" button. */ ?>
     </div>
 </div>
 
@@ -13637,14 +13629,14 @@ window.mnSearchCourses = function(inp) {
     var box = document.getElementById('mn-search-results');
     if (q.length < 2) { box.innerHTML = ''; return; }
     _mnSearchTimer = setTimeout(function () {
-        fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/marketingnewsletter/searchCourses') ?>?q=' + encodeURIComponent(q), { credentials: 'same-origin' })
+        fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/marketingnewsletter/searchCourses') ?>?wsq=1&q=' + encodeURIComponent(q), { credentials: 'same-origin' })
           .then(function (r) { return r.json(); })
           .then(function (j) {
               box.innerHTML = '';
               if (!j || !j.success || !j.courses || !j.courses.length) {
                   var n = document.createElement('div');
                   n.className = 'mn-result-empty';
-                  n.textContent = 'No matches.';
+                  n.textContent = 'No WSQ matches.';
                   box.appendChild(n);
                   return;
               }
@@ -13652,7 +13644,7 @@ window.mnSearchCourses = function(inp) {
                   var d = document.createElement('div');
                   d.className = 'mn-result';
                   d.textContent = c.sku + ' — ' + c.name;
-                  d.onclick = function () { mnAddPid(c.id, c.sku, c.name); inp.value = ''; box.innerHTML = ''; };
+                  d.onclick = function () { mnFlyerQueueAdd(c.id); inp.value = ''; box.innerHTML = ''; };
                   box.appendChild(d);
               });
           });
@@ -13690,50 +13682,168 @@ window.mnRenderPids = function() {
     });
 };
 
-// --- Preview (re-renders when a course is picked) --------------------
-var _mnPreviewTimer = null;
-window.mnRefreshPreview = function() {
-    if (_mnPreviewTimer) clearTimeout(_mnPreviewTimer);
-    _mnPreviewTimer = setTimeout(function () {
-        var pushBtn = document.getElementById('mn-push-btn');
-        if (!window._mnState.pids.length) {
-            document.getElementById('mn-preview-stage').style.display = 'none';
-            document.getElementById('mn-preview-empty').style.display = 'flex';
-            document.getElementById('mn-preview-status').textContent = 'No content yet';
-            if (pushBtn) pushBtn.setAttribute('disabled', 'disabled');
-            return;
-        }
-        var fd = new FormData();
-        fd.append('template_key', 'agentic_flyer');
-        fd.append('course_pids', window._mnState.pids.join(','));
-        fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/marketingnewsletter/preview') ?>', {
-            method: 'POST', body: fd, credentials: 'same-origin'
-        })
-        .then(function (r) { return r.json(); })
-        .then(function (j) {
-            if (!j || !j.success) return;
-            var ifr = document.getElementById('mn-iframe');
-            ifr.srcdoc = j.html;
-            ifr.style.display = '';
-            document.getElementById('mn-preview-stage').style.display = 'flex';
-            document.getElementById('mn-preview-empty').style.display = 'none';
-            document.getElementById('mn-preview-status').textContent = 'Updated ' + new Date().toLocaleTimeString();
-            if (pushBtn) pushBtn.removeAttribute('disabled');   // course picked → can queue
+// --- Next-flyer queue -------------------------------------------------
+// Server-backed list (mmd_marketing_flyer_queue): add from the WSQ search,
+// drag ⋮⋮ to reorder, × to remove, 👁 to preview. Cron_Flyer::propose()
+// consumes the TOP row each Mon/Thu.
+window._mnQueue = [];
+window.mnFlyerQueueLoad = function() {
+    fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/marketingnewsletter/flyerQueueList') ?>', { credentials: 'same-origin' })
+    .then(function (r) { return r.json(); })
+    .then(function (j) {
+        window._mnQueue = (j && j.success && j.queue) ? j.queue : [];
+        mnFlyerQueueRender();
+        mnRefreshPreview();
+    });
+};
+window.mnFlyerQueueRender = function() {
+    var tb = document.getElementById('mn-queue-list');
+    if (!tb) return;
+    tb.innerHTML = '';
+    if (!window._mnQueue.length) {
+        tb.innerHTML = '<tr><td colspan="7" class="mm-table-empty">Queue is empty — search above to add WSQ courses. The pipeline falls back to a popular upcoming class.</td></tr>';
+        return;
+    }
+    window._mnQueue.forEach(function (row, idx) {
+        var tr = document.createElement('tr');
+        tr.setAttribute('draggable', 'true');
+        tr.setAttribute('data-qid', row.queue_id);
+        tr.className = 'mn-fq-row';
+        var fee = row.fee ? 'S$' + Math.round(parseFloat(row.fee)).toLocaleString() : '—';
+        tr.innerHTML =
+            '<td class="mn-fq-grip" title="Drag to reorder">&#8942;&#8942;</td>' +
+            '<td class="muted">' + (idx + 1) + '</td>' +
+            '<td class="strong"></td>' +
+            '<td class="muted" style="font-family:ui-monospace,Menlo,monospace;"></td>' +
+            '<td class="num"></td>' +
+            '<td class="muted"></td>' +
+            '<td class="center"></td>';
+        tr.children[2].textContent = row.name || ('#' + row.product_id);
+        tr.children[3].textContent = row.sku || '';
+        tr.children[4].textContent = fee;
+        tr.children[5].textContent = row.funding_validity || '—';
+        var act = tr.children[6];
+        var pv = document.createElement('button');
+        pv.type = 'button'; pv.className = 'mn-fq-act'; pv.title = 'Preview flyer'; pv.innerHTML = '&#128065;';
+        pv.onclick = function () { mnPreviewCourse(row.product_id, (row.sku || '') + ' — ' + (row.name || '')); };
+        var rm = document.createElement('button');
+        rm.type = 'button'; rm.className = 'mn-fq-act mn-fq-del'; rm.title = 'Remove from queue'; rm.innerHTML = '&times;';
+        rm.onclick = function () { mnFlyerQueueRemove(row.queue_id, row.name); };
+        act.appendChild(pv); act.appendChild(rm);
+        // drag-and-drop reorder
+        tr.addEventListener('dragstart', function (e) {
+            window._mnDragQid = row.queue_id;
+            tr.classList.add('mn-fq-dragging');
+            if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', String(row.queue_id)); } catch (x) {} }
         });
-    }, 250);
+        tr.addEventListener('dragend', function () { tr.classList.remove('mn-fq-dragging'); });
+        tr.addEventListener('dragover', function (e) {
+            e.preventDefault();
+            var dragging = tb.querySelector('.mn-fq-dragging');
+            if (!dragging || dragging === tr) return;
+            var rect = tr.getBoundingClientRect();
+            var after = (e.clientY - rect.top) > rect.height / 2;
+            tb.insertBefore(dragging, after ? tr.nextSibling : tr);
+        });
+        tr.addEventListener('drop', function (e) { e.preventDefault(); mnFlyerQueueSaveOrder(); });
+        tb.appendChild(tr);
+    });
+};
+window.mnFlyerQueueSaveOrder = function() {
+    var ids = [];
+    var rows = document.querySelectorAll('#mn-queue-list tr[data-qid]');
+    for (var i = 0; i < rows.length; i++) ids.push(rows[i].getAttribute('data-qid'));
+    var fd = new FormData();
+    fd.append('order', ids.join(','));
+    fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/marketingnewsletter/flyerQueueReorder') ?>', {
+        method: 'POST', body: fd, credentials: 'same-origin'
+    }).then(function () { mnFlyerQueueLoad(); });
+};
+window.mnFlyerQueueAdd = function(pid) {
+    var fd = new FormData();
+    fd.append('course_id', String(pid));
+    fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/marketingnewsletter/flyerQueueAdd') ?>', {
+        method: 'POST', body: fd, credentials: 'same-origin'
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (j) {
+        if (!j || !j.success) { alert((j && j.message) || 'Could not add to the queue.'); return; }
+        mnFlyerQueueLoad();
+    });
+};
+window.mnFlyerQueueRemove = function(qid, name) {
+    if (!confirm('Remove "' + (name || 'this course') + '" from the flyer queue?')) return;
+    var fd = new FormData();
+    fd.append('queue_id', String(qid));
+    fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/marketingnewsletter/flyerQueueRemove') ?>', {
+        method: 'POST', body: fd, credentials: 'same-origin'
+    }).then(function () { mnFlyerQueueLoad(); });
+};
+
+// Button states follow the queue: "Send top of queue" needs at least one row.
+window.mnRefreshPreview = function() {
+    var has = !!(window._mnQueue && window._mnQueue.length);
+    var pushBtn = document.getElementById('mn-push-btn');
+    if (pushBtn) { has ? pushBtn.removeAttribute('disabled') : pushBtn.setAttribute('disabled', 'disabled'); }
+};
+
+// Popup preview for any course (queue rows) — reuses the draft modal +
+// renders via the same previewAction the drafts use.
+window.mnPreviewCourse = function(pid, label) {
+    window._mnState.pids = [parseInt(pid, 10)];
+    window._mnState.pidNames[parseInt(pid, 10)] = label || 'Flyer preview';
+    mnPreviewPicked();
+};
+window.mnPreviewPicked = function() {
+    var pids = window._mnState.pids || [];
+    if (!pids.length) { alert('Pick a course first.'); return; }
+    var modal = document.getElementById('mn-draft-modal');
+    var ifr   = document.getElementById('mn-draft-modal-iframe');
+    var load  = document.getElementById('mn-draft-modal-loading');
+    var titleEl = document.getElementById('mn-draft-modal-title');
+    var metaEl  = document.getElementById('mn-draft-modal-meta');
+    if (!modal || !ifr) return;
+    if (modal.parentNode !== document.body) document.body.appendChild(modal);
+    if (titleEl) titleEl.textContent = (window._mnState.pidNames && window._mnState.pidNames[pids[0]]) || 'Flyer preview';
+    if (metaEl)  metaEl.textContent  = 'agentic_flyer · not queued yet';
+    ifr.style.display = 'none';
+    ifr.srcdoc = '';
+    if (load) { load.style.display = ''; load.textContent = 'Loading preview…'; }
+    if (typeof mnSetDraftViewport === 'function') mnSetDraftViewport('desktop');
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    var fd = new FormData();
+    fd.append('template_key', 'agentic_flyer');
+    fd.append('course_pids', pids.join(','));
+    fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/marketingnewsletter/preview') ?>', {
+        method: 'POST', body: fd, credentials: 'same-origin'
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (j) {
+        if (!j || !j.success) { if (load) load.textContent = 'Could not load preview' + (j && j.message ? ': ' + j.message : '.'); return; }
+        ifr.srcdoc = j.html;
+        ifr.style.display = '';
+        if (load) load.style.display = 'none';
+    })
+    .catch(function (e) { if (load) load.textContent = 'Network error — ' + e; });
 };
 
 // --- Queue an Agentic flyer for manager approval (the ONLY path to MailerLite) ---
 // Never pushes to MailerLite directly — it creates a proposal that both managers
 // must approve, then the guarded pipeline schedules it (hard cap: 2 flyers/week).
 window.mnQueueApproval = function() {
-    var pids = window._mnState.pids || [];
-    if (!pids.length) { alert('Pick a course first.'); return; }
-    if (!confirm('Queue this Agentic flyer for manager approval?\n\nBoth managers must approve before it schedules to MailerLite (max 2 flyers per week).')) return;
+    var q = window._mnQueue || [];
+    if (!q.length) { alert('The flyer queue is empty — add a WSQ course first.'); return; }
+    var head = q[0];
+    if (!confirm('Send "' + (head.name || head.sku) + '" for manager approval now?\n\nThis consumes the top of the queue. Both managers must approve before it schedules to MailerLite (max 2 flyers per week).')) return;
     var btn = document.getElementById('mn-push-btn');
     if (btn) { btn.disabled = true; btn.textContent = 'Queuing…'; }
+    // consume the head row (mirrors what the Mon/Thu cron does)
+    var rf = new FormData();
+    rf.append('queue_id', String(head.queue_id));
+    fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/marketingnewsletter/flyerQueueRemove') ?>', { method: 'POST', body: rf, credentials: 'same-origin' });
     var fd = new FormData();
-    fd.append('course_id', String(pids[0]));
+    fd.append('course_id', String(head.product_id));
     fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/marketingnewsletter/queueApproval') ?>', {
         method: 'POST', body: fd, credentials: 'same-origin'
     })
@@ -13751,13 +13861,12 @@ window.mnQueueApproval = function() {
 };
 // --- Agentic flyer: manager approve / request-changes (human in the loop) ---
 window.mnReview = function(id, decision) {
-    var feedback = '';
-    if (decision === 'changes') {
-        feedback = prompt('What should change? (a new design, a different course, wording…)');
-        if (feedback === null) return; // cancelled
-    } else {
-        if (!confirm('Approve this flyer?\n\nIt schedules to MailerLite only after BOTH managers approve (max 2 campaigns/week).')) return;
-    }
+    if (decision === 'changes') { mnOpenChangesBox(id); return; }   // styled box, not prompt()
+    if (!confirm('Approve this flyer?\n\nIt schedules to MailerLite only after BOTH managers approve (max 2 campaigns/week).')) return;
+    mnSubmitReview(id, 'approve', '');
+};
+
+window.mnSubmitReview = function(id, decision, feedback) {
     var fd = new FormData();
     fd.append('newsletter_id', String(id));
     fd.append('decision', decision);
@@ -13776,6 +13885,33 @@ window.mnReview = function(id, decision) {
     });
 };
 
+// --- Request-changes message box (replaces the native prompt) ---------
+window.mnOpenChangesBox = function(id) {
+    var box = document.getElementById('mn-changes-modal');
+    if (!box) return;
+    if (box.parentNode !== document.body) document.body.appendChild(box);
+    box.setAttribute('data-nid', String(id));
+    var ta = document.getElementById('mn-changes-text');
+    if (ta) ta.value = '';
+    box.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    if (ta) setTimeout(function(){ ta.focus(); }, 50);
+};
+window.mnCloseChangesBox = function() {
+    var box = document.getElementById('mn-changes-modal');
+    if (box) box.style.display = 'none';
+    document.body.style.overflow = '';
+};
+window.mnSendChanges = function() {
+    var box = document.getElementById('mn-changes-modal');
+    var ta  = document.getElementById('mn-changes-text');
+    if (!box) return;
+    var fb = ta ? ta.value.replace(/^\s+|\s+$/g, '') : '';
+    if (fb === '') { if (ta) ta.focus(); return; }
+    mnCloseChangesBox();
+    mnSubmitReview(parseInt(box.getAttribute('data-nid'), 10) || 0, 'changes', fb);
+};
+
 // --- Viewport toggle (Desktop / Mobile) -------------------------------
 window.mnSetViewport = function(mode) {
     var stage = document.getElementById('mn-preview-stage');
@@ -13787,6 +13923,9 @@ window.mnSetViewport = function(mode) {
     if (d) { d.classList.toggle('active', mode === 'desktop'); d.setAttribute('aria-selected', mode === 'desktop' ? 'true' : 'false'); }
     if (m) { m.classList.toggle('active', mode === 'mobile');  m.setAttribute('aria-selected', mode === 'mobile' ? 'true' : 'false'); }
 };
+
+// Load the next-flyer queue as soon as the panel script parses.
+try { mnFlyerQueueLoad(); } catch (e) {}
 
 window.mnDeleteDraft = function(id, title) {
     title = title || 'this draft';
@@ -13966,6 +14105,19 @@ document.addEventListener('keydown', function (ev) {
         <div class="mn-draft-modal-stage" id="mn-draft-modal-stage" data-vp="desktop">
             <div class="mn-draft-modal-loading" id="mn-draft-modal-loading">Loading preview…</div>
             <iframe id="mn-draft-modal-iframe" class="mn-iframe" srcdoc="" style="display:none"></iframe>
+        </div>
+    </div>
+</div>
+<?php /* Request-changes message box — replaces the browser prompt() with a
+         theme-styled dialog (admin request 2026-07-04). */ ?>
+<div id="mn-changes-modal" style="display:none;position:fixed;inset:0;z-index:4000;background:rgba(3,7,18,.72);align-items:center;justify-content:center;padding:20px;" onclick="if(event.target===this)mnCloseChangesBox()">
+    <div style="width:100%;max-width:520px;background:#0f172a;border:1px solid #24324a;border-radius:14px;padding:22px 24px;box-shadow:0 30px 80px -30px rgba(0,0,0,.8);" onclick="event.stopPropagation()">
+        <div style="font:800 16px -apple-system,Segoe UI,Arial,sans-serif;color:#f1f5f9;">Request changes</div>
+        <div style="margin-top:6px;font:400 12.5px/1.5 -apple-system,Segoe UI,Arial,sans-serif;color:#94a3b8;">Tell the pipeline what should change &mdash; a new design, a different course, wording. The design will be regenerated and re-sent for approval.</div>
+        <textarea id="mn-changes-text" rows="5" placeholder="e.g. Lead with the 25 Jul intake and shorten the hero copy." style="margin-top:14px;width:100%;box-sizing:border-box;background:transparent;border:1px solid #334155;border-radius:9px;padding:11px 12px;font:400 13px/1.5 -apple-system,Segoe UI,Arial,sans-serif;color:#e5e7eb;resize:vertical;"></textarea>
+        <div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px;">
+            <button type="button" class="mn-btn mn-btn-ghost" onclick="mnCloseChangesBox()">Cancel</button>
+            <button type="button" class="mn-btn mn-btn-cta" onclick="mnSendChanges()">Send feedback</button>
         </div>
     </div>
 </div>
