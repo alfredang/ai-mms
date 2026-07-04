@@ -93,11 +93,13 @@
 
 /* --- Single post ------------------------------------------------------------ */
 .mmd-blog-post { max-width: 860px; }
-.mmd-blog-post-hero { border-radius: 14px; overflow: hidden; margin: 18px 0 26px; aspect-ratio: 16 / 9; border: 1px solid var(--mb-line); background: #eef2ff; }
+/* Half-height hero (32:9 ≈ half of 16:9) with a gradient depth overlay. */
+.mmd-blog-post-hero { position: relative; border-radius: 14px; overflow: hidden; margin: 18px 0 26px; aspect-ratio: 32 / 9; max-height: 300px; border: 1px solid var(--mb-line); background: #eef2ff; }
 .mmd-blog-post-hero img { width: 100%; height: 100%; display: block; object-fit: cover; }
-.mmd-blog-post-hero.is-fallback .mmd-blog-hero-fallback { height: 100%; justify-content: center; }
-.mmd-blog-post-hero.is-fallback .mmd-blog-hero-kicker { font-size: 12px; letter-spacing: 3px; }
-.mmd-blog-post-hero.is-fallback .mmd-blog-hero-title { font-size: 28px; max-width: 640px; -webkit-line-clamp: 4; }
+.mmd-blog-post-hero::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(15,23,42,0) 45%, rgba(15,23,42,.45) 100%); pointer-events: none; }
+.mmd-blog-post-hero.is-fallback .mmd-blog-hero-fallback { height: 100%; justify-content: center; padding: 20px 30px; }
+.mmd-blog-post-hero.is-fallback .mmd-blog-hero-kicker { font-size: 11px; letter-spacing: 3px; }
+.mmd-blog-post-hero.is-fallback .mmd-blog-hero-title { font-size: 24px; max-width: 680px; -webkit-line-clamp: 2; }
 
 .mmd-blog-crumb { font: 600 11px/1 var(--mb-mono); letter-spacing: 2px; color: #9ca3af; text-transform: uppercase; margin-bottom: 14px; }
 .mmd-blog-crumb a { color: var(--mb-blue) !important; }
