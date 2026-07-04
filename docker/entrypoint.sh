@@ -402,6 +402,10 @@ php /var/www/html/scripts/maintenance/flat-url-debug.php \
         if curl -s -o /dev/null --max-time 2 http://127.0.0.1/ 2>/dev/null; then break; fi
         sleep 5
     done
+    # var/log is wiped/absent on a fresh volume — ensure it exists + is
+    # www-data-writable so cron.php's own logging and this heartbeat can write.
+    mkdir -p /var/www/html/var/log 2>/dev/null || true
+    chown www-data:www-data /var/www/html/var/log 2>/dev/null || true
     _CRONLOG=/var/www/html/var/log/entrypoint-cron.log
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] entrypoint cron loop started" >> "$_CRONLOG" 2>/dev/null || true
     while true; do
