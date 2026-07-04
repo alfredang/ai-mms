@@ -280,19 +280,26 @@ class MMD_Marketing_Model_Cron_Flyer
         $slot = $g->nextSendSlot();
         $slotTxt = $slot ? $slot->format('l, j M Y \a\t g:ia') : 'the next available slot';
 
-        // Route through SMTPPro's transport — a raw Zend_Mail->send() otherwise
-        // falls back to the /usr/sbin/sendmail binary, which is NOT installed in
-        // the container, so the email silently fails (real incident 2026-07-04:
-        // approval emails "sent" but never arrived). SMTPPro only auto-applies
-        // its transport to Magento's own email events, not to raw Zend_Mail —
-        // so we fetch and pass it explicitly.
-        $transport = null;
+        // PRIMARY transport = Gmail OAuth (same path the admin OTP email uses,
+        // Mage::helper('mmd_email/gmail')). It sends via the Gmail API with a
+        // refresh-token, so it is IMMUNE to the SMTP app-password revocations
+        // that repeatedly break Zend_Mail/SMTPPro (real incident 2026-07-04/05:
+        // SMTP returned 5.7.8/5.7.9 BadCredentials; container has no sendmail).
+        // Falls back to SMTPPro's transport only if Gmail OAuth isn't configured.
+        $gmail = null;
         try {
-            if (Mage::helper('core')->isModuleEnabled('Aschroder_SMTPPro')) {
-                $t = Mage::helper('smtppro')->getTransport();
-                if ($t) { $transport = $t; }
-            }
-        } catch (Exception $e) { $this->_log('sendForReview: SMTPPro transport unavailable: ' . $e->getMessage()); }
+            $gh = Mage::helper('mmd_email/gmail');
+            if ($gh && $gh->isConfigured()) { $gmail = $gh; }
+        } catch (Exception $e) { $this->_log('sendForReview: Gmail OAuth helper unavailable: ' . $e->getMessage()); }
+        $transport = null;
+        if (!$gmail) {
+            try {
+                if (Mage::helper('core')->isModuleEnabled('Aschroder_SMTPPro')) {
+                    $t = Mage::helper('smtppro')->getTransport();
+                    if ($t) { $transport = $t; }
+                }
+            } catch (Exception $e) { $this->_log('sendForReview: SMTPPro transport unavailable: ' . $e->getMessage()); }
+        }
 
         $sentAny = false;
         foreach ($g->reviewers() as $email) {
@@ -311,16 +318,21 @@ class MMD_Marketing_Model_Cron_Flyer
                 . '<hr style="border:0;border-top:1px solid #e4e9f0;margin:18px 0;">'
                 . $row['body_html']
                 . '</div>';
+            $subject = ($isReminder ? '[Reminder] ' : '') . '[Approval needed] ' . $row['subject'];
 
             try {
-                $mail = new Zend_Mail('utf-8');
-                $mail->setBodyHtml($html)
-                     ->setFrom(Mage::getStoreConfig('trans_email/ident_general/email'), 'Tertiary Marketing')
-                     ->addTo($email)
-                     ->setSubject(($isReminder ? '[Reminder] ' : '') . '[Approval needed] ' . $row['subject']);
-                $transport ? $mail->send($transport) : $mail->send();
+                if ($gmail) {
+                    $gmail->send($email, $subject, $html, 'Tertiary Marketing');
+                } else {
+                    $mail = new Zend_Mail('utf-8');
+                    $mail->setBodyHtml($html)
+                         ->setFrom(Mage::getStoreConfig('trans_email/ident_general/email'), 'Tertiary Marketing')
+                         ->addTo($email)
+                         ->setSubject($subject);
+                    $transport ? $mail->send($transport) : $mail->send();
+                }
                 $sentAny = true;
-                $this->_log('sendForReview: emailed ' . $email . ' for #' . $newsletterId);
+                $this->_log('sendForReview: emailed ' . $email . ' for #' . $newsletterId . ' via ' . ($gmail ? 'gmail-oauth' : 'smtp'));
             } catch (Exception $e) {
                 $this->_log('sendForReview mail to ' . $email . ' failed: ' . $e->getMessage());
             }
