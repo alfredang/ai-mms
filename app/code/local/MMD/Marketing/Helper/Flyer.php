@@ -47,9 +47,12 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
 
         // Persuasive "why take this" blurb — real per-course marketing copy, not
         // the factual syllabus. Prefer short_description, fall back to meta_description.
-        // Collapse Unicode whitespace (Microsoft-paste NBSP/U+202F — see memory
+        // Decode entities AFTER strip_tags (catalog copy carries &rsquo;/&nbsp; which
+        // would otherwise be re-escaped at render and show literally), then collapse
+        // Unicode whitespace (Microsoft-paste NBSP/U+202F — see memory
         // feedback_short_description_unicode_whitespace) so the trim is clean.
-        $blurb = trim(preg_replace('/\s+/u', ' ', strip_tags((string) ($raw('short_description') ?: $raw('meta_description')))));
+        $blurb = html_entity_decode(strip_tags((string) ($raw('short_description') ?: $raw('meta_description'))), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $blurb = trim(preg_replace('/\s+/u', ' ', str_replace("\xc2\xa0", ' ', $blurb)));
 
         // Next 2 upcoming class intakes (real course_runs data) — drives urgency + signup.
         $runs = array();
