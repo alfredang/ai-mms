@@ -53,8 +53,8 @@ class MMD_Blog_Block_View extends Mage_Core_Block_Template
         return max(1, (int) round($words / 220));
     }
 
-    public function getRateUrl()
+    public function getLikeUrl()
     {
-        return Mage::getUrl('blog/index/rate');
+        return Mage::getUrl('blog/index/like');
     }
 }

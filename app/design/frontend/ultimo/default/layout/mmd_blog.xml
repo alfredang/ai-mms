@@ -38,4 +38,13 @@
         </reference>
     </mmd_blog_index_view>
 
+    <!-- Homepage "From our blog" strip — latest 4 posts, in the postscript
+         region (bottom of the page, before the footer). Loads the blog skin. -->
+    <cms_index_index>
+        <update handle="mmd_blog_default"/>
+        <reference name="postscript">
+            <block type="mmd_blog/list" name="blog.home.latest" template="mmd/blog/home.phtml"/>
+        </reference>
+    </cms_index_index>
+
 </layout>

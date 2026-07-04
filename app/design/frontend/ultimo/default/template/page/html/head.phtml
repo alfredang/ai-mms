@@ -151,10 +151,13 @@ $_xdPath = $_perStorePath[1] ?? $_curPath;
  * og:image: product page → product main image; otherwise → store logo.
  * og:type:  product page → "product"; otherwise → "website".
  * ---------------------------------------------------------------------- */
+$_blogPost = Mage::registry('current_blog_post');
 $_ogTitle = strip_tags((string) $this->getTitle());
 $_ogDesc  = strip_tags((string) $this->getDescription());
 $_ogUrl   = $_selfCanonical;
-$_ogType  = ($_product && $_product->getId()) ? 'product' : 'website';
+$_ogType  = ($_product && $_product->getId())
+    ? 'product'
+    : (($_blogPost && $_blogPost->getId()) ? 'article' : 'website');
 $_ogImage = '';
 if ($_product && $_product->getId()) {
     try {
@@ -163,6 +166,9 @@ if ($_product && $_product->getId()) {
             $_ogImage = (string) Mage::helper('catalog/image')->init($_product, 'image');
         }
     } catch (Exception $_e) { /* no-op */ }
+}
+if (!$_ogImage && $_blogPost && $_blogPost->getId() && $_blogPost->getHeroImageUrl()) {
+    $_ogImage = (string) $_blogPost->getHeroImageUrl();
 }
 if (!$_ogImage) {
     $_ogImage = $_curBase . '/skin/frontend/ultimo/default/images/TertiaryCoursesSingapore.png';

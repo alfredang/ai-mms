@@ -59,24 +59,15 @@ class MMD_Blog_IndexController extends Mage_Core_Controller_Front_Action
             if ($post->getMetaKeywords()) {
                 $head->setKeywords($post->getMetaKeywords());
             }
-            $postUrl = Mage::helper('mmd_blog')->getPostUrl($post);
-            $head->addLinkRel('canonical', $postUrl);
-
-            // OpenGraph — also what LinkedIn renders as the link card.
-            $ogImage = $post->getHeroImageUrl()
-                ?: Mage::getDesign()->getSkinUrl('images/logo.png', array('_area' => 'frontend'));
-            $og = '<meta property="og:type" content="article" />' . "\n"
-                . '<meta property="og:title" content="' . $this->_esc($post->getMetaTitle() ?: $post->getTitle()) . '" />' . "\n"
-                . '<meta property="og:description" content="' . $this->_esc(trim(strip_tags((string) ($post->getMetaDescription() ?: $post->getExcerpt())))) . '" />' . "\n"
-                . '<meta property="og:url" content="' . $this->_esc($postUrl) . '" />' . "\n"
-                . '<meta property="og:image" content="' . $this->_esc($ogImage) . '" />' . "\n"
-                . '<meta name="twitter:card" content="summary_large_image" />';
-            $head->setIncludes(($head->getIncludes() ?: '') . "\n" . $og);
+            // Canonical + OpenGraph/Twitter are emitted once by the theme's
+            // head.phtml SEO block (it reads current_blog_post from the registry
+            // to set og:type=article + the hero image). Emitting them here too
+            // produced DUPLICATE canonical/og tags — don't re-add them.
         }
         $this->renderLayout();
     }
 
-    public function rateAction()
+    public function likeAction()
     {
         $this->getResponse()->setHeader('Content-Type', 'application/json', true);
         try {
@@ -84,12 +75,11 @@ class MMD_Blog_IndexController extends Mage_Core_Controller_Front_Action
                 throw new Exception('POST only');
             }
             $postId = (int) $this->getRequest()->getPost('post_id');
-            $rating = (int) $this->getRequest()->getPost('rating');
             $post   = Mage::getModel('mmd_blog/post')->load($postId);
-            if (!$post->getId() || !$post->isPublished() || $rating < 1 || $rating > 5) {
-                throw new Exception('Invalid rating request');
+            if (!$post->getId() || !$post->isPublished()) {
+                throw new Exception('Invalid like request');
             }
-            $result = Mage::helper('mmd_blog')->ratePost($postId, $rating);
+            $result = Mage::helper('mmd_blog')->likePost($postId);
             $this->getResponse()->setBody(json_encode(array('ok' => true) + $result));
         } catch (Exception $e) {
             $this->getResponse()->setHttpResponseCode(400);

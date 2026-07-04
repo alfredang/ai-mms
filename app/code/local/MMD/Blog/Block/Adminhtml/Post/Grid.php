@@ -44,9 +44,9 @@ class MMD_Blog_Block_Adminhtml_Post_Grid extends Mage_Adminhtml_Block_Widget_Gri
                 MMD_Blog_Model_Post::STATUS_PUBLISHED => $helper->__('Published'),
             ),
         ));
-        $this->addColumn('rating_count', array(
-            'header' => $helper->__('Ratings'),
-            'index'  => 'rating_count',
+        $this->addColumn('likes', array(
+            'header' => $helper->__('Likes'),
+            'index'  => 'likes',
             'type'   => 'number',
             'width'  => '80px',
         ));

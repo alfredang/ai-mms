@@ -42,6 +42,24 @@
 .mmd-blog-tag:hover { border-color: var(--mb-blue); box-shadow: 0 2px 8px rgba(37, 99, 235, .18); text-decoration: none; }
 .mmd-blog-tag.is-active { background: var(--mb-blue); border-color: var(--mb-blue); color: #fff !important; }
 
+/* --- Homepage "From our blog" strip ---------------------------------------- */
+/* The homepage postscript region sits after the floated content/left columns;
+   without clearing it rides up under the slideshow. Drop it to a full-width
+   band just before the footer. Scoped via :has so other pages are untouched. */
+.postscript:has(.mmd-blog-home) { clear: both; width: 100%; float: none; }
+.mmd-blog-home { clear: both; max-width: 1200px; margin: 40px auto; padding: 0 15px; }
+.mmd-blog-home-head { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 22px; gap: 16px; flex-wrap: wrap; }
+.mmd-blog-home-head h2 { font-size: 26px; font-weight: 800; color: #111827; margin: 4px 0 0; }
+.mmd-blog-home-all { font-weight: 700; font-size: 14px; color: #2563eb !important; white-space: nowrap; }
+.mmd-blog-home-all:hover { color: #7c3aed !important; text-decoration: none; }
+.mmd-blog-home .mmd-blog-card-body h3 { font-size: 16px; line-height: 1.35; margin: 0 0 8px; }
+.mmd-blog-home .mmd-blog-card-body h3 a { color: #111827; }
+.mmd-blog-home .mmd-blog-card-body h3 a:hover { color: #2563eb; }
+/* Latest-4 strip: one row of 4 on desktop, 2-up tablet, 1-up mobile. */
+.mmd-blog-home .mmd-blog-grid { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 960px) { .mmd-blog-home .mmd-blog-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 560px) { .mmd-blog-home .mmd-blog-grid { grid-template-columns: 1fr; } }
+
 /* --- Listing grid ---------------------------------------------------------- */
 .mmd-blog-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 24px; }
 .mmd-blog-card { background: #fff; border: 1px solid var(--mb-line); border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; transition: box-shadow .2s ease, transform .2s ease; }
@@ -57,7 +75,8 @@
 .mmd-blog-card-body { padding: 15px 18px 18px; display: flex; flex-direction: column; flex: 1; }
 .mmd-blog-card-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 9px; }
 .mmd-blog-date { font: 600 11px/1 var(--mb-mono); letter-spacing: 2px; color: var(--mb-blue); }
-.mmd-blog-stars-inline { color: var(--mb-amber); font-weight: 700; font-size: 12px; }
+.mmd-blog-likes-inline { display: inline-flex; align-items: center; gap: 4px; color: var(--mb-blue); font-weight: 700; font-size: 12px; }
+.mmd-blog-likes-inline svg { display: block; }
 .mmd-blog-card-body h2 { font-size: 16.5px; line-height: 1.35; margin: 0 0 8px; }
 .mmd-blog-card-body h2 a { color: var(--mb-ink); }
 .mmd-blog-card-body h2 a:hover { color: var(--mb-blue); }
@@ -98,12 +117,14 @@
 .mmd-share-whatsapp { background: #128c5e; }
 .mmd-share-email { background: #6b7280; }
 
-/* Star rating */
-.mmd-blog-rating { display: flex; align-items: center; gap: 8px; }
-.mmd-star { background: none !important; border: 0 !important; padding: 0 1px !important; font-size: 22px; line-height: 1; color: var(--mb-line2); cursor: pointer; transition: color .12s ease, transform .12s ease; }
-.mmd-star:hover { transform: scale(1.15); }
-.mmd-star.is-on { color: var(--mb-amber); }
-.mmd-blog-rating-info { font-size: 12px; color: var(--mb-muted); }
+/* Thumbs-up like button */
+.mmd-blog-like { display: inline-flex; align-items: center; gap: 8px; background: #fff; border: 1px solid var(--mb-line2); border-radius: 999px; padding: 6px 16px; font-size: 13px; font-weight: 700; color: var(--mb-muted); cursor: pointer; transition: border-color .15s ease, color .15s ease, background .15s ease, transform .1s ease; }
+.mmd-blog-like:hover { border-color: var(--mb-blue); color: var(--mb-blue); }
+.mmd-blog-like:active { transform: scale(0.96); }
+.mmd-blog-like.is-liked { background: var(--mb-blue); border-color: var(--mb-blue); color: #fff; cursor: default; }
+.mmd-blog-like-icon { display: block; transition: transform .15s ease; }
+.mmd-blog-like.is-liked .mmd-blog-like-icon { transform: translateY(-1px); }
+.mmd-blog-like-count { font-variant-numeric: tabular-nums; }
 
 /* Article body typography */
 .mmd-blog-post-body { font-size: 16px; line-height: 1.75; color: #1f2937; }

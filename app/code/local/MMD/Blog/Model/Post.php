@@ -27,14 +27,10 @@ class MMD_Blog_Model_Post extends Mage_Core_Model_Abstract
         return (int) $this->getStatus() === self::STATUS_PUBLISHED;
     }
 
-    /** @return float 0.0 when unrated */
-    public function getAvgRating()
+    /** Thumbs-up count shown on the card and post page. */
+    public function getLikeCount()
     {
-        $count = (int) $this->getRatingCount();
-        if ($count < 1) {
-            return 0.0;
-        }
-        return round(((int) $this->getRatingSum()) / $count, 1);
+        return (int) $this->getLikes();
     }
 
     protected function _beforeSave()

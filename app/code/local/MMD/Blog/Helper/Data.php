@@ -151,40 +151,42 @@ class MMD_Blog_Helper_Data extends Mage_Core_Helper_Abstract
         return $out;
     }
 
-    /** Records one vote per visitor (keyed by IP+UA hash) and refreshes aggregates. */
-    public function ratePost($postId, $rating)
+    /**
+     * Register a thumbs-up. One like per visitor (keyed by IP+UA hash) — a
+     * repeat click is a no-op that just returns the current count. The seeded
+     * baseline (10..300, migration 309) is preserved: a genuine new like adds 1
+     * on top of it.
+     *
+     * @return array{likes:int,liked:bool}
+     */
+    public function likePost($postId)
     {
-        $postId = (int) $postId;
-        $rating = max(1, min(5, (int) $rating));
-        $resource = Mage::getSingleton('core/resource');
-        $write     = $resource->getConnection('core_write');
-        $voteTable = $resource->getTableName('mmd_blog_post_vote');
-        $postTable = $resource->getTableName('mmd_blog/post');
+        $postId    = (int) $postId;
+        $resource  = Mage::getSingleton('core/resource');
+        $write      = $resource->getConnection('core_write');
+        $voteTable  = $resource->getTableName('mmd_blog_post_vote');
+        $postTable  = $resource->getTableName('mmd_blog/post');
 
         $hash = sha1($postId . '|' . Mage::helper('core/http')->getRemoteAddr() . '|'
             . Mage::helper('core/http')->getHttpUserAgent());
 
-        $write->query(
-            "INSERT INTO {$voteTable} (post_id, voter_hash, rating, created_at)
-             VALUES (:post_id, :hash, :rating, NOW())
-             ON DUPLICATE KEY UPDATE rating = VALUES(rating)",
-            array('post_id' => $postId, 'hash' => $hash, 'rating' => $rating)
+        // INSERT IGNORE returns affected rows = 1 for a new like, 0 for a repeat.
+        $stmt   = $write->query(
+            "INSERT IGNORE INTO {$voteTable} (post_id, voter_hash, rating, created_at)
+             VALUES (:post_id, :hash, 1, NOW())",
+            array('post_id' => $postId, 'hash' => $hash)
         );
-        $write->query(
-            "UPDATE {$postTable} p SET
-                p.rating_sum   = (SELECT COALESCE(SUM(v.rating), 0) FROM {$voteTable} v WHERE v.post_id = p.post_id),
-                p.rating_count = (SELECT COUNT(*) FROM {$voteTable} v WHERE v.post_id = p.post_id)
-             WHERE p.post_id = :post_id",
-            array('post_id' => $postId)
-        );
+        $isNew = ((int) $stmt->rowCount()) > 0;
+        if ($isNew) {
+            $write->query(
+                "UPDATE {$postTable} SET likes = likes + 1 WHERE post_id = :post_id",
+                array('post_id' => $postId)
+            );
+        }
 
-        $row = $write->fetchRow(
-            $write->select()->from($postTable, array('rating_sum', 'rating_count'))->where('post_id = ?', $postId)
+        $likes = (int) $write->fetchOne(
+            $write->select()->from($postTable, 'likes')->where('post_id = ?', $postId)
         );
-        $count = (int) $row['rating_count'];
-        return array(
-            'avg'   => $count ? round($row['rating_sum'] / $count, 1) : 0,
-            'count' => $count,
-        );
+        return array('likes' => $likes, 'liked' => $isNew);
     }
 }

@@ -40,6 +40,15 @@ class MMD_Blog_Block_List extends Mage_Core_Block_Template
         return $page > 1 ? $base . '?p=' . (int) $page : $base;
     }
 
+    /** Latest N published posts — for the homepage "From our blog" strip. */
+    public function getRecentPosts($limit = 4)
+    {
+        return Mage::getModel('mmd_blog/post')->getCollection()
+            ->addPublishedFilter()
+            ->setPageSize((int) $limit)
+            ->setCurPage(1);
+    }
+
     public function helper($name = 'mmd_blog')
     {
         return Mage::helper($name);

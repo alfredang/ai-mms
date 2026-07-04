@@ -1,14 +1,13 @@
 <?php
 /**
- * Single blog post — hero, meta row, share buttons, star rating, article body,
+ * Single blog post — hero, meta row, share buttons, thumbs-up like, article body,
  * lead-magnet CTA (related courses + WSQ funding / SkillsFuture Credit hook),
  * tags, JSON-LD Article schema. Design mirrors tertiaryinfotech.com/blog.
  * @var MMD_Blog_Block_View $this
  */
 $post   = $this->getPost();
 $helper = Mage::helper('mmd_blog');
-$avg    = $post->getAvgRating();
-$count  = (int) $post->getRatingCount();
+$likes  = (int) $post->getLikeCount();
 $courses = $this->getRelatedCourses();
 $tags    = $this->getTags();
 $storeName = Mage::getStoreConfig('general/store_information/name') ?: 'Tertiary Infotech Academy';
@@ -41,19 +40,13 @@ $storeName = Mage::getStoreConfig('general/store_information/name') ?: 'Tertiary
                     <a class="mmd-blog-share-btn mmd-share-<?php echo strtolower($label) ?>" href="<?php echo $this->escapeHtml($href) ?>" target="_blank" rel="noopener nofollow" title="Share on <?php echo $label ?>"><?php echo $label === 'X' ? '&#120143;' : $this->escapeHtml($label) ?></a>
                 <?php endforeach; ?>
             </div>
-            <div class="mmd-blog-rating" id="mmd-blog-rating"
+            <button type="button" class="mmd-blog-like" id="mmd-blog-like"
                  data-post="<?php echo (int) $post->getId() ?>"
-                 data-url="<?php echo $this->escapeHtml($this->getRateUrl()) ?>"
-                 data-avg="<?php echo $avg ?>">
-                <span class="mmd-blog-rating-stars" role="radiogroup" aria-label="Rate this article">
-                    <?php for ($i = 1; $i <= 5; $i++): ?>
-                        <button type="button" class="mmd-star" data-value="<?php echo $i ?>" aria-label="<?php echo $i ?> star<?php echo $i > 1 ? 's' : '' ?>">&#9733;</button>
-                    <?php endfor; ?>
-                </span>
-                <span class="mmd-blog-rating-info" id="mmd-blog-rating-info">
-                    <?php echo $count ? $avg . ' (' . $count . ' rating' . ($count > 1 ? 's' : '') . ')' : 'Rate this article' ?>
-                </span>
-            </div>
+                 data-url="<?php echo $this->escapeHtml($this->getLikeUrl()) ?>"
+                 aria-label="Like this article">
+                <svg class="mmd-blog-like-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/></svg>
+                <span class="mmd-blog-like-count" id="mmd-blog-like-count"><?php echo $likes ?></span>
+            </button>
         </div>
     </header>
 
@@ -107,13 +100,11 @@ $schema = array(
 if ($post->getHeroImageUrl()) {
     $schema['image'] = $post->getHeroImageUrl();
 }
-if ($count > 0) {
-    $schema['aggregateRating'] = array(
-        '@type'       => 'AggregateRating',
-        'ratingValue' => $avg,
-        'ratingCount' => $count,
-        'bestRating'  => 5,
-        'worstRating' => 1,
+if ($likes > 0) {
+    $schema['interactionStatistic'] = array(
+        '@type'                => 'InteractionCounter',
+        'interactionType'      => 'https://schema.org/LikeAction',
+        'userInteractionCount' => $likes,
     );
 }
 echo json_encode($schema, JSON_UNESCAPED_SLASHES);
@@ -122,41 +113,26 @@ echo json_encode($schema, JSON_UNESCAPED_SLASHES);
 
 <script>
 (function () {
-    var box = document.getElementById('mmd-blog-rating');
-    if (!box) return;
-    var stars = box.querySelectorAll('.mmd-star');
-    var info  = document.getElementById('mmd-blog-rating-info');
-    var avg   = parseFloat(box.getAttribute('data-avg')) || 0;
-
-    function paint(value) {
-        for (var i = 0; i < stars.length; i++) {
-            stars[i].className = 'mmd-star' + (i < value ? ' is-on' : '');
-        }
-    }
-    paint(Math.round(avg));
-
-    for (var i = 0; i < stars.length; i++) {
-        (function (star) {
-            star.addEventListener('mouseenter', function () { paint(parseInt(star.getAttribute('data-value'), 10)); });
-            star.addEventListener('click', function () {
-                var value = parseInt(star.getAttribute('data-value'), 10);
-                var xhr = new XMLHttpRequest();
-                xhr.open('POST', box.getAttribute('data-url'), true);
-                xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-                xhr.onload = function () {
-                    try {
-                        var rsp = JSON.parse(xhr.responseText);
-                        if (rsp.ok) {
-                            box.setAttribute('data-avg', rsp.avg);
-                            paint(Math.round(rsp.avg));
-                            info.textContent = 'Thanks! ' + rsp.avg + ' (' + rsp.count + ' rating' + (rsp.count > 1 ? 's' : '') + ')';
-                        }
-                    } catch (e) {}
-                };
-                xhr.send('post_id=' + box.getAttribute('data-post') + '&rating=' + value);
-            });
-        })(stars[i]);
-    }
-    box.addEventListener('mouseleave', function () { paint(Math.round(parseFloat(box.getAttribute('data-avg')) || 0)); });
+    var btn = document.getElementById('mmd-blog-like');
+    if (!btn) return;
+    var countEl = document.getElementById('mmd-blog-like-count');
+    var liked = false;
+    btn.addEventListener('click', function () {
+        if (liked) return;
+        liked = true;
+        btn.classList.add('is-liked');
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', btn.getAttribute('data-url'), true);
+        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+        xhr.onload = function () {
+            try {
+                var rsp = JSON.parse(xhr.responseText);
+                if (rsp.ok && typeof rsp.likes !== 'undefined') {
+                    countEl.textContent = rsp.likes;
+                }
+            } catch (e) {}
+        };
+        xhr.send('post_id=' + btn.getAttribute('data-post'));
+    });
 })();
 </script>
