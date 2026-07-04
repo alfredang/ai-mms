@@ -55,6 +55,7 @@ This system runs as a **franchise model**:
 | 🎟️ **Payments** | Stripe, HitPay, PayNow and bank transfer. |
 | 📜 **Certificates & attendance** | E-attendance and certificate-of-achievement generation. |
 | 📣 **Autonomous newsletter** | SG-only agentic-flyer pipeline: designs a course flyer Mon & Thu 10am → both-manager approval (email **or** admin) → MailerLite blast Mon & Thu 8am. Hard cap **2 flyers/week**; nothing sends without approval. |
+| ✍️ **Lead-magnet blog** | `/blog` with slug URLs, SEO meta + Article JSON-LD, Magento-tag reuse, star ratings, social share, R2 hero images. Every post funnels readers to course sign-up with the WSQ funding / SkillsFuture Credit hook. Monday 9am cron auto-writes a post (Claude) for the top unblogged course, auto-publishes, and shares it on LinkedIn. |
 | 🎨 **Ultimo storefront** | Premium responsive theme + a custom dark admin theme. |
 
 ## Tech Stack
@@ -141,6 +142,7 @@ ai-mms/
 | **AccountSync** | Unified learner ↔ shadow admin accounts. |
 | **Courses / Leads** | Course CRUD + admin grid; contact-form lead capture. |
 | **Marketing** | Autonomous agentic-flyer newsletter pipeline — cron design (Mon/Thu 10am), signed email + backend manager approval, guarded MailerLite scheduling (Blastguard: 2 blasts/week, Mon/Thu 8am), subscriber-growth + campaign KPIs. |
+| **Blog** | CMS-style lead-magnet blog — Marketing → Blog Posts admin (WYSIWYG, SEO meta, tags, R2 hero upload), `/blog/<slug>` storefront with ratings + share, Monday 9am Claude auto-blog with LinkedIn auto-share. |
 
 ## Getting Started
 
