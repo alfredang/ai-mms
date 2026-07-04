@@ -67,6 +67,29 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
             );
         } catch (Exception $e) { /* runs optional */ }
 
+        // "What you'll learn" — parse the course-topic structure every course page
+        // uses in `description` (<h3 class="course-topic-h3">Topic N: Title</h3><ul>…)
+        // into topic bullets: bold topic title + its syllabus items as the detail.
+        $topics = array();
+        $desc = (string) $raw('description');
+        if ($desc !== '' && preg_match_all('#<h3[^>]*>(.*?)</h3>\s*<ul>(.*?)</ul>#is', $desc, $tm, PREG_SET_ORDER)) {
+            foreach (array_slice($tm, 0, 4) as $t) {
+                $title = trim(preg_replace('/^\s*Topic\s*\d+\s*:\s*/i', '',
+                    html_entity_decode(strip_tags($t[1]), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+                $items = array();
+                if (preg_match_all('#<li[^>]*>(.*?)</li>#is', $t[2], $li)) {
+                    foreach ($li[1] as $x) {
+                        $x = trim(preg_replace('/\s+/u', ' ',
+                            html_entity_decode(strip_tags($x), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+                        if ($x !== '') { $items[] = $x; }
+                    }
+                }
+                if ($title !== '') {
+                    $topics[] = array('title' => $title, 'items' => array_slice($items, 0, 4));
+                }
+            }
+        }
+
         return array(
             'id'        => $productId,
             'sku'       => $sku,
@@ -79,6 +102,7 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
             'blurb'     => $blurb,
             'is_wsq'    => (stripos($sku, 'TGS-') === 0) || in_array('WSQ', $badges, true),
             'runs'      => $runs,
+            'topics'    => $topics,
         );
     }
 
@@ -116,25 +140,63 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
             $hook = ($lastDot !== false && $lastDot > 90) ? mb_substr($cut, 0, $lastDot + 1) : rtrim($cut, " ,;:") . '&hellip;';
         }
 
-        // Benefit / outcome value-props — data-driven, truthful, not spec regurgitation.
-        $props = array(
-            'Hands-on and practical &mdash; build skills you can apply the very next day',
-            'Learn from experienced industry trainers in a small, focused class',
-        );
-        $props[] = $c['is_wsq']
-            ? 'WSQ-recognised &mdash; earn a Statement of Attainment on completion'
-            : 'Earn an industry-recognised certificate of completion';
-        if ($c['is_wsq']) {
-            $props[] = 'Up to 70% WSQ / SkillsFuture funding for eligible Singaporeans';
-        } elseif (!empty($c['badges'])) {
-            $props[] = 'Funding support available &mdash; ' . $h(implode(', ', array_slice($c['badges'], 0, 3)));
+        // ---- FUNNEL: the offer, stated in the hero ---------------------------------
+        // Price-drop strip (anchor -> nett -> S$0) shown right under the headline so
+        // the value story lands before anything else. WSQ-only; numbers match the
+        // detailed breakdown card below.
+        $feeF = (float) $c['price'];
+        $offerHtml = '';
+        if ($c['is_wsq'] && $feeF > 0) {
+            $gstF  = $feeF * 0.09;
+            $n40   = ($feeF - $feeF * 0.70) + $gstF;
+            $offerHtml = '<table role="presentation" style="margin-top:18px;"><tr>'
+                . '<td style="padding:0 10px 6px 0;"><span style="font:600 13.5px ' . $sans . ';color:#8fa1c6;"><s>S$' . number_format($feeF + $gstF, 0) . ' w/GST</s></span></td>'
+                . '<td style="padding:0 10px 6px 0;"><span style="display:inline-block;font:800 15px ' . $sans . ';color:#fff;background:#1d4ed8;padding:7px 13px;border-radius:999px;white-space:nowrap;">S$' . number_format($n40, 0) . ' nett &middot; age 40+</span></td>'
+                . '<td style="padding-bottom:6px;"><span style="font:700 12.5px ' . $sans . ';color:#7dd3fc;">as low as S$0 with SkillsFuture Credit</span></td>'
+                . '</tr></table>';
         }
-        $propsHtml = '';
-        foreach ($props as $p) {
-            $propsHtml .= '<tr>'
-                . '<td width="18" valign="top" style="padding:0 10px 12px 0;"><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#2563eb;margin-top:5px;"></span></td>'
-                . '<td style="font:400 14px/1.5 ' . $sans . ';color:#42506a;padding-bottom:12px;">' . $p . '</td>'
-                . '</tr>';
+
+        // ---- FUNNEL: value stack — "What you'll learn" from real catalog topics ----
+        $learnHtml = '';
+        if (!empty($c['topics'])) {
+            $lrows = '';
+            foreach ($c['topics'] as $t) {
+                $detail = $t['items'] ? ' &mdash; ' . $h(implode(', ', $t['items'])) : '';
+                $lrows .= '<tr>'
+                    . '<td width="18" valign="top" style="padding:0 10px 12px 0;"><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#2563eb;margin-top:5px;"></span></td>'
+                    . '<td style="font:400 14px/1.55 ' . $sans . ';color:#42506a;padding-bottom:12px;"><b style="color:#0a1020;">' . $h($t['title']) . '</b>' . $detail . '</td>'
+                    . '</tr>';
+            }
+            $cert = $c['is_wsq']
+                ? 'Complete the day and earn a <b style="color:#0a1020;">WSQ Statement of Attainment</b>.'
+                : 'Complete the day and earn a certificate of completion.';
+            $learnHtml = '<tr><td style="padding:24px 30px 8px;">'
+                . '<div style="font:800 13px ' . $sans . ';text-transform:uppercase;letter-spacing:.8px;color:#2563eb;margin-bottom:16px;">What you&rsquo;ll learn &mdash; hands-on</div>'
+                . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0">' . $lrows . '</table>'
+                . '<div style="font:600 12.5px ' . $sans . ';color:#42506a;margin-top:2px;">' . $cert . '</div>'
+                . '</td></tr>';
+        }
+
+        // ---- FUNNEL: friction-killer — how the funding works, in 3 steps -----------
+        $stepsHtml = '';
+        if ($c['is_wsq']) {
+            $steps = array(
+                array('1', 'Pick a date &amp; register', 'Reserve your seat on the course page in 2 minutes.'),
+                array('2', 'Funding applied up front', 'Pay only the nett fee &mdash; WSQ funding is deducted at registration.'),
+                array('3', 'Offset the rest', 'Use your SkillsFuture Credit for the balance &mdash; down to S$0 cash.'),
+            );
+            $srow = '';
+            foreach ($steps as $s) {
+                $srow .= '<td width="33%" valign="top" style="padding:0 12px 0 0;">'
+                    . '<div style="font:800 12px ' . $sans . ';color:#fff;background:#2563eb;width:22px;height:22px;line-height:22px;text-align:center;border-radius:999px;">' . $s[0] . '</div>'
+                    . '<div style="font:800 13.5px ' . $sans . ';color:#0a1020;margin-top:8px;">' . $s[1] . '</div>'
+                    . '<div style="font:400 12.5px/1.5 ' . $sans . ';color:#42506a;margin-top:4px;">' . $s[2] . '</div>'
+                    . '</td>';
+            }
+            $stepsHtml = '<tr><td style="padding:20px 30px 6px;">'
+                . '<div style="font:800 13px ' . $sans . ';text-transform:uppercase;letter-spacing:.8px;color:#2563eb;margin-bottom:14px;">How your funding works</div>'
+                . '<table role="presentation" width="100%"><tr>' . $srow . '</tr></table>'
+                . '</td></tr>';
         }
 
         $badgeColors = array(
@@ -227,41 +289,34 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         .     '<td align="right"><span style="font:700 10.5px ' . $sans . ';letter-spacing:.9px;text-transform:uppercase;color:#2563eb;background:#eaf0fe;border:1px solid #c7d7fe;padding:5px 10px;border-radius:999px;">WSQ &middot; SkillsFuture Funded</span></td>'
         .   '</tr></table>'
         . '</td></tr>'
-        // hero + persuasive hook
+        // hero — headline, hook, the OFFER (price drop) and a first CTA: the funnel
+        // opens with the full value story instead of burying the price at the bottom
         . '<tr><td style="background:#0a1020;padding:34px 30px 30px;">'
-        .   '<div style="font:700 11px ' . $sans . ';letter-spacing:1.6px;text-transform:uppercase;color:#22d3ee;margin-bottom:14px;">Hands-on Workshop</div>'
+        .   '<div style="font:700 11px ' . $sans . ';letter-spacing:1.6px;text-transform:uppercase;color:#22d3ee;margin-bottom:14px;">Hands-on Workshop &middot; 1 Day' . ($c['is_wsq'] ? ' &middot; Up to 70% Funded' : '') . '</div>'
         .   '<h1 style="margin:0;font:800 31px/1.12 ' . $sans . ';color:#ffffff;letter-spacing:-.6px;">' . $h($c['name']) . '</h1>'
         .   ($hook ? '<div style="margin:16px 0 0;font:400 14.5px/1.55 ' . $sans . ';color:#b7c4e0;max-width:54ch;">' . $h($hook) . '</div>' : '')
-        .   '<div style="margin-top:20px;font:400 12.5px ' . $mono . ';letter-spacing:1px;color:#9fb3d8;background:#12203f;border:1px solid #22345c;display:inline-block;padding:6px 12px;border-radius:8px;">' . $h($c['sku']) . '</div>'
+        .   $offerHtml
+        .   '<a href="' . $h($c['url']) . '" style="display:inline-block;margin-top:16px;background:#2563eb;color:#fff;text-decoration:none;font:700 14px ' . $sans . ';padding:12px 22px;border-radius:10px;">Claim my funded seat &rarr;</a>'
+        .   '<div style="margin-top:18px;font:400 12.5px ' . $mono . ';letter-spacing:1px;color:#9fb3d8;background:#12203f;border:1px solid #22345c;display:inline-block;padding:6px 12px;border-radius:8px;">' . $h($c['sku']) . '</div>'
         . '</td></tr>'
         // facts
         . '<tr><td style="background:#eef2f7;border-bottom:1px solid #e4e9f0;">'
         .   '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>'
         .     '<td width="33%" style="padding:16px 20px;border-right:1px solid #e4e9f0;"><div style="font:700 10.5px ' . $sans . ';letter-spacing:.8px;text-transform:uppercase;color:#7c8aa3;">Duration</div><div style="font:800 17px ' . $sans . ';color:#0a1020;margin-top:4px;">' . $duration . '</div></td>'
-        .     '<td width="33%" style="padding:16px 20px;border-right:1px solid #e4e9f0;"><div style="font:700 10.5px ' . $sans . ';letter-spacing:.8px;text-transform:uppercase;color:#7c8aa3;">Format</div><div style="font:800 17px ' . $sans . ';color:#0a1020;margin-top:4px;">Classroom / Live Online</div></td>'
+        .     '<td width="33%" style="padding:16px 20px;border-right:1px solid #e4e9f0;"><div style="font:700 10.5px ' . $sans . ';letter-spacing:.8px;text-transform:uppercase;color:#7c8aa3;">Format</div><div style="font:800 17px ' . $sans . ';color:#0a1020;margin-top:4px;">Classroom</div></td>'
         .     '<td width="34%" style="padding:16px 20px;"><div style="font:700 10.5px ' . $sans . ';letter-spacing:.8px;text-transform:uppercase;color:#7c8aa3;">Full Fee</div><div style="font:800 17px ' . $sans . ';color:#0a1020;margin-top:4px;">S$' . $price . '<small style="font:600 11px ' . $sans . ';color:#7c8aa3;margin-left:2px;">+GST</small></div></td>'
         .   '</tr></table>'
         . '</td></tr>'
-        // why take this course (benefits)
-        . '<tr><td style="padding:24px 30px 8px;">'
-        .   '<div style="font:800 13px ' . $sans . ';text-transform:uppercase;letter-spacing:.8px;color:#2563eb;margin-bottom:16px;">Why take this course</div>'
-        .   '<table role="presentation" width="100%" cellpadding="0" cellspacing="0">' . $propsHtml . '</table>'
-        . '</td></tr>'
+        // FUNNEL body: value stack -> urgency -> friction-killer -> proof of the offer
+        . $learnHtml
         // upcoming intakes (next 2 class dates)
         . $scheduleHtml
+        // how funding works (3 steps)
+        . $stepsHtml
         // fee-after-funding breakdown (WSQ)
         . $fundingHtml
         // funding badges
         . ($badgesHtml ? '<tr><td style="padding:14px 30px 8px;"><div style="font:700 12px ' . $sans . ';text-transform:uppercase;letter-spacing:.7px;color:#7c8aa3;margin-bottom:12px;">Offset your fee with</div><table role="presentation"><tr>' . $badgesHtml . '</tr></table></td></tr>' : '')
-        // lead magnet band
-        . '<tr><td style="padding:16px 30px 22px;">'
-        .   '<table role="presentation" width="100%" style="background:#eff4ff;border:1px solid #c7d7fe;border-radius:14px;"><tr><td style="padding:20px 22px;">'
-        .     '<div style="font:800 10.5px ' . $sans . ';letter-spacing:1.2px;text-transform:uppercase;color:#2563eb;">Free &middot; No obligation</div>'
-        .     '<div style="font:800 18px/1.25 ' . $sans . ';color:#0a1020;margin-top:6px;">Not ready to enrol? Check your ' . $fundLabel . ' first</div>'
-        .     '<div style="font:400 13.5px/1.55 ' . $sans . ';color:#42506a;margin-top:8px;max-width:56ch;">See exactly how much you can claim and get the full course syllabus emailed to you &mdash; free, in under a minute.</div>'
-        .     '<a href="' . $h($leadUrl) . '" style="display:inline-block;margin-top:14px;background:#ffffff;color:#1d4ed8;text-decoration:none;font:700 13.5px ' . $sans . ';padding:10px 18px;border-radius:9px;border:1.5px solid #2563eb;">Check my funding &amp; get the syllabus &rarr;</a>'
-        .   '</td></tr></table>'
-        . '</td></tr>'
         // CTA + QR
         . '<tr><td style="background:#0a1020;padding:26px 30px;">'
         .   '<table role="presentation" width="100%"><tr>'
@@ -274,6 +329,16 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         .     '</td>'
         .     '<td width="154" align="right" valign="middle"><table role="presentation" style="background:#fff;border-radius:14px;"><tr><td style="padding:12px;" align="center"><img src="' . $h($qr) . '" width="130" height="130" alt="Scan to register" style="display:block;border-radius:6px;"><div style="font:400 10px ' . $mono . ';letter-spacing:.6px;color:#64748b;margin-top:8px;">' . $h($c['sku']) . '</div></td></tr></table></td>'
         .   '</tr></table>'
+        . '</td></tr>'
+        // lead magnet band — the funnel's fallback path for the not-yet-ready reader,
+        // placed AFTER the primary CTA so it catches whoever didn't convert above
+        . '<tr><td style="padding:18px 30px 22px;">'
+        .   '<table role="presentation" width="100%" style="background:#eff4ff;border:1px solid #c7d7fe;border-radius:14px;"><tr><td style="padding:20px 22px;">'
+        .     '<div style="font:800 10.5px ' . $sans . ';letter-spacing:1.2px;text-transform:uppercase;color:#2563eb;">Free &middot; No obligation</div>'
+        .     '<div style="font:800 18px/1.25 ' . $sans . ';color:#0a1020;margin-top:6px;">Not ready to enrol? Check your ' . $fundLabel . ' first</div>'
+        .     '<div style="font:400 13.5px/1.55 ' . $sans . ';color:#42506a;margin-top:8px;max-width:56ch;">See exactly how much you can claim and get the full course syllabus emailed to you &mdash; free, in under a minute.</div>'
+        .     '<a href="' . $h($leadUrl) . '" style="display:inline-block;margin-top:14px;background:#ffffff;color:#1d4ed8;text-decoration:none;font:700 13.5px ' . $sans . ';padding:10px 18px;border-radius:9px;border:1.5px solid #2563eb;">Check my funding &amp; get the syllabus &rarr;</a>'
+        .   '</td></tr></table>'
         . '</td></tr>'
         // footer (two lines, matches approved artifact)
         . '<tr><td style="background:#0a1020;padding:14px 22px;border-top:1px solid #1c2740;font:400 11px/1.7 ' . $sans . ';color:#8593ad;">Tertiary Infotech Academy Pte Ltd &middot; UEN 201200696W<br>+65 6100 0613 &middot; enquiry@tertiaryinfotech.com</td></tr>'
