@@ -119,57 +119,19 @@ class MMD_Blog_Helper_Data extends Mage_Core_Helper_Abstract
     }
 
     /**
-     * Effective hero image for a post, in priority order:
-     *   1. an explicitly uploaded hero (stored on R2 via Helper_Image), else
-     *   2. the source course's catalog image — which is R2-served like every
-     *      product image, so blog cards match the product cards exactly.
-     * Returns '' when neither exists (template then shows the gradient cover).
-     * Resolved with two light queries (no full product load).
+     * Effective hero image for a post: an explicitly uploaded hero stored on
+     * Cloudflare R2 (via Helper_Image / the blog-covers generator). Returns ''
+     * when none is set — the template then renders the branded gradient cover.
+     *
+     * NOTE: do NOT fall back to the source course's catalog image. The catalog
+     * product ORIGINAL (media/catalog/product/<path>) 500s on production (the
+     * original isn't on disk and get.php chokes; only R2 copies + resized cache
+     * exist), which showed a broken hero on the live blog. Gradient cover is the
+     * safe default; a real image only appears when hero_image_url is an R2 URL.
      */
     public function getHeroImage($post)
     {
-        if ($post->getHeroImageUrl()) {
-            return $post->getHeroImageUrl();
-        }
-        $sku = trim((string) $post->getSourceSku());
-        if ($sku === '') {
-            $skus = array_filter(array_map('trim', explode(',', (string) $post->getRelatedSkus())));
-            $sku  = $skus ? reset($skus) : '';
-        }
-        if ($sku === '') {
-            return '';
-        }
-        $resource = Mage::getSingleton('core/resource');
-        $read     = $resource->getConnection('core_read');
-        $prodTable = $resource->getTableName('catalog/product');
-        // Exact match first (uses the sku index); fall back to a trimmed match
-        // for catalog SKUs that carry stray trailing whitespace/tabs.
-        $entityId = $read->fetchOne(
-            $read->select()->from($prodTable, 'entity_id')->where('sku = ?', $sku)
-        );
-        if (!$entityId) {
-            $entityId = $read->fetchOne(
-                $read->select()->from($prodTable, 'entity_id')->where('TRIM(sku) = ?', $sku)->limit(1)
-            );
-        }
-        if (!$entityId) {
-            return '';
-        }
-        $attrId = (int) Mage::getSingleton('eav/config')->getAttribute('catalog_product', 'image')->getId();
-        $storeId = (int) Mage::app()->getStore()->getId();
-        $img = $read->fetchOne(
-            $read->select()
-                ->from($resource->getTableName('catalog_product_entity_varchar'), 'value')
-                ->where('entity_id = ?', $entityId)
-                ->where('attribute_id = ?', $attrId)
-                ->where('store_id IN (?)', array(0, $storeId))
-                ->order('store_id DESC')
-                ->limit(1)
-        );
-        if (!$img || $img === 'no_selection') {
-            return '';
-        }
-        return rtrim(Mage::getBaseUrl(Mage_Core_Model_Store::URL_TYPE_MEDIA), '/') . '/catalog/product' . $img;
+        return (string) $post->getHeroImageUrl();
     }
 
     /** Run post HTML through the CMS directive filter ({{store}}, {{media}}, ...). */
