@@ -612,13 +612,15 @@ li.level2 > a > span > .cat-label,
 
 /* "Course Details / Course Info / Job Roles / Trainers / Review" tabs container
    (.box-additional.grid12-8, 66% wide) sits in the left+center column area
-   below the short-description / framework block. The right booking sidebar
-   is currently the tallest column on most course pages, so `clear: both`
-   leaves a large empty gap beneath the shorter left stack before the tabs.
-   Using `clear: none` lets the tabs flow up tight under the left column
-   content. Flip back to `clear: both` if the left+center stack starts
-   ending taller than the booking sidebar again. */
-.product-view > .box-additional { clear: none; }
+   below the short-description / framework block. The left/center stack (tall
+   Certification card + policy cards) is currently the tallest column on most
+   course pages, so `clear: none` lets the tabs slide UP into the leftover gap
+   beside — and past — the right booking sidebar, displacing them to the right.
+   `clear: both` drops the tabs below the tallest column so they float left at
+   66% width, aligned to the left as intended. Flip back to `clear: none` only
+   if the right booking sidebar starts ending taller than the left+center stack
+   again (would then leave a large empty gap above the tabs). */
+.product-view > .box-additional { clear: both; }
 
 .course-info-card,
 .course-policy-card {
