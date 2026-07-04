@@ -1,0 +1,162 @@
+<?php
+/**
+ * Single blog post — hero, meta row, share buttons, star rating, article body,
+ * lead-magnet CTA (related courses + WSQ funding / SkillsFuture Credit hook),
+ * tags, JSON-LD Article schema. Design mirrors tertiaryinfotech.com/blog.
+ * @var MMD_Blog_Block_View $this
+ */
+$post   = $this->getPost();
+$helper = Mage::helper('mmd_blog');
+$avg    = $post->getAvgRating();
+$count  = (int) $post->getRatingCount();
+$courses = $this->getRelatedCourses();
+$tags    = $this->getTags();
+$storeName = Mage::getStoreConfig('general/store_information/name') ?: 'Tertiary Infotech Academy';
+?>
+<article class="mmd-blog mmd-blog-post" itemscope itemtype="https://schema.org/Article">
+    <div class="mmd-blog-post-hero<?php echo $post->getHeroImageUrl() ? '' : ' is-fallback' ?>">
+        <?php if ($post->getHeroImageUrl()): ?>
+            <img src="<?php echo $this->escapeHtml($post->getHeroImageUrl()) ?>" alt="<?php echo $this->escapeHtml($post->getTitle()) ?>" itemprop="image"/>
+        <?php else: ?>
+            <?php $kickerTags = array_slice($tags, 0, 2); ?>
+            <span class="mmd-blog-hero-fallback"><span class="mmd-blog-hero-kicker">[ <?php echo $this->escapeHtml($kickerTags ? mb_strtoupper(implode(' · ', $kickerTags), 'UTF-8') : 'ARTICLE') ?> ]</span><span class="mmd-blog-hero-title"><?php echo $this->escapeHtml($post->getTitle()) ?></span></span>
+        <?php endif; ?>
+    </div>
+
+    <header class="mmd-blog-post-head">
+        <p class="mmd-blog-crumb"><a href="<?php echo $helper->getListUrl() ?>">Blog</a> <span>/</span> <?php echo $this->escapeHtml($post->getTitle()) ?></p>
+        <h1 itemprop="headline"><?php echo $this->escapeHtml($post->getTitle()) ?></h1>
+        <div class="mmd-blog-post-meta">
+            <span class="mmd-blog-avatar" aria-hidden="true"><?php echo $this->escapeHtml(strtoupper(substr($post->getAuthor() ?: $storeName, 0, 1))) ?></span>
+            <span itemprop="author"><?php echo $this->escapeHtml($post->getAuthor() ?: $storeName) ?></span>
+            <span class="mmd-blog-dot">&middot;</span>
+            <time itemprop="datePublished" datetime="<?php echo $this->escapeHtml($post->getPublishedAt()) ?>"><?php echo date('d-m-Y', strtotime($post->getPublishedAt())) ?></time>
+            <span class="mmd-blog-dot">&middot;</span>
+            <span><?php echo $this->getReadingMinutes() ?> min read</span>
+        </div>
+
+        <div class="mmd-blog-actions">
+            <div class="mmd-blog-share" aria-label="Share this article">
+                <?php foreach ($this->getShareLinks() as $label => $href): ?>
+                    <a class="mmd-blog-share-btn mmd-share-<?php echo strtolower($label) ?>" href="<?php echo $this->escapeHtml($href) ?>" target="_blank" rel="noopener nofollow" title="Share on <?php echo $label ?>"><?php echo $label === 'X' ? '&#120143;' : $this->escapeHtml($label) ?></a>
+                <?php endforeach; ?>
+            </div>
+            <div class="mmd-blog-rating" id="mmd-blog-rating"
+                 data-post="<?php echo (int) $post->getId() ?>"
+                 data-url="<?php echo $this->escapeHtml($this->getRateUrl()) ?>"
+                 data-avg="<?php echo $avg ?>">
+                <span class="mmd-blog-rating-stars" role="radiogroup" aria-label="Rate this article">
+                    <?php for ($i = 1; $i <= 5; $i++): ?>
+                        <button type="button" class="mmd-star" data-value="<?php echo $i ?>" aria-label="<?php echo $i ?> star<?php echo $i > 1 ? 's' : '' ?>">&#9733;</button>
+                    <?php endfor; ?>
+                </span>
+                <span class="mmd-blog-rating-info" id="mmd-blog-rating-info">
+                    <?php echo $count ? $avg . ' (' . $count . ' rating' . ($count > 1 ? 's' : '') . ')' : 'Rate this article' ?>
+                </span>
+            </div>
+        </div>
+    </header>
+
+    <div class="mmd-blog-post-body" itemprop="articleBody">
+        <?php echo $this->getContentHtml() ?>
+    </div>
+
+    <!-- Lead magnet CTA: every post funnels readers to course registration. -->
+    <aside class="mmd-blog-cta">
+        <h2>Ready to build this skill? &#127891;</h2>
+        <p>Join the hands-on, instructor-led training below. <strong>WSQ courses enjoy up to 70% SkillsFuture (WSQ) funding</strong> for eligible Singaporeans and PRs, and you can <strong>offset the fee with your SkillsFuture Credit</strong>. Seats are limited — reserve yours today.</p>
+        <?php if ($courses): ?>
+        <div class="mmd-blog-cta-courses">
+            <?php foreach ($courses as $course): ?>
+            <a class="mmd-blog-cta-course" href="<?php echo $this->escapeHtml($course->getProductUrl()) ?>">
+                <span class="mmd-blog-cta-course-name"><?php echo $this->escapeHtml($course->getName()) ?></span>
+                <span class="mmd-blog-cta-course-action">View schedule &amp; register &rarr;</span>
+            </a>
+            <?php endforeach; ?>
+        </div>
+        <?php else: ?>
+        <p><a class="mmd-blog-cta-course" href="<?php echo Mage::getBaseUrl() ?>">Browse all courses &rarr;</a></p>
+        <?php endif; ?>
+    </aside>
+
+    <?php if ($tags): ?>
+    <footer class="mmd-blog-post-tags">
+        <span>Tags:</span>
+        <?php foreach ($tags as $t): ?>
+            <a class="mmd-blog-tag" href="<?php echo $helper->getTagUrl($t) ?>"><?php echo $this->escapeHtml($t) ?></a>
+        <?php endforeach; ?>
+    </footer>
+    <?php endif; ?>
+
+    <p class="mmd-blog-backlink-row"><a class="mmd-blog-backlink" href="<?php echo $helper->getListUrl() ?>">&larr; Back to all articles</a></p>
+</article>
+
+<script type="application/ld+json">
+<?php
+$schema = array(
+    '@context'      => 'https://schema.org',
+    '@type'         => 'Article',
+    'headline'      => $post->getTitle(),
+    'description'   => trim(strip_tags((string) ($post->getMetaDescription() ?: $post->getExcerpt()))),
+    'datePublished' => $post->getPublishedAt(),
+    'dateModified'  => $post->getUpdatedAt(),
+    'author'        => array('@type' => 'Organization', 'name' => $post->getAuthor() ?: $storeName),
+    'publisher'     => array('@type' => 'Organization', 'name' => $storeName),
+    'mainEntityOfPage' => $this->getPostUrl(),
+);
+if ($post->getHeroImageUrl()) {
+    $schema['image'] = $post->getHeroImageUrl();
+}
+if ($count > 0) {
+    $schema['aggregateRating'] = array(
+        '@type'       => 'AggregateRating',
+        'ratingValue' => $avg,
+        'ratingCount' => $count,
+        'bestRating'  => 5,
+        'worstRating' => 1,
+    );
+}
+echo json_encode($schema, JSON_UNESCAPED_SLASHES);
+?>
+</script>
+
+<script>
+(function () {
+    var box = document.getElementById('mmd-blog-rating');
+    if (!box) return;
+    var stars = box.querySelectorAll('.mmd-star');
+    var info  = document.getElementById('mmd-blog-rating-info');
+    var avg   = parseFloat(box.getAttribute('data-avg')) || 0;
+
+    function paint(value) {
+        for (var i = 0; i < stars.length; i++) {
+            stars[i].className = 'mmd-star' + (i < value ? ' is-on' : '');
+        }
+    }
+    paint(Math.round(avg));
+
+    for (var i = 0; i < stars.length; i++) {
+        (function (star) {
+            star.addEventListener('mouseenter', function () { paint(parseInt(star.getAttribute('data-value'), 10)); });
+            star.addEventListener('click', function () {
+                var value = parseInt(star.getAttribute('data-value'), 10);
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST', box.getAttribute('data-url'), true);
+                xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+                xhr.onload = function () {
+                    try {
+                        var rsp = JSON.parse(xhr.responseText);
+                        if (rsp.ok) {
+                            box.setAttribute('data-avg', rsp.avg);
+                            paint(Math.round(rsp.avg));
+                            info.textContent = 'Thanks! ' + rsp.avg + ' (' + rsp.count + ' rating' + (rsp.count > 1 ? 's' : '') + ')';
+                        }
+                    } catch (e) {}
+                };
+                xhr.send('post_id=' + box.getAttribute('data-post') + '&rating=' + value);
+            });
+        })(stars[i]);
+    }
+    box.addEventListener('mouseleave', function () { paint(Math.round(parseFloat(box.getAttribute('data-avg')) || 0)); });
+})();
+</script>

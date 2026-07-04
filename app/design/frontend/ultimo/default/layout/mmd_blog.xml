@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<layout version="0.1.0">
+
+    <!-- Shared blog skin -->
+    <mmd_blog_default>
+        <reference name="head">
+            <action method="addItem"><type>skin_css</type><name>css/blog.css</name><params/></action>
+        </reference>
+    </mmd_blog_default>
+
+    <mmd_blog_index_index>
+        <update handle="mmd_blog_default"/>
+        <reference name="root">
+            <action method="setTemplate"><template>page/1column.phtml</template></action>
+        </reference>
+        <reference name="content">
+            <block type="mmd_blog/list" name="blog.list" template="mmd/blog/list.phtml"/>
+        </reference>
+    </mmd_blog_index_index>
+
+    <mmd_blog_index_tag>
+        <update handle="mmd_blog_default"/>
+        <reference name="root">
+            <action method="setTemplate"><template>page/1column.phtml</template></action>
+        </reference>
+        <reference name="content">
+            <block type="mmd_blog/list" name="blog.list" template="mmd/blog/list.phtml"/>
+        </reference>
+    </mmd_blog_index_tag>
+
+    <mmd_blog_index_view>
+        <update handle="mmd_blog_default"/>
+        <reference name="root">
+            <action method="setTemplate"><template>page/1column.phtml</template></action>
+        </reference>
+        <reference name="content">
+            <block type="mmd_blog/view" name="blog.view" template="mmd/blog/view.phtml"/>
+        </reference>
+    </mmd_blog_index_view>
+
+</layout>

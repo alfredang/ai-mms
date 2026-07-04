@@ -1,0 +1,81 @@
+<?php
+/**
+ * Blog listing — dark "journal" design mirroring www.tertiaryinfotech.com/blog:
+ * [ BLOG ] kicker + bold headline, tag filter pills, 3-col card grid (gradient
+ * cover, mono teal date, star rating, title, excerpt, tag pills), numbered pager.
+ * Styles: skin/frontend/ultimo/default/css/blog.css
+ * @var MMD_Blog_Block_List $this
+ */
+$helper = $this->helper('mmd_blog');
+$posts  = $this->getPosts();
+$tag    = $this->getTagName();
+$allTags = $helper->getPublishedTagNames();
+?>
+<div class="mmd-blog">
+    <header class="mmd-blog-header">
+        <p class="mmd-blog-kicker">[ BLOG ]</p>
+        <h1>Level up with <span class="mmd-blog-accent">AI &amp; tech skills</span> that pay for themselves.</h1>
+        <p class="mmd-blog-sub">Practical guides from our trainers — plus how to fund your upskilling with
+            <strong>WSQ funding</strong> and <strong>SkillsFuture Credit</strong>.</p>
+    </header>
+
+    <?php if ($allTags): ?>
+    <div class="mmd-blog-filter">
+        <span class="mmd-blog-filter-label">Tags</span>
+        <a class="mmd-blog-tag<?php echo $tag ? '' : ' is-active' ?>" href="<?php echo $helper->getListUrl() ?>">All</a>
+        <?php foreach ($allTags as $t): ?>
+            <a class="mmd-blog-tag<?php echo $tag === $t ? ' is-active' : '' ?>" href="<?php echo $helper->getTagUrl($t) ?>">#<?php echo $this->escapeHtml($t) ?></a>
+        <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
+
+    <?php if (!count($posts)): ?>
+        <p class="mmd-blog-empty">No articles yet — check back soon.</p>
+    <?php else: ?>
+    <div class="mmd-blog-grid">
+        <?php foreach ($posts as $post): ?>
+        <?php $url = $helper->getPostUrl($post); $avg = $post->getAvgRating(); ?>
+        <article class="mmd-blog-card">
+            <a class="mmd-blog-card-hero" href="<?php echo $url ?>">
+                <?php if ($post->getHeroImageUrl()): ?>
+                    <img src="<?php echo $this->escapeHtml($post->getHeroImageUrl()) ?>" alt="<?php echo $this->escapeHtml($post->getTitle()) ?>" loading="lazy"/>
+                <?php else: ?>
+                    <?php $kickerTags = array_slice($helper->getPostTags($post->getId()), 0, 2); ?>
+                    <span class="mmd-blog-hero-fallback"><span class="mmd-blog-hero-kicker">[ <?php echo $this->escapeHtml($kickerTags ? mb_strtoupper(implode(' · ', $kickerTags), 'UTF-8') : 'ARTICLE') ?> ]</span><span class="mmd-blog-hero-title"><?php echo $this->escapeHtml($post->getTitle()) ?></span></span>
+                <?php endif; ?>
+            </a>
+            <div class="mmd-blog-card-body">
+                <div class="mmd-blog-card-meta">
+                    <span class="mmd-blog-date"><?php echo date('d-m-Y', strtotime($post->getPublishedAt())) ?></span>
+                    <?php if ($avg > 0): ?>
+                        <span class="mmd-blog-stars-inline" aria-label="Rated <?php echo $avg ?> out of 5">&#9733; <?php echo $avg ?></span>
+                    <?php endif; ?>
+                </div>
+                <h2><a href="<?php echo $url ?>"><?php echo $this->escapeHtml($post->getTitle()) ?></a></h2>
+                <?php if ($post->getExcerpt()): ?>
+                    <p class="mmd-blog-card-excerpt"><?php echo $this->escapeHtml($post->getExcerpt()) ?></p>
+                <?php endif; ?>
+                <?php $tags = $helper->getPostTags($post->getId()); ?>
+                <?php if ($tags): ?>
+                <div class="mmd-blog-taglist">
+                    <?php foreach (array_slice($tags, 0, 4) as $t): ?>
+                        <a class="mmd-blog-tag" href="<?php echo $helper->getTagUrl($t) ?>">#<?php echo $this->escapeHtml($t) ?></a>
+                    <?php endforeach; ?>
+                </div>
+                <?php endif; ?>
+            </div>
+        </article>
+        <?php endforeach; ?>
+    </div>
+
+    <?php $last = $this->getLastPage(); $cur = $this->getCurrentPage(); ?>
+    <?php if ($last > 1): ?>
+    <nav class="mmd-blog-pager">
+        <?php for ($i = 1; $i <= $last; $i++): ?>
+            <a class="mmd-blog-pg<?php echo $i === $cur ? ' is-active' : '' ?>" href="<?php echo $this->getPageUrl($i) ?>"><?php echo $i ?></a>
+        <?php endfor; ?>
+        <?php if ($cur < $last): ?><a class="mmd-blog-pg mmd-blog-pg-next" href="<?php echo $this->getPageUrl($cur + 1) ?>">Next &rarr;</a><?php endif; ?>
+    </nav>
+    <?php endif; ?>
+    <?php endif; ?>
+</div>

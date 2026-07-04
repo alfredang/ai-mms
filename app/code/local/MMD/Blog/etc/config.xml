@@ -1,0 +1,124 @@
+<?xml version="1.0"?>
+<!--
+  MMD_Blog — CMS-style blog posts as lead magnets.
+
+  Frontend:  /blog (list), /blog/<url_key> (post via custom slug router),
+             /blog/tag/<tag> (filter by Magento tag), /blog/index/rate (AJAX star rating).
+  Admin:     Marketing sidebar -> Blog Posts (adminhtml/blog) — grid + CMS-page-style
+             editor with WYSIWYG, SEO meta, tags (reuses the Magento `tag` table),
+             hero image upload to Cloudflare R2 (mmd_courseimage/r2 helper).
+  Cron:      Monday 09:00 — auto-writes a lead-magnet post for the next unblogged
+             top-selling course via Claude, auto-publishes, and shares it to
+             LinkedIn (LINKEDIN_ACCESS_TOKEN + LINKEDIN_AUTHOR_URN env keys).
+
+  Every post is a lead magnet: the view template always renders a course sign-up
+  CTA (related_skus) with the WSQ funding / SkillsFuture Credit hook.
+-->
+<config>
+    <modules>
+        <MMD_Blog>
+            <version>1.0.0</version>
+        </MMD_Blog>
+    </modules>
+
+    <global>
+        <helpers>
+            <mmd_blog>
+                <class>MMD_Blog_Helper</class>
+            </mmd_blog>
+        </helpers>
+        <blocks>
+            <mmd_blog>
+                <class>MMD_Blog_Block</class>
+            </mmd_blog>
+        </blocks>
+        <models>
+            <mmd_blog>
+                <class>MMD_Blog_Model</class>
+                <resourceModel>mmd_blog_resource</resourceModel>
+            </mmd_blog>
+            <mmd_blog_resource>
+                <class>MMD_Blog_Model_Resource</class>
+                <entities>
+                    <post>
+                        <table>mmd_blog_post</table>
+                    </post>
+                </entities>
+            </mmd_blog_resource>
+        </models>
+        <resources>
+            <mmd_blog_write><connection><use>core_write</use></connection></mmd_blog_write>
+            <mmd_blog_read><connection><use>core_read</use></connection></mmd_blog_read>
+        </resources>
+        <!-- Slug router: maps /blog/<url_key> and /blog/tag/<name> onto
+             blog/index/view|tag. Registered the Mage_Cms way (global event
+             observer — NOT <frontend>, the front controller init fires before
+             the frontend event area loads). -->
+        <events>
+            <controller_front_init_routers>
+                <observers>
+                    <mmd_blog>
+                        <class>MMD_Blog_Controller_Router</class>
+                        <method>initControllerRouters</method>
+                    </mmd_blog>
+                </observers>
+            </controller_front_init_routers>
+        </events>
+    </global>
+
+    <frontend>
+        <routers>
+            <mmd_blog>
+                <use>standard</use>
+                <args>
+                    <module>MMD_Blog</module>
+                    <frontName>blog</frontName>
+                </args>
+            </mmd_blog>
+        </routers>
+        <layout>
+            <updates>
+                <mmd_blog>
+                    <file>mmd_blog.xml</file>
+                </mmd_blog>
+            </updates>
+        </layout>
+    </frontend>
+
+    <admin>
+        <routers>
+            <adminhtml>
+                <args>
+                    <modules>
+                        <mmd_blog before="Mage_Adminhtml">MMD_Blog_Adminhtml</mmd_blog>
+                    </modules>
+                </args>
+            </adminhtml>
+        </routers>
+    </admin>
+
+    <default>
+        <mmd_blog>
+            <autoblog>
+                <enabled>1</enabled>
+                <!-- 1 = cron-created posts go live immediately; 0 = draft for review -->
+                <auto_publish>1</auto_publish>
+                <!-- 1 = share newly auto-published posts on LinkedIn (needs env keys) -->
+                <linkedin_enabled>1</linkedin_enabled>
+            </autoblog>
+        </mmd_blog>
+    </default>
+
+    <crontab>
+        <jobs>
+            <!-- Monday 09:00 (container tz = Asia/Singapore) — write + publish +
+                 LinkedIn-share one lead-magnet blog post. No-ops safely when
+                 disabled, when Claude credentials are missing, or when a post
+                 was already generated in the past 5 days. -->
+            <mmd_blog_autoblog>
+                <schedule><cron_expr>0 9 * * 1</cron_expr></schedule>
+                <run><model>mmd_blog/cron_autoblog::run</model></run>
+            </mmd_blog_autoblog>
+        </jobs>
+    </crontab>
+</config>
