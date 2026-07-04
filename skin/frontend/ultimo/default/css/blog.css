@@ -43,11 +43,10 @@
 .mmd-blog-tag.is-active { background: var(--mb-blue); border-color: var(--mb-blue); color: #fff !important; }
 
 /* --- Homepage "From our blog" strip ---------------------------------------- */
-/* The homepage postscript region sits after the floated content/left columns;
-   without clearing it rides up under the slideshow. Drop it to a full-width
-   band just before the footer. Scoped via :has so other pages are untouched. */
-.postscript:has(.mmd-blog-home) { clear: both; width: 100%; float: none; }
-.mmd-blog-home { clear: both; max-width: 1200px; margin: 40px auto; padding: 0 15px; }
+/* Rendered at the bottom of the main content column (col-main), directly under
+   the "SkillsFuture Funded AI Courses" slider. clear:both drops it below the
+   floated product sliders in that column. */
+.mmd-blog-home { clear: both; width: 100%; margin: 34px 0 10px; }
 .mmd-blog-home-head { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 22px; gap: 16px; flex-wrap: wrap; }
 .mmd-blog-home-head h2 { font-size: 26px; font-weight: 800; color: #111827; margin: 4px 0 0; }
 .mmd-blog-home-all { font-weight: 700; font-size: 14px; color: #2563eb !important; white-space: nowrap; }

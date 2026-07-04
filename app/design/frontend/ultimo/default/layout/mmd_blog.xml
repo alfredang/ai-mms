@@ -38,11 +38,13 @@
         </reference>
     </mmd_blog_index_view>
 
-    <!-- Homepage "From our blog" strip — latest 4 posts, in the postscript
-         region (bottom of the page, before the footer). Loads the blog skin. -->
+    <!-- Homepage "From our blog" strip — latest 4 posts, appended to the MAIN
+         content column (col-main) so it renders below the course sliders
+         (directly under "SkillsFuture Funded AI Courses"), never in the left
+         sidebar. Loads the blog skin. -->
     <cms_index_index>
         <update handle="mmd_blog_default"/>
-        <reference name="postscript">
+        <reference name="content">
             <block type="mmd_blog/list" name="blog.home.latest" template="mmd/blog/home.phtml"/>
         </reference>
     </cms_index_index>
