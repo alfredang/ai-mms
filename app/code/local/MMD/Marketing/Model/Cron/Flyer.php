@@ -280,6 +280,21 @@ class MMD_Marketing_Model_Cron_Flyer
         $slot = $g->nextSendSlot();
         $slotTxt = $slot ? $slot->format('l, j M Y \a\t g:ia') : 'the next available slot';
 
+        // Route through SMTPPro's transport — a raw Zend_Mail->send() otherwise
+        // falls back to the /usr/sbin/sendmail binary, which is NOT installed in
+        // the container, so the email silently fails (real incident 2026-07-04:
+        // approval emails "sent" but never arrived). SMTPPro only auto-applies
+        // its transport to Magento's own email events, not to raw Zend_Mail —
+        // so we fetch and pass it explicitly.
+        $transport = null;
+        try {
+            if (Mage::helper('core')->isModuleEnabled('Aschroder_SMTPPro')) {
+                $t = Mage::helper('smtppro')->getTransport();
+                if ($t) { $transport = $t; }
+            }
+        } catch (Exception $e) { $this->_log('sendForReview: SMTPPro transport unavailable: ' . $e->getMessage()); }
+
+        $sentAny = false;
         foreach ($g->reviewers() as $email) {
             if (is_array($onlyEmails) && !in_array(strtolower($email), $onlyEmails, true)) { continue; }
             $tok = $g->signToken($newsletterId, $email);
@@ -303,15 +318,21 @@ class MMD_Marketing_Model_Cron_Flyer
                      ->setFrom(Mage::getStoreConfig('trans_email/ident_general/email'), 'Tertiary Marketing')
                      ->addTo($email)
                      ->setSubject(($isReminder ? '[Reminder] ' : '') . '[Approval needed] ' . $row['subject']);
-                $mail->send();   // uses the site's configured transport (SMTPPro on prod)
+                $transport ? $mail->send($transport) : $mail->send();
+                $sentAny = true;
                 $this->_log('sendForReview: emailed ' . $email . ' for #' . $newsletterId);
             } catch (Exception $e) {
                 $this->_log('sendForReview mail to ' . $email . ' failed: ' . $e->getMessage());
             }
         }
-        // Stamp the anti-spam markers (see HARD RULE in followUp): the token marks
-        // "original email sent", _sent_at anchors the 24h reminder window, and
-        // _reminder_sent_at (reminders only) guarantees the reminder is final.
+        // Only stamp the anti-spam markers if a send actually SUCCEEDED — otherwise
+        // a transport failure would mark the proposal "emailed" and it would never
+        // retry. The token marks "original email sent", _sent_at anchors the 24h
+        // reminder window, _reminder_sent_at (reminders only) makes the reminder final.
+        if (!$sentAny) {
+            $this->_log('sendForReview: no email sent for #' . $newsletterId . ' — leaving unstamped for retry');
+            return false;
+        }
         $dec = json_decode((string) $row['review_decisions'], true);
         if (!is_array($dec)) { $dec = array(); }
         if (empty($dec['_sent_at'])) { $dec['_sent_at'] = date('Y-m-d H:i:s'); }
