@@ -141,9 +141,17 @@ class MMD_Blog_Helper_Data extends Mage_Core_Helper_Abstract
         }
         $resource = Mage::getSingleton('core/resource');
         $read     = $resource->getConnection('core_read');
+        $prodTable = $resource->getTableName('catalog/product');
+        // Exact match first (uses the sku index); fall back to a trimmed match
+        // for catalog SKUs that carry stray trailing whitespace/tabs.
         $entityId = $read->fetchOne(
-            $read->select()->from($resource->getTableName('catalog/product'), 'entity_id')->where('sku = ?', $sku)
+            $read->select()->from($prodTable, 'entity_id')->where('sku = ?', $sku)
         );
+        if (!$entityId) {
+            $entityId = $read->fetchOne(
+                $read->select()->from($prodTable, 'entity_id')->where('TRIM(sku) = ?', $sku)->limit(1)
+            );
+        }
         if (!$entityId) {
             return '';
         }
