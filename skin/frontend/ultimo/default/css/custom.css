@@ -458,6 +458,34 @@ li.level2 > a > span > .cat-label,
     justify-content: center;
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
     transition: transform .15s ease, background .15s ease;
+    animation: mmd-wa-pulse 2s ease-in-out infinite;
+}
+/* Expanding ripple ring behind the launcher */
+.mmd-wa__launcher::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: #128c7e;
+    z-index: -1;
+    animation: mmd-wa-ring 2s ease-out infinite;
+}
+@keyframes mmd-wa-pulse {
+    0%, 100% { box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28), 0 0 0 0 rgba(18, 140, 126, 0.55); }
+    50%      { box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28), 0 0 0 10px rgba(18, 140, 126, 0); }
+}
+@keyframes mmd-wa-ring {
+    0%   { transform: scale(1); opacity: 0.6; }
+    100% { transform: scale(1.9); opacity: 0; }
+}
+/* Pause the attention pulse once the user engages */
+.mmd-wa__launcher:hover,
+.mmd-wa.is-open .mmd-wa__launcher { animation: none; }
+.mmd-wa__launcher:hover::before,
+.mmd-wa.is-open .mmd-wa__launcher::before { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+    .mmd-wa__launcher,
+    .mmd-wa__launcher::before { animation: none; }
 }
 .mmd-wa__launcher:hover { background: #0e7a6d; transform: scale(1.06); }
 .mmd-wa__launcher:focus-visible { outline: 3px solid rgba(18, 140, 126, .45); outline-offset: 2px; }
