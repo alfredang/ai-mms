@@ -167,8 +167,8 @@ if ($_product && $_product->getId()) {
         }
     } catch (Exception $_e) { /* no-op */ }
 }
-if (!$_ogImage && $_blogPost && $_blogPost->getId() && $_blogPost->getHeroImageUrl()) {
-    $_ogImage = (string) $_blogPost->getHeroImageUrl();
+if (!$_ogImage && $_blogPost && $_blogPost->getId()) {
+    $_ogImage = (string) Mage::helper('mmd_blog')->getHeroImage($_blogPost);
 }
 if (!$_ogImage) {
     $_ogImage = $_curBase . '/skin/frontend/ultimo/default/images/TertiaryCoursesSingapore.png';

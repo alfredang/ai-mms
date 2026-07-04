@@ -118,6 +118,52 @@ class MMD_Blog_Helper_Data extends Mage_Core_Helper_Abstract
         );
     }
 
+    /**
+     * Effective hero image for a post, in priority order:
+     *   1. an explicitly uploaded hero (stored on R2 via Helper_Image), else
+     *   2. the source course's catalog image — which is R2-served like every
+     *      product image, so blog cards match the product cards exactly.
+     * Returns '' when neither exists (template then shows the gradient cover).
+     * Resolved with two light queries (no full product load).
+     */
+    public function getHeroImage($post)
+    {
+        if ($post->getHeroImageUrl()) {
+            return $post->getHeroImageUrl();
+        }
+        $sku = trim((string) $post->getSourceSku());
+        if ($sku === '') {
+            $skus = array_filter(array_map('trim', explode(',', (string) $post->getRelatedSkus())));
+            $sku  = $skus ? reset($skus) : '';
+        }
+        if ($sku === '') {
+            return '';
+        }
+        $resource = Mage::getSingleton('core/resource');
+        $read     = $resource->getConnection('core_read');
+        $entityId = $read->fetchOne(
+            $read->select()->from($resource->getTableName('catalog/product'), 'entity_id')->where('sku = ?', $sku)
+        );
+        if (!$entityId) {
+            return '';
+        }
+        $attrId = (int) Mage::getSingleton('eav/config')->getAttribute('catalog_product', 'image')->getId();
+        $storeId = (int) Mage::app()->getStore()->getId();
+        $img = $read->fetchOne(
+            $read->select()
+                ->from($resource->getTableName('catalog_product_entity_varchar'), 'value')
+                ->where('entity_id = ?', $entityId)
+                ->where('attribute_id = ?', $attrId)
+                ->where('store_id IN (?)', array(0, $storeId))
+                ->order('store_id DESC')
+                ->limit(1)
+        );
+        if (!$img || $img === 'no_selection') {
+            return '';
+        }
+        return rtrim(Mage::getBaseUrl(Mage_Core_Model_Store::URL_TYPE_MEDIA), '/') . '/catalog/product' . $img;
+    }
+
     /** Run post HTML through the CMS directive filter ({{store}}, {{media}}, ...). */
     public function filterContent($html)
     {

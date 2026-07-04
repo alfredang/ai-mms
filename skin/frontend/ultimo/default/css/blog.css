@@ -63,13 +63,15 @@
 .mmd-blog-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 24px; }
 .mmd-blog-card { background: #fff; border: 1px solid var(--mb-line); border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; transition: box-shadow .2s ease, transform .2s ease; }
 .mmd-blog-card:hover { box-shadow: 0 12px 32px rgba(15, 23, 42, .13); transform: translateY(-2px); }
-.mmd-blog-card-hero { display: block; height: 170px; overflow: hidden; }
+/* Hero image box — 16:9 to match the product-card cover images exactly. */
+.mmd-blog-card-hero { display: block; aspect-ratio: 16 / 9; overflow: hidden; background: #eef2ff; }
 .mmd-blog-card-hero img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
-/* Gradient cover fallback (kicker + title, like the reference card covers) */
-.mmd-blog-hero-fallback { display: flex; flex-direction: column; justify-content: center; gap: 10px; width: 100%; height: 100%; padding: 18px 20px; box-sizing: border-box; background: linear-gradient(140deg, #1e3a8a 0%, #2563eb 50%, #7c3aed 100%); }
-.mmd-blog-hero-kicker { font: 600 9.5px/1 var(--mb-mono); letter-spacing: 2px; color: #a5f3fc; }
-.mmd-blog-hero-title { color: #fff; font-weight: 700; font-size: 17px; line-height: 1.35; }
+/* Gradient cover fallback (kicker + title) — only when a post has no image.
+   Clamp the title so it never overflows the shorter 16:9 box. */
+.mmd-blog-hero-fallback { display: flex; flex-direction: column; justify-content: center; gap: 6px; width: 100%; height: 100%; padding: 14px 16px; box-sizing: border-box; background: linear-gradient(140deg, #1e3a8a 0%, #2563eb 50%, #7c3aed 100%); }
+.mmd-blog-hero-kicker { font: 600 9px/1 var(--mb-mono); letter-spacing: 1.5px; color: #a5f3fc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mmd-blog-hero-title { color: #fff; font-weight: 700; font-size: 15px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 
 .mmd-blog-card-body { padding: 15px 18px 18px; display: flex; flex-direction: column; flex: 1; }
 .mmd-blog-card-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 9px; }
@@ -91,11 +93,11 @@
 
 /* --- Single post ------------------------------------------------------------ */
 .mmd-blog-post { max-width: 860px; }
-.mmd-blog-post-hero { border-radius: 14px; overflow: hidden; margin: 18px 0 26px; max-height: 420px; border: 1px solid var(--mb-line); }
-.mmd-blog-post-hero img { width: 100%; display: block; object-fit: cover; max-height: 420px; }
-.mmd-blog-post-hero.is-fallback { height: 300px; }
-.mmd-blog-post-hero.is-fallback .mmd-blog-hero-fallback { height: 300px; justify-content: center; }
-.mmd-blog-post-hero.is-fallback .mmd-blog-hero-title { font-size: 30px; max-width: 640px; }
+.mmd-blog-post-hero { border-radius: 14px; overflow: hidden; margin: 18px 0 26px; aspect-ratio: 16 / 9; border: 1px solid var(--mb-line); background: #eef2ff; }
+.mmd-blog-post-hero img { width: 100%; height: 100%; display: block; object-fit: cover; }
+.mmd-blog-post-hero.is-fallback .mmd-blog-hero-fallback { height: 100%; justify-content: center; }
+.mmd-blog-post-hero.is-fallback .mmd-blog-hero-kicker { font-size: 12px; letter-spacing: 3px; }
+.mmd-blog-post-hero.is-fallback .mmd-blog-hero-title { font-size: 28px; max-width: 640px; -webkit-line-clamp: 4; }
 
 .mmd-blog-crumb { font: 600 11px/1 var(--mb-mono); letter-spacing: 2px; color: #9ca3af; text-transform: uppercase; margin-bottom: 14px; }
 .mmd-blog-crumb a { color: var(--mb-blue) !important; }

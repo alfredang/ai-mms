@@ -10,12 +10,13 @@ $helper = Mage::helper('mmd_blog');
 $likes  = (int) $post->getLikeCount();
 $courses = $this->getRelatedCourses();
 $tags    = $this->getTags();
+$heroImg = $helper->getHeroImage($post);
 $storeName = Mage::getStoreConfig('general/store_information/name') ?: 'Tertiary Infotech Academy';
 ?>
 <article class="mmd-blog mmd-blog-post" itemscope itemtype="https://schema.org/Article">
-    <div class="mmd-blog-post-hero<?php echo $post->getHeroImageUrl() ? '' : ' is-fallback' ?>">
-        <?php if ($post->getHeroImageUrl()): ?>
-            <img src="<?php echo $this->escapeHtml($post->getHeroImageUrl()) ?>" alt="<?php echo $this->escapeHtml($post->getTitle()) ?>" itemprop="image"/>
+    <div class="mmd-blog-post-hero<?php echo $heroImg ? '' : ' is-fallback' ?>">
+        <?php if ($heroImg): ?>
+            <img src="<?php echo $this->escapeHtml($heroImg) ?>" alt="<?php echo $this->escapeHtml($post->getTitle()) ?>" itemprop="image"/>
         <?php else: ?>
             <?php $kickerTags = array_slice($tags, 0, 2); ?>
             <span class="mmd-blog-hero-fallback"><span class="mmd-blog-hero-kicker">[ <?php echo $this->escapeHtml($kickerTags ? mb_strtoupper(implode(' · ', $kickerTags), 'UTF-8') : 'ARTICLE') ?> ]</span><span class="mmd-blog-hero-title"><?php echo $this->escapeHtml($post->getTitle()) ?></span></span>
@@ -97,8 +98,8 @@ $schema = array(
     'publisher'     => array('@type' => 'Organization', 'name' => $storeName),
     'mainEntityOfPage' => $this->getPostUrl(),
 );
-if ($post->getHeroImageUrl()) {
-    $schema['image'] = $post->getHeroImageUrl();
+if ($heroImg) {
+    $schema['image'] = $heroImg;
 }
 if ($likes > 0) {
     $schema['interactionStatistic'] = array(
