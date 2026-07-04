@@ -355,26 +355,13 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
                 return $this->_json($result);
             }
 
-            // approve — record, then check whether BOTH managers have now approved
+            // approve — SINGLE approval (admin 2026-07-05): either manager approving
+            // is enough; the first approve schedules. No second approval required.
             $this->_db('write')->update($this->_tbl(),
                 array('review_decisions' => json_encode($decisions)),
                 array('newsletter_id = ?' => $newsletterId));
 
-            $allApprove = true;
-            foreach ($reviewers as $r) {
-                if (!isset($decisions[$r]) || $decisions[$r] !== 'approve') { $allApprove = false; break; }
-            }
-            if (!$allApprove) {
-                $this->_db('write')->update($this->_tbl(),
-                    array('review_status' => 'pending'),
-                    array('newsletter_id = ?' => $newsletterId));
-                $result['success'] = true;
-                $result['stage']   = 'partial_approval';
-                $result['message'] = 'Your approval is recorded. Waiting for the other manager before it can schedule.';
-                return $this->_json($result);
-            }
-
-            // both approved -> schedule through the guarded (cap-enforced) pipeline
+            // one approval -> schedule through the guarded (cap-enforced) pipeline
             list($ok, $msg) = Mage::getModel('mmd_marketing/cron_flyer')->scheduleApproved($newsletterId);
             $result['success'] = $ok;
             $result['stage']   = $ok ? 'scheduled' : 'schedule_failed';
@@ -411,8 +398,8 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
 
             $result['success']       = true;
             $result['newsletter_id'] = $nid;
-            $result['message']       = 'Queued for approval — approval emails sent to both managers. '
-                . 'It schedules to MailerLite only after both approve (max 2 flyers/week).';
+            $result['message']       = 'Queued for approval — approval email sent to the managers. '
+                . 'It schedules to MailerLite once either manager approves (max 2 flyers/week).';
         } catch (Exception $e) {
             $result['message'] = $e->getMessage();
         }

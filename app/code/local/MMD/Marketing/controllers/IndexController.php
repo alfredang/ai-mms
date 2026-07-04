@@ -73,27 +73,19 @@ class MMD_Marketing_IndexController extends Mage_Core_Controller_Front_Action
         }
 
         // ---- Approve ----
+        // SINGLE approval (admin 2026-07-05): EITHER manager approving is enough —
+        // no second approval required. The first approve schedules to MailerLite.
         $decisions[$email] = 'approve';
         $this->_write()->update($this->_tbl(), array('review_decisions' => json_encode($decisions)),
             array('newsletter_id = ?' => $id));
 
-        $reviewers  = $this->_guard()->reviewers();
-        $allApprove = true;
-        foreach ($reviewers as $r) {
-            if (!isset($decisions[strtolower($r)]) || $decisions[strtolower($r)] !== 'approve') { $allApprove = false; break; }
-        }
-        if (!$allApprove) {
-            return $this->_page('Approved — thank you',
-                '<p style="color:#475569;">Your approval is recorded. Once the other manager also approves, the flyer will be scheduled for the next Monday/Thursday 8:00am blast.</p>', '#059669');
-        }
-        // both approved -> schedule
         list($ok, $msg) = Mage::getModel('mmd_marketing/cron_flyer')->scheduleApproved($id);
         if ($ok) {
             return $this->_page('Approved & scheduled ✓',
-                '<p style="color:#475569;">Both managers approved. The flyer is scheduled to MailerLite: <b>' . htmlspecialchars($msg) . '</b>.</p>', '#059669');
+                '<p style="color:#475569;">Approved. The flyer is scheduled to MailerLite: <b>' . htmlspecialchars($msg) . '</b>.</p>', '#059669');
         }
         return $this->_page('Approved — scheduling held',
-            '<p style="color:#475569;">Both approved, but it could not be scheduled yet: ' . htmlspecialchars($msg) . '</p>', '#f59e0b');
+            '<p style="color:#475569;">Your approval is recorded, but it could not be scheduled yet: ' . htmlspecialchars($msg) . '</p>', '#f59e0b');
     }
 
     /** Streams the QR for the flyer. Redirects to a QR renderer (works in email). */

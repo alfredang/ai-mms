@@ -13383,7 +13383,7 @@ $_mnStage = function ($row) {
     if ($rs === 'approved')                  return array(2, 'Approved', 'ok');
     if ($rs === 'changes_requested')         return array(0, 'Changes requested', 'changes');
     if ($rs === 'expired')                   return array(0, 'Expired', 'muted');
-    if ($rs === 'pending')                   return array(1, 'Pending approval (' . $appr . '/2)', 'pending');
+    if ($rs === 'pending')                   return array(1, 'Pending approval', 'pending');
     return array(0, 'Draft', 'muted');
 };
 $_mnStageNames = array('Designed', 'Approval sent', 'Approved', 'Scheduled', 'Waiting', 'Blasted');
@@ -13456,7 +13456,7 @@ $_mnStageNames = array('Designed', 'Approval sent', 'Approved', 'Scheduled', 'Wa
                     <td class="strong"><?php echo htmlspecialchars($_r['title']) ?></td>
                     <td class="muted" style="font-family:ui-monospace,Menlo,monospace;font-size:12px;"><?php echo htmlspecialchars($_r['sku'] ?: '—') ?></td>
                     <td><span class="mn-badge s-<?php echo $_rcss ?>"><?php echo htmlspecialchars($_rlabel) ?></span></td>
-                    <td class="tnum"><?php echo (int)$_na ?>/2</td>
+                    <td class="tnum"><?php echo (int)$_na ?>/1</td>
                     <td class="muted"><?php echo htmlspecialchars($_sentAt) ?></td>
                     <td><?php echo !empty($_r['scheduled_send_at']) ? date('j M · g:ia', strtotime($_r['scheduled_send_at'])) : '—' ?></td>
                     <td class="muted"><?php echo ((int)$_r['is_auto'] ? 'Auto' : 'Manual') ?></td>
@@ -13571,7 +13571,7 @@ $_mnStageNames = array('Designed', 'Approval sent', 'Approved', 'Scheduled', 'Wa
             <div class="mn-actions">
                 <button type="button" class="mn-btn mn-btn-cta" id="mn-push-btn" onclick="mnQueueApproval()" disabled>Send top of queue for approval now</button>
             </div>
-            <p style="margin:10px 2px 0;font:400 12px/1.5 -apple-system,Segoe UI,Arial,sans-serif;color:#64748b;">Drag &#8942;&#8942; to reorder &middot; &#128065; previews a flyer &middot; &times; removes it. Each proposal emails both managers Approve / Request-changes buttons; it only goes to MailerLite after both approve (max <b>2 flyers per week</b>).</p>
+            <p style="margin:10px 2px 0;font:400 12px/1.5 -apple-system,Segoe UI,Arial,sans-serif;color:#64748b;">Drag &#8942;&#8942; to reorder &middot; &#128065; previews a flyer &middot; &times; removes it. Each proposal emails both managers Approve / Request-changes buttons; it only goes to MailerLite after one manager approves (max <b>2 flyers per week</b>).</p>
         </div>
 
         <?php /* The permanent Live Preview pane was removed 2026-07-04 (admin
@@ -13851,7 +13851,7 @@ window.mnQueueApproval = function() {
     .then(function (j) {
         if (btn) { btn.disabled = false; btn.textContent = 'Queue for approval'; }
         if (!j || !j.success) { alert((j && j.message) || 'Could not queue.'); return; }
-        alert(j.message || 'Queued — approval emails sent to both managers.');
+        alert(j.message || 'Queued — approval email sent to the managers.');
         location.reload();
     })
     .catch(function (err) {
