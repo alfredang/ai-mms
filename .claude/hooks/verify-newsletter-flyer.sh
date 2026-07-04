@@ -69,7 +69,8 @@ OUT=$(docker exec "$CONTAINER" php -r "
   \$html = Mage::helper('mmd_marketing/flyer')->render(\$pid);
   \$ok = strlen(\$html) > 3000
         && strpos(\$html, 'Register now') !== false
-        && strpos(\$html, 'newsletter-review/index/qr') !== false;
+        && strpos(\$html, 'newsletter-review/index/qr') !== false
+        && strpos(\$html, '{\$unsubscribe}') !== false; // HARD RULE: MailerLite unsubscribe footer in every design
   \$g = Mage::helper('mmd_marketing/blastguard');
   echo (\$ok ? 'FLYER_OK' : 'FLYER_BAD') . ' bytes=' . strlen(\$html)
      . ' designs=' . \$g->designsThisWeek() . '/2'

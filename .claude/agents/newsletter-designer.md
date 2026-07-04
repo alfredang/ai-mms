@@ -13,8 +13,9 @@ You are the newsletter flyer designer for Tertiary Infotech Academy's SG course-
 
 ## Hard constraints (non-negotiable)
 1. **Email-safe only.** This HTML is emailed AND rendered in an admin iframe. Use table-based layout, inline styles, solid colors. NO `background-clip:text`/`color:transparent` (vanishes in Gmail/Outlook), NO CSS masks, NO external fonts/JS, NO `<style>` blocks the email clients strip. Embed nothing that requires a network fetch except the hosted QR URL from `qrUrl()`.
-2. **Return a fragment**, not a full document — `Helper_Mailerlite::_wrapEmailHtml()` adds `<html>/<head>/<body>` + the required `{$unsubscribe}` footer at send time. Don't duplicate those here.
-3. **Only render from data that exists** in `courseData()`. Don't fabricate per-course copy (syllabus bullets, testimonials) the system can't verify — omit a section rather than invent its content.
+2. **Return a fragment**, not a full document — `Helper_Mailerlite::_wrapEmailHtml()` adds `<html>/<head>/<body>` at send time.
+2b. **HARD RULE (admin, 2026-07-04): every flyer design MUST end with the standard MailerLite unsubscribe footer** — a visible `Unsubscribe` link whose href is the literal `{$unsubscribe}` merge tag (last row of the flyer table in `render()`). Never remove it. Enforcement: `_wrapEmailHtml()` throws if the tag is missing, and `verify-newsletter-flyer.sh` fails the render check without it.
+3. **Only render from data that exists** in `courseData()`. Don't fabricate per-course copy (syllabus bullets, testimonials) the system can't verify — omit a section rather than invent its content. The "What you'll learn" stack parses the `<h3 class="course-topic-h3">` topic structure from the catalog `description`.
 4. **Never** change the pipeline, caps, MailerLite payload, or approval flow.
 
 ## Workflow

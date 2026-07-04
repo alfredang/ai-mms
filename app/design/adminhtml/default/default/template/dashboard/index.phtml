@@ -13403,7 +13403,7 @@ $_mnStageNames = array('Designed', 'Approval sent', 'Approved', 'Scheduled', 'Wa
             <h1 class="mn-title">Newsletters</h1>
             <p class="mn-sub"><?php echo htmlspecialchars($_mnCountry) ?> · build with Claude, push to MailerLite as a draft</p>
         </div>
-        <button type="button" class="mn-btn mn-btn-ghost" onclick="mnNewDraft()">+ New Newsletter</button>
+        <button type="button" class="mn-btn mn-btn-ghost" onclick="mnNewDraft()" title="Clear the picker and start again">&#8634; Start over</button>
     </div>
 
     <?php /* ===== Agentic flyer production pipeline ===== */ ?>
@@ -13521,20 +13521,16 @@ $_mnStageNames = array('Designed', 'Approval sent', 'Approved', 'Scheduled', 'Wa
         .mn-abtn.ghost:hover{border-color:#475569;}
     </style>
 
-    <!-- TOP ROW: template picker + drafts list (full width, side-by-side) -->
+    <?php /* Simplified 2026-07-04 (admin request): there is only ONE template
+             (Agentic Flyer), so the Template picker card is gone — the flow is
+             just "pick a course → preview → queue". Drafts show only when they
+             exist, full-width, so a fresh page has zero dead cards. */ ?>
+    <?php if (!empty($_mnDrafts)): ?>
     <div class="mn-toprow">
-        <div class="mn-card">
-            <h3>Template</h3>
-            <div class="mn-tpl-list">
-                <button type="button" class="mn-tpl active" data-tpl="agentic_flyer" onclick="mnPickTpl(this)"><strong>Agentic Flyer</strong><small>Pick a course &middot; auto flyer + QR &middot; goes through approval</small></button>
-            </div>
-        </div>
-        <div class="mn-card mn-drafts">
+        <div class="mn-card mn-drafts" style="grid-column:1/-1;">
             <h3>Drafts (<?php echo count($_mnDrafts) ?>)</h3>
             <div class="mn-drafts-list" id="mn-drafts-list">
-                <?php if (empty($_mnDrafts)): ?>
-                    <div class="mn-result-empty">No drafts yet.</div>
-                <?php else: foreach ($_mnDrafts as $_d): ?>
+                <?php foreach ($_mnDrafts as $_d): ?>
                     <div class="mn-draft" data-id="<?php echo (int)$_d['newsletter_id'] ?>">
                         <button type="button" class="mn-draft-body" onclick="mnLoadDraft(<?php echo (int)$_d['newsletter_id'] ?>)" title="Preview newsletter">
                             <div class="mn-draft-title"><?php echo htmlspecialchars($_d['title']) ?></div>
@@ -13547,25 +13543,30 @@ $_mnStageNames = array('Designed', 'Approval sent', 'Approved', 'Scheduled', 'Wa
                         <button type="button" class="mn-draft-edit" onclick="mnEditDraft(<?php echo (int)$_d['newsletter_id'] ?>)" aria-label="Edit draft" title="Edit draft">&#9998;</button>
                         <button type="button" class="mn-draft-del" onclick="mnDeleteDraft(<?php echo (int)$_d['newsletter_id'] ?>, <?php echo htmlspecialchars(json_encode($_d['title'])) ?>)" aria-label="Delete draft" title="Delete draft">&times;</button>
                     </div>
-                <?php endforeach; endif; ?>
+                <?php endforeach; ?>
             </div>
         </div>
     </div>
+    <?php endif; ?>
 
     <div class="mn-grid">
         <!-- LEFT: editor -->
         <div class="mn-card">
+            <h3>Send a course flyer</h3>
             <div class="mn-fld">
-                <label>Pick a course to feature</label>
+                <label>1 &middot; Pick a course</label>
                 <input type="text" id="mn-course-search" class="mn-input" placeholder="Search course title or code..." oninput="mnSearchCourses(this)" autocomplete="off" />
                 <div id="mn-search-results" class="mn-search-results"></div>
                 <div id="mn-pids" class="mn-pids"></div>
             </div>
 
-            <div class="mn-actions">
-                <button type="button" class="mn-btn mn-btn-cta" id="mn-push-btn" onclick="mnQueueApproval()" disabled>Queue for approval</button>
+            <div class="mn-fld">
+                <label>2 &middot; Check the preview on the right, then</label>
             </div>
-            <p style="margin:10px 2px 0;font:400 12px/1.5 -apple-system,Segoe UI,Arial,sans-serif;color:#64748b;">Pick a course, review the flyer, then <b>Queue for approval</b>. Both managers must approve before it schedules to MailerLite — capped at <b>2 flyers per week</b>. Nothing goes to MailerLite from here directly.</p>
+            <div class="mn-actions">
+                <button type="button" class="mn-btn mn-btn-cta" id="mn-push-btn" onclick="mnQueueApproval()" disabled>3 &middot; Queue for approval</button>
+            </div>
+            <p style="margin:10px 2px 0;font:400 12px/1.5 -apple-system,Segoe UI,Arial,sans-serif;color:#64748b;">Both managers get an email with Approve / Request-changes buttons. It only goes to MailerLite after both approve (max <b>2 flyers per week</b>).</p>
         </div>
 
         <!-- RIGHT: live preview (desktop / mobile viewport toggle) -->

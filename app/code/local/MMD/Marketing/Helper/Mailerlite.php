@@ -375,10 +375,19 @@ class MMD_Marketing_Helper_Mailerlite extends Mage_Core_Helper_Abstract
             . 'You are receiving this because you subscribed to Tertiary Courses updates.<br>'
             . '<a href="{$unsubscribe}" style="color:#2563eb;">Unsubscribe</a>'
             . '</td></tr></table>';
-        return '<!doctype html><html><head><meta charset="utf-8">'
+        // HARD RULE (admin, 2026-07-04): every flyer design carries its own
+        // {$unsubscribe} footer (Helper_Flyer::render()); append the fallback only
+        // when it's missing so the sent email never shows two footers — and never
+        // zero. Refuse outright if the final document still lacks the tag.
+        $hasUnsub = strpos((string) $fragment, '{$unsubscribe}') !== false;
+        $doc = '<!doctype html><html><head><meta charset="utf-8">'
             . '<meta name="viewport" content="width=device-width,initial-scale=1">'
             . '<title>' . htmlspecialchars((string) $subject, ENT_QUOTES, 'UTF-8') . '</title></head>'
-            . '<body style="margin:0;padding:0;background:#eef2f7;">' . $fragment . $unsub . '</body></html>';
+            . '<body style="margin:0;padding:0;background:#eef2f7;">' . $fragment . ($hasUnsub ? '' : $unsub) . '</body></html>';
+        if (strpos($doc, '{$unsubscribe}') === false) {
+            throw new Exception('HARD RULE violated: flyer email has no MailerLite {$unsubscribe} link - refusing to create the campaign.');
+        }
+        return $doc;
     }
 
     /**

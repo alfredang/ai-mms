@@ -342,6 +342,15 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         . '</td></tr>'
         // footer (two lines, matches approved artifact)
         . '<tr><td style="background:#0a1020;padding:14px 22px;border-top:1px solid #1c2740;font:400 11px/1.7 ' . $sans . ';color:#8593ad;">Tertiary Infotech Academy Pte Ltd &middot; UEN 201200696W<br>+65 6100 0613 &middot; enquiry@tertiaryinfotech.com</td></tr>'
+        // HARD RULE (admin, 2026-07-04): EVERY flyer design carries the standard
+        // MailerLite unsubscribe footer with the {$unsubscribe} merge tag, so the
+        // preview, the approval email, and the blast all show the real footer.
+        // Helper_Mailerlite::_wrapEmailHtml() keeps a safety net for non-flyer HTML
+        // and refuses to send without it. Do not remove this row.
+        . '<tr><td align="center" style="background:#eef2f7;padding:16px 14px;font:400 11px/1.6 ' . $sans . ';color:#8593ad;">'
+        .   'You are receiving this because you subscribed to Tertiary Courses updates.<br>'
+        .   '<a href="{$unsubscribe}" style="color:#2563eb;">Unsubscribe</a>'
+        . '</td></tr>'
         . '</table></div>';
     }
 }

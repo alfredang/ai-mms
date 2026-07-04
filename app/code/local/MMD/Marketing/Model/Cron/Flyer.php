@@ -71,12 +71,50 @@ class MMD_Marketing_Model_Cron_Flyer
         }
     }
 
-    /** Cron entry: housekeeping (hourly). Expire proposals left pending > 5 days. */
+    /**
+     * Cron entry (hourly): pipeline housekeeping.
+     *  1. Email the managers any 'pending' proposal that was never sent for review
+     *     (review_token empty — e.g. a proposal seeded by a migration or SQL).
+     *  2. After a manager requests changes: supersede the old proposal, re-render
+     *     the same course with fresh catalog data, and re-send for approval.
+     *  3. Expire proposals left pending > 5 days.
+     */
     public function followUp()
     {
         if (!$this->_guard()->isEnabled()) {
             return;
         }
+        // 1. Unsent pending proposals -> email both managers the approve/changes links.
+        $ids = $this->_read()->fetchCol('SELECT newsletter_id FROM ' . $this->_tbl()
+            . " WHERE review_status = 'pending' AND (review_token IS NULL OR review_token = '')");
+        foreach ($ids as $nid) {
+            $this->sendForReview((int) $nid);
+            $this->_log('followUp: emailed managers for unsent pending proposal #' . (int) $nid);
+        }
+        // 2. Change requests -> regenerate (same course, fresh render) + re-send.
+        $rows = $this->_read()->fetchAll('SELECT * FROM ' . $this->_tbl() . " WHERE review_status = 'changes_requested'");
+        foreach ($rows as $row) {
+            $old = (int) $row['newsletter_id'];
+            $this->_write()->update($this->_tbl(), array('review_status' => 'superseded'),
+                array('newsletter_id = ?' => $old));
+            if ($this->_guard()->remainingDesignsThisWeek() < 1) {
+                $this->_log('followUp: change request on #' . $old . ' deferred — weekly design cap reached');
+                continue;
+            }
+            $pid = (int) trim(strtok((string) $row['course_pids'], ','));
+            $nid = $pid ? $this->createProposal($pid) : null;
+            if ($nid) {
+                // carry the manager's feedback onto the new proposal for context
+                $this->_write()->update($this->_tbl(),
+                    array('review_feedback' => (string) $row['review_feedback']),
+                    array('newsletter_id = ?' => $nid));
+                $this->sendForReview($nid);
+                $this->_log('followUp: regenerated #' . $old . ' -> #' . $nid . ' after change request');
+            } else {
+                $this->_log('followUp: could not regenerate #' . $old . ' (no renderable course)');
+            }
+        }
+        // 3. Expire stale pendings.
         $this->_write()->update($this->_tbl(),
             array('review_status' => 'expired'),
             array("review_status = 'pending'", 'created_at < ?' => date('Y-m-d H:i:s', strtotime('-5 days')))
