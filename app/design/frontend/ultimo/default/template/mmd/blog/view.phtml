@@ -27,26 +27,35 @@ $storeName = Mage::getStoreConfig('general/store_information/name') ?: 'Tertiary
         <p class="mmd-blog-crumb"><a href="<?php echo $helper->getListUrl() ?>">Blog</a> <span>/</span> <?php echo $this->escapeHtml($post->getTitle()) ?></p>
         <h1 itemprop="headline"><?php echo $this->escapeHtml($post->getTitle()) ?></h1>
         <div class="mmd-blog-post-meta">
-            <span class="mmd-blog-avatar" aria-hidden="true"><?php echo $this->escapeHtml(strtoupper(substr($post->getAuthor() ?: $storeName, 0, 1))) ?></span>
-            <span itemprop="author"><?php echo $this->escapeHtml($post->getAuthor() ?: $storeName) ?></span>
-            <span class="mmd-blog-dot">&middot;</span>
-            <time itemprop="datePublished" datetime="<?php echo $this->escapeHtml($post->getPublishedAt()) ?>"><?php echo date('d-m-Y', strtotime($post->getPublishedAt())) ?></time>
-            <span class="mmd-blog-dot">&middot;</span>
-            <span><?php echo $this->getReadingMinutes() ?> min read</span>
+            <span class="mmd-blog-meta-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                <span itemprop="author"><?php echo $this->escapeHtml($post->getAuthor() ?: $storeName) ?></span>
+            </span>
+            <span class="mmd-blog-meta-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                <time itemprop="datePublished" datetime="<?php echo $this->escapeHtml($post->getPublishedAt()) ?>"><?php echo date('d M Y', strtotime($post->getPublishedAt())) ?></time>
+            </span>
+            <span class="mmd-blog-meta-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                <?php echo $this->getReadingMinutes() ?> min read
+            </span>
         </div>
 
         <div class="mmd-blog-actions">
             <div class="mmd-blog-share" aria-label="Share this article">
-                <?php foreach ($this->getShareLinks() as $label => $href): ?>
-                    <a class="mmd-blog-share-btn mmd-share-<?php echo strtolower($label) ?>" href="<?php echo $this->escapeHtml($href) ?>" target="_blank" rel="noopener nofollow" title="Share on <?php echo $label ?>"><?php echo $label === 'X' ? '&#120143;' : $this->escapeHtml($label) ?></a>
+                <span class="mmd-blog-share-label">Share</span>
+                <?php foreach ($this->getShareIcons() as $s): ?>
+                    <a class="mmd-blog-share-ic mmd-share-<?php echo $s['key'] ?>" href="<?php echo $this->escapeHtml($s['href']) ?>" target="_blank" rel="noopener nofollow" title="Share on <?php echo $this->escapeHtml($s['label']) ?>" aria-label="Share on <?php echo $this->escapeHtml($s['label']) ?>"><?php echo $s['svg'] ?></a>
                 <?php endforeach; ?>
+                <button type="button" class="mmd-blog-share-ic mmd-share-copy" id="mmd-blog-copy" data-url="<?php echo $this->escapeHtml($this->getPostUrl()) ?>" title="Copy link" aria-label="Copy link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
             </div>
             <button type="button" class="mmd-blog-like" id="mmd-blog-like"
                  data-post="<?php echo (int) $post->getId() ?>"
                  data-url="<?php echo $this->escapeHtml($this->getLikeUrl()) ?>"
                  aria-label="Like this article">
-                <svg class="mmd-blog-like-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/></svg>
+                <svg class="mmd-blog-like-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/></svg>
                 <span class="mmd-blog-like-count" id="mmd-blog-like-count"><?php echo $likes ?></span>
+                <span class="mmd-blog-like-label">Like</span>
             </button>
         </div>
     </header>
@@ -75,9 +84,9 @@ $storeName = Mage::getStoreConfig('general/store_information/name') ?: 'Tertiary
 
     <?php if ($tags): ?>
     <footer class="mmd-blog-post-tags">
-        <span>Tags:</span>
+        <span class="mmd-blog-tags-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 13.42 20.6a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><circle cx="7" cy="7" r="1.5"/></svg> Tags</span>
         <?php foreach ($tags as $t): ?>
-            <a class="mmd-blog-tag" href="<?php echo $helper->getTagUrl($t) ?>"><?php echo $this->escapeHtml($t) ?></a>
+            <a class="mmd-blog-tag" href="<?php echo $helper->getTagUrl($t) ?>">#<?php echo $this->escapeHtml($t) ?></a>
         <?php endforeach; ?>
     </footer>
     <?php endif; ?>
@@ -134,6 +143,21 @@ echo json_encode($schema, JSON_UNESCAPED_SLASHES);
             } catch (e) {}
         };
         xhr.send('post_id=' + btn.getAttribute('data-post'));
+    });
+})();
+(function () {
+    var copy = document.getElementById('mmd-blog-copy');
+    if (!copy) return;
+    copy.addEventListener('click', function () {
+        var url = copy.getAttribute('data-url');
+        var done = function () { copy.classList.add('is-copied'); setTimeout(function () { copy.classList.remove('is-copied'); }, 1500); };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(url).then(done, done);
+        } else {
+            var t = document.createElement('textarea'); t.value = url; document.body.appendChild(t); t.select();
+            try { document.execCommand('copy'); } catch (e) {}
+            document.body.removeChild(t); done();
+        }
     });
 })();
 </script>

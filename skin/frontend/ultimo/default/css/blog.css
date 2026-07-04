@@ -103,29 +103,37 @@
 .mmd-blog-crumb a { color: var(--mb-blue) !important; }
 .mmd-blog-crumb span { margin: 0 7px; color: var(--mb-line2); }
 .mmd-blog-post-head h1 { font-size: 32px; line-height: 1.25; font-weight: 800; color: var(--mb-ink); margin-bottom: 15px; }
-.mmd-blog-post-meta { display: flex; align-items: center; gap: 9px; color: var(--mb-muted); font-size: 13px; margin-bottom: 18px; }
-.mmd-blog-avatar { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #2563eb, #7c3aed); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; }
-.mmd-blog-dot { color: var(--mb-line2); }
-.mmd-blog-post-meta time { font-family: var(--mb-mono); letter-spacing: 1px; color: var(--mb-blue); font-weight: 600; }
+.mmd-blog-post-meta { display: flex; align-items: center; gap: 20px; color: var(--mb-muted); font-size: 13.5px; margin-bottom: 18px; flex-wrap: wrap; }
+.mmd-blog-meta-item { display: inline-flex; align-items: center; gap: 7px; }
+.mmd-blog-meta-item svg { width: 16px; height: 16px; color: var(--mb-blue); flex: none; }
+.mmd-blog-post-meta time { font-weight: 600; color: var(--mb-ink); }
+.mmd-blog-post-meta [itemprop="author"] { font-weight: 600; color: var(--mb-ink); }
 
-.mmd-blog-actions { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; padding: 15px 0; border-top: 1px solid var(--mb-line); border-bottom: 1px solid var(--mb-line); margin-bottom: 28px; }
-.mmd-blog-share { display: flex; gap: 8px; flex-wrap: wrap; }
-.mmd-blog-share-btn { display: inline-block; padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 700; color: #fff !important; }
-.mmd-blog-share-btn:hover { opacity: .85; text-decoration: none; }
-.mmd-share-linkedin { background: #0a66c2; }
-.mmd-share-x { background: #111827; }
-.mmd-share-facebook { background: #1877f2; }
-.mmd-share-whatsapp { background: #128c5e; }
-.mmd-share-email { background: #6b7280; }
+.mmd-blog-actions { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; padding: 15px 0; border-top: 1px solid var(--mb-line); border-bottom: 1px solid var(--mb-line); margin-bottom: 28px; }
 
-/* Thumbs-up like button */
-.mmd-blog-like { display: inline-flex; align-items: center; gap: 8px; background: #fff; border: 1px solid var(--mb-line2); border-radius: 999px; padding: 6px 16px; font-size: 13px; font-weight: 700; color: var(--mb-muted); cursor: pointer; transition: border-color .15s ease, color .15s ease, background .15s ease, transform .1s ease; }
+/* Share — circular outlined icon buttons (reference design) */
+.mmd-blog-share { display: flex; gap: 9px; flex-wrap: wrap; align-items: center; }
+.mmd-blog-share-label { font: 700 11px/1 var(--mb-mono); letter-spacing: 2px; text-transform: uppercase; color: var(--mb-muted); margin-right: 3px; }
+.mmd-blog-share-ic { width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--mb-line2); background: #fff; color: #4b5563; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; transition: color .15s ease, border-color .15s ease, background .15s ease, transform .12s ease; }
+.mmd-blog-share-ic svg { width: 17px; height: 17px; display: block; }
+.mmd-blog-share-ic:hover { transform: translateY(-2px); text-decoration: none; color: #fff; }
+.mmd-share-linkedin:hover { background: #0a66c2; border-color: #0a66c2; }
+.mmd-share-x:hover { background: #111827; border-color: #111827; }
+.mmd-share-facebook:hover { background: #1877f2; border-color: #1877f2; }
+.mmd-share-whatsapp:hover { background: #25d366; border-color: #25d366; }
+.mmd-share-email:hover { background: #6b7280; border-color: #6b7280; }
+.mmd-share-copy:hover { background: var(--mb-blue); border-color: var(--mb-blue); }
+.mmd-share-copy.is-copied { background: #16a34a; border-color: #16a34a; color: #fff; }
+
+/* Thumbs-up like pill (icon + count + "Like") */
+.mmd-blog-like { display: inline-flex; align-items: center; gap: 8px; background: #fff; border: 1px solid var(--mb-line2); border-radius: 999px; padding: 8px 18px; font-size: 14px; font-weight: 700; color: #4b5563; cursor: pointer; transition: border-color .15s ease, color .15s ease, background .15s ease, transform .1s ease; }
+.mmd-blog-like svg { width: 18px; height: 18px; display: block; transition: transform .15s ease; }
 .mmd-blog-like:hover { border-color: var(--mb-blue); color: var(--mb-blue); }
 .mmd-blog-like:active { transform: scale(0.96); }
 .mmd-blog-like.is-liked { background: var(--mb-blue); border-color: var(--mb-blue); color: #fff; cursor: default; }
-.mmd-blog-like-icon { display: block; transition: transform .15s ease; }
-.mmd-blog-like.is-liked .mmd-blog-like-icon { transform: translateY(-1px); }
+.mmd-blog-like.is-liked svg { transform: translateY(-1px); }
 .mmd-blog-like-count { font-variant-numeric: tabular-nums; }
+.mmd-blog-like-label { font-weight: 600; }
 
 /* Article body typography */
 .mmd-blog-post-body { font-size: 16px; line-height: 1.75; color: #1f2937; }
@@ -155,6 +163,8 @@
 .mmd-blog-cta-course-action { color: var(--mb-blue); font-weight: 700; font-size: 13px; white-space: nowrap; }
 
 .mmd-blog-post-tags { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 26px 0 6px; color: var(--mb-muted); font-size: 13px; }
+.mmd-blog-tags-label { display: inline-flex; align-items: center; gap: 6px; font: 700 11px/1 var(--mb-mono); letter-spacing: 2px; text-transform: uppercase; color: var(--mb-muted); margin-right: 4px; }
+.mmd-blog-tags-label svg { width: 15px; height: 15px; color: var(--mb-blue); }
 .mmd-blog-backlink-row { margin-top: 18px; }
 .mmd-blog-backlink { font: 600 12px/1 var(--mb-mono); letter-spacing: 1.5px; color: var(--mb-blue) !important; }
 .mmd-blog-backlink:hover { text-decoration: none; color: #7c3aed !important; }
