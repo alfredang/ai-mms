@@ -63,7 +63,7 @@ class MMD_Marketing_IndexController extends Mage_Core_Controller_Front_Action
                 return $this->_page('Thanks — we’ll revise it',
                     '<p style="color:#475569;">Your feedback was recorded. The system will regenerate the design (new design or a different course) and email you a fresh version to review.</p>', '#f59e0b');
             }
-            $post = $this->getUrl('*/*/decide', array('id'=>$id,'d'=>'changes','e'=>rawurlencode($email),'t'=>$token,'_secure'=>true));
+            $post = Mage::getUrl('newsletter-review/index/decide', array('id'=>$id,'d'=>'changes','e'=>rawurlencode($email),'t'=>$token,'_secure'=>true));
             return $this->_page('Request changes',
                 '<form method="post" action="' . htmlspecialchars($post) . '">'
                 . '<p style="color:#475569;">What would you like changed? (a new design, a different course, wording, etc.)</p>'

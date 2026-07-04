@@ -49,7 +49,12 @@ class MMD_Marketing_Model_Cron_Flyer
             $this->_log('propose: skipped — a proposal is already awaiting review');
             return;
         }
-        // Respect the weekly cap up front — no point proposing if no slot is bookable.
+        // HARD RULE #1 (design side): never propose more than 2 designs per week.
+        if ($g->remainingDesignsThisWeek() < 1) {
+            $this->_log('propose: skipped — 2 designs already proposed this week (weekly design cap)');
+            return;
+        }
+        // Respect the weekly BLAST cap up front too — no point proposing if no slot is bookable.
         if ($g->nextSendSlot() === null) {
             $this->_log('propose: skipped — weekly cap reached, no bookable Mon/Thu slot');
             return;
@@ -105,14 +110,26 @@ class MMD_Marketing_Model_Cron_Flyer
         if (!$rows) {
             return null;
         }
-        // exclude products blasted in the last 30 days
+        // exclude products blasted in the last 30 days. blast_log stores newsletter_id,
+        // so translate through newsletters.course_pids to get the actual product ids
+        // (the old code compared newsletter_id against product ids and never matched).
+        $news = $res->getTableName('newsletters');
         $recent = $conn->fetchCol(
-            'SELECT newsletter_id FROM ' . $log . ' WHERE blasted_at > ?',
+            'SELECT n.course_pids FROM ' . $log . ' b'
+          . ' JOIN ' . $news . ' n ON n.newsletter_id = b.newsletter_id'
+          . ' WHERE b.blasted_at > ?',
             array(date('Y-m-d H:i:s', strtotime('-30 days')))
         );
+        $recentPids = array();
+        foreach ($recent as $csv) {
+            foreach (explode(',', (string) $csv) as $p) {
+                $p = (int) trim($p);
+                if ($p) { $recentPids[$p] = true; }
+            }
+        }
         foreach ($rows as $row) {
             $pid = (int) $row['product_id'];
-            if (in_array($pid, array_map('intval', $recent), true)) continue;
+            if (isset($recentPids[$pid])) continue;
             $p = Mage::getModel('catalog/product')->load($pid);
             if ($p && $p->getId() && $p->getStatus() == 1) {
                 return $pid;
@@ -129,13 +146,22 @@ class MMD_Marketing_Model_Cron_Flyer
             return null;
         }
         $c = $this->_flyer()->courseData($productId);
+        // Open-rate-optimised subject + preheader: benefit/funding hook up front, the
+        // course name second. The preheader is the inbox snippet that (with the subject)
+        // decides whether the email gets opened.
+        $subject = $c['is_wsq']
+            ? $c['name'] . ' — up to 70% SkillsFuture funded'
+            : $c['name'] . ' — enrol now, limited seats';
+        $preview = $c['is_wsq']
+            ? 'Check your SkillsFuture/WSQ funding + get the free syllabus. Seats are limited.'
+            : 'Get the free course syllabus and secure your seat before it fills up.';
         $conn = $this->_write();
         $conn->insert($this->_tbl(), array(
             'country_code'  => 'SG',
             'template_key'  => 'agentic_flyer',
-            'title'         => 'Course Spotlight: ' . $c['name'],
-            'subject'       => $c['name'] . ' — WSQ / SkillsFuture Funded',
-            'preview_text'  => 'Limited seats — scan to register.',
+            'title'         => $c['name'],
+            'subject'       => $subject,
+            'preview_text'  => $preview,
             'course_pids'   => (string) $productId,
             'body_html'     => $flyerHtml,
             'status'        => 'draft',

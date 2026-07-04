@@ -13336,6 +13336,9 @@ $_mnCountry = Mage::helper('mmd_rolemanager')->getActiveCountryName();
 $_mnHasAi   = Mage::helper('mmd_rolemanager')->hasAnthropicKey();
 $_mnHasMl   = Mage::helper('mmd_rolemanager')->hasMailerLiteKey();
 $_mnDrafts  = array();
+$_mnPipe    = array();      // agentic-flyer proposals for the pipeline view
+$_mnGuard   = null;
+$_mnCap     = array('designs' => 0, 'blasts' => 0, 'max' => 2, 'slot' => null, 'enabled' => false);
 if ($_mnActive) {
     try {
         $_mnDrafts = Mage::getSingleton('core/resource')
@@ -13347,8 +13350,49 @@ if ($_mnActive) {
                  ORDER BY updated_at DESC LIMIT 30",
                 array($_mnCC)
             );
+        // Pipeline rows: every agentic flyer with its review state (newest first).
+        $_mnPipe = Mage::getSingleton('core/resource')->getConnection('core_read')->fetchAll(
+            "SELECT newsletter_id, title, subject, status, review_status, review_decisions,
+                    scheduled_send_at, mailerlite_id, is_auto, course_pids, created_at, updated_at
+             FROM " . Mage::getSingleton('core/resource')->getTableName('newsletters')
+          . " WHERE country_code = ? AND template_key = 'agentic_flyer'
+             ORDER BY newsletter_id DESC LIMIT 30",
+            array($_mnCC)
+        );
+        $_mnGuard = Mage::helper('mmd_marketing/blastguard');
+        $_slot    = $_mnGuard->nextSendSlot();
+        $_mnCap   = array(
+            'designs' => $_mnGuard->designsThisWeek(),
+            'blasts'  => $_mnGuard->blastsThisWeek(),
+            'max'     => MMD_Marketing_Helper_Blastguard::MAX_PER_WEEK,
+            'slot'    => $_slot ? $_slot->format('D, j M · g:ia') : null,
+            'enabled' => $_mnGuard->isEnabled(),
+        );
     } catch (Exception $e) {}
 }
+
+/**
+ * Map a proposal row to its pipeline stage: [index 0-5, label, css-key].
+ * Designed → Approval sent → Approved → Scheduled → Waiting → Blasted.
+ */
+$_mnStage = function ($row) {
+    $rs = (string) $row['review_status'];
+    $st = (string) $row['status'];
+    $decisions = json_decode((string) $row['review_decisions'], true);
+    $appr = 0;
+    if (is_array($decisions)) { foreach ($decisions as $d) { if ($d === 'approve') $appr++; } }
+    if ($st === 'sent')                      return array(5, 'Blasted', 'done');
+    if ($st === 'scheduled') {
+        $future = $row['scheduled_send_at'] && strtotime($row['scheduled_send_at']) > time();
+        return $future ? array(4, 'Waiting to send', 'wait') : array(3, 'Scheduled', 'sched');
+    }
+    if ($rs === 'approved')                  return array(2, 'Approved', 'ok');
+    if ($rs === 'changes_requested')         return array(0, 'Changes requested', 'changes');
+    if ($rs === 'expired')                   return array(0, 'Expired', 'muted');
+    if ($rs === 'pending')                   return array(1, 'Pending approval (' . $appr . '/2)', 'pending');
+    return array(0, 'Draft', 'muted');
+};
+$_mnStageNames = array('Designed', 'Approval sent', 'Approved', 'Scheduled', 'Waiting', 'Blasted');
 
 ?>
 <div id="dash-panel-marketing-newsletter" style="display:none;">
@@ -13362,13 +13406,127 @@ if ($_mnActive) {
         <button type="button" class="mn-btn mn-btn-ghost" onclick="mnNewDraft()">+ New Newsletter</button>
     </div>
 
+    <?php /* ===== Agentic flyer production pipeline ===== */ ?>
+    <?php $_mnFeatured = !empty($_mnPipe) ? $_mnPipe[0] : null; ?>
+    <div class="mn-pipe">
+        <div class="mn-pipe-bar">
+            <div class="mn-pipe-title">Agentic Flyer Pipeline
+                <span class="mn-pipe-flag <?php echo $_mnCap['enabled'] ? 'on' : 'off' ?>"><?php echo $_mnCap['enabled'] ? 'SG · ENABLED' : 'DISABLED' ?></span>
+            </div>
+            <div class="mn-pipe-caps">
+                <span class="mn-cap" title="Max 2 designs per week"><em>Designs</em><b><?php echo (int)$_mnCap['designs'] ?>/<?php echo (int)$_mnCap['max'] ?></b></span>
+                <span class="mn-cap" title="Max 2 campaigns per week"><em>Blasts</em><b><?php echo (int)$_mnCap['blasts'] ?>/<?php echo (int)$_mnCap['max'] ?></b></span>
+                <span class="mn-cap"><em>Next slot</em><b><?php echo $_mnCap['slot'] ? htmlspecialchars($_mnCap['slot']) : '—' ?></b></span>
+            </div>
+        </div>
+
+        <?php if ($_mnFeatured):
+            list($_fi, $_flabel, $_fcss) = $_mnStage($_mnFeatured); ?>
+        <!-- stepper for the newest proposal -->
+        <ol class="mn-steps">
+            <?php foreach ($_mnStageNames as $_si => $_sname):
+                $_cls = $_si < $_fi ? 'done' : ($_si === $_fi ? 'current' : ''); ?>
+                <li class="mn-step <?php echo $_cls ?>">
+                    <span class="mn-dot"><?php echo $_si < $_fi ? '&#10003;' : ($_si + 1) ?></span>
+                    <span class="mn-slabel"><?php echo $_sname ?></span>
+                </li>
+            <?php endforeach; ?>
+        </ol>
+        <div class="mn-feat">
+            <div class="mn-feat-name"><?php echo htmlspecialchars($_mnFeatured['title']) ?></div>
+            <span class="mn-badge s-<?php echo $_fcss ?>"><?php echo htmlspecialchars($_flabel) ?></span>
+            <?php if (!empty($_mnFeatured['scheduled_send_at'])): ?>
+                <span class="mn-feat-meta">Sends <?php echo date('D, j M · g:ia', strtotime($_mnFeatured['scheduled_send_at'])) ?></span>
+            <?php endif; ?>
+        </div>
+        <?php else: ?>
+        <div class="mn-pipe-empty">No agentic flyer in the pipeline yet. The cron proposes one every Monday &amp; Thursday 10:00 (when enabled).</div>
+        <?php endif; ?>
+
+        <!-- data table: every proposal + live stage + approval controls -->
+        <?php if (!empty($_mnPipe)): ?>
+        <table class="mn-ptable">
+            <thead><tr><th>Course</th><th>Stage</th><th>Reviewers</th><th>Scheduled / Sent</th><th>Source</th><th class="ta-r">Action</th></tr></thead>
+            <tbody>
+            <?php foreach ($_mnPipe as $_r):
+                list($_ri, $_rlabel, $_rcss) = $_mnStage($_r);
+                $_dec = json_decode((string) $_r['review_decisions'], true);
+                $_na = is_array($_dec) ? count(array_filter($_dec, function ($d) { return $d === 'approve'; })) : 0;
+                $_pending = ((string) $_r['review_status'] === 'pending' || (string) $_r['review_status'] === 'changes_requested'); ?>
+                <tr>
+                    <td class="strong"><?php echo htmlspecialchars($_r['title']) ?></td>
+                    <td><span class="mn-badge s-<?php echo $_rcss ?>"><?php echo htmlspecialchars($_rlabel) ?></span></td>
+                    <td class="tnum"><?php echo (int)$_na ?>/2</td>
+                    <td><?php echo !empty($_r['scheduled_send_at']) ? date('j M · g:ia', strtotime($_r['scheduled_send_at'])) : '—' ?></td>
+                    <td class="muted"><?php echo ((int)$_r['is_auto'] ? 'Auto' : 'Manual') ?></td>
+                    <td class="ta-r">
+                        <?php if ($_pending): ?>
+                            <button type="button" class="mn-abtn ok" onclick="mnReview(<?php echo (int)$_r['newsletter_id'] ?>,'approve')">Approve</button>
+                            <button type="button" class="mn-abtn ghost" onclick="mnReview(<?php echo (int)$_r['newsletter_id'] ?>,'changes')">Changes</button>
+                        <?php else: ?>
+                            <span class="muted">—</span>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+        <?php endif; ?>
+    </div>
+
+    <style>
+        /* Agentic pipeline — scoped to the panel; backend-design neon-on-dark. */
+        .mn-pipe{background:#0f172a;border:1px solid #24324a;border-radius:14px;padding:18px 20px;margin-bottom:18px;}
+        .mn-pipe-bar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;border-bottom:1px solid #24324a;padding-bottom:14px;margin-bottom:18px;}
+        .mn-pipe-title{font:800 15px -apple-system,Segoe UI,Arial,sans-serif;color:#f1f5f9;display:flex;align-items:center;gap:10px;}
+        .mn-pipe-flag{font:700 10px -apple-system,Segoe UI,Arial,sans-serif;letter-spacing:.8px;padding:3px 9px;border-radius:999px;border:1px solid;}
+        .mn-pipe-flag.on{color:#34d399;border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.08);}
+        .mn-pipe-flag.off{color:#94a3b8;border-color:#334155;background:transparent;}
+        .mn-pipe-caps{display:flex;gap:10px;}
+        .mn-cap{display:flex;flex-direction:column;align-items:flex-start;background:#131f38;border:1px solid #24324a;border-radius:9px;padding:6px 12px;}
+        .mn-cap em{font:700 9.5px -apple-system,Segoe UI,Arial,sans-serif;text-transform:uppercase;letter-spacing:.6px;color:#64748b;font-style:normal;}
+        .mn-cap b{font:800 14px -apple-system,Segoe UI,Arial,sans-serif;color:#22d3ee;font-variant-numeric:tabular-nums;}
+        .mn-steps{list-style:none;display:grid;grid-template-columns:repeat(6,1fr);margin:0 0 16px;padding:0;}
+        .mn-step{position:relative;text-align:center;padding-top:36px;font:700 11px -apple-system,Segoe UI,Arial,sans-serif;color:#64748b;}
+        .mn-step::before{content:"";position:absolute;top:15px;left:-50%;width:100%;height:2px;background:#334155;}
+        .mn-step:first-child::before{display:none;}
+        .mn-step.done::before,.mn-step.current::before{background:linear-gradient(90deg,#2563eb,#22d3ee);}
+        .mn-dot{position:absolute;top:0;left:50%;transform:translateX(-50%);width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:#1e293b;border:2px solid #334155;color:#64748b;font-size:12px;}
+        .mn-step.done .mn-dot{background:#34d399;border-color:#34d399;color:#052e1a;}
+        .mn-step.current .mn-dot{background:#22d3ee;border-color:#22d3ee;color:#04212a;box-shadow:0 0 0 5px rgba(34,211,238,.16);}
+        .mn-step.done .mn-slabel,.mn-step.current .mn-slabel{color:#f1f5f9;}
+        .mn-step.current .mn-slabel{color:#22d3ee;}
+        .mn-feat{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 14px;background:#131f38;border:1px solid #24324a;border-radius:10px;margin-bottom:16px;}
+        .mn-feat-name{font:700 14px -apple-system,Segoe UI,Arial,sans-serif;color:#f1f5f9;}
+        .mn-feat-meta{font:600 12px -apple-system,Segoe UI,Arial,sans-serif;color:#94a3b8;}
+        .mn-pipe-empty{padding:16px;color:#94a3b8;font:400 13px/1.5 -apple-system,Segoe UI,Arial,sans-serif;text-align:center;}
+        .mn-badge{font:700 11px -apple-system,Segoe UI,Arial,sans-serif;padding:4px 10px;border-radius:999px;border:1px solid;white-space:nowrap;}
+        .mn-badge.s-done{color:#34d399;border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.09);}
+        .mn-badge.s-wait,.mn-badge.s-sched{color:#60a5fa;border-color:rgba(96,165,250,.4);background:rgba(96,165,250,.1);}
+        .mn-badge.s-ok{color:#34d399;border-color:rgba(52,211,153,.35);background:transparent;}
+        .mn-badge.s-pending{color:#f59e0b;border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.1);}
+        .mn-badge.s-changes{color:#fb7185;border-color:rgba(251,113,133,.4);background:rgba(251,113,133,.1);}
+        .mn-badge.s-muted{color:#94a3b8;border-color:#334155;background:transparent;}
+        .mn-ptable{width:100%;border-collapse:collapse;}
+        .mn-ptable th{text-align:left;font:700 10.5px -apple-system,Segoe UI,Arial,sans-serif;text-transform:uppercase;letter-spacing:.6px;color:#64748b;padding:8px 10px;border-bottom:1px solid #24324a;}
+        .mn-ptable td{padding:10px;font:400 13px -apple-system,Segoe UI,Arial,sans-serif;color:#cbd5e1;border-bottom:1px solid #1c2740;vertical-align:middle;}
+        .mn-ptable td.strong{color:#f1f5f9;font-weight:600;}
+        .mn-ptable td.muted,.mn-ptable .muted{color:#64748b;}
+        .mn-ptable td.tnum{font-variant-numeric:tabular-nums;}
+        .mn-ptable .ta-r{text-align:right;}
+        .mn-abtn{font:700 12px -apple-system,Segoe UI,Arial,sans-serif;padding:5px 12px;border-radius:7px;border:1px solid;cursor:pointer;margin-left:6px;}
+        .mn-abtn.ok{color:#fff;background:#059669;border-color:#059669;}
+        .mn-abtn.ok:hover{background:#047857;}
+        .mn-abtn.ghost{color:#cbd5e1;background:transparent;border-color:#334155;}
+        .mn-abtn.ghost:hover{border-color:#475569;}
+    </style>
+
     <!-- TOP ROW: template picker + drafts list (full width, side-by-side) -->
     <div class="mn-toprow">
         <div class="mn-card">
             <h3>Template</h3>
             <div class="mn-tpl-list">
-                <button type="button" class="mn-tpl active" data-tpl="course_promo" onclick="mnPickTpl(this)"><strong>Course Promo</strong><small>Hero · course cards · CTA</small></button>
-                <button type="button" class="mn-tpl" data-tpl="visual_showcase" onclick="mnPickTpl(this)"><strong>Visual Showcase</strong><small>Image-first · color blocks</small></button>
+                <button type="button" class="mn-tpl active" data-tpl="agentic_flyer" onclick="mnPickTpl(this)"><strong>Agentic Flyer</strong><small>Pick a course &middot; auto flyer + QR &middot; goes through approval</small></button>
             </div>
         </div>
         <div class="mn-card mn-drafts">
@@ -13398,66 +13556,16 @@ if ($_mnActive) {
         <!-- LEFT: editor -->
         <div class="mn-card">
             <div class="mn-fld">
-                <label>Featured Courses</label>
+                <label>Pick a course to feature</label>
                 <input type="text" id="mn-course-search" class="mn-input" placeholder="Search course title or code..." oninput="mnSearchCourses(this)" autocomplete="off" />
                 <div id="mn-search-results" class="mn-search-results"></div>
                 <div id="mn-pids" class="mn-pids"></div>
             </div>
 
-            <div class="mn-fld">
-                <label>Newsletter Brief <?php if (!$_mnHasAi): ?><span class="mn-stub-pill">Demo mode</span><?php endif; ?></label>
-                <textarea id="mn-prompt" class="mn-input mn-brief" rows="14" placeholder="Describe the newsletter you want — be specific. Claude reads this verbatim plus any images and the picked courses.
-
-Example brief:
-
-Create a new newsletter about Mastering the Art &amp; Science of Working with People &amp; Teams using DISC AsiaPlus.
-
-Include the following in the newsletter:
-- What will be learned
-- What is DISC about
-- What is the benefits of learning DISC
-- The course will be held on 21-22 May 2026
-- Add a sign-up button linking to https://www.tertiarycourses.com.sg/wsq-mastering-the-art-science-of-working-with-people-teams-using-discasiaplus.html
-- At the bottom of the newsletter also include our socials for contact
-- Make it more eye-catching by adding designs
-- Include the unsubscribe and update preference at the bottom of the page
-- Make sure the design and layout works on both desktop and mobile versions"></textarea>
-            </div>
-
-            <div class="mn-fld">
-                <label>Reference Images <span style="color:#64748b;font-weight:400;">(max 3 · 5MB each · sent to Claude as context)</span></label>
-                <input type="file" id="mn-images" class="mn-file-input" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif" multiple onchange="mnHandleImages(this)" />
-                <div id="mn-image-thumbs" class="mn-image-thumbs"></div>
-            </div>
-
-            <div class="mn-fld">
-                <label>Conversation</label>
-                <div id="mn-chat" class="mn-chat">
-                    <div class="mn-empty-chat">Fill the brief above (and optionally attach images), then send your first message. Follow-up turns refine the draft.</div>
-                </div>
-                <div class="mn-composer">
-                    <textarea id="mn-composer-input" class="mn-composer-input" rows="1"
-                              placeholder="Send a message... (e.g. 'shorter intro', 'add early-bird discount')"
-                              onkeydown="mnComposerKey(event)"
-                              oninput="mnComposerAutoSize(this)"></textarea>
-                    <button type="button" class="mn-btn mn-composer-send" id="mn-send-btn" onclick="mnSend()" aria-label="Send">
-                        <span class="mn-composer-arrow">&#10148;</span>
-                    </button>
-                </div>
-                <div class="mn-composer-hint" id="mn-composer-hint">First message uses the brief above. Press <kbd>Enter</kbd> to send, <kbd>Shift</kbd>+<kbd>Enter</kbd> for a new line.</div>
-                <div id="mn-progress" class="mn-progress" style="display:none">
-                    <div class="mn-progress-head">
-                        <span id="mn-progress-label">Generating</span>
-                        <span id="mn-progress-pct">0%</span>
-                    </div>
-                    <div class="mn-progress-track"><div id="mn-progress-bar" class="mn-progress-fill"></div></div>
-                </div>
-            </div>
-
             <div class="mn-actions">
-                <button type="button" class="mn-btn mn-btn-ghost" onclick="mnSave()">Save Draft</button>
-                <button type="button" class="mn-btn mn-btn-cta" id="mn-push-btn" onclick="mnPush()" disabled>Push to MailerLite<?php if (!$_mnHasMl): ?> <span style="font-size:10px;opacity:.7">(stub)</span><?php endif; ?></button>
+                <button type="button" class="mn-btn mn-btn-cta" id="mn-push-btn" onclick="mnQueueApproval()" disabled>Queue for approval</button>
             </div>
+            <p style="margin:10px 2px 0;font:400 12px/1.5 -apple-system,Segoe UI,Arial,sans-serif;color:#64748b;">Pick a course, review the flyer, then <b>Queue for approval</b>. Both managers must approve before it schedules to MailerLite — capped at <b>2 flyers per week</b>. Nothing goes to MailerLite from here directly.</p>
         </div>
 
         <!-- RIGHT: live preview (desktop / mobile viewport toggle) -->
@@ -13471,7 +13579,7 @@ Include the following in the newsletter:
                     </div>
                     <span style="font-size:11px;color:#94a3b8" id="mn-preview-status">No content yet</span>
                 </div>
-                <div id="mn-preview-empty" class="mn-preview-empty">Pick a template, add a course, and chat with Claude to see the preview.</div>
+                <div id="mn-preview-empty" class="mn-preview-empty">Search and pick a course above to preview its Agentic flyer.</div>
                 <div id="mn-preview-stage" class="mn-preview-stage" data-vp="desktop" style="display:none">
                     <iframe id="mn-iframe" class="mn-iframe" srcdoc=""></iframe>
                 </div>
@@ -13485,12 +13593,9 @@ window._mnState = {
     cc: <?php echo json_encode($_mnCC) ?>,
     country: <?php echo json_encode($_mnCountry) ?>,
     newsletterId: 0,
-    template: 'course_promo',
+    template: 'agentic_flyer',
     pids: [],
-    pidNames: {},
-    chatHistory: [],
-    bodyBlocks: { body_block_1: '', body_block_2: '', body_block_3: '' },
-    images: [] // [{name, type, dataUrl}] — base64 data URLs, sent on next AI call
+    pidNames: {}
 };
 
 window.mnPickTpl = function(btn) {
@@ -13502,25 +13607,15 @@ window.mnPickTpl = function(btn) {
 };
 
 window.mnNewDraft = function() {
-    if (window._mnState.newsletterId && !confirm('Discard the current draft?')) return;
+    if (window._mnState.newsletterId && !confirm('Discard the current selection?')) return;
     window._mnState.newsletterId = 0;
     window._mnState.pids = [];
     window._mnState.pidNames = {};
-    window._mnState.chatHistory = [];
-    window._mnState.bodyBlocks = { body_block_1: '', body_block_2: '', body_block_3: '' };
-    window._mnState.images = [];
     document.getElementById('mn-course-search').value = '';
-    var comp = document.getElementById('mn-composer-input');
-    if (comp) { comp.value = ''; mnComposerAutoSize(comp); }
-    document.getElementById('mn-prompt').value = '';
     document.getElementById('mn-search-results').innerHTML = '';
-    document.getElementById('mn-images').value = '';
     var draftBtns = document.querySelectorAll('.mn-draft');
     for (var i = 0; i < draftBtns.length; i++) draftBtns[i].classList.remove('active');
     mnRenderPids();
-    mnRenderChat();
-    mnRenderImageThumbs();
-    if (typeof mnUpdateComposerHint === 'function') mnUpdateComposerHint();
     var stage = document.getElementById('mn-preview-stage');
     if (stage) stage.style.display = 'none';
     var empty = document.getElementById('mn-preview-empty');
@@ -13529,52 +13624,8 @@ window.mnNewDraft = function() {
     if (status) status.textContent = 'No content yet';
     var ifr = document.getElementById('mn-iframe');
     if (ifr) ifr.srcdoc = '';
-};
-
-// --- Reference images (max 3) ----------------------------------------
-window.mnHandleImages = function(input) {
-    var files = Array.prototype.slice.call(input.files || []);
-    var room = 3 - window._mnState.images.length;
-    if (files.length > room) {
-        alert('Only ' + room + ' more image(s) allowed (max 3 total).');
-        files = files.slice(0, Math.max(0, room));
-    }
-    files.forEach(function (f) {
-        if (f.size > 5 * 1024 * 1024) { alert('"' + f.name + '" is over 5MB and was skipped.'); return; }
-        var reader = new FileReader();
-        reader.onload = function (e) {
-            window._mnState.images.push({ name: f.name, type: f.type, dataUrl: e.target.result });
-            mnRenderImageThumbs();
-            mnRefreshPreview();
-        };
-        reader.readAsDataURL(f);
-    });
-    // Reset the input so re-selecting the same file fires onchange.
-    input.value = '';
-};
-window.mnRemoveImage = function(idx) {
-    window._mnState.images.splice(idx, 1);
-    mnRenderImageThumbs();
-    mnRefreshPreview();
-};
-window.mnRenderImageThumbs = function() {
-    var box = document.getElementById('mn-image-thumbs');
-    box.innerHTML = '';
-    window._mnState.images.forEach(function (img, idx) {
-        var d = document.createElement('div');
-        d.className = 'mn-image-thumb';
-        var i = document.createElement('img');
-        i.src = img.dataUrl;
-        i.alt = img.name;
-        d.appendChild(i);
-        var rm = document.createElement('button');
-        rm.type = 'button';
-        rm.textContent = '×';
-        rm.title = 'Remove ' + img.name;
-        rm.onclick = function () { mnRemoveImage(idx); };
-        d.appendChild(rm);
-        box.appendChild(d);
-    });
+    var pushBtn = document.getElementById('mn-push-btn');
+    if (pushBtn) pushBtn.setAttribute('disabled', 'disabled');
 };
 
 // --- Course picker autocomplete --------------------------------------
@@ -13638,192 +13689,22 @@ window.mnRenderPids = function() {
     });
 };
 
-// --- Claude chat -----------------------------------------------------
-window.mnRenderChat = function() {
-    var box = document.getElementById('mn-chat');
-    var hist = window._mnState.chatHistory;
-    if (!hist.length) {
-        box.innerHTML = '<div class="mn-empty-chat">Tell Claude what to draft. Subsequent messages refine it.</div>';
-        return;
-    }
-    box.innerHTML = '';
-    hist.forEach(function (m) {
-        var d = document.createElement('div');
-        d.className = 'mn-msg ' + m.role;
-        var role = document.createElement('div');
-        role.className = 'mn-msg-role';
-        role.textContent = m.role === 'user' ? 'You' : 'Claude';
-        d.appendChild(role);
-        var body = document.createElement('div');
-        // Assistant messages contain the full response — chat ack on
-        // top, then `===NEWSLETTER===` marker, then the structured
-        // body. The chat pane only shows the ack so it reads like a
-        // chatbot conversation. Older messages without the marker fall
-        // back to showing the whole content.
-        var content = m.content || '';
-        if (m.role === 'assistant') {
-            var idx = content.indexOf('===NEWSLETTER===');
-            if (idx >= 0) content = content.substring(0, idx).trim();
-        }
-        body.textContent = content;
-        d.appendChild(body);
-        box.appendChild(d);
-    });
-    box.scrollTop = box.scrollHeight;
-};
-// Progress bar driver — Claude responses don't stream into the page so
-// we simulate progress with an asymptotic curve that ticks up while we
-// wait, then snap to 100% when the response actually lands. The label
-// switches phases ("Sending" → "Drafting" → "Polishing") as the bar
-// climbs, so it reads as informative rather than a fake spinner.
-window._mnProg = { timer: null, value: 0, target: 0 };
-window.mnProgressStart = function() {
-    var box = document.getElementById('mn-progress');
-    if (!box) return;
-    box.style.display = '';
-    window._mnProg.value = 0;
-    window._mnProg.target = 8;
-    mnProgressRender();
-    if (window._mnProg.timer) clearInterval(window._mnProg.timer);
-    window._mnProg.timer = setInterval(function () {
-        // Ease toward target; raise the ceiling so the bar never stalls.
-        var p = window._mnProg;
-        p.value += Math.max(0.4, (p.target - p.value) * 0.08);
-        if (p.value > 92) p.value = 92;
-        // Climb the ceiling slowly so we don't sit at 92% for ages.
-        if (p.target < 90) p.target += 1.2;
-        mnProgressRender();
-    }, 250);
-};
-window.mnProgressFinish = function() {
-    if (window._mnProg.timer) clearInterval(window._mnProg.timer);
-    window._mnProg.timer = null;
-    window._mnProg.value = 100;
-    mnProgressRender();
-    setTimeout(function () {
-        var box = document.getElementById('mn-progress');
-        if (box) box.style.display = 'none';
-        window._mnProg.value = 0;
-        mnProgressRender();
-    }, 600);
-};
-window.mnProgressRender = function() {
-    var pct = Math.round(window._mnProg.value);
-    var bar = document.getElementById('mn-progress-bar');
-    var lbl = document.getElementById('mn-progress-pct');
-    var phase = document.getElementById('mn-progress-label');
-    if (bar) bar.style.width = pct + '%';
-    if (lbl) lbl.textContent = pct + '%';
-    if (phase) {
-        phase.textContent = pct < 25 ? 'Sending brief to Claude'
-            : pct < 65 ? 'Drafting newsletter copy'
-            : pct < 100 ? 'Polishing'
-            : 'Done';
-    }
-};
-
-// --- Chat composer (chatbot-style follow-up input) -------------------
-window.mnComposerKey = function(e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        mnSend();
-    }
-};
-window.mnComposerAutoSize = function(el) {
-    el.style.height = 'auto';
-    el.style.height = Math.min(140, el.scrollHeight) + 'px';
-};
-
-window.mnSend = function() {
-    var promptEl   = document.getElementById('mn-prompt');
-    var composerEl = document.getElementById('mn-composer-input');
-    var briefText    = (promptEl.value || '').trim();
-    var composerText = (composerEl.value || '').trim();
-    // Composer wins when it has text (so follow-up turns use the chat
-    // input, not whatever's still sitting in the brief textarea).
-    // Otherwise fall back to the brief — covers the very first turn.
-    var prompt;
-    var clearComposer = false, clearBrief = false;
-    if (composerText) { prompt = composerText; clearComposer = true; }
-    else if (briefText) { prompt = briefText; clearBrief = true; }
-    else { alert('Type a message in the chat box, or fill the brief above.'); return; }
-    var btn = document.getElementById('mn-send-btn');
-    btn.disabled = true;
-    btn.classList.add('mn-loading');
-    mnProgressStart();
-    var fd = new FormData();
-    fd.append('newsletter_id', String(window._mnState.newsletterId || 0));
-    fd.append('prompt', prompt);
-    fd.append('template_key', window._mnState.template);
-    fd.append('country_code', window._mnState.cc);
-    fd.append('course_pids', window._mnState.pids.join(','));
-    fd.append('mode', window._mnState.chatHistory.length ? 'revise' : 'initial');
-    // Attach reference images (data URLs) — controller decodes them
-    // server-side and passes through to Claude as image content blocks.
-    // Only sent on the turn the admin attached them; cleared after to
-    // avoid re-sending the same images on every revise turn.
-    fd.append('images_json', JSON.stringify(window._mnState.images));
-    fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/marketingnewsletter/generate') ?>', {
-        method: 'POST', body: fd, credentials: 'same-origin'
-    })
-    .then(function (r) { return r.json(); })
-    .then(function (j) {
-        btn.disabled = false; btn.classList.remove('mn-loading');
-        mnProgressFinish();
-        if (!j || !j.success) { alert((j && j.message) || 'Generate failed.'); return; }
-        window._mnState.chatHistory = j.chat_history || [];
-        // has_body=false means the assistant returned a chat-only
-        // reply (e.g. "pick a course first"). In that case keep the
-        // existing newsletter body untouched — only the chat updates.
-        if (j.has_body !== false) {
-            window._mnState.bodyBlocks = j.body_blocks || window._mnState.bodyBlocks;
-            mnRefreshPreview();
-        }
-        if (clearComposer) {
-            composerEl.value = '';
-            mnComposerAutoSize(composerEl);
-        }
-        if (clearBrief) promptEl.value = '';
-        mnRenderChat();
-        mnUpdateComposerHint();
-        composerEl.focus();
-    })
-    .catch(function (e) {
-        btn.disabled = false; btn.classList.remove('mn-loading');
-        mnProgressFinish();
-        alert('Network: ' + e);
-    });
-};
-
-// Hint text below the composer flips once the conversation has started:
-// "First message uses the brief above" → "Press Enter to send".
-window.mnUpdateComposerHint = function() {
-    var h = document.getElementById('mn-composer-hint');
-    if (!h) return;
-    var hasTurns = window._mnState.chatHistory.length > 0;
-    h.innerHTML = hasTurns
-        ? 'Press <kbd>Enter</kbd> to send, <kbd>Shift</kbd>+<kbd>Enter</kbd> for a new line.'
-        : 'First message uses the brief above. Press <kbd>Enter</kbd> to send, <kbd>Shift</kbd>+<kbd>Enter</kbd> for a new line.';
-};
-
-// --- Preview (re-renders on every body / pid / template / Claude turn) -
+// --- Preview (re-renders when a course is picked) --------------------
 var _mnPreviewTimer = null;
 window.mnRefreshPreview = function() {
     if (_mnPreviewTimer) clearTimeout(_mnPreviewTimer);
     _mnPreviewTimer = setTimeout(function () {
-        // Source of truth is _mnState.bodyBlocks — populated by Claude
-        // on every Send. The admin no longer hand-edits the body, so
-        // there's no textarea to read from.
-        var blocks = window._mnState.bodyBlocks || {
-            body_block_1: '', body_block_2: '', body_block_3: ''
-        };
+        var pushBtn = document.getElementById('mn-push-btn');
+        if (!window._mnState.pids.length) {
+            document.getElementById('mn-preview-stage').style.display = 'none';
+            document.getElementById('mn-preview-empty').style.display = 'flex';
+            document.getElementById('mn-preview-status').textContent = 'No content yet';
+            if (pushBtn) pushBtn.setAttribute('disabled', 'disabled');
+            return;
+        }
         var fd = new FormData();
-        fd.append('template_key', window._mnState.template);
+        fd.append('template_key', 'agentic_flyer');
         fd.append('course_pids', window._mnState.pids.join(','));
-        fd.append('body_blocks', JSON.stringify(blocks));
-        // Reference images flow through every preview call so the
-        // hero photo updates immediately as the admin uploads/removes.
-        fd.append('images_json', JSON.stringify(window._mnState.images || []));
         fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/marketingnewsletter/preview') ?>', {
             method: 'POST', body: fd, credentials: 'same-origin'
         })
@@ -13836,65 +13717,60 @@ window.mnRefreshPreview = function() {
             document.getElementById('mn-preview-stage').style.display = 'flex';
             document.getElementById('mn-preview-empty').style.display = 'none';
             document.getElementById('mn-preview-status').textContent = 'Updated ' + new Date().toLocaleTimeString();
-            // Push button gates on a real preview.
-            var pushBtn = document.getElementById('mn-push-btn');
-            if (window._mnState.chatHistory.length || (blocks.body_block_1 || '').trim()) {
-                pushBtn.removeAttribute('disabled');
-            }
+            if (pushBtn) pushBtn.removeAttribute('disabled');   // course picked → can queue
         });
     }, 250);
 };
 
-// --- Save + Push -----------------------------------------------------
-window.mnSave = function() {
-    var fd = new FormData();
-    fd.append('newsletter_id', String(window._mnState.newsletterId || 0));
-    fd.append('country_code', window._mnState.cc);
-    fd.append('template_key', window._mnState.template);
-    fd.append('course_pids', window._mnState.pids.join(','));
-    fd.append('body_blocks', JSON.stringify(window._mnState.bodyBlocks));
-    fd.append('chat_history', JSON.stringify(window._mnState.chatHistory));
-    fd.append('images_json', JSON.stringify(window._mnState.images || []));
-    var lastPrompt = '';
-    for (var i = window._mnState.chatHistory.length - 1; i >= 0; i--) {
-        if (window._mnState.chatHistory[i].role === 'user') { lastPrompt = window._mnState.chatHistory[i].content; break; }
-    }
-    fd.append('ai_prompt', lastPrompt);
-    fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/marketingnewsletter/saveDraft') ?>', {
-        method: 'POST', body: fd, credentials: 'same-origin'
-    })
-    .then(function (r) { return r.json(); })
-    .then(function (j) {
-        if (!j || !j.success) { alert((j && j.message) || 'Save failed.'); return; }
-        window._mnState.newsletterId = j.newsletter_id;
-        alert('Draft saved.');
-    });
-};
-window.mnPush = function() {
-    if (!window._mnState.newsletterId) {
-        alert('Save the draft first.');
-        return;
-    }
-    if (!confirm('Push this newsletter to MailerLite as a draft campaign?')) return;
+// --- Queue an Agentic flyer for manager approval (the ONLY path to MailerLite) ---
+// Never pushes to MailerLite directly — it creates a proposal that both managers
+// must approve, then the guarded pipeline schedules it (hard cap: 2 flyers/week).
+window.mnQueueApproval = function() {
+    var pids = window._mnState.pids || [];
+    if (!pids.length) { alert('Pick a course first.'); return; }
+    if (!confirm('Queue this Agentic flyer for manager approval?\n\nBoth managers must approve before it schedules to MailerLite (max 2 flyers per week).')) return;
     var btn = document.getElementById('mn-push-btn');
-    btn.disabled = true; btn.textContent = 'Pushing...';
+    if (btn) { btn.disabled = true; btn.textContent = 'Queuing…'; }
     var fd = new FormData();
-    fd.append('newsletter_id', String(window._mnState.newsletterId));
-    fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/marketingnewsletter/push') ?>', {
+    fd.append('course_id', String(pids[0]));
+    fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/marketingnewsletter/queueApproval') ?>', {
         method: 'POST', body: fd, credentials: 'same-origin'
     })
     .then(function (r) { return r.json(); })
     .then(function (j) {
-        btn.disabled = false; btn.textContent = 'Push to MailerLite';
-        if (!j || !j.success) { alert((j && j.message) || 'Push failed.'); return; }
-        var note = j.stubbed
-            ? '\n\nDemo mode: drop a real MailerLite key into local.xml to push live.'
-            : '\n\nGo to MailerLite to schedule the send.';
-        alert('Pushed as MailerLite campaign ' + j.mailerlite_id + '.' + note);
+        if (btn) { btn.disabled = false; btn.textContent = 'Queue for approval'; }
+        if (!j || !j.success) { alert((j && j.message) || 'Could not queue.'); return; }
+        alert(j.message || 'Queued — approval emails sent to both managers.');
         location.reload();
     })
     .catch(function (err) {
-        btn.disabled = false; btn.textContent = 'Push to MailerLite';
+        if (btn) { btn.disabled = false; btn.textContent = 'Queue for approval'; }
+        alert('Network error: ' + (err && err.message ? err.message : err));
+    });
+};
+// --- Agentic flyer: manager approve / request-changes (human in the loop) ---
+window.mnReview = function(id, decision) {
+    var feedback = '';
+    if (decision === 'changes') {
+        feedback = prompt('What should change? (a new design, a different course, wording…)');
+        if (feedback === null) return; // cancelled
+    } else {
+        if (!confirm('Approve this flyer?\n\nIt schedules to MailerLite only after BOTH managers approve (max 2 campaigns/week).')) return;
+    }
+    var fd = new FormData();
+    fd.append('newsletter_id', String(id));
+    fd.append('decision', decision);
+    fd.append('feedback', feedback);
+    fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/marketingnewsletter/reviewDecision') ?>', {
+        method: 'POST', body: fd, credentials: 'same-origin'
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (j) {
+        if (!j || !j.success) { alert((j && j.message) || 'Action failed.'); return; }
+        alert(j.message || 'Recorded.');
+        location.reload();
+    })
+    .catch(function (err) {
         alert('Network error — please try again: ' + (err && err.message ? err.message : err));
     });
 };
@@ -14009,12 +13885,9 @@ window.mnEditDraft = function(id) {
         }
         // Restore the JS state from the saved row.
         window._mnState.newsletterId = j.newsletter_id;
-        window._mnState.template     = j.template_key || 'course_promo';
+        window._mnState.template     = 'agentic_flyer';
         window._mnState.pids         = (j.pids || []).map(function (v) { return parseInt(v, 10); });
         window._mnState.pidNames     = j.pid_names  || {};
-        window._mnState.bodyBlocks   = j.body_blocks || { body_block_1: '', body_block_2: '', body_block_3: '' };
-        window._mnState.chatHistory  = j.chat_history || [];
-        window._mnState.images       = j.images || [];
 
         // Sync UI to the new state.
         var tplBtns = document.querySelectorAll('.mn-tpl');
@@ -14035,9 +13908,6 @@ window.mnEditDraft = function(id) {
             }
         }
         if (typeof mnRenderPids        === 'function') mnRenderPids();
-        if (typeof mnRenderImageThumbs === 'function') mnRenderImageThumbs();
-        if (typeof mnRenderChat        === 'function') mnRenderChat();
-        if (typeof mnUpdateComposerHint=== 'function') mnUpdateComposerHint();
         if (typeof mnRefreshPreview    === 'function') mnRefreshPreview();
     })
     .catch(function (e) {
@@ -14073,9 +13943,6 @@ document.addEventListener('keydown', function (ev) {
 
 (function init() {
     mnRenderPids();
-    mnRenderChat();
-    mnRenderImageThumbs();
-    mnUpdateComposerHint();
 })();
 </script>
 

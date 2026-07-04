@@ -21,6 +21,10 @@
           },
           {
             "type": "command",
+            "command": "f=\"$(jq -r '.tool_input.file_path // empty')\"; case \"$f\" in *app/code/local/MMD/Marketing/Helper/*|*app/code/local/MMD/Marketing/Model/Cron/*|*template/marketing/templates/*) .claude/hooks/verify-newsletter-flyer.sh ;; esac"
+          },
+          {
+            "type": "command",
             "command": "f=\"$(jq -r '.tool_input.file_path // empty')\"; .claude/hooks/lint-php-on-edit.sh \"$f\""
           },
           {

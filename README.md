@@ -50,6 +50,7 @@ This system runs as a **franchise model**:
 | 👥 **Six-role admin** | Learner / Trainer / Developer / Marketing / Admin / Training Provider with session-based role switching. |
 | 🎟️ **Payments** | Stripe, HitPay, PayNow and bank transfer. |
 | 📜 **Certificates & attendance** | E-attendance and certificate-of-achievement generation. |
+| 📣 **Autonomous newsletter** | SG-only agentic-flyer pipeline: designs a course flyer Mon & Thu 10am → both-manager approval (email **or** admin) → MailerLite blast Mon & Thu 8am. Hard cap **2 flyers/week**; nothing sends without approval. |
 | 🎨 **Ultimo storefront** | Premium responsive theme + a custom dark admin theme. |
 
 ## Tech Stack
@@ -133,7 +134,8 @@ ai-mms/
 | **Branchscope** | Per-country store-view switcher in admin. |
 | **Certificate / Attendance** | Certificates of achievement + e-attendance. |
 | **AccountSync** | Unified learner ↔ shadow admin accounts. |
-| **Courses / Leads / Marketing** | Course CRUD, lead capture, marketing automation. |
+| **Courses / Leads** | Course CRUD + admin grid; contact-form lead capture. |
+| **Marketing** | Autonomous agentic-flyer newsletter pipeline — cron design (Mon/Thu 10am), signed email + backend manager approval, guarded MailerLite scheduling (Blastguard: 2 blasts/week, Mon/Thu 8am), subscriber-growth + campaign KPIs. |
 
 ## Getting Started
 
@@ -209,6 +211,22 @@ User-uploaded media (catalog product/category galleries) is served from **Cloudf
 4. Commit and open a Pull Request
 
 Issues and feature requests are welcome via [GitHub Issues](https://github.com/alfredang/ai-mms/issues).
+
+### Shared AI-assistant tooling (`.claude/` + `.codex/`)
+
+This repo ships its **AI coding tooling in-repo** so every team member uses the same
+setup. Committed and ready to use after a clone:
+
+- **`.claude/skills/`** — domain skills (`openmage-code-reviewer`, `openmage-module-developer`,
+  `openmage-frontend-developer`, `backend-design`, `seo-audit`, `lead-magnets`, `add-country-store`,
+  `mysql`, `web-accessibility`, …).
+- **`.claude/agents/`** — specialised subagents (security auditor, caching/speed optimiser,
+  mysql tuner, admin-design-consistency, site-health-checker, `newsletter-designer`, …).
+- **`.claude/hooks/`** — pre/post-tool hooks (push-gate, PHP lint-on-edit, web-health,
+  leads-capture and newsletter-flyer verifiers) wired via `.claude/settings.json`.
+- **`.codex/`** + **`AGENTS.md`** — the Codex-CLI counterparts of the same guidance.
+
+`CLAUDE.md` / `AGENTS.md` are the behavioural guardrails both assistants load automatically.
 
 ## Developed By
 

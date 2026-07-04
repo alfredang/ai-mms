@@ -75,118 +75,10 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
      * the existing chat_history so Claude has memory of the running
      * draft.
      */
-    public function generateAction()
-    {
-        $result = array('success' => false);
-        try {
-            if (!$this->getRequest()->isPost()) throw new Exception('POST required');
-            $req = $this->getRequest();
-            $cc          = $this->_currentCountry();
-            $newsletterId= (int) $req->getParam('newsletter_id');
-            $prompt      = trim((string) $req->getParam('prompt'));
-            $templateKey = (string) $req->getParam('template_key') ?: 'course_promo';
-            $coursePids  = $this->_normalisePids((string) $req->getParam('course_pids'));
-            $mode        = (string) $req->getParam('mode') ?: 'initial';
-            $images      = $this->_normaliseImages((string) $req->getParam('images_json'));
-            if ($prompt === '') throw new Exception('Prompt is required');
-
-            // Load existing chat history if revising an existing draft.
-            $history = array();
-            if ($mode === 'revise' && $newsletterId) {
-                $row = $this->_db('read')->fetchRow(
-                    "SELECT chat_history FROM " . $this->_tbl()
-                  . " WHERE newsletter_id = ? AND country_code = ?",
-                    array($newsletterId, $cc)
-                );
-                if ($row && !empty($row['chat_history'])) {
-                    $decoded = json_decode($row['chat_history'], true);
-                    if (is_array($decoded)) $history = $decoded;
-                }
-            }
-
-            // Build the user turn. On the initial call we prepend
-            // structured course context so Claude knows which products
-            // the newsletter is about.
-            $userMessage = $prompt;
-            if ($mode === 'initial' && !empty($coursePids)) {
-                $context = $this->_buildCourseContext($coursePids);
-                $userMessage = "=== STRUCTURED COURSE DATA (source of truth — extract real facts from here) ===\n"
-                             . $context
-                             . "\n\n=== ADMIN'S BRIEF (instructions for what to include in the newsletter) ===\n"
-                             . $prompt;
-            }
-            // Image attachments live on the user turn as a separate
-            // 'images' field so _callClaude can build the multimodal
-            // content blocks. They're only stored on this turn — we
-            // don't replay them on revise turns since Claude already
-            // has them in its preceding message context.
-            $userTurn = array('role' => 'user', 'content' => $userMessage, 'ts' => time());
-            if (!empty($images)) {
-                $userTurn['images'] = $images; // [{media_type, data}, ...]
-            }
-            $history[] = $userTurn;
-
-            // Call Claude (stub if no key).
-            $reply = $this->_callClaude($history, $templateKey, $cc, $coursePids, $images);
-            $history[] = array('role' => 'assistant', 'content' => $reply['text'], 'ts' => time());
-
-            // The response is structured as:
-            //   <chat acknowledgment>
-            //   ===NEWSLETTER===
-            //   <body block 1>
-            //
-            //   <body block 2>
-            //
-            //   <body block 3>
-            // Split on the marker so the chat pane shows a friendly
-            // acknowledgment while the body parser only sees the
-            // structured newsletter content.
-            $parsed = $this->_parseAssistantReply($reply['text']);
-
-            $result['success']      = true;
-            $result['reply']        = $reply['text']; // raw, kept for compat
-            $result['ack']          = $parsed['ack']; // chat-pane acknowledgment
-            $result['has_body']     = $parsed['has_body'];
-            $result['chat_history'] = $history;
-
-            // Only build / return body_blocks when the assistant actually
-            // produced newsletter content (===NEWSLETTER=== marker was
-            // present). In chat mode the existing draft body stays put,
-            // so the UI must not overwrite body_blocks with empty data.
-            if ($parsed['has_body']) {
-                $blocks = $this->_splitIntoBlocks($parsed['body']);
-
-                // Design seed — by default deterministic from the picked
-                // course(s), so each course gets its own consistent visual
-                // identity (same palette + hero + card style every time
-                // you open it). When the admin explicitly asks for a
-                // different look ("change the colors", "new design",
-                // "re-roll"), we pick a fresh random seed instead.
-                if ($this->_looksLikeDesignReroll($prompt) || empty($coursePids)) {
-                    $blocks['_design_seed'] = mt_rand(1, 2147483647);
-                } else {
-                    $sorted = $coursePids;
-                    sort($sorted);
-                    $seed = (int) (crc32(implode(',', $sorted)) & 0x7fffffff);
-                    $blocks['_design_seed'] = $seed > 0 ? $seed : 1;
-                }
-                $result['body_blocks'] = $blocks;
-            }
-            $result['stubbed']      = !empty($reply['stubbed']);
-            if (!empty($reply['stub_reason'])) {
-                $result['stub_reason'] = $reply['stub_reason'];
-            }
-        } catch (Exception $e) {
-            $this->_writeLog('generateAction exception: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
-            $result['message'] = $e->getMessage();
-        } catch (Throwable $t) {
-            // Catches PHP 7+ fatal errors (TypeError, ArgumentCountError,
-            // etc.) that wouldn't have been caught by Exception.
-            $this->_writeLog('generateAction throwable: ' . get_class($t) . ': ' . $t->getMessage() . "\n" . $t->getTraceAsString());
-            $result['message'] = 'Internal error — check var/log/marketing.log';
-        }
-        return $this->_json($result);
-    }
+    // NOTE: the legacy AI-brief "generate" action (Claude writes newsletter copy
+    // from a brief) was REMOVED. The only newsletter flow is the Agentic flyer:
+    // a fixed, approved design rendered from the picked course — see queueApproval /
+    // the autonomous MMD_Marketing cron pipeline.
 
     public function saveDraftAction()
     {
@@ -402,64 +294,122 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
         return $this->_json($result);
     }
 
-    public function pushAction()
+    // NOTE: the legacy direct "push to MailerLite" action was REMOVED — it bypassed
+    // manager approval and the 2-per-week cap. The only path to MailerLite now is the
+    // guarded pipeline: queueApprovalAction / reviewDecisionAction → Cron_Flyer →
+    // Blastguard (both managers must approve; max 2 flyers/week).
+
+    /**
+     * HARD RULE #2 (backend side): a manager approves / requests changes on an
+     * agentic-flyer proposal from inside the admin — the second human-in-the-loop
+     * channel alongside the email links. Only the two designated managers count,
+     * and BOTH must approve before anything schedules. On the second approval this
+     * routes through the SAME guarded pipeline (Cron_Flyer::scheduleApproved →
+     * Blastguard) as the email path, so the 2-per-week cap can never be bypassed.
+     */
+    public function reviewDecisionAction()
     {
         $result = array('success' => false);
         try {
             if (!$this->getRequest()->isPost()) throw new Exception('POST required');
-            $cc = $this->_currentCountry();
+            $cc           = $this->_currentCountry();
             $newsletterId = (int) $this->getRequest()->getParam('newsletter_id');
+            $decision     = (string) $this->getRequest()->getParam('decision');
+            $feedback     = trim((string) $this->getRequest()->getParam('feedback'));
             if (!$newsletterId) throw new Exception('newsletter_id required');
+            if (!in_array($decision, array('approve', 'changes'), true)) throw new Exception('Invalid decision');
+
+            $guard     = Mage::helper('mmd_marketing/blastguard');
+            $reviewers = array_map('strtolower', $guard->reviewers());
+            $me        = strtolower((string) Mage::getSingleton('admin/session')->getUser()->getEmail());
+            if (!in_array($me, $reviewers, true)) {
+                throw new Exception('Only the designated managers can approve here ('
+                    . implode(', ', $guard->reviewers()) . '). You are signed in as ' . $me . '.');
+            }
 
             $row = $this->_db('read')->fetchRow(
-                "SELECT * FROM " . $this->_tbl()
-              . " WHERE newsletter_id = ? AND country_code = ?",
+                "SELECT * FROM " . $this->_tbl() . " WHERE newsletter_id = ? AND country_code = ?",
                 array($newsletterId, $cc)
             );
             if (!$row) throw new Exception('Newsletter not found');
-
-            $blocks      = json_decode((string) $row['body_blocks'], true);
-            if (!is_array($blocks)) $blocks = array();
-            $coursePids  = $this->_normalisePids((string) $row['course_pids']);
-            $images = (!empty($blocks['_images']) && is_array($blocks['_images']))
-                ? $blocks['_images']
-                : array();
-            $html = $this->_renderTemplate(
-                $row['template_key'], $row['title'], $row['subject'],
-                (string) $row['preview_text'], $blocks, $coursePids, $cc, $images
-            );
-
-            $cfg = Mage::helper('mmd_rolemanager')->getMarketingApiConfig();
-            $mailerLiteId = '';
-            $stubbed = empty($cfg['mailerlite_key']);
-
-            // Trace which path the push takes — without this, when the
-            // stub branch is silently taken (because no key in this env)
-            // the user sees a successful response and no log entries,
-            // which looks identical to the "real push silently failed"
-            // case. Log explicitly so the two are distinguishable.
-            $this->_writeLog('pushAction id=' . $newsletterId
-                . ' html_bytes=' . strlen($html)
-                . ' key_present=' . ($stubbed ? 'NO (stub path)' : 'YES (live path)')
-                . ' template=' . (string) $row['template_key']);
-
-            if ($stubbed) {
-                $mailerLiteId = 'STUB-' . strtoupper(uniqid());
-            } else {
-                $mailerLiteId = $this->_pushToMailerLite(
-                    $cfg, $row['subject'], $html
-                );
+            if (in_array((string) $row['status'], array('scheduled', 'sent'), true)) {
+                throw new Exception('This flyer is already scheduled — nothing more to approve.');
             }
 
-            $this->_db('write')->update($this->_tbl(), array(
-                'mailerlite_id' => $mailerLiteId,
-                'body_html'     => $html,
-                'status'        => 'pushed',
-            ), array('newsletter_id = ?' => $newsletterId));
+            $decisions = json_decode((string) $row['review_decisions'], true);
+            if (!is_array($decisions)) $decisions = array();
+            $decisions[$me] = $decision;
+
+            if ($decision === 'changes') {
+                $this->_db('write')->update($this->_tbl(), array(
+                    'review_decisions' => json_encode($decisions),
+                    'review_feedback'  => $feedback,
+                    'review_status'    => 'changes_requested',
+                ), array('newsletter_id = ?' => $newsletterId));
+                $result['success'] = true;
+                $result['stage']   = 'changes_requested';
+                $result['message'] = 'Change request recorded. The design will be revised and re-sent for approval.';
+                return $this->_json($result);
+            }
+
+            // approve — record, then check whether BOTH managers have now approved
+            $this->_db('write')->update($this->_tbl(),
+                array('review_decisions' => json_encode($decisions)),
+                array('newsletter_id = ?' => $newsletterId));
+
+            $allApprove = true;
+            foreach ($reviewers as $r) {
+                if (!isset($decisions[$r]) || $decisions[$r] !== 'approve') { $allApprove = false; break; }
+            }
+            if (!$allApprove) {
+                $this->_db('write')->update($this->_tbl(),
+                    array('review_status' => 'pending'),
+                    array('newsletter_id = ?' => $newsletterId));
+                $result['success'] = true;
+                $result['stage']   = 'partial_approval';
+                $result['message'] = 'Your approval is recorded. Waiting for the other manager before it can schedule.';
+                return $this->_json($result);
+            }
+
+            // both approved -> schedule through the guarded (cap-enforced) pipeline
+            list($ok, $msg) = Mage::getModel('mmd_marketing/cron_flyer')->scheduleApproved($newsletterId);
+            $result['success'] = $ok;
+            $result['stage']   = $ok ? 'scheduled' : 'schedule_failed';
+            $result['message'] = $msg;
+        } catch (Exception $e) {
+            $result['message'] = $e->getMessage();
+        }
+        return $this->_json($result);
+    }
+
+    /**
+     * Manually queue an Agentic flyer for approval. This is the ONLY manual path
+     * toward MailerLite and it deliberately does NOT push — it creates a proposal
+     * and emails both managers, exactly like the cron. Scheduling still happens only
+     * after both approve, through Blastguard, so the "max 2 flyers/week" cap holds.
+     */
+    public function queueApprovalAction()
+    {
+        $result = array('success' => false);
+        try {
+            if (!$this->getRequest()->isPost()) throw new Exception('POST required');
+            $pid = (int) $this->getRequest()->getParam('course_id');
+            if (!$pid) throw new Exception('Pick a course first.');
+
+            $guard = Mage::helper('mmd_marketing/blastguard');
+            if ($guard->remainingDesignsThisWeek() < 1) {
+                throw new Exception('The weekly limit of ' . MMD_Marketing_Helper_Blastguard::MAX_PER_WEEK
+                    . ' flyers has been reached for this week. Try again next week.');
+            }
+            $model = Mage::getModel('mmd_marketing/cron_flyer');
+            $nid   = $model->createProposal($pid);
+            if (!$nid) throw new Exception('Could not build a flyer for that course (missing course data).');
+            $model->sendForReview($nid);
 
             $result['success']       = true;
-            $result['mailerlite_id'] = $mailerLiteId;
-            $result['stubbed']       = $stubbed;
+            $result['newsletter_id'] = $nid;
+            $result['message']       = 'Queued for approval — approval emails sent to both managers. '
+                . 'It schedules to MailerLite only after both approve (max 2 flyers/week).';
         } catch (Exception $e) {
             $result['message'] = $e->getMessage();
         }
@@ -1817,6 +1767,21 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
 
     protected function _renderTemplate($key, $title, $subject, $previewText, array $blocks, array $pids, $cc, array $images = array())
     {
+        // Agentic flyer: the autonomous pipeline's fixed, approved design. Render it
+        // from the same helper the cron + MailerLite use, so Live Preview === email
+        // === blast (single source of truth). Falls through to the block templates
+        // below only for the hand-built course_promo / visual_showcase drafts.
+        if ($key === 'agentic_flyer') {
+            $pid = (int) (isset($pids[0]) ? $pids[0] : 0);
+            $flyer = $pid ? Mage::helper('mmd_marketing/flyer')->render($pid) : '';
+            if ($flyer !== '') {
+                return $flyer;
+            }
+            // no course picked yet — show a hint instead of silently falling back
+            return '<div style="font-family:-apple-system,Segoe UI,Arial,sans-serif;padding:40px;text-align:center;color:#64748b;">'
+                 . 'Pick a course to render the Agentic flyer preview.</div>';
+        }
+
         $cfg = Mage::helper('mmd_rolemanager')->getMarketingApiConfig();
         $countryName = Mage::helper('mmd_rolemanager')->getActiveCountryName();
         $courses = $this->_loadCourseDetails($pids);

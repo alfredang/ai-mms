@@ -5,7 +5,7 @@
  *  - Feature is SG-only and gated by config mmd_marketing/newsletter/blast_enabled
  *    (default 0; set to 1 only on the SG instance — see migration 300 + the admin
  *    toggle). isEnabled() is the master switch: nothing blasts when off.
- *  - Blasts may only be SCHEDULED for a Monday or a Thursday (10:00 local).
+ *  - Blasts may only be SCHEDULED for a Monday or a Thursday (08:00 local).
  *  - HARD cap: at most MAX_PER_WEEK (2) campaigns per calendar week (Mon 00:00 →
  *    Sun 23:59:59, server TZ Asia/Singapore). Every successful schedule is written
  *    to mmd_marketing_blast_log; the count is read back from there so the limit is
@@ -96,7 +96,32 @@ class MMD_Marketing_Helper_Blastguard extends Mage_Core_Helper_Abstract
     }
 
     /**
-     * The soonest future Monday/Thursday 10:00 slot whose calendar week still
+     * HARD RULE #1 (design side): at most MAX_PER_WEEK auto-designs proposed per
+     * calendar week. Counts cron-proposed flyers (is_auto=1) created this week —
+     * the send-side cap (blastsThisWeek) is the separate backstop at the MailerLite
+     * boundary, so the two together guarantee "max 2 campaigns OR designs per week".
+     */
+    public function designsThisWeek()
+    {
+        list($mon, $sun) = $this->_weekBounds(new DateTime('now'));
+        $res  = Mage::getSingleton('core/resource');
+        $conn = $res->getConnection('core_read');
+        $tbl  = $res->getTableName('newsletters');
+        return (int) $conn->fetchOne(
+            'SELECT COUNT(*) FROM ' . $tbl
+          . " WHERE is_auto = 1 AND country_code = 'SG' AND created_at BETWEEN ? AND ?",
+            array($mon->format('Y-m-d H:i:s'), $sun->format('Y-m-d H:i:s'))
+        );
+    }
+
+    /** How many auto-designs may still be proposed this week (0, 1, or 2). */
+    public function remainingDesignsThisWeek()
+    {
+        return max(0, self::MAX_PER_WEEK - $this->designsThisWeek());
+    }
+
+    /**
+     * The soonest future Monday/Thursday 08:00 slot whose calendar week still
      * has capacity (< MAX_PER_WEEK already booked). Looks up to 3 weeks ahead.
      * Returns a DateTime (local) or null if nothing is bookable in that window.
      */
