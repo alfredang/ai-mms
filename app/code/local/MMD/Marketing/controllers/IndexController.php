@@ -88,7 +88,17 @@ class MMD_Marketing_IndexController extends Mage_Core_Controller_Front_Action
             '<p style="color:#475569;">Your approval is recorded, but it could not be scheduled yet: ' . htmlspecialchars($msg) . '</p>', '#f59e0b');
     }
 
-    /** Streams the QR for the flyer. Redirects to a QR renderer (works in email). */
+    /**
+     * Streams the QR for the flyer as a PNG served FROM OUR OWN DOMAIN.
+     * Previously this 302-redirected to quickchart.io, but many email clients
+     * and image proxies (Gmail's googleusercontent proxy among them) do NOT
+     * follow a redirect on an <img src>, so the QR failed to load / scan for
+     * recipients (real report 2026-07-05: "QR not working"). We now fetch the
+     * PNG server-side and output the bytes directly — a plain same-origin
+     * image response that every client renders. Uses a high error-correction
+     * QR (ecLevel=H) + pure black for maximum scannability, and caches the
+     * bytes so repeat loads don't re-hit the generator.
+     */
     public function qrAction()
     {
         $u = (string) $this->getRequest()->getParam('u');
@@ -97,7 +107,35 @@ class MMD_Marketing_IndexController extends Mage_Core_Controller_Front_Action
             $this->getResponse()->setHttpResponseCode(404)->setBody('bad url');
             return;
         }
-        $qr = 'https://quickchart.io/qr?size=300&margin=1&dark=0f172a&text=' . rawurlencode($url);
-        $this->getResponse()->setRedirect($qr, 302);
+
+        $cacheKey = 'MMD_FLYER_QR_' . md5($url);
+        $cache    = Mage::app()->getCache();
+        $png      = $cache ? $cache->load($cacheKey) : false;
+        if ($png === false || $png === '') {
+            $gen = 'https://quickchart.io/qr?size=360&margin=2&ecLevel=H&dark=000000&light=ffffff&text=' . rawurlencode($url);
+            $ch  = curl_init($gen);
+            curl_setopt_array($ch, array(
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_TIMEOUT        => 15,
+                CURLOPT_CONNECTTIMEOUT => 6,
+            ));
+            $png  = curl_exec($ch);
+            $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            if ($png === false || $png === '' || $code >= 400) {
+                // Fallback: redirect (old behaviour) so the QR still appears
+                // in clients that DO follow redirects, even if our fetch failed.
+                $this->getResponse()->setRedirect($gen, 302);
+                return;
+            }
+            if ($cache) { $cache->save($png, $cacheKey, array(), 86400); }
+        }
+
+        $this->getResponse()
+            ->setHeader('Content-Type', 'image/png', true)
+            ->setHeader('Cache-Control', 'public, max-age=86400', true)
+            ->setBody($png);
+        return;
     }
 }
