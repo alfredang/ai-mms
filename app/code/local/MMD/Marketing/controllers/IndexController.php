@@ -89,15 +89,14 @@ class MMD_Marketing_IndexController extends Mage_Core_Controller_Front_Action
     }
 
     /**
-     * Streams the QR for the flyer as a PNG served FROM OUR OWN DOMAIN.
-     * Previously this 302-redirected to quickchart.io, but many email clients
-     * and image proxies (Gmail's googleusercontent proxy among them) do NOT
-     * follow a redirect on an <img src>, so the QR failed to load / scan for
-     * recipients (real report 2026-07-05: "QR not working"). We now fetch the
-     * PNG server-side and output the bytes directly — a plain same-origin
-     * image response that every client renders. Uses a high error-correction
-     * QR (ecLevel=H) + pure black for maximum scannability, and caches the
-     * bytes so repeat loads don't re-hit the generator.
+     * Streams the flyer QR as a PNG generated ENTIRELY IN-HOUSE (no third-party
+     * API, no redirect). Uses the bundled chillerlan/php-qrcode library server-
+     * side, so the <img src> is a plain same-origin image/png response that every
+     * email client renders directly — the previous 302-redirect to an external
+     * generator failed in clients/proxies that don't follow image-src redirects
+     * (report 2026-07-05: "QR not working"). High error-correction (ECC_H), a
+     * 4-module quiet zone (spec minimum) and pure black maximise scannability.
+     * Cached 24h. Falls back to the external generator only if the library fails.
      */
     public function qrAction()
     {
@@ -112,23 +111,24 @@ class MMD_Marketing_IndexController extends Mage_Core_Controller_Front_Action
         $cache    = Mage::app()->getCache();
         $png      = $cache ? $cache->load($cacheKey) : false;
         if ($png === false || $png === '') {
-            // margin=4 = the QR-spec minimum quiet zone (4 modules). The old
-            // margin=1 was below spec and is a classic cause of "won't scan",
-            // especially with the QR sitting close to the flyer caption/border.
-            $gen = 'https://quickchart.io/qr?size=360&margin=4&ecLevel=H&dark=000000&light=ffffff&text=' . rawurlencode($url);
-            $ch  = curl_init($gen);
-            curl_setopt_array($ch, array(
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_FOLLOWLOCATION => true,
-                CURLOPT_TIMEOUT        => 15,
-                CURLOPT_CONNECTTIMEOUT => 6,
-            ));
-            $png  = curl_exec($ch);
-            $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
-            if ($png === false || $png === '' || $code >= 400) {
-                // Fallback: redirect (old behaviour) so the QR still appears
-                // in clients that DO follow redirects, even if our fetch failed.
+            try {
+                $opt = new \chillerlan\QRCode\QROptions(array(
+                    'outputType'    => \chillerlan\QRCode\QRCode::OUTPUT_IMAGE_PNG,
+                    'eccLevel'      => \chillerlan\QRCode\QRCode::ECC_H,
+                    'scale'         => 10,     // 10px per module → ~360px image
+                    'quietzoneSize' => 4,      // spec-minimum quiet zone
+                    'imageBase64'   => false,  // raw PNG bytes, not a data URI
+                    'imageTransparent' => false,
+                ));
+                $png = (new \chillerlan\QRCode\QRCode($opt))->render($url);
+            } catch (Exception $e) {
+                $png = false;
+                Mage::logException($e);
+            }
+            if ($png === false || $png === '') {
+                // Library unavailable — fall back to the external generator so
+                // the QR still appears rather than showing a broken image.
+                $gen = 'https://quickchart.io/qr?size=360&margin=4&ecLevel=H&dark=000000&light=ffffff&text=' . rawurlencode($url);
                 $this->getResponse()->setRedirect($gen, 302);
                 return;
             }
