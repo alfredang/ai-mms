@@ -1304,6 +1304,36 @@ a.practice-exam-cta:focus { background: #047857; color: #ffffff; text-decoration
 .brochure-simple__icon svg { width: 18px; height: 18px; display: block; }
 
 /* ==========================================================================
+   Product page 3-column row fit — keep the right (Course Fee) column in the
+   top row.
+
+   The product view lays out img + primary + secondary columns as three
+   `.grid12-4` floats. Each grid12-4 is 31.33% width + 1% + 1% side margins =
+   33.33%, so the three total 99.99% of the row with effectively ZERO slack.
+   The secondary column floats RIGHT, and with sub-pixel rounding the browser
+   can't fit it beside the two left floats, so it drops onto a new line —
+   leaving a tall empty band above the Course Fee card. This was happening on
+   EVERY product page at EVERY desktop width on all sites (SG/MY/GH), not
+   intermittently.
+
+   Fix: halve the three columns' side gutters (1% -> 0.5%) at the desktop
+   breakpoint where they sit side by side (>=768px; below that grid12-4 becomes
+   width:100% and the columns stack). This frees ~3% (~40px) of horizontal
+   room — comfortable slack — while keeping each column's content width
+   unchanged (only the inter-column gaps shrink slightly). The higher-
+   specificity selectors win over the base `.grid12-4 { margin:1% }` rule
+   without needing !important.
+   ========================================================================== */
+@media only screen and (min-width: 768px) {
+    .catalog-product-view .product-view .product-img-column,
+    .catalog-product-view .product-view .product-primary-column,
+    .catalog-product-view .product-view .product-secondary-column {
+        margin-left: 0.5%;
+        margin-right: 0.5%;
+    }
+}
+
+/* ==========================================================================
    Right-column (secondary) registration panel — Course Fee, funding options,
    qty, and the "Register Your Interest" CTA. Wraps everything in a calm card
    chrome so the price block feels like a focused booking surface.
