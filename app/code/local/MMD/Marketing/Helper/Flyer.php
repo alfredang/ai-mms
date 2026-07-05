@@ -159,6 +159,21 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         );
     }
 
+    /**
+     * Persuasive hook line for the flyer hero. Flagship SKUs get a curated angle;
+     * every other course falls back to its catalog blurb. Kept next to the
+     * outcomes so a flagship course's whole voice lives in one place.
+     */
+    protected function courseHook($sku, $blurb)
+    {
+        $curated = array(
+            // WSQ Agentic AI Applications with Claude Code — "build your own apps" angle.
+            'TGS-2025052468' => 'Build your own apps with Claude Code &mdash; describe what you want in plain English and ship a working tool the same day, no coding background needed.',
+        );
+        $key = trim((string) $sku);
+        return isset($curated[$key]) ? $curated[$key] : (string) $blurb;
+    }
+
     /** URL of the hosted QR image for this course (served by the public route). */
     public function qrUrl($courseUrl)
     {
@@ -184,9 +199,10 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         $sans    = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
         $mono    = "ui-monospace,Menlo,Consolas,monospace";
 
-        // Persuasive hook — real per-course marketing copy (first ~2 sentences of the
-        // course blurb), NOT the factual syllabus. Drives the "why take this" story.
-        $hook = (string) $c['blurb'];
+        // Persuasive hook — real per-course marketing copy. Flagship SKUs get a
+        // curated angle (kept in one place with the outcomes); everything else uses
+        // the first ~2 sentences of the course blurb, NOT the factual syllabus.
+        $hook = $this->courseHook($c['sku'], (string) $c['blurb']);
         if (function_exists('mb_strlen') && mb_strlen($hook) > 210) {
             $cut = mb_substr($hook, 0, 210);
             $lastDot = mb_strrpos($cut, '. ');
