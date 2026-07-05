@@ -435,12 +435,21 @@
 		// Vue Testing Center" / "purchase the exam voucher" paragraphs. The Free
 		// Practice Exams card below replaces this vendor-exam blurb.
 		'#<h[1-6][^>]*>\s*Certification\s+Exam\s+at\s+Pearson\s+Vue\s*</h[1-6]>(?:\s*<p\b[^>]*>.*?</p>)*#is',
-		// "<X> Exam Voucher" heading + its "The <X> Exam Voucher is included in
-		// this/the course fee." paragraph. Anchored on the "included ... course
-		// fee" sentence so it strips only that claim, NOT voucher-redemption
-		// instruction blocks (e.g. the PeopleCert steps) that share the heading.
-		'#<h[1-6][^>]*>[^<]*Exam\s+Voucher[^<]*</h[1-6]>\s*<p[^>]*>(?:(?!</p>).)*?is\s+included\s+in\s+(?:this|the)\s+course\s+fee(?:(?!</p>).)*?</p>#is',
 	), '', $shortDescription);
+
+	// "<X> Exam Voucher" heading + its following paragraph(s): both the "…is
+	// included in this course fee" claim AND the voucher-redemption steps (e.g.
+	// the PeopleCert "1: Visit … 2: Create account …" block). GUARDED to courses
+	// only: the 50 standalone Exam-Voucher PRODUCTS carry "Exam Voucher" in their
+	// own name and their description legitimately describes the voucher — never
+	// strip those. A course's name never contains "Exam Voucher".
+	if (stripos((string) $_product->getName(), 'Exam Voucher') === false) {
+		$shortDescription = preg_replace(
+			'#<h[1-6][^>]*>[^<]*Exam\s+Voucher[^<]*</h[1-6]>(?:\s*<p\b[^>]*>.*?</p>)*#is',
+			'',
+			$shortDescription
+		);
+	}
 
 	// Show the Free Practice Exams card whenever we actually removed a partner
 	// blurb — this is the store-independent "remove → replace" pairing. The
