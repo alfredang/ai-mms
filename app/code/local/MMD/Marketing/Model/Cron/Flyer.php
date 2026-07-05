@@ -373,8 +373,11 @@ class MMD_Marketing_Model_Cron_Flyer
         $slot = $g->nextSendSlot();
         $row  = $this->_read()->fetchRow('SELECT * FROM ' . $this->_tbl() . ' WHERE newsletter_id = ?', array($newsletterId));
         if (!$row) { return array(false, 'Proposal not found.'); }
-        if ((string) $row['status'] === 'scheduled') {
-            return array(true, 'Already scheduled.');   // idempotent: don't double-book
+        // Idempotent: a set mailerlite_id means it's already booked. (Don't rely on
+        // status='scheduled' alone — the legacy enum blanked that write; the enum is
+        // fixed in migration 307, but mailerlite_id is the reliable guard.)
+        if (trim((string) $row['mailerlite_id']) !== '' || (string) $row['status'] === 'scheduled') {
+            return array(true, 'Already scheduled.');
         }
 
         // Create + schedule the MailerLite campaign for the chosen Mon/Thu 08:00 slot.

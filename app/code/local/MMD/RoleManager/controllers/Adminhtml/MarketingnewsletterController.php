@@ -335,7 +335,7 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
                 array($newsletterId, $cc)
             );
             if (!$row) throw new Exception('Newsletter not found');
-            if (in_array((string) $row['status'], array('scheduled', 'sent'), true)) {
+            if (trim((string) $row['mailerlite_id']) !== '' || in_array((string) $row['status'], array('scheduled', 'sent'), true)) {
                 throw new Exception('This flyer is already scheduled — nothing more to approve.');
             }
 

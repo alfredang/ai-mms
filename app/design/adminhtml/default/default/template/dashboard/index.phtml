@@ -13372,21 +13372,27 @@ if ($_mnActive) {
 $_mnStage = function ($row) {
     $rs = (string) $row['review_status'];
     $st = (string) $row['status'];
+    $mlId = trim((string) $row['mailerlite_id']);
     $decisions = json_decode((string) $row['review_decisions'], true);
     $appr = 0;
     if (is_array($decisions)) { foreach ($decisions as $d) { if ($d === 'approve') $appr++; } }
-    if ($st === 'sent')                      return array(5, 'Blasted', 'done');
-    if ($st === 'scheduled') {
+    if ($st === 'sent')                      return array(4, 'Blasted', 'done');
+    // "Scheduled" = booked into MailerLite. Detect via mailerlite_id (the
+    // reliable signal) — the legacy status enum has no 'scheduled' value so the
+    // status write lands as '' and can't be trusted here.
+    if ($mlId !== '' || $st === 'scheduled') {
         $future = $row['scheduled_send_at'] && strtotime($row['scheduled_send_at']) > time();
-        return $future ? array(4, 'Waiting to send', 'wait') : array(3, 'Scheduled', 'sched');
+        return $future
+            ? array(3, 'Scheduled &middot; ' . date('D j M, g:ia', strtotime($row['scheduled_send_at'])), 'sched')
+            : array(3, 'Scheduled', 'sched');
     }
     if ($rs === 'approved')                  return array(2, 'Approved', 'ok');
-    if ($rs === 'changes_requested')         return array(0, 'Changes requested', 'changes');
+    if ($rs === 'changes_requested')         return array(1, 'Changes requested', 'changes');
     if ($rs === 'expired')                   return array(0, 'Expired', 'muted');
     if ($rs === 'pending')                   return array(1, 'Pending approval', 'pending');
-    return array(0, 'Draft', 'muted');
+    return array(0, 'Design', 'muted');
 };
-$_mnStageNames = array('Designed', 'Approval sent', 'Approved', 'Scheduled', 'Waiting', 'Blasted');
+$_mnStageNames = array('Design', 'Approval sent', 'Approved', 'Scheduled', 'Blasted');
 
 ?>
 <div id="dash-panel-marketing-newsletter" style="display:none;">
@@ -13414,27 +13420,50 @@ $_mnStageNames = array('Designed', 'Approval sent', 'Approved', 'Scheduled', 'Wa
             </div>
         </div>
 
-        <?php if ($_mnFeatured):
-            list($_fi, $_flabel, $_fcss) = $_mnStage($_mnFeatured); ?>
-        <!-- stepper for the newest proposal -->
-        <ol class="mn-steps">
-            <?php foreach ($_mnStageNames as $_si => $_sname):
-                $_cls = $_si < $_fi ? 'done' : ($_si === $_fi ? 'current' : ''); ?>
-                <li class="mn-step <?php echo $_cls ?>">
-                    <span class="mn-dot"><?php echo $_si < $_fi ? '&#10003;' : ($_si + 1) ?></span>
-                    <span class="mn-slabel"><?php echo $_sname ?></span>
-                </li>
+        <?php
+        // Active flows = in-progress (not blasted, not expired). Show a labelled
+        // stepper for EACH so the current flow (Scheduled) and the auto-started
+        // next flow (Design/Pending) are both visible. Capped at 2 = the weekly max.
+        $_active = array();
+        foreach ($_mnPipe as $_p) {
+            if ((string) $_p['status'] === 'sent') { continue; }
+            if ((string) $_p['review_status'] === 'expired') { continue; }
+            $_active[] = $_p;
+            if (count($_active) >= 2) { break; }
+        }
+        // Show oldest-active first (Flow 1 = current/scheduled, Flow 2 = next).
+        $_active = array_reverse($_active);
+        ?>
+        <?php if (!empty($_active)): ?>
+            <?php foreach ($_active as $_ai => $_flow):
+                list($_fi, $_flabel, $_fcss) = $_mnStage($_flow); ?>
+            <div class="mn-flow">
+                <div class="mn-flow-head">
+                    <span class="mn-flow-tag <?php echo $_ai === 0 ? 'cur' : 'nxt' ?>">Flow <?php echo $_ai + 1 ?> · <?php echo $_ai === 0 ? 'current' : 'next (auto)' ?></span>
+                    <span class="mn-flow-name"><?php echo htmlspecialchars($_flow['title']) ?></span>
+                    <span class="mn-badge s-<?php echo $_fcss ?>"><?php echo $_flabel ?></span>
+                </div>
+                <ol class="mn-steps">
+                    <?php foreach ($_mnStageNames as $_si => $_sname):
+                        $_cls = $_si < $_fi ? 'done' : ($_si === $_fi ? 'current' : ''); ?>
+                        <li class="mn-step <?php echo $_cls ?>">
+                            <span class="mn-dot"><?php echo $_si < $_fi ? '&#10003;' : ($_si + 1) ?></span>
+                            <span class="mn-slabel"><?php echo $_sname ?></span>
+                        </li>
+                    <?php endforeach; ?>
+                </ol>
+            </div>
             <?php endforeach; ?>
-        </ol>
-        <div class="mn-feat">
-            <div class="mn-feat-name"><?php echo htmlspecialchars($_mnFeatured['title']) ?></div>
-            <span class="mn-badge s-<?php echo $_fcss ?>"><?php echo htmlspecialchars($_flabel) ?></span>
-            <?php if (!empty($_mnFeatured['scheduled_send_at'])): ?>
-                <span class="mn-feat-meta">Sends <?php echo date('D, j M · g:ia', strtotime($_mnFeatured['scheduled_send_at'])) ?></span>
+            <?php if (count($_active) < 2): ?>
+            <div class="mn-flow mn-flow-ghost">
+                <div class="mn-flow-head">
+                    <span class="mn-flow-tag nxt">Flow 2 · next (auto)</span>
+                    <span class="mn-flow-name" style="color:#64748b;">Auto-starts from the queue once Flow 1 reaches <b>Scheduled</b> (max 2/week)</span>
+                </div>
+            </div>
             <?php endif; ?>
-        </div>
         <?php else: ?>
-        <div class="mn-pipe-empty">No agentic flyer in the pipeline yet. The cron proposes one every Monday &amp; Thursday 10:00 (when enabled).</div>
+        <div class="mn-pipe-empty">No agentic flyer in the pipeline yet. Add courses to the queue below and click <b>Run Now</b>, or the cron proposes one every Monday &amp; Thursday.</div>
         <?php endif; ?>
 
         <!-- data table: drafts + proposals merged (2026-07-04) — one row per flyer
@@ -13455,7 +13484,7 @@ $_mnStageNames = array('Designed', 'Approval sent', 'Approved', 'Scheduled', 'Wa
                 <tr>
                     <td class="strong"><?php echo htmlspecialchars($_r['title']) ?></td>
                     <td class="muted" style="font-family:ui-monospace,Menlo,monospace;font-size:12px;"><?php echo htmlspecialchars($_r['sku'] ?: '—') ?></td>
-                    <td><span class="mn-badge s-<?php echo $_rcss ?>"><?php echo htmlspecialchars($_rlabel) ?></span></td>
+                    <td><span class="mn-badge s-<?php echo $_rcss ?>"><?php echo $_rlabel /* may contain &middot; entities */ ?></span></td>
                     <td class="tnum"><?php echo (int)$_na ?>/1</td>
                     <td class="muted"><?php echo htmlspecialchars($_sentAt) ?></td>
                     <td><?php echo !empty($_r['scheduled_send_at']) ? date('j M · g:ia', strtotime($_r['scheduled_send_at'])) : '—' ?></td>
@@ -13492,7 +13521,16 @@ $_mnStageNames = array('Designed', 'Approval sent', 'Approved', 'Scheduled', 'Wa
         .mn-cap{display:flex;flex-direction:column;align-items:flex-start;background:#131f38;border:1px solid #24324a;border-radius:9px;padding:6px 12px;}
         .mn-cap em{font:700 9.5px -apple-system,Segoe UI,Arial,sans-serif;text-transform:uppercase;letter-spacing:.6px;color:#64748b;font-style:normal;}
         .mn-cap b{font:800 14px -apple-system,Segoe UI,Arial,sans-serif;color:#22d3ee;font-variant-numeric:tabular-nums;}
-        .mn-steps{list-style:none;display:grid;grid-template-columns:repeat(6,1fr);margin:0 0 16px;padding:0;}
+        .mn-steps{list-style:none;display:grid;grid-template-columns:repeat(5,1fr);margin:0 0 4px;padding:0;}
+        /* per-flow pipeline card (Flow 1 current, Flow 2 next) */
+        .mn-flow{background:#0d1730;border:1px solid #24324a;border-radius:12px;padding:16px 18px 8px;margin-bottom:12px;}
+        .mn-flow-ghost{background:transparent;border-style:dashed;opacity:.8;}
+        .mn-flow-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
+        .mn-flow-name{font:700 14px -apple-system,Segoe UI,Arial,sans-serif;color:#f1f5f9;}
+        .mn-flow-tag{font:800 10px -apple-system,Segoe UI,Arial,sans-serif;letter-spacing:.8px;text-transform:uppercase;padding:4px 10px;border-radius:999px;border:1px solid;}
+        .mn-flow-tag.cur{color:#22d3ee;border-color:rgba(34,211,238,.4);background:rgba(34,211,238,.08);}
+        .mn-flow-tag.nxt{color:#94a3b8;border-color:#334155;background:transparent;}
+        .mn-fq-act.mn-fq-run:hover{border-color:#34d399;color:#34d399;}
         .mn-step{position:relative;text-align:center;padding-top:36px;font:700 11px -apple-system,Segoe UI,Arial,sans-serif;color:#64748b;}
         .mn-step::before{content:"";position:absolute;top:15px;left:-50%;width:100%;height:2px;background:#334155;}
         .mn-step:first-child::before{display:none;}
@@ -13525,13 +13563,10 @@ $_mnStageNames = array('Designed', 'Approval sent', 'Approved', 'Scheduled', 'Wa
         .mn-abtn.ok:hover{background:#047857;}
         .mn-abtn.ghost{color:#cbd5e1;background:transparent;border-color:#334155;}
         .mn-abtn.ghost:hover{border-color:#475569;}
-        /* 26px ghost icon actions (design-system icon-button pattern) */
-        .mn-fq-act{width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;margin-left:4px;
-                   background:transparent;border:1px solid #334155;border-radius:5px;color:#cbd5e1;cursor:pointer;
-                   font:400 13px/1 -apple-system,Segoe UI,Arial,sans-serif;padding:0;}
-        .mn-fq-act:hover{border-color:#60a5fa;color:#60a5fa;}
-        .mn-fq-act.mn-fq-ok:hover{border-color:#34d399;color:#34d399;}
-        .mn-fq-act.mn-fq-del:hover{border-color:#f87171;color:#f87171;}
+        /* .mn-fq-act icon actions are styled by the GLOBAL ICON-ACTION
+           STANDARD in dark-theme.css (26x26 ghost square, one-row Actions
+           cell). Do not restate size/border here — the global rule wins the
+           §18 button cascade with !important; a local clone just drifts. */
         /* next-flyer queue table: drag affordances */
         .mn-fq-table{margin:14px 0 4px;}
         .mn-fq-row{cursor:grab;}
@@ -13569,9 +13604,12 @@ $_mnStageNames = array('Designed', 'Approval sent', 'Approved', 'Scheduled', 'Wa
                 <tbody id="mn-queue-list"></tbody>
             </table>
             <div class="mn-actions">
-                <button type="button" class="mn-btn mn-btn-cta" id="mn-push-btn" onclick="mnQueueApproval()" disabled>Send top of queue for approval now</button>
+                <button type="button" class="mn-btn mn-btn-cta" id="mn-push-btn" onclick="mnQueueApproval()" disabled>&#9654; Run Now</button>
             </div>
-            <p style="margin:10px 2px 0;font:400 12px/1.5 -apple-system,Segoe UI,Arial,sans-serif;color:#64748b;">Drag &#8942;&#8942; to reorder &middot; &#128065; previews a flyer &middot; &times; removes it. Each proposal emails both managers Approve / Request-changes buttons; it only goes to MailerLite after one manager approves (max <b>2 flyers per week</b>).</p>
+            <p style="margin:10px 2px 0;font:400 12px/1.6 -apple-system,Segoe UI,Arial,sans-serif;color:#64748b;">
+                <b style="color:#cbd5e1;">Run Now</b> runs the pipeline for the <b>top</b> course: <b>1. Design</b> the flyer &rarr; <b>2.</b> email the managers Approve / Request-changes &rarr; <b>3. Schedule</b> to MailerLite once a manager approves. As soon as it reaches <b>Scheduled</b>, the <b>next</b> course in the queue auto-starts on its own (no click needed). The Mon &amp; Thu cron also runs the top course automatically. Max <b>2 flyers per week</b>.<br>
+                Drag &#8942;&#8942; to reorder &middot; &#128065; preview &middot; &times; remove.
+            </p>
         </div>
 
         <?php /* The permanent Live Preview pane was removed 2026-07-04 (admin
@@ -13723,13 +13761,16 @@ window.mnFlyerQueueRender = function() {
         tr.children[4].textContent = fee;
         tr.children[5].textContent = row.funding_validity || '—';
         var act = tr.children[6];
+        var run = document.createElement('button');
+        run.type = 'button'; run.className = 'mn-fq-act mn-fq-run'; run.title = 'Run Now — design this flyer + send for approval'; run.innerHTML = '&#9654;';
+        run.onclick = function () { mnFlyerQueueRun(row.queue_id, row.product_id, row.name || row.sku); };
         var pv = document.createElement('button');
         pv.type = 'button'; pv.className = 'mn-fq-act'; pv.title = 'Preview flyer'; pv.innerHTML = '&#128065;';
         pv.onclick = function () { mnPreviewCourse(row.product_id, (row.sku || '') + ' — ' + (row.name || '')); };
         var rm = document.createElement('button');
         rm.type = 'button'; rm.className = 'mn-fq-act mn-fq-del'; rm.title = 'Remove from queue'; rm.innerHTML = '&times;';
         rm.onclick = function () { mnFlyerQueueRemove(row.queue_id, row.name); };
-        act.appendChild(pv); act.appendChild(rm);
+        act.appendChild(run); act.appendChild(pv); act.appendChild(rm);
         // drag-and-drop reorder
         tr.addEventListener('dragstart', function (e) {
             window._mnDragQid = row.queue_id;
@@ -13778,6 +13819,24 @@ window.mnFlyerQueueRemove = function(qid, name) {
     fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/marketingnewsletter/flyerQueueRemove') ?>', {
         method: 'POST', body: fd, credentials: 'same-origin'
     }).then(function () { mnFlyerQueueLoad(); });
+};
+
+// Run Now for ANY queue row (not just the top): design that course's flyer +
+// send for approval, then remove it from the queue. Same pipeline the Mon/Thu
+// cron and autoStartNext use, guarded by the 2/week cap server-side.
+window.mnFlyerQueueRun = function(qid, pid, name) {
+    if (!confirm('Run the pipeline now for "' + (name || pid) + '"?\n\nStep 1 designs the flyer, step 2 emails the managers for approval. It schedules to MailerLite once a manager approves (max 2 flyers per week).')) return;
+    var rf = new FormData(); rf.append('queue_id', String(qid));
+    fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/marketingnewsletter/flyerQueueRemove') ?>', { method:'POST', body:rf, credentials:'same-origin' });
+    var fd = new FormData(); fd.append('course_id', String(pid));
+    fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/marketingnewsletter/queueApproval') ?>', { method:'POST', body:fd, credentials:'same-origin' })
+    .then(function (r) { return r.json(); })
+    .then(function (j) {
+        if (!j || !j.success) { alert((j && j.message) || 'Could not run.'); mnFlyerQueueLoad(); return; }
+        alert(j.message || 'Pipeline started — approval email sent to the managers.');
+        location.reload();
+    })
+    .catch(function (e) { alert('Network error: ' + (e && e.message ? e.message : e)); });
 };
 
 // Button states follow the queue: "Send top of queue" needs at least one row.
@@ -13835,9 +13894,9 @@ window.mnQueueApproval = function() {
     var q = window._mnQueue || [];
     if (!q.length) { alert('The flyer queue is empty — add a WSQ course first.'); return; }
     var head = q[0];
-    if (!confirm('Send "' + (head.name || head.sku) + '" for manager approval now?\n\nThis consumes the top of the queue. Both managers must approve before it schedules to MailerLite (max 2 flyers per week).')) return;
+    if (!confirm('Run the pipeline now for "' + (head.name || head.sku) + '"?\n\nStep 1 designs the flyer, step 2 emails the managers for approval. It schedules to MailerLite once a manager approves (max 2 flyers per week). This removes it from the queue.')) return;
     var btn = document.getElementById('mn-push-btn');
-    if (btn) { btn.disabled = true; btn.textContent = 'Queuing…'; }
+    if (btn) { btn.disabled = true; btn.textContent = 'Running…'; }
     // consume the head row (mirrors what the Mon/Thu cron does)
     var rf = new FormData();
     rf.append('queue_id', String(head.queue_id));
@@ -13849,13 +13908,13 @@ window.mnQueueApproval = function() {
     })
     .then(function (r) { return r.json(); })
     .then(function (j) {
-        if (btn) { btn.disabled = false; btn.textContent = 'Queue for approval'; }
+        if (btn) { btn.disabled = false; btn.innerHTML = '&#9654; Run Now'; }
         if (!j || !j.success) { alert((j && j.message) || 'Could not queue.'); return; }
         alert(j.message || 'Queued — approval email sent to the managers.');
         location.reload();
     })
     .catch(function (err) {
-        if (btn) { btn.disabled = false; btn.textContent = 'Queue for approval'; }
+        if (btn) { btn.disabled = false; btn.innerHTML = '&#9654; Run Now'; }
         alert('Network error: ' + (err && err.message ? err.message : err));
     });
 };
