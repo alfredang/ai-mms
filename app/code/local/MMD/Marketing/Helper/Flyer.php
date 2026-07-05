@@ -106,28 +106,11 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
             }
         } catch (Exception $e) { /* runs optional */ }
 
-        // "What you'll learn" — parse the course-topic structure every course page
-        // uses in `description` (<h3 class="course-topic-h3">Topic N: Title</h3><ul>…)
-        // into topic bullets: bold topic title + its syllabus items as the detail.
-        $topics = array();
-        $desc = (string) $raw('description');
-        if ($desc !== '' && preg_match_all('#<h3[^>]*>(.*?)</h3>\s*<ul>(.*?)</ul>#is', $desc, $tm, PREG_SET_ORDER)) {
-            foreach (array_slice($tm, 0, 4) as $t) {
-                $title = trim(preg_replace('/^\s*Topic\s*\d+\s*:\s*/i', '',
-                    html_entity_decode(strip_tags($t[1]), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
-                $items = array();
-                if (preg_match_all('#<li[^>]*>(.*?)</li>#is', $t[2], $li)) {
-                    foreach ($li[1] as $x) {
-                        $x = trim(preg_replace('/\s+/u', ' ',
-                            html_entity_decode(strip_tags($x), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
-                        if ($x !== '') { $items[] = $x; }
-                    }
-                }
-                if ($title !== '') {
-                    $topics[] = array('title' => $title, 'items' => array_slice($items, 0, 4));
-                }
-            }
-        }
+        // "What you'll walk out able to do" — outcome-framed value stack. We do NOT
+        // copy the course-page syllabus verbatim; the flyer is a funnel, so each line
+        // is a pain-point -> tangible result the reader can picture, in plain English.
+        // Curated per flagship course; a benefit-led generic frame covers the rest.
+        $outcomes = $this->courseOutcomes($sku, $name);
 
         return array(
             'id'        => $productId,
@@ -141,7 +124,38 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
             'blurb'     => $blurb,
             'is_wsq'    => (stripos($sku, 'TGS-') === 0) || in_array('WSQ', $badges, true),
             'runs'      => $runs,
-            'topics'    => $topics,
+            'outcomes'  => $outcomes,
+        );
+    }
+
+    /**
+     * Outcome-framed "what you'll walk out able to do" lines for the flyer funnel.
+     * Each is a benefit the reader can picture, written in plain English — never a
+     * verbatim lift of the course-page syllabus. Curated per flagship SKU; every
+     * other course falls back to a hands-on, build-something-real frame.
+     */
+    protected function courseOutcomes($sku, $name)
+    {
+        $curated = array(
+            // WSQ Agentic AI Applications with Claude Code
+            'TGS-2025052468' => array(
+                'Turn a plain-English idea into a working app &mdash; no computer-science degree needed.',
+                'Ship your first useful tool before lunch, then build a second one after.',
+                'Hand the boring, repetitive parts of your job to AI instead of doing them by hand.',
+                'Let Claude write, test and fix the code while you stay in charge and steer.',
+                'Put what you built online so your team can actually use it &mdash; not just a demo.',
+            ),
+        );
+        $key = trim((string) $sku);
+        if (isset($curated[$key])) {
+            return $curated[$key];
+        }
+        // Generic funnel frame — still benefit-led, never the raw syllabus.
+        return array(
+            'Start from zero &mdash; no prior experience assumed, we build up from the basics.',
+            'Learn by doing from hour one &mdash; hands-on practice, not slides you forget by Friday.',
+            'Build something real in class you can put to work the very next day.',
+            'Walk out with the confidence, the workflow and a project to keep going on your own.',
         );
     }
 
@@ -195,22 +209,23 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
                 . '</tr></table>';
         }
 
-        // ---- FUNNEL: value stack — "What you'll learn" from real catalog topics ----
+        // ---- FUNNEL: value stack — outcome-framed "what you'll walk out able to do" -
+        // Benefit lines the reader can picture, not the course-page syllabus. See
+        // courseOutcomes(): curated per flagship SKU, benefit-led generic fallback.
         $learnHtml = '';
-        if (!empty($c['topics'])) {
+        if (!empty($c['outcomes'])) {
             $lrows = '';
-            foreach ($c['topics'] as $t) {
-                $detail = $t['items'] ? ' &mdash; ' . $h(implode(', ', $t['items'])) : '';
+            foreach ($c['outcomes'] as $line) {
                 $lrows .= '<tr>'
-                    . '<td width="18" valign="top" style="padding:0 10px 12px 0;"><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#2563eb;margin-top:5px;"></span></td>'
-                    . '<td style="font:400 14px/1.55 ' . $sans . ';color:#42506a;padding-bottom:12px;"><b style="color:#0a1020;">' . $h($t['title']) . '</b>' . $detail . '</td>'
+                    . '<td width="24" valign="top" style="padding:0 12px 13px 0;"><span style="display:inline-block;width:20px;height:20px;line-height:20px;text-align:center;border-radius:999px;background:#e6edff;color:#1d4ed8;font:800 12px ' . $sans . ';">&#10003;</span></td>'
+                    . '<td style="font:600 14px/1.5 ' . $sans . ';color:#0a1020;padding-bottom:13px;">' . $line . '</td>'
                     . '</tr>';
             }
             $cert = $c['is_wsq']
-                ? 'Complete the day and earn a <b style="color:#0a1020;">WSQ Statement of Attainment</b>.'
-                : 'Complete the day and earn a certificate of completion.';
+                ? 'Finish the day and walk away with a <b style="color:#0a1020;">WSQ Statement of Attainment</b> &mdash; and an app you actually built.'
+                : 'Finish the day and walk away with a certificate &mdash; and something you actually built.';
             $learnHtml = '<tr><td style="padding:24px 30px 8px;">'
-                . '<div style="font:800 13px ' . $sans . ';text-transform:uppercase;letter-spacing:.8px;color:#2563eb;margin-bottom:16px;">What you&rsquo;ll learn &mdash; hands-on</div>'
+                . '<div style="font:800 13px ' . $sans . ';text-transform:uppercase;letter-spacing:.8px;color:#2563eb;margin-bottom:16px;">What you&rsquo;ll walk out able to do</div>'
                 . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0">' . $lrows . '</table>'
                 . '<div style="font:600 12.5px ' . $sans . ';color:#42506a;margin-top:2px;">' . $cert . '</div>'
                 . '</td></tr>';

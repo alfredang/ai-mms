@@ -4542,6 +4542,71 @@ body[class*="customoptions-options-index"] #customoptionsOptionsGrid table.massa
     display: none !important;
 }
 
+/* ─────────────────────────────────────────────────────────────────────
+   GLOBAL ICON-ACTION STANDARD — single source of truth for every
+   per-row action button in a CUSTOM MMD panel table (dashboards,
+   marketing, role-manager sub-lists, etc.). Native Magento .grid action
+   columns already render via .mmd-grid-action above; this net gives the
+   hand-written tables the IDENTICAL look so the whole backend matches.
+
+   Spec: 26×26 transparent ghost square, 1px border, 5px radius, 14px glyph.
+   It MUST win the §18 `.admin-main button` cascade (which otherwise inflates
+   any bare <button> into a 38px pill and forces the actions to wrap onto a
+   second row) — hence the `.admin-main` prefix + `!important` on every
+   visual property. Result: consistent size everywhere, and one record =
+   one row (actions never wrap).
+
+   New custom-panel icon action → add `.mmd-iconbtn` to the button (variants
+   `.is-ok` / `.is-danger` for green/red hover). Do NOT clone a per-feature
+   icon-button rule — extend this selector list instead.
+   ───────────────────────────────────────────────────────────────────── */
+.admin-main .mmd-iconbtn,
+.admin-main .mn-fq-act {
+    box-sizing: border-box !important;
+    width: 26px !important;
+    height: 26px !important;
+    min-width: 26px !important;
+    min-height: 26px !important;
+    max-width: 26px !important;
+    padding: 0 !important;
+    margin: 0 0 0 4px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    vertical-align: middle !important;
+    border: 1px solid var(--b2, #2a3447) !important;
+    border-radius: 5px !important;
+    background: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    color: var(--t3, #cbd5e1) !important;
+    font: 400 13px/1 var(--font-sans, -apple-system, "Segoe UI", Arial, sans-serif) !important;
+    cursor: pointer !important;
+    text-decoration: none !important;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    transition: background .12s, color .12s, border-color .12s !important;
+}
+.admin-main .mmd-grid-action > svg,
+.admin-main .mmd-iconbtn > svg,
+.admin-main .mn-fq-act > svg { width: 14px !important; height: 14px !important; display: block !important; flex: 0 0 auto !important; }
+/* Hover tints: blue by default, green for approve/ok, red for delete/cancel. */
+.admin-main .mmd-iconbtn:hover,
+.admin-main .mn-fq-act:hover { background: rgba(96, 165, 250, 0.12) !important; color: #60a5fa !important; border-color: #60a5fa !important; }
+.admin-main .mmd-iconbtn.is-ok:hover,
+.admin-main .mn-fq-act.mn-fq-ok:hover { background: rgba(52, 211, 153, 0.10) !important; color: #34d399 !important; border-color: #34d399 !important; }
+.admin-main .mmd-iconbtn.is-danger:hover,
+.admin-main .mn-fq-act.mn-fq-del:hover { background: rgba(248, 113, 113, 0.10) !important; color: #f87171 !important; border-color: #f87171 !important; }
+.admin-main .mmd-iconbtn:focus-visible,
+.admin-main .mn-fq-act:focus-visible { outline: 2px solid var(--ring, #60a5fa) !important; outline-offset: 2px !important; }
+
+/* One record = one row: any table cell that holds these icon buttons keeps
+   every action on a single line (mirrors the grid §26 nowrap rule for the
+   hand-written MMD panel tables that the §27 `[class*="-table"]` net misses). */
+.admin-main td:has(> .mmd-iconbtn),
+.admin-main td:has(> .mn-fq-act) { white-space: nowrap !important; }
+
 /* === Course Manager — Edit Template page (Template Options editor) ===
    Body class: adminhtml-mmd-customoptions-options-edit
    The legacy custom-options editor renders nested .box-left/.box panels
