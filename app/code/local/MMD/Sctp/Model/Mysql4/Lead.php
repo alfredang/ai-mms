@@ -1,0 +1,5 @@
+<?php
+class MMD_Sctp_Model_Mysql4_Lead extends Mage_Core_Model_Mysql4_Abstract
+{
+    protected function _construct() { $this->_init('mmd_sctp/lead', 'lead_id'); }
+}

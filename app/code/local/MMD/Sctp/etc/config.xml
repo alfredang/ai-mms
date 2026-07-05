@@ -1,0 +1,87 @@
+<?xml version="1.0"?>
+<!--
+  MMD_Sctp — SCTP (SSG Career Transition Programme) Development Partnership lead magnet.
+
+  Frontend: the sctp-program-development.html Enquiries landing page posts to
+  sctp/index/post. The controller enforces the same invisible spam shield
+  as the Contact Us form (honeypot `hideit` + Cloudflare Turnstile via
+  MMD_MagentoCaptcha), stores the enquiry in mmd_sctp_lead, and emails the
+  sales mailbox.
+
+  Admin: System -> SCTP Program Leads grid (adminhtml/sctplead),
+  mirroring the Franchisee Leads grid (MMD_Franchise).
+-->
+<config>
+    <modules>
+        <MMD_Sctp>
+            <version>1.0.0</version>
+        </MMD_Sctp>
+    </modules>
+
+    <global>
+        <helpers>
+            <mmd_sctp>
+                <class>MMD_Sctp_Helper</class>
+            </mmd_sctp>
+        </helpers>
+        <models>
+            <mmd_sctp>
+                <class>MMD_Sctp_Model</class>
+                <resourceModel>mmd_sctp_mysql4</resourceModel>
+            </mmd_sctp>
+            <mmd_sctp_mysql4>
+                <class>MMD_Sctp_Model_Mysql4</class>
+                <entities>
+                    <lead>
+                        <table>mmd_sctp_lead</table>
+                    </lead>
+                </entities>
+            </mmd_sctp_mysql4>
+        </models>
+        <resources>
+            <mmd_sctp_write>
+                <connection><use>core_write</use></connection>
+            </mmd_sctp_write>
+            <mmd_sctp_read>
+                <connection><use>core_read</use></connection>
+            </mmd_sctp_read>
+        </resources>
+        <blocks>
+            <mmd_sctp>
+                <class>MMD_Sctp_Block</class>
+            </mmd_sctp>
+        </blocks>
+    </global>
+
+    <frontend>
+        <routers>
+            <mmd_sctp>
+                <use>standard</use>
+                <args>
+                    <module>MMD_Sctp</module>
+                    <frontName>sctp</frontName>
+                </args>
+            </mmd_sctp>
+        </routers>
+    </frontend>
+
+    <admin>
+        <routers>
+            <adminhtml>
+                <args>
+                    <modules>
+                        <mmd_sctp before="Mage_Adminhtml">MMD_Sctp_Adminhtml</mmd_sctp>
+                    </modules>
+                </args>
+            </adminhtml>
+        </routers>
+    </admin>
+
+    <default>
+        <mmd_sctp>
+            <lead>
+                <recipient_email>sales@tertiarycourses.com.sg</recipient_email>
+            </lead>
+        </mmd_sctp>
+    </default>
+</config>
