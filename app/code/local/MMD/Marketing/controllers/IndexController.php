@@ -112,7 +112,10 @@ class MMD_Marketing_IndexController extends Mage_Core_Controller_Front_Action
         $cache    = Mage::app()->getCache();
         $png      = $cache ? $cache->load($cacheKey) : false;
         if ($png === false || $png === '') {
-            $gen = 'https://quickchart.io/qr?size=360&margin=2&ecLevel=H&dark=000000&light=ffffff&text=' . rawurlencode($url);
+            // margin=4 = the QR-spec minimum quiet zone (4 modules). The old
+            // margin=1 was below spec and is a classic cause of "won't scan",
+            // especially with the QR sitting close to the flyer caption/border.
+            $gen = 'https://quickchart.io/qr?size=360&margin=4&ecLevel=H&dark=000000&light=ffffff&text=' . rawurlencode($url);
             $ch  = curl_init($gen);
             curl_setopt_array($ch, array(
                 CURLOPT_RETURNTRANSFER => true,
