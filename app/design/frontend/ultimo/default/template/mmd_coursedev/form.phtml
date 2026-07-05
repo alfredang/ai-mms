@@ -1,0 +1,131 @@
+<?php
+/**
+ * Custom Course Development enquiry form — embedded on
+ * course-development-service.html via
+ * {{block type="core/template" template="mmd_coursedev/form.phtml"}}.
+ * Posts to coursedev/index/post. Invisible anti-spam: honeypot `hideit` +
+ * Cloudflare Turnstile (same widget the Contact Us form uses).
+ */
+$ts        = Mage::helper('magentocaptcha/turnstile');
+$tsSiteKey = $ts->getSiteKey();
+$postUrl   = Mage::getUrl('coursedev/index/post');
+?>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<style>
+.tcf-form-wrap{max-width:760px;margin:34px auto 0;background:#fff;border:1px solid #e6e9ef;border-radius:16px;box-shadow:0 18px 50px rgba(15,23,42,.08);overflow:hidden}
+.tcf-form-head{background:linear-gradient(135deg,#0f172a 0%,#14304a 100%);color:#fff;padding:26px 30px}
+.tcf-form-head h3{color:#fff;margin:0 0 4px;font-size:24px;line-height:1.2}
+.tcf-form-head p{color:#9fb3c8;margin:0;font-size:15px}
+.tcf-form-body{padding:26px 30px 30px}
+.tcf-row{display:flex;gap:16px;flex-wrap:wrap}
+.tcf-field{flex:1 1 220px;margin-bottom:16px}
+.tcf-field.tcf-full{flex-basis:100%}
+.tcf-field label{display:block;font-weight:600;color:#0f172a;font-size:14px;margin-bottom:6px}
+.tcf-field label .req{color:#f4511e}
+.tcf-field input,.tcf-field textarea{width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid #d6dbe4;border-radius:9px;font-size:15px;color:#0f172a;background:#fbfcfe}
+.tcf-field input:focus,.tcf-field textarea:focus{outline:none;border-color:#14b8a6;box-shadow:0 0 0 3px rgba(20,184,166,.16);background:#fff}
+.tcf-field textarea{min-height:120px;resize:vertical}
+.tcf-error{color:#dc2626;font-size:14px;margin:0 0 14px;min-height:1px}
+.tcf-submit{display:inline-flex;align-items:center;gap:10px;background:#f4511e;color:#fff;border:0;border-radius:999px;padding:14px 30px;font-size:16px;font-weight:700;cursor:pointer;transition:background .15s}
+.tcf-submit:hover{background:#d63c0c}
+.tcf-submit svg{width:18px;height:18px}
+.tcf-trust{display:flex;align-items:center;gap:8px;color:#64748b;font-size:13px;margin:16px 0 0}
+.tcf-trust svg{width:16px;height:16px;color:#14b8a6}
+</style>
+
+<div class="tcf-form-wrap" id="coursedev-enquiry">
+  <div class="tcf-form-head">
+    <h3><?php echo $this->__('Propose a Course') ?></h3>
+    <p><?php echo $this->__('Share your expertise and course idea — our course development team will be in touch within 1 business day.') ?></p>
+  </div>
+  <div class="tcf-form-body">
+    <form action="<?php echo $postUrl ?>" method="post" id="coursedevForm" name="coursedevForm">
+      <div class="tcf-error" id="coursedev-error"></div>
+      <div class="tcf-row">
+        <div class="tcf-field"><label><?php echo $this->__('Full Name') ?> <span class="req">*</span></label>
+          <input type="text" name="name" maxlength="255" /></div>
+        <div class="tcf-field"><label><?php echo $this->__('Email') ?> <span class="req">*</span></label>
+          <input type="email" name="email" maxlength="255" /></div>
+      </div>
+      <div class="tcf-row">
+        <div class="tcf-field"><label><?php echo $this->__('Phone / WhatsApp') ?></label>
+          <input type="text" name="telephone" maxlength="64" /></div>
+        <div class="tcf-field"><label><?php echo $this->__('Company / Organisation') ?></label>
+          <input type="text" name="company" maxlength="255" /></div>
+      </div>
+      <div class="tcf-field tcf-full"><label><?php echo $this->__('Area of Expertise / Proposed Course Topic') ?></label>
+        <input type="text" name="expertise" maxlength="255" placeholder="<?php echo $this->__('e.g. Generative AI, Cyber Security, Financial Modelling') ?>" /></div>
+      <div class="tcf-field tcf-full"><label><?php echo $this->__('Tell us about your course idea') ?> <span class="req">*</span></label>
+        <textarea name="comment" placeholder="<?php echo $this->__('Your teaching / industry experience, the target audience, and what the course would cover.') ?>"></textarea></div>
+
+      <input type="hidden" name="source" value="course-development-service" />
+      <input type="text" name="hideit" id="coursedev-hideit" value="" tabindex="-1" autocomplete="off" style="display:none !important;" />
+      <input type="hidden" name="cf-turnstile-response" id="coursedev-turnstile-token" value="" />
+      <?php if ($tsSiteKey): ?>
+      <div class="cf-turnstile"
+           data-sitekey="<?php echo $this->htmlEscape($tsSiteKey) ?>"
+           data-size="invisible"
+           data-callback="onCoursedevTurnstileSuccess"
+           data-error-callback="onCoursedevTurnstileError"
+           data-expired-callback="onCoursedevTurnstileExpired"></div>
+      <?php endif; ?>
+
+      <button type="submit" id="coursedev-submit" class="tcf-submit">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        <?php echo $this->__('Submit Enquiry') ?>
+      </button>
+      <p class="tcf-trust">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+        <?php echo $this->__('We reply within 1 business day. Your details stay private.') ?>
+      </p>
+    </form>
+  </div>
+</div>
+
+<script type="text/javascript">
+(function () {
+    var TURNSTILE_ENABLED = <?php echo $tsSiteKey ? 'true' : 'false'; ?>;
+    var pendingSubmit = false;
+
+    function validateForm() {
+        var error = "", f = document.forms["coursedevForm"];
+        if (!f["name"].value) { error += "Please enter your name<br/>"; }
+        if (!/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,})+$/.test(f["email"].value)) { error += "Please enter a valid email<br/>"; }
+        if (!f["comment"].value) { error += "Please tell us about your course idea<br/>"; }
+        document.getElementById("coursedev-error").innerHTML = error;
+        return error === "";
+    }
+    function doSubmit() {
+        var btn = document.getElementById("coursedev-submit");
+        if (btn) { btn.disabled = true; }
+        document.forms["coursedevForm"].submit();
+    }
+    window.onCoursedevTurnstileSuccess = function (token) {
+        var input = document.getElementById("coursedev-turnstile-token");
+        if (input) { input.value = token; }
+        if (pendingSubmit) { pendingSubmit = false; doSubmit(); }
+    };
+    window.onCoursedevTurnstileError = function () {
+        pendingSubmit = false;
+        document.getElementById("coursedev-error").innerHTML = "Spam check could not run. Please refresh the page and try again.";
+    };
+    window.onCoursedevTurnstileExpired = function () {
+        var input = document.getElementById("coursedev-turnstile-token");
+        if (input) { input.value = ""; }
+    };
+    document.addEventListener("DOMContentLoaded", function () {
+        var form = document.getElementById("coursedevForm");
+        if (!form) { return; }
+        form.addEventListener("submit", function (e) {
+            e.preventDefault();
+            if (!validateForm()) { return; }
+            if (!TURNSTILE_ENABLED || typeof window.turnstile === "undefined") { doSubmit(); return; }
+            var input = document.getElementById("coursedev-turnstile-token");
+            if (input && input.value) { doSubmit(); return; }
+            pendingSubmit = true;
+            try { window.turnstile.execute(); }
+            catch (err) { pendingSubmit = false; doSubmit(); }
+        });
+    });
+})();
+</script>

@@ -1,0 +1,87 @@
+<?xml version="1.0"?>
+<!--
+  MMD_Coursedev — Custom Course Development Partnership lead magnet.
+
+  Frontend: the course-development-service.html Enquiries landing page posts to
+  coursedev/index/post. The controller enforces the same invisible spam shield
+  as the Contact Us form (honeypot `hideit` + Cloudflare Turnstile via
+  MMD_MagentoCaptcha), stores the enquiry in mmd_coursedev_lead, and emails the
+  sales mailbox.
+
+  Admin: System -> Course Development Leads grid (adminhtml/coursedevlead),
+  mirroring the Franchisee Leads grid (MMD_Franchise).
+-->
+<config>
+    <modules>
+        <MMD_Coursedev>
+            <version>1.0.0</version>
+        </MMD_Coursedev>
+    </modules>
+
+    <global>
+        <helpers>
+            <mmd_coursedev>
+                <class>MMD_Coursedev_Helper</class>
+            </mmd_coursedev>
+        </helpers>
+        <models>
+            <mmd_coursedev>
+                <class>MMD_Coursedev_Model</class>
+                <resourceModel>mmd_coursedev_mysql4</resourceModel>
+            </mmd_coursedev>
+            <mmd_coursedev_mysql4>
+                <class>MMD_Coursedev_Model_Mysql4</class>
+                <entities>
+                    <lead>
+                        <table>mmd_coursedev_lead</table>
+                    </lead>
+                </entities>
+            </mmd_coursedev_mysql4>
+        </models>
+        <resources>
+            <mmd_coursedev_write>
+                <connection><use>core_write</use></connection>
+            </mmd_coursedev_write>
+            <mmd_coursedev_read>
+                <connection><use>core_read</use></connection>
+            </mmd_coursedev_read>
+        </resources>
+        <blocks>
+            <mmd_coursedev>
+                <class>MMD_Coursedev_Block</class>
+            </mmd_coursedev>
+        </blocks>
+    </global>
+
+    <frontend>
+        <routers>
+            <mmd_coursedev>
+                <use>standard</use>
+                <args>
+                    <module>MMD_Coursedev</module>
+                    <frontName>coursedev</frontName>
+                </args>
+            </mmd_coursedev>
+        </routers>
+    </frontend>
+
+    <admin>
+        <routers>
+            <adminhtml>
+                <args>
+                    <modules>
+                        <mmd_coursedev before="Mage_Adminhtml">MMD_Coursedev_Adminhtml</mmd_coursedev>
+                    </modules>
+                </args>
+            </adminhtml>
+        </routers>
+    </admin>
+
+    <default>
+        <mmd_coursedev>
+            <lead>
+                <recipient_email>sales@tertiarycourses.com.sg</recipient_email>
+            </lead>
+        </mmd_coursedev>
+    </default>
+</config>

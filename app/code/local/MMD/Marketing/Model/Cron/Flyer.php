@@ -394,6 +394,62 @@ class MMD_Marketing_Model_Cron_Flyer
             'scheduled_send_at' => $slot->format('Y-m-d H:i:s'),
         ), array('newsletter_id = ?' => $newsletterId));
         $this->_log('scheduleApproved: #' . $newsletterId . ' -> MailerLite ' . $mlId . ' for ' . $slot->format('Y-m-d H:i'));
+
+        // Auto-publish the flyer design to LinkedIn (non-fatal — skips silently if
+        // LinkedIn isn't configured; MailerLite scheduling must never depend on it).
+        try {
+            $pid = (int) trim(strtok((string) $row['course_pids'], ','));
+            $li  = Mage::helper('mmd_marketing/linkedin');
+            if ($pid && $li->isConfigured()) {
+                $res = $li->postFlyer($pid);
+                $this->_log('scheduleApproved: LinkedIn ' . ($res['ok'] ? 'posted ' . $res['url'] : 'skipped/failed: ' . $res['msg']));
+                if (!empty($res['ok'])) {
+                    $dec = json_decode((string) $row['review_decisions'], true);
+                    if (!is_array($dec)) { $dec = array(); }
+                    $dec['_linkedin_url'] = $res['url'];
+                    $this->_write()->update($this->_tbl(), array('review_decisions' => json_encode($dec)), array('newsletter_id = ?' => $newsletterId));
+                }
+            }
+        } catch (Exception $e) { $this->_log('scheduleApproved: LinkedIn error: ' . $e->getMessage()); }
+
+        // Auto kick-start the NEXT flyer: as soon as this one is booked to MailerLite,
+        // pull the next course from the admin queue and send it for approval so it's
+        // ready for the next Mon/Thu slot. Bounded by the weekly design/blast caps and
+        // the "one pending at a time" rule, so it can't runaway (no infinite loop).
+        try {
+            $this->autoStartNext();
+        } catch (Exception $e) { $this->_log('scheduleApproved: autoStartNext error: ' . $e->getMessage()); }
+
         return array(true, 'Scheduled for ' . $slot->format('l, j M Y \a\t g:ia'));
+    }
+
+    /**
+     * Create + send-for-review the NEXT queued flyer, so the pipeline always has
+     * the following blast lined up the moment the current one is scheduled. Guards:
+     * only when the week still has a bookable slot AND a design slot, only when no
+     * proposal is already pending (no stacking), and only if the queue has a course.
+     * Returns the new newsletter_id or null.
+     */
+    public function autoStartNext()
+    {
+        $g = $this->_guard();
+        if (!$g->isEnabled()) { return null; }
+        // Don't stack: skip if something is already awaiting review.
+        $pending = (int) $this->_read()->fetchOne(
+            'SELECT COUNT(*) FROM ' . $this->_tbl() . " WHERE review_status IN ('pending','changes_requested')");
+        if ($pending > 0) { $this->_log('autoStartNext: skipped — a proposal is already pending'); return null; }
+        if ($g->remainingDesignsThisWeek() < 1) { $this->_log('autoStartNext: skipped — weekly design cap'); return null; }
+        if ($g->nextSendSlot() === null)         { $this->_log('autoStartNext: skipped — no bookable slot left this week'); return null; }
+        // Prefer the admin-curated queue; fall back to a popular upcoming class so
+        // there is always a next flyer lined up.
+        $pid = $this->popFlyerQueue();
+        if (!$pid) { $pid = $this->pickPopularUpcomingClass(); }
+        if (!$pid) { $this->_log('autoStartNext: no queued or popular course — nothing to auto-start'); return null; }
+        $nid = $this->createProposal($pid);
+        if ($nid) {
+            $this->sendForReview($nid);
+            $this->_log('autoStartNext: proposal #' . $nid . ' (product ' . $pid . ') auto-started + sent for review');
+        }
+        return $nid;
     }
 }
