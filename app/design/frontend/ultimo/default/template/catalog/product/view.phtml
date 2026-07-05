@@ -435,6 +435,10 @@
 		// Vue Testing Center" / "purchase the exam voucher" paragraphs. The Free
 		// Practice Exams card below replaces this vendor-exam blurb.
 		'#<h[1-6][^>]*>\s*Certification\s+Exam\s+at\s+Pearson\s+Vue\s*</h[1-6]>(?:\s*<p\b[^>]*>.*?</p>)*#is',
+		// "Register for Google Cloud Certification" heading + its "Kryterion
+		// Authorized Testing Center / course fee does not include the exam fee"
+		// paragraph(s). Same vendor-exam blurb, different vendor.
+		'#<h[1-6][^>]*>\s*Register\s+for\s+Google\s+Cloud\s+Certification\s*</h[1-6]>(?:\s*<p\b[^>]*>.*?</p>)*#is',
 	), '', $shortDescription);
 
 	// "<X> Exam Voucher" heading + its following paragraph(s): both the "…is
@@ -844,10 +848,8 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 						</section>
 					<?php endif; ?>
 
-					<?php /* SG: Free Practice Exams card in the left column. Partner
-					          stores (MY/GH) render it in the center column, right
-					          after the "About" card — see the primary column below. */ ?>
-					<?php if ($_isSgStore) echo $_practiceExamCardHtml; ?>
+					<?php /* Free Practice Exams card renders in the center column for
+					          ALL stores now — see the primary column below. */ ?>
 
 					<?php
 					/* Hoist `$_isMyStore` / `$_extraHtml` so the legacy left-column
@@ -927,15 +929,15 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 				</section>
 			<?php endif;?>
 
-			<?php /* Partner stores (MY/GH): Free Practice Exams card in the center
-			          column, directly after the "About" card. SG renders it in the
-			          left column instead — see above. */ ?>
-			<?php if (!$_isSgStore): echo $_practiceExamCardHtml; ?>
-			<?php /* The HRD Corp funding card is injected by JS right after the
-			          About card, which pushes it above this server-rendered Bonus
-			          card. Re-seat the Bonus card directly under the About card so
-			          it always sits ABOVE any funding card. Runs on DOMContentLoaded
-			          after the funding-card injector, so it wins the top slot. */ ?>
+			<?php /* Free Practice Exams (Bonus) card — center column, directly after
+			          the "About" card and ABOVE the funding cards, on ALL stores
+			          (SG/MY/GH). */ ?>
+			<?php echo $_practiceExamCardHtml; ?>
+			<?php if (!$_isSgStore): /* MY/GH only: the HRD Corp funding card is
+			          injected by JS right after the About card, which would push
+			          this server-rendered Bonus card below it. Re-seat the Bonus
+			          card directly under the About card so it stays ABOVE the HRD
+			          Corp card. Runs on DOMContentLoaded after the injector. */ ?>
 			<script>(function(){function seat(){var a=document.querySelector('.course-policy-card--about'),p=document.querySelector('.course-policy-card--practice');if(a&&p&&a.parentNode)a.parentNode.insertBefore(p,a.nextSibling);}if(document.readyState!=='loading')seat();else document.addEventListener('DOMContentLoaded',seat);})();</script>
 			<?php endif; ?>
 
