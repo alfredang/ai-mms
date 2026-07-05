@@ -54,17 +54,56 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         $blurb = html_entity_decode(strip_tags((string) ($raw('short_description') ?: $raw('meta_description'))), ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $blurb = trim(preg_replace('/\s+/u', ' ', str_replace("\xc2\xa0", ' ', $blurb)));
 
-        // Next 2 upcoming class intakes (real course_runs data) — drives urgency + signup.
+        // Next 2 upcoming class intakes — drives urgency + signup. PRIMARY source is
+        // the LMS "Course Date" custom-option values (the confirmed published schedule
+        // a learner picks at checkout); course_runs only fills once orders form a class,
+        // so it is empty for a course whose next dates haven't been ordered yet. Parse
+        // each option title ("8 Jul 2026 (Wed)", "5/6 Aug 2026 Evening (Wed/Thu)"),
+        // keep future dates, take the soonest 2.
         $runs = array();
         try {
-            $rc  = Mage::getSingleton('core/resource');
-            $runs = $rc->getConnection('core_read')->fetchAll(
-                'SELECT course_start_date, course_start_time, course_end_date FROM '
-              . $rc->getTableName('course_runs')
-              . ' WHERE product_id = ? AND course_start_date >= CURDATE()'
-              . ' ORDER BY course_start_date ASC LIMIT 2',
+            $rc   = Mage::getSingleton('core/resource');
+            $conn = $rc->getConnection('core_read');
+            $titles = $conn->fetchCol(
+                'SELECT tt.title FROM ' . $rc->getTableName('catalog/product_option') . ' o'
+              . ' JOIN ' . $rc->getTableName('catalog/product_option_type_value') . ' v ON v.option_id = o.option_id'
+              . ' JOIN ' . $rc->getTableName('catalog/product_option_type_title') . ' tt ON tt.option_type_id = v.option_type_id AND tt.store_id = 0'
+              . ' JOIN ' . $rc->getTableName('catalog/product_option_title') . ' ot ON ot.option_id = o.option_id AND ot.store_id = 0'
+              . " WHERE o.product_id = ? AND ot.title = 'Course Date'"
+              . ' ORDER BY v.sort_order ASC, v.option_type_id ASC',
                 array((int) $productId)
             );
+            $today = strtotime('today');
+            $picked = array();
+            $seen = array();
+            foreach ($titles as $t) {
+                // Take the leading "<day>[/<day2>] <Mon> <Year>" — first day of a range.
+                if (!preg_match('/(\d{1,2})(?:\s*\/\s*\d{1,2})?\s+([A-Za-z]{3,})\s+(\d{4})/', (string) $t, $m)) { continue; }
+                $ts = strtotime($m[1] . ' ' . $m[2] . ' ' . $m[3]);
+                if (!$ts || $ts < $today) { continue; }
+                $date = date('Y-m-d', $ts);
+                if (isset($seen[$date])) { continue; }   // one row per calendar date
+                $seen[$date] = true;
+                $picked[] = array('ts' => $ts, 'date' => $date, 'evening' => (stripos((string) $t, 'evening') !== false));
+                if (count($picked) >= 2) { break; }
+            }
+            foreach ($picked as $p) {
+                $runs[] = array(
+                    'course_start_date' => $p['date'],
+                    'course_start_time' => $p['evening'] ? '19:00:00' : '09:00:00',
+                    'course_end_date'   => $p['date'],
+                );
+            }
+            // Fallback: if the course has no date options, use materialised course_runs.
+            if (empty($runs)) {
+                $runs = $conn->fetchAll(
+                    'SELECT course_start_date, course_start_time, course_end_date FROM '
+                  . $rc->getTableName('course_runs')
+                  . ' WHERE product_id = ? AND course_start_date >= CURDATE()'
+                  . ' ORDER BY course_start_date ASC LIMIT 2',
+                    array((int) $productId)
+                );
+            }
         } catch (Exception $e) { /* runs optional */ }
 
         // "What you'll learn" — parse the course-topic structure every course page
