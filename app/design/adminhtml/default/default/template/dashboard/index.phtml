@@ -13604,17 +13604,15 @@ $_svgClose = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke
                     <th>Course title</th>
                     <th style="width:150px;">Course code</th>
                     <th class="num" style="width:110px;">Course fee</th>
-                    <th style="width:190px;">Funding validity</th>
-                    <th class="center" style="width:80px;">Actions</th>
+                    <th style="width:160px;">Funding validity</th>
+                    <th style="width:150px;">Status</th>
+                    <th class="center" style="width:104px;">Actions</th>
                 </tr></thead>
                 <tbody id="mn-queue-list"></tbody>
             </table>
-            <div class="mn-actions">
-                <button type="button" class="mn-btn mn-btn-cta" id="mn-push-btn" onclick="mnQueueApproval()" disabled>&#9654; Run Now</button>
-            </div>
-            <p style="margin:10px 2px 0;font:400 12px/1.6 -apple-system,Segoe UI,Arial,sans-serif;color:#64748b;">
-                <b style="color:#cbd5e1;">Run Now</b> runs the pipeline for the <b>top</b> course: <b>1. Design</b> the flyer &rarr; <b>2.</b> email the managers Approve / Request-changes &rarr; <b>3. Schedule</b> to MailerLite once a manager approves. As soon as it reaches <b>Scheduled</b>, the <b>next</b> course in the queue auto-starts on its own (no click needed). The Mon &amp; Thu cron also runs the top course automatically. Max <b>2 flyers per week</b>.<br>
-                Drag &#8942;&#8942; to reorder &middot; &#128065; preview &middot; &times; remove.
+            <p style="margin:12px 2px 0;font:400 12px/1.6 -apple-system,Segoe UI,Arial,sans-serif;color:#64748b;">
+                Each row has its own <b style="color:#cbd5e1;">&#9654; Run Now</b> &mdash; it runs the pipeline for <b>that</b> course: <b>1. Design</b> the flyer &rarr; <b>2.</b> email the managers Approve / Request-changes &rarr; <b>3. Schedule</b> to MailerLite once a manager approves. As soon as a flow reaches <b>Scheduled</b>, the <b>next</b> course in the queue auto-starts on its own (no click needed). The Mon &amp; Thu cron also runs the top course automatically. Max <b>2 flyers per week</b>.<br>
+                Drag &#8942;&#8942; to reorder &middot; &#9654; run &middot; &#128065; preview &middot; &times; remove.
             </p>
         </div>
 
@@ -13661,8 +13659,6 @@ window.mnNewDraft = function() {
     if (status) status.textContent = 'No content yet';
     var ifr = document.getElementById('mn-iframe');
     if (ifr) ifr.srcdoc = '';
-    var pushBtn = document.getElementById('mn-push-btn');
-    if (pushBtn) pushBtn.setAttribute('disabled', 'disabled');
 };
 
 // --- Course picker autocomplete --------------------------------------
@@ -13751,7 +13747,7 @@ window.mnFlyerQueueRender = function() {
     if (!tb) return;
     tb.innerHTML = '';
     if (!window._mnQueue.length) {
-        tb.innerHTML = '<tr><td colspan="7" class="mm-table-empty">Queue is empty — search above to add WSQ courses. The pipeline falls back to a popular upcoming class.</td></tr>';
+        tb.innerHTML = '<tr><td colspan="8" class="mm-table-empty">Queue is empty — search above to add WSQ courses. The pipeline falls back to a popular upcoming class.</td></tr>';
         return;
     }
     window._mnQueue.forEach(function (row, idx) {
@@ -13767,13 +13763,21 @@ window.mnFlyerQueueRender = function() {
             '<td class="muted" style="font-family:ui-monospace,Menlo,monospace;"></td>' +
             '<td class="num"></td>' +
             '<td class="muted"></td>' +
+            '<td class="mn-fq-status"></td>' +
             '<td class="center"></td>';
         tr.children[2].textContent = row.name || ('#' + row.product_id);
         tr.children[3].textContent = row.sku || '';
         tr.children[4].textContent = fee;
         tr.children[5].textContent = row.funding_validity || '—';
+        // Status: the TOP row auto-runs on the next Mon/Thu cron unless Run Now is
+        // clicked first; the rest simply wait their turn.
+        if (idx === 0) {
+            tr.children[6].innerHTML = '<span class="mn-badge s-wait">Next run &middot; ' + mnNextCronLabel() + '</span>';
+        } else {
+            tr.children[6].innerHTML = '<span class="mn-badge s-muted">Queued</span>';
+        }
         // Canonical 26x26 ghost row-action icons (backend-design: .mmd-grid-action).
-        var act = tr.children[6];
+        var act = tr.children[7];
         var wrap = document.createElement('div'); wrap.className = 'mmd-grid-actions';
         var mkAct = function (kind, title, svg, handler) {
             var a = document.createElement('button');
@@ -13855,11 +13859,22 @@ window.mnFlyerQueueRun = function(qid, pid, name) {
     .catch(function (e) { alert('Network error: ' + (e && e.message ? e.message : e)); });
 };
 
-// Button states follow the queue: "Send top of queue" needs at least one row.
-window.mnRefreshPreview = function() {
-    var has = !!(window._mnQueue && window._mnQueue.length);
-    var pushBtn = document.getElementById('mn-push-btn');
-    if (pushBtn) { has ? pushBtn.removeAttribute('disabled') : pushBtn.setAttribute('disabled', 'disabled'); }
+// Retained as a harmless hook: several callers invoke it after queue mutations.
+// The standalone Run Now button it used to toggle was removed (each row now has
+// its own Run Now icon), so there is nothing to refresh here.
+window.mnRefreshPreview = function() {};
+
+// Label for the next Mon/Thu 10:00 auto-propose cron (top queue row auto-runs then).
+window.mnNextCronLabel = function() {
+    var d = new Date();
+    for (var i = 0; i < 14; i++) {
+        var t = new Date(d.getFullYear(), d.getMonth(), d.getDate() + i);
+        var dow = t.getDay(); // 0=Sun..6=Sat
+        if ((dow === 1 || dow === 4) && (i > 0 || d.getHours() < 10)) {
+            return t.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+        }
+    }
+    return 'Mon/Thu';
 };
 
 // Popup preview for any course (queue rows) — reuses the draft modal +
@@ -13906,34 +13921,6 @@ window.mnPreviewPicked = function() {
 // --- Queue an Agentic flyer for manager approval (the ONLY path to MailerLite) ---
 // Never pushes to MailerLite directly — it creates a proposal that both managers
 // must approve, then the guarded pipeline schedules it (hard cap: 2 flyers/week).
-window.mnQueueApproval = function() {
-    var q = window._mnQueue || [];
-    if (!q.length) { alert('The flyer queue is empty — add a WSQ course first.'); return; }
-    var head = q[0];
-    if (!confirm('Run the pipeline now for "' + (head.name || head.sku) + '"?\n\nStep 1 designs the flyer, step 2 emails the managers for approval. It schedules to MailerLite once a manager approves (max 2 flyers per week). This removes it from the queue.')) return;
-    var btn = document.getElementById('mn-push-btn');
-    if (btn) { btn.disabled = true; btn.textContent = 'Running…'; }
-    // consume the head row (mirrors what the Mon/Thu cron does)
-    var rf = new FormData();
-    rf.append('queue_id', String(head.queue_id));
-    fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/marketingnewsletter/flyerQueueRemove') ?>', { method: 'POST', body: rf, credentials: 'same-origin' });
-    var fd = new FormData();
-    fd.append('course_id', String(head.product_id));
-    fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/marketingnewsletter/queueApproval') ?>', {
-        method: 'POST', body: fd, credentials: 'same-origin'
-    })
-    .then(function (r) { return r.json(); })
-    .then(function (j) {
-        if (btn) { btn.disabled = false; btn.innerHTML = '&#9654; Run Now'; }
-        if (!j || !j.success) { alert((j && j.message) || 'Could not queue.'); return; }
-        alert(j.message || 'Queued — approval email sent to the managers.');
-        location.reload();
-    })
-    .catch(function (err) {
-        if (btn) { btn.disabled = false; btn.innerHTML = '&#9654; Run Now'; }
-        alert('Network error: ' + (err && err.message ? err.message : err));
-    });
-};
 // --- Agentic flyer: manager approve / request-changes (human in the loop) ---
 window.mnReview = function(id, decision) {
     if (decision === 'changes') { mnOpenChangesBox(id); return; }   // styled box, not prompt()

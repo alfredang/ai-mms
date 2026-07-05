@@ -89,6 +89,33 @@ class MMD_Marketing_Helper_Blastguard extends Mage_Core_Helper_Abstract
         return $this->_blastsInWeekOf(new DateTime('now'));
     }
 
+    /**
+     * Is this exact Mon/Thu slot (same calendar day) already occupied by a
+     * scheduled/sent campaign? A week may have a free slot yet the specific day
+     * be taken — e.g. Monday is booked but Thursday is still open. Checks both
+     * the blast ledger and any newsletters row already scheduled for that day so
+     * a second flow rolls to the next free day instead of double-booking Monday.
+     */
+    protected function _slotTaken(DateTime $slot)
+    {
+        $dayStart = $slot->format('Y-m-d 00:00:00');
+        $dayEnd   = $slot->format('Y-m-d 23:59:59');
+        $res  = Mage::getSingleton('core/resource');
+        $conn = $res->getConnection('core_read');
+        $inLog = (int) $conn->fetchOne(
+            'SELECT COUNT(*) FROM ' . $this->_tbl() . ' WHERE blasted_at BETWEEN ? AND ?',
+            array($dayStart, $dayEnd)
+        );
+        if ($inLog > 0) { return true; }
+        $nl = $res->getTableName('newsletters');
+        $inNl = (int) $conn->fetchOne(
+            'SELECT COUNT(*) FROM ' . $nl
+          . " WHERE status IN ('scheduled','sent') AND scheduled_send_at BETWEEN ? AND ?",
+            array($dayStart, $dayEnd)
+        );
+        return $inNl > 0;
+    }
+
     /** How many of this week's 2 slots are still free (0, 1, or 2). */
     public function remainingThisWeek()
     {
@@ -139,6 +166,9 @@ class MMD_Marketing_Helper_Blastguard extends Mage_Core_Helper_Abstract
             $slot->setTime(self::SEND_HOUR, 0, 0);
             if ($slot <= $now) {
                 continue;                       // slot must be in the future
+            }
+            if ($this->_slotTaken($slot)) {
+                continue;                       // that specific day is already booked
             }
             if ($this->_blastsInWeekOf($slot) < self::MAX_PER_WEEK) {
                 return $slot;
