@@ -396,11 +396,22 @@
 	// "Free Certificate Practice Exams" card: render ONLY for courses in the
 	// Cert Prep Training category tree (cat 182) â not other WSQ/non-WSQ courses.
 	// exams.tertiaryinfotech.com hosts the free practice exams + exam vouchers.
+	// Resolve the certification-course tree by its url_key, not a hardcoded id or
+	// name: SG=182 "Cert Prep Training", but the mirrored tree on the MY/GH
+	// partner DBs has a different id AND a different name ("CERT Prep Courses").
+	// The url_key `certification-exam-prep-courses` is identical on all three
+	// sites (it IS the /certification-exam-prep-courses.html landing page), so it
+	// fires the card for every course under that page on every site.
 	$_hasPracticeExams = false;
 	$_courseCatIds = $_product->getCategoryIds();
 	if (!empty($_courseCatIds)) {
-		$_certPrepRoot = Mage::getModel('catalog/category')->load(182);
-		if ($_certPrepRoot->getId()) {
+		$_certRootId = (int) Mage::getResourceModel('catalog/category_collection')
+			->addAttributeToFilter('url_key', 'certification-exam-prep-courses')
+			->setPageSize(1)
+			->getFirstItem()
+			->getId();
+		if ($_certRootId) {
+			$_certPrepRoot = Mage::getModel('catalog/category')->load($_certRootId);
 			$_hasPracticeExams = (bool) array_intersect($_courseCatIds, (array) $_certPrepRoot->getAllChildren(true));
 		}
 	}
@@ -424,6 +435,11 @@
 		// Vue Testing Center" / "purchase the exam voucher" paragraphs. The Free
 		// Practice Exams card below replaces this vendor-exam blurb.
 		'#<h[1-6][^>]*>\s*Certification\s+Exam\s+at\s+Pearson\s+Vue\s*</h[1-6]>(?:\s*<p\b[^>]*>.*?</p>)*#is',
+		// "<X> Exam Voucher" heading + its "The <X> Exam Voucher is included in
+		// this/the course fee." paragraph. Anchored on the "included ... course
+		// fee" sentence so it strips only that claim, NOT voucher-redemption
+		// instruction blocks (e.g. the PeopleCert steps) that share the heading.
+		'#<h[1-6][^>]*>[^<]*Exam\s+Voucher[^<]*</h[1-6]>\s*<p[^>]*>(?:(?!</p>).)*?is\s+included\s+in\s+(?:this|the)\s+course\s+fee(?:(?!</p>).)*?</p>#is',
 	), '', $shortDescription);
 
 	// Show the Free Practice Exams card whenever we actually removed a partner
