@@ -410,6 +410,7 @@
 	// The Free Practice Exams card below replaces it. Covers CompTIA (red
 	// heading), Microsoft Learning Partner, and Pearson Vue. Autodesk uses an
 	// image badge (different markup) and is intentionally left untouched.
+	$_beforeStrip = $shortDescription;
 	$shortDescription = preg_replace(array(
 		// CompTIA red heading + any trailing empty (red) paragraphs.
 		'#<h[1-6][^>]*>\s*(?:<span[^>]*>\s*)?We\s+are\s+Authori[sz]ed\s+CompTIA\s+Delivery\s+Partner\.?\s*(?:</span>\s*)?</h[1-6]>(?:\s*<p[^>]*>(?:\s|&nbsp;|<span[^>]*>|</span>|<br\s*/?>)*</p>)*#i',
@@ -419,7 +420,19 @@
 		'#<p[^>]*>(?:(?!</p>).)*?Authori[sz]ed(?:(?!</p>).)*?Microsoft\s+Learning\s+Partner(?:(?!</p>).)*?</p>#is',
 		// Pearson Vue authorised training partner line.
 		'#<p[^>]*>\s*<strong>\s*We\s+are\s+Pearson\s+Vue\s+Authori[sz]ed\s+Training\s+Partner\.?\s*</strong>\s*</p>#i',
+		// "Certification Exam at Pearson Vue" heading + its "Authorised Pearson
+		// Vue Testing Center" / "purchase the exam voucher" paragraphs. The Free
+		// Practice Exams card below replaces this vendor-exam blurb.
+		'#<h[1-6][^>]*>\s*Certification\s+Exam\s+at\s+Pearson\s+Vue\s*</h[1-6]>(?:\s*<p\b[^>]*>.*?</p>)*#is',
 	), '', $shortDescription);
+
+	// Show the Free Practice Exams card whenever we actually removed a partner
+	// blurb — this is the store-independent "remove → replace" pairing. The
+	// cat-182 gate above is SG-specific (partner sites have their own category
+	// IDs), so relying on it alone would leave MY/GH with the blurb stripped
+	// but no card. OR-ing the two covers both: SG cert-prep courses without a
+	// blurb still get the card; MY/GH cert courses get it via the strip.
+	$_hasPracticeExams = $_hasPracticeExams || ($shortDescription !== $_beforeStrip);
 
 	// Free Practice Exams card (button-CTA design). Placed in the left column
 	// on SG and in the primary (center) column, right after the "About" card,
@@ -433,10 +446,10 @@
 			. '<span class="course-policy-card__icon" aria-hidden="true">'
 			. '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>'
 			. '</span>'
-			. '<h3 class="course-policy-card__title">Free Practice Exams</h3>'
+			. '<h3 class="course-policy-card__title">Bonus: Free Practice Exams</h3>'
 			. '</header>'
 			. '<div class="course-policy-card__body std">'
-			. '<p><strong>Bonus:</strong> After the class, get exam-ready with realistic practice exams for your certification on our Exam Portal &mdash; retake them as many times as you like before the real thing.</p>'
+			. '<p>Get exam-ready on our <strong>Practice Exam Portal</strong> &mdash; train in realistic <strong>Practice Mode</strong> and timed <strong>Exam Mode</strong>, then retake them as many times as you like before the real exam.</p>'
 			. '<p><a class="practice-exam-cta" href="https://exams.tertiaryinfotech.com/" target="_blank" rel="noopener">Start Practising &rarr;</a></p>'
 			. '</div>'
 			. '</section>';
@@ -892,7 +905,14 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 			<?php /* Partner stores (MY/GH): Free Practice Exams card in the center
 			          column, directly after the "About" card. SG renders it in the
 			          left column instead — see above. */ ?>
-			<?php if (!$_isSgStore) echo $_practiceExamCardHtml; ?>
+			<?php if (!$_isSgStore): echo $_practiceExamCardHtml; ?>
+			<?php /* The HRD Corp funding card is injected by JS right after the
+			          About card, which pushes it above this server-rendered Bonus
+			          card. Re-seat the Bonus card directly under the About card so
+			          it always sits ABOVE any funding card. Runs on DOMContentLoaded
+			          after the funding-card injector, so it wins the top slot. */ ?>
+			<script>(function(){function seat(){var a=document.querySelector('.course-policy-card--about'),p=document.querySelector('.course-policy-card--practice');if(a&&p&&a.parentNode)a.parentNode.insertBefore(p,a.nextSibling);}if(document.readyState!=='loading')seat();else document.addEventListener('DOMContentLoaded',seat);})();</script>
+			<?php endif; ?>
 
 			<?php
 			// WSQ Funding card — primary-column placement, directly under the

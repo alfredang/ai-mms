@@ -774,25 +774,42 @@ li.level2 > a > span > .cat-label,
 .course-policy-card--skills        .course-policy-card__icon { background: #7c3aed; }
 .course-policy-card--learning      .course-policy-card__icon { background: #0d9488; }
 .course-policy-card--brochure      .course-policy-card__icon { background: #ea580c; }
+/* Bonus "Free Practice Exams" card — lifted out of the neutral card family with
+   a soft green ring so it reads as a perk, not a policy notice. */
+.course-policy-card--practice { border-color: #a7f3d0; box-shadow: 0 1px 2px rgba(5, 150, 105, 0.08), 0 0 0 1px rgba(16, 185, 129, 0.12); }
 .course-policy-card--practice      .course-policy-card__header { background: linear-gradient(180deg, #ecfdf5 0%, #d1fae5 100%); }
 .course-policy-card--practice      .course-policy-card__icon { background: #059669; }
-.course-policy-card--practice      .course-policy-card__body p { margin: 0 0 8px; }
+.course-policy-card--practice      .course-policy-card__title { color: #065f46; }
+.course-policy-card--practice      .course-policy-card__body p { margin: 0 0 10px; }
 .course-policy-card--practice      .course-policy-card__body p:last-child { margin-bottom: 0; }
 /* "Start Practising" button on the Free Practice Exams card — filled green to
-   match the practice-card family (#059669 icon). */
+   match the practice-card family (#059669 icon). color is forced with
+   !important so the Ultimo theme's generic a:hover blue can't wash the label
+   out to an invisible low-contrast link colour on hover. */
 a.practice-exam-cta,
+a.practice-exam-cta:link,
 a.practice-exam-cta:visited {
     display: inline-block;
     background: #059669;
-    color: #ffffff;
+    color: #ffffff !important;
     font-weight: 600;
     text-decoration: none;
     padding: 9px 18px;
     border-radius: 8px;
     line-height: 1.2;
+    box-shadow: 0 1px 2px rgba(5, 150, 105, 0.25);
+    transition: background .15s ease, box-shadow .15s ease, transform .15s ease;
 }
 a.practice-exam-cta:hover,
-a.practice-exam-cta:focus { background: #047857; color: #ffffff; text-decoration: none; }
+a.practice-exam-cta:focus,
+a.practice-exam-cta:active {
+    background: #047857;
+    color: #ffffff !important;
+    text-decoration: none;
+    box-shadow: 0 4px 12px rgba(4, 120, 87, 0.35);
+    transform: translateY(-1px);
+}
+a.practice-exam-cta:focus-visible { outline: 2px solid #065f46; outline-offset: 2px; }
 .course-policy-card--funding       .course-policy-card__icon { background: #059669; }
 .course-policy-card--about         .course-policy-card__icon { background: #2563eb; }
 .course-policy-card--assessment    .course-policy-card__icon { background: #a21caf; }
