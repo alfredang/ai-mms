@@ -405,6 +405,43 @@
 		}
 	}
 
+	// (5b) Strip the vendor "authorised training/delivery partner" promo blurb
+	// out of the course narrative so it no longer renders in the "About" card.
+	// The Free Practice Exams card below replaces it. Covers CompTIA (red
+	// heading), Microsoft Learning Partner, and Pearson Vue. Autodesk uses an
+	// image badge (different markup) and is intentionally left untouched.
+	$shortDescription = preg_replace(array(
+		// CompTIA red heading + any trailing empty (red) paragraphs.
+		'#<h[1-6][^>]*>\s*(?:<span[^>]*>\s*)?We\s+are\s+Authori[sz]ed\s+CompTIA\s+Delivery\s+Partner\.?\s*(?:</span>\s*)?</h[1-6]>(?:\s*<p[^>]*>(?:\s|&nbsp;|<span[^>]*>|</span>|<br\s*/?>)*</p>)*#i',
+		// "Microsoft Learning Partner" heading + its "We are Authorised..." paragraph.
+		'#<h[1-6][^>]*>\s*Microsoft\s+Learning\s+Partner\s*</h[1-6]>\s*<p[^>]*>.*?</p>#is',
+		// Residual "We are Authorised Microsoft Learning Partner (Org ID...)" paragraph.
+		'#<p[^>]*>(?:(?!</p>).)*?Authori[sz]ed(?:(?!</p>).)*?Microsoft\s+Learning\s+Partner(?:(?!</p>).)*?</p>#is',
+		// Pearson Vue authorised training partner line.
+		'#<p[^>]*>\s*<strong>\s*We\s+are\s+Pearson\s+Vue\s+Authori[sz]ed\s+Training\s+Partner\.?\s*</strong>\s*</p>#i',
+	), '', $shortDescription);
+
+	// Free Practice Exams card (button-CTA design). Placed in the left column
+	// on SG and in the primary (center) column, right after the "About" card,
+	// on the partner stores (MY/GH). Built once here; echoed per store below.
+	$_isSgStore = (Mage::app()->getStore()->getCode() === 'singapore');
+	$_practiceExamCardHtml = '';
+	if ($_hasPracticeExams) {
+		$_practiceExamCardHtml =
+			'<section class="course-policy-card course-policy-card--practice">'
+			. '<header class="course-policy-card__header">'
+			. '<span class="course-policy-card__icon" aria-hidden="true">'
+			. '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>'
+			. '</span>'
+			. '<h3 class="course-policy-card__title">Free Practice Exams</h3>'
+			. '</header>'
+			. '<div class="course-policy-card__body std">'
+			. '<p><strong>Bonus:</strong> After the class, get exam-ready with realistic practice exams for your certification on our Exam Portal &mdash; retake them as many times as you like before the real thing.</p>'
+			. '<p><a class="practice-exam-cta" href="https://exams.tertiaryinfotech.com/" target="_blank" rel="noopener">Start Practising &rarr;</a></p>'
+			. '</div>'
+			. '</section>';
+	}
+
 	// (6) Funding and Grant. Per-course cms/block first, regex fallback
 	// for legacy content still in short_description. Stores without this
 	// section return empty from both block and regex, so no card renders.
@@ -769,20 +806,10 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 						</section>
 					<?php endif; ?>
 
-					<?php if ($_hasPracticeExams): ?>
-						<section class="course-policy-card course-policy-card--practice">
-							<header class="course-policy-card__header">
-								<span class="course-policy-card__icon" aria-hidden="true">
-									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-								</span>
-								<h3 class="course-policy-card__title">Free Certificate Practice Exams</h3>
-							</header>
-							<div class="course-policy-card__body std">
-								<p>Take Free Certificate Practice Exams at <a href="https://exams.tertiaryinfotech.com" target="_blank" rel="noopener">exams.tertiaryinfotech.com</a>.</p>
-								<p>You can also purchase Certificate exam vouchers at <a href="https://exams.tertiaryinfotech.com" target="_blank" rel="noopener">exams.tertiaryinfotech.com</a>.</p>
-							</div>
-						</section>
-					<?php endif; ?>
+					<?php /* SG: Free Practice Exams card in the left column. Partner
+					          stores (MY/GH) render it in the center column, right
+					          after the "About" card — see the primary column below. */ ?>
+					<?php if ($_isSgStore) echo $_practiceExamCardHtml; ?>
 
 					<?php
 					/* Hoist `$_isMyStore` / `$_extraHtml` so the legacy left-column
@@ -861,6 +888,11 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 					<div class="course-policy-card__body std" itemprop="description"><?php echo $shortDescription; ?></div>
 				</section>
 			<?php endif;?>
+
+			<?php /* Partner stores (MY/GH): Free Practice Exams card in the center
+			          column, directly after the "About" card. SG renders it in the
+			          left column instead — see above. */ ?>
+			<?php if (!$_isSgStore) echo $_practiceExamCardHtml; ?>
 
 			<?php
 			// WSQ Funding card — primary-column placement, directly under the
