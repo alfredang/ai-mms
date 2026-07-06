@@ -1,0 +1,93 @@
+<?php
+/**
+ * Learner login page — rendered standalone (no admin layout) by
+ * MMD_RoleManager_IndexController::_renderPage() at /learnerlogin.
+ * Variables in scope: $logoUrl, $postUrl, $formKey, $siteName, $error, $prevEmail.
+ * Styling is self-contained + page-scoped (see the rolemanager.css bleed
+ * incident in CLAUDE.md — never let a standalone page's globals leak).
+ */
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Learner Login - Tertiary Infotech Academy</title>
+    <link rel="icon" href="<?php echo $logoUrl ?>" type="image/png" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <style>
+        .ll-page * { margin: 0; padding: 0; box-sizing: border-box; }
+        .ll-page {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(circle at 20% 20%, #16233f 0%, #0b1120 55%, #090f1c 100%);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            padding: 24px;
+        }
+        .ll-card {
+            width: 100%;
+            max-width: 420px;
+            background: rgba(15, 23, 42, 0.85);
+            border: 1px solid #1e3a5f;
+            border-radius: 16px;
+            padding: 40px 36px;
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+            text-align: center;
+        }
+        .ll-card img.ll-logo { width: 64px; height: 64px; border-radius: 14px; }
+        .ll-title { color: #e2e8f0; font-size: 26px; font-weight: 700; margin-top: 16px; }
+        .ll-subtitle { color: #64748b; font-size: 14px; margin-top: 6px; }
+        .ll-error {
+            margin-top: 18px; padding: 10px 14px; border-radius: 8px;
+            background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.4);
+            color: #fca5a5; font-size: 13px; text-align: left;
+        }
+        .ll-form { margin-top: 24px; text-align: left; }
+        .ll-label { display: block; color: #94a3b8; font-size: 12px; font-weight: 600; margin: 14px 0 6px; }
+        .ll-input {
+            width: 100%; padding: 12px 14px; border-radius: 10px;
+            background: #0f172a; border: 1px solid #334155; color: #e2e8f0; font-size: 14px;
+        }
+        .ll-input:focus { outline: none; border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2); }
+        .ll-submit {
+            width: 100%; margin-top: 22px; padding: 13px;
+            background: #2563eb; color: #fff; border: 0; border-radius: 10px;
+            font-size: 15px; font-weight: 700; cursor: pointer;
+        }
+        .ll-submit:hover { background: #1d4ed8; }
+        .ll-foot { margin-top: 22px; color: #475569; font-size: 12px; }
+        .ll-foot a { color: #60a5fa; text-decoration: none; }
+    </style>
+</head>
+<body>
+<div class="ll-page">
+    <div class="ll-card">
+        <img class="ll-logo" src="<?php echo htmlspecialchars($logoUrl) ?>" alt="Tertiary Infotech Academy" />
+        <div class="ll-title">Learner Login</div>
+        <div class="ll-subtitle">Sign in with your <?php echo htmlspecialchars($siteName ?: 'Tertiary Courses') ?> account to access your courses.</div>
+
+        <?php if ($error !== ''): ?>
+        <div class="ll-error"><?php echo htmlspecialchars($error) ?></div>
+        <?php endif; ?>
+
+        <form class="ll-form" method="post" action="<?php echo htmlspecialchars($postUrl) ?>" autocomplete="on">
+            <input type="hidden" name="form_key" value="<?php echo htmlspecialchars($formKey) ?>" />
+            <label class="ll-label" for="ll-email">Email</label>
+            <input class="ll-input" type="email" id="ll-email" name="email" required autofocus
+                   value="<?php echo htmlspecialchars($prevEmail) ?>" placeholder="you@example.com" />
+            <label class="ll-label" for="ll-password">Password</label>
+            <input class="ll-input" type="password" id="ll-password" name="password" required placeholder="Your password" />
+            <button class="ll-submit" type="submit">Sign In</button>
+        </form>
+
+        <div class="ll-foot">
+            Same email and password as your course-registration account.<br/>
+            Forgot it? <a href="<?php echo Mage::getUrl('customer/account/forgotpassword') ?>">Reset your password</a>.
+        </div>
+    </div>
+</div>
+</body>
+</html>

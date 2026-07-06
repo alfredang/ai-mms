@@ -64,6 +64,25 @@ class MMD_RoleManager_Model_Observer
     }
 
     /**
+     * Allow the public learner-login actions (/learnerlogin form + POST)
+     * without an admin login — same pattern as MMD_OtpLogin::allowOtpAction:
+     * the core Mage_Admin_Model_Observer::actionPreDispatchAdmin forwards
+     * unauthenticated admin requests to the staff login page unless the
+     * request is already marked dispatched.
+     */
+    public function allowLearnerloginAction(Varien_Event_Observer $observer)
+    {
+        $request = Mage::app()->getRequest();
+        if ($request->getModuleName() !== 'learnerlogin') {
+            return;
+        }
+        $action = strtolower($request->getActionName());
+        if (in_array($action, array('index', 'login'), true)) {
+            $request->setDispatched(true);
+        }
+    }
+
+    /**
      * Before every admin controller action:
      *   1. If the user has multiple roles and hasn't picked one yet,
      *      redirect to role selection.
@@ -213,6 +232,9 @@ class MMD_RoleManager_Model_Observer
             // Admin login + standard navigation
             'adminhtml_index',
             'adminhtml_dashboard',
+            // Learner login page (public form; logged-in users just get
+            // redirected to the dashboard by its indexAction)
+            'learnerlogin_index',
             // Role selection / switching / management UI
             'adminhtml_roleselect',
             'adminhtml_roleswitch',

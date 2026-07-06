@@ -90,6 +90,13 @@
                         <class>mmd_rolemanager/observer</class>
                         <method>onPredispatch</method>
                     </mmd_rolemanager_predispatch>
+                    <!-- Same mechanism as MMD_OtpLogin::allowOtpAction — lets the
+                         public /learnerlogin form + POST through the core admin
+                         auth observer without a logged-in session. -->
+                    <mmd_rolemanager_learnerlogin_public>
+                        <class>mmd_rolemanager/observer</class>
+                        <method>allowLearnerloginAction</method>
+                    </mmd_rolemanager_learnerlogin_public>
                 </observers>
             </controller_action_predispatch>
             <cms_wysiwyg_config_prepare>
@@ -112,6 +119,21 @@
                     </modules>
                 </args>
             </adminhtml>
+            <!-- Learner login — /learnerlogin on every site (SG/MY/GH).
+                 Registered as an ADMIN router (not frontend) so the resulting
+                 session is the same adminhtml session the learner dashboard
+                 uses; a frontend-area login would land in the 'frontend'
+                 session cookie and be invisible to /tigerdragon. Learners
+                 authenticate with their storefront email+password (AccountSync
+                 keeps admin_user.password identical to the customer hash) and
+                 are forced into the learner role with NO role selection. -->
+            <learnerlogin>
+                <use>admin</use>
+                <args>
+                    <module>MMD_RoleManager</module>
+                    <frontName>learnerlogin</frontName>
+                </args>
+            </learnerlogin>
         </routers>
     </admin>
 
