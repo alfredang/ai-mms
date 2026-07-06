@@ -51,6 +51,27 @@ try {
 
 echo "connected: $user@$host:$port/$dbname\n";
 
+// ---------------------------------------------------------------------------
+// Franchise instance identity (2026-07-06 blank-admin incident guard).
+// Every site (SG main; MY/GH franchise partners) runs this same codebase but
+// owns its own DB. A migration must NEVER guess which instance it is running
+// on from data fingerprints (SKU prefixes, order store_ids, missing rows) —
+// that guessing mis-fired and re-inserted a Malaysia store into SG's DB,
+// blanking the whole admin. Instead the container's MMS_COUNTRY_CODE env
+// (already what index.php uses for partner store resolution; unset on SG)
+// is exposed to every migration statement as @mms_instance:
+//
+//   -- inside a migration that must only run on one instance:
+//   SET @do_my = IF(@mms_instance = 'MY', 1, 0);
+//   SET @sql = IF(@do_my, 'UPDATE ...', 'DO 0');
+//   PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+//
+// Prefer NO instance-specific migrations at all — partner data fixes belong
+// on the partner's own server (see migrations/README.md).
+$instance = strtoupper((string)(getenv('MMS_COUNTRY_CODE') ?: 'SG'));
+$pdo->exec("SET @mms_instance = " . $pdo->quote($instance));
+echo "instance: $instance (@mms_instance is set for all migrations)\n";
+
 // Detect "existing DB without migration ledger" — this happens on the first
 // entrypoint run against a long-lived production DB where the .sql files
 // were originally applied by hand. In that scenario we run in tolerant mode
@@ -118,6 +139,7 @@ $pending = array_values(array_filter(
 
 if (empty($pending)) {
     echo "no pending migrations\n";
+    assertStoreTopology($pdo);
     writeStatus($pdo, $tolerantMode);
     exit(0);
 }
@@ -159,9 +181,48 @@ foreach ($pending as $f) {
     }
 }
 
+assertStoreTopology($pdo);
 writeStatus($pdo, $tolerantMode);
 
 echo "done\n";
+
+/**
+ * One-store-per-site invariant (franchise model). Exactly one non-admin
+ * website and one non-admin store must exist after migrations run — on
+ * EVERY instance (SG 'base'/'singapore', MY 'malaysia', GH 'ghana').
+ * A violation means a migration fanned out extra store rows (the direct
+ * cause of the 2026-07-06 blank-admin incident on SG). Failing here makes
+ * the container exit non-zero, so Coolify keeps the previous container
+ * serving instead of deploying against a corrupted store topology.
+ */
+function assertStoreTopology(PDO $pdo): void
+{
+    if (getenv('MMS_SKIP_TOPOLOGY_CHECK')) {
+        echo "topology check: SKIPPED (MMS_SKIP_TOPOLOGY_CHECK is set)\n";
+        return;
+    }
+    try {
+        if (!$pdo->query("SHOW TABLES LIKE 'core_website'")->fetchColumn()) {
+            return; // pre-install DB — nothing to assert
+        }
+        $sites  = (int)$pdo->query("SELECT COUNT(*) FROM core_website WHERE website_id <> 0")->fetchColumn();
+        $stores = (int)$pdo->query("SELECT COUNT(*) FROM core_store WHERE store_id <> 0")->fetchColumn();
+    } catch (PDOException $e) {
+        return; // partial schema — don't block on the guard itself
+    }
+    if ($sites > 1 || $stores > 1) {
+        $rows = $pdo->query(
+            "SELECT CONCAT('website ', website_id, '=', code) FROM core_website WHERE website_id <> 0"
+        )->fetchAll(PDO::FETCH_COLUMN);
+        fwrite(STDERR, "FATAL: store-topology invariant violated — $sites non-admin website(s), $stores non-admin store(s): "
+            . implode(', ', $rows) . "\n");
+        fwrite(STDERR, "Each franchise site must have exactly ONE website + ONE store. A migration has\n");
+        fwrite(STDERR, "fanned out extra store rows (2026-07-06 incident guard). Aborting the deploy so\n");
+        fwrite(STDERR, "the previous container keeps serving. Emergency override: MMS_SKIP_TOPOLOGY_CHECK=1\n");
+        exit(1);
+    }
+    echo "topology check: OK ($sites website, $stores store)\n";
+}
 
 // Post-run status file so external verification doesn't need DB access.
 // Written to media/ which Apache serves, so a curl GET can confirm state.

@@ -172,6 +172,16 @@
                 <schedule><cron_expr>0 3 * * *</cron_expr></schedule>
                 <run><model>mmd_rolemanager/cron_courseSync::run</model></run>
             </mmd_rolemanager_course_sync>
+            <!-- Daily maintenance sweep — 02:00 SGT. Verifies the one-store-
+                 per-site topology invariant (2026-07-06 blank-admin incident
+                 guard), garbage-collects expired core_session rows, prunes old
+                 var/report files, and publishes /media/health.json so external
+                 monitoring needs no DB access. Runs identically on every
+                 instance (SG + franchise partners). -->
+            <mmd_rolemanager_daily_maintenance>
+                <schedule><cron_expr>0 2 * * *</cron_expr></schedule>
+                <run><model>mmd_rolemanager/cron_maintenance::run</model></run>
+            </mmd_rolemanager_daily_maintenance>
         </jobs>
     </crontab>
 </config>
