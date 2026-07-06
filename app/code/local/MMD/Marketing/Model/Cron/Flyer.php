@@ -488,16 +488,19 @@ class MMD_Marketing_Model_Cron_Flyer
         $g = $this->_guard();
         if (!$g->isEnabled()) { return; }
         // 1. Scheduled rows whose send time has passed → ask MailerLite if they went out.
+        // Compare against PHP time (Asia/Singapore, same clock that wrote
+        // scheduled_send_at) — MySQL NOW() is UTC on prod and would detect the
+        // blast 8 hours late (real miss 2026-07-06).
         $due = $this->_read()->fetchAll('SELECT newsletter_id, mailerlite_id FROM ' . $this->_tbl()
             . " WHERE status = 'scheduled' AND mailerlite_id IS NOT NULL AND mailerlite_id <> ''"
-            . ' AND scheduled_send_at <= NOW()');
+            . ' AND scheduled_send_at <= ?', array(date('Y-m-d H:i:s')));
         foreach ($due as $row) {
             $this->markBlastedByCampaign((string) $row['mailerlite_id']);
         }
         // 2. Refresh cached stats for campaigns blasted in the last 30 days (max 5/run).
         $sent = $this->_read()->fetchAll('SELECT newsletter_id, mailerlite_id FROM ' . $this->_tbl()
             . " WHERE status = 'sent' AND mailerlite_id IS NOT NULL AND mailerlite_id <> ''"
-            . ' AND sent_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) ORDER BY sent_at DESC LIMIT 5');
+            . ' AND sent_at >= ? ORDER BY sent_at DESC LIMIT 5', array(date('Y-m-d H:i:s', strtotime('-30 days'))));
         foreach ($sent as $row) {
             try {
                 $stats = $this->_campaignStats((string) $row['mailerlite_id']);
@@ -536,8 +539,16 @@ class MMD_Marketing_Model_Cron_Flyer
         }
 
         if ((string) $row['status'] !== 'sent') {
-            $sentAt = !empty($d['finished_at']) ? date('Y-m-d H:i:s', strtotime($d['finished_at']))
-                                                : date('Y-m-d H:i:s');
+            // MailerLite timestamps are UTC without a zone marker — convert to
+            // local (Asia/Singapore) or the blast shows 8h early on the dashboard.
+            $sentAt = date('Y-m-d H:i:s');
+            if (!empty($d['finished_at'])) {
+                try {
+                    $dt = new DateTime($d['finished_at'], new DateTimeZone('UTC'));
+                    $dt->setTimezone(new DateTimeZone('Asia/Singapore'));
+                    $sentAt = $dt->format('Y-m-d H:i:s');
+                } catch (Exception $e) { /* keep local now */ }
+            }
             $stats  = $this->_statsFromCampaign($d);
             $this->_write()->update($this->_tbl(), array(
                 'status'      => 'sent',

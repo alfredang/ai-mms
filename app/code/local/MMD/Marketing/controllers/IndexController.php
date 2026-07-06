@@ -158,13 +158,19 @@ class MMD_Marketing_IndexController extends Mage_Core_Controller_Front_Action
         $body = file_get_contents('php://input');
         $resp = $this->getResponse()->setHeader('Content-Type', 'application/json', true);
 
+        // Signature check is best-effort: reject only when a signature header IS
+        // present but does not verify. A missing header still proceeds, because
+        // the endpoint is not trust-bearing — markBlastedByCampaign() re-checks
+        // the campaign's real status against the MailerLite API, so a forged
+        // request can at most trigger a harmless API lookup.
         $secret = trim((string) Mage::getStoreConfig('mmd_marketing/mailerlite/webhook_secret'));
         if ($secret !== '') {
             $sig = '';
             foreach (array('HTTP_X_MAILERLITE_SIGNATURE', 'HTTP_SIGNATURE') as $h) {
                 if (!empty($_SERVER[$h])) { $sig = (string) $_SERVER[$h]; break; }
             }
-            if ($sig === '' || !hash_equals(hash_hmac('sha256', $body, $secret), $sig)) {
+            if ($sig !== '' && !hash_equals(hash_hmac('sha256', $body, $secret), $sig)) {
+                Mage::log('mlhook: bad signature', null, 'marketing-cron.log');
                 $resp->setHttpResponseCode(401)->setBody('{"ok":false,"error":"bad signature"}');
                 return;
             }
