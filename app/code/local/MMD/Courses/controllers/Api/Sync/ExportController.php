@@ -3,11 +3,15 @@
  * SG-side course sync export endpoint.
  *
  * GET /courses/api_sync_export?page=1&page_size=50
+ * GET /courses/api_sync_export?sku=C123          (single-course export)
  *   Header: X-API-Key: <mmd/course_sync/api_key>
  *
  * Returns paginated C-prefix courses (SKU LIKE 'C%') with all fields needed
  * by a country import service. TGS-prefix courses are excluded — they belong
  * to the WSQ/SkillsFuture system and are never synced to country instances.
+ * With ?sku= the same envelope carries exactly that one course (404 when the
+ * SKU is unknown; 400 when it isn't C-prefix) — powers the partner-side
+ * individual course sync.
  *
  * Auth: same X-API-Key pattern as MMD_Courses_Api_CoursesController.
  * Mode guard: returns 403 in MMS_MODE=country (export is SG-only).
@@ -77,6 +81,39 @@ class MMD_Courses_Api_Sync_ExportController extends Mage_Core_Controller_Front_A
         // so an unconverted SGD number would otherwise be mislabelled as
         // the country's own currency.
         $rate = $this->_getConversionRate((string) $this->getRequest()->getParam('currency', ''));
+
+        // Single-course mode (?sku=C123) — same envelope, exactly one course.
+        $singleSku = trim((string) $this->getRequest()->getParam('sku', ''));
+        if ($singleSku !== '') {
+            if (strtoupper(substr($singleSku, 0, 1)) !== 'C') {
+                return $this->_json(400, array('success' => false, 'error' => 'Only C-prefix courses are exportable.'));
+            }
+            try {
+                $read = Mage::getSingleton('core/resource')->getConnection('core_read');
+                $exists = (int) $read->fetchOne(
+                    "SELECT entity_id FROM catalog_product_entity WHERE sku = ?",
+                    array($singleSku)
+                );
+                if (!$exists) {
+                    return $this->_json(404, array('success' => false, 'error' => 'SKU not found: ' . $singleSku));
+                }
+                $course = $this->_buildCourse(
+                    $singleSku,
+                    $read,
+                    $this->_buildAttrLabelCache($read),
+                    $this->_buildAttrMetaCache($read),
+                    $rate
+                );
+                return $this->_json(200, array(
+                    'success' => true, 'page' => 1, 'page_size' => 1,
+                    'total' => 1, 'total_pages' => 1,
+                    'courses' => array($course),
+                ));
+            } catch (Exception $e) {
+                Mage::logException($e);
+                return $this->_json(500, array('success' => false, 'error' => $e->getMessage()));
+            }
+        }
 
         try {
             $resource = Mage::getSingleton('core/resource');

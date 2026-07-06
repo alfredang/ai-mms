@@ -1,7 +1,8 @@
 <?php
 /**
  * Admin actions for syncing courses from SG (country instances only):
- *  - pull           : manual sync now (JSON summary)
+ *  - pull           : manual bulk sync now (JSON summary)
+ *  - pullOne        : sync a single C-prefix course by SKU (JSON summary)
  *  - setAutoEnabled : toggle the daily auto-sync fail-safe flag
  *  - saveConfig     : store SG URL + API key
  */
@@ -30,6 +31,32 @@ class MMD_RoleManager_Adminhtml_CoursesyncController extends Mage_Adminhtml_Cont
             $name = $user ? trim($user->getFirstname() . ' ' . $user->getLastname()) : '';
             $who  = $name !== '' ? $name : ($user ? (string)$user->getEmail() : 'admin');
             $res  = $svc->pull($who);
+            $this->_json(array_merge(array('success' => $res['success']), $res));
+        } catch (Exception $e) {
+            $this->_json(array('success' => false, 'message' => $e->getMessage()));
+        }
+    }
+
+    public function pullOneAction()
+    {
+        try {
+            if (!$this->getRequest()->isPost()) throw new Exception('POST required');
+            $this->_validateFormKey();
+
+            if (strtolower((string) getenv('MMS_MODE')) !== 'country') {
+                throw new Exception('Course sync is only available in country mode.');
+            }
+
+            /** @var MMD_RoleManager_Model_CourseSyncService $svc */
+            $svc = Mage::getModel('mmd_rolemanager/courseSyncService');
+            if (!$svc->isConfigured()) throw new Exception('Set the SG Sync URL and API key first.');
+
+            $sku = trim((string) $this->getRequest()->getParam('sku'));
+
+            $user = Mage::getSingleton('admin/session')->getUser();
+            $name = $user ? trim($user->getFirstname() . ' ' . $user->getLastname()) : '';
+            $who  = $name !== '' ? $name : ($user ? (string)$user->getEmail() : 'admin');
+            $res  = $svc->pullOne($sku, $who);
             $this->_json(array_merge(array('success' => $res['success']), $res));
         } catch (Exception $e) {
             $this->_json(array('success' => false, 'message' => $e->getMessage()));
