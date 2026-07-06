@@ -2256,11 +2256,9 @@ endif; // end if ($_courseManagerActive) — closes the $_devCollection block
 <?php if (strtolower((string) getenv('MMS_MODE')) === 'country'): ?>
 <?php
 $_syncSvc     = Mage::getModel('mmd_rolemanager/courseSyncService');
-$_syncEnabled = $_syncSvc->isAutoEnabled();
 $_syncLastLog = $_syncSvc->getLastLog();
 $_syncUrl     = Mage::helper('adminhtml')->getUrl('adminhtml/coursesync/pull');
 $_syncOneUrl  = Mage::helper('adminhtml')->getUrl('adminhtml/coursesync/pullOne');
-$_syncTogUrl  = Mage::helper('adminhtml')->getUrl('adminhtml/coursesync/setAutoEnabled');
 $_syncCfgUrl  = Mage::helper('adminhtml')->getUrl('adminhtml/coursesync/saveConfig');
 $_syncCfgSgUrl = (string) Mage::getStoreConfig('mmd/course_sync/sg_url');
 ?>
@@ -2291,12 +2289,7 @@ $_syncCfgSgUrl = (string) Mage::getStoreConfig('mmd/course_sync/sg_url');
             <?php else: ?>
             <span style="font-size:12px;color:#f59e0b;">Configure SG URL &amp; key below first.</span>
             <?php endif; ?>
-            <label class="dcf-toggle-sw" title="<?php echo $_syncEnabled ? 'Daily auto-sync ON' : 'Daily auto-sync OFF' ?>" style="flex-shrink:0;">
-                <input type="checkbox" id="course-sync-auto-toggle" <?php echo $_syncEnabled ? 'checked' : '' ?>
-                    onchange="courseSyncToggle(this)" style="display:none;" />
-                <span class="dcf-toggle-slider"></span>
-            </label>
-            <span style="font-size:12px;color:#94a3b8;">Daily auto-sync</span>
+            <span style="font-size:12px;color:#64748b;" title="Course sync only runs when you click a button — there is no scheduled auto-sync.">Manual only</span>
         </div>
     </div>
 
@@ -2405,16 +2398,6 @@ function courseSyncRunOne(btn) {
             status.style.color = '#ef4444';
             status.textContent = 'Network error: ' + e;
         });
-}
-function courseSyncToggle(cb) {
-    var on = cb.checked ? 1 : 0;
-    cb.closest('.dcf-toggle-sw').setAttribute('title', on ? 'Daily auto-sync ON' : 'Daily auto-sync OFF');
-    var fd = new FormData();
-    fd.append('form_key', window.FORM_KEY || '');
-    fd.append('value', on);
-    fetch('<?php echo $this->jsQuoteEscape($_syncTogUrl) ?>', { method:'POST', body:fd })
-        .then(function(r){ return r.json(); })
-        .then(function(d){ if (!d.success) { cb.checked = !cb.checked; alert(d.message); } });
 }
 function courseSyncSaveConfig() {
     var url = document.getElementById('sync-sg-url').value.trim();

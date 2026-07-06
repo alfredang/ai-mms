@@ -611,16 +611,23 @@ li.level2 > a > span > .cat-label,
 .course-info-stack { margin-top: 24px; display: flex; flex-direction: column; gap: 18px; }
 
 /* "Course Details / Course Info / Job Roles / Trainers / Review" tabs container
-   (.box-additional.grid12-8, 66% wide) sits in the left+center column area
-   below the short-description / framework block. The left/center stack (tall
-   Certification card + policy cards) is currently the tallest column on most
-   course pages, so `clear: none` lets the tabs slide UP into the leftover gap
-   beside — and past — the right booking sidebar, displacing them to the right.
-   `clear: both` drops the tabs below the tallest column so they float left at
-   66% width, aligned to the left as intended. Flip back to `clear: none` only
-   if the right booking sidebar starts ending taller than the left+center stack
-   again (would then leave a large empty gap above the tabs). */
-.product-view > .box-additional { clear: both; }
+   (.box-additional.grid12-8, 66% wide) sits after the three floated columns.
+   HISTORY: this rule flip-flopped between `clear: both` (gap under the shorter
+   columns whenever the right booking sidebar was tallest — 2026-07-06 report:
+   "big dead space above the course detail tabs") and `clear: none` (tabs
+   displaced sideways whenever the left+center stack was tallest). Neither
+   value fits every course page because the tallest column varies PER PAGE.
+   STRUCTURAL FIX (2026-07-06): float the right booking sidebar RIGHT (same
+   visual slot — it occupies the final 33% anyway) so it is no longer a LEFT
+   float, and give the tabs `clear: left`. The tabs then always drop to just
+   below the left+center columns and rise beside the right sidebar when it is
+   taller — no dead band, no sideways displacement, whichever column wins.
+   Desktop-only: below 768px Ultimo unfloats the columns and the tabs wrapper
+   is display:none'd for phones further down this file. */
+@media (min-width: 768px) {
+    .catalog-product-view .product-view .product-secondary-column { float: right; }
+}
+.product-view > .box-additional { clear: left; }
 
 .course-info-card,
 .course-policy-card {

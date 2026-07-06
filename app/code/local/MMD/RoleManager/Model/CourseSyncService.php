@@ -31,7 +31,6 @@ class MMD_RoleManager_Model_CourseSyncService
     const LOG_FILE         = 'course-sync.log';
     const URL_CONFIG_PATH  = 'mmd/course_sync/sg_url';
     const KEY_CONFIG_PATH  = 'mmd/course_sync/api_key';
-    const ENABLED_CONFIG   = 'mmd/course_sync/auto_enabled';
     const LOG_TABLE        = 'mmd_course_sync_log';
 
     /**
@@ -40,10 +39,6 @@ class MMD_RoleManager_Model_CourseSyncService
      */
     private static $_partnerOwnedAttrs = array('price', 'special_price', 'trainerprofile');
 
-    public function isAutoEnabled()
-    {
-        return Mage::getStoreConfigFlag(self::ENABLED_CONFIG);
-    }
     public function getSgUrl()
     {
         $base = rtrim(trim((string) Mage::getStoreConfig(self::URL_CONFIG_PATH)), '/');

@@ -165,13 +165,11 @@
                 <schedule><cron_expr>30 3 * * *</cron_expr></schedule>
                 <run><model>mmd_rolemanager/cron_trainerImport::run</model></run>
             </mmd_rolemanager_trainer_import>
-            <!-- Daily course sync from SG — country instances only, fail-safe
-                 gated by mmd/course_sync/auto_enabled (absent = OFF). 03:00 SGT.
-                 Silently skips when MMS_MODE != country. -->
-            <mmd_rolemanager_course_sync>
-                <schedule><cron_expr>0 3 * * *</cron_expr></schedule>
-                <run><model>mmd_rolemanager/cron_courseSync::run</model></run>
-            </mmd_rolemanager_course_sync>
+            <!-- NOTE: course sync from SG is MANUAL ONLY (admin "Sync All" /
+                 "Sync One" buttons on country instances) — the daily auto-sync
+                 cron was removed 2026-07-06 by owner decision. Partner fees,
+                 schedules and trainer info are partner-owned; syncs happen
+                 only when a human decides. -->
             <!-- Daily maintenance sweep — 02:00 SGT. Verifies the one-store-
                  per-site topology invariant (2026-07-06 blank-admin incident
                  guard), garbage-collects expired core_session rows, prunes old
