@@ -575,9 +575,9 @@ endif; // end if (admin || training_provider)
 // panel. $countryFilter is derived from the same store id so the
 // existing billing-address country filters stay correct.
 $storeId       = (int) Mage::helper('branchscope')->getActiveStoreId();
-$_storeToCc    = array(1 => 'SG', 4 => 'NG');
+$_storeToCc    = array(1 => 'SG', 2 => 'MY', 3 => 'GH', 4 => 'NG');
 $countryFilter = isset($_storeToCc[$storeId]) ? $_storeToCc[$storeId] : '';
-$countryTabs   = array('' => 'ALL','SG' => 'Singapore','NG' => 'Nigeria');
+$countryTabs   = array('' => 'ALL','SG' => 'Singapore','MY' => 'Malaysia','GH' => 'Ghana','NG' => 'Nigeria');
 $countryStoreId = 0;
 $ordersByCountry = $recentSearches = $recentRequests = array();
 $_searchStoreFilter = $countryStoreId;
@@ -608,7 +608,7 @@ if (!function_exists('_dashFmt')) {
 }
 
 if ($activeRole === 'training_provider'):
-$countryStoreMap = array('SG' => 1, 'NG' => 4);
+$countryStoreMap = array('SG' => 1, 'MY' => 2, 'GH' => 3, 'NG' => 4);
 $countryStoreId = isset($countryStoreMap[$countryFilter]) ? $countryStoreMap[$countryFilter] : 0;
 
 $oc = Mage::getResourceModel('reports/order_collection');
@@ -1346,7 +1346,7 @@ if ($_loggedInEmail && ($activeRole === 'learner' || $activeRole === 'trainer'))
 // a course gets registered the first time an admin schedules it,
 // and keeps its sequential number thereafter. Courses that haven't been
 // scheduled don't get a Course Run ID row on the card.
-$_lmcCountryPrefix = array(1=>'SG', 4=>'NG');
+$_lmcCountryPrefix = array(1=>'SG', 2=>'MY', 3=>'GH', 4=>'NG');
 $_lmcRunMap        = array(); // product_id => "SG-100000"
 try {
     $_lmcRead = Mage::getSingleton('core/resource')->getConnection('core_read');
@@ -1711,7 +1711,7 @@ if ($_selectedCourseId) {
               the user lands on Ongoing / Upcoming / Completed Classes. */ ?>
     <?php if ($_dashFilter === ''): ?>
     <?php
-        $_storeShort = array(1 => 'SG', 4 => 'NG');
+        $_storeShort = array(1 => 'SG', 2 => 'MY', 3 => 'GH', 4 => 'NG');
         $_extIcon    = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>';
     ?>
 
@@ -2081,11 +2081,15 @@ $_devBackQs = http_build_query($_devBackParams);
 $_devCountryMap = array(
     'All'       => 0,
     'Singapore' => 1,
+    'Malaysia'  => 2,
+    'Ghana'     => 3,
     'Nigeria'   => 4,
 );
 $_devCountryPrefix = array(
     0 => 'ALL',
     1 => 'SG',
+    2 => 'MY',
+    3 => 'GH',
     4 => 'NG',
 );
 $_devAllowedCountries = array_keys($_devCountryMap);
@@ -2204,10 +2208,10 @@ try {
 // Keyed by product_id → array of website_ids (matches $_devCountryMap).
 $_devProductWebsites = array();
 $_devWebsiteLabels   = array(
-    1 => 'SG', 4 => 'NG',
+    1 => 'SG', 2 => 'MY', 3 => 'GH', 4 => 'NG',
 );
 $_devWebsiteFlags    = array(
-    1 => '🇸🇬', 4 => '🇳🇬', 7 => '',
+    1 => '🇸🇬', 2 => '🇲🇾', 3 => '🇬🇭', 4 => '🇳🇬', 7 => '',
 );
 if (!empty($_devCourses)) {
     try {
@@ -2627,7 +2631,7 @@ function devSetView(view) {
 //   1. ?store=N    2. ?dev_country=<Name>    3. dev_back's dev_country/store
 //   4. admin session branchscope    5. fall back to Singapore.
 $_seoStoreToCountry = array(
-    1 => 'Singapore', 4 => 'Nigeria',
+    1 => 'Singapore', 2 => 'Malaysia', 3 => 'Ghana', 4 => 'Nigeria',
 );
 $_seoCountryToStore = array_flip($_seoStoreToCountry);
 $_seoStoreId = 0;
@@ -2669,7 +2673,7 @@ $_seoActiveCountry = isset($_seoStoreToCountry[$_seoStoreId])
     ? $_seoStoreToCountry[$_seoStoreId]
     : 'Singapore';
 $_dcfStoreFlag = array(
-    'Singapore' => 'SG', 'Nigeria' => 'NG',
+    'Singapore' => 'SG', 'Malaysia' => 'MY', 'Ghana' => 'GH', 'Nigeria' => 'NG',
 );
 $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
 ?>
