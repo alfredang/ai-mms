@@ -16,7 +16,7 @@
  */
 class MMD_RoleManager_IndexController extends Mage_Adminhtml_Controller_Action
 {
-    protected $_publicActions = array('index', 'login');
+    protected $_publicActions = array('index', 'login', 'send', 'verify');
 
     const MAX_ATTEMPTS = 5;      // per session
     const ATTEMPT_WINDOW = 600;  // seconds
@@ -126,6 +126,204 @@ class MMD_RoleManager_IndexController extends Mage_Adminhtml_Controller_Action
     }
 
     /**
+     * Send a login OTP to the learner's email — mirror of the staff
+     * MMD_OtpLogin send action (same rate limit, same anti-enumeration
+     * "always success" reply, same Gmail-first transport), but scoped to
+     * learner session keys and accepting STOREFRONT-only accounts too.
+     */
+    public function sendAction()
+    {
+        $result = array('success' => false, 'message' => '');
+        if (!$this->getRequest()->isPost()) {
+            $result['message'] = 'Invalid request';
+            return $this->_json($result);
+        }
+        $email = trim(strtolower($this->getRequest()->getParam('email', '')));
+        if (!$email || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $result['message'] = 'Please enter a valid email address';
+            return $this->_json($result);
+        }
+
+        $session = Mage::getSingleton('core/session');
+        // Rate limiting: max 3 sends per 10 minutes (same as staff OTP)
+        $now = time();
+        $attempts = array_filter((array) $session->getLearnerOtpAttempts(), function ($t) use ($now) {
+            return ($now - $t) < 600;
+        });
+        if (count($attempts) >= 3) {
+            $result['message'] = 'Too many attempts. Please try again later.';
+            return $this->_json($result);
+        }
+        $attempts[] = $now;
+        $session->setLearnerOtpAttempts($attempts);
+
+        // Always report success so the form can't be used to probe emails.
+        $result['success'] = true;
+        $result['message'] = 'If an account exists with this email, an OTP has been sent.';
+
+        // A learner is anyone with a dashboard learner account OR a storefront
+        // customer account (shadow gets created at verify time).
+        $firstname = $this->_resolveLearnerFirstname($email);
+        if ($firstname !== null) {
+            $otp = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+            $session->setLearnerOtpCode($otp);
+            $session->setLearnerOtpEmail($email);
+            $session->setLearnerOtpExpires($now + 600);
+
+            try {
+                $subject  = 'Your Learner Login OTP - Tertiary Infotech Academy';
+                $fromName = (string) Mage::getStoreConfig('trans_email/ident_general/name');
+                $fromMail = (string) Mage::getStoreConfig('trans_email/ident_general/email');
+                $bodyHtml =
+                    '<p>Hi ' . htmlspecialchars($firstname) . ',</p>' .
+                    '<p>Your one-time learner login code is: <strong style="font-size:18px;letter-spacing:2px;">'
+                    . htmlspecialchars($otp) . '</strong></p>' .
+                    '<p>This code expires in 10 minutes.<br>' .
+                    'If you did not request this, please ignore this email.</p>' .
+                    '<p>— Tertiary Infotech Academy</p>';
+                $gmail = Mage::helper('mmd_email/gmail');
+                if ($gmail && $gmail->isConfigured()) {
+                    $gmail->send($email, $subject, $bodyHtml, $fromName);
+                } else {
+                    $mail = Mage::getModel('core/email');
+                    $mail->setToEmail($email)->setToName($firstname)
+                        ->setSubject($subject)
+                        ->setBody(strip_tags(str_replace('<br>', "\n", $bodyHtml)))
+                        ->setFromEmail($fromMail)->setFromName($fromName)->setType('text');
+                    $mail->send();
+                }
+            } catch (Exception $e) {
+                Mage::logException($e);
+            }
+        }
+        return $this->_json($result);
+    }
+
+    /**
+     * Verify the OTP and establish the learner session — role FORCED to
+     * learner, never a role-selection screen.
+     */
+    public function verifyAction()
+    {
+        $result = array('success' => false, 'message' => '');
+        if (!$this->getRequest()->isPost()) {
+            $result['message'] = 'Invalid request';
+            return $this->_json($result);
+        }
+        $email = trim(strtolower($this->getRequest()->getParam('email', '')));
+        $otp   = trim($this->getRequest()->getParam('otp', ''));
+        if (!$email || !$otp || strlen($otp) !== 6) {
+            $result['message'] = 'Invalid OTP';
+            return $this->_json($result);
+        }
+
+        $session = Mage::getSingleton('core/session');
+        $storedCode    = $session->getLearnerOtpCode();
+        $storedEmail   = $session->getLearnerOtpEmail();
+        $storedExpires = $session->getLearnerOtpExpires();
+
+        if (!$storedCode || !$storedEmail || !$storedExpires) {
+            $result['message'] = 'No OTP found. Please request a new one.';
+            return $this->_json($result);
+        }
+        if (time() > $storedExpires) {
+            $session->unsLearnerOtpCode()->unsLearnerOtpEmail()->unsLearnerOtpExpires();
+            $result['message'] = 'OTP has expired. Please request a new one.';
+            return $this->_json($result);
+        }
+        if ($otp !== $storedCode || strtolower($email) !== strtolower($storedEmail)) {
+            $result['message'] = 'Invalid OTP. Please try again.';
+            return $this->_json($result);
+        }
+
+        // OTP valid — clear it
+        $session->unsLearnerOtpCode()->unsLearnerOtpEmail()->unsLearnerOtpExpires();
+        $session->unsLearnerOtpAttempts();
+
+        try {
+            /** @var Mage_Admin_Model_User $user */
+            $user = Mage::getModel('admin/user')->loadByUsername($email);
+            if (!$user->getId()) {
+                // Storefront-only learner: the OTP already proved email
+                // ownership, so create the shadow dashboard account now.
+                $customer = $this->_loadCustomerByEmail($email);
+                if ($customer && $customer->getId()) {
+                    Mage::helper('mmd_accountsync')->onCustomerSaved($customer);
+                    $user->loadByUsername($email);
+                }
+            }
+            if (!$user->getId() || (int) $user->getIsActive() !== 1) {
+                $result['message'] = 'Account not found or disabled.';
+                return $this->_json($result);
+            }
+
+            $helper = Mage::helper('mmd_rolemanager');
+            $roles  = $helper->getUserRolesFromDb($user->getId());
+            if (!in_array('learner', $roles, true)) {
+                $result['message'] = 'This login is for learners. Staff should sign in at the staff portal.';
+                return $this->_json($result);
+            }
+
+            $adminSession = Mage::getSingleton('admin/session');
+            $adminSession->setUser($user);
+            $adminSession->setUserRoles(array('learner'));
+            $adminSession->setActiveRoleCode('learner');
+            $adminSession->setNeedsRoleSelect(false);
+            $helper->applyRoleAcl($user->getId(), 'learner');
+            $adminSession->setAcl(Mage::getResourceModel('admin/acl')->loadAcl());
+
+            $result['success']  = true;
+            $result['redirect'] = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard');
+        } catch (Exception $e) {
+            Mage::logException($e);
+            $result['message'] = 'Login failed. Please try again.';
+        }
+        return $this->_json($result);
+    }
+
+    /**
+     * Firstname for the OTP email when the address belongs to a learner
+     * (dashboard account or storefront customer); null when unknown.
+     */
+    protected function _resolveLearnerFirstname($email)
+    {
+        $user = Mage::getModel('admin/user')->loadByUsername($email);
+        if ($user->getId() && (int) $user->getIsActive() === 1) {
+            return (string) $user->getFirstname();
+        }
+        $customer = $this->_loadCustomerByEmail($email);
+        if ($customer && $customer->getId()) {
+            return (string) $customer->getFirstname();
+        }
+        return null;
+    }
+
+    /** Load the storefront customer for this (single-store) site by email. */
+    protected function _loadCustomerByEmail($email)
+    {
+        try {
+            $websiteId = 1;
+            foreach (Mage::app()->getWebsites() as $w) {
+                $websiteId = (int) $w->getId();
+                break;
+            }
+            $customer = Mage::getModel('customer/customer')->setWebsiteId($websiteId);
+            $customer->loadByEmail($email);
+            return $customer;
+        } catch (Exception $e) {
+            return null;
+        }
+    }
+
+    /** Send a JSON response. */
+    protected function _json(array $data)
+    {
+        $this->getResponse()
+            ->setHeader('Content-Type', 'application/json', true)
+            ->setBody(Mage::helper('core')->jsonEncode($data));
+    }
+
+    /**
      * Validate the storefront customer credentials; on success ensure the
      * shadow admin_user exists (AccountSync helper) and load it. Returns true
      * when $user ends up loaded + authenticated.
@@ -164,10 +362,13 @@ class MMD_RoleManager_IndexController extends Mage_Adminhtml_Controller_Action
         $session->unsLearnerLoginError();
         $session->unsLearnerLoginEmail();
 
-        $logoUrl  = Mage::getBaseUrl('skin') . 'adminhtml/default/default/images/admin-logo.png';
-        $postUrl  = Mage::getUrl('learnerlogin/index/login');
-        $formKey  = Mage::getSingleton('core/session')->getFormKey();
-        $siteName = Mage::app()->getStore()->getFrontendName();
+        $logoUrl   = Mage::getBaseUrl('skin') . 'adminhtml/default/default/images/admin-logo.png';
+        $postUrl   = Mage::getUrl('learnerlogin/index/login');
+        $sendUrl   = Mage::getUrl('learnerlogin/index/send');
+        $verifyUrl = Mage::getUrl('learnerlogin/index/verify');
+        $forgotUrl = Mage::getUrl('customer/account/forgotpassword');
+        $formKey   = Mage::getSingleton('core/session')->getFormKey();
+        $siteName  = Mage::app()->getStore()->getFrontendName();
 
         ob_start();
         include Mage::getDesign()->getTemplateFilename('rolemanager/learner-login.phtml');

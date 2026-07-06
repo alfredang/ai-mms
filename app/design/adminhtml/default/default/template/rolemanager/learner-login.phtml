@@ -1,10 +1,19 @@
 <?php
 /**
- * Learner login page — rendered standalone (no admin layout) by
- * MMD_RoleManager_IndexController::_renderPage() at /learnerlogin.
- * Variables in scope: $logoUrl, $postUrl, $formKey, $siteName, $error, $prevEmail.
- * Styling is self-contained + page-scoped (see the rolemanager.css bleed
- * incident in CLAUDE.md — never let a standalone page's globals leak).
+ * Learner login page — /learnerlogin on every site (SG/MY/GH).
+ *
+ * EXACT visual clone of the staff admin login (template/login.phtml): same
+ * stylesheet block, same OTP-first flow (email -> Send OTP -> 6-digit code ->
+ * auto-verify), same password fallback via "Login with password instead".
+ * Differences: learner branding/copy, no Google sign-in, no policy modal,
+ * and the endpoints are the learnerlogin/index send/verify/login actions
+ * which FORCE the learner role (no role-selection screen, ever).
+ *
+ * Rendered standalone by MMD_RoleManager_IndexController::_renderPage() —
+ * $this is the CONTROLLER (not a block), so asset URLs use Mage::getBaseUrl
+ * and the JS below is vanilla (prototype.js isn't loaded here).
+ * Variables in scope: $logoUrl, $postUrl, $sendUrl, $verifyUrl, $formKey,
+ * $siteName, $error, $prevEmail, $forgotUrl.
  */
 ?>
 <!DOCTYPE html>
@@ -14,80 +23,314 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, nofollow" />
     <title>Learner Login - Tertiary Infotech Academy</title>
-    <link rel="icon" href="<?php echo $logoUrl ?>" type="image/png" />
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <link rel="icon" href="/media/favicon/default/favicon_1.png" type="image/png" />
+    <link rel="shortcut icon" href="/media/favicon/default/favicon_1.png" type="image/png" />
     <style>
-        .ll-page * { margin: 0; padding: 0; box-sizing: border-box; }
-        .ll-page {
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: radial-gradient(circle at 20% 20%, #16233f 0%, #0b1120 55%, #090f1c 100%);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            padding: 24px;
-        }
-        .ll-card {
-            width: 100%;
-            max-width: 420px;
-            background: rgba(15, 23, 42, 0.85);
-            border: 1px solid #1e3a5f;
-            border-radius: 16px;
-            padding: 40px 36px;
-            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
-            text-align: center;
-        }
-        .ll-card img.ll-logo { width: 64px; height: 64px; border-radius: 14px; }
-        .ll-title { color: #e2e8f0; font-size: 26px; font-weight: 700; margin-top: 16px; }
-        .ll-subtitle { color: #64748b; font-size: 14px; margin-top: 6px; }
-        .ll-error {
-            margin-top: 18px; padding: 10px 14px; border-radius: 8px;
-            background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.4);
-            color: #fca5a5; font-size: 13px; text-align: left;
-        }
-        .ll-form { margin-top: 24px; text-align: left; }
-        .ll-label { display: block; color: #94a3b8; font-size: 12px; font-weight: 600; margin: 14px 0 6px; }
-        .ll-input {
-            width: 100%; padding: 12px 14px; border-radius: 10px;
-            background: #0f172a; border: 1px solid #334155; color: #e2e8f0; font-size: 14px;
-        }
-        .ll-input:focus { outline: none; border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2); }
-        .ll-submit {
-            width: 100%; margin-top: 22px; padding: 13px;
-            background: #2563eb; color: #fff; border: 0; border-radius: 10px;
-            font-size: 15px; font-weight: 700; cursor: pointer;
-        }
-        .ll-submit:hover { background: #1d4ed8; }
-        .ll-foot { margin-top: 22px; color: #475569; font-size: 12px; }
-        .ll-foot a { color: #60a5fa; text-decoration: none; }
+    * { box-sizing: border-box; }
+    body#page-login {
+        background: #111827;
+        font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+        margin: 0; padding: 0; min-height: 100vh;
+    }
+    #page-login .login-container { background: transparent; width: 100%; margin: 0; display: flex; justify-content: center; align-items: flex-start; padding: 40px 20px 20px; }
+    .login-card {
+        background: rgba(30, 41, 59, 0.85);
+        backdrop-filter: blur(12px);
+        border: 1px solid #374151;
+        border-radius: 20px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+        width: 440px;
+        max-width: 100%;
+        padding: 40px 36px 32px;
+    }
+    .login-logo { text-align: center; margin-bottom: 20px; }
+    .login-logo img { height: 64px; border-radius: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+    .login-title { text-align: center; color: #f1f5f9; font-size: 24px; font-weight: 700; margin: 0 0 4px; }
+    .login-subtitle { text-align: center; color: #94a3b8; font-size: 14px; margin: 0 0 28px; }
+
+    /* Form fields */
+    .field-group { margin-bottom: 18px; }
+    .field-label { display: block; color: #cbd5e1; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+    .field-input {
+        width: 100%; padding: 12px 16px; background: #374151; border: 1px solid #4b5563;
+        border-radius: 10px; color: #f1f5f9; font-size: 14px; outline: none;
+        transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .field-input:focus { border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(96,165,250,0.15); }
+    .field-input::placeholder { color: #64748b; }
+    .field-pw-wrap { position: relative; }
+    .field-pw-wrap .field-input { padding-right: 44px; }
+    .pw-toggle,
+    .pw-toggle:hover,
+    .pw-toggle:focus,
+    .pw-toggle:active {
+        position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+        background: transparent !important; background-image: none !important;
+        border: 0 !important; box-shadow: none !important;
+        cursor: pointer; color: #64748b; padding: 4px; line-height: 0;
+    }
+    .pw-toggle:hover { color: #94a3b8; }
+    .pw-toggle svg { display: block; width: 20px; height: 20px; }
+
+    /* Messages */
+    #messages { list-style: none; padding: 0; margin: 0 0 16px; }
+    #messages .error-msg {
+        color: #f87171; padding: 6px 0; font-size: 13px;
+        font-weight: 500; text-align: center;
+    }
+
+    /* Buttons */
+    .btn-primary, .btn-otp {
+        display: block; width: 100%; padding: 13px;
+        background: #2563eb; color: #fff;
+        border: none; border-radius: 10px; font-size: 15px; font-weight: 600;
+        cursor: pointer; transition: background 0.15s, transform 0.1s; margin-top: 8px;
+    }
+    .btn-primary:hover, .btn-otp:hover {
+        background: #3b82f6;
+        transform: translateY(-1px);
+    }
+    .btn-primary:active, .btn-otp:active {
+        background: #1d4ed8;
+        transform: translateY(0);
+    }
+    .btn-otp:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+    /* Links */
+    .login-links { text-align: center; margin-top: 16px; }
+    .login-links a { color: #60a5fa; font-size: 13px; text-decoration: none; }
+    .login-links a:hover { color: #93c5fd; text-decoration: underline; }
+    .login-switch { text-align: center; margin-top: 18px; }
+    .login-switch a { color: #60a5fa; font-size: 14px; text-decoration: underline; cursor: pointer; font-weight: 600; }
+    .login-switch a:hover { color: #93c5fd; }
+
+    /* Footer */
+    .login-footer { text-align: center; color: #4b5563; font-size: 12px; margin-top: 24px; padding-top: 20px; border-top: 1px solid #374151; }
+    .login-footer a { color: #64748b; text-decoration: none; margin: 0 8px; }
+    .login-footer a:hover { color: #94a3b8; }
+    .login-footer .site-link { display: block; margin-top: 10px; color: #60a5fa; font-size: 12px; }
+    .login-footer .site-link:hover { color: #93c5fd; }
+
+    /* OTP input */
+    .otp-row { display: flex; justify-content: center; margin: 20px 0; }
+    .otp-digit {
+        width: 100%; max-width: 360px; height: 64px; text-align: center;
+        font-family: 'Courier New', monospace; font-size: 28px; font-weight: 700;
+        letter-spacing: 14px; padding-left: 14px;
+        background: #374151; border: 1px solid #4b5563; border-radius: 10px; color: #f1f5f9;
+        outline: none; transition: border-color 0.15s;
+    }
+    .otp-digit::placeholder { color: #64748b; letter-spacing: 14px; }
+    .otp-digit:focus { border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(96,165,250,0.15); }
+    .otp-verify-title { text-align: center; color: #f1f5f9; font-size: 17px; font-weight: 700; margin: 8px 0 6px; }
+    .otp-verify-sub { text-align: center; color: #94a3b8; font-size: 14px; margin: 0 0 6px; line-height: 1.5; }
+    .otp-verify-sub strong { color: #f1f5f9; font-weight: 700; }
+    .otp-sent-msg { text-align: center; color: #34d399; font-size: 13px; margin: 8px 0 4px; }
+    .otp-spam-hint { text-align: center; color: #34d399; font-size: 12px; margin: 0 0 18px; opacity: 0.9; }
+    .otp-resend { text-align: center; margin-top: 14px; }
+    .otp-resend a { color: #60a5fa; font-size: 13px; cursor: pointer; text-decoration: none; font-weight: 600; }
+    .otp-resend-sep { color: #4b5563; margin: 0 10px; }
+
+    /* Hidden */
+    .hidden { display: none !important; }
     </style>
 </head>
-<body>
-<div class="ll-page">
-    <div class="ll-card">
-        <img class="ll-logo" src="<?php echo htmlspecialchars($logoUrl) ?>" alt="Tertiary Infotech Academy" />
-        <div class="ll-title">Learner Login</div>
-        <div class="ll-subtitle">Sign in with your <?php echo htmlspecialchars($siteName ?: 'Tertiary Courses') ?> account to access your courses.</div>
+<body id="page-login">
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-logo">
+                <img src="<?php echo htmlspecialchars($logoUrl) ?>" alt="Tertiary Infotech Academy" />
+            </div>
+            <h1 class="login-title">Learner Login</h1>
+            <p class="login-subtitle">Sign in with your <?php echo htmlspecialchars($siteName ?: 'Tertiary Courses') ?> account to access your courses.</p>
 
-        <?php if ($error !== ''): ?>
-        <div class="ll-error"><?php echo htmlspecialchars($error) ?></div>
-        <?php endif; ?>
+            <div id="messages">
+                <?php if ($error !== ''): ?>
+                <div class="error-msg"><?php echo htmlspecialchars($error) ?></div>
+                <?php endif; ?>
+            </div>
 
-        <form class="ll-form" method="post" action="<?php echo htmlspecialchars($postUrl) ?>" autocomplete="on">
-            <input type="hidden" name="form_key" value="<?php echo htmlspecialchars($formKey) ?>" />
-            <label class="ll-label" for="ll-email">Email</label>
-            <input class="ll-input" type="email" id="ll-email" name="email" required autofocus
-                   value="<?php echo htmlspecialchars($prevEmail) ?>" placeholder="you@example.com" />
-            <label class="ll-label" for="ll-password">Password</label>
-            <input class="ll-input" type="password" id="ll-password" name="password" required placeholder="Your password" />
-            <button class="ll-submit" type="submit">Sign In</button>
-        </form>
+            <!-- Password Login Form (hidden by default — reached via "Login with password instead") -->
+            <form method="post" action="<?php echo htmlspecialchars($postUrl) ?>" id="loginForm" class="hidden" autocomplete="off">
+                <input name="form_key" type="hidden" value="<?php echo htmlspecialchars($formKey) ?>" />
+                <div class="field-group">
+                    <label class="field-label" for="username">Email</label>
+                    <input type="email" id="username" name="email" class="field-input" required placeholder="Enter your email"
+                           value="<?php echo htmlspecialchars($prevEmail) ?>" />
+                </div>
+                <div class="field-group">
+                    <label class="field-label" for="login">Password</label>
+                    <div class="field-pw-wrap">
+                        <input type="password" id="login" name="password" class="field-input" required placeholder="Enter your password" autocomplete="new-password" />
+                        <button type="button" class="pw-toggle" onclick="togglePw()" aria-label="Toggle password visibility">
+                            <svg id="pw-eye-open" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                            <svg id="pw-eye-closed" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                        </button>
+                    </div>
+                </div>
+                <button type="submit" class="btn-primary">Sign In</button>
+                <div class="login-links">
+                    <a href="<?php echo htmlspecialchars($forgotUrl) ?>">Forgot Password?</a>
+                </div>
+                <div class="login-switch">
+                    <a onclick="switchTab('otp')">Login with OTP instead</a>
+                </div>
+            </form>
 
-        <div class="ll-foot">
-            Same email and password as your course-registration account.<br/>
-            Forgot it? <a href="<?php echo Mage::getUrl('customer/account/forgotpassword') ?>">Reset your password</a>.
+            <!-- OTP Login (default) -->
+            <div id="otpForm">
+                <div id="otp-step-email">
+                    <div class="field-group">
+                        <label class="field-label" for="otp-email">Email</label>
+                        <input type="email" id="otp-email" class="field-input" placeholder="Enter your email address"
+                               value="<?php echo htmlspecialchars($prevEmail) ?>" />
+                    </div>
+                    <button type="button" class="btn-otp" id="btn-send-otp" onclick="sendOtp()">Send OTP</button>
+                    <div class="login-switch">
+                        <a onclick="switchTab('password')">Login with password instead</a>
+                    </div>
+                </div>
+                <div id="otp-step-verify" class="hidden">
+                    <h2 class="otp-verify-title">Verify your identity</h2>
+                    <p class="otp-verify-sub">An OTP has been sent to<br/><strong id="otp-sent-email">your email</strong>.</p>
+                    <div class="otp-row">
+                        <input type="text" id="otp-code" class="otp-digit" maxlength="6" inputmode="numeric" autocomplete="one-time-code" placeholder="______" oninput="otpInput(this)" onpaste="otpPaste(event)" onfocus="this.select()" aria-label="6-digit OTP code" />
+                    </div>
+                    <p class="otp-sent-msg" id="otp-sent-text">OTP has been sent to your email address</p>
+                    <p class="otp-spam-hint">If you don&rsquo;t see the OTP email in your inbox, please check the spam/all emails.</p>
+                    <button type="button" class="btn-otp" id="btn-verify-otp" onclick="verifyOtp()">Verify &amp; Log In</button>
+                    <div class="otp-resend">
+                        <a onclick="sendOtp()">Resend OTP</a>
+                        <span class="otp-resend-sep">|</span>
+                        <a onclick="switchTab('password')">Use Password</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="login-footer">
+                Same email as your course-registration account.
+                <a href="https://www.tertiarycourses.com.sg/" class="site-link">https://www.tertiarycourses.com.sg/</a>
+            </div>
         </div>
     </div>
-</div>
+
+    <script type="text/javascript">
+    //<![CDATA[
+    function $(id) { return document.getElementById(id); }
+
+    function togglePw() {
+        var inp = $('login');
+        var open = $('pw-eye-open');
+        var closed = $('pw-eye-closed');
+        if (inp.type === 'password') {
+            inp.type = 'text';
+            open.style.display = 'none';
+            closed.style.display = 'block';
+        } else {
+            inp.type = 'password';
+            open.style.display = 'block';
+            closed.style.display = 'none';
+        }
+    }
+
+    function switchTab(tab) {
+        var passwordForm = $('loginForm');
+        var otpForm = $('otpForm');
+        var otpEmail  = $('otp-email');
+        var pwdEmail  = $('username');
+        if (tab === 'otp') {
+            if (pwdEmail && pwdEmail.value && otpEmail && !otpEmail.value) otpEmail.value = pwdEmail.value;
+            passwordForm.classList.add('hidden');
+            otpForm.classList.remove('hidden');
+        } else {
+            if (otpEmail && otpEmail.value && pwdEmail) pwdEmail.value = otpEmail.value;
+            passwordForm.classList.remove('hidden');
+            otpForm.classList.add('hidden');
+            if (pwdEmail && pwdEmail.value) {
+                var pwd = $('login');
+                if (pwd) pwd.focus();
+            }
+        }
+    }
+
+    function sendOtp() {
+        var email = $('otp-email').value.trim();
+        if (!email) { alert('Please enter your email address'); return; }
+
+        var btn = $('btn-send-otp');
+        btn.disabled = true;
+        btn.innerHTML = 'Sending...';
+
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '<?php echo $sendUrl ?>');
+        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+        xhr.onload = function() {
+            btn.disabled = false;
+            btn.innerHTML = 'Send OTP';
+            try {
+                var resp = JSON.parse(xhr.responseText);
+                if (resp.success) {
+                    $('otp-step-email').classList.add('hidden');
+                    $('otp-step-verify').classList.remove('hidden');
+                    var span = $('otp-sent-email');
+                    span.textContent = email;
+                    var input = $('otp-code');
+                    if (input) { input.value = ''; input.focus(); }
+                } else {
+                    alert(resp.message || 'Failed to send OTP');
+                }
+            } catch(e) { alert('Error sending OTP. Please try again.'); }
+        };
+        xhr.onerror = function() { btn.disabled = false; btn.innerHTML = 'Send OTP'; alert('Network error'); };
+        xhr.send('email=' + encodeURIComponent(email) + '&form_key=<?php echo $formKey ?>');
+    }
+
+    function otpInput(el) {
+        el.value = el.value.replace(/[^0-9]/g, '').slice(0, 6);
+        if (el.value.length === 6) { verifyOtp(); }
+    }
+
+    function otpPaste(e) {
+        var cd = e.clipboardData || window.clipboardData;
+        if (!cd) { return; }
+        var text = cd.getData('text') || '';
+        var m = text.match(/\b(\d{6})\b/);
+        var code = m ? m[1] : (text.replace(/[^0-9]/g, '').slice(0, 6));
+        if (!code) { return; }
+        e.preventDefault();
+        var el = $('otp-code');
+        el.value = code;
+        if (code.length === 6) { verifyOtp(); }
+    }
+
+    function verifyOtp() {
+        var otp = ($('otp-code').value || '').replace(/[^0-9]/g, '');
+        if (otp.length < 6) { alert('Please enter the complete 6-digit OTP'); return; }
+
+        var email = $('otp-email').value.trim();
+        var btn = $('btn-verify-otp');
+        btn.disabled = true;
+        btn.innerHTML = 'Verifying...';
+
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '<?php echo $verifyUrl ?>');
+        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+        xhr.onload = function() {
+            try {
+                var resp = JSON.parse(xhr.responseText);
+                if (resp.success && resp.redirect) {
+                    window.location.href = resp.redirect;
+                } else {
+                    btn.disabled = false;
+                    btn.innerHTML = 'Verify &amp; Log In';
+                    alert(resp.message || 'Verification failed');
+                }
+            } catch(e) { btn.disabled = false; btn.innerHTML = 'Verify &amp; Log In'; alert('Error verifying OTP'); }
+        };
+        xhr.onerror = function() { btn.disabled = false; btn.innerHTML = 'Verify &amp; Log In'; alert('Network error'); };
+        xhr.send('email=' + encodeURIComponent(email) + '&otp=' + encodeURIComponent(otp) + '&form_key=<?php echo $formKey ?>');
+    }
+    //]]>
+    </script>
 </body>
 </html>
