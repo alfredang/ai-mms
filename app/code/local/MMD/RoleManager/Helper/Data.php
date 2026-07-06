@@ -134,7 +134,7 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
                 $bs = Mage::helper('branchscope');
                 if ($bs->hasExplicitChoice()) {
                     $storeId = (int) $bs->getActiveStoreId();
-                    $reverse = array(1 => 'SG', 4 => 'NG');
+                    $reverse = array(1 => 'SG', 2 => 'MY', 3 => 'GH', 4 => 'NG');
                     if ($storeId > 0 && isset($reverse[$storeId])) {
                         return $reverse[$storeId];
                     }
@@ -150,7 +150,7 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
         $email = strtolower((string) $user->getEmail());
         if (preg_match('/^admin\.([a-z]{2})@/', $email, $m)) {
             $cc = strtoupper($m[1]);
-            $valid = array('SG', 'NG');
+            $valid = array('SG', 'MY', 'GH', 'NG');
             if (in_array($cc, $valid, true)) return $cc;
         }
 
@@ -160,21 +160,21 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
 
     public function getActiveWebsiteId()
     {
-        $map = array('SG' => 1, 'NG' => 4);
+        $map = array('SG' => 1, 'MY' => 2, 'GH' => 3, 'NG' => 4);
         $cc  = $this->getActiveCountryCode();
         return isset($map[$cc]) ? $map[$cc] : 1;
     }
 
     public function getActiveCountryName()
     {
-        $names = array('SG' => 'Singapore', 'NG' => 'Nigeria');
+        $names = array('SG' => 'Singapore', 'MY' => 'Malaysia', 'GH' => 'Ghana', 'NG' => 'Nigeria');
         $cc    = $this->getActiveCountryCode();
         return isset($names[$cc]) ? $names[$cc] : 'Singapore';
     }
 
     public function getActiveCountryRunPrefix()
     {
-        $prefix = array('SG' => 'SG', 'NG' => 'NG');
+        $prefix = array('SG' => 'SG', 'MY' => 'MY', 'GH' => 'GH', 'NG' => 'NG');
         $cc     = $this->getActiveCountryCode();
         return isset($prefix[$cc]) ? $prefix[$cc] : 'SG';
     }
@@ -274,7 +274,7 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
 
     protected function _getWebsiteIdToPrefixMap()
     {
-        return array(1 => 'SG', 4 => 'NG');
+        return array(1 => 'SG', 2 => 'MY', 3 => 'GH', 4 => 'NG');
     }
 
     protected function _getPerCountryRunRank($runId)
@@ -444,7 +444,7 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
      * Must stay in sync with store setup and $_storeToCc2 in index.phtml.
      */
     public static $websiteToCountryCode = array(
-        1 => 'SG', 4 => 'NG',
+        1 => 'SG', 2 => 'MY', 3 => 'GH', 4 => 'NG',
     );
 
     /**
