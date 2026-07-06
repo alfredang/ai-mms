@@ -115,6 +115,11 @@ class MMD_RoleManager_IndexController extends Mage_Adminhtml_Controller_Action
             $adminSession->setAcl(Mage::getResourceModel('admin/acl')->loadAcl());
 
             $session->unsLearnerLoginAttempts();
+            // Commit the session BEFORE redirecting — PHP writes sessions at
+            // shutdown (after the response), so a fast browser can hit the
+            // dashboard while the DB row is stale and get bounced (same race
+            // as the role-select double-click / redirect-loop incidents).
+            session_write_close();
             $this->_redirect('adminhtml/dashboard');
             return;
         } catch (Exception $e) {
@@ -274,6 +279,9 @@ class MMD_RoleManager_IndexController extends Mage_Adminhtml_Controller_Action
 
             $result['success']  = true;
             $result['redirect'] = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard');
+            // Commit the session before the JSON reply — the browser follows
+            // result.redirect immediately and must see the fresh session row.
+            session_write_close();
         } catch (Exception $e) {
             Mage::logException($e);
             $result['message'] = 'Login failed. Please try again.';

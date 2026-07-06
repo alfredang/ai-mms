@@ -6491,7 +6491,7 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
             <div class="lmc-search" style="margin-bottom:0;">
                 <div class="lmc-search-input-wrap">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                    <input type="text" id="lmc-search" placeholder="Search title, code, TSC..." oninput="lmcSearch(this.value)" style="padding-left:48px !important;" />
+                    <input type="search" id="lmc-search" name="lmc-class-filter" autocomplete="off" placeholder="Search title, code, TSC..." oninput="lmcSearch(this.value)" style="padding-left:48px !important;" />
                 </div>
                 <span style="color:#94a3b8;font-size:13px;flex-shrink:0;">View:</span>
                 <div class="lmc-view-toggle">
@@ -6506,7 +6506,7 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
         <div class="lmc-search">
             <div class="lmc-search-input-wrap">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                <input type="text" id="lmc-search" placeholder="Search by course code, title, or run ID..." oninput="lmcSearch(this.value)" style="padding-left:48px !important;" />
+                <input type="search" id="lmc-search" name="lmc-class-filter" autocomplete="off" placeholder="Search by course code, title, or run ID..." oninput="lmcSearch(this.value)" style="padding-left:48px !important;" />
             </div>
             <div class="lmc-view-toggle">
                 <button type="button" class="lmc-view-btn active" data-view="grid" title="Grid view" onclick="lmcSetView('grid',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></button>
@@ -6608,7 +6608,10 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
                         Take Attendance
                     </button>
                     <?php endif; ?>
-                    <?php if (!empty($_c['cr_run_id'])): ?>
+                    <?php /* Feedback QR is a TRAINER tool (shown to the class in
+                             session) — learners don't need it on their own cards
+                             (owner request 2026-07-07). */ ?>
+                    <?php if ($activeRole === 'trainer' && !empty($_c['cr_run_id'])): ?>
                     <button type="button"
                             onclick="event.preventDefault();event.stopPropagation();lmcShowFeedback(<?php echo (int)$_c['cr_run_id'] ?>, '<?php echo $this->jsQuoteEscape($_c['name']) ?>', '<?php echo $this->jsQuoteEscape($_c['sku']) ?>');"
                             title="Course Feedback QR"
@@ -6768,6 +6771,20 @@ function lmcSetView(view, btn) {
     for (var i = 0; i < btns.length; i++) btns[i].classList.remove('active');
     if (btn) btn.classList.add('active');
 }
+// Guarantee the default view: All Classes with an EMPTY search. Chrome
+// autofills saved usernames into the search box (it ignores autocomplete=off
+// for username-shaped fields), which silently filters every card out on load
+// — the panel then looks empty until the user re-clicks "All Classes".
+// Clear it now and again shortly after load (autofill can land late).
+(function () {
+    function lmcResetSearch() {
+        var s = document.getElementById('lmc-search');
+        if (s && s.value !== '') { s.value = ''; lmcSearch(''); }
+    }
+    lmcResetSearch();
+    setTimeout(lmcResetSearch, 300);
+    setTimeout(lmcResetSearch, 1000);
+})();
 </script>
 </div>
 

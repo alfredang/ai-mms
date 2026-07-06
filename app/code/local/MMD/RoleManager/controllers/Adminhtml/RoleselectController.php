@@ -12,12 +12,14 @@ class MMD_RoleManager_Adminhtml_RoleselectController extends Mage_Adminhtml_Cont
             return;
         }
 
-        // If user has already selected a role, go to dashboard
-        if (!$session->getNeedsRoleSelect()) {
-            $this->_redirect('adminhtml/dashboard');
-            return;
-        }
-
+        // ALWAYS render the selector — never redirect to the dashboard.
+        // The old "!needsRoleSelect -> redirect dashboard" branch was one leg
+        // of a redirect PING-PONG: under the DB-session write race the
+        // dashboard's predispatch could still read needsRoleSelect=true and
+        // bounce here, while this redirect read false and bounced back —
+        // browsers gave up after ~20 hops (blank page / "infinite loop",
+        // 2026-07-06/07 incidents). Rendering is always safe: a user who
+        // already chose simply sees the selector and can pick again.
         $this->getResponse()->setBody($this->_getRoleSelectHtml());
     }
 
@@ -52,6 +54,14 @@ class MMD_RoleManager_Adminhtml_RoleselectController extends Mage_Adminhtml_Cont
 
         // Clear menu cache
         Mage::app()->cleanCache(array('BACKEND_MAINMENU'));
+
+        // Force the session write to COMMIT before the redirect goes out.
+        // PHP normally writes the session at shutdown, AFTER the response —
+        // a fast browser then requests /dashboard while the DB session row
+        // still says needsRoleSelect=true, and the predispatch observer
+        // bounces it straight back here ("have to click the role twice",
+        // reported 2026-07-07; same race behind the 2026-07-06 redirect loop).
+        session_write_close();
 
         $this->_redirect('adminhtml/dashboard');
     }
