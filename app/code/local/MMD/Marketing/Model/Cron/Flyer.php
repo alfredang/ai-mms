@@ -19,13 +19,25 @@ class MMD_Marketing_Model_Cron_Flyer
     protected function _guard() { return Mage::helper('mmd_marketing/blastguard'); }
     protected function _flyer() { return Mage::helper('mmd_marketing/flyer'); }
 
+    /**
+     * Wall-clock "now" string in Asia/Singapore (optionally shifted, e.g.
+     * '-30 days'). Never use date()/time() here — Magento bootstrap forces
+     * PHP to UTC while every pipeline timestamp is SGT (see Blastguard::nowLocal).
+     */
+    protected function _nowStr($modify = null, $format = 'Y-m-d H:i:s')
+    {
+        $dt = $this->_guard()->nowLocal();
+        if ($modify) { $dt->modify($modify); }
+        return $dt->format($format);
+    }
+
     protected function _log($msg)
     {
         try {
             $dir = Mage::getBaseDir('log');
             if (!is_dir($dir)) @mkdir($dir, 0777, true);
             @file_put_contents($dir . '/marketing-cron.log',
-                '[' . date('Y-m-d H:i:s') . '] ' . $msg . "\n", FILE_APPEND);
+                '[' . $this->_nowStr() . '] ' . $msg . "\n", FILE_APPEND);
         } catch (Exception $e) {}
     }
 
@@ -134,8 +146,11 @@ class MMD_Marketing_Model_Cron_Flyer
             $dec = json_decode((string) $row['review_decisions'], true);
             if (!is_array($dec)) { $dec = array(); }
             if (!empty($dec['_reminder_sent_at'])) { continue; }   // reminder already sent — never again
+            // _sent_at / created_at are SGT wall-clock strings — compare against a
+            // wall-clock "now" parsed the same way, never against time() (UTC).
             $sentAt = !empty($dec['_sent_at']) ? strtotime((string) $dec['_sent_at']) : strtotime((string) $row['created_at']);
-            if (!$sentAt || (time() - $sentAt) < 86400) { continue; }
+            $nowTs  = strtotime($this->_nowStr());
+            if (!$sentAt || ($nowTs - $sentAt) < 86400) { continue; }
             $silent = array();
             foreach ($this->_guard()->reviewers() as $r) {
                 $rl = strtolower($r);
@@ -172,7 +187,7 @@ class MMD_Marketing_Model_Cron_Flyer
         // 3. Expire stale pendings.
         $this->_write()->update($this->_tbl(),
             array('review_status' => 'expired'),
-            array("review_status = 'pending'", 'created_at < ?' => date('Y-m-d H:i:s', strtotime('-5 days')))
+            array("review_status = 'pending'", 'created_at < ?' => $this->_nowStr('-5 days'))
         );
     }
 
@@ -188,8 +203,8 @@ class MMD_Marketing_Model_Cron_Flyer
         $runs = $res->getTableName('course_runs');
         $enr  = $res->getTableName('course_run_enrolments');
         $log  = $res->getTableName('mmd_marketing_blast_log');
-        $from = date('Y-m-d', strtotime('+7 days'));
-        $to   = date('Y-m-d', strtotime('+21 days'));
+        $from = $this->_nowStr('+7 days', 'Y-m-d');
+        $to   = $this->_nowStr('+21 days', 'Y-m-d');
 
         $select = $conn->select()
             ->from(array('r' => $runs), array('product_id'))
@@ -211,7 +226,7 @@ class MMD_Marketing_Model_Cron_Flyer
             'SELECT n.course_pids FROM ' . $log . ' b'
           . ' JOIN ' . $news . ' n ON n.newsletter_id = b.newsletter_id'
           . ' WHERE b.blasted_at > ?',
-            array(date('Y-m-d H:i:s', strtotime('-30 days')))
+            array($this->_nowStr('-30 days'))
         );
         $recentPids = array();
         foreach ($recent as $csv) {
@@ -234,6 +249,21 @@ class MMD_Marketing_Model_Cron_Flyer
     /** Render the flyer and store a 'pending' review row; returns newsletter_id. */
     public function createProposal($productId)
     {
+        // Dedupe guard: one ACTIVE flow per course. If this product already has a
+        // pending / changes-requested / scheduling / scheduled flow, don't create a
+        // second one (a queue "Run Now" on an already-scheduled course would
+        // otherwise duplicate it in the pipeline AND in MailerLite).
+        $active = (int) $this->_read()->fetchOne(
+            'SELECT newsletter_id FROM ' . $this->_tbl()
+          . " WHERE course_pids = ? AND template_key = 'agentic_flyer'"
+          . " AND (review_status IN ('pending','changes_requested') OR status IN ('scheduling','scheduled'))"
+          . " AND status <> 'sent' LIMIT 1",
+            array((string) $productId)
+        );
+        if ($active) {
+            $this->_log('createProposal: skipped — product ' . (int) $productId . ' already has active flow #' . $active);
+            return null;
+        }
         $flyerHtml = $this->_flyer()->render($productId);
         if ($flyerHtml === '') {
             return null;
@@ -260,7 +290,7 @@ class MMD_Marketing_Model_Cron_Flyer
             'status'        => 'draft',
             'review_status' => 'pending',
             'is_auto'       => 1,
-            'created_at'    => date('Y-m-d H:i:s'),
+            'created_at'    => $this->_nowStr(),
         ));
         return (int) $conn->lastInsertId();
     }
@@ -347,8 +377,8 @@ class MMD_Marketing_Model_Cron_Flyer
         }
         $dec = json_decode((string) $row['review_decisions'], true);
         if (!is_array($dec)) { $dec = array(); }
-        if (empty($dec['_sent_at'])) { $dec['_sent_at'] = date('Y-m-d H:i:s'); }
-        if ($isReminder) { $dec['_reminder_sent_at'] = date('Y-m-d H:i:s'); }
+        if (empty($dec['_sent_at'])) { $dec['_sent_at'] = $this->_nowStr(); }
+        if ($isReminder) { $dec['_reminder_sent_at'] = $this->_nowStr(); }
         $this->_write()->update($this->_tbl(),
             array(
                 'review_token'     => $g->signToken($newsletterId, 'batch'),
@@ -493,14 +523,14 @@ class MMD_Marketing_Model_Cron_Flyer
         // blast 8 hours late (real miss 2026-07-06).
         $due = $this->_read()->fetchAll('SELECT newsletter_id, mailerlite_id FROM ' . $this->_tbl()
             . " WHERE status = 'scheduled' AND mailerlite_id IS NOT NULL AND mailerlite_id <> ''"
-            . ' AND scheduled_send_at <= ?', array(date('Y-m-d H:i:s')));
+            . ' AND scheduled_send_at <= ?', array($this->_nowStr()));
         foreach ($due as $row) {
             $this->markBlastedByCampaign((string) $row['mailerlite_id']);
         }
         // 2. Refresh cached stats for campaigns blasted in the last 30 days (max 5/run).
         $sent = $this->_read()->fetchAll('SELECT newsletter_id, mailerlite_id FROM ' . $this->_tbl()
             . " WHERE status = 'sent' AND mailerlite_id IS NOT NULL AND mailerlite_id <> ''"
-            . ' AND sent_at >= ? ORDER BY sent_at DESC LIMIT 5', array(date('Y-m-d H:i:s', strtotime('-30 days'))));
+            . ' AND sent_at >= ? ORDER BY sent_at DESC LIMIT 5', array($this->_nowStr('-30 days')));
         foreach ($sent as $row) {
             try {
                 $stats = $this->_campaignStats((string) $row['mailerlite_id']);
@@ -541,7 +571,7 @@ class MMD_Marketing_Model_Cron_Flyer
         if ((string) $row['status'] !== 'sent') {
             // MailerLite timestamps are UTC without a zone marker — convert to
             // local (Asia/Singapore) or the blast shows 8h early on the dashboard.
-            $sentAt = date('Y-m-d H:i:s');
+            $sentAt = $this->_nowStr();
             if (!empty($d['finished_at'])) {
                 try {
                     $dt = new DateTime($d['finished_at'], new DateTimeZone('UTC'));
@@ -616,7 +646,7 @@ class MMD_Marketing_Model_Cron_Flyer
             'hard_bounces'  => $hard,
             'soft_bounces'  => $soft,
             'delivery_rate' => $sent > 0 ? max(0, ($sent - $hard - $soft) / $sent) : 0,
-            'updated_at'    => date('Y-m-d H:i:s'),
+            'updated_at'    => $this->_nowStr(),
         );
     }
 }

@@ -392,6 +392,17 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
                     . ' flyers has been reached for this week. Try again next week.');
             }
             $model = Mage::getModel('mmd_marketing/cron_flyer');
+            // Friendly duplicate message before the generic failure — createProposal
+            // enforces one ACTIVE flow per course (pending / scheduled, not sent).
+            $dupe = (int) Mage::getSingleton('core/resource')->getConnection('core_read')->fetchOne(
+                'SELECT newsletter_id FROM ' . Mage::getSingleton('core/resource')->getTableName('newsletters')
+              . " WHERE course_pids = ? AND template_key = 'agentic_flyer'"
+              . " AND (review_status IN ('pending','changes_requested') OR status IN ('scheduling','scheduled'))"
+              . " AND status <> 'sent' LIMIT 1", array((string) $pid));
+            if ($dupe) {
+                throw new Exception('This course is already in the pipeline (flow #' . $dupe
+                    . ' is pending or scheduled) — approve or delete that one first.');
+            }
             $nid   = $model->createProposal($pid);
             if (!$nid) throw new Exception('Could not build a flyer for that course (missing course data).');
             $model->sendForReview($nid);

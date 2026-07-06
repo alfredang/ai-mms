@@ -13427,18 +13427,24 @@ $_svgClose = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke
         </div>
 
         <?php
-        // Active flows = in-progress (not blasted, not expired). Show a labelled
-        // stepper for EACH so the current flow (Scheduled) and the auto-started
-        // next flow (Design/Pending) are both visible. Capped at 2 = the weekly max.
+        // Active flows = in-progress (not blasted, not expired/superseded). Show a
+        // labelled stepper for EACH. Flow 1 = the MOST ADVANCED flow (a Scheduled
+        // campaign always outranks a newer pending proposal — previously "newest
+        // two" could hide the scheduled flow behind fresh proposals and the panel
+        // disagreed with MailerLite), Flow 2 = the next in line. Capped at 2.
         $_active = array();
         foreach ($_mnPipe as $_p) {
             if ((string) $_p['status'] === 'sent') { continue; }
-            if ((string) $_p['review_status'] === 'expired') { continue; }
+            if (in_array((string) $_p['review_status'], array('expired', 'superseded'), true)) { continue; }
             $_active[] = $_p;
-            if (count($_active) >= 2) { break; }
         }
-        // Show oldest-active first (Flow 1 = current/scheduled, Flow 2 = next).
-        $_active = array_reverse($_active);
+        usort($_active, function ($a, $b) use ($_mnStage) {
+            list($sa) = $_mnStage($a);
+            list($sb) = $_mnStage($b);
+            if ($sa !== $sb) { return $sb - $sa; }                            // most advanced first
+            return (int) $a['newsletter_id'] - (int) $b['newsletter_id'];     // then oldest first
+        });
+        $_active = array_slice($_active, 0, 2);
         ?>
         <?php if (!empty($_active)): ?>
             <?php foreach ($_active as $_ai => $_flow):

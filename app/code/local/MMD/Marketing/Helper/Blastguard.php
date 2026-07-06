@@ -23,6 +23,22 @@ class MMD_Marketing_Helper_Blastguard extends Mage_Core_Helper_Abstract
     const SEND_HOUR      = 8;           // 08:00 local (Asia/Singapore) on the send day
     const DOW_MON        = 1;
     const DOW_THU        = 4;
+    const TZ_LOCAL       = 'Asia/Singapore';
+
+    /**
+     * "Now" in the pipeline's wall-clock timezone (Asia/Singapore). ALWAYS use
+     * this (never `new DateTime('now')` / `date()`) for slot math, weekly caps
+     * and any comparison against scheduled_send_at / sent_at / _sent_at —
+     * Magento's bootstrap forces PHP's default timezone to UTC (verified on
+     * prod 2026-07-06: php.ini says Asia/Singapore, date() returns UTC), while
+     * every stored pipeline timestamp and the MailerLite account run on SGT
+     * wall-clock. Mixing the two put the blast detector 8 hours late and
+     * stamped approval emails at "4:47am".
+     */
+    public function nowLocal()
+    {
+        return new DateTime('now', new DateTimeZone(self::TZ_LOCAL));
+    }
 
     /**
      * HMAC token binding a review action to (newsletter, reviewer email). Signed
@@ -86,7 +102,7 @@ class MMD_Marketing_Helper_Blastguard extends Mage_Core_Helper_Abstract
     /** Campaigns already scheduled/sent in the CURRENT calendar week. */
     public function blastsThisWeek()
     {
-        return $this->_blastsInWeekOf(new DateTime('now'));
+        return $this->_blastsInWeekOf($this->nowLocal());
     }
 
     /**
@@ -130,7 +146,7 @@ class MMD_Marketing_Helper_Blastguard extends Mage_Core_Helper_Abstract
      */
     public function designsThisWeek()
     {
-        list($mon, $sun) = $this->_weekBounds(new DateTime('now'));
+        list($mon, $sun) = $this->_weekBounds($this->nowLocal());
         $res  = Mage::getSingleton('core/resource');
         $conn = $res->getConnection('core_read');
         $tbl  = $res->getTableName('newsletters');
@@ -154,7 +170,7 @@ class MMD_Marketing_Helper_Blastguard extends Mage_Core_Helper_Abstract
      */
     public function nextSendSlot()
     {
-        $now = new DateTime('now');
+        $now = $this->nowLocal();
         for ($i = 0; $i <= 21; $i++) {
             $day = clone $now;
             $day->modify('+' . $i . ' days');
