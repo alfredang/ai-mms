@@ -150,7 +150,7 @@ Before `git push`:
 3. **Hit the affected route via HTTP** and confirm no fatal:
    ```bash
    curl -sS -o /tmp/p.html -w "HTTP=%{http_code}\n" -L \
-       'http://localhost:8080/tigerdragon/<route>'
+       'http://localhost:8080/adminlogin/<route>'
    grep -c "Fatal error\|Uncaught" /tmp/p.html   # must print 0
    ```
 
@@ -201,10 +201,10 @@ docker-compose up -d
 
 # Local access
 # Frontend: http://localhost:8080
-# Admin:    http://localhost:8080/<frontName>/  (frontName is in app/etc/local.xml — currently "tigerdragon")
+# Admin:    http://localhost:8080/<frontName>/  (frontName is in app/etc/local.xml — currently "adminlogin")
 
 # Production
-# Admin: each site serves its own admin at <its-domain>/tigerdragon/ (e.g. https://www.tertiarycourses.com.sg/tigerdragon/). The old tertiaryinfotech.edu.sg store is retired.
+# Admin: each site serves its own admin at <its-domain>/adminlogin/ (e.g. https://www.tertiarycourses.com.sg/adminlogin/). The old tertiaryinfotech.edu.sg store is retired.
 # Build timestamp: /version.txt
 # Migration status (public, counts only): /media/migrations-status.json
 

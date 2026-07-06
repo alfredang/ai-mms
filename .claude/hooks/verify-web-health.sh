@@ -33,7 +33,7 @@ case "$FILE" in
     check_url "http://localhost:8080/" "storefront homepage"
     ;;
   *skin/adminhtml/*|*app/design/adminhtml/*)
-    check_url "http://localhost:8080/tigerdragon/" "admin login page"
+    check_url "http://localhost:8080/adminlogin/" "admin login page"
     ;;
 esac
 exit 0

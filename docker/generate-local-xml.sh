@@ -24,7 +24,7 @@ $dbHost    = getenv('MYSQL_HOST')           ?: 'db';
 $dbName    = getenv('MYSQL_DATABASE')       ?: '';
 $dbUser    = getenv('MYSQL_USER')           ?: '';
 $dbPass    = getenv('MYSQL_PASSWORD')       ?: '';
-$frontName = getenv('MMS_ADMIN_FRONTNAME')  ?: 'tigerdragon';
+$frontName = getenv('MMS_ADMIN_FRONTNAME')  ?: 'adminlogin';
 $mode      = getenv('MMS_MODE')             ?: 'country';
 $cryptKey  = getenv('MMS_CRYPT_KEY')        ?: '';
 
