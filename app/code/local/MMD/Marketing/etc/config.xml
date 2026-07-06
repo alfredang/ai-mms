@@ -85,6 +85,13 @@
                 <schedule><cron_expr>15 * * * *</cron_expr></schedule>
                 <run><model>mmd_marketing/cron_flyer::followUp</model></run>
             </mmd_marketing_flyer_followup>
+            <!-- Every 10 min — safety net behind the MailerLite campaign.sent
+                 webhook: mark blasted campaigns (stage "Blasted"), cache their
+                 stats for the dashboard, fire the once-only LinkedIn post. -->
+            <mmd_marketing_flyer_syncblasts>
+                <schedule><cron_expr>*/10 * * * *</cron_expr></schedule>
+                <run><model>mmd_marketing/cron_flyer::syncBlasts</model></run>
+            </mmd_marketing_flyer_syncblasts>
         </jobs>
     </crontab>
 </config>

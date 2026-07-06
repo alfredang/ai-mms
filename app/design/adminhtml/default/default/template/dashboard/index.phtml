@@ -13338,6 +13338,7 @@ $_mnHasMl   = Mage::helper('mmd_rolemanager')->hasMailerLiteKey();
 $_mnDrafts  = array();
 $_mnPipe    = array();      // agentic-flyer proposals for the pipeline view
 $_mnGuard   = null;
+$_slot      = null; // next free Mon/Thu blast slot (also drives the queue "Next run" badge)
 $_mnCap     = array('designs' => 0, 'blasts' => 0, 'max' => 2, 'slot' => null, 'enabled' => false);
 if ($_mnActive) {
     try {
@@ -13345,7 +13346,7 @@ if ($_mnActive) {
         // Drafts are merged into this one table (2026-07-04) — no separate card.
         $_mnPipe = Mage::getSingleton('core/resource')->getConnection('core_read')->fetchAll(
             "SELECT n.newsletter_id, n.title, n.subject, n.status, n.review_status, n.review_decisions,
-                    n.scheduled_send_at, n.mailerlite_id, n.is_auto, n.course_pids, n.created_at, n.updated_at,
+                    n.scheduled_send_at, n.sent_at, n.blast_stats, n.mailerlite_id, n.is_auto, n.course_pids, n.created_at, n.updated_at,
                     (SELECT e.sku FROM catalog_product_entity e
                       WHERE e.entity_id = CAST(SUBSTRING_INDEX(n.course_pids, ',', 1) AS UNSIGNED) LIMIT 1) AS sku
              FROM " . Mage::getSingleton('core/resource')->getTableName('newsletters') . " n
@@ -13492,7 +13493,12 @@ $_svgClose = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke
                     <td><span class="mn-badge s-<?php echo $_rcss ?>"><?php echo $_rlabel /* may contain &middot; entities */ ?></span></td>
                     <td class="tnum"><?php echo (int)$_na ?>/1</td>
                     <td class="muted"><?php echo htmlspecialchars($_sentAt) ?></td>
-                    <td><?php echo !empty($_r['scheduled_send_at']) ? date('j M · g:ia', strtotime($_r['scheduled_send_at'])) : '—' ?></td>
+                    <td><?php
+                        if ((string) $_r['status'] === 'sent' && !empty($_r['sent_at'])) {
+                            echo 'Sent ' . date('j M · g:ia', strtotime($_r['sent_at']));
+                        } else {
+                            echo !empty($_r['scheduled_send_at']) ? date('j M · g:ia', strtotime($_r['scheduled_send_at'])) : '—';
+                        } ?></td>
                     <td class="muted"><?php echo ((int)$_r['is_auto'] ? 'Auto' : 'Manual') ?></td>
                     <td class="center">
                         <div class="mmd-grid-actions"><button type="button" class="mmd-grid-action mmd-grid-action--view" title="Preview flyer" onclick="mnLoadDraft(<?php echo (int)$_r['newsletter_id'] ?>)"><?php echo $_svgEye ?></button></div>
@@ -13513,6 +13519,50 @@ $_svgClose = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke
             <?php endforeach; ?>
             </tbody>
         </table>
+        <?php endif; ?>
+
+        <?php /* ===== Recent blasts — MailerLite-style performance per campaign.
+                 Stats are cached in newsletters.blast_stats by the syncBlasts
+                 cron / campaign.sent webhook and refreshed for 30 days. ===== */
+        $_mnBlasted = array_values(array_filter($_mnPipe, function ($r) { return (string) $r['status'] === 'sent'; }));
+        $_mnBlasted = array_slice($_mnBlasted, 0, 4);
+        if (!empty($_mnBlasted)): ?>
+        <div class="mn-blasts">
+            <div class="mn-blasts-title">Recent blasts</div>
+            <?php foreach ($_mnBlasted as $_b):
+                $_s = json_decode((string) $_b['blast_stats'], true);
+                if (!is_array($_s)) { $_s = array(); }
+                $_pc = function ($k) use ($_s) { $v = isset($_s[$k]) ? (float) $_s[$k] : 0; return number_format($v * 100, 2) . '%'; };
+                $_bar = function ($k, $color) use ($_s) {
+                    $v = isset($_s[$k]) ? max(0, min(1, (float) $_s[$k])) : 0;
+                    return '<span class="mn-bs-bar"><i style="width:' . round($v * 100, 2) . '%;background:' . $color . ';"></i></span>';
+                };
+                $_n = function ($k) use ($_s) { return number_format(isset($_s[$k]) ? (int) $_s[$k] : 0); };
+                $_dec2 = json_decode((string) $_b['review_decisions'], true);
+                $_liUrl = (is_array($_dec2) && !empty($_dec2['_linkedin_url'])) ? (string) $_dec2['_linkedin_url'] : ''; ?>
+            <div class="mn-blast">
+                <div class="mn-blast-head">
+                    <span class="mn-blast-name"><?php echo htmlspecialchars($_b['title']) ?></span>
+                    <span class="mn-badge s-done">Blasted &middot; <?php echo !empty($_b['sent_at']) ? date('D j M, g:ia', strtotime($_b['sent_at'])) : '—' ?></span>
+                    <?php if ($_liUrl): ?><a class="mn-blast-li" href="<?php echo htmlspecialchars($_liUrl) ?>" target="_blank" rel="noopener">in &middot; View LinkedIn post</a><?php endif; ?>
+                    <?php if (empty($_s)): ?><span class="mn-badge s-muted">Stats syncing&hellip;</span><?php endif; ?>
+                </div>
+                <?php if (!empty($_s)): ?>
+                <div class="mn-bs-grid">
+                    <div class="mn-bs"><em>Open rate</em><b><?php echo $_pc('open_rate') ?></b><?php echo $_bar('open_rate', '#34d399') ?></div>
+                    <div class="mn-bs"><em>Click rate</em><b><?php echo $_pc('click_rate') ?></b><?php echo $_bar('click_rate', '#60a5fa') ?></div>
+                    <div class="mn-bs"><em>Click-to-open</em><b><?php echo $_pc('ctor') ?></b><?php echo $_bar('ctor', '#b07cff') ?></div>
+                    <div class="mn-bs"><em>Delivery rate</em><b><?php echo $_pc('delivery_rate') ?></b><?php echo $_bar('delivery_rate', '#2563eb') ?></div>
+                    <div class="mn-bs"><em>Opens</em><b><?php echo $_n('opens') ?></b></div>
+                    <div class="mn-bs"><em>Clicks</em><b><?php echo $_n('clicks') ?></b></div>
+                    <div class="mn-bs"><em>Total sends</em><b><?php echo $_n('sent') ?></b></div>
+                    <div class="mn-bs"><em>Bounces</em><b><?php echo $_n('hard_bounces') ?> hard &middot; <?php echo $_n('soft_bounces') ?> soft</b></div>
+                </div>
+                <div class="mn-blast-meta">Unsubscribes: <?php echo $_n('unsubscribes') ?><?php if (!empty($_s['updated_at'])): ?> &middot; stats updated <?php echo date('j M, g:ia', strtotime($_s['updated_at'])) ?><?php endif; ?></div>
+                <?php endif; ?>
+            </div>
+            <?php endforeach; ?>
+        </div>
         <?php endif; ?>
     </div>
 
@@ -13546,6 +13596,22 @@ $_svgClose = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke
         .mn-step.current .mn-dot{background:#22d3ee;border-color:#22d3ee;color:#04212a;box-shadow:0 0 0 5px rgba(34,211,238,.16);}
         .mn-step.done .mn-slabel,.mn-step.current .mn-slabel{color:#f1f5f9;}
         .mn-step.current .mn-slabel{color:#22d3ee;}
+        /* Recent blasts — MailerLite-style per-campaign performance */
+        .mn-blasts{margin-top:18px;border-top:1px solid #24324a;padding-top:14px;}
+        .mn-blasts-title{font:700 10.5px -apple-system,Segoe UI,Arial,sans-serif;text-transform:uppercase;letter-spacing:.8px;color:#64748b;margin-bottom:10px;}
+        .mn-blast{background:#0d1730;border:1px solid #24324a;border-radius:12px;padding:14px 16px;margin-bottom:10px;}
+        .mn-blast-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
+        .mn-blast-name{font:700 13.5px -apple-system,Segoe UI,Arial,sans-serif;color:#f1f5f9;}
+        .mn-blast-li{font:700 11px -apple-system,Segoe UI,Arial,sans-serif;color:#60a5fa;text-decoration:none;border:1px solid rgba(96,165,250,.4);border-radius:999px;padding:3px 10px;}
+        .mn-blast-li:hover{background:rgba(96,165,250,.12);}
+        .mn-bs-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+        @media (max-width:1100px){.mn-bs-grid{grid-template-columns:repeat(2,1fr);}}
+        .mn-bs{background:#131f38;border:1px solid #24324a;border-radius:9px;padding:8px 12px;display:flex;flex-direction:column;gap:3px;}
+        .mn-bs em{font:700 9.5px -apple-system,Segoe UI,Arial,sans-serif;text-transform:uppercase;letter-spacing:.6px;color:#64748b;font-style:normal;}
+        .mn-bs b{font:800 15px -apple-system,Segoe UI,Arial,sans-serif;color:#e5e7eb;font-variant-numeric:tabular-nums;}
+        .mn-bs-bar{display:block;height:4px;border-radius:999px;background:#1e293b;overflow:hidden;margin-top:3px;}
+        .mn-bs-bar i{display:block;height:100%;border-radius:999px;}
+        .mn-blast-meta{font:400 11px -apple-system,Segoe UI,Arial,sans-serif;color:#64748b;margin-top:8px;}
         .mn-feat{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 14px;background:#131f38;border:1px solid #24324a;border-radius:10px;margin-bottom:16px;}
         .mn-feat-name{font:700 14px -apple-system,Segoe UI,Arial,sans-serif;color:#f1f5f9;}
         .mn-feat-meta{font:600 12px -apple-system,Segoe UI,Arial,sans-serif;color:#94a3b8;}
@@ -13864,17 +13930,11 @@ window.mnFlyerQueueRun = function(qid, pid, name) {
 // its own Run Now icon), so there is nothing to refresh here.
 window.mnRefreshPreview = function() {};
 
-// Label for the next Mon/Thu 10:00 auto-propose cron (top queue row auto-runs then).
+// Label for the top queue row's next auto-run. Server-side truth: the next FREE
+// Mon/Thu blast slot (skips days already booked by scheduled flows — e.g. with
+// Monday blasted and Thursday booked, the next run is the following Monday).
 window.mnNextCronLabel = function() {
-    var d = new Date();
-    for (var i = 0; i < 14; i++) {
-        var t = new Date(d.getFullYear(), d.getMonth(), d.getDate() + i);
-        var dow = t.getDay(); // 0=Sun..6=Sat
-        if ((dow === 1 || dow === 4) && (i > 0 || d.getHours() < 10)) {
-            return t.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
-        }
-    }
-    return 'Mon/Thu';
+    return <?php echo json_encode($_slot ? $_slot->format('D j M') : 'Mon/Thu'); ?>;
 };
 
 // Popup preview for any course (queue rows) — reuses the draft modal +

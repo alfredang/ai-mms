@@ -141,4 +141,55 @@ class MMD_Marketing_IndexController extends Mage_Core_Controller_Front_Action
             ->setBody($png);
         return;
     }
+
+    /**
+     * MailerLite webhook receiver (campaign.sent) — flips the pipeline row to
+     * "Blasted" the moment MailerLite finishes sending, caches the campaign
+     * stats and fires the once-only LinkedIn post. The 10-min syncBlasts cron
+     * is the safety net if a webhook is missed.
+     *
+     * Security: (a) if a webhook secret is configured, the HMAC-SHA256 of the
+     * raw body must match the signature header; (b) regardless, the campaign id
+     * must match an existing newsletters row — unknown ids are ignored, so a
+     * forged request cannot write anything.
+     */
+    public function mlhookAction()
+    {
+        $body = file_get_contents('php://input');
+        $resp = $this->getResponse()->setHeader('Content-Type', 'application/json', true);
+
+        $secret = trim((string) Mage::getStoreConfig('mmd_marketing/mailerlite/webhook_secret'));
+        if ($secret !== '') {
+            $sig = '';
+            foreach (array('HTTP_X_MAILERLITE_SIGNATURE', 'HTTP_SIGNATURE') as $h) {
+                if (!empty($_SERVER[$h])) { $sig = (string) $_SERVER[$h]; break; }
+            }
+            if ($sig === '' || !hash_equals(hash_hmac('sha256', $body, $secret), $sig)) {
+                $resp->setHttpResponseCode(401)->setBody('{"ok":false,"error":"bad signature"}');
+                return;
+            }
+        }
+
+        $j = json_decode((string) $body, true);
+        if (!is_array($j)) { $resp->setBody('{"ok":true,"note":"no json"}'); return; }
+        // Campaign id location varies by payload shape — check the known spots.
+        $cid = '';
+        foreach (array(
+            isset($j['campaign']['id']) ? $j['campaign']['id'] : null,
+            isset($j['data']['campaign']['id']) ? $j['data']['campaign']['id'] : null,
+            isset($j['data']['id']) ? $j['data']['id'] : null,
+            isset($j['id']) ? $j['id'] : null,
+        ) as $cand) {
+            if ($cand !== null && $cand !== '') { $cid = (string) $cand; break; }
+        }
+        $handled = false;
+        if ($cid !== '') {
+            try {
+                $handled = (bool) Mage::getModel('mmd_marketing/cron_flyer')->markBlastedByCampaign($cid);
+            } catch (Exception $e) {
+                Mage::log('mlhook: ' . $e->getMessage(), null, 'marketing-cron.log');
+            }
+        }
+        $resp->setBody(json_encode(array('ok' => true, 'handled' => $handled)));
+    }
 }

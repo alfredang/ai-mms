@@ -380,11 +380,30 @@ class MMD_Marketing_Model_Cron_Flyer
             return array(true, 'Already scheduled.');
         }
 
+        // ATOMIC CLAIM (migration 334): two near-simultaneous approvals both passed
+        // the read above and each created a MailerLite campaign (real double-booking
+        // 2026-07-05). Claim the row with a conditional UPDATE — only the request
+        // that flips status to 'scheduling' proceeds; the loser sees 0 rows updated.
+        $claimed = $this->_write()->update($this->_tbl(),
+            array('status' => 'scheduling'),
+            array(
+                'newsletter_id = ?' => $newsletterId,
+                "(mailerlite_id IS NULL OR mailerlite_id = '')",
+                "status NOT IN ('scheduling','scheduled','sent')",
+            )
+        );
+        if (!$claimed) {
+            return array(true, 'Already scheduled.');
+        }
+
         // Create + schedule the MailerLite campaign for the chosen Mon/Thu 08:00 slot.
         try {
             $mlId = Mage::helper('mmd_marketing/mailerlite')
                 ->createAndSchedule((string) $row['subject'], (string) $row['body_html'], $slot);
         } catch (Exception $e) {
+            // release the claim so a retry is possible
+            $this->_write()->update($this->_tbl(), array('status' => 'draft'),
+                array('newsletter_id = ?' => $newsletterId, "status = 'scheduling'"));
             $this->_log('scheduleApproved: MailerLite FAILED for #' . $newsletterId . ': ' . $e->getMessage());
             return array(false, 'MailerLite scheduling failed: ' . $e->getMessage());
         }
@@ -454,5 +473,139 @@ class MMD_Marketing_Model_Cron_Flyer
             $this->_log('autoStartNext: proposal #' . $nid . ' (product ' . $pid . ') auto-started + sent for review');
         }
         return $nid;
+    }
+
+    /**
+     * Cron (every 10 min) + safety net behind the MailerLite webhook: detect
+     * campaigns that actually BLASTED and move their pipeline row to 'sent'
+     * (stage "Blasted"), cache the campaign stats for the dashboard, and fire
+     * the LinkedIn auto-post if it hasn't already gone out. Also refreshes the
+     * cached stats of recently-sent campaigns so the dashboard numbers stay
+     * close to live (opens/clicks keep moving for days after a blast).
+     */
+    public function syncBlasts()
+    {
+        $g = $this->_guard();
+        if (!$g->isEnabled()) { return; }
+        // 1. Scheduled rows whose send time has passed → ask MailerLite if they went out.
+        $due = $this->_read()->fetchAll('SELECT newsletter_id, mailerlite_id FROM ' . $this->_tbl()
+            . " WHERE status = 'scheduled' AND mailerlite_id IS NOT NULL AND mailerlite_id <> ''"
+            . ' AND scheduled_send_at <= NOW()');
+        foreach ($due as $row) {
+            $this->markBlastedByCampaign((string) $row['mailerlite_id']);
+        }
+        // 2. Refresh cached stats for campaigns blasted in the last 30 days (max 5/run).
+        $sent = $this->_read()->fetchAll('SELECT newsletter_id, mailerlite_id FROM ' . $this->_tbl()
+            . " WHERE status = 'sent' AND mailerlite_id IS NOT NULL AND mailerlite_id <> ''"
+            . ' AND sent_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) ORDER BY sent_at DESC LIMIT 5');
+        foreach ($sent as $row) {
+            try {
+                $stats = $this->_campaignStats((string) $row['mailerlite_id']);
+                if ($stats !== null) {
+                    $this->_write()->update($this->_tbl(), array('blast_stats' => json_encode($stats)),
+                        array('newsletter_id = ?' => (int) $row['newsletter_id']));
+                }
+            } catch (Exception $e) {
+                $this->_log('syncBlasts: stats refresh failed for #' . (int) $row['newsletter_id'] . ': ' . $e->getMessage());
+            }
+        }
+    }
+
+    /**
+     * Mark the pipeline row for a MailerLite campaign as BLASTED: status 'sent',
+     * sent_at stamped, stats cached — then the LinkedIn auto-post (once, guarded
+     * by the _linkedin_url marker in review_decisions). Shared by the webhook
+     * endpoint (instant) and the syncBlasts cron (safety net). Idempotent.
+     */
+    public function markBlastedByCampaign($campaignId)
+    {
+        $campaignId = trim((string) $campaignId);
+        if ($campaignId === '') { return false; }
+        $row = $this->_read()->fetchRow('SELECT * FROM ' . $this->_tbl() . ' WHERE mailerlite_id = ?', array($campaignId));
+        if (!$row) { return false; }
+
+        try {
+            $c = Mage::helper('mmd_marketing/mailerlite')->getCampaign($campaignId);
+        } catch (Exception $e) {
+            $this->_log('markBlasted: getCampaign failed for ' . $campaignId . ': ' . $e->getMessage());
+            return false;
+        }
+        $d = isset($c['data']) ? $c['data'] : $c;
+        if (!isset($d['status']) || (string) $d['status'] !== 'sent') {
+            return false; // not blasted yet — the cron will try again
+        }
+
+        if ((string) $row['status'] !== 'sent') {
+            $sentAt = !empty($d['finished_at']) ? date('Y-m-d H:i:s', strtotime($d['finished_at']))
+                                                : date('Y-m-d H:i:s');
+            $stats  = $this->_statsFromCampaign($d);
+            $this->_write()->update($this->_tbl(), array(
+                'status'      => 'sent',
+                'sent_at'     => $sentAt,
+                'blast_stats' => $stats !== null ? json_encode($stats) : null,
+            ), array('newsletter_id = ?' => (int) $row['newsletter_id']));
+            $this->_log('markBlasted: #' . (int) $row['newsletter_id'] . ' (campaign ' . $campaignId . ') -> BLASTED at ' . $sentAt);
+        }
+
+        // LinkedIn auto-post — covers campaigns approved before LinkedIn was
+        // configured AND acts as the blast-time trigger. Once only.
+        try {
+            $dec = json_decode((string) $row['review_decisions'], true);
+            if (!is_array($dec)) { $dec = array(); }
+            if (empty($dec['_linkedin_url'])) {
+                $pid = (int) trim(strtok((string) $row['course_pids'], ','));
+                $li  = Mage::helper('mmd_marketing/linkedin');
+                if ($pid && $li->isConfigured()) {
+                    $res = $li->postFlyer($pid);
+                    $this->_log('markBlasted: LinkedIn ' . (!empty($res['ok']) ? 'posted ' . $res['url'] : 'skipped/failed: ' . $res['msg']));
+                    if (!empty($res['ok'])) {
+                        $dec['_linkedin_url'] = $res['url'];
+                        $this->_write()->update($this->_tbl(), array('review_decisions' => json_encode($dec)),
+                            array('newsletter_id = ?' => (int) $row['newsletter_id']));
+                    }
+                }
+            }
+        } catch (Exception $e) { $this->_log('markBlasted: LinkedIn error: ' . $e->getMessage()); }
+        return true;
+    }
+
+    /** Fetch + normalise campaign stats. Returns array or null. */
+    protected function _campaignStats($campaignId)
+    {
+        $c = Mage::helper('mmd_marketing/mailerlite')->getCampaign($campaignId);
+        $d = isset($c['data']) ? $c['data'] : $c;
+        return $this->_statsFromCampaign($d);
+    }
+
+    /** Normalise MailerLite's campaign stats blob into the fields the dashboard shows. */
+    protected function _statsFromCampaign($d)
+    {
+        if (empty($d['stats']) || !is_array($d['stats'])) { return null; }
+        $s = $d['stats'];
+        $num = function ($k) use ($s) { return isset($s[$k]) ? (int) $s[$k] : 0; };
+        $rate = function ($k) use ($s) {
+            if (!isset($s[$k])) { return 0.0; }
+            $v = $s[$k];
+            if (is_array($v)) { $v = isset($v['float']) ? $v['float'] : (isset($v['string']) ? rtrim($v['string'], '%') / 100 : 0); }
+            return (float) $v;
+        };
+        $sent   = $num('sent');
+        $hard   = $num('hard_bounces_count');
+        $soft   = $num('soft_bounces_count');
+        return array(
+            'sent'          => $sent,
+            'opens'         => $num('opens_count'),
+            'unique_opens'  => $num('unique_opens_count'),
+            'open_rate'     => $rate('open_rate'),
+            'clicks'        => $num('clicks_count'),
+            'unique_clicks' => $num('unique_clicks_count'),
+            'click_rate'    => $rate('click_rate'),
+            'ctor'          => $rate('click_to_open_rate'),
+            'unsubscribes'  => $num('unsubscribes_count'),
+            'hard_bounces'  => $hard,
+            'soft_bounces'  => $soft,
+            'delivery_rate' => $sent > 0 ? max(0, ($sent - $hard - $soft) / $sent) : 0,
+            'updated_at'    => date('Y-m-d H:i:s'),
+        );
     }
 }
