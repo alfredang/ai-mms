@@ -1374,17 +1374,24 @@ try {
 // The existing $_seoStoreId block further down re-derives the same
 // resolution for SEO Meta; once this rolls out we can drop that.
 $_pageStoreToCountry = array(
-    1 => 'Singapore', 3 => 'Ghana', 4 => 'Nigeria',
+    1 => 'Singapore', 2 => 'Malaysia', 3 => 'Ghana', 4 => 'Nigeria',
 );
+// Country instances only have their own store (+ admin) in core_store —
+// the hardcoded "Singapore default" below doesn't exist there, so the
+// fallback must resolve to the instance's own store, not store_id=1.
+$_pageDefaultStoreId = 1; // Singapore default
 // In country-mode instances (NG/etc.) only show SG + own country pill.
 if (strtolower((string) getenv('MMS_MODE')) === 'country') {
     $_mmsCountryCode = strtoupper((string) getenv('MMS_COUNTRY_CODE'));
-    $_mmsCodeToStore = array('SG'=>1,'GH'=>3,'NG'=>4);
+    $_mmsCodeToStore = array('SG'=>1,'MY'=>2,'GH'=>3,'NG'=>4);
     $_mmsOwnStore = isset($_mmsCodeToStore[$_mmsCountryCode]) ? $_mmsCodeToStore[$_mmsCountryCode] : null;
     foreach (array_keys($_pageStoreToCountry) as $_mmsStoreId) {
         if ($_mmsStoreId !== 1 && $_mmsStoreId !== $_mmsOwnStore) {
             unset($_pageStoreToCountry[$_mmsStoreId]);
         }
+    }
+    if ($_mmsOwnStore) {
+        $_pageDefaultStoreId = $_mmsOwnStore;
     }
 }
 $_pageCountryToStore = array_flip($_pageStoreToCountry);
@@ -1424,7 +1431,7 @@ if (!isset($_pageStoreToCountry[$_pageStoreId])) {
     } catch (Exception $_pageE) {}
 }
 if (!isset($_pageStoreToCountry[$_pageStoreId])) {
-    $_pageStoreId = 1;  // Singapore default
+    $_pageStoreId = $_pageDefaultStoreId;
 }
 $_pageStoreCountry = $_pageStoreToCountry[$_pageStoreId];
 
@@ -2030,6 +2037,7 @@ $_devCurPage = max(1, (int) Mage::app()->getRequest()->getParam('dev_page', 1));
 $_devStoreToCountry = array(
     0 => 'All',
     1 => 'Singapore',
+    2 => 'Malaysia',
     3 => 'Ghana',
     4 => 'Nigeria',
 );
