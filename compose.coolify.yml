@@ -16,7 +16,6 @@
 #   MMS_MODE              country
 #   MMS_COUNTRY_CODE      GH | MY | NG | BT | IN
 #   MMS_BASE_URL          https://<country-domain>
-#   MMS_ADMIN_FRONTNAME   adminlogin  (or custom)
 #   MMS_CRYPT_KEY         generate: php -r "echo bin2hex(random_bytes(16));"
 #   MYSQL_ROOT_PASSWORD   strong password
 #   MYSQL_DATABASE        mms_gh  (or mms_my, mms_ng, etc.)
@@ -45,7 +44,6 @@ services:
       - MMS_MODE=${MMS_MODE:-country}
       - MMS_COUNTRY_CODE=${MMS_COUNTRY_CODE}
       - MMS_BASE_URL=${MMS_BASE_URL}
-      - MMS_ADMIN_FRONTNAME=${MMS_ADMIN_FRONTNAME:-adminlogin}
       - MMS_CRYPT_KEY=${MMS_CRYPT_KEY:-}
       # DB host is always 'db' — the service name in this compose stack.
       # Phase 2 (generate-local-xml.sh) reads MYSQL_HOST to write local.xml.

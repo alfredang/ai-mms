@@ -384,7 +384,7 @@ php /var/www/html/scripts/maintenance/flat-url-debug.php \
         sleep 1
     done
     curl -s -o /dev/null --max-time 15 -L http://127.0.0.1/ 2>/dev/null || true
-    curl -s -o /dev/null --max-time 15 -L "http://127.0.0.1/${MMS_ADMIN_FRONTNAME:-adminlogin}/" 2>/dev/null || true
+    curl -s -o /dev/null --max-time 15 -L "http://127.0.0.1/adminlogin/" 2>/dev/null || true
     echo "entrypoint: CSS/JS merge bundles warmed"
 ) &
 
