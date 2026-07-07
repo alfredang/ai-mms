@@ -84,8 +84,14 @@ try {
     </div>
 
     <?php if (empty($_frRows)): ?>
+    <?php $_frConfigured = (($_frMyUrl && Mage::getStoreConfig('mmd/franchise_report/my_key')) || ($_frGhUrl && Mage::getStoreConfig('mmd/franchise_report/gh_key'))); ?>
     <div style="text-align:center;color:#64748b;font-size:13px;padding:26px 0;">
-        No completed classes pulled yet — configure the partner endpoints below, then click <strong>Pull Now</strong>.
+        <?php if ($_frConfigured): ?>
+            No completed classes yet — the partner sites have no confirmed &amp; completed classes with attendance taken.
+            New classes appear here automatically after the next pull.
+        <?php else: ?>
+            Not connected yet — open <strong>Partner Connection Settings</strong> below to add the MY / GH endpoints, then click <strong>Pull Now</strong>.
+        <?php endif; ?>
     </div>
     <?php else: ?>
     <div style="overflow-x:auto;">
@@ -197,8 +203,16 @@ function frPullNow(btn) {
             btn.disabled = false; btn.textContent = 'Pull Now';
             if (d.success) {
                 st.style.color = '#22c55e';
-                st.textContent = 'Pulled ' + d.fetched + ' classes from ' + d.partners + ' partner(s), stored ' + d.upserted + '.';
-                setTimeout(function(){ location.reload(); }, 2000);
+                st.textContent = d.fetched > 0
+                    ? ('Pulled ' + d.fetched + ' classes from ' + d.partners + ' partner(s), stored ' + d.upserted + '.')
+                    : ('Done — ' + d.partners + ' partner(s) contacted, no completed classes to pull yet.');
+                if (d.fetched > 0) setTimeout(function(){ location.reload(); }, 2000);
+            } else if (d.needs_config) {
+                // Setup state, not an error — neutral amber + open the settings.
+                st.style.color = '#f59e0b';
+                st.textContent = d.message || 'Add a partner URL and API key in Partner Connection Settings first.';
+                var det = document.querySelector('.franchise-report-page details');
+                if (det) det.open = true;
             } else {
                 st.style.color = '#ef4444';
                 st.textContent = 'Pull failed: ' + (d.message || (d.error_msgs && d.error_msgs.join('; ')) || 'unknown error');

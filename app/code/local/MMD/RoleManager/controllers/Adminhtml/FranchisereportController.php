@@ -31,7 +31,14 @@ class MMD_RoleManager_Adminhtml_FranchisereportController extends Mage_Adminhtml
 
             /** @var MMD_RoleManager_Model_FranchiseReportService $svc */
             $svc = Mage::getModel('mmd_rolemanager/franchiseReportService');
-            if (!$svc->isConfigured()) throw new Exception('Set at least one partner URL and API key first.');
+            if (!$svc->isConfigured()) {
+                // Setup state, not an error — the UI renders this neutrally.
+                return $this->_json(array(
+                    'success' => false,
+                    'needs_config' => true,
+                    'message' => 'Not connected yet — add a partner URL and API key in Partner Connection Settings, then Pull Now.',
+                ));
+            }
 
             $user = Mage::getSingleton('admin/session')->getUser();
             $name = $user ? trim($user->getFirstname() . ' ' . $user->getLastname()) : 'admin';
