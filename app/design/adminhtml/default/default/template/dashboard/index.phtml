@@ -1762,7 +1762,7 @@ if ($_selectedCourseId) {
         <div class="dash-search-row">
             <div class="dash-search-input-wrap">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                <input type="text" id="dashSearch" class="dash-search-input" placeholder="Search title..." style="padding-left:48px !important;" />
+                <input type="search" id="dashSearch" name="dash-course-filter" autocomplete="off" class="dash-search-input" placeholder="Search title..." style="padding-left:48px !important;" />
             </div>
             <button class="dash-btn-primary" onclick="dashToggleAdv()">Show Advanced Filters</button>
             <button class="dash-btn-ghost"    onclick="dashClearFilters()">Clear</button>
@@ -1987,6 +1987,7 @@ document.addEventListener('keydown', function(e){if(e.key==='Escape')dashCloseDe
 
 <?php /* ===== PANEL 2: Super Admin — Charts / Revenue ===== */ ?>
 <div id="dash-panel-superadmin" style="display:none;">
+
 <div class="dashboard-modern">
     <?php /* Inline country tabs retired — see global MMD_Branchscope pills. */ ?>
     <div class="kpi-cards">
@@ -6780,6 +6781,19 @@ function lmcSetView(view, btn) {
     function lmcResetSearch() {
         var s = document.getElementById('lmc-search');
         if (s && s.value !== '') { s.value = ''; lmcSearch(''); }
+        // Same autofill hazard on the other panels' search boxes.
+        var others = [
+            ['dashSearch', function(){ if (window.dashFilter) dashFilter(); }],
+            ['trnSearch',  function(){ if (window.trnFilter) trnFilter(); }],
+            ['at-search',  function(){ if (window.atRender) atRender(); }],
+            ['al-search',  function(){ if (window.alRender) alRender(); }],
+            ['fr-title',   function(){ if (window.frFilter) frFilter(); }],
+            ['fr-search',  function(){ if (window.frFilter) frFilter(); }]
+        ];
+        for (var i = 0; i < others.length; i++) {
+            var el = document.getElementById(others[i][0]);
+            if (el && el.value !== '') { el.value = ''; try { others[i][1](); } catch (e) {} }
+        }
     }
     lmcResetSearch();
     setTimeout(lmcResetSearch, 300);
@@ -7687,7 +7701,7 @@ $gatExt = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
         <div class="trn-search-row">
             <div class="trn-search-input-wrap">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-                <input type="text" id="trnSearch" class="trn-search-input" placeholder="Search name, email, phone, NRIC..." />
+                <input type="search" id="trnSearch" name="trn-trainer-filter" autocomplete="off" class="trn-search-input" placeholder="Search name, email, phone, NRIC..." />
             </div>
             <button class="trn-btn" onclick="trnReset()">Reset Filters</button>
             <button class="trn-btn trn-btn-primary" id="trnAdvBtn" onclick="trnToggleAdv()">Show Advanced Filters</button>
@@ -11403,7 +11417,7 @@ if ($_atActive) {
     </div>
 
     <div class="at-search-row">
-        <input type="text" id="at-search" class="at-search-input" placeholder="Search by course title, code or class ID..." oninput="atRender()" />
+        <input type="search" id="at-search" name="at-class-filter" autocomplete="off" class="at-search-input" placeholder="Search by course title, code or class ID..." oninput="atRender()" />
         <button type="button" class="at-search-btn" onclick="atRender()">Search</button>
     </div>
 
@@ -12144,7 +12158,7 @@ if (!isset($_alNoTraineeByTab))  $_alNoTraineeByTab  = array('upcoming' => 0, 'o
     </div>
 
     <div class="al-search-row">
-        <input type="text" id="al-search" class="al-search-input" placeholder="Search by course title, code or class ID..." oninput="alRender()" />
+        <input type="search" id="al-search" name="al-class-filter" autocomplete="off" class="al-search-input" placeholder="Search by course title, code or class ID..." oninput="alRender()" />
         <button type="button" class="al-search-btn" onclick="alRender()">Search</button>
     </div>
 

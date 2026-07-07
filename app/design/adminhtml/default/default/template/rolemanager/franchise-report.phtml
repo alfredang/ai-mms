@@ -1,0 +1,227 @@
+<?php
+/**
+ * Franchise Report — dedicated Super Admin page (sidebar: "Franchise Report",
+ * below TP Dashboard). Shows confirmed + completed classes pulled from the
+ * MY/GH partner sites (mmd_franchise_completed_classes, filled by the Sunday
+ * 10:00 SGT cron / the Pull Now button). Rendered by
+ * MMD_RoleManager_Adminhtml_FranchisereportController::indexAction().
+ * SG-only: country instances render the not-available notice.
+ */
+?>
+<div class="franchise-report-page" style="padding:4px 0;">
+    <h1 style="font-size:22px;font-weight:700;color:#e2e8f0;margin:0 0 18px;">Franchise Report</h1>
+<?php if (strtolower((string) getenv('MMS_MODE')) !== 'country'): ?>
+<?php
+// ---- Franchisee Completed Classes (SG-only) --------------------------------
+// Local copy pulled weekly (Sun 10:00 SGT cron) / on demand from the MY/GH
+// /courses/api_completed_classes endpoints into mmd_franchise_completed_classes.
+$_frRows = array();
+$_frLastPull = (string) Mage::getStoreConfig('mmd/franchise_report/last_pull');
+$_frMyUrl = (string) Mage::getStoreConfig('mmd/franchise_report/my_url');
+$_frGhUrl = (string) Mage::getStoreConfig('mmd/franchise_report/gh_url');
+$_frPullUrl = Mage::helper('adminhtml')->getUrl('adminhtml/franchisereport/pull');
+$_frCfgUrl  = Mage::helper('adminhtml')->getUrl('adminhtml/franchisereport/saveConfig');
+try {
+    $_frRead = Mage::getSingleton('core/resource')->getConnection('core_read');
+    if ($_frRead->fetchOne("SHOW TABLES LIKE 'mmd_franchise_completed_classes'")) {
+        $_frRows = $_frRead->fetchAll(
+            "SELECT source_country, class_code, course_title, course_code,
+                    start_date, end_date, trainer_name, learners_attended
+               FROM mmd_franchise_completed_classes
+           ORDER BY start_date DESC, class_code DESC
+              LIMIT 2000"
+        );
+    }
+} catch (Exception $e) { /* card renders empty */ }
+?>
+<div style="margin-bottom:24px;background:#0f172a;border:1px solid #1e3a5f;border-radius:14px;padding:20px 24px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:14px;">
+        <div>
+            <div style="font-size:15px;font-weight:700;color:#e2e8f0;display:flex;align-items:center;gap:8px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                Franchisee Completed Classes
+            </div>
+            <div style="font-size:12px;color:#64748b;margin-top:3px;">
+                Confirmed &amp; completed classes pulled from the MY / GH partner sites.
+                Auto-pull every Sunday 10:00am<?php if ($_frLastPull): ?> · last pull
+                <strong style="color:#94a3b8;"><?php echo htmlspecialchars(Mage::helper('core')->formatDate($_frLastPull, 'medium', true)) ?></strong><?php endif; ?>
+            </div>
+        </div>
+        <button type="button" id="fr-pull-btn" onclick="frPullNow(this)"
+            style="background:#0e7490;border:none;color:#fff;font-size:13px;font-weight:600;padding:8px 18px;border-radius:8px;cursor:pointer;">
+            Pull Now
+        </button>
+    </div>
+
+    <div id="fr-status" style="display:none;background:#1e293b;border-radius:8px;padding:10px 14px;font-size:13px;color:#94a3b8;margin-bottom:14px;"></div>
+
+    <!-- Filters: date range (start date), course title, free search -->
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px;">
+        <div>
+            <div style="font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:4px;">From (start date)</div>
+            <input type="date" id="fr-date-from" onchange="frFilter()"
+                style="padding:8px 12px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:13px;" />
+        </div>
+        <div>
+            <div style="font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:4px;">To (start date)</div>
+            <input type="date" id="fr-date-to" onchange="frFilter()"
+                style="padding:8px 12px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:13px;" />
+        </div>
+        <div style="flex:1;min-width:180px;">
+            <div style="font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:4px;">Course Title</div>
+            <input type="search" id="fr-title" autocomplete="off" placeholder="Filter by course title..." oninput="frFilter()"
+                style="width:100%;padding:8px 12px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:13px;" />
+        </div>
+        <div style="flex:1;min-width:180px;">
+            <div style="font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:4px;">Search</div>
+            <input type="search" id="fr-search" autocomplete="off" placeholder="Class code, course code, trainer..." oninput="frFilter()"
+                style="width:100%;padding:8px 12px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:13px;" />
+        </div>
+        <button type="button" onclick="frReset()"
+            style="background:transparent;border:1px solid #334155;color:#94a3b8;font-size:13px;font-weight:600;padding:8px 14px;border-radius:8px;cursor:pointer;">
+            Reset
+        </button>
+    </div>
+
+    <?php if (empty($_frRows)): ?>
+    <div style="text-align:center;color:#64748b;font-size:13px;padding:26px 0;">
+        No completed classes pulled yet — configure the partner endpoints below, then click <strong>Pull Now</strong>.
+    </div>
+    <?php else: ?>
+    <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead>
+                <tr style="color:#94a3b8;text-align:left;">
+                    <th style="padding:8px 10px;border-bottom:1px solid #1e3a5f;">Country</th>
+                    <th style="padding:8px 10px;border-bottom:1px solid #1e3a5f;">Class Code</th>
+                    <th style="padding:8px 10px;border-bottom:1px solid #1e3a5f;">Course Title</th>
+                    <th style="padding:8px 10px;border-bottom:1px solid #1e3a5f;">Course Code</th>
+                    <th style="padding:8px 10px;border-bottom:1px solid #1e3a5f;">Start Date</th>
+                    <th style="padding:8px 10px;border-bottom:1px solid #1e3a5f;">End Date</th>
+                    <th style="padding:8px 10px;border-bottom:1px solid #1e3a5f;">Trainer</th>
+                    <th style="padding:8px 10px;border-bottom:1px solid #1e3a5f;text-align:right;">Learners</th>
+                </tr>
+            </thead>
+            <tbody id="fr-tbody">
+                <?php foreach ($_frRows as $_fr): ?>
+                <tr class="fr-row"
+                    data-start="<?php echo htmlspecialchars((string)$_fr['start_date']) ?>"
+                    data-title="<?php echo htmlspecialchars(strtolower((string)$_fr['course_title'])) ?>"
+                    data-search="<?php echo htmlspecialchars(strtolower($_fr['class_code'] . ' ' . $_fr['course_title'] . ' ' . $_fr['course_code'] . ' ' . $_fr['trainer_name'] . ' ' . $_fr['source_country'])) ?>"
+                    style="color:#cbd5e1;">
+                    <td style="padding:8px 10px;border-bottom:1px solid #16233f;">
+                        <span style="background:rgba(34,211,238,.12);border:1px solid rgba(34,211,238,.3);color:#22d3ee;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;"><?php echo htmlspecialchars($_fr['source_country']) ?></span>
+                    </td>
+                    <td style="padding:8px 10px;border-bottom:1px solid #16233f;font-family:monospace;"><?php echo htmlspecialchars($_fr['class_code']) ?></td>
+                    <td style="padding:8px 10px;border-bottom:1px solid #16233f;"><?php echo htmlspecialchars($_fr['course_title']) ?></td>
+                    <td style="padding:8px 10px;border-bottom:1px solid #16233f;font-family:monospace;"><?php echo htmlspecialchars($_fr['course_code']) ?></td>
+                    <td style="padding:8px 10px;border-bottom:1px solid #16233f;white-space:nowrap;"><?php echo htmlspecialchars((string)$_fr['start_date']) ?></td>
+                    <td style="padding:8px 10px;border-bottom:1px solid #16233f;white-space:nowrap;"><?php echo htmlspecialchars((string)$_fr['end_date']) ?></td>
+                    <td style="padding:8px 10px;border-bottom:1px solid #16233f;"><?php echo htmlspecialchars($_fr['trainer_name']) ?></td>
+                    <td style="padding:8px 10px;border-bottom:1px solid #16233f;text-align:right;font-weight:700;color:#22d3ee;"><?php echo (int)$_fr['learners_attended'] ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+        <div id="fr-empty-filter" style="display:none;text-align:center;color:#64748b;font-size:13px;padding:20px 0;">No classes match the current filters.</div>
+    </div>
+    <?php endif; ?>
+
+    <!-- Partner connection settings -->
+    <details style="margin-top:14px;">
+        <summary style="font-size:12px;font-weight:600;color:#64748b;cursor:pointer;user-select:none;">Partner Connection Settings</summary>
+        <div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+                <div style="font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:4px;">🇲🇾 Malaysia Base URL</div>
+                <input type="text" id="fr-my-url" value="<?php echo htmlspecialchars($_frMyUrl) ?>" placeholder="https://www.tertiarycourses.com.my"
+                    style="width:100%;padding:8px 12px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:13px;" />
+                <div style="font-size:11px;font-weight:600;color:#94a3b8;margin:8px 0 4px;">MY API Key</div>
+                <input type="password" id="fr-my-key" value="" placeholder="(unchanged)" autocomplete="new-password"
+                    style="width:100%;padding:8px 12px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:13px;" />
+            </div>
+            <div>
+                <div style="font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:4px;">🇬🇭 Ghana Base URL</div>
+                <input type="text" id="fr-gh-url" value="<?php echo htmlspecialchars($_frGhUrl) ?>" placeholder="https://www.tertiarycourses.com.gh"
+                    style="width:100%;padding:8px 12px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:13px;" />
+                <div style="font-size:11px;font-weight:600;color:#94a3b8;margin:8px 0 4px;">GH API Key</div>
+                <input type="password" id="fr-gh-key" value="" placeholder="(unchanged)" autocomplete="new-password"
+                    style="width:100%;padding:8px 12px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:13px;" />
+            </div>
+        </div>
+        <button type="button" onclick="frSaveConfig()"
+            style="margin-top:12px;background:#1e293b;border:1px solid #334155;color:#e2e8f0;font-size:13px;font-weight:600;padding:8px 16px;border-radius:8px;cursor:pointer;">
+            Save Settings
+        </button>
+    </details>
+</div>
+
+<script>
+function frFilter() {
+    var from = document.getElementById('fr-date-from').value;
+    var to = document.getElementById('fr-date-to').value;
+    var title = (document.getElementById('fr-title').value || '').toLowerCase();
+    var q = (document.getElementById('fr-search').value || '').toLowerCase();
+    var rows = document.querySelectorAll('.fr-row');
+    var shown = 0;
+    for (var i = 0; i < rows.length; i++) {
+        var r = rows[i];
+        var ok = true;
+        var d = r.getAttribute('data-start') || '';
+        if (from && (!d || d < from)) ok = false;
+        if (ok && to && (!d || d > to)) ok = false;
+        if (ok && title && (r.getAttribute('data-title') || '').indexOf(title) < 0) ok = false;
+        if (ok && q && (r.getAttribute('data-search') || '').indexOf(q) < 0) ok = false;
+        r.style.display = ok ? '' : 'none';
+        if (ok) shown++;
+    }
+    var empty = document.getElementById('fr-empty-filter');
+    if (empty) empty.style.display = (rows.length && !shown) ? 'block' : 'none';
+}
+function frReset() {
+    document.getElementById('fr-date-from').value = '';
+    document.getElementById('fr-date-to').value = '';
+    document.getElementById('fr-title').value = '';
+    document.getElementById('fr-search').value = '';
+    frFilter();
+}
+function frPullNow(btn) {
+    btn.disabled = true; btn.textContent = 'Pulling…';
+    var st = document.getElementById('fr-status');
+    st.style.display = 'block'; st.style.color = '#94a3b8';
+    st.textContent = 'Pulling completed classes from the partner sites…';
+    var fd = new FormData();
+    fd.append('form_key', window.FORM_KEY || '');
+    fetch('<?php echo $this->jsQuoteEscape($_frPullUrl) ?>', { method:'POST', body:fd })
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            btn.disabled = false; btn.textContent = 'Pull Now';
+            if (d.success) {
+                st.style.color = '#22c55e';
+                st.textContent = 'Pulled ' + d.fetched + ' classes from ' + d.partners + ' partner(s), stored ' + d.upserted + '.';
+                setTimeout(function(){ location.reload(); }, 2000);
+            } else {
+                st.style.color = '#ef4444';
+                st.textContent = 'Pull failed: ' + (d.message || (d.error_msgs && d.error_msgs.join('; ')) || 'unknown error');
+            }
+        })
+        .catch(function(e){ btn.disabled = false; btn.textContent = 'Pull Now'; st.style.color = '#ef4444'; st.textContent = 'Network error: ' + e; });
+}
+function frSaveConfig() {
+    var fd = new FormData();
+    fd.append('form_key', window.FORM_KEY || '');
+    fd.append('my_url', document.getElementById('fr-my-url').value.trim());
+    fd.append('my_key', document.getElementById('fr-my-key').value.trim());
+    fd.append('gh_url', document.getElementById('fr-gh-url').value.trim());
+    fd.append('gh_key', document.getElementById('fr-gh-key').value.trim());
+    fetch('<?php echo $this->jsQuoteEscape($_frCfgUrl) ?>', { method:'POST', body:fd })
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            var st = document.getElementById('fr-status');
+            st.style.display = 'block';
+            st.style.color = d.success ? '#22c55e' : '#ef4444';
+            st.textContent = d.message || (d.success ? 'Saved.' : 'Save failed.');
+        });
+}
+</script>
+<?php endif; // SG-only franchise report card ?>
+</div>

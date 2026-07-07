@@ -202,6 +202,13 @@
                 <schedule><cron_expr>0 2 * * *</cron_expr></schedule>
                 <run><model>mmd_rolemanager/cron_maintenance::run</model></run>
             </mmd_rolemanager_daily_maintenance>
+            <!-- Weekly franchise completed-classes pull — Sunday 10:00 SGT.
+                 SG-only (country instances skip); no-op until partner URL+key
+                 are configured in mmd/franchise_report/*. -->
+            <mmd_rolemanager_franchise_classes_pull>
+                <schedule><cron_expr>0 10 * * 0</cron_expr></schedule>
+                <run><model>mmd_rolemanager/cron_franchiseClassesPull::run</model></run>
+            </mmd_rolemanager_franchise_classes_pull>
         </jobs>
     </crontab>
 </config>

@@ -299,7 +299,11 @@ try {
     <div class="rm-filters">
         <div class="rm-search">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-            <input type="text" id="rm-search" placeholder="Search by name or email..." oninput="rmFilter()" />
+            <?php /* type=search + autocomplete=off + on-load clear (bottom of
+                     file): Chrome autofills saved usernames into admin text
+                     inputs (ignoring autocomplete=off on username-shaped
+                     fields), silently filtering the list to "No users". */ ?>
+            <input type="search" id="rm-search" name="rm-user-filter" autocomplete="off" placeholder="Search by name or email..." oninput="rmFilter()" />
         </div>
         <select class="rm-select" id="rm-role-filter" onchange="rmFilter()">
             <option value="">All Roles</option>
@@ -730,5 +734,17 @@ function rmDelete(uid) {
 
 // Apply pagination + any preselected role filter immediately on first render.
 // Always call rmFilter so pagination renders even when no role is preselected.
-(function() { rmFilter(); })();
+// Also clear any browser-autofilled value from the search box first — Chrome
+// fills saved usernames into it (ignoring autocomplete=off), which silently
+// filtered the list to "No users". Autofill can land late, so re-check twice.
+(function() {
+    function rmClearAutofill() {
+        var s = document.getElementById('rm-search');
+        if (s && s.value !== '') { s.value = ''; rmFilter(); }
+    }
+    rmClearAutofill();
+    rmFilter();
+    setTimeout(rmClearAutofill, 300);
+    setTimeout(rmClearAutofill, 1000);
+})();
 </script>
