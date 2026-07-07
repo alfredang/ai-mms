@@ -89,6 +89,8 @@
 	// ---------------------------------------------------------------------
 	$_WS = '(?:\s|&nbsp;|\x{00A0}|\x{2007}|\x{202F})';
 	$_courseSku = (string) $_product->getSku();
+	$_noFundingCourseSkus = array('TGS-2020504243');
+	$_isNoFundingCourse = in_array($_courseSku, $_noFundingCourseSkus, true);
 	$_cmsBlockHtml = function (string $id): string {
 		static $cmsBlockHtmlCache = array();
 		if (!array_key_exists($id, $cmsBlockHtmlCache)) {
@@ -118,6 +120,7 @@
 	// (we just want the no-funding sentence + WSQ link to render).
 	$_isNonWsqSgCourse = (strncasecmp((string) $_courseSku, 'C', 1) === 0)
 		&& (Mage::app()->getStore()->getCode() === 'singapore');
+	$_showFundingOptionsOnly = ($_isNonWsqSgCourse || $_isNoFundingCourse);
 	$_inner            = $_courseSectionHtml('funding_and_grant');
 	if ($_inner !== '') {
 		$_hasWsqFunding = true;
@@ -157,7 +160,7 @@
 			// preg_replace_callback below doesn't wrap them as .wsq-sub
 			// mini-cards (we don't want the "Funding and Grant Applications"
 			// pill above the no-funding sentence).
-			if ($_isNonWsqSgCourse) {
+			if ($_showFundingOptionsOnly) {
 				$_inner = preg_replace('#<h[1-6][^>]*>.*?</h[1-6]>#siu', '', $_inner);
 			}
 
@@ -234,6 +237,17 @@
 
 			$_wsqNarrativeHtml = trim($_inner);
 		}
+	}
+	if ($_isNoFundingCourse) {
+		$_hasWsqFunding = true;
+		$_pythonFundamentalUrl = Mage::getUrl('', array('_direct' => 'wsq-python-fundamental-course-for-beginners.html'));
+		$_wsqNarrativeHtml =
+			'<p>' . $this->escapeHtml($this->__('No funding is available for this course.')) . '</p>'
+			. '<p>'
+			. $this->escapeHtml($this->__('If you plan to apply WSQ funding or use PSEA, we recommend '))
+			. '<a href="' . $this->escapeUrl($_pythonFundamentalUrl) . '">'
+			. $this->escapeHtml($this->__('WSQ Python Fundamental Course for Beginners'))
+			. '</a></p>';
 	}
 
 	// Helper: build a "<h[1-6]> Section </h[1-6]>(.*?)" extractor whose
@@ -906,7 +920,7 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 				<?php if ($useRichSnippets): ?><meta itemprop="productID" content="sku:<?php echo $sku; ?>" /><?php endif; ?>
 			<?php endif; ?>
 
-			<?php $_mmdBadges = Mage::helper('mmd_courseimage')->getProductBadges($_product); ?>
+			<?php $_mmdBadges = $_isNoFundingCourse ? array() : Mage::helper('mmd_courseimage')->getProductBadges($_product); ?>
 			<?php if (!empty($_mmdBadges)): ?>
 				<ul class="course-badges course-badges--view" aria-label="<?php echo $this->__('Funding eligibility'); ?>">
 					<?php foreach ($_mmdBadges as $_b): ?>
@@ -959,10 +973,10 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 						<span class="course-policy-card__icon" aria-hidden="true">
 							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
 						</span>
-						<h3 class="course-policy-card__title"><?php echo $_isNonWsqSgCourse ? 'Funding Options' : 'WSQ Funding'; ?></h3>
+						<h3 class="course-policy-card__title"><?php echo $_showFundingOptionsOnly ? 'Funding Options' : 'WSQ Funding'; ?></h3>
 					</header>
 					<div class="course-policy-card__body">
-						<?php if (!$_isNonWsqSgCourse): ?>
+						<?php if (!$_showFundingOptionsOnly): ?>
 						<div class="wsq-fee-grid" role="table" aria-label="WSQ funding fee breakdown">
 							<div class="wsq-fee-tile wsq-fee-tile--full" role="row">
 								<span class="wsq-fee-tile__label">Full Fee</span>
@@ -1062,7 +1076,7 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 				// dynamic Before/After Funding pill. Null when the course has
 				// no funding option — then no pill renders.
 				$_fundingOptId = null;
-				if ($productType == 'virtual') {
+				if ($productType == 'virtual' && !$_isNoFundingCourse) {
 					foreach ($_product->getOptions() as $_opt) {
 						if (stripos($_opt->getTitle(), 'Funding Eligibility') !== false) {
 							$_fundingOptId = $_opt->getId();
