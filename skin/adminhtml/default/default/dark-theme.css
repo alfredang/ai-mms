@@ -2109,8 +2109,34 @@ body.cat-tree-docked .side-col.cat-tree-panel .categories-side-col {
 /* Keep each tree row on one line so the ExtJS indentation spacers render the
    true depth — wrapping collapses the visual hierarchy. */
 body.cat-tree-docked .side-col.cat-tree-panel .x-tree-node .x-tree-node-el { white-space: nowrap !important; }
-/* A touch more indent per level than the stock 18px so nesting reads clearly
-   in the narrow panel. */
+/* Kill ExtJS's default peach/tan selected + hover background on tree nodes —
+   the blue left-accent bar is the only selection cue we want. Keep the
+   selected label blue via text color, not a fill. */
+body.cat-tree-docked .side-col.cat-tree-panel .x-tree-selected,
+body.cat-tree-docked .side-col.cat-tree-panel .x-tree-node-el.x-tree-selected,
+body.cat-tree-docked .side-col.cat-tree-panel .x-tree-node .x-tree-selected,
+body.cat-tree-docked .side-col.cat-tree-panel a.x-tree-node-anchor,
+body.cat-tree-docked .side-col.cat-tree-panel a.x-tree-node-anchor:hover,
+body.cat-tree-docked .side-col.cat-tree-panel a.x-tree-node-anchor:focus,
+body.cat-tree-docked .side-col.cat-tree-panel .x-tree-node-el.x-tree-node-over {
+    background-color: transparent !important;
+    background-image: none !important;
+}
+body.cat-tree-docked .side-col.cat-tree-panel .x-tree-selected a.x-tree-node-anchor span,
+body.cat-tree-docked .side-col.cat-tree-panel .x-tree-node-el.x-tree-selected span {
+    background: transparent !important;
+    color: #60a5fa !important;
+    font-weight: 700 !important;
+}
+/* Subtle row hover — a faint blue wash, matching the grid hover, not tan. */
+body.cat-tree-docked .side-col.cat-tree-panel .x-tree-node-el.x-tree-node-over {
+    background-color: rgba(96,165,250,0.06) !important;
+}
+/* Per-level indentation. ExtJS renders one elbow/spacer image PER depth level,
+   so widening these widens the indent at every level — a leaf then sits a full
+   step to the right of its parent. Stock is 18px; 30px makes deep nesting
+   (Prompt Engineering under Generative AI …) read clearly in the panel. Every
+   variant must match or a level with a different elbow type would mis-align. */
 body.cat-tree-docked .side-col.cat-tree-panel .x-tree-node-indent img,
 body.cat-tree-docked .side-col.cat-tree-panel img.x-tree-elbow,
 body.cat-tree-docked .side-col.cat-tree-panel img.x-tree-elbow-end,
@@ -2118,7 +2144,12 @@ body.cat-tree-docked .side-col.cat-tree-panel img.x-tree-elbow-line,
 body.cat-tree-docked .side-col.cat-tree-panel img.x-tree-elbow-plus,
 body.cat-tree-docked .side-col.cat-tree-panel img.x-tree-elbow-minus,
 body.cat-tree-docked .side-col.cat-tree-panel img.x-tree-elbow-end-plus,
-body.cat-tree-docked .side-col.cat-tree-panel img.x-tree-elbow-end-minus { width: 22px !important; }
+body.cat-tree-docked .side-col.cat-tree-panel img.x-tree-elbow-end-minus,
+body.cat-tree-docked .side-col.cat-tree-panel img.x-tree-ec-icon {
+    width: 30px !important;
+    min-width: 30px !important;
+    background-position-x: center !important;
+}
 /* Collapsed = 60px icon RAIL, symmetrical with the collapsed left sidebar:
    chevron toggle on top, category glyph beneath; tree content hidden. */
 body.cat-tree-docked:not(.cat-tree-open) .side-col.cat-tree-panel {
@@ -2230,21 +2261,63 @@ body.cat-tree-docked.cat-tree-open .cat-tree-toggle svg { transform: rotate(180d
     flex-wrap: nowrap !important;
 }
 #category-edit-container .cat-tabs-row #category_info_tabs { flex: 1 1 auto !important; margin: 0 !important; }
-#category-edit-container .cat-tabs-row .form-buttons {
+/* Actions cluster on the tab row: Reset + Save icons + a ⋮ kebab whose menu
+   holds the wider custom buttons (Delete Category, Sort Courses, Sort A-Z).
+   The original .form-buttons stub is display:none'd by JS once emptied, so
+   nothing flashes at the default spot — no jump. */
+#category-edit-container .cat-tab-actions {
+    position: relative !important;
     flex: 0 0 auto !important;
     display: flex !important;
     align-items: center !important;
     gap: 6px !important;
     margin: 0 !important;
-    padding: 0 !important;
-    float: none !important;
 }
-/* Reset/Save start HIDDEN on each form render and are revealed only once JS has
-   relocated + iconised them onto the tab row (.cat-btns-placed). The tab strip
-   is created ~10-25ms after the AJAX swap, so without this the buttons would
-   flash at their default spot then visibly jump up onto the tab row. */
-#category-edit-container .form-buttons { visibility: hidden !important; }
-#category-edit-container .form-buttons.cat-btns-placed { visibility: visible !important; }
+#category-edit-container .cat-actions-menu {
+    position: absolute !important;
+    top: calc(100% + 6px) !important;
+    right: 0 !important;
+    min-width: 180px !important;
+    background: var(--d3, #1e293b) !important;
+    border: 1px solid var(--b2, #334155) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.45) !important;
+    padding: 6px !important;
+    display: none !important;
+    flex-direction: column !important;
+    gap: 2px !important;
+    z-index: 2200 !important;
+}
+#category-edit-container .cat-tab-actions.menu-open .cat-actions-menu { display: flex !important; }
+/* Menu rows: flat text, full width, left-aligned — kill the legacy button chrome. */
+#category-edit-container .cat-actions-menu .cat-actions-menu-item,
+#category-edit-container .cat-actions-menu .cat-actions-menu-item span {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    height: auto !important;
+    text-align: left !important;
+    background: transparent !important;
+    background-image: none !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    color: var(--t2, #e5e7eb) !important;
+    font: 400 13px/1.4 var(--font-sans, -apple-system, "Segoe UI", Arial, sans-serif) !important;
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+    padding: 7px 12px !important;
+    margin: 0 !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+    white-space: nowrap !important;
+}
+#category-edit-container .cat-actions-menu .cat-actions-menu-item:hover,
+#category-edit-container .cat-actions-menu .cat-actions-menu-item:hover span {
+    background: rgba(96,165,250,0.12) !important;
+    color: #60a5fa !important;
+}
 /* Primary icon variant — filled blue, for the one primary action (Save) */
 .admin-main .mmd-iconbtn.mmd-iconbtn-primary {
     background: var(--brand, #2563eb) !important;

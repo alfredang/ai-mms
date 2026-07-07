@@ -277,9 +277,10 @@ onPageReady(function wrapSideColTree() {
         function catTabsRow() {
             var tabs = document.getElementById('category_info_tabs');
             var cont = document.getElementById('category-edit-container');
-            if (!tabs || !cont) return;
+            if (!tabs || !cont) return false;
             var btns = cont.querySelector('.form-buttons');
-            if (!btns) return;
+            if (!btns) return false;
+            // Wrap the tab strip so the actions cluster can sit on the same row.
             var row = tabs.parentNode.classList && tabs.parentNode.classList.contains('cat-tabs-row')
                 ? tabs.parentNode : null;
             if (!row) {
@@ -288,13 +289,56 @@ onPageReady(function wrapSideColTree() {
                 tabs.parentNode.insertBefore(row, tabs);
                 row.appendChild(tabs);
             }
-            if (btns.parentNode !== row) row.appendChild(btns);
-            mmdIconiseLinks(btns, SAVE_ICONS, true);
-            // Save = primary (filled blue icon)
-            var saveBtn = btns.querySelector('[data-tip="Save Category"]');
-            if (saveBtn) saveBtn.classList.add('mmd-iconbtn-primary');
-            btns.classList.add('cat-btns-placed'); // CSS reveal (was hidden to avoid the jump)
+            // Build the actions cluster: Reset + Save as icons, everything else
+            // (Delete Category, Sort Courses, Sort A-Z …) into a ⋮ kebab menu so
+            // ANY number of buttons collapses to one clean row.
+            var act = document.createElement('div');
+            act.className = 'cat-tab-actions';
+            var menu = document.createElement('div');
+            menu.className = 'cat-actions-menu';
+            var extras = 0;
+            Array.prototype.slice.call(btns.querySelectorAll('button, a')).forEach(function (b) {
+                var label = (b.textContent || b.title || '').replace(/\s+/g, ' ').trim();
+                if (label === 'Reset' || label === 'Save Category') {
+                    b.innerHTML = SAVE_ICONS[label];
+                    b.className = 'mmd-iconbtn mmd-tip mmd-tip-left' + (label === 'Save Category' ? ' mmd-iconbtn-primary' : '');
+                    b.setAttribute('data-tip', label);
+                    b.setAttribute('aria-label', label);
+                    b.removeAttribute('title');
+                    act.appendChild(b);
+                } else if (label) {
+                    // Keep native label + onclick; restyle as a menu row.
+                    b.className = 'cat-actions-menu-item';
+                    b.removeAttribute('style');
+                    menu.appendChild(b);
+                    extras++;
+                }
+            });
+            if (extras > 0) {
+                var kebab = document.createElement('button');
+                kebab.type = 'button';
+                kebab.className = 'mmd-iconbtn mmd-tip mmd-tip-left cat-actions-kebab';
+                kebab.setAttribute('data-tip', 'More actions');
+                kebab.setAttribute('aria-label', 'More category actions');
+                kebab.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>';
+                kebab.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    act.classList.toggle('menu-open');
+                });
+                act.appendChild(kebab);
+                act.appendChild(menu);
+            }
+            btns.style.display = 'none';       // originals emptied — hide the stub
+            row.appendChild(act);
             return true;
+        }
+        // Close the kebab menu on outside click.
+        if (!window.__mmdCatKebabDoc) {
+            window.__mmdCatKebabDoc = true;
+            document.addEventListener('click', function () {
+                var a = document.querySelector('.cat-tab-actions.menu-open');
+                if (a) a.classList.remove('menu-open');
+            });
         }
         // Poll for the (deferred) tab strip and place the buttons the instant
         // it appears. Safety-reveal after ~1s so a missing tab strip can never
