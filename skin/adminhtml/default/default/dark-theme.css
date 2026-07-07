@@ -2056,6 +2056,186 @@ body.has-overlay-sidecol .side-col-overlay-toggle:hover {
     border-color: var(--blue, #60a5fa) !important;
 }
 
+/* === Categories: docked right tree panel (3-column layout) ===============
+   Manage Categories renders the category tree as a DOCKED, collapsible
+   right-side panel — open by default — so the page reads as three columns:
+   admin sidebar | edit form | category tree. Replaces the old
+   "Browse Categories" overlay button (owner request 2026-07-07). The
+   toggle is a bare chevron glyph (chrome-icon pattern — every property
+   !important per the backend-design override trap) pinned to the panel's
+   edge; it rides left/right with the panel state. Roles-edit keeps the
+   Phase 3/4 overlay above. */
+body.cat-tree-docked .main-col {
+    flex: 1 1 auto !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    max-width: 100% !important;
+}
+/* NOTE: the 3-column spacing (padding-right on .admin-main while the panel
+   is open) lives in sidebar-nav.css §30 — that file owns the shell rules
+   and loads last, so the reservation can't be out-cascaded. */
+body.cat-tree-docked .side-col.cat-tree-panel {
+    position: fixed !important;
+    top: 56px !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    left: auto !important;
+    width: 300px !important;
+    height: auto !important;
+    z-index: 1190 !important;
+    background: var(--d2) !important;
+    border-left: 1px solid var(--b1) !important;
+    box-shadow: none !important;
+    /* Panel itself must NOT clip — hover tooltips overflow it leftwards.
+       Only the tree wrapper below scrolls. */
+    overflow: visible !important;
+    padding: 12px 14px 16px !important;
+    margin: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 0 0 auto !important;
+    min-width: 0 !important;
+    transition: width 0.22s ease, padding 0.22s ease;
+}
+body.cat-tree-docked .side-col.cat-tree-panel .cat-tree-head { flex: 0 0 auto !important; }
+body.cat-tree-docked .side-col.cat-tree-panel .categories-side-col {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+}
+/* Collapsed = 60px icon RAIL, symmetrical with the collapsed left sidebar:
+   chevron toggle on top, category glyph beneath; tree content hidden. */
+body.cat-tree-docked:not(.cat-tree-open) .side-col.cat-tree-panel {
+    width: 60px !important;
+    padding: 12px 0 !important;
+}
+body.cat-tree-docked:not(.cat-tree-open) .side-col.cat-tree-panel .categories-side-col { display: none !important; }
+/* Rail header inside the panel */
+body.cat-tree-docked .cat-tree-rail {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    margin: 0 0 10px !important;
+}
+body.cat-tree-docked.cat-tree-open .cat-tree-rail {
+    flex-direction: row !important;
+    justify-content: flex-end !important;
+}
+body.cat-tree-docked:not(.cat-tree-open) .cat-tree-rail {
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+}
+/* Category glyph shows only in rail (collapsed) mode */
+body.cat-tree-docked.cat-tree-open .cat-rail-folder { display: none !important; }
+body.cat-tree-docked .cat-rail-folder {
+    width: 34px !important; height: 34px !important;
+    min-width: 0 !important; min-height: 0 !important;
+    padding: 0 !important; margin: 0 !important;
+    border: 0 !important; border-radius: 8px !important;
+    background: transparent !important; background-image: none !important;
+    box-shadow: none !important; text-shadow: none !important;
+    color: #cbd5e1 !important;
+    cursor: pointer;
+    display: inline-flex !important;
+    align-items: center; justify-content: center;
+    line-height: 1 !important; font-size: 0 !important;
+    transition: color 0.15s ease, background 0.15s ease;
+    -webkit-appearance: none !important; appearance: none !important;
+}
+body.cat-tree-docked .cat-rail-folder:hover { color: #fff !important; background: rgba(96,165,250,0.10) !important; box-shadow: none !important; }
+body.cat-tree-docked .cat-rail-folder svg { display: block; pointer-events: none; }
+/* Panel's own "Categories" header — mirrors the left sidebar's
+   icon + section-label pairing (glyph injected by sidebar-nav-v2.js). */
+body.cat-tree-docked .side-col.cat-tree-panel .content-header h3 {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.6px !important;
+    color: var(--t4) !important;
+    padding: 0 !important;
+    margin: 0 0 12px !important;
+    border: 0 !important;
+    background: none !important;
+}
+/* All four tree actions in ONE uniform 26×26 icon row (built by JS) */
+body.cat-tree-docked .side-col.cat-tree-panel .cat-tree-iconbar {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    margin: 0 0 12px !important;
+}
+body.cat-tree-docked .side-col.cat-tree-panel .cat-tree-iconbar .mmd-iconbtn { margin: 0 !important; }
+body.cat-tree-docked .side-col.cat-tree-panel .tree-actions .separator { display: none !important; }
+/* Toggle — bare chevron glyph at the top of the panel/rail (mirrors the
+   left sidebar's collapse arrow). Points left (open me) when collapsed,
+   right (close me) when open. */
+body.cat-tree-docked .cat-tree-toggle {
+    position: relative !important;
+    width: 28px !important; height: 28px !important;
+    min-width: 0 !important; min-height: 0 !important;
+    padding: 0 !important; margin: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    color: #cbd5e1 !important;
+    cursor: pointer;
+    display: inline-flex !important;
+    align-items: center; justify-content: center;
+    line-height: 1 !important;
+    font-size: 0 !important;
+    transition: color 0.15s ease !important;
+    -webkit-appearance: none !important; appearance: none !important;
+}
+body.cat-tree-docked .cat-tree-toggle:hover { color: #fff !important; background: transparent !important; box-shadow: none !important; }
+body.cat-tree-docked .cat-tree-toggle:focus { outline: none; box-shadow: none !important; }
+body.cat-tree-docked .cat-tree-toggle:focus-visible { outline: 2px solid rgba(255,255,255,.35); outline-offset: 2px; border-radius: 4px; }
+body.cat-tree-docked .cat-tree-toggle svg { display: block; pointer-events: none; transition: transform 0.22s ease; }
+body.cat-tree-docked.cat-tree-open .cat-tree-toggle svg { transform: rotate(180deg); }
+
+/* Category edit — smooth the native-AJAX partial swap (no flash/reload feel).
+   Prototype's Ajax.Responders toggles .mmd-cat-loading on the container
+   around each tree-click request (sidebar-nav-v2.js). */
+#category-edit-container { transition: opacity 0.18s ease !important; }
+#category-edit-container.mmd-cat-loading { opacity: 0.35 !important; }
+
+/* Category edit — Reset/Save iconised onto the tab-strip row (minimalist:
+   icon + hover tooltip, one line). JS wraps the tabs + buttons in
+   .cat-tabs-row and converts the buttons to .mmd-iconbtn. */
+#category-edit-container .cat-tabs-row {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    flex-wrap: nowrap !important;
+}
+#category-edit-container .cat-tabs-row #category_info_tabs { flex: 1 1 auto !important; margin: 0 !important; }
+#category-edit-container .cat-tabs-row .form-buttons {
+    flex: 0 0 auto !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    float: none !important;
+}
+/* Primary icon variant — filled blue, for the one primary action (Save) */
+.admin-main .mmd-iconbtn.mmd-iconbtn-primary {
+    background: var(--brand, #2563eb) !important;
+    border-color: var(--brand, #2563eb) !important;
+    color: #fff !important;
+}
+.admin-main .mmd-iconbtn.mmd-iconbtn-primary:hover {
+    background: #1d4ed8 !important;
+    border-color: #1d4ed8 !important;
+    color: #fff !important;
+}
+
 /* === Phase 5: Reports filter — relocated form === */
 body.has-relocated-reports-filter .side-col { display: none !important; }
 body.has-relocated-reports-filter .main-col { flex: 1 1 auto !important; margin-left: 0 !important; }
@@ -4606,6 +4786,47 @@ body[class*="customoptions-options-index"] #customoptionsOptionsGrid table.massa
    hand-written MMD panel tables that the §27 `[class*="-table"]` net misses). */
 .admin-main td:has(> .mmd-iconbtn),
 .admin-main td:has(> .mn-fq-act) { white-space: nowrap !important; }
+
+/* ── Global icon-action tooltip (`.mmd-tip` + data-tip) ──────────────────
+   Backend rule: iconise actions wherever a clear glyph exists, and every
+   icon-only action MUST carry a hover tooltip naming it. Usage:
+     <a class="mmd-iconbtn mmd-tip" data-tip="Add Root Category">SVG</a>
+   CSS-only (attr(data-tip) in a ::after pill) — no JS, works on any
+   element. Appears after a 250ms hover intent delay; also shows on
+   keyboard focus. Add `.mmd-tip-left` when the element sits near the
+   right viewport edge (e.g. inside the docked categories panel) so the
+   pill opens leftwards instead of clipping. */
+.admin-main .mmd-tip { position: relative !important; }
+.admin-main .mmd-tip::after {
+    content: attr(data-tip);
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #0b0f17;
+    color: var(--t2, #e5e7eb);
+    border: 1px solid var(--b2, #2a3447);
+    padding: 4px 9px;
+    border-radius: 5px;
+    font: 400 11px/1.2 var(--font-sans, -apple-system, "Segoe UI", Arial, sans-serif);
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.12s ease 0.25s, visibility 0s linear 0.37s;
+    z-index: 2100;
+}
+.admin-main .mmd-tip:hover::after,
+.admin-main .mmd-tip:focus-visible::after {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.12s ease 0.25s, visibility 0s linear 0.25s;
+}
+.admin-main .mmd-tip-left::after {
+    left: auto;
+    right: 0;
+    transform: none;
+}
 
 /* === Course Manager — Edit Template page (Template Options editor) ===
    Body class: adminhtml-mmd-customoptions-options-edit

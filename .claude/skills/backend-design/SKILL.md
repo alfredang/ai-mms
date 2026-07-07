@@ -979,3 +979,57 @@ or rewritten admin list/grid, verify:
    outcome and is forbidden.**
 
 Reference fix: [Block/Review/Grid.php](app/code/local/MMD/Adminhtml/Block/Review/Grid.php) `_prepareCollection` — calls `addStoreFilter()` because the core review grid only joins store data for display and never filters by `?store=`.
+
+## Icon-first actions with hover tooltips (global rule)
+
+**Iconise actions wherever a clear glyph exists** — text action links
+("Add Root Category", "Collapse All", "Export CSV", per-row Edit/Delete)
+become 26×26 `.mmd-iconbtn` ghost buttons. **Every icon-only action MUST
+carry a hover tooltip naming it** — no unlabeled mystery glyphs.
+
+Canonical implementation (all CSS in `dark-theme.css`, zero JS needed):
+
+```html
+<a class="mmd-iconbtn mmd-tip" data-tip="Add Root Category" aria-label="Add Root Category">
+  <svg width="14" height="14" …stroke icon…></svg>
+</a>
+```
+
+- `.mmd-tip` + `data-tip="Label"` renders a CSS-only tooltip pill
+  (dark `#0b0f17`, 1px `--b2` border, 11px text) below the element after a
+  250ms hover-intent delay; also shows on `:focus-visible`.
+- Add `.mmd-tip-left` when the element sits near the right viewport edge
+  (docked panels, right-aligned toolbars) so the pill opens leftward.
+- Always mirror `data-tip` into `aria-label` for screen readers.
+- To convert a container of existing text links wholesale, use the JS
+  helper `mmdIconiseLinks(container, {"Link Text": "<svg …>"}, tipLeft)`
+  in `sidebar-nav-v2.js` — idempotent, keeps the links' handlers, turns
+  the original text into the tooltip. Reference: the Manage Categories
+  docked tree panel (Add Root / Add Subcategory / Collapse All /
+  Expand All).
+
+When to KEEP a text button instead: the action is the page's primary task
+(Save / Add New at page level), the label is load-bearing with no
+universally-understood glyph, or the action is destructive and benefits
+from explicit wording. (Same promotion rules as the "icon > button for
+chrome-level actions" section above.)
+
+## Docked right panel (3-column shell) — Manage Categories pattern
+
+When a page needs a persistent picker/tree beside the edit form (Manage
+Categories is the reference), dock it as a fixed RIGHT panel that mirrors
+the left `.admin-sidebar` mechanics — never overlay the content and never
+let content flow under it:
+
+- Panel: `position: fixed; top:56px; right:0; bottom:0; width:300px`,
+  `--d2` bg, `1px var(--b1)` left border, own scroll
+  (`.cat-tree-panel` in `dark-theme.css`).
+- Shell reservation: `body.…-open .admin-main { padding-right: 320px }`
+  — MUST live in `sidebar-nav.css` (§30) which owns the shell rules and
+  loads last; a dark-theme.css copy loses the cascade (see the layout
+  cascade trap above).
+- Toggle: bare chevron glyph (chrome-icon pattern, all-`!important`)
+  pinned at the panel edge, rotating with state; persist open/closed in
+  localStorage; **default open**.
+- The panel's own header (e.g. "Categories") uses the 12px uppercase
+  section-label scale, not a page-title size.

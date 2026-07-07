@@ -5644,3 +5644,56 @@ body[class*="adminhtml-tag-index"] #tag_tag_grid_table tbody tr:hover > td {
     background: rgba(37, 99, 235, 0.06) !important;
     color: var(--t1, #0f172a) !important;
 }
+
+/* ─────────────────────────────────────────────────────────────────────
+   §30. Categories — docked right tree panel (3-column shell spacing).
+   Mirrors the left .admin-sidebar mechanics: just as .admin-main reserves
+   margin-left:250px for the fixed left sidebar, an OPEN right tree panel
+   reserves padding-right on .admin-main so the centre edit column can
+   never overlap the panel. Lives HERE (not dark-theme.css) because this
+   file loads last and owns the .admin-main shell rules — see the cascade
+   trap note in the backend-design skill. Panel itself (fixed, 300px) and
+   its toggle glyph are styled in dark-theme.css "Categories: docked right
+   tree panel". 320 = 300px panel + 20px breathing gap.
+   ───────────────────────────────────────────────────────────────────── */
+body.cat-tree-docked .admin-main {
+    transition: margin-right 0.22s ease !important;
+    margin-right: 60px !important;
+    /* Mirror the LEFT side's interior gutter (margin-left:250 + padding-left:20):
+       content keeps a 20px gutter against the right panel in both states. */
+    padding-right: 20px !important;
+}
+body.cat-tree-docked.cat-tree-open .admin-main { margin-right: 320px !important; }
+
+/* §30a. Icon-button size standard — HARDENING. The canonical .mmd-iconbtn
+   (dark-theme.css) is 26×26, but Magento buttons carry `.scalable` whose §18
+   rule (.admin-main button.scalable — same specificity, later file) inflates
+   them, so iconised <button>s rendered bigger than iconised <a>s (seen on the
+   categories panel: Add Root/Sub larger than Collapse/Expand). This rule
+   lives at the END of the cascade and pins EVERY .mmd-iconbtn — button or
+   anchor, any legacy class combo — to the single 26×26 standard. */
+.admin-main button.mmd-iconbtn,
+.admin-main a.mmd-iconbtn,
+.admin-main .mmd-iconbtn {
+    box-sizing: border-box !important;
+    width: 26px !important;
+    height: 26px !important;
+    min-width: 26px !important;
+    min-height: 26px !important;
+    max-width: 26px !important;
+    max-height: 26px !important;
+    padding: 0 !important;
+    border-radius: 5px !important;
+    line-height: 1 !important;
+}
+.admin-main button.mmd-iconbtn > span { display: contents !important; }
+/* The category editor's floating tabs/Save bar is position:fixed full-width
+   (boxes.css .content-header-floating) — fixed elements ignore the column
+   margin, so pin it between the two sidebars explicitly. */
+body.cat-tree-docked .content-header-floating {
+    left: 250px !important;
+    width: auto !important;
+    right: 60px !important;
+}
+body.cat-tree-docked.sidebar-collapsed .content-header-floating { left: 60px !important; }
+body.cat-tree-docked.cat-tree-open .content-header-floating { right: 320px !important; }

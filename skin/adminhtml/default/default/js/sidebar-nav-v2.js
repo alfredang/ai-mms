@@ -154,9 +154,13 @@ onPageReady(function relocateConfigAccordion() { /* intentionally disabled */ })
 
 // Phase 3+4: Categories tree and Permissions Roles tree live in .side-col.
 // They are interactive pickers, not navigation, so they can't be hidden
-// outright. Wrap the side-col in a slide-in overlay panel and inject a
-// toggle button into the content-header. Main column expands to full
-// width when the overlay is closed.
+// outright.
+//  - CATEGORIES: docked, collapsible RIGHT panel — open by default, giving a
+//    3-column layout (admin sidebar | edit form | category tree). Toggle is a
+//    bare chevron glyph fixed at the panel edge; state persists in
+//    localStorage. (Replaced the old "Browse Categories" overlay button —
+//    owner request 2026-07-07.)
+//  - ROLES EDIT: keeps the original slide-in overlay + toggle button.
 onPageReady(function wrapSideColTree() {
     var body = document.body;
     var isCategories = /adminhtml-catalog-category|catalog-categories/.test(body.className);
@@ -167,6 +171,190 @@ onPageReady(function wrapSideColTree() {
     // Only convert if there's a tree/picker in the side-col
     var hasTree = sideCol.querySelector('#tree-div, .tree, .categories-side-col, #permissionRolesAcl, #role_users');
     if (!hasTree && !sideCol.querySelector('.entry-edit')) return;
+
+    // Global helper: convert text action links into 26×26 icon buttons with
+    // hover tooltips (backend rule: iconise actions wherever a clear glyph
+    // exists; every icon-only action carries a data-tip tooltip). `map` is
+    // { "Link Text": "<svg …>" }; the original text becomes the tooltip.
+    function mmdIconiseLinks(container, map, tipLeft) {
+        var links = container.querySelectorAll('a, button');
+        for (var i = 0; i < links.length; i++) {
+            var a = links[i];
+            if (a.classList.contains('mmd-iconbtn')) continue; // idempotent
+            var label = (a.textContent || '').replace(/\s+/g, ' ').trim()
+                || (a.getAttribute('title') || '').trim();
+            if (!map[label]) continue;
+            a.innerHTML = map[label];
+            a.classList.add('mmd-iconbtn', 'mmd-tip');
+            if (tipLeft) a.classList.add('mmd-tip-left');
+            a.setAttribute('data-tip', label);
+            a.setAttribute('aria-label', label);
+            a.removeAttribute('title'); // data-tip replaces the native tooltip
+        }
+    }
+    window.mmdIconiseLinks = window.mmdIconiseLinks || mmdIconiseLinks;
+
+    if (isCategories) {
+        sideCol.classList.add('cat-tree-panel');
+        body.classList.add('cat-tree-docked');
+        if (localStorage.getItem('mmdCatTreeOpen') !== '0') {
+            body.classList.add('cat-tree-open'); // default OPEN
+        }
+
+        // Iconise the tree's action links (Add Root / Add Sub / Collapse /
+        // Expand). Retried because parts of the header can re-render.
+        var CAT_ICONS = {
+            'Add Root Category': '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="10" x2="12" y2="16"/><line x1="9" y1="13" x2="15" y2="13"/></svg>',
+            'Add Subcategory': '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 4 4 13 12 13"/><circle cx="17" cy="13" r="5"/><line x1="17" y1="11" x2="17" y2="15"/><line x1="15" y1="13" x2="19" y2="13"/></svg>',
+            'Collapse All': '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 11 12 6 7 11"/><polyline points="17 18 12 13 7 18"/></svg>',
+            'Expand All': '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 13 12 18 17 13"/><polyline points="7 6 12 11 17 6"/></svg>'
+        };
+        // Always auto-expand the root ("Default Category") so the tree is
+        // immediately browsable — Magento's ExtJS tree otherwise restores a
+        // collapsed state. Polls because the tree loads asynchronously.
+        (function autoExpandRoot(tries) {
+            try {
+                if (window.tree && tree.getRootNode) {
+                    var r = tree.getRootNode();
+                    if (r) {
+                        if (!r.isExpanded()) r.expand();
+                        var dflt = r.firstChild;                 // Default Category
+                        if (dflt && !dflt.isExpanded()) dflt.expand();
+                        var first = dflt && dflt.firstChild;     // Adult Courses (first top-level)
+                        if (first && !first.isExpanded()) first.expand();
+                        return;
+                    }
+                }
+            } catch (e) { /* tree not ready */ }
+            if (tries > 0) setTimeout(function () { autoExpandRoot(tries - 1); }, 400);
+        })(25);
+
+        // Category clicks already use Magento's native AJAX partial update
+        // (updateContent → Ajax.Request isAjax=true → swaps #category-edit-
+        // container only; URL never changes). The full-form swap flashes hard
+        // and reads like a reload. Smooth it: dim + fade the container while
+        // the request is in flight via Prototype's global Ajax.Responders —
+        // no core template edit. Registered once.
+        if (window.Ajax && Ajax.Responders && !window.__mmdCatAjaxFade) {
+            window.__mmdCatAjaxFade = true;
+            Ajax.Responders.register({
+                onCreate: function () {
+                    var c = document.getElementById('category-edit-container');
+                    if (c) c.classList.add('mmd-cat-loading');
+                },
+                onComplete: function () {
+                    setTimeout(function () {
+                        var c = document.getElementById('category-edit-container');
+                        if (c) c.classList.remove('mmd-cat-loading');
+                        catTabsRow(); // form re-rendered — re-place buttons on the tab row
+                    }, 60);
+                }
+            });
+        }
+
+        // Move the Reset / Save Category buttons onto the SAME row as the tab
+        // strip (right-aligned) and iconise them, so the whole thing fits one
+        // line. Icons: Reset = rotate-ccw, Save = disk (primary-blue). Runs on
+        // load and after every AJAX form swap; idempotent.
+        var SAVE_ICONS = {
+            'Reset': '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>',
+            'Save Category': '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>'
+        };
+        function catTabsRow() {
+            var tabs = document.getElementById('category_info_tabs');
+            var cont = document.getElementById('category-edit-container');
+            if (!tabs || !cont) return;
+            var btns = cont.querySelector('.form-buttons');
+            if (!btns) return;
+            var row = tabs.parentNode.classList && tabs.parentNode.classList.contains('cat-tabs-row')
+                ? tabs.parentNode : null;
+            if (!row) {
+                row = document.createElement('div');
+                row.className = 'cat-tabs-row';
+                tabs.parentNode.insertBefore(row, tabs);
+                row.appendChild(tabs);
+            }
+            if (btns.parentNode !== row) row.appendChild(btns);
+            mmdIconiseLinks(btns, SAVE_ICONS, true);
+            // Save = primary (filled blue icon)
+            var saveBtn = btns.querySelector('[data-tip="Save Category"]');
+            if (saveBtn) saveBtn.classList.add('mmd-iconbtn-primary');
+        }
+        catTabsRow();
+        setTimeout(catTabsRow, 600);
+        setTimeout(catTabsRow, 1600);
+
+        function catIconise() {
+            mmdIconiseLinks(sideCol, CAT_ICONS, true);
+            // Category-tree glyph next to the panel heading — mirrors how the
+            // left admin sidebar pairs a 18px icon with each label.
+            var head = sideCol.querySelector('.content-header h3');
+            if (head && !head.querySelector('svg')) {
+                head.insertAdjacentHTML('afterbegin',
+                    '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>');
+            }
+            // Consolidate every action into ONE uniform icon row (order:
+            // Add Root, Add Sub, Collapse, Expand) and drop the "|" pipes.
+            var actions = sideCol.querySelector('.tree-actions');
+            if (actions && !actions.getAttribute('data-iconrow')) {
+                var icons = actions.querySelectorAll('.mmd-iconbtn');
+                if (icons.length >= 4) {
+                    var row = document.createElement('div');
+                    row.className = 'cat-tree-iconbar';
+                    for (var i = 0; i < icons.length; i++) row.appendChild(icons[i]);
+                    actions.innerHTML = '';
+                    actions.appendChild(row);
+                    actions.setAttribute('data-iconrow', '1');
+                }
+            }
+        }
+        catIconise();
+        setTimeout(catIconise, 800);
+        setTimeout(catIconise, 2000);
+        // Rail header INSIDE the panel — mirrors the left sidebar's collapsed
+        // 60px icon rail: a chevron toggle at the top, and (in rail mode) a
+        // category glyph below it. Both toggle the panel.
+        function catToggle() {
+            var open = body.classList.toggle('cat-tree-open');
+            try { localStorage.setItem('mmdCatTreeOpen', open ? '1' : '0'); } catch (e) {}
+        }
+        var rail = document.createElement('div');
+        rail.className = 'cat-tree-rail';
+        var tbtn = document.createElement('button');
+        tbtn.type = 'button';
+        tbtn.className = 'cat-tree-toggle mmd-tip mmd-tip-left';
+        tbtn.setAttribute('data-tip', 'Show / hide categories');
+        tbtn.setAttribute('aria-label', 'Toggle categories panel');
+        tbtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>';
+        tbtn.addEventListener('click', catToggle);
+        var fbtn = document.createElement('button');
+        fbtn.type = 'button';
+        fbtn.className = 'cat-rail-folder mmd-tip mmd-tip-left';
+        fbtn.setAttribute('data-tip', 'Categories');
+        fbtn.setAttribute('aria-label', 'Open categories panel');
+        fbtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>';
+        fbtn.addEventListener('click', function () {
+            if (!body.classList.contains('cat-tree-open')) catToggle();
+        });
+        rail.appendChild(tbtn);
+        rail.appendChild(fbtn);
+        sideCol.insertBefore(rail, sideCol.firstChild);
+
+        // Hoist the header + action row OUT of the scrollable tree wrapper so
+        // hover tooltips are not clipped by its overflow (only the tree list
+        // itself scrolls).
+        var inner = sideCol.querySelector('.categories-side-col');
+        if (inner && !sideCol.querySelector('.cat-tree-head')) {
+            var headWrap = document.createElement('div');
+            headWrap.className = 'cat-tree-head';
+            var hdr = inner.querySelector('.content-header');
+            var act = inner.querySelector('.tree-actions');
+            if (hdr) headWrap.appendChild(hdr);
+            if (act) headWrap.appendChild(act);
+            sideCol.insertBefore(headWrap, rail.nextSibling);
+        }
+        return; // no overlay classes, no Browse Categories button
+    }
 
     sideCol.classList.add('side-col-overlay');
     body.classList.add('has-overlay-sidecol');
@@ -189,7 +377,7 @@ onPageReady(function wrapSideColTree() {
         var btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'side-col-overlay-toggle';
-        btn.textContent = isCategories ? 'Browse Categories' : 'Edit Resources';
+        btn.textContent = 'Edit Resources'; // categories now use the docked panel above
         btn.addEventListener('click', function () {
             body.classList.toggle('side-col-overlay-open');
         });
