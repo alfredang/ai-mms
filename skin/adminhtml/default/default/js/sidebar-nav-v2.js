@@ -237,17 +237,31 @@ onPageReady(function wrapSideColTree() {
         // no core template edit. Registered once.
         if (window.Ajax && Ajax.Responders && !window.__mmdCatAjaxFade) {
             window.__mmdCatAjaxFade = true;
+            // Scope the fade to the category-EDIT partial load ONLY — it must NOT
+            // fire on the drag-drop MOVE (catalog_category/move). Dimming the form
+            // during Magento's slow synchronous URL-rewrite reindex on move made a
+            // working reorder look hung. isEdit() keys off the request URL.
+            var isEdit = function (req) {
+                try { return !!(req && req.url && req.url.indexOf('/catalog_category/edit') >= 0); }
+                catch (e) { return false; }
+            };
             Ajax.Responders.register({
-                onCreate: function () {
+                onCreate: function (req) {
+                    if (!isEdit(req)) return;
                     var c = document.getElementById('category-edit-container');
                     if (c) c.classList.add('mmd-cat-loading');
                 },
-                onComplete: function () {
+                onComplete: function (req) {
+                    if (!isEdit(req)) return;
                     setTimeout(function () {
                         var c = document.getElementById('category-edit-container');
                         if (c) c.classList.remove('mmd-cat-loading');
-                        catTabsRow(); // form re-rendered — re-place buttons on the tab row
                     }, 60);
+                    // The tab strip is created by deferred script-eval (~10-25ms
+                    // AFTER the swap), so poll briefly and place the buttons the
+                    // moment it exists — they stay hidden until then (CSS), so
+                    // there is no jump from the default spot onto the tab row.
+                    catTabsPlaceWhenReady();
                 }
             });
         }
@@ -279,10 +293,22 @@ onPageReady(function wrapSideColTree() {
             // Save = primary (filled blue icon)
             var saveBtn = btns.querySelector('[data-tip="Save Category"]');
             if (saveBtn) saveBtn.classList.add('mmd-iconbtn-primary');
+            btns.classList.add('cat-btns-placed'); // CSS reveal (was hidden to avoid the jump)
+            return true;
         }
-        catTabsRow();
-        setTimeout(catTabsRow, 600);
-        setTimeout(catTabsRow, 1600);
+        // Poll for the (deferred) tab strip and place the buttons the instant
+        // it appears. Safety-reveal after ~1s so a missing tab strip can never
+        // leave Reset/Save permanently hidden.
+        function catTabsPlaceWhenReady() {
+            var tries = 0;
+            (function poll() {
+                if (catTabsRow()) return;
+                if (++tries < 30) { setTimeout(poll, 30); return; }
+                var b = document.querySelector('#category-edit-container .form-buttons');
+                if (b) b.classList.add('cat-btns-placed'); // reveal in place as fallback
+            })();
+        }
+        catTabsPlaceWhenReady();
 
         function catIconise() {
             mmdIconiseLinks(sideCol, CAT_ICONS, true);

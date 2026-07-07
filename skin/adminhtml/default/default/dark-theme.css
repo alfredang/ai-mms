@@ -2102,8 +2102,23 @@ body.cat-tree-docked .side-col.cat-tree-panel .categories-side-col {
     flex: 1 1 auto !important;
     min-height: 0 !important;
     overflow-y: auto !important;
-    overflow-x: hidden !important;
+    /* auto (not hidden): deep sub-category nesting keeps its full indentation
+       and scrolls horizontally instead of being clipped at the panel edge. */
+    overflow-x: auto !important;
 }
+/* Keep each tree row on one line so the ExtJS indentation spacers render the
+   true depth — wrapping collapses the visual hierarchy. */
+body.cat-tree-docked .side-col.cat-tree-panel .x-tree-node .x-tree-node-el { white-space: nowrap !important; }
+/* A touch more indent per level than the stock 18px so nesting reads clearly
+   in the narrow panel. */
+body.cat-tree-docked .side-col.cat-tree-panel .x-tree-node-indent img,
+body.cat-tree-docked .side-col.cat-tree-panel img.x-tree-elbow,
+body.cat-tree-docked .side-col.cat-tree-panel img.x-tree-elbow-end,
+body.cat-tree-docked .side-col.cat-tree-panel img.x-tree-elbow-line,
+body.cat-tree-docked .side-col.cat-tree-panel img.x-tree-elbow-plus,
+body.cat-tree-docked .side-col.cat-tree-panel img.x-tree-elbow-minus,
+body.cat-tree-docked .side-col.cat-tree-panel img.x-tree-elbow-end-plus,
+body.cat-tree-docked .side-col.cat-tree-panel img.x-tree-elbow-end-minus { width: 22px !important; }
 /* Collapsed = 60px icon RAIL, symmetrical with the collapsed left sidebar:
    chevron toggle on top, category glyph beneath; tree content hidden. */
 body.cat-tree-docked:not(.cat-tree-open) .side-col.cat-tree-panel {
@@ -2224,6 +2239,12 @@ body.cat-tree-docked.cat-tree-open .cat-tree-toggle svg { transform: rotate(180d
     padding: 0 !important;
     float: none !important;
 }
+/* Reset/Save start HIDDEN on each form render and are revealed only once JS has
+   relocated + iconised them onto the tab row (.cat-btns-placed). The tab strip
+   is created ~10-25ms after the AJAX swap, so without this the buttons would
+   flash at their default spot then visibly jump up onto the tab row. */
+#category-edit-container .form-buttons { visibility: hidden !important; }
+#category-edit-container .form-buttons.cat-btns-placed { visibility: visible !important; }
 /* Primary icon variant — filled blue, for the one primary action (Save) */
 .admin-main .mmd-iconbtn.mmd-iconbtn-primary {
     background: var(--brand, #2563eb) !important;
