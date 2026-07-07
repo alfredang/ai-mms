@@ -2156,7 +2156,11 @@ body.cat-tree-docked:not(.cat-tree-open) .side-col.cat-tree-panel {
     width: 60px !important;
     padding: 12px 0 !important;
 }
-body.cat-tree-docked:not(.cat-tree-open) .side-col.cat-tree-panel .categories-side-col { display: none !important; }
+/* Collapsed rail shows ONLY the rail glyphs — hide the tree AND the hoisted
+   header/action-icon row (.cat-tree-head), else those clip inside the 60px
+   rail. Mirrors the left sidebar's clean collapsed state. */
+body.cat-tree-docked:not(.cat-tree-open) .side-col.cat-tree-panel .categories-side-col,
+body.cat-tree-docked:not(.cat-tree-open) .side-col.cat-tree-panel .cat-tree-head { display: none !important; }
 /* Rail header inside the panel */
 body.cat-tree-docked .cat-tree-rail {
     display: flex !important;
@@ -2275,46 +2279,59 @@ body.cat-tree-docked.cat-tree-open .cat-tree-toggle svg { transform: rotate(180d
 }
 #category-edit-container .cat-actions-menu {
     position: absolute !important;
-    top: calc(100% + 6px) !important;
+    top: calc(100% + 4px) !important;
     right: 0 !important;
-    min-width: 180px !important;
+    min-width: 168px !important;
     background: var(--d3, #1e293b) !important;
     border: 1px solid var(--b2, #334155) !important;
     border-radius: 8px !important;
     box-shadow: 0 12px 32px rgba(0,0,0,0.45) !important;
-    padding: 6px !important;
+    padding: 4px !important;
     display: none !important;
     flex-direction: column !important;
-    gap: 2px !important;
+    gap: 0 !important;
     z-index: 2200 !important;
 }
 #category-edit-container .cat-tab-actions.menu-open .cat-actions-menu { display: flex !important; }
-/* Menu rows: flat text, full width, left-aligned — kill the legacy button chrome. */
+/* Menu rows: compact flat text, full width, left-aligned. Flatten the legacy
+   <button class="scalable"><span><span><span> nesting — every level must be
+   height:auto / min-height:0 / line-height:1, or the button min-height (38px)
+   and per-span padding blow the row up to the tall boxes seen before. */
 #category-edit-container .cat-actions-menu .cat-actions-menu-item,
-#category-edit-container .cat-actions-menu .cat-actions-menu-item span {
-    display: block !important;
-    width: 100% !important;
-    min-width: 0 !important;
+#category-edit-container .cat-actions-menu .cat-actions-menu-item * {
+    box-sizing: border-box !important;
     min-height: 0 !important;
+    max-height: none !important;
     height: auto !important;
-    text-align: left !important;
+    min-width: 0 !important;
+    line-height: 1.2 !important;
     background: transparent !important;
     background-image: none !important;
     border: 0 !important;
     box-shadow: none !important;
     text-shadow: none !important;
-    color: var(--t2, #e5e7eb) !important;
-    font: 400 13px/1.4 var(--font-sans, -apple-system, "Segoe UI", Arial, sans-serif) !important;
     text-transform: none !important;
     letter-spacing: 0 !important;
-    padding: 7px 12px !important;
+    font: 400 12.5px/1.2 var(--font-sans, -apple-system, "Segoe UI", Arial, sans-serif) !important;
+    color: var(--t2, #e5e7eb) !important;
+}
+#category-edit-container .cat-actions-menu .cat-actions-menu-item {
+    display: block !important;
+    width: 100% !important;
+    text-align: left !important;
+    padding: 6px 10px !important;
     margin: 0 !important;
     border-radius: 6px !important;
     cursor: pointer !important;
     white-space: nowrap !important;
 }
+#category-edit-container .cat-actions-menu .cat-actions-menu-item * {
+    display: inline !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
 #category-edit-container .cat-actions-menu .cat-actions-menu-item:hover,
-#category-edit-container .cat-actions-menu .cat-actions-menu-item:hover span {
+#category-edit-container .cat-actions-menu .cat-actions-menu-item:hover * {
     background: rgba(96,165,250,0.12) !important;
     color: #60a5fa !important;
 }
