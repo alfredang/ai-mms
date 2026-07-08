@@ -1,6 +1,13 @@
 <?php
 
     $_productCollection=$this->getLoadedProductCollection();
+    $_productCollection->addAttributeToSelect(array(
+        'speciality',
+        'address',
+        'email',
+        'telephone',
+        'website',
+    ));
 
     $_helper = $this->helper('catalog/output');
 
@@ -22,9 +29,7 @@
 
 
 <ul id="products-list" class="products-list hover-effect">
- <?php $i=0; foreach ($_productCollection as $_product): 
-$product=Mage::getModel('catalog/product')->load($_product->getId());
- ?>
+ <?php $i=0; foreach ($_productCollection as $_product): ?>
 
 
   <li class="item odd">
@@ -33,7 +38,7 @@ $product=Mage::getModel('catalog/product')->load($_product->getId());
 <div class="grid12-3" >
    
     <a  href="<?php echo $_product->getProductUrl() ?>" title="<?php echo $_helper->productAttribute($_product, $_product->getName(), 'name') ?>" target="_blank">
-    <img src="<?php echo $this->helper('catalog/image')->init($_product, 'small_image')->resize(105); ?>" width="105" alt="<?php echo $_product->getName();?>" title="<?php echo $_helper->productAttribute($_product, $_product->getName(), 'name') ?>"/>
+    <img src="<?php echo $this->helper('catalog/image')->init($_product, 'small_image')->resize(105); ?>" width="105" alt="<?php echo $_product->getName();?>" title="<?php echo $_helper->productAttribute($_product, $_product->getName(), 'name') ?>" loading="lazy" decoding="async"/>
     </a>
     
 </div>
@@ -42,12 +47,12 @@ $product=Mage::getModel('catalog/product')->load($_product->getId());
     
     
     <h3><a class="pro_link" href="<?php echo $_product->getProductUrl();?>" title="<?php echo $_product->getName();?>" target="_blank"><?php echo $_product->getName();?></a></h3>
-   <strong>Specialty:</strong> <?php $SpecialityD = $product->getAttributeText('speciality');	
+   <strong>Specialty:</strong> <?php $SpecialityD = $_product->getAttributeText('speciality');
 				if(is_array($SpecialityD)) {$Speciality = implode(", ",$SpecialityD);}	else{$Speciality = $SpecialityD;} echo $Speciality; ?><br />
-	<strong>Address:</strong> <?php echo $product->getAddress();?><br />
-	<strong>Email:</strong> <a href="mailto:<?php echo $product->getEmail();?>"><?php echo $product->getEmail();?></a><br />
-	<strong>Tel:</strong> <?php echo $product->getTelephone();?><br />
-	<strong>Website:</strong> <a href="<?php echo $product->getWebsite();?>" title="<?php echo $_product->getName();?>" target="_blank"><?php echo $product->getWebsite();?></a>
+	<strong>Address:</strong> <?php echo $_product->getAddress();?><br />
+	<strong>Email:</strong> <a href="mailto:<?php echo $_product->getEmail();?>"><?php echo $_product->getEmail();?></a><br />
+	<strong>Tel:</strong> <?php echo $_product->getTelephone();?><br />
+	<strong>Website:</strong> <a href="<?php echo $_product->getWebsite();?>" title="<?php echo $_product->getName();?>" target="_blank"><?php echo $_product->getWebsite();?></a>
      
 </div>
 <div class="grid12-3" >

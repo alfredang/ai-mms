@@ -283,7 +283,7 @@ $assignBase = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_q
     <div class="rm-filters">
         <div class="rm-search">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-            <input type="text" id="rm-search" placeholder="Search class ID, SKU, or course title..." oninput="rmFilter()" />
+            <input type="search" id="rm-search" name="rm-class-filter" autocomplete="off" placeholder="Search class ID, SKU, or course title..." oninput="rmFilter()" />
         </div>
         <select class="rm-select" id="rm-state-filter" onchange="rmFilter()">
             <option value="" <?php echo ($_bucket !== 'ongoing') ? 'selected' : '' ?>>All States</option>
@@ -703,5 +703,17 @@ function rmFilter() {
 
 // Initial pass picks up any state retained by the browser's
 // back/forward cache (e.g. user typed in search then hit back).
-(function() { rmFilter(); })();
+// Clear browser-autofilled usernames from the search box first (Chrome
+// ignores autocomplete=off on username-shaped fields); re-check twice
+// because autofill can land after DOM ready.
+(function() {
+    function rmClearAutofill() {
+        var s = document.getElementById('rm-search');
+        if (s && s.value !== '') { s.value = ''; rmFilter(); }
+    }
+    rmClearAutofill();
+    rmFilter();
+    setTimeout(rmClearAutofill, 300);
+    setTimeout(rmClearAutofill, 1000);
+})();
 </script>

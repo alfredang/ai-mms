@@ -89,10 +89,19 @@
 	// ---------------------------------------------------------------------
 	$_WS = '(?:\s|&nbsp;|\x{00A0}|\x{2007}|\x{202F})';
 	$_courseSku = (string) $_product->getSku();
-	$_courseSectionHtml = function (string $code) use ($_courseSku): string {
+	$_noFundingCourseSkus = array('TGS-2020504243');
+	$_isNoFundingCourse = in_array($_courseSku, $_noFundingCourseSkus, true);
+	$_cmsBlockHtml = function (string $id): string {
+		static $cmsBlockHtmlCache = array();
+		if (!array_key_exists($id, $cmsBlockHtmlCache)) {
+			$cmsBlockHtmlCache[$id] = trim(Mage::app()->getLayout()->createBlock('cms/block')->setBlockId($id)->toHtml());
+		}
+		return $cmsBlockHtmlCache[$id];
+	};
+	$_courseSectionHtml = function (string $code) use ($_courseSku, $_cmsBlockHtml): string {
 		if ($_courseSku === '') return '';
 		$id = 'course_' . $_courseSku . '_' . $code;
-		return trim(Mage::app()->getLayout()->createBlock('cms/block')->setBlockId($id)->toHtml());
+		return $_cmsBlockHtml($id);
 	};
 
 	// (1) WSQ Funding wrapper — raw inner HTML of the SFC/UTAP/PSEA narrative.
@@ -111,6 +120,7 @@
 	// (we just want the no-funding sentence + WSQ link to render).
 	$_isNonWsqSgCourse = (strncasecmp((string) $_courseSku, 'C', 1) === 0)
 		&& (Mage::app()->getStore()->getCode() === 'singapore');
+	$_showFundingOptionsOnly = ($_isNonWsqSgCourse || $_isNoFundingCourse);
 	$_inner            = $_courseSectionHtml('funding_and_grant');
 	if ($_inner !== '') {
 		$_hasWsqFunding = true;
@@ -150,7 +160,7 @@
 			// preg_replace_callback below doesn't wrap them as .wsq-sub
 			// mini-cards (we don't want the "Funding and Grant Applications"
 			// pill above the no-funding sentence).
-			if ($_isNonWsqSgCourse) {
+			if ($_showFundingOptionsOnly) {
 				$_inner = preg_replace('#<h[1-6][^>]*>.*?</h[1-6]>#siu', '', $_inner);
 			}
 
@@ -227,6 +237,11 @@
 
 			$_wsqNarrativeHtml = trim($_inner);
 		}
+	}
+	if ($_isNoFundingCourse) {
+		$_hasWsqFunding = true;
+		$_wsqNarrativeHtml =
+			'<p>' . $this->escapeHtml($this->__('No funding is available for this course.')) . '</p>';
 	}
 
 	// Helper: build a "<h[1-6]> Section </h[1-6]>(.*?)" extractor whose
@@ -378,7 +393,7 @@
 		list($_certExtracted, $shortDescription) = $_extractSection('(?:Certifications?|Certificate)', $shortDescription);
 		$_certificationHtml = $_courseSectionHtml('certification');
 		if ($_certificationHtml === '') {
-			$_certificationHtml = trim($this->getLayout()->createBlock('cms/block')->setBlockId('course_certification')->toHtml());
+			$_certificationHtml = $_cmsBlockHtml('course_certification');
 		}
 		if ($_certificationHtml === '') {
 			$_certificationHtml = $_certExtracted;
@@ -386,16 +401,100 @@
 		unset($_certExtracted);
 	}
 
+	if ($_isNoFundingCourse) {
+		$shortDescription = preg_replace('#(<p\b[^>]*>\s*)WSQ\s+#iu', '$1', $shortDescription, 1);
+		$shortDescription = preg_replace('#^\s*WSQ\s+#iu', '', $shortDescription, 1);
+	}
+
 	// "Free Certificate Practice Exams" card: render ONLY for courses in the
 	// Cert Prep Training category tree (cat 182) â not other WSQ/non-WSQ courses.
 	// exams.tertiaryinfotech.com hosts the free practice exams + exam vouchers.
+	// Resolve the certification-course tree by its url_key, not a hardcoded id or
+	// name: SG=182 "Cert Prep Training", but the mirrored tree on the MY/GH
+	// partner DBs has a different id AND a different name ("CERT Prep Courses").
+	// The url_key `certification-exam-prep-courses` is identical on all three
+	// sites (it IS the /certification-exam-prep-courses.html landing page), so it
+	// fires the card for every course under that page on every site.
 	$_hasPracticeExams = false;
 	$_courseCatIds = $_product->getCategoryIds();
 	if (!empty($_courseCatIds)) {
-		$_certPrepRoot = Mage::getModel('catalog/category')->load(182);
-		if ($_certPrepRoot->getId()) {
+		$_certRootId = (int) Mage::getResourceModel('catalog/category_collection')
+			->addAttributeToFilter('url_key', 'certification-exam-prep-courses')
+			->setPageSize(1)
+			->getFirstItem()
+			->getId();
+		if ($_certRootId) {
+			$_certPrepRoot = Mage::getModel('catalog/category')->load($_certRootId);
 			$_hasPracticeExams = (bool) array_intersect($_courseCatIds, (array) $_certPrepRoot->getAllChildren(true));
 		}
+	}
+
+	// (5b) Strip the vendor "authorised training/delivery partner" promo blurb
+	// out of the course narrative so it no longer renders in the "About" card.
+	// The Free Practice Exams card below replaces it. Covers CompTIA (red
+	// heading), Microsoft Learning Partner, and Pearson Vue. Autodesk uses an
+	// image badge (different markup) and is intentionally left untouched.
+	$_beforeStrip = $shortDescription;
+	$shortDescription = preg_replace(array(
+		// CompTIA red heading + any trailing empty (red) paragraphs.
+		'#<h[1-6][^>]*>\s*(?:<span[^>]*>\s*)?We\s+are\s+Authori[sz]ed\s+CompTIA\s+Delivery\s+Partner\.?\s*(?:</span>\s*)?</h[1-6]>(?:\s*<p[^>]*>(?:\s|&nbsp;|<span[^>]*>|</span>|<br\s*/?>)*</p>)*#i',
+		// "Microsoft Learning Partner" heading + its "We are Authorised..." paragraph.
+		'#<h[1-6][^>]*>\s*Microsoft\s+Learning\s+Partner\s*</h[1-6]>\s*<p[^>]*>.*?</p>#is',
+		// Residual "We are Authorised Microsoft Learning Partner (Org ID...)" paragraph.
+		'#<p[^>]*>(?:(?!</p>).)*?Authori[sz]ed(?:(?!</p>).)*?Microsoft\s+Learning\s+Partner(?:(?!</p>).)*?</p>#is',
+		// Pearson Vue authorised training partner line.
+		'#<p[^>]*>\s*<strong>\s*We\s+are\s+Pearson\s+Vue\s+Authori[sz]ed\s+Training\s+Partner\.?\s*</strong>\s*</p>#i',
+		// "Certification Exam at Pearson Vue" heading + its "Authorised Pearson
+		// Vue Testing Center" / "purchase the exam voucher" paragraphs. The Free
+		// Practice Exams card below replaces this vendor-exam blurb.
+		'#<h[1-6][^>]*>\s*Certification\s+Exam\s+at\s+Pearson\s+Vue\s*</h[1-6]>(?:\s*<p\b[^>]*>.*?</p>)*#is',
+		// "Register for Google Cloud Certification" heading + its "Kryterion
+		// Authorized Testing Center / course fee does not include the exam fee"
+		// paragraph(s). Same vendor-exam blurb, different vendor.
+		'#<h[1-6][^>]*>\s*Register\s+for\s+Google\s+Cloud\s+Certification\s*</h[1-6]>(?:\s*<p\b[^>]*>.*?</p>)*#is',
+	), '', $shortDescription);
+
+	// "<X> Exam Voucher" heading + its following paragraph(s): both the "…is
+	// included in this course fee" claim AND the voucher-redemption steps (e.g.
+	// the PeopleCert "1: Visit … 2: Create account …" block). GUARDED to courses
+	// only: the 50 standalone Exam-Voucher PRODUCTS carry "Exam Voucher" in their
+	// own name and their description legitimately describes the voucher — never
+	// strip those. A course's name never contains "Exam Voucher".
+	if (stripos((string) $_product->getName(), 'Exam Voucher') === false) {
+		$shortDescription = preg_replace(
+			'#<h[1-6][^>]*>[^<]*Exam\s+Voucher[^<]*</h[1-6]>(?:\s*<p\b[^>]*>.*?</p>)*#is',
+			'',
+			$shortDescription
+		);
+	}
+
+	// Show the Free Practice Exams card whenever we actually removed a partner
+	// blurb — this is the store-independent "remove → replace" pairing. The
+	// cat-182 gate above is SG-specific (partner sites have their own category
+	// IDs), so relying on it alone would leave MY/GH with the blurb stripped
+	// but no card. OR-ing the two covers both: SG cert-prep courses without a
+	// blurb still get the card; MY/GH cert courses get it via the strip.
+	$_hasPracticeExams = $_hasPracticeExams || ($shortDescription !== $_beforeStrip);
+
+	// Free Practice Exams card (button-CTA design). Placed in the left column
+	// on SG and in the primary (center) column, right after the "About" card,
+	// on the partner stores (MY/GH). Built once here; echoed per store below.
+	$_isSgStore = (Mage::app()->getStore()->getCode() === 'singapore');
+	$_practiceExamCardHtml = '';
+	if ($_hasPracticeExams) {
+		$_practiceExamCardHtml =
+			'<section class="course-policy-card course-policy-card--practice">'
+			. '<header class="course-policy-card__header">'
+			. '<span class="course-policy-card__icon" aria-hidden="true">'
+			. '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>'
+			. '</span>'
+			. '<h3 class="course-policy-card__title">Bonus: Free Practice Exams</h3>'
+			. '</header>'
+			. '<div class="course-policy-card__body std">'
+			. '<p>Get exam-ready on our <strong>Practice Exam Portal</strong> &mdash; train in realistic <strong>Practice Mode</strong> and timed <strong>Exam Mode</strong>, then retake them as many times as you like before the real exam.</p>'
+			. '<p><a class="practice-exam-cta" href="https://exams.tertiaryinfotech.com/" target="_blank" rel="noopener">Start Practising &rarr;</a></p>'
+			. '</div>'
+			. '</section>';
 	}
 
 	// (6) Funding and Grant. Per-course cms/block first, regex fallback
@@ -645,6 +744,7 @@ HTML;
 $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getStore()->getId() == 7)
     ? $_product->getPrice()
     : $_product->getFinalPrice();
+$_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, false, false);
 ?>
 <input type="hidden" id="simpleProdPrice" name="simpleProdPrice" value="<?php echo $_simpleProdPrice ?>"/>
 <input type="hidden" id="gstProdPrice" name="gstProdPrice" value="<?php echo $_simpleProdPrice + ($_simpleProdPrice * 0.09) ?>"/>
@@ -695,7 +795,7 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 					<?php /* WSQ Funding card renders in the primary (middle) column,
 					          right under the course description. See below. */ ?>
 
-					<?php if ($_skillsTitle !== '' || $_skillsCode !== ''): ?>
+					<?php if (($_skillsTitle !== '' || $_skillsCode !== '') && !$_isNoFundingCourse): ?>
 						<section class="course-policy-card course-policy-card--skills">
 							<header class="course-policy-card__header">
 								<span class="course-policy-card__icon" aria-hidden="true">
@@ -761,20 +861,8 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 						</section>
 					<?php endif; ?>
 
-					<?php if ($_hasPracticeExams): ?>
-						<section class="course-policy-card course-policy-card--practice">
-							<header class="course-policy-card__header">
-								<span class="course-policy-card__icon" aria-hidden="true">
-									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-								</span>
-								<h3 class="course-policy-card__title">Free Certificate Practice Exams</h3>
-							</header>
-							<div class="course-policy-card__body std">
-								<p>Take Free Certificate Practice Exams at <a href="https://exams.tertiaryinfotech.com" target="_blank" rel="noopener">exams.tertiaryinfotech.com</a>.</p>
-								<p>You can also purchase Certificate exam vouchers at <a href="https://exams.tertiaryinfotech.com" target="_blank" rel="noopener">exams.tertiaryinfotech.com</a>.</p>
-							</div>
-						</section>
-					<?php endif; ?>
+					<?php /* Free Practice Exams card renders in the center column for
+					          ALL stores now — see the primary column below. */ ?>
 
 					<?php
 					/* Hoist `$_isMyStore` / `$_extraHtml` so the legacy left-column
@@ -784,7 +872,7 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 					   directly above Post-Course Support for ALL stores. */
 					$_isMyStore    = (Mage::app()->getStore()->getId() == 2);
 					$_extraBlockId = ($attributeSetId == 21) ? 'tour_info' : 'grant';
-					$_extraHtml    = trim($this->getLayout()->createBlock('cms/block')->setBlockId($_extraBlockId)->toHtml());
+					$_extraHtml    = $_cmsBlockHtml($_extraBlockId);
 					?>
 
 					<?php /* Funding and Grant card was here previously — moved to the
@@ -820,7 +908,8 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 		<div class="product-primary-column product-shop <?php echo $grid['primCol']; ?>">
 
 			<div class="product-name">
-				<h1 itemprop="name"><?php echo $_helper->productAttribute($_product, $_product->getName(), 'name') ?></h1>
+				<?php $_displayProductName = $_isNoFundingCourse ? preg_replace('#^WSQ\s*-\s*#i', '', $_product->getName(), 1) : $_product->getName(); ?>
+				<h1 itemprop="name"><?php echo $_helper->productAttribute($_product, $_displayProductName, 'name') ?></h1>
 			</div>
 
 			<?php if ($sku = $_product->getSku()): ?>
@@ -831,7 +920,7 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 				<?php if ($useRichSnippets): ?><meta itemprop="productID" content="sku:<?php echo $sku; ?>" /><?php endif; ?>
 			<?php endif; ?>
 
-			<?php $_mmdBadges = Mage::helper('mmd_courseimage')->getProductBadges($_product); ?>
+			<?php $_mmdBadges = $_isNoFundingCourse ? array() : Mage::helper('mmd_courseimage')->getProductBadges($_product); ?>
 			<?php if (!empty($_mmdBadges)): ?>
 				<ul class="course-badges course-badges--view" aria-label="<?php echo $this->__('Funding eligibility'); ?>">
 					<?php foreach ($_mmdBadges as $_b): ?>
@@ -854,6 +943,18 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 				</section>
 			<?php endif;?>
 
+			<?php /* Free Practice Exams (Bonus) card — center column, directly after
+			          the "About" card and ABOVE the funding cards, on ALL stores
+			          (SG/MY/GH). */ ?>
+			<?php echo $_practiceExamCardHtml; ?>
+			<?php if (!$_isSgStore): /* MY/GH only: the HRD Corp funding card is
+			          injected by JS right after the About card, which would push
+			          this server-rendered Bonus card below it. Re-seat the Bonus
+			          card directly under the About card so it stays ABOVE the HRD
+			          Corp card. Runs on DOMContentLoaded after the injector. */ ?>
+			<script>(function(){function seat(){var a=document.querySelector('.course-policy-card--about'),p=document.querySelector('.course-policy-card--practice');if(a&&p&&a.parentNode)a.parentNode.insertBefore(p,a.nextSibling);}if(document.readyState!=='loading')seat();else document.addEventListener('DOMContentLoaded',seat);})();</script>
+			<?php endif; ?>
+
 			<?php
 			// WSQ Funding card — primary-column placement, directly under the
 			// course description so the funding maths sits beside the price
@@ -864,17 +965,18 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 				$_wsqGst      = $_wsqPrice * 0.09;
 				$_wsqBaseline = $_wsqPrice * 0.50 + $_wsqGst;
 				$_wsqMces     = $_wsqPrice * 0.30 + $_wsqGst;
-				$_fmt = function ($v) { return '$' . number_format($v, 2); };
+				$_wsqCurrencySymbol = Mage::app()->getLocale()->currency(Mage::app()->getStore()->getCurrentCurrencyCode())->getSymbol();
+					$_fmt = function ($v) use ($_wsqCurrencySymbol) { return $_wsqCurrencySymbol . number_format($v, 2); };
 			?>
 				<section class="course-policy-card course-policy-card--wsq course-policy-card--wsq-in-primary">
 					<header class="course-policy-card__header">
 						<span class="course-policy-card__icon" aria-hidden="true">
 							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
 						</span>
-						<h3 class="course-policy-card__title"><?php echo $_isNonWsqSgCourse ? 'Funding Options' : 'WSQ Funding'; ?></h3>
+						<h3 class="course-policy-card__title"><?php echo $_showFundingOptionsOnly ? 'Funding Options' : 'WSQ Funding'; ?></h3>
 					</header>
 					<div class="course-policy-card__body">
-						<?php if (!$_isNonWsqSgCourse): ?>
+						<?php if (!$_showFundingOptionsOnly): ?>
 						<div class="wsq-fee-grid" role="table" aria-label="WSQ funding fee breakdown">
 							<div class="wsq-fee-tile wsq-fee-tile--full" role="row">
 								<span class="wsq-fee-tile__label">Full Fee</span>
@@ -974,7 +1076,7 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 				// dynamic Before/After Funding pill. Null when the course has
 				// no funding option — then no pill renders.
 				$_fundingOptId = null;
-				if ($productType == 'virtual') {
+				if ($productType == 'virtual' && !$_isNoFundingCourse) {
 					foreach ($_product->getOptions() as $_opt) {
 						if (stripos($_opt->getTitle(), 'Funding Eligibility') !== false) {
 							$_fundingOptId = $_opt->getId();
@@ -1075,8 +1177,8 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 				// the right (secondary) column directly under the "Register
 				// Your Interest" CTA so the support context sits beside the
 				// commitment moment.
-				$_supportHtml = trim($this->getLayout()->createBlock('cms/block')->setBlockId('post_course_support')->toHtml());
-				$_cancelHtml  = trim($this->getLayout()->createBlock('cms/block')->setBlockId('course_cancellation_policy')->toHtml());
+				$_supportHtml = $_cmsBlockHtml('post_course_support');
+				$_cancelHtml  = $_cmsBlockHtml('course_cancellation_policy');
 				/* Additional Note renders in the right column directly above
 				   Post-Course Support for ALL stores. On MY, fold the grant /
 				   tour-info CMS block into the same card so the disclaimer +

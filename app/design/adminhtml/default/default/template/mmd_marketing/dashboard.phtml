@@ -88,6 +88,7 @@ $_mlSubsMY    = null;
 $_mlCampSent  = null;
 $_mlNextCamp  = null;
 $_mlConfigured = false;
+$_mlPerf = array(); $_mlSent = array(); $_mlScheduled = array(); $_mlGrowth = array();
 try {
     /** @var MMD_Marketing_Helper_Mailerlite $ml */
     $ml = Mage::helper('mmd_marketing/mailerlite');
@@ -97,6 +98,11 @@ try {
         $_mlSubsMY    = $ml->getSubscribersMY();
         $_mlCampSent  = $ml->getCampaignsSentLast30Days();
         $_mlNextCamp  = $ml->getNextCampaign();
+        $_mlPerf      = $ml->getPerformanceSummary();
+        $_mlSent      = $ml->getSentCampaigns(6);
+        $_mlScheduled = $ml->getScheduledCampaigns();
+        $ml->snapshotSubscribers();                    // record today's count (idempotent)
+        $_mlGrowth    = $ml->getSubscriberSnapshots(null, 30);  // SG series, oldest→newest
     }
 } catch (Exception $e) {
     Mage::logException($e);
@@ -144,6 +150,10 @@ try {
 .mmd-mkt-chart-body{height:140px;display:flex;align-items:end;gap:6px;padding:8px 0;border-bottom:1px solid rgba(56,74,96,.5);}
 .mmd-mkt-chart-bar{flex:1;background:linear-gradient(180deg,#475569 0%,#334155 100%);border-radius:3px 3px 0 0;opacity:.35;min-height:8px;}
 .mmd-mkt-chart-empty{color:#64748b;font-size:12px;font-style:italic;text-align:center;margin-top:10px;}
+.mmd-mkt-chart-foot{display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:11px;color:#64748b;}
+.mmd-mkt-chart-foot b{color:#22d3ee;font-size:13px;}
+:root[data-theme="light"] .mmd-mkt-chart-foot{color:#64748b;}
+:root[data-theme="light"] .mmd-mkt-chart-foot b{color:#0891b2;}
 
 /* Leads-by-store mini list */
 .mmd-mkt-leads-by-store{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
@@ -167,6 +177,69 @@ try {
 </style>
 
 <div class="mmd-marketing-dashboard">
+
+    <?php /* ===== Marketing performance (live MailerLite) ===== */ ?>
+    <?php if ($_mlConfigured && $_mlPerf): $p = $_mlPerf; ?>
+    <div style="margin-bottom:22px;">
+      <h2 style="font:800 18px/1.3 var(--font-sans);color:var(--t1,#f1f5f9);margin:0 0 14px;padding:0 0 12px;border-bottom:1px solid var(--b1,#374151);">Marketing Performance</h2>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;">
+        <?php
+          $perfTiles = array(
+            array('Avg Open Rate',  number_format($p['avg_open_rate'],1).'%',  'across sent campaigns'),
+            array('Avg Click Rate', number_format($p['avg_click_rate'],1).'%', 'across sent campaigns'),
+            array('Total Reached',  number_format($p['total_reached']),        'recipients (recent)'),
+            array('Scheduled',      (int)$p['scheduled'],                       'upcoming campaigns'),
+          );
+          foreach ($perfTiles as $t): ?>
+          <div style="background:var(--d3,#1e293b);border:1px solid var(--b1,#374151);border-radius:12px;padding:20px;text-align:center;">
+            <div style="font:700 11px var(--font-sans);text-transform:uppercase;letter-spacing:.7px;color:var(--t4,#94a3b8);margin-bottom:8px;"><?php echo $t[0] ?></div>
+            <div style="font:800 30px var(--font-sans);color:#1d4ed8;line-height:1;"><?php echo $t[1] ?></div>
+            <div style="font:400 11px var(--font-sans);color:var(--t5,#64748b);margin-top:6px;"><?php echo $t[2] ?></div>
+          </div>
+        <?php endforeach; ?>
+      </div>
+
+      <?php if ($_mlSent): ?>
+      <div style="margin-top:16px;background:var(--d3,#1e293b);border:1px solid var(--b1,#374151);border-radius:12px;overflow:hidden;">
+        <div style="font:700 12px var(--font-sans);text-transform:uppercase;letter-spacing:.6px;color:var(--t2,#e2e8f0);padding:12px 16px;border-bottom:1px solid var(--b1,#374151);">Recent Campaigns</div>
+        <table class="mm-table" style="width:100%;">
+          <thead><tr><th>Campaign</th><th class="num">Sent</th><th class="num">Opens</th><th class="num">Open %</th><th class="num">Clicks</th><th class="num">Click %</th><th>Date</th></tr></thead>
+          <tbody>
+          <?php foreach ($_mlSent as $c): ?>
+            <tr>
+              <td class="strong"><?php echo $this->escapeHtml($c['name']) ?></td>
+              <td class="num"><?php echo number_format($c['recipients']) ?></td>
+              <td class="num"><?php echo number_format($c['opens']) ?></td>
+              <td class="num"><?php echo number_format($c['open_rate'],1) ?>%</td>
+              <td class="num"><?php echo number_format($c['clicks']) ?></td>
+              <td class="num"><?php echo number_format($c['click_rate'],1) ?>%</td>
+              <td class="muted"><?php echo $c['sent_at'] ? date('j M Y', strtotime($c['sent_at'])) : '—' ?></td>
+            </tr>
+          <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+      <?php endif; ?>
+
+      <?php if ($_mlScheduled): ?>
+      <div style="margin-top:14px;background:var(--d3,#1e293b);border:1px solid var(--b1,#374151);border-radius:12px;overflow:hidden;">
+        <div style="font:700 12px var(--font-sans);text-transform:uppercase;letter-spacing:.6px;color:var(--t2,#e2e8f0);padding:12px 16px;border-bottom:1px solid var(--b1,#374151);">Scheduled Campaigns</div>
+        <table class="mm-table" style="width:100%;">
+          <thead><tr><th>Campaign</th><th>Subject</th><th>Scheduled for</th></tr></thead>
+          <tbody>
+          <?php foreach ($_mlScheduled as $c): ?>
+            <tr>
+              <td class="strong"><?php echo $this->escapeHtml($c['name']) ?></td>
+              <td class="muted"><?php echo $this->escapeHtml($c['subject']) ?></td>
+              <td><?php echo $c['scheduled_for'] ? date('D, j M Y g:ia', strtotime($c['scheduled_for'].' UTC')) : '—' ?></td>
+            </tr>
+          <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+      <?php endif; ?>
+    </div>
+    <?php endif; ?>
 
     <!-- KPI strip — MailerLite tiles are placeholders until the API key is wired.
          Leads tiles are live (sourced from mmd_lead). -->
@@ -233,18 +306,53 @@ try {
         </div>
     </div>
 
-    <!-- Subscriber-growth chart — decorative for now. MailerLite's REST API
-         has no per-day historical endpoint, so a future commit will snapshot
-         SG+MY totals daily (entrypoint cron-tick into a small table) and
-         this chart will read from those snapshots. -->
+    <!-- Subscriber-growth chart — real data from daily snapshots
+         (mmd_marketing_subscriber_snapshot). MailerLite's API returns only the
+         current count, so we record one point/day and chart the series here. -->
+    <?php $_gPoints = array(); foreach ($_mlGrowth as $_g) { $_gPoints[] = array('d' => $_g['date'], 'c' => (int)$_g['count']); } ?>
     <div class="mmd-mkt-chart-card">
-        <div class="mmd-mkt-chart-head">MailerLite Subscriber Growth (last 30 days)</div>
-        <div class="mmd-mkt-chart-body">
-            <?php for ($i = 0; $i < 30; $i++): $_h = 12 + (($i * 7) % 80); ?>
-                <div class="mmd-mkt-chart-bar" style="height:<?php echo $_h ?>%;"></div>
-            <?php endfor; ?>
-        </div>
-        <div class="mmd-mkt-chart-empty">Daily-snapshot tracking pending — chart will populate over time.</div>
+        <div class="mmd-mkt-chart-head">MailerLite Subscriber Growth — Singapore (last 30 days)</div>
+        <?php if (count($_gPoints) >= 2): ?>
+            <canvas id="mmd-mkt-growth" height="150" style="width:100%;display:block;"></canvas>
+            <div class="mmd-mkt-chart-foot">
+                <span><?php echo htmlspecialchars($_gPoints[0]['d']) ?></span>
+                <span><?php echo number_format($_gPoints[0]['c']) ?> → <b><?php echo number_format(end($_gPoints)['c']) ?></b> subscribers</span>
+                <span><?php echo htmlspecialchars(end($_gPoints)['d']) ?></span>
+            </div>
+            <script>
+            (function(){
+                var pts = <?php echo json_encode($_gPoints) ?>;
+                var cv = document.getElementById('mmd-mkt-growth'); if(!cv||!cv.getContext) return;
+                function draw(){
+                    var dpr = window.devicePixelRatio||1, W = cv.clientWidth, H = 150;
+                    cv.width = W*dpr; cv.height = H*dpr; var x = cv.getContext('2d'); x.scale(dpr,dpr);
+                    x.clearRect(0,0,W,H);
+                    var vals = pts.map(function(p){return p.c;});
+                    var mn = Math.min.apply(null,vals), mx = Math.max.apply(null,vals);
+                    if(mx===mn){mx=mn+1;} var pad=10, gh=H-pad*2, gw=W-pad*2;
+                    var xf=function(i){return pad + gw*(i/(pts.length-1));};
+                    var yf=function(v){return pad + gh*(1-(v-mn)/(mx-mn));};
+                    // area fill
+                    x.beginPath(); x.moveTo(xf(0),yf(vals[0]));
+                    for(var i=1;i<vals.length;i++) x.lineTo(xf(i),yf(vals[i]));
+                    x.lineTo(xf(vals.length-1),H-pad); x.lineTo(xf(0),H-pad); x.closePath();
+                    var grad=x.createLinearGradient(0,pad,0,H); grad.addColorStop(0,'rgba(34,211,238,.28)'); grad.addColorStop(1,'rgba(34,211,238,0)');
+                    x.fillStyle=grad; x.fill();
+                    // line
+                    x.beginPath(); x.moveTo(xf(0),yf(vals[0]));
+                    for(var j=1;j<vals.length;j++) x.lineTo(xf(j),yf(vals[j]));
+                    x.strokeStyle='#22d3ee'; x.lineWidth=2; x.stroke();
+                    // endpoint dot
+                    x.beginPath(); x.arc(xf(vals.length-1),yf(vals[vals.length-1]),3.5,0,6.29); x.fillStyle='#22d3ee'; x.fill();
+                }
+                draw(); window.addEventListener('resize',draw);
+            })();
+            </script>
+        <?php elseif (count($_gPoints) === 1): ?>
+            <div class="mmd-mkt-chart-empty">Collecting daily snapshots — today's baseline is <b><?php echo number_format($_gPoints[0]['c']) ?></b> subscribers. The growth line appears from tomorrow.</div>
+        <?php else: ?>
+            <div class="mmd-mkt-chart-empty"><?php echo $_mlConfigured ? 'Snapshots start recording from today — the growth line builds over the coming days.' : 'Set the MailerLite key to start tracking subscriber growth.' ?></div>
+        <?php endif; ?>
     </div>
 
 

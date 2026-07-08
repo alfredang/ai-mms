@@ -1,185 +1,169 @@
 <?php
 /**
- * Trainers tab — wired to the View Trainers (courses_trainers) table.
+ * Trainers tab — full-width accordion.
  *
- * Source of truth: the product's `trainers` multiselect (option_ids).
- * For each assigned option_id we resolve the canonical name via
- * eav_attribute_option_value, then pull the bio from courses_trainers
- * by case-insensitive title match. Same table as the Course Editor
- * picker and the admin View Trainers grid, so updates to a trainer's
- * profile show on the storefront on the next page load.
+ * Sources, in order of preference, per trainer:
+ *   1. courses_trainers.description (the Trainer Profile page — single source
+ *      of truth for bios), matched by cleaned trainer name.
+ *   2. the per-course `trainerprofile` blob segment (legacy inline bio).
  *
- * Legacy fallback: if a product has no assigned trainers but still has
- * the old trainerprofile EAV blob (pre-migration), parse that blob the
- * old way so nothing silently disappears for un-migrated courses.
+ * The trainer *set* for a course comes from the `trainerprofile` blob, which
+ * lists each trainer as `<strong>Name:</strong> bio` (or `<strong>Name</strong>
+ * - bio`). We split on the <strong> boundaries so every trainer becomes its
+ * own accordion item with a real name (no more one merged card / "?" avatar).
+ *
+ * The blob is read straight from catalog_product_entity_text via SQL rather
+ * than getAttributeRawValue(): on this install getAttributeRawValue() returns
+ * empty for certain product entities even though the row holds data, which
+ * silently hid the whole tab. Capped at 5 trainers.
  */
-$product = $this->getProduct();
+$product   = $this->getProduct();
+$productId = (int) $product->getId();
+$storeId   = (int) Mage::app()->getStore()->getId();
+$res       = Mage::getSingleton('core/resource');
+$read      = $res->getConnection('core_read');
 
-// The `trainers` multiselect attribute has used_in_product_listing=0 and
-// is_visible_on_front=0, so the frontend product collection doesn't load
-// it as part of $product->getData(). Pull it explicitly via the resource
-// model — falls back to store_id=0 (admin scope) when the current store
-// has no row, which matches how the Course Editor saves assignments.
-$assignedRaw = '';
-try {
-    $storeId     = (int) Mage::app()->getStore()->getId();
-    $assignedRaw = (string) $product->getResource()->getAttributeRawValue(
-        $product->getId(), 'trainers', $storeId
+// Resolve the trainerprofile attribute id once.
+$tpAttrId = (int) $read->fetchOne(
+    "SELECT a.attribute_id FROM {$res->getTableName('eav_attribute')} a "
+    . "JOIN {$res->getTableName('eav_entity_type')} et ON et.entity_type_id = a.entity_type_id "
+    . "WHERE et.entity_type_code = 'catalog_product' AND a.attribute_code = 'trainerprofile' LIMIT 1"
+);
+
+// Reliable read: prefer the current store's value, else the default (store 0).
+$blob = '';
+if ($tpAttrId && $productId) {
+    $blob = (string) $read->fetchOne(
+        "SELECT value FROM {$res->getTableName('catalog_product_entity_text')} "
+        . "WHERE entity_id = ? AND attribute_id = ? AND store_id IN (0, ?) "
+        . "AND value IS NOT NULL AND TRIM(value) <> '' "
+        . "ORDER BY (store_id = ?) DESC, store_id DESC LIMIT 1",
+        array($productId, $tpAttrId, $storeId, $storeId)
     );
-} catch (Exception $e) {
-    $assignedRaw = (string) $product->getData('trainers');
 }
-$assignedRaw = trim($assignedRaw);
-$cards = array();
 
-if ($assignedRaw !== '') {
-    $optionIds = array_filter(array_map('intval', explode(',', $assignedRaw)));
-    if (!empty($optionIds)) {
-        try {
-            $read  = Mage::getSingleton('core/resource')->getConnection('core_read');
-            $tblOV = $read->getTableName('eav_attribute_option_value');
-            $tblCT = $read->getTableName('courses_trainers');
-            $placeholders = implode(',', array_fill(0, count($optionIds), '?'));
-
-            // option_id => trainer name (store_id=0 is the admin/default value)
-            $names = $read->fetchPairs(
-                "SELECT option_id, value FROM {$tblOV} "
-                . "WHERE store_id = 0 AND option_id IN ({$placeholders})",
-                $optionIds
-            );
-
-            foreach ($optionIds as $oid) {
-                if (!isset($names[$oid])) { continue; }
-                $name = trim((string) $names[$oid]);
-                if ($name === '') { continue; }
-
-                // Bio lookup: courses_trainers.title (canonical) — same
-                // shape the Course Editor picker stores into the EAV
-                // option, so an exact case-insensitive match is reliable.
-                $desc = (string) $read->fetchOne(
-                    "SELECT description FROM {$tblCT} "
-                    . "WHERE LOWER(TRIM(title)) = LOWER(TRIM(?)) AND status = 1 "
-                    . "ORDER BY trainers_id LIMIT 1",
-                    array($name)
-                );
-
-                // Skip trainers with no bio in courses_trainers — per
-                // request, only render assignments that have a Trainer
-                // Profile filled out. Strip tags first so an HTML blob
-                // that's effectively whitespace (e.g. "<p>&nbsp;</p>")
-                // doesn't count as content.
-                if (trim(strip_tags($desc)) === '') { continue; }
-
-                // Strip ACTA prefix for the displayed name (the EAV
-                // option value still carries it for matching purposes).
-                $display = trim(preg_replace('/^ACTA\s+/i', '', $name));
-                if ($display === '') { $display = $name; }
-
-                $cards[] = array('name' => $display, 'desc' => $desc);
-            }
-
-            // Cap at 3 trainers, alphabetical by display name, so courses
-            // with a large assigned list show a stable, predictable subset
-            // instead of overwhelming the tab.
-            usort($cards, function ($a, $b) {
-                return strcasecmp($a['name'], $b['name']);
-            });
-            if (count($cards) > 3) {
-                $cards = array_slice($cards, 0, 3);
-            }
-        } catch (Exception $e) {
-            // Fall through to legacy blob fallback below.
-            $cards = array();
-        }
+// Split the blob into individual trainers on <strong> boundaries.
+$trainers = array();
+if (trim((string) $blob) !== '') {
+    $parts = preg_split('#(<strong[^>]*>.*?</strong>)#siu', $blob, -1, PREG_SPLIT_DELIM_CAPTURE);
+    for ($i = 1; $i < count($parts); $i += 2) {
+        $name = html_entity_decode(strip_tags($parts[$i]), ENT_QUOTES, 'UTF-8');
+        $name = preg_replace('/^\s*ACTA\s+/i', '', $name);          // drop ACTA prefix
+        $name = preg_replace('/[\s:\x{2013}\x{2014}\-\x{00A0}]+$/u', '', trim($name));
+        $name = trim($name);
+        if ($name === '' || mb_strlen($name, 'UTF-8') > 60) { continue; }
+        // Skip <strong> runs that are section headings, not trainer names.
+        if (preg_match('/(course|training|framework|profile|assessment|topic|http|@|learning outcome)/i', $name)) { continue; }
+        $trainers[] = array('name' => $name, 'blob' => isset($parts[$i + 1]) ? $parts[$i + 1] : '');
     }
 }
 
-// Legacy fallback — parse the trainerprofile blob the old way so
-// products that never got migrated (or had assignments cleared but
-// kept the inline bio) still render something. trainerprofile is also
-// is_visible_on_front=0 so pull it via the resource model too.
-if (empty($cards)) {
-    $trainers = '';
-    try {
-        $storeId  = (int) Mage::app()->getStore()->getId();
-        $trainers = (string) $product->getResource()->getAttributeRawValue(
-            $product->getId(), 'trainerprofile', $storeId
-        );
-    } catch (Exception $e) {
-        $trainers = (string) $product->getTrainerprofile();
+// Fallback for legacy single-trainer blobs that carry the name as plain text
+// after a floated <img> (no <strong> wrapper), e.g. "Truman Ng graduated ...".
+// Render the whole blob as one item so the tab still appears.
+if (empty($trainers) && trim(strip_tags((string) $blob)) !== '') {
+    $plain = trim(html_entity_decode(strip_tags($blob), ENT_QUOTES, 'UTF-8'));
+    $name  = '';
+    if (preg_match('/^\s*([\p{Lu}][\p{L}.\x{2019}\'\-]+(?:\s+[\p{Lu}][\p{L}.\x{2019}\'\-]+){0,2})\s+(?:is|are|has|have|graduated|holds|brings|obtained|works|worked|started|founded|founder|received|earned|completed)\b/u', $plain, $nm)) {
+        $name = trim($nm[1]);
+    } elseif (preg_match('/title="([^"]*?)\s*Trainer"/i', $blob, $tm)) {
+        $name = trim($tm[1]) . ' Trainer';
     }
-    $trainers = trim($trainers);
-    if ($trainers === '') { return; }
-
-    $current = null;
-    $pPattern = '#<p\b[^>]*>(.*?)</p>#siu';
-    $dashRe   = '#^\s*<strong[^>]*>\s*(.+?)\s*</strong>\s*(?:[-–—:]\s*)(.*)$#siu';
-    if (preg_match_all($pPattern, $trainers, $pm)) {
-        foreach ($pm[1] as $body) {
-            if (preg_match($dashRe, $body, $hm)) {
-                if ($current !== null) { $cards[] = $current; }
-                $current = array(
-                    'name' => trim(strip_tags($hm[1])),
-                    'desc' => trim($hm[2]),
-                );
-            } else {
-                $clean = trim($body);
-                if ($clean === '') { continue; }
-                if ($current === null) {
-                    $current = array('name' => '', 'desc' => $clean);
-                } else {
-                    $current['desc'] .= ($current['desc'] !== '' ? "\n" : '') . $clean;
-                }
-            }
-        }
-        if ($current !== null) { $cards[] = $current; }
-    }
-    if (empty($cards)) {
-        // Last resort: raw render so nothing ever disappears silently.
-        echo '<h2>' . $this->__('Trainers') . '</h2>';
-        echo '<div class="std course-trainers" id="trainers">' . $trainers . '</div>';
-        return;
-    }
+    if ($name === '' || mb_strlen($name, 'UTF-8') > 60) { $name = $this->__('Course Trainer'); }
+    $trainers[] = array('name' => $name, 'blob' => $blob);
 }
+
+if (empty($trainers)) { return; } // nothing to show — tab stays hidden
+
+// Cap at 5, de-duplicate by name (first wins).
+$seen = array(); $final = array();
+foreach ($trainers as $t) {
+    $key = mb_strtolower($t['name'], 'UTF-8');
+    if (isset($seen[$key])) { continue; }
+    $seen[$key] = true;
+    $final[] = $t;
+    if (count($final) >= 5) { break; }
+}
+
+// Per-trainer bio: prefer the Trainer Profile page (courses_trainers), else the
+// blob segment cleaned to plain text.
+$ctTable = $res->getTableName('courses_trainers');
+$resolveBio = function ($name, $blobSeg) use ($read, $ctTable) {
+    $profile = (string) $read->fetchOne(
+        "SELECT description FROM {$ctTable} "
+        . "WHERE LOWER(TRIM(title)) = LOWER(TRIM(?)) AND status = 1 "
+        . "AND description IS NOT NULL AND TRIM(description) <> '' "
+        . "ORDER BY trainers_id ASC LIMIT 1",
+        array($name)
+    );
+    if (trim(strip_tags($profile)) !== '') {
+        return array('html' => $profile, 'rich' => true);
+    }
+    // Fall back to the blob segment: strip tags, drop a leading separator/name echo.
+    $text = html_entity_decode(strip_tags($blobSeg), ENT_QUOTES, 'UTF-8');
+    $text = preg_replace('/^[\s:\x{2013}\x{2014}\-\x{00A0}]+/u', '', trim($text));
+    return array('html' => $text, 'rich' => false);
+};
 
 $initial = function ($name) {
     $name = trim((string) $name);
     if ($name === '') { return '?'; }
     $parts = preg_split('#\s+#u', $name);
     $first = mb_substr($parts[0], 0, 1, 'UTF-8');
-    $last  = isset($parts[count($parts) - 1]) && count($parts) > 1
-        ? mb_substr($parts[count($parts) - 1], 0, 1, 'UTF-8') : '';
+    $last  = (count($parts) > 1) ? mb_substr($parts[count($parts) - 1], 0, 1, 'UTF-8') : '';
     return mb_strtoupper($first . $last, 'UTF-8');
 };
 ?>
+<style>
+.course-trainers-acc{width:100%;margin:0;}
+.course-trainers-acc .tacc-item{border:1px solid #e2e8f0;border-radius:10px;margin:0 0 12px;overflow:hidden;background:#fff;}
+.course-trainers-acc .tacc-head{display:flex;align-items:center;gap:14px;width:100%;padding:16px 20px;background:#f8fafc;border:0;cursor:pointer;text-align:left;font:inherit;}
+.course-trainers-acc .tacc-head:hover{background:#f1f5f9;}
+.course-trainers-acc .tacc-item.is-open .tacc-head{background:#eef2ff;}
+.course-trainers-acc .tacc-avatar{flex:0 0 auto;width:40px;height:40px;border-radius:50%;background:#2563eb;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;letter-spacing:.5px;}
+.course-trainers-acc .tacc-name{flex:1 1 auto;font-size:17px;font-weight:700;color:#0f172a;}
+.course-trainers-acc .tacc-chevron{flex:0 0 auto;width:12px;height:12px;border-right:2px solid #64748b;border-bottom:2px solid #64748b;transform:rotate(45deg);transition:transform .2s ease;margin-right:4px;}
+.course-trainers-acc .tacc-item.is-open .tacc-chevron{transform:rotate(-135deg);}
+.course-trainers-acc .tacc-body{display:none;padding:18px 22px 22px;line-height:1.7;color:#334155;}
+.course-trainers-acc .tacc-item.is-open .tacc-body{display:block;}
+.course-trainers-acc .tacc-body p{margin:0 0 12px;}
+</style>
 <h2><?php echo $this->__('Trainers') ?></h2>
-<div class="std course-trainers" id="trainers">
-    <div class="course-trainers__grid">
-    <?php foreach ($cards as $c): ?>
-        <article class="trainer-card">
-            <div class="trainer-card__head">
-                <div class="trainer-card__avatar" aria-hidden="true"><?php echo htmlspecialchars($initial($c['name']), ENT_QUOTES, 'UTF-8'); ?></div>
-                <div class="trainer-card__name"><?php echo htmlspecialchars($c['name'], ENT_QUOTES, 'UTF-8'); ?></div>
-            </div>
-            <div class="trainer-card__body">
+<div class="std course-trainers-acc" id="trainers">
+    <?php foreach ($final as $idx => $t): ?>
+        <?php $bio = $resolveBio($t['name'], $t['blob']); $open = ($idx === 0); ?>
+        <div class="tacc-item<?php echo $open ? ' is-open' : ''; ?>">
+            <button type="button" class="tacc-head" aria-expanded="<?php echo $open ? 'true' : 'false'; ?>">
+                <span class="tacc-avatar" aria-hidden="true"><?php echo htmlspecialchars($initial($t['name']), ENT_QUOTES, 'UTF-8'); ?></span>
+                <span class="tacc-name"><?php echo htmlspecialchars($t['name'], ENT_QUOTES, 'UTF-8'); ?></span>
+                <span class="tacc-chevron" aria-hidden="true"></span>
+            </button>
+            <div class="tacc-body">
                 <?php
-                $desc = trim((string)(isset($c['desc']) ? $c['desc'] : ''));
-                if ($desc === '') {
-                    // No bio in courses_trainers yet — keep the card so
-                    // the assigned trainer is still visible, with a
-                    // light placeholder line.
-                    echo '<p><em>' . $this->__('Profile coming soon.') . '</em></p>';
-                } elseif (preg_match('/<\w+/', $desc)) {
-                    // HTML markup present — render as-is (the admin
-                    // editor accepts rich HTML).
-                    echo $desc;
+                if ($bio['rich']) {
+                    echo $bio['html'];
+                } elseif (trim($bio['html']) !== '') {
+                    echo '<p>' . nl2br(htmlspecialchars($bio['html'], ENT_QUOTES, 'UTF-8')) . '</p>';
                 } else {
-                    // Plain text — wrap in <p> and preserve line breaks.
-                    echo '<p>' . nl2br(htmlspecialchars($desc, ENT_QUOTES, 'UTF-8')) . '</p>';
+                    echo '<p><em>' . $this->__('Profile coming soon.') . '</em></p>';
                 }
                 ?>
             </div>
-        </article>
+        </div>
     <?php endforeach; ?>
-    </div>
 </div>
+<script>
+(function () {
+    var root = document.getElementById('trainers');
+    if (!root || root.getAttribute('data-acc') === '1') { return; }
+    root.setAttribute('data-acc', '1');
+    root.addEventListener('click', function (e) {
+        var head = e.target.closest ? e.target.closest('.tacc-head') : null;
+        if (!head) { return; }
+        var item = head.parentNode;
+        var open = item.className.indexOf('is-open') !== -1;
+        item.className = open ? 'tacc-item' : 'tacc-item is-open';
+        head.setAttribute('aria-expanded', open ? 'false' : 'true');
+    });
+})();
+</script>

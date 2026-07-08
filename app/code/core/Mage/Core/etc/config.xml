@@ -306,6 +306,11 @@
                 <max_level>7</max_level>
                 <file>system.log</file>
                 <exception_file>exception.log</exception_file>
+                <!-- Required by app/Mage.php's log-file extension whitelist.
+                     Missing node = Mage::log() silently drops EVERY write
+                     (system.log/exception.log stay empty) — cost hours of blind
+                     debugging in the 2026-07-06 blank-admin incident. -->
+                <allowedFileExtensions>log,txt,html,csv</allowedFileExtensions>
             </log>
             <js>
                 <merge_files>0</merge_files>

@@ -119,6 +119,54 @@ Defaults to use unless there's a specific reason otherwise:
 
 Anti-pattern: wrapping every section in a `--d3` card with 16-20px padding "for visual separation". On a dense admin page this stacks into nested-panel mush. Stack tightly, separate with thin lines, use a card only when truly needed.
 
+## Page title — ONE framework rule for every page (do not whitelist classes)
+
+Every admin page has exactly one page title, and it renders **identically
+everywhere**: flush on the page surface (no gradient container), `18px / 700`,
+`var(--t1)`, with a `1px var(--b1)` hairline underline and `0 0 12px` padding /
+`0 0 16px` margin. This is the minimalist look — a title, a hairline, then the
+content. No `.dcf-mag-bar` gradient behind a page title (that bar is only for
+**section-card** headers inside forms like Edit Course's "General"/"Inventory").
+
+**The single source of truth** is one rule in
+`skin/adminhtml/default/default/admin-dashboard.css` ("Global page-title type
+ramp"). It is a **framework net, not a whitelist** — it matches the whole
+page-title family by shape so new pages need zero CSS:
+
+```css
+.admin-main h1[class*="-title"],                                   /* every h1 *-title = page title */
+.admin-main h2[class*="-title"]:not([class*="card"]):not([class*="modal"]), /* h2 page titles, minus card/modal sub-heads */
+.admin-main .content-header h3,                                    /* native Magento page titles */
+.admin-main .content-header h3.icon-head { font-size:18px !important; … hairline … }
+```
+
+Why this shape:
+- An `<h1 class="…-title">` is *always* a page title — the net covers
+  `.dash-title`, `.dev-page-title`, `.att-title`, `.trn-title`, … and any future
+  one automatically.
+- `<h2 class="…-title">` is usually a page title (`.rm-title`, `.lmc-title`,
+  `.seo-info-title`) **except** card/modal sub-headings (`.hsp-card-title`,
+  `.lp-modal-title`) — hence the two `:not()` guards.
+- `<h3 class="…-title">` is *never* a page title (they're card / section /
+  sidebar sub-heads: `.el-card-title`, `.dcf-section-title`,
+  `.dcf-edit-sidebar-title`, …) — deliberately NOT matched.
+- The auto-wrapped grid title (`.dcf-mag.mmd-auto-card > .dcf-mag-bar`) is
+  flattened to the same 18px flush treatment in `sidebar-nav.css` §25a.
+
+**Rules for new admin pages:**
+1. Emit the page title as `<h1 class="…-title">` (or `<h2>` if the class does
+   NOT contain `card`/`modal`). It inherits the canonical look with no new CSS.
+2. Never give a page title its own `font-size` — that recreates the drift this
+   rule exists to kill. Section/card/sub headings use §"Section headers" or the
+   h4/h5/h6 ramp, never a `*-title` page-title class.
+3. Do NOT re-add a competing 28px page-title rule anywhere (a duplicate 18px
+   block was already a dead-code landmine — keep exactly one source of truth).
+
+Incident: page titles had drifted across ~15 bespoke per-module classes
+(`.rm-title` at 24px, `.dash-title` at 28px, native `.content-header h3` at
+28px, …); a class *whitelist* kept missing new ones (e.g. `h2.rm-title` on
+Upcoming Classes stayed huge). The shape-based net above ended the whack-a-mole.
+
 ## Where things live
 
 | File | Role |
@@ -682,7 +730,13 @@ When a mass-action Submit kicks off a long-running operation (reindex, cache flu
 
 ## Grids, toolbars, badges
 
-- **Grids** (`.grid`, §14): dark card, `--b1` border, `border-radius`, compact rows (~`6–10px` cell padding), one entry per row, header in accent, alternating row shade. Let wide grids scroll horizontally — don't force `min-width` that clips columns.
+- **Grids** (`.grid`) — ONE global flat framework, `sidebar-nav.css` §26 (single source of truth). Every admin grid renders identically regardless of the Magento table class (`table.data` / `table.border`) or zebra markup:
+  - **Cells transparent** — no white/gray fill, NO alternating (zebra) row shade. §26 out-specifies the legacy `boxes.css` `!important` fills (`.grid table.border td { background:#fff }` at (0,2,2), `.grid tbody.odd/even tr` zebra) by leading every rule with `.admin-main .grid` + the same class(es), landing one class higher. Do NOT lower that specificity or a per-page override, and the legacy fills, will win back.
+  - **One type ramp** — cells `var(--font-sans)` 12px, `6px 10px` padding; headers `var(--font-sans)` 11px uppercase `--t4`, `letter-spacing:0.6px`, transparent (no `sort_row_bg.gif` sprite).
+  - **One record = one row** — `white-space:nowrap` on every grid `td`; wide grids scroll horizontally via the `.hor-scroll` wrapper (nothing is hidden). Don't force a `min-width` that clips columns.
+  - **Separation = one hairline** between rows (`tr + tr td { border-top: 1px var(--b1) }`), never a background. Hover = subtle `rgba(96,165,250,0.06)` wash on the row (no teal text, no zebra).
+  - New admin grid needs zero grid CSS — it inherits §26 automatically. Never re-add a card background, zebra, or per-grid font-size; that's the drift §26 exists to kill.
+- **Custom MMD tables** (dashboard registrations, learner/trainer lists, review lists, config tables) — `sidebar-nav.css` §27 applies the SAME spec as §26 so the WHOLE backend has one table look. It is a **framework net, not a whitelist**: MMD data tables all use the `*-table` naming convention, so §27 matches `.admin-main table[class*="-table"]` (+ the one odd `.cs-tbl`) — every current and future custom table (`dash-table`, `al-table`, `at-table`, `trn-table`, `dash-detail-table`, `mm-table`, …) inherits transparent cells, `var(--font-sans)` 12px, `6px 10px` padding, single-row, hairline separators, flat 11px uppercase headers, and flat (un-carded) `*-table-wrap` wrappers — automatically. §27 does NOT force cell text color, so `.mm-table` semantic modifiers (`td.muted`/`strong`/`status`) survive. Rule for new custom tables: name it `…-table`, give it a `thead`/`tbody`, and it just works — never set your own padding/font-size/header background. Incident: page after page of bespoke `*-table` CSS (11.5–13px fonts, 4–16px padding, header cards) read as different components until the net unified them.
 - **Mass-action / toolbar:** slim self-contained card, **detached** from the grid (own `margin-bottom` + full radius — don't fuse it to the grid header), single flat flex row, selection links left, Actions+Submit right with **no nested panel box**. Controls ~`30px` tall. The global rule is `sidebar-nav.css` §16; the trap is that Magento wraps Actions+Submit in a bare `<fieldset>` (no class) and the right `<td>` may contain `<form>` / nested `<div>`s that pick up `--d3` bg + 20px padding from the generic admin form rules, rendering as a doubled gray panel-in-a-panel. §16a flattens every `[id$="_massaction"] fieldset`, `.massaction fieldset`, `.massaction form`, `.massaction form > div` (transparent bg, no border, no padding). §16b strips the dark-pill background off `.massaction a` so Select All / Unselect All / Select Visible / Unselect Visible render as plain blue links — they're navigation, not buttons. §16c sets the selection-links `td` to `inline-flex; gap:14px;`. Wrapper padding stays tight at `6px 12px`. Pattern reference: the `body.adminhtml-cache-index` block at the end of `sidebar-nav.css`.
 - **Status badges:** one clean pill — `padding:3px 12px`, `border-radius:999px`, tinted bg at ~15% alpha + solid semantic text color, 1px tinted ring at ~35% alpha. Token map: `notice`/`minor` → `--green`, `major` → `--yellow`, `critical` → `--red`. The global rule lives at `dark-theme.css` §19. **Don't style only the outer `.grid-severity-*`** — Magento 1's legacy `boxes.css` applies the `bg_notifications.gif` sprite to the inner `<span>` at `background-position: 100%`, and the right edge of that sprite is a serrated/torn shape that leaks through as notched edges on the pill. §19a flattens the inner span first (`.grid-severity-* span`, `.cell-status`, `.cell-status span` → `background:none`, `padding:0`, `border:0`); §19b/§19c then style the pill on the outer. If you add a new severity class, extend §19a's selector list too — otherwise the sprite re-appears.
 - **KPI cards:** only where genuinely useful. The JS auto-injects them on grids via generic heuristics — opt a grid out (like `cache_grid_table`) when the labels would be wrong or the cards just add clutter.
@@ -925,3 +979,57 @@ or rewritten admin list/grid, verify:
    outcome and is forbidden.**
 
 Reference fix: [Block/Review/Grid.php](app/code/local/MMD/Adminhtml/Block/Review/Grid.php) `_prepareCollection` — calls `addStoreFilter()` because the core review grid only joins store data for display and never filters by `?store=`.
+
+## Icon-first actions with hover tooltips (global rule)
+
+**Iconise actions wherever a clear glyph exists** — text action links
+("Add Root Category", "Collapse All", "Export CSV", per-row Edit/Delete)
+become 26×26 `.mmd-iconbtn` ghost buttons. **Every icon-only action MUST
+carry a hover tooltip naming it** — no unlabeled mystery glyphs.
+
+Canonical implementation (all CSS in `dark-theme.css`, zero JS needed):
+
+```html
+<a class="mmd-iconbtn mmd-tip" data-tip="Add Root Category" aria-label="Add Root Category">
+  <svg width="14" height="14" …stroke icon…></svg>
+</a>
+```
+
+- `.mmd-tip` + `data-tip="Label"` renders a CSS-only tooltip pill
+  (dark `#0b0f17`, 1px `--b2` border, 11px text) below the element after a
+  250ms hover-intent delay; also shows on `:focus-visible`.
+- Add `.mmd-tip-left` when the element sits near the right viewport edge
+  (docked panels, right-aligned toolbars) so the pill opens leftward.
+- Always mirror `data-tip` into `aria-label` for screen readers.
+- To convert a container of existing text links wholesale, use the JS
+  helper `mmdIconiseLinks(container, {"Link Text": "<svg …>"}, tipLeft)`
+  in `sidebar-nav-v2.js` — idempotent, keeps the links' handlers, turns
+  the original text into the tooltip. Reference: the Manage Categories
+  docked tree panel (Add Root / Add Subcategory / Collapse All /
+  Expand All).
+
+When to KEEP a text button instead: the action is the page's primary task
+(Save / Add New at page level), the label is load-bearing with no
+universally-understood glyph, or the action is destructive and benefits
+from explicit wording. (Same promotion rules as the "icon > button for
+chrome-level actions" section above.)
+
+## Docked right panel (3-column shell) — Manage Categories pattern
+
+When a page needs a persistent picker/tree beside the edit form (Manage
+Categories is the reference), dock it as a fixed RIGHT panel that mirrors
+the left `.admin-sidebar` mechanics — never overlay the content and never
+let content flow under it:
+
+- Panel: `position: fixed; top:56px; right:0; bottom:0; width:300px`,
+  `--d2` bg, `1px var(--b1)` left border, own scroll
+  (`.cat-tree-panel` in `dark-theme.css`).
+- Shell reservation: `body.…-open .admin-main { padding-right: 320px }`
+  — MUST live in `sidebar-nav.css` (§30) which owns the shell rules and
+  loads last; a dark-theme.css copy loses the cascade (see the layout
+  cascade trap above).
+- Toggle: bare chevron glyph (chrome-icon pattern, all-`!important`)
+  pinned at the panel edge, rotating with state; persist open/closed in
+  localStorage; **default open**.
+- The panel's own header (e.g. "Categories") uses the 12px uppercase
+  section-label scale, not a page-title size.

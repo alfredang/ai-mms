@@ -383,12 +383,15 @@ Redirect 301 /project-management-sme-chinese.html https://www.tertiarycourses.co
     ## thin/duplicate filter & sort variants but keep "follow" so product
     ## links are still crawled. Covers the catalog toolbar params (p, limit,
     ## dir, order, mode) and layered-nav filters (cat, price, manufacturer,
-    ## level, progromming_language). Matches only when one of these params is
-    ## actually present, so the canonical flat URL (/<url-key>.html with no
-    ## query) stays fully indexable. These params are UNBLOCKED in robots.txt
-    ## so Googlebot can fetch the URL and read this header (a robots.txt
-    ## Disallow would keep them stuck in "Indexed, though blocked by robots.txt").
-    RewriteCond %{QUERY_STRING} (^|&)(p|limit|dir|order|mode|cat|price|manufacturer|level|progromming_language)=[^&]* [NC]
+    ## level, progromming_language) plus session/store-switch params (SID,
+    ## ___store, ___from_store — same page content as the canonical, or a
+    ## redirect, so noindex,follow is safe either way). Matches only when one
+    ## of these params is actually present, so the canonical flat URL
+    ## (/<url-key>.html with no query) stays fully indexable. These params are
+    ## UNBLOCKED in robots.txt so Googlebot can fetch the URL and read this
+    ## header (a robots.txt Disallow would keep them stuck in
+    ## "Indexed, though blocked by robots.txt").
+    RewriteCond %{QUERY_STRING} (^|&)(p|limit|dir|order|mode|cat|price|manufacturer|level|progromming_language|SID|___store|___from_store)=[^&]* [NC]
     RewriteRule ^ - [E=noindex_follow_url:1]
 
     RewriteCond %{REQUEST_URI} !^/(media|skin|js)/
@@ -454,9 +457,10 @@ ExpiresByType application/json "access plus 0 seconds"
 ## `immutable` told browsers to never revalidate for a YEAR, so every
 ## CSS/JS change was invisible to returning visitors until cache expiry
 ## — on prod as well as local. They now use `must-revalidate` with
-## max-age=0: the browser still gets a fast 304 (via ETag/Last-Modified)
-## when nothing changed, but picks up edits immediately on the next
-## request. The merged bundles under media/css|js/ are hash-named, so
+## a short max-age=600: repeat views within 10 minutes skip the ~56
+## conditional 304 round-trips entirely, and a shipped CSS/JS edit
+## still reaches returning visitors within 10 minutes (perf audit
+## 2026-07-02; was max-age=0 = 56 revalidation RTTs per repeat view). The merged bundles under media/css|js/ are hash-named, so
 ## a content change yields a new URL anyway — no immutable needed.
 ##
 ## Truly-static fonts/images don't share this problem (a visual change
@@ -467,7 +471,7 @@ ExpiresByType application/json "access plus 0 seconds"
         Header set Cache-Control "public, max-age=31536000, immutable"
     </FilesMatch>
     <FilesMatch "\.(css|js)$">
-        Header set Cache-Control "public, max-age=0, must-revalidate"
+        Header set Cache-Control "public, max-age=600, must-revalidate"
     </FilesMatch>
     <FilesMatch "\.(html?|json)$">
         Header set Cache-Control "no-cache, must-revalidate"

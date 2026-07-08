@@ -70,6 +70,54 @@ class MMD_Marketing_Helper_Mailerlite extends Mage_Core_Helper_Abstract
     }
 
     /**
+     * Record today's active subscriber count for SG (and MY) into the snapshot
+     * table so the dashboard can chart GROWTH — the MailerLite API only ever
+     * returns the CURRENT count, never history. Idempotent per day (UNIQUE key on
+     * snap_date+group_id), so it is safe to call on every dashboard load.
+     */
+    public function snapshotSubscribers()
+    {
+        if (!$this->isConfigured()) { return; }
+        try {
+            $res  = Mage::getSingleton('core/resource');
+            $conn = $res->getConnection('core_write');
+            $tbl  = $res->getTableName('mmd_marketing_subscriber_snapshot');
+            $today = date('Y-m-d');
+            foreach (array(self::GROUP_ID_SG, self::GROUP_ID_MY) as $gid) {
+                $count = $this->getGroupSubscriberCount($gid);
+                if ($count === null) { continue; }
+                $conn->query(
+                    'INSERT INTO ' . $tbl . ' (snap_date, group_id, active_count) VALUES (?,?,?)'
+                  . ' ON DUPLICATE KEY UPDATE active_count = VALUES(active_count)',
+                    array($today, (string) $gid, (int) $count)
+                );
+            }
+        } catch (Exception $e) { /* snapshot is best-effort */ }
+    }
+
+    /**
+     * Daily active-subscriber series for a group over the last $days days,
+     * oldest→newest: [['date'=>'Y-m-d','count'=>int], ...]. Drives the growth chart.
+     */
+    public function getSubscriberSnapshots($groupId = null, $days = 30)
+    {
+        $groupId = $groupId ?: self::GROUP_ID_SG;
+        try {
+            $res  = Mage::getSingleton('core/resource');
+            $conn = $res->getConnection('core_read');
+            $tbl  = $res->getTableName('mmd_marketing_subscriber_snapshot');
+            $rows = $conn->fetchAll(
+                'SELECT snap_date, active_count FROM ' . $tbl
+              . ' WHERE group_id = ? AND snap_date >= ? ORDER BY snap_date ASC',
+                array((string) $groupId, date('Y-m-d', strtotime('-' . (int) $days . ' days')))
+            );
+        } catch (Exception $e) { return array(); }
+        $out = array();
+        foreach ($rows as $r) { $out[] = array('date' => $r['snap_date'], 'count' => (int) $r['active_count']); }
+        return $out;
+    }
+
+    /**
      * Number of campaigns with status "sent" delivered in the last 30 days.
      *
      * @return int|null
@@ -141,6 +189,71 @@ class MMD_Marketing_Helper_Mailerlite extends Mage_Core_Helper_Abstract
             }
         }
         return $best;
+    }
+
+    /** Recent sent campaigns with performance stats (opens, clicks, rates). */
+    public function getSentCampaigns($limit = 6)
+    {
+        $data = $this->_getCached('camp_sent_stats', function () {
+            return $this->_getJson('/campaigns?filter[status]=sent&limit=25');
+        });
+        if (!is_array($data) || empty($data['data'])) { return array(); }
+        $out = array();
+        foreach ($data['data'] as $c) {
+            $s = isset($c['stats']) && is_array($c['stats']) ? $c['stats'] : array();
+            $sent   = isset($s['sent']) ? (int) $s['sent'] : 0;
+            $opens  = isset($s['opens_count'])  ? (int) $s['opens_count']  : (isset($s['unique_opens_count'])  ? (int) $s['unique_opens_count']  : 0);
+            $clicks = isset($s['clicks_count']) ? (int) $s['clicks_count'] : (isset($s['unique_clicks_count']) ? (int) $s['unique_clicks_count'] : 0);
+            // MailerLite returns *_rate.float as a fraction (0..1); show as %.
+            $openR  = isset($s['open_rate']['float'])  ? (float) $s['open_rate']['float']  * 100 : ($sent ? $opens  / $sent * 100 : 0);
+            $clickR = isset($s['click_rate']['float']) ? (float) $s['click_rate']['float'] * 100 : ($sent ? $clicks / $sent * 100 : 0);
+            $out[] = array(
+                'name'       => (string) (isset($c['name']) ? $c['name'] : ''),
+                'sent_at'    => (string) (isset($c['finished_at']) ? $c['finished_at'] : (isset($c['created_at']) ? $c['created_at'] : '')),
+                'recipients' => $sent,
+                'opens'      => $opens,
+                'clicks'     => $clicks,
+                'open_rate'  => round($openR, 1),
+                'click_rate' => round($clickR, 1),
+            );
+            if (count($out) >= $limit) { break; }
+        }
+        return $out;
+    }
+
+    /** Upcoming scheduled ("ready") campaigns. */
+    public function getScheduledCampaigns()
+    {
+        $data = $this->_getCached('camp_scheduled', function () {
+            return $this->_getJson('/campaigns?filter[status]=ready&limit=25');
+        });
+        if (!is_array($data) || empty($data['data'])) { return array(); }
+        $out = array();
+        foreach ($data['data'] as $c) {
+            $out[] = array(
+                'name'          => (string) (isset($c['name']) ? $c['name'] : ''),
+                'scheduled_for' => (string) (isset($c['scheduled_for']) ? $c['scheduled_for'] : ''),
+                'subject'       => (string) (isset($c['emails'][0]['subject']) ? $c['emails'][0]['subject'] : ''),
+            );
+        }
+        return $out;
+    }
+
+    /** Top-line marketing performance for the dashboard header tiles. */
+    public function getPerformanceSummary()
+    {
+        $camps = $this->getSentCampaigns(50);
+        $n = count($camps); $orSum = 0; $crSum = 0; $reached = 0;
+        foreach ($camps as $c) { $orSum += $c['open_rate']; $crSum += $c['click_rate']; $reached += $c['recipients']; }
+        return array(
+            'subscribers_sg' => $this->getSubscribersSG(),
+            'subscribers_my' => $this->getSubscribersMY(),
+            'campaigns_30d'  => $this->getCampaignsSentLast30Days(),
+            'scheduled'      => count($this->getScheduledCampaigns()),
+            'avg_open_rate'  => $n ? round($orSum / $n, 1) : 0,
+            'avg_click_rate' => $n ? round($crSum / $n, 1) : 0,
+            'total_reached'  => $reached,
+        );
     }
 
     // ---------- internal ----------
@@ -216,5 +329,147 @@ class MMD_Marketing_Helper_Mailerlite extends Mage_Core_Helper_Abstract
             $cache->save(serialize($val), $fullKey, array(self::CACHE_TAG), self::CACHE_TTL);
         }
         return $val;
+    }
+
+    /** POST/PUT JSON to the MailerLite API. Returns decoded array or throws. */
+    protected function _send($method, $path, array $body)
+    {
+        $key = $this->_getKey();
+        if ($key === '') { throw new Exception('MailerLite key not configured'); }
+        $ch = curl_init(self::API_BASE . $path);
+        curl_setopt_array($ch, array(
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CUSTOMREQUEST  => $method,
+            CURLOPT_POSTFIELDS     => json_encode($body),
+            CURLOPT_TIMEOUT        => 20,
+            CURLOPT_HTTPHEADER     => array(
+                'Authorization: Bearer ' . $key,
+                'Content-Type: application/json',
+                'Accept: application/json',
+            ),
+        ));
+        $raw  = curl_exec($ch);
+        $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        @file_put_contents(Mage::getBaseDir('var') . '/log/mailerlite.log',
+            '[' . date('Y-m-d H:i:s') . "] {$method} {$path} http={$code} body=" . substr((string) $raw, 0, 500) . "\n", FILE_APPEND);
+        $data = json_decode((string) $raw, true);
+        if ($code < 200 || $code >= 300) {
+            throw new Exception('MailerLite ' . $method . ' ' . $path . ' HTTP ' . $code
+                . ': ' . (isset($data['message']) ? $data['message'] : substr((string) $raw, 0, 200)));
+        }
+        return is_array($data) ? $data : array();
+    }
+
+    /**
+     * Wrap a flyer HTML fragment into a complete, MailerLite-valid email document.
+     * MailerLite silently blanks campaign content that is not a full <html> document
+     * OR that lacks an unsubscribe link — so both are mandatory here. The {$unsubscribe}
+     * placeholder + business identity are what stop MailerLite from rejecting the body.
+     */
+    protected function _wrapEmailHtml($subject, $fragment)
+    {
+        $unsub = '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eef2f7;">'
+            . '<tr><td align="center" style="padding:18px 14px;font:400 11px -apple-system,Segoe UI,Arial,sans-serif;color:#8593ad;line-height:1.6;">'
+            . 'Tertiary Infotech Academy Pte Ltd · 1 Commonwealth Lane #08-22, Singapore 149544<br>'
+            . 'You are receiving this because you subscribed to Tertiary Courses updates.<br>'
+            . '<a href="{$unsubscribe}" style="color:#2563eb;">Unsubscribe</a>'
+            . '</td></tr></table>';
+        // HARD RULE (admin, 2026-07-04): every flyer design carries its own
+        // {$unsubscribe} footer (Helper_Flyer::render()); append the fallback only
+        // when it's missing so the sent email never shows two footers — and never
+        // zero. Refuse outright if the final document still lacks the tag.
+        $hasUnsub = strpos((string) $fragment, '{$unsubscribe}') !== false;
+        $doc = '<!doctype html><html><head><meta charset="utf-8">'
+            . '<meta name="viewport" content="width=device-width,initial-scale=1">'
+            . '<title>' . htmlspecialchars((string) $subject, ENT_QUOTES, 'UTF-8') . '</title></head>'
+            . '<body style="margin:0;padding:0;background:#eef2f7;">' . $fragment . ($hasUnsub ? '' : $unsub) . '</body></html>';
+        if (strpos($doc, '{$unsubscribe}') === false) {
+            throw new Exception('HARD RULE violated: flyer email has no MailerLite {$unsubscribe} link - refusing to create the campaign.');
+        }
+        return $doc;
+    }
+
+    /**
+     * Create a MailerLite DRAFT campaign for $groupId with the flyer HTML, and return
+     * its id. Does NOT schedule or send — safe to call for verification. The HTML is
+     * set in TWO steps because the Connect API ignores emails[].content on create for
+     * HTML campaigns: create the shell, then PUT the content explicitly.
+     * NOTE: setting HTML content via API requires the MailerLite account to be on the
+     * Advanced plan; on lower plans the body stays empty. verifyContent() detects this.
+     */
+    public function createDraft($subject, $html, $groupId = null)
+    {
+        $groupId  = $groupId ?: self::GROUP_ID_SG;
+        $cfg      = Mage::helper('mmd_rolemanager')->getMarketingApiConfig();
+        $fromName = $cfg['from_name']  ?: 'Tertiary Courses';
+        $fromMail = $cfg['from_email'] ?: 'noreply@tertiaryinfotech.com';
+        $doc      = $this->_wrapEmailHtml($subject, $html);
+        $email    = array('subject' => $subject, 'from_name' => $fromName, 'from' => $fromMail, 'content' => $doc);
+
+        $create = $this->_send('POST', '/campaigns', array(
+            'name'   => $subject,
+            'type'   => 'regular',
+            'groups' => array((string) $groupId),
+            'emails' => array($email),
+        ));
+        $id = isset($create['data']['id']) ? (string) $create['data']['id'] : '';
+        if ($id === '') { throw new Exception('MailerLite create returned no campaign id'); }
+
+        // Explicit content set — the step the create silently drops for HTML bodies.
+        $this->_send('PUT', '/campaigns/' . rawurlencode($id), array(
+            'name'   => $subject,
+            'emails' => array($email),
+        ));
+        return $id;
+    }
+
+    /** Fetch a campaign back (used to verify content actually stored). */
+    public function getCampaign($id)
+    {
+        return $this->_getJson('/campaigns/' . rawurlencode($id));
+    }
+
+    /** Delete a campaign (cleanup after a verification draft). */
+    public function deleteCampaign($id)
+    {
+        return $this->_send('DELETE', '/campaigns/' . rawurlencode($id), array());
+    }
+
+    /**
+     * Create a throwaway draft, read it back, confirm the HTML body actually stored,
+     * then delete it. Returns [ok, message] — the safe pre-flight before a real blast.
+     * Never schedules or sends.
+     */
+    public function verifyContent($subject, $html, $groupId = null)
+    {
+        $id = $this->createDraft($subject, $html, $groupId);
+        $back = $this->getCampaign($id);
+        $stored = isset($back['data']['emails'][0]['content']) ? (string) $back['data']['emails'][0]['content'] : '';
+        $screenshot = isset($back['data']['emails'][0]['screenshot_url']) ? (string) $back['data']['emails'][0]['screenshot_url'] : '';
+        $ok = (strlen($stored) > 500) || ($screenshot !== '');
+        try { $this->deleteCampaign($id); } catch (Exception $e) { /* leave the draft if delete fails */ }
+        return array($ok, $ok
+            ? 'Content stored OK (' . strlen($stored) . ' bytes).'
+            : 'Body did NOT store — the MailerLite account likely is not on the Advanced plan (HTML-via-API needs it).');
+    }
+
+    /**
+     * Create a campaign for the SG group and schedule it for $sendAt (a local
+     * Asia/Singapore DateTime). Returns the MailerLite campaign id.
+     */
+    public function createAndSchedule($subject, $html, DateTime $sendAt, $groupId = null)
+    {
+        $id = $this->createDraft($subject, $html, $groupId);
+        // Schedule: MailerLite takes date/hours/minutes in the account timezone.
+        $this->_send('POST', '/campaigns/' . rawurlencode($id) . '/schedule', array(
+            'delivery' => 'scheduled',
+            'schedule' => array(
+                'date'    => $sendAt->format('Y-m-d'),
+                'hours'   => $sendAt->format('H'),
+                'minutes' => $sendAt->format('i'),
+            ),
+        ));
+        return $id;
     }
 }

@@ -10,7 +10,13 @@ class MMD_Hiring_Block_Adminhtml_Hiringlead_Grid extends Mage_Adminhtml_Block_Wi
         $this->addColumn('name', array('header'=>$h->__('Name'),'index'=>'name'));
         $this->addColumn('email', array('header'=>$h->__('Email'),'index'=>'email'));
         $this->addColumn('telephone', array('header'=>$h->__('Phone'),'index'=>'telephone'));
-        $this->addColumn('position', array('header'=>$h->__('Position'),'index'=>'position'));
+        $this->addColumn('roles', array('header'=>$h->__('Role'),'index'=>'roles'));
+        $this->addColumn('nationality', array('header'=>$h->__('Nationality'),'index'=>'nationality','width'=>110));
+        $this->addColumn('race', array('header'=>$h->__('Race'),'index'=>'race','width'=>80));
+        $this->addColumn('gender', array('header'=>$h->__('Gender'),'index'=>'gender','width'=>80));
+        $this->addColumn('highest_qualification', array('header'=>$h->__('Qualification'),'index'=>'highest_qualification','width'=>150));
+        $this->addColumn('marital_status', array('header'=>$h->__('Marital'),'index'=>'marital_status','width'=>80));
+        $this->addColumn('age_range', array('header'=>$h->__('Age'),'index'=>'age_range','width'=>80));
         $this->addColumn('years_experience', array('header'=>$h->__('Years Exp.'),'index'=>'years_experience','width'=>80));
         $this->addColumn('expertise', array('header'=>$h->__('Expertise'),'index'=>'expertise'));
         $this->addColumn('linkedin', array('header'=>$h->__('LinkedIn/Resume'),'index'=>'linkedin'));

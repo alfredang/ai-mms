@@ -42,13 +42,24 @@ OpenMage 1.x (Magento 1 LTS v20.12.3) customized as a Course Registration + LMS 
 
 - **All products are courses** (instructor-led trainings, workshops, certifications). There is **no physical inventory and no shipping**. Stock, weight, dimensions, shipping methods, tracking numbers, and similar Magento concepts do not apply — if a feature surfaces them, hide / disable / repurpose them rather than wiring them up.
 - **All deliveries are virtual or classroom-based** (in-person classroom, live online, or hybrid). The "shopping" flow is really a course-registration flow; prefer renaming labels to match (e.g. "Order" → "Registration", "Customer" → "Learner") rather than fighting the underlying schema.
-- **Multi-country operation** with one Magento install and one shared course catalog. Each country is a Magento website / store view with its own domain, currency, language defaults, and pricing:
-  - 🇸🇬 Singapore — `tertiarycourses.com.sg` (default website)
-  - 🇲🇾 Malaysia — `tertiarycourses.com.my`
-  - 🇳🇬 Nigeria — `tertiarycourses.com.ng`
-  - 🇬🇭 Ghana — `tertiarycourses.com.gh`
-  - 🇧🇹 Bhutan — `tertiarycourses.bt`
-  - 🇮🇳 India — `tertiarycourses.co.in`
+- **Franchise model — one store per website (2026-07 change; supersedes the old
+  "one install, six store views" model).** Each franchise **partner hosts their own
+  server + DB** for their own website, and the **same codebase** (this repo) is deployed
+  to each. Every deployed site serves **exactly one store** — no Magento multi-website /
+  multi-store-view fan-out on a single install, no shared cross-country catalog, and
+  **no cross-site redirects** (a partner domain must never 301 to another partner's
+  domain). Treat each site as fully standalone. Active partner sites:
+  - 🇸🇬 Singapore — `www.tertiarycourses.com.sg`
+  - 🇲🇾 Malaysia — `www.tertiarycourses.com.my`
+  - 🇬🇭 Ghana — `www.tertiarycourses.com.gh`
+  - **Retired — these stores no longer exist:** Nigeria (`com.ng`), India (`co.in`),
+    Bhutan (`tertiarycourses.bt`), and the **Infotech** store (`tertiaryinfotech.edu.sg`).
+    Only SG, MY, GH remain. Legacy multi-store features — the admin Store View bar /
+    `MMD_Branchscope` switcher, cross-store hreflang + per-host sitemaps — assumed one
+    install serving many hosts and are now obsolete / per-site only; revisit before
+    relying on them. Country-safe migration guards matter MORE (same migrations run on
+    every partner server, whose schemas may have diverged). See memory
+    `project_franchise_one_store_per_site`.
 - **No shipping cost, ever.** Shipping is disabled across all stores and there is no shipping line on any quote, order, invoice, or email template. If you see code that adds, calculates, or displays shipping_amount / shipping_method / shipping_tax_amount, treat it as legacy noise — leave it at zero or remove the surfacing.
 - **GST is non-standard for Singapore** and intentionally diverges from Magento's tax engine. SG GST is calculated on the **original course list price** (the catalog price before any discount), **not** the discounted subtotal and **not** any custom-option adjustments. Don't "fix" this to match Magento's stock behavior — the override is deliberate so funded learners (SkillsFuture / WSQ subsidies discount the fee but GST still settles on the pre-subsidy amount as the tax authority expects). Other countries (MY/NG/GH/BT/IN) use their own logic per their tax regimes.
 - **Country-specific funding hooks** matter for marketing & checkout: SG SkillsFuture / WSQ / IBF, MY HRDC. Don't strip these references when refactoring storefront templates.
@@ -139,7 +150,7 @@ Before `git push`:
 3. **Hit the affected route via HTTP** and confirm no fatal:
    ```bash
    curl -sS -o /tmp/p.html -w "HTTP=%{http_code}\n" -L \
-       'http://localhost:8080/tigerdragon/<route>'
+       'http://localhost:8080/adminlogin/<route>'
    grep -c "Fatal error\|Uncaught" /tmp/p.html   # must print 0
    ```
 
@@ -169,8 +180,8 @@ Before `git push`:
      see memory `feedback_migration_applyphp_utf8_outage`.)
    - **Search-term redirect migrations specifically** (`catalogsearch_query.redirect`):
      restore/remap is data-only, never code. Validate every target returns
-     200/302 on **its own store domain** (SG→com.sg, MY→com.my, GH→com.gh,
-     BT→tertiarycourses.bt) before shipping — a target that 404s or 301-chains
+     200/302 on **its own store domain** (SG→com.sg, MY→com.my, GH→com.gh)
+     before shipping — a target that 404s or 301-chains
      re-introduces the dead-ends. Prefer **product page > flat category page >
      empty** (let Magento search); skip homepage bounces. **Only fill
      `redirect IS NULL/''`** — never overwrite an existing intentional
@@ -190,10 +201,10 @@ docker-compose up -d
 
 # Local access
 # Frontend: http://localhost:8080
-# Admin:    http://localhost:8080/<frontName>/  (frontName is in app/etc/local.xml — currently "tigerdragon")
+# Admin:    http://localhost:8080/<frontName>/  (frontName is in app/etc/local.xml — currently "adminlogin")
 
 # Production
-# Admin: https://www.tertiaryinfotech.edu.sg/tigerdragon/  (also reachable at https://ai-mms.tertiaryinfo.tech/tigerdragon/)
+# Admin: each site serves its own admin at <its-domain>/adminlogin/ (e.g. https://www.tertiarycourses.com.sg/adminlogin/). The old tertiaryinfotech.edu.sg store is retired.
 # Build timestamp: /version.txt
 # Migration status (public, counts only): /media/migrations-status.json
 
@@ -225,7 +236,7 @@ composer phpunit:test
 | **BankPayment** | Bank transfer payment method with configurable accounts. |
 | **CustomOptions** | Enhanced product options with SKU policies (multi-version upgrades). |
 | **Enhancedsalesgrid** | Admin sales grid filters and rendering enhancements. |
-| **FlatCategoryUrl** | **HARD RULE — category URLs are always flat.** Class-rewrite of `Mage_Catalog_Model_Url::getCategoryRequestPath` that strips the parent path so every category resolves at `/<url_key>.html`, never `/parent/grandparent/<url_key>.html`. Applies to ALL categories in ALL 6 country stores. Do NOT disable this module, do NOT add code that prepends parent paths, do NOT "fix" it back to stock behavior — the long deep paths are explicitly unwanted (SEO + UX decision). After deploy, `Catalog URL Rewrites` + `Category Flat Data` indexers must run for the change to take effect on existing data. Collision handling for sibling url_keys is delegated to stock `getUnusedPathByUrlKey` (auto `-1`/`-2`). |
+| **FlatCategoryUrl** | **HARD RULE — category URLs are always flat.** Class-rewrite of `Mage_Catalog_Model_Url::getCategoryRequestPath` that strips the parent path so every category resolves at `/<url_key>.html`, never `/parent/grandparent/<url_key>.html`. Do NOT disable this module, do NOT add code that prepends parent paths, do NOT "fix" it back to stock behavior — the long deep paths are explicitly unwanted (SEO + UX decision). Applies to every category on the site (each partner site — SG/MY/GH — runs the same code with one store). After deploy, `Catalog URL Rewrites` + `Category Flat Data` indexers must run for the change to take effect on existing data. Collision handling for sibling url_keys is delegated to stock `getUnusedPathByUrlKey` (auto `-1`/`-2`). |
 | **CourseImage** | AI cover-image renderer + funding-badge tags. The cover dialog's badge checkboxes drive both the rendered PNG **and** Magento tag writes (`syncProductTags`), so the storefront chips and the cover are guaranteed to match. Storefront catalog list / product view read `getProductBadges()` (filtered to the 9 canonical names) and render colored pills under the course title. Canonical vocabulary: `WSQ, SkillsFuture Credit, PSEA, UTAP, IBF, HRDF, SFEC, Absentee Payroll, MCES` — defined in `Helper/Data.php::getAllBadges()`. CSS palette in `skin/frontend/ultimo/default/css/custom.css` keyed off `getBadgeCssClass()`. Adding a new badge means: append to `getAllBadges()`, add CSS class, seed a `tag` row. |
 
 ### RoleManager Flow
@@ -248,7 +259,7 @@ Current state: all roles temporarily inherit the "Administrators" ACL group (ful
 
 **MANDATORY: every admin page must follow the `backend-design` skill.** When building or modifying any adminhtml UI — new modules, dashboards, grids, modals, buttons, badges, pagers — load the `backend-design` skill first and align to its design tokens (color palette, button styles, grid density, badge shapes, pagination treatment). The skill encodes the visual conventions of this dark admin theme; ignoring it produces pages that look like third-party Magento modules instead of part of the LMS. This applies even for tiny additions like a new pagination strip or a single button — small components that drift quickly turn into visual noise across screens. If a design decision isn't covered by the skill, propose the addition there first rather than ad-libbing.
 
-**Store View bar = `.dcf-store-switcher` (canonical, no duplicates).** Every store-scoped admin page must surface the same Store View bar (six country pills SG/MY/GH/NG/BT/IN with code badge, `Scope` link on the right, cyan-tinted active state) that the Edit Course page uses. The global `MMD_Branchscope_Block_Store_Switcher` injects it automatically — do NOT re-implement it inline. CSS lives in `skin/adminhtml/default/default/admin-dashboard.css` under "Global Store View bar"; markup contract + role gating live in the `backend-design` skill ("Store View bar" section). If a route already renders an inline bar (Edit Course preserves `course_id`/`mode`/`dev_back` across switches), add a suppression branch in `Switcher.php::_toHtml()` for that route so the global one doesn't double up.
+**Store View bar (LEGACY — one store per site now).** Under the franchise model each site has a single store, so there is nothing to switch between; the `.dcf-store-switcher` / `MMD_Branchscope_Block_Store_Switcher` six-country pill bar (SG/MY/GH/NG/BT/IN) is legacy from the old multi-store install. Don't build new UI that depends on it; if it still renders, it should show only the one active store. The old contract: CSS lives in `skin/adminhtml/default/default/admin-dashboard.css` under "Global Store View bar"; markup contract + role gating live in the `backend-design` skill ("Store View bar" section). If a route already renders an inline bar (Edit Course preserves `course_id`/`mode`/`dev_back` across switches), add a suppression branch in `Switcher.php::_toHtml()` for that route so the global one doesn't double up.
 
 - Dark theme: `skin/adminhtml/default/default/dark-theme.css`
 - Role Management grid + modal: `app/design/adminhtml/default/default/template/rolemanager/management.phtml` (styles are inline; iterates roles by `getAllRoles()` order — edit `_roleLabels` in Helper/Data.php to reorder everywhere)
@@ -357,9 +368,9 @@ never repeat.**
 | **openmage-module-developer** | Scaffolding a new MMD module — controllers, models, observers, class rewrites, migrations. |
 | **openmage-frontend-developer** | Customer-facing storefront work — Ultimo theme, layout XML, phtml, Prototype/jQuery, hreflang. |
 | **backend-design** | Styling or reviewing any adminhtml UI — design tokens, buttons, grids, toolbars, badges. Use to keep the dark admin theme visually consistent. |
-| **seo-audit** | Multi-country (SG/MY/GH/NG) SEO audit — hreflang, indexability, Core Web Vitals, schema for course pages. |
+| **seo-audit** | Per-site SEO audit (SG / MY / GH — each a standalone site) — indexability, Core Web Vitals, schema for course pages. |
 | **lead-magnets** | Planning lead-magnet content for course sales — SkillsFuture/HRDC hooks, course syllabus PDFs, trial classes. |
-| **add-country-store** | Wiring a new country domain to its Magento store view — .htaccess block, base_url migration, Coolify + DNS handoff, all in the SG/MY/GH/NG/BT/IN shape. |
+| **add-country-store** | Onboarding a new franchise partner — stand up their own server + DB, deploy this codebase, set base_url + currency/locale, Coolify + DNS handoff (one store per site). |
 | **mysql** | Schema design, indexing, query tuning, migrations, transactions. |
 | **web-accessibility** | Building / reviewing UI for a11y — WCAG 2.1, ARIA, contrast, keyboard nav. |
 | **find-skills** | Discovering and installing new skills via `npx skills find [query]`. |

@@ -19,28 +19,47 @@
 
 ![Screenshot](screenshot.png)
 
+## Admin Guide
+
+Step-by-step, screenshot-driven guides for running the LMS from the admin
+panel — see **[docs/admin-guide/](docs/admin-guide/)**:
+
+- [Admin guide index](docs/admin-guide/README.md) — logging in, managing the store
+- [Changing a course fee](docs/admin-guide/changing-course-fees.md)
+- [Changing the currency conversion rate](docs/admin-guide/changing-currency-conversion.md)
+
 ## About
 
 **Tertiary Courses LMS** is a complete, production-grade course-registration and learning-management platform built on OpenMage 1.x (Magento 1 LTS) and customised for **Tertiary Infotech Academy**. Every product is a *course* (instructor-led trainings, workshops, certifications) — there is no physical inventory or shipping. The storefront *is* the course-registration portal, and the admin panel is rebranded as a Training Management System for instructors and operations staff.
 
 This system runs as a **franchise model**:
 
-- 📚 **Courseware is supplied and supported by Tertiary Courses Singapore.** Franchisees plug into a shared, ready-made catalogue of WSQ / IBF / SkillsFuture-aligned courses — they don't have to author content from scratch.
-- 🛠️ **We set up and operate the LMS on the franchisee's own server.** Each franchisee gets their own country store (domain, currency, language, pricing, funding hooks) on a single shared install, deployed and maintained for them.
-- 🌏 **One install, many countries.** The platform already powers five country stores, each with its own domain and funding rules.
+- 📚 **Courseware is supplied and supported by Tertiary Courses Singapore.** Franchisees plug into a ready-made catalogue of WSQ / IBF / SkillsFuture-aligned courses — they don't have to author content from scratch.
+- 🛠️ **Each franchise partner hosts their own server.** The **same codebase** (this repo) is deployed to every partner's own server + database — **one store per website**, fully independent (own domain, currency, language, pricing, funding hooks). No shared multi-store install, no shared catalogue, no cross-site redirects.
+- 🌏 **Live partner sites:** 🇸🇬 `tertiarycourses.com.sg` · 🇲🇾 `tertiarycourses.com.my` · 🇬🇭 `tertiarycourses.com.gh`.
+
+> ### 🤝 Become a franchise partner
+> Want to run an AI-powered future-tech training academy in your country — with a ready-made WSQ / IBF / SkillsFuture-aligned catalogue and this LMS set up on your own server?
+> **[👉 Apply to become a franchise partner](https://www.tertiarycourses.com.sg/franchising-application.html)** — fill in the application form on the website and our team will be in touch.
 
 ### Key Features
 
 | Feature | Description |
 |---------|-------------|
 | 🎓 **Course = Product** | Catalogue of instructor-led / live-online / hybrid courses — no stock, weight, or shipping. |
-| 🌐 **Multi-country franchise** | One install → five country stores (SG, MY, NG, GH, IN), each with its own domain, currency, language and pricing. |
+| 🌐 **Franchise model** | Same codebase deployed to each partner's own server — **one store per website** (SG, MY, GH), each fully independent (own domain, currency, language, pricing). |
 | 💰 **Funding & subsidy hooks** | SG SkillsFuture Credit / WSQ / IBF, MY HRDC — funding tiers (Baseline, MCES) auto-calculated. |
 | 🧾 **Pro Forma Invoices** | On-demand, self-sponsored SkillsFuture-claim pro formas with GST settled on the pre-subsidy list price. |
 | 🏫 **Automatic class formation** | Orders materialise into classes & rosters out-of-band via cron — the storefront HTTP path stays untouched. |
 | 👥 **Six-role admin** | Learner / Trainer / Developer / Marketing / Admin / Training Provider with session-based role switching. |
+| 🎒 **Learner login** | Dedicated `/learnerlogin` page on every site — learners sign in with their storefront email + password and land straight on the learner dashboard (no role selection); staff keep using the admin portal. |
+| 🔁 **SG → partner course sync** | Manual-only, one-way export of non-WSQ (C-prefix) courses to MY/GH — bulk "Sync All" or per-course "Sync One" from the partner admin. Partner-owned course fees, schedules and trainer info are never overwritten on update. |
+| 🌏 **Franchise Report** | Super Admin sidebar page showing confirmed + completed classes pulled from the MY/GH partner sites (class code, course, dates, trainer, attendance-marked learners) with date/title/search filters. Auto-pull every Sunday 10am + on-demand Pull Now. |
+| 🛡️ **Deploy safety guards** | `apply.php` gives every migration an explicit `@mms_instance` identity, enforces the one-store-per-site topology invariant (a corrupting migration fails the deploy), and a daily 2AM maintenance cron publishes `/media/health.json`. |
 | 🎟️ **Payments** | Stripe, HitPay, PayNow and bank transfer. |
 | 📜 **Certificates & attendance** | E-attendance and certificate-of-achievement generation. |
+| 📣 **Autonomous newsletter** | SG-only agentic-flyer pipeline: designs a course flyer Mon & Thu 10am → both-manager approval (email **or** admin) → MailerLite blast Mon & Thu 8am. Hard cap **2 flyers/week**; nothing sends without approval. |
+| ✍️ **Lead-magnet blog** | `/blog` with slug URLs, SEO meta + Article JSON-LD, Magento-tag reuse, star ratings, social share, R2 hero images. Every post funnels readers to course sign-up with the WSQ funding / SkillsFuture Credit hook. Monday 9am cron auto-writes a post (Claude) for the top unblogged course, auto-publishes, and shares it on LinkedIn. |
 | 🎨 **Ultimo storefront** | Premium responsive theme + a custom dark admin theme. |
 
 ## Tech Stack
@@ -61,8 +80,9 @@ This system runs as a **franchise model**:
 ## Architecture
 
 ```
-                          COUNTRY STORES (one install, five domains)
-        🇸🇬 com.sg   🇲🇾 com.my   🇳🇬 com.ng   🇬🇭 com.gh   🇮🇳 co.in
+        FRANCHISE PARTNERS — same codebase, each on its own server + DB
+           🇸🇬 com.sg          🇲🇾 com.my          🇬🇭 com.gh
+        (one store per site · independent · no cross-site redirects)
                                        │
                                        ▼
 ┌──────────────────────────────────────────────────────────────────────────┐
@@ -124,7 +144,9 @@ ai-mms/
 | **Branchscope** | Per-country store-view switcher in admin. |
 | **Certificate / Attendance** | Certificates of achievement + e-attendance. |
 | **AccountSync** | Unified learner ↔ shadow admin accounts. |
-| **Courses / Leads / Marketing** | Course CRUD, lead capture, marketing automation. |
+| **Courses / Leads** | Course CRUD + admin grid; contact-form lead capture. |
+| **Marketing** | Autonomous agentic-flyer newsletter pipeline — cron design (Mon/Thu 10am), signed email + backend manager approval, guarded MailerLite scheduling (Blastguard: 2 blasts/week, Mon/Thu 8am), subscriber-growth + campaign KPIs. |
+| **Blog** | CMS-style lead-magnet blog — Marketing → Blog Posts admin (WYSIWYG, SEO meta, tags, R2 hero upload), `/blog/<slug>` storefront with ratings + share, Monday 9am Claude auto-blog with LinkedIn auto-share. |
 
 ## Getting Started
 
@@ -181,9 +203,9 @@ docker exec ai-mms-web-1 bash -c 'rm -rf /var/www/html/var/cache/* /var/www/html
 
 ## Deployment
 
-Production deploys automatically via **Coolify** on every push to `main`:
+Every franchise partner's server deploys automatically via its **own Coolify instance** on every push to `main` (each connected through Coolify's GitHub App git source):
 
-1. GitHub Action triggers the Coolify API to rebuild the image.
+1. Coolify rebuilds the image from the pushed commit.
 2. `docker/entrypoint.sh` clears Magento runtime cache, then runs `migrations/apply.php` (with retry/backoff while the DB comes up).
 3. If migrations fail, the container exits non-zero so Coolify keeps the previous container — traffic is never served against a stale schema.
 4. Build timestamp is written to `/version.txt`; public migration status at `/media/migrations-status.json`.
@@ -201,6 +223,22 @@ User-uploaded media (catalog product/category galleries) is served from **Cloudf
 
 Issues and feature requests are welcome via [GitHub Issues](https://github.com/alfredang/ai-mms/issues).
 
+### Shared AI-assistant tooling (`.claude/` + `.codex/`)
+
+This repo ships its **AI coding tooling in-repo** so every team member uses the same
+setup. Committed and ready to use after a clone:
+
+- **`.claude/skills/`** — domain skills (`openmage-code-reviewer`, `openmage-module-developer`,
+  `openmage-frontend-developer`, `backend-design`, `seo-audit`, `lead-magnets`, `add-country-store`,
+  `mysql`, `web-accessibility`, …).
+- **`.claude/agents/`** — specialised subagents (security auditor, caching/speed optimiser,
+  mysql tuner, admin-design-consistency, site-health-checker, `newsletter-designer`, …).
+- **`.claude/hooks/`** — pre/post-tool hooks (push-gate, PHP lint-on-edit, web-health,
+  leads-capture and newsletter-flyer verifiers) wired via `.claude/settings.json`.
+- **`.codex/`** + **`AGENTS.md`** — the Codex-CLI counterparts of the same guidance.
+
+`CLAUDE.md` / `AGENTS.md` are the behavioural guardrails both assistants load automatically.
+
 ## Developed By
 
 **Tertiary Infotech Academy Pte. Ltd.**
@@ -215,6 +253,8 @@ Issues and feature requests are welcome via [GitHub Issues](https://github.com/a
 ---
 
 <div align="center">
+
+**🤝 Bring this academy to your country** — [apply to become a franchise partner »](https://www.tertiarycourses.com.sg/franchising-application.html)
 
 ⭐ **Star this repo if you find it useful!**
 

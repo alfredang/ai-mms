@@ -458,6 +458,34 @@ li.level2 > a > span > .cat-label,
     justify-content: center;
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
     transition: transform .15s ease, background .15s ease;
+    animation: mmd-wa-pulse 2s ease-in-out infinite;
+}
+/* Expanding ripple ring behind the launcher */
+.mmd-wa__launcher::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: #128c7e;
+    z-index: -1;
+    animation: mmd-wa-ring 2s ease-out infinite;
+}
+@keyframes mmd-wa-pulse {
+    0%, 100% { box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28), 0 0 0 0 rgba(18, 140, 126, 0.55); }
+    50%      { box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28), 0 0 0 10px rgba(18, 140, 126, 0); }
+}
+@keyframes mmd-wa-ring {
+    0%   { transform: scale(1); opacity: 0.6; }
+    100% { transform: scale(1.9); opacity: 0; }
+}
+/* Pause the attention pulse once the user engages */
+.mmd-wa__launcher:hover,
+.mmd-wa.is-open .mmd-wa__launcher { animation: none; }
+.mmd-wa__launcher:hover::before,
+.mmd-wa.is-open .mmd-wa__launcher::before { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+    .mmd-wa__launcher,
+    .mmd-wa__launcher::before { animation: none; }
 }
 .mmd-wa__launcher:hover { background: #0e7a6d; transform: scale(1.06); }
 .mmd-wa__launcher:focus-visible { outline: 3px solid rgba(18, 140, 126, .45); outline-offset: 2px; }
@@ -583,14 +611,23 @@ li.level2 > a > span > .cat-label,
 .course-info-stack { margin-top: 24px; display: flex; flex-direction: column; gap: 18px; }
 
 /* "Course Details / Course Info / Job Roles / Trainers / Review" tabs container
-   (.box-additional.grid12-8, 66% wide) sits in the left+center column area
-   below the short-description / framework block. The right booking sidebar
-   is currently the tallest column on most course pages, so `clear: both`
-   leaves a large empty gap beneath the shorter left stack before the tabs.
-   Using `clear: none` lets the tabs flow up tight under the left column
-   content. Flip back to `clear: both` if the left+center stack starts
-   ending taller than the booking sidebar again. */
-.product-view > .box-additional { clear: none; }
+   (.box-additional.grid12-8, 66% wide) sits after the three floated columns.
+   HISTORY: this rule flip-flopped between `clear: both` (gap under the shorter
+   columns whenever the right booking sidebar was tallest — 2026-07-06 report:
+   "big dead space above the course detail tabs") and `clear: none` (tabs
+   displaced sideways whenever the left+center stack was tallest). Neither
+   value fits every course page because the tallest column varies PER PAGE.
+   STRUCTURAL FIX (2026-07-06): float the right booking sidebar RIGHT (same
+   visual slot — it occupies the final 33% anyway) so it is no longer a LEFT
+   float, and give the tabs `clear: left`. The tabs then always drop to just
+   below the left+center columns and rise beside the right sidebar when it is
+   taller — no dead band, no sideways displacement, whichever column wins.
+   Desktop-only: below 768px Ultimo unfloats the columns and the tabs wrapper
+   is display:none'd for phones further down this file. */
+@media (min-width: 768px) {
+    .catalog-product-view .product-view .product-secondary-column { float: right; }
+}
+.product-view > .box-additional { clear: left; }
 
 .course-info-card,
 .course-policy-card {
@@ -744,10 +781,42 @@ li.level2 > a > span > .cat-label,
 .course-policy-card--skills        .course-policy-card__icon { background: #7c3aed; }
 .course-policy-card--learning      .course-policy-card__icon { background: #0d9488; }
 .course-policy-card--brochure      .course-policy-card__icon { background: #ea580c; }
+/* Bonus "Free Practice Exams" card — lifted out of the neutral card family with
+   a soft green ring so it reads as a perk, not a policy notice. */
+.course-policy-card--practice { border-color: #a7f3d0; box-shadow: 0 1px 2px rgba(5, 150, 105, 0.08), 0 0 0 1px rgba(16, 185, 129, 0.12); }
 .course-policy-card--practice      .course-policy-card__header { background: linear-gradient(180deg, #ecfdf5 0%, #d1fae5 100%); }
 .course-policy-card--practice      .course-policy-card__icon { background: #059669; }
-.course-policy-card--practice      .course-policy-card__body p { margin: 0 0 8px; }
+.course-policy-card--practice      .course-policy-card__title { color: #065f46; }
+.course-policy-card--practice      .course-policy-card__body p { margin: 0 0 10px; }
 .course-policy-card--practice      .course-policy-card__body p:last-child { margin-bottom: 0; }
+/* "Start Practising" button on the Free Practice Exams card — filled green to
+   match the practice-card family (#059669 icon). color is forced with
+   !important so the Ultimo theme's generic a:hover blue can't wash the label
+   out to an invisible low-contrast link colour on hover. */
+a.practice-exam-cta,
+a.practice-exam-cta:link,
+a.practice-exam-cta:visited {
+    display: inline-block;
+    background: #059669;
+    color: #ffffff !important;
+    font-weight: 600;
+    text-decoration: none;
+    padding: 9px 18px;
+    border-radius: 8px;
+    line-height: 1.2;
+    box-shadow: 0 1px 2px rgba(5, 150, 105, 0.25);
+    transition: background .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+a.practice-exam-cta:hover,
+a.practice-exam-cta:focus,
+a.practice-exam-cta:active {
+    background: #047857;
+    color: #ffffff !important;
+    text-decoration: none;
+    box-shadow: 0 4px 12px rgba(4, 120, 87, 0.35);
+    transform: translateY(-1px);
+}
+a.practice-exam-cta:focus-visible { outline: 2px solid #065f46; outline-offset: 2px; }
 .course-policy-card--funding       .course-policy-card__icon { background: #059669; }
 .course-policy-card--about         .course-policy-card__icon { background: #2563eb; }
 .course-policy-card--assessment    .course-policy-card__icon { background: #a21caf; }
@@ -1257,6 +1326,36 @@ li.level2 > a > span > .cat-label,
     color: #fff;
 }
 .brochure-simple__icon svg { width: 18px; height: 18px; display: block; }
+
+/* ==========================================================================
+   Product page 3-column row fit — keep the right (Course Fee) column in the
+   top row.
+
+   The product view lays out img + primary + secondary columns as three
+   `.grid12-4` floats. Each grid12-4 is 31.33% width + 1% + 1% side margins =
+   33.33%, so the three total 99.99% of the row with effectively ZERO slack.
+   The secondary column floats RIGHT, and with sub-pixel rounding the browser
+   can't fit it beside the two left floats, so it drops onto a new line —
+   leaving a tall empty band above the Course Fee card. This was happening on
+   EVERY product page at EVERY desktop width on all sites (SG/MY/GH), not
+   intermittently.
+
+   Fix: halve the three columns' side gutters (1% -> 0.5%) at the desktop
+   breakpoint where they sit side by side (>=768px; below that grid12-4 becomes
+   width:100% and the columns stack). This frees ~3% (~40px) of horizontal
+   room — comfortable slack — while keeping each column's content width
+   unchanged (only the inter-column gaps shrink slightly). The higher-
+   specificity selectors win over the base `.grid12-4 { margin:1% }` rule
+   without needing !important.
+   ========================================================================== */
+@media only screen and (min-width: 768px) {
+    .catalog-product-view .product-view .product-img-column,
+    .catalog-product-view .product-view .product-primary-column,
+    .catalog-product-view .product-view .product-secondary-column {
+        margin-left: 0.5%;
+        margin-right: 0.5%;
+    }
+}
 
 /* ==========================================================================
    Right-column (secondary) registration panel — Course Fee, funding options,

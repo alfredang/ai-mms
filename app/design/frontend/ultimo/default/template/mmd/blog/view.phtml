@@ -1,0 +1,163 @@
+<?php
+/**
+ * Single blog post — hero, meta row, share buttons, thumbs-up like, article body,
+ * lead-magnet CTA (related courses + WSQ funding / SkillsFuture Credit hook),
+ * tags, JSON-LD Article schema. Design mirrors tertiaryinfotech.com/blog.
+ * @var MMD_Blog_Block_View $this
+ */
+$post   = $this->getPost();
+$helper = Mage::helper('mmd_blog');
+$likes  = (int) $post->getLikeCount();
+$courses = $this->getRelatedCourses();
+$tags    = $this->getTags();
+$heroImg = $helper->getHeroImage($post);
+$storeName = Mage::getStoreConfig('general/store_information/name') ?: 'Tertiary Infotech Academy';
+?>
+<article class="mmd-blog mmd-blog-post" itemscope itemtype="https://schema.org/Article">
+    <div class="mmd-blog-post-hero<?php echo $heroImg ? '' : ' is-fallback' ?>" style="aspect-ratio:32/9;max-height:300px;">
+        <?php if ($heroImg): ?>
+            <img src="<?php echo $this->escapeHtml($heroImg) ?>" alt="<?php echo $this->escapeHtml($post->getTitle()) ?>" itemprop="image"/>
+        <?php else: ?>
+            <?php $kickerTags = array_slice($tags, 0, 2); ?>
+            <span class="mmd-blog-hero-fallback"><span class="mmd-blog-hero-kicker">[ <?php echo $this->escapeHtml($kickerTags ? mb_strtoupper(implode(' · ', $kickerTags), 'UTF-8') : 'ARTICLE') ?> ]</span><span class="mmd-blog-hero-title"><?php echo $this->escapeHtml($post->getTitle()) ?></span></span>
+        <?php endif; ?>
+    </div>
+
+    <header class="mmd-blog-post-head">
+        <p class="mmd-blog-crumb"><a href="<?php echo $helper->getListUrl() ?>">Blog</a> <span>/</span> <?php echo $this->escapeHtml($post->getTitle()) ?></p>
+        <h1 itemprop="headline"><?php echo $this->escapeHtml($post->getTitle()) ?></h1>
+        <div class="mmd-blog-post-meta">
+            <span class="mmd-blog-meta-item">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                <span itemprop="author"><?php echo $this->escapeHtml($post->getAuthor() ?: $storeName) ?></span>
+            </span>
+            <span class="mmd-blog-meta-item">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                <time itemprop="datePublished" datetime="<?php echo $this->escapeHtml($post->getPublishedAt()) ?>"><?php echo date('d M Y', strtotime($post->getPublishedAt())) ?></time>
+            </span>
+            <span class="mmd-blog-meta-item">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                <?php echo $this->getReadingMinutes() ?> min read
+            </span>
+        </div>
+
+        <div class="mmd-blog-actions">
+            <div class="mmd-blog-share" aria-label="Share this article">
+                <span class="mmd-blog-share-label">Share</span>
+                <?php foreach ($this->getShareIcons() as $s): ?>
+                    <a class="mmd-blog-share-ic mmd-share-<?php echo $s['key'] ?>" href="<?php echo $this->escapeHtml($s['href']) ?>" target="_blank" rel="noopener nofollow" title="Share on <?php echo $this->escapeHtml($s['label']) ?>" aria-label="Share on <?php echo $this->escapeHtml($s['label']) ?>"><?php echo $s['svg'] ?></a>
+                <?php endforeach; ?>
+                <button type="button" class="mmd-blog-share-ic mmd-share-copy" id="mmd-blog-copy" data-url="<?php echo $this->escapeHtml($this->getPostUrl()) ?>" title="Copy link" aria-label="Copy link"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
+            </div>
+            <button type="button" class="mmd-blog-like" id="mmd-blog-like"
+                 data-post="<?php echo (int) $post->getId() ?>"
+                 data-url="<?php echo $this->escapeHtml($this->getLikeUrl()) ?>"
+                 aria-label="Like this article">
+                <svg class="mmd-blog-like-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/></svg>
+                <span class="mmd-blog-like-count" id="mmd-blog-like-count"><?php echo $likes ?></span>
+                <span class="mmd-blog-like-label">Like</span>
+            </button>
+        </div>
+    </header>
+
+    <div class="mmd-blog-post-body" itemprop="articleBody">
+        <?php echo $this->getContentHtml() ?>
+    </div>
+
+    <!-- Lead magnet CTA: every post funnels readers to course registration. -->
+    <aside class="mmd-blog-cta">
+        <h2>Ready to build this skill? &#127891;</h2>
+        <p>Join the hands-on, instructor-led training below. <strong>WSQ courses enjoy up to 70% SkillsFuture (WSQ) funding</strong> for eligible Singaporeans and PRs, and you can <strong>offset the fee with your SkillsFuture Credit</strong>. Seats are limited — reserve yours today.</p>
+        <?php if ($courses): ?>
+        <div class="mmd-blog-cta-courses">
+            <?php foreach ($courses as $course): ?>
+            <a class="mmd-blog-cta-course" href="<?php echo $this->escapeHtml($course->getProductUrl()) ?>">
+                <span class="mmd-blog-cta-course-name"><?php echo $this->escapeHtml($course->getName()) ?></span>
+                <span class="mmd-blog-cta-course-action">View schedule &amp; register &rarr;</span>
+            </a>
+            <?php endforeach; ?>
+        </div>
+        <?php else: ?>
+        <p><a class="mmd-blog-cta-course" href="<?php echo Mage::getBaseUrl() ?>">Browse all courses &rarr;</a></p>
+        <?php endif; ?>
+    </aside>
+
+    <?php if ($tags): ?>
+    <footer class="mmd-blog-post-tags">
+        <span class="mmd-blog-tags-label"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 13.42 20.6a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><circle cx="7" cy="7" r="1.5"/></svg> Tags</span>
+        <?php foreach ($tags as $t): ?>
+            <a class="mmd-blog-tag" href="<?php echo $helper->getTagUrl($t) ?>">#<?php echo $this->escapeHtml($t) ?></a>
+        <?php endforeach; ?>
+    </footer>
+    <?php endif; ?>
+
+    <p class="mmd-blog-backlink-row"><a class="mmd-blog-backlink" href="<?php echo $helper->getListUrl() ?>">&larr; Back to all articles</a></p>
+</article>
+
+<script type="application/ld+json">
+<?php
+$schema = array(
+    '@context'      => 'https://schema.org',
+    '@type'         => 'Article',
+    'headline'      => $post->getTitle(),
+    'description'   => trim(strip_tags((string) ($post->getMetaDescription() ?: $post->getExcerpt()))),
+    'datePublished' => $post->getPublishedAt(),
+    'dateModified'  => $post->getUpdatedAt(),
+    'author'        => array('@type' => 'Organization', 'name' => $post->getAuthor() ?: $storeName),
+    'publisher'     => array('@type' => 'Organization', 'name' => $storeName),
+    'mainEntityOfPage' => $this->getPostUrl(),
+);
+if ($heroImg) {
+    $schema['image'] = $heroImg;
+}
+if ($likes > 0) {
+    $schema['interactionStatistic'] = array(
+        '@type'                => 'InteractionCounter',
+        'interactionType'      => 'https://schema.org/LikeAction',
+        'userInteractionCount' => $likes,
+    );
+}
+echo json_encode($schema, JSON_UNESCAPED_SLASHES);
+?>
+</script>
+
+<script>
+(function () {
+    var btn = document.getElementById('mmd-blog-like');
+    if (!btn) return;
+    var countEl = document.getElementById('mmd-blog-like-count');
+    var liked = false;
+    btn.addEventListener('click', function () {
+        if (liked) return;
+        liked = true;
+        btn.classList.add('is-liked');
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', btn.getAttribute('data-url'), true);
+        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+        xhr.onload = function () {
+            try {
+                var rsp = JSON.parse(xhr.responseText);
+                if (rsp.ok && typeof rsp.likes !== 'undefined') {
+                    countEl.textContent = rsp.likes;
+                }
+            } catch (e) {}
+        };
+        xhr.send('post_id=' + btn.getAttribute('data-post'));
+    });
+})();
+(function () {
+    var copy = document.getElementById('mmd-blog-copy');
+    if (!copy) return;
+    copy.addEventListener('click', function () {
+        var url = copy.getAttribute('data-url');
+        var done = function () { copy.classList.add('is-copied'); setTimeout(function () { copy.classList.remove('is-copied'); }, 1500); };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(url).then(done, done);
+        } else {
+            var t = document.createElement('textarea'); t.value = url; document.body.appendChild(t); t.select();
+            try { document.execCommand('copy'); } catch (e) {}
+            document.body.removeChild(t); done();
+        }
+    });
+})();
+</script>

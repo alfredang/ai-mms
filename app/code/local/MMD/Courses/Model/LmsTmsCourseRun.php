@@ -73,8 +73,8 @@ class MMD_Courses_Model_LmsTmsCourseRun
      *
      * Result is keyed by course_code (SKU), normalised:
      *   [
-     *     'name'                 => 'Iris Wang Yan Hong',
-     *     'email'                => 'iris@tertiaryinfotech.com',
+     *     'name'                 => 'Ang See Shiang',
+     *     'email'                => 'angss@tertiaryinfotech.com',
      *     'course_title'         => 'WSQ - Tax Computations ...',
      *     'mode'                 => 'Physical' | 'Online' | 'Hybrid' | '',
      *     'lms_course_run_id'    => '1131882',

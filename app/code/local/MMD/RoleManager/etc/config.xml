@@ -90,6 +90,13 @@
                         <class>mmd_rolemanager/observer</class>
                         <method>onPredispatch</method>
                     </mmd_rolemanager_predispatch>
+                    <!-- Same mechanism as MMD_OtpLogin::allowOtpAction — lets the
+                         public /learnerlogin form + POST through the core admin
+                         auth observer without a logged-in session. -->
+                    <mmd_rolemanager_learnerlogin_public>
+                        <class>mmd_rolemanager/observer</class>
+                        <method>allowLearnerloginAction</method>
+                    </mmd_rolemanager_learnerlogin_public>
                 </observers>
             </controller_action_predispatch>
             <cms_wysiwyg_config_prepare>
@@ -112,6 +119,21 @@
                     </modules>
                 </args>
             </adminhtml>
+            <!-- Learner login — /learnerlogin on every site (SG/MY/GH).
+                 Registered as an ADMIN router (not frontend) so the resulting
+                 session is the same adminhtml session the learner dashboard
+                 uses; a frontend-area login would land in the 'frontend'
+                 session cookie and be invisible to /tigerdragon. Learners
+                 authenticate with their storefront email+password (AccountSync
+                 keeps admin_user.password identical to the customer hash) and
+                 are forced into the learner role with NO role selection. -->
+            <learnerlogin>
+                <use>admin</use>
+                <args>
+                    <module>MMD_RoleManager</module>
+                    <frontName>learnerlogin</frontName>
+                </args>
+            </learnerlogin>
         </routers>
     </admin>
 
@@ -165,13 +187,28 @@
                 <schedule><cron_expr>30 3 * * *</cron_expr></schedule>
                 <run><model>mmd_rolemanager/cron_trainerImport::run</model></run>
             </mmd_rolemanager_trainer_import>
-            <!-- Daily course sync from SG — country instances only, fail-safe
-                 gated by mmd/course_sync/auto_enabled (absent = OFF). 03:00 SGT.
-                 Silently skips when MMS_MODE != country. -->
-            <mmd_rolemanager_course_sync>
-                <schedule><cron_expr>0 3 * * *</cron_expr></schedule>
-                <run><model>mmd_rolemanager/cron_courseSync::run</model></run>
-            </mmd_rolemanager_course_sync>
+            <!-- NOTE: course sync from SG is MANUAL ONLY (admin "Sync All" /
+                 "Sync One" buttons on country instances) — the daily auto-sync
+                 cron was removed 2026-07-06 by owner decision. Partner fees,
+                 schedules and trainer info are partner-owned; syncs happen
+                 only when a human decides. -->
+            <!-- Daily maintenance sweep — 02:00 SGT. Verifies the one-store-
+                 per-site topology invariant (2026-07-06 blank-admin incident
+                 guard), garbage-collects expired core_session rows, prunes old
+                 var/report files, and publishes /media/health.json so external
+                 monitoring needs no DB access. Runs identically on every
+                 instance (SG + franchise partners). -->
+            <mmd_rolemanager_daily_maintenance>
+                <schedule><cron_expr>0 2 * * *</cron_expr></schedule>
+                <run><model>mmd_rolemanager/cron_maintenance::run</model></run>
+            </mmd_rolemanager_daily_maintenance>
+            <!-- Weekly franchise completed-classes pull — Sunday 10:00 SGT.
+                 SG-only (country instances skip); no-op until partner URL+key
+                 are configured in mmd/franchise_report/*. -->
+            <mmd_rolemanager_franchise_classes_pull>
+                <schedule><cron_expr>0 10 * * 0</cron_expr></schedule>
+                <run><model>mmd_rolemanager/cron_franchiseClassesPull::run</model></run>
+            </mmd_rolemanager_franchise_classes_pull>
         </jobs>
     </crontab>
 </config>

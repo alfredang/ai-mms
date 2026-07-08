@@ -27,8 +27,11 @@
 <meta http-equiv="Content-Type" content="<?php echo $this->getContentType() ?>"/>
 <meta name="robots" content="noindex, nofollow"/>
 <title><?php echo htmlspecialchars(html_entity_decode($this->getTitle())) ?></title>
-<link rel="icon" href="<?php echo Mage::getBaseUrl('media') ?>favicon/default/favicon_1.png" type="image/x-icon"/>
-<link rel="shortcut icon" href="<?php echo Mage::getBaseUrl('media') ?>favicon/default/favicon_1.png" type="image/x-icon"/>
+<?php // Root-relative so it resolves against the current admin host (SG/MY/GH),
+      // not the admin-scope media base URL which on SG points at a stale host
+      // (ai-mms.tertiaryinfo.tech) that 301-redirects and breaks the favicon. ?>
+<link rel="icon" href="/media/favicon/default/favicon_1.png" type="image/png"/>
+<link rel="shortcut icon" href="/media/favicon/default/favicon_1.png" type="image/png"/>
 
 <script type="text/javascript">
     var BLANK_URL = '<?php echo $this->getJsUrl() ?>blank.html';

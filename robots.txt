@@ -26,6 +26,7 @@ Disallow: /customer/
 Disallow: /wishlist/
 Disallow: /404/
 Disallow: /admin/
+Disallow: /adminlogin/
 Disallow: /tigerdragon/
 Disallow: /api/
 Disallow: /install/
@@ -48,11 +49,12 @@ Disallow: /newsletter/
 # so it never leaves the index. Unblock + noindex,follow is the only way
 # to deindex them while keeping product links crawlable.
 #
-# Session / store-switch params stay blocked: they only ever 302-redirect,
-# so they produce crawl noise, not indexable content.
-Disallow: /*?___store=
-Disallow: /*?___from_store=
-Disallow: /*?SID=
+# Session / store-switch params (SID, ___store, ___from_store) are also
+# NOT disallowed, for the same reason: Google had already indexed some
+# ?SID=/?___store= URLs, and blocking them kept those stuck in the GSC
+# "Indexed, though blocked by robots.txt" report. They now serve
+# X-Robots-Tag: noindex, follow via .htaccess (or resolve as a
+# redirect/404), which deindexes them once crawled.
 
 # Files
 Disallow: /cron.php

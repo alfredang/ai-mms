@@ -32,6 +32,10 @@ $getSymbol = Mage::app()->getLocale()->currency(Mage::app()->getStore()->getCurr
 $_options = Mage::helper('core')->decorateArray($this->getOptions());
 $helper = $this->helper('customoptions');
 $coreHelper = $this->helper('core');
+$_product = $this->getProduct();
+$_hideFundingOptionSkus = array('TGS-2020504243');
+$_hideFundingOption = $_product
+    && in_array((string) $_product->getSku(), $_hideFundingOptionSkus, true);
 
 if (count($_options) || ((string)Mage::getConfig()->getModuleConfig('OrganicInternet_SimpleConfigurableProducts')->active == 'true' && $this->getProduct()->isConfigurable())) { ?>
     <style type="text/css">
@@ -1007,7 +1011,10 @@ if (count($_options) || ((string)Mage::getConfig()->getModuleConfig('OrganicInte
     <?php
     $isFirstOption = true;
     $hideOptionsWrapperFlag = true; 
-    foreach ($_options as $_option) {        
+    foreach ($_options as $_option) {
+        if ($_hideFundingOption && stripos($_option->getTitle(), 'Funding Eligibility') !== false) {
+            continue;
+        }
         echo $this->getOptionHtml($_option, $isFirstOption);
         if ($_option->getViewMode()==1) $hideOptionsWrapperFlag = false;
      }

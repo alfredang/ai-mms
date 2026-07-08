@@ -8,8 +8,15 @@
 # (persisted on the media volume across deploys) → generate new + warn.
 #
 # Required env: MYSQL_DATABASE, MYSQL_USER, MYSQL_PASSWORD
-# Optional env: MYSQL_HOST (default: db), MMS_ADMIN_FRONTNAME (default: tigerdragon)
-#               MMS_CRYPT_KEY, MMS_MODE (default: country)
+# Optional env: MYSQL_HOST (default: db), MMS_CRYPT_KEY, MMS_MODE (default: country)
+#
+# Admin frontName is NOT env-driven — it is a fixed 'adminlogin' literal below,
+# matching SG (whose local.xml hardcodes it). In Magento/OpenMage the admin
+# route name lives in local.xml <admin>/<routers>/<adminhtml>/<args>/<frontName>
+# (never .htaccess — that's Apache rewrite config with no concept of the admin
+# route). Keeping it a literal means MY/GH follow SG exactly, with no per-instance
+# Coolify env var to drift out of sync. Change it in ONE place (here + SG's
+# local.xml) if the admin URL ever moves again.
 
 set -e
 
@@ -24,7 +31,7 @@ $dbHost    = getenv('MYSQL_HOST')           ?: 'db';
 $dbName    = getenv('MYSQL_DATABASE')       ?: '';
 $dbUser    = getenv('MYSQL_USER')           ?: '';
 $dbPass    = getenv('MYSQL_PASSWORD')       ?: '';
-$frontName = getenv('MMS_ADMIN_FRONTNAME')  ?: 'tigerdragon';
+$frontName = 'adminlogin'; // fixed, matches SG's local.xml — NOT env-driven
 $mode      = getenv('MMS_MODE')             ?: 'country';
 $cryptKey  = getenv('MMS_CRYPT_KEY')        ?: '';
 

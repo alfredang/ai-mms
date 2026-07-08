@@ -7,7 +7,7 @@
  *   Returns: SG office contact (phone, email, WhatsApp, address) and
  *            office hours. Used by the WhatsApp bot to gracefully
  *            escalate when it can't answer ("we're closed now — please
- *            email us at training@..." style replies).
+ *            email us at enquiry@..." style replies).
  *
  * Auth: X-API-Key — same key as the other /courses/api_* endpoints.
  *
@@ -50,7 +50,7 @@ class MMD_Courses_Api_ContactController extends Mage_Core_Controller_Front_Actio
                     'name'     => 'Tertiary Infotech Academy — Singapore',
                     'address'  => '12 Woodlands Square #07-85/86/87, Woods Square Tower 1, Singapore 737715',
                     'phone'    => '+65 6100 0613',
-                    'email'    => 'training@tertiaryinfotech.com',
+                    'email'    => 'enquiry@tertiaryinfotech.com',
                     'whatsapp' => '+65 8866 6375',
                 ),
                 'office_hours' => array(

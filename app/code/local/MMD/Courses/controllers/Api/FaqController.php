@@ -180,7 +180,7 @@ class MMD_Courses_Api_FaqController extends Mage_Core_Controller_Front_Action
                 'summary'         => 'Cancellations more than 7 working days before the class start date receive a full refund. Within 7 days, a 50% admin fee applies. No-shows or cancellations on the day forfeit the full fee. Date transfers (within 6 months) are allowed free of charge with at least 3 working days notice.',
                 'eligibility'     => 'All learners — applies to self-pay, employer-sponsored, and funded registrations.',
                 'how_to_claim'    => array(
-                    'Email training@tertiaryinfotech.com or WhatsApp +65 8866 6375 with: order number, learner name, course title, and reason.',
+                    'Email enquiry@tertiaryinfotech.com or WhatsApp +65 8866 6375 with: order number, learner name, course title, and reason.',
                     'For date transfers, propose a target class date that has open seats.',
                     'Refunds (where eligible) are processed within 14 working days to the original payment method.',
                 ),
@@ -224,7 +224,7 @@ class MMD_Courses_Api_FaqController extends Mage_Core_Controller_Front_Action
                 'summary'         => 'Companies sending 5+ learners qualify for tiered group discounts and dedicated invoicing. We also run private in-house sessions — same syllabus, your office (or a venue we book), at a date/time you pick. Most public courses can be customised for industry-specific case studies.',
                 'eligibility'     => 'Any Singapore-registered company; HRD Corp claimable for Malaysia subsidiary training. SkillsFuture Enterprise Credit (SFEC) can offset out-of-pocket fees for SG SMEs.',
                 'how_to_claim'    => array(
-                    'Email training@tertiaryinfotech.com with: company name, course of interest, headcount, and preferred dates.',
+                    'Email enquiry@tertiaryinfotech.com with: company name, course of interest, headcount, and preferred dates.',
                     'We respond within 1 working day with a quote (incl. SFEC-eligibility check if applicable).',
                     'On confirmation, we issue a PO-friendly invoice and lock the seats / private session date.',
                     'Group discounts kick in at 5+ learners; further discounts at 10+ and 20+ tiers.',

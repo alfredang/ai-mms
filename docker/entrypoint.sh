@@ -384,8 +384,38 @@ php /var/www/html/scripts/maintenance/flat-url-debug.php \
         sleep 1
     done
     curl -s -o /dev/null --max-time 15 -L http://127.0.0.1/ 2>/dev/null || true
-    curl -s -o /dev/null --max-time 15 -L http://127.0.0.1/tigerdragon/ 2>/dev/null || true
+    curl -s -o /dev/null --max-time 15 -L "http://127.0.0.1/adminlogin/" 2>/dev/null || true
     echo "entrypoint: CSS/JS merge bundles warmed"
+) &
+
+# Magento cron runner — self-contained, ships with the image so EVERY instance
+# (SG + every franchise) gets working cron without a per-instance Coolify
+# Scheduled Task. Runs cron.php once a minute in a backgrounded loop so it never
+# blocks `exec apache2-foreground` (memory: no blocking step before apache →
+# 502). Magento's own cron_schedule locking prevents overlapping job runs, so a
+# fixed 60s cadence is safe even if a job runs long. Without this, prod cron was
+# dead since 2026-06-19 — class formation, flyer approval emails, sitemap and
+# report aggregation had all silently stopped. Heartbeat shows on the super-admin
+# Cron Jobs page; a bounded log tail lands in var/log/entrypoint-cron.log.
+(
+    for _c in 1 2 3 4 5 6 7 8 9 10 11 12; do
+        if curl -s -o /dev/null --max-time 2 http://127.0.0.1/ 2>/dev/null; then break; fi
+        sleep 5
+    done
+    # var/log is wiped/absent on a fresh volume — ensure it exists + is
+    # www-data-writable so cron.php's own logging and this heartbeat can write.
+    mkdir -p /var/www/html/var/log 2>/dev/null || true
+    chown www-data:www-data /var/www/html/var/log 2>/dev/null || true
+    _CRONLOG=/var/www/html/var/log/entrypoint-cron.log
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] entrypoint cron loop started" >> "$_CRONLOG" 2>/dev/null || true
+    while true; do
+        if [ -f "$_CRONLOG" ] && [ "$(wc -l < "$_CRONLOG" 2>/dev/null || echo 0)" -gt 500 ]; then
+            tail -n 200 "$_CRONLOG" > "$_CRONLOG.tmp" 2>/dev/null && mv "$_CRONLOG.tmp" "$_CRONLOG" 2>/dev/null || true
+        fi
+        php /var/www/html/cron.php >> "$_CRONLOG" 2>&1 \
+            || echo "[$(date '+%Y-%m-%d %H:%M:%S')] cron.php exited non-zero" >> "$_CRONLOG" 2>/dev/null || true
+        sleep 60
+    done
 ) &
 
 exec apache2-foreground

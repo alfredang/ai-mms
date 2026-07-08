@@ -228,9 +228,9 @@
                         <a href="<?php echo $helpImg->getImg($_product, $bigImageWidth, $bigImageHeight, 'image', $_image->getFile()); ?>" class="cloud-zoom-gallery lightbox-group" title="<?php echo $this->escapeHtml($_image->getLabel()); ?>"
                             rel="useZoom:'zoom1', smallImage: '<?php echo $helpImg->getImg($_product, $imgWidth, $imgHeight, 'image', $_image->getFile()); ?>'">
                             <?php if ($lazy): ?>
-                                <img class="lazyOwl" data-src="<?php echo $helpImg->getImg($_product, $thumbImgWidth, $thumbImgHeight, 'thumbnail', $_image->getFile()); ?>" alt="<?php echo $this->escapeHtml($_image->getLabel()); ?>"/>
+                                <img class="lazyOwl" data-src="<?php echo $helpImg->getImg($_product, $thumbImgWidth, $thumbImgHeight, 'thumbnail', $_image->getFile()); ?>" alt="<?php echo $this->escapeHtml($_image->getLabel()); ?>" loading="lazy" decoding="async"/>
                             <?php else: ?>
-                                <img src="<?php echo $helpImg->getImg($_product, $thumbImgWidth, $thumbImgHeight, 'thumbnail', $_image->getFile()); ?>" alt="<?php echo $this->escapeHtml($_image->getLabel()); ?>"/>
+                                <img src="<?php echo $helpImg->getImg($_product, $thumbImgWidth, $thumbImgHeight, 'thumbnail', $_image->getFile()); ?>" alt="<?php echo $this->escapeHtml($_image->getLabel()); ?>" loading="lazy" decoding="async"/>
                             <?php endif; ?>
                         </a>
                     </div>
@@ -246,7 +246,7 @@
                             continue; ?>
                     <div class="item"<?php echo " {$itemWidthStyle}"; ?>>
                         <a href="#" onclick="popWin('<?php echo $this->getGalleryUrl($_image) ?>', 'gallery', 'width=300,height=300,left=0,top=0,location=no,status=yes,scrollbars=yes,resizable=yes'); return false;" title="<?php echo $this->escapeHtml($_image->getLabel()) ?>">
-                            <img src="<?php echo $helpImg->getImg($_product, $thumbImgWidth, $thumbImgHeight, 'thumbnail', $_image->getFile()); ?>" alt="<?php echo $this->escapeHtml($_image->getLabel()) ?>"/>
+                            <img src="<?php echo $helpImg->getImg($_product, $thumbImgWidth, $thumbImgHeight, 'thumbnail', $_image->getFile()); ?>" alt="<?php echo $this->escapeHtml($_image->getLabel()) ?>" loading="lazy" decoding="async"/>
                         </a>
                     </div>
                 <?php endif; ?>

@@ -88,6 +88,12 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
         <span>TP Dashboard</span>
     </a>
+    <?php if (strtolower((string) getenv('MMS_MODE')) !== 'country'): // Franchise Report — SG-only (pulls FROM the partners) ?>
+    <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/franchisereport/index') ?>" class="lms-nav-item<?php echo ($_ctrl === 'franchisereport') ? ' active' : '' ?>">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        <span>Franchise Report</span>
+    </a>
+    <?php endif; ?>
     <a href="<?php echo $cmsPagesUrl ?>" class="lms-nav-item">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
         <span>CMS</span>
@@ -145,9 +151,12 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
         <span>Audit Issues<?php if ($_auditOpenCount > 0): ?> <span class="lms-nav-badge"><?php echo $_auditOpenCount ?></span><?php endif; ?></span>
     </a>
-    <a href="<?php echo $_auditUrl ?>#cron-schedule" class="lms-nav-item<?php echo $_auditActive ?>">
+    <?php // Cron Jobs monitor — every configured job + heartbeat + run log
+          // (MMD_Auditfix CronjobsController; replaces the old anchor into
+          // the Audit Issues page which only listed the 3 audit scanners). ?>
+    <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/cronjobs/index') ?>" class="lms-nav-item<?php echo ($_ctrl === 'cronjobs') ? ' active' : '' ?>">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        <span>Cron Schedule</span>
+        <span>Cron Jobs</span>
     </a>
     <!-- Sales group removed from Super Admin sidebar — already shown under
          the Admin role; super-admin's job is configuration, not order ops. -->
@@ -406,6 +415,10 @@
     <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/leads') ?>" class="lms-nav-item<?php echo _so(array('leads')) ?>">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.37 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.33 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
         <span>Leads</span>
+    </a>
+    <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/blog') ?>" class="lms-nav-item<?php echo _so(array('blog')) ?>">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        <span>Blog Posts</span>
     </a>
     <div class="tools-group<?php echo _so(array('promo_catalog','promo_quote')) ?>">
         <div class="tools-group-toggle" onclick="toggleToolGroup(this)">
@@ -1139,16 +1152,16 @@ foreach (Mage::app()->getStores() as $_s) {
 .qr-row label { font-size: 12px; color: #94a3b8; font-weight: 500; }
 .qr-row label .req { color: #f87171; }
 .qr-input, .qr-select, .qr-textarea { width: 100%; padding: 9px 12px; background: transparent; border: 1px solid #475569; border-radius: 7px; color: #f1f5f9; font-size: 13px; outline: none; box-sizing: border-box; }
-.qr-input:focus, .qr-select:focus, .qr-textarea:focus { border-color: #65b7d5; box-shadow: 0 0 0 3px rgba(101,183,213,0.15); }
+.qr-input:focus, .qr-select:focus, .qr-textarea:focus { border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(96,165,250,0.15); }
 .qr-input::placeholder { color: #64748b; }
 .qr-textarea { resize: vertical; min-height: 56px; font-family: inherit; }
 .qr-course-results { position: relative; }
 .qr-course-list { position: absolute; top: 100%; left: 0; right: 0; background: #0f172a; border: 1px solid #334155; border-radius: 7px; max-height: 220px; overflow-y: auto; margin-top: 4px; z-index: 5; display: none; box-shadow: 0 6px 18px rgba(0,0,0,0.4); }
 .qr-course-list.open { display: block; }
 .qr-course-item { padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #1e293b; font-size: 13px; }
-.qr-course-item:hover, .qr-course-item.hover { background: rgba(101,183,213,0.12); color: #65b7d5; }
+.qr-course-item:hover, .qr-course-item.hover { background: rgba(96,165,250,0.12); color: #60a5fa; }
 .qr-course-item .qr-sku { font-family: ui-monospace, monospace; color: #94a3b8; font-size: 11px; }
-.qr-picked { padding: 10px 12px; border: 1px solid #475569; border-radius: 7px; background: rgba(101,183,213,0.06); font-size: 13px; display: none; }
+.qr-picked { padding: 10px 12px; border: 1px solid #475569; border-radius: 7px; background: rgba(96,165,250,0.06); font-size: 13px; display: none; }
 .qr-picked.shown { display: block; }
 .qr-picked .qr-pick-meta { color: #94a3b8; font-size: 11px; margin-top: 2px; }
 .qr-picked .qr-pick-clear { float: right; background: transparent; border: 0; color: #94a3b8; cursor: pointer; font-size: 13px; }
@@ -1157,8 +1170,8 @@ foreach (Mage::app()->getStores() as $_s) {
 .qr-foot { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 14px 22px; border-top: 1px solid #334155; }
 .qr-err { color: #f87171; font-size: 12px; flex: 1; }
 .qr-btn { padding: 9px 18px; border: 0; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
-.qr-btn-primary { background: linear-gradient(180deg, #65b7d5 0%, #55a9c9 100%); color: #fff; }
-.qr-btn-primary:hover { background: linear-gradient(180deg, #75c4df 0%, #65b7d5 100%); }
+.qr-btn-primary { background: #2563eb; color: #fff; }
+.qr-btn-primary:hover { background: #3b82f6; }
 .qr-btn-primary[disabled] { opacity: 0.5; cursor: wait; }
 .qr-btn-ghost { background: transparent; color: #94a3b8; border: 1px solid #475569; }
 .qr-btn-ghost:hover { color: #f1f5f9; border-color: #64748b; }

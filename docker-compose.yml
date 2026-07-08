@@ -70,6 +70,14 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    labels:
+      # On Coolify the web container sits on TWO networks (magento_net + the
+      # Coolify-injected app network). Without this label Traefik picks one of
+      # the two container IPs at random per deploy; when it picks magento_net
+      # (which the proxy isn't attached to) the site times out on 443 until
+      # the next deploy. COOLIFY_RESOURCE_UUID is the app-network name and is
+      # exported by Coolify for `docker compose up`; empty locally (no Traefik).
+      - "traefik.docker.network=${COOLIFY_RESOURCE_UUID:-}"
     networks:
       - magento_net
 

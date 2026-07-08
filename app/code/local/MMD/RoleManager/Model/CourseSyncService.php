@@ -9,10 +9,17 @@
  *   2. For each C-prefix product: find-or-create by SKU, upsert all
  *      attributes (labels→local option IDs), categories (url_key→local ID),
  *      custom options (idempotent recreation), image (fetch→local media/).
- *   3. PRICE RULE (P1): price/special_price set ONLY on CREATE. On UPDATE
- *      they are skipped — the country owns pricing after first import.
+ *   3. PARTNER-OWNED FIELDS (P1): the country owns its course fee and trainer
+ *      info after first import. On UPDATE these are never overwritten:
+ *        - price / special_price attributes
+ *        - trainerprofile attribute (trainer info)
+ *        - ALL custom options (Course Date schedule, per-option fees, trainer
+ *          options) — recreated on CREATE only; updates leave them untouched.
+ *      Everything is one-way SG -> country: this service only READS from SG's
+ *      export endpoint and never writes back.
  *   4. Disables (status=2) any local C-prefix products absent from the export
- *      (retirement policy — never hard-deletes).
+ *      (retirement policy — never hard-deletes). Bulk pull only — pullOne()
+ *      never disables anything.
  *   5. Reindexes catalog_url + flat catalog/category.
  *   6. Writes a row to mmd_course_sync_log.
  *
@@ -24,13 +31,14 @@ class MMD_RoleManager_Model_CourseSyncService
     const LOG_FILE         = 'course-sync.log';
     const URL_CONFIG_PATH  = 'mmd/course_sync/sg_url';
     const KEY_CONFIG_PATH  = 'mmd/course_sync/api_key';
-    const ENABLED_CONFIG   = 'mmd/course_sync/auto_enabled';
     const LOG_TABLE        = 'mmd_course_sync_log';
 
-    public function isAutoEnabled()
-    {
-        return Mage::getStoreConfigFlag(self::ENABLED_CONFIG);
-    }
+    /**
+     * Attributes the country owns after first import — never overwritten on
+     * UPDATE (P1): course fee + trainer info stay local.
+     */
+    private static $_partnerOwnedAttrs = array('price', 'special_price', 'trainerprofile');
+
     public function getSgUrl()
     {
         $base = rtrim(trim((string) Mage::getStoreConfig(self::URL_CONFIG_PATH)), '/');
@@ -128,10 +136,66 @@ class MMD_RoleManager_Model_CourseSyncService
         return $summary;
     }
 
-    /** GET one page from the SG export endpoint. */
-    private function _fetchPage($page, $pageSize)
+    /**
+     * Individual course sync: pull exactly ONE C-prefix course from SG and
+     * upsert it. Same P1 partner-owned preservation as the bulk pull; never
+     * disables/retires anything else. Returns summary array.
+     */
+    public function pullOne($sku, $triggeredBy = 'admin')
     {
-        $url = $this->getSgUrl() . '?page=' . $page . '&page_size=' . $pageSize;
+        if (!$this->isConfigured()) {
+            throw new Exception('SG sync URL / API key not configured (mmd/course_sync/sg_url + api_key).');
+        }
+        $sku = trim((string) $sku);
+        if ($sku === '' || strtoupper(substr($sku, 0, 1)) !== 'C') {
+            throw new Exception('Only C-prefix (non-WSQ) course codes can be synced.');
+        }
+
+        $summary = array(
+            'fetched' => 0, 'created' => 0, 'updated' => 0,
+            'disabled' => 0, 'skipped' => 0, 'errors' => 0,
+            'error_msgs' => array(), 'success' => true,
+        );
+
+        $payload = $this->_fetchPage(1, 1, $sku);
+        $courses = isset($payload['courses']) ? (array) $payload['courses'] : array();
+        if (empty($courses)) {
+            throw new Exception('SG returned no course for ' . $sku);
+        }
+        $summary['fetched'] = 1;
+
+        try {
+            $isNew = $this->_upsertCourse($courses[0]);
+            if ($isNew) $summary['created']++;
+            else        $summary['updated']++;
+        } catch (Exception $e) {
+            $summary['errors']++;
+            $summary['error_msgs'][] = $sku . ': ' . $e->getMessage();
+            Mage::log('CourseSyncService: pullOne error sku=' . $sku . ' ' . $e->getMessage(), Zend_Log::ERR, self::LOG_FILE);
+        }
+
+        try {
+            $this->_reindex();
+        } catch (Exception $e) {
+            Mage::log('CourseSyncService: reindex error ' . $e->getMessage(), Zend_Log::WARN, self::LOG_FILE);
+        }
+
+        $summary['success'] = $summary['errors'] === 0;
+        $this->_writeLog($summary, $triggeredBy . ' (single: ' . $sku . ')');
+        return $summary;
+    }
+
+    /** GET one page (or one SKU) from the SG export endpoint. */
+    private function _fetchPage($page, $pageSize, $sku = null)
+    {
+        // Tell SG which currency to convert price/special_price/custom-option
+        // fixed prices into before exporting, so this country's courses are
+        // created with a price already denominated in its own currency
+        // instead of a raw SGD number mislabelled as the local unit.
+        $currency = (string) Mage::app()->getBaseCurrencyCode();
+        $url = $this->getSgUrl() . '?page=' . $page . '&page_size=' . $pageSize
+            . '&currency=' . rawurlencode($currency)
+            . ($sku !== null ? '&sku=' . rawurlencode($sku) : '');
         $ch  = curl_init($url);
         curl_setopt_array($ch, array(
             CURLOPT_RETURNTRANSFER => true,
@@ -173,7 +237,11 @@ class MMD_RoleManager_Model_CourseSyncService
         $isNew      = $existingId === 0;
 
         /** @var Mage_Catalog_Model_Product $product */
-        $product = Mage::getModel('catalog/product');
+        // setStoreId(0) BEFORE load: forces the EAV resource. Without it, a
+        // CLI/cron context (default store) loads via the read-only FLAT
+        // resource and ->save() fatals in _collectSaveData — so every cron
+        // UPDATE of an existing course silently errored under flat catalog.
+        $product = Mage::getModel('catalog/product')->setStoreId(0);
         if (!$isNew) {
             $product->load($existingId);
         }
@@ -193,8 +261,8 @@ class MMD_RoleManager_Model_CourseSyncService
         $attrs = isset($c['attributes']) && is_array($c['attributes']) ? $c['attributes'] : array();
         foreach ($attrs as $code => $value) {
             if ($value === null) continue;
-            if ($code === 'price' || $code === 'special_price') {
-                if ($isNew) $product->setData($code, $value); // P1: price only on create
+            if (in_array($code, self::$_partnerOwnedAttrs, true)) {
+                if ($isNew) $product->setData($code, $value); // P1: partner-owned after first import
                 continue;
             }
             $localValue = $this->_resolveAttrValue($code, $value);
@@ -225,8 +293,10 @@ class MMD_RoleManager_Model_CourseSyncService
             $this->_assignCategories($savedId, $c['categories']);
         }
 
-        // Custom options — recreate idempotently (delete existing, re-add)
-        if (isset($c['custom_options']) && is_array($c['custom_options']) && !empty($c['custom_options'])) {
+        // Custom options — CREATE only (P1). The country owns its class
+        // schedule, per-option fees, and trainer options after first import;
+        // recreating them on update would clobber all three with SG's data.
+        if ($isNew && isset($c['custom_options']) && is_array($c['custom_options']) && !empty($c['custom_options'])) {
             $this->_recreateCustomOptions($savedId, $c['custom_options']);
         }
 

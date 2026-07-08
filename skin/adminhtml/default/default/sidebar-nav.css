@@ -989,7 +989,7 @@ body.sidebar-collapsed .admin-main {
    boxes.css's per-cell bottom+right borders leak through as a visible
    grid pattern on every standard Magento admin grid. */
 body .admin-main td {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+    font-family: var(--font-sans) !important;
     font-size: 12px !important;
     line-height: 1.5 !important;
     vertical-align: middle !important;
@@ -1184,7 +1184,7 @@ body table.data tr.selected td a {
     letter-spacing: 0.5px !important;
     box-shadow: 0 0 12px rgba(37,139,182,0.06), inset 0 1px 0 rgba(255,255,255,0.04) !important;
     text-shadow: 0 0 8px rgba(37,139,182,0.3) !important;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+    font-family: var(--font-sans) !important;
 }
 .admin-main input[type="file"]::file-selector-button:hover {
     background: linear-gradient(135deg, #1e293b 0%, #334155 100%) !important;
@@ -4127,7 +4127,7 @@ body.adminhtml-system_currency-index .admin-main .grid.currency-rate-list tr.is-
     opacity: 0.55 !important;
 }
 body.adminhtml-system_currency-index .admin-main .grid.currency-rate-list td strong {
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace !important;
+    font-family: var(--font-mono) !important;
     font-size: 12px !important;
     color: var(--t2, #cbd5e1) !important;
     letter-spacing: 0.5px !important;
@@ -4850,7 +4850,7 @@ body .admin-main #anchor-content { padding-left: 0 !important; }
 .admin-main h4,
 .admin-main h5,
 .admin-main h6 {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+    font-family: var(--font-sans) !important;
     font-weight: 700 !important;
     text-shadow: none !important;
 }
@@ -4904,7 +4904,7 @@ body .admin-main #anchor-content { padding-left: 0 !important; }
    font-size:15px in admin-dashboard.css §603 wins on the bar
    element itself; this rule retunes the inner title span. */
 .admin-main .dcf-mag-bar {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+    font-family: var(--font-sans) !important;
     font-size: 16px !important;
     font-weight: 700 !important;
     line-height: 1.4 !important;
@@ -4924,7 +4924,7 @@ body .admin-main #anchor-content { padding-left: 0 !important; }
 .admin-main .entry-edit-head h4,
 .admin-main .box-head h4,
 .admin-main .box-head h3 {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+    font-family: var(--font-sans) !important;
     font-size: 14px !important;
     font-weight: 700 !important;
     line-height: 1.4 !important;
@@ -4935,7 +4935,7 @@ body .admin-main #anchor-content { padding-left: 0 !important; }
 /* Sidebar section labels — align to H5 scale (sub-label). */
 .admin-main .sidebar-section-label,
 .admin-sidebar-layout .sidebar-section-label {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+    font-family: var(--font-sans) !important;
     font-size: 12px !important;
     font-weight: 700 !important;
     line-height: 1.4 !important;
@@ -5057,6 +5057,104 @@ body .grid table.data tbody tr:hover > td a {
 :root[data-theme="light"] #sales_order_grid_table tbody tr:hover > td a,
 :root[data-theme="light"] #sales_order_grid_table tr:hover > td a {
     color: var(--brand, #2563eb) !important;
+}
+
+/* §22a — Sales list grids: Registrations + Invoices match Transactions.
+   The transactions grid reads as a flat list on the page surface: title row,
+   one separator, transparent table cells, and hairline row dividers. The
+   order/invoice grids inherit the global .dcf-mag card chrome plus explicit
+   #sales_order_grid gray-surface overrides above, so they look heavier. Scope
+   the correction to the two sales list indexes only. */
+body[class*="adminhtml-sales_order_index"] .dcf-mag.mmd-auto-card,
+body[class*="adminhtml-sales-order-index"] .dcf-mag.mmd-auto-card,
+body[class*="adminhtml-sales_invoice_index"] .dcf-mag.mmd-auto-card,
+body[class*="adminhtml-sales-invoice-index"] .dcf-mag.mmd-auto-card {
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+}
+body[class*="adminhtml-sales_order_index"] .dcf-mag.mmd-auto-card .dcf-mag-bar,
+body[class*="adminhtml-sales-order-index"] .dcf-mag.mmd-auto-card .dcf-mag-bar,
+body[class*="adminhtml-sales_invoice_index"] .dcf-mag.mmd-auto-card .dcf-mag-bar,
+body[class*="adminhtml-sales-invoice-index"] .dcf-mag.mmd-auto-card .dcf-mag-bar {
+    background: transparent !important;
+    background-image: none !important;
+    border-bottom: 1px solid var(--b1, #384a60) !important;
+    padding: 0 0 14px !important;
+}
+body[class*="adminhtml-sales_order_index"] .dcf-mag.mmd-auto-card .dcf-mag-body,
+body[class*="adminhtml-sales-order-index"] .dcf-mag.mmd-auto-card .dcf-mag-body,
+body[class*="adminhtml-sales_invoice_index"] .dcf-mag.mmd-auto-card .dcf-mag-body,
+body[class*="adminhtml-sales-invoice-index"] .dcf-mag.mmd-auto-card .dcf-mag-body,
+body[class*="adminhtml-sales_order_index"] .admin-main #sales_order_grid,
+body[class*="adminhtml-sales-order-index"] .admin-main #sales_order_grid,
+body[class*="adminhtml-sales_invoice_index"] .admin-main #sales_invoice_grid,
+body[class*="adminhtml-sales-invoice-index"] .admin-main #sales_invoice_grid,
+body[class*="adminhtml-sales_order_index"] .admin-main .grid,
+body[class*="adminhtml-sales-order-index"] .admin-main .grid,
+body[class*="adminhtml-sales_invoice_index"] .admin-main .grid,
+body[class*="adminhtml-sales-invoice-index"] .admin-main .grid,
+body[class*="adminhtml-sales_order_index"] .admin-main .grid .hor-scroll,
+body[class*="adminhtml-sales-order-index"] .admin-main .grid .hor-scroll,
+body[class*="adminhtml-sales_invoice_index"] .admin-main .grid .hor-scroll,
+body[class*="adminhtml-sales-invoice-index"] .admin-main .grid .hor-scroll,
+body[class*="adminhtml-sales_order_index"] .admin-main .grid table.data,
+body[class*="adminhtml-sales-order-index"] .admin-main .grid table.data,
+body[class*="adminhtml-sales_invoice_index"] .admin-main .grid table.data,
+body[class*="adminhtml-sales-invoice-index"] .admin-main .grid table.data {
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+}
+body[class*="adminhtml-sales_order_index"] .admin-main .grid,
+body[class*="adminhtml-sales-order-index"] .admin-main .grid,
+body[class*="adminhtml-sales_invoice_index"] .admin-main .grid,
+body[class*="adminhtml-sales-invoice-index"] .admin-main .grid {
+    margin: 10px 0 0 !important;
+    overflow: visible !important;
+}
+body[class*="adminhtml-sales_order_index"] #sales_order_grid_table,
+body[class*="adminhtml-sales-order-index"] #sales_order_grid_table,
+body[class*="adminhtml-sales_invoice_index"] #sales_invoice_grid_table,
+body[class*="adminhtml-sales-invoice-index"] #sales_invoice_grid_table,
+body[class*="adminhtml-sales_order_index"] #sales_order_grid_table thead,
+body[class*="adminhtml-sales-order-index"] #sales_order_grid_table thead,
+body[class*="adminhtml-sales_invoice_index"] #sales_invoice_grid_table thead,
+body[class*="adminhtml-sales-invoice-index"] #sales_invoice_grid_table thead,
+body[class*="adminhtml-sales_order_index"] #sales_order_grid_table tbody,
+body[class*="adminhtml-sales-order-index"] #sales_order_grid_table tbody,
+body[class*="adminhtml-sales_invoice_index"] #sales_invoice_grid_table tbody,
+body[class*="adminhtml-sales-invoice-index"] #sales_invoice_grid_table tbody,
+body[class*="adminhtml-sales_order_index"] #sales_order_grid_table tr,
+body[class*="adminhtml-sales-order-index"] #sales_order_grid_table tr,
+body[class*="adminhtml-sales_invoice_index"] #sales_invoice_grid_table tr,
+body[class*="adminhtml-sales-invoice-index"] #sales_invoice_grid_table tr,
+body[class*="adminhtml-sales_order_index"] #sales_order_grid_table th,
+body[class*="adminhtml-sales-order-index"] #sales_order_grid_table th,
+body[class*="adminhtml-sales_invoice_index"] #sales_invoice_grid_table th,
+body[class*="adminhtml-sales-invoice-index"] #sales_invoice_grid_table th,
+body[class*="adminhtml-sales_order_index"] #sales_order_grid_table td,
+body[class*="adminhtml-sales-order-index"] #sales_order_grid_table td,
+body[class*="adminhtml-sales_invoice_index"] #sales_invoice_grid_table td,
+body[class*="adminhtml-sales-invoice-index"] #sales_invoice_grid_table td {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+body[class*="adminhtml-sales_order_index"] #sales_order_grid_table tr.headings th,
+body[class*="adminhtml-sales-order-index"] #sales_order_grid_table tr.headings th,
+body[class*="adminhtml-sales_invoice_index"] #sales_invoice_grid_table tr.headings th,
+body[class*="adminhtml-sales-invoice-index"] #sales_invoice_grid_table tr.headings th {
+    border-bottom: 1px solid var(--b1, #384a60) !important;
+}
+body[class*="adminhtml-sales_order_index"] #sales_order_grid_table tbody tr + tr td,
+body[class*="adminhtml-sales-order-index"] #sales_order_grid_table tbody tr + tr td,
+body[class*="adminhtml-sales_invoice_index"] #sales_invoice_grid_table tbody tr + tr td,
+body[class*="adminhtml-sales-invoice-index"] #sales_invoice_grid_table tbody tr + tr td {
+    border-top: 1px solid var(--b1, #384a60) !important;
 }
 
 /* §22 — Workflow Guides page (MMD_WorkflowGuides). The guide list itself
@@ -5201,3 +5299,401 @@ body.adminhtml-workflowguides-index .wfg-badge-logic {
     letter-spacing: 1px;
     padding: 8px 16px 4px 32px;
 }
+
+/* ============================================================
+   === 25. Global page-title + grid consistency (clean/minimalist)
+   One flush page-title treatment everywhere; single-row records.
+   Added 2026-07-02 per "make all backend pages consistent".
+   ============================================================ */
+
+/* 25a. Page-title bar → FLUSH heading (no gradient container).
+   Scope is ONLY the auto-wrapped page-title card (.mmd-auto-card).
+   Section-card headers inside Edit Course (.dcf-mag-bar that are NOT
+   inside .mmd-auto-card, e.g. "General" / "Inventory") keep their
+   gradient — do not touch them. */
+.admin-main .dcf-mag.mmd-auto-card {
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+    margin-bottom: 14px !important;
+}
+.admin-main .dcf-mag.mmd-auto-card > .dcf-mag-bar {
+    background: transparent !important;
+    background-image: none !important;
+    border: 0 !important;
+    border-bottom: 1px solid var(--b1) !important;
+    border-radius: 0 !important;
+    color: var(--t1) !important;
+    padding: 4px 2px 12px !important;
+    font-size: 18px !important;
+    font-weight: 700 !important;
+    margin-bottom: 14px !important;
+}
+/* grid body sits flush on the page surface, transparent like every
+   native Magento grid (no gray card wrapper behind the rows). */
+.admin-main .dcf-mag.mmd-auto-card > .dcf-mag-body,
+.admin-main .dcf-mag.mmd-auto-card .dcf-mag-body .grid,
+.admin-main .dcf-mag.mmd-auto-card .dcf-mag-body .hor-scroll,
+.admin-main .dcf-mag.mmd-auto-card .dcf-mag-body table.data {
+    background: transparent !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+
+/* 25b. Page-title SIZE + flush hairline for the whole page-title family
+   (.dash-title / .dev-page-title / .lmc-title / native .content-header h3)
+   is the ONE canonical rule in admin-dashboard.css §"Global page-title
+   type ramp" (18px + hairline). Deliberately not duplicated here — a
+   second spec was the dead-code landmine flagged in the 2026-07-02 audit. */
+
+/* 25c. One record = one row. Grid data cells never wrap; wide grids
+   scroll horizontally (the .hor-scroll wrapper + min-width already
+   handle overflow). Keeps every row a single, scannable line. */
+.admin-main .grid table.data td {
+    white-space: nowrap !important;
+}
+
+/* ============================================================
+   === 26. GLOBAL GRID FRAMEWORK — one flat, professional table everywhere
+   Added 2026-07-03. Every admin grid renders identically regardless of the
+   underlying Magento table class (table.data / table.border) or zebra markup:
+   transparent cells, one font + size, single-row records, hairline row
+   separators, uppercase header. This out-specifies the legacy boxes.css
+   !important fills that made some grids (e.g. category "Category Products",
+   any table.border grid) look shaded while others stayed flat.
+
+   Specificity note: boxes.css paints '.grid table.border td' (0,2,2) and
+   '.grid tbody.odd/even tr(td)' (0,2,1)/(0,2,3) with !important. Every rule
+   below leads with '.admin-main .grid' + the same class(es) so it lands one
+   class higher and wins. Do NOT lower the specificity.
+   ============================================================ */
+
+/* 26a. CELLS — transparent, consistent type, single line (one record = one row).
+   Wide grids scroll horizontally via the .hor-scroll wrapper; nothing is hidden. */
+.admin-main .grid table td,
+.admin-main .grid table.data td,
+.admin-main .grid table.border td {
+    background: transparent !important;
+    background-image: none !important;
+    font-family: var(--font-sans) !important;
+    font-size: 12px !important;
+    line-height: 1.5 !important;
+    color: var(--t2, #e2e8f0) !important;
+    padding: 6px 10px !important;
+    vertical-align: middle !important;
+    white-space: nowrap !important;
+    border-left: none !important;
+    border-right: none !important;
+}
+
+/* 26b. ZEBRA OFF — kill boxes.css odd/even light+gray fills; rows separate by a
+   single hairline only (set below), never by alternating background. */
+.admin-main .grid tbody.odd tr,
+.admin-main .grid tbody.even tr,
+.admin-main .grid tbody.odd tr td,
+.admin-main .grid tbody.even tr td,
+.admin-main .grid tr.even,
+.admin-main .grid tr.odd,
+.admin-main .grid tr.even td,
+.admin-main .grid tr.odd td {
+    background: transparent !important;
+    background-image: none !important;
+}
+
+/* 26c. ROW SEPARATOR — one hairline between records; keep boxes.css .border
+   bottom borders off (26a already stripped left/right). */
+.admin-main .grid tbody tr + tr td {
+    border-top: 1px solid var(--b1, #384a60) !important;
+    border-bottom: none !important;
+}
+.admin-main .grid tbody tr:first-child td { border-top: none !important; }
+
+/* 26d. HEADER — flat, uppercase, no sprite background (boxes.css puts a
+   sort_row_bg.gif on tr.headings). Reset the row AND the cells. */
+.admin-main .grid tr.headings,
+.admin-main .grid table.border tr.headings,
+.admin-main .grid tr.headings th,
+.admin-main .grid table.border tr.headings th {
+    background: transparent !important;
+    background-image: none !important;
+    color: var(--t4, #94a3b8) !important;
+    font-family: var(--font-sans) !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.6px !important;
+    border-left: none !important;
+    border-right: none !important;
+    border-top: none !important;
+    border-bottom: 1px solid var(--b1, #384a60) !important;
+    white-space: nowrap !important;
+}
+
+/* 26e. HOVER — subtle blue wash on the whole row (no teal text, no zebra). */
+.admin-main .grid tbody tr:hover td,
+.admin-main .grid tbody tr.on-mouse td {
+    background: rgba(96,165,250,0.06) !important;
+    color: var(--t1, #f1f5f9) !important;
+}
+
+/* 26f. The whole grid table itself is transparent (no .border box outline);
+   the card/panel it lives in owns any surrounding chrome. */
+.admin-main .grid table,
+.admin-main .grid table.data,
+.admin-main .grid table.border {
+    background: transparent !important;
+    border: none !important;
+}
+
+/* ============================================================
+   === 27. UNIVERSAL DATA-TABLE FRAMEWORK — custom MMD tables == native grids
+   Added 2026-07-03. §26 unified the native Magento .grid tables. This extends
+   the SAME flat spec to EVERY custom MMD data table so the whole backend has
+   one table look.
+
+   FRAMEWORK NET (do NOT turn back into a class whitelist): MMD data tables all
+   follow the `*-table` naming convention (dash-table, dash-detail-table,
+   dash-summary-table, al-table, at-table, trn-table, mm-table, …). Matching
+   `table[class*="-table"]` covers every current AND future one automatically —
+   no per-table patch. The one odd suffix (`.cs-tbl`) is added explicitly.
+
+   Canonical cell spec = §26 grid: transparent, var(--font-sans), 12px,
+   6px 10px padding, single-row (nowrap), hairline row separator, flat 11px
+   uppercase header. Cell text COLOR is intentionally NOT forced so .mm-table
+   semantic modifiers (td.muted/strong/status) keep working.
+   ============================================================ */
+
+/* 27a. Flatten card wrappers (…-table-wrap) so custom tables sit flush like grids. */
+.admin-main [class*="-table-wrap"] {
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+}
+
+/* 27b. CELLS — one type ramp + density + single row across the whole family. */
+.admin-main table[class*="-table"] tbody td,
+.admin-main table.cs-tbl tbody td {
+    background: transparent !important;
+    font-family: var(--font-sans) !important;
+    font-size: 12px !important;
+    line-height: 1.5 !important;
+    padding: 6px 10px !important;
+    vertical-align: middle !important;
+    white-space: nowrap !important;
+    border-left: none !important;
+    border-right: none !important;
+    border-bottom: none !important;
+}
+
+/* 27c. ROW SEPARATOR — one hairline between records. */
+.admin-main table[class*="-table"] tbody tr + tr td,
+.admin-main table.cs-tbl tbody tr + tr td {
+    border-top: 1px solid var(--b1, #384a60) !important;
+}
+
+/* 27d. HEADERS — flat, transparent, uppercase 11px (no header card / dark fill). */
+.admin-main table[class*="-table"] thead th,
+.admin-main table.cs-tbl thead th {
+    background: transparent !important;
+    background-image: none !important;
+    color: var(--t4, #94a3b8) !important;
+    font-family: var(--font-sans) !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.6px !important;
+    padding: 6px 10px !important;
+    text-align: left !important;
+    border-top: none !important;
+    border-left: none !important;
+    border-right: none !important;
+    border-bottom: 1px solid var(--b1, #384a60) !important;
+    white-space: nowrap !important;
+}
+
+/* 27e. HOVER — same subtle blue wash as native grids. */
+.admin-main table[class*="-table"] tbody tr:hover td,
+.admin-main table.cs-tbl tbody tr:hover td {
+    background: rgba(96,165,250,0.06) !important;
+}
+
+/* ============================================================
+   === 28. LIGHT THEME — professional visibility polish
+   Added 2026-07-03. The dark theme's neon accents (cyan KPI numbers, blue
+   header sort-links) drop to low contrast / read as unprofessional on the
+   light surfaces. These light-only overrides restore strong, conventional
+   contrast. Scoped to :root[data-theme="light"] so the dark theme is
+   untouched; placed in §28 (end of the last-loaded stylesheet) to win.
+   ============================================================ */
+
+/* 28a. KPI numbers — cyan (#22d3ee) is washed out on light cards. Use the
+   brand blue for a strong, readable figure. Net covers every *-kpi-num. */
+:root[data-theme="light"] .admin-main [class*="kpi-num"],
+:root[data-theme="light"] .admin-main .dash-kpi-num {
+    color: #1d4ed8 !important;
+}
+
+/* 28b. KPI cards — flat slate (#e2e8f0) reads heavy. Clean white card with a
+   defined hairline + soft shadow separates it from the page professionally. */
+:root[data-theme="light"] .admin-main .dash-kpi-card,
+:root[data-theme="light"] .admin-main .lmc-kpi-card,
+:root[data-theme="light"] .admin-main .trn-kpi-card,
+:root[data-theme="light"] .admin-main .at-kpi-card,
+:root[data-theme="light"] .admin-main .al-kpi,
+:root[data-theme="light"] .admin-main .at-kpi {
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+}
+
+/* 28c. Grid header sort-links — blue link colour makes headers look like
+   body links. Mute them to slate so column headers read as headers; only
+   colour to brand blue on hover to signal sortability.
+   NOTE the :not() chain: the generic light-theme link rule in dark-theme.css
+   is `:root[data-theme="light"] .admin-main a:not([class*="btn"]):not(.button)
+   :not([class*="badge"]):not([class*="pill"])` = 7 classes. These header rules
+   repeat the SAME 4 :not clauses AND add the `.grid` context, landing at 8
+   classes so they win. Do NOT trim the :not chain — the blue link colour
+   returns the moment these drop below 7 classes. */
+:root[data-theme="light"] .admin-main .grid th a:not([class*="btn"]):not(.button):not([class*="badge"]):not([class*="pill"]),
+:root[data-theme="light"] .admin-main .grid tr.headings th a:not([class*="btn"]):not(.button):not([class*="badge"]):not([class*="pill"]),
+:root[data-theme="light"] .admin-main table[class*="-table"] thead th a:not([class*="btn"]):not(.button):not([class*="badge"]):not([class*="pill"]) {
+    color: #475569 !important;
+}
+:root[data-theme="light"] .admin-main .grid th a:not([class*="btn"]):not(.button):not([class*="badge"]):not([class*="pill"]):hover,
+:root[data-theme="light"] .admin-main .grid tr.headings th a:not([class*="btn"]):not(.button):not([class*="badge"]):not([class*="pill"]):hover,
+:root[data-theme="light"] .admin-main table[class*="-table"] thead th a:not([class*="btn"]):not(.button):not([class*="badge"]):not([class*="pill"]):hover {
+    color: #2563eb !important;
+}
+
+/* 29. Funding Tags grid — match the flat Transactions list.
+   Scoped to the main /tag/ funding-tags list; assigned/product/customer
+   tag sub-grids keep their embedded-grid containment. */
+body.adminhtml-tag-index .dcf-mag.mmd-auto-card,
+body[class*="adminhtml-tag-index"] .dcf-mag.mmd-auto-card {
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+}
+body.adminhtml-tag-index .dcf-mag.mmd-auto-card .dcf-mag-bar,
+body[class*="adminhtml-tag-index"] .dcf-mag.mmd-auto-card .dcf-mag-bar {
+    background: transparent !important;
+    background-image: none !important;
+    border-bottom: 1px solid var(--b1, #384a60) !important;
+    padding: 0 0 14px !important;
+}
+body.adminhtml-tag-index .dcf-mag.mmd-auto-card .dcf-mag-body,
+body[class*="adminhtml-tag-index"] .dcf-mag.mmd-auto-card .dcf-mag-body,
+body.adminhtml-tag-index .admin-main #tag_frame,
+body[class*="adminhtml-tag-index"] .admin-main #tag_frame,
+body.adminhtml-tag-index .admin-main #tag_tag_grid,
+body[class*="adminhtml-tag-index"] .admin-main #tag_tag_grid,
+body.adminhtml-tag-index .admin-main .grid,
+body[class*="adminhtml-tag-index"] .admin-main .grid,
+body.adminhtml-tag-index .admin-main .grid .hor-scroll,
+body[class*="adminhtml-tag-index"] .admin-main .grid .hor-scroll,
+body.adminhtml-tag-index .admin-main #tag_tag_grid_table,
+body[class*="adminhtml-tag-index"] .admin-main #tag_tag_grid_table {
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+}
+body.adminhtml-tag-index .admin-main .grid,
+body[class*="adminhtml-tag-index"] .admin-main .grid {
+    margin: 10px 0 0 !important;
+    overflow: visible !important;
+}
+body.adminhtml-tag-index #tag_tag_grid_table,
+body[class*="adminhtml-tag-index"] #tag_tag_grid_table,
+body.adminhtml-tag-index #tag_tag_grid_table thead,
+body[class*="adminhtml-tag-index"] #tag_tag_grid_table thead,
+body.adminhtml-tag-index #tag_tag_grid_table tbody,
+body[class*="adminhtml-tag-index"] #tag_tag_grid_table tbody,
+body.adminhtml-tag-index #tag_tag_grid_table tr,
+body[class*="adminhtml-tag-index"] #tag_tag_grid_table tr,
+body.adminhtml-tag-index #tag_tag_grid_table th,
+body[class*="adminhtml-tag-index"] #tag_tag_grid_table th,
+body.adminhtml-tag-index #tag_tag_grid_table td,
+body[class*="adminhtml-tag-index"] #tag_tag_grid_table td {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+body.adminhtml-tag-index #tag_tag_grid_table tr.headings th,
+body[class*="adminhtml-tag-index"] #tag_tag_grid_table tr.headings th {
+    border-bottom: 1px solid var(--b1, #384a60) !important;
+}
+body.adminhtml-tag-index #tag_tag_grid_table tbody tr + tr td,
+body[class*="adminhtml-tag-index"] #tag_tag_grid_table tbody tr + tr td {
+    border-top: 1px solid var(--b1, #384a60) !important;
+}
+body.adminhtml-tag-index #tag_tag_grid_table tbody tr:hover > td,
+body[class*="adminhtml-tag-index"] #tag_tag_grid_table tbody tr:hover > td {
+    background: rgba(37, 139, 182, 0.10) !important;
+    color: var(--t1, #f1f5f9) !important;
+    transition: background 0.12s ease !important;
+}
+:root[data-theme="light"] body.adminhtml-tag-index #tag_tag_grid_table tbody tr:hover > td,
+:root[data-theme="light"] body[class*="adminhtml-tag-index"] #tag_tag_grid_table tbody tr:hover > td {
+    background: rgba(37, 99, 235, 0.06) !important;
+    color: var(--t1, #0f172a) !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   §30. Categories — docked right tree panel (3-column shell spacing).
+   Mirrors the left .admin-sidebar mechanics: just as .admin-main reserves
+   margin-left:250px for the fixed left sidebar, an OPEN right tree panel
+   reserves padding-right on .admin-main so the centre edit column can
+   never overlap the panel. Lives HERE (not dark-theme.css) because this
+   file loads last and owns the .admin-main shell rules — see the cascade
+   trap note in the backend-design skill. Panel itself (fixed, 300px) and
+   its toggle glyph are styled in dark-theme.css "Categories: docked right
+   tree panel". 320 = 300px panel + 20px breathing gap.
+   ───────────────────────────────────────────────────────────────────── */
+body.cat-tree-docked .admin-main {
+    transition: margin-right 0.22s ease !important;
+    margin-right: 60px !important;
+    /* Mirror the LEFT side's interior gutter (margin-left:250 + padding-left:20):
+       content keeps a 20px gutter against the right panel in both states. */
+    padding-right: 20px !important;
+}
+body.cat-tree-docked.cat-tree-open .admin-main { margin-right: 320px !important; }
+
+/* §30a. Icon-button size standard — HARDENING. The canonical .mmd-iconbtn
+   (dark-theme.css) is 26×26, but Magento buttons carry `.scalable` whose §18
+   rule (.admin-main button.scalable — same specificity, later file) inflates
+   them, so iconised <button>s rendered bigger than iconised <a>s (seen on the
+   categories panel: Add Root/Sub larger than Collapse/Expand). This rule
+   lives at the END of the cascade and pins EVERY .mmd-iconbtn — button or
+   anchor, any legacy class combo — to the single 26×26 standard. */
+.admin-main button.mmd-iconbtn,
+.admin-main a.mmd-iconbtn,
+.admin-main .mmd-iconbtn {
+    box-sizing: border-box !important;
+    width: 26px !important;
+    height: 26px !important;
+    min-width: 26px !important;
+    min-height: 26px !important;
+    max-width: 26px !important;
+    max-height: 26px !important;
+    padding: 0 !important;
+    border-radius: 5px !important;
+    line-height: 1 !important;
+}
+.admin-main button.mmd-iconbtn > span { display: contents !important; }
+/* The category editor's floating tabs/Save bar is position:fixed full-width
+   (boxes.css .content-header-floating) — fixed elements ignore the column
+   margin, so pin it between the two sidebars explicitly. */
+body.cat-tree-docked .content-header-floating {
+    left: 250px !important;
+    width: auto !important;
+    right: 60px !important;
+}
+body.cat-tree-docked.sidebar-collapsed .content-header-floating { left: 60px !important; }
+body.cat-tree-docked.cat-tree-open .content-header-floating { right: 320px !important; }

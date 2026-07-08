@@ -1,0 +1,87 @@
+<?xml version="1.0"?>
+<!--
+  MMD_Wpl — WPL (Workplace Learning) Development Partnership lead magnet.
+
+  Frontend: the wpl-development.html Enquiries landing page posts to
+  wpl/index/post. The controller enforces the same invisible spam shield
+  as the Contact Us form (honeypot `hideit` + Cloudflare Turnstile via
+  MMD_MagentoCaptcha), stores the enquiry in mmd_wpl_lead, and emails the
+  sales mailbox.
+
+  Admin: System -> WPL Development Leads grid (adminhtml/wpllead),
+  mirroring the Franchisee Leads grid (MMD_Franchise).
+-->
+<config>
+    <modules>
+        <MMD_Wpl>
+            <version>1.0.0</version>
+        </MMD_Wpl>
+    </modules>
+
+    <global>
+        <helpers>
+            <mmd_wpl>
+                <class>MMD_Wpl_Helper</class>
+            </mmd_wpl>
+        </helpers>
+        <models>
+            <mmd_wpl>
+                <class>MMD_Wpl_Model</class>
+                <resourceModel>mmd_wpl_mysql4</resourceModel>
+            </mmd_wpl>
+            <mmd_wpl_mysql4>
+                <class>MMD_Wpl_Model_Mysql4</class>
+                <entities>
+                    <lead>
+                        <table>mmd_wpl_lead</table>
+                    </lead>
+                </entities>
+            </mmd_wpl_mysql4>
+        </models>
+        <resources>
+            <mmd_wpl_write>
+                <connection><use>core_write</use></connection>
+            </mmd_wpl_write>
+            <mmd_wpl_read>
+                <connection><use>core_read</use></connection>
+            </mmd_wpl_read>
+        </resources>
+        <blocks>
+            <mmd_wpl>
+                <class>MMD_Wpl_Block</class>
+            </mmd_wpl>
+        </blocks>
+    </global>
+
+    <frontend>
+        <routers>
+            <mmd_wpl>
+                <use>standard</use>
+                <args>
+                    <module>MMD_Wpl</module>
+                    <frontName>wpl</frontName>
+                </args>
+            </mmd_wpl>
+        </routers>
+    </frontend>
+
+    <admin>
+        <routers>
+            <adminhtml>
+                <args>
+                    <modules>
+                        <mmd_wpl before="Mage_Adminhtml">MMD_Wpl_Adminhtml</mmd_wpl>
+                    </modules>
+                </args>
+            </adminhtml>
+        </routers>
+    </admin>
+
+    <default>
+        <mmd_wpl>
+            <lead>
+                <recipient_email>sales@tertiarycourses.com.sg</recipient_email>
+            </lead>
+        </mmd_wpl>
+    </default>
+</config>

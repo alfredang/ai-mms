@@ -215,6 +215,10 @@ class MMD_OtpLogin_Adminhtml_OtpController extends Mage_Adminhtml_Controller_Act
             $result['redirect'] = $needsRoleSelect
                 ? Mage::helper('adminhtml')->getUrl('adminhtml/roleselect/index')
                 : Mage::helper('adminhtml')->getUrl('adminhtml/dashboard');
+            // Commit the session before the JSON reply — the browser follows
+            // result.redirect immediately; without this the next request can
+            // read a stale DB session row (role-select loop / double-click race).
+            session_write_close();
         } catch (Exception $e) {
             Mage::logException($e);
             $result['message'] = 'Login failed. Please try again.';
