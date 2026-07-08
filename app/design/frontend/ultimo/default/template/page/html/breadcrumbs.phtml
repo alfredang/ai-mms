@@ -27,16 +27,29 @@
 <?php if($crumbs && is_array($crumbs)): ?>
 <div class="breadcrumbs">
     <ul itemscope itemtype="http://schema.org/BreadcrumbList">
+        <?php
+            $_mmdProduct = Mage::registry('current_product');
+            $_mmdStripWsqPrefix = $_mmdProduct
+                && in_array((string) $_mmdProduct->getSku(), array('TGS-2020504243'), true);
+        ?>
         <?php $i=1; foreach($crumbs as $_crumbName=>$_crumbInfo): ?>
+            <?php
+                $_mmdCrumbLabel = $_crumbInfo['label'];
+                $_mmdCrumbTitle = $_crumbInfo['title'];
+                if ($_mmdStripWsqPrefix && !empty($_crumbInfo['last'])) {
+                    $_mmdCrumbLabel = preg_replace('#^WSQ\s*-\s*#i', '', $_mmdCrumbLabel, 1);
+                    $_mmdCrumbTitle = preg_replace('#^WSQ\s*-\s*#i', '', $_mmdCrumbTitle, 1);
+                }
+            ?>
             <?php if($_crumbInfo['link']): ?>
                 <li class="<?php echo $_crumbName ?>" itemprop="itemListElement" itemscope      itemtype="http://schema.org/ListItem">					<meta itemprop="position" content="<?php echo $i; ?>" />
-                    <a itemprop="item" href="<?php echo $_crumbInfo['link'] ?>" title="<?php echo $this->escapeHtml($_crumbInfo['title']) ?>" itemprop="url"><span itemprop="name"><?php echo $this->escapeHtml($_crumbInfo['label']) ?></span></a>
+                    <a itemprop="item" href="<?php echo $_crumbInfo['link'] ?>" title="<?php echo $this->escapeHtml($_mmdCrumbTitle) ?>" itemprop="url"><span itemprop="name"><?php echo $this->escapeHtml($_mmdCrumbLabel) ?></span></a>
             <?php elseif($_crumbInfo['last']): ?>
                 <li class="<?php echo $_crumbName ?>" itemprop="itemListElement" itemscope      itemtype="http://schema.org/ListItem"><meta itemprop="position" content="<?php echo $i; ?>" />
-                    <span itemprop="name" class="last-crumb"><?php echo $this->escapeHtml($_crumbInfo['label']) ?></span>
+                    <span itemprop="name" class="last-crumb"><?php echo $this->escapeHtml($_mmdCrumbLabel) ?></span>
             <?php else: ?>
                 <li class="<?php echo $_crumbName ?>" itemprop="itemListElement" itemscope      itemtype="http://schema.org/ListItem"><meta itemprop="position" content="<?php echo $i; ?>" />
-                   <span itemprop="name"> <?php echo $this->escapeHtml($_crumbInfo['label']) ?></span>
+                   <span itemprop="name"> <?php echo $this->escapeHtml($_mmdCrumbLabel) ?></span>
             <?php endif; ?>
                 <?php if(!$_crumbInfo['last']): ?>
                     <span class="sep"></span>

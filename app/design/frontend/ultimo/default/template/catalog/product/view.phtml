@@ -240,14 +240,8 @@
 	}
 	if ($_isNoFundingCourse) {
 		$_hasWsqFunding = true;
-		$_pythonFundamentalUrl = Mage::getUrl('', array('_direct' => 'wsq-python-fundamental-course-for-beginners.html'));
 		$_wsqNarrativeHtml =
-			'<p>' . $this->escapeHtml($this->__('No funding is available for this course.')) . '</p>'
-			. '<p>'
-			. $this->escapeHtml($this->__('If you plan to apply WSQ funding or use PSEA, we recommend '))
-			. '<a href="' . $this->escapeUrl($_pythonFundamentalUrl) . '">'
-			. $this->escapeHtml($this->__('WSQ Python Fundamental Course for Beginners'))
-			. '</a></p>';
+			'<p>' . $this->escapeHtml($this->__('No funding is available for this course.')) . '</p>';
 	}
 
 	// Helper: build a "<h[1-6]> Section </h[1-6]>(.*?)" extractor whose
@@ -405,6 +399,11 @@
 			$_certificationHtml = $_certExtracted;
 		}
 		unset($_certExtracted);
+	}
+
+	if ($_isNoFundingCourse) {
+		$shortDescription = preg_replace('#(<p\b[^>]*>\s*)WSQ\s+#iu', '$1', $shortDescription, 1);
+		$shortDescription = preg_replace('#^\s*WSQ\s+#iu', '', $shortDescription, 1);
 	}
 
 	// "Free Certificate Practice Exams" card: render ONLY for courses in the
@@ -796,7 +795,7 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 					<?php /* WSQ Funding card renders in the primary (middle) column,
 					          right under the course description. See below. */ ?>
 
-					<?php if ($_skillsTitle !== '' || $_skillsCode !== ''): ?>
+					<?php if (($_skillsTitle !== '' || $_skillsCode !== '') && !$_isNoFundingCourse): ?>
 						<section class="course-policy-card course-policy-card--skills">
 							<header class="course-policy-card__header">
 								<span class="course-policy-card__icon" aria-hidden="true">
@@ -909,7 +908,8 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 		<div class="product-primary-column product-shop <?php echo $grid['primCol']; ?>">
 
 			<div class="product-name">
-				<h1 itemprop="name"><?php echo $_helper->productAttribute($_product, $_product->getName(), 'name') ?></h1>
+				<?php $_displayProductName = $_isNoFundingCourse ? preg_replace('#^WSQ\s*-\s*#i', '', $_product->getName(), 1) : $_product->getName(); ?>
+				<h1 itemprop="name"><?php echo $_helper->productAttribute($_product, $_displayProductName, 'name') ?></h1>
 			</div>
 
 			<?php if ($sku = $_product->getSku()): ?>
