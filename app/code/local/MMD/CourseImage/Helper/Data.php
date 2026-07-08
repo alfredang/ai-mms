@@ -162,6 +162,11 @@ class MMD_CourseImage_Helper_Data extends Mage_Core_Helper_Abstract
     public function getProductBadges(Mage_Catalog_Model_Product $product): array
     {
         try {
+            $hiddenBadgeSkus = ['TGS-2020504243'];
+            if (in_array((string) $product->getSku(), $hiddenBadgeSkus, true)) {
+                return [];
+            }
+
             $productId = (int) $product->getId();
             if ($productId <= 0) {
                 return [];
