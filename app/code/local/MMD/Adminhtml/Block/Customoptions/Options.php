@@ -65,6 +65,14 @@ class MMD_Adminhtml_Block_Customoptions_Options extends MMD_Adminhtml_Block_Cust
                         ))
         );
 
+        $this->setChild('bulk_generate_button', $this->getLayout()->createBlock('adminhtml/widget_button')
+                        ->setData(array(
+                            'label'   => Mage::helper('customoptions')->__('Bulk Generate Schedules'),
+                            'onclick' => "mmdBulkGenToggle(); return false;",
+                            'class'   => '',
+                        ))
+        );
+
         $this->setChild('grid', $this->getLayout()->createBlock('mmd/customoptions_options_grid', 'customoptions.grid'));
 
         return parent::_prepareLayout();
@@ -80,6 +88,10 @@ class MMD_Adminhtml_Block_Customoptions_Options extends MMD_Adminhtml_Block_Cust
 
     public function getApplyToProductsButtonHtml() {
         return $this->getChildHtml('apply_to_products_button');
+    }
+
+    public function getBulkGenerateButtonHtml() {
+        return $this->getChildHtml('bulk_generate_button');
     }
 
     public function getGridHtml() {

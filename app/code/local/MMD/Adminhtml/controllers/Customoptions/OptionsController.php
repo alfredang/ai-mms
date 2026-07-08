@@ -588,9 +588,10 @@ class MMD_Adminhtml_Customoptions_OptionsController extends Mage_Adminhtml_Contr
                             //Mage::getModel('catalog/product_indexer_price')->reindexAll(); // make reindex
                             Mage::getResourceModel('catalog/product_indexer_price')->reindexProductIds($productIds); // make reindex
                         } else {
-                            // start multi-step apply
+                            // start multi-step apply — store group ID (int), not the model object,
+                            // to avoid PDO serialisation errors in PHP 8.2 session writes.
                             $limit = ceil(250/$approximateOptionCount);
-                            Mage::getSingleton('adminhtml/session')->setCustomoptionsApplyData(array($defaultOptions, $optionsPrev, $productIds, $group, $prevGroupIsActive, $prevStoreOptionsData, $redirectData, $limit));
+                            Mage::getSingleton('adminhtml/session')->setCustomoptionsApplyData(array($defaultOptions, $optionsPrev, $productIds, $group->getId(), $prevGroupIsActive, $prevStoreOptionsData, $redirectData, $limit));
                             return $this->_redirect('*/*/apply');
                         }
                     } else {
@@ -625,27 +626,27 @@ class MMD_Adminhtml_Customoptions_OptionsController extends Mage_Adminhtml_Contr
         $defaultOptions = $customoptionsApplyData[0];
         $optionsPrev = $customoptionsApplyData[1];
         $productIds = array_slice($customoptionsApplyData[2], $current, $limit);
-        $group = $customoptionsApplyData[3];
+        $group = Mage::getModel('customoptions/group')->load($customoptionsApplyData[3]);
         $prevGroupIsActive = $customoptionsApplyData[4];
         $prevStoreOptionsData = $customoptionsApplyData[5];
         Mage::getModel('catalog/product_option')->saveProductOptions($defaultOptions, $optionsPrev, $productIds, $group, $prevGroupIsActive, 'product', $prevStoreOptionsData);
     }
-    
+
     public function runApplyAction() {
         @ini_set('max_execution_time', 1800);
-        @ini_set('memory_limit', 734003200);        
-        
+        @ini_set('memory_limit', 734003200);
+
         $current = $this->getRequest()->getParam('current', 0);
         $customoptionsApplyData = Mage::getSingleton('adminhtml/session')->getCustomoptionsApplyData();
-        if (count($customoptionsApplyData)!=8) return $this->_redirect('*/*/');
-        
+        if (!is_array($customoptionsApplyData) || count($customoptionsApplyData) != 8) return $this->_redirect('*/*/');
+
         $limit = $customoptionsApplyData[7];
-        $productIds = $customoptionsApplyData[2];        
+        $productIds = $customoptionsApplyData[2];
         $total = count($productIds);
-        $result = array();        
-        
+        $result = array();
+
         if ($current=='checkUnassigned') { // check and remove of unassigned options
-            $group = $customoptionsApplyData[3];
+            $group = Mage::getModel('customoptions/group')->load($customoptionsApplyData[3]);
             Mage::getModel('catalog/product_option')->saveProductOptions(null, array(), $productIds, $group, 1, 'apo');
             $result['url'] = $this->getUrl('*/*/runApply/', array('current'=>'reindex'));
             $result['text'] = $this->__('Unassigned options removed (100%)...');
@@ -701,12 +702,353 @@ class MMD_Adminhtml_Customoptions_OptionsController extends Mage_Adminhtml_Contr
     }
 
     /**
-     * Auto-generate "Course Date" values for a template from a schedule code
-     * (A01-E04) over a start/end range, using the native PHP port of the
-     * Google Apps Script generator. Entries are MERGED into the template's
-     * Course Date option (idempotent — re-running the same range adds nothing
-     * because dedup is on reg_course + title). Propagation to assigned
-     * courses still happens through the normal Save / Apply-to-Products flow.
+     * Shared generate+merge+save logic.
+     *
+     * Generates dates for $code in [$start, $end], merges new entries into
+     * $group's "Course Date" option (deduped by reg_course|title signature),
+     * saves hash_options, and returns the count of newly added entries.
+     *
+     * $group must already be load()ed. The in_products value set by _afterLoad
+     * survives this call because we only call setHashOptions()+save(), not load().
+     */
+    /**
+     * Return the product IDs assigned to $group.
+     * Prefers the in_products virtual column populated by _afterLoad, but falls
+     * back to custom_options_relation for environments where the in_products DB
+     * column is absent (e.g. local dev with an older schema dump).
+     */
+    /* ── Bulk-schedule run-state helpers (persisted in var/bulk_schedule_state.json) ── */
+
+    protected function _bulkStatePath()
+    {
+        return Mage::getBaseDir('var') . DS . 'bulk_schedule_state.json';
+    }
+
+    protected function _loadBulkState()
+    {
+        $path = $this->_bulkStatePath();
+        if (!file_exists($path)) return array('status' => 'idle');
+        $raw = @file_get_contents($path);
+        $s   = $raw ? @json_decode($raw, true) : null;
+        return is_array($s) ? $s : array('status' => 'idle');
+    }
+
+    protected function _saveBulkState(array $state)
+    {
+        file_put_contents($this->_bulkStatePath(), json_encode($state));
+    }
+
+    /* ── Returns the current bulk-run state as JSON (used by the inline panel) ── */
+    public function getBulkStateAction()
+    {
+        $this->getResponse()->setHeader('Content-Type',  'application/json', true);
+        $this->getResponse()->setHeader('Cache-Control', 'no-store, no-cache, must-revalidate', true);
+        $this->getResponse()->setHeader('Pragma',        'no-cache', true);
+        $this->getResponse()->setBody(json_encode($this->_loadBulkState()));
+    }
+
+    protected function _resolveProductIds(Varien_Object $group)
+    {
+        $ids = array_values(array_filter(
+            array_map('intval', explode(',', (string) $group->getInProducts()))
+        ));
+        if (!empty($ids)) return $ids;
+
+        // Fallback: derive from the relation table
+        $db  = Mage::getSingleton('core/resource')->getConnection('core_read');
+        $tbl = (string) Mage::getConfig()->getTablePrefix() . 'custom_options_relation';
+        $rows = $db->fetchAll(
+            'SELECT DISTINCT product_id FROM ' . $tbl . ' WHERE group_id = ?',
+            [(int) $group->getId()]
+        );
+        return array_values(array_map('intval', array_column($rows, 'product_id')));
+    }
+
+    protected function _generateAndMerge($group, $code, $start, $end)
+    {
+        $generator = Mage::getModel('mmd/schedule_generator');
+        $entries   = $generator->generateForCode($code, $start, $end);
+        if (empty($entries)) {
+            return 0;
+        }
+
+        $hash = $group->getHashOptions();
+        $opts = ($hash !== '' && $hash !== null) ? @unserialize($hash) : array();
+        if (!is_array($opts)) {
+            $opts = array();
+        }
+
+        $cdOptId = null;
+        foreach ($opts as $optId => $opt) {
+            if (!empty($opt['title']) && strcasecmp(trim($opt['title']), 'course date') === 0) {
+                $cdOptId = $optId;
+                break;
+            }
+        }
+        if ($cdOptId === null) {
+            $cdOptId = 1;
+            foreach (array_keys($opts) as $k) {
+                if ((int) $k >= $cdOptId) $cdOptId = (int) $k + 1;
+            }
+            $opts[$cdOptId] = array(
+                'option_id'  => (string) $cdOptId,
+                'title'      => 'Course Date',
+                'type'       => 'drop_down',
+                'is_require' => '1',
+                'sort_order' => '1',
+                'values'     => array(),
+            );
+        }
+        if (empty($opts[$cdOptId]['values']) || !is_array($opts[$cdOptId]['values'])) {
+            $opts[$cdOptId]['values'] = array();
+        }
+
+        // Resolve Course Time dep_ids: sort Course Time values by sort_order;
+        // first = morning/daytime, last = evening. Generated date titles that
+        // contain "Evening" get the evening dep_id, all others get morning.
+        $morningDepId = '';
+        $eveningDepId = '';
+        foreach ($opts as $opt) {
+            if (empty($opt['title']) || strcasecmp(trim($opt['title']), 'course time') !== 0) continue;
+            if (empty($opt['values']) || !is_array($opt['values'])) break;
+            $ctVals = array_values($opt['values']);
+            usort($ctVals, function ($a, $b) {
+                return (int) ($a['sort_order'] ?? 0) - (int) ($b['sort_order'] ?? 0);
+            });
+            // Use in_group_id as the dep reference — _prepareOptions multiplies it by
+            // (groupId * 65535) and the product-side in_group_id is computed the same way,
+            // so they match. option_type_id is a separate DB identifier that happens to
+            // equal in_group_id on some templates but not all.
+            $morningDepId = (string) (($ctVals[0]['in_group_id'] ?? '') !== '' ? $ctVals[0]['in_group_id'] : ($ctVals[0]['option_type_id'] ?? ''));
+            if (count($ctVals) >= 2) {
+                $last = $ctVals[count($ctVals) - 1];
+                $eveningDepId = (string) (($last['in_group_id'] ?? '') !== '' ? $last['in_group_id'] : ($last['option_type_id'] ?? ''));
+            }
+            break;
+        }
+
+        // Compute the max in_group_id across ALL options so new values get unique IDs.
+        // Empty in_group_id makes _prepareOptions map every value to the same 'IGI0' key,
+        // causing saveProductOptions to keep only the last value per option (silent data loss).
+        $maxInGroupId = 0;
+        foreach ($opts as $o) {
+            foreach ((array) ($o['values'] ?? array()) as $v) {
+                if (isset($v['in_group_id']) && $v['in_group_id'] !== '') {
+                    $maxInGroupId = max($maxInGroupId, (int) $v['in_group_id']);
+                }
+            }
+        }
+
+        $seen     = array();
+        $maxValId = 0;
+        $maxSort  = 0;
+        $fixed    = 0;
+        $hasCourseTime = ($morningDepId !== '' || $eveningDepId !== '');
+        foreach ($opts[$cdOptId]['values'] as $vid => $v) {
+            $sig = strtolower(trim((isset($v['reg_course']) ? $v['reg_course'] : '') . '|' . (isset($v['title']) ? $v['title'] : '')));
+            $seen[$sig] = true;
+            $maxValId   = max($maxValId, (int) ($v['option_type_id'] ?? $vid));
+            if (isset($v['sort_order'])) $maxSort = max($maxSort, (int) $v['sort_order']);
+
+            // Fix existing values whose dep_id is wrong or empty (silently — not surfaced in UI).
+            if ($hasCourseTime) {
+                $isEvening  = (stripos($v['title'] ?? '', 'Evening') !== false);
+                $correctDep = $isEvening ? $eveningDepId : $morningDepId;
+                if ($correctDep !== '' && (string) ($v['dependent_ids'] ?? '') !== $correctDep) {
+                    $opts[$cdOptId]['values'][$vid]['dependent_ids'] = $correctDep;
+                    $fixed++;
+                }
+            }
+        }
+
+        $added    = 0;
+        $existing = 0; // dates in the requested range that are already in the template
+        foreach ($entries as $e) {
+            $sig = strtolower(trim($e['reg_course'] . '|' . $e['title']));
+            if (isset($seen[$sig])) { $existing++; continue; }
+            $seen[$sig] = true;
+            $maxValId++;
+            $maxSort++;
+            $maxInGroupId++;  // unique in_group_id — must never be empty or 0
+            $isEvening = (stripos($e['title'], 'Evening') !== false);
+            $depId = $isEvening ? $eveningDepId : $morningDepId;
+            $opts[$cdOptId]['values'][$maxValId] = array(
+                'option_type_id'    => (string) $maxValId,
+                'is_delete'         => '',
+                'in_group_id'       => (string) $maxInGroupId,
+                'title'             => $e['title'],
+                'reg_course'        => $e['reg_course'],
+                'price'             => '0.00',
+                'price_type'        => 'fixed',
+                'sku'               => '',
+                'sort_order'        => (string) $maxSort,
+                'customoptions_qty' => '',
+                'dependent_ids'     => $depId,
+                'images'            => array(),
+            );
+            $added++;
+        }
+
+        if ($added > 0 || $fixed > 0) {
+            // Re-sort all Course Date values chronologically by the date in their title,
+            // then reassign sort_order 1, 2, 3... so the dropdown always shows dates in order.
+            $vals = array_values($opts[$cdOptId]['values']);
+            usort($vals, function ($a, $b) {
+                return $this->_parseTitleTimestamp($a['title'] ?? '')
+                     - $this->_parseTitleTimestamp($b['title'] ?? '');
+            });
+            $sorted = array();
+            foreach ($vals as $i => $v) {
+                $v['sort_order'] = (string) ($i + 1);
+                $sorted[(int) $v['option_type_id']] = $v;
+            }
+            $opts[$cdOptId]['values'] = $sorted;
+            $group->setHashOptions(serialize($opts))->save();
+        }
+        return array('added' => $added, 'fixed' => $fixed, 'existing' => $existing);
+    }
+
+    /**
+     * Parse a date from an option title like "8 Jan 2027 (Fri)",
+     * "11/12 Feb 2027 Evening Thu/Fri", "7/8 Jan 2027 (Sat/Sun)".
+     * Returns a Unix timestamp for sorting, or PHP_INT_MAX on failure.
+     */
+    protected function _parseTitleTimestamp($title)
+    {
+        // Strip day-range prefix (e.g. "7/8 " → "7 "), evening suffix, day-of-week suffix
+        $clean = preg_replace('/^(\d+)\/\d+\s+/', '$1 ', trim($title));
+        $clean = preg_replace('/\s+(Evening|Morning|Afternoon|Night)\b.*/i', '', $clean);
+        $clean = preg_replace('/\s*\([^)]*\)\s*$/', '', $clean);
+        $clean = trim($clean);
+
+        // Try strtotime directly first
+        $ts = strtotime($clean);
+        if ($ts !== false) return $ts;
+
+        // Fallback: extract day + month + year with regex
+        if (preg_match('/(\d{1,2})\s+(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+(\d{4})/i', $clean, $m)) {
+            $ts = strtotime($m[1] . ' ' . $m[2] . ' ' . $m[3]);
+            if ($ts !== false) return $ts;
+        }
+
+        return PHP_INT_MAX; // Unrecognised — sort to end
+    }
+
+    /**
+     * Server-side batch generate: processes ALL checked templates in one request.
+     * Accepts group_ids (comma-separated) + start + end. Sets ignore_user_abort
+     * so a page refresh doesn't kill the run; browser polls getBulkStateAction.
+     */
+    public function runBulkGenerateBatchAction()
+    {
+        ignore_user_abort(true);
+        set_time_limit(0);
+        @ini_set('memory_limit', '512M');
+        @ini_set('display_errors', '0');
+        @ob_start();
+
+        $groupIdsRaw = trim((string) $this->getRequest()->getParam('group_ids', ''));
+        $start       = trim((string) $this->getRequest()->getParam('start', ''));
+        $end         = trim((string) $this->getRequest()->getParam('end',   ''));
+
+        $groupIds = array_values(array_filter(array_map('intval', explode(',', $groupIdsRaw))));
+
+        if (empty($groupIds) || $start === '' || $end === '') {
+            $this->getResponse()->setHeader('Content-Type', 'application/json', true);
+            $this->getResponse()->setBody(json_encode(array('error' => 'Missing parameters')));
+            return;
+        }
+
+        $total     = count($groupIds);
+        $generator = Mage::getModel('mmd/schedule_generator');
+
+        $this->_saveBulkState(array(
+            'status'        => 'generating',
+            'start_date'    => $start,
+            'end_date'      => $end,
+            'total'         => $total,
+            'started_at'    => time(),
+            'gen_results'   => array(),
+            'apply_list'    => array(),
+            'apply_results' => array(),
+        ));
+
+        foreach ($groupIds as $idx => $groupId) {
+            $result = array(
+                'group_id'      => $groupId,
+                'title'         => '',
+                'group_id'      => $groupId,
+                'added'         => 0,
+                'fixed'         => 0,
+                'existing'      => 0,
+                'changed'       => 0,
+                'product_count' => 0,
+                'status'        => 'ok',
+                'text'          => '',
+            );
+
+            try {
+                $group = Mage::getModel('customoptions/group')->load($groupId);
+                if (!$group->getId()) throw new Exception('Template #' . $groupId . ' not found');
+
+                $code   = $generator->normalizeCode((string) $group->getTitle());
+                $merged   = $this->_generateAndMerge($group, $code, $start, $end);
+                $added    = is_array($merged) ? (int) $merged['added']    : 0;
+                $fixed    = is_array($merged) ? (int) $merged['fixed']    : 0;
+                $existing = is_array($merged) ? (int) $merged['existing'] : 0;
+                $changed  = $added + $fixed;
+
+                $summary = $added > 0
+                    ? $this->__('%d new date(s)', $added)
+                    : ($existing > 0 ? $this->__('%d already exist', $existing) : $this->__('no changes'));
+
+                $productIds = $this->_resolveProductIds($group);
+
+                $result['title']         = (string) $group->getTitle();
+                $result['added']         = $added;
+                $result['fixed']         = $fixed;
+                $result['existing']      = $existing;
+                $result['changed']       = $changed;
+                $result['product_count'] = count($productIds);
+                $result['text']          = sprintf('[%d/%d] %s — %s', $idx + 1, $total, $group->getTitle(), $summary);
+                $result['status']        = $changed > 0 ? 'ok' : 'skip';
+            } catch (\Throwable $e) {
+                Mage::log('bulk generate error: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine(), Zend_Log::ERR, 'exception.log');
+                $result['text']   = sprintf('[%d/%d] ERROR: %s', $idx + 1, $total, $e->getMessage());
+                $result['status'] = 'error';
+            }
+            gc_collect_cycles();
+
+            $state = $this->_loadBulkState();
+            if (!isset($state['gen_results']) || !is_array($state['gen_results'])) {
+                $state['gen_results'] = array();
+            }
+            $state['gen_results'][] = $result;
+            if ($result['changed'] > 0) {
+                if (!isset($state['apply_list']) || !is_array($state['apply_list'])) {
+                    $state['apply_list'] = array();
+                }
+                $state['apply_list'][] = array(
+                    'group_id'      => $groupId,
+                    'title'         => $result['title'],
+                    'changed'       => $result['changed'],
+                    'product_count' => $result['product_count'],
+                );
+            }
+            if (count($state['gen_results']) >= $total) {
+                $state['status'] = 'complete_generate';
+            }
+            $this->_saveBulkState($state);
+        }
+
+        @ob_end_clean();
+        $this->getResponse()->setHeader('Content-Type', 'application/json', true);
+        $this->getResponse()->setBody(json_encode($this->_loadBulkState()));
+    }
+
+    /**
+     * Auto-generate "Course Date" values for a single template.
+     * Uses _generateAndMerge; propagation to products via the normal Save flow.
      */
     public function generateDatesAction()
     {
@@ -752,108 +1094,464 @@ class MMD_Adminhtml_Customoptions_OptionsController extends Mage_Adminhtml_Contr
             return $this->_redirect('*/*/edit', $redirect);
         }
 
-        $entries = $generator->generateForCode($code, $start, $end);
-        if (empty($entries)) {
-            Mage::getSingleton('adminhtml/session')->addNotice($this->__(
-                'No dates were generated for %s in that range.',
-                Mage::helper('core')->escapeHtml(strtoupper($code))
-            ));
-            return $this->_redirect('*/*/edit', $redirect);
-        }
-
         try {
             $group = Mage::getModel('customoptions/group')->load($id);
             if (!$group->getId()) {
                 Mage::getSingleton('adminhtml/session')->addError($this->__('Template not found.'));
                 return $this->_redirect('*/*/index');
             }
-
-            $hash = $group->getHashOptions();
-            $opts = $hash ? @unserialize($hash) : array();
-            if (!is_array($opts)) {
-                $opts = array();
+            $result   = $this->_generateAndMerge($group, $code, $start, $end);
+            $added    = (int) $result['added'];
+            $existing = (int) $result['existing'];
+            $changed  = $added + (int) $result['fixed'];
+            if ($changed === 0) {
+                $msg = $existing > 0
+                    ? $this->__('All %d dates in that range already exist for %s — no changes made.', $existing, Mage::helper('core')->escapeHtml(strtoupper($code)))
+                    : $this->__('No dates were generated for %s in that range.', Mage::helper('core')->escapeHtml(strtoupper($code)));
+                Mage::getSingleton('adminhtml/session')->addNotice($msg);
+            } else {
+                Mage::getSingleton('adminhtml/session')->addSuccess($this->__(
+                    '%d new Course Date entries added for %s. Click "Save And Continue Edit" to apply them to assigned courses.',
+                    $added,
+                    Mage::helper('core')->escapeHtml(strtoupper($code))
+                ));
             }
-
-            // Locate the "Course Date" option, or create one if absent.
-            $cdOptId = null;
-            foreach ($opts as $optId => $opt) {
-                if (!empty($opt['title']) && strcasecmp(trim($opt['title']), 'course date') === 0) {
-                    $cdOptId = $optId;
-                    break;
-                }
-            }
-            if ($cdOptId === null) {
-                $cdOptId = 1;
-                foreach (array_keys($opts) as $k) {
-                    if ((int) $k >= $cdOptId) {
-                        $cdOptId = (int) $k + 1;
-                    }
-                }
-                $opts[$cdOptId] = array(
-                    'option_id'  => (string) $cdOptId,
-                    'title'      => 'Course Date',
-                    'type'       => 'drop_down',
-                    'is_require' => '1',
-                    'sort_order' => '1',
-                    'values'     => array(),
-                );
-            }
-            if (empty($opts[$cdOptId]['values']) || !is_array($opts[$cdOptId]['values'])) {
-                $opts[$cdOptId]['values'] = array();
-            }
-
-            // Dedup signatures + running id/sort counters from existing values.
-            $seen     = array();
-            $maxValId = 0;
-            $maxSort  = 0;
-            foreach ($opts[$cdOptId]['values'] as $vid => $v) {
-                $sig = strtolower(trim((isset($v['reg_course']) ? $v['reg_course'] : '') . '|' . (isset($v['title']) ? $v['title'] : '')));
-                $seen[$sig] = true;
-                $maxValId = max($maxValId, (int) $vid);
-                if (isset($v['sort_order'])) {
-                    $maxSort = max($maxSort, (int) $v['sort_order']);
-                }
-            }
-
-            $added = 0;
-            foreach ($entries as $e) {
-                $sig = strtolower(trim($e['reg_course'] . '|' . $e['title']));
-                if (isset($seen[$sig])) {
-                    continue;
-                }
-                $seen[$sig] = true;
-                $maxValId++;
-                $maxSort++;
-                $opts[$cdOptId]['values'][$maxValId] = array(
-                    'option_type_id'    => (string) $maxValId,
-                    'is_delete'         => '',
-                    'in_group_id'       => '',
-                    'title'             => $e['title'],
-                    'reg_course'        => $e['reg_course'],
-                    'price'             => '0.00',
-                    'price_type'        => 'fixed',
-                    'sku'               => '',
-                    'sort_order'        => (string) $maxSort,
-                    'customoptions_qty' => '',
-                    'dependent_ids'     => '',
-                    'images'            => array(),
-                );
-                $added++;
-            }
-
-            $group->setHashOptions(serialize($opts))->save();
-
-            $skipped = count($entries) - $added;
-            Mage::getSingleton('adminhtml/session')->addSuccess($this->__(
-                'Generated %d new Course Date entry/entries for %s (%d already present, skipped). Click "Save And Continue Edit" below to apply them to this template\'s assigned courses.',
-                $added, Mage::helper('core')->escapeHtml(strtoupper($code)), $skipped
-            ));
         } catch (Exception $e) {
             Mage::logException($e);
             Mage::getSingleton('adminhtml/session')->addError($e->getMessage());
         }
 
         return $this->_redirect('*/*/edit', $redirect);
+    }
+
+    /**
+     * Deprecated: bulk generation is now driven by the inline panel on the
+     * index page. Redirect any stale bookmarks back to the index.
+     */
+    public function globalGenerateAction()
+    {
+        return $this->_redirect('*/*/');
+    }
+
+    public function globalProgressAction()
+    {
+        return $this->_redirect('*/*/');
+    }
+
+    /**
+     * AJAX Step 1: generate+save dates for one template.
+     * Accepts direct GET params: group_id, code, start, end, idx, total.
+     * Saves incremental progress to var/bulk_schedule_state.json so the
+     * inline panel can restore history on page reload.
+     */
+    public function runGlobalGenerateAction()
+    {
+        @ini_set('max_execution_time', 300);
+        @ini_set('memory_limit', 512000000);
+
+        $groupId = (int)   $this->getRequest()->getParam('group_id', 0);
+        $code    = trim((string) $this->getRequest()->getParam('code',  ''));
+        $start   = trim((string) $this->getRequest()->getParam('start', ''));
+        $end     = trim((string) $this->getRequest()->getParam('end',   ''));
+        $idx     = (int)   $this->getRequest()->getParam('idx',   0);
+        $total   = (int)   $this->getRequest()->getParam('total', 1);
+
+        // Initialise state on first call of a new run
+        if ($idx === 0) {
+            $this->_saveBulkState(array(
+                'status'        => 'generating',
+                'start_date'    => $start,
+                'end_date'      => $end,
+                'total'         => $total,
+                'started_at'    => time(),
+                'gen_results'   => array(),
+                'apply_list'    => array(),
+                'apply_results' => array(),
+            ));
+        }
+
+        if ($groupId <= 0 || $code === '' || $start === '' || $end === '') {
+            $this->getResponse()->setBody(json_encode(array(
+                'stop' => 1, 'text' => 'Invalid parameters.', 'status' => 'error',
+            )));
+            return;
+        }
+
+        $result = array(
+            'group_id'      => $groupId,
+            'code'          => $code,
+            'title'         => '',
+            'added'         => 0,
+            'fixed'         => 0,
+            'existing'      => 0,
+            'changed'       => 0,
+            'product_count' => 0,
+            'status'        => 'ok',
+            'text'          => '',
+        );
+
+        try {
+            $group = Mage::getModel('customoptions/group')->load($groupId);
+            if (!$group->getId()) throw new Exception('Template not found.');
+
+            $merged     = $this->_generateAndMerge($group, $code, $start, $end);
+            $productIds = $this->_resolveProductIds($group);
+            $added      = (int) $merged['added'];
+            $fixed      = (int) $merged['fixed'];
+            $existing   = (int) $merged['existing'];
+            $changed    = $added + $fixed;
+
+            $summary = $added > 0
+                ? $this->__('%d new date(s)', $added)
+                : ($existing > 0 ? $this->__('%d already exist', $existing) : $this->__('no changes'));
+
+            $result['title']         = (string) $group->getTitle();
+            $result['added']         = $added;
+            $result['fixed']         = $fixed;
+            $result['existing']      = $existing;
+            $result['changed']       = $changed;
+            $result['product_count'] = count($productIds);
+            $result['text']          = sprintf('[%d/%d] %s — %s', $idx + 1, $total, $group->getTitle(), $summary);
+            $result['status']        = $changed > 0 ? 'ok' : 'skip';
+        } catch (\Throwable $e) {
+            Mage::log('generate error: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine(), Zend_Log::ERR, 'exception.log');
+            $result['text']   = sprintf('[%d/%d] ERROR: %s', $idx + 1, $total, $e->getMessage());
+            $result['status'] = 'error';
+        }
+
+        // Save progress to state file
+        $state = $this->_loadBulkState();
+        if (!isset($state['gen_results']) || !is_array($state['gen_results'])) {
+            $state['gen_results'] = array();
+        }
+        $state['gen_results'][] = $result;
+
+        if ($idx + 1 >= $total) {
+            $state['status']     = 'complete_generate';
+            $state['apply_list'] = array();
+            foreach ($state['gen_results'] as $r) {
+                if (!empty($r['changed'])) {
+                    $state['apply_list'][] = array(
+                        'group_id'      => $r['group_id'],
+                        'title'         => $r['title'],
+                        'product_count' => $r['product_count'],
+                    );
+                }
+            }
+            $result['stop'] = 1;
+        }
+        $this->_saveBulkState($state);
+
+        $this->getResponse()->setBody(json_encode($result));
+    }
+
+    /**
+     * Server-side batch apply: processes ALL templates from apply_list in one
+     * request. Sets ignore_user_abort so a page refresh doesn't kill the run.
+     * The browser polls getBulkStateAction() every 2s to show live progress.
+     */
+    public function runBulkApplyBatchAction()
+    {
+        ignore_user_abort(true);
+        set_time_limit(0);
+        @ini_set('memory_limit', '512M');
+        @ini_set('display_errors', '0');  // prevent PHP notices from corrupting the JSON response
+        @ob_start();                       // capture any stray output before we flush
+
+        // Mutex: only one apply process may run at a time.
+        // Without this, JS staleness auto-retry fires a second PHP process while
+        // the first is still running, causing duplicate template processing and
+        // out-of-order results. The lock is released automatically when the process exits.
+        $lockFile = Mage::getBaseDir('var') . '/bulk_apply.lock';
+        $lockFp   = fopen($lockFile, 'w');
+        if (!$lockFp || !flock($lockFp, LOCK_EX | LOCK_NB)) {
+            if ($lockFp) fclose($lockFp);
+            @ob_end_clean();
+            $this->getResponse()->setHeader('Content-Type', 'application/json', true);
+            $this->getResponse()->setBody(json_encode(array('status' => 'locked')));
+            return;
+        }
+        // Release lock when PHP process exits (normal or fatal).
+        register_shutdown_function(function () use ($lockFp, $lockFile) {
+            flock($lockFp, LOCK_UN);
+            fclose($lockFp);
+            @unlink($lockFile);
+        });
+
+        $state     = $this->_loadBulkState();
+        $applyList = isset($state['apply_list']) && is_array($state['apply_list'])
+                     ? $state['apply_list'] : array();
+
+        // When apply_list is empty (idempotency run where generate found no changes),
+        // re-use the same templates that went through generate so Apply All still
+        // pushes the current template state to all the selected courses.
+        // Fallback for "Apply All with no prior generate": all active templates.
+        if (empty($applyList)) {
+            if (!empty($state['gen_results'])) {
+                foreach ($state['gen_results'] as $r) {
+                    if (isset($r['group_id'])) {
+                        $applyList[] = array(
+                            'group_id'      => (int) $r['group_id'],
+                            'title'         => (string) ($r['title'] ?? ''),
+                            'product_count' => (int)  ($r['product_count'] ?? 0),
+                        );
+                    }
+                }
+            }
+            if (empty($applyList)) {
+                $collection = Mage::getModel('customoptions/group')->getCollection();
+                $collection->getSelect()->where('is_active = 1')->order('title ASC');
+                foreach ($collection as $g) {
+                    $applyList[] = array('group_id' => (int)$g->getId(), 'title' => (string)$g->getTitle());
+                }
+            }
+            $state['apply_list'] = $applyList;
+        }
+
+        if (empty($applyList)) {
+            $this->getResponse()->setHeader('Content-Type', 'application/json', true);
+            $this->getResponse()->setBody(json_encode(array('error' => 'No active templates found.')));
+            return;
+        }
+
+        // Resume mid-run only when status is 'applying' (process died partway through).
+        // For any other status (complete, idle, complete_generate), start fresh.
+        $isMidRun        = (isset($state['status']) && $state['status'] === 'applying');
+        $existingResults = ($isMidRun && isset($state['apply_results']) && is_array($state['apply_results']))
+                           ? $state['apply_results'] : array();
+        $doneCount = count($existingResults);
+
+        $state['status']        = 'applying';
+        $state['apply_results'] = $existingResults;
+        $this->_saveBulkState($state);
+
+        $total = count($applyList);
+        foreach ($applyList as $idx => $item) {
+            // Skip already-processed templates on resume
+            if ($idx < $doneCount) continue;
+            $groupId = (int) $item['group_id'];
+            try {
+                $group = Mage::getModel('customoptions/group')->load($groupId);
+                if (!$group->getId()) throw new \Exception('Template #' . $groupId . ' not found.');
+
+                $newOpts    = @unserialize($group->getHashOptions());
+                if (!is_array($newOpts)) $newOpts = array();
+
+                // Fix any values with empty in_group_id BEFORE sorting.
+                // Empty in_group_id causes _prepareOptions to map all such values
+                // to the same 'IGI0' key, so saveProductOptions silently drops all
+                // but the last value. Assign unique sequential IDs.
+                $maxIgi = 0;
+                foreach ($newOpts as $o) {
+                    foreach ((array)($o['values'] ?? array()) as $v) {
+                        if (isset($v['in_group_id']) && $v['in_group_id'] !== '') {
+                            $maxIgi = max($maxIgi, (int) $v['in_group_id']);
+                        }
+                    }
+                }
+                foreach ($newOpts as &$optFix) {
+                    if (!empty($optFix['values']) && is_array($optFix['values'])) {
+                        foreach ($optFix['values'] as $k => &$vFix) {
+                            if (!isset($vFix['in_group_id']) || $vFix['in_group_id'] === '') {
+                                $vFix['in_group_id'] = (string)(++$maxIgi);
+                            }
+                        }
+                        unset($vFix);
+                    }
+                }
+                unset($optFix);
+
+                // Sort Course Date values chronologically before applying so the
+                // storefront dropdown always shows dates in ascending date order.
+                // Preserve option_type_id as the array key (required by _prepareOptions).
+                foreach ($newOpts as &$opt) {
+                    if (empty($opt['values']) || !is_array($opt['values'])) continue;
+                    $title = strtolower(trim($opt['title'] ?? ''));
+                    if (strpos($title, 'date') === false && strpos($title, 'course') === false) continue;
+                    $vals = array_values($opt['values']);
+                    usort($vals, function ($a, $b) {
+                        return $this->_parseTitleTimestamp($a['title'] ?? '')
+                             - $this->_parseTitleTimestamp($b['title'] ?? '');
+                    });
+                    $sorted = array();
+                    foreach ($vals as $i => $v) {
+                        $v['sort_order'] = (string)($i + 1);
+                        // Use existing option_type_id as the array key; fall back to
+                        // loop index for new values that have no DB-assigned ID yet.
+                        // Also write it back inside $v — Option.php line 292 reads
+                        // $val['option_type_id'] directly, and a missing field triggers
+                        // a PHP 8.2 warning that Magento converts to a Throwable.
+                        $keyId = (isset($v['option_type_id']) && $v['option_type_id'] !== '')
+                                 ? (int)$v['option_type_id'] : $i;
+                        $v['option_type_id'] = (string)$keyId;
+                        $sorted[$keyId] = $v;
+                    }
+                    $opt['values'] = $sorted;
+                }
+                unset($opt);
+
+                // Persist the sorted order (with corrected in_group_ids) back to the template.
+                $group->setHashOptions(serialize($newOpts))->save();
+
+                $productIds = $this->_resolveProductIds($group);
+
+                if (!empty($productIds)) {
+                    Mage::getModel('catalog/product_option')->saveProductOptions(
+                        $newOpts, array(), $productIds, $group, $group->getIsActive(), 'apo', array()
+                    );
+                    $note = sprintf('applied to %d product(s)', count($productIds));
+                } else {
+                    $note = 'no products assigned';
+                }
+                $result = array(
+                    'text'   => sprintf('[%d/%d] %s — %s', $idx + 1, $total, $group->getTitle(), $note),
+                    'status' => 'ok',
+                );
+            } catch (\Throwable $e) {
+                Mage::log('bulk apply error: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine(), Zend_Log::ERR, 'exception.log');
+                $result = array(
+                    'text'   => sprintf('[%d/%d] ERROR: %s', $idx + 1, $total, $e->getMessage()),
+                    'status' => 'error',
+                );
+            }
+            gc_collect_cycles();
+
+            // Reload state before writing to avoid clobbering concurrent writes
+            $state = $this->_loadBulkState();
+            if (!isset($state['apply_results']) || !is_array($state['apply_results'])) {
+                $state['apply_results'] = array();
+            }
+            $state['apply_results'][] = $result;
+            if (count($state['apply_results']) >= $total) {
+                $state['status'] = 'complete';
+                // Flush block/page cache so storefront shows new dates immediately
+                try { Mage::app()->getCacheInstance()->cleanType('block_html'); } catch (Exception $ce) {}
+                try { Mage::app()->getCacheInstance()->cleanType('full_page'); } catch (Exception $ce) {}
+            }
+            $this->_saveBulkState($state);
+        }
+
+        @ob_end_clean();  // discard any stray PHP output so JSON is clean
+        $this->getResponse()->setHeader('Content-Type', 'application/json', true);
+        $this->getResponse()->setBody(json_encode($this->_loadBulkState()));
+    }
+
+    /**
+     * AJAX Step 2: apply one template's current hash_options to its products.
+     * Accepts group_id, idx, total. Saves apply progress to state file.
+     */
+    public function runGlobalApplyAction()
+    {
+        @ini_set('max_execution_time', 300);
+        @ini_set('memory_limit', 512000000);
+
+        $groupId = (int) $this->getRequest()->getParam('group_id');
+        $idx     = (int) $this->getRequest()->getParam('idx', 0);
+        $total   = (int) $this->getRequest()->getParam('total', 1);
+
+        if ($groupId <= 0) {
+            $this->getResponse()->setBody(json_encode(array(
+                'status' => 'error',
+                'text'   => sprintf('[%d/%d] Invalid group ID', $idx + 1, $total),
+            )));
+            return;
+        }
+
+        // Mark apply as started on first call
+        if ($idx === 0) {
+            $state = $this->_loadBulkState();
+            $state['status']        = 'applying';
+            $state['apply_results'] = array();
+            $this->_saveBulkState($state);
+        }
+
+        try {
+            $group = Mage::getModel('customoptions/group')->load($groupId);
+            if (!$group->getId()) throw new Exception('Template #' . $groupId . ' not found.');
+
+            $newOpts    = @unserialize($group->getHashOptions());
+            if (!is_array($newOpts)) $newOpts = array();
+
+            // Patch empty in_group_id before sorting — same fix as runBulkApplyBatchAction.
+            $maxIgi = 0;
+            foreach ($newOpts as $o) {
+                foreach ((array)($o['values'] ?? array()) as $v) {
+                    if (isset($v['in_group_id']) && $v['in_group_id'] !== '') {
+                        $maxIgi = max($maxIgi, (int) $v['in_group_id']);
+                    }
+                }
+            }
+            foreach ($newOpts as &$optFix) {
+                if (!empty($optFix['values']) && is_array($optFix['values'])) {
+                    foreach ($optFix['values'] as $k => &$vFix) {
+                        if (!isset($vFix['in_group_id']) || $vFix['in_group_id'] === '') {
+                            $vFix['in_group_id'] = (string)(++$maxIgi);
+                        }
+                    }
+                    unset($vFix);
+                }
+            }
+            unset($optFix);
+
+            // Sort Course Date values chronologically and write option_type_id inside each value.
+            foreach ($newOpts as &$opt) {
+                if (empty($opt['values']) || !is_array($opt['values'])) continue;
+                $title = strtolower(trim($opt['title'] ?? ''));
+                if (strpos($title, 'date') === false && strpos($title, 'course') === false) continue;
+                $vals = array_values($opt['values']);
+                usort($vals, function ($a, $b) {
+                    return $this->_parseTitleTimestamp($a['title'] ?? '')
+                         - $this->_parseTitleTimestamp($b['title'] ?? '');
+                });
+                $sorted = array();
+                foreach ($vals as $i => $v) {
+                    $v['sort_order'] = (string)($i + 1);
+                    $keyId = (isset($v['option_type_id']) && $v['option_type_id'] !== '')
+                             ? (int)$v['option_type_id'] : $i;
+                    $v['option_type_id'] = (string)$keyId;
+                    $sorted[$keyId] = $v;
+                }
+                $opt['values'] = $sorted;
+            }
+            unset($opt);
+
+            $productIds = $this->_resolveProductIds($group);
+
+            if (!empty($productIds)) {
+                Mage::getModel('catalog/product_option')->saveProductOptions(
+                    $newOpts, array(), $productIds, $group, $group->getIsActive(), 'apo', array()
+                );
+                Mage::getResourceModel('catalog/product_indexer_price')->reindexProductIds($productIds);
+                $note = sprintf('applied to %d product(s)', count($productIds));
+            } else {
+                $note = 'no products assigned';
+            }
+
+            $result = array(
+                'text'   => sprintf('[%d/%d] %s — %s', $idx + 1, $total, $group->getTitle(), $note),
+                'status' => 'ok',
+            );
+        } catch (Exception $e) {
+            Mage::logException($e);
+            $result = array(
+                'text'   => sprintf('[%d/%d] ERROR: %s', $idx + 1, $total, $e->getMessage()),
+                'status' => 'error',
+            );
+        }
+
+        // Save apply progress
+        $state = $this->_loadBulkState();
+        if (!isset($state['apply_results']) || !is_array($state['apply_results'])) {
+            $state['apply_results'] = array();
+        }
+        $state['apply_results'][] = $result;
+        $applyListCount = isset($state['apply_list']) ? count($state['apply_list']) : $total;
+        if (count($state['apply_results']) >= $applyListCount) {
+            $state['status'] = 'complete';
+        }
+        $this->_saveBulkState($state);
+
+        $this->getResponse()->setBody(json_encode($result));
     }
 
     /**

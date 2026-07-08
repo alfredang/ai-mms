@@ -869,6 +869,12 @@ if (count($_options) || ((string)Mage::getConfig()->getModuleConfig('OrganicInte
                                     dElement.options.add(newOpt);
                                 }
                                 dElement.onchange();
+                                // Auto-preselect when dep filtering leaves exactly one non-blank option
+                                // (e.g. selecting a morning Course Date leaves only the morning Course Time)
+                                if (!dElement.multiple && dElement.options.length === 2 && dElement.options[1] && dElement.options[1].value && !dElement.options[1].disabled) {
+                                    dElement.selectedIndex = 1;
+                                    dElement.onchange();
+                                }
                                 //if (dElement.hasClassName('swatch')) optionSwatch.change(dElement);
                             }
                         }

@@ -1,0 +1,371 @@
+<?php
+$startGenerateUrl = $this->escapeHtml($this->getUrl('*/*/runGlobalGenerate', array('idx' => 0)));
+$applyBaseUrl     = $this->escapeHtml(rtrim($this->getUrl('*/*/runGlobalApply'), '/'));
+$returnUrl        = $this->escapeHtml($this->getUrl('*/*/'));
+?>
+<style>
+#mbgp-wrap { max-width: 880px; padding: 24px 0 60px; }
+
+/* Log shared by both phases */
+.mbgp-log { list-style: none; margin: 0 0 20px; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.mbgp-log li {
+    border-radius: 4px;
+    padding: 6px 12px;
+    font-size: 12px;
+    line-height: 1.4;
+    border-left: 3px solid transparent;
+    background: var(--d3, #0f172a);
+    color: var(--t2, #cbd5e1);
+}
+.mbgp-log li.mbgp-ok   { border-left-color: var(--green, #3df5a8); }
+.mbgp-log li.mbgp-skip { border-left-color: var(--b2, #475569); color: var(--t4, #64748b); }
+.mbgp-log li.mbgp-err  { border-left-color: var(--red, #ff3b5c); color: #fca5a5; }
+.mbgp-log li.mbgp-wait { border-left-color: var(--brand, #2563eb); color: #60a5fa; animation: mbgp-pulse 1.2s ease-in-out infinite; }
+.mbgp-log li.mbgp-done { border-left-color: var(--blue, #22d3ee); color: var(--t1, #f1f5f9); font-weight: 600; }
+@keyframes mbgp-pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+/* Phase headings */
+.mbgp-phase-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--t1, #f1f5f9);
+    margin: 0 0 4px;
+}
+.mbgp-phase-sub {
+    font-size: 12px;
+    color: var(--t4, #64748b);
+    margin: 0 0 18px;
+}
+
+/* Review panel */
+#mbgp-review {
+    background: var(--d3, #0f172a);
+    border: 1px solid var(--b1, #1e293b);
+    border-radius: 8px;
+    padding: 20px 24px 24px;
+    margin-bottom: 24px;
+}
+#mbgp-review-stats {
+    display: flex;
+    gap: 28px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--b1, #1e293b);
+}
+.mbgp-stat { display: flex; flex-direction: column; gap: 2px; }
+.mbgp-stat-val { font-size: 22px; font-weight: 700; color: var(--t1, #f1f5f9); font-variant-numeric: tabular-nums; }
+.mbgp-stat-lbl { font-size: 11px; color: var(--t4, #64748b); text-transform: uppercase; letter-spacing: 0.6px; }
+
+/* Review table */
+#mbgp-review-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin-bottom: 20px;
+}
+#mbgp-review-table th {
+    text-align: left;
+    padding: 6px 10px;
+    color: var(--t4, #64748b);
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    border-bottom: 1px solid var(--b1, #1e293b);
+    font-weight: 600;
+}
+#mbgp-review-table td {
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--b1, #1e293b);
+    color: var(--t2, #cbd5e1);
+    vertical-align: middle;
+}
+#mbgp-review-table tr:last-child td { border-bottom: 0; }
+#mbgp-review-table .mbgp-col-num { font-variant-numeric: tabular-nums; text-align: right; }
+#mbgp-review-table .mbgp-col-skip { color: var(--t4, #64748b); font-size: 11px; }
+.mbgp-badge-new  { color: var(--green, #3df5a8); font-weight: 600; }
+.mbgp-badge-fix  { color: var(--brand, #2563eb); font-weight: 600; }
+.mbgp-badge-skip { color: var(--t4, #64748b); }
+
+/* Review actions */
+#mbgp-review-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-top: 16px;
+    border-top: 1px solid var(--b1, #1e293b);
+}
+#mbgp-skip-link {
+    font-size: 12px;
+    color: var(--t4, #64748b);
+    text-decoration: none;
+    padding: 6px 0;
+}
+#mbgp-skip-link:hover { color: var(--t2, #cbd5e1); }
+#mbgp-apply-btn { margin-left: auto; }
+</style>
+
+<div id="mbgp-wrap">
+
+    <!-- PHASE 1: generate log -->
+    <div id="mbgp-gen-phase">
+        <p class="mbgp-phase-title"><?php echo $this->__('Step 1 / 2 — Generating Course Dates') ?></p>
+        <p class="mbgp-phase-sub"><?php echo $this->__('Saving new dates and fixing dep_ids in templates. Please keep this tab open.') ?></p>
+        <ul id="mbgp-gen-log" class="mbgp-log"></ul>
+    </div>
+
+    <!-- PHASE 2: review panel (shown after generation completes) -->
+    <div id="mbgp-review" style="display:none">
+        <p class="mbgp-phase-title"><?php echo $this->__('Generation Complete — Review Changes') ?></p>
+        <p class="mbgp-phase-sub"><?php echo $this->__('Templates have been saved. Review the changes below, then click Apply to push them to assigned courses.') ?></p>
+        <div id="mbgp-review-stats"></div>
+        <table id="mbgp-review-table">
+            <thead>
+                <tr>
+                    <th><?php echo $this->__('Template') ?></th>
+                    <th class="mbgp-col-num"><?php echo $this->__('New dates') ?></th>
+                    <th class="mbgp-col-num"><?php echo $this->__('Existing dates') ?></th>
+                    <th class="mbgp-col-num"><?php echo $this->__('Products') ?></th>
+                </tr>
+            </thead>
+            <tbody id="mbgp-review-body"></tbody>
+        </table>
+        <div id="mbgp-review-actions">
+            <a href="<?php echo $returnUrl ?>" id="mbgp-skip-link"><?php echo $this->__('Return without applying') ?></a>
+            <button id="mbgp-apply-btn" class="mm-btn-primary">
+                <?php echo $this->__('Apply to Products') ?>
+            </button>
+        </div>
+    </div>
+
+    <!-- PHASE 3: apply log (shown when apply starts) -->
+    <div id="mbgp-apply-phase" style="display:none">
+        <p class="mbgp-phase-title"><?php echo $this->__('Step 2 / 2 — Applying to Products') ?></p>
+        <p class="mbgp-phase-sub"><?php echo $this->__('Pushing updated options to each course. Please keep this tab open.') ?></p>
+        <ul id="mbgp-apply-log" class="mbgp-log"></ul>
+    </div>
+
+</div>
+
+<script type="text/javascript">
+//<![CDATA[
+(function () {
+
+/* ── suppress Magento's "Please wait" loading mask for this whole page ──
+   Ajax.Responders re-shows it on every new Ajax.Request, so a one-shot
+   hide() loses every race after the first. We run a tight interval that
+   force-hides it whenever it reappears, for the full duration of the page. */
+var _maskSuppressor = setInterval(function () {
+    var m = document.getElementById('loading-mask');
+    if (m && m.style.display !== 'none') { m.style.display = 'none'; }
+    if (typeof hideMask === 'function') { try { hideMask(); } catch (e) {} }
+}, 150);
+
+/* ── shared helpers ── */
+var _frames = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏'], _fi = 0, _ft = null;
+
+function addEntry(logId, text, cls) {
+    var li = document.createElement('li');
+    li.className = 'mbgp-' + cls;
+    li.textContent = text;
+    var log = document.getElementById(logId);
+    if (log) log.appendChild(li);
+    window.scrollTo(0, 99999);
+    return li;
+}
+
+function clearWait(logId) {
+    var log = document.getElementById(logId);
+    if (!log) return;
+    var waits = log.querySelectorAll('li.mbgp-wait');
+    for (var i = 0; i < waits.length; i++) waits[i].parentNode.removeChild(waits[i]);
+}
+
+function showSpinner(logId) {
+    if (_ft) { clearInterval(_ft); _ft = null; }
+    var li = addEntry(logId, _frames[0] + ' Processing…', 'wait');
+    _ft = setInterval(function () {
+        _fi = (_fi + 1) % _frames.length;
+        li.textContent = _frames[_fi] + ' Processing…';
+    }, 90);
+    return li;
+}
+
+/* ── Phase 1: generate ── */
+var genResults = []; // accumulates per-template result objects
+
+function runGenerate(data) {
+    clearWait('mbgp-gen-log');
+    if (_ft) { clearInterval(_ft); _ft = null; }
+
+    if (data.text) {
+        addEntry('mbgp-gen-log', data.text, data.status || 'ok');
+    }
+    /* collect result metadata for review panel */
+    if (typeof data.group_id !== 'undefined') {
+        genResults.push({
+            group_id:      data.group_id,
+            title:         data.title || '',
+            added:         data.added  || 0,
+            fixed:         data.fixed  || 0,
+            changed:       data.changed || 0,
+            product_count: data.product_count || 0,
+            status:        data.status || 'ok'
+        });
+    }
+
+    if (data.stop) {
+        showReview(genResults);
+        return;
+    }
+
+    showSpinner('mbgp-gen-log');
+    new Ajax.Request(data.url, {
+        method: 'get',
+        onSuccess: function (t) {
+            if (t.responseText.isJSON()) {
+                runGenerate(t.responseText.evalJSON());
+            } else {
+                clearWait('mbgp-gen-log');
+                if (_ft) { clearInterval(_ft); _ft = null; }
+                addEntry('mbgp-gen-log', '<?php echo $this->__('Unexpected server response — check PHP error log.') ?>', 'err');
+            }
+        },
+        onFailure: function () {
+            clearWait('mbgp-gen-log');
+            if (_ft) { clearInterval(_ft); _ft = null; }
+            addEntry('mbgp-gen-log', '<?php echo $this->__('Network error. Check server logs.') ?>', 'err');
+        }
+    });
+}
+
+/* ── Phase 2: review panel ── */
+function showReview(results) {
+    var totalNew      = 0, totalExisting = 0, totalProds = 0, changedTemplates = 0;
+    var applyList     = []; /* only those with changes */
+
+    results.forEach(function (r) {
+        totalNew      += r.added    || 0;
+        totalExisting += r.existing || 0;
+        if (r.changed > 0) {
+            totalProds += r.product_count;
+            changedTemplates++;
+            applyList.push(r);
+        }
+    });
+
+    /* summary stats */
+    var stats = document.getElementById('mbgp-review-stats');
+    if (stats) {
+        stats.innerHTML =
+            mbgpStat(totalNew,                              '<?php echo $this->__('New dates') ?>') +
+            mbgpStat(totalExisting,                         '<?php echo $this->__('Existing dates') ?>') +
+            mbgpStat(changedTemplates,                      '<?php echo $this->__('Templates changed') ?>') +
+            mbgpStat(results.length - changedTemplates,     '<?php echo $this->__('No changes') ?>');
+    }
+
+    /* table rows */
+    var tbody = document.getElementById('mbgp-review-body');
+    if (tbody) {
+        tbody.innerHTML = '';
+        results.forEach(function (r) {
+            var tr = document.createElement('tr');
+            tr.innerHTML =
+                '<td>' + escH(r.title) + '</td>' +
+                '<td class="mbgp-col-num">' + badge(r.added,            'new')  + '</td>' +
+                '<td class="mbgp-col-num">' + badge(r.existing || 0,    'skip') + '</td>' +
+                '<td class="mbgp-col-num">' + (r.changed > 0 ? r.product_count : '<span class="mbgp-badge-skip">—</span>') + '</td>';
+            tbody.appendChild(tr);
+        });
+    }
+
+    /* apply button */
+    var btn = document.getElementById('mbgp-apply-btn');
+    if (btn) {
+        if (applyList.length > 0) {
+            btn.textContent = '<?php echo $this->__('Apply to Products') ?> (' + totalProds + ' product(s) across ' + applyList.length + ' template(s))';
+            btn.onclick = function () { startApply(applyList); return false; };
+        } else {
+            btn.style.display = 'none';
+            var link = document.getElementById('mbgp-skip-link');
+            if (link) link.textContent = '<?php echo $this->__('No changes to apply — return to list') ?>';
+        }
+    }
+
+    document.getElementById('mbgp-review').style.display = 'block';
+    window.scrollTo(0, 0);
+}
+
+function mbgpStat(val, lbl) {
+    return '<div class="mbgp-stat"><span class="mbgp-stat-val">' + val + '</span><span class="mbgp-stat-lbl">' + lbl + '</span></div>';
+}
+function badge(n, type) {
+    if (n === 0) return '<span class="mbgp-badge-skip">—</span>';
+    return '<span class="mbgp-badge-' + type + '">' + n + '</span>';
+}
+function escH(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* ── Phase 3: apply ── */
+var _applyBaseUrl = '<?php echo $applyBaseUrl ?>';
+var _returnUrl    = '<?php echo $returnUrl ?>';
+
+function startApply(applyList) {
+    document.getElementById('mbgp-review').style.display = 'none';
+    document.getElementById('mbgp-apply-phase').style.display = 'block';
+    window.scrollTo(0, 0);
+    runApply(applyList, 0);
+}
+
+function runApply(applyList, idx) {
+    if (idx >= applyList.length) {
+        clearWait('mbgp-apply-log');
+        if (_ft) { clearInterval(_ft); _ft = null; }
+        addEntry('mbgp-apply-log', '<?php echo $this->__('All done — redirecting…') ?>', 'done');
+        setTimeout(function () { window.location = _returnUrl; }, 1500);
+        return;
+    }
+
+    clearWait('mbgp-apply-log');
+    if (_ft) { clearInterval(_ft); _ft = null; }
+
+    var item = applyList[idx];
+    var url  = _applyBaseUrl +
+               '?group_id=' + encodeURIComponent(item.group_id) +
+               '&idx='      + idx +
+               '&total='    + applyList.length;
+
+    showSpinner('mbgp-apply-log');
+
+    new Ajax.Request(url, {
+        method: 'get',
+        onSuccess: function (t) {
+            clearWait('mbgp-apply-log');
+            if (_ft) { clearInterval(_ft); _ft = null; }
+            if (t.responseText.isJSON()) {
+                var d = t.responseText.evalJSON();
+                addEntry('mbgp-apply-log', d.text || '', d.status || 'ok');
+                runApply(applyList, idx + 1);
+            } else {
+                addEntry('mbgp-apply-log', '<?php echo $this->__('Unexpected response — check PHP error log.') ?>', 'err');
+            }
+        },
+        onFailure: function () {
+            clearWait('mbgp-apply-log');
+            if (_ft) { clearInterval(_ft); _ft = null; }
+            addEntry('mbgp-apply-log', '<?php echo $this->__('Network error on apply — check server logs.') ?>', 'err');
+        }
+    });
+}
+
+/* ── kick off ── */
+runGenerate({
+    text:   '<?php echo $this->__('Starting generation…') ?>',
+    status: 'skip',
+    url:    '<?php echo $startGenerateUrl ?>'
+});
+
+})();
+//]]>
+</script>

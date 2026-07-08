@@ -1,52 +1,43 @@
 <?php
 /**
- * MMD
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the MMD EULA that is bundled with
- * this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * http://www.magemobiledesign.com/LICENSE-1.0.html
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade the extension
- * to newer versions in the future. If you wish to customize the extension
- * for your needs please refer to http://www.magemobiledesign.com/ for more information
- *
- * @category   MMD
- * @package    MMD_CustomOptions
- * @copyright  Copyright (c) 2012 MMD (http://www.magemobiledesign.com/)
- * @license    http://www.magemobiledesign.com/LICENSE-1.0.html
+ * MMD Advanced Product Options — Manage Class Schedule
  */
 
-/**
- * Advanced Product Options extension
- *
- * @category   MMD
- * @package    MMD_CustomOptions
- * @author     MMD Dev Team
- */
+// Build the list of templates that have recognised schedule codes for the bulk panel.
+$generator       = Mage::getModel('mmd/schedule_generator');
+$allGroups       = Mage::getResourceModel('customoptions/group_collection');
+$bulkTemplates   = array();
+foreach ($allGroups as $grp) {
+    $ncode = $generator->normalizeCode((string) $grp->getTitle());
+    if ($ncode !== '' && $generator->isKnownCode($ncode)) {
+        $bulkTemplates[] = array(
+            'group_id' => (int) $grp->getId(),
+            'title'    => (string) $grp->getTitle(),
+            'code'     => strtoupper($ncode),
+        );
+    }
+}
+usort($bulkTemplates, function ($a, $b) {
+    $c = strcmp($a['code'], $b['code']);
+    return $c !== 0 ? $c : strcmp($a['title'], $b['title']);
+});
+
+$batchGenerateUrl = Mage::helper('adminhtml')->getUrl('*/customoptions_options/runBulkGenerateBatch');
+$batchApplyUrl    = Mage::helper('adminhtml')->getUrl('*/customoptions_options/runBulkApplyBatch');
+$stateUrl         = Mage::helper('adminhtml')->getUrl('*/customoptions_options/getBulkState');
+$bulkDataJson = json_encode($bulkTemplates);
 ?>
 <div class="content-header">
     <h3 class="icon-head"><?php echo Mage::helper('customoptions')->__('Manage Class Schedule') ?></h3>
     <div class="form-buttons">
         <?php echo $this->getCleanTemplatesButtonHtml() ?>
         <?php echo $this->getApplyToProductsButtonHtml() ?>
+        <?php echo $this->getBulkGenerateButtonHtml() ?>
         <?php echo $this->getAddNewButtonHtml() ?>
     </div>
 </div>
 <style>
-/* The auto-card-wrap JS (sidebar-nav-v2.js → wrapMmdGridInCard) hoists
-   the .form-buttons children into .mmd-auto-card-actions on the same
-   .dcf-mag-bar flex row as the title and the massaction toolbar. Long
-   labels ("1. Clean Templates" / "2. Apply to Products" /
-   "Add Class Schedule") then wrap vertically into a stack because the
-   right-side space is squeezed by the massaction.
-   Body-scoped overrides below force the bar to wrap and put the three
-   buttons on their own full-width row as an equal-column grid. Title
-   stays in the natural top-left position. */
+/* ── 4-button toolbar grid ── */
 body[class*="customoptions"] .dcf-mag.mmd-auto-card > .dcf-mag-bar {
     flex-wrap: wrap !important;
     row-gap: 12px !important;
@@ -54,69 +45,906 @@ body[class*="customoptions"] .dcf-mag.mmd-auto-card > .dcf-mag-bar {
 body[class*="customoptions"] .dcf-mag.mmd-auto-card > .dcf-mag-bar > .mmd-auto-card-actions {
     flex: 1 1 100% !important;
     display: grid !important;
-    grid-template-columns: repeat(3, 1fr) !important;
+    grid-template-columns: repeat(4, 1fr) !important;
     gap: 10px !important;
-    order: 99 !important;   /* push buttons to a new row at the end */
+    order: 99 !important;
     width: 100% !important;
 }
 body[class*="customoptions"] .dcf-mag.mmd-auto-card .mmd-auto-card-actions > button.scalable {
     width: 100% !important;
     max-width: none !important;
 }
+
+/* ── Bulk panel shell ── */
+#mmd-bulk-gen-panel {
+    clear: both;
+    box-sizing: border-box;
+    background: var(--d3, #0f172a);
+    border: 1px solid var(--b1, #1e293b);
+    border-radius: 8px;
+    padding: 16px 20px 20px;
+    margin: 14px 0 20px;
+    display: none;
+}
+
+/* Header */
+.mbg-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+.mbg-head-left { display: flex; align-items: center; gap: 12px; }
+.mbg-title {
+    color: var(--t1, #f1f5f9);
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+}
+#mbg-status {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    border: 1px solid currentColor;
+    display: none;
+}
+#mbg-status.mbg-s-running { display: inline; color: var(--brand, #2563eb); }
+#mbg-status.mbg-s-ok      { display: inline; color: var(--green, #3df5a8); }
+#mbg-status.mbg-s-history { display: inline; color: var(--t4, #64748b); }
+
+.mbg-close {
+    background: transparent !important;
+    background-image: none !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    color: var(--t4, #64748b) !important;
+    font-size: 20px !important;
+    line-height: 1 !important;
+    padding: 0 4px !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    cursor: pointer;
+}
+.mbg-close:hover { color: var(--t1, #f1f5f9) !important; }
+
+/* Config (dates + checklist) */
+.mbg-dates {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 16px;
+    margin-bottom: 14px;
+}
+.mbg-field { display: flex; flex-direction: column; gap: 5px; }
+.mbg-field label {
+    color: var(--t4, #64748b);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+}
+.mbg-field .input-text { height: 32px; box-sizing: border-box; }
+#mbg-run-generate { align-self: flex-end; }
+
+/* Template checklist */
+.mbg-list-head {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--b1, #1e293b);
+}
+.mbg-list-head span {
+    color: var(--t4, #64748b);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+}
+.mbg-list-head a {
+    color: var(--brand, #2563eb);
+    font-size: 11px;
+    cursor: pointer;
+    text-decoration: none;
+}
+.mbg-list-head a:hover { text-decoration: underline; }
+.mbg-checklist {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 4px 20px;
+    max-height: 220px;
+    overflow-y: auto;
+    margin-bottom: 16px;
+    padding-right: 4px;
+}
+.mbg-check-item { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+.mbg-check-item label { color: var(--t2, #cbd5e1); font-size: 12px; cursor: pointer; flex: 1; }
+.mbg-check-item .mbg-code {
+    color: var(--t4, #64748b);
+    font-size: 10.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    min-width: 28px;
+}
+.mbg-count { color: var(--t4, #64748b); font-size: 12px; }
+
+/* ── Tabs ── */
+.mbg-tabs-wrap {
+    border-top: 1px solid var(--b1, #1e293b);
+    padding-top: 14px;
+    margin-top: 4px;
+}
+.mbg-tab-bar { display: flex; gap: 4px; margin-bottom: 10px; }
+.mbg-tab {
+    padding: 4px 14px;
+    background: transparent !important;
+    background-image: none !important;
+    border: 1px solid var(--b2, #334155) !important;
+    border-radius: 6px !important;
+    color: var(--t4, #64748b) !important;
+    font-size: 12px !important;
+    cursor: pointer;
+    position: relative;
+    min-width: 0 !important;
+    height: auto !important;
+    line-height: 1.4 !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+}
+.mbg-tab:hover { border-color: var(--brand, #2563eb) !important; color: var(--t2, #cbd5e1) !important; }
+.mbg-tab.mbg-tab-active { border-color: var(--brand, #2563eb) !important; color: var(--brand, #2563eb) !important; }
+.mbg-tab-badge {
+    display: inline-block;
+    margin-left: 5px;
+    background: var(--red, #ff3b5c);
+    color: #fff;
+    border-radius: 8px;
+    padding: 0 5px;
+    font-size: 10px;
+    line-height: 15px;
+    vertical-align: middle;
+}
+
+/* ── Log (shared by both tabs) ── */
+.mbgp-log {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    max-height: 260px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+.mbgp-log li {
+    border-radius: 4px;
+    padding: 5px 10px;
+    font-size: 12px;
+    line-height: 1.4;
+    border-left: 3px solid transparent;
+    background: var(--d4, #1e293b);
+    color: var(--t2, #cbd5e1);
+}
+.mbgp-log li.mbgp-ok   { border-left-color: var(--green,  #3df5a8); }
+.mbgp-log li.mbgp-skip { border-left-color: var(--b2, #475569); color: var(--t4, #64748b); }
+.mbgp-log li.mbgp-err  { border-left-color: var(--red, #ff3b5c);   color: #fca5a5; }
+.mbgp-log li.mbgp-wait { border-left-color: var(--brand, #2563eb); color: #60a5fa; animation: mbgp-pulse 1.2s ease-in-out infinite; }
+.mbgp-log li.mbgp-done { border-left-color: var(--blue, #22d3ee);  color: var(--t1, #f1f5f9); font-weight: 600; }
+@keyframes mbgp-pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+/* ── Apply tab review ── */
+#mbg-apply-review {
+    background: var(--d4, #1e293b);
+    border: 1px solid var(--b1, #1e293b);
+    border-radius: 6px;
+    padding: 16px;
+    margin-bottom: 12px;
+}
+.mbg-review-stats {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--b1, #1e293b);
+}
+.mbg-stat { display: flex; flex-direction: column; gap: 2px; }
+.mbg-stat-val { font-size: 20px; font-weight: 700; color: var(--t1, #f1f5f9); font-variant-numeric: tabular-nums; }
+.mbg-stat-lbl { font-size: 11px; color: var(--t4, #64748b); text-transform: uppercase; letter-spacing: 0.6px; }
+
+#mbg-review-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin-bottom: 14px;
+}
+#mbg-review-table th {
+    text-align: left;
+    padding: 5px 8px;
+    color: var(--t4, #64748b);
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    border-bottom: 1px solid var(--b1, #1e293b);
+    font-weight: 600;
+}
+#mbg-review-table td {
+    padding: 5px 8px;
+    border-bottom: 1px solid var(--b1, #1e293b);
+    color: var(--t2, #cbd5e1);
+}
+#mbg-review-table tr:last-child td { border-bottom: 0; }
+.mbgp-col-num { font-variant-numeric: tabular-nums; text-align: right !important; }
+.mbgp-badge-new  { color: var(--green, #3df5a8); font-weight: 600; }
+.mbgp-badge-fix  { color: var(--brand, #2563eb); font-weight: 600; }
+.mbgp-badge-skip { color: var(--t4, #64748b); }
+
+.mbg-review-actions {
+    padding-top: 10px;
+    border-top: 1px solid var(--b1, #1e293b);
+}
+
+@keyframes mbg-flash-border {
+    0%, 100% { box-shadow: none; }
+    25%, 75%  { box-shadow: 0 0 0 3px #f5c451, 0 0 14px rgba(245,196,81,0.35); }
+}
+.mbg-btn-flash { animation: mbg-flash-border 0.5s ease-in-out 4; }
 </style>
+
 <div><?php echo $this->getGridHtml() ?></div>
+
+<!-- ── Bulk Generate & Apply panel (toggled by header button) ── -->
+<?php if (!empty($bulkTemplates)): ?>
+<div id="mmd-bulk-gen-panel">
+
+    <!-- Header -->
+    <div class="mbg-head">
+        <div class="mbg-head-left">
+            <span class="mbg-title"><?php echo $this->__('Bulk Generate &amp; Apply Class Dates') ?></span>
+            <span id="mbg-status"></span>
+        </div>
+        <button type="button" class="mbg-close" onclick="mmdBulkGenToggle(); return false;">&times;</button>
+    </div>
+
+    <!-- Config: dates -->
+    <div class="mbg-dates">
+        <div class="mbg-field">
+            <label for="mbg-start"><?php echo $this->__('Start Date') ?></label>
+            <input type="date" id="mbg-start" class="input-text" style="width:155px;" />
+        </div>
+        <div class="mbg-field">
+            <label for="mbg-end"><?php echo $this->__('End Date') ?></label>
+            <input type="date" id="mbg-end" class="input-text" style="width:155px;" />
+        </div>
+        <button type="button" id="mbg-run-generate" class="mm-btn-primary">
+            <?php echo $this->__('Run Generate') ?>
+        </button>
+        <span class="mbg-count" id="mbg-count"></span>
+    </div>
+
+    <!-- Config: template checklist -->
+    <div class="mbg-list-head">
+        <span><?php echo $this->__('Templates') ?> (<?php echo count($bulkTemplates) ?>)</span>
+        <a onclick="mmdBulkCheckAll(true); return false;"><?php echo $this->__('Select all') ?></a>
+        <a onclick="mmdBulkCheckAll(false); return false;"><?php echo $this->__('Deselect all') ?></a>
+    </div>
+    <div class="mbg-checklist" id="mbg-checklist">
+        <?php foreach ($bulkTemplates as $t): ?>
+        <div class="mbg-check-item">
+            <input type="checkbox"
+                   id="mbg-grp-<?php echo (int)$t['group_id'] ?>"
+                   data-group-id="<?php echo (int)$t['group_id'] ?>"
+                   data-code="<?php echo $this->escapeHtml($t['code']) ?>"
+                   checked="checked"
+                   onchange="mmdBulkUpdateCount()" />
+            <span class="mbg-code"><?php echo $this->escapeHtml($t['code']) ?></span>
+            <label for="mbg-grp-<?php echo (int)$t['group_id'] ?>"><?php echo $this->escapeHtml($t['title']) ?></label>
+        </div>
+        <?php endforeach; ?>
+    </div>
+
+    <!-- Tabs -->
+    <div class="mbg-tabs-wrap">
+        <div class="mbg-tab-bar">
+            <button type="button" class="mbg-tab mbg-tab-active" data-tab="generate"
+                    onclick="mmdBulkSwitchTab('generate'); return false;">
+                <?php echo $this->__('Step 1: Generate') ?>
+            </button>
+            <button type="button" class="mbg-tab" data-tab="apply"
+                    onclick="mmdBulkSwitchTab('apply'); setTimeout(_flashApplyAll, 60); return false;">
+                <?php echo $this->__('Step 2: Apply') ?>
+            </button>
+        </div>
+
+        <!-- Generate tab -->
+        <div id="mbg-tab-generate" class="mbg-tab-content">
+            <ul id="mbg-gen-log" class="mbgp-log"></ul>
+        </div>
+
+        <!-- Apply tab -->
+        <div id="mbg-tab-apply" class="mbg-tab-content" style="display:none">
+            <div id="mbg-apply-direct" style="padding:14px 0 4px">
+                <button type="button" id="mbg-apply-direct-btn" class="mm-btn-primary" onclick="_startApply([]); return false;">
+                    <?php echo $this->__('Apply all selected templates to products') ?>
+                </button>
+            </div>
+            <div id="mbg-apply-review" style="display:none">
+                <div class="mbg-review-stats" id="mbg-review-stats"></div>
+                <table id="mbg-review-table">
+                    <thead>
+                        <tr>
+                            <th><?php echo $this->__('Template') ?></th>
+                            <th class="mbgp-col-num"><?php echo $this->__('New dates') ?></th>
+                            <th class="mbgp-col-num"><?php echo $this->__('Existing dates') ?></th>
+                            <th class="mbgp-col-num"><?php echo $this->__('Products') ?></th>
+                        </tr>
+                    </thead>
+                    <tbody id="mbg-review-tbody"></tbody>
+                </table>
+                <div class="mbg-review-actions">
+                    <button type="button" class="mm-btn" onclick="document.getElementById('mbg-apply-direct-btn').scrollIntoView({behavior:'smooth',block:'center'}); _flashApplyAll(); return false;">
+                        &#8593; <?php echo $this->__('Back to top') ?>
+                    </button>
+                </div>
+            </div>
+            <ul id="mbg-apply-log" class="mbgp-log"></ul>
+        </div>
+    </div>
+
+</div>
+<?php else: ?>
+<div id="mmd-bulk-gen-panel">
+    <div class="mbg-head">
+        <span class="mbg-title"><?php echo $this->__('Bulk Generate') ?></span>
+        <button type="button" class="mbg-close" onclick="mmdBulkGenToggle(); return false;">&times;</button>
+    </div>
+    <p style="color:var(--t4);font-size:12px;"><?php echo $this->__('No templates with recognised schedule codes (A01–E04) found.') ?></p>
+</div>
+<?php endif; ?>
+
 <script type="text/javascript">
 //<![CDATA[
-    // PHP-generated list URL so we don't have to reverse-engineer
-    // /index/ vs no-action and admin secret-URL-key segments from
-    // window.location — Mage::helper('adminhtml')->getUrl() emits
-    // the canonical, secret-key-included URL that Magento will
-    // round-trip through frontController validation. Trailing slash
-    // guaranteed.
-    var MMD_SCHEDULE_LIST_URL = <?php echo json_encode(rtrim(Mage::helper('adminhtml')->getUrl('*/customoptions_options/index'), '/') . '/'); ?>;
-    (function injectScheduleSearch() {
-        function go() {
-            var firstCell = document.querySelector('#customoptionsOptionsGrid table.massaction > tbody > tr > td:first-child')
-                         || document.querySelector('#customoptionsOptionsGrid table.massaction tr > td:first-child');
-            var titleFilter = document.getElementById('customoptionsOptionsGrid_filter_title');
-            if (!firstCell || !titleFilter) {
-                return setTimeout(go, 100);
+(function () {
+
+var _batchGenerateUrl = <?php echo json_encode($batchGenerateUrl) ?>;
+var _batchApplyUrl    = <?php echo json_encode($batchApplyUrl) ?>;
+var _stateUrl         = <?php echo json_encode($stateUrl) ?>;
+var _scheduleListUrl = <?php echo json_encode(rtrim(Mage::helper('adminhtml')->getUrl('*/customoptions_options/index'), '/') . '/') ?>;
+
+/* ── Spinner ── */
+var _frames = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏'], _fi = 0, _ft = null, _spinnerLi = null;
+
+function _stopSpinner() {
+    if (_ft) { clearInterval(_ft); _ft = null; }
+    // Also remove the spinner li from the DOM so it doesn't stay visible after done.
+    if (_spinnerLi && _spinnerLi.parentNode) { _spinnerLi.parentNode.removeChild(_spinnerLi); _spinnerLi = null; }
+}
+
+function _showSpinner(logId) {
+    _stopSpinner();
+    _spinnerLi = _addEntry(logId, _frames[0] + ' Processing…', 'wait');
+    _ft = setInterval(function () {
+        _fi = (_fi + 1) % _frames.length;
+        if (_spinnerLi) _spinnerLi.textContent = _frames[_fi] + ' Processing…';
+    }, 90);
+}
+
+function _clearWait(logId) {
+    var log = document.getElementById(logId);
+    if (!log) return;
+    var waits = log.querySelectorAll('li.mbgp-wait');
+    Array.prototype.forEach.call(waits, function (w) { w.parentNode.removeChild(w); });
+}
+
+/* ── Log helpers ── */
+function _addEntry(logId, text, cls) {
+    var li = document.createElement('li');
+    li.className = 'mbgp-' + (cls || 'ok');
+    li.textContent = text;
+    var log = document.getElementById(logId);
+    if (log) { log.appendChild(li); log.scrollTop = log.scrollHeight; }
+    return li;
+}
+
+function _clearLog(logId) {
+    var log = document.getElementById(logId);
+    if (log) log.innerHTML = '';
+}
+
+/* ── Plain XHR (bypasses Prototype Ajax.Responders / loading mask) ── */
+function _xhr(url, cb) {
+    var r = new XMLHttpRequest();
+    r.open('GET', url, true);
+    r.onload = function () {
+        try { cb(null, JSON.parse(r.responseText)); }
+        catch (e) {
+            var err = new Error('Parse error');
+            err.responseText = r.responseText;
+            cb(err);
+        }
+    };
+    r.onerror = function () { cb(new Error('Network error')); };
+    r.send();
+}
+
+/* ── Flash the Apply All button (also called from the Step 2 tab click) ── */
+window._flashApplyAll = function () {
+    var applyAllBtn = document.getElementById('mbg-apply-direct-btn');
+    if (!applyAllBtn) return;
+    applyAllBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    applyAllBtn.classList.add('mbg-btn-flash');
+    setTimeout(function () { applyAllBtn.classList.remove('mbg-btn-flash'); }, 2200);
+};
+
+/* ── Tab switching ── */
+window.mmdBulkSwitchTab = function (name) {
+    var tabs     = document.querySelectorAll('.mbg-tab');
+    var contents = document.querySelectorAll('.mbg-tab-content');
+    Array.prototype.forEach.call(tabs, function (t) {
+        t.classList.toggle('mbg-tab-active', t.getAttribute('data-tab') === name);
+    });
+    Array.prototype.forEach.call(contents, function (c) {
+        c.style.display = c.id === 'mbg-tab-' + name ? '' : 'none';
+    });
+};
+
+function _setTabBadge(tab, text) {
+    var btn = document.querySelector('.mbg-tab[data-tab="' + tab + '"]');
+    if (!btn) return;
+    var existing = btn.querySelector('.mbg-tab-badge');
+    if (existing) existing.parentNode.removeChild(existing);
+    if (text) {
+        var b = document.createElement('span');
+        b.className = 'mbg-tab-badge';
+        b.textContent = text;
+        btn.appendChild(b);
+    }
+}
+
+/* ── Status indicator ── */
+function _setStatus(text, cls) {
+    var el = document.getElementById('mbg-status');
+    if (!el) return;
+    el.textContent = text;
+    el.className = text ? 'mbg-s-' + cls : '';
+}
+
+/* ── Template count ── */
+window.mmdBulkCheckAll = function (checked) {
+    var boxes = document.querySelectorAll('#mbg-checklist input[type="checkbox"]');
+    Array.prototype.forEach.call(boxes, function (b) { b.checked = checked; });
+    mmdBulkUpdateCount();
+};
+window.mmdBulkUpdateCount = function () {
+    var boxes = document.querySelectorAll('#mbg-checklist input[type="checkbox"]');
+    var n = 0;
+    Array.prototype.forEach.call(boxes, function (b) { if (b.checked) n++; });
+    var el = document.getElementById('mbg-count');
+    if (el) el.textContent = n + ' template' + (n === 1 ? '' : 's') + ' selected';
+    var btn = document.getElementById('mbg-run-generate');
+    if (btn) btn.disabled = (n === 0);
+};
+
+/* ── Generate phase (server-side batch + client poll) ── */
+var _genPollTimer      = null;
+var _genPollCount      = 0;
+var _genPollLastSeen   = 0;
+var _genPollStale      = 0;
+
+function _startGenerate() {
+    var start = document.getElementById('mbg-start').value;
+    var end   = document.getElementById('mbg-end').value;
+    if (!start || !end) { alert('Enter a start and end date.'); return; }
+    if (start > end)    { alert('Start date must be on or before end date.'); return; }
+
+    var groupIds = [];
+    Array.prototype.forEach.call(
+        document.querySelectorAll('#mbg-checklist input[type="checkbox"]:checked'),
+        function (cb) { groupIds.push(cb.getAttribute('data-group-id')); }
+    );
+    if (!groupIds.length) { alert('Select at least one template.'); return; }
+
+    _genPollCount = 0;
+    _clearLog('mbg-gen-log');
+    _clearLog('mbg-apply-log');
+    _applyPollCount = 0;
+    document.getElementById('mbg-apply-review').style.display = 'none';
+    mmdBulkSwitchTab('generate');
+    _setTabBadge('apply', '');
+    document.getElementById('mbg-run-generate').disabled = true;
+    _setStatus('Generating on server…', 'running');
+    _showSpinner('mbg-gen-log');
+
+    _startPollGenerate();
+
+    var url = _batchGenerateUrl
+            + '?group_ids=' + encodeURIComponent(groupIds.join(','))
+            + '&start='     + encodeURIComponent(start)
+            + '&end='       + encodeURIComponent(end);
+
+    _xhr(url, function (err, finalState) {
+        _stopPollGenerate();
+        _stopSpinner();
+        if (finalState && finalState.gen_results) {
+            _replayGenLog(finalState.gen_results);
+        }
+        _onGenerateDone(err, finalState);
+    });
+}
+
+function _startPollGenerate() {
+    if (_genPollTimer) return;
+    _genPollLastSeen = _genPollCount;
+    _genPollStale    = 0;
+    _genPollTimer = setInterval(function () {
+        _xhr(_stateUrl + '&_ts=' + Date.now(), function (err, state) {
+            if (err || !state || !state.gen_results) return;
+            _replayGenLog(state.gen_results);
+            if (state.status === 'complete_generate' || state.status === 'applying' || state.status === 'complete') {
+                _stopPollGenerate();
+                return;
             }
-            if (document.getElementById('mmd-schedule-search-input')) return;
-            var wrap = document.createElement('span');
-            wrap.id = 'mmd-schedule-search-wrap';
-            wrap.style.cssText = 'display:inline-block;margin-left:24px;vertical-align:middle;';
-            var input = document.createElement('input');
-            input.type = 'text';
-            input.id = 'mmd-schedule-search-input';
-            input.className = 'input-text';
-            input.placeholder = 'Search title…';
-            input.value = titleFilter.value || '';
-            input.style.cssText = 'width:320px;height:30px;padding:4px 10px;border-radius:6px;border:1px solid #2a3447;background:#0f172a;color:#e5e7eb;font-size:13px;box-sizing:border-box;vertical-align:middle;';
-            input.addEventListener('keydown', function (e) {
-                if (e.keyCode !== 13) return;
-                e.preventDefault();
-                titleFilter.value = input.value;
-                var val = (input.value || '').trim();
-                // Build the filter URL on top of the canonical
-                // PHP-emitted list URL (action segment + admin
-                // secret-URL-key already correct). Magento decodes
-                // the filter string with base64_decode + parse_str
-                // — see Mage_Adminhtml_Helper_Data::prepareFilterString.
-                var url = MMD_SCHEDULE_LIST_URL;
-                if (val) {
-                    url += 'filter/' + btoa('title=' + encodeURIComponent(val)) + '/';
+            // If no new results for 30 s (15 polls × 2 s), server process died
+            if (state.gen_results.length > _genPollLastSeen) {
+                _genPollLastSeen = state.gen_results.length;
+                _genPollStale    = 0;
+            } else if (++_genPollStale >= 15) {
+                _stopPollGenerate();
+                _stopSpinner();
+                _addEntry('mbg-gen-log', '— Server process stopped. Click Run Generate to restart. —', 'err');
+                document.getElementById('mbg-run-generate').disabled = false;
+                _setStatus('Interrupted — click Run Generate to restart', 'history');
+            }
+        });
+    }, 2000);
+}
+
+function _stopPollGenerate() {
+    if (_genPollTimer) { clearInterval(_genPollTimer); _genPollTimer = null; }
+}
+
+function _replayGenLog(results) {
+    if (!results || results.length <= _genPollCount) return;
+    for (var i = _genPollCount; i < results.length; i++) {
+        var r = results[i];
+        _addEntry('mbg-gen-log', r.text || '', r.status || 'ok');
+    }
+    _genPollCount = results.length;
+}
+
+function _onGenerateDone(err, finalState) {
+    _stopSpinner();
+    if (!err) {
+        _addEntry('mbg-gen-log', 'Generation complete — see Apply tab to push changes to courses.', 'done');
+    }
+    document.getElementById('mbg-run-generate').disabled = false;
+    _setStatus('Generate complete', 'ok');
+    _setTabBadge('apply', '!');
+    if (finalState && finalState.gen_results) {
+        _showApplyReview(finalState);
+        mmdBulkSwitchTab('apply');
+    }
+}
+
+/* ── Apply tab: review panel ── */
+function _showApplyReview(state) {
+    var genResults    = state.gen_results  || [];
+    var applyList     = state.apply_list   || [];
+    var totalNew = 0, totalExisting = 0, totalProds = 0;
+    genResults.forEach(function (r) { totalNew += r.added || 0; totalExisting += r.existing || 0; });
+    applyList.forEach(function (r)  { totalProds += r.product_count || 0; });
+
+    document.getElementById('mbg-review-stats').innerHTML =
+        _stat(totalNew,                              'New dates') +
+        _stat(totalExisting,                         'Existing dates') +
+        _stat(applyList.length,                      'Templates changed') +
+        _stat(genResults.length - applyList.length,  'No changes');
+
+    var tbody = document.getElementById('mbg-review-tbody');
+    tbody.innerHTML = '';
+    genResults.forEach(function (r) {
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+            '<td>' + _esc(r.title || '') + '</td>' +
+            '<td class="mbgp-col-num">' + _badge(r.added, 'new') + '</td>' +
+            '<td class="mbgp-col-num">' + _badge(r.existing || 0, 'skip') + '</td>' +
+            '<td class="mbgp-col-num">' + (r.changed > 0 ? r.product_count : '<span class="mbgp-badge-skip">—</span>') + '</td>';
+        tbody.appendChild(tr);
+    });
+
+    document.getElementById('mbg-apply-review').style.display = '';
+}
+
+/* ── Apply phase (server-side batch + client poll) ── */
+var _applyPollTimer    = null;
+var _applyPollCount    = 0;
+var _applyPollLastSeen = 0;
+var _applyPollStale    = 0;
+var _applyDone         = false; // one-shot guard — prevents duplicate "All done" from concurrent XHR + poll callbacks
+
+function _startApply(applyList) {
+    _applyDone = false;
+    mmdBulkSwitchTab('apply');
+    document.getElementById('mbg-apply-review').style.display = 'none';
+    _clearLog('mbg-apply-log');
+    _applyPollCount = 0;
+    document.getElementById('mbg-apply-direct-btn').disabled = true;
+    _setTabBadge('apply', '⟳');
+    _setStatus('Applying on server…', 'running');
+    document.getElementById('mbg-apply-log').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    _showSpinner('mbg-apply-log');
+    _startPollApply();
+
+    // Fire the batch request. ignore_user_abort on the server keeps PHP running
+    // even if this XHR drops (Apache timeout, page refresh). Progress comes via
+    // polling — do NOT stop the poll when XHR returns. Let the poll detect
+    // completion (state.status === 'complete') and call _onApplyDone then.
+    _xhr(_batchApplyUrl, function (err, finalState) {
+        if (!err && finalState && finalState.status === 'locked') {
+            // PHP mutex: another process already holds the lock — just keep polling.
+            _addEntry('mbg-apply-log', '— Another apply is already running; monitoring via poll… —', 'skip');
+            return;
+        }
+        if (err) {
+            // Connection dropped or server returned non-JSON (PHP warning etc.).
+            // Log first 300 chars of the raw response so the user can see what PHP said.
+            var raw = (err.responseText || '').replace(/</g, '&lt;').substring(0, 300);
+            if (raw) _addEntry('mbg-apply-log', '— Server response (debug): ' + raw + ' —', 'err');
+            _addEntry('mbg-apply-log', '— HTTP connection closed; PHP may still be running — monitoring via poll… —', 'skip');
+            // Keep polling — PHP set ignore_user_abort so it continues even if connection dropped.
+        } else if (finalState && finalState.apply_results) {
+            // XHR returned the final state — replay missing results and signal done.
+            _replayApplyLog(finalState.apply_results);
+            _stopPollApply();
+            _onApplyDone(null);
+        }
+        // If finalState is valid but no apply_results yet, leave poll running.
+    });
+}
+window._startApply = _startApply; // expose for inline onclick attributes (IIFE scope)
+
+function _startPollApply() {
+    if (_applyPollTimer) return;
+    _applyPollLastSeen = _applyPollCount;
+    _applyPollStale    = 0;
+    _applyPollTimer = setInterval(function () {
+        _xhr(_stateUrl + '&_ts=' + Date.now(), function (err, state) {
+            if (err || !state) {
+                // Poll request itself failed — count as stale tick
+                if (++_applyPollStale >= 15) {
+                    _stopPollApply();
+                    _stopSpinner();
+                    _addEntry('mbg-apply-log', '— Server process stopped. Click Apply to retry. —', 'err');
+                    _setStatus('Interrupted — click Apply to retry', 'history');
                 }
-                window.location.href = url;
-            });
-            wrap.appendChild(input);
-            firstCell.appendChild(wrap);
+                return;
+            }
+            if (state.apply_results) _replayApplyLog(state.apply_results);
+            if (state.status === 'complete' || state.status === 'idle') {
+                _stopPollApply();
+                _onApplyDone(false);
+                return;
+            }
+            // Track staleness by result count — also fires when apply_results is absent
+            // (server just set status=applying but hasn't processed a template yet).
+            var seen = state.apply_results ? state.apply_results.length : 0;
+            if (seen > _applyPollLastSeen) {
+                _applyPollLastSeen = seen;
+                _applyPollStale    = 0;
+            } else if (++_applyPollStale >= 90) {
+                _stopPollApply();
+                // 3 minutes of no new results. Could be a very slow template (40+ products)
+                // or a genuinely stalled/dead process. Check state and use _fireRetryXhr
+                // (lightweight — does NOT reset log or poll count, avoids duplicate entries).
+                _xhr(_stateUrl + '&_ts=' + Date.now(), function (err2, s2) {
+                    if (!err2 && s2 && s2.status === 'applying') {
+                        _setStatus('Reconnecting…', 'running');
+                        setTimeout(function () { _fireRetryXhr(); }, 3000);
+                    } else {
+                        _stopSpinner();
+                        _addEntry('mbg-apply-log', '— Server process stopped. Click Apply to retry. —', 'err');
+                        document.getElementById('mbg-apply-direct-btn').disabled = false;
+                        _setStatus('Interrupted — click Apply to retry', 'history');
+                    }
+                });
+            }
+        });
+    }, 2000);
+}
+
+function _stopPollApply() {
+    if (_applyPollTimer) { clearInterval(_applyPollTimer); _applyPollTimer = null; }
+}
+
+// Lightweight reconnect fired by staleness handler — does NOT reset the log or
+// poll count, so already-logged entries are not replayed. The PHP mutex means only
+// one server process runs at a time; if one is already running we just get 'locked'
+// back and resume polling.
+function _fireRetryXhr() {
+    _addEntry('mbg-apply-log', '— Reconnecting to server… —', 'skip');
+    _xhr(_batchApplyUrl, function (err, finalState) {
+        if (!err && finalState) {
+            if (finalState.status === 'locked') {
+                _addEntry('mbg-apply-log', '— Apply already running, resuming poll… —', 'skip');
+                _applyPollStale = 0;
+                _startPollApply();
+                return;
+            }
+            if (finalState.apply_results) _replayApplyLog(finalState.apply_results);
+            if (finalState.status === 'complete') {
+                _stopPollApply();
+                _onApplyDone(null);
+                return;
+            }
+        } else if (err) {
+            _addEntry('mbg-apply-log', '— Connection error on retry; will keep monitoring… —', 'skip');
         }
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', go);
-        } else {
-            go();
+        _applyPollStale = 0;
+        _startPollApply();
+    });
+}
+
+function _replayApplyLog(results) {
+    if (!results || results.length <= _applyPollCount) return;
+    for (var i = _applyPollCount; i < results.length; i++) {
+        var r = results[i];
+        _addEntry('mbg-apply-log', r.text || '', r.status || 'ok');
+    }
+    _applyPollCount = results.length;
+}
+
+function _onApplyDone(err) {
+    if (_applyDone) return; // guard: XHR callback + poll both call this — only run once
+    _applyDone = true;
+    _stopSpinner();
+    if (!err) {
+        _addEntry('mbg-apply-log', 'All done — page cache flushed, storefront will show new dates.', 'done');
+    }
+    document.getElementById('mbg-apply-review').style.display = '';
+    document.getElementById('mbg-apply-direct-btn').disabled = false;
+    _setStatus('Apply complete', 'ok');
+    _setTabBadge('apply', '');
+}
+
+/* ── State restoration (panel open → fetch last run) ── */
+function _restoreFromState(state) {
+    if (!state || state.status === 'idle') return;
+    // Pre-fill dates
+    if (state.start_date && document.getElementById('mbg-start')) {
+        document.getElementById('mbg-start').value = state.start_date;
+    }
+    if (state.end_date && document.getElementById('mbg-end')) {
+        document.getElementById('mbg-end').value = state.end_date;
+    }
+
+    var genResults   = state.gen_results   || [];
+    var applyResults = state.apply_results || [];
+
+    // Restore generate log
+    _clearLog('mbg-gen-log');
+    genResults.forEach(function (r) {
+        _addEntry('mbg-gen-log', r.text || '', r.status || 'ok');
+    });
+
+    if (state.status === 'complete_generate' || state.status === 'applying' || state.status === 'complete') {
+        if (genResults.length) _addEntry('mbg-gen-log', '— History from last run —', 'skip');
+        _showApplyReview(state);
+
+        _clearLog('mbg-apply-log');
+        _applyPollCount = 0;
+        applyResults.forEach(function (r) {
+            _addEntry('mbg-apply-log', r.text || '', r.status || 'ok');
+        });
+        _applyPollCount = applyResults.length;
+
+        if (state.status === 'applying' || state.status === 'complete') {
+            mmdBulkSwitchTab('apply');
         }
-    })();
+        if (state.status === 'applying') {
+            // Hide review table and show only the live log while apply is in progress.
+            document.getElementById('mbg-apply-review').style.display = 'none';
+            _setTabBadge('apply', '⟳');
+            document.getElementById('mbg-apply-direct-btn').disabled = true;
+            _addEntry('mbg-apply-log', '— Server-side apply is running, reconnecting… —', 'skip');
+            _startPollApply();
+        }
+        if (state.status === 'complete') {
+            document.getElementById('mbg-apply-review').style.display = '';
+            _addEntry('mbg-apply-log', '— Last run completed —', 'done');
+        }
+        _setStatus('Last run history', 'history');
+    } else if (state.status === 'generating') {
+        if (genResults.length > 0) {
+            _genPollCount = genResults.length;
+            _addEntry('mbg-gen-log', '— Server-side generate is still running, reconnecting… —', 'skip');
+        }
+        document.getElementById('mbg-run-generate').disabled = true;
+        _startPollGenerate();
+        _setStatus('Generating on server…', 'running');
+    }
+}
+
+/* ── Panel toggle ── */
+window.mmdBulkGenToggle = function () {
+    var panel = document.getElementById('mmd-bulk-gen-panel');
+    if (!panel) return false;
+    var shown = (panel.style.display !== '' && panel.style.display !== 'none');
+    if (!shown) {
+        panel.style.display = 'block';
+        mmdBulkUpdateCount();
+        // Fetch and restore state on open
+        _xhr(_stateUrl + '&_ts=' + Date.now(), function (err, state) {
+            if (!err && state) _restoreFromState(state);
+        });
+        try { panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) {}
+        var s = document.getElementById('mbg-start');
+        if (s && !s.value) s.focus();
+    } else {
+        panel.style.display = 'none';
+    }
+    return false;
+};
+
+/* ── Wire run button ── */
+var runBtn = document.getElementById('mbg-run-generate');
+if (runBtn) {
+    runBtn.addEventListener('click', function () { _startGenerate(); });
+}
+
+/* ── Init count ── */
+mmdBulkUpdateCount();
+
+/* ── Schedule title search (injected into massaction row) ── */
+(function injectScheduleSearch() {
+    function go() {
+        var firstCell = document.querySelector('#customoptionsOptionsGrid table.massaction > tbody > tr > td:first-child')
+                     || document.querySelector('#customoptionsOptionsGrid table.massaction tr > td:first-child');
+        var titleFilter = document.getElementById('customoptionsOptionsGrid_filter_title');
+        if (!firstCell || !titleFilter) { return setTimeout(go, 100); }
+        if (document.getElementById('mmd-schedule-search-input')) return;
+        var wrap = document.createElement('span');
+        wrap.id = 'mmd-schedule-search-wrap';
+        wrap.style.cssText = 'display:inline-block;margin-left:24px;vertical-align:middle;';
+        var input = document.createElement('input');
+        input.type = 'text';
+        input.id   = 'mmd-schedule-search-input';
+        input.className   = 'input-text';
+        input.placeholder = 'Search title…';
+        input.value = titleFilter.value || '';
+        input.style.cssText = 'width:320px;height:30px;padding:4px 10px;border-radius:6px;border:1px solid #2a3447;background:#0f172a;color:#e5e7eb;font-size:13px;box-sizing:border-box;vertical-align:middle;';
+        input.addEventListener('keydown', function (e) {
+            if (e.keyCode !== 13) return;
+            e.preventDefault();
+            titleFilter.value = input.value;
+            var val = (input.value || '').trim();
+            var url = _scheduleListUrl;
+            if (val) url += 'filter/' + btoa('title=' + encodeURIComponent(val)) + '/';
+            window.location.href = url;
+        });
+        wrap.appendChild(input);
+        firstCell.appendChild(wrap);
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', go);
+    } else {
+        go();
+    }
+})();
+
+/* ── Shared helpers ── */
+function _stat(val, lbl) {
+    return '<div class="mbg-stat"><span class="mbg-stat-val">' + val + '</span><span class="mbg-stat-lbl">' + lbl + '</span></div>';
+}
+function _badge(n, type) {
+    if (!n) return '<span class="mbgp-badge-skip">—</span>';
+    return '<span class="mbgp-badge-' + type + '">' + n + '</span>';
+}
+function _esc(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+})();
 //]]>
 </script>

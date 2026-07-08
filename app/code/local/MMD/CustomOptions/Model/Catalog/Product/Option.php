@@ -298,7 +298,7 @@ class MMD_CustomOptions_Model_Catalog_Product_Option extends Mage_Catalog_Model_
                                         }
                                     }                                    
                                     // insert option values
-                                    if (count($option['values'])>0) {
+                                    if (!empty($option['values'])) {
                                         foreach ($option['values'] as $value) {
                                             if (isset($value['is_delete']) && $value['is_delete']==1) continue;
                                             $this->saveOptionValue($optionId, $value, array(), array(), false, 0);
@@ -337,7 +337,7 @@ class MMD_CustomOptions_Model_Catalog_Product_Option extends Mage_Catalog_Model_
                         $connection->insert($tablePrefix . 'custom_options_relation', $optionRelation);
                         
                         // insert option values
-                        if ($this->getGroupByType($option['type'])==self::OPTION_GROUP_SELECT && count($option['values'])>0) {
+                        if ($this->getGroupByType($option['type'])==self::OPTION_GROUP_SELECT && !empty($option['values'])) {
                             foreach ($option['values'] as $value) {
                                 if (isset($value['is_delete']) && $value['is_delete'] == 1) continue;
                                 $optionTypeId = $this->saveOptionValue($optionId, $value, array(), array(), false, 0);
@@ -353,7 +353,7 @@ class MMD_CustomOptions_Model_Catalog_Product_Option extends Mage_Catalog_Model_
                         foreach ($storeOptions['hash_options'] as $option) {                            
                             if (isset($realOptionIds[$option['option_id']]['value']) && $realOptionIds[$option['option_id']]['value']) $optionId = $this->saveOption($productId, $option, $realOptionIds[$option['option_id']]['value'], $storeOptions['store_id'], $option['type']); else $optionId = false;
                             // insert option values
-                            if ($optionId && $this->getGroupByType($option['type'])==self::OPTION_GROUP_SELECT && count($option['values'])>0) {
+                            if ($optionId && $this->getGroupByType($option['type'])==self::OPTION_GROUP_SELECT && !empty($option['values'])) {
                                 foreach ($option['values'] as $value) {
                                     if (isset($realOptionIds[$option['option_id']][$value['option_type_id']]) && $realOptionIds[$option['option_id']][$value['option_type_id']]) {
                                         $prevValue = $value;
@@ -594,7 +594,13 @@ class MMD_CustomOptions_Model_Catalog_Product_Option extends Mage_Catalog_Model_
                 if ($updateFlag) {
                     $connection->update($tablePrefix . 'catalog_product_option_type_price', $optionTypePrice, 'option_type_id = '.$optionTypeId.' AND `store_id` = '.$storeId);
                 } else {
-                    $connection->insert($tablePrefix . 'catalog_product_option_type_price', $optionTypePrice);
+                    // Use ON DUPLICATE KEY UPDATE to survive orphaned price rows
+                    // (can occur after container restart resets InnoDB auto-increment)
+                    $connection->insertOnDuplicate(
+                        $tablePrefix . 'catalog_product_option_type_price',
+                        $optionTypePrice,
+                        array('price', 'price_type', 'special_price', 'special_comment')
+                    );
                     $optionTypePriceId = $connection->lastInsertId($tablePrefix . 'catalog_product_option_type_price');
                 }
             }
