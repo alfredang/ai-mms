@@ -13490,6 +13490,9 @@ $_svgClose = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke
         <div class="mn-pipe-bar">
             <div class="mn-pipe-title">Agentic Flyer Pipeline
                 <span class="mn-pipe-flag <?php echo $_mnCap['enabled'] ? 'on' : 'off' ?>"><?php echo $_mnCap['enabled'] ? 'SG · ENABLED' : 'DISABLED' ?></span>
+                <button type="button" class="mn-refresh" title="Refresh pipeline status" onclick="mnRefreshStatus(this)">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                </button>
             </div>
             <div class="mn-pipe-caps">
                 <span class="mn-cap" title="Max 2 designs per week"><em>Designs</em><b><?php echo (int)$_mnCap['designs'] ?>/<?php echo (int)$_mnCap['max'] ?></b></span>
@@ -13649,6 +13652,14 @@ $_svgClose = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke
         .mn-pipe{background:#0f172a;border:1px solid #24324a;border-radius:14px;padding:18px 20px;margin-bottom:18px;}
         .mn-pipe-bar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;border-bottom:1px solid #24324a;padding-bottom:14px;margin-bottom:18px;}
         .mn-pipe-title{font:800 15px -apple-system,Segoe UI,Arial,sans-serif;color:#f1f5f9;display:flex;align-items:center;gap:10px;}
+        /* Scoped to .mn-pipe-title (2 classes) so it outranks the generic
+           `.admin-main button` §18 rule that would otherwise inflate it to a
+           38px pill (see memory feedback_global_icon_action_standard). */
+        .mn-pipe-title .mn-refresh{display:inline-flex !important;align-items:center !important;justify-content:center !important;width:28px !important;height:28px !important;min-width:0 !important;min-height:0 !important;line-height:1 !important;padding:0 !important;margin:0 !important;border-radius:6px !important;border:1px solid #24324a !important;background:transparent !important;color:#94a3b8 !important;cursor:pointer;box-shadow:none !important;transition:color .12s,border-color .12s,background .12s;}
+        .mn-pipe-title .mn-refresh:hover{color:#22d3ee !important;border-color:#22d3ee !important;background:rgba(34,211,238,.1) !important;}
+        .mn-pipe-title .mn-refresh svg{width:15px !important;height:15px !important;flex:0 0 auto !important;display:block !important;}
+        .mn-refresh.spin svg{animation:mn-spin .7s linear infinite;}
+        @keyframes mn-spin{to{transform:rotate(360deg);}}
         .mn-pipe-flag{font:700 10px -apple-system,Segoe UI,Arial,sans-serif;letter-spacing:.8px;padding:3px 9px;border-radius:999px;border:1px solid;}
         .mn-pipe-flag.on{color:#34d399;border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.08);}
         .mn-pipe-flag.off{color:#94a3b8;border-color:#334155;background:transparent;}
@@ -14007,6 +14018,15 @@ window.mnFlyerQueueRun = function(qid, pid, name) {
 // The standalone Run Now button it used to toggle was removed (each row now has
 // its own Run Now icon), so there is nothing to refresh here.
 window.mnRefreshPreview = function() {};
+
+// Refresh the pipeline status: reloads the panel (server-rendered flow cards,
+// table, caps + stats) preserving the ?panel= query so it re-opens on load.
+window.mnRefreshStatus = function(btn) {
+    if (btn) { btn.classList.add('spin'); btn.disabled = true; }
+    var u = new URL(window.location.href);
+    if (!u.searchParams.get('panel')) { u.searchParams.set('panel', 'marketing_newsletter'); }
+    window.location.href = u.toString();
+};
 
 // Label for the top queue row's next auto-run. Server-side truth: the next FREE
 // Mon/Thu blast slot (skips days already booked by scheduled flows — e.g. with
