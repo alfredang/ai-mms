@@ -14128,8 +14128,8 @@ window.mnSetViewport = function(mode) {
 try { mnFlyerQueueLoad(); } catch (e) {}
 
 window.mnDeleteDraft = function(id, title) {
-    title = title || 'this draft';
-    if (!confirm('Delete "' + title + '"?\n\nThis cannot be undone.')) return;
+    title = title || 'this flow';
+    if (!confirm('Cancel & delete "' + title + '"?\n\nThis removes it from the pipeline. This cannot be undone.')) return;
     var fd = new FormData();
     fd.append('newsletter_id', String(id));
     fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/marketingnewsletter/deleteDraft') ?>', {
@@ -14138,24 +14138,16 @@ window.mnDeleteDraft = function(id, title) {
     .then(function (r) { return r.json(); })
     .then(function (j) {
         if (!j || !j.success) { alert((j && j.message) || 'Delete failed.'); return; }
-        // Drop the row from the DOM and update the count.
-        var row = document.querySelector('.mn-draft[data-id="' + id + '"]');
-        if (row) row.remove();
-        var listEl = document.getElementById('mn-drafts-list');
-        if (listEl && !listEl.querySelector('.mn-draft')) {
-            listEl.innerHTML = '<div class="mn-result-empty">No drafts yet.</div>';
-        }
-        var head = document.querySelector('.mn-drafts h3');
-        if (head) {
-            var n = document.querySelectorAll('.mn-draft').length;
-            head.textContent = 'Drafts (' + n + ')';
-        }
-        // If the draft being edited is the one we just deleted, reset.
+        // Reload so the flow steppers, pipeline table and caps all reflect the
+        // deletion (same pattern as approve/request-changes). The merged pipeline
+        // is server-rendered, so a targeted DOM removal would leave the flow
+        // cards + counters stale — this is the reliable refresh.
         if (window._mnState && Number(window._mnState.newsletterId) === Number(id)) {
             window._mnState.newsletterId = 0;
         }
+        location.reload();
     })
-    .catch(function (e) { alert('Network: ' + e); });
+    .catch(function (e) { alert('Network error — please try again: ' + (e && e.message ? e.message : e)); });
 };
 window.mnLoadDraft = function(id) {
     var modal = document.getElementById('mn-draft-modal');
