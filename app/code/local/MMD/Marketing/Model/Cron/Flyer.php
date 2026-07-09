@@ -783,10 +783,22 @@ class MMD_Marketing_Model_Cron_Flyer
             . ($avgO !== null ? ' (avg ' . round($avgO * 100, 1) . '%/' . round($avgC * 100, 1) . '%)' : ' (first blast)'));
     }
 
-    /** The persisted post-blast learnings log (JSON array; newest last). */
+    /**
+     * The persisted post-blast learnings log (JSON array; newest last). Reads the
+     * value straight from core_config_data — NOT Mage::getStoreConfig(), which
+     * returns the in-memory config snapshot loaded at bootstrap and so does NOT
+     * reflect a saveConfig() made earlier in the same request. That stale read
+     * meant two analyseBlast() calls in one process each started from an empty
+     * log and overwrote each other; a direct DB read makes appends accumulate.
+     */
     public function designLearnings()
     {
-        $raw = Mage::getStoreConfig('mmd_marketing/newsletter/design_learnings');
+        $raw = $this->_read()->fetchOne(
+            'SELECT value FROM ' . Mage::getSingleton('core/resource')->getTableName('core/config_data')
+          . " WHERE path = 'mmd_marketing/newsletter/design_learnings'"
+          . ' AND scope = ? AND scope_id = 0 LIMIT 1',
+            array('default')
+        );
         $log = json_decode((string) $raw, true);
         return is_array($log) ? $log : array();
     }
