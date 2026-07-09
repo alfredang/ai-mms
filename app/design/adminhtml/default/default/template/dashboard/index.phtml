@@ -13423,6 +13423,7 @@ if ($_mnActive) {
                       WHERE e.entity_id = CAST(SUBSTRING_INDEX(n.course_pids, ',', 1) AS UNSIGNED) LIMIT 1) AS sku
              FROM " . Mage::getSingleton('core/resource')->getTableName('newsletters') . " n
              WHERE n.country_code = ? AND n.template_key = 'agentic_flyer'
+               AND n.review_status NOT IN ('superseded', 'expired')
              ORDER BY n.newsletter_id DESC LIMIT 30",
             array($_mnCC)
         );
