@@ -109,8 +109,18 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         // "What you'll walk out able to do" — outcome-framed value stack. We do NOT
         // copy the course-page syllabus verbatim; the flyer is a funnel, so each line
         // is a pain-point -> tangible result the reader can picture, in plain English.
-        // Curated per flagship course; a benefit-led generic frame covers the rest.
-        $outcomes = $this->courseOutcomes($sku, $name);
+        // Curated per flagship course; otherwise reframed from THIS course's own
+        // topics so every flyer reads differently (no repeated generic lines).
+        $topics   = $this->parseTopics((string) $raw('description'));
+        $outcomes = $this->courseOutcomes($sku, $name, $topics);
+
+        // Per-course visual identity: a flagship course gets its own accent
+        // palette (+ optional logo); everything else keeps the default blue.
+        $pitch  = $this->_curatedPitch();
+        $key    = trim((string) $sku);
+        $accent = (isset($pitch[$key]['accent']) && is_array($pitch[$key]['accent']))
+            ? $pitch[$key]['accent']
+            : array('#2563eb', '#eaf0fe', '#c7d7fe');
 
         return array(
             'id'        => $productId,
@@ -125,32 +135,83 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
             'is_wsq'    => (stripos($sku, 'TGS-') === 0) || in_array('WSQ', $badges, true),
             'runs'      => $runs,
             'outcomes'  => $outcomes,
+            'accent'    => $accent[0],
+            'accent_bg' => $accent[1],
+            'accent_br' => $accent[2],
+            'logo'      => isset($pitch[$key]['logo']) ? $pitch[$key]['logo'] : '',
+        );
+    }
+
+    /** Curated per-flagship-SKU flyer voice: [hook, outcomes[]]. See the
+     *  `newsletter-design` skill for how to write and add these. */
+    protected function _curatedPitch()
+    {
+        return array(
+            // WSQ Agentic AI Applications with Claude Code — "build your own apps".
+            'TGS-2025052468' => array(
+                // Claude brand terracotta — a distinct identity vs the default blue.
+                'accent' => array('#c2410c', '#fdeede', '#f5cfa8'),
+                'hook' => 'Build your own apps with Claude Code — describe what you want in plain English and ship a working tool the same day, no coding background needed.',
+                'outcomes' => array(
+                    'Turn a plain-English idea into a working app &mdash; no computer-science degree needed.',
+                    'Ship your first useful tool before lunch, then build a second one after.',
+                    'Hand the boring, repetitive parts of your job to AI instead of doing them by hand.',
+                    'Let Claude write, test and fix the code while you stay in charge and steer.',
+                    'Put what you built online so your team can actually use it &mdash; not just a demo.',
+                ),
+            ),
+            // WSQ Agentic AI Automation with n8n — webhooks + RAG -> real agentic apps.
+            'TGS-2023035977' => array(
+                // n8n brand pink/red.
+                'accent' => array('#ea4b71', '#fdeaef', '#f7c9d5'),
+                'logo'   => 'n8n',
+                'hook' => 'Wire up real agentic AI with n8n — use webhooks and RAG to build assistants and automations that act on your own data, no heavy coding.',
+                'outcomes' => array(
+                    'Trigger AI workflows from anything with webhooks &mdash; a form, a chat, an app, an incoming email.',
+                    'Ground your AI in your own documents with RAG, so it answers from your data, not guesswork.',
+                    'Build a working agentic app end-to-end in class &mdash; not a slide, a running workflow.',
+                    'Automate real business tasks &mdash; lead capture, support replies, report generation &mdash; while you sleep.',
+                    'Leave with an n8n workflow you can plug into your own tools the very next day.',
+                ),
+            ),
         );
     }
 
     /**
      * Outcome-framed "what you'll walk out able to do" lines for the flyer funnel.
-     * Each is a benefit the reader can picture, written in plain English — never a
-     * verbatim lift of the course-page syllabus. Curated per flagship SKU; every
-     * other course falls back to a hands-on, build-something-real frame.
+     * Each is a benefit the reader can picture, in plain English — NEVER a verbatim
+     * lift of the syllabus, and NEVER the same generic lines on every flyer:
+     *   1. curated flagship voice (best), else
+     *   2. this course's OWN topics reframed into varied benefit lines, else
+     *   3. a benefit-led generic frame (only when a course has no parseable topics).
      */
-    protected function courseOutcomes($sku, $name)
+    protected function courseOutcomes($sku, $name, $topics = array())
     {
-        $curated = array(
-            // WSQ Agentic AI Applications with Claude Code
-            'TGS-2025052468' => array(
-                'Turn a plain-English idea into a working app &mdash; no computer-science degree needed.',
-                'Ship your first useful tool before lunch, then build a second one after.',
-                'Hand the boring, repetitive parts of your job to AI instead of doing them by hand.',
-                'Let Claude write, test and fix the code while you stay in charge and steer.',
-                'Put what you built online so your team can actually use it &mdash; not just a demo.',
-            ),
-        );
+        $curated = $this->_curatedPitch();
         $key = trim((string) $sku);
         if (isset($curated[$key])) {
-            return $curated[$key];
+            return $curated[$key]['outcomes'];
         }
-        // Generic funnel frame — still benefit-led, never the raw syllabus.
+
+        // Reframe THIS course's topics — rotating frames so lines vary, and the
+        // topic text is escaped (frames carry the only intentional entities).
+        $frames = array(
+            'Get properly hands-on with %s &mdash; you build it in class, not just watch a demo.',
+            'Put %s to work on real scenarios in class, so it actually sticks.',
+            'Walk out able to apply %s to your own projects the very next day.',
+            'Go from &ldquo;heard of %s&rdquo; to &ldquo;done it&rdquo; in a single day.',
+            'Turn %s from a buzzword into a skill you can show your manager.',
+        );
+        $h = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); };
+        $lines = array();
+        foreach (array_slice($topics, 0, 4) as $i => $t) {
+            $lines[] = sprintf($frames[$i % count($frames)], $h($t));
+        }
+        if (count($lines) >= 3) {
+            return $lines;
+        }
+
+        // Last resort — no usable topics. Still benefit-led (not the raw syllabus).
         return array(
             'Start from zero &mdash; no prior experience assumed, we build up from the basics.',
             'Learn by doing from hour one &mdash; hands-on practice, not slides you forget by Friday.',
@@ -160,18 +221,38 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
     }
 
     /**
-     * Persuasive hook line for the flyer hero. Flagship SKUs get a curated angle;
-     * every other course falls back to its catalog blurb. Kept next to the
-     * outcomes so a flagship course's whole voice lives in one place.
+     * Persuasive hook line for the flyer hero. Curated flagship voice wins;
+     * otherwise the course's own catalog blurb (already course-specific).
      */
     protected function courseHook($sku, $blurb)
     {
-        $curated = array(
-            // WSQ Agentic AI Applications with Claude Code — "build your own apps" angle.
-            'TGS-2025052468' => 'Build your own apps with Claude Code &mdash; describe what you want in plain English and ship a working tool the same day, no coding background needed.',
-        );
+        $curated = $this->_curatedPitch();
         $key = trim((string) $sku);
-        return isset($curated[$key]) ? $curated[$key] : (string) $blurb;
+        return isset($curated[$key]) ? $curated[$key]['hook'] : (string) $blurb;
+    }
+
+    /**
+     * Parse the course-page topic titles (the `<h3 class="course-topic-h3">Topic N:
+     * Title</h3>` structure) into short, clean noun phrases — the raw material the
+     * outcome frames reshape into benefits. Strips the "Topic N:" prefix and common
+     * filler openers so a frame reads naturally ("hands-on with Prompt Engineering",
+     * not "hands-on with Introduction to Prompt Engineering").
+     */
+    protected function parseTopics($desc)
+    {
+        $topics = array();
+        if ($desc !== '' && preg_match_all('#<h3[^>]*>(.*?)</h3>#is', $desc, $m)) {
+            foreach ($m[1] as $t) {
+                $t = html_entity_decode(strip_tags($t), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                $t = trim(preg_replace('/^\s*Topic\s*\d+\s*[:.\-\x{2013}]?\s*/iu', '', $t));
+                $t = trim(preg_replace('/^(Introduction to|Intro to|Getting Started with|Overview of|Understanding|Basics of|Fundamentals of|Working with)\s+/iu', '', $t));
+                $t = preg_replace('/\s+/u', ' ', $t);
+                if ($t !== '' && function_exists('mb_strlen') && mb_strlen($t) >= 3 && mb_strlen($t) <= 48) {
+                    $topics[] = $t;
+                }
+            }
+        }
+        return $topics;
     }
 
     /** URL of the hosted QR image for this course (served by the public route). */
@@ -198,6 +279,10 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         $duration = $c['duration'] ? $h($c['duration']) . ' hrs' : '1 day &middot; 8 hrs';
         $sans    = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
         $mono    = "ui-monospace,Menlo,Consolas,monospace";
+        // Per-course accent (default blue; flagship courses override — see _curatedPitch).
+        $accent   = isset($c['accent'])    ? $c['accent']    : '#2563eb';
+        $accentBg = isset($c['accent_bg']) ? $c['accent_bg'] : '#eaf0fe';
+        $accentBr = isset($c['accent_br']) ? $c['accent_br'] : '#c7d7fe';
 
         // Persuasive hook — real per-course marketing copy. Flagship SKUs get a
         // curated angle (kept in one place with the outcomes); everything else uses
@@ -241,7 +326,7 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
                 ? 'Finish the day and walk away with a <b style="color:#0a1020;">WSQ Statement of Attainment</b> &mdash; and an app you actually built.'
                 : 'Finish the day and walk away with a certificate &mdash; and something you actually built.';
             $learnHtml = '<tr><td style="padding:24px 30px 8px;">'
-                . '<div style="font:800 13px ' . $sans . ';text-transform:uppercase;letter-spacing:.8px;color:#2563eb;margin-bottom:16px;">What you&rsquo;ll walk out able to do</div>'
+                . '<div style="font:800 13px ' . $sans . ';text-transform:uppercase;letter-spacing:.8px;color:' . $accent . ';margin-bottom:16px;">What you&rsquo;ll walk out able to do</div>'
                 . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0">' . $lrows . '</table>'
                 . '<div style="font:600 12.5px ' . $sans . ';color:#42506a;margin-top:2px;">' . $cert . '</div>'
                 . '</td></tr>';
@@ -258,13 +343,13 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
             $srow = '';
             foreach ($steps as $s) {
                 $srow .= '<td width="33%" valign="top" class="fl-stack" style="padding:0 12px 0 0;">'
-                    . '<div style="font:800 12px ' . $sans . ';color:#fff;background:#2563eb;width:22px;height:22px;line-height:22px;text-align:center;border-radius:999px;">' . $s[0] . '</div>'
+                    . '<div style="font:800 12px ' . $sans . ';color:#fff;background:' . $accent . ';width:22px;height:22px;line-height:22px;text-align:center;border-radius:999px;">' . $s[0] . '</div>'
                     . '<div style="font:800 13.5px ' . $sans . ';color:#0a1020;margin-top:8px;">' . $s[1] . '</div>'
                     . '<div style="font:400 12.5px/1.5 ' . $sans . ';color:#42506a;margin-top:4px;">' . $s[2] . '</div>'
                     . '</td>';
             }
             $stepsHtml = '<tr><td style="padding:20px 30px 6px;">'
-                . '<div style="font:800 13px ' . $sans . ';text-transform:uppercase;letter-spacing:.8px;color:#2563eb;margin-bottom:14px;">How your funding works</div>'
+                . '<div style="font:800 13px ' . $sans . ';text-transform:uppercase;letter-spacing:.8px;color:' . $accent . ';margin-bottom:14px;">How your funding works</div>'
                 . '<table role="presentation" width="100%"><tr>' . $srow . '</tr></table>'
                 . '</td></tr>';
         }
@@ -296,7 +381,7 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
             }
             if ($rowsHtml) {
                 $scheduleHtml = '<tr><td style="padding:16px 30px 4px;">'
-                    . '<div style="font:800 13px ' . $sans . ';text-transform:uppercase;letter-spacing:.8px;color:#2563eb;margin-bottom:12px;">Upcoming intakes &mdash; seats filling</div>'
+                    . '<div style="font:800 13px ' . $sans . ';text-transform:uppercase;letter-spacing:.8px;color:' . $accent . ';margin-bottom:12px;">Upcoming intakes &mdash; seats filling</div>'
                     . '<table role="presentation"><tr>' . $rowsHtml . '</tr></table></td></tr>';
             }
         }
@@ -368,20 +453,21 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         . '<tr><td style="padding:14px 22px;border-bottom:1px solid #e4e9f0;">'
         .   '<table role="presentation" width="100%"><tr>'
         .     '<td><table role="presentation"><tr>'
-        .       '<td style="padding-right:10px;"><span style="display:inline-block;width:30px;height:30px;line-height:30px;text-align:center;border-radius:8px;background:#2563eb;color:#fff;font:800 16px ' . $sans . ';">T</span></td>'
+        .       '<td style="padding-right:10px;"><span style="display:inline-block;width:30px;height:30px;line-height:30px;text-align:center;border-radius:8px;background:' . $accent . ';color:#fff;font:800 16px ' . $sans . ';">T</span></td>'
         .       '<td style="font:600 15px ' . $sans . ';color:#0a1020;">Tertiary Courses <b style="font-weight:800;">Singapore</b></td>'
         .     '</tr></table></td>'
-        .     '<td align="right"><span style="font:700 10.5px ' . $sans . ';letter-spacing:.9px;text-transform:uppercase;color:#2563eb;background:#eaf0fe;border:1px solid #c7d7fe;padding:5px 10px;border-radius:999px;">WSQ &middot; SkillsFuture Funded</span></td>'
+        .     '<td align="right"><span style="font:700 10.5px ' . $sans . ';letter-spacing:.9px;text-transform:uppercase;color:' . $accent . ';background:' . $accentBg . ';border:1px solid ' . $accentBr . ';padding:5px 10px;border-radius:999px;">WSQ &middot; SkillsFuture Funded</span></td>'
         .   '</tr></table>'
         . '</td></tr>'
         // hero — headline, hook, the OFFER (price drop) and a first CTA: the funnel
         // opens with the full value story instead of burying the price at the bottom
         . '<tr><td class="fl-hero" style="background:#0a1020;padding:34px 30px 30px;">'
+        .   (!empty($c['logo']) ? '<div style="margin-bottom:16px;"><span style="display:inline-block;font:800 20px ' . $sans . ';color:' . $accent . ';background:#ffffff;padding:6px 13px;border-radius:9px;letter-spacing:-.5px;">' . $h($c['logo']) . '</span></div>' : '')
         .   '<div style="font:700 11px ' . $sans . ';letter-spacing:1.6px;text-transform:uppercase;color:#22d3ee;margin-bottom:14px;">Hands-on Workshop &middot; 1 Day' . ($c['is_wsq'] ? ' &middot; Up to 70% Funded' : '') . '</div>'
         .   '<h1 class="fl-h1" style="margin:0;font:800 31px/1.12 ' . $sans . ';color:#ffffff;letter-spacing:-.6px;">' . $h($c['name']) . '</h1>'
         .   ($hook ? '<div style="margin:16px 0 0;font:400 14.5px/1.55 ' . $sans . ';color:#b7c4e0;max-width:54ch;">' . $h($hook) . '</div>' : '')
         .   $offerHtml
-        .   '<a href="' . $h($c['url']) . '" style="display:inline-block;margin-top:16px;background:#2563eb;color:#fff;text-decoration:none;font:700 14px ' . $sans . ';padding:12px 22px;border-radius:10px;">Claim my funded seat &rarr;</a>'
+        .   '<a href="' . $h($c['url']) . '" style="display:inline-block;margin-top:16px;background:' . $accent . ';color:#fff;text-decoration:none;font:700 14px ' . $sans . ';padding:12px 22px;border-radius:10px;">Claim my funded seat &rarr;</a>'
         .   '<div style="margin-top:18px;font:400 12.5px ' . $mono . ';letter-spacing:1px;color:#9fb3d8;background:#12203f;border:1px solid #22345c;display:inline-block;padding:6px 12px;border-radius:8px;">' . $h($c['sku']) . '</div>'
         . '</td></tr>'
         // facts
@@ -409,7 +495,7 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         .       '<div style="font:700 10.5px ' . $sans . ';letter-spacing:1.2px;text-transform:uppercase;color:#22d3ee;">Seats are limited</div>'
         .       '<div style="font:800 22px ' . $sans . ';color:#fff;margin-top:6px;">Scan to register</div>'
         .       '<div style="font:400 13px/1.5 ' . $sans . ';color:#aebbd8;margin-top:8px;max-width:34ch;">Point your phone camera at the code, or visit the course page.</div>'
-        .       '<a href="' . $h($c['url']) . '" style="display:inline-block;margin-top:16px;background:#2563eb;color:#fff;text-decoration:none;font:700 14px ' . $sans . ';padding:11px 20px;border-radius:10px;">Register now &rarr;</a>'
+        .       '<a href="' . $h($c['url']) . '" style="display:inline-block;margin-top:16px;background:' . $accent . ';color:#fff;text-decoration:none;font:700 14px ' . $sans . ';padding:11px 20px;border-radius:10px;">Register now &rarr;</a>'
         .       '<div style="font:400 12px ' . $mono . ';color:#8fa1c6;margin-top:12px;">' . $h($host) . '</div>'
         .     '</td>'
         .     '<td width="154" align="right" valign="middle" class="fl-stack fl-qr"><table role="presentation" style="background:#fff;border-radius:14px;"><tr><td style="padding:12px;" align="center"><img src="' . $h($qr) . '" width="130" height="130" alt="Scan to register" style="display:block;border-radius:6px;"><div style="font:400 10px ' . $mono . ';letter-spacing:.6px;color:#64748b;margin-top:8px;">' . $h($c['sku']) . '</div></td></tr></table></td>'
@@ -418,11 +504,11 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         // lead magnet band — the funnel's fallback path for the not-yet-ready reader,
         // placed AFTER the primary CTA so it catches whoever didn't convert above
         . '<tr><td style="padding:18px 30px 22px;">'
-        .   '<table role="presentation" width="100%" style="background:#eff4ff;border:1px solid #c7d7fe;border-radius:14px;"><tr><td style="padding:20px 22px;">'
-        .     '<div style="font:800 10.5px ' . $sans . ';letter-spacing:1.2px;text-transform:uppercase;color:#2563eb;">Free &middot; No obligation</div>'
+        .   '<table role="presentation" width="100%" style="background:#eff4ff;border:1px solid ' . $accentBr . ';border-radius:14px;"><tr><td style="padding:20px 22px;">'
+        .     '<div style="font:800 10.5px ' . $sans . ';letter-spacing:1.2px;text-transform:uppercase;color:' . $accent . ';">Free &middot; No obligation</div>'
         .     '<div style="font:800 18px/1.25 ' . $sans . ';color:#0a1020;margin-top:6px;">Not ready to enrol? Check your ' . $fundLabel . ' first</div>'
         .     '<div style="font:400 13.5px/1.55 ' . $sans . ';color:#42506a;margin-top:8px;max-width:56ch;">See exactly how much you can claim and get the full course syllabus emailed to you &mdash; free, in under a minute.</div>'
-        .     '<a href="' . $h($leadUrl) . '" style="display:inline-block;margin-top:14px;background:#ffffff;color:#1d4ed8;text-decoration:none;font:700 13.5px ' . $sans . ';padding:10px 18px;border-radius:9px;border:1.5px solid #2563eb;">Check my funding &amp; get the syllabus &rarr;</a>'
+        .     '<a href="' . $h($leadUrl) . '" style="display:inline-block;margin-top:14px;background:#ffffff;color:#1d4ed8;text-decoration:none;font:700 13.5px ' . $sans . ';padding:10px 18px;border-radius:9px;border:1.5px solid ' . $accent . ';">Check my funding &amp; get the syllabus &rarr;</a>'
         .   '</td></tr></table>'
         . '</td></tr>'
         // footer (two lines, matches approved artifact)
@@ -434,7 +520,7 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         // and refuses to send without it. Do not remove this row.
         . '<tr><td align="center" style="background:#eef2f7;padding:16px 14px;font:400 11px/1.6 ' . $sans . ';color:#8593ad;">'
         .   'You are receiving this because you subscribed to Tertiary Courses updates.<br>'
-        .   '<a href="{$unsubscribe}" style="color:#2563eb;">Unsubscribe</a>'
+        .   '<a href="{$unsubscribe}" style="color:' . $accent . ';">Unsubscribe</a>'
         . '</td></tr>'
         . '</table></div>';
     }

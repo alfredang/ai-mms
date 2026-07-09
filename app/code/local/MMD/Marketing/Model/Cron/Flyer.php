@@ -293,6 +293,9 @@ class MMD_Marketing_Model_Cron_Flyer
             $this->_log('createProposal: skipped — product ' . (int) $productId . ' already has active flow #' . $active);
             return null;
         }
+        // PRE-DESIGN HOOK: check the curated pitch + accumulated blast learnings for
+        // this course before building, so every design is informed by what works.
+        $this->preDesignHook($productId);
         $flyerHtml = $this->_flyer()->render($productId);
         if ($flyerHtml === '') {
             return null;
@@ -336,6 +339,21 @@ class MMD_Marketing_Model_Cron_Flyer
         if (!$row) { return false; }
         $g = $this->_guard();
         $base = rtrim(Mage::getStoreConfig('web/unsecure/base_url'), '/');
+
+        // HARD SAFETY: never email the real managers from a non-production env.
+        // Gmail OAuth sends identically from localhost, so a dev/test run would
+        // otherwise deliver a live-looking approval email to angch@/tansc@ with
+        // useless localhost links (real confusion 2026-07-09). Only a genuine
+        // production host (…tertiarycourses.com.*) may send; anything else logs
+        // and no-ops unless mmd_marketing/newsletter/allow_local_review_email=1.
+        $host = strtolower((string) parse_url($base, PHP_URL_HOST));
+        $isProd = (bool) preg_match('/(^|\.)tertiarycourses\.com(\.[a-z]{2,3})?$/', $host);
+        if (!$isProd && !(bool) Mage::getStoreConfig('mmd_marketing/newsletter/allow_local_review_email')) {
+            $this->_log('sendForReview: SKIPPED for #' . $newsletterId . ' — non-production base_url (' . ($host ?: 'empty')
+                . '). Set mmd_marketing/newsletter/allow_local_review_email=1 to send from a test env.');
+            return false;
+        }
+
         $slot = $g->nextSendSlot();
         $slotTxt = $slot ? $slot->format('l, j M Y \a\t g:ia') : 'the next available slot';
 
@@ -615,6 +633,10 @@ class MMD_Marketing_Model_Cron_Flyer
                 'blast_stats' => $stats !== null ? json_encode($stats) : null,
             ), array('newsletter_id = ?' => (int) $row['newsletter_id']));
             $this->_log('markBlasted: #' . (int) $row['newsletter_id'] . ' (campaign ' . $campaignId . ') -> BLASTED at ' . $sentAt);
+            // POST-BLAST HOOK: analyse how this blast did vs. the running average
+            // and record the learning so the next design leans on what works.
+            try { $this->analyseBlast((int) $row['newsletter_id'], $stats, $row); }
+            catch (Exception $e) { $this->_log('analyseBlast error: ' . $e->getMessage()); }
         }
 
         // LinkedIn auto-post — covers campaigns approved before LinkedIn was
@@ -677,5 +699,144 @@ class MMD_Marketing_Model_Cron_Flyer
             'delivery_rate' => $sent > 0 ? max(0, ($sent - $hard - $soft) / $sent) : 0,
             'updated_at'    => $this->_nowStr(),
         );
+    }
+
+    /**
+     * POST-BLAST LEARNING LOOP. When a blast is captured, compare its open/click
+     * rates against the average of all PRIOR blasts and append a structured
+     * "learning" to core_config (mmd_marketing/newsletter/design_learnings, JSON,
+     * last 24). Each entry records the design levers we can actually change —
+     * subject, course, WSQ funding hook, accent, whether the pitch was curated —
+     * alongside the outcome and a verdict vs. the running average. The
+     * newsletter-design skill reads this log each cycle: patterns from
+     * above-average blasts become the default for the next design; below-average
+     * ones are avoided. Goal: climb open + click rate over time.
+     */
+    public function analyseBlast($newsletterId, $stats, $row = null)
+    {
+        if (!is_array($stats) || empty($stats)) { return; }
+        if (!$row) { $row = $this->_read()->fetchRow('SELECT * FROM ' . $this->_tbl() . ' WHERE newsletter_id = ?', array($newsletterId)); }
+        if (!$row) { return; }
+
+        // Baseline = average open/click over prior captured blasts (exclude self).
+        $prior = $this->_read()->fetchCol('SELECT blast_stats FROM ' . $this->_tbl()
+            . " WHERE status = 'sent' AND blast_stats IS NOT NULL AND newsletter_id <> ?", array((int) $newsletterId));
+        $oSum = $cSum = $n = 0.0;
+        foreach ($prior as $bs) {
+            $p = json_decode((string) $bs, true);
+            if (!is_array($p)) { continue; }
+            $oSum += isset($p['open_rate']) ? (float) $p['open_rate'] : 0;
+            $cSum += isset($p['click_rate']) ? (float) $p['click_rate'] : 0;
+            $n++;
+        }
+        $avgO = $n > 0 ? $oSum / $n : null;
+        $avgC = $n > 0 ? $cSum / $n : null;
+
+        $o = isset($stats['open_rate']) ? (float) $stats['open_rate'] : 0;
+        $c = isset($stats['click_rate']) ? (float) $stats['click_rate'] : 0;
+        // Verdict: WIN if it beats BOTH averages, LOSS if below both, else MIXED.
+        $verdict = 'baseline';
+        if ($avgO !== null) {
+            if ($o >= $avgO && $c >= $avgC)      { $verdict = 'win'; }
+            elseif ($o < $avgO && $c < $avgC)    { $verdict = 'loss'; }
+            else                                 { $verdict = 'mixed'; }
+        }
+
+        $pid    = (int) trim(strtok((string) $row['course_pids'], ','));
+        $cd     = $pid ? $this->_flyer()->courseData($pid) : null;
+        $curated = false;
+        if ($cd) {
+            $pitch   = $this->_flyer(); // curated map lives on the flyer helper
+            $curated = false;
+            try {
+                $ref = new ReflectionMethod('MMD_Marketing_Helper_Flyer', '_curatedPitch');
+                $ref->setAccessible(true);
+                $map = $ref->invoke(Mage::helper('mmd_marketing/flyer'));
+                $curated = isset($map[trim((string) $cd['sku'])]);
+            } catch (Exception $e) { /* best-effort */ }
+        }
+
+        $entry = array(
+            'at'         => $this->_nowStr(),
+            'newsletter' => (int) $newsletterId,
+            'sku'        => $cd ? (string) $cd['sku'] : '',
+            'course'     => $cd ? (string) $cd['name'] : (string) $row['title'],
+            'subject'    => (string) $row['subject'],
+            'is_wsq'     => $cd ? (bool) $cd['is_wsq'] : null,
+            'accent'     => $cd ? (string) $cd['accent'] : '',
+            'curated'    => $curated,
+            'open_rate'  => round($o, 4),
+            'click_rate' => round($c, 4),
+            'ctor'       => isset($stats['ctor']) ? round((float) $stats['ctor'], 4) : null,
+            'avg_open'   => $avgO !== null ? round($avgO, 4) : null,
+            'avg_click'  => $avgC !== null ? round($avgC, 4) : null,
+            'verdict'    => $verdict,
+        );
+
+        $log = $this->designLearnings();
+        $log[] = $entry;
+        if (count($log) > 24) { $log = array_slice($log, -24); }
+        Mage::getModel('core/config')->saveConfig('mmd_marketing/newsletter/design_learnings', json_encode($log));
+        Mage::app()->getCacheInstance()->cleanType('config');
+        $this->_log('analyseBlast: #' . (int) $newsletterId . ' open=' . round($o * 100, 1) . '% click='
+            . round($c * 100, 1) . '% verdict=' . strtoupper($verdict)
+            . ($avgO !== null ? ' (avg ' . round($avgO * 100, 1) . '%/' . round($avgC * 100, 1) . '%)' : ' (first blast)'));
+    }
+
+    /** The persisted post-blast learnings log (JSON array; newest last). */
+    public function designLearnings()
+    {
+        $raw = Mage::getStoreConfig('mmd_marketing/newsletter/design_learnings');
+        $log = json_decode((string) $raw, true);
+        return is_array($log) ? $log : array();
+    }
+
+    /**
+     * PRE-DESIGN HOOK. Before a flyer is built, surface (and log) what should guide
+     * it for this course: does it have a curated pitch, and what have past blasts
+     * taught us? Returns a structured recommendation the render already honours
+     * (curated pitch + accent) and that a human/agent can act on — e.g. copy the
+     * subject formula of the highest open-rate WSQ blast. Non-fatal, read-only.
+     */
+    public function preDesignHook($productId)
+    {
+        $rec = array('curated' => false, 'best_subject' => null, 'best_open' => null, 'avg_open' => null, 'avg_click' => null, 'notes' => array());
+        try {
+            $cd = $this->_flyer()->courseData((int) $productId);
+            if (!$cd) { return $rec; }
+            $sku = trim((string) $cd['sku']);
+
+            $ref = new ReflectionMethod('MMD_Marketing_Helper_Flyer', '_curatedPitch');
+            $ref->setAccessible(true);
+            $map = $ref->invoke(Mage::helper('mmd_marketing/flyer'));
+            $rec['curated'] = isset($map[$sku]);
+            $rec['notes'][] = $rec['curated']
+                ? 'Using curated pitch + accent for ' . $sku . '.'
+                : 'No curated pitch for ' . $sku . ' — outcomes reframed from its own topics; consider adding one to the newsletter-design skill.';
+
+            // Learn from history: the best-performing past blast (prefer same funding
+            // type) sets the subject formula + confidence target for this design.
+            $log  = $this->designLearnings();
+            $isW  = (bool) $cd['is_wsq'];
+            $pool = array_filter($log, function ($e) use ($isW) { return isset($e['is_wsq']) && (bool) $e['is_wsq'] === $isW; });
+            if (empty($pool)) { $pool = $log; }
+            if (!empty($pool)) {
+                usort($pool, function ($a, $b) { return ($b['open_rate'] ?? 0) <=> ($a['open_rate'] ?? 0); });
+                $best = $pool[0];
+                $rec['best_subject'] = isset($best['subject']) ? (string) $best['subject'] : null;
+                $rec['best_open']    = isset($best['open_rate']) ? (float) $best['open_rate'] : null;
+                $o = $c = $n = 0.0;
+                foreach ($log as $e) { $o += $e['open_rate'] ?? 0; $c += $e['click_rate'] ?? 0; $n++; }
+                $rec['avg_open']  = $n ? $o / $n : null;
+                $rec['avg_click'] = $n ? $c / $n : null;
+                $rec['notes'][] = 'Best past open-rate: ' . round(($rec['best_open'] ?: 0) * 100, 1) . '% — subject "' . $rec['best_subject'] . '". Aim to beat it.';
+            } else {
+                $rec['notes'][] = 'No blast history yet — this becomes the baseline.';
+            }
+        } catch (Exception $e) {
+            $rec['notes'][] = 'preDesignHook partial: ' . $e->getMessage();
+        }
+        $this->_log('preDesignHook: pid ' . (int) $productId . ' — ' . implode(' ', $rec['notes']));
+        return $rec;
     }
 }
