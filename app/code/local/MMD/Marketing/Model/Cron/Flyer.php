@@ -162,33 +162,62 @@ class MMD_Marketing_Model_Cron_Flyer
                 . ' to ' . implode(',', $silent) . ' — FINAL email for this proposal');
         }
         // 2. Change requests -> regenerate (same course, fresh render) + re-send.
-        $rows = $this->_read()->fetchAll('SELECT * FROM ' . $this->_tbl() . " WHERE review_status = 'changes_requested'");
+        //    Safety net only: the admin "request changes" button and the email
+        //    link both regenerate SYNCHRONOUSLY now, so this normally finds
+        //    nothing. It still catches any changes_requested row that slipped
+        //    through (e.g. a synchronous regenerate that errored mid-way).
+        $rows = $this->_read()->fetchAll('SELECT newsletter_id FROM ' . $this->_tbl() . " WHERE review_status = 'changes_requested'");
         foreach ($rows as $row) {
-            $old = (int) $row['newsletter_id'];
-            $this->_write()->update($this->_tbl(), array('review_status' => 'superseded'),
-                array('newsletter_id = ?' => $old));
-            if ($this->_guard()->remainingDesignsThisWeek() < 1) {
-                $this->_log('followUp: change request on #' . $old . ' deferred — weekly design cap reached');
-                continue;
-            }
-            $pid = (int) trim(strtok((string) $row['course_pids'], ','));
-            $nid = $pid ? $this->createProposal($pid) : null;
-            if ($nid) {
-                // carry the manager's feedback onto the new proposal for context
-                $this->_write()->update($this->_tbl(),
-                    array('review_feedback' => (string) $row['review_feedback']),
-                    array('newsletter_id = ?' => $nid));
-                $this->sendForReview($nid);
-                $this->_log('followUp: regenerated #' . $old . ' -> #' . $nid . ' after change request');
-            } else {
-                $this->_log('followUp: could not regenerate #' . $old . ' (no renderable course)');
-            }
+            $this->regenerateOnChanges((int) $row['newsletter_id']);
         }
         // 3. Expire stale pendings.
         $this->_write()->update($this->_tbl(),
             array('review_status' => 'expired'),
             array("review_status = 'pending'", 'created_at < ?' => $this->_nowStr('-5 days'))
         );
+    }
+
+    /**
+     * Rework a rejected flow: supersede it, re-render the SAME course with fresh
+     * catalog data (carrying the manager's feedback), and re-send for approval.
+     * Called SYNCHRONOUSLY the moment a manager requests changes (admin button +
+     * email link) so a fresh approval email goes out immediately — the hourly
+     * followUp() is just a safety net. Returns the new newsletter_id or null.
+     *
+     * No weekly-design-cap check here on purpose: reworking a rejected design
+     * reuses the same weekly slot (the old row is superseded first), so it is NOT
+     * a new design against the "max 2/week" rule — capping it here would strand a
+     * flow with no way to be revised. It fires only on an explicit human change
+     * request (one regenerate per request), so there is no runaway loop.
+     */
+    public function regenerateOnChanges($newsletterId)
+    {
+        $row = $this->_read()->fetchRow('SELECT * FROM ' . $this->_tbl() . ' WHERE newsletter_id = ?', array($newsletterId));
+        if (!$row) { return null; }
+        $old = (int) $row['newsletter_id'];
+        if (in_array((string) $row['status'], array('scheduled', 'sent'), true)
+            || trim((string) $row['mailerlite_id']) !== '') {
+            return null; // already booked — nothing to rework
+        }
+        // Supersede first so createProposal's one-active-flow-per-course guard frees the course.
+        $this->_write()->update($this->_tbl(), array('review_status' => 'superseded'),
+            array('newsletter_id = ?' => $old));
+        $pid = (int) trim(strtok((string) $row['course_pids'], ','));
+        if (!$pid) { $this->_log('regenerate: #' . $old . ' has no product'); return null; }
+        $nid = $this->createProposal($pid);
+        if (!$nid) {
+            // couldn't rebuild — restore the change-request state so it isn't lost
+            $this->_write()->update($this->_tbl(), array('review_status' => 'changes_requested'),
+                array('newsletter_id = ?' => $old));
+            $this->_log('regenerate: could not rebuild #' . $old . ' (pid ' . $pid . ') — restored');
+            return null;
+        }
+        $this->_write()->update($this->_tbl(),
+            array('review_feedback' => (string) $row['review_feedback']),
+            array('newsletter_id = ?' => $nid));
+        $this->sendForReview($nid);
+        $this->_log('regenerate: #' . $old . ' -> #' . $nid . ' after change request');
+        return $nid;
     }
 
     /**

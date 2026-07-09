@@ -349,9 +349,16 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
                     'review_feedback'  => $feedback,
                     'review_status'    => 'changes_requested',
                 ), array('newsletter_id = ?' => $newsletterId));
+                // Regenerate + re-send NOW (don't wait for the hourly followUp cron):
+                // supersede this row, re-render the same course with the feedback,
+                // and email both managers a fresh approval immediately.
+                $newId = Mage::getModel('mmd_marketing/cron_flyer')->regenerateOnChanges($newsletterId);
                 $result['success'] = true;
                 $result['stage']   = 'changes_requested';
-                $result['message'] = 'Change request recorded. The design will be revised and re-sent for approval.';
+                $result['newsletter_id'] = $newId ?: $newsletterId;
+                $result['message'] = $newId
+                    ? 'Change request recorded — a revised flyer was emailed to the managers for approval.'
+                    : 'Change request recorded. The design will be revised and re-sent shortly.';
                 return $this->_json($result);
             }
 
