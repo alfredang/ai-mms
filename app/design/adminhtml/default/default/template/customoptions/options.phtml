@@ -914,16 +914,30 @@ mmdBulkUpdateCount();
         input.placeholder = 'Search title…';
         input.value = titleFilter.value || '';
         input.style.cssText = 'width:320px;height:30px;padding:4px 10px;border-radius:6px;border:1px solid #2a3447;background:#0f172a;color:#e5e7eb;font-size:13px;box-sizing:border-box;vertical-align:middle;';
+        function doSearch() {
+            var val = (input.value || '').trim();
+            var url = _scheduleListUrl;
+            // Always send an explicit filter segment so Magento overwrites the
+            // session value even when clearing (empty val → btoa('title=') resets it).
+            url += 'filter/' + btoa('title=' + encodeURIComponent(val)) + '/';
+            window.location.href = url;
+        }
         input.addEventListener('keydown', function (e) {
             if (e.keyCode !== 13) return;
             e.preventDefault();
-            titleFilter.value = input.value;
-            var val = (input.value || '').trim();
-            var url = _scheduleListUrl;
-            if (val) url += 'filter/' + btoa('title=' + encodeURIComponent(val)) + '/';
-            window.location.href = url;
+            doSearch();
+        });
+        var clearBtn = document.createElement('button');
+        clearBtn.type = 'button';
+        clearBtn.title = 'Clear search';
+        clearBtn.textContent = '×';
+        clearBtn.style.cssText = 'margin-left:6px;background:none;border:none;color:#64748b;font-size:18px;line-height:1;cursor:pointer;vertical-align:middle;padding:0 4px;';
+        clearBtn.addEventListener('click', function () {
+            input.value = '';
+            doSearch();
         });
         wrap.appendChild(input);
+        wrap.appendChild(clearBtn);
         firstCell.appendChild(wrap);
     }
     if (document.readyState === 'loading') {

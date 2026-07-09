@@ -39,7 +39,8 @@ class MMD_Adminhtml_Block_Customoptions_Options_Edit_Tab_General extends Mage_Ad
             'label' => Mage::helper('customoptions')->__('Title'),
             'name' => 'general[title]',
             'index' => 'title',
-            'required' => true
+            'required' => true,
+            'style' => 'width: 480px'
         ));
 
         $form->addField('is_active', 'select', array(

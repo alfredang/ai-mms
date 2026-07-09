@@ -96,6 +96,7 @@ if ($helper->isInventoryEnabled()) $width += 50;
         // template is also rendered by stock catalog product edit and
         // others, which should NOT get the column.
         $_isMmdScheduleEdit = strpos((string) Mage::app()->getRequest()->getRequestUri(), '/mmd/customoptions_options/') !== false;
+        if ($_isMmdScheduleEdit) $width -= 220; // SKU + Default + Image columns hidden on template edit
         if ($_isMmdScheduleEdit):
         ?>'<th class="type-row-select"><input type="checkbox" class="row-select-all" onclick="(function(cb){var rows=cb.closest(\'table\').querySelectorAll(\'tbody input.row-select-cb\');for(var i=0;i<rows.length;i++)rows[i].checked=cb.checked;})(this)" /></th>'+<?php endif; ?>
         <?php if ($helper->isDependentEnabled()) { ?>'<th class="type-id"><?php echo $helper->__js('Id') ?></th>'+<?php } ?>
@@ -110,12 +111,12 @@ if ($helper->isInventoryEnabled()) $width += 50;
             '<th class="type-special-comment"><?php echo $helper->__js('Special Price Comment') ?></th>'+<?php
         } ?>
         <?php if ($helper->isWeightEnabled()) { ?>'<th class="type-type"><?php echo $helper->__js('Weight') ?></th>'+<?php } ?>
-        '<th class="type-sku"><?php echo $helper->__js('SKU') ?></th>'+
+        <?php if (!$_isMmdScheduleEdit) { ?>'<th class="type-sku"><?php echo $helper->__js('SKU') ?></th>'+<?php } ?>
         '<th class="type-order"><?php echo $helper->__js('Sort Order') ?></th>'+
         <?php if ($helper->isInventoryEnabled()) { ?>'<th class="type-qty"><?php echo $helper->__js('Qty') ?></th>'+<?php } ?>
-        '<th class="type-default"><?php echo $helper->__js('Default') ?></th>'+
+        <?php if (!$_isMmdScheduleEdit) { ?>'<th class="type-default"><?php echo $helper->__js('Default') ?></th>'+<?php } ?>
         <?php if ($helper->isDependentEnabled()) { ?>'<th class="type-dependent-ids"><?php echo $helper->__js('Children') ?></th>'+<?php } ?>
-        '<th class="type-image"><?php echo $helper->__js('Image') ?></th>'+
+        <?php if (!$_isMmdScheduleEdit) { ?>'<th class="type-image"><?php echo $helper->__js('Image') ?></th>'+<?php } ?>
         '<th class="type-butt last">'+
             '&nbsp;'+
             '<input type="hidden" class="required-option-select-type-rows" name="validation_{{option_id}}_result" value="" >'+
@@ -158,23 +159,26 @@ if ($helper->isInventoryEnabled()) $width += 50;
                   '<td><input type="text" class="input-text" id="product_option_{{id}}_select_{{select_id}}_price_special_comment" name="product[options][{{id}}][values][{{select_id}}][special_comment]" value="{{special_comment}}"></td>'+<?php
                     } ?>
             <?php if ($helper->isWeightEnabled()) { ?>'<td><input type="text" class="input-text validate-number product-option-weight" id="product_option_{{id}}_select_{{select_id}}_weight" name="product[options][{{id}}][values][{{select_id}}][weight]" value="{{weight}}"></td>'+<?php } ?>
-            '<td><input type="text" class="input-text {{sku_class}}" id="product_option_{{id}}_select_{{select_id}}_sku" name="product[options][{{id}}][values][{{select_id}}][sku]" value="{{sku}}" onchange="if (!this.value) selectOptionType.enableQtyAndPrice({{id}}, {{select_id}});"></td>'+
+            <?php if (!$_isMmdScheduleEdit) { ?>'<td><input type="text" class="input-text {{sku_class}}" id="product_option_{{id}}_select_{{select_id}}_sku" name="product[options][{{id}}][values][{{select_id}}][sku]" value="{{sku}}" onchange="if (!this.value) selectOptionType.enableQtyAndPrice({{id}}, {{select_id}});"></td>'+<?php } ?>
             '<td><input type="text" class="validate-zero-or-greater input-text" name="product[options][{{id}}][values][{{select_id}}][sort_order]" value="{{sort_order}}"></td>'+
             <?php if ($helper->isInventoryEnabled()): ?>
                 '<td><input type="text" class="input-text" name="product[options][{{id}}][values][{{select_id}}][customoptions_qty]" id="product_option_{{id}}_select_{{select_id}}_customoptions_qty" value="{{customoptions_qty}}" {{customoptions_qty_disabled}}></td>'+
             <?php endif; ?>
-            '<td><input id="product_option_{{id}}_select_{{select_id}}_default" type="{{default_type}}" class="input-text" name="product[options][{{id}}][default][]" value="{{select_id}}" {{checked}} onclick="if (this.up().hasClassName(\'checked\') && this.checked) this.checked=false; if (this.checked) this.up().addClassName(\'checked\'); else this.up().removeClassName(\'checked\');" onmouseover="if (this.checked) this.up().addClassName(\'checked\'); else this.up().removeClassName(\'checked\');"></td>'+                        
+            <?php if (!$_isMmdScheduleEdit) { ?>'<td><input id="product_option_{{id}}_select_{{select_id}}_default" type="{{default_type}}" class="input-text" name="product[options][{{id}}][default][]" value="{{select_id}}" {{checked}} onclick="if (this.up().hasClassName(\'checked\') && this.checked) this.checked=false; if (this.checked) this.up().addClassName(\'checked\'); else this.up().removeClassName(\'checked\');" onmouseover="if (this.checked) this.up().addClassName(\'checked\'); else this.up().removeClassName(\'checked\');"></td>'+<?php } ?>
             <?php if ($helper->isDependentEnabled()) { ?>
                 '<td align="center"><input type="text" class="input-children" id="dependent_ids_{{in_group_id}}" name="product[options][{{id}}][values][{{select_id}}][dependent_ids]" value="{{dependent_ids}}">&nbsp;<img src="<?php echo $this->getSkinUrl('images/rule_chooser_trigger.gif') ?>" alt="S" title="<?php echo $this->htmlEscape($helper->__('Select Children')) ?>" class="v-middle pointer" onclick="productChildrenOptions.show({{in_group_id}}, event);" /></td>'+
             <?php } ?>
-            '<td><?php echo $this->jsQuoteEscape($this->getAddImageButtonHtml()) ?></td>'+
+            <?php if (!$_isMmdScheduleEdit) { ?>'<td><?php echo $this->jsQuoteEscape($this->getAddImageButtonHtml()) ?></td>'+<?php } ?>
             '<td class="last"><span title="Delete row"><?php echo $this->jsQuoteEscape($this->getDeleteButtonHtml()) ?></span></td>'+
         '</tr>'+
+        <?php if (!$_isMmdScheduleEdit) { ?>
         '<tr id="image_option_row_{{select_id}}" style="{{image_tr_style}}">'+
             <?php if ($helper->isDependentEnabled()) { ?>'<td>&nbsp;</td>'+<?php } ?>
             '<td colspan="3" id="image_option_td_{{select_id}}"></td>'+
             <?php if ($helper->isTierPriceEnabled()) { ?>'<td>&nbsp;</td>'+<?php } ?>
-        '</tr>';
+        '</tr>'+
+        <?php } ?>
+        '';
     
     OptionTemplateSelectTierPriceRow = '<tr id="product_option_{{id}}_select_{{select_id}}_price_{{tier_price_id}}">'+
         <?php if ($helper->isDependentEnabled()) { ?>'<td>&nbsp;</td>'+<?php } ?>

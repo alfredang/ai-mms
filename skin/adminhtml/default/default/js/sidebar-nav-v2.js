@@ -1439,6 +1439,9 @@ document.observe('dom:loaded', function() {
             // Invoices grid has its own merged View+PDF icon column
             // (see consolidateInvoiceActions below).
             if (table.id === 'sales_invoice_grid_table') return;
+            // Courses tab inside Edit Template — rows are course checkboxes,
+            // not navigable records; no action column wanted.
+            if (table.id === 'customoptionsProductGrid_table') return;
             // Skip grids whose PHP action column already rendered icon
             // buttons via the global MMD action renderer — those grids
             // get per-row icons and shouldn't be stamped with an extra
@@ -2057,6 +2060,8 @@ document.observe('dom:loaded', function() {
             // CMS pages grid has its own merged Preview+Edit+Delete cell —
             // handled by consolidateCmsPageActions() below.
             if (table.id === 'cmsPageGrid_table') return;
+            // Courses tab inside Edit Template — rows are course checkboxes only.
+            if (table.id === 'customoptionsProductGrid_table') return;
             if (table.querySelector('.row-action-wrap')) return;
             if (table.querySelector('.row-edit-actions')) return;
 

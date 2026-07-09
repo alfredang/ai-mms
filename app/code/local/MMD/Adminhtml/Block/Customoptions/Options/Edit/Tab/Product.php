@@ -236,4 +236,9 @@ class MMD_Adminhtml_Block_Customoptions_Options_Edit_Tab_Product extends Mage_Ad
         return $url;
     }
 
+    public function getRowUrl($row)
+    {
+        return '';
+    }
+
 }
