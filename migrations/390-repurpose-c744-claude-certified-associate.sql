@@ -80,7 +80,7 @@ ON DUPLICATE KEY UPDATE value = VALUES(value);
 INSERT INTO catalog_product_entity_varchar (entity_type_id, attribute_id, store_id, entity_id, value)
 VALUES (4, @a_mt, 0, @e, 'Claude Certified Associate - Foundations Certification | Tertiary Courses Singapore') ON DUPLICATE KEY UPDATE value = VALUES(value);
 INSERT INTO catalog_product_entity_varchar (entity_type_id, attribute_id, store_id, entity_id, value)
-VALUES (4, @a_md, 0, @e, 'Prepare for the Claude Certified Associate - Foundations certification (CCAO-F). Master all 7 exam domains - prompting, output evaluation, model selection, workflow integration, configuration, governance and troubleshooting - in this 2-day course at Tertiary Courses Singapore.')
+VALUES (4, @a_md, 0, @e, 'Prepare for the Claude Certified Associate - Foundations certification (CCAO-F). Master all 7 exam domains from prompting to governance in this 2-day Claude cert prep course at Tertiary Courses Singapore.')
 ON DUPLICATE KEY UPDATE value = VALUES(value);
 INSERT INTO catalog_product_entity_text (entity_type_id, attribute_id, store_id, entity_id, value)
 VALUES (4, @a_mk, 0, @e, 'Claude Certified Associate, Claude Certification, CCAO-F, Anthropic, Claude, AI Certification, Exam Prep, Prompting, Generative AI')
