@@ -21,8 +21,11 @@ FROM catalog_product_entity e
 WHERE e.sku IN ('C171', 'C842', 'C873', 'C1228', 'C425', 'C188', 'C1043')
 ON DUPLICATE KEY UPDATE value = VALUES(value);
 
--- Flip any per-store override rows to Disabled as well.
+-- Flip any per-store override rows to Disabled as well. Must list ALL disabled
+-- SKUs (a per-store status override left at Enabled keeps the course live on
+-- that store even when store_id 0 is Disabled — this bit GH store_id 3 for
+-- C188/C1043).
 UPDATE catalog_product_entity_int i
 JOIN catalog_product_entity e ON e.entity_id = i.entity_id
 SET i.value = 2
-WHERE i.attribute_id = @status_attr AND e.sku IN ('C171', 'C842', 'C873');
+WHERE i.attribute_id = @status_attr AND e.sku IN ('C171', 'C842', 'C873', 'C1228', 'C425', 'C188', 'C1043');
