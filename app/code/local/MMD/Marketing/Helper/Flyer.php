@@ -171,6 +171,62 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         return $base;
     }
 
+    /**
+     * Anthropic Messages API call for flyer copy — its OWN client (not the shared
+     * SEO invokeClaude) so the newsletter feature controls the auth + system prompt.
+     * Supports BOTH credential shapes the account uses:
+     *   - `sk-ant-api…` real API key  → `x-api-key` header.
+     *   - `sk-ant-oat…` Claude-Code OAuth token → `Authorization: Bearer` + the
+     *     `anthropic-beta: oauth-2025-04-20` header + a leading "You are Claude
+     *     Code…" system block (verified on prod: this returns 200; a plain Bearer
+     *     without those two pieces 429s, and x-api-key 401s). The web container has
+     *     no `claude` CLI, so this direct API path is the only one that works there.
+     * Returns the model's text, or '' on any failure (caller falls back gracefully).
+     */
+    protected function _callClaude($prompt)
+    {
+        $cfg   = Mage::helper('mmd_rolemanager')->getMarketingApiConfig();
+        $key   = trim((string) ($cfg['anthropic_key'] ?? ''));
+        $model = trim((string) ($cfg['anthropic_model'] ?? '')) ?: 'claude-opus-4-6';
+        if ($key === '') { return ''; }
+
+        $headers = array('anthropic-version: 2023-06-01', 'content-type: application/json');
+        $system  = array();
+        if (stripos($key, 'sk-ant-oat') === 0) {
+            $headers[] = 'authorization: Bearer ' . $key;
+            $headers[] = 'anthropic-beta: oauth-2025-04-20';
+            $system[]  = array('type' => 'text', 'text' => "You are Claude Code, Anthropic's official CLI for Claude.");
+        } else {
+            $headers[] = 'x-api-key: ' . $key;
+        }
+        $system[] = array('type' => 'text', 'text' => 'You are a direct-response course-marketing copywriter for Tertiary Courses Singapore. Output ONLY the exact JSON object requested — no markdown fences, no preamble, no commentary.');
+
+        $body = json_encode(array(
+            'model'      => $model,
+            'max_tokens' => 1500,
+            'system'     => $system,
+            'messages'   => array(array('role' => 'user', 'content' => $prompt)),
+        ));
+        try {
+            $ch = curl_init('https://api.anthropic.com/v1/messages');
+            curl_setopt_array($ch, array(
+                CURLOPT_POST => true, CURLOPT_POSTFIELDS => $body, CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => 60, CURLOPT_CONNECTTIMEOUT => 10, CURLOPT_HTTPHEADER => $headers,
+            ));
+            $raw  = curl_exec($ch);
+            $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            $j = json_decode((string) $raw, true);
+            if ($code < 400 && isset($j['content'][0]['text'])) {
+                return (string) $j['content'][0]['text'];
+            }
+            Mage::log('flyer _callClaude HTTP ' . $code . ': ' . substr((string) $raw, 0, 300), null, 'newsletter.log');
+        } catch (Exception $e) {
+            Mage::log('flyer _callClaude exception: ' . $e->getMessage(), null, 'newsletter.log');
+        }
+        return '';
+    }
+
     /** Stored per-SKU design refinements (JSON keyed by SKU). Read straight from
      *  core_config_data so a saveConfig() earlier in the same request is honoured. */
     protected function _designRefinements()
@@ -264,9 +320,7 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
             . "}\n"
             . "journey MUST have " . ($days > 1 ? ($days * 2) . " steps (2 per day)" : "3-4 steps") . ", in order, each concrete to this course. Use plain ASCII punctuation.";
 
-        $out = '';
-        try { $out = (string) Mage::getModel('mmd_rolemanager/aiSeo')->invokeClaude($prompt); }
-        catch (Exception $e) { $out = ''; }
+        $out = $this->_callClaude($prompt);
         if ($out === '') { return null; }
 
         // Strip any ```json fence, then take the outermost {...}.
