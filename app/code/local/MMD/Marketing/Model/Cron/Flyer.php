@@ -199,32 +199,71 @@ class MMD_Marketing_Model_Cron_Flyer
             || trim((string) $row['mailerlite_id']) !== '') {
             return null; // already booked — nothing to rework
         }
-        // Supersede first so createProposal's one-active-flow-per-course guard frees the course.
-        $this->_write()->update($this->_tbl(), array('review_status' => 'superseded'),
-            array('newsletter_id = ?' => $old));
         $pid = (int) trim(strtok((string) $row['course_pids'], ','));
         if (!$pid) { $this->_log('regenerate: #' . $old . ' has no product'); return null; }
-        // Feedback-DRIVEN regeneration: rebuild the course copy from the manager's
-        // change-request BEFORE rendering, so the next version genuinely differs and
-        // addresses the feedback (fixes "same design re-sent after I reject").
-        $fb = trim((string) $row['review_feedback']);
-        try {
-            $copy = $this->_flyer()->regenerateCopy($pid, $fb);
-            $this->_log('regenerate: AI copy ' . ($copy ? 'rebuilt' : 'FALLBACK (Claude unavailable)') . ' for #' . $old . ' with feedback: ' . mb_substr($fb, 0, 80));
-        } catch (Exception $e) { $this->_log('regenerate: regenerateCopy error — ' . $e->getMessage()); }
+        $fb       = trim((string) $row['review_feedback']);
+        $prevBody = (string) $row['body_html'];
+
+        // ============================================================
+        // HARD RULE (admin 2026-07-12): the manager's feedback MUST be
+        // incorporated into a genuinely DIFFERENT design BEFORE any new
+        // approval email is sent. Never re-send the rejected design.
+        //   1. Regenerate the copy FROM the feedback (retry on transient
+        //      Claude failure — an empty result must NOT silently reuse
+        //      the old copy and re-send it).
+        //   2. If generation cannot produce copy, DO NOT send anything:
+        //      leave the flow as changes_requested and let followUp retry.
+        //   3. The rendered body MUST differ from the rejected body; if it
+        //      is byte-identical, regenerate once more before sending.
+        // ============================================================
+        $copy = null;
+        for ($attempt = 1; $attempt <= 3 && !$copy; $attempt++) {
+            try { $copy = $this->_flyer()->regenerateCopy($pid, $fb); }
+            catch (Exception $e) { $this->_log('regenerate: regenerateCopy error (try ' . $attempt . ') — ' . $e->getMessage()); }
+            if (!$copy && $attempt < 3) { sleep(3); }   // brief backoff (429/timeout)
+        }
+        if (!$copy) {
+            // Generation failed — HOLD. Do not supersede, do not email the same
+            // design. followUp() will retry on the next cron tick.
+            $this->_write()->update($this->_tbl(), array('review_status' => 'changes_requested'),
+                array('newsletter_id = ?' => $old));
+            $this->_log('regenerate: HELD #' . $old . ' — copy generation failed after retries; NOT re-sending the rejected design');
+            return null;
+        }
+        $this->_log('regenerate: AI copy rebuilt for #' . $old . ' from feedback: ' . mb_substr($fb, 0, 100));
+
+        // New copy is in hand — free the course and build the new proposal.
+        $this->_write()->update($this->_tbl(), array('review_status' => 'superseded'),
+            array('newsletter_id = ?' => $old));
         $nid = $this->createProposal($pid);
         if (!$nid) {
-            // couldn't rebuild — restore the change-request state so it isn't lost
             $this->_write()->update($this->_tbl(), array('review_status' => 'changes_requested'),
                 array('newsletter_id = ?' => $old));
             $this->_log('regenerate: could not rebuild #' . $old . ' (pid ' . $pid . ') — restored');
             return null;
         }
+
+        // Diff-guard: the new design MUST differ from the rejected one.
+        $newBody = (string) $this->_read()->fetchOne(
+            'SELECT body_html FROM ' . $this->_tbl() . ' WHERE newsletter_id = ?', array($nid));
+        if ($prevBody !== '' && md5($newBody) === md5($prevBody)) {
+            $this->_log('regenerate: new #' . $nid . ' body identical to rejected #' . $old . ' — forcing a second regeneration');
+            try {
+                if ($this->_flyer()->regenerateCopy($pid, $fb . "\n\n(The previous rewrite was too similar — change the wording and angle more.)")) {
+                    $rebuilt = $this->_flyer()->render($pid);
+                    if ($rebuilt !== '') {
+                        $this->_write()->update($this->_tbl(), array('body_html' => $rebuilt),
+                            array('newsletter_id = ?' => $nid));
+                    }
+                }
+            } catch (Exception $e) { $this->_log('regenerate: second-pass error — ' . $e->getMessage()); }
+        }
+
         $this->_write()->update($this->_tbl(),
             array('review_feedback' => (string) $row['review_feedback']),
             array('newsletter_id = ?' => $nid));
         $this->sendForReview($nid);
-        $this->_log('regenerate: #' . $old . ' -> #' . $nid . ' after change request');
+        $this->_log('regenerate: #' . $old . ' -> #' . $nid . ' after change request (feedback applied)');
         return $nid;
     }
 

@@ -308,9 +308,24 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         $topicList = $topics ? implode('; ', array_slice($topics, 0, 10)) : '(no topic list parsed — use the description)';
         $fb = trim((string) $feedback);
 
+        // On a rework, show Claude the REJECTED version so it diverges from it and
+        // provably acts on the feedback (not a reword). HARD RULE: the manager's
+        // feedback must be incorporated before a new approval email goes out.
+        $prev = '';
+        if ($fb !== '') {
+            $ex = $this->_designRefinements();
+            if (!empty($ex[$sku]['outcomes']) && is_array($ex[$sku]['outcomes'])) {
+                $pl = array();
+                foreach ($ex[$sku]['outcomes'] as $o) { $pl[] = '- ' . html_entity_decode((string) $o, ENT_QUOTES, 'UTF-8'); }
+                if (!empty($ex[$sku]['hook'])) { array_unshift($pl, 'Hook: ' . html_entity_decode((string) $ex[$sku]['hook'], ENT_QUOTES, 'UTF-8')); }
+                $prev = "PREVIOUS VERSION — the manager REJECTED this. Your rewrite MUST be clearly different from it and MUST fix exactly what the feedback flags:\n" . implode("\n", $pl) . "\n\n";
+            }
+        }
+
         $prompt = "You are a direct-response copywriter for Tertiary Courses Singapore, writing a course FLYER that must drive sign-ups. Write copy that is SPECIFIC to THIS course — name the actual tools, concepts and outcomes a learner gains. Never generic (\"learn by doing\", \"start from zero\", \"build something real\" are BANNED — they say nothing). Plain English, benefit-led, each line a concrete result the reader can picture.\n\n"
             . "COURSE\nTitle: {$name}\nCourse code: {$sku}\nWSQ funded: " . ($isWsq ? 'yes' : 'no') . "\nDuration: {$days} day(s)\nWhat it covers: {$desc}\nSyllabus topics: {$topicList}\n\n"
-            . ($fb !== '' ? "MANAGER FEEDBACK on the previous version — you MUST address this in the rewrite:\n{$fb}\n\n" : "")
+            . $prev
+            . ($fb !== '' ? "MANAGER FEEDBACK you MUST act on (this is why the previous version was rejected — address every point directly, don't just reword):\n{$fb}\n\n" : "")
             . ($learnings !== '' ? "WHAT WORKS (from our past newsletter performance): {$learnings}\n\n" : "")
             . "Return ONLY a JSON object, no markdown, no preamble, with EXACTLY these keys:\n"
             . "{\n"

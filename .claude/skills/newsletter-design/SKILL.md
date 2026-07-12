@@ -43,14 +43,22 @@ pitch, change the colour/logo, or run the improvement loop.
    any line that could apply to any course are BANNED — name the actual tools,
    concepts and deliverables of THIS course. A regeneration that produces the
    same flyer the manager just rejected is the bug this loop exists to prevent.
-5. **One active flow per course** — `createProposal()` refuses a second live
+5. **Feedback MUST be incorporated before a new approval email is sent — no
+   exceptions.** On a change-request, `regenerateOnChanges()` (a) regenerates the
+   copy FROM the manager's feedback (retrying on transient Claude failure), (b)
+   **holds and re-sends nothing** if generation can't produce copy — it must never
+   fall back to re-emailing the rejected design — and (c) diff-guards the new body
+   against the rejected one, regenerating again if byte-identical. The prompt is
+   given the rejected version and told to make the rewrite clearly different and
+   act on every point. A "same design re-sent after I reject" is a P1 bug.
+6. **One active flow per course** — `createProposal()` refuses a second live
    flyer for a course already pending/scheduled.
-6. **Non-production never emails the managers** — `sendForReview()` no-ops on any
+7. **Non-production never emails the managers** — `sendForReview()` no-ops on any
    non-`tertiarycourses.com.*` base_url (localhost), so a dev/test run can't
    spam angch@/tansc@ with broken links. Override for a test env only via
    `mmd_marketing/newsletter/allow_local_review_email=1`.
    See [[feedback_local_sendforreview_sends_real_emails]].
-7. **Max 2 blasts/week, Mon/Thu 08:00 SGT** — Blastguard enforces it. All time
+8. **Max 2 blasts/week, Mon/Thu 08:00 SGT** — Blastguard enforces it. All time
    math uses `Blastguard::nowLocal()` (Magento forces PHP to UTC — see
    [[feedback_mysql_utc_php_sgt_time_mismatch]]).
 
