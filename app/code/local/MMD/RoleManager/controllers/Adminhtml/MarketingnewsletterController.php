@@ -393,10 +393,17 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
             $pid = (int) $this->getRequest()->getParam('course_id');
             if (!$pid) throw new Exception('Pick a course first.');
 
+            // Gate on whether a future Mon/Thu BLAST slot is actually bookable —
+            // NOT on how many flyers were authored this calendar week. The admin
+            // lines a flyer up now to fill an open slot in a LATER week; blocking
+            // that because "2 designs were already created this week" is wrong.
+            // The real per-week blast cap is still enforced at schedule time by
+            // scheduleApproved()/Blastguard, so nothing over-books.
             $guard = Mage::helper('mmd_marketing/blastguard');
-            if ($guard->remainingDesignsThisWeek() < 1) {
-                throw new Exception('The weekly limit of ' . MMD_Marketing_Helper_Blastguard::MAX_PER_WEEK
-                    . ' flyers has been reached for this week. Try again next week.');
+            if ($guard->nextSendSlot() === null) {
+                throw new Exception('Every Monday/Thursday slot for the next few weeks is already '
+                    . 'booked (max ' . MMD_Marketing_Helper_Blastguard::MAX_PER_WEEK
+                    . ' blasts per week). Approve or clear a scheduled flow first, then try again.');
             }
             $model = Mage::getModel('mmd_marketing/cron_flyer');
             // Friendly duplicate message before the generic failure — createProposal
