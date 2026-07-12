@@ -204,6 +204,14 @@ class MMD_Marketing_Model_Cron_Flyer
             array('newsletter_id = ?' => $old));
         $pid = (int) trim(strtok((string) $row['course_pids'], ','));
         if (!$pid) { $this->_log('regenerate: #' . $old . ' has no product'); return null; }
+        // Feedback-DRIVEN regeneration: rebuild the course copy from the manager's
+        // change-request BEFORE rendering, so the next version genuinely differs and
+        // addresses the feedback (fixes "same design re-sent after I reject").
+        $fb = trim((string) $row['review_feedback']);
+        try {
+            $copy = $this->_flyer()->regenerateCopy($pid, $fb);
+            $this->_log('regenerate: AI copy ' . ($copy ? 'rebuilt' : 'FALLBACK (Claude unavailable)') . ' for #' . $old . ' with feedback: ' . mb_substr($fb, 0, 80));
+        } catch (Exception $e) { $this->_log('regenerate: regenerateCopy error — ' . $e->getMessage()); }
         $nid = $this->createProposal($pid);
         if (!$nid) {
             // couldn't rebuild — restore the change-request state so it isn't lost
@@ -296,6 +304,11 @@ class MMD_Marketing_Model_Cron_Flyer
         // PRE-DESIGN HOOK: check the curated pitch + accumulated blast learnings for
         // this course before building, so every design is informed by what works.
         $this->preDesignHook($productId);
+        // AI-GENERATE the course-specific copy (hook/outcomes/journey) before rendering.
+        // With no feedback this reuses any prior AI copy for the SKU (no API burn);
+        // regenerateOnChanges passes the manager's feedback so a rework always differs.
+        try { $this->_flyer()->regenerateCopy($productId, ''); }
+        catch (Exception $e) { $this->_log('createProposal: regenerateCopy failed — ' . $e->getMessage()); }
         $flyerHtml = $this->_flyer()->render($productId);
         if ($flyerHtml === '') {
             return null;
