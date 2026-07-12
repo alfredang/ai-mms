@@ -35,8 +35,14 @@ pitch, change the colour/logo, or run the improvement loop.
    Online" (admin decision).
 3. **Never lift the syllabus verbatim.** The value stack is *outcomes*
    ("what you'll walk out able to do"), not the course-page topic list.
-4. **Never ship the same generic lines on every flyer.** Each course's copy is
-   either curated or reframed from *its own* topics, so no two flyers read alike.
+4. **Never ship the same generic lines on every flyer, and NEVER re-send an
+   identical design after a change-request.** The copy (hook / outcomes /
+   learning journey) is **AI-generated per course** from the course's own
+   content — and, on a rework, from the manager's feedback. It is **not a
+   template**. "Start from zero", "learn by doing", "build something real" and
+   any line that could apply to any course are BANNED — name the actual tools,
+   concepts and deliverables of THIS course. A regeneration that produces the
+   same flyer the manager just rejected is the bug this loop exists to prevent.
 5. **One active flow per course** — `createProposal()` refuses a second live
    flyer for a course already pending/scheduled.
 6. **Non-production never emails the managers** — `sendForReview()` no-ops on any
@@ -60,34 +66,47 @@ pitch, change the colour/logo, or run the improvement loop.
 - **Vary the frames.** The topic-reframing frames rotate so lines don't read
   as a template.
 
-## Per-course pitch registry (living — keep improving)
+## Copy is AI-GENERATED, not templated (the core mechanism)
 
-Curated flyer voice lives in `Flyer.php::_curatedPitch()`, keyed by SKU:
+`Flyer.php::regenerateCopy($productId, $feedback)` is the generator. It builds a
+prompt from **(a)** the course's own content (title, SKU, WSQ flag, duration,
+short description, parsed syllabus topics), **(b)** the manager's change-request
+feedback, and **(c)** the post-blast design learnings (the winning subject
+patterns), then calls `mmd_rolemanager/aiSeo::invokeClaude()` and asks for strict
+JSON: `{ hook, outcomes[5], journey[{label,do}] }`. The result is persisted into a
+per-SKU **design refinements** store (`core_config
+mmd_marketing/newsletter/design_refinements`, JSON keyed by SKU), which
+`_mergedPitch()` overlays on top of the curated code so `render()` picks it up on
+the next call — **no redeploy** to change a course's copy.
 
-```php
-'TGS-XXXXXXXXXX' => array(
-    'accent'   => array('#solid', '#lightBg', '#lightBorder'), // optional
-    'logo'     => 'n8n',                                        // optional text badge
-    'hook'     => '<one-sentence hero hook>',
-    'outcomes' => array('<benefit 1>', '<benefit 2>', ...),     // 4-5 lines
-),
-```
+**When it regenerates:**
+- **Change-request (feedback present) → ALWAYS regenerates.** This is what makes
+  a rework differ from the rejected version. `regenerateOnChanges()` calls
+  `regenerateCopy($pid, $row['review_feedback'])` *before* rendering.
+- **Fresh proposal (no feedback) → reuses** the SKU's existing AI copy if present
+  (no API burn); generates once if not. `createProposal()` calls
+  `regenerateCopy($pid, '')`.
 
-Resolution order for any course:
-1. **Curated** pitch (best — hand-written) →
-2. **Reframed** from the course's own parsed topics (varied frames) →
-3. **Generic** benefit frame (only when a course has no parseable topics).
+**Fallback order** when Claude is unavailable (returns null — never a crash):
+1. **AI-generated** copy for the SKU (primary) →
+2. **Curated** pitch `_curatedPitch()` (hand-written seed / safety net) →
+3. **Reframed** from the course's own parsed topics →
+4. **Generic** benefit frame (last resort — treat its appearance as a defect to fix).
 
-**Current curated pitches** (extend this list as courses are promoted):
+`_curatedPitch()` is now a **fallback seed**, not the primary path. Keep a curated
+entry for flagship courses so a Claude outage still yields course-specific copy,
+but the live copy should be the AI-generated refinement. Curated seeds exist for
+`TGS-2025052468` (Claude Code), `TGS-2023035977` (n8n), `TGS-2020505042` (React).
 
-| SKU | Course | Angle |
-|-----|--------|-------|
-| `TGS-2025052468` | Agentic AI Applications with Claude Code | Build your own apps in plain English; terracotta accent |
-| `TGS-2023035977` | Agentic AI Automation with n8n | Webhooks + RAG → real agentic apps/workflows; n8n-pink accent + logo badge |
+**The learning journey** (`journey` field, rendered as a numbered timeline): each
+step is `[label, what-you-do]` — for a multi-day course label them `Day 1 · AM`
+etc. (day count = duration ÷ 8h). Concrete "here's what you'll build in this
+block", never abstract.
 
-**To add a course:** append an entry to `_curatedPitch()` with a hook + 4-5
-outcome lines (+ optional accent/logo). Verify the SKU against the catalog
-first — a wrong SKU silently falls through to the reframed path.
+**Anthropic credential note:** prod's key is an `sk-ant-oat…` OAuth token, so
+`invokeClaude()` uses the `claude` CLI path (the `sk-ant-api…` direct-API path is
+skipped for OAuth tokens). Same client the Blog autoblog cron uses; if the CLI is
+down, generation falls back to the curated seed.
 
 ## Colour + logo variation
 
@@ -105,16 +124,18 @@ first — a wrong SKU silently falls through to the reframed path.
 The pipeline is a closed learning loop:
 
 ```
-preDesignHook ──► render (curated/reframed pitch + accent) ──► approve ──►
+manager feedback ─┐
+course content ───┼─► regenerateCopy (Claude) ──► render ──► approve ──►
+design learnings ─┘        │
    MailerLite blast ──► syncBlasts/webhook capture ──► analyseBlast ──►
-   designLearnings log ──► (feeds) preDesignHook of the NEXT design
+   designLearnings log ──► (feeds) regenerateCopy of the NEXT design
 ```
 
+- **Generator** (`regenerateCopy($pid, $feedback)`): the render-time step that
+  turns course content + manager feedback + learnings into fresh copy (above).
 - **Pre-design hook** (`preDesignHook($pid)`, runs inside `createProposal`):
-  checks whether the course has a curated pitch and reads the accumulated
-  learnings — surfaces the best past open-rate subject as the bar to beat, and
-  logs the recommendation. Read-only; the render already honours the curated
-  pitch/accent it points to.
+  reads the accumulated learnings and surfaces the best past open-rate subject as
+  the bar to beat; logs the recommendation.
 - **Post-blast hook** (`analyseBlast($id, $stats)`, runs when a blast is
   captured): compares this blast's open/click rate against the running average
   of all prior blasts, tags it **win / mixed / loss**, and appends a structured
@@ -134,6 +155,12 @@ tighten the value stack and CTA. Low open = rework the subject.
 
 ## Anti-patterns
 
+- **Don't hard-code course copy as a template.** Copy is AI-generated per course
+  from its own content + manager feedback + learnings (`regenerateCopy`). A
+  hand-written pitch is only a fallback seed, never the live copy.
+- **Don't re-send a design after a change-request without regenerating from the
+  feedback.** If the manager rejected it, the next email MUST be visibly
+  different and MUST address what they said.
 - Don't hand-write a bespoke `<style>`/layout per course — vary via accent/logo/
   copy, keep one renderer.
 - Don't add a design lever the post-blast hook can't see (subject, course, WSQ,
