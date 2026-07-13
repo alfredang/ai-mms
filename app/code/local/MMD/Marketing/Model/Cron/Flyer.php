@@ -315,7 +315,8 @@ class MMD_Marketing_Model_Cron_Flyer
             $pid = (int) $row['product_id'];
             if (isset($recentPids[$pid])) continue;
             $p = Mage::getModel('catalog/product')->load($pid);
-            if ($p && $p->getId() && $p->getStatus() == 1) {
+            // WSQ only: SG blasts TGS- courses; skip non-WSQ (C-prefix) courses.
+            if ($p && $p->getId() && $p->getStatus() == 1 && stripos((string) $p->getSku(), 'TGS-') === 0) {
                 return $pid;
             }
         }
@@ -325,6 +326,19 @@ class MMD_Marketing_Model_Cron_Flyer
     /** Render the flyer and store a 'pending' review row; returns newsletter_id. */
     public function createProposal($productId)
     {
+        // HARD GATE (admin 2026-07-14): SG blasts WSQ courses ONLY. A WSQ course's
+        // SKU starts with 'TGS-' (the SkillsFuture course reference). Non-WSQ
+        // C-prefix courses (e.g. C427) must never be proposed or scheduled — this
+        // is the single chokepoint every path (auto cron, Run Now, regenerate)
+        // funnels through, so gating here covers them all.
+        $sku = (string) $this->_read()->fetchOne(
+            'SELECT sku FROM ' . Mage::getSingleton('core/resource')->getTableName('catalog/product')
+          . ' WHERE entity_id = ?', array((int) $productId));
+        if (stripos($sku, 'TGS-') !== 0) {
+            $this->_log('createProposal: skipped — ' . ($sku ?: 'product ' . (int) $productId)
+                . ' is not a WSQ (TGS-) course; SG blasts WSQ only');
+            return null;
+        }
         // Dedupe guard: one ACTIVE flow per course. If this product already has a
         // pending / changes-requested / scheduling / scheduled flow, don't create a
         // second one (a queue "Run Now" on an already-scheduled course would
