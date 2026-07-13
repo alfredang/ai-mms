@@ -8,9 +8,12 @@
  * When an image URL is supplied it goes through the 3-step flow:
  * initializeUpload -> PUT binary -> reference the image URN in /rest/posts.
  *
- * Credentials (env, same pattern as the R2 keys):
- *   LINKEDIN_ACCESS_TOKEN — OAuth2 token with w_member_social scope
- *   LINKEDIN_AUTHOR_URN   — urn:li:person:<id> or urn:li:organization:<id>
+ * Credentials — resolved in order:
+ *   1. env LINKEDIN_ACCESS_TOKEN + LINKEDIN_AUTHOR_URN (container-level)
+ *   2. core_config_data mmd_marketing/linkedin/access_token (core-encrypted)
+ *      + author_urn — the SAME credentials the newsletter pipeline posts with
+ *      (see MMD_Marketing_Helper_Linkedin), so configuring LinkedIn once
+ *      covers both the flyer and the blog.
  */
 class MMD_Blog_Helper_Linkedin extends Mage_Core_Helper_Abstract
 {
@@ -20,7 +23,7 @@ class MMD_Blog_Helper_Linkedin extends Mage_Core_Helper_Abstract
 
     public function isConfigured()
     {
-        return $this->_env('LINKEDIN_ACCESS_TOKEN') !== null && $this->_env('LINKEDIN_AUTHOR_URN') !== null;
+        return $this->_token() !== null && $this->_author() !== null;
     }
 
     /**
@@ -28,8 +31,8 @@ class MMD_Blog_Helper_Linkedin extends Mage_Core_Helper_Abstract
      */
     public function share($commentary, $linkUrl = null, $imageUrl = null)
     {
-        $token  = $this->_env('LINKEDIN_ACCESS_TOKEN');
-        $author = $this->_env('LINKEDIN_AUTHOR_URN');
+        $token  = $this->_token();
+        $author = $this->_author();
         if (!$token || !$author) {
             Mage::throwException('LinkedIn not configured: set LINKEDIN_ACCESS_TOKEN and LINKEDIN_AUTHOR_URN.');
         }
@@ -140,6 +143,30 @@ class MMD_Blog_Helper_Linkedin extends Mage_Core_Helper_Abstract
         $headerSize = (int) curl_getinfo($ch, CURLINFO_HEADER_SIZE);
         curl_close($ch);
         return array($code, substr($raw, $headerSize), substr($raw, 0, $headerSize));
+    }
+
+    private function _token()
+    {
+        $env = $this->_env('LINKEDIN_ACCESS_TOKEN');
+        if ($env !== null) {
+            return $env;
+        }
+        $enc = trim((string) Mage::getStoreConfig('mmd_marketing/linkedin/access_token'));
+        if ($enc === '') {
+            return null;
+        }
+        $dec = trim((string) Mage::helper('core')->decrypt($enc));
+        return $dec !== '' ? $dec : null;
+    }
+
+    private function _author()
+    {
+        $env = $this->_env('LINKEDIN_AUTHOR_URN');
+        if ($env !== null) {
+            return $env;
+        }
+        $urn = trim((string) Mage::getStoreConfig('mmd_marketing/linkedin/author_urn'));
+        return $urn !== '' ? $urn : null;
     }
 
     private function _env($key)

@@ -577,6 +577,10 @@ class MMD_Marketing_Model_Cron_Flyer
             }
         } catch (Exception $e) { $this->_log('scheduleApproved: LinkedIn error: ' . $e->getMessage()); }
 
+        // Facebook page auto-post — same non-fatal, once-only contract as LinkedIn.
+        try { $this->_postFacebookOnce($newsletterId, 'scheduleApproved'); }
+        catch (Exception $e) { $this->_log('scheduleApproved: Facebook error: ' . $e->getMessage()); }
+
         // Auto kick-start the NEXT flyer: as soon as this one is booked to MailerLite,
         // pull the next course from the admin queue and send it for approval so it's
         // ready for the next Mon/Thu slot. Bounded by the weekly design/blast caps and
@@ -724,7 +728,49 @@ class MMD_Marketing_Model_Cron_Flyer
                 }
             }
         } catch (Exception $e) { $this->_log('markBlasted: LinkedIn error: ' . $e->getMessage()); }
+
+        // Facebook page auto-post — covers campaigns approved before Facebook was
+        // configured AND acts as the blast-time trigger. Once only.
+        try { $this->_postFacebookOnce((int) $row['newsletter_id'], 'markBlasted'); }
+        catch (Exception $e) { $this->_log('markBlasted: Facebook error: ' . $e->getMessage()); }
         return true;
+    }
+
+    /**
+     * Post the campaign's course to the Facebook page ONCE (deduped by the
+     * _facebook_url marker in review_decisions, the Facebook twin of
+     * _linkedin_url). A link post — Facebook renders the card from the course
+     * page's OpenGraph tags. Non-fatal: called from both scheduleApproved()
+     * and markBlastedByCampaign(), whichever runs first with credentials wins.
+     */
+    protected function _postFacebookOnce($newsletterId, $context)
+    {
+        $fb = Mage::helper('mmd_marketing/facebook');
+        if (!$fb->isConfigured()) { return; }
+        // Re-read the row: the caller may have just written _linkedin_url and a
+        // stale copy here would clobber it.
+        $row = $this->_read()->fetchRow('SELECT * FROM ' . $this->_tbl() . ' WHERE newsletter_id = ?', array((int) $newsletterId));
+        if (!$row) { return; }
+        $dec = json_decode((string) $row['review_decisions'], true);
+        if (!is_array($dec)) { $dec = array(); }
+        if (!empty($dec['_facebook_url'])) { return; }
+
+        $pid = (int) trim(strtok((string) $row['course_pids'], ','));
+        if (!$pid) { return; }
+        $product = Mage::getModel('catalog/product')->load($pid);
+        if (!$product->getId() || !$product->getUrlPath()) { return; }
+        $courseUrl = rtrim((string) Mage::getStoreConfig('web/unsecure/base_url'), '/')
+            . '/' . ltrim((string) $product->getUrlPath(), '/');
+
+        $message = (string) ($row['subject'] ?: $product->getName())
+            . "\n\nWSQ funding + SkillsFuture Credit claimable — seats fill fast. Course details and sign-up:";
+        $res = $fb->postLink($message, $courseUrl);
+        $this->_log($context . ': Facebook ' . (!empty($res['ok']) ? 'posted ' . $res['url'] : 'skipped/failed: ' . $res['msg']));
+        if (!empty($res['ok'])) {
+            $dec['_facebook_url'] = $res['url'];
+            $this->_write()->update($this->_tbl(), array('review_decisions' => json_encode($dec)),
+                array('newsletter_id = ?' => (int) $newsletterId));
+        }
     }
 
     /** Fetch + normalise campaign stats. Returns array or null. */

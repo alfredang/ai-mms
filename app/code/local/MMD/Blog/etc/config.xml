@@ -7,9 +7,13 @@
   Admin:     Marketing sidebar -> Blog Posts (adminhtml/blog) — grid + CMS-page-style
              editor with WYSIWYG, SEO meta, tags (reuses the Magento `tag` table),
              hero image upload to Cloudflare R2 (mmd_courseimage/r2 helper).
-  Cron:      Monday 09:00 — auto-writes a lead-magnet post for the next unblogged
-             top-selling course via Claude, auto-publishes, and shares it to
-             LinkedIn (LINKEDIN_ACCESS_TOKEN + LINKEDIN_AUTHOR_URN env keys).
+  Cron:      Daily 09:00 propose — writes a lead-magnet post for the next
+             unblogged top-selling course via Claude (SG: WSQ/TGS- only) and
+             emails the managers for approval; an approval books the next free
+             Monday/Thursday 09:00 publish slot (2 posts/week). Every 10 min
+             publishDue flips due posts live + shares to LinkedIn & Facebook.
+             Partner sites (auto_publish=1) keep the legacy immediate-publish
+             behaviour.
 
   Every post is a lead magnet: the view template always renders a course sign-up
   CTA (related_skus) with the WSQ funding / SkillsFuture Credit hook.
@@ -101,24 +105,38 @@
         <mmd_blog>
             <autoblog>
                 <enabled>1</enabled>
-                <!-- 1 = cron-created posts go live immediately; 0 = draft for review -->
+                <!-- 1 = cron-created posts go live immediately (legacy / partner
+                     sites); 0 = manager review + Mon/Thu publish scheduling
+                     (migration 450 sets 0 on the SG instance only) -->
                 <auto_publish>1</auto_publish>
-                <!-- 1 = share newly auto-published posts on LinkedIn (needs env keys) -->
+                <!-- 1 = share newly published posts on LinkedIn (env keys or the
+                     shared mmd_marketing/linkedin/* credentials) -->
                 <linkedin_enabled>1</linkedin_enabled>
+                <!-- 1 = share newly published posts on the Facebook page
+                     (mmd_marketing/facebook/* credentials; skips when unset) -->
+                <facebook_enabled>1</facebook_enabled>
             </autoblog>
         </mmd_blog>
     </default>
 
     <crontab>
         <jobs>
-            <!-- Monday 09:00 (container tz = Asia/Singapore) — write + publish +
-                 LinkedIn-share one lead-magnet blog post. No-ops safely when
-                 disabled, when Claude credentials are missing, or when a post
-                 was already generated in the past 5 days. -->
+            <!-- Daily 09:00 (container tz = Asia/Singapore) — propose the next
+                 lead-magnet post. Review flow (SG): paces itself to 2 posts/week
+                 via the Mon/Thu slot check, reminds a silent reviewer once after
+                 24h, expires a 5-day-old pending post. Legacy flow (partners):
+                 the "one post per 5 days" guard applies. No-ops safely when
+                 disabled or when Claude credentials are missing. -->
             <mmd_blog_autoblog>
-                <schedule><cron_expr>0 9 * * 1</cron_expr></schedule>
+                <schedule><cron_expr>0 9 * * *</cron_expr></schedule>
                 <run><model>mmd_blog/cron_autoblog::run</model></run>
             </mmd_blog_autoblog>
+            <!-- Every 10 min — publish approved posts whose Monday/Thursday
+                 09:00 slot has arrived, then share once to LinkedIn + Facebook. -->
+            <mmd_blog_publish_due>
+                <schedule><cron_expr>*/10 * * * *</cron_expr></schedule>
+                <run><model>mmd_blog/cron_autoblog::publishDue</model></run>
+            </mmd_blog_publish_due>
         </jobs>
     </crontab>
 </config>

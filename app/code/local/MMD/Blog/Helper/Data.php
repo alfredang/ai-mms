@@ -11,6 +11,38 @@ class MMD_Blog_Helper_Data extends Mage_Core_Helper_Abstract
         return Mage::getUrl('', array('_direct' => 'blog/' . $post->getUrlKey()));
     }
 
+    /** status code => label, single source for the admin grid / form / mass action. */
+    public function statusOptions()
+    {
+        return array(
+            MMD_Blog_Model_Post::STATUS_DRAFT             => $this->__('Draft'),
+            MMD_Blog_Model_Post::STATUS_PUBLISHED         => $this->__('Published'),
+            MMD_Blog_Model_Post::STATUS_PENDING_REVIEW    => $this->__('Pending Review'),
+            MMD_Blog_Model_Post::STATUS_SCHEDULED         => $this->__('Scheduled'),
+            MMD_Blog_Model_Post::STATUS_CHANGES_REQUESTED => $this->__('Changes Requested'),
+        );
+    }
+
+    /**
+     * HMAC token binding a review action to (post, reviewer email) — same scheme
+     * as the newsletter's Blastguard::signToken but with a "blog|" domain prefix
+     * so a blog token can never authorise a newsletter decision (or vice versa).
+     * A valid token IS the authorisation: the approve/changes links are emailed
+     * only to the fixed reviewers, no login needed.
+     */
+    public function signReviewToken($postId, $reviewerEmail)
+    {
+        $secret  = (string) Mage::getConfig()->getNode('global/crypt/key');
+        $payload = 'blog|' . (int) $postId . '|' . strtolower(trim($reviewerEmail));
+        return substr(hash_hmac('sha256', $payload, $secret), 0, 40);
+    }
+
+    public function verifyReviewToken($postId, $reviewerEmail, $token)
+    {
+        $expected = $this->signReviewToken($postId, $reviewerEmail);
+        return is_string($token) && hash_equals($expected, (string) $token);
+    }
+
     public function getListUrl()
     {
         return Mage::getUrl('', array('_direct' => 'blog'));

@@ -66,6 +66,7 @@ class MMD_Blog_Adminhtml_BlogController extends Mage_Adminhtml_Controller_Action
             if (trim((string) ($data['title'] ?? '')) === '') {
                 Mage::throwException($this->__('Title is required.'));
             }
+            $wasPublished = $post->getId() && (int) $post->getStatus() === MMD_Blog_Model_Post::STATUS_PUBLISHED;
 
             $urlKey = $helper->slugify($data['url_key'] !== '' ? $data['url_key'] : $data['title']);
             $urlKey = $helper->ensureUniqueUrlKey($urlKey, $post->getId());
@@ -95,8 +96,13 @@ class MMD_Blog_Adminhtml_BlogController extends Mage_Adminhtml_Controller_Action
             $post->save();
             $helper->syncTags($post->getId(), array_map('trim', explode(',', (string) ($data['tags'] ?? ''))));
 
-            if (!empty($data['share_linkedin']) && $post->isPublished()) {
-                $this->_shareOnLinkedin($post, $session);
+            // Ad hoc publish path: flipping a post to Published by hand shares it
+            // to LinkedIn + Facebook exactly like the scheduled pipeline does
+            // (deduped inside shareEverywhere, so a re-save never double-posts).
+            // The "Share on LinkedIn" checkbox just forces an extra attempt.
+            if ($post->isPublished() && (!$wasPublished || !empty($data['share_linkedin']))) {
+                $result = Mage::getModel('mmd_blog/cron_autoblog')->shareEverywhere($post);
+                $session->addNotice($this->__('Social share: %s', $result));
             }
 
             $session->addSuccess($this->__('Blog post saved.'));
@@ -151,7 +157,12 @@ class MMD_Blog_Adminhtml_BlogController extends Mage_Adminhtml_Controller_Action
             foreach ($ids as $id) {
                 $post = Mage::getModel('mmd_blog/post')->load((int) $id);
                 if ($post->getId()) {
+                    $becomesPublished = $status === MMD_Blog_Model_Post::STATUS_PUBLISHED && !$post->isPublished();
                     $post->setStatus($status)->save();
+                    if ($becomesPublished) {
+                        // Same ad hoc publish contract as saveAction (deduped shares).
+                        Mage::getModel('mmd_blog/cron_autoblog')->shareEverywhere($post);
+                    }
                 }
             }
             $session->addSuccess($this->__('%d blog post(s) updated.', count($ids)));
@@ -177,24 +188,6 @@ class MMD_Blog_Adminhtml_BlogController extends Mage_Adminhtml_Controller_Action
             $session->addError($e->getMessage());
         }
         $this->_redirect('*/*/');
-    }
-
-    private function _shareOnLinkedin($post, $session)
-    {
-        try {
-            $commentary = $post->getTitle()
-                . ($post->getExcerpt() ? "\n\n" . $post->getExcerpt() : '')
-                . "\n\nWSQ funding + SkillsFuture Credit claimable — read the full guide:";
-            $result = Mage::helper('mmd_blog/linkedin')->share(
-                $commentary,
-                Mage::helper('mmd_blog')->getPostUrl($post),
-                $post->getHeroImageUrl() ?: null
-            );
-            $post->setLinkedinUrn($result['externalId'])->save();
-            $session->addSuccess($this->__('Shared on LinkedIn: %s', $result['externalUrl']));
-        } catch (Exception $e) {
-            $session->addError($this->__('LinkedIn share failed: %s', $e->getMessage()));
-        }
     }
 
     /** Locale-formatted date picker value -> Y-m-d (or today when empty). */
