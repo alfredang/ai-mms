@@ -14346,6 +14346,26 @@ window.mnSetDraftViewport = function(mode) {
     if (!stage) return;
     if (mode !== 'mobile') mode = 'desktop';
     stage.dataset.vp = mode;
+    // Also set the geometry inline: the [data-vp] rules live at the tail of
+    // admin-dashboard.css, and a stale/truncated browser-cached copy of that
+    // file leaves the toggle visually dead (real incident 2026-07-16). The
+    // page HTML is never cached, so inline styles always win.
+    var ifr = document.getElementById('mn-draft-modal-iframe');
+    if (ifr) {
+        if (mode === 'mobile') {
+            stage.style.padding = '18px';
+            ifr.style.width = '390px';  ifr.style.maxWidth = '100%';
+            ifr.style.height = '100%';  ifr.style.minHeight = '600px';
+            ifr.style.borderRadius = '18px';
+            ifr.style.boxShadow = '0 4px 20px rgba(0,0,0,.35)';
+        } else {
+            stage.style.padding = '0';
+            ifr.style.width = '100%';   ifr.style.maxWidth = 'none';
+            ifr.style.height = '100%';  ifr.style.minHeight = '520px';
+            ifr.style.borderRadius = '0';
+            ifr.style.boxShadow = 'none';
+        }
+    }
     var d = document.getElementById('mn-draft-vp-desktop');
     var m = document.getElementById('mn-draft-vp-mobile');
     if (d) d.classList.toggle('active', mode === 'desktop');
