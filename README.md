@@ -59,7 +59,7 @@ This system runs as a **franchise model**:
 | 🛡️ **Deploy safety guards** | `apply.php` gives every migration an explicit `@mms_instance` identity, enforces the one-store-per-site topology invariant (a corrupting migration fails the deploy), and a daily 2AM maintenance cron publishes `/media/health.json`. |
 | 🎟️ **Payments** | Stripe, HitPay, PayNow and bank transfer. |
 | 📜 **Certificates & attendance** | E-attendance and certificate-of-achievement generation. |
-| 📣 **Autonomous newsletter** | SG-only agentic-flyer pipeline: designs a course flyer Mon & Thu 10am → both-manager approval (email **or** admin) → MailerLite blast Mon & Thu 8am. Hard cap **2 flyers/week**; nothing sends without approval. |
+| 📣 **Autonomous newsletter** | SG-only agentic-flyer pipeline: designs a course flyer Mon & Thu 10am → manager approval (either manager, via email **or** admin) → MailerLite blast Mon & Thu 8am with a static R2-hosted registration QR. Hard cap **2 flyers/week**; nothing sends without approval. |
 | ✍️ **Lead-magnet blog** | `/blog` with slug URLs, SEO meta + Article JSON-LD, Magento-tag reuse, star ratings, social share, R2 hero images. Every post funnels readers to course sign-up with the WSQ funding / SkillsFuture Credit hook. Monday 9am cron auto-writes a post (Claude) for the top unblogged course, auto-publishes, and shares it on LinkedIn. |
 | 🎨 **Ultimo storefront** | Premium responsive theme + a custom dark admin theme. |
 
@@ -231,10 +231,10 @@ setup. Committed and ready to use after a clone:
 
 - **`.claude/skills/`** — domain skills (`openmage-code-reviewer`, `openmage-module-developer`,
   `openmage-frontend-developer`, `backend-design`, `seo-audit`, `lead-magnets`, `add-country-store`,
-  `mysql`, `web-accessibility`, …).
+  `recommended-courses`, `mysql`, `web-accessibility`, …).
 - **`.claude/agents/`** — specialised subagents (security auditor, caching/speed optimiser,
   mysql tuner, admin-design-consistency, site-health-checker, `newsletter-designer`, …).
-- **`.claude/hooks/`** — pre/post-tool hooks (push-gate, PHP lint-on-edit, web-health,
+- **`.claude/hooks/`** — pre/post-tool hooks (PHP lint-on-edit, web-health,
   leads-capture and newsletter-flyer verifiers) wired via `.claude/settings.json`.
 - **`.codex/`** + **`AGENTS.md`** — the Codex-CLI counterparts of the same guidance.
 
