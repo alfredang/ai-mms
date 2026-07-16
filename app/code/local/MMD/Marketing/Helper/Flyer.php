@@ -5,9 +5,12 @@
  * MailerLite blast so all three show the identical design.
  *
  * The QR points at the live course page. In EMAIL, embedded data-URI images are
- * stripped by Gmail, so the QR is referenced as a hosted image URL served by the
- * public review route (newsletter-review/qr) which streams a PNG for the given
- * course URL. That keeps the QR dynamic per-course with no external dependency.
+ * stripped by Gmail, so the QR must be a hosted image URL. It is generated at
+ * render time and uploaded to Cloudflare R2 (static CDN, up even during app
+ * redeploys — Gmail's image proxy caches a failed fetch per URL, so an origin
+ * 502 at open time shows a permanently broken QR; incident 2026-07-16). The
+ * same-origin route (newsletter-review/qr) remains as fallback when R2 is
+ * unreachable/unconfigured, and keeps QRs in already-sent emails working.
  */
 class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
 {
@@ -545,9 +548,43 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         return $topics;
     }
 
-    /** URL of the hosted QR image for this course (served by the public route). */
+    /**
+     * URL of the hosted QR image for this course. Preferred: a static PNG on
+     * Cloudflare R2 (generated here, uploaded once, key derived from the course
+     * URL so preview / reviewer email / blast all embed the identical URL).
+     * Fallback: the same-origin dynamic route.
+     */
     public function qrUrl($courseUrl)
     {
+        $cacheKey = 'MMD_FLYER_QR_R2_' . md5($courseUrl);
+        $cache    = Mage::app()->getCache();
+        $cached   = $cache ? $cache->load($cacheKey) : false;
+        if (is_string($cached) && $cached !== '') {
+            return $cached;
+        }
+        try {
+            // Same QR options as IndexController::qrAction() — ECC_H, 4-module
+            // quiet zone, pure black — proven scannable in the sent flyers.
+            $opt = new \chillerlan\QRCode\QROptions(array(
+                'outputType'       => \chillerlan\QRCode\QRCode::OUTPUT_IMAGE_PNG,
+                'eccLevel'         => \chillerlan\QRCode\QRCode::ECC_H,
+                'scale'            => 10,
+                'quietzoneSize'    => 4,
+                'imageBase64'      => false,
+                'imageTransparent' => false,
+            ));
+            $png = (new \chillerlan\QRCode\QRCode($opt))->render($courseUrl);
+            if (is_string($png) && $png !== '') {
+                $res = Mage::helper('mmd_courseimage/r2')
+                    ->putObject('newsletter/qr/' . md5($courseUrl) . '.png', $png, 'image/png');
+                if ($cache) {
+                    $cache->save($res['url'], $cacheKey, array(), 30 * 86400);
+                }
+                return $res['url'];
+            }
+        } catch (Exception $e) {
+            Mage::logException($e);
+        }
         $base = rtrim(Mage::getStoreConfig('web/unsecure/base_url'), '/');
         return $base . '/newsletter-review/index/qr/u/' . rawurlencode(base64_encode($courseUrl));
     }
