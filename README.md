@@ -54,6 +54,7 @@ This system runs as a **franchise model**:
 | 👥 **Six-role admin** | Learner / Trainer / Developer / Marketing / Admin / Training Provider with session-based role switching. |
 | 🎒 **Learner login** | Dedicated `/learnerlogin` page on every site — learners sign in with their storefront email + password and land straight on the learner dashboard (no role selection); staff keep using the admin portal. |
 | 🔁 **SG → partner course sync** | Manual-only, one-way export of non-WSQ (C-prefix) courses to MY/GH — bulk "Sync All" or per-course "Sync One" from the partner admin. Partner-owned course fees, schedules and trainer info are never overwritten on update. |
+| 🧲 **Recommended Courses rail** | Every SG course page shows at least 5 "Recommended Courses" (Upsell links); shortfalls are topped up with related WSQ courses by category affinity via `scripts/maintenance/backfill-course-upsells.php` (idempotent, no-op on partner sites). |
 | 🌏 **Franchise Report** | Super Admin sidebar page showing confirmed + completed classes pulled from the MY/GH partner sites (class code, course, dates, trainer, attendance-marked learners) with date/title/search filters. Auto-pull every Sunday 10am + on-demand Pull Now. |
 | 🛡️ **Deploy safety guards** | `apply.php` gives every migration an explicit `@mms_instance` identity, enforces the one-store-per-site topology invariant (a corrupting migration fails the deploy), and a daily 2AM maintenance cron publishes `/media/health.json`. |
 | 🎟️ **Payments** | Stripe, HitPay, PayNow and bank transfer. |
