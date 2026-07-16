@@ -138,6 +138,23 @@ class MMD_Marketing_Model_Cron_Flyer
             $this->sendForReview((int) $nid);
             $this->_log('followUp: emailed managers for unsent pending proposal #' . (int) $nid);
         }
+        // 1c. Partial transport failure: one manager got the email, the other's
+        //     send threw (so the row IS stamped and step 1 skips it). Resend to
+        //     JUST the missed manager(s), at most once — _resend_done is stamped
+        //     before the attempt so this can never loop. The 24h reminder in 1b
+        //     remains the final safety net if this resend also fails.
+        $rows = $this->_read()->fetchAll('SELECT * FROM ' . $this->_tbl()
+            . " WHERE review_status = 'pending' AND review_token IS NOT NULL AND review_token <> ''");
+        foreach ($rows as $row) {
+            $dec = json_decode((string) $row['review_decisions'], true);
+            if (!is_array($dec) || empty($dec['_send_failed']) || !empty($dec['_resend_done'])) { continue; }
+            $missed = array_map('strtolower', (array) $dec['_send_failed']);
+            $dec['_resend_done'] = $this->_nowStr();
+            $this->_write()->update($this->_tbl(), array('review_decisions' => json_encode($dec)),
+                array('newsletter_id = ?' => (int) $row['newsletter_id']));
+            $this->sendForReview((int) $row['newsletter_id'], $missed, false);
+            $this->_log('followUp: resent #' . (int) $row['newsletter_id'] . ' to missed reviewer(s) ' . implode(',', $missed));
+        }
         // 1b. ONE reminder, 24h after the original send, only to managers who
         //     have not responded. _reminder_sent_at makes this fire at most once.
         $rows = $this->_read()->fetchAll('SELECT * FROM ' . $this->_tbl()
@@ -262,8 +279,9 @@ class MMD_Marketing_Model_Cron_Flyer
         $this->_write()->update($this->_tbl(),
             array('review_feedback' => (string) $row['review_feedback']),
             array('newsletter_id = ?' => $nid));
-        $this->sendForReview($nid);
-        $this->_log('regenerate: #' . $old . ' -> #' . $nid . ' after change request (feedback applied)');
+        $sent = $this->sendForReview($nid, null, false, true);
+        $this->_log('regenerate: #' . $old . ' -> #' . $nid . ' after change request (feedback applied'
+            . ($sent ? '' : '; review email NOT sent — followUp will retry') . ')');
         return $nid;
     }
 
@@ -399,7 +417,7 @@ class MMD_Marketing_Model_Cron_Flyer
      * who already responded); $isReminder stamps _reminder_sent_at so the
      * reminder can never repeat (see the HARD RULE in followUp()).
      */
-    public function sendForReview($newsletterId, $onlyEmails = null, $isReminder = false)
+    public function sendForReview($newsletterId, $onlyEmails = null, $isReminder = false, $isRevision = false)
     {
         $row = $this->_read()->fetchRow('SELECT * FROM ' . $this->_tbl() . ' WHERE newsletter_id = ?', array($newsletterId));
         if (!$row) { return false; }
@@ -445,6 +463,7 @@ class MMD_Marketing_Model_Cron_Flyer
         }
 
         $sentAny = false;
+        $failed  = array();
         foreach ($g->reviewers() as $email) {
             if (is_array($onlyEmails) && !in_array(strtolower($email), $onlyEmails, true)) { continue; }
             $tok = $g->signToken($newsletterId, $email);
@@ -461,24 +480,39 @@ class MMD_Marketing_Model_Cron_Flyer
                 . '<hr style="border:0;border-top:1px solid #e4e9f0;margin:18px 0;">'
                 . $row['body_html']
                 . '</div>';
-            $subject = ($isReminder ? '[Reminder] ' : '') . '[Approval needed] ' . $row['subject'];
+            // Revised flyers get a UNIQUE subject: Gmail threads same-subject
+            // messages into the rejected flyer's conversation, where the fresh
+            // approval email is collapsed and easily missed (real incident
+            // 2026-07-16 — manager never saw the revised copy). The #id suffix
+            // guarantees every revision starts its own thread.
+            $subject = ($isReminder ? '[Reminder] ' : '') . '[Approval needed] ' . $row['subject']
+                . ($isRevision ? ' — revised (#' . (int) $newsletterId . ')' : '');
 
-            try {
-                if ($gmail) {
-                    $gmail->send($email, $subject, $html, 'Tertiary Marketing');
-                } else {
-                    $mail = new Zend_Mail('utf-8');
-                    $mail->setBodyHtml($html)
-                         ->setFrom(Mage::getStoreConfig('trans_email/ident_general/email'), 'Tertiary Marketing')
-                         ->addTo($email)
-                         ->setSubject($subject);
-                    $transport ? $mail->send($transport) : $mail->send();
+            // Two attempts per recipient: a transient Gmail/SMTP hiccup for ONE
+            // manager must not silently drop them from the approval loop while
+            // the other manager's success stamps the proposal as "emailed".
+            $delivered = false;
+            for ($try = 1; $try <= 2 && !$delivered; $try++) {
+                try {
+                    if ($gmail) {
+                        $gmail->send($email, $subject, $html, 'Tertiary Marketing');
+                    } else {
+                        $mail = new Zend_Mail('utf-8');
+                        $mail->setBodyHtml($html)
+                             ->setFrom(Mage::getStoreConfig('trans_email/ident_general/email'), 'Tertiary Marketing')
+                             ->addTo($email)
+                             ->setSubject($subject);
+                        $transport ? $mail->send($transport) : $mail->send();
+                    }
+                    $delivered = true;
+                    $sentAny   = true;
+                    $this->_log('sendForReview: emailed ' . $email . ' for #' . $newsletterId . ' via ' . ($gmail ? 'gmail-oauth' : 'smtp'));
+                } catch (Exception $e) {
+                    $this->_log('sendForReview mail to ' . $email . ' failed (try ' . $try . '): ' . $e->getMessage());
+                    if ($try < 2) { sleep(2); }
                 }
-                $sentAny = true;
-                $this->_log('sendForReview: emailed ' . $email . ' for #' . $newsletterId . ' via ' . ($gmail ? 'gmail-oauth' : 'smtp'));
-            } catch (Exception $e) {
-                $this->_log('sendForReview mail to ' . $email . ' failed: ' . $e->getMessage());
             }
+            if (!$delivered) { $failed[] = strtolower($email); }
         }
         // Only stamp the anti-spam markers if a send actually SUCCEEDED — otherwise
         // a transport failure would mark the proposal "emailed" and it would never
@@ -492,6 +526,10 @@ class MMD_Marketing_Model_Cron_Flyer
         if (!is_array($dec)) { $dec = array(); }
         if (empty($dec['_sent_at'])) { $dec['_sent_at'] = $this->_nowStr(); }
         if ($isReminder) { $dec['_reminder_sent_at'] = $this->_nowStr(); }
+        // Partial failure: remember who never got the email so followUp() can
+        // resend to JUST them (once). A successful (re)send clears the marker.
+        if (!empty($failed)) { $dec['_send_failed'] = array_values($failed); }
+        elseif (isset($dec['_send_failed']) && is_array($onlyEmails)) { unset($dec['_send_failed']); }
         $this->_write()->update($this->_tbl(),
             array(
                 'review_token'     => $g->signToken($newsletterId, 'batch'),
