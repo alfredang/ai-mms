@@ -1,6 +1,6 @@
 ---
 name: category-ordering
-description: Enforce the storefront category listing order — WSQ (TGS- SKU) courses first, then non-WSQ (C- SKU) courses ALPHABETICALLY by course name, then partner (M-prefix / other) last — in EVERY category. Use when asked to "sort courses in a category", "WSQ first", "list WSQ courses before non-WSQ", "order the category alphabetically", "fix the course order on a category page", or after adding/renaming a course that must slot into the right place in its category listing. Delivered as an idempotent migrations/NNN-*.sql that renumbers catalog_category_product.position AND mirrors it into catalog_category_product_index. Partner-safe (no SKU list; prefix convention holds on every site).
+description: Enforce the storefront category listing order — WSQ (TGS- SKU) courses first, then non-WSQ (C- SKU) courses ALPHABETICALLY by course name, then partner (M-prefix / other) last — in EVERY category. Also covers DISABLING an empty category (no products on the storefront). Use when asked to "sort courses in a category", "WSQ first", "list WSQ courses before non-WSQ", "order the category alphabetically", "fix the course order on a category page", "disable this empty category", "hide the empty category", or after adding/renaming a course that must slot into the right place in its category listing. Delivered as an idempotent migrations/NNN-*.sql that renumbers catalog_category_product.position AND mirrors it into catalog_category_product_index. Partner-safe (no SKU list; prefix convention holds on every site).
 ---
 
 # Category ordering (WSQ-first, non-WSQ alphabetical)
@@ -118,3 +118,47 @@ caches pick up the new positions.
 - **Never** reorder by anything other than the three-group + alpha rule (no
   manual position pinning, no featured-first hacks) — the whole point is a single
   predictable rule across the whole catalog.
+
+## Disabling an empty category
+
+When a category renders empty on the storefront (all its C-courses disabled /
+retired), disable it so it drops off the listing pages and the mega-menu. Set
+BOTH `is_active = 0` and `include_in_menu = 0` at `store_id = 0`. The category
+page then returns 404.
+
+**Emptiness test = the storefront INDEX, not a store-0 status count.** Check
+`catalog_category_product_index` for the category (all stores on this instance):
+
+```sql
+SELECT COUNT(*) FROM catalog_category_product_index WHERE category_id = <CAT>;
+```
+
+Why the index and not `catalog_product_entity_int.status`: **M-prefix (partner)
+products carry `status = 1` at `store_id = 0` but are excluded from SG's
+storefront index** — so a store-0 status count would falsely report the category
+as non-empty on SG. The index is what the listing actually reads, so it is the
+true emptiness test AND it is naturally partner-correct (on a partner site the
+live SDN course IS in that store's index).
+
+**Make the disable CONDITIONAL** so the shared migration is partner-safe — it
+must no-op on any site where the category still has an indexed product:
+
+```sql
+SET @cat := (SELECT uk.entity_id FROM catalog_category_entity_varchar uk
+  JOIN eav_attribute ea ON ea.attribute_id=uk.attribute_id AND ea.entity_type_id=3 AND ea.attribute_code='url_key'
+  WHERE uk.store_id=0 AND uk.value='<url-key>' LIMIT 1);
+SET @a_active := (SELECT attribute_id FROM eav_attribute WHERE entity_type_id=3 AND attribute_code='is_active');
+SET @a_menu   := (SELECT attribute_id FROM eav_attribute WHERE entity_type_id=3 AND attribute_code='include_in_menu');
+SET @indexed  := (SELECT COUNT(*) FROM catalog_category_product_index WHERE category_id=@cat);
+
+UPDATE catalog_category_entity_int SET value=0
+WHERE entity_id=@cat AND store_id=0 AND attribute_id=@a_active AND @indexed=0 AND @cat IS NOT NULL;
+UPDATE catalog_category_entity_int SET value=0
+WHERE entity_id=@cat AND store_id=0 AND attribute_id=@a_menu   AND @indexed=0 AND @cat IS NOT NULL;
+```
+
+Reference implementation: `migrations/548-disable-empty-sdn-category.sql`
+(disabled "Software Defined Networks (SDN)", category 199). Resolve the category
+by **url_key** (partner-safe; ids differ per site). After deploy, reindex
+`catalog_category_flat` + `catalog_url` and flush block/FPC so the page 404s and
+the menu drops the item.
