@@ -33,5 +33,5 @@ WHERE eag.attribute_group_name = 'General' AND eas.entity_type_id = 4;
 INSERT INTO catalog_product_entity_varchar (entity_type_id, attribute_id, store_id, entity_id, value)
 SELECT 4, @attr_series, 0, e.entity_id, 'AI Vibe Coding Series'
 FROM catalog_product_entity e
-WHERE e.sku IN ('C138', 'C349', 'C384', 'C430', 'C576', 'C603', 'C683', 'C818', 'C989', 'C1074', 'C1143', 'C1231', 'C1800')
+WHERE e.sku IN ('C138', 'C349', 'C384', 'C430', 'C576', 'C603', 'C683', 'C818', 'C989', 'C1074', 'C1143', 'C1231', 'C1800', 'C141')
 ON DUPLICATE KEY UPDATE value = VALUES(value);

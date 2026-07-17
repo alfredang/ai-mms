@@ -8,4 +8,4 @@ SET @price_attr := (SELECT attribute_id FROM eav_attribute WHERE entity_type_id=
 UPDATE catalog_product_entity_decimal d
 JOIN catalog_product_entity e ON e.entity_id = d.entity_id
 SET d.value = 700.0000
-WHERE d.attribute_id = @price_attr AND e.sku IN ('C1143', 'C384', 'C683', 'C138', 'C430');
+WHERE d.attribute_id = @price_attr AND e.sku IN ('C1143', 'C384', 'C683', 'C138', 'C430', 'C141');
