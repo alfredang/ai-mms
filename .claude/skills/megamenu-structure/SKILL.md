@@ -66,10 +66,37 @@ deploy**. A migration must write BOTH or the menu never changes:
    (SG=1, MY=2, GH=3) — guard each with `information_schema` so a missing flat
    table is a no-op on sites that lack that store.
 
-Canonical implementation: `migrations/552-menu-classical-level4-and-deeper.sql`.
-Copy it for any future dropdown-type change; only the level predicate and target
-value should differ. (`549` is the broken level>=3 version, `551` its revert —
+Canonical implementation: `migrations/553-menu-classical-scope-to-adult-courses.sql`
+(level predicate + subtree scope). Copy it for any future dropdown-type change;
+only the level predicate, subtree and target value should differ. (`549` is the
+broken level>=3 version, `551` its revert, `552` the unscoped level>=4 version —
 do not copy those.)
+
+## Scope changes to ONE top-level menu — roll out in phases
+
+Menu changes are high-visibility; do **one top-level menu at a time** and confirm
+before moving on. Always constrain by **subtree path**, not level alone — a bare
+`level >= 4` predicate silently changes Enquiries, Exam Prep and WSQ Courses too.
+
+Resolve the subtree from the level-2 category **name** (ids differ per site):
+
+```sql
+SET @adult_path := (SELECT c.path FROM catalog_category_entity c
+  JOIN catalog_category_entity_varchar nv ON nv.entity_id=c.entity_id AND nv.store_id=0
+    AND nv.attribute_id=(SELECT attribute_id FROM eav_attribute WHERE entity_type_id=3 AND attribute_code='name')
+  WHERE nv.value='Adult Courses' AND c.level=2 LIMIT 1);
+SET @adult_like := CONCAT(@adult_path, '/%');   -- e.g. '1/2/3/%'
+```
+
+Then add `AND e.path LIKE @adult_like` to the EAV updates. For the flat mirror
+the prepared statement must interpolate it: `CONCAT("... AND path LIKE ", QUOTE(@adult_like))`.
+
+Verify the scope held — the OUTSIDE count must be zero:
+
+```sql
+SELECT CASE WHEN path LIKE '1/2/3/%' THEN 'inside' ELSE 'OUTSIDE' END AS scope, COUNT(*)
+FROM catalog_category_flat_store_1 WHERE level>=4 AND umm_dd_type='2' GROUP BY scope;
+```
 
 ```sql
 SET @a_ddtype := (SELECT attribute_id FROM eav_attribute
