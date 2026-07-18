@@ -9061,6 +9061,50 @@ $_csv = function ($path, $default = '') use ($_cs) {
                 </div>
             </div>
 
+            <!-- MailerLite -->
+            <div class="cs-sub-section">
+                <h3 class="cs-sub-title">MailerLite</h3>
+                <?php
+                $_csMlKey   = isset($_cs['mmd_company/mailerlite/api_key'])      ? trim($_cs['mmd_company/mailerlite/api_key'])      : '';
+                $_csMlGroup = isset($_cs['mmd_company/mailerlite/group_id'])     ? trim($_cs['mmd_company/mailerlite/group_id'])     : '';
+                $_csMlStore = isset($_cs['mmd_company/mailerlite/store_id'])     ? trim($_cs['mmd_company/mailerlite/store_id'])     : '';
+                $_csMlOn    = isset($_cs['mmd_company/mailerlite/sync_enabled']) ? trim($_cs['mmd_company/mailerlite/sync_enabled']) : '0';
+                ?>
+                <div class="cs-card" style="background:#0f172a">
+                    <div class="cs-card-title" style="display:flex;align-items:center">
+                        Newsletter Subscriber Sync
+                        <span class="cs-status <?php echo $_csMlOn === '1' ? 'enabled' : '' ?>" style="margin-left:auto">
+                            <?php echo $_csMlOn === '1' ? 'Enabled' : 'Disabled' ?>
+                        </span>
+                    </div>
+                    <p style="margin:8px 0 12px;font-size:12px;color:#94a3b8;line-height:1.6">
+                        Daily at 04:00, new order emails from this site are added to your own
+                        MailerLite subscriber group. Learners who previously unsubscribed are
+                        never re-added. Each franchise site configures its own key and group.
+                    </p>
+                    <div class="cs-field" data-path="mmd_company/mailerlite/api_key" style="margin-bottom:8px">
+                        <label>MailerLite API Key</label>
+                        <div class="cs-val"><span class="cs-masked"><?php echo $_csMlKey !== '' ? '••••••••' : '(not set)' ?></span></div>
+                        <input type="password" value=""/>
+                    </div>
+                    <div class="cs-field" data-path="mmd_company/mailerlite/group_id" style="margin-bottom:8px">
+                        <label>Subscriber Group ID</label>
+                        <div class="cs-val"><?php echo $_csMlGroup !== '' ? htmlspecialchars($_csMlGroup) : '<span style="color:#64748b;font-size:12px;">(not set — sync will not run)</span>' ?></div>
+                        <input type="text" value="<?php echo htmlspecialchars($_csMlGroup, ENT_QUOTES) ?>"/>
+                    </div>
+                    <div class="cs-field" data-path="mmd_company/mailerlite/store_id" style="margin-bottom:8px">
+                        <label>Store ID (orders source — blank = current store)</label>
+                        <div class="cs-val"><?php echo $_csMlStore !== '' ? htmlspecialchars($_csMlStore) : '<span style="color:#64748b;font-size:12px;">(current store)</span>' ?></div>
+                        <input type="text" value="<?php echo htmlspecialchars($_csMlStore, ENT_QUOTES) ?>"/>
+                    </div>
+                    <div class="cs-field" data-path="mmd_company/mailerlite/sync_enabled">
+                        <label>Daily Sync Enabled (1 = on, 0 = off)</label>
+                        <div class="cs-val"><?php echo $_csMlOn === '1' ? 'Yes' : 'No' ?></div>
+                        <input type="text" value="<?php echo htmlspecialchars($_csMlOn, ENT_QUOTES) ?>"/>
+                    </div>
+                </div>
+            </div>
+
             <!-- Magento -->
             <div class="cs-sub-section">
                 <h3 class="cs-sub-title">Magento</h3>
@@ -9612,6 +9656,11 @@ window.csSaveSection = function(section) {
         var path = fields[i].getAttribute('data-path');
         var input = fields[i].querySelector('input,select');
         if (input && path) {
+            // Secret fields render blank (the saved value is only ever shown
+            // masked), so an empty password input means "unchanged" — sending
+            // it would wipe a stored key just because the operator edited some
+            // other field in the same section.
+            if (input.type === 'password' && input.value === '') { continue; }
             settings[path] = input.value;
             // Update the display value
             var valEl = fields[i].querySelector('.cs-val');

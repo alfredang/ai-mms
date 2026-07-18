@@ -548,6 +548,41 @@ per course (partner-DB-only):
 Keep dates ≤ today (no future-dated reviews). Verify a course shows N reviews and
 4.x stars; confirm SG still shows ITS OWN counts (untouched).
 
+## 17. MailerLite newsletter list (each partner owns their own list)
+
+Order emails are pushed into a MailerLite subscriber group daily at 04:00 by
+`mmd_marketing/cron_subscribersync`. **Every parameter is a Company Setting —
+nothing about SG is hardcoded**, so a partner points the sync at THEIR list:
+
+Admin → Dashboard → Company Setting → Integrations → **MailerLite**
+| Field | Config path | Notes |
+|---|---|---|
+| MailerLite API Key | `mmd_company/mailerlite/api_key` | the partner's OWN MailerLite account key |
+| Subscriber Group ID | `mmd_company/mailerlite/group_id` | **no default** — blank = sync refuses to run |
+| Store ID | `mmd_company/mailerlite/store_id` | blank = current store (SG=1, MY=2, GH=3) |
+| Daily Sync Enabled | `mmd_company/mailerlite/sync_enabled` | `1`/`0`, default **0** (inert until enabled) |
+
+**Why there is deliberately NO fallback group**: defaulting to the SG group would
+push a partner's learners into Singapore's list, and a subscriber import cannot be
+un-sent. `getSyncGroupId()` returns `''` when unset and every caller treats that as
+"do not sync" — keep it that way.
+
+**Opt-outs are never re-added.** `POST /subscribers` is an UPSERT, so blindly
+posting an address that unsubscribed resurrects it (a compliance breach).
+`getSuppressedEmails()` pages the account's `unsubscribed`/`bounced`/`junk`
+subscribers and the sync skips them. On the SG backfill this filtered 178 of
+1,064 addresses — not a rounding error, so never "optimise away" that pre-fetch.
+
+Historical backfill (run ONCE per site, always `--dry-run` first):
+```bash
+docker exec <web> php /var/www/html/scripts/maintenance/mailerlite-import-order-emails.php \
+    --since=2026-01-01 --dry-run      # then re-run without --dry-run
+# --group= / --store= override the Company Settings for a one-off import
+```
+Only the learner **email** (+ first/last name for personalisation) is ever sent —
+no order, payment or password data. Log: `var/log/mailerlite.log`.
+Group IDs are discoverable via `GET /api/groups` with that account's key.
+
 ## Deploy / ops gotchas (partner servers on Coolify)
 
 - Partner sites auto-deploy on push to `main` via each Coolify instance's GitHub App source.

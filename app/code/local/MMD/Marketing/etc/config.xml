@@ -92,6 +92,15 @@
                 <schedule><cron_expr>*/10 * * * *</cron_expr></schedule>
                 <run><model>mmd_marketing/cron_flyer::syncBlasts</model></run>
             </mmd_marketing_flyer_syncblasts>
+            <!-- Daily 04:00 — push new order emails into this site's own
+                 MailerLite subscriber group. Every parameter (API key, group,
+                 store, on/off) is a Company Setting so each franchisee points
+                 it at their own list; inert until they enable it. Addresses
+                 that already unsubscribed are never re-added. -->
+            <mmd_marketing_subscriber_sync>
+                <schedule><cron_expr>0 4 * * *</cron_expr></schedule>
+                <run><model>mmd_marketing/cron_subscribersync::run</model></run>
+            </mmd_marketing_subscriber_sync>
         </jobs>
     </crontab>
 </config>
