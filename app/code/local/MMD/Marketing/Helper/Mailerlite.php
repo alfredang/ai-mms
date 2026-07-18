@@ -329,6 +329,19 @@ class MMD_Marketing_Helper_Mailerlite extends Mage_Core_Helper_Abstract
     }
 
     /**
+     * Look one subscriber up by email. Returns the subscriber array (with its
+     * status + group memberships) or null when MailerLite has never seen it.
+     *
+     * This is the independent "did the email REALLY land?" check — the sync's
+     * own success counter proves only that a POST returned 2xx.
+     */
+    public function findSubscriber($email)
+    {
+        $data = $this->_getJson('/subscribers/' . rawurlencode(strtolower(trim($email))));
+        return (is_array($data) && !empty($data['data'])) ? $data['data'] : null;
+    }
+
+    /**
      * Add one subscriber to a group. Returns true on success.
      * MailerLite treats POST /subscribers as an upsert keyed on email.
      */
@@ -417,18 +430,19 @@ class MMD_Marketing_Helper_Mailerlite extends Mage_Core_Helper_Abstract
     {
         if (!$this->_keyChecked) {
             $this->_keyChecked = true;
-            try {
-                $cfg = Mage::helper('mmd_rolemanager')->getMarketingApiConfig();
-                $this->_key = isset($cfg['mailerlite_key']) ? trim((string)$cfg['mailerlite_key']) : '';
-            } catch (Exception $e) {
-                // Fallback: read the config path directly.
-                $this->_key = trim((string) Mage::getStoreConfig('mmd_marketing/api/mailerlite_key'));
-            }
-            // Company Setting (Integrations → MailerLite) is the operator-facing
-            // home for this key; honour it when the Credentials page is blank so
-            // either page can configure the integration.
+            // Company Setting (Integrations → MailerLite) WINS. It is the
+            // operator-facing field, so a key pasted there must take effect —
+            // if the legacy Credentials-page path won instead, rotating the key
+            // in the admin would silently keep using the old one.
+            $this->_key = trim((string) Mage::getStoreConfig('mmd_company/mailerlite/api_key'));
             if ($this->_key === '') {
-                $this->_key = trim((string) Mage::getStoreConfig('mmd_company/mailerlite/api_key'));
+                try {
+                    $cfg = Mage::helper('mmd_rolemanager')->getMarketingApiConfig();
+                    $this->_key = isset($cfg['mailerlite_key']) ? trim((string)$cfg['mailerlite_key']) : '';
+                } catch (Exception $e) {
+                    // Fallback: read the legacy config path directly.
+                    $this->_key = trim((string) Mage::getStoreConfig('mmd_marketing/api/mailerlite_key'));
+                }
             }
         }
         return $this->_key;
