@@ -13,6 +13,13 @@
 -- Category ids/url_keys resolved BY NAME so this is a no-op on partner sites.
 -- Guarded so it never overwrites an existing intentional redirect, and never
 -- creates a self-referencing loop. Idempotent.
+--
+-- ORDER OF OPERATIONS (learned the hard way on prod 2026-07-18): a
+-- `catalog_url` reindex REGENERATES the rewrite row for a disabled category as
+-- `catalog/category/view/id/<id>`, which then 301s into a 404. So this
+-- migration must be (re-)applied AFTER any catalog_url reindex, not before.
+-- The UPDATE below therefore matches the regenerated id-path target as well as
+-- an already-correct row, so re-running always restores the right target.
 
 SET @a_name := (SELECT attribute_id FROM eav_attribute WHERE entity_type_id=3 AND attribute_code='name');
 SET @a_uk   := (SELECT attribute_id FROM eav_attribute WHERE entity_type_id=3 AND attribute_code='url_key');
@@ -33,10 +40,12 @@ SET @dst := (SELECT CONCAT(value,'.html') FROM catalog_category_entity_varchar
 SET @ok := (@bss IS NOT NULL AND @ss IS NOT NULL AND @src IS NOT NULL AND @dst IS NOT NULL AND @src <> @dst);
 
 -- Point the retired category URL at the parent with a permanent redirect.
+-- Matches BOTH the id-path target that a catalog_url reindex regenerates and
+-- an already-corrected row, so this is safe to re-run after any reindex.
 UPDATE core_url_rewrite
-SET target_path = @dst, options = 'RP', is_system = 0
+SET target_path = @dst, options = 'RP', is_system = 0, category_id = NULL
 WHERE @ok AND request_path = @src
-  AND target_path = CONCAT('catalog/category/view/id/', @ss);
+  AND (target_path = CONCAT('catalog/category/view/id/', @ss) OR target_path = @dst);
 
 -- If no rewrite row exists for the old slug, create one per store.
 INSERT INTO core_url_rewrite (store_id, category_id, request_path, target_path, is_system, options)
