@@ -583,6 +583,25 @@ Only the learner **email** (+ first/last name for personalisation) is ever sent 
 no order, payment or password data. Log: `var/log/mailerlite.log`.
 Group IDs are discoverable via `GET /api/groups` with that account's key.
 
+**Rotating the API key**: paste the new key into the Company Setting field and save
+(the admin save clears the config cache, so the next 4am run uses it). The Company
+Setting **wins** over the legacy `mmd_marketing/api/mailerlite_key` path — that
+precedence is deliberate, so rotating in the admin can't be silently ignored by an
+older key still sitting in the legacy row.
+
+**Daily monitoring — "did the emails really get added?"**
+```bash
+docker exec <web> php /var/www/html/scripts/maintenance/mailerlite-sync-status.php
+# exit 0 = healthy, exit 1 = needs attention (drives a cron/monitor)
+```
+It prints the last run's recorded outcome AND independently queries the MailerLite
+API to confirm the most recent order emails are really in the group — a cron
+reporting success while the API rejects everything is the failure mode that matters.
+Flags a missed run (>26h old), a disabled sync, a missing key/group, and any recent
+order email absent from the group. `status=unsubscribed` while still group-listed is
+CORRECT (they simply won't be mailed), not a fault. Real failures also email the
+marketing reviewers; "added 0" and MailerLite refusing an opt-out do not alert.
+
 ## Deploy / ops gotchas (partner servers on Coolify)
 
 - Partner sites auto-deploy on push to `main` via each Coolify instance's GitHub App source.
