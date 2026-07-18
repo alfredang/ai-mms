@@ -27,9 +27,16 @@ JOIN eav_entity_type t
 SET v.value = 'IBF Funded Courses'
 WHERE v.value = 'IBF Courses';
 
--- Mirror into the flat category tables so the storefront menu reflects the
--- rename without waiting on a reindex.
-UPDATE catalog_category_flat SET name = 'WSQ Funded Courses' WHERE name = 'WSQ Courses';
-UPDATE catalog_category_flat SET name = 'IBF Funded Courses' WHERE name = 'IBF Courses';
-UPDATE catalog_category_flat_store_1 SET name = 'WSQ Funded Courses' WHERE name = 'WSQ Courses';
-UPDATE catalog_category_flat_store_1 SET name = 'IBF Funded Courses' WHERE name = 'IBF Courses';
+-- NOTE: the flat category tables are deliberately NOT touched here.
+--
+-- The original version of this migration ran
+--   UPDATE catalog_category_flat SET ...
+-- but there is no unsuffixed catalog_category_flat — flat data lives in
+-- per-store catalog_category_flat_store_N tables, and which of those exist
+-- differs per site. Naming a missing table made apply.php abort the whole
+-- chain, the container exit non-zero, and every SG route 502.
+--
+-- The EAV writes above are the source of truth. The storefront menu picks
+-- the new names up when Category Flat Data is reindexed, which is the
+-- documented post-deploy step for category renames — no DDL-fragile flat
+-- mirror needed here.
