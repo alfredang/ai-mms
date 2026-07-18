@@ -157,8 +157,31 @@ UPDATE catalog_category_entity_int SET value=0
 WHERE entity_id=@cat AND store_id=0 AND attribute_id=@a_menu   AND @indexed=0 AND @cat IS NOT NULL;
 ```
 
-Reference implementation: `migrations/548-disable-empty-sdn-category.sql`
-(disabled "Software Defined Networks (SDN)", category 199). Resolve the category
-by **url_key** (partner-safe; ids differ per site). After deploy, reindex
-`catalog_category_flat` + `catalog_url` and flush block/FPC so the page 404s and
-the menu drops the item.
+Resolve the category by **url_key** (partner-safe; ids differ per site). After
+deploy, reindex `catalog_category_flat` + `catalog_url` and flush block/FPC so
+the page 404s and the menu drops the item.
+
+**Catalog-parity model (why one migration fits all sites).** Non-WSQ (C-prefix)
+courses and the category tree are the SAME across SG/MY/GH; SG additionally
+carries WSQ + IBF (TGS-prefix). Consequences the empty-disable relies on:
+- A category empty on SG is empty on MY/GH too (same C-catalog) → disable everywhere.
+- MY/GH have NO WSQ courses, so a category populated on SG **only** by WSQ courses
+  is empty on MY/GH → the SAME conditional migration disables it there
+  automatically (the guard is per-instance index count).
+- SG must not carry HRDF/Malaysia-only categories (e.g.
+  `recommended-hrdf-courses-malaysia`) — empty on SG, so disabled there.
+
+**Reference implementations:**
+- `migrations/550-disable-empty-categories-storefront.sql` — the canonical
+  MULTI-category form. A temp-table **url_key allow-list** of course-listing
+  categories, each disabled only where its storefront index is empty on that
+  instance. Copy this to disable a new batch — extend the `VALUES (...)` list.
+- `migrations/548-disable-empty-sdn-category.sql` — the original single-category
+  form (SDN, 199).
+
+**NEVER disable a non-product menu category.** Landing-page categories (Enquiry,
+Refund Request, Assessment Appeal Form, Pearson Vue Exams, Associate Trainer,
+Pages, etc.) are empty by design — functional form/CMS menu links. The migration
+uses an **explicit url_key allow-list of course-listing categories only**, so a
+landing page can never be caught. Do NOT switch to a "disable every empty active
+category" sweep — it would kill the whole utility menu.
