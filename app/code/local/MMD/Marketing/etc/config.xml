@@ -101,6 +101,15 @@
                 <schedule><cron_expr>0 4 * * *</cron_expr></schedule>
                 <run><model>mmd_marketing/cron_subscribersync::run</model></run>
             </mmd_marketing_subscriber_sync>
+            <!-- Daily 07:00 — watchdog three hours after the sync. The sync
+                 alerting on its own errors can't catch the job never running
+                 at all, so something outside it has to notice the silence.
+                 Also verifies against the MailerLite API that the newest order
+                 email really is in the group. Emails the reviewers on trouble. -->
+            <mmd_marketing_subscriber_sync_watchdog>
+                <schedule><cron_expr>0 7 * * *</cron_expr></schedule>
+                <run><model>mmd_marketing/cron_subscribersync::watchdog</model></run>
+            </mmd_marketing_subscriber_sync_watchdog>
         </jobs>
     </crontab>
 </config>

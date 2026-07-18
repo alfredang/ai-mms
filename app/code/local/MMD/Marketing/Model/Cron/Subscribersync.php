@@ -105,6 +105,86 @@ class MMD_Marketing_Model_Cron_Subscribersync
     }
 
     /**
+     * Watchdog — runs at 07:00, three hours after the sync.
+     *
+     * The sync alerting on its own failures cannot catch the failure that
+     * matters most: the job never running at all (cron daemon dead, module
+     * disabled, config wiped). Something OUTSIDE the job has to notice the
+     * silence, which is what this does.
+     *
+     * Also spot-checks the API directly: a run can report "added" while
+     * MailerLite quietly kept the address out of the group.
+     */
+    public function watchdog()
+    {
+        $helper = Mage::helper('mmd_marketing/mailerlite');
+        if (!$helper->isSyncEnabled()) { return; }   // intentionally off — nothing to police
+
+        $problems = array();
+
+        $lastRun = trim((string) Mage::getStoreConfig(self::CFG_LAST_RUN));
+        if ($lastRun === '') {
+            $problems[] = 'The sync has never completed a run.';
+        } else {
+            $ageHours = (time() - strtotime($lastRun)) / 3600;
+            if ($ageHours > 26) {
+                $problems[] = sprintf('Last run was %.0f hours ago (%s) — a daily run was missed.', $ageHours, $lastRun);
+            }
+        }
+
+        $raw = trim((string) Mage::getStoreConfig(self::CFG_LAST_STATUS));
+        $st  = $raw !== '' ? json_decode($raw, true) : null;
+        if (is_array($st) && empty($st['ok'])) {
+            $problems[] = 'Last run reported a failure: '
+                . (isset($st['error']) ? $st['error'] : (isset($st['failed']) ? $st['failed'] . ' address(es) failed' : 'unknown'));
+        }
+
+        // Independent check: is the most recent order email actually in the group?
+        try {
+            $groupId = $helper->getSyncGroupId();
+            if ($groupId !== '') {
+                $conn = Mage::getSingleton('core/resource')->getConnection('core_read');
+                $row  = $conn->fetchRow(
+                    "SELECT LOWER(TRIM(customer_email)) AS email, created_at FROM "
+                    . Mage::getSingleton('core/resource')->getTableName('sales/order')
+                    . " WHERE store_id = ? AND customer_email <> ''"
+                    . " AND created_at >= ? ORDER BY created_at DESC LIMIT 1",
+                    array($helper->getSyncStoreId(), date('Y-m-d H:i:s', strtotime('-2 days')))
+                );
+                if ($row && !empty($row['email'])) {
+                    $sub = $helper->findSubscriber($row['email']);
+                    $in  = false;
+                    if ($sub && !empty($sub['groups'])) {
+                        foreach ($sub['groups'] as $g) {
+                            if ((string) $g['id'] === (string) $groupId) { $in = true; break; }
+                        }
+                    }
+                    // Unsubscribed people are correctly absent — not a fault.
+                    $status = $sub && isset($sub['status']) ? $sub['status'] : 'not found';
+                    if (!$in && $status !== 'unsubscribed') {
+                        $problems[] = 'Most recent order email (' . $row['email'] . ', ordered '
+                            . $row['created_at'] . ') is NOT in the MailerLite group (status: ' . $status . ').';
+                    }
+                }
+            }
+        } catch (Exception $e) {
+            $problems[] = 'Verification against the MailerLite API failed: ' . $e->getMessage();
+        }
+
+        if (!$problems) {
+            $this->_log('watchdog: OK (last run ' . $lastRun . ')');
+            return;
+        }
+        $this->_log('watchdog: PROBLEMS — ' . implode(' | ', $problems));
+        $this->_alert(
+            'MailerLite sync needs attention',
+            "The daily order-email sync did not look healthy this morning:\n\n- "
+            . implode("\n- ", $problems)
+            . "\n\nCheck: php scripts/maintenance/mailerlite-sync-status.php"
+        );
+    }
+
+    /**
      * Persist the last run's outcome as JSON in core_config_data so the admin
      * (and a human asking "did it run today?") can read it without SSH.
      */
