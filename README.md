@@ -60,6 +60,7 @@ This system runs as a **franchise model**:
 | 🎟️ **Payments** | Stripe, HitPay, PayNow and bank transfer. |
 | 📜 **Certificates & attendance** | E-attendance and certificate-of-achievement generation. |
 | 📣 **Autonomous newsletter** | SG-only agentic-flyer pipeline: designs a course flyer Mon & Thu 10am → manager approval (either manager, via email **or** admin) → MailerLite blast Mon & Thu 8am with a static R2-hosted registration QR. Hard cap **2 flyers/week**; nothing sends without approval. |
+| 📧 **Newsletter subscriber sync** | Daily 4am cron adds new order emails to the site's own MailerLite subscriber group, plus a one-shot historical backfill. Learners who previously unsubscribed are never re-added. API key, group, source store and on/off are all Company Settings, so every franchise site points at its **own** list. |
 | ✍️ **Lead-magnet blog** | `/blog` with slug URLs, SEO meta + Article JSON-LD, Magento-tag reuse, star ratings, social share, R2 hero images. Every post funnels readers to course sign-up with the WSQ funding / SkillsFuture Credit hook. Monday 9am cron auto-writes a post (Claude) for the top unblogged course, auto-publishes, and shares it on LinkedIn. |
 | 🎨 **Ultimo storefront** | Premium responsive theme + a custom dark admin theme. |
 
@@ -146,7 +147,7 @@ ai-mms/
 | **Certificate / Attendance** | Certificates of achievement + e-attendance. |
 | **AccountSync** | Unified learner ↔ shadow admin accounts. |
 | **Courses / Leads** | Course CRUD + admin grid; contact-form lead capture. |
-| **Marketing** | Autonomous agentic-flyer newsletter pipeline — cron design (Mon/Thu 10am), signed email + backend manager approval, guarded MailerLite scheduling (Blastguard: 2 blasts/week, Mon/Thu 8am), subscriber-growth + campaign KPIs. |
+| **Marketing** | Autonomous agentic-flyer newsletter pipeline — cron design (Mon/Thu 10am), signed email + backend manager approval, guarded MailerLite scheduling (Blastguard: 2 blasts/week, Mon/Thu 8am), subscriber-growth + campaign KPIs. Also hosts the daily 4am order-email → MailerLite subscriber sync (`Model/Cron/Subscribersync.php`, backfill `scripts/maintenance/mailerlite-import-order-emails.php`) — per-site config, opt-outs never re-added. |
 | **Blog** | CMS-style lead-magnet blog — Marketing → Blog Posts admin (WYSIWYG, SEO meta, tags, R2 hero upload), `/blog/<slug>` storefront with ratings + share, Monday 9am Claude auto-blog with LinkedIn auto-share. |
 
 ## Getting Started
