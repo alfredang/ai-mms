@@ -34,6 +34,16 @@ Rules for new migrations:
 - **Resolve foreign keys via lookup**: never hardcode `store_id=2`. Use `WHERE code='malaysia'`. Store/website/role IDs differ between environments.
 - **One concern per migration**: a single SQL file should do one logical change. Don't bundle ACL grants with store renames.
 - **Numbered prefix matters**: take `ls migrations/ | tail -3` to find the next number. Don't skip numbers, don't reuse them.
+- **Never name a table that may not exist on every instance — CRITICAL, this causes total outages.** `apply.php` aborts the whole chain on the first failed statement, so the container exits non-zero and **every route on the site 502s**, not just the affected page. The repeat offender is flat catalog: there is **no `catalog_category_flat` / `catalog_product_flat` table** (that name is the *indexer code*, valid only in PHP `Mage::getModel('index/process')->load(...)`). Flat data lives in per-store `catalog_category_flat_store_N`, and which exist differs per site. **Reject on sight**: a bare `catalog_category_flat`, or any `catalog_category_flat_store_N` not wrapped in an `information_schema` existence guard. Same applies to SG-only tables on partner DBs (`smtppro_email_log` etc). Real outage 2026-07-18 — migration 590 took SG and MY fully dark. Correct guarded form:
+
+  ```sql
+  SET @sql = IF((SELECT COUNT(*) FROM information_schema.TABLES
+                 WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='catalog_category_flat_store_1')>0,
+    "UPDATE catalog_category_flat_store_1 SET name='X' WHERE name='Y'", 'DO 0');
+  PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+  ```
+
+  Often the right answer is to drop the flat write entirely and write EAV only, letting the post-deploy reindex propagate it.
 
 ### 4. Never commit credentials or runtime artefacts
 

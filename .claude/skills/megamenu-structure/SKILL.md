@@ -66,6 +66,15 @@ deploy**. A migration must write BOTH or the menu never changes:
    (SG=1, MY=2, GH=3) — guard each with `information_schema` so a missing flat
    table is a no-op on sites that lack that store.
 
+**Never drop that guard, and never write bare `catalog_category_flat`** — no
+such table exists (that name is the *indexer code*, valid only in a PHP
+`Mage::getModel('index/process')->load(...)` call). `apply.php` aborts the whole
+chain on the first failed statement, so the container exits non-zero and **every
+route on the site 502s** — not just the menu. Real outage 2026-07-18: migration
+590 did an unguarded `UPDATE catalog_category_flat` and took SG and MY fully
+dark. If a reindex WILL run post-deploy, you can skip the flat mirror entirely
+and write EAV only — see the `category-ordering` skill's "HARD RULE" section.
+
 Canonical implementation: `migrations/553-menu-classical-scope-to-adult-courses.sql`
 (level predicate + subtree scope). Copy it for any future dropdown-type change;
 only the level predicate, subtree and target value should differ. (`549` is the

@@ -16,6 +16,76 @@ Coding course names share the `AI Vibe Coding ...` stem, and Microsoft cert
 courses start with the exam code (`AI-102`, `AZ-104` ...), alphabetical reads
 naturally as topic/exam-code order.
 
+## HARD RULE — never name a flat table in a migration (it 502s every site)
+
+**There is NO `catalog_category_flat` table. There is NO `catalog_product_flat`
+table.** Flat data lives ONLY in per-store tables — `catalog_category_flat_store_1`,
+`_store_2`, … — and **which of those exist differs per site** (SG carries
+`_store_1..7`, leftovers from the retired multi-store install; MY/GH have their
+own sets). Bare `catalog_category_flat` is the **indexer code**, valid only in a
+PHP `Mage::getModel('index/process')->load('catalog_category_flat', …)` call —
+never a table name in SQL.
+
+Naming a table that doesn't exist is **not a localized failure**:
+`apply.php` aborts the entire chain on the first failed statement → the
+container exits non-zero → Coolify serves nothing → **every route on the site
+returns 502**, not just the page you were changing.
+
+> Real outage 2026-07-18. Migration 590 mirrored a category rename into
+> `catalog_category_flat`. SG and MY went fully dark and stayed down through all
+> 12 entrypoint retries. Reported as "/blog is showing bad gateway" — the whole
+> site was down. Signature in `docker logs <app>`:
+> `SQLSTATE[42S02] ... Table 'default.catalog_category_flat' doesn't exist`
+> followed by `migration attempt N failed`.
+
+**Two valid ways to make the change land. Pick one — never hardcode a table.**
+
+*Option A — EAV only, then reindex (simplest; use for renames).* The EAV rows
+are the source of truth and the storefront picks the change up on the Category
+Flat Data reindex, which is already the documented post-deploy step below. This
+is what fixed migration 590.
+
+*Option B — EAV + guarded flat mirror (use when the change must land WITHOUT a
+reindex).* The storefront reads flat, so if no reindex will run, EAV alone
+leaves the page stale. Mirror into flat, but **guard every statement with
+`information_schema`** so a table missing on this instance is a clean no-op
+instead of a site-wide 502:
+
+```sql
+SET @sql = IF((SELECT COUNT(*) FROM information_schema.TABLES
+               WHERE TABLE_SCHEMA=DATABASE()
+                 AND TABLE_NAME='catalog_category_flat_store_1')>0,
+  "UPDATE catalog_category_flat_store_1 SET name='WSQ Funded Courses' WHERE name='WSQ Courses'", 'DO 0');
+PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+```
+
+Repeat per store (SG=1, MY=2, GH=3). The `megamenu-structure` skill uses
+exactly this guarded form — see its "Dual write" section and
+`migrations/553-menu-classical-scope-to-adult-courses.sql`. **The guard is the
+whole point**: 590 did an unguarded flat write and took two sites down.
+
+What is never acceptable, in either option, is a bare `catalog_category_flat`
+or an unguarded `catalog_category_flat_store_N`.
+
+Note this is the *opposite* of the `catalog_category_product_index` rule in the
+next section: that index table **does** exist on every instance and **must** be
+written directly. The distinction is existence, not preference — index tables
+are unconditional, flat tables are per-store and conditional.
+
+**Before pushing any migration**, dry-run the real runner (never the `mysql`
+client, which tolerates things `apply.php` won't):
+
+```bash
+docker exec ai-mms-web-1 php /var/www/html/migrations/apply.php   # must print OK
+```
+
+**If a site is already 502ing on a bad migration**, don't wait for a deploy:
+apply the corrected SQL directly to the prod DB, `INSERT IGNORE` the filename
+into `schema_migrations`, `docker restart` the app container — then commit the
+fix so the next deploy doesn't re-run the broken statement. (Editing the
+migration in place is safe here *only* because a failed migration is never
+recorded as applied, so it re-runs fresh everywhere.)
+
 ## Why two tables — and why you must renumber the INDEX directly
 
 The storefront sorts by **`catalog_category_product_index.position`**, NOT by
