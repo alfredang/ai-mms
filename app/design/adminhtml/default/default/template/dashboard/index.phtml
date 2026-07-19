@@ -3488,11 +3488,11 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                 </div>
                 <?php
                 $_cwFields = array(
-                    'lesson_plan_url'        => 'Lesson Plan URL',
-                    'learner_guide_url'      => 'Learner Guide URL',
                     'learner_slides_url'     => 'Learner Slides URL',
+                    'learner_guide_url'      => 'Learner Guide URL',
+                    'lesson_plan_url'        => 'Lesson Plan URL',
                     'trainer_slides_url'     => 'Trainer Slides URL',
-                    'lab_url'                => 'Lab URL',
+                    'lab_url'                => 'Activities/Labs URL',
                     'courseware_link'        => 'Courseware Link',
                     'brochure_link'          => 'Brochure Link',
                 );
@@ -5727,11 +5727,13 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
     // (form, read-only view, and the developer link-count filter).
     // Empty URLs are still skipped by the foreach below.
     $_devCwLabels = array(
-        'courseware_link'        => 'Courseware Link',
         'learner_slides_url'     => 'Learner Slides',
-        'trainer_slides_url'     => 'Trainer Slides',
-        'brochure_link'          => 'Brochure Link',
+        'learner_guide_url'      => 'Learner Guide',
         'lesson_plan_url'        => 'Lesson Plan',
+        'trainer_slides_url'     => 'Trainer Slides',
+        'lab_url'                => 'Activities/Labs',
+        'courseware_link'        => 'Courseware Link',
+        'brochure_link'          => 'Brochure Link',
     );
     $_devCwSaved = array();
     foreach ($_devCwLabels as $_k => $_lbl) {
