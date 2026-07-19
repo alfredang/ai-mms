@@ -603,6 +603,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             $_cwFields = array(
                 'lesson_plan_url', 'learner_guide_url',
                 'learner_slides_url', 'trainer_slides_url',
+                'lab_url',
                 'courseware_link', 'brochure_link',
                 'google_meet_url', 'certificate_url',
             );
