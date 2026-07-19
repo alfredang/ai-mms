@@ -1373,13 +1373,25 @@ try {
 //   5. Singapore default
 // The existing $_seoStoreId block further down re-derives the same
 // resolution for SEO Meta; once this rolls out we can drop that.
-$_pageStoreToCountry = array(
-    1 => 'Singapore', 2 => 'Malaysia', 3 => 'Ghana', 4 => 'Nigeria',
-);
+// Franchise model: one store per site. Derive the pill list from the
+// instance's OWN core_store rows — never a hardcoded six-country list,
+// which showed MY/GH/NG pills on the SG site for stores that don't exist
+// in its DB. A single-store install therefore renders a single pill.
+$_pageStoreToCountry = array();
+foreach (Mage::app()->getStores() as $_coreStore) {
+    if (!$_coreStore->getId()) {
+        continue; // skip admin (id 0)
+    }
+    $_pageStoreToCountry[(int) $_coreStore->getId()] =
+        trim(preg_replace('/\s*Store\s*View\s*$/i', '', (string) $_coreStore->getName()));
+}
+if (!$_pageStoreToCountry) {
+    $_pageStoreToCountry = array(1 => 'Singapore');
+}
 // Country instances only have their own store (+ admin) in core_store —
 // the hardcoded "Singapore default" below doesn't exist there, so the
 // fallback must resolve to the instance's own store, not store_id=1.
-$_pageDefaultStoreId = 1; // Singapore default
+$_pageDefaultStoreId = (int) key($_pageStoreToCountry); // this site's own store
 // In country-mode instances (NG/etc.) only show SG + own country pill.
 if (strtolower((string) getenv('MMS_MODE')) === 'country') {
     $_mmsCountryCode = strtoupper((string) getenv('MMS_COUNTRY_CODE'));
@@ -2713,6 +2725,12 @@ $_seoActiveCountry = isset($_seoStoreToCountry[$_seoStoreId])
 $_dcfStoreFlag = array(
     'Singapore' => 'SG', 'Malaysia' => 'MY', 'Ghana' => 'GH', 'Nigeria' => 'NG',
 );
+// Any store name not in the map above still gets a badge (first 2 letters).
+foreach ($_pageStoreToCountry as $_flagName) {
+    if (!isset($_dcfStoreFlag[$_flagName])) {
+        $_dcfStoreFlag[$_flagName] = strtoupper(substr($_flagName, 0, 2));
+    }
+}
 $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
 ?>
 <div id="dash-panel-course-edit">
