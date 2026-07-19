@@ -2909,12 +2909,13 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
          every other role sidebar so it visually matches the project. -->
     <aside class="sidebar-nav sidebar-nav-role dcf-edit-sidebar">
         <?php
-        // Sidebar heading = the course being edited. The old static
-        // "Course Information" label carried no information; showing the SKU +
-        // course name here means the sidebar (fixed-position, always visible)
-        // always says which course you're working on.
+        // No heading here: the course title used to sit at the top of this
+        // sidebar, but it wrapped to many lines on long names and pushed the
+        // nav items far down the page, out of line with every other admin
+        // sidebar. The .dcf-course-ident banner on the right panel already
+        // names the course on every section, so the nav starts flush at the
+        // top (reported 2026-07-20).
         ?>
-        <h3 class="dcf-edit-sidebar-title"><?php echo htmlspecialchars(trim((string) $_selectedCourse['name'])) ?></h3>
         <?php
         // Sidebar structure: items are either flat tabs (key => label) or a
         // collapsible group ('__group_xxx' => ['label' => …, 'children' => […]]).
