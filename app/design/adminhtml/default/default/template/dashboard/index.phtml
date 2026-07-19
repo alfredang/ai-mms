@@ -2756,6 +2756,17 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
             </button>
             </div>
         </div>
+        <?php
+        // Course identity banner — pinned at the top of the right-hand editor
+        // panel so the SKU + course name are visible while working through any
+        // section. Previously nothing on screen named the course once you
+        // scrolled past the top, making it easy to edit the wrong one
+        // (reported 2026-07-19).
+        ?>
+        <div class="dcf-course-ident">
+            <span class="dcf-course-ident-code"><?php echo htmlspecialchars(trim((string) $_selectedCourse['sku'])) ?></span>
+            <span class="dcf-course-ident-name"><?php echo htmlspecialchars(trim((string) $_selectedCourse['name'])) ?></span>
+        </div>
     </div>
 
     <?php
@@ -2896,7 +2907,13 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
          sidebar in editing mode. Uses the same .lms-nav-item style as
          every other role sidebar so it visually matches the project. -->
     <aside class="sidebar-nav sidebar-nav-role dcf-edit-sidebar">
-        <h3 class="dcf-edit-sidebar-title">Course Information</h3>
+        <?php
+        // Sidebar heading = the course being edited. The old static
+        // "Course Information" label carried no information; showing the SKU +
+        // course name here means the sidebar (fixed-position, always visible)
+        // always says which course you're working on.
+        ?>
+        <h3 class="dcf-edit-sidebar-title"><?php echo htmlspecialchars(trim((string) $_selectedCourse['name'])) ?></h3>
         <?php
         // Sidebar structure: items are either flat tabs (key => label) or a
         // collapsible group ('__group_xxx' => ['label' => …, 'children' => […]]).
