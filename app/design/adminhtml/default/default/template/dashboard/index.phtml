@@ -6103,11 +6103,16 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
     // Same 6-tile set as the developer view above. See $_devCwLabels
     // comment for rationale on why the other course_courseware columns
     // are intentionally excluded from this section.
-    // Trainers only see Trainer Slides (per product 2026-05-07). The
-    // other course_courseware columns are admin/developer-facing and
-    // stay hidden from the trainer view.
+    // Trainers see Trainer Slides, Learner Guide, Lesson Plan,
+    // Activities/Labs and the Courseware Link (per product 2026-07-20,
+    // widened from the 2026-05-07 Trainer-Slides-only rule). Brochure
+    // Link and Learner Slides stay developer-facing.
     $_trCwLabels = array(
         'trainer_slides_url'     => 'Trainer Slides',
+        'learner_guide_url'      => 'Learner Guide',
+        'lesson_plan_url'        => 'Lesson Plan',
+        'lab_url'                => 'Activities/Labs',
+        'courseware_link'        => 'Courseware Link',
     );
     $_trCwSaved = array();
     foreach ($_trCwLabels as $_k => $_lbl) {
@@ -6230,11 +6235,15 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
          map as the developer / trainer views so a learner sees every
          saved URL (including duplicates). -->
     <?php
-    // Learners only see Learner Slides (per product 2026-05-07). The
-    // other course_courseware columns are admin/trainer-facing and stay
-    // hidden from the learner view.
+    // Learners see Learner Slides, Learner Guide, Lesson Plan and
+    // Activities/Labs (per product 2026-07-20, widened from the
+    // 2026-05-07 Learner-Slides-only rule). Trainer Slides, Courseware
+    // Link and Brochure Link stay hidden from learners.
     $_lnCwLabels = array(
         'learner_slides_url'     => 'Learner Slides',
+        'learner_guide_url'      => 'Learner Guide',
+        'lesson_plan_url'        => 'Lesson Plan',
+        'lab_url'                => 'Activities/Labs',
     );
     $_lnCwSaved = array();
     foreach ($_lnCwLabels as $_k => $_lbl) {
