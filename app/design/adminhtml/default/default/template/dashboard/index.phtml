@@ -2787,7 +2787,13 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
         $_dcfCurrentUrl .= (strpos($_dcfCurrentUrl, '?') === false ? '?' : '&')
             . 'dev_back=' . urlencode($_devBack);
     }
+    // Franchise model: one store per site. With a single store there is
+    // nothing to switch between, so the bar is suppressed entirely — the
+    // same way MMD_Branchscope's global switcher bails on
+    // isSingleStoreMode(). Kept (not deleted) so a genuinely multi-store
+    // install still renders a working switcher.
     ?>
+    <?php if (count($_pageStoreToCountry) > 1): ?>
     <div class="dcf-store-switcher" role="tablist" aria-label="Store view">
         <span class="dcf-store-switcher-label">Store View:</span>
         <?php foreach ($_pageStoreToCountry as $_swStoreId => $_swCountry):
@@ -2809,6 +2815,7 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
             <span>Scope</span>
         </span>
     </div>
+    <?php endif; ?>
     <style>
         .dcf-store-switcher{
             display:flex;align-items:center;gap:4px;flex-wrap:wrap;
@@ -2853,11 +2860,16 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             You are in edit mode. Make your changes and click Save Changes.
         </span>
+        <?php /* "Editing for: <country>" is only meaningful when more than
+                 one store exists to edit against — suppressed on a
+                 single-store (franchise) site. */ ?>
+        <?php if (count($_pageStoreToCountry) > 1): ?>
         <span class="dcf-active-store-pill" title="Store-view-scoped fields (SEO Meta, Design overrides, etc.) on this page will be saved against this country's store view. Switch country via the Store View tabs above.">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
             Editing for: <strong><?php echo htmlspecialchars($_pageStoreCountry) ?></strong>
             <span class="dcf-active-store-code"><?php echo htmlspecialchars($_dcfStoreFlag[$_pageStoreCountry] ?? '') ?></span>
         </span>
+        <?php endif; ?>
     </div>
     <style>
         .dcf-active-store-pill{
