@@ -697,9 +697,25 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             }
             return;
         } catch (Exception $e) {
+            // Stay in the editor on failure. Redirecting to the bare dashboard
+            // dropped course_id/mode, so COURSE_EDIT_ACTIVE went false and the
+            // panel-switcher JS hid every panel — the admin saw a blank screen
+            // with no clue what went wrong (reported 2026-07-19 saving a
+            // Courseware Link). Only fall back to the dashboard when we never
+            // resolved a course to return to.
             Mage::getSingleton('adminhtml/session')->addError($e->getMessage());
-            $dashboardUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard');
-            $this->_redirectUrl($dashboardUrl);
+            $courseId = (int) $this->getRequest()->getParam('course_id');
+            if ($courseId) {
+                $devBack = trim((string) $this->getRequest()->getParam('dev_back', ''));
+                $this->_redirectUrl(
+                    Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array(
+                        'course_id' => $courseId,
+                        'mode'      => 'editing',
+                    )) . ($devBack !== '' ? '?dev_back=' . urlencode($devBack) : '')
+                );
+            } else {
+                $this->_redirectUrl(Mage::helper('adminhtml')->getUrl('adminhtml/dashboard'));
+            }
         }
     }
     /**
