@@ -4,7 +4,7 @@
  *
  * Extends the core invoice PDF model purely to reuse its drawing
  * infrastructure (logo, store address, font helpers, page handling). It does
- * NOT render a real invoice — there is no sales/order_invoice involved. A pro
+ * NOT render a real invoice - there is no sales/order_invoice involved. A pro
  * forma is produced from the registration (order) itself, before payment, so
  * self-sponsored SG learners can submit it to MySkillsFuture for their
  * SkillsFuture Credit (SFC) claim.
@@ -12,7 +12,7 @@
  * WSQ funding breakdown
  * ---------------------
  * The storefront only ever stores the *net* fee the learner pays (item
- * row_total / order subtotal) — the original course list price is not kept on
+ * row_total / order subtotal) - the original course list price is not kept on
  * the order. BUT SG GST is deliberately settled on the **pre-subsidy list
  * price** (see CLAUDE.md), so the stored tax_amount is exactly 9% of that list
  * price. We therefore recover the list price from the GST:
@@ -109,7 +109,7 @@ class MMD_Proforma_Model_Proforma extends Mage_Sales_Model_Order_Pdf_Invoice
 
         /* "To Less SkillsFuture Credit" payable line. A pro forma is only ever
            issued for self-sponsored registrations, which can offset the amount
-           below with SkillsFuture Credit — so this always shows (WSQ funded or
+           below with SkillsFuture Credit - so this always shows (WSQ funded or
            not). The figure is the net amount payable incl. GST. */
         if ($this->y < 150) {
             $page = $this->newPage();
@@ -148,7 +148,7 @@ class MMD_Proforma_Model_Proforma extends Mage_Sales_Model_Order_Pdf_Invoice
      * Header identity block (top-right). Core insertAddress() renders only the
      * sales/identity/address store config (Address / Tel / Email). The
      * registered company name is not part of that config, so draw it as a bold
-     * line at the top of the block, then the address lines below — preserving
+     * line at the top of the block, then the address lines below - preserving
      * core's right-aligned layout (column 130..440, regular size 10).
      */
     protected function insertAddress(&$page, $store = null)
@@ -167,7 +167,7 @@ class MMD_Proforma_Model_Proforma extends Mage_Sales_Model_Order_Pdf_Invoice
         );
         $top -= 12;
 
-        // Address lines (regular) — identical wrapping/alignment to core.
+        // Address lines (regular) - identical wrapping/alignment to core.
         $font = $this->_setFontRegular($page, 10);
         foreach (explode("\n", (string) Mage::getStoreConfig('sales/identity/address', $store)) as $value) {
             if ($value !== '') {
@@ -372,7 +372,7 @@ class MMD_Proforma_Model_Proforma extends Mage_Sales_Model_Order_Pdf_Invoice
         $valX   = $this->_amtRight;
 
         // Net fee = grand total minus GST. There is never any shipping, so this
-        // always equals the post-subsidy amount the learner pays before tax —
+        // always equals the post-subsidy amount the learner pays before tax -
         // and it is correct whether the subsidy was baked into the price or
         // stored as a Magento discount (getSubtotal() would be the pre-discount
         // figure in the latter case and must NOT be used here).
@@ -389,7 +389,7 @@ class MMD_Proforma_Model_Proforma extends Mage_Sales_Model_Order_Pdf_Invoice
             $this->y -= 18;
         }
 
-        // BALANCE DUE — emphasised, with the rule line above it.
+        // BALANCE DUE - emphasised, with the rule line above it.
         $this->y -= 2;
         $page->setLineColor(new Zend_Pdf_Color_GrayScale(0.4));
         $page->setLineWidth(0.8);
@@ -437,14 +437,14 @@ class MMD_Proforma_Model_Proforma extends Mage_Sales_Model_Order_Pdf_Invoice
         $this->y -= 6;
         $page->setFillColor(new Zend_Pdf_Color_GrayScale(0.5));
         $this->_setFontItalic($page, 8);
-        $page->drawText('Computer-generated pro forma invoice — no signature required.', 25, $this->y, 'UTF-8');
+        $page->drawText('Computer-generated pro forma invoice - no signature required.', 25, $this->y, 'UTF-8');
         $page->setFillColor(new Zend_Pdf_Color_GrayScale(0));
     }
 
     /* ------------------------------------------------------------------ */
 
     /**
-     * Participant name for the course line — the account holder (matches the
+     * Participant name for the course line - the account holder (matches the
      * reference pro forma, which prints the BILL TO name as the participant).
      */
     protected function _participantName(Mage_Sales_Model_Order $order, $item)

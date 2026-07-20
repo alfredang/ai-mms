@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<!--
+    MMD_AgentApi - write/operation APIs for the external OpenClaw agent.
+
+    Exposes course-schedule, course-info, marketing/content, and site-ops
+    mutations behind an X-API-Key + a preview->confirm->commit protocol.
+    See docs/openclaw-agent-api-plan.md, docs/agent-context.md, docs/agent-api-spec.md.
+-->
+<config>
+    <modules>
+        <MMD_AgentApi>
+            <active>true</active>
+            <codePool>local</codePool>
+            <depends>
+                <Mage_Core/>
+                <Mage_Catalog/>
+                <MMD_RoleManager/>
+            </depends>
+        </MMD_AgentApi>
+    </modules>
+</config>

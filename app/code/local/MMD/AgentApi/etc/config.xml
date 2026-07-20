@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<config>
+    <modules>
+        <MMD_AgentApi>
+            <version>1.0.0</version>
+        </MMD_AgentApi>
+    </modules>
+
+    <global>
+        <models>
+            <mmd_agentapi>
+                <class>MMD_AgentApi_Model</class>
+            </mmd_agentapi>
+        </models>
+        <helpers>
+            <mmd_agentapi>
+                <class>MMD_AgentApi_Helper</class>
+            </mmd_agentapi>
+        </helpers>
+    </global>
+
+    <frontend>
+        <routers>
+            <mmd_agentapi>
+                <use>standard</use>
+                <args>
+                    <module>MMD_AgentApi</module>
+                    <frontName>agent</frontName>
+                </args>
+            </mmd_agentapi>
+        </routers>
+    </frontend>
+</config>
