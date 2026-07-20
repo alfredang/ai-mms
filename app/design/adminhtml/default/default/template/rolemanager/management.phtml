@@ -486,13 +486,6 @@ try {
         </div>
         <label>Email</label>
         <input type="email" id="rm-edit-email" placeholder="user@example.com" />
-        <label id="rm-current-pwd-label">Current Admin Password <span style="color:#64748b;font-weight:400;font-size:12px;">(your own — confirms the change)</span></label>
-        <div class="rm-pwd-wrap">
-            <input type="password" id="rm-current-password" placeholder="Required to save changes" autocomplete="current-password" />
-            <button type="button" class="rm-eye" onclick="rmEyeToggle('rm-current-password', this)" aria-label="Show password">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-            </button>
-        </div>
         <label id="rm-pwd-label">New Password <span style="color:#64748b;font-weight:400;font-size:12px;">(leave blank to keep current)</span></label>
         <div class="rm-pwd-wrap">
             <input type="password" id="rm-edit-password" placeholder="Minimum 7 characters" autocomplete="new-password" />
@@ -644,7 +637,6 @@ function rmNew() {
     document.getElementById('rm-edit-firstname').value = '';
     document.getElementById('rm-edit-lastname').value = '';
     document.getElementById('rm-edit-email').value = '';
-    document.getElementById('rm-current-password').value = '';
     document.getElementById('rm-edit-password').value = '';
     document.getElementById('rm-edit-status').value = '1';
     document.querySelectorAll('.rm-role-toggle').forEach(function(t) { rmApplyToggleStyle(t, false); });
@@ -658,7 +650,6 @@ function rmEdit(uid) {
     document.getElementById('rm-edit-firstname').value = row.getAttribute('data-firstname');
     document.getElementById('rm-edit-lastname').value = row.getAttribute('data-lastname');
     document.getElementById('rm-edit-email').value = row.getAttribute('data-email');
-    document.getElementById('rm-current-password').value = '';
     document.getElementById('rm-edit-password').value = '';
     document.getElementById('rm-edit-status').value = row.getAttribute('data-active');
     var userRoles = (row.getAttribute('data-roles') || '').split(',');
@@ -682,18 +673,12 @@ function rmSave() {
         alert('Password must be at least 7 characters.');
         return;
     }
-    var currentPwd = document.getElementById('rm-current-password').value;
-    if (!currentPwd) {
-        alert('Please enter your current admin password to confirm changes.');
-        return;
-    }
     var body = 'user_id=' + encodeURIComponent(uid)
         + '&firstname=' + encodeURIComponent(document.getElementById('rm-edit-firstname').value)
         + '&lastname=' + encodeURIComponent(document.getElementById('rm-edit-lastname').value)
         + '&email=' + encodeURIComponent(document.getElementById('rm-edit-email').value)
         + '&is_active=' + document.getElementById('rm-edit-status').value
         + '&password=' + encodeURIComponent(password)
-        + '&current_password=' + encodeURIComponent(currentPwd)
         + '&form_key=' + RM_FORM_KEY;
     for (var i = 0; i < roles.length; i++) body += '&roles[]=' + encodeURIComponent(roles[i]);
 

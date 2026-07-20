@@ -34,14 +34,17 @@ class MMD_RoleManager_Adminhtml_RolemanagementController extends Mage_Adminhtml_
         $lastname        = trim((string) $this->getRequest()->getParam('lastname', ''));
         $email           = trim((string) $this->getRequest()->getParam('email', ''));
         $password        = (string) $this->getRequest()->getParam('password', '');
-        $currentPassword = (string) $this->getRequest()->getParam('current_password', '');
 
-        // Confirm the saving admin's own password before allowing any change.
+        // Authorization is the admin session itself, consistent with the stock
+        // Permissions/User flow which also dropped the current-password challenge
+        // (see MMD_Adminhtml_Permissions_UserController). The password re-entry
+        // check was unreliable and blocked legitimate admins: those who sign in
+        // via OTP / Google, or whose admin password was set by account-sync or the
+        // trainer import (a random or customer-synced hash they never typed),
+        // can never satisfy it.
         $currentAdmin = Mage::getSingleton('admin/session')->getUser();
-        if (!$currentAdmin || !$currentAdmin->getId()
-            || !Mage::helper('core')->validateHash($currentPassword, $currentAdmin->getPassword())
-        ) {
-            $result['message'] = 'Your current admin password is incorrect';
+        if (!$currentAdmin || !$currentAdmin->getId()) {
+            $result['message'] = 'Your admin session has expired - please log in again.';
             return $this->_sendJson($result);
         }
         // Login is email-based (see MMD_EmailLogin). The admin_user.username
