@@ -1030,7 +1030,13 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                 .tr-picker-label{font-weight:700;color:#fff;font-size:14px;margin-bottom:8px}
                 .tr-picker-search{width:100%;padding:12px 16px;background:#1e293b;border:1px solid #334155;border-radius:10px;color:#e2e8f0;font-size:14px;outline:none;box-sizing:border-box}
                 .tr-picker-search:focus{border-color:#60a5fa}
-                .tr-picker-list{background:#1e293b;border:1px solid #334155;border-radius:10px;max-height:280px;overflow-y:auto;margin-top:10px}
+                /* Grows with the pool instead of scrolling at 280px — a short
+                   list (the common case) now shows every trainer at once, so
+                   the selection order is visible without scrolling. The cap is
+                   raised rather than removed: the pool is every trainer-role
+                   account, which can run to hundreds on a mature site, and an
+                   unbounded list would push the save buttons off screen. */
+                .tr-picker-list{background:#1e293b;border:1px solid #334155;border-radius:10px;max-height:min(70vh,760px);overflow-y:auto;overscroll-behavior:contain;margin-top:10px}
                 .tr-picker-list::-webkit-scrollbar{width:10px}
                 .tr-picker-list::-webkit-scrollbar-thumb{background:#475569;border-radius:10px;border:2px solid #1e293b}
                 .tr-picker-item{padding:12px 16px;cursor:pointer;color:#e2e8f0;font-size:14px;border-bottom:1px solid #334155;display:flex;align-items:center;gap:14px}
@@ -1175,11 +1181,16 @@ div.dce-value::-webkit-scrollbar-thumb:hover{background:#64748b}
 .lcd-wrap,.lcd-wrap *{font-family:inherit}
 .lcd-two-col{display:flex;gap:24px;align-items:flex-start}
 /* Default (100% zoom / normal width): sidebar hidden, button visible */
-.lcd-sidebar-details{display:none;width:280px;min-width:280px;flex-shrink:0;background:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px;position:sticky;top:70px;max-height:calc(100vh - 90px);overflow-y:auto}
+/* Course Details column. Widened 280 -> 360 and de-scrolled: the card grows to
+   its natural height instead of scrolling inside itself (the inner scrollbar
+   made the course image + duration block feel cramped and hid the lower rows).
+   `position:sticky` is kept, so on a short viewport the column simply scrolls
+   with the page rather than trapping a second scrollbar. */
+.lcd-sidebar-details{display:none;width:450px;min-width:450px;flex-shrink:0;background:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px;position:sticky;top:70px}
 .lcd-main-content{flex:1;min-width:0}
 button.lcd-menu-btn.lcd-mobile-only{display:flex !important}
 /* When zoomed out (90% or less = wider viewport): sidebar visible, button hidden */
-@media(min-width:1450px){
+@media(min-width:1620px){
     .lcd-sidebar-details{display:block}
     button.lcd-menu-btn.lcd-mobile-only{display:none !important}
 }
@@ -1227,6 +1238,22 @@ button.lcd-drawer-close,button.lcd-drawer-close:hover,button.lcd-drawer-close:fo
 button.lcd-drawer-close:hover{color:#fff !important;background:#1e293b !important}
 .lcd-drawer-body{flex:1;overflow-y:auto;padding:20px 22px 20px}
 .lcd-drawer-section-title{font-size:18px;font-weight:700;color:#fff;margin:0 0 10px}
+/* Collapsible "Course Details" header. Mirrors the .dcf-nav-group chevron
+   pattern (rotate 90deg when open) so the two collapse affordances in the
+   editor behave identically. The <button> needs an explicit text-align/font
+   reset: the UA stylesheet centres button labels and swaps the font, which
+   would otherwise make this header disagree with every other card title. */
+button.lcd-card-head,button.lcd-card-head:hover,button.lcd-card-head:focus,button.lcd-card-head:active{
+  display:flex !important;align-items:center !important;justify-content:space-between !important;
+  width:100% !important;gap:10px !important;background:transparent !important;background-image:none !important;
+  border:none !important;padding:0 0 12px !important;margin:0 !important;cursor:pointer !important;
+  box-shadow:none !important;text-shadow:none !important;text-transform:none !important;
+  text-align:left !important;font-family:inherit !important;font-size:16px !important;
+  font-weight:700 !important;color:#fff !important;line-height:1.2 !important;height:auto !important}
+button.lcd-card-head:hover{color:#60a5fa !important}
+.lcd-card-head-chev{flex:0 0 auto;transition:transform .18s ease;color:#94a3b8}
+.lcd-card.collapsed .lcd-card-head-chev{transform:rotate(-90deg)}
+.lcd-card.collapsed .lcd-card-body{display:none}
 .lcd-detail-row{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:7px 0;border-bottom:none;line-height:1.4}
 .lcd-detail-row:last-child{border-bottom:none}
 .lcd-detail-label{color:#94a3b8;font-size:14px;font-weight:400;flex-shrink:0}
