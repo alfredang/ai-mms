@@ -5485,6 +5485,39 @@ if (isset($_lmcRunMap[$_lcdCourseId])) {
     $_courseRunId = str_pad($_lcdCourseId * 4321 % 9999999, 7, '0', STR_PAD_LEFT);
 }
 
+// Approved trainer(s) for the course. In developer / course-management mode the
+// Course Details view shows course-LEVEL info only (approved trainer), NOT the
+// run-level fields (Course Run ID / dates / class type + status) which belong to
+// a scheduled class, never to the permanent course.
+//
+// Approved trainers live in the product's `trainers` multiselect attribute
+// (a comma list of option ids). Resolve those ids to trainer display names.
+$_lcdApprovedTrainers = array();
+try {
+    $_trRead   = Mage::getSingleton('core/resource')->getConnection('core_read');
+    $_trAttrId = (int) $_trRead->fetchOne(
+        "SELECT a.attribute_id FROM eav_attribute a
+           JOIN eav_entity_type e ON e.entity_type_id = a.entity_type_id AND e.entity_type_code = 'catalog_product'
+          WHERE a.attribute_code = 'trainers' LIMIT 1");
+    if ($_trAttrId) {
+        $_trRaw  = $_trRead->fetchOne(
+            "SELECT value FROM catalog_product_entity_text WHERE entity_id = ? AND attribute_id = ? AND value IS NOT NULL AND value <> '' ORDER BY store_id LIMIT 1",
+            array($_lcdCourseId, $_trAttrId));
+        $_trOptIds = $_trRaw ? array_values(array_filter(array_map('intval', explode(',', $_trRaw)))) : array();
+        if ($_trOptIds) {
+            $_trPairs = $_trRead->fetchPairs($_trRead->select()
+                ->from(Mage::getSingleton('core/resource')->getTableName('eav/attribute_option_value'), array('option_id', 'value'))
+                ->where('option_id IN (?)', $_trOptIds)->where('store_id = ?', 0));
+            foreach ($_trOptIds as $_oid) {
+                if (isset($_trPairs[$_oid]) && trim((string) $_trPairs[$_oid]) !== '') {
+                    $_lcdApprovedTrainers[] = trim((string) $_trPairs[$_oid]);
+                }
+            }
+        }
+    }
+} catch (Exception $e) {}
+$_lcdApprovedTrainersLabel = $_lcdApprovedTrainers ? implode(', ', $_lcdApprovedTrainers) : '—';
+
 // E-Attendance entry for the Course Menu (View Course). Built once and echoed
 // at the top of BOTH nav blocks (mobile drawer + wide sidebar); self-gates so
 // only a trainer or learner with a real run gets a link, every other role
@@ -5525,8 +5558,30 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
         // Real duration from the product's `duration` attribute. Trim
         // trailing .0 (so 7.5 stays "7.5" but 8.0 becomes "8"). Fall back
         // to em-dash if unset.
-        $_dDur = (!empty($_selectedCourse['duration']) && (float)$_selectedCourse['duration'] > 0)
-            ? rtrim(rtrim(number_format((float)$_selectedCourse['duration'], 1), '0'), '.')
+        $_dDurNum = (!empty($_selectedCourse['duration'])) ? (float)$_selectedCourse['duration'] : 0;
+        $_dDur = $_dDurNum > 0
+            ? rtrim(rtrim(number_format($_dDurNum, 1), '0'), '.')
+            : '—';
+        // Assessment Duration — a dropdown stored as an option id (NA / 0.5 / 1 /
+        // 1.5 / 2 / 2.5 / 3 hours). Resolve it to its label; NA / non-numeric
+        // counts as 0. Total Duration = Training Hours + Assessment Duration.
+        $_assessHrs   = 0.0;
+        $_assessLabel = '—';
+        try {
+            $_adRead   = Mage::getSingleton('core/resource')->getConnection('core_read');
+            $_adAttrId = (int) $_adRead->fetchOne("SELECT attribute_id FROM eav_attribute WHERE entity_type_id = 4 AND attribute_code = 'assessment_duration' LIMIT 1");
+            if ($_adAttrId) {
+                $_adOpt = (int) $_adRead->fetchOne("SELECT value FROM catalog_product_entity_int WHERE entity_id = ? AND attribute_id = ? ORDER BY store_id LIMIT 1", array($_lcdCourseId, $_adAttrId));
+                if ($_adOpt) {
+                    $_adVal = (string) $_adRead->fetchOne("SELECT value FROM eav_attribute_option_value WHERE option_id = ? AND store_id = 0 LIMIT 1", array($_adOpt));
+                    if ($_adVal !== '') { $_assessLabel = $_adVal; }
+                    if (is_numeric($_adVal)) { $_assessHrs = (float) $_adVal; }
+                }
+            }
+        } catch (Exception $e) {}
+        $_totalDurNum = $_dDurNum + $_assessHrs;
+        $_totalDur = $_totalDurNum > 0
+            ? rtrim(rtrim(number_format($_totalDurNum, 1), '0'), '.')
             : '—';
         // Class Type label — derive from course_runs.mode_of_training
         // (the int the developer editor's "Mode of Learning" radio
@@ -5541,16 +5596,21 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
         <h3 class="lcd-drawer-section-title">Course Details</h3>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Course Title</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['name']) ?></span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Course Code</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['sku'] ?: '—') ?></span></div>
+        <?php if ($_courseManagerActive): /* developer/course view: course-level only */ ?>
+        <div class="lcd-detail-row"><span class="lcd-detail-label">Approved Trainer<?php echo count($_lcdApprovedTrainers) > 1 ? 's' : '' ?></span><span class="lcd-detail-value"><?php echo htmlspecialchars($_lcdApprovedTrainersLabel) ?></span></div>
+        <?php else: /* learner/trainer viewing a real class: run-level fields are legitimate */ ?>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Course Run ID</span><span class="lcd-detail-value"><?php echo $_courseRunId ?></span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Start Date</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['start_date']) ?></span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">End Date</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['end_date']) ?></span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Class Type</span><span class="lcd-badge <?php echo $_modeBadgeCls ?>"><?php echo htmlspecialchars($_modeLabel) ?></span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Class Status</span><span class="lcd-badge lcd-badge-<?php echo strtolower($_selectedCourse['status']) ?>"><?php echo htmlspecialchars($_selectedCourse['status']) ?></span></div>
+        <?php endif; ?>
         <div class="lcd-duration-block">
             <h4 class="lcd-duration-title">Course Duration</h4>
             <div class="lcd-duration-row"><span>Training Hours:</span><strong><?php echo $_dDur ?></strong></div>
+            <div class="lcd-duration-row"><span>Assessment Hours:</span><strong><?php echo htmlspecialchars($_assessLabel) ?></strong></div>
             <div class="lcd-duration-divider"></div>
-            <div class="lcd-duration-row lcd-duration-total"><span>Total Duration:</span><strong><?php echo $_dDur ?></strong></div>
+            <div class="lcd-duration-row lcd-duration-total"><span>Total Duration:</span><strong><?php echo $_totalDur ?></strong></div>
         </div>
 
         <nav class="lcd-drawer-nav">
@@ -5582,16 +5642,21 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
         <h3 style="font-size:16px;font-weight:700;color:#fff;margin:0 0 12px;">Course Details</h3>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Course Title</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['name']) ?></span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Course Code</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['sku'] ?: '—') ?></span></div>
+        <?php if ($_courseManagerActive): /* developer/course view: course-level only */ ?>
+        <div class="lcd-detail-row"><span class="lcd-detail-label">Approved Trainer<?php echo count($_lcdApprovedTrainers) > 1 ? 's' : '' ?></span><span class="lcd-detail-value"><?php echo htmlspecialchars($_lcdApprovedTrainersLabel) ?></span></div>
+        <?php else: /* learner/trainer viewing a real class: run-level fields are legitimate */ ?>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Course Run ID</span><span class="lcd-detail-value"><?php echo $_courseRunId ?></span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Start Date</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['start_date']) ?></span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">End Date</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['end_date']) ?></span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Class Type</span><span class="lcd-badge <?php echo $_modeBadgeCls ?>"><?php echo htmlspecialchars($_modeLabel) ?></span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Class Status</span><span class="lcd-badge lcd-badge-<?php echo strtolower($_selectedCourse['status']) ?>"><?php echo htmlspecialchars($_selectedCourse['status']) ?></span></div>
+        <?php endif; ?>
         <div style="padding:10px 0 0;margin:6px 0 0;">
             <div style="font-size:14px;font-weight:700;color:#fff;margin:0 0 6px;">Course Duration</div>
             <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;color:#cbd5e1;"><span>Training Hours:</span><strong style="color:#fff"><?php echo $_dDur ?></strong></div>
+            <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;color:#cbd5e1;"><span>Assessment Hours:</span><strong style="color:#fff"><?php echo htmlspecialchars($_assessLabel) ?></strong></div>
             <div style="height:1px;background:#1e293b;margin:4px 0;"></div>
-            <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:13px;color:#fff;font-weight:700;"><span>Total Duration:</span><strong><?php echo $_dDur ?></strong></div>
+            <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:13px;color:#fff;font-weight:700;"><span>Total Duration:</span><strong><?php echo $_totalDur ?></strong></div>
         </div>
         <nav style="margin-top:14px;padding-top:14px;border-top:1px solid #1e293b;display:flex;flex-direction:column;gap:2px;">
             <?php echo $_eAttendanceNavHtml; ?>
