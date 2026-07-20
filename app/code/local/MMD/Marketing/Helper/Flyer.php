@@ -5,9 +5,12 @@
  * MailerLite blast so all three show the identical design.
  *
  * The QR points at the live course page. In EMAIL, embedded data-URI images are
- * stripped by Gmail, so the QR is referenced as a hosted image URL served by the
- * public review route (newsletter-review/qr) which streams a PNG for the given
- * course URL. That keeps the QR dynamic per-course with no external dependency.
+ * stripped by Gmail, so the QR must be a hosted image URL. It is generated at
+ * render time and uploaded to Cloudflare R2 (static CDN, up even during app
+ * redeploys — Gmail's image proxy caches a failed fetch per URL, so an origin
+ * 502 at open time shows a permanently broken QR; incident 2026-07-16). The
+ * same-origin route (newsletter-review/qr) remains as fallback when R2 is
+ * unreachable/unconfigured, and keeps QRs in already-sent emails working.
  */
 class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
 {
@@ -109,8 +112,25 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         // "What you'll walk out able to do" — outcome-framed value stack. We do NOT
         // copy the course-page syllabus verbatim; the flyer is a funnel, so each line
         // is a pain-point -> tangible result the reader can picture, in plain English.
-        // Curated per flagship course; a benefit-led generic frame covers the rest.
-        $outcomes = $this->courseOutcomes($sku, $name);
+        // Curated per flagship course; otherwise reframed from THIS course's own
+        // topics so every flyer reads differently (no repeated generic lines).
+        $topics   = $this->parseTopics((string) $raw('description'));
+        $outcomes = $this->courseOutcomes($sku, $name, $topics);
+        $journey  = $this->courseJourney($sku, $topics);
+
+        // Per-course visual identity: a flagship course gets its own accent
+        // palette (+ optional logo); everything else keeps the default blue.
+        // _mergedPitch() = curated code + stored per-SKU design refinements, so a
+        // manager's change-request can override any part as DATA (no redeploy).
+        $pitch  = $this->_mergedPitch();
+        $key    = trim((string) $sku);
+        $accent = (isset($pitch[$key]['accent']) && is_array($pitch[$key]['accent']))
+            ? $pitch[$key]['accent']
+            : array('#2563eb', '#eaf0fe', '#c7d7fe');
+
+        // Days = duration / 8h, min 1. Drives the hero eyebrow + Day-labelled journey.
+        $durHrs = (int) preg_replace('/[^0-9]/', '', (string) $raw('duration'));
+        $days   = $durHrs > 0 ? max(1, (int) round($durHrs / 8)) : 1;
 
         return array(
             'id'        => $productId,
@@ -119,38 +139,351 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
             'raw_name'  => $name,
             'price'     => (float) $raw('price'),
             'duration'  => $raw('duration'),
+            'days'      => $days,
             'url'       => $courseUrl,
             'badges'    => $badges,
             'blurb'     => $blurb,
             'is_wsq'    => (stripos($sku, 'TGS-') === 0) || in_array('WSQ', $badges, true),
             'runs'      => $runs,
             'outcomes'  => $outcomes,
+            'journey'   => $journey,
+            'accent'    => $accent[0],
+            'accent_bg' => $accent[1],
+            'accent_br' => $accent[2],
+            'logo'      => isset($pitch[$key]['logo']) ? $pitch[$key]['logo'] : '',
+        );
+    }
+
+    /**
+     * Curated code pitch overlaid with stored per-SKU DESIGN REFINEMENTS. This is
+     * the mechanism that makes manager change-requests actually change the design:
+     * a refinement (JSON keyed by SKU in core_config
+     * `mmd_marketing/newsletter/design_refinements`) can override hook / outcomes /
+     * journey / accent / logo for one course, and regeneration re-reads it — so the
+     * next iteration differs, driven by the feedback, with no code deploy. Curated
+     * code is the base; refinements win key-by-key.
+     */
+    protected function _mergedPitch()
+    {
+        $base = $this->_curatedPitch();
+        foreach ($this->_designRefinements() as $sku => $ov) {
+            if (!is_array($ov)) { continue; }
+            $sku = trim((string) $sku);
+            $base[$sku] = (isset($base[$sku]) && is_array($base[$sku])) ? array_merge($base[$sku], $ov) : $ov;
+        }
+        return $base;
+    }
+
+    /**
+     * Anthropic Messages API call for flyer copy — its OWN client (not the shared
+     * SEO invokeClaude) so the newsletter feature controls the auth + system prompt.
+     * Supports BOTH credential shapes the account uses:
+     *   - `sk-ant-api…` real API key  → `x-api-key` header.
+     *   - `sk-ant-oat…` Claude-Code OAuth token → `Authorization: Bearer` + the
+     *     `anthropic-beta: oauth-2025-04-20` header + a leading "You are Claude
+     *     Code…" system block (verified on prod: this returns 200; a plain Bearer
+     *     without those two pieces 429s, and x-api-key 401s). The web container has
+     *     no `claude` CLI, so this direct API path is the only one that works there.
+     * Returns the model's text, or '' on any failure (caller falls back gracefully).
+     */
+    protected function _callClaude($prompt)
+    {
+        $cfg   = Mage::helper('mmd_rolemanager')->getMarketingApiConfig();
+        $key   = trim((string) ($cfg['anthropic_key'] ?? ''));
+        $model = trim((string) ($cfg['anthropic_model'] ?? '')) ?: 'claude-opus-4-6';
+        if ($key === '') { return ''; }
+
+        $headers = array('anthropic-version: 2023-06-01', 'content-type: application/json');
+        $system  = array();
+        if (stripos($key, 'sk-ant-oat') === 0) {
+            $headers[] = 'authorization: Bearer ' . $key;
+            $headers[] = 'anthropic-beta: oauth-2025-04-20';
+            $system[]  = array('type' => 'text', 'text' => "You are Claude Code, Anthropic's official CLI for Claude.");
+        } else {
+            $headers[] = 'x-api-key: ' . $key;
+        }
+        $system[] = array('type' => 'text', 'text' => 'You are a direct-response course-marketing copywriter for Tertiary Courses Singapore. Output ONLY the exact JSON object requested — no markdown fences, no preamble, no commentary.');
+
+        $body = json_encode(array(
+            'model'      => $model,
+            'max_tokens' => 1500,
+            'system'     => $system,
+            'messages'   => array(array('role' => 'user', 'content' => $prompt)),
+        ));
+        try {
+            $ch = curl_init('https://api.anthropic.com/v1/messages');
+            curl_setopt_array($ch, array(
+                CURLOPT_POST => true, CURLOPT_POSTFIELDS => $body, CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => 60, CURLOPT_CONNECTTIMEOUT => 10, CURLOPT_HTTPHEADER => $headers,
+            ));
+            $raw  = curl_exec($ch);
+            $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            $j = json_decode((string) $raw, true);
+            if ($code < 400 && isset($j['content'][0]['text'])) {
+                return (string) $j['content'][0]['text'];
+            }
+            Mage::log('flyer _callClaude HTTP ' . $code . ': ' . substr((string) $raw, 0, 300), null, 'newsletter.log');
+        } catch (Exception $e) {
+            Mage::log('flyer _callClaude exception: ' . $e->getMessage(), null, 'newsletter.log');
+        }
+        return '';
+    }
+
+    /** Stored per-SKU design refinements (JSON keyed by SKU). Read straight from
+     *  core_config_data so a saveConfig() earlier in the same request is honoured. */
+    protected function _designRefinements()
+    {
+        try {
+            $res = Mage::getSingleton('core/resource');
+            $raw = $res->getConnection('core_read')->fetchOne(
+                'SELECT value FROM ' . $res->getTableName('core/config_data')
+              . " WHERE path = 'mmd_marketing/newsletter/design_refinements'"
+              . ' AND scope = ? AND scope_id = 0 LIMIT 1',
+                array('default')
+            );
+            $j = json_decode((string) $raw, true);
+            return is_array($j) ? $j : array();
+        } catch (Exception $e) {
+            return array();
+        }
+    }
+
+    /**
+     * AI-REGENERATE the flyer copy for one course — hook, outcomes and learning
+     * journey — from the course's OWN content, the manager's feedback and what past
+     * blasts have taught us. This is the fix for "the text cannot be templated": the
+     * copy is generated fresh by Claude each iteration, so it is course-specific and
+     * moves with the feedback, instead of a hardcoded per-SKU block. The result is
+     * persisted into the per-SKU design_refinements store, which _mergedPitch() then
+     * overlays, so render() picks it up on the very next call.
+     *
+     * Returns the generated copy array on success, or null if generation failed (the
+     * caller then falls back to the curated pitch / topic reframing — never a crash).
+     *
+     * @param string $feedback  the manager's change-request text (drives the rewrite)
+     */
+    public function regenerateCopy($productId, $feedback = '')
+    {
+        $productId = (int) $productId;
+        $res = Mage::getResourceModel('catalog/product');
+        $raw = function ($attr) use ($res, $productId) {
+            return (string) $res->getAttributeRawValue($productId, $attr, 0);
+        };
+        $sku = trim((string) Mage::getSingleton('core/resource')->getConnection('core_read')
+            ->fetchOne('SELECT sku FROM ' . Mage::getSingleton('core/resource')->getTableName('catalog/product')
+                     . ' WHERE entity_id = ?', array($productId)));
+        if ($sku === '') { return null; }
+
+        // Reuse an existing AI copy only when there is NO new feedback to act on.
+        // A change-request (feedback non-empty) ALWAYS regenerates, so the reader
+        // never gets the same design twice after giving feedback.
+        $fb0 = trim((string) $feedback);
+        if ($fb0 === '') {
+            $existing = $this->_designRefinements();
+            if (!empty($existing[$sku]['_ai'])) { return $existing[$sku]; }
+        }
+
+        $name   = preg_replace('/^\s*WSQ\s*[-\x{2013}]\s*/iu', '', $raw('name'));
+        $isWsq  = (stripos($sku, 'TGS-') === 0);
+        $desc   = (string) ($raw('short_description') ?: $raw('meta_description'));
+        $desc   = trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($desc), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+        $topics = $this->parseTopics((string) $raw('description'));
+        $durHrs = (int) preg_replace('/[^0-9]/', '', (string) $raw('duration'));
+        $days   = $durHrs > 0 ? max(1, (int) round($durHrs / 8)) : 1;
+
+        // What past blasts taught us — the WIN patterns become guidance for this copy.
+        $learnings = '';
+        try {
+            $cron = Mage::getModel('mmd_marketing/cron_flyer');
+            if (method_exists($cron, 'designLearnings')) {
+                $log = $cron->designLearnings();
+                $wins = array();
+                foreach ((array) $log as $e) {
+                    if (isset($e['verdict']) && $e['verdict'] === 'win' && !empty($e['subject'])) {
+                        $wins[] = '"' . $e['subject'] . '" (open ' . round(((float) ($e['open_rate'] ?? 0)) * 100, 1) . '%)';
+                    }
+                }
+                if ($wins) { $learnings = 'Subject lines that beat our average: ' . implode('; ', array_slice($wins, -4)) . '.'; }
+            }
+        } catch (Exception $e) { /* learnings optional */ }
+
+        $topicList = $topics ? implode('; ', array_slice($topics, 0, 10)) : '(no topic list parsed — use the description)';
+        $fb = trim((string) $feedback);
+
+        // On a rework, show Claude the REJECTED version so it diverges from it and
+        // provably acts on the feedback (not a reword). HARD RULE: the manager's
+        // feedback must be incorporated before a new approval email goes out.
+        $prev = '';
+        if ($fb !== '') {
+            $ex = $this->_designRefinements();
+            if (!empty($ex[$sku]['outcomes']) && is_array($ex[$sku]['outcomes'])) {
+                $pl = array();
+                foreach ($ex[$sku]['outcomes'] as $o) { $pl[] = '- ' . html_entity_decode((string) $o, ENT_QUOTES, 'UTF-8'); }
+                if (!empty($ex[$sku]['hook'])) { array_unshift($pl, 'Hook: ' . html_entity_decode((string) $ex[$sku]['hook'], ENT_QUOTES, 'UTF-8')); }
+                $prev = "PREVIOUS VERSION — the manager REJECTED this. Your rewrite MUST be clearly different from it and MUST fix exactly what the feedback flags:\n" . implode("\n", $pl) . "\n\n";
+            }
+        }
+
+        $prompt = "You are a direct-response copywriter for Tertiary Courses Singapore, writing a course FLYER that must drive sign-ups. Write copy that is SPECIFIC to THIS course — name the actual tools, concepts and outcomes a learner gains. Never generic (\"learn by doing\", \"start from zero\", \"build something real\" are BANNED — they say nothing). Plain English, benefit-led, each line a concrete result the reader can picture.\n\n"
+            . "COURSE\nTitle: {$name}\nCourse code: {$sku}\nWSQ funded: " . ($isWsq ? 'yes' : 'no') . "\nDuration: {$days} day(s)\nWhat it covers: {$desc}\nSyllabus topics: {$topicList}\n\n"
+            . $prev
+            . ($fb !== '' ? "MANAGER FEEDBACK you MUST act on (this is why the previous version was rejected — address every point directly, don't just reword):\n{$fb}\n\n" : "")
+            . ($learnings !== '' ? "WHAT WORKS (from our past newsletter performance): {$learnings}\n\n" : "")
+            . "Return ONLY a JSON object, no markdown, no preamble, with EXACTLY these keys:\n"
+            . "{\n"
+            . "  \"hook\": \"one punchy sentence (<=200 chars) naming what they'll build/master in this specific course\",\n"
+            . "  \"outcomes\": [\"5 specific, concrete outcomes — each names a real skill/tool/deliverable from THIS course, <=110 chars each\"],\n"
+            . "  \"journey\": [{\"label\":\"short step label" . ($days > 1 ? " e.g. 'Day 1 · AM'" : "") . "\",\"do\":\"the specific thing they do/build in that step\"}]\n"
+            . "}\n"
+            . "journey MUST have " . ($days > 1 ? ($days * 2) . " steps (2 per day)" : "3-4 steps") . ", in order, each concrete to this course. Use plain ASCII punctuation.";
+
+        $out = $this->_callClaude($prompt);
+        if ($out === '') { return null; }
+
+        // Strip any ```json fence, then take the outermost {...}.
+        $out = preg_replace('/^\s*```[a-z]*\s*|\s*```\s*$/i', '', trim($out));
+        if (preg_match('/\{.*\}/s', $out, $mm)) { $out = $mm[0]; }
+        $data = json_decode($out, true);
+        if (!is_array($data) || empty($data['hook']) || empty($data['outcomes']) || !is_array($data['outcomes'])) {
+            return null;
+        }
+
+        // Sanitise: entity-encode & normalise — the render escapes nothing in these
+        // fields (curated copy carries intentional entities), so encode here.
+        // outcomes + journey are injected into the HTML as-is (render does NOT escape
+        // them — curated copy carries intentional entities), so entity-encode here.
+        // hook is passed through htmlspecialchars() at render, so keep it PLAIN text.
+        $enc = function ($s) { return htmlspecialchars(trim(preg_replace('/\s+/u', ' ', (string) $s)), ENT_QUOTES, 'UTF-8'); };
+        $copy = array('_ai' => true);
+        $copy['hook'] = trim(preg_replace('/\s+/u', ' ', (string) $data['hook']));
+        $copy['outcomes'] = array();
+        foreach (array_slice($data['outcomes'], 0, 6) as $o) {
+            $o = $enc($o);
+            if ($o !== '') { $copy['outcomes'][] = $o; }
+        }
+        $copy['journey'] = array();
+        if (!empty($data['journey']) && is_array($data['journey'])) {
+            foreach (array_slice($data['journey'], 0, 8) as $st) {
+                if (is_array($st) && !empty($st['do'])) {
+                    $copy['journey'][] = array($enc(isset($st['label']) ? $st['label'] : ''), $enc($st['do']));
+                }
+            }
+        }
+        if (count($copy['outcomes']) < 3) { return null; }
+
+        // Persist into the per-SKU refinements store so _mergedPitch() overlays it.
+        $all = $this->_designRefinements();
+        $all[$sku] = array_merge(isset($all[$sku]) && is_array($all[$sku]) ? $all[$sku] : array(), $copy);
+        Mage::getModel('core/config')->saveConfig('mmd_marketing/newsletter/design_refinements', json_encode($all));
+        Mage::app()->getCacheInstance()->cleanType('config');
+        return $copy;
+    }
+
+    /** Curated per-flagship-SKU flyer voice: [hook, outcomes[], journey[]]. See the
+     *  `newsletter-design` skill for how to write and add these. Each `journey` step
+     *  is [label, what-you-do] — the concrete class timeline the flyer shows so the
+     *  reader can picture the day, not just an abstract list of benefits. */
+    protected function _curatedPitch()
+    {
+        return array(
+            // WSQ Agentic AI Applications with Claude Code — "build your own apps".
+            'TGS-2025052468' => array(
+                // Claude brand terracotta — a distinct identity vs the default blue.
+                'accent' => array('#c2410c', '#fdeede', '#f5cfa8'),
+                'hook' => 'Build your own apps with Claude Code — describe what you want in plain English and ship a working tool the same day, no coding background needed.',
+                'outcomes' => array(
+                    'Turn a plain-English idea into a working app &mdash; no computer-science degree needed.',
+                    'Ship your first useful tool before lunch, then build a second one after.',
+                    'Hand the boring, repetitive parts of your job to AI instead of doing them by hand.',
+                    'Let Claude write, test and fix the code while you stay in charge and steer.',
+                    'Put what you built online so your team can actually use it &mdash; not just a demo.',
+                ),
+                'journey' => array(
+                    array('Describe it', 'Tell Claude Code your app idea in plain English &mdash; no setup headaches.'),
+                    array('Watch it build', 'Claude writes, runs and fixes the code while you steer the direction.'),
+                    array('Shape it', 'Add features and polish through conversation, not syntax.'),
+                    array('Ship it', 'Publish your finished tool online for your team to actually use.'),
+                ),
+            ),
+            // WSQ Agentic AI Automation with n8n — webhooks + RAG -> real agentic apps.
+            'TGS-2023035977' => array(
+                // n8n brand pink/red.
+                'accent' => array('#ea4b71', '#fdeaef', '#f7c9d5'),
+                'logo'   => 'n8n',
+                'hook' => 'Wire up real agentic AI with n8n — use webhooks and RAG to build assistants and automations that act on your own data, no heavy coding.',
+                'outcomes' => array(
+                    'Trigger AI workflows from anything with webhooks &mdash; a form, a chat, an app, an incoming email.',
+                    'Ground your AI in your own documents with RAG, so it answers from your data, not guesswork.',
+                    'Build a working agentic app end-to-end in class &mdash; not a slide, a running workflow.',
+                    'Automate real business tasks &mdash; lead capture, support replies, report generation &mdash; while you sleep.',
+                    'Leave with an n8n workflow you can plug into your own tools the very next day.',
+                ),
+                'journey' => array(
+                    array('Trigger', 'Set up n8n and fire your first webhook from a form, chat or app.'),
+                    array('Ground', 'Connect an LLM and feed it your own documents with RAG.'),
+                    array('Automate', 'Chain the steps into an agent that takes real actions on its own.'),
+                    array('Deploy', 'Publish the workflow and hand it a real task to run while you sleep.'),
+                ),
+            ),
+            // WSQ Build Full Stack React Web App with Vibe Coding — real React, deployed.
+            'TGS-2020505042' => array(
+                // React brand cyan.
+                'accent' => array('#0284c7', '#e0f2fe', '#bae6fd'),
+                'logo'   => 'React',
+                'hook' => 'Go from zero to a deployed React web app in two days — with "vibe coding" you describe each feature and build real, professional React the modern way.',
+                'outcomes' => array(
+                    'Build real React components and reuse them like Lego blocks &mdash; the core skill every React job asks for.',
+                    'Master useState and useEffect (React Hooks) so your app reacts to clicks, forms and live data.',
+                    'Fetch and show live data from an API &mdash; the exact pattern behind dashboards, feeds and admin panels.',
+                    'Add routing so your app has real, shareable pages instead of one giant screen.',
+                    'Deploy your finished app to a live URL you can send an employer the very same day.',
+                ),
+                'journey' => array(
+                    array('Day 1 &middot; AM', 'Set up React and ship your first live, reusable component.'),
+                    array('Day 1 &middot; PM', 'Add state with Hooks so the UI responds to the user.'),
+                    array('Day 2 &middot; AM', 'Pull in live API data and route between real pages.'),
+                    array('Day 2 &middot; PM', 'Style, polish and deploy your app to a public URL.'),
+                ),
+            ),
         );
     }
 
     /**
      * Outcome-framed "what you'll walk out able to do" lines for the flyer funnel.
-     * Each is a benefit the reader can picture, written in plain English — never a
-     * verbatim lift of the course-page syllabus. Curated per flagship SKU; every
-     * other course falls back to a hands-on, build-something-real frame.
+     * Each is a benefit the reader can picture, in plain English — NEVER a verbatim
+     * lift of the syllabus, and NEVER the same generic lines on every flyer:
+     *   1. curated flagship voice (best), else
+     *   2. this course's OWN topics reframed into varied benefit lines, else
+     *   3. a benefit-led generic frame (only when a course has no parseable topics).
      */
-    protected function courseOutcomes($sku, $name)
+    protected function courseOutcomes($sku, $name, $topics = array())
     {
-        $curated = array(
-            // WSQ Agentic AI Applications with Claude Code
-            'TGS-2025052468' => array(
-                'Turn a plain-English idea into a working app &mdash; no computer-science degree needed.',
-                'Ship your first useful tool before lunch, then build a second one after.',
-                'Hand the boring, repetitive parts of your job to AI instead of doing them by hand.',
-                'Let Claude write, test and fix the code while you stay in charge and steer.',
-                'Put what you built online so your team can actually use it &mdash; not just a demo.',
-            ),
-        );
+        $curated = $this->_mergedPitch();
         $key = trim((string) $sku);
-        if (isset($curated[$key])) {
-            return $curated[$key];
+        if (isset($curated[$key]['outcomes']) && !empty($curated[$key]['outcomes'])) {
+            return $curated[$key]['outcomes'];
         }
-        // Generic funnel frame — still benefit-led, never the raw syllabus.
+
+        // Reframe THIS course's topics — rotating frames so lines vary, and the
+        // topic text is escaped (frames carry the only intentional entities).
+        $frames = array(
+            'Get properly hands-on with %s &mdash; you build it in class, not just watch a demo.',
+            'Put %s to work on real scenarios in class, so it actually sticks.',
+            'Walk out able to apply %s to your own projects the very next day.',
+            'Go from &ldquo;heard of %s&rdquo; to &ldquo;done it&rdquo; in a single day.',
+            'Turn %s from a buzzword into a skill you can show your manager.',
+        );
+        $h = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); };
+        $lines = array();
+        foreach (array_slice($topics, 0, 4) as $i => $t) {
+            $lines[] = sprintf($frames[$i % count($frames)], $h($t));
+        }
+        if (count($lines) >= 3) {
+            return $lines;
+        }
+
+        // Last resort — no usable topics. Still benefit-led (not the raw syllabus).
         return array(
             'Start from zero &mdash; no prior experience assumed, we build up from the basics.',
             'Learn by doing from hour one &mdash; hands-on practice, not slides you forget by Friday.',
@@ -160,23 +493,98 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
     }
 
     /**
-     * Persuasive hook line for the flyer hero. Flagship SKUs get a curated angle;
-     * every other course falls back to its catalog blurb. Kept next to the
-     * outcomes so a flagship course's whole voice lives in one place.
+     * Persuasive hook line for the flyer hero. Curated flagship voice wins;
+     * otherwise the course's own catalog blurb (already course-specific).
      */
     protected function courseHook($sku, $blurb)
     {
-        $curated = array(
-            // WSQ Agentic AI Applications with Claude Code — "build your own apps" angle.
-            'TGS-2025052468' => 'Build your own apps with Claude Code &mdash; describe what you want in plain English and ship a working tool the same day, no coding background needed.',
-        );
+        $curated = $this->_mergedPitch();
         $key = trim((string) $sku);
-        return isset($curated[$key]) ? $curated[$key] : (string) $blurb;
+        return !empty($curated[$key]['hook']) ? $curated[$key]['hook'] : (string) $blurb;
     }
 
-    /** URL of the hosted QR image for this course (served by the public route). */
+    /**
+     * The "your learning journey" steps — [label, what-you-do] pairs the flyer shows
+     * as a numbered timeline so the reader can picture the class. AI-generated /
+     * curated per SKU (via _mergedPitch), else derived from THIS course's own topics,
+     * else a minimal generic arc. Never a verbatim syllabus dump.
+     */
+    protected function courseJourney($sku, $topics = array())
+    {
+        $curated = $this->_mergedPitch();
+        $key = trim((string) $sku);
+        if (!empty($curated[$key]['journey']) && is_array($curated[$key]['journey'])) {
+            return $curated[$key]['journey'];
+        }
+        $h = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); };
+        $steps = array();
+        foreach (array_slice($topics, 0, 4) as $i => $t) {
+            $steps[] = array('Step ' . ($i + 1), 'Get hands-on with ' . $h($t) . '.');
+        }
+        return $steps; // empty if no topics — the render simply omits the section
+    }
+
+    /**
+     * Parse the course-page topic titles (the `<h3 class="course-topic-h3">Topic N:
+     * Title</h3>` structure) into short, clean noun phrases — the raw material the
+     * outcome frames reshape into benefits. Strips the "Topic N:" prefix and common
+     * filler openers so a frame reads naturally ("hands-on with Prompt Engineering",
+     * not "hands-on with Introduction to Prompt Engineering").
+     */
+    protected function parseTopics($desc)
+    {
+        $topics = array();
+        if ($desc !== '' && preg_match_all('#<h3[^>]*>(.*?)</h3>#is', $desc, $m)) {
+            foreach ($m[1] as $t) {
+                $t = html_entity_decode(strip_tags($t), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                $t = trim(preg_replace('/^\s*Topic\s*\d+\s*[:.\-\x{2013}]?\s*/iu', '', $t));
+                $t = trim(preg_replace('/^(Introduction to|Intro to|Getting Started with|Overview of|Understanding|Basics of|Fundamentals of|Working with)\s+/iu', '', $t));
+                $t = preg_replace('/\s+/u', ' ', $t);
+                if ($t !== '' && function_exists('mb_strlen') && mb_strlen($t) >= 3 && mb_strlen($t) <= 48) {
+                    $topics[] = $t;
+                }
+            }
+        }
+        return $topics;
+    }
+
+    /**
+     * URL of the hosted QR image for this course. Preferred: a static PNG on
+     * Cloudflare R2 (generated here, uploaded once, key derived from the course
+     * URL so preview / reviewer email / blast all embed the identical URL).
+     * Fallback: the same-origin dynamic route.
+     */
     public function qrUrl($courseUrl)
     {
+        $cacheKey = 'MMD_FLYER_QR_R2_' . md5($courseUrl);
+        $cache    = Mage::app()->getCache();
+        $cached   = $cache ? $cache->load($cacheKey) : false;
+        if (is_string($cached) && $cached !== '') {
+            return $cached;
+        }
+        try {
+            // Same QR options as IndexController::qrAction() — ECC_H, 4-module
+            // quiet zone, pure black — proven scannable in the sent flyers.
+            $opt = new \chillerlan\QRCode\QROptions(array(
+                'outputType'       => \chillerlan\QRCode\QRCode::OUTPUT_IMAGE_PNG,
+                'eccLevel'         => \chillerlan\QRCode\QRCode::ECC_H,
+                'scale'            => 10,
+                'quietzoneSize'    => 4,
+                'imageBase64'      => false,
+                'imageTransparent' => false,
+            ));
+            $png = (new \chillerlan\QRCode\QRCode($opt))->render($courseUrl);
+            if (is_string($png) && $png !== '') {
+                $res = Mage::helper('mmd_courseimage/r2')
+                    ->putObject('newsletter/qr/' . md5($courseUrl) . '.png', $png, 'image/png');
+                if ($cache) {
+                    $cache->save($res['url'], $cacheKey, array(), 30 * 86400);
+                }
+                return $res['url'];
+            }
+        } catch (Exception $e) {
+            Mage::logException($e);
+        }
         $base = rtrim(Mage::getStoreConfig('web/unsecure/base_url'), '/');
         return $base . '/newsletter-review/index/qr/u/' . rawurlencode(base64_encode($courseUrl));
     }
@@ -198,6 +606,10 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         $duration = $c['duration'] ? $h($c['duration']) . ' hrs' : '1 day &middot; 8 hrs';
         $sans    = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
         $mono    = "ui-monospace,Menlo,Consolas,monospace";
+        // Per-course accent (default blue; flagship courses override — see _curatedPitch).
+        $accent   = isset($c['accent'])    ? $c['accent']    : '#2563eb';
+        $accentBg = isset($c['accent_bg']) ? $c['accent_bg'] : '#eaf0fe';
+        $accentBr = isset($c['accent_br']) ? $c['accent_br'] : '#c7d7fe';
 
         // Persuasive hook — real per-course marketing copy. Flagship SKUs get a
         // curated angle (kept in one place with the outcomes); everything else uses
@@ -241,10 +653,43 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
                 ? 'Finish the day and walk away with a <b style="color:#0a1020;">WSQ Statement of Attainment</b> &mdash; and an app you actually built.'
                 : 'Finish the day and walk away with a certificate &mdash; and something you actually built.';
             $learnHtml = '<tr><td style="padding:24px 30px 8px;">'
-                . '<div style="font:800 13px ' . $sans . ';text-transform:uppercase;letter-spacing:.8px;color:#2563eb;margin-bottom:16px;">What you&rsquo;ll walk out able to do</div>'
+                . '<div style="font:800 13px ' . $sans . ';text-transform:uppercase;letter-spacing:.8px;color:' . $accent . ';margin-bottom:16px;">What you&rsquo;ll walk out able to do</div>'
                 . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0">' . $lrows . '</table>'
                 . '<div style="font:600 12.5px ' . $sans . ';color:#42506a;margin-top:2px;">' . $cert . '</div>'
                 . '</td></tr>';
+        }
+
+        // ---- FUNNEL: the learning journey — a numbered timeline of the class so the
+        // reader can picture exactly what they'll do/build (concrete beats abstract).
+        $journeyHtml = '';
+        if (!empty($c['journey']) && is_array($c['journey'])) {
+            $jrows = '';
+            $n = count($c['journey']);
+            foreach (array_values($c['journey']) as $i => $step) {
+                $label = is_array($step) ? (isset($step[0]) ? $step[0] : '') : '';
+                $doit  = is_array($step) ? (isset($step[1]) ? $step[1] : '') : (string) $step;
+                if ($doit === '') { continue; }
+                $line = ($i < $n - 1)
+                    ? 'border-left:2px solid ' . $accentBr . ';'
+                    : 'border-left:2px solid transparent;';
+                $jrows .= '<tr>'
+                    . '<td width="30" valign="top" style="padding:0 14px 0 0;">'
+                    .   '<div style="' . $line . 'padding-bottom:18px;position:relative;">'
+                    .     '<span style="display:inline-block;width:26px;height:26px;line-height:26px;text-align:center;border-radius:999px;background:' . $accent . ';color:#fff;font:800 12px ' . $sans . ';margin-left:-14px;">' . ($i + 1) . '</span>'
+                    .   '</div>'
+                    . '</td>'
+                    . '<td valign="top" style="padding-bottom:18px;">'
+                    .   ($label !== '' ? '<div style="font:800 11px ' . $sans . ';letter-spacing:.6px;text-transform:uppercase;color:' . $accent . ';margin-bottom:3px;">' . $label . '</div>' : '')
+                    .   '<div style="font:600 14px/1.5 ' . $sans . ';color:#0a1020;">' . $doit . '</div>'
+                    . '</td>'
+                    . '</tr>';
+            }
+            if ($jrows !== '') {
+                $journeyHtml = '<tr><td style="padding:20px 30px 4px;">'
+                    . '<div style="font:800 13px ' . $sans . ';text-transform:uppercase;letter-spacing:.8px;color:' . $accent . ';margin-bottom:16px;">Your learning journey</div>'
+                    . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0">' . $jrows . '</table>'
+                    . '</td></tr>';
+            }
         }
 
         // ---- FUNNEL: friction-killer — how the funding works, in 3 steps -----------
@@ -258,13 +703,13 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
             $srow = '';
             foreach ($steps as $s) {
                 $srow .= '<td width="33%" valign="top" class="fl-stack" style="padding:0 12px 0 0;">'
-                    . '<div style="font:800 12px ' . $sans . ';color:#fff;background:#2563eb;width:22px;height:22px;line-height:22px;text-align:center;border-radius:999px;">' . $s[0] . '</div>'
+                    . '<div style="font:800 12px ' . $sans . ';color:#fff;background:' . $accent . ';width:22px;height:22px;line-height:22px;text-align:center;border-radius:999px;">' . $s[0] . '</div>'
                     . '<div style="font:800 13.5px ' . $sans . ';color:#0a1020;margin-top:8px;">' . $s[1] . '</div>'
                     . '<div style="font:400 12.5px/1.5 ' . $sans . ';color:#42506a;margin-top:4px;">' . $s[2] . '</div>'
                     . '</td>';
             }
             $stepsHtml = '<tr><td style="padding:20px 30px 6px;">'
-                . '<div style="font:800 13px ' . $sans . ';text-transform:uppercase;letter-spacing:.8px;color:#2563eb;margin-bottom:14px;">How your funding works</div>'
+                . '<div style="font:800 13px ' . $sans . ';text-transform:uppercase;letter-spacing:.8px;color:' . $accent . ';margin-bottom:14px;">How your funding works</div>'
                 . '<table role="presentation" width="100%"><tr>' . $srow . '</tr></table>'
                 . '</td></tr>';
         }
@@ -296,7 +741,7 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
             }
             if ($rowsHtml) {
                 $scheduleHtml = '<tr><td style="padding:16px 30px 4px;">'
-                    . '<div style="font:800 13px ' . $sans . ';text-transform:uppercase;letter-spacing:.8px;color:#2563eb;margin-bottom:12px;">Upcoming intakes &mdash; seats filling</div>'
+                    . '<div style="font:800 13px ' . $sans . ';text-transform:uppercase;letter-spacing:.8px;color:' . $accent . ';margin-bottom:12px;">Upcoming intakes &mdash; seats filling</div>'
                     . '<table role="presentation"><tr>' . $rowsHtml . '</tr></table></td></tr>';
             }
         }
@@ -368,20 +813,21 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         . '<tr><td style="padding:14px 22px;border-bottom:1px solid #e4e9f0;">'
         .   '<table role="presentation" width="100%"><tr>'
         .     '<td><table role="presentation"><tr>'
-        .       '<td style="padding-right:10px;"><span style="display:inline-block;width:30px;height:30px;line-height:30px;text-align:center;border-radius:8px;background:#2563eb;color:#fff;font:800 16px ' . $sans . ';">T</span></td>'
+        .       '<td style="padding-right:10px;"><span style="display:inline-block;width:30px;height:30px;line-height:30px;text-align:center;border-radius:8px;background:' . $accent . ';color:#fff;font:800 16px ' . $sans . ';">T</span></td>'
         .       '<td style="font:600 15px ' . $sans . ';color:#0a1020;">Tertiary Courses <b style="font-weight:800;">Singapore</b></td>'
         .     '</tr></table></td>'
-        .     '<td align="right"><span style="font:700 10.5px ' . $sans . ';letter-spacing:.9px;text-transform:uppercase;color:#2563eb;background:#eaf0fe;border:1px solid #c7d7fe;padding:5px 10px;border-radius:999px;">WSQ &middot; SkillsFuture Funded</span></td>'
+        .     '<td align="right"><span style="font:700 10.5px ' . $sans . ';letter-spacing:.9px;text-transform:uppercase;color:' . $accent . ';background:' . $accentBg . ';border:1px solid ' . $accentBr . ';padding:5px 10px;border-radius:999px;">WSQ &middot; SkillsFuture Funded</span></td>'
         .   '</tr></table>'
         . '</td></tr>'
         // hero — headline, hook, the OFFER (price drop) and a first CTA: the funnel
         // opens with the full value story instead of burying the price at the bottom
         . '<tr><td class="fl-hero" style="background:#0a1020;padding:34px 30px 30px;">'
-        .   '<div style="font:700 11px ' . $sans . ';letter-spacing:1.6px;text-transform:uppercase;color:#22d3ee;margin-bottom:14px;">Hands-on Workshop &middot; 1 Day' . ($c['is_wsq'] ? ' &middot; Up to 70% Funded' : '') . '</div>'
+        .   (!empty($c['logo']) ? '<div style="margin-bottom:16px;"><span style="display:inline-block;font:800 20px ' . $sans . ';color:' . $accent . ';background:#ffffff;padding:6px 13px;border-radius:9px;letter-spacing:-.5px;">' . $h($c['logo']) . '</span></div>' : '')
+        .   '<div style="font:700 11px ' . $sans . ';letter-spacing:1.6px;text-transform:uppercase;color:#22d3ee;margin-bottom:14px;">Hands-on Workshop &middot; ' . ((int) (isset($c['days']) ? $c['days'] : 1)) . ' Day' . (((int) (isset($c['days']) ? $c['days'] : 1)) > 1 ? 's' : '') . ($c['is_wsq'] ? ' &middot; Up to 70% Funded' : '') . '</div>'
         .   '<h1 class="fl-h1" style="margin:0;font:800 31px/1.12 ' . $sans . ';color:#ffffff;letter-spacing:-.6px;">' . $h($c['name']) . '</h1>'
         .   ($hook ? '<div style="margin:16px 0 0;font:400 14.5px/1.55 ' . $sans . ';color:#b7c4e0;max-width:54ch;">' . $h($hook) . '</div>' : '')
         .   $offerHtml
-        .   '<a href="' . $h($c['url']) . '" style="display:inline-block;margin-top:16px;background:#2563eb;color:#fff;text-decoration:none;font:700 14px ' . $sans . ';padding:12px 22px;border-radius:10px;">Claim my funded seat &rarr;</a>'
+        .   '<a href="' . $h($c['url']) . '" style="display:inline-block;margin-top:16px;background:' . $accent . ';color:#fff;text-decoration:none;font:700 14px ' . $sans . ';padding:12px 22px;border-radius:10px;">Claim my funded seat &rarr;</a>'
         .   '<div style="margin-top:18px;font:400 12.5px ' . $mono . ';letter-spacing:1px;color:#9fb3d8;background:#12203f;border:1px solid #22345c;display:inline-block;padding:6px 12px;border-radius:8px;">' . $h($c['sku']) . '</div>'
         . '</td></tr>'
         // facts
@@ -392,8 +838,10 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         .     '<td width="34%" class="fl-fact" style="padding:16px 20px;"><div style="font:700 10.5px ' . $sans . ';letter-spacing:.8px;text-transform:uppercase;color:#7c8aa3;">Full Fee</div><div style="font:800 17px ' . $sans . ';color:#0a1020;margin-top:4px;">S$' . $price . '<small style="font:600 11px ' . $sans . ';color:#7c8aa3;margin-left:2px;">+GST</small></div></td>'
         .   '</tr></table>'
         . '</td></tr>'
-        // FUNNEL body: value stack -> urgency -> friction-killer -> proof of the offer
+        // FUNNEL body: value stack -> learning journey -> urgency -> friction-killer
         . $learnHtml
+        // the learning journey (numbered class timeline)
+        . $journeyHtml
         // upcoming intakes (next 2 class dates)
         . $scheduleHtml
         // how funding works (3 steps)
@@ -409,7 +857,7 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         .       '<div style="font:700 10.5px ' . $sans . ';letter-spacing:1.2px;text-transform:uppercase;color:#22d3ee;">Seats are limited</div>'
         .       '<div style="font:800 22px ' . $sans . ';color:#fff;margin-top:6px;">Scan to register</div>'
         .       '<div style="font:400 13px/1.5 ' . $sans . ';color:#aebbd8;margin-top:8px;max-width:34ch;">Point your phone camera at the code, or visit the course page.</div>'
-        .       '<a href="' . $h($c['url']) . '" style="display:inline-block;margin-top:16px;background:#2563eb;color:#fff;text-decoration:none;font:700 14px ' . $sans . ';padding:11px 20px;border-radius:10px;">Register now &rarr;</a>'
+        .       '<a href="' . $h($c['url']) . '" style="display:inline-block;margin-top:16px;background:' . $accent . ';color:#fff;text-decoration:none;font:700 14px ' . $sans . ';padding:11px 20px;border-radius:10px;">Register now &rarr;</a>'
         .       '<div style="font:400 12px ' . $mono . ';color:#8fa1c6;margin-top:12px;">' . $h($host) . '</div>'
         .     '</td>'
         .     '<td width="154" align="right" valign="middle" class="fl-stack fl-qr"><table role="presentation" style="background:#fff;border-radius:14px;"><tr><td style="padding:12px;" align="center"><img src="' . $h($qr) . '" width="130" height="130" alt="Scan to register" style="display:block;border-radius:6px;"><div style="font:400 10px ' . $mono . ';letter-spacing:.6px;color:#64748b;margin-top:8px;">' . $h($c['sku']) . '</div></td></tr></table></td>'
@@ -418,11 +866,11 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         // lead magnet band — the funnel's fallback path for the not-yet-ready reader,
         // placed AFTER the primary CTA so it catches whoever didn't convert above
         . '<tr><td style="padding:18px 30px 22px;">'
-        .   '<table role="presentation" width="100%" style="background:#eff4ff;border:1px solid #c7d7fe;border-radius:14px;"><tr><td style="padding:20px 22px;">'
-        .     '<div style="font:800 10.5px ' . $sans . ';letter-spacing:1.2px;text-transform:uppercase;color:#2563eb;">Free &middot; No obligation</div>'
+        .   '<table role="presentation" width="100%" style="background:#eff4ff;border:1px solid ' . $accentBr . ';border-radius:14px;"><tr><td style="padding:20px 22px;">'
+        .     '<div style="font:800 10.5px ' . $sans . ';letter-spacing:1.2px;text-transform:uppercase;color:' . $accent . ';">Free &middot; No obligation</div>'
         .     '<div style="font:800 18px/1.25 ' . $sans . ';color:#0a1020;margin-top:6px;">Not ready to enrol? Check your ' . $fundLabel . ' first</div>'
         .     '<div style="font:400 13.5px/1.55 ' . $sans . ';color:#42506a;margin-top:8px;max-width:56ch;">See exactly how much you can claim and get the full course syllabus emailed to you &mdash; free, in under a minute.</div>'
-        .     '<a href="' . $h($leadUrl) . '" style="display:inline-block;margin-top:14px;background:#ffffff;color:#1d4ed8;text-decoration:none;font:700 13.5px ' . $sans . ';padding:10px 18px;border-radius:9px;border:1.5px solid #2563eb;">Check my funding &amp; get the syllabus &rarr;</a>'
+        .     '<a href="' . $h($leadUrl) . '" style="display:inline-block;margin-top:14px;background:#ffffff;color:#1d4ed8;text-decoration:none;font:700 13.5px ' . $sans . ';padding:10px 18px;border-radius:9px;border:1.5px solid ' . $accent . ';">Check my funding &amp; get the syllabus &rarr;</a>'
         .   '</td></tr></table>'
         . '</td></tr>'
         // footer (two lines, matches approved artifact)
@@ -434,7 +882,7 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         // and refuses to send without it. Do not remove this row.
         . '<tr><td align="center" style="background:#eef2f7;padding:16px 14px;font:400 11px/1.6 ' . $sans . ';color:#8593ad;">'
         .   'You are receiving this because you subscribed to Tertiary Courses updates.<br>'
-        .   '<a href="{$unsubscribe}" style="color:#2563eb;">Unsubscribe</a>'
+        .   '<a href="{$unsubscribe}" style="color:' . $accent . ';">Unsubscribe</a>'
         . '</td></tr>'
         . '</table></div>';
     }

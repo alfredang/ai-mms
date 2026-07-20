@@ -34,6 +34,44 @@ class MMD_Marketing_Helper_Mailerlite extends Mage_Core_Helper_Abstract
         return $this->_getKey() !== '';
     }
 
+    /**
+     * Subscriber group id for THIS site's order-email sync.
+     *
+     * Franchise model = one store per site, same codebase everywhere, so this
+     * MUST be configuration rather than a constant: SG points at the Singapore
+     * group, MY at Malaysia, GH at its own. Set in Company Setting →
+     * Integrations → MailerLite on each partner's own admin.
+     *
+     * Returns '' when unconfigured — callers MUST treat that as "do not sync".
+     * There is deliberately NO fallback to the SG group: defaulting would push
+     * a franchisee's learners into Singapore's list, which is both wrong and
+     * unrecoverable (you cannot un-send a subscriber import).
+     */
+    public function getSyncGroupId()
+    {
+        return trim((string) Mage::getStoreConfig('mmd_company/mailerlite/group_id'));
+    }
+
+    /**
+     * Store id whose orders feed the sync. One store per site under the
+     * franchise model, but the id differs per partner DB (SG=1, MY=2, GH=3),
+     * so it is configurable. Defaults to this install's current store.
+     */
+    public function getSyncStoreId()
+    {
+        $cfg = trim((string) Mage::getStoreConfig('mmd_company/mailerlite/store_id'));
+        if ($cfg !== '' && ctype_digit($cfg)) {
+            return (int) $cfg;
+        }
+        return (int) Mage::app()->getStore()->getId();
+    }
+
+    /** Master on/off for the daily order-email sync cron. Default OFF. */
+    public function isSyncEnabled()
+    {
+        return (string) Mage::getStoreConfig('mmd_company/mailerlite/sync_enabled') === '1';
+    }
+
     public function getSubscribersSG()
     {
         return $this->getGroupSubscriberCount(self::GROUP_ID_SG);
@@ -256,18 +294,155 @@ class MMD_Marketing_Helper_Mailerlite extends Mage_Core_Helper_Abstract
         );
     }
 
+    // ---------- subscriber sync (order emails → SG group) ----------
+
+    /**
+     * Every email in the account that has opted out (status unsubscribed), plus
+     * those MailerLite bounced/marked as spam — lowercased for set comparison.
+     *
+     * Why this exists: POST /subscribers is an UPSERT. Posting an address that
+     * previously unsubscribed re-adds it to the group, which resurrects people
+     * who explicitly opted out — a spam-compliance breach, not just noise.
+     * MailerLite does preserve the unsubscribed status on its side, but we
+     * refuse to send them at all so the opt-out is never even attempted.
+     *
+     * Paged via cursor; capped so a runaway account can't spin forever.
+     */
+    public function getSuppressedEmails()
+    {
+        $out = array();
+        foreach (array('unsubscribed', 'bounced', 'junk') as $status) {
+            $cursor = null;
+            for ($page = 0; $page < 120; $page++) {
+                $path = '/subscribers?filter[status]=' . $status . '&limit=100'
+                      . ($cursor ? '&cursor=' . rawurlencode($cursor) : '');
+                $data = $this->_getJson($path);
+                if (!is_array($data) || empty($data['data'])) { break; }
+                foreach ($data['data'] as $s) {
+                    if (!empty($s['email'])) { $out[strtolower(trim($s['email']))] = true; }
+                }
+                $cursor = isset($data['meta']['next_cursor']) ? $data['meta']['next_cursor'] : null;
+                if (!$cursor) { break; }
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Look one subscriber up by email. Returns the subscriber array (with its
+     * status + group memberships) or null when MailerLite has never seen it.
+     *
+     * This is the independent "did the email REALLY land?" check — the sync's
+     * own success counter proves only that a POST returned 2xx.
+     */
+    public function findSubscriber($email)
+    {
+        $data = $this->_getJson('/subscribers/' . rawurlencode(strtolower(trim($email))));
+        return (is_array($data) && !empty($data['data'])) ? $data['data'] : null;
+    }
+
+    /**
+     * Add one subscriber to a group. Returns true on success.
+     * MailerLite treats POST /subscribers as an upsert keyed on email.
+     */
+    public function addSubscriber($email, $groupId, array $fields = array())
+    {
+        $body = array(
+            'email'  => $email,
+            'groups' => array((string) $groupId),
+        );
+        if ($fields) { $body['fields'] = $fields; }
+        $this->_send('POST', '/subscribers', $body);
+        return true;
+    }
+
+    /**
+     * Push this site's order emails into its configured subscriber group.
+     *
+     * @param string|null $since   'Y-m-d H:i:s' lower bound on sales_flat_order.created_at
+     * @param bool        $dryRun  when true, resolve + filter but send nothing
+     * @param string|null $groupId override the configured group
+     * @param int|null    $storeId override the configured store
+     * @return array stats
+     */
+    public function syncOrderEmails($since = null, $dryRun = false, $groupId = null, $storeId = null)
+    {
+        $stats = array(
+            'candidates' => 0, 'skipped_suppressed' => 0,
+            'added' => 0, 'failed' => 0, 'errors' => array(),
+            'group_id' => '', 'store_id' => 0,
+        );
+        if (!$this->isConfigured()) {
+            $stats['errors'][] = 'MailerLite API key not configured';
+            return $stats;
+        }
+        $groupId = $groupId ?: $this->getSyncGroupId();
+        if ($groupId === '') {
+            // No silent default — see getSyncGroupId().
+            $stats['errors'][] = 'No MailerLite subscriber group configured'
+                . ' (Company Setting → Integrations → MailerLite → Subscriber Group ID)';
+            return $stats;
+        }
+        $storeId = $storeId === null ? $this->getSyncStoreId() : (int) $storeId;
+        $stats['group_id'] = (string) $groupId;
+        $stats['store_id'] = $storeId;
+
+        // Scope to this site's single live store. Any other store_id in the DB
+        // is orphaned data from the retired multi-store setup and must not leak
+        // into a partner's subscriber group.
+        $conn = Mage::getSingleton('core/resource')->getConnection('core_read');
+        $sql  = "SELECT LOWER(TRIM(customer_email)) AS email,"
+              . " MAX(customer_firstname) AS fname, MAX(customer_lastname) AS lname"
+              . " FROM " . Mage::getSingleton('core/resource')->getTableName('sales/order')
+              . " WHERE store_id = ? AND customer_email IS NOT NULL AND customer_email <> ''";
+        $bind = array($storeId);
+        if ($since) { $sql .= " AND created_at >= ?"; $bind[] = $since; }
+        $sql .= " GROUP BY LOWER(TRIM(customer_email))";
+        $rows = $conn->fetchAll($sql, $bind);
+
+        $suppressed = $this->getSuppressedEmails();
+        foreach ($rows as $r) {
+            $email = (string) $r['email'];
+            if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) { continue; }
+            $stats['candidates']++;
+            if (isset($suppressed[$email])) { $stats['skipped_suppressed']++; continue; }
+            if ($dryRun) { $stats['added']++; continue; }
+            try {
+                $fields = array();
+                if (!empty($r['fname'])) { $fields['name']      = (string) $r['fname']; }
+                if (!empty($r['lname'])) { $fields['last_name'] = (string) $r['lname']; }
+                $this->addSubscriber($email, $groupId, $fields);
+                $stats['added']++;
+            } catch (Exception $e) {
+                $stats['failed']++;
+                if (count($stats['errors']) < 20) {
+                    $stats['errors'][] = $email . ': ' . $e->getMessage();
+                }
+            }
+            usleep(120000); // ~8 req/s — MailerLite allows 120/min
+        }
+        return $stats;
+    }
+
     // ---------- internal ----------
 
     protected function _getKey()
     {
         if (!$this->_keyChecked) {
             $this->_keyChecked = true;
-            try {
-                $cfg = Mage::helper('mmd_rolemanager')->getMarketingApiConfig();
-                $this->_key = isset($cfg['mailerlite_key']) ? trim((string)$cfg['mailerlite_key']) : '';
-            } catch (Exception $e) {
-                // Fallback: read the config path directly.
-                $this->_key = trim((string) Mage::getStoreConfig('mmd_marketing/api/mailerlite_key'));
+            // Company Setting (Integrations → MailerLite) WINS. It is the
+            // operator-facing field, so a key pasted there must take effect —
+            // if the legacy Credentials-page path won instead, rotating the key
+            // in the admin would silently keep using the old one.
+            $this->_key = trim((string) Mage::getStoreConfig('mmd_company/mailerlite/api_key'));
+            if ($this->_key === '') {
+                try {
+                    $cfg = Mage::helper('mmd_rolemanager')->getMarketingApiConfig();
+                    $this->_key = isset($cfg['mailerlite_key']) ? trim((string)$cfg['mailerlite_key']) : '';
+                } catch (Exception $e) {
+                    // Fallback: read the legacy config path directly.
+                    $this->_key = trim((string) Mage::getStoreConfig('mmd_marketing/api/mailerlite_key'));
+                }
             }
         }
         return $this->_key;

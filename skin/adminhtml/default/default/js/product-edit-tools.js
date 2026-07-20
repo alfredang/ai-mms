@@ -89,13 +89,9 @@
             syncRailToggle(btn);
         });
         syncRailToggle(btn);
-        // Put the toggle right under the "Course Information" title.
-        var title = rail.querySelector('.dcf-edit-sidebar-title');
-        if (title && title.nextSibling) {
-            rail.insertBefore(btn, title.nextSibling);
-        } else {
-            rail.insertBefore(btn, rail.firstChild);
-        }
+        // The sidebar has no heading (removed 2026-07-20 so the nav starts
+        // flush at the top), so the toggle is the first thing in the rail.
+        rail.insertBefore(btn, rail.firstChild);
     }
 
     function wireSections() {

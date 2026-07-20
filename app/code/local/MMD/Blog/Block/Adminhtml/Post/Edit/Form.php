@@ -31,13 +31,15 @@ class MMD_Blog_Block_Adminhtml_Post_Edit_Form extends Mage_Adminhtml_Block_Widge
             'label' => $helper->__('URL Key (Slug)'),
             'note'  => $helper->__('Post lives at /blog/&lt;slug&gt;. Leave empty to generate from the title.'),
         ));
+        $statusValues = array();
+        foreach ($helper->statusOptions() as $code => $label) {
+            $statusValues[] = array('value' => $code, 'label' => $label);
+        }
         $fieldset->addField('status', 'select', array(
             'name'   => 'status',
             'label'  => $helper->__('Status'),
-            'values' => array(
-                array('value' => MMD_Blog_Model_Post::STATUS_DRAFT, 'label' => $helper->__('Draft')),
-                array('value' => MMD_Blog_Model_Post::STATUS_PUBLISHED, 'label' => $helper->__('Published')),
-            ),
+            'values' => $statusValues,
+            'note'   => $helper->__('Setting Published shares the post to LinkedIn + Facebook (once). Pending Review / Scheduled are normally driven by the auto-blog approval flow.'),
         ));
         $fieldset->addField('published_at', 'date', array(
             'name'   => 'published_at',

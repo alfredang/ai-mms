@@ -138,6 +138,23 @@ class MMD_Marketing_Model_Cron_Flyer
             $this->sendForReview((int) $nid);
             $this->_log('followUp: emailed managers for unsent pending proposal #' . (int) $nid);
         }
+        // 1c. Partial transport failure: one manager got the email, the other's
+        //     send threw (so the row IS stamped and step 1 skips it). Resend to
+        //     JUST the missed manager(s), at most once — _resend_done is stamped
+        //     before the attempt so this can never loop. The 24h reminder in 1b
+        //     remains the final safety net if this resend also fails.
+        $rows = $this->_read()->fetchAll('SELECT * FROM ' . $this->_tbl()
+            . " WHERE review_status = 'pending' AND review_token IS NOT NULL AND review_token <> ''");
+        foreach ($rows as $row) {
+            $dec = json_decode((string) $row['review_decisions'], true);
+            if (!is_array($dec) || empty($dec['_send_failed']) || !empty($dec['_resend_done'])) { continue; }
+            $missed = array_map('strtolower', (array) $dec['_send_failed']);
+            $dec['_resend_done'] = $this->_nowStr();
+            $this->_write()->update($this->_tbl(), array('review_decisions' => json_encode($dec)),
+                array('newsletter_id = ?' => (int) $row['newsletter_id']));
+            $this->sendForReview((int) $row['newsletter_id'], $missed, false);
+            $this->_log('followUp: resent #' . (int) $row['newsletter_id'] . ' to missed reviewer(s) ' . implode(',', $missed));
+        }
         // 1b. ONE reminder, 24h after the original send, only to managers who
         //     have not responded. _reminder_sent_at makes this fire at most once.
         $rows = $this->_read()->fetchAll('SELECT * FROM ' . $this->_tbl()
@@ -162,33 +179,110 @@ class MMD_Marketing_Model_Cron_Flyer
                 . ' to ' . implode(',', $silent) . ' — FINAL email for this proposal');
         }
         // 2. Change requests -> regenerate (same course, fresh render) + re-send.
-        $rows = $this->_read()->fetchAll('SELECT * FROM ' . $this->_tbl() . " WHERE review_status = 'changes_requested'");
+        //    Safety net only: the admin "request changes" button and the email
+        //    link both regenerate SYNCHRONOUSLY now, so this normally finds
+        //    nothing. It still catches any changes_requested row that slipped
+        //    through (e.g. a synchronous regenerate that errored mid-way).
+        $rows = $this->_read()->fetchAll('SELECT newsletter_id FROM ' . $this->_tbl() . " WHERE review_status = 'changes_requested'");
         foreach ($rows as $row) {
-            $old = (int) $row['newsletter_id'];
-            $this->_write()->update($this->_tbl(), array('review_status' => 'superseded'),
-                array('newsletter_id = ?' => $old));
-            if ($this->_guard()->remainingDesignsThisWeek() < 1) {
-                $this->_log('followUp: change request on #' . $old . ' deferred — weekly design cap reached');
-                continue;
-            }
-            $pid = (int) trim(strtok((string) $row['course_pids'], ','));
-            $nid = $pid ? $this->createProposal($pid) : null;
-            if ($nid) {
-                // carry the manager's feedback onto the new proposal for context
-                $this->_write()->update($this->_tbl(),
-                    array('review_feedback' => (string) $row['review_feedback']),
-                    array('newsletter_id = ?' => $nid));
-                $this->sendForReview($nid);
-                $this->_log('followUp: regenerated #' . $old . ' -> #' . $nid . ' after change request');
-            } else {
-                $this->_log('followUp: could not regenerate #' . $old . ' (no renderable course)');
-            }
+            $this->regenerateOnChanges((int) $row['newsletter_id']);
         }
         // 3. Expire stale pendings.
         $this->_write()->update($this->_tbl(),
             array('review_status' => 'expired'),
             array("review_status = 'pending'", 'created_at < ?' => $this->_nowStr('-5 days'))
         );
+    }
+
+    /**
+     * Rework a rejected flow: supersede it, re-render the SAME course with fresh
+     * catalog data (carrying the manager's feedback), and re-send for approval.
+     * Called SYNCHRONOUSLY the moment a manager requests changes (admin button +
+     * email link) so a fresh approval email goes out immediately — the hourly
+     * followUp() is just a safety net. Returns the new newsletter_id or null.
+     *
+     * No weekly-design-cap check here on purpose: reworking a rejected design
+     * reuses the same weekly slot (the old row is superseded first), so it is NOT
+     * a new design against the "max 2/week" rule — capping it here would strand a
+     * flow with no way to be revised. It fires only on an explicit human change
+     * request (one regenerate per request), so there is no runaway loop.
+     */
+    public function regenerateOnChanges($newsletterId)
+    {
+        $row = $this->_read()->fetchRow('SELECT * FROM ' . $this->_tbl() . ' WHERE newsletter_id = ?', array($newsletterId));
+        if (!$row) { return null; }
+        $old = (int) $row['newsletter_id'];
+        if (in_array((string) $row['status'], array('scheduled', 'sent'), true)
+            || trim((string) $row['mailerlite_id']) !== '') {
+            return null; // already booked — nothing to rework
+        }
+        $pid = (int) trim(strtok((string) $row['course_pids'], ','));
+        if (!$pid) { $this->_log('regenerate: #' . $old . ' has no product'); return null; }
+        $fb       = trim((string) $row['review_feedback']);
+        $prevBody = (string) $row['body_html'];
+
+        // ============================================================
+        // HARD RULE (admin 2026-07-12): the manager's feedback MUST be
+        // incorporated into a genuinely DIFFERENT design BEFORE any new
+        // approval email is sent. Never re-send the rejected design.
+        //   1. Regenerate the copy FROM the feedback (retry on transient
+        //      Claude failure — an empty result must NOT silently reuse
+        //      the old copy and re-send it).
+        //   2. If generation cannot produce copy, DO NOT send anything:
+        //      leave the flow as changes_requested and let followUp retry.
+        //   3. The rendered body MUST differ from the rejected body; if it
+        //      is byte-identical, regenerate once more before sending.
+        // ============================================================
+        $copy = null;
+        for ($attempt = 1; $attempt <= 3 && !$copy; $attempt++) {
+            try { $copy = $this->_flyer()->regenerateCopy($pid, $fb); }
+            catch (Exception $e) { $this->_log('regenerate: regenerateCopy error (try ' . $attempt . ') — ' . $e->getMessage()); }
+            if (!$copy && $attempt < 3) { sleep(3); }   // brief backoff (429/timeout)
+        }
+        if (!$copy) {
+            // Generation failed — HOLD. Do not supersede, do not email the same
+            // design. followUp() will retry on the next cron tick.
+            $this->_write()->update($this->_tbl(), array('review_status' => 'changes_requested'),
+                array('newsletter_id = ?' => $old));
+            $this->_log('regenerate: HELD #' . $old . ' — copy generation failed after retries; NOT re-sending the rejected design');
+            return null;
+        }
+        $this->_log('regenerate: AI copy rebuilt for #' . $old . ' from feedback: ' . mb_substr($fb, 0, 100));
+
+        // New copy is in hand — free the course and build the new proposal.
+        $this->_write()->update($this->_tbl(), array('review_status' => 'superseded'),
+            array('newsletter_id = ?' => $old));
+        $nid = $this->createProposal($pid);
+        if (!$nid) {
+            $this->_write()->update($this->_tbl(), array('review_status' => 'changes_requested'),
+                array('newsletter_id = ?' => $old));
+            $this->_log('regenerate: could not rebuild #' . $old . ' (pid ' . $pid . ') — restored');
+            return null;
+        }
+
+        // Diff-guard: the new design MUST differ from the rejected one.
+        $newBody = (string) $this->_read()->fetchOne(
+            'SELECT body_html FROM ' . $this->_tbl() . ' WHERE newsletter_id = ?', array($nid));
+        if ($prevBody !== '' && md5($newBody) === md5($prevBody)) {
+            $this->_log('regenerate: new #' . $nid . ' body identical to rejected #' . $old . ' — forcing a second regeneration');
+            try {
+                if ($this->_flyer()->regenerateCopy($pid, $fb . "\n\n(The previous rewrite was too similar — change the wording and angle more.)")) {
+                    $rebuilt = $this->_flyer()->render($pid);
+                    if ($rebuilt !== '') {
+                        $this->_write()->update($this->_tbl(), array('body_html' => $rebuilt),
+                            array('newsletter_id = ?' => $nid));
+                    }
+                }
+            } catch (Exception $e) { $this->_log('regenerate: second-pass error — ' . $e->getMessage()); }
+        }
+
+        $this->_write()->update($this->_tbl(),
+            array('review_feedback' => (string) $row['review_feedback']),
+            array('newsletter_id = ?' => $nid));
+        $sent = $this->sendForReview($nid, null, false, true);
+        $this->_log('regenerate: #' . $old . ' -> #' . $nid . ' after change request (feedback applied'
+            . ($sent ? '' : '; review email NOT sent — followUp will retry') . ')');
+        return $nid;
     }
 
     /**
@@ -239,7 +333,8 @@ class MMD_Marketing_Model_Cron_Flyer
             $pid = (int) $row['product_id'];
             if (isset($recentPids[$pid])) continue;
             $p = Mage::getModel('catalog/product')->load($pid);
-            if ($p && $p->getId() && $p->getStatus() == 1) {
+            // WSQ only: SG blasts TGS- courses; skip non-WSQ (C-prefix) courses.
+            if ($p && $p->getId() && $p->getStatus() == 1 && stripos((string) $p->getSku(), 'TGS-') === 0) {
                 return $pid;
             }
         }
@@ -249,6 +344,19 @@ class MMD_Marketing_Model_Cron_Flyer
     /** Render the flyer and store a 'pending' review row; returns newsletter_id. */
     public function createProposal($productId)
     {
+        // HARD GATE (admin 2026-07-14): SG blasts WSQ courses ONLY. A WSQ course's
+        // SKU starts with 'TGS-' (the SkillsFuture course reference). Non-WSQ
+        // C-prefix courses (e.g. C427) must never be proposed or scheduled — this
+        // is the single chokepoint every path (auto cron, Run Now, regenerate)
+        // funnels through, so gating here covers them all.
+        $sku = (string) $this->_read()->fetchOne(
+            'SELECT sku FROM ' . Mage::getSingleton('core/resource')->getTableName('catalog/product')
+          . ' WHERE entity_id = ?', array((int) $productId));
+        if (stripos($sku, 'TGS-') !== 0) {
+            $this->_log('createProposal: skipped — ' . ($sku ?: 'product ' . (int) $productId)
+                . ' is not a WSQ (TGS-) course; SG blasts WSQ only');
+            return null;
+        }
         // Dedupe guard: one ACTIVE flow per course. If this product already has a
         // pending / changes-requested / scheduling / scheduled flow, don't create a
         // second one (a queue "Run Now" on an already-scheduled course would
@@ -264,6 +372,14 @@ class MMD_Marketing_Model_Cron_Flyer
             $this->_log('createProposal: skipped — product ' . (int) $productId . ' already has active flow #' . $active);
             return null;
         }
+        // PRE-DESIGN HOOK: check the curated pitch + accumulated blast learnings for
+        // this course before building, so every design is informed by what works.
+        $this->preDesignHook($productId);
+        // AI-GENERATE the course-specific copy (hook/outcomes/journey) before rendering.
+        // With no feedback this reuses any prior AI copy for the SKU (no API burn);
+        // regenerateOnChanges passes the manager's feedback so a rework always differs.
+        try { $this->_flyer()->regenerateCopy($productId, ''); }
+        catch (Exception $e) { $this->_log('createProposal: regenerateCopy failed — ' . $e->getMessage()); }
         $flyerHtml = $this->_flyer()->render($productId);
         if ($flyerHtml === '') {
             return null;
@@ -301,12 +417,27 @@ class MMD_Marketing_Model_Cron_Flyer
      * who already responded); $isReminder stamps _reminder_sent_at so the
      * reminder can never repeat (see the HARD RULE in followUp()).
      */
-    public function sendForReview($newsletterId, $onlyEmails = null, $isReminder = false)
+    public function sendForReview($newsletterId, $onlyEmails = null, $isReminder = false, $isRevision = false)
     {
         $row = $this->_read()->fetchRow('SELECT * FROM ' . $this->_tbl() . ' WHERE newsletter_id = ?', array($newsletterId));
         if (!$row) { return false; }
         $g = $this->_guard();
         $base = rtrim(Mage::getStoreConfig('web/unsecure/base_url'), '/');
+
+        // HARD SAFETY: never email the real managers from a non-production env.
+        // Gmail OAuth sends identically from localhost, so a dev/test run would
+        // otherwise deliver a live-looking approval email to angch@/tansc@ with
+        // useless localhost links (real confusion 2026-07-09). Only a genuine
+        // production host (…tertiarycourses.com.*) may send; anything else logs
+        // and no-ops unless mmd_marketing/newsletter/allow_local_review_email=1.
+        $host = strtolower((string) parse_url($base, PHP_URL_HOST));
+        $isProd = (bool) preg_match('/(^|\.)tertiarycourses\.com(\.[a-z]{2,3})?$/', $host);
+        if (!$isProd && !(bool) Mage::getStoreConfig('mmd_marketing/newsletter/allow_local_review_email')) {
+            $this->_log('sendForReview: SKIPPED for #' . $newsletterId . ' — non-production base_url (' . ($host ?: 'empty')
+                . '). Set mmd_marketing/newsletter/allow_local_review_email=1 to send from a test env.');
+            return false;
+        }
+
         $slot = $g->nextSendSlot();
         $slotTxt = $slot ? $slot->format('l, j M Y \a\t g:ia') : 'the next available slot';
 
@@ -332,6 +463,7 @@ class MMD_Marketing_Model_Cron_Flyer
         }
 
         $sentAny = false;
+        $failed  = array();
         foreach ($g->reviewers() as $email) {
             if (is_array($onlyEmails) && !in_array(strtolower($email), $onlyEmails, true)) { continue; }
             $tok = $g->signToken($newsletterId, $email);
@@ -348,24 +480,39 @@ class MMD_Marketing_Model_Cron_Flyer
                 . '<hr style="border:0;border-top:1px solid #e4e9f0;margin:18px 0;">'
                 . $row['body_html']
                 . '</div>';
-            $subject = ($isReminder ? '[Reminder] ' : '') . '[Approval needed] ' . $row['subject'];
+            // Revised flyers get a UNIQUE subject: Gmail threads same-subject
+            // messages into the rejected flyer's conversation, where the fresh
+            // approval email is collapsed and easily missed (real incident
+            // 2026-07-16 — manager never saw the revised copy). The #id suffix
+            // guarantees every revision starts its own thread.
+            $subject = ($isReminder ? '[Reminder] ' : '') . '[Approval needed] ' . $row['subject']
+                . ($isRevision ? ' — revised (#' . (int) $newsletterId . ')' : '');
 
-            try {
-                if ($gmail) {
-                    $gmail->send($email, $subject, $html, 'Tertiary Marketing');
-                } else {
-                    $mail = new Zend_Mail('utf-8');
-                    $mail->setBodyHtml($html)
-                         ->setFrom(Mage::getStoreConfig('trans_email/ident_general/email'), 'Tertiary Marketing')
-                         ->addTo($email)
-                         ->setSubject($subject);
-                    $transport ? $mail->send($transport) : $mail->send();
+            // Two attempts per recipient: a transient Gmail/SMTP hiccup for ONE
+            // manager must not silently drop them from the approval loop while
+            // the other manager's success stamps the proposal as "emailed".
+            $delivered = false;
+            for ($try = 1; $try <= 2 && !$delivered; $try++) {
+                try {
+                    if ($gmail) {
+                        $gmail->send($email, $subject, $html, 'Tertiary Marketing');
+                    } else {
+                        $mail = new Zend_Mail('utf-8');
+                        $mail->setBodyHtml($html)
+                             ->setFrom(Mage::getStoreConfig('trans_email/ident_general/email'), 'Tertiary Marketing')
+                             ->addTo($email)
+                             ->setSubject($subject);
+                        $transport ? $mail->send($transport) : $mail->send();
+                    }
+                    $delivered = true;
+                    $sentAny   = true;
+                    $this->_log('sendForReview: emailed ' . $email . ' for #' . $newsletterId . ' via ' . ($gmail ? 'gmail-oauth' : 'smtp'));
+                } catch (Exception $e) {
+                    $this->_log('sendForReview mail to ' . $email . ' failed (try ' . $try . '): ' . $e->getMessage());
+                    if ($try < 2) { sleep(2); }
                 }
-                $sentAny = true;
-                $this->_log('sendForReview: emailed ' . $email . ' for #' . $newsletterId . ' via ' . ($gmail ? 'gmail-oauth' : 'smtp'));
-            } catch (Exception $e) {
-                $this->_log('sendForReview mail to ' . $email . ' failed: ' . $e->getMessage());
             }
+            if (!$delivered) { $failed[] = strtolower($email); }
         }
         // Only stamp the anti-spam markers if a send actually SUCCEEDED — otherwise
         // a transport failure would mark the proposal "emailed" and it would never
@@ -379,6 +526,10 @@ class MMD_Marketing_Model_Cron_Flyer
         if (!is_array($dec)) { $dec = array(); }
         if (empty($dec['_sent_at'])) { $dec['_sent_at'] = $this->_nowStr(); }
         if ($isReminder) { $dec['_reminder_sent_at'] = $this->_nowStr(); }
+        // Partial failure: remember who never got the email so followUp() can
+        // resend to JUST them (once). A successful (re)send clears the marker.
+        if (!empty($failed)) { $dec['_send_failed'] = array_values($failed); }
+        elseif (isset($dec['_send_failed']) && is_array($onlyEmails)) { unset($dec['_send_failed']); }
         $this->_write()->update($this->_tbl(),
             array(
                 'review_token'     => $g->signToken($newsletterId, 'batch'),
@@ -463,6 +614,10 @@ class MMD_Marketing_Model_Cron_Flyer
                 }
             }
         } catch (Exception $e) { $this->_log('scheduleApproved: LinkedIn error: ' . $e->getMessage()); }
+
+        // Facebook page auto-post — same non-fatal, once-only contract as LinkedIn.
+        try { $this->_postFacebookOnce($newsletterId, 'scheduleApproved'); }
+        catch (Exception $e) { $this->_log('scheduleApproved: Facebook error: ' . $e->getMessage()); }
 
         // Auto kick-start the NEXT flyer: as soon as this one is booked to MailerLite,
         // pull the next course from the admin queue and send it for approval so it's
@@ -586,6 +741,10 @@ class MMD_Marketing_Model_Cron_Flyer
                 'blast_stats' => $stats !== null ? json_encode($stats) : null,
             ), array('newsletter_id = ?' => (int) $row['newsletter_id']));
             $this->_log('markBlasted: #' . (int) $row['newsletter_id'] . ' (campaign ' . $campaignId . ') -> BLASTED at ' . $sentAt);
+            // POST-BLAST HOOK: analyse how this blast did vs. the running average
+            // and record the learning so the next design leans on what works.
+            try { $this->analyseBlast((int) $row['newsletter_id'], $stats, $row); }
+            catch (Exception $e) { $this->_log('analyseBlast error: ' . $e->getMessage()); }
         }
 
         // LinkedIn auto-post — covers campaigns approved before LinkedIn was
@@ -607,7 +766,49 @@ class MMD_Marketing_Model_Cron_Flyer
                 }
             }
         } catch (Exception $e) { $this->_log('markBlasted: LinkedIn error: ' . $e->getMessage()); }
+
+        // Facebook page auto-post — covers campaigns approved before Facebook was
+        // configured AND acts as the blast-time trigger. Once only.
+        try { $this->_postFacebookOnce((int) $row['newsletter_id'], 'markBlasted'); }
+        catch (Exception $e) { $this->_log('markBlasted: Facebook error: ' . $e->getMessage()); }
         return true;
+    }
+
+    /**
+     * Post the campaign's course to the Facebook page ONCE (deduped by the
+     * _facebook_url marker in review_decisions, the Facebook twin of
+     * _linkedin_url). A link post — Facebook renders the card from the course
+     * page's OpenGraph tags. Non-fatal: called from both scheduleApproved()
+     * and markBlastedByCampaign(), whichever runs first with credentials wins.
+     */
+    protected function _postFacebookOnce($newsletterId, $context)
+    {
+        $fb = Mage::helper('mmd_marketing/facebook');
+        if (!$fb->isConfigured()) { return; }
+        // Re-read the row: the caller may have just written _linkedin_url and a
+        // stale copy here would clobber it.
+        $row = $this->_read()->fetchRow('SELECT * FROM ' . $this->_tbl() . ' WHERE newsletter_id = ?', array((int) $newsletterId));
+        if (!$row) { return; }
+        $dec = json_decode((string) $row['review_decisions'], true);
+        if (!is_array($dec)) { $dec = array(); }
+        if (!empty($dec['_facebook_url'])) { return; }
+
+        $pid = (int) trim(strtok((string) $row['course_pids'], ','));
+        if (!$pid) { return; }
+        $product = Mage::getModel('catalog/product')->load($pid);
+        if (!$product->getId() || !$product->getUrlPath()) { return; }
+        $courseUrl = rtrim((string) Mage::getStoreConfig('web/unsecure/base_url'), '/')
+            . '/' . ltrim((string) $product->getUrlPath(), '/');
+
+        $message = (string) ($row['subject'] ?: $product->getName())
+            . "\n\nWSQ funding + SkillsFuture Credit claimable — seats fill fast. Course details and sign-up:";
+        $res = $fb->postLink($message, $courseUrl);
+        $this->_log($context . ': Facebook ' . (!empty($res['ok']) ? 'posted ' . $res['url'] : 'skipped/failed: ' . $res['msg']));
+        if (!empty($res['ok'])) {
+            $dec['_facebook_url'] = $res['url'];
+            $this->_write()->update($this->_tbl(), array('review_decisions' => json_encode($dec)),
+                array('newsletter_id = ?' => (int) $newsletterId));
+        }
     }
 
     /** Fetch + normalise campaign stats. Returns array or null. */
@@ -648,5 +849,156 @@ class MMD_Marketing_Model_Cron_Flyer
             'delivery_rate' => $sent > 0 ? max(0, ($sent - $hard - $soft) / $sent) : 0,
             'updated_at'    => $this->_nowStr(),
         );
+    }
+
+    /**
+     * POST-BLAST LEARNING LOOP. When a blast is captured, compare its open/click
+     * rates against the average of all PRIOR blasts and append a structured
+     * "learning" to core_config (mmd_marketing/newsletter/design_learnings, JSON,
+     * last 24). Each entry records the design levers we can actually change —
+     * subject, course, WSQ funding hook, accent, whether the pitch was curated —
+     * alongside the outcome and a verdict vs. the running average. The
+     * newsletter-design skill reads this log each cycle: patterns from
+     * above-average blasts become the default for the next design; below-average
+     * ones are avoided. Goal: climb open + click rate over time.
+     */
+    public function analyseBlast($newsletterId, $stats, $row = null)
+    {
+        if (!is_array($stats) || empty($stats)) { return; }
+        if (!$row) { $row = $this->_read()->fetchRow('SELECT * FROM ' . $this->_tbl() . ' WHERE newsletter_id = ?', array($newsletterId)); }
+        if (!$row) { return; }
+
+        // Baseline = average open/click over prior captured blasts (exclude self).
+        $prior = $this->_read()->fetchCol('SELECT blast_stats FROM ' . $this->_tbl()
+            . " WHERE status = 'sent' AND blast_stats IS NOT NULL AND newsletter_id <> ?", array((int) $newsletterId));
+        $oSum = $cSum = $n = 0.0;
+        foreach ($prior as $bs) {
+            $p = json_decode((string) $bs, true);
+            if (!is_array($p)) { continue; }
+            $oSum += isset($p['open_rate']) ? (float) $p['open_rate'] : 0;
+            $cSum += isset($p['click_rate']) ? (float) $p['click_rate'] : 0;
+            $n++;
+        }
+        $avgO = $n > 0 ? $oSum / $n : null;
+        $avgC = $n > 0 ? $cSum / $n : null;
+
+        $o = isset($stats['open_rate']) ? (float) $stats['open_rate'] : 0;
+        $c = isset($stats['click_rate']) ? (float) $stats['click_rate'] : 0;
+        // Verdict: WIN if it beats BOTH averages, LOSS if below both, else MIXED.
+        $verdict = 'baseline';
+        if ($avgO !== null) {
+            if ($o >= $avgO && $c >= $avgC)      { $verdict = 'win'; }
+            elseif ($o < $avgO && $c < $avgC)    { $verdict = 'loss'; }
+            else                                 { $verdict = 'mixed'; }
+        }
+
+        $pid    = (int) trim(strtok((string) $row['course_pids'], ','));
+        $cd     = $pid ? $this->_flyer()->courseData($pid) : null;
+        $curated = false;
+        if ($cd) {
+            $pitch   = $this->_flyer(); // curated map lives on the flyer helper
+            $curated = false;
+            try {
+                $ref = new ReflectionMethod('MMD_Marketing_Helper_Flyer', '_curatedPitch');
+                $ref->setAccessible(true);
+                $map = $ref->invoke(Mage::helper('mmd_marketing/flyer'));
+                $curated = isset($map[trim((string) $cd['sku'])]);
+            } catch (Exception $e) { /* best-effort */ }
+        }
+
+        $entry = array(
+            'at'         => $this->_nowStr(),
+            'newsletter' => (int) $newsletterId,
+            'sku'        => $cd ? (string) $cd['sku'] : '',
+            'course'     => $cd ? (string) $cd['name'] : (string) $row['title'],
+            'subject'    => (string) $row['subject'],
+            'is_wsq'     => $cd ? (bool) $cd['is_wsq'] : null,
+            'accent'     => $cd ? (string) $cd['accent'] : '',
+            'curated'    => $curated,
+            'open_rate'  => round($o, 4),
+            'click_rate' => round($c, 4),
+            'ctor'       => isset($stats['ctor']) ? round((float) $stats['ctor'], 4) : null,
+            'avg_open'   => $avgO !== null ? round($avgO, 4) : null,
+            'avg_click'  => $avgC !== null ? round($avgC, 4) : null,
+            'verdict'    => $verdict,
+        );
+
+        $log = $this->designLearnings();
+        $log[] = $entry;
+        if (count($log) > 24) { $log = array_slice($log, -24); }
+        Mage::getModel('core/config')->saveConfig('mmd_marketing/newsletter/design_learnings', json_encode($log));
+        Mage::app()->getCacheInstance()->cleanType('config');
+        $this->_log('analyseBlast: #' . (int) $newsletterId . ' open=' . round($o * 100, 1) . '% click='
+            . round($c * 100, 1) . '% verdict=' . strtoupper($verdict)
+            . ($avgO !== null ? ' (avg ' . round($avgO * 100, 1) . '%/' . round($avgC * 100, 1) . '%)' : ' (first blast)'));
+    }
+
+    /**
+     * The persisted post-blast learnings log (JSON array; newest last). Reads the
+     * value straight from core_config_data — NOT Mage::getStoreConfig(), which
+     * returns the in-memory config snapshot loaded at bootstrap and so does NOT
+     * reflect a saveConfig() made earlier in the same request. That stale read
+     * meant two analyseBlast() calls in one process each started from an empty
+     * log and overwrote each other; a direct DB read makes appends accumulate.
+     */
+    public function designLearnings()
+    {
+        $raw = $this->_read()->fetchOne(
+            'SELECT value FROM ' . Mage::getSingleton('core/resource')->getTableName('core/config_data')
+          . " WHERE path = 'mmd_marketing/newsletter/design_learnings'"
+          . ' AND scope = ? AND scope_id = 0 LIMIT 1',
+            array('default')
+        );
+        $log = json_decode((string) $raw, true);
+        return is_array($log) ? $log : array();
+    }
+
+    /**
+     * PRE-DESIGN HOOK. Before a flyer is built, surface (and log) what should guide
+     * it for this course: does it have a curated pitch, and what have past blasts
+     * taught us? Returns a structured recommendation the render already honours
+     * (curated pitch + accent) and that a human/agent can act on — e.g. copy the
+     * subject formula of the highest open-rate WSQ blast. Non-fatal, read-only.
+     */
+    public function preDesignHook($productId)
+    {
+        $rec = array('curated' => false, 'best_subject' => null, 'best_open' => null, 'avg_open' => null, 'avg_click' => null, 'notes' => array());
+        try {
+            $cd = $this->_flyer()->courseData((int) $productId);
+            if (!$cd) { return $rec; }
+            $sku = trim((string) $cd['sku']);
+
+            $ref = new ReflectionMethod('MMD_Marketing_Helper_Flyer', '_curatedPitch');
+            $ref->setAccessible(true);
+            $map = $ref->invoke(Mage::helper('mmd_marketing/flyer'));
+            $rec['curated'] = isset($map[$sku]);
+            $rec['notes'][] = $rec['curated']
+                ? 'Using curated pitch + accent for ' . $sku . '.'
+                : 'No curated pitch for ' . $sku . ' — outcomes reframed from its own topics; consider adding one to the newsletter-design skill.';
+
+            // Learn from history: the best-performing past blast (prefer same funding
+            // type) sets the subject formula + confidence target for this design.
+            $log  = $this->designLearnings();
+            $isW  = (bool) $cd['is_wsq'];
+            $pool = array_filter($log, function ($e) use ($isW) { return isset($e['is_wsq']) && (bool) $e['is_wsq'] === $isW; });
+            if (empty($pool)) { $pool = $log; }
+            if (!empty($pool)) {
+                usort($pool, function ($a, $b) { return ($b['open_rate'] ?? 0) <=> ($a['open_rate'] ?? 0); });
+                $best = $pool[0];
+                $rec['best_subject'] = isset($best['subject']) ? (string) $best['subject'] : null;
+                $rec['best_open']    = isset($best['open_rate']) ? (float) $best['open_rate'] : null;
+                $o = $c = $n = 0.0;
+                foreach ($log as $e) { $o += $e['open_rate'] ?? 0; $c += $e['click_rate'] ?? 0; $n++; }
+                $rec['avg_open']  = $n ? $o / $n : null;
+                $rec['avg_click'] = $n ? $c / $n : null;
+                $rec['notes'][] = 'Best past open-rate: ' . round(($rec['best_open'] ?: 0) * 100, 1) . '% — subject "' . $rec['best_subject'] . '". Aim to beat it.';
+            } else {
+                $rec['notes'][] = 'No blast history yet — this becomes the baseline.';
+            }
+        } catch (Exception $e) {
+            $rec['notes'][] = 'preDesignHook partial: ' . $e->getMessage();
+        }
+        $this->_log('preDesignHook: pid ' . (int) $productId . ' — ' . implode(' ', $rec['notes']));
+        return $rec;
     }
 }

@@ -920,6 +920,12 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 				<?php if ($useRichSnippets): ?><meta itemprop="productID" content="sku:<?php echo $sku; ?>" /><?php endif; ?>
 			<?php endif; ?>
 
+			<?php if ($_seriesBadge = trim((string) $_product->getData('course_series_badge'))): ?>
+				<div class="course-series-badge-wrap">
+					<span class="course-series-badge"><?php echo $this->escapeHtml($_seriesBadge); ?></span>
+				</div>
+			<?php endif; ?>
+
 			<?php $_mmdBadges = $_isNoFundingCourse ? array() : Mage::helper('mmd_courseimage')->getProductBadges($_product); ?>
 			<?php if (!empty($_mmdBadges)): ?>
 				<ul class="course-badges course-badges--view" aria-label="<?php echo $this->__('Funding eligibility'); ?>">

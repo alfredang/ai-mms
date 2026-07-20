@@ -397,6 +397,25 @@ li.level2 > a > span > .cat-label,
 .course-badge--mces    { background: #7c3aed; } /* MCES purple */
 .course-badge--default { background: #64748b; }
 
+/* Series badge — sits just below the Course Code line. Red pill, white text.
+   Driven by the course_series_badge product attribute (e.g. "AI Vibe Coding
+   Series"). Reusable across every course tagged into the same series. */
+.course-series-badge-wrap {
+    margin: 0 0 12px;
+}
+.course-series-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    color: #fff;
+    background: #dc2626; /* red */
+    line-height: 1.4;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+}
+
 /* Product (course) title — tone down the default Ultimo size so long
    WSQ titles don't dominate the page. Paired with a slightly larger
    Course Fee heading below for better visual balance. */
@@ -828,26 +847,30 @@ a.practice-exam-cta:focus-visible { outline: 2px solid #065f46; outline-offset: 
 .course-details-card { margin: 0 0 16px; }
 .course-details-card:last-child { margin-bottom: 0; }
 
-/* Assessment list — clean checkmark bullets matching the policy-card body. */
+/* Assessment list — exam (clipboard-check) bullets matching the header icon,
+   indented like the What You'll Learn bullets. Scoped via the card modifier
+   so these rules outrank the generic `.course-policy-card__body ul li`
+   dot-bullet rules (which otherwise win on specificity). */
 .course-assessment-list { margin: 0; padding: 0; list-style: none; }
-.course-assessment-list li {
+.course-policy-card--assessment .course-policy-card__body ul li {
     position: relative;
-    padding: 8px 0 8px 32px;
+    padding: 6px 0 6px 26px;
     border-bottom: 1px dashed #e2e8f0;
     font-size: 14px;
     line-height: 1.5;
     color: #1f2937;
 }
-.course-assessment-list li:last-child { border-bottom: 0; }
-.course-assessment-list li::before {
+.course-policy-card--assessment .course-policy-card__body ul li:last-child { border-bottom: 0; }
+.course-policy-card--assessment .course-policy-card__body ul li::before {
     content: "";
     position: absolute;
-    left: 4px; top: 11px;
-    width: 18px; height: 18px;
-    border-radius: 4px;
+    left: 4px; top: 8px;
+    width: 15px; height: 15px;
+    border-radius: 0;
+    box-shadow: none;
     background: #a21caf;
-    -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><polyline points='20 6 9 17 4 12'/></svg>") center / 14px 14px no-repeat;
-            mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><polyline points='20 6 9 17 4 12'/></svg>") center / 14px 14px no-repeat;
+    -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M9 11l3 3L22 4'/><path d='M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11'/></svg>") center / 15px 15px no-repeat;
+            mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M9 11l3 3L22 4'/><path d='M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11'/></svg>") center / 15px 15px no-repeat;
 }
 
 /* On mobile, hide the whole tabs/accordion section. Primary-column cards
@@ -1011,6 +1034,35 @@ a.practice-exam-cta:focus-visible { outline: 2px solid #065f46; outline-offset: 
 .course-policy-card--learning      .course-policy-card__body ul li { padding-left: 26px; }
 .course-policy-card--learning      .course-policy-card__body p { margin: 0 0 8px; }
 .course-policy-card--learning      .course-policy-card__body p:last-child { margin-bottom: 0; }
+
+/* Topic headings (<h3 class="course-topic-h3">, either authored directly or
+   promoted from <p><strong> by description.phtml's inline script) render as
+   the same teal-dot bullet rows as <li> topics, so every course's What
+   You'll Learn card looks identical regardless of its description markup.
+   The #acctab-description prefix out-specifies the generic panel h3 rules
+   (incl. the ≤600px mobile override) further down this file. */
+#acctab-description + .panel .course-policy-card--learning .std h3.course-topic-h3 {
+    position: relative;
+    margin: 0;
+    padding: 6px 0 6px 26px;
+    border-bottom: 1px dashed #e2e8f0;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.65;
+    color: #0f172a;
+}
+#acctab-description + .panel .course-policy-card--learning .std h3.course-topic-h3:last-child {
+    border-bottom: 0;
+}
+#acctab-description + .panel .course-policy-card--learning .std h3.course-topic-h3::before {
+    content: "";
+    position: absolute;
+    left: 4px; top: 13px;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #2dd4bf;
+    box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.22);
+}
 
 /* Certification body — flatten the nested <ul><li><p><strong>…</strong></p></li></ul>
    pattern that comes out of short_description so it renders compactly. */
