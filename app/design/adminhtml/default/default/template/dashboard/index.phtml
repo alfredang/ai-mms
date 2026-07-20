@@ -5526,27 +5526,16 @@ document.addEventListener('DOMContentLoaded', function(){
         }
     } catch(e){}
 });
-function lcdOpenDrawer(){
-    document.getElementById('lcd-drawer').classList.add('open');
-    document.getElementById('lcd-drawer-backdrop').classList.add('open');
-    document.body.classList.add('lcd-drawer-open');
-}
-function lcdCloseDrawer(){
-    document.getElementById('lcd-drawer').classList.remove('open');
-    document.getElementById('lcd-drawer-backdrop').classList.remove('open');
-    document.body.classList.remove('lcd-drawer-open');
-}
 function lcdNavTo(link, sectionId){
     // Mark clicked item active
     var items = document.querySelectorAll('.lcd-nav-item');
     for (var i = 0; i < items.length; i++) items[i].classList.remove('active');
     link.classList.add('active');
-    // Close drawer and smooth-scroll to section
-    lcdCloseDrawer();
-    setTimeout(function(){
-        var el = document.getElementById(sectionId);
-        if (el) el.scrollIntoView({behavior:'smooth', block:'start'});
-    }, 260);
+    // Scroll straight to the section. The old 260ms setTimeout existed only to
+    // let the slide-out drawer finish animating before scrolling; with the
+    // drawer gone it was pure lag on every nav click.
+    var el = document.getElementById(sectionId);
+    if (el) el.scrollIntoView({behavior:'smooth', block:'start'});
     return false;
 }
 </script>
@@ -5626,16 +5615,14 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
         . $_eaIcon . '<span>E-Attendance</span></a>';
 }
 ?>
-<!-- Course Menu drawer (slides in from the left) -->
-<div class="lcd-drawer-backdrop" id="lcd-drawer-backdrop" onclick="lcdCloseDrawer()"></div>
-<aside class="lcd-drawer" id="lcd-drawer">
-    <div class="lcd-drawer-header">
-        <span>Course Menu</span>
-        <button type="button" class="lcd-drawer-close" onclick="lcdCloseDrawer()">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
-    </div>
-    <div class="lcd-drawer-body">
+<?php
+        /* The "Course Menu" slide-out drawer was removed: it duplicated the
+           Course Details card + nav purely for narrow viewports, and that
+           column is now always visible, so the drawer had nothing left to
+           show. The duration / class-type derivation below stayed put — the
+           sidebar card consumes $_dDur, $_assessLabel, $_totalDur and
+           $_modeLabel, so it must run before the card renders. */
+        ?>
         <?php
         // Real duration from the product's `duration` attribute. Trim
         // trailing .0 (so 7.5 stays "7.5" but 8.0 becomes "8"). Fall back
@@ -5675,68 +5662,6 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
         $_modeLabel = $_modeMap[$_modeKey];
         $_modeBadgeCls = 'lcd-badge-' . strtolower($_modeLabel);
         ?>
-        <h3 class="lcd-drawer-section-title">Course Details</h3>
-        <?php if ($_lcdImgSrc !== ''): ?>
-        <div class="lcd-detail-img">
-            <div class="lcd-detail-label" style="margin-bottom:6px;">Course Image</div>
-            <img src="<?php echo htmlspecialchars($_lcdImgSrc) ?>" alt="" onerror="this.parentNode.style.display='none'" />
-        </div>
-        <?php endif; ?>
-        <?php if ($_lcdImgUrl !== ''): ?>
-        <div class="lcd-detail-img">
-            <div class="lcd-detail-label" style="margin-bottom:6px;">Image URL Link</div>
-            <a class="lcd-detail-url" href="<?php echo htmlspecialchars($_lcdImgUrl) ?>" target="_blank" rel="noopener"><?php echo htmlspecialchars($_lcdImgUrl) ?></a>
-        </div>
-        <?php endif; ?>
-        <div class="lcd-detail-row"><span class="lcd-detail-label">Course Title</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['name']) ?></span></div>
-        <div class="lcd-detail-row"><span class="lcd-detail-label">Course Code</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['sku'] ?: '—') ?></span></div>
-        <?php if (!$_courseManagerActive): /* learner/trainer viewing a real class: run-level fields are legitimate. Developer/course view is course-level only (no run fields, no trainer row). */ ?>
-        <div class="lcd-detail-row"><span class="lcd-detail-label">Course Run ID</span><span class="lcd-detail-value"><?php echo $_courseRunId ?></span></div>
-        <div class="lcd-detail-row"><span class="lcd-detail-label">Start Date</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['start_date']) ?></span></div>
-        <div class="lcd-detail-row"><span class="lcd-detail-label">End Date</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['end_date']) ?></span></div>
-        <div class="lcd-detail-row"><span class="lcd-detail-label">Class Type</span><span class="lcd-badge <?php echo $_modeBadgeCls ?>"><?php echo htmlspecialchars($_modeLabel) ?></span></div>
-        <div class="lcd-detail-row"><span class="lcd-detail-label">Class Status</span><span class="lcd-badge lcd-badge-<?php echo strtolower($_selectedCourse['status']) ?>"><?php echo htmlspecialchars($_selectedCourse['status']) ?></span></div>
-        <?php endif; ?>
-        <div class="lcd-duration-block">
-            <h4 class="lcd-duration-title">Course Duration</h4>
-            <div class="lcd-duration-row"><span>Training Hours:</span><strong><?php echo $_dDur ?></strong></div>
-            <div class="lcd-duration-row"><span>Assessment Hours:</span><strong><?php echo htmlspecialchars($_assessLabel) ?></strong></div>
-            <div class="lcd-duration-divider"></div>
-            <div class="lcd-duration-row lcd-duration-total"><span>Total Duration:</span><strong><?php echo $_totalDur ?></strong></div>
-        </div>
-        <?php if (!empty($_lcdTrainerNames)): ?>
-        <div class="lcd-detail-img">
-            <div class="lcd-detail-label" style="margin-bottom:6px;">Approved Trainers</div>
-            <ul class="lcd-trainer-list">
-                <?php foreach ($_lcdTrainerNames as $_tn): ?>
-                <li><?php echo htmlspecialchars($_tn) ?></li>
-                <?php endforeach; ?>
-            </ul>
-        </div>
-        <?php endif; ?>
-
-        <nav class="lcd-drawer-nav">
-            <?php echo $_eAttendanceNavHtml; ?>
-            <?php if ($_courseManagerActive): /* Google Meet nav link removed — not shown in developer view */ ?>
-            <a href="#courseware" class="lcd-nav-item" onclick="return lcdNavTo(this,'courseware')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span>Courseware</span></a>
-            <a href="#lesson" class="lcd-nav-item active" onclick="return lcdNavTo(this,'lesson')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>Lesson</span></a>
-            <a href="#course-sessions" class="lcd-nav-item" onclick="return lcdNavTo(this,'course-sessions')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span>Course Sessions</span></a>
-            <a href="#additional-documents" class="lcd-nav-item" onclick="return lcdNavTo(this,'additional-documents')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Additional Documents</span></a>
-            <?php elseif ($activeRole === 'trainer'): ?>
-            <a href="#courseware" class="lcd-nav-item" onclick="return lcdNavTo(this,'courseware')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span>Courseware Link</span></a>
-            <a href="#courseware" class="lcd-nav-item" onclick="return lcdNavTo(this,'courseware')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Trainer Slides</span></a>
-            <div style="height:1px;background:#1e293b;margin:6px 0;"></div>
-            <a href="#lesson" class="lcd-nav-item active" onclick="return lcdNavTo(this,'lesson')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>Lesson</span></a>
-            <a href="#additional-documents" class="lcd-nav-item" onclick="return lcdNavTo(this,'additional-documents')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Additional Documents</span></a>
-            <?php else: ?>
-            <a href="#learner-slides" class="lcd-nav-item" onclick="return lcdNavTo(this,'learner-slides')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/></svg><span>Learner Slides</span></a>
-            <a href="#lesson" class="lcd-nav-item" onclick="return lcdNavTo(this,'lesson')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>Lesson</span></a>
-            <a href="#additional-documents" class="lcd-nav-item" onclick="return lcdNavTo(this,'additional-documents')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Additional Documents</span></a>
-            <a href="#certificate" class="lcd-nav-item" onclick="return lcdNavTo(this,'certificate')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><circle cx="12" cy="15" r="2"/></svg><span>Certificate</span></a>
-            <?php endif; ?>
-        </nav>
-    </div>
-</aside>
 
 <div class="lcd-wrap lcd-two-col">
     <!-- Left sidebar: Course Details + Nav (visible on wide screens) -->
@@ -5803,10 +5728,6 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
 
     <!-- Right column: Course content -->
     <div class="lcd-main-content">
-    <button type="button" class="lcd-menu-btn lcd-mobile-only" onclick="lcdOpenDrawer()">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-        Course Menu
-    </button>
     <?php $_fromPage = (int) Mage::app()->getRequest()->getParam('from_page'); ?>
     <?php if (!in_array($activeRole, array('developer', 'learner', 'trainer'), true)): ?>
     <a href="<?php echo $_backUrl ?><?php echo $_fromPage > 1 ? '#page' . $_fromPage : '' ?>" class="lcd-back">

@@ -110,7 +110,6 @@ a.dcf-store-tab.is-active,a.dcf-store-tab.is-active:hover{
     font-size:11px;letter-spacing:.6px;
 }
 
-
 /* --- Block 1 (template line 1337) --- */
 /* ---- Admin schedule dashboard ---- */
 .dash-wrap{padding:8px 0 28px;background:var(--d1);min-height:100vh}
@@ -1180,22 +1179,19 @@ div.dce-value::-webkit-scrollbar-thumb:hover{background:#64748b}
 .lcd-wrap{padding:0;max-width:1600px;margin:0;font-family:var(--font-sans)}
 .lcd-wrap,.lcd-wrap *{font-family:inherit}
 .lcd-two-col{display:flex;gap:24px;align-items:flex-start}
-/* Default (100% zoom / normal width): sidebar hidden, button visible */
-/* Course Details column. Widened 280 -> 360 and de-scrolled: the card grows to
-   its natural height instead of scrolling inside itself (the inner scrollbar
-   made the course image + duration block feel cramped and hid the lower rows).
-   `position:sticky` is kept, so on a short viewport the column simply scrolls
-   with the page rather than trapping a second scrollbar. */
-.lcd-sidebar-details{display:none;width:450px;min-width:450px;flex-shrink:0;background:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px;position:sticky;top:70px}
-.lcd-main-content{flex:1;min-width:0}
-button.lcd-menu-btn.lcd-mobile-only{display:flex !important}
-/* When zoomed out (90% or less = wider viewport): sidebar visible, button hidden */
-@media(min-width:1620px){
-    .lcd-sidebar-details{display:block}
-    button.lcd-menu-btn.lcd-mobile-only{display:none !important}
-}
-button.lcd-menu-btn,button.lcd-menu-btn:hover,button.lcd-menu-btn:focus,button.lcd-menu-btn:active{display:flex !important;width:100% !important;background:#5bb8c9 !important;background-image:none !important;color:#fff !important;border:none !important;border-radius:10px !important;padding:14px !important;font-size:15px !important;font-weight:700 !important;cursor:pointer !important;margin-bottom:16px !important;align-items:center !important;justify-content:center !important;gap:10px !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
-button.lcd-menu-btn:hover{background:#4da8b9 !important}
+/* Course Details column — always visible. Widened 280 -> 450 (matching the
+   ai-lms-tms course screen) and de-scrolled: the card grows to its natural
+   height instead of scrolling inside itself, which cramped the cover image and
+   hid the lower rows behind a second scrollbar. `position:sticky` is kept, so
+   a short viewport scrolls the page rather than trapping a nested scrollbar.
+
+   Previously this column was hidden below 1450px and a "Course Menu" button
+   opened a slide-out drawer that duplicated the whole card. Both are gone, so
+   the column must never hide — it is now the only place these details exist.
+   It shrinks toward 320px before the row wraps on a narrow window. */
+.lcd-sidebar-details{display:block;flex:0 1 450px;min-width:320px;background:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px;position:sticky;top:70px}
+.lcd-main-content{flex:1 1 560px;min-width:0}
+.lcd-two-col{flex-wrap:wrap}
 .lcd-back{display:inline-block;background:#334155;color:#fff !important;text-decoration:none !important;border-radius:10px;padding:12px 24px;font-size:15px;font-weight:600;margin-bottom:20px;border:none}
 .lcd-back:hover{background:#475569;color:#fff !important}
 .lcd-section{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:22px 24px;margin-bottom:16px}
@@ -1227,17 +1223,6 @@ button.lcd-mark-btn:hover{background:#334155 !important;color:#fff !important}
 .lcd-cert-sub{font-size:12px;color:#94a3b8}
 .lcd-footer{text-align:center;color:#64748b;font-size:12px;padding:20px 0;margin-top:10px}
 .lcd-footer strong{color:#cbd5e1}
-
-/* Course Menu drawer — sized to match live AI-LMS-TMS reference */
-.lcd-drawer-backdrop{position:fixed !important;inset:0;background:rgba(0,0,0,.6);z-index:9998 !important;opacity:0;visibility:hidden;transition:opacity .25s}
-.lcd-drawer-backdrop.open{opacity:1;visibility:visible}
-.lcd-drawer{position:fixed !important;top:0 !important;left:0 !important;bottom:0;width:300px;background:#0f172a;border-right:1px solid #1e293b;z-index:9999 !important;display:flex;flex-direction:column;transform:translateX(-100%);transition:transform .25s ease;box-shadow:4px 0 20px rgba(0,0,0,.5)}
-.lcd-drawer.open{transform:translateX(0)}
-.lcd-drawer-header{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid #1e293b;color:#fff;font-size:17px;font-weight:700;flex-shrink:0}
-button.lcd-drawer-close,button.lcd-drawer-close:hover,button.lcd-drawer-close:focus,button.lcd-drawer-close:active{background:transparent !important;background-image:none !important;border:none !important;color:#94a3b8 !important;cursor:pointer !important;padding:4px !important;box-shadow:none !important;border-radius:6px !important;display:inline-flex !important;align-items:center !important;justify-content:center !important}
-button.lcd-drawer-close:hover{color:#fff !important;background:#1e293b !important}
-.lcd-drawer-body{flex:1;overflow-y:auto;padding:20px 22px 20px}
-.lcd-drawer-section-title{font-size:18px;font-weight:700;color:#fff;margin:0 0 10px}
 /* Collapsible "Course Details" header. Mirrors the .dcf-nav-group chevron
    pattern (rotate 90deg when open) so the two collapse affordances in the
    editor behave identically. The <button> needs an explicit text-align/font
@@ -1328,17 +1313,10 @@ button.lcd-card-head:hover{color:#60a5fa !important}
 .lcd-duration-divider{height:1px;background:#1e293b;margin:6px 0}
 .lcd-duration-total{font-weight:700}
 .lcd-duration-total span,.lcd-duration-total strong{color:#fff;font-size:14px}
-
-/* Drawer nav items */
-.lcd-drawer-nav{margin-top:14px;display:flex;flex-direction:column;gap:2px;padding-top:14px;border-top:1px solid #1e293b}
 .lcd-nav-item{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:8px;color:#cbd5e1 !important;text-decoration:none !important;font-size:14px;font-weight:500;transition:all .15s}
 .lcd-nav-item:hover{background:#1e293b;color:#fff !important}
 .lcd-nav-item.active{background:rgba(59,130,246,.15);color:#93c5fd !important;font-weight:600}
 .lcd-nav-item svg{flex-shrink:0;width:18px;height:18px}
-
-/* --- Block 14 (template line 4674) --- */
-body.lcd-drawer-open .admin-sidebar{z-index:1 !important}
-body.lcd-drawer-open .admin-topbar{z-index:1 !important}
 
 /* --- Block 15 (template line 4971) --- */
                 .lcd-topic-card{background:#283548;border:1px solid #384a60;border-radius:10px;margin-bottom:10px;overflow:hidden}
@@ -3063,7 +3041,6 @@ button.mn-vp-btn.active,button.mn-vp-btn.active:hover,button.mn-vp-btn.active:fo
 :root[data-theme="light"] .lcd-sidebar-details,
 :root[data-theme="light"] .lcd-section { background:#ffffff !important; border-color:#64748b !important }
 :root[data-theme="light"] .lcd-section-title,
-:root[data-theme="light"] .lcd-drawer-section-title,
 :root[data-theme="light"] .lcd-topic-title,
 :root[data-theme="light"] .lcd-tile-title,
 :root[data-theme="light"] .lcd-duration-title { color:#0f172a !important }
@@ -3098,24 +3075,12 @@ button.mn-vp-btn.active,button.mn-vp-btn.active:hover,button.mn-vp-btn.active:fo
 :root[data-theme="light"] .lcd-cert-box { background:#f8fafc !important; border-color:#64748b !important; color:#64748b !important }
 :root[data-theme="light"] .lcd-cert-title { color:#1e293b !important }
 
-/* Side drawer */
-:root[data-theme="light"] .lcd-drawer { background:#ffffff !important; border-right-color:#e2e8f0 !important; box-shadow:4px 0 20px rgba(15,23,42,0.12) !important }
-:root[data-theme="light"] .lcd-drawer-header { color:#0f172a !important; border-bottom-color:#e2e8f0 !important }
-:root[data-theme="light"] button.lcd-drawer-close,
-:root[data-theme="light"] button.lcd-drawer-close:hover,
-:root[data-theme="light"] button.lcd-drawer-close:focus,
-:root[data-theme="light"] button.lcd-drawer-close:active { color:#64748b !important }
-:root[data-theme="light"] button.lcd-drawer-close:hover { color:#0f172a !important; background:#e2e8f0 !important }
-
 /* Duration block */
 :root[data-theme="light"] .lcd-duration-row { color:#1e293b !important }
 :root[data-theme="light"] .lcd-duration-row strong { color:#0f172a !important }
 :root[data-theme="light"] .lcd-duration-divider { background:#e2e8f0 !important }
 :root[data-theme="light"] .lcd-duration-total span,
 :root[data-theme="light"] .lcd-duration-total strong { color:#0f172a !important }
-
-/* Drawer / sidebar nav */
-:root[data-theme="light"] .lcd-drawer-nav { border-top-color:#e2e8f0 !important }
 :root[data-theme="light"] .lcd-nav-item { color:#334155 !important }
 :root[data-theme="light"] .lcd-nav-item:hover { background:#e2e8f0 !important; color:#0f172a !important }
 :root[data-theme="light"] .lcd-nav-item.active { background:rgba(37,99,235,0.10) !important; color:#1d4ed8 !important }
@@ -4146,7 +4111,6 @@ button.hsp-btn-submit{
 :root[data-theme="light"] [style*="color: #64748b"] {
     color: #475569 !important;
 }
-
 
 /* ===== Massaction lifted into the .dcf-mag-bar (canonical) =====
    sidebar-nav-v2.js::wrapAdminGridInCard() moves [id$="_massaction"]
