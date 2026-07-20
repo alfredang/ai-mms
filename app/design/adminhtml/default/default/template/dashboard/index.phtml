@@ -2235,7 +2235,11 @@ $_devWebsiteLabels   = array(
 $_devWebsiteFlags    = array(
     1 => '🇸🇬', 2 => '🇲🇾', 3 => '🇬🇭', 4 => '🇳🇬', 7 => '',
 );
-if (!empty($_devCourses)) {
+// One store per site (franchise model) -- with a single website there is nothing
+// to disambiguate, so the per-card store badges are noise. Only collect/render
+// them if this install genuinely serves more than one website.
+$_devShowStoreBadges = count(Mage::app()->getWebsites()) > 1;
+if ($_devShowStoreBadges && !empty($_devCourses)) {
     try {
         $_pids = array();
         foreach ($_devCourses as $_dc) { $_pids[] = (int) $_dc['id']; }
@@ -2509,7 +2513,7 @@ function courseSyncSaveConfig() {
                 $_dcWebsites = isset($_devProductWebsites[(int)$_dc['id']]) ? $_devProductWebsites[(int)$_dc['id']] : array();
                 sort($_dcWebsites);
                 ?>
-                <?php if (!empty($_dcWebsites)): ?>
+                <?php if ($_devShowStoreBadges && !empty($_dcWebsites)): ?>
                 <div class="dev-card-row" style="align-items:center;"><span class="dev-card-lbl">Stores:</span><span class="dev-card-val" style="display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end;">
                     <?php foreach ($_dcWebsites as $_wid): if (!isset($_devWebsiteLabels[$_wid])) continue; ?>
                         <span class="dev-store-badge" style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;background:#1e3a5f;color:#bfdbfe;border:1px solid #3b82f6;border-radius:10px;font-size:11px;font-weight:600;line-height:1.4;"><?php echo $_devWebsiteFlags[$_wid] ?> <?php echo $_devWebsiteLabels[$_wid] ?></span>
@@ -5569,6 +5573,36 @@ try {
 } catch (Exception $e) {}
 $_lcdApprovedTrainersLabel = $_lcdApprovedTrainers ? implode(', ', $_lcdApprovedTrainers) : '—';
 
+// Raw image URL for the "Image URL Link" row. $_selectedCourse['image'] is
+// already the display src (course_image_url, else a resized catalog image);
+// the link wants the unresized original, so re-resolve it the same way the
+// editor does at ~1536 and fall back to the display src.
+$_lcdImgSrc = isset($_selectedCourse['image']) ? trim((string)$_selectedCourse['image']) : '';
+$_lcdImgUrl = $_lcdImgSrc;
+try {
+    $_lcdProd = Mage::getModel('catalog/product')->load($_lcdCourseId);
+    if ($_lcdProd->getId()) {
+        $_lcdRaw = trim((string)$_lcdProd->getData('course_image_url'));
+        if ($_lcdRaw === '') {
+            $_lcdGal = $_lcdProd->getImage();
+            if ($_lcdGal && $_lcdGal !== 'no_selection') {
+                $_lcdRaw = Mage::getBaseUrl('media') . 'catalog/product' . $_lcdGal;
+            }
+        }
+        if ($_lcdRaw !== '') $_lcdImgUrl = $_lcdRaw;
+    }
+} catch (Exception $e) {}
+
+// Approved trainers — the per-course pool in mmd_product_trainer, same source
+// the editor's trainer picker reads (~1568).
+$_lcdTrainerNames = array();
+try {
+    $_lcdTrHelper = Mage::helper('mmd_rolemanager/trainer');
+    foreach ($_lcdTrHelper->getProductTrainerAccounts($_lcdCourseId) as $_lcdAcc) {
+        if (!empty($_lcdAcc['name'])) $_lcdTrainerNames[] = $_lcdAcc['name'];
+    }
+} catch (Exception $e) {}
+
 // E-Attendance entry for the Course Menu (View Course). Built once and echoed
 // at the top of BOTH nav blocks (mobile drawer + wide sidebar); self-gates so
 // only a trainer or learner with a real run gets a link, every other role
@@ -5645,6 +5679,18 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
         $_modeBadgeCls = 'lcd-badge-' . strtolower($_modeLabel);
         ?>
         <h3 class="lcd-drawer-section-title">Course Details</h3>
+        <?php if ($_lcdImgSrc !== ''): ?>
+        <div class="lcd-detail-img">
+            <div class="lcd-detail-label" style="margin-bottom:6px;">Course Image</div>
+            <img src="<?php echo htmlspecialchars($_lcdImgSrc) ?>" alt="" onerror="this.parentNode.style.display='none'" />
+        </div>
+        <?php endif; ?>
+        <?php if ($_lcdImgUrl !== ''): ?>
+        <div class="lcd-detail-img">
+            <div class="lcd-detail-label" style="margin-bottom:6px;">Image URL Link</div>
+            <a class="lcd-detail-url" href="<?php echo htmlspecialchars($_lcdImgUrl) ?>" target="_blank" rel="noopener"><?php echo htmlspecialchars($_lcdImgUrl) ?></a>
+        </div>
+        <?php endif; ?>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Course Title</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['name']) ?></span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Course Code</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['sku'] ?: '—') ?></span></div>
         <?php if ($_courseManagerActive): /* developer/course view: course-level only */ ?>
@@ -5663,6 +5709,16 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
             <div class="lcd-duration-divider"></div>
             <div class="lcd-duration-row lcd-duration-total"><span>Total Duration:</span><strong><?php echo $_totalDur ?></strong></div>
         </div>
+        <?php if (!empty($_lcdTrainerNames)): ?>
+        <div class="lcd-detail-img">
+            <div class="lcd-detail-label" style="margin-bottom:6px;">Approved Trainers</div>
+            <ul class="lcd-trainer-list">
+                <?php foreach ($_lcdTrainerNames as $_tn): ?>
+                <li><?php echo htmlspecialchars($_tn) ?></li>
+                <?php endforeach; ?>
+            </ul>
+        </div>
+        <?php endif; ?>
 
         <nav class="lcd-drawer-nav">
             <?php echo $_eAttendanceNavHtml; ?>
@@ -5691,6 +5747,18 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
     <!-- Left sidebar: Course Details + Nav (visible on wide screens) -->
     <div class="lcd-sidebar-details">
         <h3 style="font-size:16px;font-weight:700;color:#fff;margin:0 0 12px;">Course Details</h3>
+        <?php if ($_lcdImgSrc !== ''): ?>
+        <div class="lcd-detail-img">
+            <div class="lcd-detail-label" style="margin-bottom:6px;">Course Image</div>
+            <img src="<?php echo htmlspecialchars($_lcdImgSrc) ?>" alt="" onerror="this.parentNode.style.display='none'" />
+        </div>
+        <?php endif; ?>
+        <?php if ($_lcdImgUrl !== ''): ?>
+        <div class="lcd-detail-img">
+            <div class="lcd-detail-label" style="margin-bottom:6px;">Image URL Link</div>
+            <a class="lcd-detail-url" href="<?php echo htmlspecialchars($_lcdImgUrl) ?>" target="_blank" rel="noopener"><?php echo htmlspecialchars($_lcdImgUrl) ?></a>
+        </div>
+        <?php endif; ?>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Course Title</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['name']) ?></span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Course Code</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['sku'] ?: '—') ?></span></div>
         <?php if ($_courseManagerActive): /* developer/course view: course-level only */ ?>
@@ -5709,6 +5777,16 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
             <div style="height:1px;background:#1e293b;margin:4px 0;"></div>
             <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:13px;color:#fff;font-weight:700;"><span>Total Duration:</span><strong><?php echo $_totalDur ?></strong></div>
         </div>
+        <?php if (!empty($_lcdTrainerNames)): ?>
+        <div class="lcd-detail-img">
+            <div class="lcd-detail-label" style="margin-bottom:6px;">Approved Trainers</div>
+            <ul class="lcd-trainer-list">
+                <?php foreach ($_lcdTrainerNames as $_tn): ?>
+                <li><?php echo htmlspecialchars($_tn) ?></li>
+                <?php endforeach; ?>
+            </ul>
+        </div>
+        <?php endif; ?>
         <nav style="margin-top:14px;padding-top:14px;border-top:1px solid #1e293b;display:flex;flex-direction:column;gap:2px;">
             <?php echo $_eAttendanceNavHtml; ?>
             <?php if ($_courseManagerActive): /* Google Meet nav link removed — not shown in developer view */ ?>
