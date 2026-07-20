@@ -143,6 +143,47 @@ Partner renders `/media/catalog/category/<file>` → the partner's `media/.htacc
 302-redirects missing `catalog/category/*` to R2 (final 200). Verify a sample loads. See
 memory `feedback_category_banners_on_r2`.
 
+## 4b. Product course-cover images → R2 (compress + reupload for app speed)
+
+Partner course tiles/product pages read the `course_image_url` EAV attribute (a **stored
+full URL**, attribute in `catalog_product_entity_varchar`). On a fresh partner the covers
+live on the partner's OWN Apache origin (`https://www.tertiarycourses.com.<cc>/media/course-covers/<sku>.png`)
+— no CDN, served off a 2-CPU box → slow, and the 1600×900 RGBA PNGs are heavy. SG serves the
+*same kind* of cover from Cloudflare R2 (`pub-77c0…r2.dev/course-covers/…`). Move the partner
+onto the same R2 host — the CDN edge cache is the real speed win; recompression is a bonus.
+**Partner covers are the partner's OWN SKU-named files** (`c024.png`), distinct from SG's
+timestamped keys (`TGS-…-<stamp>.png` / `C193-…-<stamp>.png`) — so uploading them to the shared
+bucket **cannot collide with or affect SG**. MY & GH covers are usually byte-identical (same
+SG render batch) — compress once, upload once, both DB-swaps reuse it.
+
+```bash
+# 1. Pull the partner's covers to the Mac (web container has NO R2 env, so upload from here):
+docker exec $WEB tar cf - -C /var/www/html/media course-covers | tar xf - -C ./src --strip-components=1
+# 2. Compress: RGB + optimize at NATIVE 1600×900 (drops the unused alpha, ~17% lighter, pixel-identical).
+#    Do NOT downscale (LANCZOS resample noise makes PNG BIGGER) and do NOT pngquant
+#    (gradient+antialiased-text covers palette poorly — some grow). Pillow:
+python3 -c 'import glob,os;from PIL import Image
+[Image.open(p).convert("RGB").save("out/"+os.path.basename(p),"PNG",optimize=True) for p in glob.glob("src/*.png")]'
+# 3. Upload to the SHARED bucket under course-covers/<same-filename> (creds from .env R2_*):
+rclone copy out ":s3:$R2_BUCKET/course-covers/" --s3-provider Cloudflare \
+  --s3-access-key-id $R2_ACCESS_KEY_ID --s3-secret-access-key $R2_SECRET_ACCESS_KEY \
+  --s3-endpoint $R2_ENDPOINT --s3-no-check-bucket --header-upload "Content-Type: image/png" --transfers 16
+# verify a key: curl -I $R2_PUBLIC_URL/course-covers/c024.png  → 200, server: cloudflare
+# 4. DB host-swap (keep filename): only the origin prefix changes.
+#    UPDATE catalog_product_entity_varchar v JOIN eav_attribute a ON a.attribute_id=v.attribute_id
+#      SET value=REPLACE(value,'https://www.tertiarycourses.com.<cc>/media/course-covers/',
+#                              'https://pub-77c0dec029944b0386e40673ce81081f.r2.dev/course-covers/')
+#      WHERE a.attribute_code='course_image_url' AND value LIKE 'https://www.tertiarycourses.com.<cc>/media/course-covers/%';
+#    (GH holds the value at BOTH store 0 AND store 3 → ~2× rows; swap all, don't filter store.)
+```
+Then **reindex `catalog_product_flat` + flush** — listing/featured tiles read the FLAT table,
+so the EAV UPDATE alone leaves the homepage stale (`feedback_flat_catalog_reindex`):
+`Mage::getSingleton('index/indexer')->getProcessByCode('catalog_product_flat')->reindexEverything();`
+then `getCacheInstance()->flush()`. Verify: homepage + a product page emit `pub-77c0…r2.dev/course-covers/`
+with **zero** `com.<cc>/media/course-covers` refs. GOTCHA: `docker exec -i` inside `bash -s < script`
+steals the script's stdin — add `</dev/null` to every `docker exec` in a piped script.
+See memory `feedback_partner_product_covers_to_r2`.
+
 ## 5. Currency switcher (local currency + USD)
 
 Allowed currencies are usually already set (`currency/options/allow=GHS,USD`,
@@ -361,6 +402,205 @@ goes through the repo migration runner — and that runner is a **production tri
 - Encrypted config columns need `Mage::helper('core')->encrypt()` before save.
 See memories `feedback_migration_applyphp_utf8_outage`, `feedback_migration_country_instance_table_differences`,
 `feedback_apply_php_sql_splitter`, `feedback_db_sync_via_migration`, `feedback_cms_block_hex_replace_generate_programmatically`.
+
+## 14. Course options + schedules (MMD_CustomOptions templates) — import from SG by SKU
+
+Course-page options (Course Date, Course Time, Mode of Training, Sponsorship,
+Additional Message) render via the **MMD_CustomOptions "custom option template"**
+extension, NOT plain per-product options. A fresh MY/GH clone often has the
+`custom_options_group`/`custom_options_relation` tables **EMPTY** → every course
+shows a BLANK options area even though `catalog_product_option` rows exist. Fix =
+replicate SG's option subsystem to the partner by SKU (partners are C-prefix SG
+clones → SKUs match 1:1; verified 494/494 for MY and GH).
+
+**Data model:** `custom_options_group` = a schedule TEMPLATE (`A01`…`E04` =
+duration buckets A=1day…E=5day). `custom_options_relation(group_id,product_id,
+option_id)` links a course to a group. Options are normal `catalog_product_option`
+rows (product_id = course) with an `in_group_id` DISPLAY id (≠ group_id). The
+dates/times are that option's `_type_value`/`_type_title` rows.
+
+**THE gotcha — `custom_options_option_view_mode`.** The rewritten frontend
+collection (`Model/Catalog/Product/Option.php` ~1325) DROPS every option whose
+`view_mode==0`/absent ("0-Disable"). Import without a view_mode row = invisible
+options. `has_options` is NOT the gate (SG renders with it unset).
+
+**Import procedure (partner-DB-only; read SG from local backup):**
+1. Build filter temp tables in the backup: `_f_opt` = option_ids of the shared
+   products, `_f_type` = their option_type_ids.
+2. `mysqldump` (flags: `--skip-lock-tables --no-tablespaces` and NO
+   `--single-transaction`, else it HANGS at 0 bytes — the `magento` user lacks
+   PROCESS/LOCK): `catalog_product_option(+_title,_price,_type_value,_type_title,
+   _type_price)`, `custom_options_relation`, `custom_options_group(+_store)`, and
+   the satellites **`custom_options_option_view_mode`,`_default`,`_description`**.
+   Filter big tables via the small indexed temp-table subquery, never a 90 KB
+   literal `IN(...)` arg.
+3. On the partner: `SET FOREIGN_KEY_CHECKS=0`, DELETE those tables, load the dump
+   (option_id/type_id/group_id preserved — no collision, tables were wiped), then
+   remap ONLY `product_id` (SG→partner by SKU) in `catalog_product_option` +
+   `custom_options_relation` via a `_idmap(sg_id,new_id)` temp-table JOIN. All
+   other tables carry no product_id → verbatim.
+4. Flush Redis (`getCacheInstance()->flush()`); curl a course page, expect 5
+   `options[NNN]` form fields. CLI `getOptions()` FATALS ("Unable to start
+   session" — module calls customer/session) — verify via HTTP, not CLI.
+5. Relabel value titles per partner with plain `UPDATE/DELETE` on
+   `catalog_product_option_type_title` keyed by the unique value string; when
+   merging values (e.g. Sponsorship 4→2) dedup by keeping `MIN(option_type_id)`
+   per option_id.
+
+Options auto-flow into the **order email**: the `convertQuoteItemToOrderItem`
+observer copies them to the order item; `email/order/items/order/default.phtml`
+renders `getItemOptions()`. GH SSH: key rejected → use the `.env` `# GH SSH #PW:`
+password via `sshpass`. See memory
+`feedback_partner_course_options_via_custom_option_templates`.
+
+## 14b. Course-page DEADSPACE after hiding WSQ cards → tabs `clear:none`
+
+Hiding the SG WSQ funding cards (§6, `.course-policy-card--wsq{display:none}`)
+shrinks the product page's left/center column. The bottom tabs
+(`.product-view > .box-additional`, "Course Details / Info / …") use
+`clear: both` (custom.css:613) which is tuned for SG where the left+center stack
+(Certification + WSQ policy cards) is the TALLEST column. With WSQ hidden, the
+right booking sidebar (Course Fee + options + gallery) becomes tallest, so
+`clear:both` drops the tabs BELOW it → a large empty gap above the tabs. The
+theme author documented the remedy inline: flip to `clear:none`. Apply
+partner-scoped (never repo — SG must keep `clear:both`) by appending to the
+partner `design/head/includes`:
+`<style>.product-view > .box-additional{clear:none !important;}</style>` then
+flush. Verify by eyeball (no Playwright — it hijacks the user's Chrome).
+
+## 15. "Recommended Courses" block = Up-sell links (link_type_id=4)
+
+The product-page "Recommended Courses" carousel is the Ultimo/theme rendering of
+Magento **up-sell** products (`catalog_product_link` link_type_id=4), tabbed with
+Related in `catalog/product/view.phtml`. A fresh MY/GH clone has **0** upsells so
+the block is empty. Populate 5 per course (partner-DB-only):
+- Generate 5 RELATED courses per course = pick from products sharing a SPECIFIC
+  (small, size ≤60) category; fall back to broader categories, then random. Skip
+  self-links; keep deterministic per product (`random.Random(product_id)`).
+- Apply: `DELETE` existing link_type_id=4 (+ their `catalog_product_link_attribute_int`
+  rows), `INSERT INTO catalog_product_link(product_id,linked_product_id,link_type_id=4)`,
+  then `INSERT INTO catalog_product_link_attribute_int(product_link_attribute_id=4,
+  link_id,value=0) SELECT ... WHERE link_type_id=4` for the position attr (SG uses 0).
+- No reindex needed (links read directly); just flush Redis. Verify the course page
+  shows the "Recommended Courses" heading + product tiles.
+Do NOT copy SG's upsells verbatim — SG upsells link to WSQ (`TGS-`) courses that
+don't exist on partners → broken tiles. Generate from the partner's own catalog.
+
+## 15b. Strip SG-only add-on options + add MY HRD Corp branding
+
+- **Remove SG-only add-on options** the import brought over that don't apply to a
+  partner (e.g. "Exam Voucher" upsells). Delete by option title: collect
+  `option_id`s where `catalog_product_option_title.title LIKE '%Voucher%'`, then
+  delete their rows across `catalog_product_option(+_title,_price,_type_value,
+  _type_title,_type_price)`, `custom_options_relation`, and the
+  `custom_options_option_view_mode/_default/_description` satellites. Flush.
+- **MY HRD Corp logos** (Malaysia only — HRD Corp is MY). Official seals:
+  Claimable + "Registered Training Provider". Source clean transparent PNGs
+  (fedelis.asia / modoku.tech host them), optimize with Pillow (the official
+  Claimable PNG is 17344² — set `Image.MAX_IMAGE_PIXELS=None`), `rclone` to R2
+  `wysiwyg/`. Place PARTNER-DB-ONLY: Claimable seal → inject into the HRDF card
+  in `design/head/includes` (float:right img in the injected card HTML; rewrite
+  the whole head value via base64 to dodge quote-hell); Registered-Training-
+  Provider seal → the MY `home` + `about-us.html` cms_page content (base64
+  UPDATE). Flush + verify by eyeball.
+
+## 15c. Enquiry forms + footer "Enquiries" menu
+
+Enquiry forms (Course Feedback, Trainer/Associate, Corporate On-Site, Customised,
+Reschedule) are **CMS pages** whose content is just an intro `<div>` +
+`{{block type="core/template" template="mmd_<module>/form.phtml"}}`. The templates
++ controllers (`mmd_coursefeedback`,`mmd_trainer`,`mmd_corporate`,`mmd_customised`,
+`mmd_reschedule` → `<frontName>/index/post`) are SHARED repo code (exist on every
+site), so creating a form on a partner is DB-only: `INSERT cms_page`
+(root_template `one_column`, identifier `slug.html`, content via base64) +
+`INSERT cms_page_store (page_id,<store or 0>)`. No url_rewrite needed — the CMS
+router matches the identifier. Leads land in each module's admin grid.
+- The footer **"Enquries"** column lives in cms_block `block_footer_row2_column5`
+  (per-store: MY=33, GH=52, SG=1). Rewrite the `<ul class="bullet">` after the
+  `Enquries</h6>` heading; links use `{{store url=''}}slug.html`.
+- A partner clone may point these footer links at **Google Forms**
+  (`docs.google.com/forms/...`) — replace with the native cms_page links.
+- For a form with NO dedicated module (e.g. a simple Refund Request), don't add a
+  module (repo change). Put a styled HTML form (reuse the reschedule `tcs-*` CSS)
+  in the cms_page posting to core `{{store url='contacts/index/post'}}`, and
+  assemble the custom fields (Course Title/Code/Date/Reason) into the `comment`
+  field via a tiny inline JS `onsubmit` so they show in the contact email.
+
+## 16. Seed course reviews (4-5 star) on a partner
+
+A fresh partner has an EMPTY `rating` table (single-store reduction purged it) →
+every course shows "Be the first to review". To seed 5-10 approved 4-5★ reviews
+per course (partner-DB-only):
+1. Recreate SG's 3 rating dimensions: `rating_entity`(1 product,2 product_review,
+   3 review), `review_entity`(1 product,…), `rating`(ids 1,2,5 = expectation /
+   trainer / environment), `rating_option` (5 per rating: ids 1-5, 6-10, 21-25 =
+   value 1-5), `rating_store` (each rating → store 0 AND the partner store:
+   MY=2, GH=3).
+2. Per product insert `review`(entity_id=1, entity_pk_value=product, status_id=1
+   approved), `review_detail`(store_id=partner, title/detail/nickname — use
+   country-appropriate names), `review_store`(review→store), and 3
+   `rating_option_vote` (one per rating; value 4|5, option_id = base+value-1,
+   percent = value*20). Tables are empty → assign explicit sequential PKs.
+3. Aggregate so stars/count DISPLAY: `review_entity_summary`(entity_pk_value,
+   entity_type=1, reviews_count, rating_summary = avg percent, store rows for the
+   partner store AND store 0) + `rating_option_vote_aggregated` per rating. Flush
+   Redis; the product page reads review_entity_summary (rating_summary/20 = stars).
+Keep dates ≤ today (no future-dated reviews). Verify a course shows N reviews and
+4.x stars; confirm SG still shows ITS OWN counts (untouched).
+
+## 17. MailerLite newsletter list (each partner owns their own list)
+
+Order emails are pushed into a MailerLite subscriber group daily at 04:00 by
+`mmd_marketing/cron_subscribersync`. **Every parameter is a Company Setting —
+nothing about SG is hardcoded**, so a partner points the sync at THEIR list:
+
+Admin → Dashboard → Company Setting → Integrations → **MailerLite**
+| Field | Config path | Notes |
+|---|---|---|
+| MailerLite API Key | `mmd_company/mailerlite/api_key` | the partner's OWN MailerLite account key |
+| Subscriber Group ID | `mmd_company/mailerlite/group_id` | **no default** — blank = sync refuses to run |
+| Store ID | `mmd_company/mailerlite/store_id` | blank = current store (SG=1, MY=2, GH=3) |
+| Daily Sync Enabled | `mmd_company/mailerlite/sync_enabled` | `1`/`0`, default **0** (inert until enabled) |
+
+**Why there is deliberately NO fallback group**: defaulting to the SG group would
+push a partner's learners into Singapore's list, and a subscriber import cannot be
+un-sent. `getSyncGroupId()` returns `''` when unset and every caller treats that as
+"do not sync" — keep it that way.
+
+**Opt-outs are never re-added.** `POST /subscribers` is an UPSERT, so blindly
+posting an address that unsubscribed resurrects it (a compliance breach).
+`getSuppressedEmails()` pages the account's `unsubscribed`/`bounced`/`junk`
+subscribers and the sync skips them. On the SG backfill this filtered 178 of
+1,064 addresses — not a rounding error, so never "optimise away" that pre-fetch.
+
+Historical backfill (run ONCE per site, always `--dry-run` first):
+```bash
+docker exec <web> php /var/www/html/scripts/maintenance/mailerlite-import-order-emails.php \
+    --since=2026-01-01 --dry-run      # then re-run without --dry-run
+# --group= / --store= override the Company Settings for a one-off import
+```
+Only the learner **email** (+ first/last name for personalisation) is ever sent —
+no order, payment or password data. Log: `var/log/mailerlite.log`.
+Group IDs are discoverable via `GET /api/groups` with that account's key.
+
+**Rotating the API key**: paste the new key into the Company Setting field and save
+(the admin save clears the config cache, so the next 4am run uses it). The Company
+Setting **wins** over the legacy `mmd_marketing/api/mailerlite_key` path — that
+precedence is deliberate, so rotating in the admin can't be silently ignored by an
+older key still sitting in the legacy row.
+
+**Daily monitoring — "did the emails really get added?"**
+```bash
+docker exec <web> php /var/www/html/scripts/maintenance/mailerlite-sync-status.php
+# exit 0 = healthy, exit 1 = needs attention (drives a cron/monitor)
+```
+It prints the last run's recorded outcome AND independently queries the MailerLite
+API to confirm the most recent order emails are really in the group — a cron
+reporting success while the API rejects everything is the failure mode that matters.
+Flags a missed run (>26h old), a disabled sync, a missing key/group, and any recent
+order email absent from the group. `status=unsubscribed` while still group-listed is
+CORRECT (they simply won't be mailed), not a fault. Real failures also email the
+marketing reviewers; "added 0" and MailerLite refusing an opt-out do not alert.
 
 ## Deploy / ops gotchas (partner servers on Coolify)
 

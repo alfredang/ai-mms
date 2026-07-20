@@ -89,8 +89,12 @@ RUN if [ "$INSTALL_CLAUDE_CLI" = "1" ]; then \
 # Set working directory
 WORKDIR /var/www/html
 
-# Copy application files
-COPY . /var/www/html/
+# Copy application files. --chown writes ownership directly into the COPY
+# layer; a later blanket `chown -R /var/www/html` would copy-up the entire
+# ~70k-file tree into a duplicate layer — that step alone ran 45-60 min on
+# the SG Coolify server and pushed every build past the 1-hour deployment
+# timeout (2026-07-17 outage: builds 3919/3937 failed, queue jammed).
+COPY --chown=www-data:www-data . /var/www/html/
 
 # Install Composer dependencies.
 #
@@ -132,8 +136,12 @@ RUN date -u '+%d-%m-%Y %H:%M' > /var/www/html/version.txt
 # Clear Magento cache to ensure fresh templates/config on deploy
 RUN rm -rf /var/www/html/var/cache/* /var/www/html/var/session/* /var/www/html/var/tmp/* 2>/dev/null || true
 
-# Set proper permissions for Apache
-RUN chown -R www-data:www-data /var/www/html
+# Only vendor/ is created root-owned after the --chown COPY (composer
+# install). Root-owned 644 build artifacts (version.txt, .br/.gz siblings)
+# stay readable by Apache; runtime-writable dirs (media/css etc.) are
+# chowned by entrypoint.sh on every boot. Never reinstate a blanket
+# `chown -R /var/www/html` — see COPY comment above.
+RUN chown -R www-data:www-data /var/www/html/vendor
 
 EXPOSE 80
 

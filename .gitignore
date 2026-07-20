@@ -30,6 +30,11 @@ js/**/*.gz
 /media/js/
 /media/migrations-status.json
 
+# Banner source art — multi-MB PNG originals. Compressed and uploaded to R2
+# (catalog/category/*.jpg), referenced by URL, so the originals never need to
+# ship in the repo or the Docker build context.
+/media/banner/
+
 # Var directory (cache, sessions, logs, reports)
 /var/*
 !/var/.htaccess

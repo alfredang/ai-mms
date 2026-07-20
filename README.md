@@ -54,11 +54,13 @@ This system runs as a **franchise model**:
 | 👥 **Six-role admin** | Learner / Trainer / Developer / Marketing / Admin / Training Provider with session-based role switching. |
 | 🎒 **Learner login** | Dedicated `/learnerlogin` page on every site — learners sign in with their storefront email + password and land straight on the learner dashboard (no role selection); staff keep using the admin portal. |
 | 🔁 **SG → partner course sync** | Manual-only, one-way export of non-WSQ (C-prefix) courses to MY/GH — bulk "Sync All" or per-course "Sync One" from the partner admin. Partner-owned course fees, schedules and trainer info are never overwritten on update. |
+| 🧲 **Recommended Courses rail** | Every SG course page shows at least 5 "Recommended Courses" (Upsell links); shortfalls are topped up with related WSQ courses by category affinity via `scripts/maintenance/backfill-course-upsells.php` (idempotent, no-op on partner sites). |
 | 🌏 **Franchise Report** | Super Admin sidebar page showing confirmed + completed classes pulled from the MY/GH partner sites (class code, course, dates, trainer, attendance-marked learners) with date/title/search filters. Auto-pull every Sunday 10am + on-demand Pull Now. |
 | 🛡️ **Deploy safety guards** | `apply.php` gives every migration an explicit `@mms_instance` identity, enforces the one-store-per-site topology invariant (a corrupting migration fails the deploy), and a daily 2AM maintenance cron publishes `/media/health.json`. |
 | 🎟️ **Payments** | Stripe, HitPay, PayNow and bank transfer. |
 | 📜 **Certificates & attendance** | E-attendance and certificate-of-achievement generation. |
-| 📣 **Autonomous newsletter** | SG-only agentic-flyer pipeline: designs a course flyer Mon & Thu 10am → both-manager approval (email **or** admin) → MailerLite blast Mon & Thu 8am. Hard cap **2 flyers/week**; nothing sends without approval. |
+| 📣 **Autonomous newsletter** | SG-only agentic-flyer pipeline: designs a course flyer Mon & Thu 10am → manager approval (either manager, via email **or** admin) → MailerLite blast Mon & Thu 8am with a static R2-hosted registration QR. Hard cap **2 flyers/week**; nothing sends without approval. |
+| 📧 **Newsletter subscriber sync** | Daily 4am cron adds new order emails to the site's own MailerLite subscriber group, plus a one-shot historical backfill. Learners who previously unsubscribed are never re-added. API key, group, source store and on/off are all Company Settings, so every franchise site points at its **own** list. |
 | ✍️ **Lead-magnet blog** | `/blog` with slug URLs, SEO meta + Article JSON-LD, Magento-tag reuse, star ratings, social share, R2 hero images. Every post funnels readers to course sign-up with the WSQ funding / SkillsFuture Credit hook. Monday 9am cron auto-writes a post (Claude) for the top unblogged course, auto-publishes, and shares it on LinkedIn. |
 | 🎨 **Ultimo storefront** | Premium responsive theme + a custom dark admin theme. |
 
@@ -145,7 +147,7 @@ ai-mms/
 | **Certificate / Attendance** | Certificates of achievement + e-attendance. |
 | **AccountSync** | Unified learner ↔ shadow admin accounts. |
 | **Courses / Leads** | Course CRUD + admin grid; contact-form lead capture. |
-| **Marketing** | Autonomous agentic-flyer newsletter pipeline — cron design (Mon/Thu 10am), signed email + backend manager approval, guarded MailerLite scheduling (Blastguard: 2 blasts/week, Mon/Thu 8am), subscriber-growth + campaign KPIs. |
+| **Marketing** | Autonomous agentic-flyer newsletter pipeline — cron design (Mon/Thu 10am), signed email + backend manager approval, guarded MailerLite scheduling (Blastguard: 2 blasts/week, Mon/Thu 8am), subscriber-growth + campaign KPIs. Also hosts the daily 4am order-email → MailerLite subscriber sync (`Model/Cron/Subscribersync.php`, backfill `scripts/maintenance/mailerlite-import-order-emails.php`) — per-site config, opt-outs never re-added. |
 | **Blog** | CMS-style lead-magnet blog — Marketing → Blog Posts admin (WYSIWYG, SEO meta, tags, R2 hero upload), `/blog/<slug>` storefront with ratings + share, Monday 9am Claude auto-blog with LinkedIn auto-share. |
 
 ## Getting Started
@@ -230,10 +232,10 @@ setup. Committed and ready to use after a clone:
 
 - **`.claude/skills/`** — domain skills (`openmage-code-reviewer`, `openmage-module-developer`,
   `openmage-frontend-developer`, `backend-design`, `seo-audit`, `lead-magnets`, `add-country-store`,
-  `mysql`, `web-accessibility`, …).
+  `recommended-courses`, `mysql`, `web-accessibility`, …).
 - **`.claude/agents/`** — specialised subagents (security auditor, caching/speed optimiser,
   mysql tuner, admin-design-consistency, site-health-checker, `newsletter-designer`, …).
-- **`.claude/hooks/`** — pre/post-tool hooks (push-gate, PHP lint-on-edit, web-health,
+- **`.claude/hooks/`** — pre/post-tool hooks (PHP lint-on-edit, web-health,
   leads-capture and newsletter-flyer verifiers) wired via `.claude/settings.json`.
 - **`.codex/`** + **`AGENTS.md`** — the Codex-CLI counterparts of the same guidance.
 

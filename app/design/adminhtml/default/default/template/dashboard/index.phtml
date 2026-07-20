@@ -1373,13 +1373,25 @@ try {
 //   5. Singapore default
 // The existing $_seoStoreId block further down re-derives the same
 // resolution for SEO Meta; once this rolls out we can drop that.
-$_pageStoreToCountry = array(
-    1 => 'Singapore', 2 => 'Malaysia', 3 => 'Ghana', 4 => 'Nigeria',
-);
+// Franchise model: one store per site. Derive the pill list from the
+// instance's OWN core_store rows — never a hardcoded six-country list,
+// which showed MY/GH/NG pills on the SG site for stores that don't exist
+// in its DB. A single-store install therefore renders a single pill.
+$_pageStoreToCountry = array();
+foreach (Mage::app()->getStores() as $_coreStore) {
+    if (!$_coreStore->getId()) {
+        continue; // skip admin (id 0)
+    }
+    $_pageStoreToCountry[(int) $_coreStore->getId()] =
+        trim(preg_replace('/\s*Store\s*View\s*$/i', '', (string) $_coreStore->getName()));
+}
+if (!$_pageStoreToCountry) {
+    $_pageStoreToCountry = array(1 => 'Singapore');
+}
 // Country instances only have their own store (+ admin) in core_store —
 // the hardcoded "Singapore default" below doesn't exist there, so the
 // fallback must resolve to the instance's own store, not store_id=1.
-$_pageDefaultStoreId = 1; // Singapore default
+$_pageDefaultStoreId = (int) key($_pageStoreToCountry); // this site's own store
 // In country-mode instances (NG/etc.) only show SG + own country pill.
 if (strtolower((string) getenv('MMS_MODE')) === 'country') {
     $_mmsCountryCode = strtoupper((string) getenv('MMS_COUNTRY_CODE'));
@@ -1600,6 +1612,7 @@ $_courseware = array(
     'learner_guide_url'      => '',
     'learner_slides_url'     => '',
     'trainer_slides_url'     => '',
+    'lab_url'                => '',
     'courseware_link'        => '',
     'brochure_link'          => '',
     'google_meet_url'        => '',
@@ -2713,6 +2726,12 @@ $_seoActiveCountry = isset($_seoStoreToCountry[$_seoStoreId])
 $_dcfStoreFlag = array(
     'Singapore' => 'SG', 'Malaysia' => 'MY', 'Ghana' => 'GH', 'Nigeria' => 'NG',
 );
+// Any store name not in the map above still gets a badge (first 2 letters).
+foreach ($_pageStoreToCountry as $_flagName) {
+    if (!isset($_dcfStoreFlag[$_flagName])) {
+        $_dcfStoreFlag[$_flagName] = strtoupper(substr($_flagName, 0, 2));
+    }
+}
 $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
 ?>
 <div id="dash-panel-course-edit">
@@ -2737,6 +2756,17 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                 Save Changes
             </button>
             </div>
+        </div>
+        <?php
+        // Course identity banner — pinned at the top of the right-hand editor
+        // panel so the SKU + course name are visible while working through any
+        // section. Previously nothing on screen named the course once you
+        // scrolled past the top, making it easy to edit the wrong one
+        // (reported 2026-07-19).
+        ?>
+        <div class="dcf-course-ident">
+            <span class="dcf-course-ident-code"><?php echo htmlspecialchars(trim((string) $_selectedCourse['sku'])) ?></span>
+            <span class="dcf-course-ident-name"><?php echo htmlspecialchars(trim((string) $_selectedCourse['name'])) ?></span>
         </div>
     </div>
 
@@ -2769,7 +2799,13 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
         $_dcfCurrentUrl .= (strpos($_dcfCurrentUrl, '?') === false ? '?' : '&')
             . 'dev_back=' . urlencode($_devBack);
     }
+    // Franchise model: one store per site. With a single store there is
+    // nothing to switch between, so the bar is suppressed entirely — the
+    // same way MMD_Branchscope's global switcher bails on
+    // isSingleStoreMode(). Kept (not deleted) so a genuinely multi-store
+    // install still renders a working switcher.
     ?>
+    <?php if (count($_pageStoreToCountry) > 1): ?>
     <div class="dcf-store-switcher" role="tablist" aria-label="Store view">
         <span class="dcf-store-switcher-label">Store View:</span>
         <?php foreach ($_pageStoreToCountry as $_swStoreId => $_swCountry):
@@ -2791,6 +2827,7 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
             <span>Scope</span>
         </span>
     </div>
+    <?php endif; ?>
     <style>
         .dcf-store-switcher{
             display:flex;align-items:center;gap:4px;flex-wrap:wrap;
@@ -2835,11 +2872,16 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             You are in edit mode. Make your changes and click Save Changes.
         </span>
+        <?php /* "Editing for: <country>" is only meaningful when more than
+                 one store exists to edit against — suppressed on a
+                 single-store (franchise) site. */ ?>
+        <?php if (count($_pageStoreToCountry) > 1): ?>
         <span class="dcf-active-store-pill" title="Store-view-scoped fields (SEO Meta, Design overrides, etc.) on this page will be saved against this country's store view. Switch country via the Store View tabs above.">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
             Editing for: <strong><?php echo htmlspecialchars($_pageStoreCountry) ?></strong>
             <span class="dcf-active-store-code"><?php echo htmlspecialchars($_dcfStoreFlag[$_pageStoreCountry] ?? '') ?></span>
         </span>
+        <?php endif; ?>
     </div>
     <style>
         .dcf-active-store-pill{
@@ -2866,7 +2908,14 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
          sidebar in editing mode. Uses the same .lms-nav-item style as
          every other role sidebar so it visually matches the project. -->
     <aside class="sidebar-nav sidebar-nav-role dcf-edit-sidebar">
-        <h3 class="dcf-edit-sidebar-title">Course Information</h3>
+        <?php
+        // No heading here: the course title used to sit at the top of this
+        // sidebar, but it wrapped to many lines on long names and pushed the
+        // nav items far down the page, out of line with every other admin
+        // sidebar. The .dcf-course-ident banner on the right panel already
+        // names the course on every section, so the nav starts flush at the
+        // top (reported 2026-07-20).
+        ?>
         <?php
         // Sidebar structure: items are either flat tabs (key => label) or a
         // collapsible group ('__group_xxx' => ['label' => …, 'children' => […]]).
@@ -3440,9 +3489,11 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                 </div>
                 <?php
                 $_cwFields = array(
-                    'lesson_plan_url'        => 'Lesson Plan URL',
                     'learner_slides_url'     => 'Learner Slides URL',
+                    'learner_guide_url'      => 'Learner Guide URL',
+                    'lesson_plan_url'        => 'Lesson Plan URL',
                     'trainer_slides_url'     => 'Trainer Slides URL',
+                    'lab_url'                => 'Activities/Labs URL',
                     'courseware_link'        => 'Courseware Link',
                     'brochure_link'          => 'Brochure Link',
                 );
@@ -5742,11 +5793,13 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
     // (form, read-only view, and the developer link-count filter).
     // Empty URLs are still skipped by the foreach below.
     $_devCwLabels = array(
-        'courseware_link'        => 'Courseware Link',
         'learner_slides_url'     => 'Learner Slides',
-        'trainer_slides_url'     => 'Trainer Slides',
-        'brochure_link'          => 'Brochure Link',
+        'learner_guide_url'      => 'Learner Guide',
         'lesson_plan_url'        => 'Lesson Plan',
+        'trainer_slides_url'     => 'Trainer Slides',
+        'lab_url'                => 'Activities/Labs',
+        'courseware_link'        => 'Courseware Link',
+        'brochure_link'          => 'Brochure Link',
     );
     $_devCwSaved = array();
     foreach ($_devCwLabels as $_k => $_lbl) {
@@ -6116,11 +6169,16 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
     // Same 6-tile set as the developer view above. See $_devCwLabels
     // comment for rationale on why the other course_courseware columns
     // are intentionally excluded from this section.
-    // Trainers only see Trainer Slides (per product 2026-05-07). The
-    // other course_courseware columns are admin/developer-facing and
-    // stay hidden from the trainer view.
+    // Trainers see Trainer Slides, Learner Guide, Lesson Plan,
+    // Activities/Labs and the Courseware Link (per product 2026-07-20,
+    // widened from the 2026-05-07 Trainer-Slides-only rule). Brochure
+    // Link and Learner Slides stay developer-facing.
     $_trCwLabels = array(
         'trainer_slides_url'     => 'Trainer Slides',
+        'learner_guide_url'      => 'Learner Guide',
+        'lesson_plan_url'        => 'Lesson Plan',
+        'lab_url'                => 'Activities/Labs',
+        'courseware_link'        => 'Courseware Link',
     );
     $_trCwSaved = array();
     foreach ($_trCwLabels as $_k => $_lbl) {
@@ -6243,11 +6301,15 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
          map as the developer / trainer views so a learner sees every
          saved URL (including duplicates). -->
     <?php
-    // Learners only see Learner Slides (per product 2026-05-07). The
-    // other course_courseware columns are admin/trainer-facing and stay
-    // hidden from the learner view.
+    // Learners see Learner Slides, Learner Guide, Lesson Plan and
+    // Activities/Labs (per product 2026-07-20, widened from the
+    // 2026-05-07 Learner-Slides-only rule). Trainer Slides, Courseware
+    // Link and Brochure Link stay hidden from learners.
     $_lnCwLabels = array(
         'learner_slides_url'     => 'Learner Slides',
+        'learner_guide_url'      => 'Learner Guide',
+        'lesson_plan_url'        => 'Lesson Plan',
+        'lab_url'                => 'Activities/Labs',
     );
     $_lnCwSaved = array();
     foreach ($_lnCwLabels as $_k => $_lbl) {
@@ -9126,6 +9188,50 @@ $_csv = function ($path, $default = '') use ($_cs) {
                 </div>
             </div>
 
+            <!-- MailerLite -->
+            <div class="cs-sub-section">
+                <h3 class="cs-sub-title">MailerLite</h3>
+                <?php
+                $_csMlKey   = isset($_cs['mmd_company/mailerlite/api_key'])      ? trim($_cs['mmd_company/mailerlite/api_key'])      : '';
+                $_csMlGroup = isset($_cs['mmd_company/mailerlite/group_id'])     ? trim($_cs['mmd_company/mailerlite/group_id'])     : '';
+                $_csMlStore = isset($_cs['mmd_company/mailerlite/store_id'])     ? trim($_cs['mmd_company/mailerlite/store_id'])     : '';
+                $_csMlOn    = isset($_cs['mmd_company/mailerlite/sync_enabled']) ? trim($_cs['mmd_company/mailerlite/sync_enabled']) : '0';
+                ?>
+                <div class="cs-card" style="background:#0f172a">
+                    <div class="cs-card-title" style="display:flex;align-items:center">
+                        Newsletter Subscriber Sync
+                        <span class="cs-status <?php echo $_csMlOn === '1' ? 'enabled' : '' ?>" style="margin-left:auto">
+                            <?php echo $_csMlOn === '1' ? 'Enabled' : 'Disabled' ?>
+                        </span>
+                    </div>
+                    <p style="margin:8px 0 12px;font-size:12px;color:#94a3b8;line-height:1.6">
+                        Daily at 04:00, new order emails from this site are added to your own
+                        MailerLite subscriber group. Learners who previously unsubscribed are
+                        never re-added. Each franchise site configures its own key and group.
+                    </p>
+                    <div class="cs-field" data-path="mmd_company/mailerlite/api_key" style="margin-bottom:8px">
+                        <label>MailerLite API Key</label>
+                        <div class="cs-val"><span class="cs-masked"><?php echo $_csMlKey !== '' ? '••••••••' : '(not set)' ?></span></div>
+                        <input type="password" value=""/>
+                    </div>
+                    <div class="cs-field" data-path="mmd_company/mailerlite/group_id" style="margin-bottom:8px">
+                        <label>Subscriber Group ID</label>
+                        <div class="cs-val"><?php echo $_csMlGroup !== '' ? htmlspecialchars($_csMlGroup) : '<span style="color:#64748b;font-size:12px;">(not set — sync will not run)</span>' ?></div>
+                        <input type="text" value="<?php echo htmlspecialchars($_csMlGroup, ENT_QUOTES) ?>"/>
+                    </div>
+                    <div class="cs-field" data-path="mmd_company/mailerlite/store_id" style="margin-bottom:8px">
+                        <label>Store ID (orders source — blank = current store)</label>
+                        <div class="cs-val"><?php echo $_csMlStore !== '' ? htmlspecialchars($_csMlStore) : '<span style="color:#64748b;font-size:12px;">(current store)</span>' ?></div>
+                        <input type="text" value="<?php echo htmlspecialchars($_csMlStore, ENT_QUOTES) ?>"/>
+                    </div>
+                    <div class="cs-field" data-path="mmd_company/mailerlite/sync_enabled">
+                        <label>Daily Sync Enabled (1 = on, 0 = off)</label>
+                        <div class="cs-val"><?php echo $_csMlOn === '1' ? 'Yes' : 'No' ?></div>
+                        <input type="text" value="<?php echo htmlspecialchars($_csMlOn, ENT_QUOTES) ?>"/>
+                    </div>
+                </div>
+            </div>
+
             <!-- Magento -->
             <div class="cs-sub-section">
                 <h3 class="cs-sub-title">Magento</h3>
@@ -9677,6 +9783,11 @@ window.csSaveSection = function(section) {
         var path = fields[i].getAttribute('data-path');
         var input = fields[i].querySelector('input,select');
         if (input && path) {
+            // Secret fields render blank (the saved value is only ever shown
+            // masked), so an empty password input means "unchanged" — sending
+            // it would wipe a stored key just because the operator edited some
+            // other field in the same section.
+            if (input.type === 'password' && input.value === '') { continue; }
             settings[path] = input.value;
             // Update the display value
             var valEl = fields[i].querySelector('.cs-val');
@@ -13488,6 +13599,7 @@ if ($_mnActive) {
                       WHERE e.entity_id = CAST(SUBSTRING_INDEX(n.course_pids, ',', 1) AS UNSIGNED) LIMIT 1) AS sku
              FROM " . Mage::getSingleton('core/resource')->getTableName('newsletters') . " n
              WHERE n.country_code = ? AND n.template_key = 'agentic_flyer'
+               AND n.review_status NOT IN ('superseded', 'expired')
              ORDER BY n.newsletter_id DESC LIMIT 30",
             array($_mnCC)
         );
@@ -13536,6 +13648,10 @@ $_svgEye   = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke
 $_svgCheck = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
 $_svgEdit  = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>';
 $_svgClose = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+$_svgPerf  = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>';
+// Per-blast performance, keyed by newsletter_id — powers the "View performance"
+// popup on Blasted rows (same numbers as the Recent-blasts section).
+$_mnBlastStats = array();
 
 ?>
 <div id="dash-panel-marketing-newsletter" style="display:none;">
@@ -13555,6 +13671,9 @@ $_svgClose = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke
         <div class="mn-pipe-bar">
             <div class="mn-pipe-title">Agentic Flyer Pipeline
                 <span class="mn-pipe-flag <?php echo $_mnCap['enabled'] ? 'on' : 'off' ?>"><?php echo $_mnCap['enabled'] ? 'SG · ENABLED' : 'DISABLED' ?></span>
+                <button type="button" class="mn-refresh" title="Refresh pipeline status" onclick="mnRefreshStatus(this)">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                </button>
             </div>
             <div class="mn-pipe-caps">
                 <span class="mn-cap" title="Max 2 designs per week"><em>Designs</em><b><?php echo (int)$_mnCap['designs'] ?>/<?php echo (int)$_mnCap['max'] ?></b></span>
@@ -13629,7 +13748,17 @@ $_svgClose = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke
                 $_na = count(array_filter($_dec, function ($d) { return $d === 'approve'; }));
                 $_sentAt = !empty($_dec['_sent_at']) ? date('j M · g:ia', strtotime($_dec['_sent_at'])) : '—';
                 $_pending  = ((string) $_r['review_status'] === 'pending' || (string) $_r['review_status'] === 'changes_requested');
-                $_deletable = !in_array((string) $_r['status'], array('scheduled', 'sent'), true); ?>
+                $_deletable = !in_array((string) $_r['status'], array('scheduled', 'sent'), true);
+                $_isBlasted = ((string) $_r['status'] === 'sent');
+                if ($_isBlasted) {
+                    $_bsDec = json_decode((string) $_r['review_decisions'], true);
+                    $_mnBlastStats[(int) $_r['newsletter_id']] = array(
+                        'title'   => (string) $_r['title'],
+                        'sent_at' => !empty($_r['sent_at']) ? date('D j M Y, g:ia', strtotime($_r['sent_at'])) : '',
+                        'li'      => (is_array($_bsDec) && !empty($_bsDec['_linkedin_url'])) ? (string) $_bsDec['_linkedin_url'] : '',
+                        'stats'   => (($_tmp = json_decode((string) $_r['blast_stats'], true)) && is_array($_tmp)) ? $_tmp : null,
+                    );
+                } ?>
                 <tr>
                     <td class="strong"><?php echo htmlspecialchars($_r['title']) ?></td>
                     <td class="muted" style="font-family:ui-monospace,Menlo,monospace;font-size:12px;"><?php echo htmlspecialchars($_r['sku'] ?: '—') ?></td>
@@ -13644,7 +13773,12 @@ $_svgClose = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke
                         } ?></td>
                     <td class="muted"><?php echo ((int)$_r['is_auto'] ? 'Auto' : 'Manual') ?></td>
                     <td class="center">
-                        <div class="mmd-grid-actions"><button type="button" class="mmd-grid-action mmd-grid-action--view" title="Preview flyer" onclick="mnLoadDraft(<?php echo (int)$_r['newsletter_id'] ?>)"><?php echo $_svgEye ?></button></div>
+                        <div class="mmd-grid-actions">
+                            <button type="button" class="mmd-grid-action mmd-grid-action--view" title="Preview flyer" onclick="mnLoadDraft(<?php echo (int)$_r['newsletter_id'] ?>)"><?php echo $_svgEye ?></button>
+                            <?php if ($_isBlasted): ?>
+                            <button type="button" class="mmd-grid-action mmd-grid-action--view" title="View blast performance" onclick="mnPerf(<?php echo (int)$_r['newsletter_id'] ?>)"><?php echo $_svgPerf ?></button>
+                            <?php endif; ?>
+                        </div>
                     </td>
                     <td class="ta-r">
                         <div class="mmd-grid-actions" style="justify-content:flex-end;">
@@ -13714,6 +13848,14 @@ $_svgClose = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke
         .mn-pipe{background:#0f172a;border:1px solid #24324a;border-radius:14px;padding:18px 20px;margin-bottom:18px;}
         .mn-pipe-bar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;border-bottom:1px solid #24324a;padding-bottom:14px;margin-bottom:18px;}
         .mn-pipe-title{font:800 15px -apple-system,Segoe UI,Arial,sans-serif;color:#f1f5f9;display:flex;align-items:center;gap:10px;}
+        /* Scoped to .mn-pipe-title (2 classes) so it outranks the generic
+           `.admin-main button` §18 rule that would otherwise inflate it to a
+           38px pill (see memory feedback_global_icon_action_standard). */
+        .mn-pipe-title .mn-refresh{display:inline-flex !important;align-items:center !important;justify-content:center !important;width:28px !important;height:28px !important;min-width:0 !important;min-height:0 !important;line-height:1 !important;padding:0 !important;margin:0 !important;border-radius:6px !important;border:1px solid #24324a !important;background:transparent !important;color:#94a3b8 !important;cursor:pointer;box-shadow:none !important;transition:color .12s,border-color .12s,background .12s;}
+        .mn-pipe-title .mn-refresh:hover{color:#22d3ee !important;border-color:#22d3ee !important;background:rgba(34,211,238,.1) !important;}
+        .mn-pipe-title .mn-refresh svg{width:15px !important;height:15px !important;flex:0 0 auto !important;display:block !important;}
+        .mn-refresh.spin svg{animation:mn-spin .7s linear infinite;}
+        @keyframes mn-spin{to{transform:rotate(360deg);}}
         .mn-pipe-flag{font:700 10px -apple-system,Segoe UI,Arial,sans-serif;letter-spacing:.8px;padding:3px 9px;border-radius:999px;border:1px solid;}
         .mn-pipe-flag.on{color:#34d399;border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.08);}
         .mn-pipe-flag.off{color:#94a3b8;border-color:#334155;background:transparent;}
@@ -13840,6 +13982,52 @@ window._mnState = {
     template: 'agentic_flyer',
     pids: [],
     pidNames: {}
+};
+// Per-blast performance keyed by newsletter_id (Blasted rows only).
+window.MN_BLAST = <?php echo json_encode($_mnBlastStats, JSON_UNESCAPED_SLASHES) ?: '{}' ?>;
+
+// Open the blast-performance popup for a Blasted flyer — same numbers as the
+// Recent-blasts cards, in a modal like the flyer preview.
+window.mnPerf = function(id) {
+    var d = window.MN_BLAST && window.MN_BLAST[id];
+    var modal = document.getElementById('mn-perf-modal');
+    if (!modal) return;
+    if (modal.parentNode !== document.body) document.body.appendChild(modal);
+    document.getElementById('mn-perf-title').textContent = (d && d.title) || 'Blast performance';
+    document.getElementById('mn-perf-meta').textContent  = (d && d.sent_at) ? ('Blasted · ' + d.sent_at) : '';
+    var li = document.getElementById('mn-perf-li');
+    if (li) { if (d && d.li) { li.href = d.li; li.style.display = ''; } else { li.style.display = 'none'; } }
+    var body = document.getElementById('mn-perf-body');
+    var s = d && d.stats;
+    if (!s) {
+        body.innerHTML = '<div style="font:500 13px/1.6 -apple-system,Segoe UI,Arial,sans-serif;color:#94a3b8;background:#0d1730;border:1px solid #24324a;border-radius:10px;padding:16px;">Stats are still syncing from MailerLite. They refresh automatically within ~10 minutes of the blast — check back shortly.</div>';
+    } else {
+        var pc = function(k){ var v = s[k] != null ? parseFloat(s[k]) : 0; return (v*100).toFixed(2) + '%'; };
+        var n  = function(k){ var v = s[k] != null ? parseInt(s[k],10) : 0; return v.toLocaleString(); };
+        var bar = function(k,c){ var v = s[k]!=null ? Math.max(0,Math.min(1,parseFloat(s[k]))) : 0; return '<span class="mn-bs-bar"><i style="width:'+(v*100).toFixed(2)+'%;background:'+c+';"></i></span>'; };
+        var cell = function(label,val,barHtml){ return '<div class="mn-bs"><em>'+label+'</em><b>'+val+'</b>'+(barHtml||'')+'</div>'; };
+        body.innerHTML =
+            '<div class="mn-bs-grid">'
+            + cell('Open rate',     pc('open_rate'),     bar('open_rate','#34d399'))
+            + cell('Click rate',    pc('click_rate'),    bar('click_rate','#60a5fa'))
+            + cell('Click-to-open', pc('ctor'),          bar('ctor','#b07cff'))
+            + cell('Delivery rate', pc('delivery_rate'), bar('delivery_rate','#2563eb'))
+            + cell('Opens',         n('opens'))
+            + cell('Clicks',        n('clicks'))
+            + cell('Total sends',   n('sent'))
+            + cell('Bounces',       n('hard_bounces') + ' hard · ' + n('soft_bounces') + ' soft')
+            + '</div>'
+            + '<div class="mn-blast-meta" style="margin-top:12px;">Unsubscribes: ' + n('unsubscribes')
+            + (s.updated_at ? ' · stats updated ' + s.updated_at : '') + '</div>';
+    }
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+};
+window.mnClosePerf = function(e) {
+    if (e && e.target && e.target.id && e.target.id !== 'mn-perf-modal') return;
+    var m = document.getElementById('mn-perf-modal');
+    if (m) m.style.display = 'none';
+    document.body.style.overflow = '';
 };
 
 window.mnPickTpl = function(btn) {
@@ -14073,6 +14261,15 @@ window.mnFlyerQueueRun = function(qid, pid, name) {
 // its own Run Now icon), so there is nothing to refresh here.
 window.mnRefreshPreview = function() {};
 
+// Refresh the pipeline status: reloads the panel (server-rendered flow cards,
+// table, caps + stats) preserving the ?panel= query so it re-opens on load.
+window.mnRefreshStatus = function(btn) {
+    if (btn) { btn.classList.add('spin'); btn.disabled = true; }
+    var u = new URL(window.location.href);
+    if (!u.searchParams.get('panel')) { u.searchParams.set('panel', 'marketing_newsletter'); }
+    window.location.href = u.toString();
+};
+
 // Label for the top queue row's next auto-run. Server-side truth: the next FREE
 // Mon/Thu blast slot (skips days already booked by scheduled flows — e.g. with
 // Monday blasted and Thursday booked, the next run is the following Monday).
@@ -14193,8 +14390,8 @@ window.mnSetViewport = function(mode) {
 try { mnFlyerQueueLoad(); } catch (e) {}
 
 window.mnDeleteDraft = function(id, title) {
-    title = title || 'this draft';
-    if (!confirm('Delete "' + title + '"?\n\nThis cannot be undone.')) return;
+    title = title || 'this flow';
+    if (!confirm('Cancel & delete "' + title + '"?\n\nThis removes it from the pipeline. This cannot be undone.')) return;
     var fd = new FormData();
     fd.append('newsletter_id', String(id));
     fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/marketingnewsletter/deleteDraft') ?>', {
@@ -14203,24 +14400,16 @@ window.mnDeleteDraft = function(id, title) {
     .then(function (r) { return r.json(); })
     .then(function (j) {
         if (!j || !j.success) { alert((j && j.message) || 'Delete failed.'); return; }
-        // Drop the row from the DOM and update the count.
-        var row = document.querySelector('.mn-draft[data-id="' + id + '"]');
-        if (row) row.remove();
-        var listEl = document.getElementById('mn-drafts-list');
-        if (listEl && !listEl.querySelector('.mn-draft')) {
-            listEl.innerHTML = '<div class="mn-result-empty">No drafts yet.</div>';
-        }
-        var head = document.querySelector('.mn-drafts h3');
-        if (head) {
-            var n = document.querySelectorAll('.mn-draft').length;
-            head.textContent = 'Drafts (' + n + ')';
-        }
-        // If the draft being edited is the one we just deleted, reset.
+        // Reload so the flow steppers, pipeline table and caps all reflect the
+        // deletion (same pattern as approve/request-changes). The merged pipeline
+        // is server-rendered, so a targeted DOM removal would leave the flow
+        // cards + counters stale — this is the reliable refresh.
         if (window._mnState && Number(window._mnState.newsletterId) === Number(id)) {
             window._mnState.newsletterId = 0;
         }
+        location.reload();
     })
-    .catch(function (e) { alert('Network: ' + e); });
+    .catch(function (e) { alert('Network error — please try again: ' + (e && e.message ? e.message : e)); });
 };
 window.mnLoadDraft = function(id) {
     var modal = document.getElementById('mn-draft-modal');
@@ -14333,6 +14522,26 @@ window.mnSetDraftViewport = function(mode) {
     if (!stage) return;
     if (mode !== 'mobile') mode = 'desktop';
     stage.dataset.vp = mode;
+    // Also set the geometry inline: the [data-vp] rules live at the tail of
+    // admin-dashboard.css, and a stale/truncated browser-cached copy of that
+    // file leaves the toggle visually dead (real incident 2026-07-16). The
+    // page HTML is never cached, so inline styles always win.
+    var ifr = document.getElementById('mn-draft-modal-iframe');
+    if (ifr) {
+        if (mode === 'mobile') {
+            stage.style.padding = '18px';
+            ifr.style.width = '390px';  ifr.style.maxWidth = '100%';
+            ifr.style.height = '100%';  ifr.style.minHeight = '600px';
+            ifr.style.borderRadius = '18px';
+            ifr.style.boxShadow = '0 4px 20px rgba(0,0,0,.35)';
+        } else {
+            stage.style.padding = '0';
+            ifr.style.width = '100%';   ifr.style.maxWidth = 'none';
+            ifr.style.height = '100%';  ifr.style.minHeight = '520px';
+            ifr.style.borderRadius = '0';
+            ifr.style.boxShadow = 'none';
+        }
+    }
     var d = document.getElementById('mn-draft-vp-desktop');
     var m = document.getElementById('mn-draft-vp-mobile');
     if (d) d.classList.toggle('active', mode === 'desktop');
@@ -14384,6 +14593,23 @@ document.addEventListener('keydown', function (ev) {
             <button type="button" class="mn-btn mn-btn-ghost" onclick="mnCloseChangesBox()">Cancel</button>
             <button type="button" class="mn-btn mn-btn-cta" onclick="mnSendChanges()">Send feedback</button>
         </div>
+    </div>
+</div>
+<?php /* Blast-performance popup — MailerLite-style numbers for one Blasted flyer,
+         opened from the bar-chart icon next to Preview. Reuses the .mn-bs stat grid. */ ?>
+<div id="mn-perf-modal" style="display:none;position:fixed;inset:0;z-index:4000;background:rgba(3,7,18,.72);align-items:center;justify-content:center;padding:20px;" onclick="mnClosePerf(event)">
+    <div style="width:100%;max-width:640px;background:#0f172a;border:1px solid #24324a;border-radius:14px;padding:22px 24px;box-shadow:0 30px 80px -30px rgba(0,0,0,.8);" onclick="event.stopPropagation()">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+            <div>
+                <div id="mn-perf-title" style="font:800 16px -apple-system,Segoe UI,Arial,sans-serif;color:#f1f5f9;">Blast performance</div>
+                <div id="mn-perf-meta" style="margin-top:4px;font:600 11.5px -apple-system,Segoe UI,Arial,sans-serif;color:#64748b;"></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+                <a id="mn-perf-li" href="#" target="_blank" rel="noopener" class="mn-blast-li" style="display:none;">in · View LinkedIn post</a>
+                <button type="button" class="mn-btn mn-btn-ghost" onclick="mnClosePerf()" aria-label="Close">&times;</button>
+            </div>
+        </div>
+        <div id="mn-perf-body" style="margin-top:16px;"></div>
     </div>
 </div>
 </div><!-- end dash-panel-marketing-newsletter -->

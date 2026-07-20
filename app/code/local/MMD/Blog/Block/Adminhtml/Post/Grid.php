@@ -39,10 +39,13 @@ class MMD_Blog_Block_Adminhtml_Post_Grid extends Mage_Adminhtml_Block_Widget_Gri
             'index'   => 'status',
             'type'    => 'options',
             'width'   => '100px',
-            'options' => array(
-                MMD_Blog_Model_Post::STATUS_DRAFT     => $helper->__('Draft'),
-                MMD_Blog_Model_Post::STATUS_PUBLISHED => $helper->__('Published'),
-            ),
+            'options' => $helper->statusOptions(),
+        ));
+        $this->addColumn('scheduled_publish_at', array(
+            'header' => $helper->__('Scheduled For'),
+            'index'  => 'scheduled_publish_at',
+            'type'   => 'datetime',
+            'width'  => '150px',
         ));
         $this->addColumn('likes', array(
             'header' => $helper->__('Likes'),
@@ -114,6 +117,7 @@ class MMD_Blog_Block_Adminhtml_Post_Grid extends Mage_Adminhtml_Block_Widget_Gri
                     'values' => array(
                         MMD_Blog_Model_Post::STATUS_PUBLISHED => $helper->__('Published'),
                         MMD_Blog_Model_Post::STATUS_DRAFT     => $helper->__('Draft'),
+                        MMD_Blog_Model_Post::STATUS_PENDING_REVIEW => $helper->__('Pending Review'),
                     ),
                 ),
             ),

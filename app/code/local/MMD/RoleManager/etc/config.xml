@@ -202,6 +202,18 @@
                 <schedule><cron_expr>0 2 * * *</cron_expr></schedule>
                 <run><model>mmd_rolemanager/cron_maintenance::run</model></run>
             </mmd_rolemanager_daily_maintenance>
+            <!-- Daily category-ordering sweep — 01:00 (Magento cron runs on the
+                 container clock, which is UTC). Re-applies the hard listing
+                 rule in every category: WSQ (TGS-) first, then non-WSQ (C-)
+                 alphabetically, then partner/other. The order is data-derived,
+                 so adding/renaming/recategorising a course silently breaks it;
+                 this sweep self-heals that within a day instead of needing a
+                 fresh reorder migration each time. Same rule as migration 601.
+                 Kill switch: mmd/category_ordering/enabled = 0. -->
+            <mmd_rolemanager_category_ordering>
+                <schedule><cron_expr>0 1 * * *</cron_expr></schedule>
+                <run><model>mmd_rolemanager/cron_categoryOrdering::run</model></run>
+            </mmd_rolemanager_category_ordering>
             <!-- Weekly franchise completed-classes pull — Sunday 10:00 SGT.
                  SG-only (country instances skip); no-op until partner URL+key
                  are configured in mmd/franchise_report/*. -->
