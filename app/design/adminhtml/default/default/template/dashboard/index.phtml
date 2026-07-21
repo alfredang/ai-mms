@@ -2506,10 +2506,28 @@ function courseSyncSaveConfig() {
         <span>COURSE</span><span style="text-align:center">TYPES</span><span style="text-align:center">DURATION</span><span style="text-align:center">ACTIONS</span>
     </div>
     <?php if (empty($_devCourses)): ?>
+    <?php $_devHasActiveFilters = $_devFilterQuery !== '' || $_devFilterType !== '' || $_devFilterStatus !== ''; ?>
     <div style="background:#1e293b;border:1px dashed #334155;border-radius:12px;padding:60px 32px;text-align:center;">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="1.5" style="margin-bottom:14px;"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+        <?php if ($_devHasActiveFilters): ?>
+        <div style="font-size:16px;font-weight:700;color:#cbd5e1;margin-bottom:6px;">No courses match your filters</div>
+        <div style="font-size:13px;color:#94a3b8;margin-bottom:18px;">
+            <?php
+            $_devActiveBits = array();
+            if ($_devFilterQuery !== '')  $_devActiveBits[] = 'search "' . htmlspecialchars($_devFilterQuery) . '"';
+            if ($_devFilterType !== '')   $_devActiveBits[] = 'type "' . (strtolower($_devFilterType) === 'funded' ? 'Funded' : 'Unfunded') . '"';
+            if ($_devFilterStatus !== '') $_devActiveBits[] = 'status "' . ($_devFilterStatus === 'disabled' ? 'Disabled' : 'Enabled') . '"';
+            echo 'Nothing matches ' . implode(' + ', $_devActiveBits) . '.';
+            ?>
+        </div>
+        <button type="button" onclick="devResetFilters()" style="display:inline-flex;align-items:center;gap:6px;background:transparent !important;background-image:none !important;border:1px solid #38bdf8 !important;border-radius:8px !important;color:#38bdf8 !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;padding:8px 18px !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;height:auto !important;min-width:0 !important;line-height:normal !important;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            Clear all filters
+        </button>
+        <?php else: ?>
         <div style="font-size:16px;font-weight:700;color:#cbd5e1;margin-bottom:6px;">No courses available for <?php echo htmlspecialchars($_devCountry) ?></div>
         <div style="font-size:13px;color:#94a3b8;">There are currently no courses registered for this region.</div>
+        <?php endif; ?>
     </div>
     <?php endif; ?>
     <div class="dev-grid" id="dev-grid">
