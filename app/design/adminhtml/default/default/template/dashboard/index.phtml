@@ -2038,7 +2038,8 @@ document.addEventListener('keydown', function(e){if(e.key==='Escape')dashCloseDe
 // Count IBF, Unfunded courses
 $_devIbf = 0; $_devUnfunded = 0;
 $_devCourses = array();
-$_devPageSize = 12;
+$_devPageSize = (int) Mage::app()->getRequest()->getParam('dev_psize', 20);
+if (!in_array($_devPageSize, array(20, 50, 100), true)) $_devPageSize = 20;
 $_devCurPage = max(1, (int) Mage::app()->getRequest()->getParam('dev_page', 1));
 // The dashboard's "branch" is now driven by the global branch tabs
 // (MMD_Branchscope) which use ?store=N. We translate the active store
@@ -2095,6 +2096,7 @@ $_devBackParams = array('dev_country' => $_devCountry);
 if ($_devCurPage > 1)             $_devBackParams['dev_page']       = $_devCurPage;
 if ($_devFilterType !== '')       $_devBackParams['dev_type']       = $_devFilterType;
 if ($_devFilterStatus !== '')     $_devBackParams['dev_status']     = $_devFilterStatus;
+if ($_devPageSize !== 20)         $_devBackParams['dev_psize']      = $_devPageSize;
 if ($_devFilterQuery !== '')      $_devBackParams['dev_q']          = $_devFilterQuery;
 $_devBackQs = http_build_query($_devBackParams);
 // "All" → website_id 0 (treated as "no country filter" everywhere below)
@@ -2475,6 +2477,12 @@ function courseSyncSaveConfig() {
                 })();
                 </script>
             </div>
+            <span style="color:#94a3b8;font-size:13px;flex-shrink:0;">Show:</span>
+            <select id="dev-page-size" onchange="devApplyFilters(true)" style="padding:6px 10px;background:#111827;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:13px;appearance:auto;outline:none;flex-shrink:0;">
+                <?php foreach (array(20, 50, 100) as $_ps): ?>
+                <option value="<?php echo $_ps ?>"<?php echo $_devPageSize === $_ps ? ' selected' : '' ?>><?php echo $_ps ?></option>
+                <?php endforeach; ?>
+            </select>
             <span style="color:#94a3b8;font-size:13px;flex-shrink:0;">View:</span>
             <div class="lmc-view-toggle"><button type="button" class="lmc-view-btn active" id="dev-grid-btn" onclick="devSetView('grid')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></button><button type="button" class="lmc-view-btn" id="dev-list-btn" onclick="devSetView('list')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></button></div>
             <button type="button" onclick="devResetFilters()" style="background:transparent !important;background-image:none !important;border:none !important;color:#94a3b8 !important;font-size:13px !important;font-weight:500 !important;cursor:pointer !important;padding:4px 8px !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;height:auto !important;min-width:0 !important;line-height:normal !important;">Reset</button>
@@ -2588,10 +2596,11 @@ function courseSyncSaveConfig() {
     <div class="dev-pagination">
         <?php
         $_devBaseUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard');
-        $_devPageUrl = function($p) use ($_devBaseUrl, $_devCountry, $_devFilterType, $_devFilterStatus, $_devFilterQuery) {
+        $_devPageUrl = function($p) use ($_devBaseUrl, $_devCountry, $_devFilterType, $_devFilterStatus, $_devFilterQuery, $_devPageSize) {
             $qs = array('dev_country=' . urlencode($_devCountry), 'dev_page=' . $p);
             if ($_devFilterType !== '') $qs[] = 'dev_type=' . urlencode($_devFilterType);
             if ($_devFilterStatus !== '') $qs[] = 'dev_status=' . urlencode($_devFilterStatus);
+            if ($_devPageSize !== 20) $qs[] = 'dev_psize=' . $_devPageSize;
             if ($_devFilterQuery !== '') $qs[] = 'dev_q=' . urlencode($_devFilterQuery);
             return $_devBaseUrl . '?' . implode('&', $qs) . '#courses';
         };
@@ -2634,21 +2643,23 @@ function devToggleFilters() {
         btn.setAttribute('data-open', '0');
     }
 }
-function devApplyFilters() {
+function devApplyFilters(resetPage) {
     var base = <?php echo json_encode(Mage::helper('adminhtml')->getUrl('adminhtml/dashboard')) ?>;
     var country = <?php echo json_encode($_devCountry) ?>;
     var curPage = <?php echo json_encode($_devCurPage) ?>;
     var typeEl = document.getElementById('dev-filter-type');
     var statusEl = document.getElementById('dev-filter-status');
     var qEl = document.getElementById('dev-search-input');
+    var psizeEl = document.getElementById('dev-page-size');
     var params = ['dev_country=' + encodeURIComponent(country)];
     // Carry current page across filter changes so changing a dropdown doesn't
-    // bounce the user back to page 1. The server clamps if the page no longer
-    // exists in the new result set.
-    if (curPage > 1) params.push('dev_page=' + curPage);
+    // bounce the user back to page 1 — except when the page size changes
+    // (resetPage), where the old page number is meaningless.
+    if (curPage > 1 && !resetPage) params.push('dev_page=' + curPage);
     if (typeEl && typeEl.value) params.push('dev_type=' + encodeURIComponent(typeEl.value));
     if (statusEl && statusEl.value) params.push('dev_status=' + encodeURIComponent(statusEl.value));
     if (qEl && qEl.value.trim() !== '') params.push('dev_q=' + encodeURIComponent(qEl.value.trim()));
+    if (psizeEl && psizeEl.value !== '20') params.push('dev_psize=' + psizeEl.value);
     window.location.href = base + '?' + params.join('&') + '#courses';
 }
 function devDeleteCourse(sku, isReserved, productId) {
@@ -2678,6 +2689,7 @@ function devResetFilters() {
     window.location.href = base + '?dev_country=' + encodeURIComponent(country) + '#courses';
 }
 function devSetView(view) {
+    try { localStorage.setItem('devCourseView', view); } catch (e) {}
     var grid = document.getElementById('dev-grid');
     var header = document.getElementById('dev-list-header');
     var gridBtn = document.getElementById('dev-grid-btn');
@@ -2705,6 +2717,10 @@ function devSetView(view) {
         gridBtn.style.color = '#fff';
     }
 }
+// Restore the last-used view so pagination / filter reloads keep list mode.
+(function(){
+    try { if (localStorage.getItem('devCourseView') === 'list') devSetView('list'); } catch (e) {}
+})();
 </script>
 </div>
 
