@@ -24,6 +24,17 @@ class MMD_SearchFallback_ResultController extends Mage_CatalogSearch_ResultContr
         $query->setStoreId(Mage::app()->getStore()->getId());
 
         if ($query->getQueryText() != '') {
+            // Course-code search: a query that exactly matches the SKU of an
+            // enabled, visible course goes straight to the course page
+            // (e.g. "TGS-2026061583" → /wsq-information-security-....html).
+            // Checked before the min-length branch so short codes like "C6"
+            // work too.
+            $skuUrl = $this->_courseCodeUrl($query->getQueryText());
+            if ($skuUrl !== null) {
+                $this->getResponse()->setRedirect($skuUrl);
+                return;
+            }
+
             if (Mage::helper('catalogsearch')->isMinQueryLength()) {
                 $query->setId(0)
                     ->setIsActive(1)
@@ -66,6 +77,43 @@ class MMD_SearchFallback_ResultController extends Mage_CatalogSearch_ResultContr
         } else {
             $this->_redirectReferer();
         }
+    }
+
+    /**
+     * If the search text is exactly a course code (product SKU), return the
+     * course page URL for the current store; null otherwise.
+     *
+     * Only redirects when the course would actually render: enabled, visible
+     * as a standalone page, and assigned to this store's website — a disabled
+     * course falls through to normal search results instead of bouncing the
+     * learner to a 404.
+     */
+    protected function _courseCodeUrl($queryText)
+    {
+        $sku = trim((string) $queryText);
+        if ($sku === '') {
+            return null;
+        }
+
+        // Indexed exact lookup (case-insensitive via column collation).
+        $productId = Mage::getModel('catalog/product')->getResource()->getIdBySku($sku);
+        if (!$productId) {
+            return null;
+        }
+
+        $store = Mage::app()->getStore();
+        $product = Mage::getModel('catalog/product')
+            ->setStoreId($store->getId())
+            ->load($productId);
+        if (!$product->getId()
+            || (int) $product->getStatus() !== Mage_Catalog_Model_Product_Status::STATUS_ENABLED
+            || !$product->isVisibleInSiteVisibility()
+            || !in_array($store->getWebsiteId(), array_map('intval', (array) $product->getWebsiteIds()), true)
+        ) {
+            return null;
+        }
+
+        return $product->getProductUrl();
     }
 
     /**
