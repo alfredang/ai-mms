@@ -127,7 +127,11 @@
 	}
 	if ($shortDescription) {
 		$_wsqPattern = '#<div\b[^>]*border-radius\s*:[^>]*>(.*?)</div>#siu';
-		$_wsqHeadingPattern = '#<h[1-6][^>]*>' . $_WS . '*WSQ' . $_WS . '+Funding' . $_WS . '*</h[1-6]>(.*?)(?=<h[12]\b|\z)#siu';
+		// Accept both heading variants: the classic "WSQ Funding" and the
+		// Quill-editor-authored "Funding and Grant Applications" (newer
+		// courses, e.g. TGS-2026061583), so both get carded instead of
+		// rendering as a raw table in the narrative.
+		$_wsqHeadingPattern = '#<h[1-6][^>]*>' . $_WS . '*(?:WSQ' . $_WS . '+Funding|Funding' . $_WS . '+and' . $_WS . '+Grant' . $_WS . '+Applications?)' . $_WS . '*</h[1-6]>(.*?)(?=<h[12]\b|\z)#siu';
 		$_wsqStripPattern = null;
 		if (preg_match($_wsqPattern, $shortDescription, $_wsqMatch)) {
 			$_wsqStripPattern = $_wsqPattern;
