@@ -348,32 +348,44 @@ document.addEventListener('click', function(e) {
 })();
 </script>
 <?php
-/* ── TIA Operation Support (Kael) — floating WhatsApp ops launcher ──────
-   Operator roles only. Opens a template picker of structured TMS requests
-   (mirrors the lms-tms AiChatbot launcher); picking one copies the message
-   and opens the WhatsApp Operation Group so Kael (OpenClaw) can act on it.
-   Group invite links can't pre-fill text, so we always copy first; plain
-   wa.me links additionally get ?text=. Styles: .mmd-wa-* in dark-theme.css. */
+/* ── TIA Support (Kael) — floating WhatsApp launcher ────────────────────
+   Two flavours (mirrors the lms-tms AiChatbot launcher):
+   - Operator roles → green, Operation Group, full TMS request catalogue.
+   - Trainer role   → blue, Trainer Group, a deliberately narrow template
+     set (own classes + links only; classes identified by course title +
+     date, never by an ID the trainer would have to be given).
+   Picking a template copies the message and opens the group so Kael
+   (OpenClaw) can act on it. Group invite links can't pre-fill text, so we
+   always copy first; plain wa.me links additionally get ?text=.
+   Styles: .mmd-wa-* in dark-theme.css (.mmd-wa--trainer = blue skin). */
 $_waRoles = array('admin', 'developer', 'marketing', 'training_provider');
-$_waChatUrl = Mage::helper('core')->isModuleEnabled('MMD_Whatsapp')
-    ? Mage::helper('mmd_whatsapp')->getAdminChatUrl() : '';
-if (in_array($activeRole, $_waRoles, true) && $_waChatUrl !== ''):
+$_waIsTrainer = ($activeRole === 'trainer');
+$_waChatUrl = '';
+if (Mage::helper('core')->isModuleEnabled('MMD_Whatsapp')) {
+    if ($_waIsTrainer) {
+        $_waChatUrl = Mage::helper('mmd_whatsapp')->getTrainerChatUrl();
+    } elseif (in_array($activeRole, $_waRoles, true)) {
+        $_waChatUrl = Mage::helper('mmd_whatsapp')->getAdminChatUrl();
+    }
+}
+$_waTitle = $_waIsTrainer ? 'TIA Trainer Support (Kael)' : 'TIA Operation Support (Kael)';
+if ($_waChatUrl !== ''):
 ?>
-<div id="mmd-wa-root">
-    <div class="mmd-wa-panel" id="mmd-wa-panel" role="dialog" aria-label="TIA Operation Support" hidden>
+<div id="mmd-wa-root" class="<?php echo $_waIsTrainer ? 'mmd-wa--trainer' : '' ?>">
+    <div class="mmd-wa-panel" id="mmd-wa-panel" role="dialog" aria-label="<?php echo $this->escapeHtml($_waTitle) ?>" hidden>
         <div class="mmd-wa-head">
             <span class="mmd-wa-head-icon" aria-hidden="true">
                 <svg width="18" height="18" viewBox="0 0 448 512" fill="currentColor"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zM223.9 438.7c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7.9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"/></svg>
             </span>
             <span class="mmd-wa-head-text">
-                <strong>TIA Operation Support (Kael)</strong>
+                <strong><?php echo $this->escapeHtml($_waTitle) ?></strong>
                 <em>Online &middot; ask me anything</em>
             </span>
             <button type="button" class="mmd-wa-close" id="mmd-wa-close" aria-label="Close">&times;</button>
         </div>
         <div class="mmd-wa-body" id="mmd-wa-body">
-            <div class="mmd-wa-greet">Hi there.<br>What would you like to do in the TMS today?</div>
-            <input type="text" class="mmd-wa-search" id="mmd-wa-search" placeholder="Search requests&hellip; (add learner, trainer, class)" autocomplete="off">
+            <div class="mmd-wa-greet">Hi there.<br><?php echo $_waIsTrainer ? 'How can I help with your classes today?' : 'What would you like to do in the TMS today?' ?></div>
+            <input type="text" class="mmd-wa-search" id="mmd-wa-search" placeholder="<?php echo $_waIsTrainer ? 'Search requests&hellip; (assign, meet link, attendance)' : 'Search requests&hellip; (add learner, trainer, class)' ?>" autocomplete="off">
             <div class="mmd-wa-list" id="mmd-wa-list"></div>
             <button type="button" class="mmd-wa-browse" id="mmd-wa-browse">Browse all requests</button>
         </div>
@@ -397,7 +409,7 @@ if (in_array($activeRole, $_waRoles, true) && $_waChatUrl !== ''):
             </button>
         </div>
     </div>
-    <button type="button" class="mmd-wa-launcher" id="mmd-wa-launcher" aria-label="Open TIA Operation Support chat" title="TIA Operation Support (Kael)">
+    <button type="button" class="mmd-wa-launcher" id="mmd-wa-launcher" aria-label="Open <?php echo $this->escapeHtml($_waTitle) ?> chat" title="<?php echo $this->escapeHtml($_waTitle) ?>">
         <svg width="26" height="26" viewBox="0 0 448 512" fill="currentColor"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zM223.9 438.7c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7.9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"/></svg>
     </button>
 </div>
@@ -408,6 +420,17 @@ if (in_array($activeRole, $_waRoles, true) && $_waChatUrl !== ''):
     /* Structured fill-in-the-blank requests Kael can act on. Field names
        mirror the LMS data model (class_id = SG000042-style, SKU = course
        code) and the proposed /kaelapi endpoints — see docs/kael-whatsapp-api.md. */
+<?php if ($_waIsTrainer): ?>
+    /* Trainer set (mirrors lms-tms TRAINER_TEMPLATES): own classes + links
+       only — no schedules, class IDs, enrolments or finance actions. */
+    var TEMPLATES = [
+        { id: 'trainer-assign-me',       cat: 'My Classes', label: 'Assign me as trainer for this class', body: 'Assign me as trainer for this class\nTrainer:\nCourse Title:\nStart Date:' },
+        { id: 'trainer-cannot-find',     cat: 'My Classes', label: 'Cannot find my class',                body: 'Cannot find my class\nTrainer:\nCourse Title:\nStart Date:\nWhat I see instead:' },
+        { id: 'trainer-meeting-link',    cat: 'Links',      label: 'Send me the Google Meet link',        body: 'Send me the Google Meet link\nTrainer:\nCourse Title:\nStart Date:' },
+        { id: 'trainer-attendance-link', cat: 'Links',      label: 'Send me the e-attendance link',       body: 'Send me the e-attendance link\nTrainer:\nCourse Title:\nStart Date:' }
+    ];
+    var STARTERS = ['trainer-assign-me', 'trainer-cannot-find', 'trainer-meeting-link', 'trainer-attendance-link'];
+<?php else: ?>
     var TEMPLATES = [
         { id: 'add-learner',      cat: 'Learners', label: 'Add learner to a class',            body: 'Add learner to a class\nLearner Name:\nLearner Email:\nCourse Code:\nCourse Title:\nStart Date:\nClass ID (if known):' },
         { id: 'remove-learner',   cat: 'Learners', label: 'Remove learner from a class',       body: 'Remove learner from a class\nLearner Email:\nCourse Code:\nStart Date:\nClass ID (if known):\nReason:' },
@@ -435,6 +458,7 @@ if (in_array($activeRole, $_waRoles, true) && $_waChatUrl !== ''):
         { id: 'reg-report',       cat: 'Reports',  label: 'Registrations report',              body: 'Registrations report\nFrom Date:\nTo Date:\nCourse Code (optional):' }
     ];
     var STARTERS = ['add-learner', 'create-class', 'assign-trainer', 'edit-course', 'create-blog'];
+<?php endif; ?>
 
     var root = document.getElementById('mmd-wa-root');
     if (!root) return;
@@ -449,7 +473,8 @@ if (in_array($activeRole, $_waRoles, true) && $_waChatUrl !== ''):
         draft = document.getElementById('mmd-wa-draft'),
         input = document.getElementById('mmd-wa-input'),
         foot = document.getElementById('mmd-wa-foot'),
-        showAll = false;
+        /* Trainer set is short enough to always show in full, grouped. */
+        showAll = <?php echo $_waIsTrainer ? 'true' : 'false' ?>;
 
     browse.textContent = 'Browse all ' + TEMPLATES.length + ' requests';
 

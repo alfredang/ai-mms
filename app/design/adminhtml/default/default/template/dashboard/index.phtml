@@ -9383,10 +9383,15 @@ $_csv = function ($path, $default = '') use ($_cs) {
                         floating ops launcher in the admin. Leave empty to fall back to the
                         storefront WhatsApp number.
                     </p>
-                    <div class="cs-field" data-path="mmd_company/whatsapp/group_chat_url">
+                    <div class="cs-field" data-path="mmd_company/whatsapp/group_chat_url" style="margin-bottom:10px">
                         <label>Operation Group Chat Link</label>
                         <div class="cs-val"><?php echo $_csUrlFmt('mmd_company/whatsapp/group_chat_url') ?></div>
                         <input type="url" value="<?php echo $_csv('mmd_company/whatsapp/group_chat_url', '') ?>"/>
+                    </div>
+                    <div class="cs-field" data-path="mmd_company/whatsapp/trainer_group_chat_url">
+                        <label>Trainer Group Chat Link (blue launcher shown to the Trainer role)</label>
+                        <div class="cs-val"><?php echo $_csUrlFmt('mmd_company/whatsapp/trainer_group_chat_url') ?></div>
+                        <input type="url" value="<?php echo $_csv('mmd_company/whatsapp/trainer_group_chat_url', '') ?>"/>
                     </div>
                 </div>
             </div>

@@ -6867,3 +6867,21 @@ html body[class*="adminhtml-catalog-product"] [id^="option_"] tfoot button {
 /* Light theme: keep the green chrome, lift the panel surfaces. */
 :root[data-theme="light"] .mmd-wa-panel { background: #fff; border-color: #e5e7eb; }
 :root[data-theme="light"] .mmd-wa-greet { background: #f3f4f6; border-color: #e5e7eb; color: #374151; }
+
+/* ── Trainer skin (.mmd-wa--trainer) — blue, mirroring the lms-tms
+   WHATSAPP_TRAINER palette so trainer support reads distinctly from the
+   green ops launcher. Custom-prop override recolors every var(--wa*)
+   rule; the remaining hardcoded green shadows/hovers are restated. ── */
+#mmd-wa-root.mmd-wa--trainer { --wa: #2aabee; --wa-deep: #1b5e8c; }
+#mmd-wa-root.mmd-wa--trainer .mmd-wa-launcher {
+    box-shadow: 0 0 0 1px rgba(42, 171, 238, 0.35), 0 0 14px rgba(42, 171, 238, 0.35) !important;
+}
+#mmd-wa-root.mmd-wa--trainer .mmd-wa-launcher:hover {
+    background: #22699f !important;
+    box-shadow: 0 0 0 1px rgba(42, 171, 238, 0.6), 0 0 20px rgba(42, 171, 238, 0.5) !important;
+}
+#mmd-wa-root.mmd-wa--trainer .mmd-wa-panel {
+    box-shadow: 0 0 6px rgba(42, 171, 238, 0.25), 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+#mmd-wa-root.mmd-wa--trainer .mmd-wa-send:hover,
+#mmd-wa-root.mmd-wa--trainer .mmd-wa-copyopen:hover { background: #22699f !important; }

@@ -68,6 +68,17 @@ class MMD_Whatsapp_Helper_Data extends Mage_Core_Helper_Abstract
     }
 
     /**
+     * Chat URL for the TRAINER launcher — the WhatsApp Trainer Group invite
+     * link (Company Setting → Integrations → WhatsApp). Trainers get their
+     * own group and template set, separate from the ops group. Returns ''
+     * when unconfigured, which hides the launcher for trainers.
+     */
+    public function getTrainerChatUrl()
+    {
+        return trim((string) Mage::getStoreConfig('mmd_company/whatsapp/trainer_group_chat_url'));
+    }
+
+    /**
      * Per-store brand name shown in the popup header. Mirrors the auto-reply
      * branding (see MMD_Leads_Helper_Data::getStoreBrandName).
      */
