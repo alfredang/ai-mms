@@ -68,24 +68,79 @@ class MMD_AgentApi_Model_Course extends MMD_AgentApi_Model_Abstract
 
     public function commit($op, array $body, array $preview)
     {
-        $sku     = $preview['target'];
-        $new     = $preview['token_payload']['new'];
-        $product = $this->_loadAdmin($sku);
+        $sku = $preview['target'];
+        $new = $preview['token_payload']['new'];
+        $id  = Mage::getModel('catalog/product')->getIdBySku($sku);
+        if (!$id) {
+            $this->_err('not_found', 'No course with sku=' . $sku . '.', 404);
+        }
 
+        // Split scalar attributes from the category assignment. We deliberately
+        // avoid a full $product->save(): run outside adminhtml it trips a PHP 8
+        // foreach(null) warning in core (Mage_Eav_Model_Entity_Abstract::1141)
+        // which the error handler promotes to a fatal. Targeted resource writes
+        // update only what changed and are safe from a front controller.
+        $scalars = array();
+        $catIds  = null;
         foreach ($new as $key => $value) {
             if ($key === 'category_ids') {
-                $product->setCategoryIds($value);
+                $catIds = $value;
             } else {
-                $product->setData($this->_allow[$key], $value);
+                $scalars[$this->_allow[$key]] = $value;
             }
         }
-        $product->save();
+
+        $reindexed = array();
+        if ($scalars) {
+            Mage::getSingleton('catalog/product_action')->updateAttributes(array($id), $scalars, 0);
+            $reindexed[] = 'product_attributes';
+        }
+        if ($catIds !== null) {
+            $this->_assignCategories($id, $catIds);
+            $reindexed[] = 'category_products';
+        }
 
         return array(
             'target'    => $sku,
-            'reindexed' => array('product_save'),
+            'reindexed' => $reindexed,
             'after'     => $new,
         );
+    }
+
+    /**
+     * Set the product's category membership to exactly $categoryIds via the
+     * category_product link table (add missing, drop removed) and flag the
+     * category/product index for reindex - a targeted alternative to the full
+     * product save that _saveCategories() would normally piggyback on.
+     */
+    protected function _assignCategories($productId, array $categoryIds)
+    {
+        $resource = Mage::getSingleton('core/resource');
+        $write    = $resource->getConnection('core_write');
+        $table    = $resource->getTableName('catalog/category_product');
+
+        $existing = array_map('intval', $write->fetchCol(
+            $write->select()->from($table, 'category_id')->where('product_id = ?', (int) $productId)
+        ));
+        $desired  = array_values(array_unique(array_map('intval', $categoryIds)));
+        $toAdd    = array_diff($desired, $existing);
+        $toRemove = array_diff($existing, $desired);
+
+        if ($toRemove) {
+            $write->delete($table, array(
+                'product_id = ?'     => (int) $productId,
+                'category_id IN (?)' => array_values($toRemove),
+            ));
+        }
+        foreach ($toAdd as $catId) {
+            $write->insert($table, array(
+                'category_id' => (int) $catId,
+                'product_id'  => (int) $productId,
+                'position'    => 0,
+            ));
+        }
+        Mage::getSingleton('index/indexer')->getProcessByCode('catalog_category_product')
+            ->changeStatus(Mage_Index_Model_Process::STATUS_REQUIRE_REINDEX);
     }
 
     /** Load at admin (default) scope so writes land on the global value. */

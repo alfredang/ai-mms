@@ -138,11 +138,16 @@ class MMD_AgentApi_Model_Ops extends MMD_AgentApi_Model_Abstract
 
     protected function _commitStatus(array $preview, $enable)
     {
-        $sku     = $preview['target'];
-        $product = $this->_loadAdmin($sku);
-        $product->setStatus($preview['token_payload']['status']);
-        $product->save();
-        return array('target' => $sku, 'reindexed' => array('product_save'),
+        $sku = $preview['target'];
+        $id  = Mage::getModel('catalog/product')->getIdBySku($sku);
+        if (!$id) {
+            $this->_err('not_found', 'No course with sku=' . $sku . '.', 404);
+        }
+        // Targeted status write at default scope - avoids the full
+        // $product->save() PHP 8 foreach(null) fatal (see Course::commit).
+        Mage::getSingleton('catalog/product_action')
+            ->updateAttributes(array($id), array('status' => $preview['token_payload']['status']), 0);
+        return array('target' => $sku, 'reindexed' => array('product_attributes'),
             'after' => array('status' => ($enable ? 'enabled' : 'disabled')));
     }
 

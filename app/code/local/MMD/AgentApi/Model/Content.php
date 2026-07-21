@@ -29,12 +29,17 @@ class MMD_AgentApi_Model_Content extends MMD_AgentApi_Model_Abstract
     public function commit($op, array $body, array $preview)
     {
         if ($op === 'update_copy') {
-            $product = $this->_loadAdmin($preview['target']);
-            foreach ($preview['token_payload']['new'] as $attr => $val) {
-                $product->setData($attr, $val);
+            $sku = $preview['target'];
+            $id  = Mage::getModel('catalog/product')->getIdBySku($sku);
+            if (!$id) {
+                $this->_err('not_found', 'No course with sku=' . $sku . '.', 404);
             }
-            $product->save();
-            return array('target' => $preview['target'], 'reindexed' => array('product_save'),
+            // Targeted attribute write at default scope. Avoids the full
+            // $product->save(), which trips a PHP 8 foreach(null) in core when
+            // run outside adminhtml (Mage_Eav_Model_Entity_Abstract::1141).
+            Mage::getSingleton('catalog/product_action')
+                ->updateAttributes(array($id), $preview['token_payload']['new'], 0);
+            return array('target' => $sku, 'reindexed' => array('product_attributes'),
                 'after' => $preview['token_payload']['new']);
         }
         // set_badges
