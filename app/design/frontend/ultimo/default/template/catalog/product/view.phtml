@@ -168,15 +168,26 @@
 				$_inner = preg_replace('#<h[1-6][^>]*>.*?</h[1-6]>#siu', '', $_inner);
 			}
 
-			// Fallback — when a course has the UTAP badge (pill) but its
-			// funding narrative doesn't contain a UTAP section (the badge
-			// is set via tags, narrative is freeform short_description /
-			// CMS block, so they can drift apart), inject the canonical
-			// UTAP <h3> + <p> so the preg_replace_callback below wraps it
-			// into a .wsq-sub--utap card alongside the other schemes.
-			// Same gap could exist for PSEA / SFC / SFEC — left those
-			// alone for now (narrow fix per the request that surfaced
-			// this); extend the array below if the pattern recurs.
+			// Standardise the PSEA write-up: strip any authored PSEA section
+			// (its <h3> heading + body up to the next heading) so the single
+			// canonical PSEA card injected below is the ONLY PSEA copy that
+			// renders. Historically 267 courses drifted into ~20 wording
+			// variants; removing the authored one and letting the fallback
+			// re-add a fixed version guarantees identical copy on every WSQ course.
+			$_inner = preg_replace(
+				'#<h[1-6][^>]*>' . $_WS . '*PSEA\b.*?</h[1-6]>.*?(?=<h[1-6]|\z)#siu',
+				'',
+				$_inner
+			);
+
+			// Fallback — when a course has a scheme badge (pill) but its funding
+			// narrative doesn't contain that scheme's section (badge set via tags,
+			// narrative is freeform short_description / CMS block, so they drift),
+			// inject the canonical <h3> + body so the preg_replace_callback below
+			// wraps it into a .wsq-sub--<scheme> card alongside the others. PSEA is
+			// always injected (its authored section is stripped just above) so its
+			// copy is standardised; UTAP is injected only when missing. SFC / SFEC
+			// have no fallback yet — extend the array if needed.
 			try {
 				$_courseBadges = Mage::helper('mmd_courseimage')->getProductBadges($_product);
 			} catch (Exception $_e) {
@@ -196,17 +207,24 @@
 						. '<span style="color: #ff0000; text-decoration-line: underline;">Click here to submit UTAP</span></a></p>',
 					'before' => 'PSEA',
 				),
-				// PSEA links are course-specific: for WSQ courses the SKU IS the
-				// SkillsFuture course reference number, so build the eligibility
-				// URL from it. Fires on any WSQ course whose narrative omits PSEA
-				// (every TGS- course carries the PSEA badge via migration 655).
+				// PSEA is STANDARDISED across every WSQ course: any authored PSEA
+				// section is stripped above so this single canonical copy always
+				// renders (267 courses had drifted into 20 wording variants). The
+				// SkillsFuture eligibility link is course-specific — for WSQ
+				// courses the SKU IS the course reference number, so build it from
+				// getSku(). Fires on every TGS- course (all carry the PSEA badge
+				// via migration 655).
 				'PSEA' => array(
 					'html' => '<h3>PSEA</h3>'
 						. '<p>Eligible Singapore Citizens can use their PSEA funds to offset course fee payable after funding.</p>'
 						. '<p>To check for Post-Secondary Education Account (PSEA) eligibility for this course, '
 						. '<a href="https://www.myskillsfuture.gov.sg/content/portal/en/training-exchange/course-directory/course-detail.html?courseReferenceNumber=' . rawurlencode((string) $_courseSku) . '" target="_blank">'
-						. '<span style="color: #ff0000; text-decoration-line: underline;">click here</span></a>. '
-						. 'If eligible for PSEA, please download and fill up the '
+						. '<span style="color: #ff0000; text-decoration-line: underline;">Visit SkillsFuture (course code: ' . $this->escapeHtml($_courseSku) . ')</span></a></p>'
+						. '<ul>'
+						. '<li>Scroll down to &ldquo;Keyword Tags&rdquo; to verify for PSEA eligibility.</li>'
+						. '<li>If there is &ldquo;PSEA&rdquo; under keyword tags, the course is eligible for PSEA.</li>'
+						. '</ul>'
+						. '<p>Once you are eligible for PSEA, please download and fill up the '
 						. '<a href="https://www.moe.gov.sg/-/media/files/financial-matters/psea-ad-hoc-withdrawal-form.pdf" target="_blank">'
 						. '<span style="color: #ff0000; text-decoration-line: underline;">PSEA Withdrawal Form</span></a> and email to us.</p>',
 					// No anchor: authored headings use the full scheme name
