@@ -255,3 +255,24 @@ Pages, etc.) are empty by design — functional form/CMS menu links. The migrati
 uses an **explicit url_key allow-list of course-listing categories only**, so a
 landing page can never be caught. Do NOT switch to a "disable every empty active
 category" sweep — it would kill the whole utility menu.
+
+## Curated per-category overrides — re-apply after EVERY global reorder
+
+Some categories deliberately override the canonical alphabetical non-WSQ order
+with a hand-curated sequence at positions 101+ (safely after the WSQ block):
+
+- `claude-ai-series` — 648/650/656 pattern: Masterclasses first
+  (C1417 Code, C1382 Cowork, C201 Design, C197 Microsoft 365), then the
+  certifications (C744, C437, C364, C439).
+- `python-programming` — 642: C138, C193, C179, C539, C188.
+- `react-js-courses` — 645: C1143, C1800.
+
+**HARD RULE:** the canonical global reorder (545/613 pattern) flattens these
+back to alphabetical. Whenever you ship or run a global reorder — or any
+migration that re-runs it — you MUST ship a re-apply migration in the SAME
+push that re-issues the curated position writes (copy
+`migrations/656-reapply-curated-orders-2.sql` to a new number). This has been
+missed twice on 2026-07-21 alone (613 backlog deploy, then a parallel
+session's 651/652 rollout); each miss silently re-alphabetised the storefront.
+When curating a NEW category, add it to the list above AND to the re-apply
+template.
