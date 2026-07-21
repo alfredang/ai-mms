@@ -629,24 +629,72 @@ li.level2 > a > span > .cat-label,
    ========================================================================== */
 .course-info-stack { margin-top: 24px; display: flex; flex-direction: column; gap: 18px; }
 
-/* "Course Details / Course Info / Job Roles / Trainers / Review" tabs container
-   (.box-additional.grid12-8, 66% wide) sits after the three floated columns.
-   HISTORY: this rule flip-flopped between `clear: both` (gap under the shorter
-   columns whenever the right booking sidebar was tallest — 2026-07-06 report:
-   "big dead space above the course detail tabs") and `clear: none` (tabs
-   displaced sideways whenever the left+center stack was tallest). Neither
-   value fits every course page because the tallest column varies PER PAGE.
-   STRUCTURAL FIX (2026-07-06): float the right booking sidebar RIGHT (same
-   visual slot — it occupies the final 33% anyway) so it is no longer a LEFT
-   float, and give the tabs `clear: left`. The tabs then always drop to just
-   below the left+center columns and rise beside the right sidebar when it is
-   taller — no dead band, no sideways displacement, whichever column wins.
-   Desktop-only: below 768px Ultimo unfloats the columns and the tabs wrapper
-   is display:none'd for phones further down this file. */
+/* Product-view desktop layout — CSS GRID (replaces the old three-float layout).
+   HISTORY: the columns (img / primary / secondary) were three `.grid12-4`
+   floats and the tabs (`.box-additional.grid12-8`) sat after them, clearing
+   the tallest float. The `clear` value flip-flopped for years (`clear:both`
+   left a dead band under the shorter columns; `clear:none` displaced the tabs
+   sideways) because the tallest column varies. The 2026-07-06 "float secondary
+   right + clear:left" fix removed the sideways displacement but STILL left a
+   ~300-400px empty band in the CENTRE column on every page, because the left
+   card stack (Course Info + Venue + Certification) is reliably taller than the
+   short course description, so the full-width tabs dropped below the LEFT
+   column, leaving the centre empty below the description.
+   STRUCTURAL FIX (2026-07-22): lay `.product-view` out as a 3-column grid.
+   `form { display:contents }` hoists the three column wrappers out of the form
+   so the tabs (siblings of the form) join the same grid. The CENTRE column now
+   stacks description → tabs → the second box-additional (Recommended Courses),
+   so the tabs always sit directly under the description with NO gap, whatever
+   the left/right column heights. The left card column and the right booking
+   card each own a full-height grid column beside that centre stack.
+   Desktop-only (>=768px): below that, Ultimo sets the column wrappers to
+   `display:contents` and stacks everything natively — this grid must NOT apply
+   (guarded by the media query), and the tabs wrapper is display:none'd for
+   phones further down this file. */
 @media (min-width: 768px) {
-    .catalog-product-view .product-view .product-secondary-column { float: right; }
+    .catalog-product-view .product-view {
+        display: grid;
+        grid-template-columns: 30% 38% 28%;
+        grid-template-areas:
+            "img primary   secondary"
+            "img tabs      secondary"
+            "img tabs2     secondary";
+        grid-template-rows: auto auto 1fr;
+        column-gap: 2%;
+        align-items: start;
+    }
+    /* Hoist the form's children into the product-view grid (the three columns
+       are wrapped in a <form> that is otherwise a block boundary). */
+    .catalog-product-view .product-view > form { display: contents; }
+    .catalog-product-view .product-view > form > input,
+    .catalog-product-view .product-view > form > .no-display,
+    .catalog-product-view .product-view > script { display: none !important; }
+
+    .catalog-product-view .product-view .product-img-column {
+        grid-area: img;
+        width: auto !important; float: none !important; margin: 0 !important;
+    }
+    .catalog-product-view .product-view .product-primary-column {
+        grid-area: primary;
+        width: auto !important; float: none !important; margin: 0 !important;
+    }
+    .catalog-product-view .product-view .product-secondary-column {
+        grid-area: secondary;
+        width: auto !important; float: none !important; margin: 0 !important;
+    }
+    /* First box-additional = the course detail tabs; second = Recommended
+       Courses. Both drop into the centre column, stacked under the description. */
+    .catalog-product-view .product-view > .box-additional:nth-of-type(1) {
+        grid-area: tabs;
+        clear: none !important; float: none !important;
+        width: auto !important; margin: 20px 0 0 !important;
+    }
+    .catalog-product-view .product-view > .box-additional:nth-of-type(2) {
+        grid-area: tabs2;
+        clear: none !important; float: none !important;
+        width: auto !important; margin: 20px 0 0 !important;
+    }
 }
-.product-view > .box-additional { clear: left; }
 
 .course-info-card,
 .course-policy-card {
@@ -1097,9 +1145,12 @@ a.practice-exam-cta:focus-visible { outline: 2px solid #065f46; outline-offset: 
 /* <ul><li> subtopic courses keep Ultimo's grey arrow marker (background-image
    on the <li>) as their single bullet — so drop the teal ring-dot ::before
    here to avoid a double marker. (<p><em> courses have no arrow and keep the
-   teal dot, styled above.) Indent to match the <p><em> subtopic level. */
+   teal dot, styled above.) Indent to match the <p><em> subtopic level, and
+   pin Ultimo's arrow background right next to the text (the theme positions it
+   at `0 0`, which leaves a wide gap once we widen the left padding). */
 #acctab-description + .panel .course-policy-card--learning .std ul li,
 #acctab-description + .panel .course-policy-card--learning .std ul ul li {
+    background-position: 30px center !important;
     padding-left: 50px;
 }
 #acctab-description + .panel .course-policy-card--learning .std ul li::before,
