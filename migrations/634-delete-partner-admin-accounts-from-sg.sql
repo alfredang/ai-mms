@@ -33,7 +33,15 @@
 -- Those are a separate decision (several are for retired stores and are still
 -- active with placeholder credentials) and should get their own migration.
 
-SET @emails := 'saeid@tertiarycourses.com.my,siraj@tertiarycourses.com.gh,info.tertiarycourses.ng@gmail.com';
+-- SG-ONLY. The runner exposes the container's MMS_COUNTRY_CODE as
+-- @mms_instance. This delete is matched by email, and saeid@tertiarycourses.com.my
+-- is the Malaysia PARTNER'S OWN working admin account on the MY server — running
+-- this unguarded would lock them out of their own site. On any non-SG instance
+-- @emails is blank, so every FIND_IN_SET below matches nothing and the whole
+-- migration is a no-op.
+SET @emails := IF(@mms_instance = 'SG',
+  'saeid@tertiarycourses.com.my,siraj@tertiarycourses.com.gh,info.tertiarycourses.ng@gmail.com',
+  '');
 
 -- 1. Per-course trainer pool entries (guarded: table is RoleManager-specific).
 SET @has_pt := (SELECT COUNT(*) FROM information_schema.TABLES
