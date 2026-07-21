@@ -2678,6 +2678,47 @@ function devSetView(view) {
 <?php if ($_selectedCourse): ?>
 
 <?php /* ===== DEVELOPER EDIT MODE ===== */ ?>
+<?php
+// Shared component: course identity banner (SKU pill + course title).
+// Rendered by BOTH the editor and the course view so the two screens carry
+// the same header — edit markup/style in one place only.
+$_renderCourseIdent = function ($_ciCourse) {
+    echo '<div class="dcf-course-ident">'
+        . '<span class="dcf-course-ident-code">' . htmlspecialchars(trim((string) ($_ciCourse['sku'] ?? ''))) . '</span>'
+        . '<span class="dcf-course-ident-name">' . htmlspecialchars(trim((string) ($_ciCourse['name'] ?? ''))) . '</span>'
+        . '</div>';
+};
+
+// Shared component: course-page action button. Reuses the editor's original
+// minimalist button classes (mm-btn-ghost for back, dcf-btn-* for actions) so
+// the view page's action row renders EXACTLY like the editor header's.
+// 'danger' is the one variant the editor lacked — a muted red outline in the
+// same shape. Always a <button> (the dcf-btn-* CSS rules are button-scoped).
+$_mmsActionIcons = array(
+    'back'  => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>',
+    'save'  => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>',
+    'edit'  => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
+    'trash' => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+);
+$_mmsActionBtn = function ($_abLabel, $_abIcon, $_abVariant, $_abAttrs = '', $_abStyle = '') use ($_mmsActionIcons) {
+    $_abCls = array(
+        'back'    => 'mm-btn mm-btn-ghost',
+        'ghost'   => 'dcf-btn dcf-btn-cancel',
+        'ghost2'  => 'dcf-btn dcf-btn-edit',
+        'strong'  => 'dcf-btn dcf-btn-save-cont',
+        'primary' => 'dcf-btn dcf-btn-save',
+        'danger'  => 'dcf-btn dcf-btn-cancel',
+    );
+    if ($_abVariant === 'danger') {
+        $_abStyle .= 'background:rgba(220,38,38,.14) !important;border:1px solid rgba(220,38,38,.5) !important;color:#f87171 !important;';
+    }
+    echo '<button class="' . ($_abCls[$_abVariant] ?? $_abCls['ghost']) . '" ' . $_abAttrs
+        . ($_abStyle !== '' ? ' style="' . $_abStyle . '"' : '') . '>'
+        . ($_abIcon !== '' && isset($_mmsActionIcons[$_abIcon]) ? $_mmsActionIcons[$_abIcon] : '')
+        . htmlspecialchars($_abLabel)
+        . '</button>';
+};
+?>
 <?php if ($_editingMode): ?>
 <?php
 // Resolve the country (store view) this edit applies to BEFORE the form
@@ -2747,18 +2788,23 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
 <div class="dcf-wrap">
     <div class="dcf-header">
         <div class="dcf-header-row2">
-            <button type="button" class="mm-btn mm-btn-ghost" onclick="window.location.href='<?php echo $_devBackUrl ?>'" style="flex:0 0 auto;">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
-                Back to Manage Courses
-            </button>
+            <?php
+            // Original editor design, rendered through the shared component
+            // (same classes as before: mm-btn-ghost / dcf-btn-*).
+            $_mmsActionBtn('Back to Manage Courses', 'back', 'back',
+                'type="button" onclick="window.location.href=\'' . $_devBackUrl . '\'"',
+                'flex:0 0 auto;');
+            ?>
             <div class="dcf-actions">
-            <button type="button" class="dcf-btn dcf-btn-cancel" onclick="window.location.href='<?php echo $_devBackUrl ?>'">Cancel</button>
-            <button type="button" class="dcf-btn dcf-btn-edit" onclick="window.location.href='<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id'=>$_selectedCourse['id'])) . $_devBackSuffix ?>'">Exit Edit</button>
-            <button type="button" class="dcf-btn dcf-btn-save-cont" onclick="document.getElementById('dcf-continue-edit').value='1';document.getElementById('dcf-form').submit();">Save &amp; Continue</button>
-            <button type="submit" class="dcf-btn dcf-btn-save">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                Save Changes
-            </button>
+            <?php
+            $_mmsActionBtn('Cancel', '', 'ghost',
+                'type="button" onclick="window.location.href=\'' . $_devBackUrl . '\'"');
+            $_mmsActionBtn('Exit Edit', '', 'ghost2',
+                'type="button" onclick="window.location.href=\'' . Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id' => $_selectedCourse['id'])) . $_devBackSuffix . '\'"');
+            $_mmsActionBtn('Save & Continue', '', 'strong',
+                'type="button" onclick="document.getElementById(\'dcf-continue-edit\').value=\'1\';document.getElementById(\'dcf-form\').submit();"');
+            $_mmsActionBtn('Save Changes', 'save', 'primary', 'type="submit"');
+            ?>
             </div>
         </div>
         <?php
@@ -2768,10 +2814,7 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
         // scrolled past the top, making it easy to edit the wrong one
         // (reported 2026-07-19).
         ?>
-        <div class="dcf-course-ident">
-            <span class="dcf-course-ident-code"><?php echo htmlspecialchars(trim((string) $_selectedCourse['sku'])) ?></span>
-            <span class="dcf-course-ident-name"><?php echo htmlspecialchars(trim((string) $_selectedCourse['name'])) ?></span>
-        </div>
+        <?php $_renderCourseIdent($_selectedCourse); ?>
     </div>
 
     <?php
@@ -3124,6 +3167,91 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
 
         <!-- ===== Tab: Course Details (default active — single-column layout) ===== -->
         <div class="dcf-tab-panel active" data-tab="course-details">
+        <?php /* Same layout + components as the course VIEW page (Exit Edit):
+                 .lcd-two-col with the Course Details card in the 450px sticky
+                 .lcd-sidebar-details column on the left, everything else in
+                 .lcd-main-content on the right — so the two screens match
+                 exactly. */ ?>
+        <div class="lcd-wrap lcd-two-col">
+            <?php
+            // Course Details summary — mirrors the view page's card (image,
+            // image URL, title, code, duration) so edit mode reads the same
+            // as Exit Edit. Display-only: title/code/duration are edited on
+            // the General tab, the image on Course Images (duplicating their
+            // inputs here would double-submit the same field names).
+            $_cdImg = trim((string) $_editProd->getData('course_image_url'));
+            if ($_cdImg === '') {
+                $_cdGal = $_editProd->getImage();
+                if ($_cdGal && $_cdGal !== 'no_selection') {
+                    $_cdImg = Mage::getBaseUrl('media') . 'catalog/product' . $_cdGal;
+                }
+            }
+            $_cdDurNum = (!empty($_editCourseData['duration'])) ? (float) $_editCourseData['duration'] : 0;
+            $_cdDur = $_cdDurNum > 0 ? rtrim(rtrim(number_format($_cdDurNum, 1), '0'), '.') : '—';
+            $_cdAssessLabel = '—';
+            $_cdAssessHrs   = 0.0;
+            if (isset($_attrAssessDur) && $_attrAssessDur && $_attrAssessDur->getId()) {
+                foreach ($_attrAssessDur->getSource()->getAllOptions(false) as $_cdOpt) {
+                    if ((string) $_cdOpt['value'] === $_valAssessDur && $_valAssessDur !== '') {
+                        $_cdAssessLabel = (string) $_cdOpt['label'];
+                        if (is_numeric($_cdAssessLabel)) $_cdAssessHrs = (float) $_cdAssessLabel;
+                    }
+                }
+            }
+            $_cdTotalNum = $_cdDurNum + $_cdAssessHrs;
+            $_cdTotal = $_cdTotalNum > 0 ? rtrim(rtrim(number_format($_cdTotalNum, 1), '0'), '.') : '—';
+            ?>
+            <div class="lcd-sidebar-details lcd-card">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 0 12px;font-size:16px;font-weight:700;color:#fff;line-height:1.2;">
+                    Course Details
+                </div>
+                <?php if ($_cdImg !== ''): ?>
+                <div class="lcd-detail-img">
+                    <div class="lcd-detail-label" style="margin-bottom:6px;">Course Image</div>
+                    <img src="<?php echo htmlspecialchars($_cdImg) ?>" alt="" onerror="this.parentNode.style.display='none'" />
+                </div>
+                <div class="lcd-detail-img">
+                    <div class="lcd-detail-label" style="margin-bottom:6px;">Image URL Link</div>
+                    <a class="lcd-detail-url" href="<?php echo htmlspecialchars($_cdImg) ?>" target="_blank" rel="noopener"><?php echo htmlspecialchars($_cdImg) ?></a>
+                </div>
+                <?php endif; ?>
+                <div class="lcd-detail-row"><span class="lcd-detail-label">Course Title</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_editCourseData['name']) ?></span></div>
+                <div class="lcd-detail-row"><span class="lcd-detail-label">Course Code</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_editCourseData['sku'] ?: '—') ?></span></div>
+                <div style="padding:10px 0 0;margin:6px 0 0;">
+                    <div style="font-size:14px;font-weight:700;color:#fff;margin:0 0 6px;">Course Duration</div>
+                    <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;color:#cbd5e1;"><span>Training Hours:</span><strong style="color:#fff"><?php echo $_cdDur ?></strong></div>
+                    <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;color:#cbd5e1;"><span>Assessment Hours:</span><strong style="color:#fff"><?php echo htmlspecialchars($_cdAssessLabel) ?></strong></div>
+                    <div style="height:1px;background:#1e293b;margin:4px 0;"></div>
+                    <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:13px;color:#fff;font-weight:700;"><span>Total Duration:</span><strong><?php echo $_cdTotal ?></strong></div>
+                </div>
+            </div><!-- /.lcd-sidebar-details -->
+
+        <div class="lcd-main-content">
+            <!-- Courseware — top of the main column, matching the view page. -->
+            <div class="dcf-section">
+                <div class="dcf-section-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                    Courseware
+                </div>
+                <?php
+                $_cwFields = array(
+                    'learner_slides_url'     => 'Learner Slides URL',
+                    'learner_guide_url'      => 'Learner Guide URL',
+                    'lesson_plan_url'        => 'Lesson Plan URL',
+                    'trainer_slides_url'     => 'Trainer Slides URL',
+                    'lab_url'                => 'Activities/Labs URL',
+                    'courseware_link'        => 'Courseware Link',
+                    'brochure_link'          => 'Brochure Link',
+                );
+                foreach ($_cwFields as $_k => $_lbl):
+                ?>
+                <div class="dcf-field">
+                    <label class="dcf-label"><?php echo $_lbl ?></label>
+                    <input type="url" name="courseware_<?php echo $_k ?>" class="dcf-input" value="<?php echo htmlspecialchars($_courseware[$_k]) ?>" placeholder="https://..." />
+                </div>
+                <?php endforeach; ?>
+            </div>
+
         <div class="dcf-col-full">
             <!-- Course Description — standard Magento short_description attribute,
                  rendered as a short marketing summary at the top of course pages. -->
@@ -3480,35 +3608,14 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
             <?php /* assessment-methods block deleted */ ?>
 
         </div><!-- /.dcf-col-full -->
+        </div><!-- /.lcd-main-content -->
+        </div><!-- /.lcd-two-col -->
         </div><!-- /.dcf-tab-panel[data-tab="course-details"] -->
 
         <!-- ===== Tab: Lesson Details ===== -->
         <div class="dcf-tab-panel" data-tab="lesson-details">
-
-            <!-- Courseware -->
-            <div class="dcf-section">
-                <div class="dcf-section-title">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                    Courseware
-                </div>
-                <?php
-                $_cwFields = array(
-                    'learner_slides_url'     => 'Learner Slides URL',
-                    'learner_guide_url'      => 'Learner Guide URL',
-                    'lesson_plan_url'        => 'Lesson Plan URL',
-                    'trainer_slides_url'     => 'Trainer Slides URL',
-                    'lab_url'                => 'Activities/Labs URL',
-                    'courseware_link'        => 'Courseware Link',
-                    'brochure_link'          => 'Brochure Link',
-                );
-                foreach ($_cwFields as $_k => $_lbl):
-                ?>
-                <div class="dcf-field">
-                    <label class="dcf-label"><?php echo $_lbl ?></label>
-                    <input type="url" name="courseware_<?php echo $_k ?>" class="dcf-input" value="<?php echo htmlspecialchars($_courseware[$_k]) ?>" placeholder="https://..." />
-                </div>
-                <?php endforeach; ?>
-            </div>
+            <?php /* Courseware section moved to the Course Details tab's right
+                     column (matches the course view page layout). */ ?>
 
             <!-- Lesson section with rich topic/link cards -->
             <div class="dcf-section">
@@ -5663,6 +5770,31 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
         $_modeBadgeCls = 'lcd-badge-' . strtolower($_modeLabel);
         ?>
 
+<?php if ($_courseManagerActive): ?>
+<!-- DEVELOPER: Action buttons — top of the page, same position as the
+     editor's header row, rendered by the same shared component. -->
+<div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;justify-content:flex-end;">
+    <?php
+    $_mmsActionBtn('Back to All Courses', 'back', 'back',
+        'type="button" onclick="window.location.href=\'' . $_backUrl . '\'"',
+        'margin-right:auto;');
+    $_mmsActionBtn('Edit Course', 'edit', 'primary',
+        'type="button" onclick="window.location.href=\'' . Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id' => $_selectedCourse['id'], 'mode' => 'editing')) . '\'"');
+    $_delProductId  = (int) $_selectedCourse['id'];
+    $_delSku        = (string) ($_selectedCourse['sku'] ?? '');
+    $_delSkuUpper   = strtoupper(ltrim($_delSku));
+    $_delIsReserved = (substr($_delSkuUpper, 0, 1) === 'C') || (substr($_delSkuUpper, 0, 4) === 'TGS-');
+    $_mmsActionBtn('Delete Course', 'trash', 'danger',
+        'type="button" onclick="devDeleteCourse(\'' . $this->jsQuoteEscape($_delSku) . '\', ' . ($_delIsReserved ? 'true' : 'false') . ', ' . $_delProductId . ')"');
+    ?>
+</div>
+<?php endif; ?>
+<?php
+// Course identity banner — same shared component the editor renders, so the
+// view page names the course the same way (SKU pill + title).
+?>
+<div style="margin-bottom:16px;"><?php $_renderCourseIdent($_selectedCourse); ?></div>
+
 <div class="lcd-wrap lcd-two-col">
     <!-- Left sidebar: Course Details + Nav (visible on wide screens) -->
     <div class="lcd-sidebar-details lcd-card" id="lcd-course-details">
@@ -5736,30 +5868,6 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
     <?php endif; ?>
 
     <?php if ($_courseManagerActive): ?>
-    <!-- DEVELOPER: Action buttons -->
-    <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;justify-content:flex-end;">
-        <a href="<?php echo $_backUrl ?>" style="display:inline-flex;align-items:center;gap:8px;background:#334155;color:#fff;text-decoration:none !important;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:600;margin-right:auto;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-            Back to All Courses
-        </a>
-        <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id'=>$_selectedCourse['id'], 'mode'=>'editing')) ?>" style="display:inline-flex !important;align-items:center !important;gap:8px !important;background:#2563eb !important;background-image:none !important;color:#fff !important;border:none !important;border-radius:8px !important;padding:10px 18px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;text-decoration:none !important;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-            Edit Course
-        </a>
-        <?php
-        $_delProductId  = (int) $_selectedCourse['id'];
-        $_delSku        = (string) ($_selectedCourse['sku'] ?? '');
-        $_delSkuUpper   = strtoupper(ltrim($_delSku));
-        $_delIsReserved = (substr($_delSkuUpper, 0, 1) === 'C') || (substr($_delSkuUpper, 0, 4) === 'TGS-');
-        ?>
-        <button type="button"
-                onclick="devDeleteCourse('<?php echo $this->jsQuoteEscape($_delSku) ?>', <?php echo $_delIsReserved ? 'true' : 'false' ?>, <?php echo $_delProductId ?>)"
-                style="display:inline-flex !important;align-items:center !important;gap:8px !important;background:#dc2626 !important;background-image:none !important;color:#fff !important;border:none !important;border-radius:8px !important;padding:10px 18px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-            Delete Course
-        </button>
-    </div>
-
     <?php /* DEVELOPER: Google Meet section removed per request — it is
             only meaningful for trainers/learners (who join the call), so
             it now renders only in the Trainer and Learner views below.
