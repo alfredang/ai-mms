@@ -9373,6 +9373,24 @@ $_csv = function ($path, $default = '') use ($_cs) {
                 </div>
             </div>
 
+            <!-- WhatsApp -->
+            <div class="cs-sub-section">
+                <h3 class="cs-sub-title">WhatsApp</h3>
+                <div class="cs-card" style="background:#0f172a">
+                    <div class="cs-card-title">TIA Operation Support (Kael)</div>
+                    <p style="margin:8px 0 12px;font-size:12px;color:#94a3b8;line-height:1.6">
+                        WhatsApp group invite link (https://chat.whatsapp.com/&hellip;) opened by the
+                        floating ops launcher in the admin. Leave empty to fall back to the
+                        storefront WhatsApp number.
+                    </p>
+                    <div class="cs-field" data-path="mmd_company/whatsapp/group_chat_url">
+                        <label>Operation Group Chat Link</label>
+                        <div class="cs-val"><?php echo $_csUrlFmt('mmd_company/whatsapp/group_chat_url') ?></div>
+                        <input type="url" value="<?php echo $_csv('mmd_company/whatsapp/group_chat_url', '') ?>"/>
+                    </div>
+                </div>
+            </div>
+
             <div id="cs-actions-integrations" style="display:none;margin-top:10px;">
                 <button class="cs-save-btn" onclick="csSaveSection('integrations')">Save</button>
                 <button class="cs-cancel-btn" onclick="csCancelSection('integrations')">Cancel</button>

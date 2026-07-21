@@ -41,14 +41,18 @@ class MMD_Whatsapp_Helper_Data extends Mage_Core_Helper_Abstract
 
     /**
      * Chat URL for the ADMIN ops launcher (TIA Operation Support / Kael).
-     * Points at the WhatsApp Operation Group invite link when configured
-     * (mmd_whatsapp/admin/chat_url — a chat.whatsapp.com invite URL);
-     * falls back to the storefront wa.me number so the launcher still
-     * works before the group link is set.
+     * Points at the WhatsApp Operation Group invite link when configured —
+     * primary source is the Company Setting → Integrations → WhatsApp field
+     * (mmd_company/whatsapp/group_chat_url), with the System → Config field
+     * (mmd_whatsapp/admin/chat_url) kept as a legacy fallback; finally the
+     * storefront wa.me number so the launcher works before either is set.
      */
     public function getAdminChatUrl()
     {
-        $url = trim((string) Mage::getStoreConfig('mmd_whatsapp/admin/chat_url'));
+        $url = trim((string) Mage::getStoreConfig('mmd_company/whatsapp/group_chat_url'));
+        if ($url === '') {
+            $url = trim((string) Mage::getStoreConfig('mmd_whatsapp/admin/chat_url'));
+        }
         if ($url !== '') {
             return $url;
         }
