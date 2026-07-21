@@ -629,45 +629,51 @@ li.level2 > a > span > .cat-label,
    ========================================================================== */
 .course-info-stack { margin-top: 24px; display: flex; flex-direction: column; gap: 18px; }
 
-/* Product-view desktop layout — CSS GRID (replaces the old three-float layout).
-   HISTORY: the columns (img / primary / secondary) were three `.grid12-4`
-   floats and the tabs (`.box-additional.grid12-8`) sat after them, clearing
-   the tallest float. The `clear` value flip-flopped for years (`clear:both`
-   left a dead band under the shorter columns; `clear:none` displaced the tabs
-   sideways) because the tallest column varies. The 2026-07-06 "float secondary
-   right + clear:left" fix removed the sideways displacement but STILL left a
-   ~300-400px empty band in the CENTRE column on every page, because the left
-   card stack (Course Info + Venue + Certification) is reliably taller than the
-   short course description, so the full-width tabs dropped below the LEFT
-   column, leaving the centre empty below the description.
-   STRUCTURAL FIX (2026-07-22): lay `.product-view` out as a 3-column grid.
-   `form { display:contents }` hoists the three column wrappers out of the form
-   so the tabs (siblings of the form) join the same grid. The CENTRE column now
-   stacks description → tabs → the second box-additional (Recommended Courses),
-   so the tabs always sit directly under the description with NO gap, whatever
-   the left/right column heights. The left card column and the right booking
-   card each own a full-height grid column beside that centre stack.
-   Desktop-only (>=768px): below that, Ultimo sets the column wrappers to
-   `display:contents` and stacks everything natively — this grid must NOT apply
-   (guarded by the media query), and the tabs wrapper is display:none'd for
-   phones further down this file. */
+/* Product-view desktop layout — CSS GRID, full-width tabs. DO NOT REVERT.
+   FLIP-FLOP HISTORY (this bug regressed 4+ times — read before "fixing"):
+   - Float era: three floated `.grid12-4` columns, tabs `.box-additional`
+     cleared after them. `clear:both` → dead band under the shorter columns;
+     `clear:none` → tabs displaced sideways. Which column is tallest varies
+     per course, so EVERY float+clear combination fails on some course.
+   - 2026-07-06 "float secondary right + clear:left": killed the sideways
+     displacement but left a ~300-400px empty band in the centre column.
+   - 2026-07-22 (first grid attempt): put the tabs INTO the centre grid
+     column. No band — but the long tab content got squeezed to 38% width,
+     making pages extremely long with dead space under the side columns.
+   INVARIANT (2026-07-22, final): the tabs and the Recommended Courses rail
+   are FULL WIDTH, spanning under all three columns. The grid's auto row
+   height makes the top row exactly as tall as the tallest column, so the
+   full-width rows hug it — that auto-sizing is what simultaneously prevents
+   the dead band AND the sideways displacement, the property floats could
+   never deliver. Do not move the tabs into a column, and do not revert to
+   floats/clear.
+   Structure: the three columns live inside the <form>, so
+   `form { display:contents }` hoists them into the grid. Named areas cover
+   ONLY the single top row; every `.box-additional` direct child of
+   .product-view gets `grid-column: 1 / -1` and auto-places into implicit
+   rows in DOM order. Deliberately NO nth-of-type / nth-child selectors:
+   auto-placement is correct whether a course has one rail (no Recommended
+   Courses), two, or more, and is immune to the <script> sibling between the
+   form and the rails.
+   Desktop-only (>=768px): below that Ultimo stacks natively and the mobile
+   rules further down this file take over — this grid must NOT apply there. */
 @media (min-width: 768px) {
     .catalog-product-view .product-view {
         display: grid;
         grid-template-columns: 30% 38% 28%;
-        grid-template-areas:
-            "img primary   secondary"
-            "img tabs      secondary"
-            "img tabs2     secondary";
-        grid-template-rows: auto auto 1fr;
+        grid-template-areas: "img primary secondary";
         column-gap: 2%;
         align-items: start;
     }
     /* Hoist the form's children into the product-view grid (the three columns
        are wrapped in a <form> that is otherwise a block boundary). */
     .catalog-product-view .product-view > form { display: contents; }
-    .catalog-product-view .product-view > form > input,
-    .catalog-product-view .product-view > form > .no-display,
+    /* With display:contents every form child becomes a grid item. Anything
+       that is NOT one of the three column wrappers (hidden inputs, .no-display
+       helpers, future strays) must not auto-place into an implicit row of its
+       own, so hide it. display:none on hidden inputs does not affect form
+       submission. The <script> rule is UA-default belt-and-braces. */
+    .catalog-product-view .product-view > form > *:not(.product-img-column):not(.product-primary-column):not(.product-secondary-column),
     .catalog-product-view .product-view > script { display: none !important; }
 
     .catalog-product-view .product-view .product-img-column {
@@ -682,17 +688,12 @@ li.level2 > a > span > .cat-label,
         grid-area: secondary;
         width: auto !important; float: none !important; margin: 0 !important;
     }
-    /* First box-additional = the course detail tabs; second = Recommended
-       Courses. Both drop into the centre column, stacked under the description. */
-    .catalog-product-view .product-view > .box-additional:nth-of-type(1) {
-        grid-area: tabs;
+    /* Course-detail tabs, Recommended Courses, and any future rail: full
+       width, auto-stacked in DOM order directly under the tallest column. */
+    .catalog-product-view .product-view > .box-additional {
+        grid-column: 1 / -1;
         clear: none !important; float: none !important;
-        width: auto !important; margin: 20px 0 0 !important;
-    }
-    .catalog-product-view .product-view > .box-additional:nth-of-type(2) {
-        grid-area: tabs2;
-        clear: none !important; float: none !important;
-        width: auto !important; margin: 20px 0 0 !important;
+        width: auto !important; margin: 24px 0 0 !important;
     }
 }
 
