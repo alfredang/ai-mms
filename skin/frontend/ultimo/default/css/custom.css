@@ -1094,13 +1094,18 @@ a.practice-exam-cta:focus-visible { outline: 2px solid #065f46; outline-offset: 
     box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.22);
     color: transparent;
 }
+/* <ul><li> subtopic courses keep Ultimo's grey arrow marker (background-image
+   on the <li>) as their single bullet — so drop the teal ring-dot ::before
+   here to avoid a double marker. (<p><em> courses have no arrow and keep the
+   teal dot, styled above.) Indent to match the <p><em> subtopic level. */
 #acctab-description + .panel .course-policy-card--learning .std ul li,
 #acctab-description + .panel .course-policy-card--learning .std ul ul li {
     padding-left: 50px;
 }
 #acctab-description + .panel .course-policy-card--learning .std ul li::before,
 #acctab-description + .panel .course-policy-card--learning .std ul ul li::before {
-    left: 28px;
+    content: none !important;
+    display: none !important;
 }
 
 /* Certification body — flatten the nested <ul><li><p><strong>…</strong></p></li></ul>
