@@ -1064,6 +1064,45 @@ a.practice-exam-cta:focus-visible { outline: 2px solid #065f46; outline-offset: 
     box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.22);
 }
 
+/* Subtopic rows — indented one level under their topic heading, with the
+   SAME teal ring-dot bullet as the topic rows. Scoped to the learning card.
+   Two authoring shapes:
+     - <p><em>item</em></p> rows (the dominant shape), and
+     - <ul><li> rows / nested <ul><ul> rows.
+   Topic headings are promoted to <h3 class="course-topic-h3"> synchronously
+   by description.phtml's inline script before first paint, so every remaining
+   <p> inside the card body is a subtopic — we can style plain `p` without a
+   `:not(:has(strong))` guard. (That `:has()` guard, when combined with this
+   `#acctab-description + .panel …` ancestor chain, is silently dropped by
+   Chrome's stylesheet matcher — the sibling `h3.course-topic-h3` rule above,
+   which has NO :has(), applies fine; the same chain WITH :has() does not.
+   Verified 2026-07-22 via CDP getMatchedStylesForNode.) */
+#acctab-description + .panel .course-policy-card--learning .std p {
+    position: relative;
+    margin: 0 !important;
+    padding: 6px 0 6px 50px;
+    border-bottom: 1px dashed #e2e8f0;
+    font-style: italic;
+}
+#acctab-description + .panel .course-policy-card--learning .std p::before {
+    content: "" !important;
+    position: absolute;
+    left: 28px; top: 13px;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #2dd4bf;
+    box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.22);
+    color: transparent;
+}
+#acctab-description + .panel .course-policy-card--learning .std ul li,
+#acctab-description + .panel .course-policy-card--learning .std ul ul li {
+    padding-left: 50px;
+}
+#acctab-description + .panel .course-policy-card--learning .std ul li::before,
+#acctab-description + .panel .course-policy-card--learning .std ul ul li::before {
+    left: 28px;
+}
+
 /* Certification body — flatten the nested <ul><li><p><strong>…</strong></p></li></ul>
    pattern that comes out of short_description so it renders compactly. */
 .course-policy-card--certification .course-policy-card__body ul li p { margin: 0; }
