@@ -1143,21 +1143,25 @@ a.practice-exam-cta:focus-visible { outline: 2px solid #065f46; outline-offset: 
     box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.22);
     color: transparent;
 }
-/* <ul><li> subtopic courses keep Ultimo's grey arrow marker (background-image
-   on the <li>) as their single bullet — so drop the teal ring-dot ::before
-   here to avoid a double marker. (<p><em> courses have no arrow and keep the
-   teal dot, styled above.) Indent to match the <p><em> subtopic level, and
-   pin Ultimo's arrow background right next to the text (the theme positions it
-   at `0 0`, which leaves a wide gap once we widen the left padding). */
+/* <ul><li> subtopic courses: kill Ultimo's grey arrow marker (background-image
+   on the <li>) and render the SAME teal ring-dot as the <p><em> subtopic rows,
+   so every course's subtopics look identical regardless of description markup.
+   Indent to match the <p><em> subtopic level. */
 #acctab-description + .panel .course-policy-card--learning .std ul li,
 #acctab-description + .panel .course-policy-card--learning .std ul ul li {
-    background-position: 30px center !important;
+    background-image: none !important;
     padding-left: 50px;
 }
 #acctab-description + .panel .course-policy-card--learning .std ul li::before,
 #acctab-description + .panel .course-policy-card--learning .std ul ul li::before {
-    content: none !important;
-    display: none !important;
+    content: "" !important;
+    display: block !important;
+    position: absolute;
+    left: 28px; top: 13px;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #2dd4bf;
+    box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.22);
 }
 
 /* Certification body — flatten the nested <ul><li><p><strong>…</strong></p></li></ul>
