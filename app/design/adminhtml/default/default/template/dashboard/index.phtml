@@ -2082,7 +2082,7 @@ $_devCountry       = isset($_devStoreToCountry[$_devActiveStoreId])
     ? $_devStoreToCountry[$_devActiveStoreId]
     : 'All';
 $_devFilterType = (string) Mage::app()->getRequest()->getParam('dev_type', '');
-$_devFilterLevel = (string) Mage::app()->getRequest()->getParam('dev_level', '');
+$_devFilterStatus = strtolower((string) Mage::app()->getRequest()->getParam('dev_status', ''));
 $_devFilterQuery = trim((string) Mage::app()->getRequest()->getParam('dev_q', ''));
 $_devTotalCount = 0;
 $_devTotalPages = 1;
@@ -2094,7 +2094,7 @@ $_devTotalAll = 0;
 $_devBackParams = array('dev_country' => $_devCountry);
 if ($_devCurPage > 1)             $_devBackParams['dev_page']       = $_devCurPage;
 if ($_devFilterType !== '')       $_devBackParams['dev_type']       = $_devFilterType;
-if ($_devFilterLevel !== '')      $_devBackParams['dev_level']      = $_devFilterLevel;
+if ($_devFilterStatus !== '')     $_devBackParams['dev_status']     = $_devFilterStatus;
 if ($_devFilterQuery !== '')      $_devBackParams['dev_q']          = $_devFilterQuery;
 $_devBackQs = http_build_query($_devBackParams);
 // "All" → website_id 0 (treated as "no country filter" everywhere below)
@@ -2153,16 +2153,19 @@ try {
     // reads from catalog_product_entity (EAV) instead of catalog_product_flat_1.
     // The flat table bakes in WHERE status=1, which would otherwise hide
     // disabled products even when we don't add a status filter ourselves.
-    if ($_devWebsiteId === 0) {
+    if ($_devWebsiteId === 0 || $_devFilterStatus === 'disabled') {
         Mage::app()->getStore()->setConfig('catalog/frontend/flat_catalog_product', 0);
     }
     $_devCollection = Mage::getModel('catalog/product')->getCollection()
         ->addAttributeToSelect(array('name','image','status','news_from_date','news_to_date','course_image_url','software','duration','sessions','level','price'))
         ->setOrder('entity_id', 'DESC');
     if ($_devWebsiteId > 0) {
-        $_devCollection
-            ->addAttributeToFilter('status', 1)
-            ->addWebsiteFilter($_devWebsiteId);
+        $_devCollection->addWebsiteFilter($_devWebsiteId);
+        // Country tabs hide disabled courses by default; an explicit Status
+        // filter below takes over when the user picks one.
+        if ($_devFilterStatus === '') {
+            $_devCollection->addAttributeToFilter('status', Mage_Catalog_Model_Product_Status::STATUS_ENABLED);
+        }
     }
 
     // Server-side filter by course type (software attribute)
@@ -2177,14 +2180,11 @@ try {
         }
     }
 
-    // Server-side filter by course level (level attribute). Resolves the
-    // dropdown's value (canonical option label) to the EAV option_id and
-    // filters the collection.
-    if ($_devFilterLevel !== '') {
-        $_levelOptId = Mage::getSingleton('eav/config')->getAttribute('catalog_product', 'level')->getSource()->getOptionId($_devFilterLevel);
-        if ($_levelOptId) {
-            $_devCollection->addAttributeToFilter('level', $_levelOptId);
-        }
+    // Server-side filter by product status (Enabled / Disabled)
+    if ($_devFilterStatus === 'enabled') {
+        $_devCollection->addAttributeToFilter('status', Mage_Catalog_Model_Product_Status::STATUS_ENABLED);
+    } elseif ($_devFilterStatus === 'disabled') {
+        $_devCollection->addAttributeToFilter('status', Mage_Catalog_Model_Product_Status::STATUS_DISABLED);
     }
 
     // Server-side search by course name or SKU
@@ -2478,7 +2478,7 @@ function courseSyncSaveConfig() {
             <span style="color:#94a3b8;font-size:13px;flex-shrink:0;">View:</span>
             <div class="lmc-view-toggle"><button type="button" class="lmc-view-btn active" id="dev-grid-btn" onclick="devSetView('grid')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></button><button type="button" class="lmc-view-btn" id="dev-list-btn" onclick="devSetView('list')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></button></div>
             <button type="button" onclick="devResetFilters()" style="background:transparent !important;background-image:none !important;border:none !important;color:#94a3b8 !important;font-size:13px !important;font-weight:500 !important;cursor:pointer !important;padding:4px 8px !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;height:auto !important;min-width:0 !important;line-height:normal !important;">Reset</button>
-            <?php $_devFiltersOpen = $_devFilterType !== '' || $_devFilterLevel !== ''; ?>
+            <?php $_devFiltersOpen = $_devFilterType !== '' || $_devFilterStatus !== ''; ?>
             <button type="button" id="dev-filter-toggle" data-open="<?php echo $_devFiltersOpen ? '1' : '0' ?>" onclick="devToggleFilters()" style="background:transparent !important;background-image:none !important;border:1px solid !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;padding:6px 16px !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;height:auto !important;min-width:0 !important;line-height:normal !important;border-radius:8px !important;"><?php echo $_devFiltersOpen ? 'Hide Filters' : 'Show Filters' ?></button>
         </div>
         <div id="dev-filter-row" style="display:<?php echo $_devFiltersOpen ? 'block' : 'none' ?>;margin-top:14px;">
@@ -2488,16 +2488,15 @@ function courseSyncSaveConfig() {
                     <select id="dev-filter-type" onchange="devApplyFilters()" style="width:100%;padding:10px 14px;background:#111827;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:14px;appearance:auto;outline:none;">
                         <option value="">All Types</option>
                         <option value="funded" <?php echo strtolower($_devFilterType) === 'funded' ? 'selected' : '' ?>>Funded</option>
-                        <option value="nonfunded" <?php echo strtolower($_devFilterType) === 'nonfunded' ? 'selected' : '' ?>>Non-funded</option>
+                        <option value="nonfunded" <?php echo strtolower($_devFilterType) === 'nonfunded' ? 'selected' : '' ?>>Unfunded</option>
                     </select>
                 </div>
                 <div style="flex:1;min-width:200px;">
-                    <div style="font-size:12px;font-weight:600;color:#e2e8f0;margin-bottom:6px;">Level</div>
-                    <select id="dev-filter-level" onchange="devApplyFilters()" style="width:100%;padding:10px 14px;background:#111827;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:14px;appearance:auto;outline:none;">
-                        <option value="">All Levels</option>
-                        <?php foreach (array('Beginner','Beginner to Intermediate','Intermediate','Advanced') as $_lvl): ?>
-                            <option value="<?php echo htmlspecialchars($_lvl) ?>"<?php echo $_devFilterLevel === $_lvl ? ' selected' : '' ?>><?php echo htmlspecialchars($_lvl) ?></option>
-                        <?php endforeach; ?>
+                    <div style="font-size:12px;font-weight:600;color:#e2e8f0;margin-bottom:6px;">Status</div>
+                    <select id="dev-filter-status" onchange="devApplyFilters()" style="width:100%;padding:10px 14px;background:#111827;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:14px;appearance:auto;outline:none;">
+                        <option value="">All Statuses</option>
+                        <option value="enabled"<?php echo $_devFilterStatus === 'enabled' ? ' selected' : '' ?>>Enabled</option>
+                        <option value="disabled"<?php echo $_devFilterStatus === 'disabled' ? ' selected' : '' ?>>Disabled</option>
                     </select>
                 </div>
             </div>
@@ -2571,10 +2570,10 @@ function courseSyncSaveConfig() {
     <div class="dev-pagination">
         <?php
         $_devBaseUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard');
-        $_devPageUrl = function($p) use ($_devBaseUrl, $_devCountry, $_devFilterType, $_devFilterLevel, $_devFilterQuery) {
+        $_devPageUrl = function($p) use ($_devBaseUrl, $_devCountry, $_devFilterType, $_devFilterStatus, $_devFilterQuery) {
             $qs = array('dev_country=' . urlencode($_devCountry), 'dev_page=' . $p);
             if ($_devFilterType !== '') $qs[] = 'dev_type=' . urlencode($_devFilterType);
-            if ($_devFilterLevel !== '') $qs[] = 'dev_level=' . urlencode($_devFilterLevel);
+            if ($_devFilterStatus !== '') $qs[] = 'dev_status=' . urlencode($_devFilterStatus);
             if ($_devFilterQuery !== '') $qs[] = 'dev_q=' . urlencode($_devFilterQuery);
             return $_devBaseUrl . '?' . implode('&', $qs) . '#courses';
         };
@@ -2622,7 +2621,7 @@ function devApplyFilters() {
     var country = <?php echo json_encode($_devCountry) ?>;
     var curPage = <?php echo json_encode($_devCurPage) ?>;
     var typeEl = document.getElementById('dev-filter-type');
-    var levelEl = document.getElementById('dev-filter-level');
+    var statusEl = document.getElementById('dev-filter-status');
     var qEl = document.getElementById('dev-search-input');
     var params = ['dev_country=' + encodeURIComponent(country)];
     // Carry current page across filter changes so changing a dropdown doesn't
@@ -2630,7 +2629,7 @@ function devApplyFilters() {
     // exists in the new result set.
     if (curPage > 1) params.push('dev_page=' + curPage);
     if (typeEl && typeEl.value) params.push('dev_type=' + encodeURIComponent(typeEl.value));
-    if (levelEl && levelEl.value) params.push('dev_level=' + encodeURIComponent(levelEl.value));
+    if (statusEl && statusEl.value) params.push('dev_status=' + encodeURIComponent(statusEl.value));
     if (qEl && qEl.value.trim() !== '') params.push('dev_q=' + encodeURIComponent(qEl.value.trim()));
     window.location.href = base + '?' + params.join('&') + '#courses';
 }
