@@ -3180,91 +3180,6 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
 
         <!-- ===== Tab: Course Details (default active — single-column layout) ===== -->
         <div class="dcf-tab-panel active" data-tab="course-details">
-        <?php /* Same layout + components as the course VIEW page (Exit Edit):
-                 .lcd-two-col with the Course Details card in the 450px sticky
-                 .lcd-sidebar-details column on the left, everything else in
-                 .lcd-main-content on the right — so the two screens match
-                 exactly. */ ?>
-        <div class="lcd-wrap lcd-two-col">
-            <?php
-            // Course Details summary — mirrors the view page's card (image,
-            // image URL, title, code, duration) so edit mode reads the same
-            // as Exit Edit. Display-only: title/code/duration are edited on
-            // the General tab, the image on Course Images (duplicating their
-            // inputs here would double-submit the same field names).
-            $_cdImg = trim((string) $_editProd->getData('course_image_url'));
-            if ($_cdImg === '') {
-                $_cdGal = $_editProd->getImage();
-                if ($_cdGal && $_cdGal !== 'no_selection') {
-                    $_cdImg = Mage::getBaseUrl('media') . 'catalog/product' . $_cdGal;
-                }
-            }
-            $_cdDurNum = (!empty($_editCourseData['duration'])) ? (float) $_editCourseData['duration'] : 0;
-            $_cdDur = $_cdDurNum > 0 ? rtrim(rtrim(number_format($_cdDurNum, 1), '0'), '.') : '—';
-            $_cdAssessLabel = '—';
-            $_cdAssessHrs   = 0.0;
-            if (isset($_attrAssessDur) && $_attrAssessDur && $_attrAssessDur->getId()) {
-                foreach ($_attrAssessDur->getSource()->getAllOptions(false) as $_cdOpt) {
-                    if ((string) $_cdOpt['value'] === $_valAssessDur && $_valAssessDur !== '') {
-                        $_cdAssessLabel = (string) $_cdOpt['label'];
-                        if (is_numeric($_cdAssessLabel)) $_cdAssessHrs = (float) $_cdAssessLabel;
-                    }
-                }
-            }
-            $_cdTotalNum = $_cdDurNum + $_cdAssessHrs;
-            $_cdTotal = $_cdTotalNum > 0 ? rtrim(rtrim(number_format($_cdTotalNum, 1), '0'), '.') : '—';
-            ?>
-            <div class="lcd-sidebar-details lcd-card">
-                <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 0 12px;font-size:16px;font-weight:700;color:#fff;line-height:1.2;">
-                    Course Details
-                </div>
-                <?php if ($_cdImg !== ''): ?>
-                <div class="lcd-detail-img">
-                    <div class="lcd-detail-label" style="margin-bottom:6px;">Course Image</div>
-                    <img src="<?php echo htmlspecialchars($_cdImg) ?>" alt="" onerror="this.parentNode.style.display='none'" />
-                </div>
-                <div class="lcd-detail-img">
-                    <div class="lcd-detail-label" style="margin-bottom:6px;">Image URL Link</div>
-                    <a class="lcd-detail-url" href="<?php echo htmlspecialchars($_cdImg) ?>" target="_blank" rel="noopener"><?php echo htmlspecialchars($_cdImg) ?></a>
-                </div>
-                <?php endif; ?>
-                <div class="lcd-detail-row"><span class="lcd-detail-label">Course Title</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_editCourseData['name']) ?></span></div>
-                <div class="lcd-detail-row"><span class="lcd-detail-label">Course Code</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_editCourseData['sku'] ?: '—') ?></span></div>
-                <div style="padding:10px 0 0;margin:6px 0 0;">
-                    <div style="font-size:14px;font-weight:700;color:#fff;margin:0 0 6px;">Course Duration</div>
-                    <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;color:#cbd5e1;"><span>Training Hours:</span><strong style="color:#fff"><?php echo $_cdDur ?></strong></div>
-                    <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;color:#cbd5e1;"><span>Assessment Hours:</span><strong style="color:#fff"><?php echo htmlspecialchars($_cdAssessLabel) ?></strong></div>
-                    <div style="height:1px;background:#1e293b;margin:4px 0;"></div>
-                    <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:13px;color:#fff;font-weight:700;"><span>Total Duration:</span><strong><?php echo $_cdTotal ?></strong></div>
-                </div>
-            </div><!-- /.lcd-sidebar-details -->
-
-        <div class="lcd-main-content">
-            <!-- Courseware — top of the main column, matching the view page. -->
-            <div class="dcf-section">
-                <div class="dcf-section-title">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                    Courseware
-                </div>
-                <?php
-                $_cwFields = array(
-                    'learner_slides_url'     => 'Learner Slides URL',
-                    'learner_guide_url'      => 'Learner Guide URL',
-                    'lesson_plan_url'        => 'Lesson Plan URL',
-                    'trainer_slides_url'     => 'Trainer Slides URL',
-                    'lab_url'                => 'Activities/Labs URL',
-                    'courseware_link'        => 'Courseware Link',
-                    'brochure_link'          => 'Brochure Link',
-                );
-                foreach ($_cwFields as $_k => $_lbl):
-                ?>
-                <div class="dcf-field">
-                    <label class="dcf-label"><?php echo $_lbl ?></label>
-                    <input type="url" name="courseware_<?php echo $_k ?>" class="dcf-input" value="<?php echo htmlspecialchars($_courseware[$_k]) ?>" placeholder="https://..." />
-                </div>
-                <?php endforeach; ?>
-            </div>
-
         <div class="dcf-col-full">
             <!-- Course Description — standard Magento short_description attribute,
                  rendered as a short marketing summary at the top of course pages. -->
@@ -3621,14 +3536,93 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
             <?php /* assessment-methods block deleted */ ?>
 
         </div><!-- /.dcf-col-full -->
-        </div><!-- /.lcd-main-content -->
-        </div><!-- /.lcd-two-col -->
         </div><!-- /.dcf-tab-panel[data-tab="course-details"] -->
 
         <!-- ===== Tab: Lesson Details ===== -->
         <div class="dcf-tab-panel" data-tab="lesson-details">
-            <?php /* Courseware section moved to the Course Details tab's right
-                     column (matches the course view page layout). */ ?>
+        <?php /* Same layout + components as the course VIEW page (Exit Edit):
+                 the brief Course Details card in the 450px sticky
+                 .lcd-sidebar-details column on the left; Courseware links and
+                 the Lesson editor in .lcd-main-content on the right. */ ?>
+        <div class="lcd-wrap lcd-two-col">
+            <?php
+            // Course Details summary — mirrors the view page's card (image,
+            // image URL, title, code, duration). Display-only: title/code/
+            // duration are edited on the General tab, the image on Course
+            // Images (duplicating their inputs here would double-submit the
+            // same field names).
+            $_cdImg = trim((string) $_editProd->getData('course_image_url'));
+            if ($_cdImg === '') {
+                $_cdGal = $_editProd->getImage();
+                if ($_cdGal && $_cdGal !== 'no_selection') {
+                    $_cdImg = Mage::getBaseUrl('media') . 'catalog/product' . $_cdGal;
+                }
+            }
+            $_cdDurNum = (!empty($_editCourseData['duration'])) ? (float) $_editCourseData['duration'] : 0;
+            $_cdDur = $_cdDurNum > 0 ? rtrim(rtrim(number_format($_cdDurNum, 1), '0'), '.') : '—';
+            $_cdAssessLabel = '—';
+            $_cdAssessHrs   = 0.0;
+            if (isset($_attrAssessDur) && $_attrAssessDur && $_attrAssessDur->getId()) {
+                foreach ($_attrAssessDur->getSource()->getAllOptions(false) as $_cdOpt) {
+                    if ((string) $_cdOpt['value'] === $_valAssessDur && $_valAssessDur !== '') {
+                        $_cdAssessLabel = (string) $_cdOpt['label'];
+                        if (is_numeric($_cdAssessLabel)) $_cdAssessHrs = (float) $_cdAssessLabel;
+                    }
+                }
+            }
+            $_cdTotalNum = $_cdDurNum + $_cdAssessHrs;
+            $_cdTotal = $_cdTotalNum > 0 ? rtrim(rtrim(number_format($_cdTotalNum, 1), '0'), '.') : '—';
+            ?>
+            <div class="lcd-sidebar-details lcd-card">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 0 12px;font-size:16px;font-weight:700;color:#fff;line-height:1.2;">
+                    Course Details
+                </div>
+                <?php if ($_cdImg !== ''): ?>
+                <div class="lcd-detail-img">
+                    <div class="lcd-detail-label" style="margin-bottom:6px;">Course Image</div>
+                    <img src="<?php echo htmlspecialchars($_cdImg) ?>" alt="" onerror="this.parentNode.style.display='none'" />
+                </div>
+                <div class="lcd-detail-img">
+                    <div class="lcd-detail-label" style="margin-bottom:6px;">Image URL Link</div>
+                    <a class="lcd-detail-url" href="<?php echo htmlspecialchars($_cdImg) ?>" target="_blank" rel="noopener"><?php echo htmlspecialchars($_cdImg) ?></a>
+                </div>
+                <?php endif; ?>
+                <div class="lcd-detail-row"><span class="lcd-detail-label">Course Title</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_editCourseData['name']) ?></span></div>
+                <div class="lcd-detail-row"><span class="lcd-detail-label">Course Code</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_editCourseData['sku'] ?: '—') ?></span></div>
+                <div style="padding:10px 0 0;margin:6px 0 0;">
+                    <div style="font-size:14px;font-weight:700;color:#fff;margin:0 0 6px;">Course Duration</div>
+                    <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;color:#cbd5e1;"><span>Training Hours:</span><strong style="color:#fff"><?php echo $_cdDur ?></strong></div>
+                    <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;color:#cbd5e1;"><span>Assessment Hours:</span><strong style="color:#fff"><?php echo htmlspecialchars($_cdAssessLabel) ?></strong></div>
+                    <div style="height:1px;background:#1e293b;margin:4px 0;"></div>
+                    <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:13px;color:#fff;font-weight:700;"><span>Total Duration:</span><strong><?php echo $_cdTotal ?></strong></div>
+                </div>
+            </div><!-- /.lcd-sidebar-details -->
+
+        <div class="lcd-main-content">
+            <!-- Courseware — top of the main column, matching the view page. -->
+            <div class="dcf-section">
+                <div class="dcf-section-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                    Courseware
+                </div>
+                <?php
+                $_cwFields = array(
+                    'learner_slides_url'     => 'Learner Slides URL',
+                    'learner_guide_url'      => 'Learner Guide URL',
+                    'lesson_plan_url'        => 'Lesson Plan URL',
+                    'trainer_slides_url'     => 'Trainer Slides URL',
+                    'lab_url'                => 'Activities/Labs URL',
+                    'courseware_link'        => 'Courseware Link',
+                    'brochure_link'          => 'Brochure Link',
+                );
+                foreach ($_cwFields as $_k => $_lbl):
+                ?>
+                <div class="dcf-field">
+                    <label class="dcf-label"><?php echo $_lbl ?></label>
+                    <input type="url" name="courseware_<?php echo $_k ?>" class="dcf-input" value="<?php echo htmlspecialchars($_courseware[$_k]) ?>" placeholder="https://..." />
+                </div>
+                <?php endforeach; ?>
+            </div>
 
             <!-- Lesson section with rich topic/link cards -->
             <div class="dcf-section">
@@ -4076,6 +4070,8 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                 </div>
             </div>
 
+        </div><!-- /.lcd-main-content -->
+        </div><!-- /.lcd-two-col -->
         </div><!-- /.dcf-tab-panel[data-tab="lesson-details"] -->
 
         <!-- ===== Tab: Trainer Details (single-column layout, matching Course Details) ===== -->
