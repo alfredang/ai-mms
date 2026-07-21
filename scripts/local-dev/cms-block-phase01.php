@@ -31,6 +31,7 @@
  *   --overwrite  in --apply mode, clobber existing non-empty blocks
  *   --sku=X      restrict to one SKU (smoke test)
  *   --limit=N    restrict to first N products
+ *   --section=A,B  restrict to specific sections (e.g. --section=learning_outcomes)
  */
 
 declare(strict_types=1);
@@ -108,6 +109,13 @@ $sections = [
         },
     ],
 ];
+
+if (!empty($flags['section'])) {
+    $only = array_filter(array_map('trim', explode(',', (string)$flags['section'])));
+    $unknown = array_diff($only, array_keys($sections));
+    if ($unknown) { fwrite(STDERR, 'unknown section(s): ' . implode(',', $unknown) . "\n"); exit(1); }
+    $sections = array_intersect_key($sections, array_flip($only));
+}
 
 // --------------------------------------------------------------------------
 // Iterate products. Read short_description at admin/default scope (store_id=0)
