@@ -5598,23 +5598,12 @@ window.dcfToggleNavGroup = function(headBtn){
         document.querySelectorAll('#dcf-form .dcf-tab-panel').forEach(function(p){
             p.classList.toggle('active', p.getAttribute('data-tab') === key);
         });
-        try { sessionStorage.setItem('dcfActiveTab', key); } catch(_) {}
     });
-    try {
-        var saved = sessionStorage.getItem('dcfActiveTab');
-        if (saved) {
-            var savedBtn = rail.querySelector('.lms-nav-item[data-tab="' + saved + '"]');
-            if (savedBtn) {
-                // If the saved tab lives inside a collapsed group, auto-expand it.
-                var parentGroup = savedBtn.closest('.dcf-nav-group');
-                if (parentGroup && parentGroup.classList.contains('collapsed')) {
-                    var head = parentGroup.querySelector('.dcf-nav-group-head');
-                    if (head) head.click();
-                }
-                savedBtn.click();
-            }
-        }
-    } catch(_) {}
+    // The editor always opens on the Course Details tab (the server marks it
+    // active) so it mirrors the course view page. The old sessionStorage
+    // last-tab restore made the landing tab unpredictable — an operator
+    // re-entering edit mode after visiting Lesson Details "lost" the Course
+    // Details layout (reported 2026-07-21).
 })();
 
 </script>
