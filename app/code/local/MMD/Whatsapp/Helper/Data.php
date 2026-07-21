@@ -40,6 +40,30 @@ class MMD_Whatsapp_Helper_Data extends Mage_Core_Helper_Abstract
     }
 
     /**
+     * Chat URL for the ADMIN ops launcher (TIA Operation Support / Kael).
+     * Points at the WhatsApp Operation Group invite link when configured
+     * (mmd_whatsapp/admin/chat_url — a chat.whatsapp.com invite URL);
+     * falls back to the storefront wa.me number so the launcher still
+     * works before the group link is set.
+     */
+    public function getAdminChatUrl()
+    {
+        $url = trim((string) Mage::getStoreConfig('mmd_whatsapp/admin/chat_url'));
+        if ($url !== '') {
+            return $url;
+        }
+        // Backend scope is the 'admin' store, which has no per-store company
+        // number — resolve the wa.me fallback against the default store view.
+        $store = Mage::app()->getDefaultStoreView();
+        $raw   = (string) Mage::getStoreConfig('mmd_company/whatsapp/' . $store->getCode(), $store);
+        if (trim($raw) === '') {
+            $raw = (string) Mage::getStoreConfig('mmd_whatsapp/general/number', $store);
+        }
+        $n = preg_replace('/\D+/', '', $raw);
+        return $n === '' ? '' : 'https://wa.me/' . $n;
+    }
+
+    /**
      * Per-store brand name shown in the popup header. Mirrors the auto-reply
      * branding (see MMD_Leads_Helper_Data::getStoreBrandName).
      */
