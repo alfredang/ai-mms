@@ -196,6 +196,25 @@
 						. '<span style="color: #ff0000; text-decoration-line: underline;">Click here to submit UTAP</span></a></p>',
 					'before' => 'PSEA',
 				),
+				// PSEA links are course-specific: for WSQ courses the SKU IS the
+				// SkillsFuture course reference number, so build the eligibility
+				// URL from it. Fires on any WSQ course whose narrative omits PSEA
+				// (every TGS- course carries the PSEA badge via migration 655).
+				'PSEA' => array(
+					'html' => '<h3>PSEA</h3>'
+						. '<p>Eligible Singapore Citizens can use their PSEA funds to offset course fee payable after funding.</p>'
+						. '<p>To check for Post-Secondary Education Account (PSEA) eligibility for this course, '
+						. '<a href="https://www.myskillsfuture.gov.sg/content/portal/en/training-exchange/course-directory/course-detail.html?courseReferenceNumber=' . rawurlencode((string) $_courseSku) . '" target="_blank">'
+						. '<span style="color: #ff0000; text-decoration-line: underline;">click here</span></a>. '
+						. 'If eligible for PSEA, please download and fill up the '
+						. '<a href="https://www.moe.gov.sg/-/media/files/financial-matters/psea-ad-hoc-withdrawal-form.pdf" target="_blank">'
+						. '<span style="color: #ff0000; text-decoration-line: underline;">PSEA Withdrawal Form</span></a> and email to us.</p>',
+					// No anchor: authored headings use the full scheme name
+					// ("SkillsFuture Enterprise Credit (SFEC)"), so a short-code
+					// anchor wouldn't match reliably. Append after the existing
+					// schemes — PSEA sits last, matching how authored courses show it.
+					'before' => '',
+				),
 			);
 			foreach ($_fundingFallbacks as $_badgeName => $_fallback) {
 				if (!in_array($_badgeName, $_courseBadges, true)) continue;
