@@ -380,10 +380,17 @@ if (in_array($activeRole, $_waRoles, true) && $_waChatUrl !== ''):
         <div class="mmd-wa-detail" id="mmd-wa-detail" hidden>
             <button type="button" class="mmd-wa-back" id="mmd-wa-back">&larr; Back to requests</button>
             <div class="mmd-wa-detail-label" id="mmd-wa-detail-label"></div>
+            <div class="mmd-wa-greet">Fill in the details below, then tap <strong>Copy &amp; open WhatsApp</strong> and <strong>paste</strong> it into the group.</div>
             <textarea class="mmd-wa-draft" id="mmd-wa-draft" rows="9" spellcheck="false"></textarea>
-            <div class="mmd-wa-hint">Fill in the blanks, then send. The message is copied and the Operation Group opens &mdash; paste if it isn't pre-filled.</div>
+            <div class="mmd-wa-actions">
+                <button type="button" class="mmd-wa-copy" id="mmd-wa-copy">Copy</button>
+                <button type="button" class="mmd-wa-copyopen" id="mmd-wa-copyopen">Copy &amp; open WhatsApp
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+                </button>
+            </div>
+            <div class="mmd-wa-hint">WhatsApp doesn't let a website post into a group &mdash; the message is copied for you, so just press Ctrl/&#8984;+V in the chat.</div>
         </div>
-        <div class="mmd-wa-foot">
+        <div class="mmd-wa-foot" id="mmd-wa-foot">
             <input type="text" class="mmd-wa-input" id="mmd-wa-input" placeholder="Type your message&hellip;" autocomplete="off">
             <button type="button" class="mmd-wa-send" id="mmd-wa-send" aria-label="Send to WhatsApp">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
@@ -441,6 +448,7 @@ if (in_array($activeRole, $_waRoles, true) && $_waChatUrl !== ''):
         detailLabel = document.getElementById('mmd-wa-detail-label'),
         draft = document.getElementById('mmd-wa-draft'),
         input = document.getElementById('mmd-wa-input'),
+        foot = document.getElementById('mmd-wa-foot'),
         showAll = false;
 
     browse.textContent = 'Browse all ' + TEMPLATES.length + ' requests';
@@ -478,13 +486,34 @@ if (in_array($activeRole, $_waRoles, true) && $_waChatUrl !== ''):
         browse.style.display = (q || showAll) ? 'none' : '';
     }
 
+    function copyText(text) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).catch(function () {});
+            return;
+        }
+        /* http/older-browser fallback */
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); } catch (e) {}
+        document.body.removeChild(ta);
+    }
+
+    function flashLabel(btn, done) {
+        var orig = btn.innerHTML;
+        btn.innerHTML = done;
+        setTimeout(function () { btn.innerHTML = orig; }, 1400);
+    }
+
     function openChat(text) {
         text = (text || '').replace(/^\s+|\s+$/g, '');
         var url = CHAT_URL;
         if (text) {
             /* Group invite links ignore ?text= — clipboard is the carrier there. */
-            try { navigator.clipboard.writeText(text); } catch (e) {}
-            if (/wa\.me|api\.whatsapp\.com/.test(url)) {
+            copyText(text);
+            if (/wa\.me|api\.whatsapp\.com/.test(url) && !/chat\.whatsapp\.com/.test(url)) {
                 url += (url.indexOf('?') === -1 ? '?' : '&') + 'text=' + encodeURIComponent(text);
             }
         }
@@ -494,6 +523,7 @@ if (in_array($activeRole, $_waRoles, true) && $_waChatUrl !== ''):
     function showDetail(t) {
         body.hidden = true;
         detail.hidden = false;
+        foot.hidden = true;
         detailLabel.textContent = t.label;
         draft.value = t.body;
         draft.focus();
@@ -501,6 +531,7 @@ if (in_array($activeRole, $_waRoles, true) && $_waChatUrl !== ''):
     function showList() {
         detail.hidden = true;
         body.hidden = false;
+        foot.hidden = false;
     }
 
     launcher.onclick = function () {
@@ -524,8 +555,15 @@ if (in_array($activeRole, $_waRoles, true) && $_waChatUrl !== ''):
         }
     };
     document.getElementById('mmd-wa-send').onclick = function () {
-        openChat(detail.hidden ? input.value : draft.value);
-        if (detail.hidden) input.value = '';
+        openChat(input.value);
+        input.value = '';
+    };
+    document.getElementById('mmd-wa-copy').onclick = function () {
+        copyText(draft.value.replace(/^\s+|\s+$/g, ''));
+        flashLabel(this, 'Copied &#10003;');
+    };
+    document.getElementById('mmd-wa-copyopen').onclick = function () {
+        openChat(draft.value);
     };
     input.onkeydown = function (ev) { if (ev.key === 'Enter') { openChat(input.value); input.value = ''; } };
     document.addEventListener('keydown', function (ev) {

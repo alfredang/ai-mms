@@ -6820,6 +6820,32 @@ html body[class*="adminhtml-catalog-product"] [id^="option_"] tfoot button {
 .mmd-wa-draft:focus { outline: none; border-color: var(--wa); }
 .mmd-wa-hint { font-size: 11px; color: var(--t4); line-height: 1.4; margin-top: 6px; }
 
+/* Detail action row — Copy (ghost) + Copy & open WhatsApp (solid green),
+   mirroring the lms-tms template picker's two-button send flow. */
+.mmd-wa-actions { display: flex; gap: 8px; margin-top: 10px; }
+#mmd-wa-root .mmd-wa-copy {
+    flex: 0 0 auto;
+    height: 32px !important; padding: 2px 16px !important;
+    border: 1px solid var(--b2) !important; border-radius: 999px !important;
+    background: transparent !important; color: var(--t2) !important;
+    font-size: 12px !important; cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease;
+}
+#mmd-wa-root .mmd-wa-copy:hover { border-color: var(--wa) !important; color: var(--t1) !important; }
+#mmd-wa-root .mmd-wa-copyopen {
+    flex: 1 1 auto;
+    display: inline-flex !important; align-items: center; justify-content: center; gap: 7px;
+    height: 32px !important; padding: 2px 14px !important;
+    border: 0 !important; border-radius: 999px !important;
+    background: var(--wa-deep) !important; color: #fff !important;
+    font-size: 12px !important; font-weight: 600; cursor: pointer;
+    transition: background 0.15s ease;
+}
+#mmd-wa-root .mmd-wa-copyopen:hover { background: #0d8a62 !important; }
+#mmd-wa-root .mmd-wa-copy:focus-visible,
+#mmd-wa-root .mmd-wa-copyopen:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.mmd-wa-foot[hidden] { display: none; }
+
 .mmd-wa-foot {
     display: flex; gap: 8px; align-items: center;
     padding: 10px 14px; border-top: 1px solid var(--b1); flex: 0 0 auto;
