@@ -405,7 +405,10 @@
 		list($_certIgnored, $shortDescription) = $_extractSection('(?:Certifications?|Certificate)', $shortDescription);
 		unset($_certIgnored);
 
-		$_isWsqCert = (stripos((string) $_product->getSku(), 'TGS-') === 0);
+		// CASL courses carry TGS- SKUs too but do NOT award OpenCerts
+		// (rule 2026-07-23) — key off the name prefix.
+		$_isCaslCert = (stripos(trim((string) $_product->getName()), 'CASL') === 0);
+		$_isWsqCert = !$_isCaslCert && (stripos((string) $_product->getSku(), 'TGS-') === 0);
 		$_certificationHtml  = '<ul class="cert-bullets">';
 		$_certificationHtml .= '<li><strong>Certificate of Completion from Tertiary Courses</strong> - Upon meeting at least 75% attendance and passing the assessment(s), participants will receive a Certificate of Completion from Tertiary Courses.</li>';
 		if ($_isWsqCert) {
