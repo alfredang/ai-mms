@@ -640,28 +640,35 @@ li.level2 > a > span > .cat-label,
    - 2026-07-22 (first grid attempt): put the tabs INTO the centre grid
      column. No band — but the long tab content got squeezed to 38% width,
      making pages extremely long with dead space under the side columns.
-   INVARIANT (2026-07-22, final): the tabs and the Recommended Courses rail
-   are FULL WIDTH, spanning under all three columns. The grid's auto row
-   height makes the top row exactly as tall as the tallest column, so the
-   full-width rows hug it — that auto-sizing is what simultaneously prevents
-   the dead band AND the sideways displacement, the property floats could
-   never deliver. Do not move the tabs into a column, and do not revert to
-   floats/clear.
+   - 2026-07-22 (second grid attempt): tabs full width under ALL three
+     columns. No displacement — but when the right (Course Fee) column is
+     the tallest (it usually is), the tabs sat far below the bottom of
+     cols 1-2, leaving a large dead band under them.
+   INVARIANT (2026-07-22, final): the tabs + Recommended Courses rails span
+   columns 1-2 ONLY, directly below the img/primary row; the secondary
+   (Course Fee) column owns the full-height third column beside them via
+   the named `secondary` area covering every row. The final `1fr` row
+   absorbs any leftover height when the secondary column is taller than
+   everything else — WITHOUT it, grid would distribute that excess across
+   the auto rows above and push the tabs down again (the "too far below"
+   bug). Do not make the rails full-width, do not move them into a single
+   column, do not drop the 1fr row, and do not revert to floats/clear.
    Structure: the three columns live inside the <form>, so
-   `form { display:contents }` hoists them into the grid. Named areas cover
-   ONLY the single top row; every `.box-additional` direct child of
-   .product-view gets `grid-column: 1 / -1` and auto-places into implicit
-   rows in DOM order. Deliberately NO nth-of-type / nth-child selectors:
-   auto-placement is correct whether a course has one rail (no Recommended
-   Courses), two, or more, and is immune to the <script> sibling between the
-   form and the rails.
+   `form { display:contents }` hoists them into the grid. The rails are
+   direct children of .product-view (after the form): first rail → `tabs`
+   area, any later rail → `tabs2` area via the `~` sibling selector — no
+   nth-of-type (immune to the <script> sibling between form and rails).
    Desktop-only (>=768px): below that Ultimo stacks natively and the mobile
    rules further down this file take over — this grid must NOT apply there. */
 @media (min-width: 768px) {
     .catalog-product-view .product-view {
         display: grid;
         grid-template-columns: 30% 38% 28%;
-        grid-template-areas: "img primary secondary";
+        grid-template-areas:
+            "img   primary secondary"
+            "tabs  tabs    secondary"
+            "tabs2 tabs2   secondary";
+        grid-template-rows: auto auto 1fr;
         column-gap: 2%;
         align-items: start;
     }
@@ -688,12 +695,22 @@ li.level2 > a > span > .cat-label,
         grid-area: secondary;
         width: auto !important; float: none !important; margin: 0 !important;
     }
-    /* Course-detail tabs, Recommended Courses, and any future rail: full
-       width, auto-stacked in DOM order directly under the tallest column. */
+    /* Rails span columns 1-2 only, beside the full-height secondary column.
+       First rail (course-detail tabs) → `tabs`; any later sibling rail
+       (Recommended Courses) → `tabs2`. */
     .catalog-product-view .product-view > .box-additional {
-        grid-column: 1 / -1;
+        grid-area: tabs;
         clear: none !important; float: none !important;
         width: auto !important; margin: 24px 0 0 !important;
+    }
+    .catalog-product-view .product-view > .box-additional ~ .box-additional {
+        grid-area: tabs2;
+    }
+    /* A hypothetical 3rd+ rail must not overlap tabs2: auto-place it into an
+       implicit row, still spanning columns 1-2. */
+    .catalog-product-view .product-view > .box-additional ~ .box-additional ~ .box-additional {
+        grid-area: auto;
+        grid-column: 1 / 3;
     }
 }
 
