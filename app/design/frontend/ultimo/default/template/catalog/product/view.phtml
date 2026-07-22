@@ -558,6 +558,11 @@
 	}
 	unset($_fgExtracted);
 
+	// (6b) Funding Validity — per-course cms/block only (section introduced
+	// 2026-07 for CASL re-registrations; no legacy short_description
+	// fallback). Renders as its own card right after the funding card(s).
+	$_fundingValidityHtml = $_courseSectionHtml('funding_validity');
+
 	//Rich snippets
 	$useRichSnippets = ($helperSnippets->isEnabledOnProductPage() && $productTypeId !== 'grouped');
 	$priceProperties = '';
@@ -1066,6 +1071,18 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 						<h3 class="course-policy-card__title">Funding and Grant</h3>
 					</header>
 					<div class="course-policy-card__body std"><?php echo $_fundingAndGrantHtml; ?></div>
+				</section>
+			<?php endif; ?>
+
+			<?php if ($_fundingValidityHtml !== ''): ?>
+				<section class="course-policy-card course-policy-card--funding-validity course-policy-card--wsq-in-primary">
+					<header class="course-policy-card__header">
+						<span class="course-policy-card__icon" aria-hidden="true">
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+						</span>
+						<h3 class="course-policy-card__title">Funding Validity</h3>
+					</header>
+					<div class="course-policy-card__body std"><?php echo $_fundingValidityHtml; ?></div>
 				</section>
 			<?php endif; ?>
 
