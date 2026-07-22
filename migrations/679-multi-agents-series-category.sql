@@ -26,7 +26,12 @@ SET @vibe := (SELECT entity_id FROM catalog_category_entity_varchar WHERE attrib
 SET @agents := (SELECT entity_id FROM catalog_category_entity_varchar WHERE attribute_id = @a_uk AND store_id = 0 AND value = 'ai-agents-series' LIMIT 1);
 
 SET @oldparent := (SELECT parent_id FROM catalog_category_entity WHERE entity_id = @cat);
-SET @vibepos   := (SELECT position FROM catalog_category_entity WHERE entity_id = @vibe);
+-- Partner sites (MY/GH) have no ai-vibe-coding-series category: fall back to
+-- appending at the end of AI Courses' children so position is never NULL.
+SET @vibepos   := COALESCE(
+  (SELECT position FROM catalog_category_entity WHERE entity_id = @vibe),
+  (SELECT MAX(position) FROM catalog_category_entity WHERE parent_id = @ai),
+  0);
 SET @needs_move := (SELECT COUNT(*) FROM catalog_category_entity WHERE entity_id = @cat AND parent_id <> @ai);
 
 -- 1) Reparent + position after AI Vibe Coding Series (only when not already there)
