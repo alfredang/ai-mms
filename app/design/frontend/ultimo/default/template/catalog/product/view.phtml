@@ -1016,6 +1016,9 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 			// (which is in the secondary column). Only rendered when the
 			// description contained the rounded WSQ wrapper.
 			if ($_hasWsqFunding):
+				// CASL re-registrations (name prefix "CASL") keep the same fee
+				// maths but the card is branded CASL, not WSQ.
+				$_isCaslFunding = (stripos(trim((string) $_product->getName()), 'CASL') === 0);
 				$_wsqPrice    = (float) $_product->getPrice();
 				$_wsqGst      = $_wsqPrice * 0.09;
 				$_wsqBaseline = $_wsqPrice * 0.50 + $_wsqGst;
@@ -1028,7 +1031,7 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 						<span class="course-policy-card__icon" aria-hidden="true">
 							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
 						</span>
-						<h3 class="course-policy-card__title"><?php echo $_showFundingOptionsOnly ? 'Funding Options' : 'WSQ Funding'; ?></h3>
+						<h3 class="course-policy-card__title"><?php echo $_showFundingOptionsOnly ? 'Funding Options' : ($_isCaslFunding ? 'CASL Funding' : 'WSQ Funding'); ?></h3>
 					</header>
 					<div class="course-policy-card__body">
 						<?php if (!$_showFundingOptionsOnly): ?>
