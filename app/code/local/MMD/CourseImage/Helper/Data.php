@@ -61,6 +61,7 @@ class MMD_CourseImage_Helper_Data extends Mage_Core_Helper_Abstract
     {
         return [
             'WSQ',
+            'CASL',
             'SkillsFuture Credit',
             'PSEA',
             'UTAP',
@@ -132,7 +133,7 @@ class MMD_CourseImage_Helper_Data extends Mage_Core_Helper_Abstract
     public function getApplicableBadgesForWebsite(string $websiteCode): array
     {
         $map = [
-            'base'     => ['WSQ', 'SkillsFuture Credit', 'PSEA', 'UTAP', 'IBF', 'SFEC', 'Absentee Payroll', 'MCES'],
+            'base'     => ['WSQ', 'CASL', 'SkillsFuture Credit', 'PSEA', 'UTAP', 'IBF', 'SFEC', 'Absentee Payroll', 'MCES'],
             // Nigeria has no government funding
             // schemes we model — explicit empty list so HRDF/WSQ never bleed
             // through from a shared product.
@@ -382,6 +383,7 @@ class MMD_CourseImage_Helper_Data extends Mage_Core_Helper_Abstract
     {
         $map = [
             'WSQ'                 => 'wsq',
+            'CASL'                => 'casl',
             'SkillsFuture Credit' => 'sfc',
             'PSEA'                => 'psea',
             'UTAP'                => 'utap',

@@ -73,7 +73,7 @@ class MMD_Courses_Api_FaqController extends Mage_Core_Controller_Front_Action
                 'id'              => 'wsq',
                 'title'           => 'Workforce Skills Qualifications (WSQ)',
                 'keywords'        => array('wsq', 'workforce', 'ssg', 'tgs', 'government funded', 'subsidy', 'singapore citizen', 'pr'),
-                'summary'         => 'WSQ courses are SSG (SkillsFuture Singapore) approved and qualify for government training subsidies. Singapore Citizens and PRs receive up to 50% course fee subsidy; SCs aged 40+ qualify for the enhanced Mid-Career Enhanced Subsidy (MCES) of up to 70%.',
+                'summary'         => 'WSQ courses are SWDA (formerly SSG) approved and qualify for government training subsidies. Singapore Citizens and PRs receive up to 50% course fee subsidy; SCs aged 40+ qualify for the enhanced Mid-Career Enhanced Subsidy (MCES) of up to 70%.',
                 'eligibility'     => 'Singapore Citizens and Permanent Residents. Employer-sponsored employees also qualify under employer-sponsored funding.',
                 'how_to_claim'    => array(
                     'Choose a WSQ course (SKU starts with TGS- on our catalogue).',
@@ -147,7 +147,7 @@ class MMD_Courses_Api_FaqController extends Mage_Core_Controller_Front_Action
                 'id'              => 'sfec',
                 'title'           => 'SkillsFuture Enterprise Credit (SFEC)',
                 'keywords'        => array('sfec', 'enterprise credit', 'business', 'sme', 'company', 'employer'),
-                'summary'         => 'SFEC gives eligible Singapore-registered enterprises up to $10,000 in credit to defray out-of-pocket costs of supporting employee training and capability development. Topped up periodically by SSG.',
+                'summary'         => 'SFEC gives eligible Singapore-registered enterprises up to $10,000 in credit to defray out-of-pocket costs of supporting employee training and capability development. Topped up periodically by SWDA (formerly SSG).',
                 'eligibility'     => 'Singapore-registered enterprises that have (a) contributed at least $750 SDL over the qualifying year, AND (b) employed at least 3 Singaporeans/PRs every month over that year.',
                 'how_to_claim'    => array(
                     'Check eligibility on https://www.enterprisesg.gov.sg/sfec.',
@@ -163,7 +163,7 @@ class MMD_Courses_Api_FaqController extends Mage_Core_Controller_Front_Action
                 'title'           => 'Absentee Payroll Funding (AP)',
                 'keywords'        => array('absentee payroll', 'ap', 'employer claim', 'salary', 'salary support', 'employer'),
                 'summary'         => 'Employers can claim Absentee Payroll funding when their employees attend training during work hours, partially covering the employee\'s salary for the absent period. Helps employers afford to release staff for upskilling.',
-                'eligibility'     => 'Singapore-registered employers releasing Singapore Citizen / PR employees to attend SSG-supported courses during paid work hours.',
+                'eligibility'     => 'Singapore-registered employers releasing Singapore Citizen / PR employees to attend SWDA (formerly SSG)-supported courses during paid work hours.',
                 'how_to_claim'    => array(
                     'Ensure the course is AP-supportable (most WSQ courses are).',
                     'Pay the employee\'s salary for the training days as normal.',
@@ -191,13 +191,13 @@ class MMD_Courses_Api_FaqController extends Mage_Core_Controller_Front_Action
                 'id'              => 'certificates',
                 'title'           => 'Certificates of Completion',
                 'keywords'        => array('certificate', 'cert', 'completion', 'attendance', 'transcript', 'wsq cert'),
-                'summary'         => 'Every learner who attends at least 75% of the class and passes any required assessments receives a digital Certificate of Completion within 5-7 working days. WSQ courses also generate a Statement of Attainment (SOA) on MySkillsFuture once SSG verifies attendance.',
+                'summary'         => 'Every learner who attends at least 75% of the class and passes any required assessments receives a digital Certificate of Completion within 5-7 working days. WSQ courses also generate a Statement of Attainment (SOA) on MySkillsFuture once SWDA (formerly SSG) verifies attendance.',
                 'eligibility'     => 'Minimum 75% attendance and a pass on any in-course assessment (where applicable).',
                 'how_to_claim'    => array(
                     'Mark attendance daily — for WSQ courses, NRIC/FIN scan is mandatory.',
                     'Complete any in-course assessment (project, quiz, or trainer review).',
                     'Digital certificate is emailed to the registered email address within 5-7 working days.',
-                    'For WSQ SOAs, allow up to 4 weeks for SSG to verify and issue the official Statement of Attainment on MySkillsFuture.',
+                    'For WSQ SOAs, allow up to 4 weeks for SWDA (formerly SSG) to verify and issue the official Statement of Attainment on MySkillsFuture.',
                 ),
                 'official_source' => 'https://www.tertiarycourses.com.sg/about',
             ),

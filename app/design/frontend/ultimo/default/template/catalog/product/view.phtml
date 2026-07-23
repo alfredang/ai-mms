@@ -405,7 +405,10 @@
 		list($_certIgnored, $shortDescription) = $_extractSection('(?:Certifications?|Certificate)', $shortDescription);
 		unset($_certIgnored);
 
-		$_isWsqCert = (stripos((string) $_product->getSku(), 'TGS-') === 0);
+		// CASL courses carry TGS- SKUs too but do NOT award OpenCerts
+		// (rule 2026-07-23) — key off the name prefix.
+		$_isCaslCert = (stripos(trim((string) $_product->getName()), 'CASL') === 0);
+		$_isWsqCert = !$_isCaslCert && (stripos((string) $_product->getSku(), 'TGS-') === 0);
 		$_certificationHtml  = '<ul class="cert-bullets">';
 		$_certificationHtml .= '<li><strong>Certificate of Completion from Tertiary Courses</strong> - Upon meeting at least 75% attendance and passing the assessment(s), participants will receive a Certificate of Completion from Tertiary Courses.</li>';
 		if ($_isWsqCert) {
@@ -554,6 +557,11 @@
 		if ($_fundingAndGrantHtml === '') { $_fundingAndGrantHtml = $_fgExtracted; }
 	}
 	unset($_fgExtracted);
+
+	// (6b) Funding Validity — per-course cms/block only (section introduced
+	// 2026-07 for CASL re-registrations; no legacy short_description
+	// fallback). Renders as its own card right after the funding card(s).
+	$_fundingValidityHtml = $_courseSectionHtml('funding_validity');
 
 	//Rich snippets
 	$useRichSnippets = ($helperSnippets->isEnabledOnProductPage() && $productTypeId !== 'grouped');
@@ -1008,6 +1016,9 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 			// (which is in the secondary column). Only rendered when the
 			// description contained the rounded WSQ wrapper.
 			if ($_hasWsqFunding):
+				// CASL re-registrations (name prefix "CASL") keep the same fee
+				// maths but the card is branded CASL, not WSQ.
+				$_isCaslFunding = (stripos(trim((string) $_product->getName()), 'CASL') === 0);
 				$_wsqPrice    = (float) $_product->getPrice();
 				$_wsqGst      = $_wsqPrice * 0.09;
 				$_wsqBaseline = $_wsqPrice * 0.50 + $_wsqGst;
@@ -1020,7 +1031,7 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 						<span class="course-policy-card__icon" aria-hidden="true">
 							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
 						</span>
-						<h3 class="course-policy-card__title"><?php echo $_showFundingOptionsOnly ? 'Funding Options' : 'WSQ Funding'; ?></h3>
+						<h3 class="course-policy-card__title"><?php echo $_showFundingOptionsOnly ? 'Funding Options' : ($_isCaslFunding ? 'CASL Funding' : 'WSQ Funding'); ?></h3>
 					</header>
 					<div class="course-policy-card__body">
 						<?php if (!$_showFundingOptionsOnly): ?>
@@ -1063,6 +1074,18 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 						<h3 class="course-policy-card__title">Funding and Grant</h3>
 					</header>
 					<div class="course-policy-card__body std"><?php echo $_fundingAndGrantHtml; ?></div>
+				</section>
+			<?php endif; ?>
+
+			<?php if ($_fundingValidityHtml !== ''): ?>
+				<section class="course-policy-card course-policy-card--funding-validity course-policy-card--wsq-in-primary">
+					<header class="course-policy-card__header">
+						<span class="course-policy-card__icon" aria-hidden="true">
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+						</span>
+						<h3 class="course-policy-card__title">Funding Validity</h3>
+					</header>
+					<div class="course-policy-card__body std"><?php echo $_fundingValidityHtml; ?></div>
 				</section>
 			<?php endif; ?>
 
