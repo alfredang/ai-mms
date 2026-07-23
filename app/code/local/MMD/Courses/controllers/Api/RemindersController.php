@@ -39,6 +39,16 @@
  *   - Trainer's email must be resolvable (via latest accepted invitation)
  *   - Bot can additionally skip rows where trainer.whatsapp/telephone is
  *     empty if it only sends via WhatsApp.
+ *
+ * Optional param: use_lms_trainer_lookup=1
+ *   Opt-in (added 2026-07-23). For MMS classes still without a trainer after Phase 1+2,
+ *   cross-references the shared Google Calendar event's attendees against LMS's Trainer
+ *   role via a new LMS-TMS endpoint — see MMD_Courses_Model_LmsTrainerLookup. Unlike
+ *   Phase 2 (which only matches SKUs that already have a matching LMS course_run, i.e.
+ *   WSQ), this works for MMS-only non-WSQ courses with no LMS course_run at all, since a
+ *   large share of MMS's non-WSQ trainers also teach WSQ classes (confirmed 81% match
+ *   rate over a 6-month backtest). Off by default; drop the flag once MMS's own
+ *   trainer-assignment data is properly maintained and this fallback is no longer needed.
  */
 class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Action
 {
@@ -72,6 +82,7 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
         // wins. Otherwise compute filter date from days_ahead (default 1).
         $targetDate = trim((string) $this->getRequest()->getParam('target_date', ''));
         $daysAhead  = (int)  $this->getRequest()->getParam('days_ahead', 1);
+        $useLmsGcalLookup = (bool) $this->getRequest()->getParam('use_lms_trainer_lookup', false);
 
         if ($targetDate !== '') {
             // Strict YYYY-MM-DD validation to avoid SQL injection / malformed dates
@@ -201,19 +212,49 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
             }
         }
 
+        // Phase 2b (opt-in, ?use_lms_trainer_lookup=1, added 2026-07-23): for whatever's
+        // STILL uncovered after Phase 1+2 — this is where MMS-only non-WSQ courses land,
+        // since Phase 2's SKU match against LMS's own course_run table can never find them
+        // — cross-reference the shared Google Calendar event's attendees against LMS's
+        // Trainer role directly. Independent of $lmsByCode (no LMS course_run needs to
+        // exist at all). Failure per-class is non-fatal; just leaves that class uncovered.
+        $lmsGcalMatched = 0;
+        if ($useLmsGcalLookup) {
+            $stillGapRows = $this->_fetchMmsClassesWithoutTrainer($filterDate);
+            $lookupModel  = Mage::getModel('courses/lmsTrainerLookup');
+            foreach ($stillGapRows as $gap) {
+                $sku = (string) $gap['course_sku'];
+                if (isset($coveredCodes[$sku])) continue;
+
+                $found = $lookupModel->lookup($sku, $filterDate, (string) $gap['course_title']);
+                if ($found === null) continue;
+
+                $trainerOverride = array(
+                    'name'   => (string) $found['name'],
+                    'email'  => (string) $found['email'],
+                    'source' => 'lms-tms-gcal-fallback',
+                );
+                $reminders[] = $this->_buildReminder($gap, $daysAhead, $trainerOverride);
+                $coveredCodes[$sku] = true;
+                $lmsGcalMatched++;
+            }
+        }
+
         // Fallback diagnostic: when reminders count is 0 (or low), surface
         // WHY by listing every class on this date that isn't confirmed.
         // Operators can read this to decide: are trainers genuinely missing,
         // or is the invitation flow stuck somewhere?
         $diagnostic = $this->_buildDiagnostic($filterDate, count($reminders));
         $diagnostic['lms_tms'] = array(
-            'attempted'      => (bool) ($lmsStats['attempted'] ?? false),
-            'success'        => (bool) ($lmsStats['success']   ?? false),
-            'configured'     => (bool) ($lmsStats['configured']?? false),
-            'rows_returned'  => (int)  ($lmsStats['rows_returned'] ?? 0),
-            'matched_count'  => $lmsMatched,
-            'lms_only_count' => $lmsOnly,
-            'error'          => (string) ($lmsStats['error'] ?? ''),
+            'attempted'          => (bool) ($lmsStats['attempted'] ?? false),
+            'success'            => (bool) ($lmsStats['success']   ?? false),
+            'configured'         => (bool) ($lmsStats['configured']?? false),
+            'rows_returned'      => (int)  ($lmsStats['rows_returned'] ?? 0),
+            'matched_count'      => $lmsMatched,
+            'lms_only_count'     => $lmsOnly,
+            'error'              => (string) ($lmsStats['error'] ?? ''),
+            'gcal_lookup_enabled'=> $useLmsGcalLookup,
+            'gcal_matched_count' => $lmsGcalMatched,
         );
 
         return $this->_json(200, array(
