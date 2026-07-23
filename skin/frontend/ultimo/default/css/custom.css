@@ -387,6 +387,7 @@ li.level2 > a > span > .cat-label,
     box-shadow: 0 1px 2px rgba(0,0,0,0.08);
 }
 .course-badge--wsq     { background: #1d4ed8; } /* SSG / WSQ blue */
+.course-badge--casl    { background: #0369a1; } /* CASL sky blue */
 .course-badge--sfc     { background: #f97316; } /* SkillsFuture orange */
 .course-badge--psea    { background: #0d9488; } /* PSEA teal */
 .course-badge--utap    { background: #dc2626; } /* UTAP red */
@@ -629,24 +630,90 @@ li.level2 > a > span > .cat-label,
    ========================================================================== */
 .course-info-stack { margin-top: 24px; display: flex; flex-direction: column; gap: 18px; }
 
-/* "Course Details / Course Info / Job Roles / Trainers / Review" tabs container
-   (.box-additional.grid12-8, 66% wide) sits after the three floated columns.
-   HISTORY: this rule flip-flopped between `clear: both` (gap under the shorter
-   columns whenever the right booking sidebar was tallest — 2026-07-06 report:
-   "big dead space above the course detail tabs") and `clear: none` (tabs
-   displaced sideways whenever the left+center stack was tallest). Neither
-   value fits every course page because the tallest column varies PER PAGE.
-   STRUCTURAL FIX (2026-07-06): float the right booking sidebar RIGHT (same
-   visual slot — it occupies the final 33% anyway) so it is no longer a LEFT
-   float, and give the tabs `clear: left`. The tabs then always drop to just
-   below the left+center columns and rise beside the right sidebar when it is
-   taller — no dead band, no sideways displacement, whichever column wins.
-   Desktop-only: below 768px Ultimo unfloats the columns and the tabs wrapper
-   is display:none'd for phones further down this file. */
+/* Product-view desktop layout — CSS GRID, full-width tabs. DO NOT REVERT.
+   FLIP-FLOP HISTORY (this bug regressed 4+ times — read before "fixing"):
+   - Float era: three floated `.grid12-4` columns, tabs `.box-additional`
+     cleared after them. `clear:both` → dead band under the shorter columns;
+     `clear:none` → tabs displaced sideways. Which column is tallest varies
+     per course, so EVERY float+clear combination fails on some course.
+   - 2026-07-06 "float secondary right + clear:left": killed the sideways
+     displacement but left a ~300-400px empty band in the centre column.
+   - 2026-07-22 (first grid attempt): put the tabs INTO the centre grid
+     column. No band — but the long tab content got squeezed to 38% width,
+     making pages extremely long with dead space under the side columns.
+   - 2026-07-22 (second grid attempt): tabs full width under ALL three
+     columns. No displacement — but when the right (Course Fee) column is
+     the tallest (it usually is), the tabs sat far below the bottom of
+     cols 1-2, leaving a large dead band under them.
+   INVARIANT (2026-07-22, final): the tabs + Recommended Courses rails span
+   columns 1-2 ONLY, directly below the img/primary row; the secondary
+   (Course Fee) column owns the full-height third column beside them via
+   the named `secondary` area covering every row. The final `1fr` row
+   absorbs any leftover height when the secondary column is taller than
+   everything else — WITHOUT it, grid would distribute that excess across
+   the auto rows above and push the tabs down again (the "too far below"
+   bug). Do not make the rails full-width, do not move them into a single
+   column, do not drop the 1fr row, and do not revert to floats/clear.
+   Structure: the three columns live inside the <form>, so
+   `form { display:contents }` hoists them into the grid. The rails are
+   direct children of .product-view (after the form): first rail → `tabs`
+   area, any later rail → `tabs2` area via the `~` sibling selector — no
+   nth-of-type (immune to the <script> sibling between form and rails).
+   Desktop-only (>=768px): below that Ultimo stacks natively and the mobile
+   rules further down this file take over — this grid must NOT apply there. */
 @media (min-width: 768px) {
-    .catalog-product-view .product-view .product-secondary-column { float: right; }
+    .catalog-product-view .product-view {
+        display: grid;
+        grid-template-columns: 30% 38% 28%;
+        grid-template-areas:
+            "img   primary secondary"
+            "tabs  tabs    secondary"
+            "tabs2 tabs2   secondary";
+        grid-template-rows: auto auto 1fr;
+        column-gap: 2%;
+        align-items: start;
+    }
+    /* Hoist the form's children into the product-view grid (the three columns
+       are wrapped in a <form> that is otherwise a block boundary). */
+    .catalog-product-view .product-view > form { display: contents; }
+    /* With display:contents every form child becomes a grid item. Anything
+       that is NOT one of the three column wrappers (hidden inputs, .no-display
+       helpers, future strays) must not auto-place into an implicit row of its
+       own, so hide it. display:none on hidden inputs does not affect form
+       submission. The <script> rule is UA-default belt-and-braces. */
+    .catalog-product-view .product-view > form > *:not(.product-img-column):not(.product-primary-column):not(.product-secondary-column),
+    .catalog-product-view .product-view > script { display: none !important; }
+
+    .catalog-product-view .product-view .product-img-column {
+        grid-area: img;
+        width: auto !important; float: none !important; margin: 0 !important;
+    }
+    .catalog-product-view .product-view .product-primary-column {
+        grid-area: primary;
+        width: auto !important; float: none !important; margin: 0 !important;
+    }
+    .catalog-product-view .product-view .product-secondary-column {
+        grid-area: secondary;
+        width: auto !important; float: none !important; margin: 0 !important;
+    }
+    /* Rails span columns 1-2 only, beside the full-height secondary column.
+       First rail (course-detail tabs) → `tabs`; any later sibling rail
+       (Recommended Courses) → `tabs2`. */
+    .catalog-product-view .product-view > .box-additional {
+        grid-area: tabs;
+        clear: none !important; float: none !important;
+        width: auto !important; margin: 24px 0 0 !important;
+    }
+    .catalog-product-view .product-view > .box-additional ~ .box-additional {
+        grid-area: tabs2;
+    }
+    /* A hypothetical 3rd+ rail must not overlap tabs2: auto-place it into an
+       implicit row, still spanning columns 1-2. */
+    .catalog-product-view .product-view > .box-additional ~ .box-additional ~ .box-additional {
+        grid-area: auto;
+        grid-column: 1 / 3;
+    }
 }
-.product-view > .box-additional { clear: left; }
 
 .course-info-card,
 .course-policy-card {
@@ -1058,6 +1125,57 @@ a.practice-exam-cta:focus-visible { outline: 2px solid #065f46; outline-offset: 
     content: "";
     position: absolute;
     left: 4px; top: 13px;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #2dd4bf;
+    box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.22);
+}
+
+/* Subtopic rows — indented one level under their topic heading, with the
+   SAME teal ring-dot bullet as the topic rows. Scoped to the learning card.
+   Two authoring shapes:
+     - <p><em>item</em></p> rows (the dominant shape), and
+     - <ul><li> rows / nested <ul><ul> rows.
+   Topic headings are promoted to <h3 class="course-topic-h3"> synchronously
+   by description.phtml's inline script before first paint, so every remaining
+   <p> inside the card body is a subtopic — we can style plain `p` without a
+   `:not(:has(strong))` guard. (That `:has()` guard, when combined with this
+   `#acctab-description + .panel …` ancestor chain, is silently dropped by
+   Chrome's stylesheet matcher — the sibling `h3.course-topic-h3` rule above,
+   which has NO :has(), applies fine; the same chain WITH :has() does not.
+   Verified 2026-07-22 via CDP getMatchedStylesForNode.) */
+#acctab-description + .panel .course-policy-card--learning .std p {
+    position: relative;
+    margin: 0 !important;
+    padding: 6px 0 6px 50px;
+    border-bottom: 1px dashed #e2e8f0;
+    font-style: italic;
+}
+#acctab-description + .panel .course-policy-card--learning .std p::before {
+    content: "" !important;
+    position: absolute;
+    left: 28px; top: 13px;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #2dd4bf;
+    box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.22);
+    color: transparent;
+}
+/* <ul><li> subtopic courses: kill Ultimo's grey arrow marker (background-image
+   on the <li>) and render the SAME teal ring-dot as the <p><em> subtopic rows,
+   so every course's subtopics look identical regardless of description markup.
+   Indent to match the <p><em> subtopic level. */
+#acctab-description + .panel .course-policy-card--learning .std ul li,
+#acctab-description + .panel .course-policy-card--learning .std ul ul li {
+    background-image: none !important;
+    padding-left: 50px;
+}
+#acctab-description + .panel .course-policy-card--learning .std ul li::before,
+#acctab-description + .panel .course-policy-card--learning .std ul ul li::before {
+    content: "" !important;
+    display: block !important;
+    position: absolute;
+    left: 28px; top: 13px;
     width: 8px; height: 8px;
     border-radius: 50%;
     background: #2dd4bf;

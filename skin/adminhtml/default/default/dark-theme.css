@@ -43,6 +43,8 @@
     --red2: #dc2626;
     --yellow: #fbbf24;
     --orange: #f97316;
+    --wa: #25d366;       /* WhatsApp brand green (Kael ops launcher only) */
+    --wa-deep: #0b6e4f;  /* WhatsApp deep green — launcher/panel header    */
 
     /* --- Brand & button design tokens ---
        Single source of truth for the admin button system.
@@ -6694,3 +6696,192 @@ html body[class*="adminhtml-catalog-product"] [id^="option_"] tfoot button {
     background: transparent !important;
     border-top: 1px solid #e5e7eb !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Kael ops launcher (.mmd-wa-*) — floating WhatsApp widget in the admin
+   for operator roles (admin / developer / marketing / super-admin).
+   Markup + behaviour: template/page/header.phtml (bottom).
+   WhatsApp green is deliberate branding for the external channel; the
+   panel body stays on the dark token surfaces. All-!important on the
+   two chrome buttons per the bare-glyph override trap.
+   ═══════════════════════════════════════════════════════════════════════ */
+#mmd-wa-root { position: fixed; right: 22px; bottom: 22px; z-index: 1600; font-family: inherit; }
+.admin-main #mmd-wa-root button, #mmd-wa-root button {
+    -webkit-appearance: none !important; appearance: none !important;
+    background-image: none !important; text-shadow: none !important;
+    box-shadow: none !important; min-width: 0 !important; min-height: 0 !important;
+}
+#mmd-wa-root .mmd-wa-launcher {
+    display: flex !important; align-items: center; justify-content: center;
+    width: 54px !important; height: 54px !important; padding: 0 !important;
+    border: 0 !important; border-radius: 50% !important; cursor: pointer;
+    background: var(--wa-deep) !important; color: #fff !important;
+    box-shadow: 0 0 0 1px rgba(37, 211, 102, 0.35), 0 0 14px rgba(37, 211, 102, 0.35) !important;
+    transition: box-shadow 0.15s ease, background 0.15s ease;
+    float: right;
+    position: relative;
+}
+/* Pulsing halo, mirroring the lms-tms .chat-launcher (chat-ring keyframes in
+   its globals.css). The launcher's own box-shadow is !important (chrome-button
+   reset trap), so the pulse rides on an expanding ::before instead. */
+#mmd-wa-root .mmd-wa-launcher::before {
+    content: ""; position: absolute; inset: 0; z-index: -1;
+    border-radius: 50%; background: var(--wa);
+    animation: mmd-wa-ring 2s ease-out infinite;
+}
+#mmd-wa-root .mmd-wa-launcher:hover {
+    background: #0d8a62 !important;
+    box-shadow: 0 0 0 1px rgba(37, 211, 102, 0.6), 0 0 20px rgba(37, 211, 102, 0.5) !important;
+}
+#mmd-wa-root .mmd-wa-launcher:hover::before,
+#mmd-wa-root .mmd-wa-launcher:focus-visible::before,
+#mmd-wa-root .mmd-wa-launcher[aria-expanded="true"]::before {
+    opacity: 0; animation: none;
+}
+@keyframes mmd-wa-ring {
+    0%   { opacity: 0.6; transform: scale(1); }
+    100% { opacity: 0;   transform: scale(1.9); }
+}
+@media (prefers-reduced-motion: reduce) {
+    #mmd-wa-root .mmd-wa-launcher::before { animation: none; opacity: 0; }
+}
+#mmd-wa-root .mmd-wa-launcher:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+#mmd-wa-root .mmd-wa-launcher svg { display: block; pointer-events: none; }
+
+.mmd-wa-panel {
+    position: absolute; right: 0; bottom: 66px;
+    width: 340px; max-height: min(560px, calc(100vh - 140px));
+    display: flex; flex-direction: column;
+    background: var(--d3); border: 1px solid var(--b2); border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 0 6px rgba(37, 211, 102, 0.25), 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+.mmd-wa-panel[hidden] { display: none; }
+
+.mmd-wa-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 14px; background: var(--wa-deep); color: #fff;
+    flex: 0 0 auto;
+}
+.mmd-wa-head-icon { display: inline-flex; }
+.mmd-wa-head-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.mmd-wa-head-text strong { font-size: 13px; font-weight: 600; line-height: 1.2; }
+.mmd-wa-head-text em { font-style: normal; font-size: 11px; opacity: 0.8; }
+#mmd-wa-root .mmd-wa-close {
+    margin-left: auto !important; padding: 0 !important;
+    width: 24px !important; height: 24px !important;
+    border: 0 !important; border-radius: 4px !important;
+    background: transparent !important; color: #fff !important;
+    font-size: 18px !important; line-height: 1 !important; cursor: pointer;
+}
+#mmd-wa-root .mmd-wa-close:hover { background: rgba(255, 255, 255, 0.12) !important; }
+
+.mmd-wa-body, .mmd-wa-detail { padding: 12px 14px; overflow-y: auto; flex: 1 1 auto; }
+.mmd-wa-greet {
+    background: var(--d4); border: 1px solid var(--b1); border-radius: 10px;
+    padding: 10px 12px; font-size: 12px; line-height: 1.5; color: var(--t2);
+    margin-bottom: 10px;
+}
+.mmd-wa-search {
+    width: 100%; box-sizing: border-box; height: 28px; padding: 2px 10px;
+    font-size: 12px; border-radius: 6px; margin-bottom: 10px;
+    background: transparent !important; border: 1px solid var(--b2); color: var(--t1);
+}
+.mmd-wa-search:focus { outline: none; border-color: var(--wa); background: rgba(37, 211, 102, 0.05) !important; }
+.mmd-wa-cat {
+    font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1.2px; color: var(--t4); margin: 10px 0 4px;
+}
+#mmd-wa-root .mmd-wa-item {
+    display: block; width: 100%; box-sizing: border-box; text-align: left !important;
+    padding: 8px 12px !important; margin: 0 0 6px !important;
+    background: transparent !important; border: 1px solid var(--b2) !important;
+    border-radius: 999px !important; color: var(--t2) !important;
+    font-size: 12px !important; line-height: 1.3 !important; cursor: pointer;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+}
+#mmd-wa-root .mmd-wa-item:hover {
+    color: var(--t1) !important; border-color: var(--wa) !important;
+    box-shadow: 0 0 6px rgba(37, 211, 102, 0.35) !important;
+}
+.mmd-wa-empty { font-size: 12px; color: var(--t4); padding: 6px 2px; }
+#mmd-wa-root .mmd-wa-browse, #mmd-wa-root .mmd-wa-back {
+    background: transparent !important; border: 0 !important; padding: 4px 2px !important;
+    color: var(--wa) !important; font-size: 12px !important; cursor: pointer;
+    text-decoration: underline; text-underline-offset: 3px;
+}
+.mmd-wa-detail-label { font-size: 12.5px; font-weight: 600; color: var(--t1); margin: 8px 0 6px; }
+.mmd-wa-draft {
+    width: 100%; box-sizing: border-box; resize: vertical;
+    background: transparent !important; border: 1px solid var(--b2); border-radius: 8px;
+    color: var(--t1); font-size: 12px; line-height: 1.5; padding: 8px 10px;
+    font-family: var(--font-mono, monospace);
+}
+.mmd-wa-draft:focus { outline: none; border-color: var(--wa); }
+.mmd-wa-hint { font-size: 11px; color: var(--t4); line-height: 1.4; margin-top: 6px; }
+
+/* Detail action row — Copy (ghost) + Copy & open WhatsApp (solid green),
+   mirroring the lms-tms template picker's two-button send flow. */
+.mmd-wa-actions { display: flex; gap: 8px; margin-top: 10px; }
+#mmd-wa-root .mmd-wa-copy {
+    flex: 0 0 auto;
+    height: 32px !important; padding: 2px 16px !important;
+    border: 1px solid var(--b2) !important; border-radius: 999px !important;
+    background: transparent !important; color: var(--t2) !important;
+    font-size: 12px !important; cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease;
+}
+#mmd-wa-root .mmd-wa-copy:hover { border-color: var(--wa) !important; color: var(--t1) !important; }
+#mmd-wa-root .mmd-wa-copyopen {
+    flex: 1 1 auto;
+    display: inline-flex !important; align-items: center; justify-content: center; gap: 7px;
+    height: 32px !important; padding: 2px 14px !important;
+    border: 0 !important; border-radius: 999px !important;
+    background: var(--wa-deep) !important; color: #fff !important;
+    font-size: 12px !important; font-weight: 600; cursor: pointer;
+    transition: background 0.15s ease;
+}
+#mmd-wa-root .mmd-wa-copyopen:hover { background: #0d8a62 !important; }
+#mmd-wa-root .mmd-wa-copy:focus-visible,
+#mmd-wa-root .mmd-wa-copyopen:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.mmd-wa-foot[hidden] { display: none; }
+
+.mmd-wa-foot {
+    display: flex; gap: 8px; align-items: center;
+    padding: 10px 14px; border-top: 1px solid var(--b1); flex: 0 0 auto;
+}
+.mmd-wa-input {
+    flex: 1 1 auto; height: 30px; padding: 2px 12px; font-size: 12px;
+    border-radius: 999px; background: transparent !important;
+    border: 1px solid var(--b2); color: var(--t1); box-sizing: border-box;
+}
+.mmd-wa-input:focus { outline: none; border-color: var(--wa); }
+#mmd-wa-root .mmd-wa-send {
+    display: flex !important; align-items: center; justify-content: center;
+    width: 32px !important; height: 32px !important; padding: 0 !important;
+    border: 0 !important; border-radius: 50% !important; cursor: pointer;
+    background: var(--wa-deep) !important; color: #fff !important;
+}
+#mmd-wa-root .mmd-wa-send:hover { background: #0d8a62 !important; }
+
+/* Light theme: keep the green chrome, lift the panel surfaces. */
+:root[data-theme="light"] .mmd-wa-panel { background: #fff; border-color: #e5e7eb; }
+:root[data-theme="light"] .mmd-wa-greet { background: #f3f4f6; border-color: #e5e7eb; color: #374151; }
+
+/* ── Trainer skin (.mmd-wa--trainer) — blue, mirroring the lms-tms
+   WHATSAPP_TRAINER palette so trainer support reads distinctly from the
+   green ops launcher. Custom-prop override recolors every var(--wa*)
+   rule; the remaining hardcoded green shadows/hovers are restated. ── */
+#mmd-wa-root.mmd-wa--trainer { --wa: #2aabee; --wa-deep: #1b5e8c; }
+#mmd-wa-root.mmd-wa--trainer .mmd-wa-launcher {
+    box-shadow: 0 0 0 1px rgba(42, 171, 238, 0.35), 0 0 14px rgba(42, 171, 238, 0.35) !important;
+}
+#mmd-wa-root.mmd-wa--trainer .mmd-wa-launcher:hover {
+    background: #22699f !important;
+    box-shadow: 0 0 0 1px rgba(42, 171, 238, 0.6), 0 0 20px rgba(42, 171, 238, 0.5) !important;
+}
+#mmd-wa-root.mmd-wa--trainer .mmd-wa-panel {
+    box-shadow: 0 0 6px rgba(42, 171, 238, 0.25), 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+#mmd-wa-root.mmd-wa--trainer .mmd-wa-send:hover,
+#mmd-wa-root.mmd-wa--trainer .mmd-wa-copyopen:hover { background: #22699f !important; }

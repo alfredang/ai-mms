@@ -127,7 +127,11 @@
 	}
 	if ($shortDescription) {
 		$_wsqPattern = '#<div\b[^>]*border-radius\s*:[^>]*>(.*?)</div>#siu';
-		$_wsqHeadingPattern = '#<h[1-6][^>]*>' . $_WS . '*WSQ' . $_WS . '+Funding' . $_WS . '*</h[1-6]>(.*?)(?=<h[12]\b|\z)#siu';
+		// Accept both heading variants: the classic "WSQ Funding" and the
+		// Quill-editor-authored "Funding and Grant Applications" (newer
+		// courses, e.g. TGS-2026061583), so both get carded instead of
+		// rendering as a raw table in the narrative.
+		$_wsqHeadingPattern = '#<h[1-6][^>]*>' . $_WS . '*(?:WSQ' . $_WS . '+Funding|Funding' . $_WS . '+and' . $_WS . '+Grant' . $_WS . '+Applications?)' . $_WS . '*</h[1-6]>(.*?)(?=<h[12]\b|\z)#siu';
 		$_wsqStripPattern = null;
 		if (preg_match($_wsqPattern, $shortDescription, $_wsqMatch)) {
 			$_wsqStripPattern = $_wsqPattern;
@@ -164,15 +168,26 @@
 				$_inner = preg_replace('#<h[1-6][^>]*>.*?</h[1-6]>#siu', '', $_inner);
 			}
 
-			// Fallback — when a course has the UTAP badge (pill) but its
-			// funding narrative doesn't contain a UTAP section (the badge
-			// is set via tags, narrative is freeform short_description /
-			// CMS block, so they can drift apart), inject the canonical
-			// UTAP <h3> + <p> so the preg_replace_callback below wraps it
-			// into a .wsq-sub--utap card alongside the other schemes.
-			// Same gap could exist for PSEA / SFC / SFEC — left those
-			// alone for now (narrow fix per the request that surfaced
-			// this); extend the array below if the pattern recurs.
+			// Standardise the PSEA write-up: strip any authored PSEA section
+			// (its <h3> heading + body up to the next heading) so the single
+			// canonical PSEA card injected below is the ONLY PSEA copy that
+			// renders. Historically 267 courses drifted into ~20 wording
+			// variants; removing the authored one and letting the fallback
+			// re-add a fixed version guarantees identical copy on every WSQ course.
+			$_inner = preg_replace(
+				'#<h[1-6][^>]*>' . $_WS . '*PSEA\b.*?</h[1-6]>.*?(?=<h[1-6]|\z)#siu',
+				'',
+				$_inner
+			);
+
+			// Fallback — when a course has a scheme badge (pill) but its funding
+			// narrative doesn't contain that scheme's section (badge set via tags,
+			// narrative is freeform short_description / CMS block, so they drift),
+			// inject the canonical <h3> + body so the preg_replace_callback below
+			// wraps it into a .wsq-sub--<scheme> card alongside the others. PSEA is
+			// always injected (its authored section is stripped just above) so its
+			// copy is standardised; UTAP is injected only when missing. SFC / SFEC
+			// have no fallback yet — extend the array if needed.
 			try {
 				$_courseBadges = Mage::helper('mmd_courseimage')->getProductBadges($_product);
 			} catch (Exception $_e) {
@@ -191,6 +206,32 @@
 						. '<a href="https://www.ntuc.org.sg/wps/portal/up2/home/eserviceslanding?id=6bc1ca2c-ce81-4acb-a28f-c0be586e185f" target="_blank">'
 						. '<span style="color: #ff0000; text-decoration-line: underline;">Click here to submit UTAP</span></a></p>',
 					'before' => 'PSEA',
+				),
+				// PSEA is STANDARDISED across every WSQ course: any authored PSEA
+				// section is stripped above so this single canonical copy always
+				// renders (267 courses had drifted into 20 wording variants). The
+				// SkillsFuture eligibility link is course-specific — for WSQ
+				// courses the SKU IS the course reference number, so build it from
+				// getSku(). Fires on every TGS- course (all carry the PSEA badge
+				// via migration 655).
+				'PSEA' => array(
+					'html' => '<h3>PSEA</h3>'
+						. '<p>Eligible Singapore Citizens can use their PSEA funds to offset course fee payable after funding.</p>'
+						. '<p>To check for Post-Secondary Education Account (PSEA) eligibility for this course, '
+						. '<a href="https://www.myskillsfuture.gov.sg/content/portal/en/training-exchange/course-directory/course-detail.html?courseReferenceNumber=' . rawurlencode((string) $_courseSku) . '" target="_blank">'
+						. '<span style="color: #ff0000; text-decoration-line: underline;">Visit SkillsFuture (course code: ' . $this->escapeHtml($_courseSku) . ')</span></a></p>'
+						. '<ul>'
+						. '<li>Scroll down to &ldquo;Keyword Tags&rdquo; to verify for PSEA eligibility.</li>'
+						. '<li>If there is &ldquo;PSEA&rdquo; under keyword tags, the course is eligible for PSEA.</li>'
+						. '</ul>'
+						. '<p>Once you are eligible for PSEA, please download and fill up the '
+						. '<a href="https://www.moe.gov.sg/-/media/files/financial-matters/psea-ad-hoc-withdrawal-form.pdf" target="_blank">'
+						. '<span style="color: #ff0000; text-decoration-line: underline;">PSEA Withdrawal Form</span></a> and email to us.</p>',
+					// No anchor: authored headings use the full scheme name
+					// ("SkillsFuture Enterprise Credit (SFEC)"), so a short-code
+					// anchor wouldn't match reliably. Append after the existing
+					// schemes — PSEA sits last, matching how authored courses show it.
+					'before' => '',
 				),
 			);
 			foreach ($_fundingFallbacks as $_badgeName => $_fallback) {
@@ -364,7 +405,10 @@
 		list($_certIgnored, $shortDescription) = $_extractSection('(?:Certifications?|Certificate)', $shortDescription);
 		unset($_certIgnored);
 
-		$_isWsqCert = (stripos((string) $_product->getSku(), 'TGS-') === 0);
+		// CASL courses carry TGS- SKUs too but do NOT award OpenCerts
+		// (rule 2026-07-23) — key off the name prefix.
+		$_isCaslCert = (stripos(trim((string) $_product->getName()), 'CASL') === 0);
+		$_isWsqCert = !$_isCaslCert && (stripos((string) $_product->getSku(), 'TGS-') === 0);
 		$_certificationHtml  = '<ul class="cert-bullets">';
 		$_certificationHtml .= '<li><strong>Certificate of Completion from Tertiary Courses</strong> - Upon meeting at least 75% attendance and passing the assessment(s), participants will receive a Certificate of Completion from Tertiary Courses.</li>';
 		if ($_isWsqCert) {
@@ -513,6 +557,11 @@
 		if ($_fundingAndGrantHtml === '') { $_fundingAndGrantHtml = $_fgExtracted; }
 	}
 	unset($_fgExtracted);
+
+	// (6b) Funding Validity — per-course cms/block only (section introduced
+	// 2026-07 for CASL re-registrations; no legacy short_description
+	// fallback). Renders as its own card right after the funding card(s).
+	$_fundingValidityHtml = $_courseSectionHtml('funding_validity');
 
 	//Rich snippets
 	$useRichSnippets = ($helperSnippets->isEnabledOnProductPage() && $productTypeId !== 'grouped');
@@ -967,6 +1016,9 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 			// (which is in the secondary column). Only rendered when the
 			// description contained the rounded WSQ wrapper.
 			if ($_hasWsqFunding):
+				// CASL re-registrations (name prefix "CASL") keep the same fee
+				// maths but the card is branded CASL, not WSQ.
+				$_isCaslFunding = (stripos(trim((string) $_product->getName()), 'CASL') === 0);
 				$_wsqPrice    = (float) $_product->getPrice();
 				$_wsqGst      = $_wsqPrice * 0.09;
 				$_wsqBaseline = $_wsqPrice * 0.50 + $_wsqGst;
@@ -979,7 +1031,7 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 						<span class="course-policy-card__icon" aria-hidden="true">
 							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
 						</span>
-						<h3 class="course-policy-card__title"><?php echo $_showFundingOptionsOnly ? 'Funding Options' : 'WSQ Funding'; ?></h3>
+						<h3 class="course-policy-card__title"><?php echo $_showFundingOptionsOnly ? 'Funding Options' : ($_isCaslFunding ? 'CASL Funding' : 'WSQ Funding'); ?></h3>
 					</header>
 					<div class="course-policy-card__body">
 						<?php if (!$_showFundingOptionsOnly): ?>
@@ -1022,6 +1074,18 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 						<h3 class="course-policy-card__title">Funding and Grant</h3>
 					</header>
 					<div class="course-policy-card__body std"><?php echo $_fundingAndGrantHtml; ?></div>
+				</section>
+			<?php endif; ?>
+
+			<?php if ($_fundingValidityHtml !== ''): ?>
+				<section class="course-policy-card course-policy-card--funding-validity course-policy-card--wsq-in-primary">
+					<header class="course-policy-card__header">
+						<span class="course-policy-card__icon" aria-hidden="true">
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+						</span>
+						<h3 class="course-policy-card__title">Funding Validity</h3>
+					</header>
+					<div class="course-policy-card__body std"><?php echo $_fundingValidityHtml; ?></div>
 				</section>
 			<?php endif; ?>
 

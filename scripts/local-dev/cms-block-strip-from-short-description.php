@@ -28,6 +28,7 @@
  *
  *   --sku=SKU    restrict to one course
  *   --limit=N    restrict to first N products
+ *   --section=A,B  restrict to specific sections (e.g. --section=learning_outcomes)
  */
 
 declare(strict_types=1);
@@ -84,6 +85,13 @@ $sections = [
     'certification'     => fn(string $d): string => $stripSection('(?:Certifications?|Certificate)', $d),
     'funding_and_grant' => $stripFunding,
 ];
+
+if (!empty($flags['section'])) {
+    $only = array_filter(array_map('trim', explode(',', (string)$flags['section'])));
+    $unknown = array_diff($only, array_keys($sections));
+    if ($unknown) { fwrite(STDERR, 'unknown section(s): ' . implode(',', $unknown) . "\n"); exit(1); }
+    $sections = array_intersect_key($sections, array_flip($only));
+}
 
 // --------------------------------------------------------------------------
 // Resolve EAV attribute id for short_description once.

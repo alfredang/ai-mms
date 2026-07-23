@@ -2038,7 +2038,8 @@ document.addEventListener('keydown', function(e){if(e.key==='Escape')dashCloseDe
 // Count IBF, Unfunded courses
 $_devIbf = 0; $_devUnfunded = 0;
 $_devCourses = array();
-$_devPageSize = 12;
+$_devPageSize = (int) Mage::app()->getRequest()->getParam('dev_psize', 20);
+if (!in_array($_devPageSize, array(20, 50, 100), true)) $_devPageSize = 20;
 $_devCurPage = max(1, (int) Mage::app()->getRequest()->getParam('dev_page', 1));
 // The dashboard's "branch" is now driven by the global branch tabs
 // (MMD_Branchscope) which use ?store=N. We translate the active store
@@ -2082,7 +2083,7 @@ $_devCountry       = isset($_devStoreToCountry[$_devActiveStoreId])
     ? $_devStoreToCountry[$_devActiveStoreId]
     : 'All';
 $_devFilterType = (string) Mage::app()->getRequest()->getParam('dev_type', '');
-$_devFilterLevel = (string) Mage::app()->getRequest()->getParam('dev_level', '');
+$_devFilterStatus = strtolower((string) Mage::app()->getRequest()->getParam('dev_status', ''));
 $_devFilterQuery = trim((string) Mage::app()->getRequest()->getParam('dev_q', ''));
 $_devTotalCount = 0;
 $_devTotalPages = 1;
@@ -2094,7 +2095,8 @@ $_devTotalAll = 0;
 $_devBackParams = array('dev_country' => $_devCountry);
 if ($_devCurPage > 1)             $_devBackParams['dev_page']       = $_devCurPage;
 if ($_devFilterType !== '')       $_devBackParams['dev_type']       = $_devFilterType;
-if ($_devFilterLevel !== '')      $_devBackParams['dev_level']      = $_devFilterLevel;
+if ($_devFilterStatus !== '')     $_devBackParams['dev_status']     = $_devFilterStatus;
+if ($_devPageSize !== 20)         $_devBackParams['dev_psize']      = $_devPageSize;
 if ($_devFilterQuery !== '')      $_devBackParams['dev_q']          = $_devFilterQuery;
 $_devBackQs = http_build_query($_devBackParams);
 // "All" → website_id 0 (treated as "no country filter" everywhere below)
@@ -2153,16 +2155,19 @@ try {
     // reads from catalog_product_entity (EAV) instead of catalog_product_flat_1.
     // The flat table bakes in WHERE status=1, which would otherwise hide
     // disabled products even when we don't add a status filter ourselves.
-    if ($_devWebsiteId === 0) {
+    if ($_devWebsiteId === 0 || $_devFilterStatus === 'disabled') {
         Mage::app()->getStore()->setConfig('catalog/frontend/flat_catalog_product', 0);
     }
     $_devCollection = Mage::getModel('catalog/product')->getCollection()
         ->addAttributeToSelect(array('name','image','status','news_from_date','news_to_date','course_image_url','software','duration','sessions','level','price'))
         ->setOrder('entity_id', 'DESC');
     if ($_devWebsiteId > 0) {
-        $_devCollection
-            ->addAttributeToFilter('status', 1)
-            ->addWebsiteFilter($_devWebsiteId);
+        $_devCollection->addWebsiteFilter($_devWebsiteId);
+        // Country tabs hide disabled courses by default; an explicit Status
+        // filter below takes over when the user picks one.
+        if ($_devFilterStatus === '') {
+            $_devCollection->addAttributeToFilter('status', Mage_Catalog_Model_Product_Status::STATUS_ENABLED);
+        }
     }
 
     // Server-side filter by course type (software attribute)
@@ -2177,14 +2182,11 @@ try {
         }
     }
 
-    // Server-side filter by course level (level attribute). Resolves the
-    // dropdown's value (canonical option label) to the EAV option_id and
-    // filters the collection.
-    if ($_devFilterLevel !== '') {
-        $_levelOptId = Mage::getSingleton('eav/config')->getAttribute('catalog_product', 'level')->getSource()->getOptionId($_devFilterLevel);
-        if ($_levelOptId) {
-            $_devCollection->addAttributeToFilter('level', $_levelOptId);
-        }
+    // Server-side filter by product status (Enabled / Disabled)
+    if ($_devFilterStatus === 'enabled') {
+        $_devCollection->addAttributeToFilter('status', Mage_Catalog_Model_Product_Status::STATUS_ENABLED);
+    } elseif ($_devFilterStatus === 'disabled') {
+        $_devCollection->addAttributeToFilter('status', Mage_Catalog_Model_Product_Status::STATUS_DISABLED);
     }
 
     // Server-side search by course name or SKU
@@ -2220,6 +2222,7 @@ try {
             'level'       => $_dp->getAttributeText('level'),
             'price'       => (float)$_dp->getData('price'),
             'course_type' => $_dSoftware ?: '',
+            'status'      => (int)$_dp->getData('status'),
         );
     }
 } catch (Exception $e) {}
@@ -2459,12 +2462,31 @@ function courseSyncSaveConfig() {
         <div class="dev-search-row">
             <div class="dev-search-input-wrap">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                <input type="text" id="dev-search-input" class="dev-search-input" placeholder="Search title, code, TSC..." value="<?php echo htmlspecialchars($_devFilterQuery) ?>" style="padding-left:48px !important;" onkeydown="if(event.key==='Enter'){event.preventDefault();devApplyFilters();}" autocomplete="off" />
+                <input type="search" id="dev-search-input" name="dev-course-filter" class="dev-search-input" placeholder="Search title, code, TSC..." value="<?php echo htmlspecialchars($_devFilterQuery) ?>" style="padding-left:48px !important;" onkeydown="if(event.key==='Enter'){event.preventDefault();devApplyFilters();}" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')" />
+                <script>
+                (function(){
+                    // Chrome ignores autocomplete="off" and autofills the saved
+                    // admin login/email into this field; force it back to the
+                    // actual dev_q filter value after autofill runs.
+                    var el = document.getElementById('dev-search-input');
+                    var expected = <?php echo json_encode((string) $_devFilterQuery) ?>;
+                    function unfill(){ if (el && document.activeElement !== el && el.value !== expected) el.value = expected; }
+                    document.addEventListener('DOMContentLoaded', unfill);
+                    setTimeout(unfill, 250);
+                    setTimeout(unfill, 800);
+                })();
+                </script>
             </div>
+            <span style="color:#94a3b8;font-size:13px;flex-shrink:0;">Show:</span>
+            <select id="dev-page-size" onchange="devApplyFilters(true)" style="padding:6px 10px;background:#111827;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:13px;appearance:auto;outline:none;flex-shrink:0;">
+                <?php foreach (array(20, 50, 100) as $_ps): ?>
+                <option value="<?php echo $_ps ?>"<?php echo $_devPageSize === $_ps ? ' selected' : '' ?>><?php echo $_ps ?></option>
+                <?php endforeach; ?>
+            </select>
             <span style="color:#94a3b8;font-size:13px;flex-shrink:0;">View:</span>
             <div class="lmc-view-toggle"><button type="button" class="lmc-view-btn active" id="dev-grid-btn" onclick="devSetView('grid')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></button><button type="button" class="lmc-view-btn" id="dev-list-btn" onclick="devSetView('list')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></button></div>
             <button type="button" onclick="devResetFilters()" style="background:transparent !important;background-image:none !important;border:none !important;color:#94a3b8 !important;font-size:13px !important;font-weight:500 !important;cursor:pointer !important;padding:4px 8px !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;height:auto !important;min-width:0 !important;line-height:normal !important;">Reset</button>
-            <?php $_devFiltersOpen = $_devFilterType !== '' || $_devFilterLevel !== ''; ?>
+            <?php $_devFiltersOpen = $_devFilterType !== '' || $_devFilterStatus !== ''; ?>
             <button type="button" id="dev-filter-toggle" data-open="<?php echo $_devFiltersOpen ? '1' : '0' ?>" onclick="devToggleFilters()" style="background:transparent !important;background-image:none !important;border:1px solid !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;padding:6px 16px !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;height:auto !important;min-width:0 !important;line-height:normal !important;border-radius:8px !important;"><?php echo $_devFiltersOpen ? 'Hide Filters' : 'Show Filters' ?></button>
         </div>
         <div id="dev-filter-row" style="display:<?php echo $_devFiltersOpen ? 'block' : 'none' ?>;margin-top:14px;">
@@ -2474,16 +2496,15 @@ function courseSyncSaveConfig() {
                     <select id="dev-filter-type" onchange="devApplyFilters()" style="width:100%;padding:10px 14px;background:#111827;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:14px;appearance:auto;outline:none;">
                         <option value="">All Types</option>
                         <option value="funded" <?php echo strtolower($_devFilterType) === 'funded' ? 'selected' : '' ?>>Funded</option>
-                        <option value="nonfunded" <?php echo strtolower($_devFilterType) === 'nonfunded' ? 'selected' : '' ?>>Non-funded</option>
+                        <option value="nonfunded" <?php echo strtolower($_devFilterType) === 'nonfunded' ? 'selected' : '' ?>>Unfunded</option>
                     </select>
                 </div>
                 <div style="flex:1;min-width:200px;">
-                    <div style="font-size:12px;font-weight:600;color:#e2e8f0;margin-bottom:6px;">Level</div>
-                    <select id="dev-filter-level" onchange="devApplyFilters()" style="width:100%;padding:10px 14px;background:#111827;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:14px;appearance:auto;outline:none;">
-                        <option value="">All Levels</option>
-                        <?php foreach (array('Beginner','Beginner to Intermediate','Intermediate','Advanced') as $_lvl): ?>
-                            <option value="<?php echo htmlspecialchars($_lvl) ?>"<?php echo $_devFilterLevel === $_lvl ? ' selected' : '' ?>><?php echo htmlspecialchars($_lvl) ?></option>
-                        <?php endforeach; ?>
+                    <div style="font-size:12px;font-weight:600;color:#e2e8f0;margin-bottom:6px;">Status</div>
+                    <select id="dev-filter-status" onchange="devApplyFilters()" style="width:100%;padding:10px 14px;background:#111827;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:14px;appearance:auto;outline:none;">
+                        <option value="">All Statuses</option>
+                        <option value="enabled"<?php echo $_devFilterStatus === 'enabled' ? ' selected' : '' ?>>Enabled</option>
+                        <option value="disabled"<?php echo $_devFilterStatus === 'disabled' ? ' selected' : '' ?>>Disabled</option>
                     </select>
                 </div>
             </div>
@@ -2493,10 +2514,28 @@ function courseSyncSaveConfig() {
         <span>COURSE</span><span style="text-align:center">TYPES</span><span style="text-align:center">DURATION</span><span style="text-align:center">ACTIONS</span>
     </div>
     <?php if (empty($_devCourses)): ?>
+    <?php $_devHasActiveFilters = $_devFilterQuery !== '' || $_devFilterType !== '' || $_devFilterStatus !== ''; ?>
     <div style="background:#1e293b;border:1px dashed #334155;border-radius:12px;padding:60px 32px;text-align:center;">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="1.5" style="margin-bottom:14px;"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+        <?php if ($_devHasActiveFilters): ?>
+        <div style="font-size:16px;font-weight:700;color:#cbd5e1;margin-bottom:6px;">No courses match your filters</div>
+        <div style="font-size:13px;color:#94a3b8;margin-bottom:18px;">
+            <?php
+            $_devActiveBits = array();
+            if ($_devFilterQuery !== '')  $_devActiveBits[] = 'search "' . htmlspecialchars($_devFilterQuery) . '"';
+            if ($_devFilterType !== '')   $_devActiveBits[] = 'type "' . (strtolower($_devFilterType) === 'funded' ? 'Funded' : 'Unfunded') . '"';
+            if ($_devFilterStatus !== '') $_devActiveBits[] = 'status "' . ($_devFilterStatus === 'disabled' ? 'Disabled' : 'Enabled') . '"';
+            echo 'Nothing matches ' . implode(' + ', $_devActiveBits) . '.';
+            ?>
+        </div>
+        <button type="button" onclick="devResetFilters()" style="display:inline-flex;align-items:center;gap:6px;background:transparent !important;background-image:none !important;border:1px solid #38bdf8 !important;border-radius:8px !important;color:#38bdf8 !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;padding:8px 18px !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;height:auto !important;min-width:0 !important;line-height:normal !important;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            Clear all filters
+        </button>
+        <?php else: ?>
         <div style="font-size:16px;font-weight:700;color:#cbd5e1;margin-bottom:6px;">No courses available for <?php echo htmlspecialchars($_devCountry) ?></div>
         <div style="font-size:13px;color:#94a3b8;">There are currently no courses registered for this region.</div>
+        <?php endif; ?>
     </div>
     <?php endif; ?>
     <div class="dev-grid" id="dev-grid">
@@ -2533,6 +2572,10 @@ function courseSyncSaveConfig() {
                 <?php if ($_dc['price'] > 0): ?>
                 <div class="dev-card-row"><span class="dev-card-lbl">Price:</span><span class="dev-card-val">$<?php echo number_format($_dc['price'], 2) ?></span></div>
                 <?php endif; ?>
+                <?php $_dcActive = ((int)$_dc['status'] === Mage_Catalog_Model_Product_Status::STATUS_ENABLED); ?>
+                <div class="dev-card-row"><span class="dev-card-lbl">Status:</span><span class="dev-card-val"><span style="display:inline-block;padding:2px 12px;border-radius:999px;font-size:11px;font-weight:600;line-height:1.5;<?php echo $_dcActive
+                    ? 'color:#4ade80;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.35);'
+                    : 'color:#f87171;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.35);' ?>"><?php echo $_dcActive ? 'Active' : 'Disabled' ?></span></span></div>
                 <!-- Funding Validity row removed 2026-05-06 per product decision. -->
             </div>
             <?php
@@ -2553,10 +2596,11 @@ function courseSyncSaveConfig() {
     <div class="dev-pagination">
         <?php
         $_devBaseUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard');
-        $_devPageUrl = function($p) use ($_devBaseUrl, $_devCountry, $_devFilterType, $_devFilterLevel, $_devFilterQuery) {
+        $_devPageUrl = function($p) use ($_devBaseUrl, $_devCountry, $_devFilterType, $_devFilterStatus, $_devFilterQuery, $_devPageSize) {
             $qs = array('dev_country=' . urlencode($_devCountry), 'dev_page=' . $p);
             if ($_devFilterType !== '') $qs[] = 'dev_type=' . urlencode($_devFilterType);
-            if ($_devFilterLevel !== '') $qs[] = 'dev_level=' . urlencode($_devFilterLevel);
+            if ($_devFilterStatus !== '') $qs[] = 'dev_status=' . urlencode($_devFilterStatus);
+            if ($_devPageSize !== 20) $qs[] = 'dev_psize=' . $_devPageSize;
             if ($_devFilterQuery !== '') $qs[] = 'dev_q=' . urlencode($_devFilterQuery);
             return $_devBaseUrl . '?' . implode('&', $qs) . '#courses';
         };
@@ -2599,21 +2643,23 @@ function devToggleFilters() {
         btn.setAttribute('data-open', '0');
     }
 }
-function devApplyFilters() {
+function devApplyFilters(resetPage) {
     var base = <?php echo json_encode(Mage::helper('adminhtml')->getUrl('adminhtml/dashboard')) ?>;
     var country = <?php echo json_encode($_devCountry) ?>;
     var curPage = <?php echo json_encode($_devCurPage) ?>;
     var typeEl = document.getElementById('dev-filter-type');
-    var levelEl = document.getElementById('dev-filter-level');
+    var statusEl = document.getElementById('dev-filter-status');
     var qEl = document.getElementById('dev-search-input');
+    var psizeEl = document.getElementById('dev-page-size');
     var params = ['dev_country=' + encodeURIComponent(country)];
     // Carry current page across filter changes so changing a dropdown doesn't
-    // bounce the user back to page 1. The server clamps if the page no longer
-    // exists in the new result set.
-    if (curPage > 1) params.push('dev_page=' + curPage);
+    // bounce the user back to page 1 — except when the page size changes
+    // (resetPage), where the old page number is meaningless.
+    if (curPage > 1 && !resetPage) params.push('dev_page=' + curPage);
     if (typeEl && typeEl.value) params.push('dev_type=' + encodeURIComponent(typeEl.value));
-    if (levelEl && levelEl.value) params.push('dev_level=' + encodeURIComponent(levelEl.value));
+    if (statusEl && statusEl.value) params.push('dev_status=' + encodeURIComponent(statusEl.value));
     if (qEl && qEl.value.trim() !== '') params.push('dev_q=' + encodeURIComponent(qEl.value.trim()));
+    if (psizeEl && psizeEl.value !== '20') params.push('dev_psize=' + psizeEl.value);
     window.location.href = base + '?' + params.join('&') + '#courses';
 }
 function devDeleteCourse(sku, isReserved, productId) {
@@ -2643,6 +2689,7 @@ function devResetFilters() {
     window.location.href = base + '?dev_country=' + encodeURIComponent(country) + '#courses';
 }
 function devSetView(view) {
+    try { localStorage.setItem('devCourseView', view); } catch (e) {}
     var grid = document.getElementById('dev-grid');
     var header = document.getElementById('dev-list-header');
     var gridBtn = document.getElementById('dev-grid-btn');
@@ -2670,6 +2717,10 @@ function devSetView(view) {
         gridBtn.style.color = '#fff';
     }
 }
+// Restore the last-used view so pagination / filter reloads keep list mode.
+(function(){
+    try { if (localStorage.getItem('devCourseView') === 'list') devSetView('list'); } catch (e) {}
+})();
 </script>
 </div>
 
@@ -2678,6 +2729,47 @@ function devSetView(view) {
 <?php if ($_selectedCourse): ?>
 
 <?php /* ===== DEVELOPER EDIT MODE ===== */ ?>
+<?php
+// Shared component: course identity banner (SKU pill + course title).
+// Rendered by BOTH the editor and the course view so the two screens carry
+// the same header — edit markup/style in one place only.
+$_renderCourseIdent = function ($_ciCourse) {
+    echo '<div class="dcf-course-ident">'
+        . '<span class="dcf-course-ident-code">' . htmlspecialchars(trim((string) ($_ciCourse['sku'] ?? ''))) . '</span>'
+        . '<span class="dcf-course-ident-name">' . htmlspecialchars(trim((string) ($_ciCourse['name'] ?? ''))) . '</span>'
+        . '</div>';
+};
+
+// Shared component: course-page action button. Reuses the editor's original
+// minimalist button classes (mm-btn-ghost for back, dcf-btn-* for actions) so
+// the view page's action row renders EXACTLY like the editor header's.
+// 'danger' is the one variant the editor lacked — a muted red outline in the
+// same shape. Always a <button> (the dcf-btn-* CSS rules are button-scoped).
+$_mmsActionIcons = array(
+    'back'  => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>',
+    'save'  => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>',
+    'edit'  => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
+    'trash' => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+);
+$_mmsActionBtn = function ($_abLabel, $_abIcon, $_abVariant, $_abAttrs = '', $_abStyle = '') use ($_mmsActionIcons) {
+    $_abCls = array(
+        'back'    => 'mm-btn mm-btn-ghost',
+        'ghost'   => 'dcf-btn dcf-btn-cancel',
+        'ghost2'  => 'dcf-btn dcf-btn-edit',
+        'strong'  => 'dcf-btn dcf-btn-save-cont',
+        'primary' => 'dcf-btn dcf-btn-save',
+        'danger'  => 'dcf-btn dcf-btn-cancel',
+    );
+    if ($_abVariant === 'danger') {
+        $_abStyle .= 'background:rgba(220,38,38,.14) !important;border:1px solid rgba(220,38,38,.5) !important;color:#f87171 !important;';
+    }
+    echo '<button class="' . ($_abCls[$_abVariant] ?? $_abCls['ghost']) . '" ' . $_abAttrs
+        . ($_abStyle !== '' ? ' style="' . $_abStyle . '"' : '') . '>'
+        . ($_abIcon !== '' && isset($_mmsActionIcons[$_abIcon]) ? $_mmsActionIcons[$_abIcon] : '')
+        . htmlspecialchars($_abLabel)
+        . '</button>';
+};
+?>
 <?php if ($_editingMode): ?>
 <?php
 // Resolve the country (store view) this edit applies to BEFORE the form
@@ -2747,18 +2839,23 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
 <div class="dcf-wrap">
     <div class="dcf-header">
         <div class="dcf-header-row2">
-            <button type="button" class="mm-btn mm-btn-ghost" onclick="window.location.href='<?php echo $_devBackUrl ?>'" style="flex:0 0 auto;">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
-                Back to Manage Courses
-            </button>
+            <?php
+            // Original editor design, rendered through the shared component
+            // (same classes as before: mm-btn-ghost / dcf-btn-*).
+            $_mmsActionBtn('Back to Manage Courses', 'back', 'back',
+                'type="button" onclick="window.location.href=\'' . $_devBackUrl . '\'"',
+                'flex:0 0 auto;');
+            ?>
             <div class="dcf-actions">
-            <button type="button" class="dcf-btn dcf-btn-cancel" onclick="window.location.href='<?php echo $_devBackUrl ?>'">Cancel</button>
-            <button type="button" class="dcf-btn dcf-btn-edit" onclick="window.location.href='<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id'=>$_selectedCourse['id'])) . $_devBackSuffix ?>'">Exit Edit</button>
-            <button type="button" class="dcf-btn dcf-btn-save-cont" onclick="document.getElementById('dcf-continue-edit').value='1';document.getElementById('dcf-form').submit();">Save &amp; Continue</button>
-            <button type="submit" class="dcf-btn dcf-btn-save">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                Save Changes
-            </button>
+            <?php
+            $_mmsActionBtn('Cancel', '', 'ghost',
+                'type="button" onclick="window.location.href=\'' . $_devBackUrl . '\'"');
+            $_mmsActionBtn('Exit Edit', '', 'ghost2',
+                'type="button" onclick="window.location.href=\'' . Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id' => $_selectedCourse['id'])) . $_devBackSuffix . '\'"');
+            $_mmsActionBtn('Save & Continue', '', 'strong',
+                'type="button" onclick="document.getElementById(\'dcf-continue-edit\').value=\'1\';document.getElementById(\'dcf-form\').submit();"');
+            $_mmsActionBtn('Save Changes', 'save', 'primary', 'type="submit"');
+            ?>
             </div>
         </div>
         <?php
@@ -2768,10 +2865,7 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
         // scrolled past the top, making it easy to edit the wrong one
         // (reported 2026-07-19).
         ?>
-        <div class="dcf-course-ident">
-            <span class="dcf-course-ident-code"><?php echo htmlspecialchars(trim((string) $_selectedCourse['sku'])) ?></span>
-            <span class="dcf-course-ident-name"><?php echo htmlspecialchars(trim((string) $_selectedCourse['name'])) ?></span>
-        </div>
+        <?php $_renderCourseIdent($_selectedCourse); ?>
     </div>
 
     <?php
@@ -3484,8 +3578,66 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
 
         <!-- ===== Tab: Lesson Details ===== -->
         <div class="dcf-tab-panel" data-tab="lesson-details">
+        <?php /* Same layout + components as the course VIEW page (Exit Edit):
+                 the brief Course Details card in the 450px sticky
+                 .lcd-sidebar-details column on the left; Courseware links and
+                 the Lesson editor in .lcd-main-content on the right. */ ?>
+        <div class="lcd-wrap lcd-two-col">
+            <?php
+            // Course Details summary — mirrors the view page's card (image,
+            // image URL, title, code, duration). Display-only: title/code/
+            // duration are edited on the General tab, the image on Course
+            // Images (duplicating their inputs here would double-submit the
+            // same field names).
+            $_cdImg = trim((string) $_editProd->getData('course_image_url'));
+            if ($_cdImg === '') {
+                $_cdGal = $_editProd->getImage();
+                if ($_cdGal && $_cdGal !== 'no_selection') {
+                    $_cdImg = Mage::getBaseUrl('media') . 'catalog/product' . $_cdGal;
+                }
+            }
+            $_cdDurNum = (!empty($_editCourseData['duration'])) ? (float) $_editCourseData['duration'] : 0;
+            $_cdDur = $_cdDurNum > 0 ? rtrim(rtrim(number_format($_cdDurNum, 1), '0'), '.') : '—';
+            $_cdAssessLabel = '—';
+            $_cdAssessHrs   = 0.0;
+            if (isset($_attrAssessDur) && $_attrAssessDur && $_attrAssessDur->getId()) {
+                foreach ($_attrAssessDur->getSource()->getAllOptions(false) as $_cdOpt) {
+                    if ((string) $_cdOpt['value'] === $_valAssessDur && $_valAssessDur !== '') {
+                        $_cdAssessLabel = (string) $_cdOpt['label'];
+                        if (is_numeric($_cdAssessLabel)) $_cdAssessHrs = (float) $_cdAssessLabel;
+                    }
+                }
+            }
+            $_cdTotalNum = $_cdDurNum + $_cdAssessHrs;
+            $_cdTotal = $_cdTotalNum > 0 ? rtrim(rtrim(number_format($_cdTotalNum, 1), '0'), '.') : '—';
+            ?>
+            <div class="lcd-sidebar-details lcd-card">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 0 12px;font-size:16px;font-weight:700;color:#fff;line-height:1.2;">
+                    Course Details
+                </div>
+                <?php if ($_cdImg !== ''): ?>
+                <div class="lcd-detail-img">
+                    <div class="lcd-detail-label" style="margin-bottom:6px;">Course Image</div>
+                    <img src="<?php echo htmlspecialchars($_cdImg) ?>" alt="" onerror="this.parentNode.style.display='none'" />
+                </div>
+                <div class="lcd-detail-img">
+                    <div class="lcd-detail-label" style="margin-bottom:6px;">Image URL Link</div>
+                    <a class="lcd-detail-url" href="<?php echo htmlspecialchars($_cdImg) ?>" target="_blank" rel="noopener"><?php echo htmlspecialchars($_cdImg) ?></a>
+                </div>
+                <?php endif; ?>
+                <div class="lcd-detail-row"><span class="lcd-detail-label">Course Title</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_editCourseData['name']) ?></span></div>
+                <div class="lcd-detail-row"><span class="lcd-detail-label">Course Code</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_editCourseData['sku'] ?: '—') ?></span></div>
+                <div style="padding:10px 0 0;margin:6px 0 0;">
+                    <div style="font-size:14px;font-weight:700;color:#fff;margin:0 0 6px;">Course Duration</div>
+                    <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;color:#cbd5e1;"><span>Training Hours:</span><strong style="color:#fff"><?php echo $_cdDur ?></strong></div>
+                    <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;color:#cbd5e1;"><span>Assessment Hours:</span><strong style="color:#fff"><?php echo htmlspecialchars($_cdAssessLabel) ?></strong></div>
+                    <div style="height:1px;background:#1e293b;margin:4px 0;"></div>
+                    <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:13px;color:#fff;font-weight:700;"><span>Total Duration:</span><strong><?php echo $_cdTotal ?></strong></div>
+                </div>
+            </div><!-- /.lcd-sidebar-details -->
 
-            <!-- Courseware -->
+        <div class="lcd-main-content">
+            <!-- Courseware — top of the main column, matching the view page. -->
             <div class="dcf-section">
                 <div class="dcf-section-title">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
@@ -3956,6 +4108,8 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                 </div>
             </div>
 
+        </div><!-- /.lcd-main-content -->
+        </div><!-- /.lcd-two-col -->
         </div><!-- /.dcf-tab-panel[data-tab="lesson-details"] -->
 
         <!-- ===== Tab: Trainer Details (single-column layout, matching Course Details) ===== -->
@@ -5478,23 +5632,12 @@ window.dcfToggleNavGroup = function(headBtn){
         document.querySelectorAll('#dcf-form .dcf-tab-panel').forEach(function(p){
             p.classList.toggle('active', p.getAttribute('data-tab') === key);
         });
-        try { sessionStorage.setItem('dcfActiveTab', key); } catch(_) {}
     });
-    try {
-        var saved = sessionStorage.getItem('dcfActiveTab');
-        if (saved) {
-            var savedBtn = rail.querySelector('.lms-nav-item[data-tab="' + saved + '"]');
-            if (savedBtn) {
-                // If the saved tab lives inside a collapsed group, auto-expand it.
-                var parentGroup = savedBtn.closest('.dcf-nav-group');
-                if (parentGroup && parentGroup.classList.contains('collapsed')) {
-                    var head = parentGroup.querySelector('.dcf-nav-group-head');
-                    if (head) head.click();
-                }
-                savedBtn.click();
-            }
-        }
-    } catch(_) {}
+    // The editor always opens on the Course Details tab (the server marks it
+    // active) so it mirrors the course view page. The old sessionStorage
+    // last-tab restore made the landing tab unpredictable — an operator
+    // re-entering edit mode after visiting Lesson Details "lost" the Course
+    // Details layout (reported 2026-07-21).
 })();
 
 </script>
@@ -5502,27 +5645,40 @@ window.dcfToggleNavGroup = function(headBtn){
 
 <?php else: ?>
 <script>
-function lcdOpenDrawer(){
-    document.getElementById('lcd-drawer').classList.add('open');
-    document.getElementById('lcd-drawer-backdrop').classList.add('open');
-    document.body.classList.add('lcd-drawer-open');
+/* Collapse/expand a card (Course Details). Persists per card id so the choice
+   survives navigation between course panels, matching how the editor's tab
+   rail remembers its active tab in sessionStorage. */
+function lcdToggleCard(cardId){
+    var card = document.getElementById(cardId);
+    if (!card) return;
+    var collapsed = card.classList.toggle('collapsed');
+    var head = card.querySelector('.lcd-card-head');
+    if (head) head.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    try { sessionStorage.setItem('lcdCard:' + cardId, collapsed ? '1' : '0'); } catch(e){}
 }
-function lcdCloseDrawer(){
-    document.getElementById('lcd-drawer').classList.remove('open');
-    document.getElementById('lcd-drawer-backdrop').classList.remove('open');
-    document.body.classList.remove('lcd-drawer-open');
-}
+document.addEventListener('DOMContentLoaded', function(){
+    try {
+        var id = 'lcd-course-details';
+        if (sessionStorage.getItem('lcdCard:' + id) === '1') {
+            var c = document.getElementById(id);
+            if (c) {
+                c.classList.add('collapsed');
+                var h = c.querySelector('.lcd-card-head');
+                if (h) h.setAttribute('aria-expanded', 'false');
+            }
+        }
+    } catch(e){}
+});
 function lcdNavTo(link, sectionId){
     // Mark clicked item active
     var items = document.querySelectorAll('.lcd-nav-item');
     for (var i = 0; i < items.length; i++) items[i].classList.remove('active');
     link.classList.add('active');
-    // Close drawer and smooth-scroll to section
-    lcdCloseDrawer();
-    setTimeout(function(){
-        var el = document.getElementById(sectionId);
-        if (el) el.scrollIntoView({behavior:'smooth', block:'start'});
-    }, 260);
+    // Scroll straight to the section. The old 260ms setTimeout existed only to
+    // let the slide-out drawer finish animating before scrolling; with the
+    // drawer gone it was pure lag on every nav click.
+    var el = document.getElementById(sectionId);
+    if (el) el.scrollIntoView({behavior:'smooth', block:'start'});
     return false;
 }
 </script>
@@ -5602,16 +5758,14 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
         . $_eaIcon . '<span>E-Attendance</span></a>';
 }
 ?>
-<!-- Course Menu drawer (slides in from the left) -->
-<div class="lcd-drawer-backdrop" id="lcd-drawer-backdrop" onclick="lcdCloseDrawer()"></div>
-<aside class="lcd-drawer" id="lcd-drawer">
-    <div class="lcd-drawer-header">
-        <span>Course Menu</span>
-        <button type="button" class="lcd-drawer-close" onclick="lcdCloseDrawer()">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
-    </div>
-    <div class="lcd-drawer-body">
+<?php
+        /* The "Course Menu" slide-out drawer was removed: it duplicated the
+           Course Details card + nav purely for narrow viewports, and that
+           column is now always visible, so the drawer had nothing left to
+           show. The duration / class-type derivation below stayed put — the
+           sidebar card consumes $_dDur, $_assessLabel, $_totalDur and
+           $_modeLabel, so it must run before the card renders. */
+        ?>
         <?php
         // Real duration from the product's `duration` attribute. Trim
         // trailing .0 (so 7.5 stays "7.5" but 8.0 becomes "8"). Fall back
@@ -5651,73 +5805,40 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
         $_modeLabel = $_modeMap[$_modeKey];
         $_modeBadgeCls = 'lcd-badge-' . strtolower($_modeLabel);
         ?>
-        <h3 class="lcd-drawer-section-title">Course Details</h3>
-        <?php if ($_lcdImgSrc !== ''): ?>
-        <div class="lcd-detail-img">
-            <div class="lcd-detail-label" style="margin-bottom:6px;">Course Image</div>
-            <img src="<?php echo htmlspecialchars($_lcdImgSrc) ?>" alt="" onerror="this.parentNode.style.display='none'" />
-        </div>
-        <?php endif; ?>
-        <?php if ($_lcdImgUrl !== ''): ?>
-        <div class="lcd-detail-img">
-            <div class="lcd-detail-label" style="margin-bottom:6px;">Image URL Link</div>
-            <a class="lcd-detail-url" href="<?php echo htmlspecialchars($_lcdImgUrl) ?>" target="_blank" rel="noopener"><?php echo htmlspecialchars($_lcdImgUrl) ?></a>
-        </div>
-        <?php endif; ?>
-        <div class="lcd-detail-row"><span class="lcd-detail-label">Course Title</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['name']) ?></span></div>
-        <div class="lcd-detail-row"><span class="lcd-detail-label">Course Code</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['sku'] ?: '—') ?></span></div>
-        <?php if (!$_courseManagerActive): /* learner/trainer viewing a real class: run-level fields are legitimate. Developer/course view is course-level only (no run fields, no trainer row). */ ?>
-        <div class="lcd-detail-row"><span class="lcd-detail-label">Course Run ID</span><span class="lcd-detail-value"><?php echo $_courseRunId ?></span></div>
-        <div class="lcd-detail-row"><span class="lcd-detail-label">Start Date</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['start_date']) ?></span></div>
-        <div class="lcd-detail-row"><span class="lcd-detail-label">End Date</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['end_date']) ?></span></div>
-        <div class="lcd-detail-row"><span class="lcd-detail-label">Class Type</span><span class="lcd-badge <?php echo $_modeBadgeCls ?>"><?php echo htmlspecialchars($_modeLabel) ?></span></div>
-        <div class="lcd-detail-row"><span class="lcd-detail-label">Class Status</span><span class="lcd-badge lcd-badge-<?php echo strtolower($_selectedCourse['status']) ?>"><?php echo htmlspecialchars($_selectedCourse['status']) ?></span></div>
-        <?php endif; ?>
-        <div class="lcd-duration-block">
-            <h4 class="lcd-duration-title">Course Duration</h4>
-            <div class="lcd-duration-row"><span>Training Hours:</span><strong><?php echo $_dDur ?></strong></div>
-            <div class="lcd-duration-row"><span>Assessment Hours:</span><strong><?php echo htmlspecialchars($_assessLabel) ?></strong></div>
-            <div class="lcd-duration-divider"></div>
-            <div class="lcd-duration-row lcd-duration-total"><span>Total Duration:</span><strong><?php echo $_totalDur ?></strong></div>
-        </div>
-        <?php if (!empty($_lcdTrainerNames)): ?>
-        <div class="lcd-detail-img">
-            <div class="lcd-detail-label" style="margin-bottom:6px;">Approved Trainers</div>
-            <ul class="lcd-trainer-list">
-                <?php foreach ($_lcdTrainerNames as $_tn): ?>
-                <li><?php echo htmlspecialchars($_tn) ?></li>
-                <?php endforeach; ?>
-            </ul>
-        </div>
-        <?php endif; ?>
 
-        <nav class="lcd-drawer-nav">
-            <?php echo $_eAttendanceNavHtml; ?>
-            <?php if ($_courseManagerActive): /* Google Meet nav link removed — not shown in developer view */ ?>
-            <a href="#courseware" class="lcd-nav-item" onclick="return lcdNavTo(this,'courseware')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span>Courseware</span></a>
-            <a href="#lesson" class="lcd-nav-item active" onclick="return lcdNavTo(this,'lesson')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>Lesson</span></a>
-            <a href="#course-sessions" class="lcd-nav-item" onclick="return lcdNavTo(this,'course-sessions')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span>Course Sessions</span></a>
-            <a href="#additional-documents" class="lcd-nav-item" onclick="return lcdNavTo(this,'additional-documents')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Additional Documents</span></a>
-            <?php elseif ($activeRole === 'trainer'): ?>
-            <a href="#courseware" class="lcd-nav-item" onclick="return lcdNavTo(this,'courseware')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span>Courseware Link</span></a>
-            <a href="#courseware" class="lcd-nav-item" onclick="return lcdNavTo(this,'courseware')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Trainer Slides</span></a>
-            <div style="height:1px;background:#1e293b;margin:6px 0;"></div>
-            <a href="#lesson" class="lcd-nav-item active" onclick="return lcdNavTo(this,'lesson')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>Lesson</span></a>
-            <a href="#additional-documents" class="lcd-nav-item" onclick="return lcdNavTo(this,'additional-documents')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Additional Documents</span></a>
-            <?php else: ?>
-            <a href="#learner-slides" class="lcd-nav-item" onclick="return lcdNavTo(this,'learner-slides')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/></svg><span>Learner Slides</span></a>
-            <a href="#lesson" class="lcd-nav-item" onclick="return lcdNavTo(this,'lesson')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>Lesson</span></a>
-            <a href="#additional-documents" class="lcd-nav-item" onclick="return lcdNavTo(this,'additional-documents')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Additional Documents</span></a>
-            <a href="#certificate" class="lcd-nav-item" onclick="return lcdNavTo(this,'certificate')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><circle cx="12" cy="15" r="2"/></svg><span>Certificate</span></a>
-            <?php endif; ?>
-        </nav>
-    </div>
-</aside>
+<?php if ($_courseManagerActive): ?>
+<!-- DEVELOPER: Action buttons — top of the page, same position as the
+     editor's header row, rendered by the same shared component. -->
+<div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;justify-content:flex-end;">
+    <?php
+    $_mmsActionBtn('Back to All Courses', 'back', 'back',
+        'type="button" onclick="window.location.href=\'' . $_backUrl . '\'"',
+        'margin-right:auto;');
+    $_mmsActionBtn('Edit Course', 'edit', 'primary',
+        'type="button" onclick="window.location.href=\'' . Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id' => $_selectedCourse['id'], 'mode' => 'editing')) . '\'"');
+    $_delProductId  = (int) $_selectedCourse['id'];
+    $_delSku        = (string) ($_selectedCourse['sku'] ?? '');
+    $_delSkuUpper   = strtoupper(ltrim($_delSku));
+    $_delIsReserved = (substr($_delSkuUpper, 0, 1) === 'C') || (substr($_delSkuUpper, 0, 4) === 'TGS-');
+    $_mmsActionBtn('Delete Course', 'trash', 'danger',
+        'type="button" onclick="devDeleteCourse(\'' . $this->jsQuoteEscape($_delSku) . '\', ' . ($_delIsReserved ? 'true' : 'false') . ', ' . $_delProductId . ')"');
+    ?>
+</div>
+<?php endif; ?>
+<?php
+// Course identity banner — same shared component the editor renders, so the
+// view page names the course the same way (SKU pill + title).
+?>
+<div style="margin-bottom:16px;"><?php $_renderCourseIdent($_selectedCourse); ?></div>
 
 <div class="lcd-wrap lcd-two-col">
     <!-- Left sidebar: Course Details + Nav (visible on wide screens) -->
-    <div class="lcd-sidebar-details">
-        <h3 style="font-size:16px;font-weight:700;color:#fff;margin:0 0 12px;">Course Details</h3>
+    <div class="lcd-sidebar-details lcd-card" id="lcd-course-details">
+        <button type="button" class="lcd-card-head" onclick="lcdToggleCard('lcd-course-details')" aria-expanded="true" aria-controls="lcd-course-details-body">
+            Course Details
+            <svg class="lcd-card-head-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="lcd-card-body" id="lcd-course-details-body">
         <?php if ($_lcdImgSrc !== ''): ?>
         <div class="lcd-detail-img">
             <div class="lcd-detail-label" style="margin-bottom:6px;">Course Image</div>
@@ -5770,14 +5891,11 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
             <a href="#certificate" class="lcd-nav-item" onclick="return lcdNavTo(this,'certificate')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><circle cx="12" cy="15" r="2"/></svg><span>Certificate</span></a>
             <?php endif; ?>
         </nav>
+        </div><!-- /.lcd-card-body -->
     </div>
 
     <!-- Right column: Course content -->
     <div class="lcd-main-content">
-    <button type="button" class="lcd-menu-btn lcd-mobile-only" onclick="lcdOpenDrawer()">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-        Course Menu
-    </button>
     <?php $_fromPage = (int) Mage::app()->getRequest()->getParam('from_page'); ?>
     <?php if (!in_array($activeRole, array('developer', 'learner', 'trainer'), true)): ?>
     <a href="<?php echo $_backUrl ?><?php echo $_fromPage > 1 ? '#page' . $_fromPage : '' ?>" class="lcd-back">
@@ -5786,30 +5904,6 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
     <?php endif; ?>
 
     <?php if ($_courseManagerActive): ?>
-    <!-- DEVELOPER: Action buttons -->
-    <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;justify-content:flex-end;">
-        <a href="<?php echo $_backUrl ?>" style="display:inline-flex;align-items:center;gap:8px;background:#334155;color:#fff;text-decoration:none !important;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:600;margin-right:auto;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-            Back to All Courses
-        </a>
-        <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id'=>$_selectedCourse['id'], 'mode'=>'editing')) ?>" style="display:inline-flex !important;align-items:center !important;gap:8px !important;background:#2563eb !important;background-image:none !important;color:#fff !important;border:none !important;border-radius:8px !important;padding:10px 18px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;text-decoration:none !important;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-            Edit Course
-        </a>
-        <?php
-        $_delProductId  = (int) $_selectedCourse['id'];
-        $_delSku        = (string) ($_selectedCourse['sku'] ?? '');
-        $_delSkuUpper   = strtoupper(ltrim($_delSku));
-        $_delIsReserved = (substr($_delSkuUpper, 0, 1) === 'C') || (substr($_delSkuUpper, 0, 4) === 'TGS-');
-        ?>
-        <button type="button"
-                onclick="devDeleteCourse('<?php echo $this->jsQuoteEscape($_delSku) ?>', <?php echo $_delIsReserved ? 'true' : 'false' ?>, <?php echo $_delProductId ?>)"
-                style="display:inline-flex !important;align-items:center !important;gap:8px !important;background:#dc2626 !important;background-image:none !important;color:#fff !important;border:none !important;border-radius:8px !important;padding:10px 18px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-            Delete Course
-        </button>
-    </div>
-
     <?php /* DEVELOPER: Google Meet section removed per request — it is
             only meaningful for trainers/learners (who join the call), so
             it now renders only in the Trainer and Learner views below.
@@ -9315,6 +9409,29 @@ $_csv = function ($path, $default = '') use ($_cs) {
                 </div>
             </div>
 
+            <!-- WhatsApp -->
+            <div class="cs-sub-section">
+                <h3 class="cs-sub-title">WhatsApp</h3>
+                <div class="cs-card" style="background:#0f172a">
+                    <div class="cs-card-title">TIA Operation Support (Kael)</div>
+                    <p style="margin:8px 0 12px;font-size:12px;color:#94a3b8;line-height:1.6">
+                        WhatsApp group invite link (https://chat.whatsapp.com/&hellip;) opened by the
+                        floating ops launcher in the admin. Leave empty to fall back to the
+                        storefront WhatsApp number.
+                    </p>
+                    <div class="cs-field" data-path="mmd_company/whatsapp/group_chat_url" style="margin-bottom:10px">
+                        <label>Operation Group Chat Link</label>
+                        <div class="cs-val"><?php echo $_csUrlFmt('mmd_company/whatsapp/group_chat_url') ?></div>
+                        <input type="url" value="<?php echo $_csv('mmd_company/whatsapp/group_chat_url', '') ?>"/>
+                    </div>
+                    <div class="cs-field" data-path="mmd_company/whatsapp/trainer_group_chat_url">
+                        <label>Trainer Group Chat Link (blue launcher shown to the Trainer role)</label>
+                        <div class="cs-val"><?php echo $_csUrlFmt('mmd_company/whatsapp/trainer_group_chat_url') ?></div>
+                        <input type="url" value="<?php echo $_csv('mmd_company/whatsapp/trainer_group_chat_url', '') ?>"/>
+                    </div>
+                </div>
+            </div>
+
             <div id="cs-actions-integrations" style="display:none;margin-top:10px;">
                 <button class="cs-save-btn" onclick="csSaveSection('integrations')">Save</button>
                 <button class="cs-cancel-btn" onclick="csCancelSection('integrations')">Cancel</button>
@@ -10764,202 +10881,493 @@ function crdSubmit(e) {
 </div><!-- end dash-panel-credentials -->
 
 <?php
-/* ===== PANEL: API Summary ===== */
+/* ===== PANEL: API Summary =====
+ * Data-driven rewrite (2026-07-22) — mirrors the AI-LMS-TMS "API Endpoints"
+ * page's information architecture (collapsible categories -> collapsible
+ * endpoints -> Headers/Query/Body/Examples breakdown) so the two systems'
+ * developer-facing docs look and behave the same. Endpoints are defined once
+ * in $_apiCategories below; the render loop after it is generic — adding a
+ * new endpoint means appending to the array, not hand-writing new markup.
+ * Absorbs the 5 entries previously stranded on the orphaned
+ * adminhtml/apidocs page (WSQ Schedule, Search, Course Detail, FAQ,
+ * Contact) plus 6 endpoints that existed in code but were undocumented
+ * anywhere (Reminders, Trainers, Courseware, Completed Classes, Sync
+ * Export, Reindex). See MMD_RoleManager_Adminhtml_ApidocsController — that
+ * page is now superseded by this one and no longer linked from the sidebar.
+ */
 $_apiBase = rtrim((string) Mage::getStoreConfig('web/unsecure/base_url', 0), '/');
 if ($_apiBase === '') { $_apiBase = 'https://www.tertiarycourses.com.sg'; }
-$_apiKaelReview    = $_apiBase . '/kael_review_api.php';
-$_apiKaelReviewKey = (string) Mage::getStoreConfig('mmd_company/api/kael_review_key', 0);
-$_apiKaelReviewKeyEnv = (string) getenv('KAEL_REVIEW_API_KEY');
-if ($_apiKaelReviewKey === '' && $_apiKaelReviewKeyEnv !== '' && $_apiKaelReviewKeyEnv !== 'CHANGE_ME') {
-    $_apiKaelReviewKey = $_apiKaelReviewKeyEnv;
-}
-$_apiKaelReviewKeyMask = $_apiKaelReviewKey !== ''
-    ? str_repeat('•', 8) . ' ' . substr($_apiKaelReviewKey, -4)
-    : '(not set — click Edit to create one)';
-$_apiSaveUrl = Mage::helper('adminhtml')->getUrl('adminhtml/companysetting/save');
+
+/** One entry per distinct auth secret. 'query' style = token passed as a URL param, not a header. */
+$_apiKeyMask = function ($configPath, $envFallback = null) {
+    $key = trim((string) Mage::getStoreConfig($configPath, 0));
+    if ($key === '' && $envFallback) {
+        $envVal = (string) getenv($envFallback);
+        if ($envVal !== '' && $envVal !== 'CHANGE_ME') { $key = $envVal; }
+    }
+    return $key !== '' ? (str_repeat('•', 8) . ' ' . substr($key, -4)) : '(not set)';
+};
+$_apiKeys = array(
+    'kael'     => array('label' => 'Reviews (Kael)',      'style' => 'header', 'header' => 'X-Api-Key', 'config' => 'mmd_company/api/kael_review_key',   'mask' => $_apiKeyMask('mmd_company/api/kael_review_key', 'KAEL_REVIEW_API_KEY')),
+    'wsq'      => array('label' => 'Course/Trainer Bot',  'style' => 'header', 'header' => 'X-API-Key', 'config' => 'courses/general/wsq_schedule_api_key', 'mask' => $_apiKeyMask('courses/general/wsq_schedule_api_key'), 'rotate' => 'System → Configuration → MMD → Provider Manager → WSQ Schedule API Key'),
+    'trainer'  => array('label' => 'Trainer Reminders (alt)', 'style' => 'header', 'header' => 'X-API-Key', 'config' => 'courses/general/trainer_reminders_api_key', 'mask' => $_apiKeyMask('courses/general/trainer_reminders_api_key'), 'rotate' => 'Separate key from the bot key above, for audit / rotation independence — either is accepted.'),
+    'sync'     => array('label' => 'Course/Class Sync',   'style' => 'header', 'header' => 'X-API-Key', 'config' => 'mmd/course_sync/api_key', 'mask' => $_apiKeyMask('mmd/course_sync/api_key')),
+    'reindex'  => array('label' => 'Reindex',             'style' => 'query',  'param'  => 'token',     'config' => 'mmd_reindex/api/token',   'mask' => $_apiKeyMask('mmd_reindex/api/token')),
+);
+
+/**
+ * $_apiCategories: array<{ title, description, endpoints: array<{
+ *   method, path, title, description, authKey,
+ *   queryParams?: array<{name,type,required,description}>,
+ *   bodyFields?:  array<{name,type,required,description}>,
+ *   notes?: array<string>,
+ *   exampleRequest?: string, exampleResponse?: string,
+ * }>}>
+ */
+$_apiCategories = array(
+    array(
+        'title' => 'Reviews & Ratings',
+        'description' => 'Programmatic review submission for trusted automations.',
+        'endpoints' => array(
+            array(
+                'method' => 'POST', 'path' => '/kael_review_api.php', 'authKey' => 'kael',
+                'title' => 'Reviews API (Kael)',
+                'description' => 'Programmatically submit an auto-approved product review with optional original timestamp.',
+                'bodyFields' => array(
+                    array('name' => 'product_id', 'type' => 'int', 'required' => true, 'description' => 'Catalog product entity id'),
+                    array('name' => 'nickname', 'type' => 'string', 'required' => true, 'description' => 'Reviewer display name'),
+                    array('name' => 'title', 'type' => 'string', 'required' => true, 'description' => 'Review headline, e.g. "Average Rating: 4.7/5"'),
+                    array('name' => 'detail', 'type' => 'string', 'required' => true, 'description' => 'Review body text'),
+                    array('name' => 'ratings', 'type' => 'object', 'required' => true, 'description' => 'Rating-ID => 1-5 star map. IDs: 1=course met expectations, 2=trainer knowledgeable, 5=training environment'),
+                    array('name' => 'created_at', 'type' => 'string', 'required' => false, 'description' => 'MySQL DATETIME / ISO 8601 — defaults to NOW()'),
+                    array('name' => 'store_id', 'type' => 'int', 'required' => false, 'description' => 'Defaults to current store'),
+                    array('name' => 'customer_id', 'type' => 'int', 'required' => false, 'description' => 'Defaults to null (guest review)'),
+                ),
+                'notes' => array('Idempotency: each call creates a new review_id; callers must dedupe their own queue.', 'Implementation: kael_review_api.php at site root. Full docs: docs/kael-review-api.md.'),
+                'exampleRequest' => "curl -X POST '__BASE_URL__/kael_review_api.php' \\\n  -H 'Content-Type: application/json' \\\n  -H 'X-Api-Key: \$KAEL_REVIEW_API_KEY' \\\n  -d '{\n    \"product_id\": 1362,\n    \"nickname\": \"John Tan\",\n    \"title\": \"Average Rating: 4.7/5\",\n    \"detail\": \"Great course, very informative!\",\n    \"ratings\": {\"1\": 5, \"2\": 5, \"5\": 4},\n    \"created_at\": \"2026-04-10 04:00:17\"\n  }'",
+                'exampleResponse' => "{\n  \"success\": true,\n  \"review_id\": 22863,\n  \"created_at\": \"2026-04-10 04:00:17\",\n  \"store_id\": 1,\n  \"message\": \"Review created and approved\"\n}\n\n// Errors: 400 invalid JSON/missing field, 401 bad key, 404 product_id not found, 405 non-POST, 500 server error",
+            ),
+        ),
+    ),
+    array(
+        'title' => 'Course & Trainer Bot APIs',
+        'description' => 'Read-mostly endpoints powering the WhatsApp customer-reply and trainer-reminder bots. Shared X-API-Key across this group; Reminders/Trainers also accept a separate rotation-independent key.',
+        'endpoints' => array(
+            array(
+                'method' => 'GET', 'path' => '/courses/api_schedule', 'authKey' => 'wsq',
+                'title' => 'WSQ Schedule API',
+                'description' => 'Every WSQ course (TGS- SKU prefix) in the SG store with its scheduled class dates. Add ?sku=<code> to switch into per-course mode (adds trainer, vacancy, mode, status per class) — bulk-mode shape is unaffected, existing consumers are unaffected.',
+                'queryParams' => array(
+                    array('name' => 'sku', 'type' => 'string', 'required' => false, 'description' => 'Course code — switches to per-course schedule mode'),
+                ),
+                'notes' => array('Cache-Control: no-store — always recomputed from the live DB. Bulk payload ~440KB / 299 courses; poll every 5-15 min, no webhook in v1.', 'course_start_date/course_end_date may be null (~0.25% of rows) when the source label is an unsupported format — fall back to the always-present raw label, do not drop the row.'),
+                'exampleRequest' => "curl -H \"X-API-Key: <key>\" \\\n  \"__BASE_URL__/courses/api_schedule?sku=C138\"",
+                'exampleResponse' => "{\n  \"source_url\": \"...\", \"last_updated\": \"...\", \"confidence\": \"high\",\n  \"data\": {\n    \"course_code\": \"C138\", \"course_title\": \"Python 3 Essential Training\",\n    \"classes_count\": 2,\n    \"classes\": [{\n      \"class_id\": \"SG004267\", \"start_date\": \"2026-06-11\", \"end_date\": \"2026-06-12\",\n      \"time\": \"09:30-17:30\", \"trainer\": \"Sanjiv Venkatram\", \"status\": \"Confirmed\",\n      \"mode\": \"Classroom\", \"venue\": \"Springleaf Tower\", \"seats_available\": \"Available\"\n    }]\n  }\n}",
+            ),
+            array(
+                'method' => 'GET', 'path' => '/courses/api_search', 'authKey' => 'wsq',
+                'title' => 'Course Search API',
+                'description' => 'Keyword search across SG storefront courses (any SKU prefix). Used to answer "do you have a Python course?" style questions.',
+                'queryParams' => array(
+                    array('name' => 'q', 'type' => 'string', 'required' => true, 'description' => 'Keyword matched against name OR sku (LIKE %q%, case-insensitive)'),
+                    array('name' => 'limit', 'type' => 'int', 'required' => false, 'description' => '1-50, default 10, clamped to 50'),
+                ),
+                'exampleRequest' => "curl -H \"X-API-Key: <key>\" \\\n  \"__BASE_URL__/courses/api_search?q=python&limit=5\"",
+                'exampleResponse' => "{\n  \"confidence\": \"high\",  // \"low\" when count = 0\n  \"data\": {\n    \"query\": \"python\", \"count\": 3,\n    \"results\": [{\n      \"sku\": \"C138\", \"name\": \"Python 3 Essential Training\",\n      \"url\": \"...\", \"price\": \"S\$600.00\",\n      \"funding_badges\": [\"WSQ\", \"SkillsFuture Credit\"]\n    }]\n  }\n}",
+            ),
+            array(
+                'method' => 'GET', 'path' => '/courses/api_courses', 'authKey' => 'wsq',
+                'title' => 'Course Detail API',
+                'description' => 'Full details for one course by SKU — overview, suitability, prerequisites, fee, funding badges, mode, registration link. Falls back to the long description when structured fields are missing rather than returning a hard null.',
+                'queryParams' => array(
+                    array('name' => 'sku', 'type' => 'string', 'required' => true, 'description' => 'Course code, e.g. C138 or TGS-2023021752. 404 if not found.'),
+                ),
+                'exampleRequest' => "curl -H \"X-API-Key: <key>\" \\\n  \"__BASE_URL__/courses/api_courses?sku=C138\"",
+                'exampleResponse' => "{\n  \"data\": {\n    \"sku\": \"C138\", \"name\": \"Python 3 Essential Training\",\n    \"overview\": \"...\", \"prerequisites\": \"...\", \"duration\": \"15\",\n    \"fee\": { \"list_price\": \"S\$600.00\", \"currency\": \"SGD\" },\n    \"mode\": \"Classroom and/or Live Online\",\n    \"funding_badges\": [\"WSQ\", \"SkillsFuture Credit\"],\n    \"registration_url\": \".../#schedule\"\n  }\n}",
+            ),
+            array(
+                'method' => 'GET', 'path' => '/courses/api_faq', 'authKey' => 'wsq',
+                'title' => 'FAQ / Funding / Policy API',
+                'description' => 'Static knowledge base of SG funding schemes and policy topics. Returns ALL topics in one response — the bot does keyword matching locally against each topic\'s keywords array.',
+                'notes' => array('Content is editorial — edit MMD_Courses_Api_FaqController.php directly to add/update topics.', 'Topics: skillsfuture-credit, wsq, utap, psea, mces, ibf, sfec, absentee-payroll, cancellation-policy, certificates, assessments, corporate-registration.'),
+                'exampleRequest' => "curl -H \"X-API-Key: <key>\" \"__BASE_URL__/courses/api_faq\"",
+                'exampleResponse' => "{\n  \"id\": \"skillsfuture-credit\", \"title\": \"SkillsFuture Credit (SFC)\",\n  \"keywords\": [\"skillsfuture\", \"sfc\", \"credit\", \"\$500\"],\n  \"summary\": \"...\", \"eligibility\": \"...\", \"how_to_claim\": [\"...\"],\n  \"official_source\": \"https://www.skillsfuture.gov.sg/credit\"\n}",
+            ),
+            array(
+                'method' => 'GET', 'path' => '/courses/api_contact', 'authKey' => 'wsq',
+                'title' => 'Contact & Office Hours API',
+                'description' => 'SG office contact + office hours, used to escalate gracefully when the bot can\'t answer.',
+                'notes' => array('Accepts EITHER the customer-bot key (wsq) OR the trainer-reminders key — the trainer-reminders bot also reads this endpoint to quote the trainer_bot_redirect_message field verbatim when a customer-style question lands in the trainer channel.', 'Editorial content — verify the office address/phone/email in MMD_Courses_Api_ContactController.php before relying on the bot to give it out.'),
+                'exampleRequest' => "curl -H \"X-API-Key: <key>\" \"__BASE_URL__/courses/api_contact\"",
+                'exampleResponse' => "{\n  \"data\": {\n    \"office\": { \"phone\": \"+65 6720 3333\", \"email\": \"enquiry@tertiaryinfotech.com\", \"whatsapp\": \"+65 8866 6375\" },\n    \"office_hours\": { \"monday_friday\": \"09:00 - 18:00 SGT\", \"sunday\": \"Closed\" }\n  }\n}",
+            ),
+            array(
+                'method' => 'GET', 'path' => '/courses/api_reminders', 'authKey' => 'trainer',
+                'title' => 'Trainer Reminders API',
+                'description' => 'Every confirmed class starting on a target date, with the assigned trainer\'s name/email/phone and a pre-formatted WhatsApp message ready to send verbatim.',
+                'queryParams' => array(
+                    array('name' => 'target_date', 'type' => 'string', 'required' => false, 'description' => 'YYYY-MM-DD. Wins over days_ahead if both given.'),
+                    array('name' => 'days_ahead', 'type' => 'int', 'required' => false, 'description' => '0 (today) to 30. Default 1 (tomorrow). Ignored if target_date is set.'),
+                ),
+                'notes' => array(
+                    'READ ONLY — MMS never sends anything. The decision to actually deliver a reminder is entirely on the consumer side (see the note field in every response).',
+                    'When the primary reminders[] is empty (or low), fallback_check.classes_needing_attention[] lists every class on that date with a per-class action_needed diagnostic — use this to distinguish "genuinely no classes" from "classes exist but nothing is confirmed yet."',
+                    'Falls back to LMS-TMS (AI-LMS-TMS\'s /api/external/course-runs) for classes MMS has no trainer for, or doesn\'t track at all — see MMD_Courses_Model_LmsTmsCourseRun. This fallback has known LMS-side data-drift caveats; read that model\'s class doc before trusting an lms-tms-fallback trainer blindly.',
+                    'HARD RULE: every phone in the response is normalised to E.164 SG format (+65########) — a 2026-06-08 incident sent reminders to wrong WhatsApp recipients when raw 8-digit numbers were used.',
+                ),
+                'exampleRequest' => "curl -H \"X-API-Key: <key>\" \\\n  \"__BASE_URL__/courses/api_reminders?target_date=2026-07-24\"",
+                'exampleResponse' => "{\n  \"data\": {\n    \"filter_date\": \"2026-07-24\", \"count\": 1,\n    \"note\": \"MMS does NOT send these reminders...\",\n    \"reminders\": [{\n      \"class_id\": \"SG004267\", \"course_code\": \"C138\", \"start_date\": \"2026-07-24\",\n      \"trainer\": { \"name\": \"Sanjiv Venkatram\", \"email\": \"...\", \"telephone\": \"+6591234567\", \"source\": \"mms-account\" },\n      \"formatted_message\": \"Dear Sanjiv Venkatram\\nThis is a gentle reminder...\"\n    }],\n    \"fallback_check\": { \"summary\": \"3 total classes on 2026-07-24; 1 confirmed; 2 need attention\", \"classes_needing_attention\": [ /* ... */ ] }\n  }\n}",
+            ),
+            array(
+                'method' => 'GET', 'path' => '/courses/api_trainers', 'authKey' => 'trainer',
+                'title' => 'Trainers API',
+                'description' => 'Trainer roster lookup — list all, one by id (with upcoming classes), or trainers eligible for a specific course.',
+                'queryParams' => array(
+                    array('name' => 'id', 'type' => 'int', 'required' => false, 'description' => 'Single trainer profile + upcoming accepted classes'),
+                    array('name' => 'course', 'type' => 'string', 'required' => false, 'description' => 'Course SKU — trainers tagged eligible for it'),
+                ),
+                'notes' => array('No params = full active roster (status=1, up to 500 rows, no upcoming-classes join — call ?id= for that).', 'PII note: email + telephone are included for bot contact purposes. Endpoint is key-gated — do not expose without stripping PII first.'),
+                'exampleRequest' => "curl -H \"X-API-Key: <key>\" \\\n  \"__BASE_URL__/courses/api_trainers?id=42\"",
+                'exampleResponse' => "{\n  \"data\": {\n    \"trainer\": { \"id\": 42, \"name\": \"Sanjiv Venkatram\", \"email\": \"...\", \"telephone\": \"...\", \"area_of_expertise\": \"...\" },\n    \"upcoming_classes\": [{ \"course_sku\": \"C138\", \"start_date\": \"2026-07-24\", \"mode\": \"Classroom\" }],\n    \"upcoming_classes_count\": 1\n  }\n}",
+            ),
+            array(
+                'method' => 'GET / POST', 'path' => '/courses/api_courseware', 'authKey' => 'wsq',
+                'title' => 'Courseware URL API',
+                'description' => 'Read/write Google Drive links for a course\'s courseware (slides, lesson plan, learner guide, labs, brochure). POST is used by the courseware repos\' /lms-push command after a build.',
+                'queryParams' => array(array('name' => 'sku', 'type' => 'string', 'required' => true, 'description' => 'Course code, e.g. C524')),
+                'bodyFields' => array(
+                    array('name' => 'trainer_slides_url', 'type' => 'string', 'required' => false, 'description' => 'https:// URL, max 1000 chars'),
+                    array('name' => 'learner_slides_url', 'type' => 'string', 'required' => false, 'description' => 'https:// URL'),
+                    array('name' => 'lesson_plan_url', 'type' => 'string', 'required' => false, 'description' => 'https:// URL'),
+                    array('name' => 'learner_guide_url', 'type' => 'string', 'required' => false, 'description' => 'https:// URL'),
+                    array('name' => 'lab_url', 'type' => 'string', 'required' => false, 'description' => 'https:// URL — a Drive FOLDER, not a single file'),
+                    array('name' => 'courseware_link', 'type' => 'string', 'required' => false, 'description' => 'https:// URL — the course\'s Drive folder root'),
+                    array('name' => 'brochure_link', 'type' => 'string', 'required' => false, 'description' => 'https:// URL'),
+                ),
+                'notes' => array('POST only writes the keys actually present in the body — safe to update one link without blanking the rest. Always returns the full row after the write.', 'Upserts course_courseware directly rather than replaying an admin form save.'),
+                'exampleRequest' => "curl -X POST -H \"X-API-Key: <key>\" -H \"Content-Type: application/json\" \\\n  -d '{\"sku\":\"C524\",\"lab_url\":\"https://drive.google.com/...\"}' \\\n  \"__BASE_URL__/courses/api_courseware\"",
+                'exampleResponse' => "{\n  \"ok\": true, \"sku\": \"C524\", \"written\": [\"lab_url\"],\n  \"courseware\": { \"lab_url\": \"https://drive.google.com/...\", \"lesson_plan_url\": \"\", ... }\n}",
+            ),
+        ),
+    ),
+    array(
+        'title' => 'Sync & Operations',
+        'description' => 'Cross-site sync (franchise partner course/class data) and infra ops. Different auth key per endpoint — check each card.',
+        'endpoints' => array(
+            array(
+                'method' => 'GET', 'path' => '/courses/api_completed_classes', 'authKey' => 'sync',
+                'title' => 'Completed Classes Export',
+                'description' => 'Served by every franchise instance from its OWN DB; SG Super Admin pulls this weekly from MY/GH partner domains for the Franchise Report.',
+                'queryParams' => array(
+                    array('name' => 'page', 'type' => 'int', 'required' => false, 'description' => 'Default 1'),
+                    array('name' => 'page_size', 'type' => 'int', 'required' => false, 'description' => 'Default 200, max 500'),
+                    array('name' => 'since', 'type' => 'string', 'required' => false, 'description' => 'YYYY-MM-DD — only classes ending on/after this date'),
+                ),
+                'notes' => array('A class is exported when CONFIRMED (trainer assigned) AND COMPLETED (end date, or start date for one-day runs, before today). Read-only, never mutates.'),
+                'exampleRequest' => "curl -H \"X-API-Key: <key>\" \\\n  \"__BASE_URL__/courses/api_completed_classes?page=1&page_size=200\"",
+                'exampleResponse' => "{\n  \"success\": true, \"page\": 1, \"total\": 84,\n  \"classes\": [{\n    \"class_code\": \"MY000017\", \"course_title\": \"...\", \"course_code\": \"M042\",\n    \"start_date\": \"2026-07-01\", \"end_date\": \"2026-07-02\",\n    \"trainer_name\": \"...\", \"learners_attended\": 8\n  }]\n}",
+            ),
+            array(
+                'method' => 'GET', 'path' => '/courses/api_sync_export', 'authKey' => 'sync',
+                'title' => 'Course Sync Export',
+                'description' => 'SG-side export of C-prefix courses (SKU LIKE \'C%\') for country-partner import. TGS- (WSQ) courses are excluded — never synced to country instances. No numeric IDs are ever exported (entity_id/attribute_id/option_id/category_id) so the importer can safely upsert into a different DB.',
+                'queryParams' => array(
+                    array('name' => 'page', 'type' => 'int', 'required' => false, 'description' => 'Default 1'),
+                    array('name' => 'page_size', 'type' => 'int', 'required' => false, 'description' => 'Default 50, max 100'),
+                    array('name' => 'sku', 'type' => 'string', 'required' => false, 'description' => 'Single-course export mode (powers per-course partner sync). 404 unknown SKU, 400 non-C-prefix.'),
+                    array('name' => 'currency', 'type' => 'string', 'required' => false, 'description' => 'Convert price/special_price/fixed-option prices into this currency using the live conversion rate'),
+                ),
+                'notes' => array('Returns 403 when this instance is running in MMS_MODE=country — export is SG-only by design.', 'Categories exported as url_key paths, custom options by title, badges from the canonical funding-badge vocabulary.'),
+                'exampleRequest' => "curl -H \"X-API-Key: <key>\" \\\n  \"__BASE_URL__/courses/api_sync_export?sku=C123&currency=MYR\"",
+                'exampleResponse' => "{\n  \"success\": true, \"total\": 1,\n  \"courses\": [{\n    \"sku\": \"C123\", \"type_id\": \"simple\", \"attributes\": { \"name\": \"...\", \"price\": 250.0 },\n    \"categories\": [\"programming/python\"], \"custom_options\": [ /* Course Date / Time */ ],\n    \"badges\": [\"WSQ\"], \"updated_at\": \"2026-06-01 10:00:00\"\n  }]\n}",
+            ),
+            array(
+                'method' => 'GET', 'path' => '/reindex/api/run', 'authKey' => 'reindex',
+                'title' => 'Reindex API',
+                'description' => 'Token-secured trigger for a full reindex (and optional cache flush) without shell access. Reuses the same cron worker the scheduled job uses, so results are logged to the normal Reindex Scheduler page. A lighter GET /reindex/api/flush action exists for a cache-only refresh (faster than a full reindex).',
+                'queryParams' => array(
+                    array('name' => 'token', 'type' => 'string', 'required' => true, 'description' => 'Compared via hash_equals — wrong/missing → 403'),
+                    array('name' => 'flush', 'type' => 'bool', 'required' => false, 'description' => '1 = flush cache before reindexing (fixes a stale merged CSS/JS bundle)'),
+                ),
+                'notes' => array('Token is passed as a query param, NOT a header — different auth style from every other endpoint on this page.'),
+                'exampleRequest' => "curl \"__BASE_URL__/reindex/api/run?token=<token>&flush=1\"",
+                'exampleResponse' => "{ \"ok\": true, \"flushed\": true, \"reindexed\": 8, \"failed\": 0, \"results\": [\"catalog_product_flat: ok\", ...] }",
+            ),
+        ),
+    ),
+    array(
+        'title' => 'Planned',
+        'description' => 'Not yet built — described here so future work doesn\'t need to re-derive scope from scratch.',
+        'endpoints' => array(
+            array(
+                'method' => 'PLANNED', 'path' => '(not built)', 'authKey' => null,
+                'title' => 'Products API',
+                'description' => 'Programmatic create / update / archive of course products — SKU, custom options (course runs), pricing. Use case: bulk-import a vendor\'s syllabus into the catalog.',
+            ),
+            array(
+                'method' => 'PLANNED', 'path' => '(not built)', 'authKey' => null,
+                'title' => 'Schedules API (write)',
+                'description' => 'Add / move / cancel class runs via API. Note: READ access to schedule data already exists — see "WSQ Schedule API" above. This entry is specifically the missing WRITE half (mutating course_runs / custom options) — use case: a trainer\'s calendar pushes date changes without an admin opening each course.',
+            ),
+            array(
+                'method' => 'PLANNED', 'path' => '(not built)', 'authKey' => null,
+                'title' => 'Learners API',
+                'description' => 'Create / look up learner accounts, attach to a class run, retrieve completion / certificate status. Use case: corporate booking pipelines, partner LMS integrations.',
+            ),
+            array(
+                'method' => 'PLANNED', 'path' => '(not built)', 'authKey' => null,
+                'title' => 'Orders API',
+                'description' => 'Place a registration on behalf of a learner (skipping web checkout), generate invoices, mark paid. Use case: bank-transfer reconciliation, training-grant claims.',
+            ),
+        ),
+    ),
+);
+
+$_apiTotalEndpoints = 0;
+foreach ($_apiCategories as $_apiCat) { $_apiTotalEndpoints += count($_apiCat['endpoints']); }
+
+$_apiMethodColor = function ($m) {
+    switch ($m) {
+        case 'GET': return array('bg' => '#0f2e1f', 'fg' => '#6ee7a7', 'bd' => '#1f5c3a');
+        case 'POST': return array('bg' => '#0f1f38', 'fg' => '#8ab4f8', 'bd' => '#274a72');
+        case 'GET / POST': return array('bg' => '#1f2438', 'fg' => '#c4b5fd', 'bd' => '#3f3a72');
+        case 'PLANNED': return array('bg' => '#1e2229', 'fg' => '#64748b', 'bd' => '#334155');
+        default: return array('bg' => '#1f2229', 'fg' => '#94a3b8', 'bd' => '#334155');
+    }
+};
 ?>
 <div id="dash-panel-api_summary" style="display:none;">
-    <div class="cs-wrap">
-        <div class="cs-header">
-            <div class="cs-logo">A</div>
-            <div class="cs-header-info">
-                <h1>API Summary</h1>
-                <p>Outward-facing HTTP APIs for trusted automations (e.g. the Kael review bot)</p>
-            </div>
-            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_query' => array('panel' => 'credentials'))) ?>"
-               class="cs-edit-btn" style="text-decoration:none">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                Manage API Keys in Credentials
-            </a>
+<style>
+#api-summary-root .as-hdr { display:flex; align-items:center; gap:14px; margin-bottom:6px; }
+#api-summary-root .as-hdr h1 { font-size:22px; font-weight:600; color:#fff; margin:0; }
+#api-summary-root .as-count { font-size:12px; color:#64748b; }
+#api-summary-root .as-lede { font-size:12px; color:#94a3b8; margin:2px 0 18px; }
+#api-summary-root .as-authbox { background:#0f172a; border-left:3px solid #22d3ee; border-radius:6px; padding:12px 16px; margin-bottom:20px; font-size:12px; color:#cbd5e1; line-height:1.7; }
+#api-summary-root .as-authbox code { background:#1f2937; color:#f3c97a; padding:1px 6px; border-radius:4px; font-family:monospace; }
+#api-summary-root .as-cat { background:#1a1d24; border:1px solid #2d3138; border-radius:8px; margin-bottom:14px; overflow:hidden; }
+#api-summary-root .as-cat-hdr { display:flex; align-items:center; gap:10px; padding:14px 18px; cursor:pointer; user-select:none; }
+#api-summary-root .as-cat-hdr:hover { background:#20242c; }
+#api-summary-root .as-cat-hdr h2 { font-size:15px; font-weight:600; color:#fff; margin:0; }
+#api-summary-root .as-cat-desc { font-size:11px; color:#64748b; margin-top:2px; }
+#api-summary-root .as-cat-badge { background:#334155; color:#94a3b8; font-size:10px; padding:2px 8px; border-radius:10px; font-weight:600; }
+#api-summary-root .as-caret { transition:transform .2s; flex-shrink:0; margin-left:auto; color:#64748b; }
+#api-summary-root .as-cat.as-collapsed .as-caret { transform:rotate(-90deg); }
+#api-summary-root .as-cat-body { border-top:1px solid #2d3138; }
+#api-summary-root .as-cat.as-collapsed .as-cat-body { display:none; }
+#api-summary-root .as-ep { border-bottom:1px solid #23262d; }
+#api-summary-root .as-ep:last-child { border-bottom:0; }
+#api-summary-root .as-ep-hdr { display:flex; align-items:center; gap:10px; padding:10px 18px; cursor:pointer; user-select:none; }
+#api-summary-root .as-ep-hdr:hover { background:#20242c; }
+#api-summary-root .as-method { font-size:10px; font-weight:700; font-family:monospace; padding:2px 8px; border-radius:4px; border:1px solid; white-space:nowrap; }
+#api-summary-root .as-path { font-size:12px; font-family:monospace; color:#cbd5e1; flex:1; word-break:break-all; }
+#api-summary-root .as-ep-title { font-size:11px; color:#64748b; }
+#api-summary-root .as-ep-caret { transition:transform .2s; color:#475569; flex-shrink:0; }
+#api-summary-root .as-ep.as-collapsed .as-ep-caret { transform:rotate(-90deg); }
+#api-summary-root .as-ep-body { padding:0 18px 18px 18px; }
+#api-summary-root .as-ep.as-collapsed .as-ep-body { display:none; }
+#api-summary-root .as-ep-desc { font-size:12px; color:#94a3b8; margin:0 0 12px; line-height:1.6; }
+#api-summary-root .as-field-label { font-size:10px; color:#64748b; text-transform:uppercase; letter-spacing:.5px; margin:14px 0 6px; }
+#api-summary-root .as-table { width:100%; border-collapse:collapse; font-size:12px; }
+#api-summary-root .as-table th { text-align:left; color:#64748b; font-size:10px; text-transform:uppercase; letter-spacing:.4px; padding-bottom:4px; border-bottom:1px solid #2d3138; }
+#api-summary-root .as-table td { padding:5px 12px 5px 0; color:#cbd5e1; border-bottom:1px solid #23262d; vertical-align:top; }
+#api-summary-root .as-table code { font-family:monospace; color:#f3c97a; font-size:11px; }
+#api-summary-root .as-req { color:#f6a5a5; font-size:11px; font-weight:600; }
+#api-summary-root .as-opt { color:#475569; font-size:11px; }
+#api-summary-root .as-note { background:#161a22; border-left:3px solid #334155; border-radius:4px; padding:8px 12px; margin-top:8px; font-size:11px; color:#94a3b8; line-height:1.6; }
+#api-summary-root .as-pre-wrap { position:relative; margin-top:6px; }
+#api-summary-root .as-pre { background:#0f172a; border:1px solid #334155; border-radius:6px; padding:12px; color:#e2e8f0; font-size:11.5px; line-height:1.6; overflow-x:auto; margin:0; white-space:pre; }
+#api-summary-root .as-copy { position:absolute; top:6px; right:6px; background:#1f2937; border:1px solid #334155; color:#94a3b8; font-size:10px; padding:2px 8px; border-radius:4px; cursor:pointer; }
+#api-summary-root .as-copy:hover { background:#334155; color:#e2e8f0; }
+#api-summary-root .as-key-box { display:flex; align-items:center; gap:8px; margin-top:14px; }
+</style>
+<div id="api-summary-root" class="cs-wrap">
+    <div class="cs-header">
+        <div class="cs-logo">A</div>
+        <div class="cs-header-info">
+            <div class="as-hdr"><h1>API Summary</h1><span class="as-count">— <?php echo (int) $_apiTotalEndpoints ?> endpoints across <?php echo count($_apiCategories) ?> categories</span></div>
+            <p>Outward-facing HTTP APIs exposed by this site for trusted backend automations (the Kael review bot, the WhatsApp customer-reply + trainer-reminder bots, franchise partner sync). Hand this page — or a copy of the relevant section — to integration partners.</p>
         </div>
+        <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_query' => array('panel' => 'credentials'))) ?>"
+           class="cs-edit-btn" style="text-decoration:none">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            Manage API Keys in Credentials
+        </a>
+    </div>
 
-        <div class="cs-section">
-            <div class="cs-section-body open" style="padding:18px">
-                <!-- Directory header -->
-                <div style="font-size:12px;color:#94a3b8;line-height:1.6;margin-bottom:18px">
-                    Outward-facing HTTP APIs exposed by this site for trusted backend
-                    automations (e.g. the Kael review bot, future product / class
-                    sync agents). Each API uses its own <code>X-Api-Key</code>
-                    secret, stored in the DB and editable via this page.
+    <div class="cs-section">
+        <div class="cs-section-body open" style="padding:18px">
+            <div class="as-authbox">
+                Every endpoint below is gated by an <code>X-API-Key</code> / <code>X-Api-Key</code> header, <strong>except Reindex</strong> which uses a <code>?token=</code> query param. Each group uses its own secret, stored in the DB and editable via <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_query' => array('panel' => 'credentials'))) ?>" style="color:#22d3ee">Credentials</a>:
+                <div style="margin-top:8px">
+                <?php foreach ($_apiKeys as $_keyId => $_key): ?>
+                    <div class="as-key-box">
+                        <span style="width:150px;flex-shrink:0"><?php echo htmlspecialchars($_key['label']) ?></span>
+                        <span style="font-family:monospace;background:#1f2937;border:1px solid #334155;border-radius:4px;padding:2px 8px;color:#e2e8f0"><?php echo htmlspecialchars($_key['mask']) ?></span>
+                        <span style="color:#475569;font-size:11px"><?php echo $_key['style'] === 'query' ? 'passed as ?' . htmlspecialchars($_key['param']) . '=' : ('header: ' . htmlspecialchars($_key['header'])) ?></span>
+                    </div>
+                <?php endforeach; ?>
                 </div>
-                <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px">
-                    <a href="#api-kael-review"   style="background:#0f172a;border:1px solid #22d3ee;color:#22d3ee;font-size:11px;padding:6px 12px;border-radius:999px;text-decoration:none">Reviews API · ACTIVE</a>
-                    <a href="#api-products"      style="background:#0f172a;border:1px solid #334155;color:#94a3b8;font-size:11px;padding:6px 12px;border-radius:999px;text-decoration:none">Products API · planned</a>
-                    <a href="#api-schedules"     style="background:#0f172a;border:1px solid #334155;color:#94a3b8;font-size:11px;padding:6px 12px;border-radius:999px;text-decoration:none">Schedules API · planned</a>
-                    <a href="#api-learners"      style="background:#0f172a;border:1px solid #334155;color:#94a3b8;font-size:11px;padding:6px 12px;border-radius:999px;text-decoration:none">Learners API · planned</a>
-                    <a href="#api-orders"        style="background:#0f172a;border:1px solid #334155;color:#94a3b8;font-size:11px;padding:6px 12px;border-radius:999px;text-decoration:none">Orders API · planned</a>
+            </div>
+
+            <?php foreach ($_apiCategories as $_catIdx => $_cat): ?>
+            <div class="as-cat" data-as-cat>
+                <div class="as-cat-hdr" data-as-cat-toggle>
+                    <div>
+                        <h2><?php echo htmlspecialchars($_cat['title']) ?> <span class="as-cat-badge"><?php echo count($_cat['endpoints']) ?></span></h2>
+                        <div class="as-cat-desc"><?php echo htmlspecialchars($_cat['description']) ?></div>
+                    </div>
+                    <svg class="as-caret" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
                 </div>
+                <div class="as-cat-body">
+                    <?php foreach ($_cat['endpoints'] as $_epIdx => $_ep):
+                        $_epKey = $_catIdx . '-' . $_epIdx;
+                        $_mc = $_apiMethodColor($_ep['method']);
+                        $_authKey = $_ep['authKey'] ? $_apiKeys[$_ep['authKey']] : null;
+                    ?>
+                    <div class="as-ep as-collapsed" data-as-ep>
+                        <div class="as-ep-hdr" data-as-ep-toggle>
+                            <span class="as-method" style="background:<?php echo $_mc['bg'] ?>;color:<?php echo $_mc['fg'] ?>;border-color:<?php echo $_mc['bd'] ?>"><?php echo htmlspecialchars($_ep['method']) ?></span>
+                            <span class="as-path"><?php echo htmlspecialchars($_ep['path']) ?></span>
+                            <span class="as-ep-title"><?php echo htmlspecialchars($_ep['title']) ?></span>
+                            <svg class="as-ep-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                        </div>
+                        <div class="as-ep-body">
+                            <p class="as-ep-desc"><?php echo htmlspecialchars($_ep['description']) ?></p>
 
-                <div id="api-kael-review" class="cs-card">
-                    <div class="cs-card-title" style="display:flex;align-items:center;gap:10px">
-                        <span>Reviews API <span style="color:#64748b;font-weight:400">(Kael)</span></span>
-                        <span class="cs-status enabled" style="font-size:10px">ACTIVE</span>
-                        <span style="margin-left:auto;font-size:11px;color:#64748b">POST · application/json</span>
+                            <?php if ($_authKey): ?>
+                            <div class="as-field-label">Authentication</div>
+                            <div style="font-size:12px;color:#cbd5e1">
+                                <?php if ($_authKey['style'] === 'query'): ?>
+                                    Query param <code>?<?php echo htmlspecialchars($_authKey['param']) ?>=&lt;token&gt;</code>
+                                <?php else: ?>
+                                    Header <code><?php echo htmlspecialchars($_authKey['header']) ?>: &lt;key&gt;</code>
+                                <?php endif; ?>
+                                <span style="color:#64748b"> — <?php echo htmlspecialchars($_authKey['label']) ?> secret (see table above)</span>
+                            </div>
+                            <?php endif; ?>
+
+                            <?php if (!empty($_ep['queryParams'])): ?>
+                            <div class="as-field-label">Query Parameters</div>
+                            <table class="as-table"><thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr></thead><tbody>
+                                <?php foreach ($_ep['queryParams'] as $_p): ?>
+                                <tr><td><code><?php echo htmlspecialchars($_p['name']) ?></code></td><td><?php echo htmlspecialchars($_p['type']) ?></td>
+                                    <td><?php echo $_p['required'] ? '<span class="as-req">Yes</span>' : '<span class="as-opt">No</span>' ?></td>
+                                    <td><?php echo htmlspecialchars($_p['description']) ?></td></tr>
+                                <?php endforeach; ?>
+                            </tbody></table>
+                            <?php endif; ?>
+
+                            <?php if (!empty($_ep['bodyFields'])): ?>
+                            <div class="as-field-label">Request Body (JSON)</div>
+                            <table class="as-table"><thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr></thead><tbody>
+                                <?php foreach ($_ep['bodyFields'] as $_f): ?>
+                                <tr><td><code><?php echo htmlspecialchars($_f['name']) ?></code></td><td><?php echo htmlspecialchars($_f['type']) ?></td>
+                                    <td><?php echo $_f['required'] ? '<span class="as-req">Yes</span>' : '<span class="as-opt">No</span>' ?></td>
+                                    <td><?php echo htmlspecialchars($_f['description']) ?></td></tr>
+                                <?php endforeach; ?>
+                            </tbody></table>
+                            <?php endif; ?>
+
+                            <?php if (!empty($_ep['notes'])): foreach ($_ep['notes'] as $_n): ?>
+                            <div class="as-note"><?php echo htmlspecialchars($_n) ?></div>
+                            <?php endforeach; endif; ?>
+
+                            <?php if (!empty($_ep['exampleRequest'])): ?>
+                            <div class="as-field-label">Example Request</div>
+                            <div class="as-pre-wrap">
+                                <button type="button" class="as-copy" data-as-copy-target="as-req-<?php echo $_epKey ?>">Copy</button>
+                                <pre class="as-pre" id="as-req-<?php echo $_epKey ?>"><?php echo htmlspecialchars(str_replace('__BASE_URL__', $_apiBase, $_ep['exampleRequest'])) ?></pre>
+                            </div>
+                            <?php endif; ?>
+
+                            <?php if (!empty($_ep['exampleResponse'])): ?>
+                            <div class="as-field-label">Example Response</div>
+                            <div class="as-pre-wrap">
+                                <button type="button" class="as-copy" data-as-copy-target="as-res-<?php echo $_epKey ?>">Copy</button>
+                                <pre class="as-pre" id="as-res-<?php echo $_epKey ?>"><?php echo htmlspecialchars($_ep['exampleResponse']) ?></pre>
+                            </div>
+                            <?php endif; ?>
+                        </div>
                     </div>
-                    <div style="font-size:12px;color:#94a3b8;margin:4px 0 10px">
-                        Programmatically submit an auto-approved product review with optional original timestamp.
-                    </div>
-
-                    <table style="width:100%;border-collapse:collapse;font-size:12px">
-                        <tr>
-                            <td style="padding:6px 0;color:#64748b;width:130px;vertical-align:top">Endpoint</td>
-                            <td style="padding:6px 0;color:var(--t1);font-family:monospace;word-break:break-all">
-                                <span id="kael-review-url"><?php echo htmlspecialchars($_apiKaelReview) ?></span>
-                                <button type="button"
-                                        style="margin-left:8px;background:#0f172a;border:1px solid #334155;color:#94a3b8;font-size:11px;padding:2px 8px;border-radius:4px;cursor:pointer"
-                                        onclick="(function(){var el=document.getElementById('kael-review-url');var r=document.createRange();r.selectNode(el);window.getSelection().removeAllRanges();window.getSelection().addRange(r);document.execCommand('copy');window.getSelection().removeAllRanges();})()">Copy</button>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style="padding:6px 0;color:#64748b;vertical-align:top">Auth header</td>
-                            <td style="padding:6px 0;color:var(--t1);font-family:monospace">
-                                X-Api-Key:
-                                <span style="display:inline-flex;align-items:center;gap:6px;background:#0f172a;border:1px solid #334155;border-radius:4px;padding:3px 8px;margin-left:6px;vertical-align:middle;color:#e2e8f0;font-size:12px"><?php echo htmlspecialchars($_apiKaelReviewKeyMask) ?></span>
-                                <span style="margin-left:8px;font-size:11px;color:#64748b">(rotate in <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_query' => array('panel' => 'credentials'))) ?>" style="color:#22d3ee;text-decoration:none">Credentials</a>)</span>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style="padding:6px 0;color:#64748b;vertical-align:top">Rate limit</td>
-                            <td style="padding:6px 0;color:var(--t1)">None (intended for trusted backend use only)</td>
-                        </tr>
-                        <tr>
-                            <td style="padding:6px 0;color:#64748b;vertical-align:top">Idempotency</td>
-                            <td style="padding:6px 0;color:var(--t1)">Each call creates a new <code>review_id</code>; callers must dedupe their own queue</td>
-                        </tr>
-                    </table>
-
-                    <div style="margin-top:14px;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.5px">Request body</div>
-                    <pre style="background:#0f172a;border:1px solid #334155;border-radius:6px;padding:12px;color:#e2e8f0;font-size:12px;overflow-x:auto;margin:6px 0 0">{
-  "product_id":  1362,
-  "nickname":    "John Tan",
-  "title":       "Average Rating: 4.7/5",
-  "detail":      "Great course, very informative!",
-  "ratings":     { "1": 5, "2": 5, "5": 4 },
-  "created_at":  "2026-04-10 04:00:17",   // optional, MySQL DATETIME / ISO 8601 — defaults to NOW()
-  "store_id":    1,                        // optional, int — defaults to current store
-  "customer_id": null                      // optional, int — defaults to null (guest review)
-}</pre>
-
-                    <div style="margin-top:14px;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.5px">Rating IDs (multi-criteria form)</div>
-                    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">
-                        <tr><td style="padding:4px 0;color:#94a3b8;width:30px"><code>1</code></td><td style="padding:4px 0;color:var(--t1)">Do you find the course meets your expectation? (1-5 stars)</td></tr>
-                        <tr><td style="padding:4px 0;color:#94a3b8"><code>2</code></td><td style="padding:4px 0;color:var(--t1)">Do you find the trainer knowledgeable? (1-5 stars)</td></tr>
-                        <tr><td style="padding:4px 0;color:#94a3b8"><code>5</code></td><td style="padding:4px 0;color:var(--t1)">How do you find the training environment? (1-5 stars)</td></tr>
-                    </table>
-
-                    <div style="margin-top:14px;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.5px">Success response (HTTP 200)</div>
-                    <pre style="background:#0f172a;border:1px solid #334155;border-radius:6px;padding:12px;color:#e2e8f0;font-size:12px;overflow-x:auto;margin:6px 0 0">{
-  "success":    true,
-  "review_id":  22863,
-  "created_at": "2026-04-10 04:00:17",
-  "store_id":   1,
-  "message":    "Review created and approved"
-}</pre>
-
-                    <div style="margin-top:14px;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.5px">Error responses</div>
-                    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">
-                        <tr><td style="padding:4px 0;color:#94a3b8;width:50px"><code>400</code></td><td style="padding:4px 0;color:var(--t1)">Invalid JSON, missing required field, or invalid <code>created_at</code></td></tr>
-                        <tr><td style="padding:4px 0;color:#94a3b8"><code>401</code></td><td style="padding:4px 0;color:var(--t1)">Missing or invalid <code>X-Api-Key</code></td></tr>
-                        <tr><td style="padding:4px 0;color:#94a3b8"><code>404</code></td><td style="padding:4px 0;color:var(--t1)"><code>product_id</code> not found</td></tr>
-                        <tr><td style="padding:4px 0;color:#94a3b8"><code>405</code></td><td style="padding:4px 0;color:var(--t1)">Non-POST method</td></tr>
-                        <tr><td style="padding:4px 0;color:#94a3b8"><code>500</code></td><td style="padding:4px 0;color:var(--t1)">Server error (detail in response body)</td></tr>
-                    </table>
-
-                    <div style="margin-top:14px;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.5px">cURL example</div>
-                    <pre style="background:#0f172a;border:1px solid #334155;border-radius:6px;padding:12px;color:#e2e8f0;font-size:12px;overflow-x:auto;margin:6px 0 0">curl -X POST '<?php echo htmlspecialchars($_apiKaelReview) ?>' \
-  -H 'Content-Type: application/json' \
-  -H 'X-Api-Key: $KAEL_REVIEW_API_KEY' \
-  -d '{
-    "product_id":  1362,
-    "nickname":    "John Tan",
-    "title":       "Average Rating: 4.7/5",
-    "detail":      "Great course, very informative!",
-    "ratings":     {"1": 5, "2": 5, "5": 4},
-    "created_at":  "2026-04-10 04:00:17"
-  }'</pre>
-
-                    <div style="margin-top:12px;font-size:11px;color:#64748b">
-                        Implementation: <code>kael_review_api.php</code> at site root. Full docs: <code>docs/kael-review-api.md</code>.
-                    </div>
-
+                    <?php endforeach; ?>
                 </div>
+            </div>
+            <?php endforeach; ?>
 
-                <!-- Placeholder cards for planned APIs -->
-                <div id="api-products" class="cs-card" style="opacity:0.7;margin-top:14px">
-                    <div class="cs-card-title" style="display:flex;align-items:center;gap:10px">
-                        <span>Products API</span>
-                        <span class="cs-status disabled" style="font-size:10px;background:#334155;color:#94a3b8">PLANNED</span>
-                        <span style="margin-left:auto;font-size:11px;color:#64748b">CRUD on catalog products (courses)</span>
-                    </div>
-                    <div style="font-size:12px;color:#94a3b8;margin-top:6px">
-                        Programmatic create / update / archive of course products,
-                        including SKU, custom options (course runs), and pricing.
-                        Use case: bulk-import a vendor's syllabus into our catalog.
-                    </div>
-                </div>
-
-                <div id="api-schedules" class="cs-card" style="opacity:0.7;margin-top:14px">
-                    <div class="cs-card-title" style="display:flex;align-items:center;gap:10px">
-                        <span>Schedules API</span>
-                        <span class="cs-status disabled" style="font-size:10px;background:#334155;color:#94a3b8">PLANNED</span>
-                        <span style="margin-left:auto;font-size:11px;color:#64748b">Class run dates / capacity</span>
-                    </div>
-                    <div style="font-size:12px;color:#94a3b8;margin-top:6px">
-                        Add / move / cancel class runs (the custom options on a
-                        course product). Use case: trainer's calendar pushes
-                        upcoming dates without an admin opening each course.
-                    </div>
-                </div>
-
-                <div id="api-learners" class="cs-card" style="opacity:0.7;margin-top:14px">
-                    <div class="cs-card-title" style="display:flex;align-items:center;gap:10px">
-                        <span>Learners API</span>
-                        <span class="cs-status disabled" style="font-size:10px;background:#334155;color:#94a3b8">PLANNED</span>
-                        <span style="margin-left:auto;font-size:11px;color:#64748b">Customer records (learners)</span>
-                    </div>
-                    <div style="font-size:12px;color:#94a3b8;margin-top:6px">
-                        Create / look up learner accounts, attach to a class run,
-                        retrieve completion / certificate status. Use case:
-                        corporate booking pipelines, partner LMS integrations.
-                    </div>
-                </div>
-
-                <div id="api-orders" class="cs-card" style="opacity:0.7;margin-top:14px">
-                    <div class="cs-card-title" style="display:flex;align-items:center;gap:10px">
-                        <span>Orders API</span>
-                        <span class="cs-status disabled" style="font-size:10px;background:#334155;color:#94a3b8">PLANNED</span>
-                        <span style="margin-left:auto;font-size:11px;color:#64748b">Course registrations</span>
-                    </div>
-                    <div style="font-size:12px;color:#94a3b8;margin-top:6px">
-                        Place a registration on behalf of a learner (skipping the
-                        web checkout), generate invoices, mark paid. Use case:
-                        bank-transfer reconciliation, training-grant claims.
-                    </div>
-                </div>
+            <div style="margin-top:20px">
+                <div class="as-field-label" style="margin-top:0">Standard Status Codes</div>
+                <table class="as-table">
+                    <thead><tr><th style="width:60px">Status</th><th>Meaning</th></tr></thead>
+                    <tbody>
+                        <tr><td><code>200</code></td><td>Success</td></tr>
+                        <tr><td><code>400</code></td><td>Bad request — missing/invalid field</td></tr>
+                        <tr><td><code>401</code></td><td>Missing or invalid API key</td></tr>
+                        <tr><td><code>403</code></td><td>Forbidden — e.g. reindex bad token, or an SG-only endpoint called in country mode</td></tr>
+                        <tr><td><code>404</code></td><td>Not found — sku/id doesn't exist</td></tr>
+                        <tr><td><code>405</code></td><td>Method not allowed</td></tr>
+                        <tr><td><code>500</code></td><td>Server error (detail in response body)</td></tr>
+                        <tr><td><code>503</code></td><td>Endpoint disabled — API key not configured server-side</td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
 </div>
+</div>
+<script>
+(function () {
+    'use strict';
+    function on(root, sel, evt, fn) {
+        var els = root.querySelectorAll(sel);
+        for (var i = 0; i < els.length; i++) els[i].addEventListener(evt, fn);
+    }
+    function init() {
+        var root = document.getElementById('api-summary-root');
+        if (!root || root.getAttribute('data-as-init')) return;
+        root.setAttribute('data-as-init', '1');
+
+        on(root, '[data-as-cat-toggle]', 'click', function (e) {
+            var cat = e.currentTarget.closest('[data-as-cat]');
+            if (cat) cat.classList.toggle('as-collapsed');
+        });
+        on(root, '[data-as-ep-toggle]', 'click', function (e) {
+            var ep = e.currentTarget.closest('[data-as-ep]');
+            if (ep) ep.classList.toggle('as-collapsed');
+        });
+        on(root, '[data-as-copy-target]', 'click', function (e) {
+            var btn = e.currentTarget;
+            var target = document.getElementById(btn.getAttribute('data-as-copy-target'));
+            if (!target) return;
+            var text = target.textContent;
+            var done = function () {
+                var orig = btn.textContent;
+                btn.textContent = 'Copied ✓';
+                setTimeout(function () { btn.textContent = orig; }, 1500);
+            };
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(done);
+            } else {
+                var ta = document.createElement('textarea');
+                ta.value = text;
+                document.body.appendChild(ta);
+                ta.select();
+                try { document.execCommand('copy'); } catch (ex) {}
+                document.body.removeChild(ta);
+                done();
+            }
+        });
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+    // Panel is display:none until "View As" JS shows it — re-init on any DOM
+    // change in case the panel markup wasn't in the live DOM at first init.
+    var iv = window.setInterval(function () { init(); }, 500);
+    window.setTimeout(function () { window.clearInterval(iv); }, 6000);
+})();
+</script>
 
 <?php /* ===== PANEL: Create New Class (Admin only) ===== */ ?>
 <?php

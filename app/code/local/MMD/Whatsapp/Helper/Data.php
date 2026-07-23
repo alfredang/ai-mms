@@ -40,6 +40,45 @@ class MMD_Whatsapp_Helper_Data extends Mage_Core_Helper_Abstract
     }
 
     /**
+     * Chat URL for the ADMIN ops launcher (TIA Operation Support / Kael).
+     * Points at the WhatsApp Operation Group invite link when configured —
+     * primary source is the Company Setting → Integrations → WhatsApp field
+     * (mmd_company/whatsapp/group_chat_url), with the System → Config field
+     * (mmd_whatsapp/admin/chat_url) kept as a legacy fallback; finally the
+     * storefront wa.me number so the launcher works before either is set.
+     */
+    public function getAdminChatUrl()
+    {
+        $url = trim((string) Mage::getStoreConfig('mmd_company/whatsapp/group_chat_url'));
+        if ($url === '') {
+            $url = trim((string) Mage::getStoreConfig('mmd_whatsapp/admin/chat_url'));
+        }
+        if ($url !== '') {
+            return $url;
+        }
+        // Backend scope is the 'admin' store, which has no per-store company
+        // number — resolve the wa.me fallback against the default store view.
+        $store = Mage::app()->getDefaultStoreView();
+        $raw   = (string) Mage::getStoreConfig('mmd_company/whatsapp/' . $store->getCode(), $store);
+        if (trim($raw) === '') {
+            $raw = (string) Mage::getStoreConfig('mmd_whatsapp/general/number', $store);
+        }
+        $n = preg_replace('/\D+/', '', $raw);
+        return $n === '' ? '' : 'https://wa.me/' . $n;
+    }
+
+    /**
+     * Chat URL for the TRAINER launcher — the WhatsApp Trainer Group invite
+     * link (Company Setting → Integrations → WhatsApp). Trainers get their
+     * own group and template set, separate from the ops group. Returns ''
+     * when unconfigured, which hides the launcher for trainers.
+     */
+    public function getTrainerChatUrl()
+    {
+        return trim((string) Mage::getStoreConfig('mmd_company/whatsapp/trainer_group_chat_url'));
+    }
+
+    /**
      * Per-store brand name shown in the popup header. Mirrors the auto-reply
      * branding (see MMD_Leads_Helper_Data::getStoreBrandName).
      */
