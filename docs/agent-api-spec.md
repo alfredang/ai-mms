@@ -5,9 +5,9 @@ explains the domain (courses, classes, funding, invariants). This document is th
 contract**: how to authenticate, the preview->confirm->commit protocol every write follows, the
 request/response envelopes, and a detailed spec per endpoint.
 
-> Status: **`api_schedule` is fully specified below** (the reference endpoint). The other
-> three (`api_course`, `api_content`, `api_ops`) are outlined and will be filled to the same
-> shape. `generate_range` is deferred pending a decision on its rule inputs.
+> Status: all five endpoints below are **built and live** - `api_classes`, `api_course`,
+> `api_content`, `api_ops`, `api_template`. A few sub-ops are intentionally not implemented and
+> say so explicitly (`api_content set_cms_section`, `api_ops run_class_formation`).
 
 ---
 
@@ -54,11 +54,11 @@ who asked - that is the `actor` field (below), which you must always supply.
 ```
 
 - `change_token` binds the commit to exactly what was previewed. On commit the server
-  recomputes it from live data; if the course/class changed in between, you get
+  recomputes it from live data; if the underlying data changed in between, you get
   `409 stale_preview` - re-preview, re-confirm, retry.
 - If you commit **without** a `change_token`, you get `400 change_token_required`.
-- Re-committing the same approved change (same token) is safe - it returns the original result
-  rather than applying twice (idempotent).
+- Always relay `human_summary` **and every line in `warnings[]`** to the user before confirming.
+  Some ops (notably `api_template`) act on many courses at once and say so in a warning.
 
 ## 4. Common request envelope
 
@@ -96,174 +96,236 @@ the requester's role is **your** responsibility before you ever call.
   "dry_run": true,
   "op": "update_class",
   "target": "SG000042",
-  "diff": [
-    { "field": "course_start_date", "from": "2026-06-06", "to": "2026-06-13" }
-  ],
-  "human_summary": "Class SG000042 (Data Analytics with RapidMiner) will move from 6 Jun 2026 to 13 Jun 2026. Trainer and time unchanged. 3 learners are already enrolled.",
-  "warnings": ["3 learners are enrolled on this class"],
+  "diff": [ { "field": "course_start_date", "from": "2026-06-06", "to": "2026-06-13" } ],
+  "human_summary": "Class SG000042 (Data Analytics with RapidMiner): start_date 2026-06-06 -> 2026-06-13.",
+  "warnings": ["3 learner(s) are enrolled on this class; they will NOT be auto-notified of the date change."],
   "change_token": "sha256:9f2c..."
 }
 ```
 
 ### Commit - `200`
 ```json
-{
-  "success": true,
-  "applied": true,
-  "op": "update_class",
-  "target": "SG000042",
-  "audit_id": 1187,
-  "reindexed": ["catalog_product_flat", "catalog_url"]
-}
+{ "success": true, "applied": true, "op": "update_class", "target": "SG000042",
+  "audit_id": 1187, "reindexed": ["option_value"] }
 ```
 
 ### Error
 ```json
-{ "success": false, "error": "<code>", "message": "<human-readable>", "actor_echo": { "id": "wa:+6591234567" } }
+{ "success": false, "error": "<code>", "message": "<human-readable>" }
 ```
 
 | HTTP | `error` | Meaning |
 |---|---|---|
-| 400 | `validation_error` | Missing/invalid field |
+| 400 | `validation_error` | Missing/invalid field, or nothing to change |
 | 400 | `change_token_required` | Commit without a token |
 | 401 | `unauthorized` | Bad/missing `X-API-Key` |
-| 404 | `not_found` | Unknown `sku` / `class_id` |
+| 404 | `not_found` | Unknown `sku` / `class_id` / template |
 | 409 | `stale_preview` | Data changed since preview - re-preview |
 | 409 | `conflict` | e.g. a class already exists for that date |
+| 409 | `ambiguous_trainer` | Trainer name matches more than one person - use email |
+| 409 | `ambiguous_template` | Template reference matches more than one template - be more specific |
 | 422 | `forbidden_field` | Attempt to change a blocked field (name/sku/GST) |
 | 422 | `enrolments_exist` | Destructive op on a class with learners, without `force` |
+| 422 | `course_not_scheduled` | Course has no date list yet (not on a schedule template) |
+| 422 | `trainer_email_required` | New trainer has no account/email on file - pass `trainer_email` |
+| 501 | `not_implemented` | Sub-op deliberately not built yet |
 | 503 | `api_disabled` | Server API key not configured |
 | 500 | `internal_error` | Server error |
 
 ## 6. Reindexing
 
-Writes that change course options or attributes automatically trigger the needed storefront
-re-index; the commit response lists what ran in `reindexed[]`. You don't manage this - but if a
-change "isn't showing on the site," a `reindex` op (`api_ops`) is the remedy.
+Writes that change course options or attributes trigger the needed storefront re-index; the
+commit response lists what ran in `reindexed[]`. You don't manage this - but if a change "isn't
+showing on the site," an `api_ops reindex` (or `flush_cache`) is the remedy.
 
 ---
 
-# Endpoint: `POST /agent/api_schedule` - edit course schedule
+# Endpoint: `POST /agent/api_classes` - edit course schedule (per course)
 
-Add, change, or remove **classes** (scheduled runs) of a course, and assign trainers. Keeps the
-learner-facing "Course Date" option and the internal class record in sync, and re-indexes.
+Add, change, or remove **individual classes** (scheduled runs) of ONE course, and assign
+trainers. Keeps the learner-facing "Course Date" option and the internal class record in sync,
+and re-indexes. (Named `api_classes`, not `api_schedule`, to avoid confusion with the read-only
+WSQ feed at `GET /courses/api_schedule`.)
 
-`op` is one of: `add_class`, `update_class`, `remove_class`, `assign_trainer`,
-`generate_range` (deferred). All follow the preview->confirm->commit protocol in Sec 3.
+`op` is one of: `add_class`, `update_class`, `remove_class`, `assign_trainer`.
+
+> **There is no bulk "generate a range" op here.** To add several dates to one course, call
+> `add_class` once per date. To roll out a whole schedule across MANY courses at once, use
+> `api_template` (below). Every date you add/edit here is **admin-managed** and durable: a later
+> template roll-out will never remove or overwrite it.
 
 ### Shared behaviour
-- **Class identity = (course code, title, start date).** You never create two classes for the
-  same course + start date; `add_class` on an existing date returns `409 conflict`.
+- **Class identity = (course code, start date).** You never create two classes for the same
+  course + start date; `add_class` on an existing date returns `409 conflict`.
 - **`class_id`** is `SG######`, assigned by the system. For `add_class` the exact id is assigned
-  **on commit** (the preview says "new class, id assigned on commit"); for the other ops you
-  reference an existing `class_id`.
-- **Dates** are `YYYY-MM-DD`. **Times** are `HH:MM` 24h (or a label like `9:30am - 6:30pm` for
-  display fields). **Mode** is `Physical Classroom` or `Virtual`.
+  **on commit**; for the other ops you reference an existing `class_id`.
+- **Dates** are `YYYY-MM-DD`. **Times** are `HH:MM` 24h. **Mode** is `Physical Classroom` or
+  `Virtual`. **Vacancy** is `A` (available) | `L` (limited) | `F` (full).
 - **Enrolment safety:** if a class has enrolled learners, `update_class` (date change) and
   `remove_class` include the enrolment count in `warnings`; `remove_class` additionally requires
   `force: true`. v1 does **not** notify learners - tell the requester the count.
-
----
+- **Course must be schedule-enabled.** `add_class` on a course that has no "Course Date" list
+  yet returns `422 course_not_scheduled` (it must first exist on a schedule template).
 
 ### `op: add_class`
-Add a new scheduled class to a course.
-
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `course_sku` | string | yes | Existing course code |
 | `start_date` | string | yes | `YYYY-MM-DD` |
-| `end_date` | string | no | `YYYY-MM-DD`; defaults to `start_date` (single day) |
-| `start_time` | string | no | Defaults to the course's usual time |
-| `end_time` | string | no | - |
-| `mode` | string | no | `Physical Classroom` \| `Virtual` |
+| `end_date` | string | no | defaults to `start_date` (single day) |
+| `start_time`, `end_time` | string | no | `HH:MM` |
+| `mode` | string | no | `Physical Classroom` \| `Virtual` (default Physical) |
 | `venue` | string | no | - |
-| `trainer` | string | no | Trainer name (or id) to assign |
-| `vacancy` | string | no | `A`\|`L`\|`F`; default `A` |
+| `vacancy` | string | no | `A`\|`L`\|`F` (default `A`) |
 
-**Preview**
+To set the trainer, follow with `assign_trainer` (add_class does not take a trainer).
+
 ```json
-POST /agent/api_schedule
+POST /agent/api_classes
 { "op":"add_class", "dry_run":true,
   "actor":{"id":"wa:+6591234567","name":"Sylvia","role":"marketing"},
-  "course_sku":"C520", "start_date":"2026-08-15", "end_date":"2026-08-15",
-  "mode":"Physical Classroom", "trainer":"Dr Tan" }
+  "course_sku":"C520", "start_date":"2026-08-15", "mode":"Physical Classroom" }
 ```
-```json
-{ "success":true, "dry_run":true, "op":"add_class", "target":"C520",
-  "diff":[{"field":"class","from":null,"to":"C520 @ 2026-08-15 (Physical Classroom, Dr Tan)"}],
-  "human_summary":"A new class for 'C Programming Essential Training' (C520) will be added on 15 Aug 2026, Physical Classroom, trainer Dr Tan. A new SG-series class id is assigned when you confirm.",
-  "warnings":[], "change_token":"sha256:..." }
-```
-**Commit** - resend with `"dry_run":false` + `change_token`. Response includes the new
-`class_id` in `target`.
-
----
+Commit returns the new `class_id` in `target`.
 
 ### `op: update_class`
-Change fields of an existing class.
-
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `class_id` | string | yes | `SG######` |
-| `start_date`,`end_date` | string | no | Changing the date changes the class's effective identity - warns if enrolments exist |
-| `start_time`,`end_time` | string | no | - |
+| `start_date`, `end_date` | string | no | changing the date warns if enrolments exist |
+| `start_time`, `end_time` | string | no | - |
 | `mode` | string | no | `Physical Classroom` \| `Virtual` |
 | `venue` | string | no | - |
 | `vacancy` | string | no | `A`\|`L`\|`F` |
 
-Provide only the fields you want to change. (To change the trainer, prefer `assign_trainer`.)
-See Sec 5 for the preview/commit example.
-
----
+Provide only the fields you want to change. Changing the date re-labels the learner-facing
+"Course Date" and marks it admin-managed (durable). To change the trainer, use `assign_trainer`.
 
 ### `op: remove_class`
-Remove/disable a class date.
-
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `class_id` | string | yes | `SG######` |
-| `force` | bool | conditionally | Must be `true` to remove a class that has enrolled learners |
+| `force` | bool | conditionally | must be `true` to remove a class that has enrolled learners |
 
 Without `force` on a class with learners -> `422 enrolments_exist` (the preview `warnings` tells
 you the count first). v1 does not notify enrolled learners.
 
----
-
 ### `op: assign_trainer`
-Set or replace the trainer on a class.
-
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `class_id` | string | yes | `SG######` |
-| `trainer` | string | yes | Trainer name (or id). Must resolve to a known trainer. |
+| `trainer` | string | yes | Trainer name **or** email. |
+| `trainer_email` | string | conditionally | Required when assigning a brand-new trainer (no account, no email on file). |
 
-Preview shows `{from: <old trainer>, to: <new trainer>}`.
-
----
-
-### `op: generate_range` - **deferred**
-Bulk-create a series of classes from a rule (e.g. every Saturday for 8 weeks). **Not yet
-specified** - pending a decision on the exact rule inputs (weekday pattern, session length,
-whether to skip public holidays). This mirrors the existing native date-generation logic and
-will be added here once those inputs are confirmed. Until then, use repeated `add_class` calls.
+- If the name matches several trainers -> `409 ambiguous_trainer` (re-issue with the email).
+- Assigning someone with no MMS account creates an **inactive** trainer account (login disabled
+  until an admin enables it); the preview `warnings` say so.
 
 ---
 
-# Endpoint: `POST /agent/api_course` - update course info *(outline)*
+# Endpoint: `POST /agent/api_course` - update course info
 
-`op: update`, `sku`, `fields{}` from an **allowlist**: `description`, `short_description`,
-`price`, `special_price`, `meta_title`, `meta_description`, `status`, `url_key`, `category_ids`.
-**Hard-blocked:** `name`, `sku`, and all GST/tax/funding fields (`422 forbidden_field`). Same
-preview->confirm->commit protocol. Full field table to follow.
+`op: update`. Change whitelisted product fields on one course.
 
-# Endpoint: `POST /agent/api_content` - marketing / content *(outline)*
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `sku` | string | yes | Course code |
+| `fields` | object | yes | Map of `field -> value`, at least one |
 
-`op`: `update_copy` (description/short/meta), `set_badges` (from the nine canonical badge names
-in `agent-context.md` Sec 5), `set_cms_section` (per-course content blocks). Product reviews are
-created via the separate existing review API (`POST /kael_review_api.php`). Full spec to follow.
+**Allowed fields:** `description`, `short_description`, `price`, `special_price`, `meta_title`,
+`meta_description`, `status` (`enabled`/`disabled`), `url_key`, `category_ids` (array of category
+ids).
+**Hard-blocked** (`422 forbidden_field`): `name`, `sku`, and all GST / tax / funding fields - the
+course name is sacred and funding math is deliberate.
 
-# Endpoint: `POST /agent/api_ops` - website / MMS operations *(outline)*
+```json
+{ "op":"update", "dry_run":true, "actor":{...},
+  "sku":"C472", "fields":{ "price": 780, "meta_title": "SC-900 Exam Prep | Tertiary Courses" } }
+```
+Preview returns a `diff` of each changed field (`from`/`to`); unchanged supplied values are
+ignored, and if nothing actually changes you get `400 validation_error`.
 
-`op`: `reindex` (`catalog_url`|`catalog_product_flat`|`catalog_product_price`|`all`),
-`flush_cache`, `regenerate_image` (course cover + badge chips), `enable`/`disable` (by `sku`),
-`run_class_formation`. Powerful ops are rate-limited + audited. Full spec to follow.
+---
+
+# Endpoint: `POST /agent/api_content` - marketing / content
+
+| `op` | Fields | Notes |
+|---|---|---|
+| `update_copy` | `sku`, `fields{}` from `description`, `short_description`, `meta_title`, `meta_description` | Same as `api_course` copy fields, framed for content authors. |
+| `set_badges` | `sku`, `badges: []` | Sets funding badges from the canonical nine (see `agent-context.md`). Written as tags so storefront chips match. **After this, run `api_ops regenerate_image`** to refresh the cover to match. |
+| `set_cms_section` | - | **`501 not_implemented`** - per-course CMS sections aren't wired yet. |
+
+Product reviews are created via the separate existing review API (`POST /kael_review_api.php`),
+not here.
+
+```json
+{ "op":"set_badges", "dry_run":true, "actor":{...},
+  "sku":"C472", "badges":["WSQ","SkillsFuture Credit"] }
+```
+
+---
+
+# Endpoint: `POST /agent/api_ops` - website / MMS operations
+
+| `op` | Fields | Notes |
+|---|---|---|
+| `reindex` | `indexes: [] \| "all"` | Whitelisted indexers (`catalog_product_flat`, `catalog_product_price`, `catalog_url`, `catalog_category_product`, `catalogsearch_fulltext`, `tag_summary`, ...). Resource-intensive - the preview warns. |
+| `flush_cache` | - | Flush all Magento caches. |
+| `enable` | `sku` | Show the course on the storefront. |
+| `disable` | `sku` | Hide the course from the storefront. |
+| `regenerate_image` | `sku` | Re-render the AI cover from the course's **current** funding badges, publish it to storefront + R2, and sync badge chips. Use right after `api_content set_badges`. On a non-funding-eligible site the cover renders without badges (the preview warns). |
+| `run_class_formation` | - | **`501 not_implemented`** - class formation is cron-driven (runs every minute); not exposed. |
+
+```json
+{ "op":"regenerate_image", "dry_run":true, "actor":{...}, "sku":"C472" }
+```
+
+---
+
+# Endpoint: `POST /agent/api_template` - bulk schedule across ALL products
+
+The **only** bulk / all-products scheduling path. Use it **only** when the user explicitly wants
+to add dates to a shared schedule **template** and roll them out to **every course** on that
+template. For a single course, use `api_classes add_class` instead.
+
+`op: generate_and_apply`
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `template` | string | yes | A loose reference to the template - a slot code (`A01`-`E04`), or code + words (`"WSQ A01"`, `"SG B01"`), or part of the template name. |
+| `start_date` | string | yes | `YYYY-MM-DD` |
+| `end_date` | string | yes | `YYYY-MM-DD`; must be >= `start_date` |
+| `slot_code` | string | no | Override the slot code if the template name doesn't contain one. Normally derived from the template. |
+
+**How it works:** it resolves the template, generates class dates for the template's slot code
+over `[start_date, end_date]` (the academy's standard schedule logic), **appends** the new dates
+to the template (never removes or rewrites existing ones), and applies the template to **every**
+course using it.
+
+**Resolution & disambiguation:** a bare code is often ambiguous (e.g. `A01` matches both
+`"A01 ..."` and `"(SG) WSQ-A01 ..."`) -> `409 ambiguous_template`, whose message lists the
+candidates; re-issue with a distinguishing word (`"WSQ A01"`). No match -> `404 not_found`.
+
+**Safety:** append-only. Existing template dates are kept, and any date an admin added to a
+single course by hand (via `api_classes` or the admin UI) is **never** touched. The preview's
+`warnings` always state **how many courses** this will affect - relay that to the user before
+confirming.
+
+**Preview**
+```json
+POST /agent/api_template
+{ "op":"generate_and_apply", "dry_run":true, "actor":{...},
+  "template":"WSQ B01", "start_date":"2027-01-01", "end_date":"2027-03-31" }
+```
+```json
+{ "success":true, "dry_run":true, "op":"generate_and_apply",
+  "target":"(SG) WSQ-B01 Mon-Tues/Sat-Sun 1st wk",
+  "diff":[{"field":"template_dates","from":null,"to":["4/5 Jan 2027 (Mon/Tue)", "..."]}],
+  "human_summary":"Add 6 new class date(s) to template \"(SG) WSQ-B01 ...\" (slot B01) and apply to ALL 27 course(s) using it: ...",
+  "warnings":[
+    "This applies to ALL 27 course(s) assigned to this template, not just one course.",
+    "Append-only: existing template dates are kept, and any date an admin added to a single course by hand is never removed."
+  ],
+  "change_token":"sha256:..." }
+```
+**Commit** returns `dates_added`, `already_present`, and `products_applied`.
