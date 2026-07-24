@@ -38,6 +38,31 @@ class Infortis_Ultimo_Block_Product_List_Featured extends Mage_Catalog_Block_Pro
 
 	}
 
+	/**
+	 * Random sliders must be rendered for every request.
+	 *
+	 * Caching a random collection freezes the first selection for the full
+	 * 24-hour block-cache lifetime, so refreshing the homepage never changes
+	 * the courses shown.
+	 *
+	 * @return int|null
+	 */
+	public function getCacheLifetime()
+
+	{
+
+		if ($this->getIsRandom())
+
+		{
+
+			return NULL;
+
+		}
+
+		return parent::getCacheLifetime();
+
+	}
+
 	
 
 	/**
@@ -329,4 +354,3 @@ class Infortis_Ultimo_Block_Product_List_Featured extends Mage_Catalog_Block_Pro
 	}
 
 }
-
