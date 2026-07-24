@@ -344,8 +344,10 @@ hardening calls in Sec 10 (per-capability keys, `actor.role` enum).
    `501 not_implemented`.
 8. **`actor.role` vocabulary** - free-text today (recorded, not enforced). Adopt a fixed enum
    for a cleaner audit trail? (Cheap; recommended.)
-9. **Per-capability API keys** - all endpoints share the one read key today. Split out a
-   dedicated, independently-revocable **write** key - and note `api_template` is the
-   highest-blast-radius op (touches every product on a template), so it's the first op that
-   would warrant its own/elevated key if scopes are split.
+9. ~~**Per-capability API keys**~~ **DECIDED - ship the shared key in v1.** All endpoints keep
+   the single shared key for now; split into per-capability / dedicated write keys only later
+   if needed. When that happens, `api_template` (highest blast radius - touches every product
+   on a template) is the first op to move behind its own/elevated key. Blast radius meanwhile
+   is capped by field allowlists + hard-blocked fields (name/sku/GST) + admin_managed
+   protection + the full audit trail.
 ```
