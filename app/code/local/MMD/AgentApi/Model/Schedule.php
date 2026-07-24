@@ -18,14 +18,6 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
 {
     const COURSE_DATE_OPTION = 'Course Date';
 
-    /**
-     * Plain-English heads-up shown when the course is managed by a shared
-     * schedule template. A per-course ad-hoc date is temporary: any later
-     * re-apply of that template overwrites the course's dates to match the
-     * template, removing this one. Kept simple for non-technical readers.
-     */
-    const TEMPLATE_WARNING = 'Heads up: this course normally gets its dates from a shared schedule template. This change affects only this one course. If that template is applied again later, this change can be undone - to make it permanent it also needs to be added to the template.';
-
     /* mode_of_training TINYINT: 1 = Physical Classroom, 2 = Virtual. */
     protected $_modeToInt = array('physical classroom' => 1, 'physical' => 1, 'classroom' => 1, 'virtual' => 2, 'online' => 2);
     protected $_intToMode = array(1 => 'Physical Classroom', 2 => 'Virtual');
@@ -88,7 +80,7 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
             'human_summary' => 'A new class for "' . $product->getName() . '" (' . $sku . ') will be added on '
                                 . $label . ' (' . $this->_intToMode[$mode] . ($venue ? ', ' . $venue : '')
                                 . '). A new SG-series class id is assigned on confirm.',
-            'warnings'      => $this->_templateWarnings((int) $product->getId()),
+            'warnings'      => array(),
             'token_payload' => array('sku' => $sku, 'product_id' => (int) $product->getId(),
                 'start' => $startDate, 'end' => $endDate, 'start_time' => $startTime, 'end_time' => $endTime,
                 'mode' => $mode, 'venue' => $venue, 'vacancy' => $vacancy, 'label' => $label),
@@ -188,7 +180,6 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
         if ($dateChanged && $enrol > 0) {
             $warnings[] = $enrol . ' learner(s) are enrolled on this class; they will NOT be auto-notified of the date change.';
         }
-        $warnings = array_merge($warnings, $this->_templateWarnings((int) $run['product_id']));
 
         return array(
             'target'        => $classId,
@@ -240,7 +231,6 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
         $warnings = $enrol > 0
             ? array($enrol . ' enrolled learner(s) will be affected; they are NOT auto-notified in v1.')
             : array();
-        $warnings = array_merge($warnings, $this->_templateWarnings((int) $run['product_id']));
 
         return array(
             'target'        => $classId,
@@ -340,28 +330,6 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
             "SELECT run_id FROM `{$table}` WHERE product_id = ? AND course_start_date = ? AND course_end_date = ? LIMIT 1",
             array((int) $productId, $start, $end)
         );
-    }
-
-    /** Warning list carrying the template heads-up when the course is template-managed. */
-    protected function _templateWarnings($productId)
-    {
-        return $this->_isTemplateManaged($productId) ? array(self::TEMPLATE_WARNING) : array();
-    }
-
-    /** True if the course is assigned to a shared schedule template (custom_options_relation). */
-    protected function _isTemplateManaged($productId)
-    {
-        try {
-            $resource = Mage::getSingleton('core/resource');
-            $read     = $resource->getConnection('core_read');
-            $table    = $resource->getTableName('custom_options_relation');
-            return (bool) $read->fetchOne(
-                "SELECT 1 FROM `{$table}` WHERE product_id = ? LIMIT 1",
-                array((int) $productId)
-            );
-        } catch (Exception $e) {
-            return false;
-        }
     }
 
     protected function _runSnapshot($run)
@@ -543,6 +511,10 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
         $write = $resource->getConnection('core_write');
         $tt = $resource->getTableName('catalog/product_option_type_title');
         $write->update($tt, array('title' => $newLabel), array('option_type_id = ?' => $otid, 'store_id = ?' => 0));
+        // A date edit takes ownership of this value: flag it so a later template
+        // Apply never reconciles/removes it (mirrors the Edit Course tab).
+        $tv = $resource->getTableName('catalog/product_option_type_value');
+        $write->update($tv, array('admin_managed' => 1), array('option_type_id = ?' => $otid));
         return true;
     }
 
