@@ -6,7 +6,11 @@
  *   op: update_class   { class_id, start_date?, end_date?, start_time?, end_time?, mode?, venue?, vacancy? }
  *   op: remove_class   { class_id, force? }
  *   op: assign_trainer { class_id, trainer }        (name or trainer_option_id)
- *   op: generate_range - surfaced, not implemented (pending rule-input decision)
+ *
+ * There is deliberately no per-course "generate a range" op: to add several
+ * dates to one course the agent calls add_class once per date (each is an
+ * admin-managed, durable class). Bulk schedule generation across ALL products
+ * is a template-level operation (see api_template), not a per-course one.
  *
  * Keeps two things in sync: the authoritative class record (course_runs) and
  * the learner-facing "Course Date" custom-option value on the product. Class
@@ -30,7 +34,9 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
             case 'remove_class':   return $this->_previewRemove($body);
             case 'assign_trainer': return $this->_previewAssignTrainer($body);
             case 'generate_range':
-                $this->_err('not_implemented', 'generate_range is not implemented yet (pending rule-input decision).', 501);
+                $this->_err('validation_error',
+                    'Adding several dates to one course is done with add_class (one call per date). '
+                    . 'Bulk generation across all products is a template operation (api_template).', 400);
             default:
                 $this->_err('validation_error', 'Unsupported op "' . $op . '" for api_schedule.', 400);
         }
