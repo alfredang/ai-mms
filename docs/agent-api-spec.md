@@ -167,8 +167,11 @@ WSQ feed at `GET /courses/api_schedule`.)
 - **Enrolment safety:** if a class has enrolled learners, `update_class` (date change) and
   `remove_class` include the enrolment count in `warnings`; `remove_class` additionally requires
   `force: true`. v1 does **not** notify learners - tell the requester the count.
-- **Course must be schedule-enabled.** `add_class` on a course that has no "Course Date" list
-  yet returns `422 course_not_scheduled` (it must first exist on a schedule template).
+- **Unscheduled courses:** if a course has no "Course Date" list yet, `add_class` will
+  **bootstrap** one — but only if you supply `start_time` + `end_time` (there's no template to
+  inherit a time from). Without them it returns `422 course_not_scheduled`. The bootstrapped date
+  is a one-off (not on any template). Prefer asking the user first: "put it on a recurring
+  template (`api_template assign_course`), or just add this one date?"
 
 ### `op: add_class`
 | Field | Type | Required | Notes |
@@ -180,6 +183,7 @@ WSQ feed at `GET /courses/api_schedule`.)
 | `mode` | string | no | `Physical Classroom` \| `Virtual` (default Physical) |
 | `venue` | string | no | - |
 | `vacancy` | string | no | `A`\|`L`\|`F` (default `A`) |
+| `start_time`, `end_time` | string | conditionally | Normally optional, but **required** when bootstrapping a not-yet-scheduled course (see above). |
 
 To set the trainer, follow with `assign_trainer` (add_class does not take a trainer).
 
@@ -287,11 +291,14 @@ not here.
 
 # Endpoint: `POST /agent/api_template` - bulk schedule across ALL products
 
-The **only** bulk / all-products scheduling path. Use it **only** when the user explicitly wants
-to add dates to a shared schedule **template** and roll them out to **every course** on that
-template. For a single course, use `api_classes add_class` instead.
+Bulk / all-products scheduling, plus assigning a course to a template. Use `generate_and_apply`
+**only** when the user explicitly wants to add dates to a shared template and roll them out to
+**every course** on it. Use `assign_course` to put one course onto a template. For a one-off date
+on a single course, use `api_classes add_class` instead.
 
-`op: generate_and_apply`
+**Ops:** `generate_and_apply`, `assign_course`.
+
+## op: generate_and_apply
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
@@ -332,3 +339,28 @@ POST /agent/api_template
   "change_token":"sha256:..." }
 ```
 **Commit** returns `dates_added`, `already_present`, and `products_applied`.
+
+## op: assign_course
+
+Add ONE course to a template and apply the template's current schedule to it — the course gains
+that template's dates and stays in sync with future `generate_and_apply` roll-outs. This is how a
+course *joins* a template (a not-yet-scheduled course, or moving one onto a recurring schedule).
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `template` | string | yes | Same loose reference + disambiguation as above |
+| `course_sku` | string | yes | The course to add |
+
+- Already on that template → `409 conflict`.
+- The preview states how many dates the course will receive and warns if it already had its own
+  schedule (those hand-added dates are kept — the template's dates are merged in).
+
+```json
+POST /agent/api_template
+{ "op":"assign_course", "dry_run":true, "actor":{...}, "template":"WSQ B01", "course_sku":"C520" }
+```
+```json
+{ "success":true, "dry_run":true, "op":"assign_course", "target":"C520",
+  "human_summary":"Course '...' (C520) will be added to template '(SG) WSQ-B01 ...' and receive its 34 scheduled class date(s). ...",
+  "change_token":"sha256:..." }
+```

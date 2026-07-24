@@ -167,9 +167,16 @@ Fields: `course_sku` (req), `start_date` (req), `end_date?` (defaults to start),
 3. Commit → `{ applied:true, target:"SG000123" }`. Tell Sylvia the new class id.
 
 **Edge cases**
-- **`422 course_not_scheduled`** — the course has no "Course Date" list yet. It must first be
-  put on a schedule template (an admin action, or via `api_template`) before ad-hoc dates can be
-  added. Tell the user the course "isn't set up for scheduled dates yet."
+- **Unscheduled course → confirm first, then either path.** If the course has no schedule yet
+  (no "Course Date" list), don't just force one — **ask the user**: "This course isn't on a
+  schedule yet. Do you want to (a) put it on a recurring template, or (b) just add this one
+  date?"
+  - **(a) recurring** → `api_template assign_course { template, course_sku }` (it inherits the
+    template's dates and stays in sync).
+  - **(b) one-off** → `add_class` will **bootstrap** the course automatically — but you must
+    include `start_time` + `end_time` (there's no template to inherit a time from). Without them
+    you get **`422 course_not_scheduled`** asking for the times. The bootstrapped date is durable
+    and tied to no template.
 - **`409 conflict`** — a class already exists for that course+date. Nothing to do.
 - `add_class` does **not** set a trainer — follow with `assign_trainer`.
 - A newly added class starts with an **empty roster**. Learner enrolments are materialised from
@@ -284,14 +291,17 @@ or `flush_cache`, confirm (warn it's briefly slower), commit.
 
 ---
 
-## 5.5 `POST /agent/api_template` — bulk schedule to ALL products
+## 5.5 `POST /agent/api_template` — bulk schedule + join a template
 
-The **only** bulk path. Use it **only** when the user explicitly wants to add dates to a shared
-schedule **template** and roll them out to **every course** on that template. For a single
+Two ops: **`generate_and_apply`** (add dates to a template and roll them out to EVERY course on
+it) and **`assign_course`** (put one course onto a template). For a one-off date on a single
 course, use `api_classes add_class`.
 
-One op, `generate_and_apply`. Fields: `template` (req — loose reference), `start_date` (req),
-`end_date` (req), `slot_code?` (override).
+### op: generate_and_apply
+
+Use it **only** when the user explicitly wants to add dates to a shared template and roll them out
+to **every course** on that template. Fields: `template` (req — loose reference), `start_date`
+(req), `end_date` (req), `slot_code?` (override).
 
 **How it works:** it resolves the template, generates class dates for the template's **slot code**
 (`A01`–`E04`, which encodes the weekday / week-of-month pattern) over `[start_date, end_date]`,
@@ -322,6 +332,25 @@ template and the date range.
 - It reindexes prices for all affected products — a big template is a heavy operation; set the
   user's expectation.
 
+### op: assign_course
+
+Add ONE course to a template — it gains that template's current schedule and stays in sync with
+future roll-outs. This is how a course *joins* a recurring schedule (e.g. a brand-new or
+never-scheduled course). Fields: `template` (req), `course_sku` (req).
+
+**Use case — "Put C520 on the WSQ B01 schedule"**
+1. Preview `assign_course { template:"WSQ B01", course_sku:"C520" }`.
+2. Server: `human_summary: "Course '...' (C520) will be added to template '(SG) WSQ-B01 ...' and
+   receive its 34 scheduled class date(s). It then stays in sync with future roll-outs."` → confirm.
+3. Commit → the course now has those 34 dates and is a template member.
+
+**Edge cases**
+- **`409 conflict`** — the course is already on that template.
+- If the course **already had its own schedule**, the preview warns: the template's dates are
+  merged in and any hand-added (admin-managed) date is kept.
+- This is the "recurring" answer to the *"schedule this unscheduled course"* question — the
+  one-off answer is `api_classes add_class` (with times).
+
 ---
 
 # 6. Recipes (multi-step scenarios)
@@ -344,6 +373,13 @@ template and the date range.
    "ALL N courses" count**, confirm, commit.
 2. For any one-off extra date on a single course afterwards, use `api_classes add_class` (durable;
    the next template roll-out won't wipe it).
+
+**E. Schedule a course that has no schedule yet** — **ask first**, then branch:
+> "This course isn't on a schedule yet. Put it on a recurring template, or just add this one date?"
+- **Recurring** → `api_template assign_course { template, course_sku }` (inherits the template's
+  dates; stays in sync).
+- **One-off** → `api_classes add_class { course_sku, start_date, start_time, end_time, mode }`
+  (bootstraps the course; durable; not on any template).
 
 ---
 
@@ -371,11 +407,11 @@ template and the date range.
 
 | Endpoint | Ops | One-liner |
 |---|---|---|
-| `POST /agent/api_classes` | add_class, update_class, remove_class, assign_trainer | One course's classes + trainers (durable) |
+| `POST /agent/api_classes` | add_class, update_class, remove_class, assign_trainer | One course's classes + trainers (durable; add_class bootstraps an unscheduled course when given times) |
 | `POST /agent/api_course` | update | Whitelisted course fields (name/sku/GST blocked) |
 | `POST /agent/api_content` | update_copy, set_badges | Copy + funding chips (`set_cms_section` = 501) |
 | `POST /agent/api_ops` | reindex, flush_cache, enable, disable, regenerate_image | Ops + cover render (`run_class_formation` = 501) |
-| `POST /agent/api_template` | generate_and_apply | Bulk schedule to ALL products on a template |
+| `POST /agent/api_template` | generate_and_apply, assign_course | Bulk schedule to ALL products on a template; or add one course to a template |
 
 Every one: `dry_run:true` to preview, relay `human_summary` + `warnings`, `dry_run:false` +
 `change_token` to commit.
