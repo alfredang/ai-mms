@@ -489,6 +489,36 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                     $_sort  = isset($_fields['sort'])  ? (int) $_fields['sort']  : null;
                     $_regIso = isset($_fields['reg_course']) ? trim((string) $_fields['reg_course']) : null;
 
+                    // HTML date input is Y-m-d; reg_course column stores m/d/y. Empty clears.
+                    $_regOut = null;
+                    if ($_regIso !== null) {
+                        $_regOut = '';
+                        if ($_regIso !== '') {
+                            $_dt = DateTime::createFromFormat('Y-m-d', $_regIso);
+                            if ($_dt instanceof DateTime) $_regOut = $_dt->format('n/j/y');
+                        }
+                    }
+
+                    // A genuine hand-edit of this date's identity (its title or its
+                    // registration date) takes ownership of it: flag admin_managed so a
+                    // later schedule-template Apply never reconciles/removes it. Cosmetic
+                    // changes (sort/price) alone do not detach it from the template.
+                    $_editedIdentity = false;
+                    if ($_title !== null && $_title !== '') {
+                        $_curTitle = (string) $_read->fetchOne(
+                            "SELECT title FROM {$_optTypeTitle} WHERE option_type_id = ? AND store_id = 0",
+                            array($_vid)
+                        );
+                        if ($_title !== $_curTitle) $_editedIdentity = true;
+                    }
+                    if ($_regOut !== null) {
+                        $_curReg = (string) $_read->fetchOne(
+                            "SELECT reg_course FROM {$_optTypeTable} WHERE option_type_id = ?",
+                            array($_vid)
+                        );
+                        if ($_regOut !== $_curReg) $_editedIdentity = true;
+                    }
+
                     if ($_title !== null && $_title !== '') {
                         $_write->update(
                             $_optTypeTitle,
@@ -503,16 +533,17 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                             $_write->quoteInto('option_type_id = ?', $_vid)
                         );
                     }
-                    if ($_regIso !== null) {
-                        // HTML date input is Y-m-d; reg_course column stores m/d/y. Empty clears.
-                        $_regOut = '';
-                        if ($_regIso !== '') {
-                            $_dt = DateTime::createFromFormat('Y-m-d', $_regIso);
-                            if ($_dt instanceof DateTime) $_regOut = $_dt->format('n/j/y');
-                        }
+                    if ($_regOut !== null) {
                         $_write->update(
                             $_optTypeTable,
                             array('reg_course' => $_regOut),
+                            $_write->quoteInto('option_type_id = ?', $_vid)
+                        );
+                    }
+                    if ($_editedIdentity) {
+                        $_write->update(
+                            $_optTypeTable,
+                            array('admin_managed' => 1),
                             $_write->quoteInto('option_type_id = ?', $_vid)
                         );
                     }
@@ -566,6 +597,9 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                             'sku'        => '',
                             'sort_order' => $_sort,
                             'reg_course' => $_regOut,
+                            // Admin-added date (case-by-case confirmation) - flag it so a
+                            // later schedule-template Apply never removes it.
+                            'admin_managed' => 1,
                         ));
                         $_newVid = (int) $_write->lastInsertId();
                         $_write->insert($_optTypeTitle, array(

@@ -433,6 +433,9 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
             'sort_order'    => $max + 1,
             'in_group_id'   => $maxIgi + 1,
             'dependent_ids' => $depId,
+            // Admin/agent-added dates are case-by-case confirmations - flag them
+            // so a later schedule-template Apply never removes them.
+            'admin_managed' => 1,
         ));
         $otid = (int) $write->lastInsertId();
         $write->insert($tt, array('option_type_id' => $otid, 'store_id' => 0, 'title' => $label));

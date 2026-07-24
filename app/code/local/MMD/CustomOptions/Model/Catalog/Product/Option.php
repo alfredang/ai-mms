@@ -292,8 +292,14 @@ class MMD_CustomOptions_Model_Catalog_Product_Option extends Mage_Catalog_Model_
                                                 $realOptionIds[$option['option_id']][$option['values']['IGI'.$prValue['in_group_id']]['option_type_id']] = $prValue['option_type_id'];
                                                 unset($option['values']['IGI'.$prValue['in_group_id']]);
                                             } else {
-                                                // delete option value
-                                                $connection->delete($tablePrefix . 'catalog_product_option_type_value', 'option_type_id = ' . $prValue['option_type_id']);
+                                                // delete option value - but NEVER an admin-managed
+                                                // (case-by-case, admin-confirmed) date. A template Apply
+                                                // reconciles only its own generated values; admin-added
+                                                // or hand-edited dates are protected. empty() is safe even
+                                                // before the admin_managed column exists (undefined key).
+                                                if (empty($prValue['admin_managed'])) {
+                                                    $connection->delete($tablePrefix . 'catalog_product_option_type_value', 'option_type_id = ' . $prValue['option_type_id']);
+                                                }
                                             }
                                         }
                                     }                                    
@@ -311,13 +317,22 @@ class MMD_CustomOptions_Model_Catalog_Product_Option extends Mage_Catalog_Model_
                                 
                             } else {
                                 if (isset($prevOption['option_id'])) {
-                                    // delete option
-                                    $connection->delete($tablePrefix . 'catalog_product_option', 'option_id = ' . $prevOption['option_id']);
-                                    $connection->delete($tablePrefix . 'catalog_product_option_type_value', 'option_id = ' . $prevOption['option_id']);
-                                    $connection->delete($tablePrefix . 'custom_options_option_view_mode', 'option_id = ' . $prevOption['option_id']);
-                                    $connection->delete($tablePrefix . 'custom_options_option_description', 'option_id = ' . $prevOption['option_id']);
-                                    $connection->delete($tablePrefix . 'custom_options_option_default', 'option_id = ' . $prevOption['option_id']);
-                                    $connection->delete($tablePrefix . 'custom_options_relation', 'group_id = '.$groupId.' AND product_id = '.$productId.' AND option_id = ' . $prevOption['option_id']);
+                                    // Never let a template Apply wipe a whole option that still holds
+                                    // an admin-managed (case-by-case confirmed) value. If any exist,
+                                    // leave the option and its values in place.
+                                    $adminHeld = (int) $connection->fetchOne(
+                                        'SELECT COUNT(*) FROM ' . $tablePrefix . 'catalog_product_option_type_value'
+                                        . ' WHERE option_id = ' . (int) $prevOption['option_id'] . ' AND admin_managed = 1'
+                                    );
+                                    if (!$adminHeld) {
+                                        // delete option
+                                        $connection->delete($tablePrefix . 'catalog_product_option', 'option_id = ' . $prevOption['option_id']);
+                                        $connection->delete($tablePrefix . 'catalog_product_option_type_value', 'option_id = ' . $prevOption['option_id']);
+                                        $connection->delete($tablePrefix . 'custom_options_option_view_mode', 'option_id = ' . $prevOption['option_id']);
+                                        $connection->delete($tablePrefix . 'custom_options_option_description', 'option_id = ' . $prevOption['option_id']);
+                                        $connection->delete($tablePrefix . 'custom_options_option_default', 'option_id = ' . $prevOption['option_id']);
+                                        $connection->delete($tablePrefix . 'custom_options_relation', 'group_id = '.$groupId.' AND product_id = '.$productId.' AND option_id = ' . $prevOption['option_id']);
+                                    }
                                 }
                             }                            
                         }
