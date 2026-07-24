@@ -293,17 +293,25 @@ codes: `unauthorized(401)`, `api_disabled(503)`, `validation_error(400)`,
 
 ## 9. Phasing / roadmap
 
-- **Phase 0 - scaffolding:** `MMD_AgentApi` module, base controller (key + actor + dry_run
-  + change_token + audit + reindex helper), audit table migration, config for the key.
-  Ship one trivial op end-to-end (e.g. `api_ops: reindex`) to prove the pattern.
-- **Phase 1 - Edit course schedule** (`api_schedule`): highest value; exercises every
-  cross-cutting concern.
-- **Phase 2 - Update course info** (`api_course`).
-- **Phase 3 - Marketing / content** (`api_content`), reusing the review API.
-- **Phase 4 - remaining ops** (`api_ops` full set) + per-capability keys if wanted.
+- **Phase 0 - scaffolding:** DONE. `MMD_AgentApi` module, dispatch helper (key + actor +
+  dry_run + change_token + audit), audit table migration.
+- **Phase 1 - Edit course schedule** (`api_classes`): DONE. add/update/remove class +
+  assign_trainer, fully verified. (Route is `api_classes`, not `api_schedule`, to avoid
+  clashing with the read-only WSQ feed at `/courses/api_schedule`.)
+- **Phase 2 - Update course info** (`api_course`): DONE.
+- **Phase 3 - Marketing / content** (`api_content`): DONE (`update_copy`, `set_badges`;
+  `set_cms_section` deliberately stubbed 501).
+- **Phase 4 - website/MMS ops** (`api_ops`): DONE (`reindex`, `flush_cache`, `enable`,
+  `disable`, `regenerate_image`; `run_class_formation` stubbed 501).
+- **Phase 5 - admin-managed date protection:** DONE. Migration 780 + `saveProductOptions`
+  guard: a schedule-template Apply reconciles only its own generated dates and never removes
+  admin/agent-added ones. Made agent schedule writes durable + let the "template can undo
+  this" warning be dropped.
+- **Phase 6 - bulk template lane** (`api_template`): DONE. `generate_and_apply` (forgiving
+  resolver, GAS-ported generation, append-only, applies to all products, admin_managed-safe).
 
-Each phase = code + its `docs/api/agent-<capability>.md` spec + the mandatory pre-push
-checks (lint, instantiate, route, migration dry-run).
+Remaining: `set_cms_section` + `run_class_formation` (both stubbed by choice), and the two
+hardening calls in Sec 10 (per-capability keys, `actor.role` enum).
 
 ---
 
@@ -318,9 +326,26 @@ checks (lint, instantiate, route, migration dry-run).
 3. ~~**Enrolment-affecting schedule edits**~~ **RESOLVED** - **record-only in v1**: apply +
    audit the change, surface the enrolment count in the preview `warnings[]`, but do **not**
    trigger learner notifications from the API (existing reminder flows handle that).
-4. **Review API** - fold into `api_content` or leave standalone at
-   `/kael_review_api.php`? (Recommend: leave standalone; reference it.)
-5. **Bulk `generate_range`** - confirm the exact rule inputs the agent will supply
-   (weekday pattern, session length, skip public holidays?) - aligns with the GAS port
-   already scoped in `markdown/wsq-reschedule-automation-plan.md` / the class-schedule port.
+4. ~~**Review API**~~ **RESOLVED** - left standalone at `/kael_review_api.php`; `api_content`
+   references it rather than proxying.
+5. ~~**Bulk `generate_range`**~~ **RESOLVED** - there is no per-course range op. Per-course =
+   `api_classes add_class` once per date (each durable/admin-managed). Bulk across all
+   products = `api_template generate_and_apply`, which reuses the native GAS port
+   (`mmd/schedule_generator`) driven by a slot code (A01-E04, derived from the template) +
+   start/end date. "Rule inputs" turned out to be just the slot code + range - the GAS logic
+   already encodes weekday/week-of-month patterns.
+
+### Still open (the remaining decisions)
+
+6. **`set_cms_section` (api_content)** - deferred; needs the per-course CMS-section storage
+   model defined first. Currently returns `501 not_implemented`.
+7. **`run_class_formation` (api_ops)** - **skipped for now.** Class formation already runs on
+   a 1-minute cron; the only real value would be a narrow failure-recovery re-run. Currently
+   `501 not_implemented`.
+8. **`actor.role` vocabulary** - free-text today (recorded, not enforced). Adopt a fixed enum
+   for a cleaner audit trail? (Cheap; recommended.)
+9. **Per-capability API keys** - all endpoints share the one read key today. Split out a
+   dedicated, independently-revocable **write** key - and note `api_template` is the
+   highest-blast-radius op (touches every product on a template), so it's the first op that
+   would warrant its own/elevated key if scopes are split.
 ```
