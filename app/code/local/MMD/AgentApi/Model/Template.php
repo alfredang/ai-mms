@@ -25,9 +25,29 @@ class MMD_AgentApi_Model_Template extends MMD_AgentApi_Model_Abstract
 
     public function preview($op, array $body)
     {
-        if ($op !== 'generate_and_apply') {
-            $this->_err('validation_error', 'Unsupported op "' . $op . '" for api_template (only generate_and_apply).', 400);
+        switch ($op) {
+            case 'generate_and_apply': return $this->_previewGenerateApply($body);
+            case 'assign_course':      return $this->_previewAssignCourse($body);
+            default:
+                $this->_err('validation_error',
+                    'Unsupported op "' . $op . '" for api_template (generate_and_apply | assign_course).', 400);
         }
+    }
+
+    public function commit($op, array $body, array $preview)
+    {
+        switch ($op) {
+            case 'generate_and_apply': return $this->_commitGenerateApply($preview);
+            case 'assign_course':      return $this->_commitAssignCourse($preview);
+            default:
+                $this->_err('validation_error', 'Unsupported op "' . $op . '" for api_template.', 400);
+        }
+    }
+
+    /* ------------------------------------------------ generate_and_apply */
+
+    protected function _previewGenerateApply(array $body)
+    {
         $ref   = $this->_require($body, 'template');
         $start = $this->_date($this->_require($body, 'start_date'), 'start_date');
         $end   = $this->_date($this->_require($body, 'end_date'), 'end_date');
@@ -78,7 +98,7 @@ class MMD_AgentApi_Model_Template extends MMD_AgentApi_Model_Abstract
         );
     }
 
-    public function commit($op, array $body, array $preview)
+    protected function _commitGenerateApply(array $preview)
     {
         $p     = $preview['token_payload'];
         $group = Mage::getModel('customoptions/group')->load((int) $p['group_id']);
@@ -100,6 +120,80 @@ class MMD_AgentApi_Model_Template extends MMD_AgentApi_Model_Abstract
                 'products_applied' => $applied,
             ),
         );
+    }
+
+    /* --------------------------------------------------------- assign_course */
+
+    protected function _previewAssignCourse(array $body)
+    {
+        $ref = $this->_require($body, 'template');
+        $sku = $this->_require($body, 'course_sku');
+        $group = $this->_resolveTemplate($ref);
+
+        $pid = (int) Mage::getModel('catalog/product')->getIdBySku($sku);
+        if (!$pid) {
+            $this->_err('not_found', 'No course with sku=' . $sku . '.', 404);
+        }
+        $product = Mage::getModel('catalog/product')->setStoreId(0)->load($pid);
+
+        $read = Mage::getSingleton('core/resource')->getConnection('core_read');
+        $rel  = Mage::getSingleton('core/resource')->getTableName('custom_options_relation');
+        $isMember = (bool) $read->fetchOne(
+            "SELECT 1 FROM `{$rel}` WHERE group_id = ? AND product_id = ? LIMIT 1",
+            array((int) $group->getId(), $pid));
+        if ($isMember) {
+            $this->_err('conflict', 'Course ' . $sku . ' is already on template "' . $group->getTitle() . '".', 409);
+        }
+
+        $dateCount = count($this->_existingSignatures($group));
+        $alreadyScheduled = (bool) $this->_courseDateOptionId($pid);
+        $warnings = array();
+        if ($alreadyScheduled) {
+            $warnings[] = 'This course already has its own schedule; the template dates will be merged in. Any date an admin added by hand is kept.';
+        }
+
+        return array(
+            'target'        => $sku,
+            'diff'          => array(array('field' => 'template', 'from' => null, 'to' => $group->getTitle())),
+            'human_summary' => 'Course "' . $product->getName() . '" (' . $sku . ') will be added to template "'
+                                . $group->getTitle() . '" and receive its ' . $dateCount . ' scheduled class date(s). '
+                                . 'It then stays in sync with future roll-outs of this template.',
+            'warnings'      => $warnings,
+            'token_payload' => array('group_id' => (int) $group->getId(), 'product_id' => $pid, 'sku' => $sku),
+        );
+    }
+
+    protected function _commitAssignCourse(array $preview)
+    {
+        $p     = $preview['token_payload'];
+        $group = Mage::getModel('customoptions/group')->load((int) $p['group_id']);
+        if (!$group->getId()) {
+            $this->_err('not_found', 'Template #' . (int) $p['group_id'] . ' not found.', 404);
+        }
+        // Apply the template's current schedule to just this one course - creates
+        // its Course Date/Time options + the membership relation, so future
+        // generate_and_apply roll-outs include it.
+        $this->_applyGroupToProducts($group, array((int) $p['product_id']));
+
+        return array(
+            'target'    => $p['sku'],
+            'reindexed' => array('option_value', 'catalog_product_price'),
+            'after'     => array('added_to_template' => $group->getTitle()),
+            'extra'     => array('template' => $group->getTitle(), 'course' => $p['sku']),
+        );
+    }
+
+    /** option_id of the product's "Course Date" custom option, or 0. */
+    protected function _courseDateOptionId($productId)
+    {
+        $resource = Mage::getSingleton('core/resource');
+        $read = $resource->getConnection('core_read');
+        $o    = $resource->getTableName('catalog/product_option');
+        $ot   = $resource->getTableName('catalog/product_option_title');
+        return (int) $read->fetchOne(
+            "SELECT o.option_id FROM `{$o}` o JOIN `{$ot}` ot ON ot.option_id = o.option_id
+              WHERE o.product_id = ? AND ot.title = 'Course Date' ORDER BY ot.store_id LIMIT 1",
+            array((int) $productId));
     }
 
     /* ------------------------------------------------- template resolution */
@@ -330,8 +424,12 @@ class MMD_AgentApi_Model_Template extends MMD_AgentApi_Model_Abstract
         return array('added' => $added, 'fixed' => $fixed, 'existing' => $existing);
     }
 
-    /** Faithful port of OptionsController::runGlobalApplyAction() core. */
-    protected function _applyGroupToProducts($group)
+    /**
+     * Faithful port of OptionsController::runGlobalApplyAction() core. Applies the
+     * template to its own products, or to an explicit $productIds set (used by
+     * assign_course to apply to a single new member).
+     */
+    protected function _applyGroupToProducts($group, $productIds = null)
     {
         $newOpts = @unserialize($group->getHashOptions());
         if (!is_array($newOpts)) $newOpts = array();
@@ -371,7 +469,9 @@ class MMD_AgentApi_Model_Template extends MMD_AgentApi_Model_Abstract
         }
         unset($opt);
 
-        $productIds = $this->_resolveProductIds($group);
+        if ($productIds === null) {
+            $productIds = $this->_resolveProductIds($group);
+        }
         if (!empty($productIds)) {
             Mage::getModel('catalog/product_option')->saveProductOptions(
                 $newOpts, array(), $productIds, $group, $group->getIsActive(), 'apo', array());

@@ -21,6 +21,7 @@
 class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
 {
     const COURSE_DATE_OPTION = 'Course Date';
+    const COURSE_TIME_OPTION = 'Course Time';
 
     /* mode_of_training TINYINT: 1 = Physical Classroom, 2 = Virtual. */
     protected $_modeToInt = array('physical classroom' => 1, 'physical' => 1, 'classroom' => 1, 'virtual' => 2, 'online' => 2);
@@ -68,11 +69,19 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
         $vacancy   = $this->_vacancy($this->_opt($body, 'vacancy', 'A'));
 
         $product = $this->_loadAdmin($sku);
-        if (!$this->_courseDateOptionId($product->getId())) {
+
+        // If the course has no "Course Date" list yet it is not schedule-enabled.
+        // Rather than refuse, bootstrap it: this first class creates its Course
+        // Date + Course Time lists (a one-off, admin-managed schedule, NOT tied to
+        // any template). Bootstrapping needs an explicit time (no template to
+        // inherit one from) - so start_time + end_time are required in that case.
+        // The agent should ask the user "put it on a template, or just add this
+        // one date?" first; this is the "one date" branch.
+        $bootstrap = !$this->_courseDateOptionId($product->getId());
+        if ($bootstrap && ($startTime === '' || $endTime === '')) {
             $this->_err('course_not_scheduled',
-                'Course ' . $sku . ' is not set up for scheduled class dates yet, so there is no date list to add to. '
-                . 'It first needs to be added to a schedule template and applied - that creates its list of dates. '
-                . 'Once that is done, individual dates can be added to it here.', 422);
+                'Course ' . $sku . ' has no schedule set up yet. To create it with this first class, '
+                . 'also provide start_time and end_time. (Or add the course to a schedule template instead.)', 422);
         }
         if ($this->_runExists($product->getId(), $startDate, $endDate)) {
             $this->_err('conflict', 'A class for ' . $sku . ' already exists on ' . $startDate . '.', 409);
@@ -85,17 +94,29 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
                 'to' => $label . ' - ' . $this->_intToMode[$mode] . ($venue ? ' @ ' . $venue : ''))),
             'human_summary' => 'A new class for "' . $product->getName() . '" (' . $sku . ') will be added on '
                                 . $label . ' (' . $this->_intToMode[$mode] . ($venue ? ', ' . $venue : '')
-                                . '). A new SG-series class id is assigned on confirm.',
-            'warnings'      => array(),
+                                . '). A new SG-series class id is assigned on confirm.'
+                                . ($bootstrap ? ' This course has no schedule yet, so this also sets it up ('
+                                    . $startTime . '-' . $endTime . ').' : ''),
+            'warnings'      => $bootstrap
+                ? array('This course has no schedule yet - confirming creates its date + time lists (a one-off, not a shared template) and adds this first class.')
+                : array(),
             'token_payload' => array('sku' => $sku, 'product_id' => (int) $product->getId(),
                 'start' => $startDate, 'end' => $endDate, 'start_time' => $startTime, 'end_time' => $endTime,
-                'mode' => $mode, 'venue' => $venue, 'vacancy' => $vacancy, 'label' => $label),
+                'mode' => $mode, 'venue' => $venue, 'vacancy' => $vacancy, 'label' => $label,
+                'bootstrap' => $bootstrap),
         );
     }
 
     protected function _commitAdd(array $preview)
     {
         $p = $preview['token_payload'];
+
+        // 0. Bootstrap: if this course has no schedule yet, create its Course Time
+        //    (from the given time) + empty Course Date options so the date below is
+        //    bookable. One-off + admin-managed; not tied to any template.
+        if (!empty($p['bootstrap'])) {
+            $this->_bootstrapScheduleOptions($p['product_id'], $p['start_time'], $p['end_time']);
+        }
 
         // 1. Add the learner-facing Course Date option value (bookable) via direct
         //    SQL - the MMD_CustomOptions option model has bespoke per-value fields
@@ -374,6 +395,57 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
               ORDER BY ot.store_id LIMIT 1",
             array((int) $productId, self::COURSE_DATE_OPTION)
         );
+    }
+
+    /**
+     * Bootstrap a never-scheduled course: create its "Course Time" option (one
+     * value, from the given class time) and an empty "Course Date" option, so the
+     * date appended next is bookable (dates dependent_ids-link to a Course Time
+     * value). Both values are admin_managed - a one-off, not a shared template.
+     */
+    protected function _bootstrapScheduleOptions($productId, $startTime, $endTime)
+    {
+        $resource = Mage::getSingleton('core/resource');
+        $read  = $resource->getConnection('core_read');
+        $write = $resource->getConnection('core_write');
+        $opt  = $resource->getTableName('catalog/product_option');
+        $optT = $resource->getTableName('catalog/product_option_title');
+        $tv   = $resource->getTableName('catalog/product_option_type_value');
+        $tt   = $resource->getTableName('catalog/product_option_type_title');
+        $tp   = $resource->getTableName('catalog/product_option_type_price');
+
+        // Unique in_group_ids across the product's existing options / values (an
+        // empty/0 in_group_id collides on a later template apply -> data loss).
+        $maxOptIgi = (int) $read->fetchOne("SELECT MAX(in_group_id) FROM `{$opt}` WHERE product_id = ?", array((int) $productId));
+        $maxValIgi = (int) $read->fetchOne(
+            "SELECT MAX(tv.in_group_id) FROM `{$tv}` tv JOIN `{$opt}` o ON o.option_id = tv.option_id WHERE o.product_id = ?",
+            array((int) $productId));
+
+        // 1. Course Time option + one time value.
+        $write->insert($opt, array('product_id' => (int) $productId, 'type' => 'drop_down',
+            'is_require' => 1, 'sort_order' => 2, 'in_group_id' => $maxOptIgi + 2));
+        $ctOptId = (int) $write->lastInsertId();
+        $write->insert($optT, array('option_id' => $ctOptId, 'store_id' => 0, 'title' => self::COURSE_TIME_OPTION));
+        $write->insert($tv, array('option_id' => $ctOptId, 'sku' => '', 'sort_order' => 1,
+            'in_group_id' => $maxValIgi + 1, 'dependent_ids' => '', 'admin_managed' => 1));
+        $ctVid = (int) $write->lastInsertId();
+        $write->insert($tt, array('option_type_id' => $ctVid, 'store_id' => 0, 'title' => $this->_timeLabel($startTime, $endTime)));
+        $write->insert($tp, array('option_type_id' => $ctVid, 'store_id' => 0, 'price' => 0, 'price_type' => 'fixed'));
+
+        // 2. Empty Course Date option - the caller appends the date value, which
+        //    auto-links (dependent_ids) to the Course Time value created above.
+        $write->insert($opt, array('product_id' => (int) $productId, 'type' => 'drop_down',
+            'is_require' => 1, 'sort_order' => 1, 'in_group_id' => $maxOptIgi + 1));
+        $cdOptId = (int) $write->lastInsertId();
+        $write->insert($optT, array('option_id' => $cdOptId, 'store_id' => 0, 'title' => self::COURSE_DATE_OPTION));
+    }
+
+    /** Friendly time label for a bootstrapped Course Time value, e.g. "09:00 - 18:00". */
+    protected function _timeLabel($start, $end)
+    {
+        $start = trim((string) $start);
+        $end   = trim((string) $end);
+        return ($start !== '' && $end !== '') ? ($start . ' - ' . $end) : ($start . $end);
     }
 
     /**
