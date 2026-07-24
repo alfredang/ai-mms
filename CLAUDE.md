@@ -239,6 +239,27 @@ composer phpunit:test
 | **FlatCategoryUrl** | **HARD RULE — category URLs are always flat.** Class-rewrite of `Mage_Catalog_Model_Url::getCategoryRequestPath` that strips the parent path so every category resolves at `/<url_key>.html`, never `/parent/grandparent/<url_key>.html`. Do NOT disable this module, do NOT add code that prepends parent paths, do NOT "fix" it back to stock behavior — the long deep paths are explicitly unwanted (SEO + UX decision). Applies to every category on the site (each partner site — SG/MY/GH — runs the same code with one store). After deploy, `Catalog URL Rewrites` + `Category Flat Data` indexers must run for the change to take effect on existing data. Collision handling for sibling url_keys is delegated to stock `getUnusedPathByUrlKey` (auto `-1`/`-2`). |
 | **CourseImage** | AI cover-image renderer + funding-badge tags. The cover dialog's badge checkboxes drive both the rendered PNG **and** Magento tag writes (`syncProductTags`), so the storefront chips and the cover are guaranteed to match. Storefront catalog list / product view read `getProductBadges()` (filtered to the 9 canonical names) and render colored pills under the course title. Canonical vocabulary: `WSQ, SkillsFuture Credit, PSEA, UTAP, IBF, HRDF, SFEC, Absentee Payroll, MCES` — defined in `Helper/Data.php::getAllBadges()`. CSS palette in `skin/frontend/ultimo/default/css/custom.css` keyed off `getBadgeCssClass()`. Adding a new badge means: append to `getAllBadges()`, add CSS class, seed a `tag` row. |
 
+### Outward-facing APIs — keep the summary in sync (MANDATORY)
+
+Whenever you **build, change, remove, or rename an outward-facing HTTP API** — any
+`/courses/api_*` reader, the `MMD_AgentApi` `/agent/api_*` write endpoints, the review
+API, the reindex API, or their auth keys — you MUST update **all** of these in the same
+change so the documentation never drifts from the code:
+
+1. **The admin API Summary panel** — the `$_apiCategories` (and `$_apiKeys`) array in
+   `app/design/adminhtml/default/default/template/dashboard/index.phtml`. This is the
+   data-driven table rendered at `adminlogin/dashboard/?panel=api_summary`; adding/editing
+   an endpoint means editing that array, not hand-writing markup.
+2. **The agent-facing docs** (for `/agent/api_*` changes): `docs/agent-api-spec.md` (the
+   terse callable contract) **and** `docs/agent-api-guide.md` (the verbose guide with
+   worked examples + edge cases that gets handed to the OpenClaw agent).
+3. If the endpoint is agent-invocable, reflect any op/field/error changes in both docs and
+   the panel's example request/response.
+
+A change that ships new/changed API behavior without updating (1)+(2) is incomplete. When
+in doubt, grep `$_apiCategories` and the two `docs/agent-api-*.md` files for the endpoint
+name and reconcile every hit.
+
 ### RoleManager Flow
 
 1. **Login** → `Model/Observer.php::onAdminLogin` loads roles from `mmd_user_role_map` into the admin session.

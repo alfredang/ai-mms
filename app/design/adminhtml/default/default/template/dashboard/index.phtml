@@ -11096,6 +11096,97 @@ $_apiCategories = array(
         ),
     ),
     array(
+        'title' => 'Agent Write APIs (OpenClaw)',
+        'description' => 'Preview -> confirm -> commit WRITE endpoints for the OpenClaw chat agent (MMD_AgentApi). Every call carries an actor + dry_run; commit re-sends with the change_token from the preview (server rejects a stale/altered change with 409). Shared X-API-Key. actor.role defaults to "user". Full guide with worked examples + edge cases: docs/agent-api-guide.md.',
+        'endpoints' => array(
+            array(
+                'method' => 'POST', 'path' => '/agent/api_classes', 'authKey' => 'wsq',
+                'title' => 'Edit Course Schedule (per course)',
+                'description' => 'Add / change / remove ONE course\'s classes and assign trainers. Dates added here are admin-managed and survive template roll-outs. ops: add_class, update_class, remove_class, assign_trainer.',
+                'bodyFields' => array(
+                    array('name' => 'op', 'type' => 'string', 'required' => true, 'description' => 'add_class | update_class | remove_class | assign_trainer'),
+                    array('name' => 'actor', 'type' => 'object', 'required' => true, 'description' => '{ id: "wa:+65...", name, role? } - requester identity for the audit log'),
+                    array('name' => 'dry_run', 'type' => 'bool', 'required' => false, 'description' => 'true = preview (returns diff + change_token); omit/false = commit'),
+                    array('name' => 'change_token', 'type' => 'string', 'required' => false, 'description' => 'Required on commit - the token from the matching preview'),
+                    array('name' => '(op fields)', 'type' => 'various', 'required' => false, 'description' => 'add_class: course_sku,start_date,end_date?,start_time?,end_time?,mode?,venue?,vacancy? / update_class + remove_class: class_id (+force) / assign_trainer: class_id,trainer,trainer_email?'),
+                ),
+                'notes' => array(
+                    'Class identity = (course code, start date). add_class on an existing date -> 409 conflict.',
+                    'add_class needs the course already on a schedule template (has a "Course Date" list) - else 422 course_not_scheduled.',
+                    'assign_trainer with an unknown person creates an INACTIVE trainer account (login disabled until an admin enables it); an ambiguous name -> 409 (re-issue with email).',
+                    'Enrolment-affecting date changes / removals warn with the learner count but do NOT notify them; remove_class on a class with learners needs "force": true.',
+                ),
+                'exampleRequest' => "curl -X POST \"__BASE_URL__/agent/api_classes\" -H \"X-API-Key: <key>\" -H \"Content-Type: application/json\" \\\n  -d '{\n    \"op\": \"add_class\", \"dry_run\": true,\n    \"actor\": {\"id\": \"wa:+6591234567\", \"name\": \"Sylvia\", \"role\": \"user\"},\n    \"course_sku\": \"C520\", \"start_date\": \"2026-08-15\", \"mode\": \"Physical Classroom\"\n  }'",
+                'exampleResponse' => "{\n  \"success\": true, \"dry_run\": true, \"op\": \"add_class\", \"target\": \"C520\",\n  \"human_summary\": \"A new class for 'C Programming ...' (C520) will be added on 15 Aug 2026 ...\",\n  \"warnings\": [], \"change_token\": \"sha256:...\"\n}\n// commit: resend dry_run:false + change_token -> { applied:true, target:\"SG000123\", audit_id, reindexed }",
+            ),
+            array(
+                'method' => 'POST', 'path' => '/agent/api_course', 'authKey' => 'wsq',
+                'title' => 'Update Course Info',
+                'description' => 'op: update. Change whitelisted product fields on one course.',
+                'bodyFields' => array(
+                    array('name' => 'op', 'type' => 'string', 'required' => true, 'description' => '"update"'),
+                    array('name' => 'sku', 'type' => 'string', 'required' => true, 'description' => 'Course code'),
+                    array('name' => 'fields', 'type' => 'object', 'required' => true, 'description' => 'Allowed: description, short_description, price, special_price, meta_title, meta_description, status (enabled/disabled), url_key, category_ids[]'),
+                ),
+                'notes' => array(
+                    'Hard-blocked (422 forbidden_field): name, sku, and all GST/tax/funding fields - the course name is sacred and funding math is deliberate.',
+                    'Supplying values that already match / no real change -> 400 validation_error.',
+                ),
+                'exampleRequest' => "curl -X POST \"__BASE_URL__/agent/api_course\" -H \"X-API-Key: <key>\" -H \"Content-Type: application/json\" \\\n  -d '{ \"op\":\"update\", \"dry_run\":true, \"actor\":{\"id\":\"wa:+65...\",\"name\":\"Sylvia\"},\n        \"sku\":\"C472\", \"fields\":{\"price\":780, \"meta_title\":\"SC-900 Exam Prep\"} }'",
+                'exampleResponse' => "{ \"success\":true, \"dry_run\":true, \"diff\":[{\"field\":\"price\",\"from\":720,\"to\":780}], \"change_token\":\"sha256:...\" }",
+            ),
+            array(
+                'method' => 'POST', 'path' => '/agent/api_content', 'authKey' => 'wsq',
+                'title' => 'Marketing / Content',
+                'description' => 'ops: update_copy (description/short/meta), set_badges (funding chips). set_cms_section is 501 not_implemented.',
+                'bodyFields' => array(
+                    array('name' => 'op', 'type' => 'string', 'required' => true, 'description' => 'update_copy | set_badges'),
+                    array('name' => 'sku', 'type' => 'string', 'required' => true, 'description' => 'Course code'),
+                    array('name' => 'fields / badges', 'type' => 'object / array', 'required' => true, 'description' => 'update_copy: fields{description,short_description,meta_title,meta_description}. set_badges: badges[] from the canonical nine.'),
+                ),
+                'notes' => array(
+                    'set_badges writes Magento tags (storefront chips). AFTER it, call api_ops regenerate_image to re-render the cover so the PNG matches the chips.',
+                    'Only the nine canonical badge names are accepted (WSQ, SkillsFuture Credit, PSEA, UTAP, IBF, HRDF, SFEC, Absentee Payroll, MCES).',
+                ),
+                'exampleRequest' => "curl -X POST \"__BASE_URL__/agent/api_content\" -H \"X-API-Key: <key>\" -H \"Content-Type: application/json\" \\\n  -d '{ \"op\":\"set_badges\", \"dry_run\":true, \"actor\":{\"id\":\"wa:+65...\",\"name\":\"Sylvia\"},\n        \"sku\":\"C472\", \"badges\":[\"WSQ\",\"SkillsFuture Credit\"] }'",
+                'exampleResponse' => "{ \"success\":true, \"dry_run\":true, \"diff\":[{\"field\":\"badges\",\"from\":[],\"to\":[\"WSQ\",\"SkillsFuture Credit\"]}], \"change_token\":\"sha256:...\" }",
+            ),
+            array(
+                'method' => 'POST', 'path' => '/agent/api_ops', 'authKey' => 'wsq',
+                'title' => 'Website / MMS Operations',
+                'description' => 'ops: reindex, flush_cache, enable, disable, regenerate_image. run_class_formation is 501 not_implemented (cron-driven).',
+                'bodyFields' => array(
+                    array('name' => 'op', 'type' => 'string', 'required' => true, 'description' => 'reindex | flush_cache | enable | disable | regenerate_image'),
+                    array('name' => '(op fields)', 'type' => 'various', 'required' => false, 'description' => 'enable/disable/regenerate_image: sku. reindex: indexes[] or "all".'),
+                ),
+                'notes' => array(
+                    'regenerate_image re-renders the cover from the course\'s CURRENT badges (set them via api_content set_badges first) and publishes to R2 + storefront; on a non-funding site it renders without chips.',
+                    'reindex / flush_cache are heavy - the preview warns. Use them when a change "isn\'t showing on the site".',
+                ),
+                'exampleRequest' => "curl -X POST \"__BASE_URL__/agent/api_ops\" -H \"X-API-Key: <key>\" -H \"Content-Type: application/json\" \\\n  -d '{ \"op\":\"regenerate_image\", \"dry_run\":true, \"actor\":{\"id\":\"wa:+65...\",\"name\":\"Sylvia\"}, \"sku\":\"C472\" }'",
+                'exampleResponse' => "{ \"success\":true, \"dry_run\":true, \"human_summary\":\"The cover image for '...' (C472) will be re-rendered ...\", \"change_token\":\"sha256:...\" }",
+            ),
+            array(
+                'method' => 'POST', 'path' => '/agent/api_template', 'authKey' => 'wsq',
+                'title' => 'Bulk Schedule to ALL products (template)',
+                'description' => 'op: generate_and_apply. The ONLY bulk path: generate a schedule from a template slot code over a date range and apply to EVERY course on that template. Append-only; admin-added per-course dates are never removed.',
+                'bodyFields' => array(
+                    array('name' => 'op', 'type' => 'string', 'required' => true, 'description' => '"generate_and_apply"'),
+                    array('name' => 'template', 'type' => 'string', 'required' => true, 'description' => 'Loose reference: slot code (A01-E04), code+words ("WSQ A01"), or part of the template name'),
+                    array('name' => 'start_date, end_date', 'type' => 'string', 'required' => true, 'description' => 'YYYY-MM-DD range to generate over'),
+                    array('name' => 'slot_code', 'type' => 'string', 'required' => false, 'description' => 'Override if the template name has no A01-E04 code'),
+                ),
+                'notes' => array(
+                    'Applies to ALL courses on the template - the preview says how many; relay that to the user before confirming.',
+                    'A bare code is often ambiguous (A01 matches both "A01 ..." and "(SG) WSQ-A01 ...") -> 409 ambiguous_template listing candidates; re-issue with "WSQ A01".',
+                    'Append-only + admin_managed-safe: existing template dates and any hand-added per-course date are never removed.',
+                ),
+                'exampleRequest' => "curl -X POST \"__BASE_URL__/agent/api_template\" -H \"X-API-Key: <key>\" -H \"Content-Type: application/json\" \\\n  -d '{ \"op\":\"generate_and_apply\", \"dry_run\":true, \"actor\":{\"id\":\"wa:+65...\",\"name\":\"Sylvia\"},\n        \"template\":\"WSQ B01\", \"start_date\":\"2027-01-01\", \"end_date\":\"2027-03-31\" }'",
+                'exampleResponse' => "{\n  \"success\": true, \"dry_run\": true, \"target\": \"(SG) WSQ-B01 ...\",\n  \"human_summary\": \"Add 6 new class date(s) to template ... and apply to ALL 27 course(s) ...\",\n  \"warnings\": [\"This applies to ALL 27 course(s) ...\", \"Append-only ...\"],\n  \"change_token\": \"sha256:...\"\n}\n// commit -> { applied:true, dates_added:6, already_present:0, products_applied:27 }",
+            ),
+        ),
+    ),
+    array(
         'title' => 'Planned',
         'description' => 'Not yet built — described here so future work doesn\'t need to re-derive scope from scratch.',
         'endpoints' => array(
