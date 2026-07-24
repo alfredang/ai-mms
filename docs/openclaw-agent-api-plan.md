@@ -342,8 +342,12 @@ hardening calls in Sec 10 (per-capability keys, `actor.role` enum).
 7. **`run_class_formation` (api_ops)** - **skipped for now.** Class formation already runs on
    a 1-minute cron; the only real value would be a narrow failure-recovery re-run. Currently
    `501 not_implemented`.
-8. **`actor.role` vocabulary** - free-text today (recorded, not enforced). Adopt a fixed enum
-   for a cleaner audit trail? (Cheap; recommended.)
+8. ~~**`actor.role` vocabulary**~~ **DONE.** Fixed enum
+   `user,learner,trainer,developer,marketing,admin,training_provider`, validated in
+   `_parseActor` (case-insensitive; unknown -> `400`). `role` is optional and defaults to
+   `user` - the universal value for the current binary-whitelist phase (the agent will face
+   customers too, not just staff). When the agent starts distinguishing operators it sends the
+   specific canonical role; no backend change needed.
 9. ~~**Per-capability API keys**~~ **DECIDED - ship the shared key in v1.** All endpoints keep
    the single shared key for now; split into per-capability / dedicated write keys only later
    if needed. When that happens, `api_template` (highest blast radius - touches every product

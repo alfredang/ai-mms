@@ -78,14 +78,17 @@ Every request includes:
 |---|---|---|---|
 | `id` | string | yes | The requester's **WhatsApp number** in E.164, prefixed `wa:` (e.g. `wa:+6591234567`). This is the canonical identity + audit key. |
 | `name` | string | yes | The person's name (how you refer to them) |
-| `role` | string | yes | Their assigned role (you decide authorization from this before calling) |
+| `role` | string | no | Defaults to `user`. If you distinguish the requester's role, send one of: `user`, `learner`, `trainer`, `developer`, `marketing`, `admin`, `training_provider`. An unknown value is rejected (`400`). |
 
 ```json
-{ "id": "wa:+6591234567", "name": "Sylvia", "role": "marketing" }
+{ "id": "wa:+6591234567", "name": "Sylvia", "role": "user" }
 ```
 
-The server records `actor` in the audit log but does **not** re-check authorization - vetting
-the requester's role is **your** responsibility before you ever call.
+**On `role`:** until you distinguish requesters by role, send `user` (or omit it) - that is the
+universal default and is honest for both staff and customers on the shared whitelist. Once you
+assign specific roles, send the matching one (it needs no backend change). The server records
+`actor` in the audit log but does **not** re-check authorization - vetting the requester is
+**your** responsibility before you ever call.
 
 ## 5. Standard responses
 

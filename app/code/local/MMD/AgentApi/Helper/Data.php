@@ -131,19 +131,38 @@ class MMD_AgentApi_Helper_Data extends Mage_Core_Helper_Abstract
     }
 
     /**
+     * Allowed actor roles for the audit trail. `user` is the universal default for an
+     * as-yet-undistinguished requester - the agent currently authorizes via a binary
+     * whitelist and is being exposed to customers too, so most callers are just "a user".
+     * The other six mirror the canonical MMS role codes (mmd_user_role_map) for when the
+     * agent starts distinguishing operators; sending one of those then needs no backend change.
+     */
+    const ACTOR_ROLES = 'user,learner,trainer,developer,marketing,admin,training_provider';
+
+    /**
      * Validate + normalise the actor block. WhatsApp number is the identity;
      * name + role are recorded for traceability. Authorization itself is the
      * agent's job - this only records who it says asked.
+     *
+     * `role` is optional and defaults to `user`; if provided it must be a known role.
      */
     protected function _parseActor(array $body)
     {
         $actor = isset($body['actor']) && is_array($body['actor']) ? $body['actor'] : array();
         $id    = isset($actor['id'])   ? trim((string) $actor['id'])   : '';
         $name  = isset($actor['name']) ? trim((string) $actor['name']) : '';
-        $role  = isset($actor['role']) ? trim((string) $actor['role']) : '';
-        if ($id === '' || $name === '' || $role === '') {
+        $role  = isset($actor['role']) ? strtolower(trim((string) $actor['role'])) : '';
+        if ($id === '' || $name === '') {
             throw new MMD_AgentApi_Model_Exception('validation_error',
-                'actor.id (WhatsApp number), actor.name and actor.role are all required.', 400);
+                'actor.id (WhatsApp number) and actor.name are required.', 400);
+        }
+        $allowed = explode(',', self::ACTOR_ROLES);
+        if ($role === '') {
+            $role = 'user';
+        } elseif (!in_array($role, $allowed, true)) {
+            throw new MMD_AgentApi_Model_Exception('validation_error',
+                'actor.role "' . $role . '" is not recognised. Use one of: ' . self::ACTOR_ROLES
+                . ' (or omit it for the default "user").', 400);
         }
         return array('id' => $id, 'name' => $name, 'role' => $role);
     }
