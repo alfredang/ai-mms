@@ -15,7 +15,8 @@ is the *what it means*.
 
 ## 1. What this system is
 
-It is a **course-registration + learning-management system (LMS)** for a training academy,
+It is the **MMS (Magento Management System)** - the course-registration + course-management
+back office **and** the shared storefront/registration for *all* courses at a training academy,
 built on top of an e-commerce engine. Read that literally:
 
 - **Every "product" is a course** - an instructor-led training/workshop/certification. There
@@ -25,6 +26,15 @@ built on top of an e-commerce engine. Read that literally:
 
 So when you see e-commerce words in API responses (product, order, customer, catalog), map
 them to **course, registration, learner, course list**.
+
+> **"MMS" vs "LMS" - important terminology.** This system is the **MMS**. In this company the
+> word **"LMS" (also "LMS-TMS" / "TMS-LMS") means a *separate* system** that handles **WSQ
+> course administration** (the government-funded `TGS-` courses). The **MMS** owns the **non-WSQ**
+> course admin and is the **shared storefront + registration for *all* courses** (WSQ and non-WSQ
+> alike). So if a user says "the LMS", they mean that **other** system - not this one, and not
+> these APIs. You only ever act on the **MMS** through the APIs in the spec. If a request really
+> belongs in the LMS-TMS (e.g. WSQ-only administration a user says "should be done in the LMS"),
+> say so rather than forcing it here.
 
 **One site = one store.** Each partner country runs its own separate copy of this system on
 its own server. The APIs you call serve **exactly one store** (currently Singapore). You never
@@ -122,7 +132,7 @@ The prefix of the course code tells you the segment:
 
 | Prefix | Segment | Notes |
 |---|---|---|
-| `TGS-` | **Singapore WSQ** (government-funded) course. The SKU *is* the SkillsFuture course reference. | Managed partly by an external funding system - be extra careful. |
+| `TGS-` | **Singapore WSQ** (government-funded) course. The SKU *is* the SkillsFuture course reference. | WSQ course administration largely lives in the **separate LMS-TMS system** + the government SSG system; the MMS still owns their storefront + schedule. Be extra careful. |
 | `C` | **Singapore non-WSQ** course (e.g. `C520`, `C009`) | Full-price; **not** WSQ-subsidised. |
 | `M` | **Other-country** course (e.g. `M1043`) | Belongs to a non-SG store. |
 
@@ -197,6 +207,8 @@ These are hard rules. Breaking them corrupts data or the storefront:
 
 | Term | Means |
 |---|---|
+| MMS | **This system** (Magento Management System): non-WSQ course admin + the shared storefront/registration for *all* courses. What these APIs act on. |
+| LMS / LMS-TMS / TMS-LMS | A **separate** system that handles **WSQ** course administration. **Not** this system - if a user says "the LMS", they mean that one. |
 | Course / product | A training course |
 | Class / run | One scheduled instance of a course on a specific start date |
 | `class_id` | `SG######` label for a class |
