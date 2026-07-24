@@ -192,29 +192,6 @@ input.button,
     white-space: nowrap;
 }
 
-/* WSQ Funding box — consistent rounded gray card.
-   The WSQ Funding block (heading + fee table + SFEC/SFC/UTAP) is pasted
-   into every WSQ course description inside
-   <div style="width:100%;padding:10px;border-radius:25px;"> — rounded and
-   padded but with NO background, so the box is invisible on most courses.
-   Give it a gray fill and roomier padding so every WSQ Funding section
-   renders as the same rounded card. */
-.catalog-product-view div[style*="border-radius: 25px"][style*="padding: 10px"] {
-    /* #dddddd — the exact shade from the one course that originally had
-       this box styled (inline background-color:#dddddd in its description). */
-    background: #dddddd !important;
-    padding: 22px 26px !important;
-    margin: 20px 0 !important;
-    /* The div carries an inline width:100%; combined with side padding
-       (content-box) that pushes it past its grid column and clips the
-       next column's text. Drop back to auto width so it behaves as a
-       normal block — fills its column with the padding INSIDE, so it can
-       never overflow into or cover the neighbouring column. */
-    width: auto !important;
-    box-sizing: border-box !important;
-    max-width: 100% !important;
-}
-
 /* ============================================================
    Catalog listing — Register Now CTA tuning
    ------------------------------------------------------------

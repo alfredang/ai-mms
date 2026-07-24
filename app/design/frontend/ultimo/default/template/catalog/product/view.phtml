@@ -133,15 +133,26 @@
 		// rendering as a raw table in the narrative.
 		$_wsqHeadingPattern = '#<h[1-6][^>]*>' . $_WS . '*(?:WSQ' . $_WS . '+Funding|Funding' . $_WS . '+and' . $_WS . '+Grant' . $_WS . '+Applications?)' . $_WS . '*</h[1-6]>(.*?)(?=<h[12]\b|\z)#siu';
 		$_wsqStripPattern = null;
-		if (preg_match($_wsqPattern, $shortDescription, $_wsqMatch)) {
+		if (preg_match_all($_wsqPattern, $shortDescription, $_wsqMatches)) {
 			$_wsqStripPattern = $_wsqPattern;
-			if (!$_hasWsqFunding) { $_hasWsqFunding = true; $_inner = $_wsqMatch[1]; }
+			if (!$_hasWsqFunding) {
+				$_hasWsqFunding = true;
+				// Some legacy descriptions contain an empty rounded wrapper
+				// immediately before the real funding wrapper. Preserve every
+				// non-empty wrapper body for the canonical funding card instead
+				// of treating only the first (often empty) wrapper as funding.
+				$_inner = trim(implode('', $_wsqMatches[1]));
+			}
 		} elseif (preg_match($_wsqHeadingPattern, $shortDescription, $_wsqMatch)) {
 			$_wsqStripPattern = $_wsqHeadingPattern;
 			if (!$_hasWsqFunding) { $_hasWsqFunding = true; $_inner = $_wsqMatch[1]; }
 		}
 		if ($_wsqStripPattern !== null) {
-			$shortDescription = preg_replace($_wsqStripPattern, '', $shortDescription, 1);
+			// Remove every legacy rounded funding wrapper from the About card.
+			// Its content has already been retained in $_inner (or in the
+			// per-course funding CMS block), so no grey/empty legacy div can
+			// leak into the customer-facing description.
+			$shortDescription = preg_replace($_wsqStripPattern, '', $shortDescription);
 		}
 	}
 	if ($_hasWsqFunding) {
