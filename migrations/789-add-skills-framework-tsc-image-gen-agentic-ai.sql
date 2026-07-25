@@ -13,7 +13,7 @@
 --   <h2>Skills Framework</h2>
 --   <p>This course follows the guideline of&nbsp;<strong>{Title} {Code} TSC</strong> under ICT Skills Framework</p>
 -- The code matcher anchors on the trailing " TSC" marker, and the title is
--- whatever remains after the code and the "follows the guideline of … under …
+-- whatever remains after the code and the "follows the guideline of / under /
 -- Skills Framework" boilerplate are stripped.
 --
 -- Guarded: appends only while 'Skills Framework' is absent from the row, so
