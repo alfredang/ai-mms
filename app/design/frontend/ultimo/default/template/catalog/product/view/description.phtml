@@ -117,6 +117,16 @@ if ($_isWsq) {
             }
         }
 
+        /* Some descriptions author topic headings as bare <h3>Topic N: …</h3>
+           with no class, so the teal-dot card CSS (keyed on
+           h3.course-topic-h3) never matches and the rows render bullet-less.
+           Tag every unclassed <h3> in the card so all markup shapes share the
+           same bullet treatment. */
+        var h3s = std.querySelectorAll('h3:not(.course-topic-h3)');
+        for (var i = 0; i < h3s.length; i++) {
+            h3s[i].className = (h3s[i].className ? h3s[i].className + ' ' : '') + 'course-topic-h3';
+        }
+
         /* Legacy descriptions use <p>• …</p> (often wrapped in <em>) instead
            of <ul><li>…</li></ul>, which bypasses the green-bullet card CSS.
            Group consecutive bullet <p>s into a single <ul>, strip the leading
