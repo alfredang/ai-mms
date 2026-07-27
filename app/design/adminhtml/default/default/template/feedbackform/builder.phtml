@@ -1,0 +1,391 @@
+<?php
+/** @var MMD_FeedbackForm_Helper_Data $h */
+$h          = Mage::helper('mmd_feedbackform');
+$saveUrl    = Mage::helper('adminhtml')->getUrl('adminhtml/formbuilder/save');
+$loadUrl    = Mage::helper('adminhtml')->getUrl('adminhtml/formbuilder/load');
+$fieldTypes = $h->getFieldTypes();
+$autofills  = $h->getAutofillOptions();
+?>
+<style>
+/* ── Card ──────────────────────────────────────────────── */
+.fbb-card{background:#1e2132;border:1px solid #334155;border-radius:12px;padding:24px;margin-bottom:16px;}
+/* ── Typography ────────────────────────────────────────── */
+.fbb-title{font-size:22px;font-weight:700;color:#e2e8f0;margin:0 0 4px;}
+.fbb-subtitle{font-size:13px;color:#64748b;margin:0 0 20px;}
+.fbb-label{display:block;font-size:11px;color:#64748b;margin-bottom:5px;font-weight:500;}
+/* ── Inputs ─────────────────────────────────────────────── */
+.fbb-input,.fbb-select{width:100%;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:8px 12px;color:#e2e8f0;font-size:13px;box-sizing:border-box;}
+.fbb-input:focus,.fbb-select:focus{outline:none;border-color:#3b82f6;}
+.fbb-input-sm,.fbb-select-sm{background:#0f172a;border:1px solid #334155;border-radius:6px;padding:5px 8px;color:#e2e8f0;font-size:12px;width:100%;box-sizing:border-box;}
+.fbb-input-sm:focus,.fbb-select-sm:focus{outline:none;border-color:#3b82f6;}
+/* ── Buttons ────────────────────────────────────────────── */
+.fbb-btn-primary{padding:7px 16px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;}
+.fbb-btn-primary:hover{background:#1d4ed8;}
+.fbb-btn-primary:disabled{opacity:.5;cursor:default;}
+.fbb-btn-secondary{padding:7px 14px;background:transparent;border:1px solid #334155;color:#94a3b8;border-radius:8px;font-size:13px;cursor:pointer;}
+.fbb-btn-secondary:hover{border-color:#60a5fa;color:#e2e8f0;}
+.fbb-btn-outline{padding:7px 14px;background:transparent;border:1px solid #334155;color:#94a3b8;border-radius:8px;font-size:13px;cursor:pointer;}
+.fbb-btn-outline.active{border-color:#3b82f6;color:#60a5fa;background:rgba(59,130,246,.1);}
+.fbb-btn-icon{background:none;border:none;cursor:pointer;color:#64748b;padding:3px 6px;font-size:13px;border-radius:4px;}
+.fbb-btn-icon:hover{color:#e2e8f0;background:rgba(255,255,255,.06);}
+.fbb-btn-icon-danger:hover{color:#ef4444;}
+/* ── Section card ───────────────────────────────────────── */
+.fbb-section{background:#131d2e;border:1px solid #334155;border-radius:10px;padding:18px;margin-bottom:12px;}
+.fbb-section-hdr{display:flex;align-items:center;gap:8px;margin-bottom:14px;}
+.fbb-section-title{flex:1;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:8px 12px;color:#e2e8f0;font-size:15px;font-weight:600;}
+.fbb-section-title:focus{outline:none;border-color:#3b82f6;}
+/* ── Field card ─────────────────────────────────────────── */
+.fbb-field{background:#0f172a;border:1px solid #1e293b;border-radius:8px;padding:12px;margin-bottom:8px;}
+.fbb-field-grid{display:grid;grid-template-columns:5fr 2fr 2fr 1fr 2fr;gap:8px;align-items:end;}
+.fbb-field-options{margin-top:8px;}
+/* ── Add-field button ───────────────────────────────────── */
+.fbb-add-field-btn{width:100%;padding:7px;background:transparent;border:1px dashed #334155;color:#475569;border-radius:8px;font-size:12px;cursor:pointer;margin-top:8px;}
+.fbb-add-field-btn:hover{border-color:#3b82f6;color:#60a5fa;}
+/* ── Add-section button ─────────────────────────────────── */
+.fbb-add-section-btn{width:100%;padding:10px;background:transparent;border:1px dashed #334155;color:#475569;border-radius:8px;font-size:13px;cursor:pointer;}
+.fbb-add-section-btn:hover{border-color:#3b82f6;color:#60a5fa;}
+/* ── Preview ────────────────────────────────────────────── */
+.fbb-preview-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.fbb-preview-title{font-size:15px;font-weight:700;color:#e2e8f0;margin:0;}
+.fbb-preview-sub{font-size:11px;color:#64748b;}
+.fbb-preview-form-title{font-size:14px;color:#64748b;margin-bottom:16px;}
+.fbb-preview-section{margin-bottom:20px;}
+.fbb-preview-section-title{font-size:13px;font-weight:700;color:#94a3b8;padding-bottom:8px;border-bottom:1px solid #1e293b;margin-bottom:12px;}
+.fbb-preview-field{margin-bottom:12px;}
+.fbb-preview-label{display:block;font-size:12px;font-weight:500;color:#94a3b8;margin-bottom:5px;}
+.fbb-preview-input{width:100%;background:#0f172a;border:1px solid #334155;border-radius:6px;padding:7px 10px;color:#475569;font-size:12px;box-sizing:border-box;}
+.fbb-preview-stars{display:flex;align-items:center;gap:8px;margin-top:4px;}
+.fbb-preview-star{color:#334155;}
+.fbb-preview-star svg{width:28px;height:28px;}
+.fbb-preview-star-legend{font-size:11px;color:#475569;margin-top:4px;}
+.fbb-preview-empty{font-size:11px;color:#475569;font-style:italic;}
+.fbb-preview-submit{width:100%;padding:10px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;opacity:.7;cursor:default;margin-top:8px;}
+/* ── Layout ─────────────────────────────────────────────── */
+.fbb-layout{display:grid;grid-template-columns:1fr;gap:16px;}
+.fbb-layout.with-preview{grid-template-columns:1fr 1fr;}
+.fbb-save-status{font-size:12px;}
+/* ── Checkbox ───────────────────────────────────────────── */
+.fbb-req-wrap{display:flex;align-items:center;padding-bottom:2px;}
+.fbb-req-wrap label{font-size:11px;color:#64748b;display:flex;align-items:center;gap:4px;cursor:pointer;}
+.fbb-req-wrap input[type=checkbox]{accent-color:#2563eb;width:13px;height:13px;}
+
+/* ── Light theme — every .fbb-* token hardcoded above gets a slate
+   light counterpart. Card surfaces flip to slate-100 / white,
+   inputs to white with slate-300 borders, body text to slate-900,
+   muted labels to slate-600. Brand-blue accents (primary buttons,
+   focus border, accent-color on checkbox) keep their hue. */
+:root[data-theme="light"] .fbb-card{background:#f1f5f9;border-color:#cbd5e1;}
+:root[data-theme="light"] .fbb-title{color:#0f172a;}
+:root[data-theme="light"] .fbb-subtitle{color:#64748b;}
+:root[data-theme="light"] .fbb-label{color:#475569;}
+:root[data-theme="light"] .fbb-input,
+:root[data-theme="light"] .fbb-select,
+:root[data-theme="light"] .fbb-input-sm,
+:root[data-theme="light"] .fbb-select-sm,
+:root[data-theme="light"] .fbb-section-title{background:#ffffff;border-color:#cbd5e1;color:#0f172a;}
+:root[data-theme="light"] .fbb-input::placeholder,
+:root[data-theme="light"] .fbb-input-sm::placeholder,
+:root[data-theme="light"] .fbb-section-title::placeholder{color:#94a3b8;}
+:root[data-theme="light"] .fbb-input:focus,
+:root[data-theme="light"] .fbb-select:focus,
+:root[data-theme="light"] .fbb-input-sm:focus,
+:root[data-theme="light"] .fbb-select-sm:focus,
+:root[data-theme="light"] .fbb-section-title:focus{border-color:#2563eb;}
+:root[data-theme="light"] .fbb-btn-secondary{border-color:#cbd5e1;color:#475569;}
+:root[data-theme="light"] .fbb-btn-secondary:hover{border-color:#2563eb;color:#0f172a;background:#e2e8f0;}
+:root[data-theme="light"] .fbb-btn-outline{border-color:#cbd5e1;color:#475569;}
+:root[data-theme="light"] .fbb-btn-outline.active{border-color:#2563eb;color:#2563eb;background:rgba(37,99,235,.08);}
+:root[data-theme="light"] .fbb-btn-icon{color:#64748b;}
+:root[data-theme="light"] .fbb-btn-icon:hover{color:#0f172a;background:rgba(15,23,42,.06);}
+:root[data-theme="light"] .fbb-section{background:#ffffff;border-color:#cbd5e1;}
+:root[data-theme="light"] .fbb-field{background:#f8fafc;border-color:#e2e8f0;}
+:root[data-theme="light"] .fbb-add-field-btn,
+:root[data-theme="light"] .fbb-add-section-btn{border-color:#cbd5e1;color:#64748b;background:transparent;}
+:root[data-theme="light"] .fbb-add-field-btn:hover,
+:root[data-theme="light"] .fbb-add-section-btn:hover{border-color:#2563eb;color:#2563eb;}
+/* Preview panel */
+:root[data-theme="light"] .fbb-preview-title{color:#0f172a;}
+:root[data-theme="light"] .fbb-preview-sub{color:#64748b;}
+:root[data-theme="light"] .fbb-preview-form-title{color:#475569;}
+:root[data-theme="light"] .fbb-preview-section-title{color:#475569;border-bottom-color:#e2e8f0;}
+:root[data-theme="light"] .fbb-preview-label{color:#475569;}
+:root[data-theme="light"] .fbb-preview-input{background:#ffffff;border-color:#cbd5e1;color:#94a3b8;}
+:root[data-theme="light"] .fbb-preview-star{color:#cbd5e1;}
+:root[data-theme="light"] .fbb-preview-star-legend,
+:root[data-theme="light"] .fbb-preview-empty{color:#94a3b8;}
+:root[data-theme="light"] .fbb-req-wrap label{color:#475569;}
+</style>
+
+<div class="rm-wrap">
+
+<!-- Page header card -->
+<div class="fbb-card">
+    <h1 class="fbb-title">Feedback Form Builder</h1>
+    <p class="fbb-subtitle">Customise the sections and fields learners fill out after each class.</p>
+
+    <div style="margin-bottom:16px;">
+        <label class="fbb-label" for="fb-title">Form Title</label>
+        <input type="text" id="fb-title" class="fbb-input" placeholder="Course Feedback Form"
+               oninput="fbState.title=this.value;fbMaybeUpdatePreview();">
+    </div>
+
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <button type="button" id="fb-save-btn" class="fbb-btn-primary" onclick="fbSave()">Save</button>
+        <button type="button" class="fbb-btn-secondary" onclick="fbAddSection()">+ Add Section</button>
+        <button type="button" id="fb-preview-btn" class="fbb-btn-outline active" onclick="fbTogglePreview()">Hide Preview</button>
+        <span id="fb-save-status" class="fbb-save-status"></span>
+    </div>
+</div>
+
+<!-- Two-column layout (preview open by default) -->
+<div class="fbb-layout with-preview" id="fbb-layout">
+
+    <!-- Left: Editor -->
+    <div id="fbb-editor">
+        <div id="fb-sections"></div>
+        <button type="button" class="fbb-add-section-btn" onclick="fbAddSection()">+ Add Section</button>
+    </div>
+
+    <!-- Right: Preview (open by default) -->
+    <div id="fbb-preview">
+        <div class="fbb-card" style="position:sticky;top:16px;">
+            <div class="fbb-preview-hdr">
+                <div>
+                    <p class="fbb-preview-title">Live Preview</p>
+                    <p class="fbb-preview-sub">As the learner sees it</p>
+                </div>
+            </div>
+            <p class="fbb-preview-form-title" id="fbp-form-title"></p>
+            <div id="fbp-sections"></div>
+            <button type="button" class="fbb-preview-submit" disabled>Submit Feedback</button>
+        </div>
+    </div>
+
+</div>
+</div><!-- /.rm-wrap -->
+
+<script>
+var FB_SAVE_URL  = '<?php echo $this->jsQuoteEscape($saveUrl) ?>';
+var FB_LOAD_URL  = '<?php echo $this->jsQuoteEscape($loadUrl) ?>';
+var FB_FORM_KEY  = window.FORM_KEY || '';
+var fbState      = { title: '', sections: [] };
+var fbPreviewOn  = true;
+var FB_TYPES     = <?php echo json_encode($fieldTypes) ?>;
+var FB_AUTOFILLS = <?php echo json_encode($autofills) ?>;
+var FB_SAMPLES   = {
+    course_title: 'Sample Course Title',
+    course_code:  'TGS-XXXXXXXX',
+    trainer_name: 'Dr. Trainer Name',
+    start_date:   '15/01/2026',
+    end_date:     '16/01/2026'
+};
+
+// ── Boot ────────────────────────────────────────────────────────────────────
+fetch(FB_LOAD_URL, { credentials: 'same-origin' })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+        if (d.success && d.template) {
+            fbState = { title: d.template.title || '', sections: d.template.sections || [] };
+            document.getElementById('fb-title').value = fbState.title;
+        }
+        fbRender(); // always render; fbPreviewOn=true so preview also renders
+    });
+
+document.getElementById('fb-title').addEventListener('input', function(){
+    fbState.title = this.value;
+    fbMaybeUpdatePreview();
+});
+
+// ── Section operations ───────────────────────────────────────────────────────
+function fbAddSection() {
+    fbState.sections.push({ id: 's'+Date.now(), title: 'New Section', fields: [] });
+    fbRender();
+}
+function fbDeleteSection(si) {
+    if (!confirm('Delete this section and all its fields?')) return;
+    fbState.sections.splice(si, 1);
+    fbRender();
+}
+function fbMoveSec(si, dir) {
+    var ni = si + dir;
+    if (ni < 0 || ni >= fbState.sections.length) return;
+    var tmp = fbState.sections[ni]; fbState.sections[ni] = fbState.sections[si]; fbState.sections[si] = tmp;
+    fbRender();
+}
+function fbSecTitle(si, val) { fbState.sections[si].title = val; fbMaybeUpdatePreview(); }
+
+// ── Field operations ─────────────────────────────────────────────────────────
+function fbAddField(si) {
+    fbState.sections[si].fields.push({ id:'f'+Date.now(), label:'New Field', type:'text', autofill:'', readonly:false, required:false, options:'' });
+    fbRender();
+}
+function fbDeleteField(si, fi) {
+    fbState.sections[si].fields.splice(fi, 1);
+    fbRender();
+}
+function fbMoveField(si, fi, dir) {
+    var fields = fbState.sections[si].fields, ni = fi + dir;
+    if (ni < 0 || ni >= fields.length) return;
+    var tmp = fields[ni]; fields[ni] = fields[fi]; fields[fi] = tmp;
+    fbRender();
+}
+function fbFieldProp(si, fi, key, val) {
+    fbState.sections[si].fields[fi][key] = val;
+    if (key === 'type' || key === 'autofill' || key === 'required' || key === 'readonly' || key === 'label') fbMaybeUpdatePreview();
+}
+
+// ── Render editor ────────────────────────────────────────────────────────────
+function fbRender() {
+    var html = '';
+    fbState.sections.forEach(function(sec, si) {
+        html += '<div class="fbb-section">'
+            + '<div class="fbb-section-hdr">'
+            + '<input class="fbb-section-title" value="'+e(sec.title)+'" oninput="fbSecTitle('+si+',this.value)" placeholder="Section title">'
+            + '<button class="fbb-btn-icon" onclick="fbMoveSec('+si+',-1)" title="Move up">↑</button>'
+            + '<button class="fbb-btn-icon" onclick="fbMoveSec('+si+',1)" title="Move down">↓</button>'
+            + '<button class="fbb-btn-icon fbb-btn-icon-danger" onclick="fbDeleteSection('+si+')" title="Delete section">'
+            + svgDelete(16) + '</button></div>';
+
+        if (sec.fields.length === 0) {
+            html += '<p style="font-size:12px;color:#475569;font-style:italic;margin-bottom:8px;">No fields. Click "+ Add Field" below.</p>';
+        }
+        sec.fields.forEach(function(f, fi) {
+            var typeOpts = '', afOpts = '';
+            for (var k in FB_TYPES) typeOpts += '<option value="'+k+'"'+(f.type===k?' selected':'')+'>'+FB_TYPES[k]+'</option>';
+            for (var ak in FB_AUTOFILLS) afOpts  += '<option value="'+ak+'"'+((f.autofill||'')===ak?' selected':'')+'>'+FB_AUTOFILLS[ak]+'</option>';
+
+            html += '<div class="fbb-field">'
+                + '<div class="fbb-field-grid">'
+                + '<div><label class="fbb-label">Label</label>'
+                +   '<input class="fbb-input-sm" value="'+e(f.label)+'" oninput="fbFieldProp('+si+','+fi+',\'label\',this.value)"></div>'
+                + '<div><label class="fbb-label">Type</label>'
+                +   '<select class="fbb-select-sm" onchange="fbFieldProp('+si+','+fi+',\'type\',this.value)">'+typeOpts+'</select></div>'
+                + '<div><label class="fbb-label">Autofill</label>'
+                +   '<select class="fbb-select-sm" onchange="fbFieldProp('+si+','+fi+',\'autofill\',this.value)">'+afOpts+'</select></div>'
+                + '<div class="fbb-req-wrap"><label>'
+                +   '<input type="checkbox"'+(f.required?' checked':'')+' onchange="fbFieldProp('+si+','+fi+',\'required\',this.checked)"> Req'
+                + '</label></div>'
+                + '<div style="display:flex;align-items:flex-end;gap:4px;padding-bottom:1px;">'
+                +   '<button class="fbb-btn-icon" onclick="fbMoveField('+si+','+fi+',-1)" title="Move up">↑</button>'
+                +   '<button class="fbb-btn-icon" onclick="fbMoveField('+si+','+fi+',1)" title="Move down">↓</button>'
+                +   '<button class="fbb-btn-icon fbb-btn-icon-danger" onclick="fbDeleteField('+si+','+fi+')" title="Delete">'+svgDelete(14)+'</button>'
+                + '</div></div>';
+
+            if (f.type === 'select') {
+                html += '<div class="fbb-field-options">'
+                    + '<label class="fbb-label">Options (comma-separated)</label>'
+                    + '<input class="fbb-input-sm" value="'+e(f.options||'')+'" placeholder="Option A, Option B" oninput="fbFieldProp('+si+','+fi+',\'options\',this.value)">'
+                    + '</div>';
+            }
+            html += '</div>';
+        });
+
+        html += '<button type="button" class="fbb-add-field-btn" onclick="fbAddField('+si+')">+ Add Field</button>';
+        html += '</div>';
+    });
+    document.getElementById('fb-sections').innerHTML = html;
+    fbMaybeUpdatePreview();
+}
+
+// ── Render preview ────────────────────────────────────────────────────────────
+function fbMaybeUpdatePreview() { if (fbPreviewOn) fbRenderPreview(); }
+
+function fbRenderPreview() {
+    document.getElementById('fbp-form-title').textContent = fbState.title || '(untitled form)';
+    var html = '';
+    fbState.sections.forEach(function(sec) {
+        html += '<div class="fbb-preview-section">'
+            + '<div class="fbb-preview-section-title">'+e(sec.title)+'</div>';
+        if (!sec.fields.length) {
+            html += '<p class="fbb-preview-empty">No fields in this section.</p>';
+        }
+        sec.fields.forEach(function(f) {
+            var req = f.required && !f.readonly;
+            html += '<div class="fbb-preview-field">'
+                + '<label class="fbb-preview-label">'+e(f.label)+(req?'<span style="color:#ef4444"> *</span>':'')+'</label>';
+            if (f.type === 'rating1to5') {
+                html += '<div style="display:flex;align-items:center;justify-content:space-between;max-width:320px;margin-top:6px;">'
+                    + [1,2,3,4,5].map(function(n){
+                        return '<div style="display:flex;flex-direction:column;align-items:center;gap:4px;">'
+                            + '<span style="color:#334155;">'+svgStar(36)+'</span>'
+                            + '<span style="font-size:11px;font-weight:500;color:#475569;">'+n+'</span>'
+                            + '</div>';
+                    }).join('')
+                    + '</div>'
+                    + '<p class="fbb-preview-star-legend" style="margin-top:6px;">1 = Poor, 5 = Best</p>';
+            } else if (f.type === 'textarea') {
+                html += '<textarea class="fbb-preview-input" rows="3" disabled placeholder="'+e(f.label)+'"></textarea>';
+            } else if (f.type === 'select') {
+                html += '<select class="fbb-preview-input" disabled><option>— Select —</option></select>';
+            } else {
+                var sampleVal = (f.autofill && FB_SAMPLES[f.autofill]) ? FB_SAMPLES[f.autofill] : '';
+                var ph = sampleVal ? '' : e(f.label);
+                html += '<input type="'+(f.type||'text')+'" class="fbb-preview-input" disabled value="'+e(sampleVal)+'" placeholder="'+ph+'">';
+            }
+            html += '</div>';
+        });
+        html += '</div>';
+    });
+    if (!fbState.sections.length) html = '<p class="fbb-preview-empty" style="text-align:center;padding:24px 0;">Add sections and fields on the left to see a preview.</p>';
+    document.getElementById('fbp-sections').innerHTML = html;
+}
+
+// ── Toggle preview ────────────────────────────────────────────────────────────
+function fbTogglePreview() {
+    fbPreviewOn = !fbPreviewOn;
+    var layout  = document.getElementById('fbb-layout');
+    var preview = document.getElementById('fbb-preview');
+    var btn     = document.getElementById('fb-preview-btn');
+    if (fbPreviewOn) {
+        layout.classList.add('with-preview');
+        preview.style.display = '';
+        btn.classList.add('active');
+        btn.textContent = 'Hide Preview';
+        fbRenderPreview();
+    } else {
+        layout.classList.remove('with-preview');
+        preview.style.display = 'none';
+        btn.classList.remove('active');
+        btn.textContent = 'Show Preview';
+    }
+}
+
+// ── Save ─────────────────────────────────────────────────────────────────────
+function fbSave() {
+    var btn = document.getElementById('fb-save-btn');
+    var st  = document.getElementById('fb-save-status');
+    btn.disabled = true; btn.textContent = 'Saving…';
+    st.style.color = '#64748b'; st.textContent = '';
+    fbState.title = document.getElementById('fb-title').value;
+    fetch(FB_SAVE_URL + '?form_key=' + encodeURIComponent(FB_FORM_KEY), {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fbState)
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+        btn.disabled = false; btn.textContent = 'Save';
+        st.style.color = d.success ? '#10b981' : '#ef4444';
+        st.textContent = d.success ? '✓ Saved' : '✗ '+(d.message||'Error');
+        setTimeout(function(){ st.textContent=''; }, 3000);
+    })
+    .catch(function(){
+        btn.disabled = false; btn.textContent = 'Save';
+        st.style.color = '#ef4444'; st.textContent = '✗ Network error';
+    });
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function e(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+function svgDelete(size) {
+    return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+        + '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>'
+        + '<path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>';
+}
+
+function svgStar(size) {
+    return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">'
+        + '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
+}
+</script>

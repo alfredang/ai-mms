@@ -2,7 +2,7 @@
 <config>
     <modules>
         <MMD_FeedbackForm>
-            <version>2.0.0</version>
+            <version>2.1.0</version>
         </MMD_FeedbackForm>
     </modules>
 
@@ -26,4 +26,47 @@
             </mmd_feedbackform_frontend>
         </routers>
     </frontend>
+
+    <admin>
+        <routers>
+            <adminhtml>
+                <args>
+                    <modules>
+                        <MMD_FeedbackForm before="Mage_Adminhtml">MMD_FeedbackForm_Adminhtml</MMD_FeedbackForm>
+                    </modules>
+                </args>
+            </adminhtml>
+        </routers>
+    </admin>
+
+    <adminhtml>
+        <acl>
+            <resources>
+                <admin>
+                    <children>
+                        <mmd>
+                            <title>MMD</title>
+                            <children>
+                                <feedbackform translate="title" module="mmd_feedbackform">
+                                    <title>Feedback Form</title>
+                                    <children>
+                                        <builder translate="title">
+                                            <title>Form Builder</title>
+                                        </builder>
+                                    </children>
+                                </feedbackform>
+                            </children>
+                        </mmd>
+                    </children>
+                </admin>
+            </resources>
+        </acl>
+        <layout>
+            <updates>
+                <mmd_feedbackform>
+                    <file>feedbackform.xml</file>
+                </mmd_feedbackform>
+            </updates>
+        </layout>
+    </adminhtml>
 </config>
