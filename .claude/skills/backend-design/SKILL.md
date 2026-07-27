@@ -698,7 +698,7 @@ One language everywhere. Don't restyle buttons per page.
 | Variant | Where it appears | Size | Shape | Color |
 |---------|------------------|------|-------|-------|
 | **Page action** (default §18) | Page-level Save / Cancel / Add New | `min-height: 38px`, `padding: 8px 20px`, `font: 13px/1`, `border-radius: 9px` | Rounded rect | Per semantic class (see below) |
-| **Toolbar / mass-action Submit** (§16) | Inside `.massaction` and `[id$="_massaction"]` toolbars on every grid | `height: 24px`, `padding: 0 14px`, `font: 11px/1`, `border-radius: 999px` | **Full pill** | Light blue gradient (`--blue` → `--blue2`) on hover (`--blue2` → `--blue3`) |
+| **Toolbar / mass-action Submit** (§16) | Inside `.massaction` and `[id$="_massaction"]` toolbars on every grid | `height: 24px`, `padding: 0 14px`, `font: 11px/1`, `border-radius: 6px` | Rounded rect | **Outline** — transparent fill, `1px var(--blue)` border + `var(--blue)` text; hover = `rgba(96,165,250,0.12)` wash. The old solid-gradient pill is retired |
 | **Pagination / row action** | Pagination bar, per-row dropdown trigger | `padding: 4px 10px`, `font: 11px`, `border-radius: 6px` | Rounded rect | Quiet (`--d4` bg, `--b2` border) |
 
 The toolbar Submit is **the same shape and size on every grid** — cache, index management, sales orders, customers, all of it. If a grid Submit looks different from the others, that's a bug, not a design choice. Don't write per-grid Submit overrides; the §16 rule already covers them via `.admin-main .massaction button.scalable` (specificity 3 — beats §18's 2-class rule, so no need to fight order in the cascade).
@@ -718,7 +718,7 @@ If you find yourself reaching for red, green, orange, or yellow on a button, tha
 
 - Exactly **one primary** per action area.
 - Destructive page-level actions (Delete, Flush, Reset, Cancel) use the **same blue** as everything else — gate them with a `confirm()` prompt or strong copy, never a red button.
-- Toolbar Submit uses the same light-blue pill — consistent with every other button on the page.
+- Toolbar Submit uses the same quiet blue outline as every other button on the page — no solid fill, no pill radius.
 - `:active` press uses `translateY(1px)`.
 - `:focus-visible` ring uses `--ring`.
 - Disabled = `opacity: 0.5` + `cursor: not-allowed`.
