@@ -1,0 +1,410 @@
+<?php
+/**
+ * Agentic Blog Pipeline — same timeline design as the newsletter panel's
+ * Agentic Flyer Pipeline (dashboard/index.phtml, .mn-* block), adapted to the
+ * blog flow: Research & Write -> Approval sent -> Approved -> Scheduled ->
+ * Published (then auto-shared to LinkedIn + Facebook). Class names carry a
+ * bp- prefix so the copied styles can never collide with the dashboard panel.
+ *
+ * Stages come straight from mmd_blog_post.status (see MMD_Blog_Model_Post);
+ * the "Next blog queue" card feeds mmd_blog_queue (migration 822) which the
+ * daily proposer consumes head-first before its best-seller auto-pick.
+ */
+$_helper  = Mage::helper('mmd_blog');
+$_cron    = Mage::getModel('mmd_blog/cron_autoblog');
+$_read    = Mage::getSingleton('core/resource')->getConnection('core_read');
+$_table   = Mage::getSingleton('core/resource')->getTableName('mmd_blog/post');
+$_enabled = Mage::getStoreConfigFlag('mmd_blog/autoblog/enabled');
+$_review  = !Mage::getStoreConfigFlag('mmd_blog/autoblog/auto_publish');
+
+$_rows = array();
+$_slot = null;
+try {
+    $_rows = $_read->fetchAll(
+        "SELECT post_id, title, status, source_sku, related_skus, scheduled_publish_at,
+                published_at, review_decisions, linkedin_urn, facebook_post_id, likes, created_at
+         FROM {$_table} ORDER BY post_id DESC LIMIT 30"
+    );
+    $_slot = $_cron->nextPublishSlot();
+} catch (Exception $e) { /* panel must never take the grid down */ }
+
+// Published-this-week count (SGT week, Mon-Sun) vs the 2/week pace.
+$_tz        = new DateTimeZone('Asia/Singapore');
+$_now       = new DateTime('now', $_tz);
+$_weekStart = clone $_now;
+$_weekStart->modify('monday this week')->setTime(0, 0, 0);
+$_thisWeek  = 0;
+foreach ($_rows as $_r) {
+    if ((int) $_r['status'] === MMD_Blog_Model_Post::STATUS_PUBLISHED
+        && $_r['source_sku'] && $_r['published_at']
+        && $_r['published_at'] >= $_weekStart->format('Y-m-d')) {
+        $_thisWeek++;
+    }
+}
+
+/**
+ * Map a post row to its pipeline stage: [index 0-4, label, css-key].
+ * Research & Write -> Approval sent -> Approved -> Scheduled -> Published.
+ */
+$_bpStage = function ($row) {
+    $st  = (int) $row['status'];
+    $dec = json_decode((string) $row['review_decisions'], true);
+    $sent = is_array($dec) && !empty($dec['_sent_at']);
+    if ($st === MMD_Blog_Model_Post::STATUS_PUBLISHED) {
+        return array(4, 'Published' . ($row['published_at'] ? ' &middot; ' . date('D j M', strtotime($row['published_at'])) : ''), 'done');
+    }
+    if ($st === MMD_Blog_Model_Post::STATUS_SCHEDULED) {
+        return array(3, $row['scheduled_publish_at']
+            ? 'Scheduled &middot; ' . date('D j M, g:ia', strtotime($row['scheduled_publish_at']))
+            : 'Scheduled', 'sched');
+    }
+    if ($st === MMD_Blog_Model_Post::STATUS_CHANGES_REQUESTED) {
+        return array(1, 'Changes requested', 'changes');
+    }
+    if ($st === MMD_Blog_Model_Post::STATUS_PENDING_REVIEW) {
+        return array($sent ? 1 : 0, $sent ? 'Pending approval' : 'Awaiting review email', 'pending');
+    }
+    return array(0, 'Draft', 'muted');
+};
+$_bpStageNames = array('Research &amp; Write', 'Approval sent', 'Approved', 'Scheduled', 'Published');
+
+// Active flows = pending / changes-requested / scheduled pipeline posts (auto or
+// manual), most advanced first — the blog counterpart of the newsletter flows.
+$_active = array();
+foreach ($_rows as $_r) {
+    if (in_array((int) $_r['status'], array(
+        MMD_Blog_Model_Post::STATUS_PENDING_REVIEW,
+        MMD_Blog_Model_Post::STATUS_CHANGES_REQUESTED,
+        MMD_Blog_Model_Post::STATUS_SCHEDULED), true)) {
+        $_active[] = $_r;
+    }
+}
+usort($_active, function ($a, $b) use ($_bpStage) {
+    list($sa) = $_bpStage($a);
+    list($sb) = $_bpStage($b);
+    if ($sa !== $sb) { return $sb - $sa; }
+    return (int) $a['post_id'] - (int) $b['post_id'];
+});
+$_active = array_slice($_active, 0, 2);
+
+// Recently published pipeline posts (for the LinkedIn/Facebook share links).
+$_recent = array_values(array_filter($_rows, function ($r) {
+    return (int) $r['status'] === MMD_Blog_Model_Post::STATUS_PUBLISHED && $r['source_sku'];
+}));
+$_recent = array_slice($_recent, 0, 4);
+
+$_urlDecide  = Mage::helper('adminhtml')->getUrl('adminhtml/blog/reviewDecision');
+$_urlSearch  = Mage::helper('adminhtml')->getUrl('adminhtml/blog/searchCourses');
+$_urlQList   = Mage::helper('adminhtml')->getUrl('adminhtml/blog/queueList');
+$_urlQAdd    = Mage::helper('adminhtml')->getUrl('adminhtml/blog/queueAdd');
+$_urlQRemove = Mage::helper('adminhtml')->getUrl('adminhtml/blog/queueRemove');
+$_urlQOrder  = Mage::helper('adminhtml')->getUrl('adminhtml/blog/queueReorder');
+$_urlRun     = Mage::helper('adminhtml')->getUrl('adminhtml/blog/generate');
+$_urlEdit    = Mage::helper('adminhtml')->getUrl('adminhtml/blog/edit');
+?>
+<div class="bp-pipe">
+    <div class="bp-pipe-bar">
+        <div class="bp-pipe-title">Agentic Blog Pipeline
+            <span class="bp-pipe-flag <?php echo $_enabled ? 'on' : 'off' ?>"><?php echo $_enabled ? ($_review ? 'REVIEW FLOW · ENABLED' : 'AUTO-PUBLISH · ENABLED') : 'DISABLED' ?></span>
+        </div>
+        <div class="bp-pipe-caps">
+            <span class="bp-cap" title="Published pipeline posts this week (max 2)"><em>Posts</em><b><?php echo (int) $_thisWeek ?>/2</b></span>
+            <span class="bp-cap" title="Next free Tuesday/Friday 9:00am publish slot"><em>Next slot</em><b><?php echo $_slot ? htmlspecialchars($_slot->format('D, j M · g:ia')) : '—' ?></b></span>
+            <span class="bp-cap"><em>Queue</em><b id="bp-queue-count">—</b></span>
+        </div>
+    </div>
+
+    <?php if (!empty($_active)): ?>
+        <?php foreach ($_active as $_ai => $_flow):
+            list($_fi, $_flabel, $_fcss) = $_bpStage($_flow);
+            $_pending = in_array((int) $_flow['status'], array(
+                MMD_Blog_Model_Post::STATUS_PENDING_REVIEW,
+                MMD_Blog_Model_Post::STATUS_CHANGES_REQUESTED), true); ?>
+        <div class="bp-flow">
+            <div class="bp-flow-head">
+                <span class="bp-flow-tag <?php echo $_ai === 0 ? 'cur' : 'nxt' ?>">Flow <?php echo $_ai + 1 ?> · <?php echo $_ai === 0 ? 'current' : 'next' ?></span>
+                <span class="bp-flow-name"><?php echo htmlspecialchars($_flow['title']) ?></span>
+                <?php if ($_flow['source_sku']): ?><span class="bp-flow-sku"><?php echo htmlspecialchars($_flow['source_sku']) ?></span><?php endif; ?>
+                <span class="bp-badge s-<?php echo $_fcss ?>"><?php echo $_flabel ?></span>
+                <span style="margin-left:auto;display:inline-flex;gap:6px;">
+                    <a class="bp-abtn ghost" href="<?php echo htmlspecialchars($_urlEdit . 'id/' . (int) $_flow['post_id'] . '/') ?>">Preview / Edit</a>
+                    <?php if ($_pending && $_review): ?>
+                    <button type="button" class="bp-abtn ok" onclick="bpReview(<?php echo (int) $_flow['post_id'] ?>,'approve')">&#10003; Approve</button>
+                    <button type="button" class="bp-abtn ghost" onclick="bpReview(<?php echo (int) $_flow['post_id'] ?>,'changes')">&#9998; Request changes</button>
+                    <?php endif; ?>
+                </span>
+            </div>
+            <ol class="bp-steps">
+                <?php foreach ($_bpStageNames as $_si => $_sname):
+                    $_cls = $_si < $_fi ? 'done' : ($_si === $_fi ? 'current' : ''); ?>
+                    <li class="bp-step <?php echo $_cls ?>">
+                        <span class="bp-dot"><?php echo $_si < $_fi ? '&#10003;' : ($_si + 1) ?></span>
+                        <span class="bp-slabel"><?php echo $_sname ?></span>
+                    </li>
+                <?php endforeach; ?>
+            </ol>
+        </div>
+        <?php endforeach; ?>
+    <?php else: ?>
+    <div class="bp-pipe-empty">No blog post in the pipeline right now. Add courses to the queue below and click <b>&#9654; Run Now</b>, or the daily cron researches + writes the next one automatically (published Tuesdays &amp; Fridays, 9:00am).</div>
+    <?php endif; ?>
+
+    <?php if (!empty($_recent)): ?>
+    <div class="bp-blasts">
+        <div class="bp-blasts-title">Recently published</div>
+        <?php foreach ($_recent as $_b): ?>
+        <div class="bp-blast">
+            <span class="bp-flow-name"><?php echo htmlspecialchars($_b['title']) ?></span>
+            <span class="bp-badge s-done">Published &middot; <?php echo $_b['published_at'] ? date('D j M', strtotime($_b['published_at'])) : '—' ?></span>
+            <span class="bp-blast-meta">&#128077; <?php echo (int) $_b['likes'] ?></span>
+            <?php if ($_b['linkedin_urn']): ?>
+            <a class="bp-blast-li" href="https://www.linkedin.com/feed/update/<?php echo htmlspecialchars($_b['linkedin_urn']) ?>/" target="_blank" rel="noopener">in &middot; View LinkedIn post</a>
+            <?php endif; ?>
+            <?php if ($_b['facebook_post_id']): ?>
+            <a class="bp-blast-li" href="https://www.facebook.com/<?php echo htmlspecialchars($_b['facebook_post_id']) ?>" target="_blank" rel="noopener">f &middot; View Facebook post</a>
+            <?php endif; ?>
+        </div>
+        <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
+
+    <div class="bp-queue">
+        <div class="bp-queue-title">Next blog queue</div>
+        <div class="bp-fld">
+            <label>Add courses &mdash; the pipeline researches + writes about the <b>top</b> course next (2 posts/week, Tue &amp; Fri 9:00am)</label>
+            <input type="text" id="bp-course-search" class="bp-input" placeholder="Search course title or code..." oninput="bpSearchCourses(this)" autocomplete="off" />
+            <div id="bp-search-results" class="bp-search-results"></div>
+        </div>
+        <table class="mm-table bp-q-table" id="bp-queue-table">
+            <thead><tr>
+                <th style="width:34px;"></th>
+                <th style="width:26px;">#</th>
+                <th>Course title</th>
+                <th style="width:170px;">Course code</th>
+                <th class="center" style="width:130px;">Actions</th>
+            </tr></thead>
+            <tbody id="bp-queue-list"><tr><td colspan="5" class="mm-table-empty">Loading&hellip;</td></tr></tbody>
+        </table>
+        <p class="bp-note">
+            Each row has its own <b>&#9654; Run Now</b> &mdash; it runs the agent team for <b>that</b> course:
+            <b>1. Research</b> the latest AI developments (web search) &rarr; <b>2. Write</b> an in-depth lead-magnet post with a branded hero image &rarr;
+            <b>3.</b> email the managers Approve / Request-changes &rarr; <b>4. Schedule</b> the next free Tuesday/Friday 9:00am slot once approved &rarr;
+            <b>5.</b> auto-share to LinkedIn + Facebook after publishing. The daily cron runs the top course automatically. Max <b>2 posts per week</b>.<br>
+            Drag &#8942;&#8942; to reorder &middot; &#9654; run &middot; &times; remove.
+        </p>
+    </div>
+</div>
+
+<style>
+    /* Agentic blog pipeline — scoped bp- copy of the newsletter panel's .mn-*
+       timeline component (backend-design neon-on-dark). Keep visually in sync
+       with dashboard/index.phtml's .mn-pipe block. */
+    .bp-pipe{background:#0f172a;border:1px solid #24324a;border-radius:14px;padding:18px 20px;margin-bottom:18px;}
+    .bp-pipe-bar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;border-bottom:1px solid #24324a;padding-bottom:14px;margin-bottom:18px;}
+    .bp-pipe-title{font:800 15px var(--font-sans,-apple-system,'Segoe UI',Arial,sans-serif);color:#f1f5f9;display:flex;align-items:center;gap:10px;}
+    .bp-pipe-flag{font:700 10px var(--font-sans,sans-serif);letter-spacing:.8px;padding:3px 9px;border-radius:999px;border:1px solid;}
+    .bp-pipe-flag.on{color:#34d399;border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.08);}
+    .bp-pipe-flag.off{color:#94a3b8;border-color:#334155;background:transparent;}
+    .bp-pipe-caps{display:flex;gap:10px;}
+    .bp-cap{display:flex;flex-direction:column;align-items:flex-start;background:#131f38;border:1px solid #24324a;border-radius:9px;padding:6px 12px;}
+    .bp-cap em{font:700 9.5px var(--font-sans,sans-serif);text-transform:uppercase;letter-spacing:.6px;color:#64748b;font-style:normal;}
+    .bp-cap b{font:800 14px var(--font-sans,sans-serif);color:#22d3ee;font-variant-numeric:tabular-nums;}
+    .bp-flow{background:#0d1730;border:1px solid #24324a;border-radius:12px;padding:16px 18px 8px;margin-bottom:12px;}
+    .bp-flow-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
+    .bp-flow-name{font:700 14px var(--font-sans,sans-serif);color:#f1f5f9;}
+    .bp-flow-sku{font:600 12px ui-monospace,Menlo,monospace;color:#64748b;}
+    .bp-flow-tag{font:800 10px var(--font-sans,sans-serif);letter-spacing:.8px;text-transform:uppercase;padding:4px 10px;border-radius:999px;border:1px solid;}
+    .bp-flow-tag.cur{color:#22d3ee;border-color:rgba(34,211,238,.4);background:rgba(34,211,238,.08);}
+    .bp-flow-tag.nxt{color:#94a3b8;border-color:#334155;background:transparent;}
+    .bp-steps{list-style:none;display:grid;grid-template-columns:repeat(5,1fr);margin:0 0 4px;padding:0;}
+    .bp-step{position:relative;text-align:center;padding-top:36px;font:700 11px var(--font-sans,sans-serif);color:#64748b;}
+    .bp-step::before{content:"";position:absolute;top:15px;left:-50%;width:100%;height:2px;background:#334155;}
+    .bp-step:first-child::before{display:none;}
+    .bp-step.done::before,.bp-step.current::before{background:linear-gradient(90deg,#2563eb,#22d3ee);}
+    .bp-dot{position:absolute;top:0;left:50%;transform:translateX(-50%);width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:#1e293b;border:2px solid #334155;color:#64748b;font-size:12px;}
+    .bp-step.done .bp-dot{background:#34d399;border-color:#34d399;color:#052e1a;}
+    .bp-step.current .bp-dot{background:#22d3ee;border-color:#22d3ee;color:#04212a;box-shadow:0 0 0 5px rgba(34,211,238,.16);}
+    .bp-step.done .bp-slabel,.bp-step.current .bp-slabel{color:#f1f5f9;}
+    .bp-step.current .bp-slabel{color:#22d3ee;}
+    .bp-pipe-empty{padding:16px;color:#94a3b8;font:400 13px/1.5 var(--font-sans,sans-serif);text-align:center;}
+    .bp-badge{font:700 11px var(--font-sans,sans-serif);padding:4px 10px;border-radius:999px;border:1px solid;white-space:nowrap;}
+    .bp-badge.s-done{color:#34d399;border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.09);}
+    .bp-badge.s-sched{color:#60a5fa;border-color:rgba(96,165,250,.4);background:rgba(96,165,250,.1);}
+    .bp-badge.s-pending{color:#f59e0b;border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.1);}
+    .bp-badge.s-changes{color:#fb7185;border-color:rgba(251,113,133,.4);background:rgba(251,113,133,.1);}
+    .bp-badge.s-muted{color:#94a3b8;border-color:#334155;background:transparent;}
+    .bp-abtn{font:700 12px var(--font-sans,sans-serif);padding:5px 12px;border-radius:7px;border:1px solid;cursor:pointer;text-decoration:none;display:inline-block;}
+    .bp-abtn.ok{color:#fff;background:#059669;border-color:#059669;}
+    .bp-abtn.ok:hover{background:#047857;}
+    .bp-abtn.ghost{color:#cbd5e1;background:transparent;border-color:#334155;}
+    .bp-abtn.ghost:hover{border-color:#475569;color:#f1f5f9;}
+    .bp-blasts{margin:6px 0 14px;border-top:1px solid #24324a;padding-top:14px;}
+    .bp-blasts-title,.bp-queue-title{font:700 10.5px var(--font-sans,sans-serif);text-transform:uppercase;letter-spacing:.8px;color:#64748b;margin:0 0 10px;}
+    .bp-blast{background:#0d1730;border:1px solid #24324a;border-radius:12px;padding:12px 16px;margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+    .bp-blast-li{font:700 11px var(--font-sans,sans-serif);color:#60a5fa;text-decoration:none;border:1px solid rgba(96,165,250,.4);border-radius:999px;padding:3px 10px;}
+    .bp-blast-li:hover{background:rgba(96,165,250,.12);}
+    .bp-blast-meta{font:600 12px var(--font-sans,sans-serif);color:#94a3b8;}
+    .bp-queue{border-top:1px solid #24324a;padding-top:14px;}
+    .bp-fld label{display:block;font:600 12px var(--font-sans,sans-serif);color:#94a3b8;margin-bottom:6px;}
+    .bp-input{width:100%;box-sizing:border-box;background:transparent;border:1px solid #334155;border-radius:8px;color:#e5e7eb;padding:8px 12px;font:400 13px var(--font-sans,sans-serif);}
+    .bp-input:focus{outline:none;border-color:#2563eb;}
+    .bp-search-results{position:relative;}
+    .bp-search-results .bp-sr{position:absolute;z-index:50;left:0;right:0;top:2px;background:#0d1730;border:1px solid #334155;border-radius:10px;max-height:280px;overflow:auto;box-shadow:0 18px 40px -18px rgba(0,0,0,.7);}
+    .bp-sr-item{display:flex;gap:10px;align-items:center;padding:8px 12px;cursor:pointer;font:400 13px var(--font-sans,sans-serif);color:#cbd5e1;}
+    .bp-sr-item:hover{background:rgba(96,165,250,.08);}
+    .bp-sr-item b{color:#f1f5f9;font-weight:600;}
+    .bp-sr-item .sku{margin-left:auto;font:600 11px ui-monospace,Menlo,monospace;color:#64748b;white-space:nowrap;}
+    .bp-q-table{margin:14px 0 4px;}
+    .bp-q-row{cursor:grab;}
+    .bp-q-row.bp-q-dragging{opacity:.45;cursor:grabbing;}
+    .bp-q-grip{color:#475569;font:700 13px/1 var(--font-sans,sans-serif);letter-spacing:-2px;user-select:none;}
+    .bp-q-row:hover .bp-q-grip{color:#94a3b8;}
+    .bp-note{margin:12px 2px 0;font:400 12px/1.6 var(--font-sans,sans-serif);color:#64748b;}
+    .bp-note b{color:#cbd5e1;}
+</style>
+
+<script type="text/javascript">
+var bpUrls = {
+    decide:  <?php echo json_encode($_urlDecide) ?>,
+    search:  <?php echo json_encode($_urlSearch) ?>,
+    qlist:   <?php echo json_encode($_urlQList) ?>,
+    qadd:    <?php echo json_encode($_urlQAdd) ?>,
+    qremove: <?php echo json_encode($_urlQRemove) ?>,
+    qorder:  <?php echo json_encode($_urlQOrder) ?>,
+    run:     <?php echo json_encode($_urlRun) ?>
+};
+
+function bpReview(id, decision) {
+    var fd = new FormData();
+    fd.append('form_key', window.FORM_KEY || '');
+    fd.append('post_id', String(id));
+    fd.append('decision', decision);
+    if (decision === 'changes') {
+        var fb = prompt('What should be changed? (angle, wording, structure, funding emphasis, ...)\n\nThe article is regenerated with your feedback and re-sent for approval — this can take a couple of minutes.');
+        if (fb === null) return;
+        fd.append('feedback', fb);
+    } else if (!confirm('Approve this post? It will be scheduled into the next free Tuesday/Friday 9:00am slot, then auto-shared to LinkedIn + Facebook after publishing.')) {
+        return;
+    }
+    fetch(bpUrls.decide, { method: 'POST', body: fd, credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (j) { alert(j.message || (j.success ? 'Done.' : 'Failed.')); location.reload(); })
+        .catch(function () { alert('Request failed.'); });
+}
+
+var bpSearchTimer = null;
+function bpSearchCourses(input) {
+    clearTimeout(bpSearchTimer);
+    var q = input.value.trim();
+    var box = document.getElementById('bp-search-results');
+    if (q.length < 2) { box.innerHTML = ''; return; }
+    bpSearchTimer = setTimeout(function () {
+        fetch(bpUrls.search + '?q=' + encodeURIComponent(q), { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (j) {
+                if (!j.success || !j.courses.length) { box.innerHTML = ''; return; }
+                var html = '<div class="bp-sr">';
+                j.courses.forEach(function (c) {
+                    html += '<div class="bp-sr-item" onclick="bpQueueAdd(' + c.id + ')"><b>'
+                        + bpEsc(c.name) + '</b><span class="sku">' + bpEsc(c.sku) + '</span></div>';
+                });
+                box.innerHTML = html + '</div>';
+            });
+    }, 250);
+}
+function bpEsc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+}
+
+function bpQueueAdd(pid) {
+    document.getElementById('bp-search-results').innerHTML = '';
+    document.getElementById('bp-course-search').value = '';
+    var fd = new FormData();
+    fd.append('form_key', window.FORM_KEY || '');
+    fd.append('course_id', String(pid));
+    fetch(bpUrls.qadd, { method: 'POST', body: fd, credentials: 'same-origin' })
+        .then(function () { bpQueueLoad(); });
+}
+
+function bpQueueRemove(qid) {
+    var fd = new FormData();
+    fd.append('form_key', window.FORM_KEY || '');
+    fd.append('queue_id', String(qid));
+    fetch(bpUrls.qremove, { method: 'POST', body: fd, credentials: 'same-origin' })
+        .then(function () { bpQueueLoad(); });
+}
+
+function bpRunNow(qid, pid, name) {
+    if (!confirm('Run the blog agent team for "' + name + '" now?\n\nResearch (web search) + writing takes a few minutes; the page will load when the draft has been emailed for approval.')) return;
+    var fd = new FormData();
+    fd.append('form_key', window.FORM_KEY || '');
+    fd.append('queue_id', String(qid));
+    // consume the queue row first so the daily cron can't write a second post for it
+    fetch(bpUrls.qremove, { method: 'POST', body: fd, credentials: 'same-origin' })
+        .then(function () { window.location = bpUrls.run + 'course_id/' + pid + '/'; });
+}
+
+function bpQueueLoad() {
+    fetch(bpUrls.qlist, { credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+            var tbody = document.getElementById('bp-queue-list');
+            var count = document.getElementById('bp-queue-count');
+            if (!j.success) {
+                tbody.innerHTML = '<tr><td colspan="5" class="mm-table-empty">' + bpEsc(j.message || 'Queue unavailable') + '</td></tr>';
+                if (count) count.textContent = '—';
+                return;
+            }
+            if (count) count.textContent = String(j.queue.length);
+            if (!j.queue.length) {
+                tbody.innerHTML = '<tr><td colspan="5" class="mm-table-empty">Queue is empty — the pipeline falls back to the best-selling unblogged course.</td></tr>';
+                return;
+            }
+            var html = '';
+            j.queue.forEach(function (row, i) {
+                html += '<tr class="bp-q-row" draggable="true" data-qid="' + row.queue_id + '">'
+                    + '<td class="center"><span class="bp-q-grip">&#8942;&#8942;</span></td>'
+                    + '<td class="muted">' + (i + 1) + '</td>'
+                    + '<td class="strong">' + bpEsc(row.name) + '</td>'
+                    + '<td class="muted" style="font-family:ui-monospace,Menlo,monospace;">' + bpEsc(row.sku) + '</td>'
+                    + '<td class="center"><div class="mmd-grid-actions" style="justify-content:center;">'
+                    + '<button type="button" class="mmd-grid-action mmd-grid-action--check" title="Run Now" onclick="bpRunNow(' + row.queue_id + ',' + row.product_id + ',\'' + bpEsc(row.name).replace(/'/g, "\\'") + '\')">'
+                    + '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="6,4 20,12 6,20"/></svg></button>'
+                    + '<button type="button" class="mmd-grid-action mmd-grid-action--delete" title="Remove from queue" onclick="bpQueueRemove(' + row.queue_id + ')">'
+                    + '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>'
+                    + '</div></td></tr>';
+            });
+            tbody.innerHTML = html;
+            bpWireDrag();
+        });
+}
+
+function bpWireDrag() {
+    var tbody = document.getElementById('bp-queue-list');
+    var dragging = null;
+    Array.prototype.forEach.call(tbody.querySelectorAll('.bp-q-row'), function (row) {
+        row.addEventListener('dragstart', function () { dragging = row; row.classList.add('bp-q-dragging'); });
+        row.addEventListener('dragend', function () {
+            row.classList.remove('bp-q-dragging');
+            dragging = null;
+            var order = Array.prototype.map.call(tbody.querySelectorAll('.bp-q-row'), function (r) { return r.getAttribute('data-qid'); }).join(',');
+            var fd = new FormData();
+    fd.append('form_key', window.FORM_KEY || '');
+            fd.append('order', order);
+            fetch(bpUrls.qorder, { method: 'POST', body: fd, credentials: 'same-origin' })
+                .then(function () { bpQueueLoad(); });
+        });
+        row.addEventListener('dragover', function (e) {
+            e.preventDefault();
+            if (!dragging || dragging === row) return;
+            var rect = row.getBoundingClientRect();
+            var after = (e.clientY - rect.top) > rect.height / 2;
+            row.parentNode.insertBefore(dragging, after ? row.nextSibling : row);
+        });
+    });
+}
+
+bpQueueLoad();
+</script>
