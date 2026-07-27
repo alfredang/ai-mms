@@ -2511,7 +2511,7 @@ function courseSyncSaveConfig() {
         </div>
     </div>
     <div class="dev-list-header" id="dev-list-header">
-        <span>COURSE</span><span style="text-align:center">TYPES</span><span style="text-align:center">DURATION</span><span style="text-align:center">ACTIONS</span>
+        <span>COURSE</span><span style="text-align:center">COURSE TYPE</span><span style="text-align:center">STATUS</span><span style="text-align:center">ACTIONS</span>
     </div>
     <?php if (empty($_devCourses)): ?>
     <?php $_devHasActiveFilters = $_devFilterQuery !== '' || $_devFilterType !== '' || $_devFilterStatus !== ''; ?>
@@ -2562,8 +2562,18 @@ function courseSyncSaveConfig() {
                 <div class="dev-card-row"><span class="dev-card-lbl">Course Code:</span><span class="dev-card-val"><?php echo $_dcRef ? htmlspecialchars($_dcRef) : '—' ?></span></div>
                 <?php $_runRank = isset($_devRankMap[(int)$_dc['id']]) ? $_devRankMap[(int)$_dc['id']] : 0; ?>
                 <div class="dev-card-row"><span class="dev-card-lbl">Course Run ID:</span><span class="dev-card-val"><?php echo $_devPrefix . '-' . (100000 + $_runRank) ?></span></div>
+                <?php
+                $_dcActive = ((int)$_dc['status'] === Mage_Catalog_Model_Product_Status::STATUS_ENABLED);
+                $_dcFunded = strtolower((string)$_dc['course_type']) === 'funded';
+                $_dcTypeLabel = $_dc['course_type'] ? ($_dcFunded ? 'Funded' : 'Unfunded') : '—';
+                ?>
                 <div class="dev-card-row"><span class="dev-card-lbl">Course Type:</span><span class="dev-card-val"><?php echo $_dc['course_type'] ? '<span class="dev-badge">' . htmlspecialchars($_dc['course_type']) . '</span>' : '—' ?></span></div>
-                <div class="dev-card-row" data-col="types" style="display:none;"><span class="dev-badge"><?php echo $_dc['course_type'] ? htmlspecialchars($_dc['course_type']) : '—' ?></span><span class="dev-card-val" style="font-size:11px;font-weight:400;"><?php echo $_dc['level'] ? htmlspecialchars($_dc['level']) : '—' ?></span></div>
+                <div class="dev-card-row" data-col="types"><span style="display:inline-block;padding:2px 12px;border-radius:999px;font-size:11px;font-weight:600;line-height:1.5;<?php echo $_dcFunded
+                    ? 'color:#4ade80;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.35);'
+                    : 'color:#94a3b8;background:rgba(148,163,184,0.12);border:1px solid rgba(148,163,184,0.35);' ?>"><?php echo $_dcTypeLabel ?></span></div>
+                <div class="dev-card-row" data-col="status"><span style="display:inline-block;padding:2px 12px;border-radius:999px;font-size:11px;font-weight:600;line-height:1.5;<?php echo $_dcActive
+                    ? 'color:#4ade80;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.35);'
+                    : 'color:#f87171;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.35);' ?>"><?php echo $_dcActive ? 'Active' : 'Inactive' ?></span></div>
                 <div class="dev-card-row"><span class="dev-card-lbl">Level:</span><span class="dev-card-val"><?php echo $_dc['level'] ? htmlspecialchars($_dc['level']) : '—' ?></span></div>
                 <div class="dev-card-row"><span class="dev-card-lbl">Duration:</span><span class="dev-card-val"><?php echo $_dc['duration'] > 0 ? rtrim(rtrim(number_format($_dc['duration'], 1), '0'), '.') . ' Hours' : '—' ?></span></div>
                 <?php if ($_dc['sessions']): ?>
@@ -2572,7 +2582,6 @@ function courseSyncSaveConfig() {
                 <?php if ($_dc['price'] > 0): ?>
                 <div class="dev-card-row"><span class="dev-card-lbl">Price:</span><span class="dev-card-val">$<?php echo number_format($_dc['price'], 2) ?></span></div>
                 <?php endif; ?>
-                <?php $_dcActive = ((int)$_dc['status'] === Mage_Catalog_Model_Product_Status::STATUS_ENABLED); ?>
                 <div class="dev-card-row"><span class="dev-card-lbl">Status:</span><span class="dev-card-val"><span style="display:inline-block;padding:2px 12px;border-radius:999px;font-size:11px;font-weight:600;line-height:1.5;<?php echo $_dcActive
                     ? 'color:#4ade80;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.35);'
                     : 'color:#f87171;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.35);' ?>"><?php echo $_dcActive ? 'Active' : 'Disabled' ?></span></span></div>
@@ -14309,7 +14318,7 @@ $_mnBlastStats = array();
                 } ?>
                 <tr>
                     <td class="strong"><?php echo htmlspecialchars($_r['title']) ?></td>
-                    <td class="muted" style="font-family:ui-monospace,Menlo,monospace;font-size:12px;"><?php echo htmlspecialchars($_r['sku'] ?: '—') ?></td>
+                    <td class="muted" style="font-family:ui-monospace,Menlo,monospace;font-size:12px;white-space:nowrap;"><?php echo htmlspecialchars($_r['sku'] ?: '—') ?></td>
                     <td><span class="mn-badge s-<?php echo $_rcss ?>"><?php echo $_rlabel /* may contain &middot; entities */ ?></span></td>
                     <td class="tnum"><?php echo (int)$_na ?>/1</td>
                     <td class="muted"><?php echo htmlspecialchars($_sentAt) ?></td>
