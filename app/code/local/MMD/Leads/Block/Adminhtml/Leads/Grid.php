@@ -161,6 +161,10 @@ class MMD_Leads_Block_Adminhtml_Leads_Grid extends Mage_Adminhtml_Block_Widget_G
             'url'     => $this->getUrl('*/*/massDelete'),
             'confirm' => Mage::helper('mmd_leads')->__('Delete the selected leads?'),
         ));
+        $this->getMassactionBlock()->addItem('mailerlite', array(
+            'label' => Mage::helper('mmd_leads')->__('Send to MailerLite'),
+            'url'   => $this->getUrl('*/*/massMailerlite'),
+        ));
         return $this;
     }
 

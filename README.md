@@ -147,7 +147,7 @@ ai-mms/
 | **Branchscope** | Per-country store-view switcher in admin. |
 | **Certificate / Attendance** | Certificates of achievement + e-attendance. |
 | **AccountSync** | Unified learner ↔ shadow admin accounts. |
-| **Courses / Leads** | Course CRUD + admin grid; contact-form lead capture. |
+| **Courses / Leads** | Course CRUD + admin grid; contact-form lead capture with auto-reply and MailerLite auto-subscribe on capture (opt-outs never re-added), plus a "Send to MailerLite" mass-action and per-lead sync checkbox in the Leads grid. |
 | **Marketing** | Autonomous agentic-flyer newsletter pipeline — cron design (Mon/Thu 10am), signed email + backend manager approval, guarded MailerLite scheduling (Blastguard: 2 blasts/week, Mon/Thu 8am), subscriber-growth + campaign KPIs. Also hosts the daily 4am order-email → MailerLite subscriber sync (`Model/Cron/Subscribersync.php`, backfill `scripts/maintenance/mailerlite-import-order-emails.php`) — per-site config, opt-outs never re-added. |
 | **Blog** | CMS-style lead-magnet blog — Marketing → Blog Posts admin (WYSIWYG, SEO meta, tags, R2 hero upload), `/blog/<slug>` storefront with ratings + share, Monday 9am Claude auto-blog with LinkedIn auto-share. |
 
