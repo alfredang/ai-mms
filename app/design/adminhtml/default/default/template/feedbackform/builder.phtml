@@ -13,17 +13,15 @@ $autofills  = $h->getAutofillOptions();
 .fbb-title{font-size:22px;font-weight:700;color:#e2e8f0;margin:0 0 4px;}
 .fbb-subtitle{font-size:13px;color:#64748b;margin:0 0 20px;}
 .fbb-label{display:block;font-size:11px;color:#64748b;margin-bottom:5px;font-weight:500;}
-/* ── Inputs ─────────────────────────────────────────────── */
-.fbb-input,.fbb-select{width:100%;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:8px 12px;color:#e2e8f0;font-size:13px;box-sizing:border-box;}
-.fbb-input:focus,.fbb-select:focus{outline:none;border-color:#3b82f6;}
-.fbb-input-sm,.fbb-select-sm{background:#0f172a;border:1px solid #334155;border-radius:6px;padding:5px 8px;color:#e2e8f0;font-size:12px;width:100%;box-sizing:border-box;}
-.fbb-input-sm:focus,.fbb-select-sm:focus{outline:none;border-color:#3b82f6;}
+/* ── Inputs — ONE control spec: 28px tall, 12px font, 6px radius ── */
+.fbb-input,.fbb-select,.fbb-input-sm,.fbb-select-sm{width:100%;height:28px !important;background:#0f172a;border:1px solid #334155;border-radius:6px !important;padding:2px 10px !important;color:#e2e8f0;font-size:12px !important;line-height:1.2 !important;box-sizing:border-box;}
+.fbb-input:focus,.fbb-select:focus,.fbb-input-sm:focus,.fbb-select-sm:focus{outline:none;border-color:#3b82f6;}
 /* ── Buttons — global mm-btn / mmd-iconbtn families only (no bespoke sizes) ── */
 .fbb-icon-danger:hover{color:#ef4444 !important;border-color:#ef4444 !important;}
 /* ── Section card ───────────────────────────────────────── */
 .fbb-section{background:#131d2e;border:1px solid #334155;border-radius:10px;padding:18px;margin-bottom:12px;}
 .fbb-section-hdr{display:flex;align-items:center;gap:8px;margin-bottom:14px;}
-.fbb-section-title{flex:1;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:8px 12px;color:#e2e8f0;font-size:15px;font-weight:600;}
+.fbb-section-title{flex:1;background:#0f172a;border:1px solid #334155;border-radius:6px;height:28px;padding:2px 10px;color:#e2e8f0;font-size:12px;font-weight:600;box-sizing:border-box;}
 .fbb-section-title:focus{outline:none;border-color:#3b82f6;}
 /* ── Field card ─────────────────────────────────────────── */
 .fbb-field{background:#0f172a;border:1px solid #1e293b;border-radius:8px;padding:12px;margin-bottom:8px;}
