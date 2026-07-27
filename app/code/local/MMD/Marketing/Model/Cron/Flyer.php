@@ -216,6 +216,12 @@ class MMD_Marketing_Model_Cron_Flyer
             || trim((string) $row['mailerlite_id']) !== '') {
             return null; // already booked — nothing to rework
         }
+        if ((string) $row['review_status'] !== 'changes_requested') {
+            // Duplicate call (double-submitted form, cron overlap) — a prior run
+            // already superseded this row and built its successor.
+            $this->_log('regenerate: #' . $old . ' is ' . $row['review_status'] . ', not changes_requested — skipping');
+            return null;
+        }
         $pid = (int) trim(strtok((string) $row['course_pids'], ','));
         if (!$pid) { $this->_log('regenerate: #' . $old . ' has no product'); return null; }
         $fb       = trim((string) $row['review_feedback']);
@@ -241,17 +247,28 @@ class MMD_Marketing_Model_Cron_Flyer
         }
         if (!$copy) {
             // Generation failed — HOLD. Do not supersede, do not email the same
-            // design. followUp() will retry on the next cron tick.
+            // design. followUp() will retry on the next cron tick. Guarded so a
+            // concurrent run that already superseded this row isn't resurrected.
             $this->_write()->update($this->_tbl(), array('review_status' => 'changes_requested'),
-                array('newsletter_id = ?' => $old));
+                array('newsletter_id = ?' => $old, "review_status = 'changes_requested'"));
             $this->_log('regenerate: HELD #' . $old . ' — copy generation failed after retries; NOT re-sending the rejected design');
             return null;
         }
         $this->_log('regenerate: AI copy rebuilt for #' . $old . ' from feedback: ' . mb_substr($fb, 0, 100));
 
         // New copy is in hand — free the course and build the new proposal.
-        $this->_write()->update($this->_tbl(), array('review_status' => 'superseded'),
-            array('newsletter_id = ?' => $old));
+        // Atomic claim: the admin button, the email link (double-submit) and the
+        // hourly followUp safety net can race on the same row. Only the run that
+        // flips changes_requested -> superseded may proceed — a loser that carried
+        // on would "restore" the row below even though its successor exists,
+        // stranding a stale active flow that blocks every future regenerate for
+        // this product (incident 2026-07-27, #30/#31 deadlock).
+        $claimed = $this->_write()->update($this->_tbl(), array('review_status' => 'superseded'),
+            array('newsletter_id = ?' => $old, "review_status = 'changes_requested'"));
+        if (!$claimed) {
+            $this->_log('regenerate: #' . $old . ' already claimed by a concurrent regenerate — skipping');
+            return null;
+        }
         $nid = $this->createProposal($pid);
         if (!$nid) {
             $this->_write()->update($this->_tbl(), array('review_status' => 'changes_requested'),
