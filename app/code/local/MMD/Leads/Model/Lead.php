@@ -29,6 +29,19 @@ class MMD_Leads_Model_Lead extends Mage_Core_Model_Abstract
     const AUTO_REPLY_FAILED  = 'failed';
     const AUTO_REPLY_SKIPPED = 'skipped';
 
+    /**
+     * MailerLite push lifecycle (the lead email is auto-subscribed to the
+     * site's configured MailerLite group on capture):
+     *   NULL    — never attempted (legacy rows)
+     *   sent    — subscribed to the group
+     *   skipped — MailerLite not configured, or the address previously
+     *             unsubscribed/bounced (never resurrect opt-outs)
+     *   failed  — API call errored (see var/log/mailerlite.log)
+     */
+    const MAILERLITE_SENT    = 'sent';
+    const MAILERLITE_SKIPPED = 'skipped';
+    const MAILERLITE_FAILED  = 'failed';
+
     protected function _construct()
     {
         $this->_init('mmd_leads/lead');

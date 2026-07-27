@@ -83,14 +83,6 @@ class MMD_Leads_Block_Adminhtml_Leads_Grid extends Mage_Adminhtml_Block_Widget_G
             'index'  => 'courses_interested',
         ));
 
-        $this->addColumn('store_code', array(
-            'header'  => $helper->__('Store'),
-            'index'   => 'store_code',
-            'type'    => 'options',
-            'options' => $this->_getStoreOptions(),
-            'width'   => '110px',
-        ));
-
         $this->addColumn('comment', array(
             'header' => $helper->__('Message'),
             'index'  => 'comment',
@@ -119,6 +111,19 @@ class MMD_Leads_Block_Adminhtml_Leads_Grid extends Mage_Adminhtml_Block_Widget_G
                 MMD_Leads_Model_Lead::AUTO_REPLY_FAILED  => $helper->__('Failed'),
                 MMD_Leads_Model_Lead::AUTO_REPLY_SKIPPED => $helper->__('Skipped'),
             ),
+        ));
+
+        $this->addColumn('mailerlite_status', array(
+            'header'  => $helper->__('MailerLite'),
+            'index'   => 'mailerlite_status',
+            'type'    => 'options',
+            'width'   => '100px',
+            'options' => array(
+                MMD_Leads_Model_Lead::MAILERLITE_SENT    => $helper->__('Sent'),
+                MMD_Leads_Model_Lead::MAILERLITE_SKIPPED => $helper->__('Skipped'),
+                MMD_Leads_Model_Lead::MAILERLITE_FAILED  => $helper->__('Failed'),
+            ),
+            'renderer' => 'MMD_Leads_Block_Adminhtml_Leads_Grid_Renderer_Mailerlite',
         ));
 
         $this->addColumn('action', array(
@@ -193,12 +198,4 @@ class MMD_Leads_Block_Adminhtml_Leads_Grid extends Mage_Adminhtml_Block_Widget_G
         return $this->getUrl('*/*/view', array('id' => $row->getId()));
     }
 
-    protected function _getStoreOptions()
-    {
-        $opts = array();
-        foreach (Mage::app()->getStores(true) as $store) {
-            $opts[$store->getCode()] = $store->getCode();
-        }
-        return $opts;
-    }
 }

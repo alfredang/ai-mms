@@ -132,6 +132,10 @@ class MMD_MagentoCaptcha_IndexController extends Mage_Core_Controller_Front_Acti
                 // course info. The helper records the outcome on the lead
                 // (auto_reply_status) and never throws.
                 Mage::helper('mmd_leads')->sendAutoReply($lead);
+
+                // Auto-subscribe the lead to the site's MailerLite group.
+                // Records mailerlite_status on the lead; never throws.
+                Mage::helper('mmd_leads')->subscribeToMailerlite($lead);
             } catch (Exception $e) {
                 Mage::logException($e);
             }

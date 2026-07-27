@@ -676,6 +676,59 @@ class MMD_Leads_Helper_Data extends Mage_Core_Helper_Abstract
     }
 
     /**
+     * Auto-subscribe the lead's email to the site's configured MailerLite
+     * group (Company Setting → Integrations → MailerLite). Never throws —
+     * the outcome is recorded on the lead as mailerlite_status.
+     *
+     * Franchise-safe: when no group is configured on this install the lead
+     * is marked 'skipped' (there is deliberately no fallback to the SG
+     * group). Opt-out guard: POST /subscribers is an upsert that would
+     * resurrect an unsubscribed address, so previously unsubscribed /
+     * bounced / junk subscribers are skipped, never re-added.
+     */
+    public function subscribeToMailerlite(MMD_Leads_Model_Lead $lead)
+    {
+        try {
+            $ml      = Mage::helper('mmd_marketing/mailerlite');
+            $email   = strtolower(trim((string) $lead->getEmail()));
+            $groupId = $ml->getSyncGroupId();
+            if (!$ml->isConfigured() || $groupId === '' || $email === '') {
+                $this->_setMailerliteStatus($lead, MMD_Leads_Model_Lead::MAILERLITE_SKIPPED);
+                return;
+            }
+
+            $existing = $ml->findSubscriber($email);
+            $status   = is_array($existing) && isset($existing['status']) ? $existing['status'] : '';
+            if (in_array($status, array('unsubscribed', 'bounced', 'junk'), true)) {
+                Mage::log('lead #' . $lead->getId() . ': ' . $email . ' is ' . $status . ' — not re-adding', null, 'mailerlite.log');
+                $this->_setMailerliteStatus($lead, MMD_Leads_Model_Lead::MAILERLITE_SKIPPED);
+                return;
+            }
+
+            $ml->addSubscriber($email, $groupId, array('name' => (string) $lead->getName()));
+            Mage::log('lead #' . $lead->getId() . ': subscribed ' . $email . ' to group ' . $groupId, null, 'mailerlite.log');
+            $this->_setMailerliteStatus($lead, MMD_Leads_Model_Lead::MAILERLITE_SENT);
+        } catch (Exception $e) {
+            Mage::logException($e);
+            Mage::log('lead #' . $lead->getId() . ': subscribe failed — ' . $e->getMessage(), null, 'mailerlite.log');
+            $this->_setMailerliteStatus($lead, MMD_Leads_Model_Lead::MAILERLITE_FAILED);
+        }
+    }
+
+    /**
+     * Persist a mailerlite_status onto the lead without letting a save
+     * error bubble up into the contact-form flow.
+     */
+    protected function _setMailerliteStatus(MMD_Leads_Model_Lead $lead, $status)
+    {
+        try {
+            $lead->setMailerliteStatus($status)->save();
+        } catch (Exception $e) {
+            Mage::logException($e);
+        }
+    }
+
+    /**
      * Persist an auto_reply_status onto the lead without letting a save
      * error bubble up into the contact-form flow.
      */
