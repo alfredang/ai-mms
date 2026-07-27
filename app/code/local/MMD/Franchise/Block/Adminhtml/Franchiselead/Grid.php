@@ -28,7 +28,6 @@ class MMD_Franchise_Block_Adminhtml_Franchiselead_Grid extends Mage_Adminhtml_Bl
         $this->addColumn('country', array('header' => $h->__('Country / Region'), 'index' => 'country'));
         $this->addColumn('company', array('header' => $h->__('Company'), 'index' => 'company'));
         $this->addColumn('message', array('header' => $h->__('Message'), 'index' => 'message', 'truncate' => 80));
-        $this->addColumn('store_code', array('header' => $h->__('Store'), 'index' => 'store_code', 'width' => 70));
         $this->addColumn('status', array(
             'header'  => $h->__('Status'),
             'index'   => 'status',
@@ -36,7 +35,26 @@ class MMD_Franchise_Block_Adminhtml_Franchiselead_Grid extends Mage_Adminhtml_Bl
             'type'    => 'options',
             'options' => array('new' => 'New', 'replied' => 'Replied', 'closed' => 'Closed'),
         ));
+        $this->addColumn('mailerlite_status', array(
+            'header'   => $h->__('MailerLite'),
+            'index'    => 'mailerlite_status',
+            'type'     => 'options',
+            'width'    => '100px',
+            'options'  => array('sent' => 'Sent', 'skipped' => 'Skipped', 'failed' => 'Failed'),
+            'renderer' => 'MMD_Leads_Block_Adminhtml_Leads_Grid_Renderer_Mailerlite',
+        ));
         return parent::_prepareColumns();
+    }
+
+    protected function _prepareMassaction()
+    {
+        $this->setMassactionIdField('lead_id');
+        $this->getMassactionBlock()->setFormFieldName('leads');
+        $this->getMassactionBlock()->addItem('mailerlite', array(
+            'label' => Mage::helper('mmd_franchise')->__('Send to MailerLite'),
+            'url'   => $this->getUrl('*/*/massMailerlite'),
+        ));
+        return $this;
     }
 
     public function getGridUrl()

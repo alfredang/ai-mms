@@ -22,7 +22,18 @@ class MMD_Customised_Block_Adminhtml_Customisedlead_Grid extends Mage_Adminhtml_
         $this->addColumn('preferred_dates', array('header'=>$h->__('Preferred Dates'),'index'=>'preferred_dates'));
         $this->addColumn('message', array('header'=>$h->__('Message'),'index'=>'message','truncate'=>60));
         $this->addColumn('status', array('header'=>$h->__('Status'),'index'=>'status','width'=>90,'type'=>'options','options'=>array('new'=>'New','replied'=>'Replied','closed'=>'Closed')));
+        $this->addColumn('mailerlite_status', array('header'=>$h->__('MailerLite'),'index'=>'mailerlite_status','type'=>'options','width'=>'100px','options'=>array('sent'=>'Sent','skipped'=>'Skipped','failed'=>'Failed'),'renderer'=>'MMD_Leads_Block_Adminhtml_Leads_Grid_Renderer_Mailerlite'));
         return parent::_prepareColumns();
+    }
+    protected function _prepareMassaction()
+    {
+        $this->setMassactionIdField('lead_id');
+        $this->getMassactionBlock()->setFormFieldName('leads');
+        $this->getMassactionBlock()->addItem('mailerlite', array(
+            'label' => Mage::helper('mmd_customised')->__('Send to MailerLite'),
+            'url'   => $this->getUrl('*/*/massMailerlite'),
+        ));
+        return $this;
     }
     public function getGridUrl() { return $this->getUrl('*/*/grid', array('_current'=>true)); }
     public function getRowUrl($row) { return false; }

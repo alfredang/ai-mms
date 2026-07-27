@@ -67,6 +67,10 @@ class MMD_Franchise_IndexController extends Mage_Core_Controller_Front_Action
                 ->setStatus('new');
             $lead->save();
 
+            // Auto-subscribe to the site's MailerLite group (records
+            // mailerlite_status on the lead; never throws).
+            Mage::helper('mmd_marketing/mailerlite')->subscribeLead($lead);
+
             $this->_notify($lead);
 
             $session->addSuccess($this->__('Thank you for your submission. We will respond in 7 working days. If you do not receive any response from us, please call our office hotline +65 6100 0613 for further assistance.'));

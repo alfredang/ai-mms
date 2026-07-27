@@ -2,7 +2,20 @@
 class MMD_Hiring_Block_Adminhtml_Hiringlead_Grid extends Mage_Adminhtml_Block_Widget_Grid
 {
     public function __construct() { parent::__construct(); $this->setId('hiringLeadGrid'); $this->setDefaultSort('created_at'); $this->setDefaultDir('DESC'); $this->setSaveParametersInSession(true); $this->setUseAjax(true); }
-    protected function _prepareCollection() { $this->setCollection(Mage::getModel('mmd_hiring/lead')->getCollection()); return parent::_prepareCollection(); }
+    protected function _prepareCollection()
+    {
+        // Sidebar split: Hiring (trainer roles) vs Interns share this grid,
+        // pre-filtered by the roles field ("Intern – …" options on the form).
+        $collection = Mage::getModel('mmd_hiring/lead')->getCollection();
+        $type = (string) $this->getRequest()->getParam('type');
+        if ($type === 'interns') {
+            $collection->addFieldToFilter('roles', array('like' => '%Intern%'));
+        } elseif ($type === 'hiring') {
+            $collection->addFieldToFilter('roles', array(array('nlike' => '%Intern%'), array('null' => true)));
+        }
+        $this->setCollection($collection);
+        return parent::_prepareCollection();
+    }
     protected function _prepareColumns() {
         $h = Mage::helper('mmd_hiring');
         $this->addColumn('lead_id', array('header'=>$h->__('ID'),'index'=>'lead_id','width'=>50));
@@ -22,7 +35,18 @@ class MMD_Hiring_Block_Adminhtml_Hiringlead_Grid extends Mage_Adminhtml_Block_Wi
         $this->addColumn('linkedin', array('header'=>$h->__('LinkedIn/Resume'),'index'=>'linkedin'));
         $this->addColumn('message', array('header'=>$h->__('Cover Note'),'index'=>'message','truncate'=>60));
         $this->addColumn('status', array('header'=>$h->__('Status'),'index'=>'status','width'=>90,'type'=>'options','options'=>array('new'=>'New','replied'=>'Replied','closed'=>'Closed')));
+        $this->addColumn('mailerlite_status', array('header'=>$h->__('MailerLite'),'index'=>'mailerlite_status','type'=>'options','width'=>'100px','options'=>array('sent'=>'Sent','skipped'=>'Skipped','failed'=>'Failed'),'renderer'=>'MMD_Leads_Block_Adminhtml_Leads_Grid_Renderer_Mailerlite'));
         return parent::_prepareColumns();
+    }
+    protected function _prepareMassaction()
+    {
+        $this->setMassactionIdField('lead_id');
+        $this->getMassactionBlock()->setFormFieldName('leads');
+        $this->getMassactionBlock()->addItem('mailerlite', array(
+            'label' => Mage::helper('mmd_hiring')->__('Send to MailerLite'),
+            'url'   => $this->getUrl('*/*/massMailerlite', array('type' => (string) $this->getRequest()->getParam('type'))),
+        ));
+        return $this;
     }
     public function getGridUrl() { return $this->getUrl('*/*/grid', array('_current'=>true)); }
     public function getRowUrl($r) { return false; }

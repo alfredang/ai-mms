@@ -19,7 +19,7 @@ class MMD_Hiring_IndexController extends Mage_Core_Controller_Front_Action
                 $result = $turnstile->verify((string) ($post[MMD_MagentoCaptcha_Helper_Turnstile::TOKEN_FIELD] ?? ''), $turnstile->getRemoteIp());
                 if (empty($result['ok'])) { Mage::throwException($this->__('Spam check failed. Please refresh the page and try again.')); }
             }
-            Mage::getModel('mmd_hiring/lead')
+            $lead = Mage::getModel('mmd_hiring/lead')
                 ->setStoreId(Mage::app()->getStore()->getId())->setStoreCode(Mage::app()->getStore()->getCode())
                 ->setName($name)->setEmail($email)->setTelephone((string) ($post['telephone'] ?? ''))
                 ->setPosition((string) ($post['position'] ?? ''))->setRoles((string) ($post['roles'] ?? ''))
@@ -31,6 +31,7 @@ class MMD_Hiring_IndexController extends Mage_Core_Controller_Front_Action
                 ->setMessage($comment)->setSource((string) ($post['source'] ?? 'hiring'))
                 ->setIp($turnstile->getRemoteIp())->setUserAgent(substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255))
                 ->setStatus('new')->save();
+            Mage::helper('mmd_marketing/mailerlite')->subscribeLead($lead);
             $this->_notify($post, $name, $email);
             $session->addSuccess($this->__('Thank you for your submission. We will respond in 7 working days. If you do not receive any response from us, please call our office hotline +65 6100 0613 for further assistance.'));
         } catch (Mage_Core_Exception $e) { $session->addError($e->getMessage()); }
