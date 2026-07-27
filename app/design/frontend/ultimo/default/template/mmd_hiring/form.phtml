@@ -62,7 +62,7 @@ $ageOpts     = array('Below 21', '21 – 30', '31 – 40', '41 – 50', '51 – 
     <input type="hidden" name="source" value="hiring"/>
     <input type="text" name="hideit" value="" tabindex="-1" autocomplete="off" style="display:none !important;"/>
     <input type="hidden" name="cf-turnstile-response" id="hiring-tk" value=""/>
-    <?php if ($k): ?><div class="cf-turnstile" data-sitekey="<?php echo $this->htmlEscape($k) ?>" data-size="invisible" data-callback="onHireTs" data-error-callback="onHireTsE" data-expired-callback="onHireTsX"></div><?php endif; ?>
+    <?php if ($k): ?><div class="cf-turnstile" data-sitekey="<?php echo $this->htmlEscape($k) ?>" data-appearance="interaction-only" data-callback="onHireTs" data-error-callback="onHireTsE" data-expired-callback="onHireTsX"></div><?php endif; ?>
     <button type="submit" id="hiring-submit" class="tch-s"><?php echo $this->__('Submit Application') ?></button>
   </form></div>
 </div>

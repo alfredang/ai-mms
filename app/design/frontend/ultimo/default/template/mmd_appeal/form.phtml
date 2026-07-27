@@ -26,7 +26,7 @@
     <div class="tca-f full"><label><?php echo $this->__('Reason to Appeal') ?> <span class="r">*</span></label><textarea name="comment" placeholder="<?php echo $this->__('Explain the grounds for your assessment appeal.') ?>"></textarea></div>
     <input type="text" name="hideit" value="" tabindex="-1" autocomplete="off" style="display:none !important;"/>
     <input type="hidden" name="cf-turnstile-response" id="appeal-tk" value=""/>
-    <?php if ($k): ?><div class="cf-turnstile" data-sitekey="<?php echo $this->htmlEscape($k) ?>" data-size="invisible" data-callback="onApTs" data-error-callback="onApTsE" data-expired-callback="onApTsX"></div><?php endif; ?>
+    <?php if ($k): ?><div class="cf-turnstile" data-sitekey="<?php echo $this->htmlEscape($k) ?>" data-appearance="interaction-only" data-callback="onApTs" data-error-callback="onApTsE" data-expired-callback="onApTsX"></div><?php endif; ?>
     <button type="submit" id="appeal-submit" class="tca-s"><?php echo $this->__('Submit Appeal') ?></button>
   </form></div>
 </div>

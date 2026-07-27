@@ -27,7 +27,7 @@
     <div class="tcr-f full"><label><?php echo $this->__('Message') ?></label><textarea name="comment" placeholder="<?php echo $this->__('Reason for refund (optional)') ?>"></textarea></div>
     <input type="text" name="hideit" value="" tabindex="-1" autocomplete="off" style="display:none !important;"/>
     <input type="hidden" name="cf-turnstile-response" id="refund-tk" value=""/>
-    <?php if ($k): ?><div class="cf-turnstile" data-sitekey="<?php echo $this->htmlEscape($k) ?>" data-size="invisible" data-callback="onRfTs" data-error-callback="onRfTsE" data-expired-callback="onRfTsX"></div><?php endif; ?>
+    <?php if ($k): ?><div class="cf-turnstile" data-sitekey="<?php echo $this->htmlEscape($k) ?>" data-appearance="interaction-only" data-callback="onRfTs" data-error-callback="onRfTsE" data-expired-callback="onRfTsX"></div><?php endif; ?>
     <button type="submit" id="refund-submit" class="tcr-s"><?php echo $this->__('Submit Request') ?></button>
   </form></div>
 </div>

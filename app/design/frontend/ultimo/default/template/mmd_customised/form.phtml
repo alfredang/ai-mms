@@ -26,7 +26,7 @@
       <input type="hidden" name="source" value="customised-training"/>
       <input type="text" name="hideit" value="" tabindex="-1" autocomplete="off" style="display:none !important;"/>
       <input type="hidden" name="cf-turnstile-response" id="customised-tk" value=""/>
-      <?php if ($k): ?><div class="cf-turnstile" data-sitekey="<?php echo $this->htmlEscape($k) ?>" data-size="invisible" data-callback="onCustTs" data-error-callback="onCustTsE" data-expired-callback="onCustTsX"></div><?php endif; ?>
+      <?php if ($k): ?><div class="cf-turnstile" data-sitekey="<?php echo $this->htmlEscape($k) ?>" data-appearance="interaction-only" data-callback="onCustTs" data-error-callback="onCustTsE" data-expired-callback="onCustTsX"></div><?php endif; ?>
       <button type="submit" id="customised-submit" class="tcu-s"><?php echo $this->__('Submit Enquiry') ?></button>
     </form>
   </div>

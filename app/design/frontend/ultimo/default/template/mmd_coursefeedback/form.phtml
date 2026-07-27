@@ -45,7 +45,7 @@ $scale = function($field) {
     <div class="tcfb-f full"><label><?php echo $this->__('Additional comments (optional)') ?></label><textarea name="comment"></textarea></div>
     <input type="text" name="hideit" value="" tabindex="-1" autocomplete="off" style="display:none !important;"/>
     <input type="hidden" name="cf-turnstile-response" id="fb-tk" value=""/>
-    <?php if ($k): ?><div class="cf-turnstile" data-sitekey="<?php echo $this->htmlEscape($k) ?>" data-size="invisible" data-callback="onFbTs" data-error-callback="onFbTsE" data-expired-callback="onFbTsX"></div><?php endif; ?>
+    <?php if ($k): ?><div class="cf-turnstile" data-sitekey="<?php echo $this->htmlEscape($k) ?>" data-appearance="interaction-only" data-callback="onFbTs" data-error-callback="onFbTsE" data-expired-callback="onFbTsX"></div><?php endif; ?>
     <button type="submit" id="fb-submit" class="tcfb-s"><?php echo $this->__('Submit Feedback') ?></button>
   </form></div>
 </div>
