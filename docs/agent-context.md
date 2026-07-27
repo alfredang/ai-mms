@@ -170,7 +170,62 @@ chips and the course cover image). Anything outside the nine names is invalid.
 
 ---
 
-## 6. Invariants you must always respect
+## 6. Reading course + funding info (which system to ask)
+
+To *answer questions* about a course (its details, funding, price, schedule) you read from
+**two** systems - use each for what it owns:
+
+- **MMS** (this system) - the catalog/storefront for **all** courses (WSQ and non-WSQ). This is
+  where you **identify** a course and read its marketing info, **list price**, **badges** (which
+  funding schemes apply), **mode**, and **schedule**.
+- **LMS-TMS** (the separate WSQ system already in your tools - see Sec 1) - the **authority for
+  WSQ funding figures and grant/claim status**. It only knows **WSQ (`TGS-`)** courses.
+
+### Step 1 - find/identify the course in MMS (works for any course)
+On the MMS read key (`X-API-Key`) you already use for the read endpoints:
+
+| Endpoint | Gives you |
+|---|---|
+| `GET /courses/api_search?q=<keywords>` | Matching courses: `sku`, `name`, `price`, `funding_badges` |
+| `GET /courses/api_courses?sku=<code>` | One course: `name`, overview, `fee.list_price`, `funding_badges`, `mode`, `registration_url` |
+| `GET /courses/api_schedule?sku=<code>` | The class dates + trainer/vacancy/mode |
+| `GET /courses/api_faq` | Plain-English explanations of the funding schemes (SFC, WSQ, UTAP, …) |
+
+**MMS gives only the LIST price + which schemes apply.** Its own response says subsidised rates
+come from the funding schemes - it does **not** return the actual subsidised dollar figure.
+
+### Step 2 - branch on the course code (`sku`) prefix (see Sec 4)
+- **`C-` / `M-` (non-WSQ):** MMS is the **whole** answer - full price, no WSQ funding. The
+  LMS has never heard of these; do **not** look there.
+- **`TGS-` (WSQ):** MMS gives catalog + which-schemes; the **actual funding figures come from
+  the LMS.**
+
+### Step 3 - for a WSQ (`TGS-`) course, get the real funding numbers from the LMS
+Use the LMS course lookup you already have (`/api/external/course-info?course_code=<TGS-…>`). It
+returns the **authoritative** figures:
+
+- `course_fee`, `course_fees_include_gst`, `course_fees_exclude_gst`
+- `after_normal_funding` (the baseline-funded fee), `after_mces_funding` (the extra-subsidised
+  fee for 40+/MCES)
+- `tax_percent`, `skillsfuture_link`, `sf_for_business_link`
+
+For a **specific learner's** grant/claim status, use the LMS grants lookup
+(`/api/external/grants?enrollment_id=…`).
+
+### The join key
+The **course code is identical in both systems**: MMS `sku` **==** LMS `course_code` (the
+`TGS-…` value). Resolve it in MMS, then pass it verbatim to the LMS.
+
+### Don'ts
+- **Don't** report the MMS list price as the "funded price" for a WSQ course - fetch the funded
+  figure from the LMS.
+- **Don't** look for non-WSQ (`C-`/`M-`) courses in the LMS - only MMS has them.
+- These are **read** lookups. *Changing* a course/schedule still goes through the MMS **write**
+  APIs (preview → confirm → commit) in the API guide.
+
+---
+
+## 7. Invariants you must always respect
 
 These are hard rules. Breaking them corrupts data or the storefront:
 
@@ -187,7 +242,7 @@ These are hard rules. Breaking them corrupts data or the storefront:
 
 ---
 
-## 7. How you should make changes (summary - full detail in the API spec)
+## 8. How you should make changes (summary - full detail in the API spec)
 
 1. **Authorize the requester yourself** by their role (you know who they are from their
    WhatsApp number; you refer to them by name).
@@ -203,7 +258,7 @@ These are hard rules. Breaking them corrupts data or the storefront:
 
 ---
 
-## 8. Glossary
+## 9. Glossary
 
 | Term | Means |
 |---|---|

@@ -9,6 +9,11 @@ the rules, every endpoint, realistic chat scenarios, and the edge cases that bit
 > **This document is safe to hand to an agent verbatim.** It contains no secrets — the API key is
 > injected separately.
 
+> **This guide is about *changing* things (the MMS write APIs).** To *read/answer questions* about
+> a course's info, funding, price, or schedule, see **`agent-context.md` §6 "Reading course +
+> funding info"** — those lookups span **two systems** (MMS for the catalog + non-WSQ; the LMS-TMS
+> for authoritative WSQ funding figures + grant status), and getting the routing right matters.
+
 ---
 
 ## 0. The five golden rules
