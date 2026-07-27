@@ -18,7 +18,7 @@ class MMD_FeedbackForm_RespondController extends Mage_Core_Controller_Front_Acti
         try {
             /** @var MMD_FeedbackForm_Helper_Data $h */
             $h        = Mage::helper('mmd_feedbackform');
-            $template = $h->getOrCreateTemplate();
+            $template = $h->getDefaultTemplate();
             $run      = $this->_loadRun($runId);
 
             if (!$run) {
@@ -57,8 +57,13 @@ class MMD_FeedbackForm_RespondController extends Mage_Core_Controller_Front_Acti
         try {
             /** @var MMD_FeedbackForm_Helper_Data $h */
             $h        = Mage::helper('mmd_feedbackform');
-            $template = $h->getOrCreateTemplate();
+            $template = $h->getDefaultTemplate();
             $run      = $this->_loadRun($runId);
+
+            if (!$run || !(int)$run['product_id']) {
+                $this->_renderError('Class Not Found', 'This feedback link is no longer valid.');
+                return;
+            }
 
             $answers = array();
             foreach ($this->getRequest()->getPost() as $k => $v) {
@@ -68,44 +73,68 @@ class MMD_FeedbackForm_RespondController extends Mage_Core_Controller_Front_Acti
                 }
             }
 
-            // Derive learner_name, learner_email, and _message by scanning the
-            // template field definitions — this maps auto-generated field IDs
-            // (f4, f10 …) back to their semantic purpose.
-            $learnerName  = '';
-            $learnerEmail = '';
+            // Derive learner name, comment, and the three 1–5 star ratings by
+            // scanning the template field definitions — this maps field IDs
+            // (f4, f7 …) back to their semantic purpose. The rating fields map
+            // positionally onto the Magento rating codes:
+            //   1st rating1to5 → rating_id 1 (course meets expectation)
+            //   2nd rating1to5 → rating_id 2 (trainer knowledgeable)
+            //   3rd rating1to5 → rating_id 5 (training environment)
+            $ratingIds   = array(1, 2, 5);
+            $starValues  = array();   // rating_id => value 1..5
+            $learnerName = '';
+            $comment     = '';
             foreach ($template['sections'] as $section) {
                 foreach ($section['fields'] as $field) {
                     if (!empty($field['autofill']) || !empty($field['readonly'])) continue;
                     $fid = $field['id'];
                     $val = isset($answers[$fid]) ? trim((string)$answers[$fid]) : '';
-                    if ($learnerName  === '' && $field['type'] === 'text'  && !empty($field['required'])) $learnerName  = $val;
-                    if ($learnerEmail === '' && $field['type'] === 'email')                               $learnerEmail = $val;
-                    // First textarea with no autofill is the free-text "message" field.
-                    // Store under reserved key _message so the responses view can
-                    // display it in the Message column without template knowledge.
-                    if (!isset($answers['_message']) && $field['type'] === 'textarea' && $val !== '')    $answers['_message'] = $val;
+                    if ($learnerName === '' && $field['type'] === 'text' && !empty($field['required'])) $learnerName = $val;
+                    if ($comment === '' && $field['type'] === 'textarea' && $val !== '')                $comment = $val;
+                    if ($field['type'] === 'rating1to5' && !empty($ratingIds)) {
+                        $ratingId = array_shift($ratingIds);
+                        $star     = max(1, min(5, (int)$val ?: 5));
+                        $starValues[$ratingId] = $star;
+                    }
                 }
             }
 
-            $resource = Mage::getSingleton('core/resource');
-            $resource->getConnection('core_write')->insert(
-                $resource->getTableName('mmd_feedback_form_response'),
-                array(
-                    'template_id'  => (int)($template['template_id'] ?? 0) ?: null,
-                    'run_id'       => $runId,
-                    'class_id'     => $run ? (string)$run['class_id']      : null,
-                    'course_sku'   => $run ? (string)$run['course_sku']    : null,
-                    'course_title' => $run ? (string)$run['course_title']  : null,
-                    'trainer_name' => $run ? (string)$run['trainer_name']  : null,
-                    'start_date'   => $run && $run['course_start_date'] ? $run['course_start_date'] : null,
-                    'end_date'     => $run && $run['course_end_date']   ? $run['course_end_date']   : null,
-                    'learner_name' => $learnerName,
-                    'learner_email'=> $learnerEmail,
-                    'answers'      => json_encode($answers),
-                )
-            );
+            // Save as a Magento product review — the single feedback store.
+            $productId = (int)$run['product_id'];
+            $storeId   = (int)Mage::app()->getStore()->getId();
+            $average   = $starValues ? round(array_sum($starValues) / count($starValues), 1) : 5.0;
 
-            $this->_renderThanks($run ? (string)$run['course_title'] : '');
+            /** @var Mage_Review_Model_Review $review */
+            $review = Mage::getModel('review/review');
+            $review->setEntityPkValue($productId)
+                   ->setStatusId(Mage_Review_Model_Review::STATUS_APPROVED)
+                   ->setTitle('Average Rating: ' . number_format($average, 1) . '/5')
+                   ->setDetail($comment !== '' ? $comment : 'N/A')
+                   ->setEntityId($review->getEntityIdByCode(Mage_Review_Model_Review::ENTITY_PRODUCT_CODE))
+                   ->setStoreId($storeId)
+                   ->setStores(array($storeId))
+                   ->setNickname($learnerName)
+                   ->save();
+
+            // One vote per rating dimension: resolve the option row for the
+            // chosen star value, then record + aggregate.
+            $resource  = Mage::getSingleton('core/resource');
+            $read      = $resource->getConnection('core_read');
+            $optionTbl = $resource->getTableName('rating_option');
+            foreach ($starValues as $ratingId => $star) {
+                $optionId = (int)$read->fetchOne(
+                    "SELECT option_id FROM `$optionTbl` WHERE rating_id = ? AND value = ?",
+                    array($ratingId, $star)
+                );
+                if (!$optionId) continue;
+                Mage::getModel('rating/rating')
+                    ->setRatingId($ratingId)
+                    ->setReviewId($review->getId())
+                    ->addOptionVote($optionId, $productId);
+            }
+            $review->aggregate();
+
+            $this->_renderThanks((string)$run['course_title']);
         } catch (Exception $e) {
             Mage::logException($e);
             $this->_renderError('Submission Error', 'An error occurred saving your response. Please try again.');

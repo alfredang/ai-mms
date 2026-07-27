@@ -68,7 +68,7 @@ $postUrl   = Mage::getUrl('trainer/index/post');
       <input type="text" name="hideit" id="trainer-hideit" value="" tabindex="-1" autocomplete="off" style="display:none !important;" />
       <input type="hidden" name="cf-turnstile-response" id="trainer-turnstile-token" value="" />
       <?php if ($tsSiteKey): ?>
-      <div class="cf-turnstile" data-sitekey="<?php echo $this->htmlEscape($tsSiteKey) ?>" data-size="invisible"
+      <div class="cf-turnstile" data-sitekey="<?php echo $this->htmlEscape($tsSiteKey) ?>" data-appearance="interaction-only"
            data-callback="onTrainerTurnstileSuccess" data-error-callback="onTrainerTurnstileError" data-expired-callback="onTrainerTurnstileExpired"></div>
       <?php endif; ?>
 

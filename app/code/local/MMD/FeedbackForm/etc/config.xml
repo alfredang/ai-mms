@@ -2,7 +2,7 @@
 <config>
     <modules>
         <MMD_FeedbackForm>
-            <version>1.0.0</version>
+            <version>2.0.0</version>
         </MMD_FeedbackForm>
     </modules>
 
@@ -12,42 +12,9 @@
                 <class>MMD_FeedbackForm_Helper</class>
             </mmd_feedbackform>
         </helpers>
-        <models>
-            <mmd_feedbackform>
-                <class>MMD_FeedbackForm_Model</class>
-                <resourceModel>mmd_feedbackform_resource</resourceModel>
-            </mmd_feedbackform>
-            <mmd_feedbackform_resource>
-                <class>MMD_FeedbackForm_Model_Resource</class>
-                <entities>
-                    <template>
-                        <table>mmd_feedback_form_template</table>
-                    </template>
-                    <response>
-                        <table>mmd_feedback_form_response</table>
-                    </response>
-                </entities>
-            </mmd_feedbackform_resource>
-        </models>
-        <resources>
-            <mmd_feedbackform_setup>
-                <setup>
-                    <module>MMD_FeedbackForm</module>
-                </setup>
-                <connection>
-                    <use>core_setup</use>
-                </connection>
-            </mmd_feedbackform_setup>
-            <mmd_feedbackform_write>
-                <connection><use>core_write</use></connection>
-            </mmd_feedbackform_write>
-            <mmd_feedbackform_read>
-                <connection><use>core_read</use></connection>
-            </mmd_feedbackform_read>
-        </resources>
     </global>
 
-    <!-- Public frontend: /feedback/respond?run_id=X -->
+    <!-- Public frontend: /feedback/respond?run_id=X — saves as a Magento product review -->
     <frontend>
         <routers>
             <mmd_feedbackform_frontend>
@@ -59,50 +26,4 @@
             </mmd_feedbackform_frontend>
         </routers>
     </frontend>
-
-    <admin>
-        <routers>
-            <adminhtml>
-                <args>
-                    <modules>
-                        <MMD_FeedbackForm before="Mage_Adminhtml">MMD_FeedbackForm_Adminhtml</MMD_FeedbackForm>
-                    </modules>
-                </args>
-            </adminhtml>
-        </routers>
-    </admin>
-
-    <adminhtml>
-        <acl>
-            <resources>
-                <admin>
-                    <children>
-                        <mmd>
-                            <title>MMD</title>
-                            <children>
-                                <feedbackform translate="title" module="mmd_feedbackform">
-                                    <title>Feedback Form</title>
-                                    <children>
-                                        <builder translate="title">
-                                            <title>Form Builder</title>
-                                        </builder>
-                                        <responses translate="title">
-                                            <title>Responses</title>
-                                        </responses>
-                                    </children>
-                                </feedbackform>
-                            </children>
-                        </mmd>
-                    </children>
-                </admin>
-            </resources>
-        </acl>
-        <layout>
-            <updates>
-                <mmd_feedbackform>
-                    <file>feedbackform.xml</file>
-                </mmd_feedbackform>
-            </updates>
-        </layout>
-    </adminhtml>
 </config>

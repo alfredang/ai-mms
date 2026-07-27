@@ -267,6 +267,25 @@ if [ -n "${SG_SYNC_API_KEY:-}" ]; then
         || echo "entrypoint: WARNING — SG_SYNC_API_KEY sync failed (non-fatal)"
 fi
 
+# Sync MMS_EXTERNAL_API_KEY from env → core_config_data['mmd/external_api/api_key'].
+# Gates GET /courses/api_external_courses — the read-only local-catalog feed
+# consumed by this instance's own n8n email-reply automations. Distinct from
+# SG_SYNC_API_KEY above: that key authenticates THIS instance calling OUT to
+# SG's export endpoint; this key authenticates INBOUND requests from n8n. No
+# relation between the two values. No-op if env var is unset.
+if [ -n "${MMS_EXTERNAL_API_KEY:-}" ]; then
+    php -r "
+        require '/var/www/html/app/Mage.php';
+        Mage::app('admin');
+        Mage::getModel('core/config')->saveConfig(
+            'mmd/external_api/api_key', getenv('MMS_EXTERNAL_API_KEY'), 'default', 0
+        );
+        echo 'ok';
+    " 2>/dev/null | grep -q ok \
+        && echo "entrypoint: MMS_EXTERNAL_API_KEY written to core_config_data" \
+        || echo "entrypoint: WARNING — MMS_EXTERNAL_API_KEY sync failed (non-fatal)"
+fi
+
 # Country instances: write MMS_BASE_URL into core_config_data so Magento
 # generates correct links for the current URL (IP during setup, domain after
 # DNS). Runs every boot so changing MMS_BASE_URL in Coolify + redeploy is
