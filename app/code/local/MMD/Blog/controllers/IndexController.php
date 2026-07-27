@@ -94,7 +94,7 @@ class MMD_Blog_IndexController extends Mage_Core_Controller_Front_Action
     /**
      * Manager review endpoint (no login — the HMAC token bound to post+email is
      * the authorisation; review emails only ever go to the two fixed reviewers).
-     * Approve: one approval books the next free Mon/Thu 09:00 publish slot.
+     * Approve: one approval books the next free Tue/Fri 09:00 publish slot.
      * Changes: GET shows a feedback form; POST records it and synchronously
      * regenerates the article + re-sends for approval.
      */
