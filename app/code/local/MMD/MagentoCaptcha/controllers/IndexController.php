@@ -80,12 +80,6 @@ class MMD_MagentoCaptcha_IndexController extends Mage_Core_Controller_Front_Acti
                 Mage::throwException($this->__('Please fill in all required fields with a valid email.'));
             }
 
-            // Reject obvious junk in free-text fields (legacy filter kept for parity).
-            if (preg_match('/[\'^:£$%&*()}{@#~?><>,|=_+¬-]/', (string)($post['comment'] ?? ''))
-                || preg_match('/[\'^:£$%&*()}{@#~?><>,|=_+¬-]/', (string)($post['name'] ?? ''))) {
-                Mage::throwException($this->__('Your message contains characters we cannot accept.'));
-            }
-
             // Cloudflare Turnstile verification.
             $turnstile = Mage::helper('magentocaptcha/turnstile');
             /** @var MMD_MagentoCaptcha_Helper_Turnstile $turnstile */
@@ -95,44 +89,44 @@ class MMD_MagentoCaptcha_IndexController extends Mage_Core_Controller_Front_Acti
                 Mage::throwException($this->__('Spam check failed. Please refresh the page and try again.'));
             }
 
+            // Persist the lead FIRST so operators always see it in the
+            // admin grid (Tertiary → Leads) even if mail delivery hiccups —
+            // a lost staff email must never mean a lost lead.
+            $lead = Mage::getModel('mmd_leads/lead')
+                ->setStoreId(Mage::app()->getStore()->getId())
+                ->setStoreCode(Mage::app()->getStore()->getCode())
+                ->setName((string)($post['name'] ?? ''))
+                ->setEmail((string)($post['email'] ?? ''))
+                ->setTelephone((string)($post['telephone'] ?? ''))
+                ->setCompany((string)($post['company'] ?? ''))
+                ->setCoursesInterested((string)($post['courses'] ?? ''))
+                ->setCourseCode((string)($post['course_code'] ?? ''))
+                ->setComment((string)($post['comment'] ?? ''))
+                ->setIp((string) $turnstile->getRemoteIp())
+                ->setUserAgent(substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255))
+                ->save();
+
             // Notify staff via the shared branded HTML template (To:
             // Tertiary Courses Singapore <sales@tertiarycourses.com.sg>,
             // CC angch@/tansc@) — same layout every MMD lead form uses.
-            $sent = Mage::helper('mmd_leadmail')->notify(
-                'Website Enquiry',
-                (string)($post['name'] ?? ''),
-                (string)($post['email'] ?? ''),
-                (string)($post['telephone'] ?? ''),
-                array(
-                    array('Company', (string)($post['company'] ?? '')),
-                    array('Courses Interested', (string)($post['courses'] ?? '')),
-                    array('Course Code', (string)($post['course_code'] ?? '')),
-                ),
-                (string)($post['comment'] ?? '')
-            );
-
-            if (!$sent) {
-                Mage::throwException($this->__('Unable to submit your request. Please, try again later'));
-            }
-
-            // Persist the lead so operators can manage replies in the
-            // admin grid (Tertiary → Leads), then auto-acknowledge the
-            // visitor. Wrapped in try/catch — a DB or mail hiccup here must
-            // not undo the already-sent staff notification.
+            // Mail failures are logged, not surfaced: the lead is already
+            // captured above, so the visitor still gets a success message.
             try {
-                $lead = Mage::getModel('mmd_leads/lead')
-                    ->setStoreId(Mage::app()->getStore()->getId())
-                    ->setStoreCode(Mage::app()->getStore()->getCode())
-                    ->setName((string)($post['name'] ?? ''))
-                    ->setEmail((string)($post['email'] ?? ''))
-                    ->setTelephone((string)($post['telephone'] ?? ''))
-                    ->setCompany((string)($post['company'] ?? ''))
-                    ->setCoursesInterested((string)($post['courses'] ?? ''))
-                    ->setCourseCode((string)($post['course_code'] ?? ''))
-                    ->setComment((string)($post['comment'] ?? ''))
-                    ->setIp((string) $turnstile->getRemoteIp())
-                    ->setUserAgent(substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255))
-                    ->save();
+                $sent = Mage::helper('mmd_leadmail')->notify(
+                    'Website Enquiry',
+                    (string)($post['name'] ?? ''),
+                    (string)($post['email'] ?? ''),
+                    (string)($post['telephone'] ?? ''),
+                    array(
+                        array('Company', (string)($post['company'] ?? '')),
+                        array('Courses Interested', (string)($post['courses'] ?? '')),
+                        array('Course Code', (string)($post['course_code'] ?? '')),
+                    ),
+                    (string)($post['comment'] ?? '')
+                );
+                if (!$sent) {
+                    Mage::log('Contact form: staff notification failed for lead #' . $lead->getId(), null, 'mmd_leadmail.log');
+                }
 
                 // Automatic acknowledgement to the visitor with matched
                 // course info. The helper records the outcome on the lead
