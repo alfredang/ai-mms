@@ -18,17 +18,8 @@ $autofills  = $h->getAutofillOptions();
 .fbb-input:focus,.fbb-select:focus{outline:none;border-color:#3b82f6;}
 .fbb-input-sm,.fbb-select-sm{background:#0f172a;border:1px solid #334155;border-radius:6px;padding:5px 8px;color:#e2e8f0;font-size:12px;width:100%;box-sizing:border-box;}
 .fbb-input-sm:focus,.fbb-select-sm:focus{outline:none;border-color:#3b82f6;}
-/* ── Buttons ────────────────────────────────────────────── */
-.fbb-btn-primary{padding:7px 16px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;}
-.fbb-btn-primary:hover{background:#1d4ed8;}
-.fbb-btn-primary:disabled{opacity:.5;cursor:default;}
-.fbb-btn-secondary{padding:7px 14px;background:transparent;border:1px solid #334155;color:#94a3b8;border-radius:8px;font-size:13px;cursor:pointer;}
-.fbb-btn-secondary:hover{border-color:#60a5fa;color:#e2e8f0;}
-.fbb-btn-outline{padding:7px 14px;background:transparent;border:1px solid #334155;color:#94a3b8;border-radius:8px;font-size:13px;cursor:pointer;}
-.fbb-btn-outline.active{border-color:#3b82f6;color:#60a5fa;background:rgba(59,130,246,.1);}
-.fbb-btn-icon{background:none;border:none;cursor:pointer;color:#64748b;padding:3px 6px;font-size:13px;border-radius:4px;}
-.fbb-btn-icon:hover{color:#e2e8f0;background:rgba(255,255,255,.06);}
-.fbb-btn-icon-danger:hover{color:#ef4444;}
+/* ── Buttons — global mm-btn / mmd-iconbtn families only (no bespoke sizes) ── */
+.fbb-icon-danger:hover{color:#ef4444 !important;border-color:#ef4444 !important;}
 /* ── Section card ───────────────────────────────────────── */
 .fbb-section{background:#131d2e;border:1px solid #334155;border-radius:10px;padding:18px;margin-bottom:12px;}
 .fbb-section-hdr{display:flex;align-items:center;gap:8px;margin-bottom:14px;}
@@ -60,9 +51,12 @@ $autofills  = $h->getAutofillOptions();
 .fbb-preview-star-legend{font-size:11px;color:#475569;margin-top:4px;}
 .fbb-preview-empty{font-size:11px;color:#475569;font-style:italic;}
 .fbb-preview-submit{width:100%;padding:10px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;opacity:.7;cursor:default;margin-top:8px;}
-/* ── Layout ─────────────────────────────────────────────── */
-.fbb-layout{display:grid;grid-template-columns:1fr;gap:16px;}
-.fbb-layout.with-preview{grid-template-columns:1fr 1fr;}
+/* ── Preview modal ──────────────────────────────────────── */
+.fbb-modal-overlay{display:none;position:fixed;inset:0;background:rgba(2,6,17,.7);z-index:2000;align-items:flex-start;justify-content:center;padding:48px 16px;overflow-y:auto;}
+.fbb-modal-overlay.open{display:flex;}
+.fbb-modal{background:#1e2132;border:1px solid #334155;border-radius:12px;padding:24px;width:100%;max-width:640px;}
+.fbb-modal-close{background:none;border:none;color:#64748b;font-size:20px;line-height:1;cursor:pointer;padding:2px 6px;border-radius:4px;}
+.fbb-modal-close:hover{color:#e2e8f0;background:rgba(255,255,255,.06);}
 .fbb-save-status{font-size:12px;}
 /* ── Checkbox ───────────────────────────────────────────── */
 .fbb-req-wrap{display:flex;align-items:center;padding-bottom:2px;}
@@ -91,12 +85,6 @@ $autofills  = $h->getAutofillOptions();
 :root[data-theme="light"] .fbb-input-sm:focus,
 :root[data-theme="light"] .fbb-select-sm:focus,
 :root[data-theme="light"] .fbb-section-title:focus{border-color:#2563eb;}
-:root[data-theme="light"] .fbb-btn-secondary{border-color:#cbd5e1;color:#475569;}
-:root[data-theme="light"] .fbb-btn-secondary:hover{border-color:#2563eb;color:#0f172a;background:#e2e8f0;}
-:root[data-theme="light"] .fbb-btn-outline{border-color:#cbd5e1;color:#475569;}
-:root[data-theme="light"] .fbb-btn-outline.active{border-color:#2563eb;color:#2563eb;background:rgba(37,99,235,.08);}
-:root[data-theme="light"] .fbb-btn-icon{color:#64748b;}
-:root[data-theme="light"] .fbb-btn-icon:hover{color:#0f172a;background:rgba(15,23,42,.06);}
 :root[data-theme="light"] .fbb-section{background:#ffffff;border-color:#cbd5e1;}
 :root[data-theme="light"] .fbb-field{background:#f8fafc;border-color:#e2e8f0;}
 :root[data-theme="light"] .fbb-add-field-btn,
@@ -130,37 +118,33 @@ $autofills  = $h->getAutofillOptions();
     </div>
 
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-        <button type="button" id="fb-save-btn" class="fbb-btn-primary" onclick="fbSave()">Save</button>
-        <button type="button" class="fbb-btn-secondary" onclick="fbAddSection()">+ Add Section</button>
-        <button type="button" id="fb-preview-btn" class="fbb-btn-outline active" onclick="fbTogglePreview()">Hide Preview</button>
+        <button type="button" id="fb-save-btn" class="mm-btn mm-btn-primary" onclick="fbSave()">Save</button>
+        <button type="button" class="mm-btn mm-btn-ghost" onclick="fbAddSection()">+ Add Section</button>
+        <button type="button" id="fb-preview-btn" class="mm-btn mm-btn-ghost" onclick="fbOpenPreview()">Preview</button>
         <span id="fb-save-status" class="fbb-save-status"></span>
     </div>
 </div>
 
-<!-- Two-column layout (preview open by default) -->
-<div class="fbb-layout with-preview" id="fbb-layout">
+<!-- Editor (full width) -->
+<div id="fbb-editor">
+    <div id="fb-sections"></div>
+    <button type="button" class="fbb-add-section-btn" onclick="fbAddSection()">+ Add Section</button>
+</div>
 
-    <!-- Left: Editor -->
-    <div id="fbb-editor">
-        <div id="fb-sections"></div>
-        <button type="button" class="fbb-add-section-btn" onclick="fbAddSection()">+ Add Section</button>
-    </div>
-
-    <!-- Right: Preview (open by default) -->
-    <div id="fbb-preview">
-        <div class="fbb-card" style="position:sticky;top:16px;">
-            <div class="fbb-preview-hdr">
-                <div>
-                    <p class="fbb-preview-title">Live Preview</p>
-                    <p class="fbb-preview-sub">As the learner sees it</p>
-                </div>
+<!-- Preview modal -->
+<div class="fbb-modal-overlay" id="fbb-preview-modal">
+    <div class="fbb-modal">
+        <div class="fbb-preview-hdr">
+            <div>
+                <p class="fbb-preview-title">Live Preview</p>
+                <p class="fbb-preview-sub">As the learner sees it</p>
             </div>
-            <p class="fbb-preview-form-title" id="fbp-form-title"></p>
-            <div id="fbp-sections"></div>
-            <button type="button" class="fbb-preview-submit" disabled>Submit Feedback</button>
+            <button type="button" class="fbb-modal-close" onclick="fbClosePreview()" title="Close" aria-label="Close preview">&times;</button>
         </div>
+        <p class="fbb-preview-form-title" id="fbp-form-title"></p>
+        <div id="fbp-sections"></div>
+        <button type="button" class="fbb-preview-submit" disabled>Submit Feedback</button>
     </div>
-
 </div>
 </div><!-- /.rm-wrap -->
 
@@ -169,7 +153,7 @@ var FB_SAVE_URL  = '<?php echo $this->jsQuoteEscape($saveUrl) ?>';
 var FB_LOAD_URL  = '<?php echo $this->jsQuoteEscape($loadUrl) ?>';
 var FB_FORM_KEY  = window.FORM_KEY || '';
 var fbState      = { title: '', sections: [] };
-var fbPreviewOn  = true;
+var fbPreviewOn  = false;   // true while the preview modal is open
 var FB_TYPES     = <?php echo json_encode($fieldTypes) ?>;
 var FB_AUTOFILLS = <?php echo json_encode($autofills) ?>;
 var FB_SAMPLES   = {
@@ -188,7 +172,7 @@ fetch(FB_LOAD_URL, { credentials: 'same-origin' })
             fbState = { title: d.template.title || '', sections: d.template.sections || [] };
             document.getElementById('fb-title').value = fbState.title;
         }
-        fbRender(); // always render; fbPreviewOn=true so preview also renders
+        fbRender();
     });
 
 document.getElementById('fb-title').addEventListener('input', function(){
@@ -241,10 +225,10 @@ function fbRender() {
         html += '<div class="fbb-section">'
             + '<div class="fbb-section-hdr">'
             + '<input class="fbb-section-title" value="'+e(sec.title)+'" oninput="fbSecTitle('+si+',this.value)" placeholder="Section title">'
-            + '<button class="fbb-btn-icon" onclick="fbMoveSec('+si+',-1)" title="Move up">↑</button>'
-            + '<button class="fbb-btn-icon" onclick="fbMoveSec('+si+',1)" title="Move down">↓</button>'
-            + '<button class="fbb-btn-icon fbb-btn-icon-danger" onclick="fbDeleteSection('+si+')" title="Delete section">'
-            + svgDelete(16) + '</button></div>';
+            + '<button class="mmd-iconbtn mmd-tip" data-tip="Move up" aria-label="Move up" onclick="fbMoveSec('+si+',-1)">'+svgArrow(-1)+'</button>'
+            + '<button class="mmd-iconbtn mmd-tip" data-tip="Move down" aria-label="Move down" onclick="fbMoveSec('+si+',1)">'+svgArrow(1)+'</button>'
+            + '<button class="mmd-iconbtn mmd-tip fbb-icon-danger" data-tip="Delete section" aria-label="Delete section" onclick="fbDeleteSection('+si+')">'
+            + svgDelete(14) + '</button></div>';
 
         if (sec.fields.length === 0) {
             html += '<p style="font-size:12px;color:#475569;font-style:italic;margin-bottom:8px;">No fields. Click "+ Add Field" below.</p>';
@@ -266,9 +250,9 @@ function fbRender() {
                 +   '<input type="checkbox"'+(f.required?' checked':'')+' onchange="fbFieldProp('+si+','+fi+',\'required\',this.checked)"> Req'
                 + '</label></div>'
                 + '<div style="display:flex;align-items:flex-end;gap:4px;padding-bottom:1px;">'
-                +   '<button class="fbb-btn-icon" onclick="fbMoveField('+si+','+fi+',-1)" title="Move up">↑</button>'
-                +   '<button class="fbb-btn-icon" onclick="fbMoveField('+si+','+fi+',1)" title="Move down">↓</button>'
-                +   '<button class="fbb-btn-icon fbb-btn-icon-danger" onclick="fbDeleteField('+si+','+fi+')" title="Delete">'+svgDelete(14)+'</button>'
+                +   '<button class="mmd-iconbtn mmd-tip" data-tip="Move up" aria-label="Move up" onclick="fbMoveField('+si+','+fi+',-1)">'+svgArrow(-1)+'</button>'
+                +   '<button class="mmd-iconbtn mmd-tip" data-tip="Move down" aria-label="Move down" onclick="fbMoveField('+si+','+fi+',1)">'+svgArrow(1)+'</button>'
+                +   '<button class="mmd-iconbtn mmd-tip fbb-icon-danger" data-tip="Delete field" aria-label="Delete field" onclick="fbDeleteField('+si+','+fi+')">'+svgDelete(14)+'</button>'
                 + '</div></div>';
 
             if (f.type === 'select') {
@@ -289,6 +273,23 @@ function fbRender() {
 
 // ── Render preview ────────────────────────────────────────────────────────────
 function fbMaybeUpdatePreview() { if (fbPreviewOn) fbRenderPreview(); }
+
+// ── Preview modal ─────────────────────────────────────────────────────────────
+function fbOpenPreview() {
+    fbPreviewOn = true;
+    fbRenderPreview();
+    document.getElementById('fbb-preview-modal').classList.add('open');
+}
+function fbClosePreview() {
+    fbPreviewOn = false;
+    document.getElementById('fbb-preview-modal').classList.remove('open');
+}
+document.getElementById('fbb-preview-modal').addEventListener('click', function(e){
+    if (e.target === this) fbClosePreview();
+});
+document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape') fbClosePreview();
+});
 
 function fbRenderPreview() {
     document.getElementById('fbp-form-title').textContent = fbState.title || '(untitled form)';
@@ -330,26 +331,6 @@ function fbRenderPreview() {
     document.getElementById('fbp-sections').innerHTML = html;
 }
 
-// ── Toggle preview ────────────────────────────────────────────────────────────
-function fbTogglePreview() {
-    fbPreviewOn = !fbPreviewOn;
-    var layout  = document.getElementById('fbb-layout');
-    var preview = document.getElementById('fbb-preview');
-    var btn     = document.getElementById('fb-preview-btn');
-    if (fbPreviewOn) {
-        layout.classList.add('with-preview');
-        preview.style.display = '';
-        btn.classList.add('active');
-        btn.textContent = 'Hide Preview';
-        fbRenderPreview();
-    } else {
-        layout.classList.remove('with-preview');
-        preview.style.display = 'none';
-        btn.classList.remove('active');
-        btn.textContent = 'Show Preview';
-    }
-}
-
 // ── Save ─────────────────────────────────────────────────────────────────────
 function fbSave() {
     var btn = document.getElementById('fb-save-btn');
@@ -382,6 +363,12 @@ function svgDelete(size) {
     return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
         + '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>'
         + '<path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>';
+}
+
+function svgArrow(dir) {
+    var points = dir < 0 ? '18 15 12 9 6 15' : '6 9 12 15 18 9';
+    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+        + '<polyline points="'+points+'"/></svg>';
 }
 
 function svgStar(size) {
