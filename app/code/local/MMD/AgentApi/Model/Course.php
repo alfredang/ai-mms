@@ -10,7 +10,12 @@
  */
 class MMD_AgentApi_Model_Course extends MMD_AgentApi_Model_Abstract
 {
-    /** Editable fields -> product attribute code (category_ids handled specially). */
+    /**
+     * Editable fields -> product attribute code. category_ids is deliberately NOT
+     * here: the agent has no repo/DB access, so it can't safely handle raw numeric
+     * category ids (non-unique names, replace-semantics that would wipe a course's
+     * other listings). Category re-tagging stays a human/admin task.
+     */
     protected $_allow = array(
         'description'      => 'description',
         'short_description'=> 'short_description',
@@ -20,7 +25,6 @@ class MMD_AgentApi_Model_Course extends MMD_AgentApi_Model_Abstract
         'meta_description' => 'meta_description',
         'status'           => 'status',
         'url_key'          => 'url_key',
-        'category_ids'     => 'category_ids',
     );
 
     public function preview($op, array $body)
@@ -75,72 +79,21 @@ class MMD_AgentApi_Model_Course extends MMD_AgentApi_Model_Abstract
             $this->_err('not_found', 'No course with sku=' . $sku . '.', 404);
         }
 
-        // Split scalar attributes from the category assignment. We deliberately
-        // avoid a full $product->save(): run outside adminhtml it trips a PHP 8
-        // foreach(null) warning in core (Mage_Eav_Model_Entity_Abstract::1141)
-        // which the error handler promotes to a fatal. Targeted resource writes
-        // update only what changed and are safe from a front controller.
+        // Targeted attribute write at default scope. We deliberately avoid a full
+        // $product->save(): run outside adminhtml it trips a PHP 8 foreach(null)
+        // warning in core (Mage_Eav_Model_Entity_Abstract::1141) that the error
+        // handler promotes to a fatal. updateAttributes writes only what changed.
         $scalars = array();
-        $catIds  = null;
         foreach ($new as $key => $value) {
-            if ($key === 'category_ids') {
-                $catIds = $value;
-            } else {
-                $scalars[$this->_allow[$key]] = $value;
-            }
+            $scalars[$this->_allow[$key]] = $value;
         }
-
-        $reindexed = array();
-        if ($scalars) {
-            Mage::getSingleton('catalog/product_action')->updateAttributes(array($id), $scalars, 0);
-            $reindexed[] = 'product_attributes';
-        }
-        if ($catIds !== null) {
-            $this->_assignCategories($id, $catIds);
-            $reindexed[] = 'category_products';
-        }
+        Mage::getSingleton('catalog/product_action')->updateAttributes(array($id), $scalars, 0);
 
         return array(
             'target'    => $sku,
-            'reindexed' => $reindexed,
+            'reindexed' => array('product_attributes'),
             'after'     => $new,
         );
-    }
-
-    /**
-     * Set the product's category membership to exactly $categoryIds via the
-     * category_product link table (add missing, drop removed) and flag the
-     * category/product index for reindex - a targeted alternative to the full
-     * product save that _saveCategories() would normally piggyback on.
-     */
-    protected function _assignCategories($productId, array $categoryIds)
-    {
-        $resource = Mage::getSingleton('core/resource');
-        $write    = $resource->getConnection('core_write');
-        $table    = $resource->getTableName('catalog/category_product');
-
-        $existing = array_map('intval', $write->fetchCol(
-            $write->select()->from($table, 'category_id')->where('product_id = ?', (int) $productId)
-        ));
-        $desired  = array_values(array_unique(array_map('intval', $categoryIds)));
-        $toAdd    = array_diff($desired, $existing);
-        $toRemove = array_diff($existing, $desired);
-
-        if ($toRemove) {
-            $write->delete($table, array(
-                'product_id = ?'     => (int) $productId,
-                'category_id IN (?)' => array_values($toRemove),
-            ));
-        }
-        foreach ($toAdd as $catId) {
-            $write->insert($table, array(
-                'category_id' => (int) $catId,
-                'product_id'  => (int) $productId,
-                'position'    => 0,
-            ));
-        }
-        Mage::getSingleton('index/indexer')->getProcessByCode('catalog_category_product')
-            ->changeStatus(Mage_Index_Model_Process::STATUS_REQUIRE_REINDEX);
     }
 
     /** Load at admin (default) scope so writes land on the global value. */
@@ -167,12 +120,6 @@ class MMD_AgentApi_Model_Course extends MMD_AgentApi_Model_Abstract
             case 'special_price':
                 $new = round((float) $value, 2);
                 $old = $product->getData($key) === null ? null : round((float) $product->getData($key), 2);
-                return array($new, $old, array('from' => $old, 'to' => $new));
-            case 'category_ids':
-                $new = array_values(array_unique(array_map('intval', (array) $value)));
-                sort($new);
-                $old = array_values(array_map('intval', (array) $product->getCategoryIds()));
-                sort($old);
                 return array($new, $old, array('from' => $old, 'to' => $new));
             default:
                 $new = (string) $value;

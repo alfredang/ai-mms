@@ -230,7 +230,7 @@ One op, `update`. Change whitelisted product fields on one course.
 
 Fields: `sku` (req), `fields` (req — a map of `field -> value`, at least one).
 **Allowed fields:** `description`, `short_description`, `price`, `special_price`, `meta_title`,
-`meta_description`, `status` (`enabled`/`disabled`), `url_key`, `category_ids` (array of ids).
+`meta_description`, `status` (`enabled`/`disabled`), `url_key`.
 
 **Use case — "Bump C472 to S$780 and fix its meta title"**
 Preview `update { sku:"C472", fields:{ price:780, meta_title:"SC-900 Exam Prep | Tertiary Courses" } }`
@@ -241,8 +241,9 @@ Preview `update { sku:"C472", fields:{ price:780, meta_title:"SC-900 Exam Prep |
   The course **name is sacred**; GST is computed on the list price by deliberate design. If a
   user wants the name changed, that's a human/admin task — tell them you can't.
 - **`400 validation_error`** — if the supplied values already match (nothing to change).
-- `category_ids` **replaces** the course's whole category set (it is not additive). If the user
-  says "also add it to X", fetch the current categories first (read API) and send the full list.
+- **Categories aren't editable via the agent** — `category_ids` is blocked (`422 forbidden_field`).
+  If a user asks to change which categories/listings a course appears in, that's a staff/admin
+  task; tell them you can't do it.
 - `price` is the list price. Don't try to encode a subsidy/discount here — funding is handled by
   the checkout, not the catalog price.
 

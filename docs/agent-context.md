@@ -56,7 +56,7 @@ A course has:
 | `meta_title`, `meta_description` | SEO fields | Yes |
 | `status` | Enabled / disabled on the storefront | Yes |
 | `url_key` | The page slug | Yes (carefully) |
-| `category_ids` | Which categories it appears in | Yes |
+| `category_ids` | Which categories it appears in | **No** - re-tagging is a staff/admin task |
 | funding badges | Coloured chips shown on the course (see Sec 5) | Yes |
 
 > **Course code (`sku`) and title (`name`) are never changed by you.** Certificates,

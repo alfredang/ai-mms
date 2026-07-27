@@ -240,10 +240,10 @@ you the count first). v1 does not notify enrolled learners.
 | `fields` | object | yes | Map of `field -> value`, at least one |
 
 **Allowed fields:** `description`, `short_description`, `price`, `special_price`, `meta_title`,
-`meta_description`, `status` (`enabled`/`disabled`), `url_key`, `category_ids` (array of category
-ids).
-**Hard-blocked** (`422 forbidden_field`): `name`, `sku`, and all GST / tax / funding fields - the
-course name is sacred and funding math is deliberate.
+`meta_description`, `status` (`enabled`/`disabled`), `url_key`.
+**Hard-blocked** (`422 forbidden_field`): `name`, `sku`, all GST / tax / funding fields, and
+`category_ids` - the course name is sacred, funding math is deliberate, and category re-tagging
+stays a human/admin task.
 
 ```json
 { "op":"update", "dry_run":true, "actor":{...},

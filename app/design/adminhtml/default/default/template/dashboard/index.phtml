@@ -11126,7 +11126,7 @@ $_apiCategories = array(
                 'bodyFields' => array(
                     array('name' => 'op', 'type' => 'string', 'required' => true, 'description' => '"update"'),
                     array('name' => 'sku', 'type' => 'string', 'required' => true, 'description' => 'Course code'),
-                    array('name' => 'fields', 'type' => 'object', 'required' => true, 'description' => 'Allowed: description, short_description, price, special_price, meta_title, meta_description, status (enabled/disabled), url_key, category_ids[]'),
+                    array('name' => 'fields', 'type' => 'object', 'required' => true, 'description' => 'Allowed: description, short_description, price, special_price, meta_title, meta_description, status (enabled/disabled), url_key. Blocked: name, sku, GST/funding, category_ids.'),
                 ),
                 'notes' => array(
                     'Hard-blocked (422 forbidden_field): name, sku, and all GST/tax/funding fields - the course name is sacred and funding math is deliberate.',
