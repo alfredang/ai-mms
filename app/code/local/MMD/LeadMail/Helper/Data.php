@@ -59,10 +59,13 @@ class MMD_LeadMail_Helper_Data extends Mage_Core_Helper_Abstract
             if ($email) {
                 $tpl->setReplyTo($email);
             }
+            // NOTE: never name these vars 'name'/'email' — core send() overwrites
+            // those two keys with the RECIPIENT's name/email (Template.php:389),
+            // which made every notification show the sales mailbox as the lead.
             $tpl->sendTransactional($id, $sender, $toEmail, $toName, array(
                 'lead_type'    => $this->escapeHtml($leadType),
-                'name'         => $this->escapeHtml($name),
-                'email'        => $this->escapeHtml($email),
+                'lead_name'    => $this->escapeHtml($name),
+                'lead_email'   => $this->escapeHtml($email),
                 'telephone'    => $this->escapeHtml(trim((string) $telephone) !== '' ? $telephone : '-'),
                 'details_html' => $details,
                 'message'      => $this->escapeHtml(trim((string) $message) !== '' ? $message : '-'),
