@@ -10995,6 +10995,28 @@ $_apiCategories = array(
                 'exampleResponse' => "{\n  \"data\": {\n    \"sku\": \"C138\", \"name\": \"Python 3 Essential Training\",\n    \"overview\": \"...\", \"prerequisites\": \"...\", \"duration\": \"15\",\n    \"fee\": { \"list_price\": \"S\$600.00\", \"currency\": \"SGD\" },\n    \"mode\": \"Classroom and/or Live Online\",\n    \"funding_badges\": [\"WSQ\", \"SkillsFuture Credit\"],\n    \"registration_url\": \".../#schedule\"\n  }\n}",
             ),
             array(
+                'method' => 'GET', 'path' => '/courses/api_wsq', 'authKey' => 'wsq',
+                'title' => 'WSQ Catalog Feed API',
+                'description' => 'Bulk catalog feed of EVERY enabled, visible SG course with a TGS- (WSQ) course code — fee, duration, level, mode, funding badges, categories, image and registration link. Companion to /courses/api_nonwsq; the two tracks are deliberately never mixed in one response.',
+                'queryParams' => array(
+                    array('name' => 'fields', 'type' => 'string', 'required' => false, 'description' => 'fields=full adds description_full, suitability, prerequisites, assessment and certification to every row'),
+                ),
+                'notes' => array('Unlike /courses/api_schedule (also TGS-only) this returns catalog data, not class dates.', 'Cache-Control: no-store — recomputed from the live DB on every call. Bulk payload, poll rather than request per-page.', 'A row that fails to build is skipped and logged rather than sinking the whole feed. If the payload cannot be UTF-8 encoded the endpoint returns 500 encoding_error — it never serves an empty 200.'),
+                'exampleRequest' => "curl -H \"X-API-Key: <key>\" \\\n  \"__BASE_URL__/courses/api_wsq?fields=full\"",
+                'exampleResponse' => "{\n  \"source_url\": \"https://www.tertiarycourses.com.sg/\",\n  \"last_updated\": \"2026-07-28T00:00:00+00:00\",\n  \"confidence\": \"high\",\n  \"store\": \"singapore\", \"track\": \"wsq\", \"count\": 298,\n  \"data\": [{\n    \"sku\": \"TGS-2023021752\", \"course_code\": \"TGS-2023021752\",\n    \"name\": \"...\", \"is_wsq\": true, \"overview\": \"...\",\n    \"duration\": \"15\", \"level\": \"Basic\",\n    \"mode\": \"Classroom and/or Live Online\",\n    \"fee\": { \"list_price\": \"S\$600.00\", \"list_price_raw\": 600, \"currency\": \"SGD\" },\n    \"funding_badges\": [\"WSQ\", \"SkillsFuture Credit\"],\n    \"categories\": [\"...\"], \"image_url\": \"...\",\n    \"course_page_url\": \"...\", \"registration_url\": \"...#schedule\"\n  }]\n}\n\n// Errors: 401 bad/missing key, 503 api_disabled (key not configured), 500 internal_error / encoding_error",
+            ),
+            array(
+                'method' => 'GET', 'path' => '/courses/api_nonwsq', 'authKey' => 'wsq',
+                'title' => 'Non-WSQ Catalog Feed API',
+                'description' => 'Identical shape and options to /courses/api_wsq, but carries only C-prefixed (non-WSQ) SG courses. Fills the gap where non-WSQ courses previously had no bulk feed — api_schedule is TGS-only and api_courses requires a sku.',
+                'queryParams' => array(
+                    array('name' => 'fields', 'type' => 'string', 'required' => false, 'description' => 'fields=full adds description_full, suitability, prerequisites, assessment and certification to every row'),
+                ),
+                'notes' => array('Track membership matches the course-code convention explicitly (TGS- = WSQ, C- = non-WSQ), so a stray SKU that is neither lands in NEITHER feed rather than being silently misfiled.', 'Shares auth, row builder and envelope with the WSQ feed via MMD_Courses_Helper_Catalogfeed, so the two can never drift in shape.'),
+                'exampleRequest' => "curl -H \"X-API-Key: <key>\" \\\n  \"__BASE_URL__/courses/api_nonwsq\"",
+                'exampleResponse' => "{\n  \"source_url\": \"https://www.tertiarycourses.com.sg/\",\n  \"last_updated\": \"2026-07-28T00:00:00+00:00\",\n  \"confidence\": \"high\",\n  \"store\": \"singapore\", \"track\": \"non-wsq\", \"count\": 264,\n  \"data\": [{\n    \"sku\": \"C138\", \"course_code\": \"C138\",\n    \"name\": \"Python 3 Essential Training\", \"is_wsq\": false,\n    \"overview\": \"...\", \"duration\": \"15\",\n    \"fee\": { \"list_price\": \"S\$600.00\", \"list_price_raw\": 600, \"currency\": \"SGD\" },\n    \"funding_badges\": [\"SkillsFuture Credit\"],\n    \"course_page_url\": \"...\", \"registration_url\": \"...#schedule\"\n  }]\n}",
+            ),
+            array(
                 'method' => 'GET', 'path' => '/courses/api_faq', 'authKey' => 'wsq',
                 'title' => 'FAQ / Funding / Policy API',
                 'description' => 'Static knowledge base of SG funding schemes and policy topics. Returns ALL topics in one response — the bot does keyword matching locally against each topic\'s keywords array.',
