@@ -3,7 +3,7 @@
  * Marketing Dashboard — relocated from the admin master dashboard.
  *
  * Hosts five marketing-relevant cards: Most Popular Courses (by views),
- * Top Revenue Courses, Latest 10 Courses, Latest 10 Search Terms,
+ * Top Courses by Sign-Ups, Latest 10 Sign-Ups, Latest 10 Search Terms,
  * Top 10 Search Terms.
  * Phase C will add MailerLite KPIs and the subscriber growth chart.
  *
@@ -54,16 +54,16 @@ $_admDashTopSearches = $read->fetchAll("
     LIMIT 10
 ");
 
-// ---- Latest 10 Courses — most recently added products ----
-$_admDashLatestCourses = $read->fetchAll("
-    SELECT p.entity_id AS product_id, p.sku, p.created_at,
-           COALESCE(vname.value, CONCAT('Product #', p.entity_id)) AS name
-    FROM catalog_product_entity p
-    LEFT JOIN catalog_product_entity_varchar vname
-           ON vname.entity_id=p.entity_id
-          AND vname.attribute_id={$nameAid}
-          AND vname.store_id=0
-    ORDER BY p.created_at DESC
+// ---- Latest 10 Sign-Ups — most recent learner registrations (order items) ----
+$_admDashLatestSignups = $read->fetchAll("
+    SELECT o.entity_id AS order_id, o.increment_id, o.created_at,
+           o.customer_email,
+           TRIM(CONCAT_WS(' ', o.customer_firstname, o.customer_lastname)) AS learner,
+           oi.name AS course_name, oi.sku
+    FROM sales_flat_order_item oi
+    INNER JOIN sales_flat_order o ON oi.order_id=o.entity_id AND o.state NOT IN ('canceled','holded')
+    WHERE oi.parent_item_id IS NULL
+    ORDER BY o.created_at DESC, oi.item_id DESC
     LIMIT 10
 ");
 
@@ -84,15 +84,15 @@ $_admDashTopCourses = $read->fetchAll("
     LIMIT 10
 ");
 
-// ---- Top Revenue Courses — SUM(row_total) per product, all-time, non-cancelled ----
-$_admDashTopRevenue = $read->fetchAll("
-    SELECT oi.product_id, MAX(oi.name) AS name,
-           SUM(oi.row_total) AS revenue, SUM(oi.qty_ordered) AS qty
+// ---- Top Courses by Sign-Ups — SUM(qty_ordered) per product, all-time, non-cancelled ----
+$_admDashTopSignups = $read->fetchAll("
+    SELECT oi.product_id, MAX(oi.name) AS name, MAX(oi.sku) AS sku,
+           SUM(oi.qty_ordered) AS qty
     FROM sales_flat_order_item oi
     INNER JOIN sales_flat_order o ON oi.order_id=o.entity_id AND o.state NOT IN ('canceled','holded')
     WHERE (oi.parent_item_id IS NULL)
     GROUP BY oi.product_id
-    ORDER BY revenue DESC
+    ORDER BY qty DESC
     LIMIT 10
 ");
 
@@ -477,22 +477,22 @@ try {
         </div>
 
         <div class="dash-summary-card">
-            <div class="dash-summary-head">Top Revenue Courses</div>
+            <div class="dash-summary-head">Top Courses by Sign-Ups</div>
             <div class="dash-summary-body">
                 <table class="dash-summary-table dash-summary-table--compact">
-                    <thead><tr><th>Course</th><th style="text-align:right;width:60px;">Pax</th><th style="text-align:right;width:110px;">Revenue</th><th style="width:32px;"></th></tr></thead>
+                    <thead><tr><th>Course</th><th style="text-align:right;width:60px;">Pax</th><th style="width:32px;"></th></tr></thead>
                     <tbody>
-                    <?php foreach ($_admDashTopRevenue as $_c):
+                    <?php foreach ($_admDashTopSignups as $_c):
                         $_cUrl = Mage::helper('adminhtml')->getUrl('adminhtml/catalog_product/edit', array('id' => (int)$_c['product_id']));
+                        $_cLabel = $_c['name'] . ($_c['sku'] !== null && $_c['sku'] !== '' ? ' (' . $_c['sku'] . ')' : '');
                     ?>
                         <tr>
-                            <td class="dash-summary-trunc" title="<?php echo htmlspecialchars($_c['name']) ?>"><?php echo htmlspecialchars($_c['name']) ?></td>
-                            <td style="text-align:right;"><?php echo (int)$_c['qty'] ?></td>
-                            <td style="text-align:right;font-weight:600;"><?php echo Mage::helper('core')->currency($_c['revenue'], true, false) ?></td>
+                            <td class="dash-summary-trunc" title="<?php echo htmlspecialchars($_cLabel) ?>"><?php echo htmlspecialchars($_cLabel) ?></td>
+                            <td style="text-align:right;font-weight:600;"><?php echo (int)$_c['qty'] ?></td>
                             <td><a href="<?php echo $_cUrl ?>" title="View course" class="dash-summary-icon"><?php echo $_extIcon ?></a></td>
                         </tr>
-                    <?php endforeach; if (empty($_admDashTopRevenue)): ?>
-                        <tr><td colspan="4" class="dash-summary-empty">No revenue data yet.</td></tr>
+                    <?php endforeach; if (empty($_admDashTopSignups)): ?>
+                        <tr><td colspan="3" class="dash-summary-empty">No sign-up data yet.</td></tr>
                     <?php endif; ?>
                     </tbody>
                 </table>
@@ -500,22 +500,23 @@ try {
         </div>
 
         <div class="dash-summary-card">
-            <div class="dash-summary-head">Latest 10 Courses</div>
+            <div class="dash-summary-head">Latest 10 Sign-Ups</div>
             <div class="dash-summary-body">
                 <table class="dash-summary-table dash-summary-table--compact">
-                    <thead><tr><th>Course</th><th style="width:110px;">Code</th><th style="text-align:right;width:90px;">Added</th><th style="width:32px;"></th></tr></thead>
+                    <thead><tr><th style="width:140px;">Learner</th><th>Course</th><th style="text-align:right;width:90px;">Date</th><th style="width:32px;"></th></tr></thead>
                     <tbody>
-                    <?php foreach ($_admDashLatestCourses as $_c):
-                        $_cUrl = Mage::helper('adminhtml')->getUrl('adminhtml/catalog_product/edit', array('id' => (int)$_c['product_id']));
+                    <?php foreach ($_admDashLatestSignups as $_c):
+                        $_cUrl = Mage::helper('adminhtml')->getUrl('adminhtml/sales_order/view', array('order_id' => (int)$_c['order_id']));
+                        $_cLearner = $_c['learner'] !== '' ? $_c['learner'] : $_c['customer_email'];
                     ?>
                         <tr>
-                            <td class="dash-summary-trunc" title="<?php echo htmlspecialchars($_c['name']) ?>"><?php echo htmlspecialchars($_c['name']) ?></td>
-                            <td><?php echo htmlspecialchars($_c['sku']) ?></td>
+                            <td class="dash-summary-trunc" title="<?php echo htmlspecialchars($_c['customer_email']) ?>"><?php echo htmlspecialchars($_cLearner) ?></td>
+                            <td class="dash-summary-trunc" title="<?php echo htmlspecialchars($_c['course_name'] . ' (' . $_c['sku'] . ')') ?>"><?php echo htmlspecialchars($_c['course_name']) ?></td>
                             <td style="text-align:right;"><?php echo Mage::helper('core')->formatDate($_c['created_at'], 'medium') ?></td>
-                            <td><a href="<?php echo $_cUrl ?>" title="View course" class="dash-summary-icon"><?php echo $_extIcon ?></a></td>
+                            <td><a href="<?php echo $_cUrl ?>" title="View registration #<?php echo htmlspecialchars($_c['increment_id']) ?>" class="dash-summary-icon"><?php echo $_extIcon ?></a></td>
                         </tr>
-                    <?php endforeach; if (empty($_admDashLatestCourses)): ?>
-                        <tr><td colspan="4" class="dash-summary-empty">No courses yet.</td></tr>
+                    <?php endforeach; if (empty($_admDashLatestSignups)): ?>
+                        <tr><td colspan="4" class="dash-summary-empty">No sign-ups yet.</td></tr>
                     <?php endif; ?>
                     </tbody>
                 </table>
