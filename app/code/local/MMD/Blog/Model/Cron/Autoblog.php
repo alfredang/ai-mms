@@ -1074,6 +1074,13 @@ class MMD_Blog_Model_Cron_Autoblog
         }
         if (is_dir('/var/www/.claude'))                          $env['HOME'] = '/var/www';
         elseif (is_dir('/root/.claude') && is_readable('/root')) $env['HOME'] = '/root';
+        // Subscription OAuth tokens (sk-ant-oat*) skip the direct API path
+        // above but DO authenticate the CLI headlessly — without this export
+        // the CLI answers "Not logged in · Please run /login" and the run dies.
+        if (stripos($apiKey, 'sk-ant-oat') === 0) {
+            $env['CLAUDE_CODE_OAUTH_TOKEN'] = $apiKey;
+        }
+        $env['DISABLE_AUTOUPDATER'] = '1';
 
         $proc = @proc_open('timeout 280 claude -p --output-format text', $descriptors, $pipes, null, $env);
         if (!is_resource($proc)) return '';
