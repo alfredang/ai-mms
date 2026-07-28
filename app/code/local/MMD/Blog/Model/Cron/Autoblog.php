@@ -531,12 +531,10 @@ class MMD_Blog_Model_Cron_Autoblog
      */
     public function shareEverywhere($post)
     {
-        $parts   = array();
-        $helper  = Mage::helper('mmd_blog');
-        $postUrl = $helper->getPostUrl($post);
-        $commentary = $post->getTitle()
-            . ($post->getExcerpt() ? "\n\n" . $post->getExcerpt() : '')
-            . "\n\nWSQ funding + SkillsFuture Credit claimable — full guide and course sign-up:";
+        $parts      = array();
+        $helper     = Mage::helper('mmd_blog');
+        $postUrl    = $helper->getPostUrl($post);
+        $commentary = $this->_linkedinCommentary($post, $postUrl);
 
         // LinkedIn (og card auto-rendered from the URL)
         try {
@@ -581,6 +579,71 @@ class MMD_Blog_Model_Cron_Autoblog
         }
 
         return implode(' | ', $parts);
+    }
+
+    /**
+     * LinkedIn-optimised lead-magnet copy (linkedin-posts skill): emoji hook in
+     * the first line, short body (the excerpt), funding value line, the blog
+     * guide link plus the SPECIFIC course sign-up deep link as the CTA, and a
+     * handful of hashtags at the end. Funding copy is gated on the related
+     * course's SKU prefix (TGS- = WSQ) — never assume every course is funded.
+     */
+    private function _linkedinCommentary($post, $postUrl)
+    {
+        $helper  = Mage::helper('mmd_blog');
+        $courses = $helper->getRelatedCourses($post, 1);
+        $course  = $courses ? $courses[0] : null;
+
+        $courseUrl = '';
+        if ($course && $course->getUrlKey()) {
+            // Same base-URL resolution as getPostUrl(); products live at /<url_key>.html
+            $courseUrl = rtrim(Mage::getUrl('', array('_direct' => '')), '/')
+                . '/' . $course->getUrlKey() . '.html';
+        }
+        $isWsq = $course && strpos((string) $course->getSku(), 'TGS-') === 0;
+
+        $excerpt = trim((string) $post->getExcerpt());
+        if (mb_strlen($excerpt) > 200) {
+            $excerpt = mb_substr($excerpt, 0, 197);
+            $cut     = mb_strrpos($excerpt, ' ');
+            $excerpt = ($cut ? mb_substr($excerpt, 0, $cut) : $excerpt) . '…';
+        }
+
+        $lines   = array('🚀 ' . $post->getTitle());
+        if ($excerpt !== '') {
+            $lines[] = '';
+            $lines[] = $excerpt;
+        }
+        $lines[] = '';
+        if ($isWsq) {
+            $lines[] = '🎓 WSQ-funded (up to 70% subsidy) — SkillsFuture Credit claimable';
+        }
+        $lines[] = '📖 Full guide: ' . $postUrl;
+        if ($courseUrl !== '') {
+            $lines[] = '👉 Register for the hands-on course: ' . $courseUrl;
+        }
+        $lines[] = '';
+        $lines[] = implode(' ', $this->_hashtags($post, $isWsq));
+
+        return implode("\n", $lines);
+    }
+
+    /** A few relevant hashtags: funding staples + the post's own tags, capped at 6. */
+    private function _hashtags($post, $isWsq)
+    {
+        $tags = $isWsq
+            ? array('#WSQ', '#SkillsFuture', '#SkillsFutureCredit')
+            : array('#TertiaryCourses');
+        foreach (Mage::helper('mmd_blog')->getPostTags($post->getId()) as $name) {
+            if (count($tags) >= 6) {
+                break;
+            }
+            $tag = '#' . preg_replace('/[^A-Za-z0-9]/', '', ucwords((string) $name));
+            if (strlen($tag) > 1 && !in_array($tag, $tags, true)) {
+                $tags[] = $tag;
+            }
+        }
+        return $tags;
     }
 
     // ---------------------------------------------------------------- course pick
