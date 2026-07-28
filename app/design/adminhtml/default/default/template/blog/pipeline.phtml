@@ -208,10 +208,14 @@ $_urlEdit    = Mage::helper('adminhtml')->getUrl('adminhtml/blog/edit');
     <?php endif; ?>
 
     <div class="bp-queue">
-        <div class="bp-queue-title">Next blog queue</div>
+        <div class="bp-queue-title">Next blog queue
+            <button type="button" class="mmd-iconbtn mmd-tip" data-tip="Refresh queue" aria-label="Refresh queue" onclick="bpQueueLoad()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            </button>
+        </div>
         <div class="bp-fld">
             <label>Add courses &mdash; the pipeline researches + writes about the <b>top</b> course next (2 posts/week, Tue &amp; Fri 9:00am)</label>
-            <input type="text" id="bp-course-search" class="bp-input" placeholder="Search course title or code..." oninput="bpSearchCourses(this)" autocomplete="off" />
+            <input type="text" id="bp-course-search" class="bp-input" placeholder="Search course title or code..." oninput="bpSearchCourses(this)" onkeydown="bpSearchEnter(event, this)" autocomplete="off" />
             <div id="bp-search-results" class="bp-search-results"></div>
         </div>
         <div class="bp-fld bp-brief-fields">
@@ -288,7 +292,7 @@ $_urlEdit    = Mage::helper('adminhtml')->getUrl('adminhtml/blog/edit');
     .bp-abtn.ghost{color:#cbd5e1;background:transparent;border-color:#334155;}
     .bp-abtn.ghost:hover{border-color:#475569;color:#f1f5f9;}
     .bp-flow-ghost{background:transparent;border-style:dashed;opacity:.8;}
-    .bp-queue-title{font:700 10.5px var(--font-sans,sans-serif);text-transform:uppercase;letter-spacing:.8px;color:#64748b;margin:0 0 10px;}
+    .bp-queue-title{font:700 10.5px var(--font-sans,sans-serif);text-transform:uppercase;letter-spacing:.8px;color:#64748b;margin:0 0 10px;display:flex;align-items:center;gap:8px;}
     .bp-ptable{width:100%;border-collapse:collapse;margin:6px 0 16px;}
     .bp-ptable th{text-align:left;font:700 10.5px var(--font-sans,sans-serif);text-transform:uppercase;letter-spacing:.6px;color:#64748b;padding:8px 10px;border-bottom:1px solid #24324a;}
     .bp-ptable td{padding:10px;font:400 13px var(--font-sans,sans-serif);color:#cbd5e1;border-bottom:1px solid #1c2740;vertical-align:middle;}
@@ -376,6 +380,23 @@ function bpSearchCourses(input) {
             });
     }, 250);
 }
+// Enter in the search box adds the top match — without this the only way to
+// queue a course was clicking a dropdown suggestion, and Enter silently did nothing.
+function bpSearchEnter(ev, input) {
+    if (ev.key !== 'Enter') return;
+    ev.preventDefault();
+    var first = document.querySelector('#bp-search-results .bp-sr-item');
+    if (first) { first.click(); return; }
+    var q = input.value.trim();
+    if (q.length < 2) return;
+    clearTimeout(bpSearchTimer);
+    fetch(bpUrls.search + '?q=' + encodeURIComponent(q), { credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+            if (j.success && j.courses.length) { bpQueueAdd(j.courses[0].id); }
+            else { alert('No course matches "' + q + '".'); }
+        });
+}
 function bpEsc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
         return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
@@ -395,7 +416,12 @@ function bpQueueAdd(pid) {
     if (topicsEl) topicsEl.value = '';
     if (linksEl)  linksEl.value = '';
     fetch(bpUrls.qadd, { method: 'POST', body: fd, credentials: 'same-origin' })
-        .then(function () { bpQueueLoad(); });
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+            if (!j.success) alert(j.message || 'Could not add the course to the queue.');
+            bpQueueLoad();
+        })
+        .catch(function () { bpQueueLoad(); });
 }
 
 // "Save brief" under the top add-course fields — attaches the typed topics/links
