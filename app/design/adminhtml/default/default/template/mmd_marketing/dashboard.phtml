@@ -2,8 +2,9 @@
 /**
  * Marketing Dashboard — relocated from the admin master dashboard.
  *
- * Hosts four marketing-relevant cards: Most Popular Courses (by views),
- * Top Revenue Courses, Latest 20 Search Terms, Top 20 Popular Search Terms.
+ * Hosts five marketing-relevant cards: Most Popular Courses (by views),
+ * Top Revenue Courses, Latest 10 Courses, Latest 10 Search Terms,
+ * Top 10 Search Terms.
  * Phase C will add MailerLite KPIs and the subscriber growth chart.
  *
  * Phase A intentionally DUPLICATES the SQL + markup from the admin
@@ -35,22 +36,35 @@ $_admSearchStoreWhere = '';
 $_viewStoreWhere = '';
 $_admSalesStoreWhere = 'WHERE';
 
-// ---- Latest 20 Search Terms ----
+// ---- Latest 10 Search Terms ----
 $_admDashRecentSearches = $read->fetchAll("
     SELECT query_id, query_text, num_results, popularity, updated_at, store_id
     FROM catalogsearch_query
     {$_admSearchStoreWhere}
     ORDER BY updated_at DESC
-    LIMIT 20
+    LIMIT 10
 ");
 
-// ---- Top 20 Popular Search Terms ----
+// ---- Top 10 Search Terms ----
 $_admDashTopSearches = $read->fetchAll("
     SELECT query_id, query_text, popularity, num_results, store_id
     FROM catalogsearch_query
     {$_admSearchStoreWhere}
     ORDER BY popularity DESC, query_text ASC
-    LIMIT 20
+    LIMIT 10
+");
+
+// ---- Latest 10 Courses — most recently added products ----
+$_admDashLatestCourses = $read->fetchAll("
+    SELECT p.entity_id AS product_id, p.sku, p.created_at,
+           COALESCE(vname.value, CONCAT('Product #', p.entity_id)) AS name
+    FROM catalog_product_entity p
+    LEFT JOIN catalog_product_entity_varchar vname
+           ON vname.entity_id=p.entity_id
+          AND vname.attribute_id={$nameAid}
+          AND vname.store_id=0
+    ORDER BY p.created_at DESC
+    LIMIT 10
 ");
 
 // ---- Most Popular Courses (by views) — from report_event event_type_id=1 ----
@@ -84,22 +98,19 @@ $_admDashTopRevenue = $read->fetchAll("
 
 // ---- MailerLite KPIs (cached 5 min in core/cache) ----
 $_mlSubsSG    = null;
-$_mlSubsMY    = null;
 $_mlCampSent  = null;
-$_mlNextCamp  = null;
 $_mlConfigured = false;
-$_mlPerf = array(); $_mlSent = array(); $_mlScheduled = array(); $_mlGrowth = array();
+$_mlPerf = array(); $_mlSent = array(); $_mlSent10 = array(); $_mlScheduled = array(); $_mlGrowth = array();
 try {
     /** @var MMD_Marketing_Helper_Mailerlite $ml */
     $ml = Mage::helper('mmd_marketing/mailerlite');
     if ($ml->isConfigured()) {
         $_mlConfigured = true;
         $_mlSubsSG    = $ml->getSubscribersSG();
-        $_mlSubsMY    = $ml->getSubscribersMY();
         $_mlCampSent  = $ml->getCampaignsSentLast30Days();
-        $_mlNextCamp  = $ml->getNextCampaign();
         $_mlPerf      = $ml->getPerformanceSummary();
         $_mlSent      = $ml->getSentCampaigns(6);
+        $_mlSent10    = $ml->getSentCampaigns(10);  // same cached API payload, longer slice
         $_mlScheduled = $ml->getScheduledCampaigns();
         $ml->snapshotSubscribers();                    // record today's count (idempotent)
         $_mlGrowth    = $ml->getSubscriberSnapshots(null, 30);  // SG series, oldest→newest
@@ -111,16 +122,23 @@ try {
 // ---- Leads KPIs (real data from mmd_lead) ----
 // Wrapped so the dashboard never fatals if the leads module isn't installed
 // (e.g. on a fresh DB before migrations 114 land).
-$_mktLeadsTotal     = 0;
 $_mktLeadsLast30d   = 0;
 $_mktLeadsByStore   = array();
 try {
     $_leadsTable = $resource->getTableName('mmd_leads/lead');
-    $_mktLeadsTotal   = (int) $read->fetchOne("SELECT COUNT(*) FROM {$_leadsTable}");
     $_mktLeadsLast30d = (int) $read->fetchOne("SELECT COUNT(*) FROM {$_leadsTable} WHERE created_at >= (NOW() - INTERVAL 30 DAY)");
-    $_mktLeadsByStore = $read->fetchAll("SELECT COALESCE(NULLIF(store_code,''),'admin') AS store_code, COUNT(*) AS n FROM {$_leadsTable} GROUP BY store_code ORDER BY n DESC");
+    $_mktLeadsByStore = $read->fetchAll("SELECT COALESCE(NULLIF(store_code,''),'admin') AS store_code, COUNT(*) AS n FROM {$_leadsTable} WHERE created_at >= (NOW() - INTERVAL 30 DAY) GROUP BY store_code ORDER BY n DESC");
 } catch (Exception $e) {
     // mmd_lead table not present yet — leave KPIs at zero.
+}
+
+// ---- Blogs KPI (published posts, last 30 days) ----
+$_mktBlogsLast30d = 0;
+try {
+    $_blogTable = $resource->getTableName('mmd_blog/post');
+    $_mktBlogsLast30d = (int) $read->fetchOne("SELECT COUNT(*) FROM {$_blogTable} WHERE status = 1 AND published_at >= (NOW() - INTERVAL 30 DAY)");
+} catch (Exception $e) {
+    // mmd_blog table not present yet — leave KPI at zero.
 }
 ?>
 <style>
@@ -132,10 +150,10 @@ try {
    it the canonical 28px/700 treatment — same as Role Management etc. */
 .mmd-marketing-dashboard{padding:14px 18px;}
 
-/* KPI strip — 3 tiles per row, centered. Two rows of 3 for the
-   6 cards (MailerLite SG/MY/Campaigns + Next/Total Leads/Leads 30d).
-   Collapses to 2 then 1 column on narrow screens. */
-.mmd-mkt-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px;}
+/* KPI strip — one row of 4 cards (Subscribers SG / Campaigns 30d /
+   Leads 30d / Blogs 30d), rendered ABOVE the Marketing Performance
+   tiles. Collapses to 2 then 1 column on narrow screens. */
+.mmd-mkt-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px;}
 .mmd-mkt-kpi{background:#1f2937;border:1px solid var(--b1,#384a60);border-radius:10px;padding:22px 20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;min-height:140px;}
 .mmd-mkt-kpi-label{font-size:14px;font-weight:700;color:#cbd5e1;text-transform:uppercase;letter-spacing:.04em;line-height:1.25;}
 .mmd-mkt-kpi-value{font-size:32px;font-weight:700;color:#22d3ee;line-height:1.1;}
@@ -151,13 +169,32 @@ try {
 /* Subscriber growth chart placeholder */
 .mmd-mkt-chart-card{background:#1f2937;border:1px solid var(--b1,#384a60);border-radius:10px;padding:18px 20px;margin-bottom:18px;}
 .mmd-mkt-chart-head{font-size:12px;font-weight:600;color:#cbd5e1;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;}
-.mmd-mkt-chart-body{height:140px;display:flex;align-items:end;gap:6px;padding:8px 0;border-bottom:1px solid rgba(56,74,96,.5);}
+.mmd-mkt-chart-body{position:relative;height:140px;display:flex;align-items:end;gap:3px;padding:8px 0;border-bottom:1px solid rgba(56,74,96,.5);}
 .mmd-mkt-chart-bar{flex:1;background:linear-gradient(180deg,#475569 0%,#334155 100%);border-radius:3px 3px 0 0;opacity:.35;min-height:8px;}
+/* Growth bars — one per daily snapshot, zero-baseline, exact count on hover */
+.mmd-mkt-growth-bar{flex:1;min-width:3px;background:rgba(34,211,238,.5);border-radius:3px 3px 0 0;cursor:pointer;transition:background .15s ease;}
+.mmd-mkt-growth-bar:hover{background:#22d3ee;}
+.mmd-mkt-growth-tip{position:absolute;display:none;pointer-events:none;background:#0b0f17;border:1px solid #334155;border-radius:6px;padding:5px 10px;font-size:11px;color:#e2e8f0;white-space:nowrap;z-index:5;transform:translateX(-50%);box-shadow:0 4px 12px rgba(0,0,0,.4);}
+.mmd-mkt-growth-tip b{color:#22d3ee;font-size:12px;}
 .mmd-mkt-chart-empty{color:#64748b;font-size:12px;font-style:italic;text-align:center;margin-top:10px;}
 .mmd-mkt-chart-foot{display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:11px;color:#64748b;}
 .mmd-mkt-chart-foot b{color:#22d3ee;font-size:13px;}
 :root[data-theme="light"] .mmd-mkt-chart-foot{color:#64748b;}
 :root[data-theme="light"] .mmd-mkt-chart-foot b{color:#0891b2;}
+
+/* Campaign open/click-rate bar charts — last 10 sent campaigns, oldest→newest,
+   zero-baseline (bar height ∝ rate). Two cards side by side. */
+.mmd-mkt-rate-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px;}
+@media (max-width:1100px){.mmd-mkt-rate-grid{grid-template-columns:1fr;}}
+.mmd-mkt-rate-grid .mmd-mkt-chart-card{margin-bottom:0;}
+.mmd-mkt-rate-body{position:relative;height:150px;display:flex;align-items:stretch;gap:6px;padding:8px 0 0;border-bottom:1px solid rgba(56,74,96,.5);}
+.mmd-mkt-rate-col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px;min-width:0;cursor:pointer;}
+.mmd-mkt-rate-val{font-size:10px;color:#94a3b8;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.mmd-mkt-rate-bar{width:70%;max-width:46px;background:rgba(34,211,238,.5);border-radius:4px 4px 0 0;transition:background .15s ease;}
+.mmd-mkt-rate-col:hover .mmd-mkt-rate-bar{background:#22d3ee;}
+:root[data-theme="light"] .mmd-mkt-rate-bar{background:rgba(8,145,178,.5);}
+:root[data-theme="light"] .mmd-mkt-rate-col:hover .mmd-mkt-rate-bar{background:#0891b2;}
+:root[data-theme="light"] .mmd-mkt-rate-val{color:#64748b;}
 
 /* Leads-by-store mini list */
 .mmd-mkt-leads-by-store{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
@@ -176,11 +213,60 @@ try {
 :root[data-theme="light"] .mmd-mkt-chart-empty{color:#64748b;}
 :root[data-theme="light"] .mmd-mkt-chart-body{border-bottom-color:rgba(100,116,139,.35);}
 :root[data-theme="light"] .mmd-mkt-chart-bar{background:linear-gradient(180deg,#94a3b8 0%,#64748b 100%);opacity:.45;}
+:root[data-theme="light"] .mmd-mkt-growth-bar{background:rgba(8,145,178,.5);}
+:root[data-theme="light"] .mmd-mkt-growth-bar:hover{background:#0891b2;}
+:root[data-theme="light"] .mmd-mkt-growth-tip{background:#fff;border-color:#cbd5e1;color:#1e293b;box-shadow:0 4px 12px rgba(15,23,42,.15);}
+:root[data-theme="light"] .mmd-mkt-growth-tip b{color:#0891b2;}
 :root[data-theme="light"] .mmd-mkt-leads-chip{background:#f1f5f9;border-color:#cbd5e1;color:#1e293b;}
 :root[data-theme="light"] .mmd-mkt-leads-chip strong{color:#0891b2;}
 </style>
 
 <div class="mmd-marketing-dashboard">
+
+    <!-- KPI strip — MailerLite tiles are placeholders until the API key is wired.
+         Leads/Blogs tiles are live (sourced from mmd_lead / mmd_blog_post). -->
+    <div class="mmd-mkt-kpis">
+        <div class="mmd-mkt-kpi">
+            <div class="mmd-mkt-kpi-label">MailerLite Subscribers (SG)</div>
+            <?php if ($_mlSubsSG !== null): ?>
+                <div class="mmd-mkt-kpi-value"><?php echo number_format((int)$_mlSubsSG) ?></div>
+                <div class="mmd-mkt-kpi-sub">Singapore group · active</div>
+            <?php else: ?>
+                <div class="mmd-mkt-kpi-value mmd-mkt-kpi-pending">—</div>
+                <div class="mmd-mkt-kpi-sub"><?php echo $_mlConfigured ? 'API error — see var/log/mailerlite.log' : 'Set MailerLite key in Credentials' ?></div>
+            <?php endif; ?>
+        </div>
+        <div class="mmd-mkt-kpi">
+            <div class="mmd-mkt-kpi-label">Campaigns Sent (30 Days)</div>
+            <?php if ($_mlCampSent !== null): ?>
+                <div class="mmd-mkt-kpi-value"><?php echo number_format((int)$_mlCampSent) ?></div>
+                <div class="mmd-mkt-kpi-sub">Across all MailerLite lists</div>
+            <?php else: ?>
+                <div class="mmd-mkt-kpi-value mmd-mkt-kpi-pending">—</div>
+                <div class="mmd-mkt-kpi-sub"><?php echo $_mlConfigured ? 'API error — see var/log/mailerlite.log' : 'Set MailerLite key in Credentials' ?></div>
+            <?php endif; ?>
+        </div>
+        <div class="mmd-mkt-kpi">
+            <div class="mmd-mkt-kpi-label">Total Leads (30 Days)</div>
+            <div class="mmd-mkt-kpi-value"><?php echo number_format($_mktLeadsLast30d) ?></div>
+            <div class="mmd-mkt-kpi-sub">
+                <?php if (!empty($_mktLeadsByStore)): ?>
+                    <span class="mmd-mkt-leads-by-store">
+                        <?php foreach ($_mktLeadsByStore as $_lbs): ?>
+                            <span class="mmd-mkt-leads-chip"><?php echo htmlspecialchars($_lbs['store_code']) ?><strong><?php echo (int)$_lbs['n'] ?></strong></span>
+                        <?php endforeach; ?>
+                    </span>
+                <?php else: ?>
+                    No leads yet
+                <?php endif; ?>
+            </div>
+        </div>
+        <div class="mmd-mkt-kpi">
+            <div class="mmd-mkt-kpi-label">Total Blogs (30 Days)</div>
+            <div class="mmd-mkt-kpi-value"><?php echo number_format($_mktBlogsLast30d) ?></div>
+            <div class="mmd-mkt-kpi-sub">Published in the last 30 days</div>
+        </div>
+    </div>
 
     <?php /* ===== Marketing performance (live MailerLite) ===== */ ?>
     <?php if ($_mlConfigured && $_mlPerf): $p = $_mlPerf; ?>
@@ -245,71 +331,6 @@ try {
     </div>
     <?php endif; ?>
 
-    <!-- KPI strip — MailerLite tiles are placeholders until the API key is wired.
-         Leads tiles are live (sourced from mmd_lead). -->
-    <div class="mmd-mkt-kpis">
-        <div class="mmd-mkt-kpi">
-            <div class="mmd-mkt-kpi-label">MailerLite Subscribers (SG)</div>
-            <?php if ($_mlSubsSG !== null): ?>
-                <div class="mmd-mkt-kpi-value"><?php echo number_format((int)$_mlSubsSG) ?></div>
-                <div class="mmd-mkt-kpi-sub">Singapore group · active</div>
-            <?php else: ?>
-                <div class="mmd-mkt-kpi-value mmd-mkt-kpi-pending">—</div>
-                <div class="mmd-mkt-kpi-sub"><?php echo $_mlConfigured ? 'API error — see var/log/mailerlite.log' : 'Set MailerLite key in Credentials' ?></div>
-            <?php endif; ?>
-        </div>
-        <div class="mmd-mkt-kpi">
-            <div class="mmd-mkt-kpi-label">MailerLite Subscribers (MY)</div>
-            <?php if ($_mlSubsMY !== null): ?>
-                <div class="mmd-mkt-kpi-value"><?php echo number_format((int)$_mlSubsMY) ?></div>
-                <div class="mmd-mkt-kpi-sub">Malaysia group · active</div>
-            <?php else: ?>
-                <div class="mmd-mkt-kpi-value mmd-mkt-kpi-pending">—</div>
-                <div class="mmd-mkt-kpi-sub"><?php echo $_mlConfigured ? 'API error — see var/log/mailerlite.log' : 'Set MailerLite key in Credentials' ?></div>
-            <?php endif; ?>
-        </div>
-        <div class="mmd-mkt-kpi">
-            <div class="mmd-mkt-kpi-label">Campaigns Sent (30 days)</div>
-            <?php if ($_mlCampSent !== null): ?>
-                <div class="mmd-mkt-kpi-value"><?php echo number_format((int)$_mlCampSent) ?></div>
-                <div class="mmd-mkt-kpi-sub">Across all MailerLite lists</div>
-            <?php else: ?>
-                <div class="mmd-mkt-kpi-value mmd-mkt-kpi-pending">—</div>
-                <div class="mmd-mkt-kpi-sub"><?php echo $_mlConfigured ? 'API error — see var/log/mailerlite.log' : 'Set MailerLite key in Credentials' ?></div>
-            <?php endif; ?>
-        </div>
-        <div class="mmd-mkt-kpi">
-            <div class="mmd-mkt-kpi-label">Next Campaign</div>
-            <?php if ($_mlNextCamp): ?>
-                <div class="mmd-mkt-kpi-value" style="font-size:14px;line-height:1.3;color:#e2e8f0;word-break:break-word;"><?php echo htmlspecialchars(mb_strimwidth($_mlNextCamp['name'], 0, 38, '…')) ?></div>
-                <div class="mmd-mkt-kpi-sub"><?php echo htmlspecialchars(date('D j M, H:i', strtotime($_mlNextCamp['scheduled_for']))) ?> UTC</div>
-            <?php else: ?>
-                <div class="mmd-mkt-kpi-value mmd-mkt-kpi-pending">—</div>
-                <div class="mmd-mkt-kpi-sub"><?php echo $_mlConfigured ? 'No scheduled campaigns' : 'Set MailerLite key in Credentials' ?></div>
-            <?php endif; ?>
-        </div>
-        <div class="mmd-mkt-kpi">
-            <div class="mmd-mkt-kpi-label">Total Leads</div>
-            <div class="mmd-mkt-kpi-value"><?php echo number_format($_mktLeadsTotal) ?></div>
-            <div class="mmd-mkt-kpi-sub">All-time, all stores</div>
-        </div>
-        <div class="mmd-mkt-kpi">
-            <div class="mmd-mkt-kpi-label">Leads (30 days)</div>
-            <div class="mmd-mkt-kpi-value"><?php echo number_format($_mktLeadsLast30d) ?></div>
-            <div class="mmd-mkt-kpi-sub">
-                <?php if (!empty($_mktLeadsByStore)): ?>
-                    <span class="mmd-mkt-leads-by-store">
-                        <?php foreach ($_mktLeadsByStore as $_lbs): ?>
-                            <span class="mmd-mkt-leads-chip"><?php echo htmlspecialchars($_lbs['store_code']) ?><strong><?php echo (int)$_lbs['n'] ?></strong></span>
-                        <?php endforeach; ?>
-                    </span>
-                <?php else: ?>
-                    No leads yet
-                <?php endif; ?>
-            </div>
-        </div>
-    </div>
-
     <!-- Subscriber-growth chart — real data from daily snapshots
          (mmd_marketing_subscriber_snapshot). MailerLite's API returns only the
          current count, so we record one point/day and chart the series here. -->
@@ -317,7 +338,15 @@ try {
     <div class="mmd-mkt-chart-card">
         <div class="mmd-mkt-chart-head">MailerLite Subscriber Growth — Singapore (last 30 days)</div>
         <?php if (count($_gPoints) >= 2): ?>
-            <canvas id="mmd-mkt-growth" height="150" style="width:100%;display:block;"></canvas>
+            <?php $_gMax = 1; foreach ($_gPoints as $_g) { if ($_g['c'] > $_gMax) { $_gMax = $_g['c']; } } ?>
+            <div class="mmd-mkt-chart-body" id="mmd-mkt-growth">
+                <?php foreach ($_gPoints as $_g): $_gH = max(2, round($_g['c'] / $_gMax * 100, 1)); ?>
+                    <div class="mmd-mkt-growth-bar" style="height:<?php echo $_gH ?>%;"
+                         data-date="<?php echo htmlspecialchars($_g['d']) ?>"
+                         data-count="<?php echo (int)$_g['c'] ?>"></div>
+                <?php endforeach; ?>
+                <div class="mmd-mkt-growth-tip" id="mmd-mkt-growth-tip"></div>
+            </div>
             <div class="mmd-mkt-chart-foot">
                 <span><?php echo htmlspecialchars($_gPoints[0]['d']) ?></span>
                 <span><?php echo number_format($_gPoints[0]['c']) ?> → <b><?php echo number_format(end($_gPoints)['c']) ?></b> subscribers</span>
@@ -325,39 +354,101 @@ try {
             </div>
             <script>
             (function(){
-                var pts = <?php echo json_encode($_gPoints) ?>;
-                var cv = document.getElementById('mmd-mkt-growth'); if(!cv||!cv.getContext) return;
-                function draw(){
-                    var dpr = window.devicePixelRatio||1, W = cv.clientWidth, H = 150;
-                    cv.width = W*dpr; cv.height = H*dpr; var x = cv.getContext('2d'); x.scale(dpr,dpr);
-                    x.clearRect(0,0,W,H);
-                    var vals = pts.map(function(p){return p.c;});
-                    var mn = Math.min.apply(null,vals), mx = Math.max.apply(null,vals);
-                    if(mx===mn){mx=mn+1;} var pad=10, gh=H-pad*2, gw=W-pad*2;
-                    var xf=function(i){return pad + gw*(i/(pts.length-1));};
-                    var yf=function(v){return pad + gh*(1-(v-mn)/(mx-mn));};
-                    // area fill
-                    x.beginPath(); x.moveTo(xf(0),yf(vals[0]));
-                    for(var i=1;i<vals.length;i++) x.lineTo(xf(i),yf(vals[i]));
-                    x.lineTo(xf(vals.length-1),H-pad); x.lineTo(xf(0),H-pad); x.closePath();
-                    var grad=x.createLinearGradient(0,pad,0,H); grad.addColorStop(0,'rgba(34,211,238,.28)'); grad.addColorStop(1,'rgba(34,211,238,0)');
-                    x.fillStyle=grad; x.fill();
-                    // line
-                    x.beginPath(); x.moveTo(xf(0),yf(vals[0]));
-                    for(var j=1;j<vals.length;j++) x.lineTo(xf(j),yf(vals[j]));
-                    x.strokeStyle='#22d3ee'; x.lineWidth=2; x.stroke();
-                    // endpoint dot
-                    x.beginPath(); x.arc(xf(vals.length-1),yf(vals[vals.length-1]),3.5,0,6.29); x.fillStyle='#22d3ee'; x.fill();
-                }
-                draw(); window.addEventListener('resize',draw);
+                var wrap = document.getElementById('mmd-mkt-growth'); if(!wrap) return;
+                var tip = document.getElementById('mmd-mkt-growth-tip');
+                wrap.addEventListener('mouseover', function(e){
+                    var bar = e.target.closest ? e.target.closest('.mmd-mkt-growth-bar') : null;
+                    if(!bar) return;
+                    tip.innerHTML = '<b>' + Number(bar.getAttribute('data-count')).toLocaleString() + '</b> subscribers &middot; ' + bar.getAttribute('data-date');
+                    tip.style.display = 'block';
+                    var wr = wrap.getBoundingClientRect(), br = bar.getBoundingClientRect();
+                    var left = br.left - wr.left + br.width / 2;
+                    left = Math.max(80, Math.min(wr.width - 80, left));
+                    var top = br.top - wr.top - 32; if(top < 0) top = 0;
+                    tip.style.left = left + 'px';
+                    tip.style.top = top + 'px';
+                });
+                wrap.addEventListener('mouseleave', function(){ tip.style.display = 'none'; });
             })();
             </script>
         <?php elseif (count($_gPoints) === 1): ?>
-            <div class="mmd-mkt-chart-empty">Collecting daily snapshots — today's baseline is <b><?php echo number_format($_gPoints[0]['c']) ?></b> subscribers. The growth line appears from tomorrow.</div>
+            <div class="mmd-mkt-chart-empty">Collecting daily snapshots — today's baseline is <b><?php echo number_format($_gPoints[0]['c']) ?></b> subscribers. The growth chart appears from tomorrow.</div>
         <?php else: ?>
-            <div class="mmd-mkt-chart-empty"><?php echo $_mlConfigured ? 'Snapshots start recording from today — the growth line builds over the coming days.' : 'Set the MailerLite key to start tracking subscriber growth.' ?></div>
+            <div class="mmd-mkt-chart-empty"><?php echo $_mlConfigured ? 'Snapshots start recording from today — the growth chart builds over the coming days.' : 'Set the MailerLite key to start tracking subscriber growth.' ?></div>
         <?php endif; ?>
     </div>
+
+    <!-- Campaign open/click-rate bar charts — last 10 sent campaigns from the
+         same cached MailerLite payload as the Recent Campaigns table. -->
+    <?php if ($_mlConfigured): ?>
+    <?php
+        $_rateData   = array_reverse($_mlSent10);   // oldest → newest, left to right
+        $_rateCharts = array(
+            array('id' => 'mmd-mkt-openrate',  'title' => 'Campaign Open Rate % — last 10 campaigns',  'key' => 'open_rate',  'kind' => 'open rate'),
+            array('id' => 'mmd-mkt-clickrate', 'title' => 'Campaign Click Rate % — last 10 campaigns', 'key' => 'click_rate', 'kind' => 'click rate'),
+        );
+    ?>
+    <div class="mmd-mkt-rate-grid">
+        <?php foreach ($_rateCharts as $_rc): ?>
+        <div class="mmd-mkt-chart-card">
+            <div class="mmd-mkt-chart-head"><?php echo $_rc['title'] ?></div>
+            <?php if ($_rateData): ?>
+                <?php
+                    $_rMax = 0; $_rSum = 0;
+                    foreach ($_rateData as $_c) { if ($_c[$_rc['key']] > $_rMax) { $_rMax = $_c[$_rc['key']]; } $_rSum += $_c[$_rc['key']]; }
+                    if ($_rMax <= 0) { $_rMax = 1; }
+                ?>
+                <div class="mmd-mkt-rate-body" id="<?php echo $_rc['id'] ?>">
+                    <?php foreach ($_rateData as $_c): $_rH = max(3, (int)round($_c[$_rc['key']] / $_rMax * 108)); ?>
+                        <div class="mmd-mkt-rate-col"
+                             data-rate="<?php echo number_format($_c[$_rc['key']], 1) ?>"
+                             data-kind="<?php echo $_rc['kind'] ?>"
+                             data-name="<?php echo htmlspecialchars($_c['name']) ?>"
+                             data-date="<?php echo $_c['sent_at'] ? date('j M Y', strtotime($_c['sent_at'])) : '—' ?>">
+                            <span class="mmd-mkt-rate-val"><?php echo number_format($_c[$_rc['key']], 1) ?>%</span>
+                            <div class="mmd-mkt-rate-bar" style="height:<?php echo $_rH ?>px;"></div>
+                        </div>
+                    <?php endforeach; ?>
+                    <div class="mmd-mkt-growth-tip"></div>
+                </div>
+                <div class="mmd-mkt-chart-foot">
+                    <span><?php echo $_rateData[0]['sent_at'] ? date('j M', strtotime($_rateData[0]['sent_at'])) : '' ?></span>
+                    <span>avg <b><?php echo number_format($_rSum / count($_rateData), 1) ?>%</b> <?php echo $_rc['kind'] ?></span>
+                    <span><?php echo end($_rateData)['sent_at'] ? date('j M', strtotime(end($_rateData)['sent_at'])) : '' ?></span>
+                </div>
+            <?php else: ?>
+                <div class="mmd-mkt-chart-empty">No sent campaigns yet.</div>
+            <?php endif; ?>
+        </div>
+        <?php endforeach; ?>
+    </div>
+    <?php if ($_rateData): ?>
+    <script>
+    (function(){
+        function wire(id){
+            var wrap = document.getElementById(id); if(!wrap) return;
+            var tip = wrap.querySelector('.mmd-mkt-growth-tip');
+            wrap.addEventListener('mouseover', function(e){
+                var col = e.target.closest ? e.target.closest('.mmd-mkt-rate-col') : null;
+                if(!col) return;
+                tip.innerHTML = '<b></b><span></span>';
+                tip.firstChild.textContent = col.getAttribute('data-rate') + '% ' + col.getAttribute('data-kind');
+                tip.lastChild.textContent = ' · ' + col.getAttribute('data-name') + ' · ' + col.getAttribute('data-date');
+                tip.style.display = 'block';
+                var wr = wrap.getBoundingClientRect(), cr = col.getBoundingClientRect();
+                var left = cr.left - wr.left + cr.width / 2;
+                left = Math.max(80, Math.min(wr.width - 80, left));
+                tip.style.left = left + 'px';
+                tip.style.top = '0px';
+            });
+            wrap.addEventListener('mouseleave', function(){ tip.style.display = 'none'; });
+        }
+        wire('mmd-mkt-openrate');
+        wire('mmd-mkt-clickrate');
+    })();
+    </script>
+    <?php endif; ?>
+    <?php endif; ?>
 
 
     <div class="dash-summary-grid">
@@ -408,7 +499,34 @@ try {
         </div>
 
         <div class="dash-summary-card">
-            <div class="dash-summary-head">Latest 20 Search Terms</div>
+            <div class="dash-summary-head">Latest 10 Courses</div>
+            <div class="dash-summary-body">
+                <table class="dash-summary-table dash-summary-table--compact">
+                    <thead><tr><th>Course</th><th style="width:110px;">Code</th><th style="text-align:right;width:90px;">Added</th><th style="width:32px;"></th></tr></thead>
+                    <tbody>
+                    <?php foreach ($_admDashLatestCourses as $_c):
+                        $_cUrl = Mage::helper('adminhtml')->getUrl('adminhtml/catalog_product/edit', array('id' => (int)$_c['product_id']));
+                    ?>
+                        <tr>
+                            <td class="dash-summary-trunc" title="<?php echo htmlspecialchars($_c['name']) ?>"><?php echo htmlspecialchars($_c['name']) ?></td>
+                            <td><?php echo htmlspecialchars($_c['sku']) ?></td>
+                            <td style="text-align:right;"><?php echo Mage::helper('core')->formatDate($_c['created_at'], 'medium') ?></td>
+                            <td><a href="<?php echo $_cUrl ?>" title="View course" class="dash-summary-icon"><?php echo $_extIcon ?></a></td>
+                        </tr>
+                    <?php endforeach; if (empty($_admDashLatestCourses)): ?>
+                        <tr><td colspan="4" class="dash-summary-empty">No courses yet.</td></tr>
+                    <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="dash-summary-grid">
+
+        <div class="dash-summary-card">
+            <div class="dash-summary-head">Latest 10 Search Terms</div>
             <div class="dash-summary-body">
                 <table class="dash-summary-table dash-summary-table--compact">
                     <thead><tr><th>Term</th><th style="text-align:right;width:60px;">Results</th><th style="text-align:right;width:70px;">Popularity</th><th style="width:32px;"></th></tr></thead>
@@ -431,7 +549,7 @@ try {
         </div>
 
         <div class="dash-summary-card">
-            <div class="dash-summary-head">Top 20 Popular Search Terms</div>
+            <div class="dash-summary-head">Top 10 Search Terms</div>
             <div class="dash-summary-body">
                 <table class="dash-summary-table dash-summary-table--compact">
                     <thead><tr><th>Term</th><th style="text-align:right;width:60px;">Results</th><th style="text-align:right;width:70px;">Popularity</th><th style="width:32px;"></th></tr></thead>
