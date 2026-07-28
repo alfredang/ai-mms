@@ -215,12 +215,17 @@ Fields: `class_id` (req), `trainer` (req — name or email), `trainer_email?`.
 2. If exactly one "Dr Tan" exists → summary `"...trainer: (none) -> Dr Tan."` → confirm → commit.
 
 **Edge cases**
-- **`409 ambiguous_trainer`** — the name matches more than one person. Re-issue with their
-  email: `trainer:"tan@example.com"`.
-- **`422 trainer_email_required`** — the person has no MMS account and no email on file. Ask the
-  user for the trainer's email and pass it as `trainer_email`.
+- **`409 ambiguous_trainer`** — more than one trainer account has that **exact** full name. Matching
+  is exact, not partial, so a bare surname (e.g. "Tan") won't match many — it matches *none* and
+  returns `trainer_email_required` instead. Re-issue with their email: `trainer:"tan@example.com"`.
+- **`422 trainer_email_required`** — no trainer account matches (by exact name or email) and no email
+  was supplied. Ask the user for the trainer's email and pass it as `trainer_email`.
 - Assigning someone brand-new **creates an inactive trainer account** (they can't log in until an
   admin enables it) — the preview `warnings` say so; relay that.
+- If the email belongs to an **existing MMS account** (even one not yet tagged as a trainer), that
+  account is **reused** — it's granted the trainer role, **no duplicate is created**. The preview
+  says "already has an MMS account … grants that existing account the trainer role"; relay that so
+  the user knows it's a link, not a new account.
 
 ---
 

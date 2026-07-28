@@ -306,9 +306,13 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
 
         $warnings = array();
         if ($res['mode'] === 'create') {
-            $warnings[] = ($res['source'] === 'legacy')
-                ? $res['name'] . ' is not set up as an MMS trainer yet - assigning them will set up their trainer account (email ' . $res['email'] . ').'
-                : $res['name'] . ' is a new trainer - assigning them will create their MMS trainer account (email ' . $res['email'] . '). A brand-new account starts with login disabled until an admin enables it.';
+            if ($res['source'] === 'link') {
+                $warnings[] = $res['name'] . ' already has an MMS account - assigning them grants that existing account the trainer role (no new account is created; email ' . $res['email'] . ').';
+            } elseif ($res['source'] === 'legacy') {
+                $warnings[] = $res['name'] . ' is not set up as an MMS trainer yet - assigning them will set up their trainer account (email ' . $res['email'] . ').';
+            } else {
+                $warnings[] = $res['name'] . ' is a new trainer - assigning them will create their MMS trainer account (email ' . $res['email'] . '). A brand-new account starts with login disabled until an admin enables it.';
+            }
         }
 
         return array(
@@ -316,7 +320,11 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
             'diff'          => array(array('field' => 'trainer', 'from' => $oldName ?: null, 'to' => $res['name'])),
             'human_summary' => 'Class ' . $classId . ' (' . $run['course_sku'] . ') trainer: '
                                 . ($oldName ?: '(none)') . ' -> ' . $res['name']
-                                . ($res['mode'] === 'create' ? ' (a trainer account will be set up for them)' : '') . '.',
+                                . ($res['mode'] === 'create'
+                                    ? ($res['source'] === 'link'
+                                        ? ' (the trainer role will be added to their existing account)'
+                                        : ' (a trainer account will be set up for them)')
+                                    : '') . '.',
             'warnings'      => $warnings,
             'token_payload' => array('class_id' => $classId, 'run_id' => (int) $run['run_id'],
                 'mode' => $res['mode'], 'user_id' => isset($res['user_id']) ? (int) $res['user_id'] : 0,
@@ -674,21 +682,51 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
                 'There are multiple trainers named "' . $input . '". Please identify them by email instead.', 409);
         }
 
-        // 2. Legacy courses_trainers record (name or email) that carries an email.
+        // The email we would use (from an email input or an explicit trainer_email).
+        $email = trim((string) ($isEmail ? $input : $emailIn));
+
+        // 2. Existing admin_user with this email but no trainer role yet. The commit
+        //    (_ensureTrainerAccount) dedupes by email and just grants the trainer role,
+        //    so surface that accurately instead of claiming a brand-new account is made.
+        if ($email !== '' && strpos($email, '@') !== false) {
+            $existing = $this->_findAdminUserByEmail($email);
+            if ($existing) {
+                return array('mode' => 'create', 'source' => 'link',
+                    'user_id' => $existing['user_id'], 'name' => $existing['name'], 'email' => $email);
+            }
+        }
+
+        // 3. Legacy courses_trainers record (name or email) that carries an email.
         $legacy = $this->_findLegacyTrainer($input, $isEmail);
         if ($legacy && $legacy['email'] !== '') {
             return array('mode' => 'create', 'source' => 'legacy',
                 'name' => $legacy['name'], 'email' => $legacy['email']);
         }
 
-        // 3. Genuinely new -> require an email.
-        $email = trim((string) ($isEmail ? $input : $emailIn));
+        // 4. Genuinely new -> require an email.
         if ($email === '' || strpos($email, '@') === false) {
             $this->_err('trainer_email_required',
                 'Trainer "' . $input . '" has no MMS account and no email on file. To add them, include their email as "trainer_email".', 422);
         }
         $name = $isEmail ? ($legacy ? $legacy['name'] : $email) : $input;
         return array('mode' => 'create', 'source' => 'new', 'name' => $name, 'email' => $email);
+    }
+
+    /** Existing admin_user by email (any role) -> ['user_id','name','email'] or null. */
+    protected function _findAdminUserByEmail($email)
+    {
+        $resource = Mage::getSingleton('core/resource');
+        $read = $resource->getConnection('core_read');
+        $au = $resource->getTableName('admin_user');
+        $row = $read->fetchRow(
+            "SELECT user_id, TRIM(CONCAT(COALESCE(firstname,''), ' ', COALESCE(lastname,''))) AS name, email"
+            . " FROM `{$au}` WHERE LOWER(email) = ? LIMIT 1",
+            array(strtolower(trim($email)))
+        );
+        if (!$row) { return null; }
+        $name = trim((string) $row['name']);
+        return array('user_id' => (int) $row['user_id'],
+            'name' => $name !== '' ? $name : (string) $row['email'], 'email' => (string) $row['email']);
     }
 
     /** Legacy trainer record from courses_trainers by name or email (email may be blank). */
