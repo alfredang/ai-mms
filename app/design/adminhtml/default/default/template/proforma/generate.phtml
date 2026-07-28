@@ -31,14 +31,32 @@ $didSearch   = ($this->getData('searched_no') !== '' && $this->getData('searched
                 <span style="font:700 10.5px/1.2 inherit;color:var(--t4);text-transform:uppercase;letter-spacing:1.2px;">
                     <?php echo $this->__('Order Number') ?>
                 </span>
-                <input type="text" name="order_no" class="input-text" required
-                       value="<?php echo $searchedNo ?>"
-                       placeholder="<?php echo $this->__('e.g. 100041333') ?>"
-                       autocomplete="off" autofocus
-                       style="width:240px;height:34px;" />
+                <?php
+                // Single-line TEXTAREA, not <input>: password managers force
+                // saved logins into the form's first text <input> regardless
+                // of attributes ("interns" kept appearing here), but they
+                // never touch textareas. Same fix as mmd_leads/view.phtml.
+                ?>
+                <textarea name="order_no" id="mmd-proforma-order-no" rows="1" wrap="off" required
+                          placeholder="<?php echo $this->__('e.g. 100041333') ?>"
+                          autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other" autofocus
+                          style="width:240px;height:34px;min-height:0;resize:none;overflow:hidden;white-space:nowrap;box-sizing:border-box;"><?php echo $searchedNo ?></textarea>
             </label>
             <button type="submit" class="mm-btn-primary"><?php echo $this->__('Look Up Order') ?></button>
         </form>
+        <script>
+        (function () {
+            var f  = document.getElementById('mmd-proforma-form');
+            var el = document.getElementById('mmd-proforma-order-no');
+            if (!f || !el) { return; }
+            el.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') { e.preventDefault(); if (f.requestSubmit) { f.requestSubmit(); } else { f.submit(); } }
+            });
+            f.addEventListener('submit', function () {
+                el.value = el.value.replace(/\s+/g, '');
+            });
+        })();
+        </script>
 
         <?php if ($didSearch): ?>
             <div style="margin-top:22px;">
