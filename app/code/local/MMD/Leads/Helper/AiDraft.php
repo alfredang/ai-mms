@@ -180,7 +180,7 @@ So write ONLY the middle content — no greeting, no sign-off, no subject line i
 
 Requirements for body_html:
 1. First, directly address what the lead actually asked in their message (e.g. an application status, invoice/billing question, schedule question) in 1–2 short paragraphs. If their question needs internal follow-up we cannot answer from the data (like an order status), say our team is checking and will confirm shortly — do not invent a status.
-2. Then present the relevant course information as a clean block using this exact structure per course (only include courses supported by the data; usually just the recommended one):
+2. Then, ONLY IF the matched course data is genuinely relevant to what the lead asked, present the course information as a clean block using this exact structure per course (usually just the recommended one). If the lead's enquiry is not really about picking a course (e.g. testimonials, billing, an existing registration) or the matched course clearly doesn't fit their words, SKIP the course block entirely rather than pitch an unrelated course:
    <p><strong>Course Title:</strong> ...<br/>
    <strong>Course Code:</strong> ...<br/>
    <strong>Next Schedule:</strong> ...<br/>

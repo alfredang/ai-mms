@@ -154,9 +154,10 @@ class MMD_Leads_Model_Cron_Draftreview
                 . '</table>'
                 . '<p style="font-size:13px;color:#475569;background:#f1f5f9;border-radius:8px;padding:10px 14px;white-space:pre-wrap;margin:10px 0 0;">' . htmlspecialchars($lead->getComment()) . '</p>'
                 . '<table role="presentation" style="margin:18px 0;"><tr>'
-                . '<td style="padding-right:10px;"><a href="' . htmlspecialchars($approve) . '" style="background:#059669;color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:11px 22px;border-radius:8px;display:inline-block;">&#10003; Approve &amp; send to lead</a></td>'
+                . '<td style="padding-right:10px;"><a href="' . htmlspecialchars($approve) . '" style="background:#059669;color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:11px 22px;border-radius:8px;display:inline-block;">&#10003; Review &amp; approve</a></td>'
                 . '<td><a href="' . htmlspecialchars($changes) . '" style="background:#e2e8f0;color:#0a1020;text-decoration:none;font-weight:700;font-size:14px;padding:11px 22px;border-radius:8px;display:inline-block;">&#9998; Request changes</a></td>'
                 . '</tr></table>'
+                . '<p style="font-size:12px;color:#7c8aa3;margin:-8px 0 0;">Nothing is sent yet — the approve link opens a confirmation page showing exactly what goes to whom.</p>'
                 . '<p style="font-size:12px;color:#7c8aa3;">"Request changes" lets you describe what to rewrite; the reply is regenerated and re-sent for approval. '
                 . 'You can also <a href="' . htmlspecialchars($leadUrl) . '" style="color:#2563eb;">edit and send it manually</a> in the admin.</p>'
                 . '<hr style="border:0;border-top:1px solid #e4e9f0;margin:18px 0;">'
@@ -167,7 +168,7 @@ class MMD_Leads_Model_Cron_Draftreview
                 . '<p style="margin:12px 0 0;color:#64748b;">— sent via the branded course-reply template with greeting/signature.</p>'
                 . '</div>'
                 . '</div>';
-            $subject = '[Approval needed] Lead reply: ' . $lead->getName()
+            $subject = '[Approval needed] Lead #' . (int) $lead->getId() . ' · ' . $lead->getName()
                 . ' — ' . ($lead->getDraftSubject() ?: $lead->getCoursesInterested());
 
             try {

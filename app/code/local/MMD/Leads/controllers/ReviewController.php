@@ -59,6 +59,39 @@ class MMD_Leads_ReviewController extends Mage_Core_Controller_Front_Action
                 '<p style="color:#475569;">There is no pending draft for this lead — it may be regenerating. Try again from the latest review email.</p>', '#ef4444');
         }
 
+        $req  = $this->getRequest();
+        $vNow = substr(sha1((string) $lead->getDraftHtml()), 0, 12);
+
+        // GET = confirmation preview. Nothing is sent until the reviewer sees
+        // EXACTLY which lead and which draft this is and posts Confirm & send.
+        // (Also stops mail-scanner link prefetches from ever triggering a
+        // send, and makes lookalike approval emails safe — incident
+        // 2026-07-28: two leads drafted near-identical approval emails and
+        // one was approved by mistake.)
+        if (!$req->isPost()) {
+            $action = $this->_esc($req->getRequestUri());
+            return $this->_reviewPage('Confirm before sending',
+                '<p style="color:#475569;">You are about to send this reply to lead <b>#' . (int) $lead->getId() . '</b>:</p>'
+                . '<table role="presentation" style="font-size:13px;color:#334155;border-collapse:collapse;margin:0 0 10px;">'
+                . '<tr><td style="padding:2px 12px 2px 0;color:#94a3b8;">To</td><td><b>' . $this->_esc($lead->getName()) . '</b> &lt;' . $this->_esc($lead->getEmail()) . '&gt;</td></tr>'
+                . '<tr><td style="padding:2px 12px 2px 0;color:#94a3b8;">Subject</td><td>Re: Your enquiry about ' . $this->_esc($lead->getDraftSubject()) . '</td></tr>'
+                . '</table>'
+                . '<p style="font-size:12.5px;color:#64748b;background:#f8fafc;border:1px solid #e4e9f0;border-radius:8px;padding:8px 12px;white-space:pre-wrap;margin:0 0 12px;">Their message: ' . $this->_esc(mb_substr((string) $lead->getComment(), 0, 400)) . '</p>'
+                . '<div style="border:1px solid #e4e9f0;border-radius:10px;padding:14px 16px;font-size:14px;line-height:1.6;color:#0f172a;max-height:340px;overflow:auto;">' . $lead->getDraftHtml() . '</div>'
+                . '<form method="post" action="' . $action . '" style="margin-top:16px;display:flex;gap:10px;">'
+                . '<input type="hidden" name="v" value="' . $vNow . '"/>'
+                . '<button type="submit" style="background:#059669;color:#fff;border:0;border-radius:10px;padding:12px 22px;font-weight:700;font-size:14px;cursor:pointer;">&#10003; Confirm &amp; send to ' . $this->_esc($lead->getEmail()) . '</button>'
+                . '</form>', '#059669');
+        }
+
+        // Version lock: the confirm page embeds the fingerprint of the draft
+        // it displayed; if the draft changed in between, never send blind.
+        if ((string) $req->getPost('v') !== $vNow) {
+            return $this->_reviewPage('Draft has changed',
+                '<p style="color:#475569;">This draft was updated after you opened the confirmation page. Please review the latest version and confirm again.</p>'
+                . '<p><a href="' . $this->_esc($req->getRequestUri()) . '" style="color:#2563eb;font-weight:700;">Open the latest draft</a></p>', '#f59e0b');
+        }
+
         // Atomic claim — only the first approval flips pending -> approved
         // and sends; a concurrent second click sees 0 rows and reports done.
         $write   = Mage::getSingleton('core/resource')->getConnection('core_write');
