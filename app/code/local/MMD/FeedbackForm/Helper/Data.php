@@ -6,6 +6,7 @@ class MMD_FeedbackForm_Helper_Data extends Mage_Core_Helper_Abstract
     const AUTOFILL_START_DATE   = 'start_date';
     const AUTOFILL_END_DATE     = 'end_date';
     const AUTOFILL_TRAINER_NAME = 'trainer_name';
+    const AUTOFILL_CLASS_ID     = 'class_id';   // human run label, e.g. SG000046
 
     public function getFieldTypes()
     {
@@ -25,6 +26,7 @@ class MMD_FeedbackForm_Helper_Data extends Mage_Core_Helper_Abstract
             ''             => '— None —',
             'course_title' => 'Course Title',
             'course_code'  => 'Course Code',
+            'class_id'     => 'Course Run ID',
             'trainer_name' => 'Trainer Name',
             'start_date'   => 'Start Date',
             'end_date'     => 'End Date',
@@ -42,6 +44,7 @@ class MMD_FeedbackForm_Helper_Data extends Mage_Core_Helper_Abstract
                     'fields' => array(
                         array('id'=>'f1','label'=>'Course Title',     'type'=>'text',  'autofill'=>'course_title', 'readonly'=>true,  'required'=>false,'options'=>''),
                         array('id'=>'f2','label'=>'Course Code',      'type'=>'text',  'autofill'=>'course_code',  'readonly'=>true,  'required'=>false,'options'=>''),
+                        array('id'=>'f11','label'=>'Course Run ID',   'type'=>'text',  'autofill'=>'class_id',     'readonly'=>true,  'required'=>false,'options'=>''),
                         array('id'=>'f3','label'=>'Trainer',          'type'=>'text',  'autofill'=>'trainer_name', 'readonly'=>true,  'required'=>false,'options'=>''),
                         array('id'=>'f4','label'=>'Your Full Name',   'type'=>'text',  'autofill'=>'',             'readonly'=>false, 'required'=>true, 'options'=>''),
                         array('id'=>'f5','label'=>'Class Start Date', 'type'=>'date',  'autofill'=>'start_date',   'readonly'=>true,  'required'=>false,'options'=>''),
@@ -74,6 +77,7 @@ class MMD_FeedbackForm_Helper_Data extends Mage_Core_Helper_Abstract
         $row = $read->fetchRow("SELECT * FROM `$tbl` WHERE is_active = 1 ORDER BY template_id ASC LIMIT 1");
         if ($row) {
             $row['sections'] = json_decode($row['sections'], true) ?: array();
+            $row['sections'] = $this->_ensureClassIdField($row['sections']);
             return $row;
         }
 
@@ -87,5 +91,35 @@ class MMD_FeedbackForm_Helper_Data extends Mage_Core_Helper_Abstract
         ));
         $default['template_id'] = (int) $write->lastInsertId();
         return $default;
+    }
+
+    /**
+     * Templates saved before 2026-07-29 predate the Course Run ID field.
+     * Inject it (read-time, not persisted) right after the Course Code
+     * field so every rendered form carries the run label — the field is
+     * readonly/autofill, so the submit parser skips it either way.
+     */
+    protected function _ensureClassIdField(array $sections)
+    {
+        foreach ($sections as $section) {
+            foreach ((array) (isset($section['fields']) ? $section['fields'] : array()) as $field) {
+                if (isset($field['autofill']) && $field['autofill'] === self::AUTOFILL_CLASS_ID) {
+                    return $sections; // already present
+                }
+            }
+        }
+        $runField = array('id'=>'f11','label'=>'Course Run ID','type'=>'text','autofill'=>self::AUTOFILL_CLASS_ID,'readonly'=>true,'required'=>false,'options'=>'');
+        foreach ($sections as $si => $section) {
+            foreach ((array) (isset($section['fields']) ? $section['fields'] : array()) as $fi => $field) {
+                if (isset($field['autofill']) && $field['autofill'] === self::AUTOFILL_COURSE_CODE) {
+                    array_splice($sections[$si]['fields'], $fi + 1, 0, array($runField));
+                    return $sections;
+                }
+            }
+        }
+        if (isset($sections[0]['fields'])) {
+            $sections[0]['fields'][] = $runField; // no Course Code field — append
+        }
+        return $sections;
     }
 }

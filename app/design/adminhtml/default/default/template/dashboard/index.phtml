@@ -2088,6 +2088,10 @@ $_devFilterQuery = trim((string) Mage::app()->getRequest()->getParam('dev_q', ''
 $_devTotalCount = 0;
 $_devTotalPages = 1;
 $_devTotalAll = 0;
+// KPI card counters (filled inside the $_courseManagerActive block below).
+// Row 2 (funding mix) is SG-only — partner instances run MMS_MODE=country.
+$_devKpiIsSg = strtolower((string) getenv('MMS_MODE')) !== 'country';
+$_devKpi = array('total'=>0,'active'=>0,'inactive'=>0,'wsq'=>0,'ibf'=>0,'casl'=>0,'unfunded'=>0);
 
 // Build a single "back" query string from the active filter/page state.
 // Threaded through View / Edit / Save / Cancel as ?dev_back=… so the editor
@@ -2279,6 +2283,54 @@ if ($_devWebsiteId > 0) {
         ->getConnection('core_read')
         ->fetchOne("SELECT COUNT(*) FROM " . Mage::getSingleton('core/resource')->getTableName('catalog_product_entity'));
 }
+
+// KPI cards above the search panel. Row 1 (all sites): total / enabled /
+// disabled catalog counts. Row 2 (SG instance only): funding mix — WSQ /
+// IBF / CASL counted by their canonical funding-badge tags (the same tag
+// vocabulary the storefront chips read, see MMD_CourseImage), restricted
+// to enabled courses; Unfunded = enabled courses carrying none of the
+// three. Stable whole-catalog numbers, independent of search/filters.
+try {
+    $_kpiRes  = Mage::getSingleton('core/resource');
+    $_kpiRead = $_kpiRes->getConnection('core_read');
+    $_kpiPe   = $_kpiRes->getTableName('catalog_product_entity');
+    $_kpiPi   = $_kpiRes->getTableName('catalog_product_entity_int');
+    $_kpiStatusAttrId = (int) Mage::getSingleton('eav/config')
+        ->getAttribute('catalog_product', 'status')->getId();
+    $_devKpi['total']  = (int) $_kpiRead->fetchOne("SELECT COUNT(*) FROM {$_kpiPe}");
+    $_devKpi['active'] = (int) $_kpiRead->fetchOne(
+        "SELECT COUNT(*) FROM {$_kpiPe} e
+           JOIN {$_kpiPi} s ON s.entity_id = e.entity_id
+                AND s.attribute_id = ? AND s.store_id = 0
+          WHERE s.value = 1",
+        array($_kpiStatusAttrId)
+    );
+    $_devKpi['inactive'] = max(0, $_devKpi['total'] - $_devKpi['active']);
+    if ($_devKpiIsSg) {
+        $_kpiTag = $_kpiRes->getTableName('tag/tag');
+        $_kpiRel = $_kpiRes->getTableName('tag/relation');
+        $_kpiEnabledJoin =
+            " JOIN {$_kpiPi} s ON s.entity_id = r.product_id
+                   AND s.attribute_id = {$_kpiStatusAttrId} AND s.store_id = 0 AND s.value = 1";
+        $_kpiRows = $_kpiRead->fetchPairs(
+            "SELECT t.name, COUNT(DISTINCT r.product_id)
+               FROM {$_kpiTag} t
+               JOIN {$_kpiRel} r ON r.tag_id = t.tag_id" . $_kpiEnabledJoin . "
+              WHERE t.status = 1 AND t.name IN ('WSQ','IBF','CASL')
+              GROUP BY t.name"
+        );
+        $_devKpi['wsq']  = isset($_kpiRows['WSQ'])  ? (int) $_kpiRows['WSQ']  : 0;
+        $_devKpi['ibf']  = isset($_kpiRows['IBF'])  ? (int) $_kpiRows['IBF']  : 0;
+        $_devKpi['casl'] = isset($_kpiRows['CASL']) ? (int) $_kpiRows['CASL'] : 0;
+        $_kpiFunded = (int) $_kpiRead->fetchOne(
+            "SELECT COUNT(DISTINCT r.product_id)
+               FROM {$_kpiTag} t
+               JOIN {$_kpiRel} r ON r.tag_id = t.tag_id" . $_kpiEnabledJoin . "
+              WHERE t.status = 1 AND t.name IN ('WSQ','IBF','CASL')"
+        );
+        $_devKpi['unfunded'] = max(0, $_devKpi['active'] - $_kpiFunded);
+    }
+} catch (Exception $e) {}
 endif; // end if ($_courseManagerActive) — closes the $_devCollection block
 ?>
 <div id="dash-panel-developer" style="display:none;">
@@ -2443,6 +2495,19 @@ function courseSyncSaveConfig() {
 <?php endif; // MMS_MODE=country ?>
 <div class="dev-wrap">
     <h1 class="dev-page-title">Manage Courses</h1>
+    <div class="dev-kpi">
+        <div class="dev-kpi-card"><div class="dev-kpi-num"><?php echo number_format($_devKpi['total']) ?></div><div class="dev-kpi-lbl">Total Courses</div></div>
+        <div class="dev-kpi-card"><div class="dev-kpi-num"><?php echo number_format($_devKpi['active']) ?></div><div class="dev-kpi-lbl">Total Active (Enabled) Courses</div></div>
+        <div class="dev-kpi-card"><div class="dev-kpi-num"><?php echo number_format($_devKpi['inactive']) ?></div><div class="dev-kpi-lbl">Total Inactive (Disabled) Courses</div></div>
+    </div>
+    <?php if ($_devKpiIsSg): ?>
+    <div class="dev-kpi dev-kpi-4">
+        <div class="dev-kpi-card"><div class="dev-kpi-num"><?php echo number_format($_devKpi['wsq']) ?></div><div class="dev-kpi-lbl">Total WSQ Courses</div></div>
+        <div class="dev-kpi-card"><div class="dev-kpi-num"><?php echo number_format($_devKpi['ibf']) ?></div><div class="dev-kpi-lbl">Total IBF Courses</div></div>
+        <div class="dev-kpi-card"><div class="dev-kpi-num"><?php echo number_format($_devKpi['casl']) ?></div><div class="dev-kpi-lbl">Total CASL Courses</div></div>
+        <div class="dev-kpi-card"><div class="dev-kpi-num"><?php echo number_format($_devKpi['unfunded']) ?></div><div class="dev-kpi-lbl">Total Unfunded Courses</div></div>
+    </div>
+    <?php endif; ?>
     <div class="dev-search-wrap">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:10px;">
             <div class="dev-search-label" style="margin-bottom:0;">General Search</div>
@@ -6355,39 +6420,10 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
         <?php endif; ?>
     </div>
 
-    <!-- TRAINER: Certificate Delivery — single shared link for every
-         course (per product 2026-05-07). Course Ref shows the current
-         course's code so the learner knows which course they're
-         scanning for. -->
-    <?php
-    $_certUrl     = 'https://goo.gl/R2eumq';
-    $_certCode    = isset($_selectedCourse['sku']) ? (string)$_selectedCourse['sku'] : '';
-    $_certUrlAttr = htmlspecialchars($_certUrl, ENT_QUOTES);
-    $_certUrlText = htmlspecialchars($_certUrl);
-    ?>
-    <div class="lcd-section" id="certificate-delivery">
-        <div class="lcd-section-title" style="cursor:pointer" onclick="var c=this.nextElementSibling;c.style.display=c.style.display==='none'?'':'none';this.querySelector('.lcd-caret').style.transform=c.style.display==='none'?'':'rotate(180deg)'">Certificate Delivery <svg class="lcd-caret" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition:transform .2s"><polyline points="6 9 12 15 18 9"/></svg></div>
-        <div class="lcd-qr-content" style="display:none">
-            <div style="margin-top:16px;background:#1e293b;border:1px solid #334155;border-radius:12px;overflow:hidden;width:100%;box-sizing:border-box;">
-                <div style="background:#2563eb;padding:14px 18px;display:flex;align-items:center;gap:10px;">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                    <span style="color:#fff;font-size:14px;font-weight:700;">Certificate Delivery</span>
-                </div>
-                <div style="padding:24px;text-align:center;">
-                    <div style="background:#fff;border-radius:8px;padding:12px;display:inline-block;margin-bottom:16px;">
-                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=<?php echo urlencode($_certUrl) ?>" alt="Certificate QR" width="180" height="180" style="display:block;" />
-                    </div>
-                    <div style="color:#cbd5e1;font-size:14px;font-weight:600;margin-bottom:10px;">Scan to receive your certificate</div>
-                    <div style="color:#94a3b8;font-size:13px;word-break:break-all;margin-bottom:18px;"><?php echo $_certUrlText ?></div>
-                    <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
-                        <a href="<?php echo $_certUrlAttr ?>" target="_blank" rel="noopener" style="flex:1;display:block;background:#2563eb;color:#fff !important;text-decoration:none !important;padding:12px 18px;border-radius:8px;font-size:13px;font-weight:600;text-align:center;">Open Link</a>
-                        <button type="button" onclick="navigator.clipboard.writeText('<?php echo $_certUrlAttr ?>')" style="background:#334155 !important;background-image:none !important;color:#e2e8f0 !important;border:1px solid #475569 !important;border-radius:8px !important;padding:12px 24px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;">Copy</button>
-                    </div>
-                    <div style="color:#cbd5e1;font-size:13px;"><span style="color:#94a3b8;">Course Ref:</span> <strong style="color:#f1f5f9;letter-spacing:.3px;"><?php echo htmlspecialchars($_certCode ?: '—') ?></strong></div>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php /* "Certificate Delivery" (the shared goo.gl cert QR) was replaced
+             2026-07-29 by the "Course Feedback" section, which now renders
+             AFTER the Lesson section below (owner request: rename + move +
+             per-class feedback QR). */ ?>
 
     <?php // Removed 2026-05-07: a second "Learner: Certificate Delivery"
           // block lived here even though it was inside the trainer's
@@ -6610,6 +6646,47 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
         <div style="color:#64748b;font-size:13px;font-style:italic;padding:14px 0;">No lesson topics available for this course yet.</div>
         <?php endif; ?>
     </div>
+
+    <?php if ($activeRole === 'trainer'): ?>
+    <!-- TRAINER: Course Feedback — renamed from "Certificate Delivery" and
+         moved after Lesson (owner request 2026-07-29). The QR points at the
+         public per-class feedback form (/feedback/respond/index?run_id=N),
+         which auto-fills Course Title, Course Code, Course Run ID and the
+         class Start/End dates server-side from the course_runs row. -->
+    <?php
+    $_fbSku  = isset($_selectedCourse['sku']) ? (string)$_selectedCourse['sku'] : '';
+    $_fbUrl  = $_lcdRunId > 0
+        ? rtrim(Mage::getBaseUrl(), '/') . '/feedback/respond/index?run_id=' . (int)$_lcdRunId
+        : '';
+    ?>
+    <div class="lcd-section" id="course-feedback">
+        <div class="lcd-section-title" style="cursor:pointer" onclick="var c=this.nextElementSibling;c.style.display=c.style.display==='none'?'':'none';this.querySelector('.lcd-caret').style.transform=c.style.display==='none'?'':'rotate(180deg)'">Course Feedback <svg class="lcd-caret" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition:transform .2s"><polyline points="6 9 12 15 18 9"/></svg></div>
+        <div class="lcd-qr-content" style="display:none">
+            <?php if ($_fbUrl === ''): ?>
+            <div style="color:#64748b;font-size:13px;font-style:italic;padding:14px 0;">No scheduled class run yet — the feedback QR appears once this class has a run.</div>
+            <?php else: ?>
+            <div style="margin-top:16px;background:#1e293b;border:1px solid #334155;border-radius:12px;overflow:hidden;width:100%;box-sizing:border-box;">
+                <div style="background:#2563eb;padding:14px 18px;display:flex;align-items:center;gap:10px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1" ry="1"/><path d="M9 12l2 2 4-4"/></svg>
+                    <span style="color:#fff;font-size:14px;font-weight:700;">Course Feedback</span>
+                </div>
+                <div style="padding:24px;text-align:center;">
+                    <div style="background:#fff;border-radius:8px;padding:12px;display:inline-block;margin-bottom:16px;">
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=<?php echo urlencode($_fbUrl) ?>" alt="Course Feedback QR" width="180" height="180" style="display:block;" />
+                    </div>
+                    <div style="color:#cbd5e1;font-size:14px;font-weight:600;margin-bottom:10px;">Scan to share your feedback</div>
+                    <div style="color:#94a3b8;font-size:13px;word-break:break-all;margin-bottom:18px;"><?php echo htmlspecialchars($_fbUrl) ?></div>
+                    <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+                        <a href="<?php echo htmlspecialchars($_fbUrl, ENT_QUOTES) ?>" target="_blank" rel="noopener" style="flex:1;display:block;background:#2563eb;color:#fff !important;text-decoration:none !important;padding:12px 18px;border-radius:8px;font-size:13px;font-weight:600;text-align:center;">Open Link</a>
+                        <button type="button" onclick="navigator.clipboard.writeText('<?php echo htmlspecialchars($_fbUrl, ENT_QUOTES) ?>')" style="background:#334155 !important;background-image:none !important;color:#e2e8f0 !important;border:1px solid #475569 !important;border-radius:8px !important;padding:12px 24px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;">Copy</button>
+                    </div>
+                    <div style="color:#cbd5e1;font-size:13px;"><span style="color:#94a3b8;">Course Ref:</span> <strong style="color:#f1f5f9;letter-spacing:.3px;"><?php echo htmlspecialchars($_fbSku ?: '—') ?></strong></div>
+                </div>
+            </div>
+            <?php endif; ?>
+        </div>
+    </div>
+    <?php endif; ?>
     <?php endif; ?>
 
     <?php if ($activeRole !== 'developer'): ?>
@@ -6871,45 +6948,16 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
                         <span class="lmc-card-value"><?php echo $_c['end_date'] ?></span>
                     </div>
                 </div>
-                <div class="lmc-card-footer" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-                    <div style="display:flex;align-items:center;gap:8px;">
-                        <span>View Course</span>
-                        <div class="lmc-arrow">
-                            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#fff" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
-                        </div>
-                    </div>
-                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
-                    <?php if ($activeRole === 'trainer' && !empty($_c['cr_run_id'])):
-                        // Take attendance for THIS class. Past classes open the
-                        // Completed tab (still editable); current/upcoming open the
-                        // active Take-Attendance tab. The attendance page preselects
-                        // run_id and the trainer filter scopes the dropdown.
-                        $_attBucket = (isset($_c['time_status']) && $_c['time_status'] === 'past') ? 'completed' : 'active';
-                        $_attUrl    = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/index', array('run_id' => (int)$_c['cr_run_id'], 'bucket' => $_attBucket));
-                    ?>
-                    <?php /* Icon-only footer actions (.mmd-iconbtn 26x26 ghost).
-                             Native title tooltip — the card has overflow:hidden,
-                             so the .mmd-tip pill would clip at the footer edge. */ ?>
-                    <button type="button"
-                            class="mmd-iconbtn"
-                            onclick="event.preventDefault();event.stopPropagation();window.location.href='<?php echo $this->jsQuoteEscape($_attUrl) ?>';"
-                            title="Take Attendance"
-                            aria-label="Take Attendance">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1" ry="1"/><path d="M9 12l2 2 4-4"/></svg>
-                    </button>
-                    <?php endif; ?>
-                    <?php /* Feedback QR is a TRAINER tool (shown to the class in
-                             session) — learners don't need it on their own cards
-                             (owner request 2026-07-07). */ ?>
-                    <?php if ($activeRole === 'trainer' && !empty($_c['cr_run_id'])): ?>
-                    <button type="button"
-                            class="mmd-iconbtn"
-                            onclick="event.preventDefault();event.stopPropagation();lmcShowFeedback(<?php echo (int)$_c['cr_run_id'] ?>, '<?php echo $this->jsQuoteEscape($_c['name']) ?>', '<?php echo $this->jsQuoteEscape($_c['sku']) ?>');"
-                            title="Feedback QR"
-                            aria-label="Feedback QR">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="5" height="5" rx="1"/><rect x="16" y="3" width="5" height="5" rx="1"/><rect x="3" y="16" width="5" height="5" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M21 21v.01"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/><path d="M3 12h.01"/><path d="M12 3h.01"/><path d="M12 16v.01"/><path d="M16 12h1"/><path d="M21 12v.01"/><path d="M12 21v-1"/></svg>
-                    </button>
-                    <?php endif; ?>
+                <?php /* Footer is View-Course only. The per-card Take-Attendance
+                         and Feedback-QR icons were removed 2026-07-29 — they only
+                         rendered when the class had a course_runs row (cr_run_id),
+                         so cards looked inconsistent. Both tools now live on the
+                         class detail page (E-Attendance card + Course Feedback
+                         section). */ ?>
+                <div class="lmc-card-footer" style="display:flex;align-items:center;gap:8px;">
+                    <span>View Course</span>
+                    <div class="lmc-arrow">
+                        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#fff" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
                     </div>
                 </div>
             </a>
@@ -6925,122 +6973,10 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
         <?php /* per-panel footer removed — the single site footer is page.phtml's .admin-page-footer */ ?>
     </div>
 
-<!-- Feedback QR modal (shared for learner + trainer panels) -->
-<style>
-/* Light-mode overrides for the QR feedback modal. The modal's
-   markup hardcodes dark colors via inline style="" attributes so
-   nothing in the global theme CSS reaches it (inline > author).
-   Hook by the modal's ID + attribute selectors that pattern-match
-   the exact inline value strings — that gives matching specificity
-   plus !important to flip them in light mode only.
-
-   Mapping:
-     #1e2132 (card body bg)         -> #ffffff
-     rgba(0,0,0,.6) (backdrop)      -> rgba(15,23,42,.45) slate-tinted
-     #94a3b8 (muted text)           -> #475569 slate-600
-     #64748b (more muted)           -> stays — readable on white
-     #334155 (border / Copy btn)    -> #cbd5e1 slate-300
-     rgba(255,255,255,.7) (close)   -> #475569 slate-600
-   Blue header (#2563eb) + Open Link button keep brand color. */
-:root[data-theme="light"] #lmc-feedback-modal[style*="background:rgba(0,0,0,.6)"] {
-    background:rgba(15,23,42,.45) !important;
-}
-:root[data-theme="light"] #lmc-feedback-modal [style*="background:#1e2132"] {
-    background:#ffffff !important;
-}
-:root[data-theme="light"] #lmc-feedback-modal [style*="border:1px solid #334155"] {
-    border-color:#cbd5e1 !important;
-}
-:root[data-theme="light"] #lmc-feedback-modal [style*="color:#94a3b8"] {
-    color:#475569 !important;
-}
-:root[data-theme="light"] #lmc-feedback-modal [style*="color:rgba(255,255,255,.7)"] {
-    color:#475569 !important;
-}
-:root[data-theme="light"] #lmc-feedback-modal [style*="box-shadow:0 20px 60px rgba(0,0,0,.5)"] {
-    box-shadow:0 20px 60px rgba(15,23,42,.18) !important;
-}
-</style>
-<div id="lmc-feedback-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:center;justify-content:center;padding:16px;">
-    <!-- inner card matches LMS exactly -->
-    <div style="position:relative;border:1px solid #334155;border-radius:12px;overflow:hidden;max-width:320px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.5);">
-        <!-- close button top-right, outside the blue bar -->
-        <button onclick="document.getElementById('lmc-feedback-modal').style.display='none'"
-                style="position:absolute;top:6px;right:8px;background:none;border:none;color:rgba(255,255,255,.7);font-size:16px;cursor:pointer;line-height:1;z-index:1;">✕</button>
-        <!-- blue header: centered icon + label (matches LMS bg-blue-600) -->
-        <div style="background:#2563eb;padding:10px 16px;display:flex;align-items:center;justify-content:center;gap:8px;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
-                <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
-                <rect x="9" y="3" width="6" height="4" rx="1" ry="1"/>
-                <path d="M9 12l2 2 4-4"/>
-            </svg>
-            <span style="font-size:14px;font-weight:600;color:#fff;">Course Feedback</span>
-        </div>
-        <!-- content area: bg-surface equivalent -->
-        <div style="background:#1e2132;padding:20px;display:flex;flex-direction:column;align-items:center;gap:12px;">
-            <!-- QR image in white padded box (matches LMS bg-white p-3 rounded-xl border shadow-sm) -->
-            <div style="background:#fff;padding:12px;border-radius:12px;border:1px solid #e5e7eb;box-shadow:0 1px 3px rgba(0,0,0,.1);">
-                <img id="lmc-feedback-qr-img" src="" alt="Course Feedback QR Code"
-                     width="144" height="144" style="display:block;object-fit:contain;">
-            </div>
-            <!-- "Scan to share your feedback" (matches LMS text-sm text-on-surface-secondary text-center) -->
-            <p style="font-size:13px;color:#94a3b8;margin:0;text-align:center;">Scan to share your feedback</p>
-            <!-- URL text (matches LMS text-xs break-all px-1) -->
-            <p id="lmc-feedback-url-text" style="font-size:11px;color:#64748b;word-break:break-all;margin:0;padding:0 4px;text-align:center;width:100%;"></p>
-            <!-- buttons: Open Link (flex-1 blue) + Copy (bordered) -->
-            <div style="display:flex;gap:8px;width:100%;">
-                <a id="lmc-feedback-open-link" href="#" target="_blank" rel="noopener"
-                   style="flex:1;text-align:center;font-size:13px;font-weight:500;background:#2563eb;color:#fff !important;border-radius:8px;padding:8px 0;text-decoration:none !important;display:block;">
-                    Open Link
-                </a>
-                <button onclick="lmcCopyFeedbackUrl()"
-                        style="padding:8px 12px;font-size:13px;font-weight:500;border:1px solid #334155;background:transparent;color:#94a3b8;border-radius:8px;cursor:pointer;white-space:nowrap;">
-                    Copy
-                </button>
-            </div>
-            <!-- course ref line (matches LMS "Course Ref: [code]") -->
-            <p id="lmc-feedback-ref" style="font-size:11px;color:#64748b;margin:0;text-align:center;"></p>
-        </div>
-    </div>
-</div>
-
-<script type="text/javascript">
-var LMC_FEEDBACK_BASE = '<?php echo rtrim(Mage::getBaseUrl(), '/') ?>/feedback/respond/index';
-var _lmcFeedbackUrl = '';
-
-function lmcShowFeedback(runId, courseTitle, courseSku) {
-    _lmcFeedbackUrl = LMC_FEEDBACK_BASE + '?run_id=' + runId;
-    var qrSrc = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(_lmcFeedbackUrl);
-    document.getElementById('lmc-feedback-qr-img').src           = qrSrc;
-    document.getElementById('lmc-feedback-url-text').textContent = _lmcFeedbackUrl;
-    document.getElementById('lmc-feedback-open-link').href       = _lmcFeedbackUrl;
-    var refEl = document.getElementById('lmc-feedback-ref');
-    if (refEl) refEl.innerHTML = courseSku
-        ? 'Course Ref: <strong style="color:#e2e8f0;">' + courseSku + '</strong>'
-        : '';
-    document.getElementById('lmc-feedback-modal').style.display  = 'flex';
-}
-
-function lmcCopyFeedbackUrl() {
-    if (!_lmcFeedbackUrl) return;
-    if (navigator.clipboard) {
-        navigator.clipboard.writeText(_lmcFeedbackUrl).then(function(){ alert('URL copied!'); });
-    } else {
-        var ta = document.createElement('textarea');
-        ta.value = _lmcFeedbackUrl;
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
-        document.body.removeChild(ta);
-        alert('URL copied!');
-    }
-}
-
-// Close modal on backdrop click.
-document.getElementById('lmc-feedback-modal').addEventListener('click', function(e){
-    if (e.target === this) this.style.display = 'none';
-});
-</script>
+<?php /* The shared Feedback-QR modal (lmcShowFeedback + #lmc-feedback-modal)
+         was removed 2026-07-29 with the card icons — the QR now renders
+         inline in the trainer Course Feedback section on the class detail
+         page. */ ?>
 
 <script type="text/javascript">
 window._lmcFilter  = 'all';

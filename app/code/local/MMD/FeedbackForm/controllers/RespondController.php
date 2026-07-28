@@ -29,6 +29,7 @@ class MMD_FeedbackForm_RespondController extends Mage_Core_Controller_Front_Acti
             $context = array(
                 'course_title' => (string)$run['course_title'],
                 'course_code'  => (string)$run['course_sku'],
+                'class_id'     => (string)$run['class_id'],
                 'trainer_name' => (string)$run['trainer_name'],
                 'start_date'   => $run['course_start_date'] ? date('Y-m-d', strtotime($run['course_start_date'])) : '',
                 'end_date'     => $run['course_end_date']   ? date('Y-m-d', strtotime($run['course_end_date']))   : '',

@@ -13,6 +13,22 @@ $readonly    = false;
 
 $classes  = $h->getClassList($bucket);
 
+// Focused mode — opened from a class detail page / card with ?run_id=N.
+// The trainer already picked the class there, so the page must go straight
+// to that class's learner roster instead of asking them to choose again.
+// The bucket / store / trainer filters of getClassList() can hide the run
+// (wrong bucket, trainer-mapping gap) — inject it so the preselect + auto-
+// load always work, and swap the dropdown for a static class summary.
+$preRunRow = null;
+if ($preRun > 0) {
+    foreach ($classes as $c) {
+        if ((int)$c['run_id'] === $preRun) { $preRunRow = $c; break; }
+    }
+    if (!$preRunRow && ($preRunRow = $h->getClassRow($preRun))) {
+        array_unshift($classes, $preRunRow);
+    }
+}
+
 $loadUrl   = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/load');
 $saveUrl   = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/save');
 $addUrl    = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/addLearner');
@@ -118,9 +134,14 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
 
 <div class="rm-wrap">
     <h1 class="att-title">E-Attendance</h1>
-    <p class="att-sub"><?php echo $isCompleted
-        ? 'Past class — attendance stays editable. Mark or correct each learner, then save.'
-        : 'Select a class, mark each learner present or absent, then save.' ?></p>
+    <p class="att-sub"><?php
+        if ($preRunRow) {
+            echo 'Mark each learner present or absent, then save.';
+        } else {
+            echo $isCompleted
+                ? 'Past class — attendance stays editable. Mark or correct each learner, then save.'
+                : 'Select a class, mark each learner present or absent, then save.';
+        } ?></p>
 
     <!-- Active / Completed switch -->
     <div class="att-tabs">
@@ -169,10 +190,19 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
     </div>
     <?php endif; ?>
 
-    <!-- Class selection -->
+    <!-- Class selection. In focused mode (?run_id=N) the dropdown stays in
+         the DOM but hidden — attSelectClass() reads the selected option's
+         data-* attributes to build the class pills — and a static summary
+         renders in its place. -->
     <div class="att-card">
-        <label class="att-label" for="att-class">Class</label>
-        <select id="att-class" class="att-select" onchange="attSelectClass(this.value)">
+        <?php if ($preRunRow): ?>
+        <label class="att-label">Class</label>
+        <div style="font-size:14px;font-weight:600;color:#e2e8f0;">
+            <?php echo htmlspecialchars($preRunRow['class_id'] . ' · ' . $preRunRow['course_title']) ?>
+        </div>
+        <?php endif; ?>
+        <label class="att-label" for="att-class"<?php echo $preRunRow ? ' style="display:none;"' : '' ?>>Class</label>
+        <select id="att-class" class="att-select" onchange="attSelectClass(this.value)"<?php echo $preRunRow ? ' style="display:none;"' : '' ?>>
             <option value="">— Select a class —</option>
             <?php foreach ($classes as $c):
                 $start = $c['course_start_date'] ? date('d M Y', strtotime($c['course_start_date'])) : '—';

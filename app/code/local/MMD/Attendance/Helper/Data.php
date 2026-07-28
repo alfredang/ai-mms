@@ -19,6 +19,63 @@ class MMD_Attendance_Helper_Data extends Mage_Core_Helper_Abstract
     }
 
     /**
+     * One class by run_id — same row shape as getClassList() but with NO
+     * bucket / store / trainer filtering. Used when the attendance page is
+     * opened from a class detail page with ?run_id=N: the trainer already
+     * chose the class there, so it must load even if the list filters would
+     * have hidden it (wrong bucket, store prefix, or trainer mapping gap).
+     *
+     * @param int $runId
+     * @return array|null
+     */
+    public function getClassRow($runId)
+    {
+        $runId = (int) $runId;
+        if ($runId <= 0) {
+            return null;
+        }
+        $resource = Mage::getSingleton('core/resource');
+        $read     = $resource->getConnection('core_read');
+        $runsTbl  = $resource->getTableName('course_runs');
+        $enrolTbl = $resource->getTableName('course_run_enrolments');
+        $pVarchar = $resource->getTableName('catalog_product_entity_varchar');
+        $eavOptVal= $resource->getTableName('eav_attribute_option_value');
+        $eavAttr  = $resource->getTableName('eav_attribute');
+        $eavType  = $resource->getTableName('eav_entity_type');
+        $auTbl    = $resource->getTableName('admin_user');
+
+        $nameAttrId = (int) $read->fetchOne(
+            "SELECT a.attribute_id FROM `$eavAttr` a
+               JOIN `$eavType` t ON t.entity_type_id = a.entity_type_id
+              WHERE t.entity_type_code = 'catalog_product' AND a.attribute_code = 'name'"
+        );
+
+        $row = $read->fetchRow(
+            "SELECT cr.run_id, cr.class_id, cr.course_sku, cr.product_id,
+                    cr.course_start_date, cr.course_end_date,
+                    cr.course_start_time, cr.course_end_time,
+                    COALESCE(pn.value, cr.course_sku) AS course_title,
+                    COALESCE(en.enrolled, 0) AS enrolled,
+                    COALESCE(
+                        NULLIF(TRIM(CONCAT(COALESCE(au.firstname,''),' ',COALESCE(au.lastname,''))), ''),
+                        tov.value, ''
+                    ) AS trainer_name
+               FROM `$runsTbl` cr
+               LEFT JOIN `$pVarchar` pn
+                    ON pn.entity_id = cr.product_id AND pn.store_id = 0 AND pn.attribute_id = $nameAttrId
+               LEFT JOIN (SELECT run_id, COUNT(*) AS enrolled FROM `$enrolTbl` GROUP BY run_id) en
+                    ON en.run_id = cr.run_id
+               LEFT JOIN `$auTbl` au
+                    ON au.user_id = cr.trainer_user_id
+               LEFT JOIN `$eavOptVal` tov
+                    ON tov.option_id = cr.trainer_option_id AND tov.store_id = 0
+              WHERE cr.run_id = ?",
+            array($runId)
+        );
+        return $row ?: null;
+    }
+
+    /**
      * Classes for the selector.
      *
      * @param string $bucket 'active' (ongoing + upcoming) | 'completed'
