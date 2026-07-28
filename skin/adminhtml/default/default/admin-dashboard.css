@@ -365,7 +365,11 @@ body.adminhtml-dashboard-index .main-col-inner{padding-top:0 !important;margin-t
 .dev-search-row{display:flex;align-items:center;gap:12px}
 .dev-search-input-wrap{position:relative;flex:1}
 .dev-search-input-wrap svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#6b7280;pointer-events:none}
-.dev-search-input{width:100%;padding:11px 16px 11px 48px;background:#111827;border:1px solid #334155;border-radius:10px;color:#f1f5f9;font-size:14px;outline:none;box-sizing:border-box}
+.dev-search-input{width:100%;padding:11px 16px 11px 48px;background:transparent;border:1px solid #334155;border-radius:10px;color:#f1f5f9;font-size:14px;outline:none;box-sizing:border-box}
+.dev-search-input:-webkit-autofill,
+.dev-search-input:-webkit-autofill:hover,
+.dev-search-input:-webkit-autofill:focus,
+.dev-search-input:-webkit-autofill:active{-webkit-text-fill-color:#f1f5f9 !important;caret-color:#f1f5f9;transition:background-color 99999s ease-in-out 0s}
 .dev-search-input:focus{border-color:#22d3ee}
 .dev-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
 .dev-card{background:#1e293b;border:1px solid #334155;border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
@@ -1365,14 +1369,20 @@ button.lmc-tab:hover{color:#fff !important;background:rgba(51,65,85,.6) !importa
 button.lmc-tab.active{background:rgba(59,130,246,.15) !important;color:#93c5fd !important;box-shadow:none !important}
 .lmc-search{display:flex;align-items:center;gap:12px;margin-bottom:16px;position:relative}
 .lmc-search-input-wrap{position:relative !important;flex:1}
-.lmc-search input{width:100% !important;padding:11px 16px 11px 48px !important;background:#1e293b !important;border:1px solid #334155 !important;border-radius:10px !important;color:#f1f5f9 !important;font-size:14px !important;outline:none !important;box-sizing:border-box !important}
+.lmc-search input{width:100% !important;padding:11px 16px 11px 48px !important;background:transparent !important;border:1px solid #334155 !important;border-radius:10px !important;color:#f1f5f9 !important;font-size:14px !important;outline:none !important;box-sizing:border-box !important}
 .lmc-search input:focus{border-color:transparent;box-shadow:0 0 0 2px #2563eb}
 .lmc-search input::placeholder{color:#6b7280}
+/* Chrome autofill paints the field with a light-grey wash — defer the
+   paint forever and pin the text color so the box stays flat dark. */
+.lmc-search input:-webkit-autofill,
+.lmc-search input:-webkit-autofill:hover,
+.lmc-search input:-webkit-autofill:focus,
+.lmc-search input:-webkit-autofill:active{-webkit-text-fill-color:#f1f5f9 !important;caret-color:#f1f5f9;transition:background-color 99999s ease-in-out 0s}
 .lmc-search-input-wrap>svg{position:absolute !important;left:14px !important;top:50% !important;transform:translateY(-50%) !important;color:#6b7280 !important;pointer-events:none !important;z-index:2 !important;width:16px !important;height:16px !important}
-.lmc-view-toggle{display:inline-flex !important;border:1px solid #374151 !important;border-radius:6px !important;overflow:hidden;background:#1f2937}
-button.lmc-view-btn,button.lmc-view-btn:hover,button.lmc-view-btn:focus,button.lmc-view-btn:active{width:28px !important;height:28px !important;min-width:28px !important;display:inline-flex !important;align-items:center !important;justify-content:center !important;background:transparent !important;background-image:none !important;border:none !important;border-radius:0 !important;color:#9ca3af !important;cursor:pointer !important;padding:0 !important;box-shadow:none !important;text-shadow:none !important;line-height:1 !important;font-size:0 !important;text-transform:none !important}
-button.lmc-view-btn.active{background:#374151 !important;color:#fff !important}
-button.lmc-view-btn svg{width:14px;height:14px;display:block}
+/* View toggle = two .mmd-iconbtn ghosts (global 26x26 icon-action
+   standard, exempt from §18); container is chrome-free. */
+.lmc-view-toggle{display:inline-flex !important;align-items:center;border:none !important;border-radius:0 !important;background:transparent !important}
+.admin-main .mmd-iconbtn.lmc-view-btn.active{background:rgba(96,165,250,0.12) !important;color:#60a5fa !important;border-color:#60a5fa !important}
 button.lmc-link-btn,button.lmc-link-btn:hover,button.lmc-link-btn:focus,button.lmc-link-btn:active{background:transparent !important;background-image:none !important;border:none !important;color:#9ca3af !important;font-size:13px !important;font-weight:500 !important;cursor:pointer !important;padding:4px 6px !important;box-shadow:none !important;text-shadow:none !important;line-height:normal !important;height:auto !important;min-width:0 !important;text-transform:none !important;border-radius:0 !important}
 button.lmc-link-btn:hover{color:#fff !important}
 .lmc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
@@ -2972,12 +2982,9 @@ button.mn-vp-btn.active,button.mn-vp-btn.active:hover,button.mn-vp-btn.active:fo
 :root[data-theme="light"] .lmc-search input::placeholder { color:#94a3b8 !important }
 :root[data-theme="light"] .lmc-search-input-wrap > svg { color:#94a3b8 !important }
 
-:root[data-theme="light"] .lmc-view-toggle { background:#ffffff !important; border-color:#64748b !important }
-:root[data-theme="light"] button.lmc-view-btn,
-:root[data-theme="light"] button.lmc-view-btn:hover,
-:root[data-theme="light"] button.lmc-view-btn:focus,
-:root[data-theme="light"] button.lmc-view-btn:active { color:#64748b !important }
-:root[data-theme="light"] button.lmc-view-btn.active { background:#e2e8f0 !important; color:#0f172a !important }
+:root[data-theme="light"] .lmc-view-toggle { background:transparent !important; border:none !important }
+:root[data-theme="light"] .admin-main .mmd-iconbtn.lmc-view-btn { color:#64748b !important; border-color:#94a3b8 !important }
+:root[data-theme="light"] .admin-main .mmd-iconbtn.lmc-view-btn.active { background:rgba(37,99,235,0.10) !important; color:#2563eb !important; border-color:#2563eb !important }
 :root[data-theme="light"] button.lmc-link-btn,
 :root[data-theme="light"] button.lmc-link-btn:hover,
 :root[data-theme="light"] button.lmc-link-btn:focus,

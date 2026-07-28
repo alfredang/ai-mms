@@ -1675,12 +1675,20 @@ body .admin-main [id$="_massaction"] button span span span {
    dark-theme.css (26×26 ghost square); without the exemption this
    class+element selector outranks that bare-class rule and inflates
    every <button> icon action into a 38px pill.
-   .sidebar-mobile-toggle is exempted too: each :not(.x) adds a class
-   level, so this selector (0,4,1) outranked §9's
-   `.admin-topbar .sidebar-mobile-toggle { display:none !important }`
-   (0,2,0) and forced the mobile-only hamburger visible on desktop,
-   inflating the fixed 56px topbar to ~94px (header distortion). */
-.admin-main button:not(.mmd-grid-action):not(.mmd-iconbtn):not(.mn-fq-act):not(.sidebar-mobile-toggle),
+   The :not() chain is wrapped in :where() so it contributes ZERO
+   specificity — the whole selector stays at (0,1,1) `.admin-main button`.
+   This rule is the low-specificity BASELINE: any icon-button or
+   per-feature rule with two classes (e.g. `.admin-main .mmd-iconbtn`,
+   `body.cat-tree-docked .cat-tree-toggle`) outranks it by design.
+   NEVER use bare :not(.x) chains here: each one adds a class level —
+   at (0,5,1) this rule crushed every icon button not on the exempt
+   list into a hollow 38px blue pill (padding 8/20 left a 0px content
+   box, flex-shrinking the SVG glyph to width:0 → "empty button
+   boxes" on Manage Categories / My Classes / Manage Courses), and its
+   `display:inline-flex` also beat `display:none` guards, resurrecting
+   hidden buttons (mobile hamburger on desktop; .cat-rail-folder
+   showing next to .cat-tree-toggle). */
+.admin-main button:where(:not(.mmd-grid-action):not(.mmd-iconbtn):not(.mn-fq-act):not(.sidebar-mobile-toggle)),
 .admin-main button.scalable,
 .admin-main .form-button,
 .admin-main input[type="submit"] {
@@ -1702,6 +1710,10 @@ body .admin-main [id$="_massaction"] button span span span {
                 transform 0.08s ease, border-color 0.16s ease !important;
     cursor: pointer !important;
 }
+/* Glyph guard: an SVG icon inside a button is never a flex-shrink
+   casualty — a width-constrained flex button otherwise crushes the
+   glyph to 0px and the button reads as an empty box. */
+.admin-main button > svg { flex: 0 0 auto; }
 .admin-main button:active,
 .admin-main button.scalable:active,
 .admin-main .form-button:active {
@@ -1722,7 +1734,7 @@ body .admin-main [id$="_massaction"] button span span span {
    emphasis is now uniform outline everywhere). Massaction Submit
    pills (§16, higher specificity) and mm-btn-primary are handled
    separately. */
-.admin-main button:not(.mmd-grid-action):not(.mmd-iconbtn):not(.mn-fq-act):not(.sidebar-mobile-toggle),
+.admin-main button:where(:not(.mmd-grid-action):not(.mmd-iconbtn):not(.mn-fq-act):not(.sidebar-mobile-toggle)),
 .admin-main button.scalable,
 .admin-main input[type="submit"],
 .admin-main button.add,
@@ -1743,7 +1755,7 @@ body .admin-main [id$="_massaction"] button span span span {
 .admin-main input[type="submit"] span {
     color: var(--blue) !important;
 }
-.admin-main button:not(.mmd-grid-action):not(.mmd-iconbtn):not(.mn-fq-act):not(.sidebar-mobile-toggle):hover,
+.admin-main button:where(:not(.mmd-grid-action):not(.mmd-iconbtn):not(.mn-fq-act):not(.sidebar-mobile-toggle)):hover,
 .admin-main button.scalable:hover,
 .admin-main input[type="submit"]:hover,
 .admin-main button.add:hover,
@@ -3172,14 +3184,17 @@ body.adminhtml-cache-index .admin-main #cache_grid_table input[type="checkbox"] 
 }
 
 /* Bring back the native mass-action bar (Select All / Actions / Submit).
+   FLAT — no grey card (retired look). Transparent, sits on the page
+   surface, one hairline below separating it from the table body.
    Asymmetric padding so Submit hugs the right edge (mirrors §16 global). */
 body.adminhtml-cache-index .admin-main .grid .massaction,
 body.adminhtml-cache-index .admin-main .massaction,
 body.adminhtml-cache-index .admin-main #cache_grid_massaction {
     display: block !important;
-    background: var(--d4) !important;
-    border: 1px solid var(--b1) !important;
-    border-radius: 10px 10px 0 0 !important;
+    background: transparent !important;
+    border: none !important;
+    border-bottom: 1px solid var(--b1) !important;
+    border-radius: 0 !important;
     padding: 6px 4px 6px 12px !important;
 }
 body.adminhtml-cache-index .admin-main .massaction a {
@@ -3190,22 +3205,23 @@ body.adminhtml-cache-index .admin-main .massaction .nowrap {
     color: #cbd5e1 !important;
 }
 
-/* Professional, self-contained toolbar — a single slim card detached
-   from the grid (own margin + full radius), one flat row, links left,
-   Actions/Submit right with no clunky inner panel. Overrides section
-   16's tall space-between layout and the seamless-connect for the
-   cache page only. */
+/* Flat toolbar — one slim row sitting directly on the page surface,
+   links left, Actions/Submit right with no clunky inner panel. The
+   only separation from the table body is the single bottom hairline
+   (grey-card toolbars are the retired look — see backend-design). */
 body.adminhtml-cache-index .admin-main #cache_grid_massaction {
     padding: 6px 4px 6px 12px !important;
-    margin-bottom: 12px !important;
-    border-radius: 10px !important;
-    border: 1px solid var(--b1) !important;
-    background: var(--d4) !important;
+    margin-bottom: 0 !important;
+    border-radius: 0 !important;
+    border: none !important;
+    border-bottom: 1px solid var(--b1) !important;
+    background: transparent !important;
 }
-/* Restore the grid as its own card (undo seamless connect) */
+/* Grid below stays flat — no card restore, the toolbar hairline is the
+   only divider. */
 body.adminhtml-cache-index .admin-main [id$="_massaction"] + .grid {
-    border-radius: 10px !important;
-    border-top: 1px solid var(--b1) !important;
+    border-radius: 0 !important;
+    border-top: none !important;
 }
 body.adminhtml-cache-index .admin-main table.massaction,
 body.adminhtml-cache-index .admin-main table.massaction tbody {
@@ -3280,7 +3296,7 @@ body.adminhtml-cache-index .admin-main .massaction select {
     padding: 0 8px !important;
     min-width: 120px !important;
     font-size: 12px !important;
-    background: var(--d6) !important;
+    background: transparent !important;
     border: 1px solid var(--b2) !important;
     border-radius: 7px !important;
     color: #e2e8f0 !important;
@@ -3510,20 +3526,22 @@ body.adminhtml-process-list .admin-main #indexer_processes_grid_table input[type
     border: 1px solid #475569 !important;
 }
 
-/* Mass-action toolbar — slim self-contained card, Submit hugs right */
+/* Mass-action toolbar — FLAT slim row (no grey card), Submit hugs right.
+   Single bottom hairline separates it from the table body. */
 body.adminhtml-process-list .admin-main .grid .massaction,
 body.adminhtml-process-list .admin-main .massaction,
 body.adminhtml-process-list .admin-main #indexer_processes_grid_massaction {
     display: block !important;
-    background: var(--d4) !important;
-    border: 1px solid var(--b1) !important;
-    border-radius: 10px !important;
+    background: transparent !important;
+    border: none !important;
+    border-bottom: 1px solid var(--b1) !important;
+    border-radius: 0 !important;
     padding: 6px 4px 6px 12px !important;
-    margin-bottom: 12px !important;
+    margin-bottom: 0 !important;
 }
 body.adminhtml-process-list .admin-main [id$="_massaction"] + .grid {
-    border-radius: 10px !important;
-    border-top: 1px solid var(--b1) !important;
+    border-radius: 0 !important;
+    border-top: none !important;
 }
 body.adminhtml-process-list .admin-main table.massaction,
 body.adminhtml-process-list .admin-main table.massaction tbody {
@@ -3626,7 +3644,7 @@ body.adminhtml-process-list .admin-main .massaction select {
     padding: 0 8px !important;
     min-width: 120px !important;
     font-size: 12px !important;
-    background: var(--d6) !important;
+    background: transparent !important;
     border: 1px solid var(--b2) !important;
     border-radius: 7px !important;
     color: #e2e8f0 !important;
@@ -4880,6 +4898,19 @@ body .admin-main #anchor-content { padding-left: 0 !important; }
     margin: 0 0 24px !important;
     letter-spacing: 0 !important;
     text-transform: none !important;
+}
+/* Exception — an h3 INSIDE a *card* container is a section sub-head,
+   not a page title, so it must NOT take the page-title scale (the 28px
+   ramp above was blowing up .crd-card / .mn-card / .crd-smtp-card
+   headings to page-title size). Shape-based net: any h3 nested in a
+   class*="card" wrapper drops to the 14px card-header scale. The
+   auto-grid wrapper (.dcf-mag / .mmd-auto-card) is excluded because it
+   can contain the hoisted page title. (0,2,1) beats the (0,1,1) ramp
+   regardless of cascade order. */
+.admin-main [class*="card"]:not(.mmd-auto-card):not(.dcf-mag) h3 {
+    font-size: 14px !important;
+    line-height: 1.4 !important;
+    margin: 0 0 12px !important;
 }
 /* H4 — form-panel head (.entry-edit-head h4, .box-head h4). */
 .admin-main h4 {

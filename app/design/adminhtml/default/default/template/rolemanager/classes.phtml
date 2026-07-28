@@ -283,7 +283,7 @@ $assignBase = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_q
     <div class="rm-filters">
         <div class="rm-search">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-            <input type="search" id="rm-search" name="rm-class-filter" autocomplete="off" placeholder="Search class ID, SKU, or course title..." oninput="rmFilter()" />
+            <input type="search" id="rm-search" name="rm-class-filter" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')" placeholder="Search class ID, SKU, or course title..." oninput="rmFilter()" />
         </div>
         <select class="rm-select" id="rm-state-filter" onchange="rmFilter()">
             <option value="" <?php echo ($_bucket !== 'ongoing') ? 'selected' : '' ?>>All States</option>
