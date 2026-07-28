@@ -1,21 +1,31 @@
 <?php
 /**
  * Auto-blog pipeline — 2 lead-magnet posts per week with manager approval,
- * modelled on the newsletter blast pipeline (MMD_Marketing_Model_Cron_Flyer):
+ * modelled on the newsletter blast pipeline (MMD_Marketing_Model_Cron_Flyer).
+ * The propose step is an agent team, each stage degrading gracefully:
  *
  *   propose (cron daily 09:00, run()):
- *     1. Pick the best-selling course (last 180 days) with no post yet
- *        (tracked via mmd_blog_post.source_sku). On the SG site only WSQ
- *        (TGS-) courses qualify.
- *     2. Ask Claude for a complete SEO lead-magnet post as strict JSON.
- *     3. Review flow (SG, auto_publish=0): save as PENDING REVIEW and email
+ *     1. COURSE PICK — the admin-curated mmd_blog_queue head wins (same
+ *        contract as the newsletter flyer queue: consumed on pop). Only when
+ *        the queue is empty does the auto-pick run: best-selling course
+ *        (last 180 days) with no post yet (tracked via source_sku). On the
+ *        SG site only WSQ (TGS-) courses qualify for the auto-pick.
+ *     2. RESEARCH AGENT — Claude + web search scouts the latest developments
+ *        (AI agents, agentic AI, n8n, new models, AI security, ... — pool in
+ *        mmd_blog/autoblog/topics) relevant to the course and returns a
+ *        topic/angle/key-points/sources brief. Skipped silently when web
+ *        search is unavailable.
+ *     3. WRITER AGENT — Claude turns the brief into an in-depth (1200-1800
+ *        word), up-to-date SEO lead-magnet post as strict JSON, plus a
+ *        branded hero image (CourseImage GD cover -> R2).
+ *     4. Review flow (SG, auto_publish=0): save as PENDING REVIEW and email
  *        the two managers approve/request-changes token links. One approval
- *        books the next free Monday/Thursday 09:00 publish slot.
+ *        books the next free Tuesday/Friday 09:00 publish slot.
  *        Legacy flow (partners, auto_publish=1): publish + share immediately.
- *     4. While a post is pending: 24h reminder (once), expiry to draft after
+ *     5. While a post is pending: 24h reminder (once), expiry to draft after
  *        5 days — same anti-spam contract as the newsletter followUp().
  *
- *   publishDue (cron every 10 min): flip SCHEDULED posts whose Mon/Thu slot
+ *   publishDue (cron every 10 min): flip SCHEDULED posts whose Tue/Fri slot
  *   has arrived to PUBLISHED, then share once each to LinkedIn + the Facebook
  *   page (deduped via linkedin_urn / facebook_post_id).
  *
@@ -28,11 +38,15 @@
  */
 class MMD_Blog_Model_Cron_Autoblog
 {
-    /** Mon/Thu 09:00 SGT publish slots — the blog counterpart of Blastguard's 08:00 blast slots. */
+    /** Tue/Fri 09:00 SGT publish slots — the blog counterpart of Blastguard's 08:00 blast slots. */
     const PUBLISH_HOUR = 9;
     const TZ_LOCAL     = 'Asia/Singapore';
 
-    public function run($trigger = 'cron')
+    /**
+     * @param string   $trigger   'cron' | 'manual' (admin Generate Now / queue Run Now)
+     * @param int|null $productId explicit course (queue "Run Now") — bypasses the pickers
+     */
+    public function run($trigger = 'cron', $productId = null)
     {
         try {
             if (!Mage::getStoreConfigFlag('mmd_blog/autoblog/enabled')) {
@@ -46,22 +60,31 @@ class MMD_Blog_Model_Cron_Autoblog
                 if ($this->_tendPendingReview()) {
                     return $this->_log('skipped: a post is already awaiting review');
                 }
-                // Only generate when an upcoming Mon/Thu slot actually needs
+                // Only generate when an upcoming Tue/Fri slot actually needs
                 // content — this is what paces the pipeline to 2 posts/week.
                 if ($this->nextPublishSlot(7) === null) {
-                    return $this->_log('skipped: both upcoming Mon/Thu publish slots are filled');
+                    return $this->_log('skipped: both upcoming Tue/Fri publish slots are filled');
                 }
             }
             if (!$review && $trigger === 'cron' && $this->_recentAutoPostExists()) {
                 return $this->_log('skipped: an auto post was already created in the last 5 days');
             }
 
-            $course = $this->_pickCourse();
+            $course = $productId ? $this->_courseById((int) $productId) : $this->_pickCourse();
             if (!$course) {
                 return $this->_log('skipped: no unblogged course with a URL found');
             }
 
-            $raw = $this->_invokeClaude($this->_writerSystemPrompt(), $this->_writerInput($course), 8000);
+            // Agent 1 — topic research (web search). Null when unavailable; the
+            // writer then falls back to evergreen course-topic content.
+            $research = $this->_researchTopic($course);
+            if ($research) {
+                $this->_log('research: topic "' . $research['topic'] . '" with '
+                    . count($research['sources']) . ' source(s)');
+            }
+
+            // Agent 2 — the writer.
+            $raw = $this->_invokeClaude($this->_writerSystemPrompt(), $this->_writerInput($course, $research), 10000);
             if ($raw === '') {
                 return $this->_log('skipped: Claude returned nothing (no API key / CLI available?)');
             }
@@ -96,6 +119,7 @@ class MMD_Blog_Model_Cron_Autoblog
             if (!empty($draft['tags'])) {
                 $helper->syncTags($post->getId(), $draft['tags']);
             }
+            $this->_attachHero($post, $course['sku']);
 
             $tail = '';
             if ($review) {
@@ -177,7 +201,7 @@ class MMD_Blog_Model_Cron_Autoblog
     }
 
     /**
-     * The soonest future Monday/Thursday 09:00 (SGT) whose calendar day is not
+     * The soonest future Tuesday/Friday 09:00 (SGT) whose calendar day is not
      * already claimed by a scheduled or published auto post. Ad hoc admin posts
      * (no scheduled_publish_at) never block a slot. Returns DateTime or null.
      */
@@ -188,7 +212,7 @@ class MMD_Blog_Model_Cron_Autoblog
             $day = clone $now;
             $day->modify('+' . $i . ' days');
             $dow = (int) $day->format('N');
-            if ($dow !== 1 && $dow !== 4) {
+            if ($dow !== 2 && $dow !== 5) {
                 continue;
             }
             $slot = clone $day;
@@ -237,7 +261,7 @@ class MMD_Blog_Model_Cron_Autoblog
         $guard  = Mage::helper('mmd_marketing/blastguard');   // reviewers list is shared with the newsletter
         $base   = rtrim((string) Mage::getStoreConfig('web/unsecure/base_url'), '/');
         $slot   = $this->nextPublishSlot();
-        $slotTxt = $slot ? $slot->format('l, j M Y \a\t g:ia') : 'the next free Monday/Thursday 9:00am slot';
+        $slotTxt = $slot ? $slot->format('l, j M Y \a\t g:ia') : 'the next free Tuesday/Friday 9:00am slot';
 
         $gmail = null;
         try {
@@ -259,6 +283,11 @@ class MMD_Blog_Model_Cron_Autoblog
             $courseLine = '<p style="font-size:13px;color:#475569;margin:6px 0 0;">Lead-magnet CTA course(s): <b>'
                 . htmlspecialchars($post->getRelatedSkus()) . '</b></p>';
         }
+        $heroLine = '';
+        if ($post->getHeroImageUrl()) {
+            $heroLine = '<img src="' . htmlspecialchars($post->getHeroImageUrl())
+                . '" alt="Hero image" width="360" style="display:block;max-width:100%;border-radius:10px;margin:14px 0 0;" />';
+        }
 
         $sentAny = false;
         foreach ($guard->reviewers() as $email) {
@@ -268,8 +297,9 @@ class MMD_Blog_Model_Cron_Autoblog
             $changes = $base . '/blog/index/decide/id/' . $post->getId() . '/d/changes/e/' . rawurlencode($email) . '/t/' . $tok;
 
             $html = '<div style="font-family:-apple-system,Segoe UI,Arial,sans-serif;max-width:720px;margin:0 auto;">'
-                . '<p style="font-size:15px;color:#0a1020;">Hi — a new blog post is ready for your approval. If approved, it will be published on <b>' . $slotTxt . '</b> (2 posts/week, Mondays &amp; Thursdays), then shared to LinkedIn and the Facebook page.</p>'
+                . '<p style="font-size:15px;color:#0a1020;">Hi — a new blog post is ready for your approval. If approved, it will be published on <b>' . $slotTxt . '</b> (2 posts/week, Tuesdays &amp; Fridays), then shared to LinkedIn and the Facebook page.</p>'
                 . $courseLine
+                . $heroLine
                 . '<table role="presentation" style="margin:18px 0;"><tr>'
                 . '<td style="padding-right:10px;"><a href="' . htmlspecialchars($approve) . '" style="background:#059669;color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:11px 22px;border-radius:8px;display:inline-block;">&#10003; Approve &amp; schedule</a></td>'
                 . '<td><a href="' . htmlspecialchars($changes) . '" style="background:#e2e8f0;color:#0a1020;text-decoration:none;font-weight:700;font-size:14px;padding:11px 22px;border-radius:8px;display:inline-block;">&#9998; Request changes</a></td>'
@@ -312,7 +342,7 @@ class MMD_Blog_Model_Cron_Autoblog
     }
 
     /**
-     * A single manager approval books the next free Mon/Thu 09:00 publish slot
+     * A single manager approval books the next free Tue/Fri 09:00 publish slot
      * (same one-approval rule as the newsletter). Atomic claim: only the request
      * that flips PENDING/CHANGES -> SCHEDULED wins; a concurrent second approval
      * sees 0 rows updated and reports "already scheduled".
@@ -331,7 +361,7 @@ class MMD_Blog_Model_Cron_Autoblog
         }
         $slot = $this->nextPublishSlot();
         if ($slot === null) {
-            return array(false, 'No free Monday/Thursday publish slot in the next 3 weeks.');
+            return array(false, 'No free Tuesday/Friday publish slot in the next 3 weeks.');
         }
 
         $write   = Mage::getSingleton('core/resource')->getConnection('core_write');
@@ -404,6 +434,7 @@ class MMD_Blog_Model_Cron_Autoblog
         if (!empty($draft['tags'])) {
             $helper->syncTags($post->getId(), $draft['tags']);
         }
+        $this->_attachHero($post, (string) $post->getSourceSku());   // title changed -> re-render
         $this->_log('regenerateOnChanges: post #' . $postId . ' rewritten from feedback');
         return $this->sendForReview($post);
     }
@@ -457,7 +488,7 @@ class MMD_Blog_Model_Cron_Autoblog
     // ---------------------------------------------------------------- publishing
 
     /**
-     * Cron (every 10 min): publish SCHEDULED posts whose Mon/Thu slot has
+     * Cron (every 10 min): publish SCHEDULED posts whose Tue/Fri slot has
      * arrived, then share each once to LinkedIn + Facebook.
      */
     public function publishDue()
@@ -555,14 +586,21 @@ class MMD_Blog_Model_Cron_Autoblog
     // ---------------------------------------------------------------- course pick
 
     /**
-     * Best-selling course of the last 180 days that (a) is enabled + visible,
-     * (b) has a storefront URL rewrite, (c) hasn't been auto-blogged before.
-     * On the SG site only WSQ (TGS-) courses qualify — see _wsqOnly().
+     * Admin-curated queue first (Blog Posts page "Next blog queue" — the row is
+     * DELETED on consumption, same contract as the newsletter flyer queue), then
+     * the auto-pick: best-selling course of the last 180 days that (a) is
+     * enabled + visible, (b) has a storefront URL rewrite, (c) hasn't been
+     * auto-blogged before. On the SG site only WSQ (TGS-) courses qualify for
+     * the auto-pick — a queued course is an explicit admin choice and is exempt.
      *
      * @return array{sku:string,name:string,url:string,description:string}|null
      */
     private function _pickCourse()
     {
+        $queued = $this->_popQueueHead();
+        if ($queued) {
+            return $queued;
+        }
         $resource = Mage::getSingleton('core/resource');
         $read     = $resource->getConnection('core_read');
         $wsqSql   = $this->_wsqOnly() ? " AND oi.sku LIKE 'TGS-%'" : '';
@@ -586,6 +624,48 @@ class MMD_Blog_Model_Cron_Autoblog
             }
         }
         return null;
+    }
+
+    /**
+     * Pop the head of the admin-curated blog queue (lowest position). The row is
+     * deleted on consumption so each queued course produces exactly one post.
+     * Unusable heads (course deleted/disabled since queueing) are skipped.
+     * Tolerates the table not existing yet (pre-migration partner DBs).
+     */
+    private function _popQueueHead()
+    {
+        try {
+            $read  = Mage::getSingleton('core/resource')->getConnection('core_read');
+            $write = Mage::getSingleton('core/resource')->getConnection('core_write');
+            for ($i = 0; $i < 20; $i++) {
+                $row = $read->fetchRow(
+                    'SELECT queue_id, product_id FROM mmd_blog_queue ORDER BY position ASC, queue_id ASC LIMIT 1');
+                if (!$row) {
+                    return null;
+                }
+                $write->delete('mmd_blog_queue', array('queue_id = ?' => (int) $row['queue_id']));
+                $course = $this->_courseById((int) $row['product_id']);
+                if ($course) {
+                    $this->_log('picked queued course ' . $course['sku'] . ' (product ' . (int) $row['product_id'] . ')');
+                    return $course;
+                }
+                $this->_log('queue head product ' . (int) $row['product_id'] . ' unusable — trying next');
+            }
+        } catch (Exception $e) {
+            $this->_log('queue read failed (table missing?): ' . $e->getMessage());
+        }
+        return null;
+    }
+
+    /** Load a course by product id into the writer's shape (null if unusable). */
+    private function _courseById($productId)
+    {
+        $resource = Mage::getSingleton('core/resource');
+        $sku = (string) $resource->getConnection('core_read')->fetchOne(
+            'SELECT sku FROM ' . $resource->getTableName('catalog/product') . ' WHERE entity_id = ?',
+            array((int) $productId)
+        );
+        return $sku !== '' ? $this->_courseBySku($sku) : null;
     }
 
     /** Load + validate one course by SKU into the writer's shape (null if unusable). */
@@ -618,6 +698,97 @@ class MMD_Blog_Model_Cron_Autoblog
         );
     }
 
+    // ---------------------------------------------------------------- research agent
+
+    /**
+     * Agent 1 — topic scout. Uses Claude's server-side web search to find the
+     * freshest developments (default focus pool in mmd_blog/autoblog/topics)
+     * relevant to the course, avoiding angles already covered by recent posts.
+     * Returns null when web search / the API key is unavailable or the reply
+     * doesn't parse — the writer then produces evergreen content instead.
+     *
+     * @return array{topic:string,angle:string,whyNow:string,keyPoints:array,sources:array}|null
+     */
+    private function _researchTopic(array $course)
+    {
+        try {
+            $topics = trim((string) Mage::getStoreConfig('mmd_blog/autoblog/topics'));
+            $read   = Mage::getSingleton('core/resource')->getConnection('core_read');
+            $recent = $read->fetchCol(
+                'SELECT title FROM ' . Mage::getSingleton('core/resource')->getTableName('mmd_blog/post')
+                . ' ORDER BY post_id DESC LIMIT 8'
+            );
+
+            $system = 'You are a technology-trends research agent for a Singapore training academy. '
+                . 'Use web search to find what is genuinely NEW and newsworthy (last 60 days). '
+                . 'After researching, respond with ONE JSON object only — no markdown fences, no preamble. Keys: '
+                . 'topic (string, the chosen topic), angle (string, the specific fresh angle for a blog post), '
+                . 'whyNow (string, 1-2 sentences on why this is timely, naming concrete recent events/releases with dates), '
+                . 'keyPoints (array of 4-7 strings — specific facts, numbers, product names, versions, dates found in research), '
+                . 'sources (array of {title, url} for the 3-5 most authoritative pages consulted).';
+
+            $input = "Research the latest developments relevant to this instructor-led course so a blog post about it feels current:\n"
+                . "COURSE: {$course['name']}\n"
+                . "COURSE_SUMMARY: " . substr($course['description'], 0, 600) . "\n\n"
+                . ($topics !== '' ? "FOCUS AREAS (pick whichever best fits the course): {$topics}\n\n" : '')
+                . "Recent posts already covered these angles — find something DIFFERENT:\n- "
+                . implode("\n- ", array_map('strval', $recent)) . "\n\n"
+                . "Search the web for the newest releases, benchmarks, incidents, or industry moves tied to the course topic.";
+
+            $raw = $this->_invokeClaude($system, $input, 3000, true);
+            if ($raw === '') {
+                return null;
+            }
+            $cleaned = trim(preg_replace('/^```(?:json)?\s*|```\s*$/i', '', trim($raw)));
+            if ($cleaned !== '' && $cleaned[0] !== '{') {
+                $start = strpos($cleaned, '{');
+                $end   = strrpos($cleaned, '}');
+                if ($start === false || $end === false || $end <= $start) {
+                    return null;
+                }
+                $cleaned = substr($cleaned, $start, $end - $start + 1);
+            }
+            $data = json_decode($cleaned, true);
+            if (!is_array($data) || empty($data['topic'])) {
+                return null;
+            }
+            return array(
+                'topic'     => trim((string) $data['topic']),
+                'angle'     => trim((string) ($data['angle'] ?? '')),
+                'whyNow'    => trim((string) ($data['whyNow'] ?? '')),
+                'keyPoints' => is_array($data['keyPoints'] ?? null) ? $data['keyPoints'] : array(),
+                'sources'   => is_array($data['sources'] ?? null) ? $data['sources'] : array(),
+            );
+        } catch (Exception $e) {
+            $this->_log('research agent failed (continuing without): ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    // ---------------------------------------------------------------- hero image
+
+    /**
+     * Render + attach the branded hero (CourseImage GD cover -> R2). Only
+     * touches auto-generated heroes (key prefix blog/auto-) — an admin-uploaded
+     * hero is never overwritten. The post must survive any image failure.
+     */
+    private function _attachHero($post, $sku)
+    {
+        try {
+            $current = (string) $post->getHeroImageUrl();
+            if ($current !== '' && strpos($current, 'blog/auto-') === false) {
+                return;
+            }
+            $url = Mage::helper('mmd_blog/image')->generateHero((string) $post->getTitle(), (string) $sku);
+            if ($url !== '') {
+                $post->setHeroImageUrl($url)->save();
+                $this->_log('hero image attached to post #' . $post->getId());
+            }
+        } catch (Exception $e) {
+            $this->_log('hero image generation failed (post kept without): ' . $e->getMessage());
+        }
+    }
+
     // ---------------------------------------------------------------- claude
 
     private function _writerSystemPrompt()
@@ -634,15 +805,42 @@ class MMD_Blog_Model_Cron_Autoblog
             . 'tags (array of 3-5 short topic tags).';
     }
 
-    private function _writerInput(array $course)
+    private function _writerInput(array $course, $research = null)
     {
         $isWsq = strpos($course['sku'], 'TGS-') === 0;
-        return "Write a lead-magnet blog post promoting this course:\n"
+
+        $researchBlock = '';
+        if (is_array($research)) {
+            $points = '';
+            foreach ($research['keyPoints'] as $p) {
+                $points .= '- ' . trim((string) $p) . "\n";
+            }
+            $sources = '';
+            foreach ($research['sources'] as $s) {
+                if (!empty($s['url'])) {
+                    $sources .= '- ' . trim((string) ($s['title'] ?? $s['url'])) . ' — ' . trim((string) $s['url']) . "\n";
+                }
+            }
+            $researchBlock = "FRESH RESEARCH BRIEF (from the topic-research agent — build the post around it so it reads current):\n"
+                . "TOPIC: {$research['topic']}\n"
+                . "ANGLE: {$research['angle']}\n"
+                . "WHY NOW: {$research['whyNow']}\n"
+                . ($points !== '' ? "KEY POINTS:\n{$points}" : '')
+                . ($sources !== '' ? "SOURCES:\n{$sources}" : '')
+                . "\n";
+        }
+
+        return "Write an in-depth lead-magnet blog post promoting this course:\n"
             . "COURSE: {$course['name']}\n"
             . "COURSE_URL: {$course['url']}\n"
             . "COURSE_SUMMARY: " . substr($course['description'], 0, 1200) . "\n\n"
+            . $researchBlock
             . "Requirements:\n"
-            . "- 800-1200 words of genuinely useful, practical content on the course topic (not a sales page).\n"
+            . "- 1200-1800 words of genuinely useful, IN-DEPTH analysis of the topic (not a sales page): "
+            . "explain what changed, why it matters, and what practitioners should do about it.\n"
+            . ($researchBlock !== ''
+                ? "- Reference the latest developments from the research brief with specifics (product names, versions, dates) and cite at least 2 of the SOURCES as inline links (rel-follow, descriptive anchor text).\n"
+                : '')
             . "- Weave in at least 2 inline links to COURSE_URL with action anchor text (e.g. sign up, register).\n"
             . ($isWsq
                 ? "- This is a WSQ course: explicitly mention up to 70% WSQ funding for eligible Singaporeans/PRs, that SkillsFuture Credit can be used to offset the fee, and SME subsidy support.\n"
@@ -656,8 +854,12 @@ class MMD_Blog_Model_Cron_Autoblog
      * Same 3-tier strategy as MMD_RoleManager_Model_AiSeo::invokeClaude, with a
      * custom system prompt + larger max_tokens (a full article doesn't fit the
      * SEO helper's 2000-token cap): API key -> claude CLI -> ''.
+     *
+     * $webSearch=true enables Claude's server-side web_search tool (research
+     * agent). Only the API-key path supports it; a search response interleaves
+     * tool-use blocks with text blocks, so all text blocks are concatenated.
      */
-    private function _invokeClaude($system, $prompt, $maxTokens)
+    private function _invokeClaude($system, $prompt, $maxTokens, $webSearch = false)
     {
         $cfg    = Mage::helper('mmd_rolemanager')->getMarketingApiConfig();
         $apiKey = trim((string) ($cfg['anthropic_key'] ?? ''));
@@ -665,18 +867,26 @@ class MMD_Blog_Model_Cron_Autoblog
 
         if (stripos($apiKey, 'sk-ant-api') === 0) {
             try {
-                $body = json_encode(array(
+                $payload = array(
                     'model'      => $model,
                     'max_tokens' => (int) $maxTokens,
                     'system'     => $system,
                     'messages'   => array(array('role' => 'user', 'content' => $prompt)),
-                ));
+                );
+                if ($webSearch) {
+                    $payload['tools'] = array(array(
+                        'type'     => 'web_search_20250305',
+                        'name'     => 'web_search',
+                        'max_uses' => 5,
+                    ));
+                }
+                $body = json_encode($payload);
                 $ch = curl_init('https://api.anthropic.com/v1/messages');
                 curl_setopt_array($ch, array(
                     CURLOPT_POST           => true,
                     CURLOPT_POSTFIELDS     => $body,
                     CURLOPT_RETURNTRANSFER => true,
-                    CURLOPT_TIMEOUT        => 180,
+                    CURLOPT_TIMEOUT        => $webSearch ? 280 : 180,
                     CURLOPT_CONNECTTIMEOUT => 10,
                     CURLOPT_HTTPHEADER     => array(
                         'anthropic-version: 2023-06-01',
@@ -688,10 +898,27 @@ class MMD_Blog_Model_Cron_Autoblog
                 $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
                 curl_close($ch);
                 $rsp = json_decode($raw, true);
-                if ($code < 400 && isset($rsp['content'][0]['text'])) {
-                    return (string) $rsp['content'][0]['text'];
+                if ($code < 400 && isset($rsp['content']) && is_array($rsp['content'])) {
+                    $text = '';
+                    foreach ($rsp['content'] as $block) {
+                        if (isset($block['type'], $block['text']) && $block['type'] === 'text') {
+                            $text .= $block['text'];
+                        }
+                    }
+                    if (trim($text) !== '') {
+                        return $text;
+                    }
+                }
+                if ($webSearch) {
+                    // The org may not have web search enabled — report and let
+                    // the caller degrade to evergreen content (no CLI retry:
+                    // the CLI path can't search either).
+                    $this->_log('web-search call failed (HTTP ' . $code . '): ' . substr((string) $raw, 0, 200));
+                    return '';
                 }
             } catch (Exception $e) { /* fall through to CLI */ }
+        } elseif ($webSearch) {
+            return '';
         }
 
         // claude CLI fallback (same environment dance as AiSeo::invokeClaude).

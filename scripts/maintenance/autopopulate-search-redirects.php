@@ -60,6 +60,27 @@
  *     the destination storefront.
  */
 
+// -----------------------------------------------------------------------------
+// DISABLED 2026-07-22. The fuzzy matcher below scored terms by containment
+// (matched query tokens / query length) with Jaccard only as a tiebreak. That
+// tiebreak systematically rewarded shorter, more-generic course names and
+// penalised the correct, more-specific course, and it did no stemming
+// ("video" never matched "videos"). On the SG store it wrote ~10,000 redirects,
+// many confidently wrong -- e.g. "generative ai video" -> a non-video
+// "responsible generative AI basics" course (fixed in migration 659).
+//
+// Search-term redirects are now maintained by EXPLICIT, deterministic rules
+// only: course-code -> course page (migration 630) and curated per-term maps
+// (migrations 62x-65x). Do NOT re-enable fuzzy auto-matching. If you genuinely
+// need to bulk-populate, first fix the scoring (stem tokens; score coverage of
+// BOTH query AND product, not just the query; raise thresholds; verify each
+// target 200 on its own store domain) and remove this guard deliberately.
+fwrite(STDERR, "autopopulate-search-redirects.php is DISABLED.\n");
+fwrite(STDERR, "Fuzzy search-term matching produced ~10k redirects, many wrong.\n");
+fwrite(STDERR, "Use explicit migrations (course-code + curated maps) instead.\n");
+fwrite(STDERR, "See the header comment for how to safely re-enable.\n");
+exit(2);
+
 require_once __DIR__ . '/../../app/Mage.php';
 Mage::app();
 

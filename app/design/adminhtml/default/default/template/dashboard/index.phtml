@@ -2511,7 +2511,7 @@ function courseSyncSaveConfig() {
         </div>
     </div>
     <div class="dev-list-header" id="dev-list-header">
-        <span>COURSE</span><span style="text-align:center">TYPES</span><span style="text-align:center">DURATION</span><span style="text-align:center">ACTIONS</span>
+        <span>COURSE</span><span style="text-align:center">COURSE TYPE</span><span style="text-align:center">STATUS</span><span style="text-align:center">ACTIONS</span>
     </div>
     <?php if (empty($_devCourses)): ?>
     <?php $_devHasActiveFilters = $_devFilterQuery !== '' || $_devFilterType !== '' || $_devFilterStatus !== ''; ?>
@@ -2562,8 +2562,18 @@ function courseSyncSaveConfig() {
                 <div class="dev-card-row"><span class="dev-card-lbl">Course Code:</span><span class="dev-card-val"><?php echo $_dcRef ? htmlspecialchars($_dcRef) : '—' ?></span></div>
                 <?php $_runRank = isset($_devRankMap[(int)$_dc['id']]) ? $_devRankMap[(int)$_dc['id']] : 0; ?>
                 <div class="dev-card-row"><span class="dev-card-lbl">Course Run ID:</span><span class="dev-card-val"><?php echo $_devPrefix . '-' . (100000 + $_runRank) ?></span></div>
+                <?php
+                $_dcActive = ((int)$_dc['status'] === Mage_Catalog_Model_Product_Status::STATUS_ENABLED);
+                $_dcFunded = strtolower((string)$_dc['course_type']) === 'funded';
+                $_dcTypeLabel = $_dc['course_type'] ? ($_dcFunded ? 'Funded' : 'Unfunded') : '—';
+                ?>
                 <div class="dev-card-row"><span class="dev-card-lbl">Course Type:</span><span class="dev-card-val"><?php echo $_dc['course_type'] ? '<span class="dev-badge">' . htmlspecialchars($_dc['course_type']) . '</span>' : '—' ?></span></div>
-                <div class="dev-card-row" data-col="types" style="display:none;"><span class="dev-badge"><?php echo $_dc['course_type'] ? htmlspecialchars($_dc['course_type']) : '—' ?></span><span class="dev-card-val" style="font-size:11px;font-weight:400;"><?php echo $_dc['level'] ? htmlspecialchars($_dc['level']) : '—' ?></span></div>
+                <div class="dev-card-row" data-col="types"><span style="display:inline-block;padding:2px 12px;border-radius:999px;font-size:11px;font-weight:600;line-height:1.5;<?php echo $_dcFunded
+                    ? 'color:#4ade80;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.35);'
+                    : 'color:#94a3b8;background:rgba(148,163,184,0.12);border:1px solid rgba(148,163,184,0.35);' ?>"><?php echo $_dcTypeLabel ?></span></div>
+                <div class="dev-card-row" data-col="status"><span style="display:inline-block;padding:2px 12px;border-radius:999px;font-size:11px;font-weight:600;line-height:1.5;<?php echo $_dcActive
+                    ? 'color:#4ade80;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.35);'
+                    : 'color:#f87171;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.35);' ?>"><?php echo $_dcActive ? 'Active' : 'Inactive' ?></span></div>
                 <div class="dev-card-row"><span class="dev-card-lbl">Level:</span><span class="dev-card-val"><?php echo $_dc['level'] ? htmlspecialchars($_dc['level']) : '—' ?></span></div>
                 <div class="dev-card-row"><span class="dev-card-lbl">Duration:</span><span class="dev-card-val"><?php echo $_dc['duration'] > 0 ? rtrim(rtrim(number_format($_dc['duration'], 1), '0'), '.') . ' Hours' : '—' ?></span></div>
                 <?php if ($_dc['sessions']): ?>
@@ -2572,7 +2582,6 @@ function courseSyncSaveConfig() {
                 <?php if ($_dc['price'] > 0): ?>
                 <div class="dev-card-row"><span class="dev-card-lbl">Price:</span><span class="dev-card-val">$<?php echo number_format($_dc['price'], 2) ?></span></div>
                 <?php endif; ?>
-                <?php $_dcActive = ((int)$_dc['status'] === Mage_Catalog_Model_Product_Status::STATUS_ENABLED); ?>
                 <div class="dev-card-row"><span class="dev-card-lbl">Status:</span><span class="dev-card-val"><span style="display:inline-block;padding:2px 12px;border-radius:999px;font-size:11px;font-weight:600;line-height:1.5;<?php echo $_dcActive
                     ? 'color:#4ade80;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.35);'
                     : 'color:#f87171;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.35);' ?>"><?php echo $_dcActive ? 'Active' : 'Disabled' ?></span></span></div>
@@ -10986,6 +10995,28 @@ $_apiCategories = array(
                 'exampleResponse' => "{\n  \"data\": {\n    \"sku\": \"C138\", \"name\": \"Python 3 Essential Training\",\n    \"overview\": \"...\", \"prerequisites\": \"...\", \"duration\": \"15\",\n    \"fee\": { \"list_price\": \"S\$600.00\", \"currency\": \"SGD\" },\n    \"mode\": \"Classroom and/or Live Online\",\n    \"funding_badges\": [\"WSQ\", \"SkillsFuture Credit\"],\n    \"registration_url\": \".../#schedule\"\n  }\n}",
             ),
             array(
+                'method' => 'GET', 'path' => '/courses/api_wsq', 'authKey' => 'wsq',
+                'title' => 'WSQ Catalog Feed API',
+                'description' => 'Bulk catalog feed of EVERY enabled, visible SG course with a TGS- (WSQ) course code — fee, duration, level, mode, funding badges, categories, image and registration link. Companion to /courses/api_nonwsq; the two tracks are deliberately never mixed in one response.',
+                'queryParams' => array(
+                    array('name' => 'fields', 'type' => 'string', 'required' => false, 'description' => 'fields=full adds description_full, suitability, prerequisites, assessment and certification to every row'),
+                ),
+                'notes' => array('Unlike /courses/api_schedule (also TGS-only) this returns catalog data, not class dates.', 'Cache-Control: no-store — recomputed from the live DB on every call. Bulk payload, poll rather than request per-page.', 'A row that fails to build is skipped and logged rather than sinking the whole feed. If the payload cannot be UTF-8 encoded the endpoint returns 500 encoding_error — it never serves an empty 200.'),
+                'exampleRequest' => "curl -H \"X-API-Key: <key>\" \\\n  \"__BASE_URL__/courses/api_wsq?fields=full\"",
+                'exampleResponse' => "{\n  \"source_url\": \"https://www.tertiarycourses.com.sg/\",\n  \"last_updated\": \"2026-07-28T00:00:00+00:00\",\n  \"confidence\": \"high\",\n  \"store\": \"singapore\", \"track\": \"wsq\", \"count\": 298,\n  \"data\": [{\n    \"sku\": \"TGS-2023021752\", \"course_code\": \"TGS-2023021752\",\n    \"name\": \"...\", \"is_wsq\": true, \"overview\": \"...\",\n    \"duration\": \"15\", \"level\": \"Basic\",\n    \"mode\": \"Classroom and/or Live Online\",\n    \"fee\": { \"list_price\": \"S\$600.00\", \"list_price_raw\": 600, \"currency\": \"SGD\" },\n    \"funding_badges\": [\"WSQ\", \"SkillsFuture Credit\"],\n    \"categories\": [\"...\"], \"image_url\": \"...\",\n    \"course_page_url\": \"...\", \"registration_url\": \"...#schedule\"\n  }]\n}\n\n// Errors: 401 bad/missing key, 503 api_disabled (key not configured), 500 internal_error / encoding_error",
+            ),
+            array(
+                'method' => 'GET', 'path' => '/courses/api_nonwsq', 'authKey' => 'wsq',
+                'title' => 'Non-WSQ Catalog Feed API',
+                'description' => 'Identical shape and options to /courses/api_wsq, but carries only C-prefixed (non-WSQ) SG courses. Fills the gap where non-WSQ courses previously had no bulk feed — api_schedule is TGS-only and api_courses requires a sku.',
+                'queryParams' => array(
+                    array('name' => 'fields', 'type' => 'string', 'required' => false, 'description' => 'fields=full adds description_full, suitability, prerequisites, assessment and certification to every row'),
+                ),
+                'notes' => array('Track membership matches the course-code convention explicitly (TGS- = WSQ, C- = non-WSQ), so a stray SKU that is neither lands in NEITHER feed rather than being silently misfiled.', 'Shares auth, row builder and envelope with the WSQ feed via MMD_Courses_Helper_Catalogfeed, so the two can never drift in shape.'),
+                'exampleRequest' => "curl -H \"X-API-Key: <key>\" \\\n  \"__BASE_URL__/courses/api_nonwsq\"",
+                'exampleResponse' => "{\n  \"source_url\": \"https://www.tertiarycourses.com.sg/\",\n  \"last_updated\": \"2026-07-28T00:00:00+00:00\",\n  \"confidence\": \"high\",\n  \"store\": \"singapore\", \"track\": \"non-wsq\", \"count\": 264,\n  \"data\": [{\n    \"sku\": \"C138\", \"course_code\": \"C138\",\n    \"name\": \"Python 3 Essential Training\", \"is_wsq\": false,\n    \"overview\": \"...\", \"duration\": \"15\",\n    \"fee\": { \"list_price\": \"S\$600.00\", \"list_price_raw\": 600, \"currency\": \"SGD\" },\n    \"funding_badges\": [\"SkillsFuture Credit\"],\n    \"course_page_url\": \"...\", \"registration_url\": \"...#schedule\"\n  }]\n}",
+            ),
+            array(
                 'method' => 'GET', 'path' => '/courses/api_faq', 'authKey' => 'wsq',
                 'title' => 'FAQ / Funding / Policy API',
                 'description' => 'Static knowledge base of SG funding schemes and policy topics. Returns ALL topics in one response — the bot does keyword matching locally against each topic\'s keywords array.',
@@ -14309,7 +14340,7 @@ $_mnBlastStats = array();
                 } ?>
                 <tr>
                     <td class="strong"><?php echo htmlspecialchars($_r['title']) ?></td>
-                    <td class="muted" style="font-family:ui-monospace,Menlo,monospace;font-size:12px;"><?php echo htmlspecialchars($_r['sku'] ?: '—') ?></td>
+                    <td class="muted" style="font-family:ui-monospace,Menlo,monospace;font-size:12px;white-space:nowrap;"><?php echo htmlspecialchars($_r['sku'] ?: '—') ?></td>
                     <td><span class="mn-badge s-<?php echo $_rcss ?>"><?php echo $_rlabel /* may contain &middot; entities */ ?></span></td>
                     <td class="tnum"><?php echo (int)$_na ?>/1</td>
                     <td class="muted"><?php echo htmlspecialchars($_sentAt) ?></td>

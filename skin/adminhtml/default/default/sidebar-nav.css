@@ -1543,7 +1543,11 @@ img[src*="rss"],
    Specificity is bumped with `body` qualifier and an attribute selector
    so it unambiguously beats dark-theme.css §10's body-scoped button
    rules. The same selector list intentionally repeats for hover so
-   the cascade can't degrade one variant. */
+   the cascade can't degrade one variant.
+   Minimalist OUTLINE style — same language as the §18 page-action
+   buttons (transparent fill, var(--blue) border + text, faint blue
+   hover wash); only the compact 24px toolbar height differs. The old
+   solid-gradient pill is retired. */
 body .admin-main .massaction button,
 body .admin-main .massaction button.scalable,
 body .admin-main .massaction button[type="submit"],
@@ -1558,12 +1562,12 @@ body .admin-main [id$="_massaction"] input[type="submit"] {
     margin: 0 !important;
     font-size: 11px !important;
     font-weight: 600 !important;
-    border-radius: 999px !important;
+    border-radius: 6px !important;
     line-height: 1 !important;
-    background: var(--btn-primary) !important;
-    background-image: var(--btn-primary) !important;
-    border: 0 !important;
-    color: #fff !important;
+    background: transparent !important;
+    background-image: none !important;
+    border: 1px solid var(--blue) !important;
+    color: var(--blue) !important;
     box-shadow: none !important;
     letter-spacing: 0.2px !important;
     text-shadow: none !important;
@@ -1577,8 +1581,9 @@ body .admin-main [id$="_massaction"] button:hover,
 body .admin-main [id$="_massaction"] button.scalable:hover,
 body .admin-main [id$="_massaction"] button[type="submit"]:hover,
 body .admin-main [id$="_massaction"] input[type="submit"]:hover {
-    background: var(--btn-primary-hover) !important;
-    background-image: var(--btn-primary-hover) !important;
+    background: rgba(96, 165, 250, 0.12) !important;
+    background-image: none !important;
+    border-color: var(--blue) !important;
     transform: none !important;
     box-shadow: none !important;
 }
@@ -1666,8 +1671,13 @@ body .admin-main [id$="_massaction"] button span span span {
 
 /* === 18. Buttons — modern design system ===
    One consistent button language across the whole admin. See
-   .claude/skills/backend-design/SKILL.md for the rules behind this. */
-.admin-main button,
+   .claude/skills/backend-design/SKILL.md for the rules behind this.
+   Icon-action buttons (.mmd-grid-action / .mmd-iconbtn / .mn-fq-act) are
+   exempted via :not() — they follow the GLOBAL ICON-ACTION STANDARD in
+   dark-theme.css (26×26 ghost square); without the exemption this
+   class+element selector outranks that bare-class rule and inflates
+   every <button> icon action into a 38px pill. */
+.admin-main button:not(.mmd-grid-action):not(.mmd-iconbtn):not(.mn-fq-act),
 .admin-main button.scalable,
 .admin-main .form-button,
 .admin-main input[type="submit"] {
@@ -1709,7 +1719,7 @@ body .admin-main [id$="_massaction"] button span span span {
    emphasis is now uniform outline everywhere). Massaction Submit
    pills (§16, higher specificity) and mm-btn-primary are handled
    separately. */
-.admin-main button,
+.admin-main button:not(.mmd-grid-action):not(.mmd-iconbtn):not(.mn-fq-act),
 .admin-main button.scalable,
 .admin-main input[type="submit"],
 .admin-main button.add,
@@ -1730,7 +1740,7 @@ body .admin-main [id$="_massaction"] button span span span {
 .admin-main input[type="submit"] span {
     color: var(--blue) !important;
 }
-.admin-main button:hover,
+.admin-main button:not(.mmd-grid-action):not(.mmd-iconbtn):not(.mn-fq-act):hover,
 .admin-main button.scalable:hover,
 .admin-main input[type="submit"]:hover,
 .admin-main button.add:hover,
@@ -3360,8 +3370,9 @@ body.adminhtml-cache-index .admin-main table.form-list td {
     vertical-align: middle !important;
     background: transparent !important;
 }
-/* Flush buttons — single-blue rule. Confirmation lives in the Magento
-   confirm() dialog, not in the button colour. Compact 28px height. */
+/* Flush buttons — minimalist outline, same language as §16/§18
+   (transparent fill, var(--blue) border + text). Confirmation lives in
+   the Magento confirm() dialog, not in the button colour. Compact 28px. */
 body.adminhtml-cache-index .admin-main table.form-list td button,
 body.adminhtml-cache-index .admin-main table.form-list td input[type="button"],
 body.adminhtml-cache-index .admin-main table.form-list td button.scalable {
@@ -3370,15 +3381,15 @@ body.adminhtml-cache-index .admin-main table.form-list td button.scalable {
     padding: 2px 14px !important;
     font-size: 12px !important;
     margin: 0 12px 0 0 !important;
-    background: var(--btn-primary) !important;
-    background-image: var(--btn-primary) !important;
-    border: 0 !important;
-    color: #fff !important;
+    background: transparent !important;
+    background-image: none !important;
+    border: 1px solid var(--blue) !important;
+    color: var(--blue) !important;
 }
 body.adminhtml-cache-index .admin-main table.form-list td button:hover,
 body.adminhtml-cache-index .admin-main table.form-list td button.scalable:hover {
-    background: var(--btn-primary-hover) !important;
-    background-image: var(--btn-primary-hover) !important;
+    background: rgba(96, 165, 250, 0.12) !important;
+    background-image: none !important;
 }
 
 /* Cache Management — light-mode contrast. The dark-mode palette uses

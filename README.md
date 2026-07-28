@@ -51,6 +51,7 @@ This system runs as a **franchise model**:
 | 💰 **Funding & subsidy hooks** | SG SkillsFuture Credit / WSQ / IBF, MY HRDC — funding tiers (Baseline, MCES) auto-calculated. |
 | 🧾 **Pro Forma Invoices** | On-demand, self-sponsored SkillsFuture-claim pro formas with GST settled on the pre-subsidy list price. |
 | 🏫 **Automatic class formation** | Orders materialise into classes & rosters out-of-band via cron — the storefront HTTP path stays untouched. |
+| 📝 **Course feedback → Reviews** | QR-linked per-class feedback form (customisable via the Course Reviews → Form Builder) whose submissions save straight into the Magento review system as approved course reviews with per-dimension star ratings. |
 | 👥 **Six-role admin** | Learner / Trainer / Developer / Marketing / Admin / Training Provider with session-based role switching. |
 | 🎒 **Learner login** | Dedicated `/learnerlogin` page on every site — learners sign in with their storefront email + password and land straight on the learner dashboard (no role selection); staff keep using the admin portal. |
 | 🔁 **SG → partner course sync** | Manual-only, one-way export of non-WSQ (C-prefix) courses to MY/GH — bulk "Sync All" or per-course "Sync One" from the partner admin. Partner-owned course fees, schedules and trainer info are never overwritten on update. |
@@ -61,7 +62,8 @@ This system runs as a **franchise model**:
 | 📜 **Certificates & attendance** | E-attendance and certificate-of-achievement generation. |
 | 📣 **Autonomous newsletter** | SG-only agentic-flyer pipeline: designs a course flyer Mon & Thu 10am → manager approval (either manager, via email **or** admin) → MailerLite blast Mon & Thu 8am with a static R2-hosted registration QR. Hard cap **2 flyers/week**; nothing sends without approval. |
 | 📧 **Newsletter subscriber sync** | Daily 4am cron adds new order emails to the site's own MailerLite subscriber group, plus a one-shot historical backfill. Learners who previously unsubscribed are never re-added. API key, group, source store and on/off are all Company Settings, so every franchise site points at its **own** list. |
-| ✍️ **Lead-magnet blog** | `/blog` with slug URLs, SEO meta + Article JSON-LD, Magento-tag reuse, star ratings, social share, R2 hero images. Every post funnels readers to course sign-up with the WSQ funding / SkillsFuture Credit hook. Monday 9am cron auto-writes a post (Claude) for the top unblogged course, auto-publishes, and shares it on LinkedIn. |
+| ✍️ **Agentic lead-magnet blog** | `/blog` with slug URLs, SEO meta + Article JSON-LD, Magento-tag reuse, likes, social share, R2 hero images. An agent team writes 2 posts/week: a research agent (Claude web search) scouts the latest AI topics, a writer agent produces an in-depth post with a branded auto-generated hero, managers approve via email or the admin timeline, and approved posts publish Tue & Fri 9am, then auto-share to LinkedIn + Facebook. Admins queue the next courses from the Blog pipeline panel. |
+| 🔌 **Course catalog APIs** | Key-authenticated read-only JSON feeds of the SG catalog — `/courses/api_wsq` (TGS- courses) and `/courses/api_nonwsq` (C- courses), kept as separate endpoints so the two funding tracks never mix. Add `?fields=full` for the long description, suitability, prerequisites and assessment. Per-course and schedule lookups live at `/courses/api_courses?sku=` and `/courses/api_schedule`. Every endpoint is documented in the admin **API Summary** panel. |
 | 🎨 **Ultimo storefront** | Premium responsive theme + a custom dark admin theme. |
 
 ## Tech Stack
@@ -146,9 +148,9 @@ ai-mms/
 | **Branchscope** | Per-country store-view switcher in admin. |
 | **Certificate / Attendance** | Certificates of achievement + e-attendance. |
 | **AccountSync** | Unified learner ↔ shadow admin accounts. |
-| **Courses / Leads** | Course CRUD + admin grid; contact-form lead capture. |
+| **Courses / Leads** | Course CRUD + admin grid; read-only catalog/schedule/search JSON APIs (`api_wsq`, `api_nonwsq`, `api_courses`, `api_schedule`, `api_search`, `api_faq`, `api_contact`) sharing one auth + envelope via `Helper/Catalogfeed.php`; contact-form lead capture with auto-reply and MailerLite auto-subscribe on capture (opt-outs never re-added), plus a "Send to MailerLite" mass-action and per-lead sync checkbox in the Leads grid. |
 | **Marketing** | Autonomous agentic-flyer newsletter pipeline — cron design (Mon/Thu 10am), signed email + backend manager approval, guarded MailerLite scheduling (Blastguard: 2 blasts/week, Mon/Thu 8am), subscriber-growth + campaign KPIs. Also hosts the daily 4am order-email → MailerLite subscriber sync (`Model/Cron/Subscribersync.php`, backfill `scripts/maintenance/mailerlite-import-order-emails.php`) — per-site config, opt-outs never re-added. |
-| **Blog** | CMS-style lead-magnet blog — Marketing → Blog Posts admin (WYSIWYG, SEO meta, tags, R2 hero upload), `/blog/<slug>` storefront with ratings + share, Monday 9am Claude auto-blog with LinkedIn auto-share. |
+| **Blog** | CMS-style lead-magnet blog — Marketing → Blog admin with the agentic pipeline timeline (research agent → writer + auto hero → approval → Tue/Fri 9am slots → LinkedIn/Facebook share) and a drag-to-reorder next-course queue; `/blog/<slug>` storefront with likes + share. |
 
 ## Getting Started
 

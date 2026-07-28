@@ -676,6 +676,22 @@ class MMD_Leads_Helper_Data extends Mage_Core_Helper_Abstract
     }
 
     /**
+     * Auto-subscribe the lead's email to the site's configured MailerLite
+     * group (Company Setting → Integrations → MailerLite). Never throws —
+     * the outcome is recorded on the lead as mailerlite_status.
+     *
+     * Franchise-safe: when no group is configured on this install the lead
+     * is marked 'skipped' (there is deliberately no fallback to the SG
+     * group). Opt-out guard: POST /subscribers is an upsert that would
+     * resurrect an unsubscribed address, so previously unsubscribed /
+     * bounced / junk subscribers are skipped, never re-added.
+     */
+    public function subscribeToMailerlite(MMD_Leads_Model_Lead $lead)
+    {
+        Mage::helper('mmd_marketing/mailerlite')->subscribeLead($lead);
+    }
+
+    /**
      * Persist an auto_reply_status onto the lead without letting a save
      * error bubble up into the contact-form flow.
      */

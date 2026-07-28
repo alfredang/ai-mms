@@ -7,6 +7,30 @@ class MMD_FeedbackForm_Helper_Data extends Mage_Core_Helper_Abstract
     const AUTOFILL_END_DATE     = 'end_date';
     const AUTOFILL_TRAINER_NAME = 'trainer_name';
 
+    public function getFieldTypes()
+    {
+        return array(
+            'text'        => 'Short Text',
+            'textarea'    => 'Long Text',
+            'email'       => 'Email',
+            'date'        => 'Date',
+            'select'      => 'Dropdown',
+            'rating1to5'  => '1–5 Star Rating',
+        );
+    }
+
+    public function getAutofillOptions()
+    {
+        return array(
+            ''             => '— None —',
+            'course_title' => 'Course Title',
+            'course_code'  => 'Course Code',
+            'trainer_name' => 'Trainer Name',
+            'start_date'   => 'Start Date',
+            'end_date'     => 'End Date',
+        );
+    }
+
     public function getDefaultTemplate()
     {
         return array(
@@ -38,4 +62,30 @@ class MMD_FeedbackForm_Helper_Data extends Mage_Core_Helper_Abstract
         );
     }
 
+    /**
+     * Load the single active template, or seed it from defaults if none exists.
+     */
+    public function getOrCreateTemplate()
+    {
+        $resource = Mage::getSingleton('core/resource');
+        $read     = $resource->getConnection('core_read');
+        $tbl      = $resource->getTableName('mmd_feedback_form_template');
+
+        $row = $read->fetchRow("SELECT * FROM `$tbl` WHERE is_active = 1 ORDER BY template_id ASC LIMIT 1");
+        if ($row) {
+            $row['sections'] = json_decode($row['sections'], true) ?: array();
+            return $row;
+        }
+
+        // Seed default.
+        $default = $this->getDefaultTemplate();
+        $write   = $resource->getConnection('core_write');
+        $write->insert($tbl, array(
+            'title'    => $default['title'],
+            'sections' => json_encode($default['sections']),
+            'is_active'=> 1,
+        ));
+        $default['template_id'] = (int) $write->lastInsertId();
+        return $default;
+    }
 }

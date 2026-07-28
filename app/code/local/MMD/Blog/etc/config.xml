@@ -7,10 +7,13 @@
   Admin:     Marketing sidebar -> Blog Posts (adminhtml/blog) — grid + CMS-page-style
              editor with WYSIWYG, SEO meta, tags (reuses the Magento `tag` table),
              hero image upload to Cloudflare R2 (mmd_courseimage/r2 helper).
-  Cron:      Daily 09:00 propose — writes a lead-magnet post for the next
-             unblogged top-selling course via Claude (SG: WSQ/TGS- only) and
-             emails the managers for approval; an approval books the next free
-             Monday/Thursday 09:00 publish slot (2 posts/week). Every 10 min
+  Cron:      Daily 09:00 propose — an agent team: (1) course pick (admin
+             mmd_blog_queue head first, else next unblogged top-seller; SG
+             auto-pick: WSQ/TGS- only), (2) topic-research agent (Claude web
+             search over the autoblog/topics focus pool), (3) writer agent
+             (in-depth post + branded GD hero image on R2), then emails the
+             managers for approval; an approval books the next free
+             Tuesday/Friday 09:00 publish slot (2 posts/week). Every 10 min
              publishDue flips due posts live + shares to LinkedIn & Facebook.
              Partner sites (auto_publish=1) keep the legacy immediate-publish
              behaviour.
@@ -106,9 +109,12 @@
             <autoblog>
                 <enabled>1</enabled>
                 <!-- 1 = cron-created posts go live immediately (legacy / partner
-                     sites); 0 = manager review + Mon/Thu publish scheduling
+                     sites); 0 = manager review + Tue/Fri publish scheduling
                      (migration 450 sets 0 on the SG instance only) -->
                 <auto_publish>1</auto_publish>
+                <!-- Focus pool for the topic-research agent (comma-separated;
+                     override per-instance via core_config_data) -->
+                <topics>AI Agents, Agentic AI, Multi-Agent Systems, n8n Automation, Hermes Agent, OpenClaw, Paperclip, AI Security, Cyber Security, New AI Models (Kimi 3, Claude 5, GPT-5)</topics>
                 <!-- 1 = share newly published posts on LinkedIn (env keys or the
                      shared mmd_marketing/linkedin/* credentials) -->
                 <linkedin_enabled>1</linkedin_enabled>
@@ -123,7 +129,7 @@
         <jobs>
             <!-- Daily 09:00 (container tz = Asia/Singapore) — propose the next
                  lead-magnet post. Review flow (SG): paces itself to 2 posts/week
-                 via the Mon/Thu slot check, reminds a silent reviewer once after
+                 via the Tue/Fri slot check, reminds a silent reviewer once after
                  24h, expires a 5-day-old pending post. Legacy flow (partners):
                  the "one post per 5 days" guard applies. No-ops safely when
                  disabled or when Claude credentials are missing. -->
@@ -131,7 +137,7 @@
                 <schedule><cron_expr>0 9 * * *</cron_expr></schedule>
                 <run><model>mmd_blog/cron_autoblog::run</model></run>
             </mmd_blog_autoblog>
-            <!-- Every 10 min — publish approved posts whose Monday/Thursday
+            <!-- Every 10 min — publish approved posts whose Tuesday/Friday
                  09:00 slot has arrived, then share once to LinkedIn + Facebook. -->
             <mmd_blog_publish_due>
                 <schedule><cron_expr>*/10 * * * *</cron_expr></schedule>

@@ -162,4 +162,49 @@ class MMD_Leads_Adminhtml_LeadsController extends Mage_Adminhtml_Controller_Acti
         );
         $this->_redirect('*/*/');
     }
+
+    /**
+     * Mass-action: push the selected leads' emails to the site's
+     * configured MailerLite group. The helper records the outcome on
+     * each lead (mailerlite_status), which drives the grid checkbox.
+     */
+    public function massMailerliteAction()
+    {
+        $ids = $this->getRequest()->getParam('leads');
+        if (!is_array($ids) || empty($ids)) {
+            Mage::getSingleton('adminhtml/session')->addError($this->__('Please select at least one lead.'));
+            $this->_redirect('*/*/');
+            return;
+        }
+        $helper = Mage::helper('mmd_leads');
+        $sent = $skipped = $failed = 0;
+        foreach ($ids as $id) {
+            $lead = Mage::getModel('mmd_leads/lead')->load((int) $id);
+            if (!$lead->getId()) {
+                continue;
+            }
+            $helper->subscribeToMailerlite($lead);
+            switch ($lead->getMailerliteStatus()) {
+                case MMD_Leads_Model_Lead::MAILERLITE_SENT:
+                    $sent++;
+                    break;
+                case MMD_Leads_Model_Lead::MAILERLITE_SKIPPED:
+                    $skipped++;
+                    break;
+                default:
+                    $failed++;
+            }
+        }
+        $session = Mage::getSingleton('adminhtml/session');
+        if ($sent) {
+            $session->addSuccess($this->__('%d lead(s) sent to MailerLite.', $sent));
+        }
+        if ($skipped) {
+            $session->addNotice($this->__('%d lead(s) skipped (unsubscribed previously, or MailerLite not configured).', $skipped));
+        }
+        if ($failed) {
+            $session->addError($this->__('%d lead(s) failed — see var/log/mailerlite.log.', $failed));
+        }
+        $this->_redirect('*/*/');
+    }
 }

@@ -18,7 +18,7 @@ class MMD_FeedbackForm_RespondController extends Mage_Core_Controller_Front_Acti
         try {
             /** @var MMD_FeedbackForm_Helper_Data $h */
             $h        = Mage::helper('mmd_feedbackform');
-            $template = $h->getDefaultTemplate();
+            $template = $h->getOrCreateTemplate();
             $run      = $this->_loadRun($runId);
 
             if (!$run) {
@@ -57,7 +57,7 @@ class MMD_FeedbackForm_RespondController extends Mage_Core_Controller_Front_Acti
         try {
             /** @var MMD_FeedbackForm_Helper_Data $h */
             $h        = Mage::helper('mmd_feedbackform');
-            $template = $h->getDefaultTemplate();
+            $template = $h->getOrCreateTemplate();
             $run      = $this->_loadRun($runId);
 
             if (!$run || !(int)$run['product_id']) {

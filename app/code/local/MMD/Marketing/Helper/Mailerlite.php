@@ -342,6 +342,57 @@ class MMD_Marketing_Helper_Mailerlite extends Mage_Core_Helper_Abstract
     }
 
     /**
+     * Subscribe a form lead (any model exposing getEmail/getName and a
+     * mailerlite_status column) to this site's configured group. Never
+     * throws — the outcome is recorded on the lead as mailerlite_status
+     * ('sent' / 'skipped' / 'failed') and the lead is saved.
+     *
+     * Franchise-safe: when no group is configured on this install the
+     * lead is marked 'skipped' (no fallback to the SG group). Opt-out
+     * guard: POST /subscribers is an upsert that would resurrect an
+     * unsubscribed address, so unsubscribed / bounced / junk subscribers
+     * are skipped, never re-added.
+     */
+    public function subscribeLead(Mage_Core_Model_Abstract $lead)
+    {
+        $label = get_class($lead) . ' #' . $lead->getId();
+        try {
+            $email   = strtolower(trim((string) $lead->getEmail()));
+            $groupId = $this->getSyncGroupId();
+            if (!$this->isConfigured() || $groupId === '' || $email === '') {
+                $this->_saveLeadStatus($lead, 'skipped');
+                return;
+            }
+
+            $existing = $this->findSubscriber($email);
+            $status   = is_array($existing) && isset($existing['status']) ? $existing['status'] : '';
+            if (in_array($status, array('unsubscribed', 'bounced', 'junk'), true)) {
+                Mage::log($label . ': ' . $email . ' is ' . $status . ' — not re-adding', null, 'mailerlite.log');
+                $this->_saveLeadStatus($lead, 'skipped');
+                return;
+            }
+
+            $this->addSubscriber($email, $groupId, array('name' => (string) $lead->getName()));
+            Mage::log($label . ': subscribed ' . $email . ' to group ' . $groupId, null, 'mailerlite.log');
+            $this->_saveLeadStatus($lead, 'sent');
+        } catch (Exception $e) {
+            Mage::logException($e);
+            Mage::log($label . ': subscribe failed — ' . $e->getMessage(), null, 'mailerlite.log');
+            $this->_saveLeadStatus($lead, 'failed');
+        }
+    }
+
+    /** Persist mailerlite_status without letting a save error bubble up. */
+    protected function _saveLeadStatus(Mage_Core_Model_Abstract $lead, $status)
+    {
+        try {
+            $lead->setMailerliteStatus($status)->save();
+        } catch (Exception $e) {
+            Mage::logException($e);
+        }
+    }
+
+    /**
      * Add one subscriber to a group. Returns true on success.
      * MailerLite treats POST /subscribers as an upsert keyed on email.
      */

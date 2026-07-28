@@ -50,4 +50,41 @@ class MMD_Blog_Helper_Image extends Mage_Core_Helper_Abstract
         }
         return Mage::getBaseUrl(Mage_Core_Model_Store::URL_TYPE_MEDIA) . 'blog/' . basename($key);
     }
+
+    /**
+     * Auto-generated branded hero for a pipeline post: renders the post title
+     * through the CourseImage GD cover (same on-brand navy/cyan design as the
+     * course covers) and stores it under blog/auto-* — the prefix marks it as
+     * replaceable by the pipeline, unlike an admin-uploaded hero.
+     *
+     * @param string $title post title
+     * @param string $sku   source course SKU (TGS- adds the WSQ funding chips)
+     * @return string public URL ('' only if even the local fallback failed)
+     */
+    public function generateHero($title, $sku = '')
+    {
+        $badges = ($sku !== '' && stripos($sku, 'TGS-') === 0)
+            ? array('WSQ', 'SkillsFuture Credit')
+            : array();
+        $png  = Mage::getModel('mmd_courseimage/cover')->render((string) $title, (string) $sku, $badges);
+        $base = Mage::helper('mmd_blog')->slugify(mb_substr((string) $title, 0, 60));
+        $key  = 'blog/auto-' . date('Ymd-His') . '-' . ($base !== '' ? $base : 'hero') . '.png';
+
+        try {
+            $result = Mage::helper('mmd_courseimage/r2')->putObject($key, $png, 'image/png');
+            return $result['url'];
+        } catch (Exception $e) {
+            Mage::log('Blog auto-hero R2 upload failed, using local media/: ' . $e->getMessage(), null, 'mmd_blog.log');
+        }
+
+        $dir = Mage::getBaseDir('media') . DS . 'blog';
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0775, true);
+        }
+        $file = $dir . DS . basename($key);
+        if (@file_put_contents($file, $png) === false) {
+            return '';
+        }
+        return Mage::getBaseUrl(Mage_Core_Model_Store::URL_TYPE_MEDIA) . 'blog/' . basename($key);
+    }
 }

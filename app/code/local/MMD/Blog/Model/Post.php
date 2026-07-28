@@ -3,7 +3,7 @@
  * Blog post entity. Table: mmd_blog_post (migrations/303-blog-feature.sql).
  *
  * status: 0 = draft, 1 = published, 2 = pending review (emailed to the managers),
- * 3 = scheduled (approved — publishes at scheduled_publish_at, Mon/Thu 09:00),
+ * 3 = scheduled (approved — publishes at scheduled_publish_at, Tue/Fri 09:00),
  * 4 = changes requested (manager feedback recorded, regeneration pending).
  * Review/scheduling columns come from migrations/450-blog-review-pipeline.sql.
  * Rating aggregates (rating_sum / rating_count) are denormalised onto the row
