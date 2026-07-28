@@ -218,6 +218,10 @@ $_urlEdit    = Mage::helper('adminhtml')->getUrl('adminhtml/blog/edit');
             <label>Optional brief for the agents &mdash; the course title + these topics/links become the <b>prompt input</b> for the research &amp; writing of the post</label>
             <input type="text" id="bp-add-topics" class="bp-input" placeholder="Topics / angle to research and write about (optional)..." autocomplete="off" />
             <textarea id="bp-add-links" class="bp-input bp-links-input" rows="2" placeholder="Reference links to research, one per line (optional)..."></textarea>
+            <div class="bp-brief-attach" id="bp-brief-attach" style="display:none;">
+                <button type="button" class="mm-btn mm-btn-primary mm-btn-sm" onclick="bpBriefAttachTop()">Save brief</button>
+                <span class="bp-brief-attach-hint" id="bp-brief-attach-hint"></span>
+            </div>
         </div>
         <table class="mm-table bp-q-table" id="bp-queue-table">
             <thead><tr>
@@ -308,6 +312,9 @@ $_urlEdit    = Mage::helper('adminhtml')->getUrl('adminhtml/blog/edit');
     .bp-q-grip{color:#475569;font:700 13px/1 var(--font-sans,sans-serif);letter-spacing:-2px;user-select:none;}
     .bp-q-row:hover .bp-q-grip{color:#94a3b8;}
     .bp-brief-fields{display:flex;flex-direction:column;gap:6px;margin-top:8px;}
+    .bp-brief-attach{display:flex;align-items:center;gap:10px;margin-top:2px;}
+    .bp-brief-attach-hint{font:400 12px var(--font-sans,sans-serif);color:#64748b;}
+    .bp-brief-attach-hint b{color:#94a3b8;font-weight:600;}
     .bp-links-input{resize:vertical;min-height:34px;font:400 12px ui-monospace,Menlo,monospace;}
     .bp-q-brief{display:flex;gap:12px;flex-wrap:wrap;margin-top:3px;font:400 11.5px var(--font-sans,sans-serif);color:#64748b;}
     .bp-q-brief-links{white-space:nowrap;}
@@ -391,6 +398,32 @@ function bpQueueAdd(pid) {
         .then(function () { bpQueueLoad(); });
 }
 
+// "Save brief" under the top add-course fields — attaches the typed topics/links
+// to the #1 queued course (the one the pipeline writes about next). Without this,
+// the top fields only reach a course when it is (re-)added via the search box.
+function bpBriefAttachTop() {
+    if (!bpQueueData.length) return;
+    var topicsEl = document.getElementById('bp-add-topics');
+    var linksEl  = document.getElementById('bp-add-links');
+    var topics = topicsEl ? topicsEl.value.trim() : '';
+    var links  = linksEl ? linksEl.value.trim() : '';
+    if (!topics && !links) { alert('Type the topics / reference links first.'); return; }
+    var top = bpQueueData[0];
+    var fd = new FormData();
+    fd.append('form_key', window.FORM_KEY || '');
+    fd.append('queue_id', String(top.queue_id));
+    // queueBriefAction replaces both columns — keep the row's existing value
+    // for whichever field was left empty here.
+    fd.append('topics', topics || (top.topics || ''));
+    fd.append('links',  links  || (top.links  || ''));
+    fetch(bpUrls.qbrief, { method: 'POST', body: fd, credentials: 'same-origin' })
+        .then(function () {
+            if (topicsEl) topicsEl.value = '';
+            if (linksEl)  linksEl.value = '';
+            bpQueueLoad();
+        });
+}
+
 function bpBriefToggle(qid) {
     var row = document.querySelector('.bp-q-brief-row[data-bqid="' + qid + '"]');
     if (row) row.style.display = (row.style.display === 'none' ? '' : 'none');
@@ -427,6 +460,12 @@ function bpQueueLoad() {
         .then(function (j) {
             var tbody = document.getElementById('bp-queue-list');
             var count = document.getElementById('bp-queue-count');
+            var attach = document.getElementById('bp-brief-attach');
+            var hint   = document.getElementById('bp-brief-attach-hint');
+            if (attach) attach.style.display = (j.success && j.queue.length) ? '' : 'none';
+            if (hint && j.success && j.queue.length) {
+                hint.innerHTML = '&rarr; attaches to <b>#1 ' + bpEsc(j.queue[0].name) + '</b> (' + bpEsc(j.queue[0].sku) + ')';
+            }
             if (!j.success) {
                 tbody.innerHTML = '<tr><td colspan="5" class="mm-table-empty">' + bpEsc(j.message || 'Queue unavailable') + '</td></tr>';
                 if (count) count.textContent = '—';
