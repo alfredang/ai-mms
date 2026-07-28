@@ -105,14 +105,22 @@
             <form method="post" action="<?php echo $this->escapeHtml($this->getReplyPostUrl()) ?>">
                 <input type="hidden" name="form_key" value="<?php echo $this->getFormKey() ?>"/>
 
+                <?php
+                // readonly-until-focus + 1Password/LastPass opt-outs: Chrome and
+                // password managers ignore autocomplete="off" and stuff saved
+                // logins into "email"-named admin inputs (see memory
+                // feedback_chrome_autofill_admin_search_inputs — "interns"
+                // clobbered the prefilled lead email in prod).
+                $af = 'autocomplete="off" data-1p-ignore data-lpignore="true" readonly onfocus="this.removeAttribute(\'readonly\')"';
+                ?>
                 <label style="font-size:12px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:6px;"><?php echo $this->__('Email To') ?></label>
-                <input type="text" name="email_to" id="email_to" autocomplete="off" value="<?php echo $this->escapeHtml($this->getInitialTo()) ?>" style="margin-bottom:14px;"/>
+                <input type="text" name="email_to" id="email_to" <?php echo $af ?> value="<?php echo $this->escapeHtml($this->getInitialTo()) ?>" style="margin-bottom:14px;"/>
 
                 <label style="font-size:12px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:6px;"><?php echo $this->__('CC (comma-separated)') ?></label>
-                <input type="text" name="email_cc" id="email_cc" autocomplete="off" value="<?php echo $this->escapeHtml($this->getInitialCc()) ?>" style="margin-bottom:14px;"/>
+                <input type="text" name="email_cc" id="email_cc" <?php echo $af ?> value="<?php echo $this->escapeHtml($this->getInitialCc()) ?>" style="margin-bottom:14px;"/>
 
                 <label style="font-size:12px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:6px;"><?php echo $this->__('Subject — Course Name') ?></label>
-                <input type="text" name="subject_course" id="subject_course" autocomplete="off" value="<?php echo $this->escapeHtml($this->getInitialSubjectCourse()) ?>" style="margin-bottom:14px;"/>
+                <input type="text" name="subject_course" id="subject_course" <?php echo $af ?> value="<?php echo $this->escapeHtml($this->getInitialSubjectCourse()) ?>" style="margin-bottom:14px;"/>
 
                 <label style="font-size:12px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:6px;"><?php echo $this->__('Reply Body (HTML allowed)') ?></label>
                 <textarea name="reply_body_html" id="reply_body_html"><?php echo $this->escapeHtml($this->getInitialReplyHtml()) ?></textarea>
