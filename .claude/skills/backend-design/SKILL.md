@@ -693,6 +693,23 @@ is gone and `accent-color` is moot.
 
 One language everywhere. Don't restyle buttons per page.
 
+**HARD RULE — §18 is a LOW-SPECIFICITY baseline. Keep it that way.** Its
+generic selector wraps the icon-button exemptions in `:where()`
+(`.admin-main button:where(:not(.mmd-grid-action):not(.mmd-iconbtn):…)`)
+so the whole thing stays at (0,1,1). Any class-scoped rule with two+
+classes and `!important` (`.admin-main .mmd-iconbtn`,
+`body.cat-tree-docked .cat-tree-toggle`, per-feature button blocks) wins
+over it by design. NEVER add a bare `:not(.class)` to §18 — each one adds
+a full class level; at (0,5,1) it crushed every non-exempt icon button
+into a hollow "empty box" (forced 8/20 padding on a width-pinned flex
+button flex-shrinks the SVG glyph to width:0) and its
+`display:inline-flex !important` beat `display:none !important` guards,
+resurrecting hidden buttons (mobile hamburger on desktop; duplicate
+Filters + phantom `.cat-rail-folder` on Manage Categories). A companion
+guard `.admin-main button > svg { flex: 0 0 auto }` keeps glyphs from
+ever flex-collapsing. If a button needs to escape §18, give its own rule
+two classes — don't grow §18's exemption list.
+
 ### Three sizes, three jobs
 
 | Variant | Where it appears | Size | Shape | Color |
