@@ -187,19 +187,22 @@ class MMD_Blog_Adminhtml_BlogController extends Mage_Adminhtml_Controller_Action
             $brief = null;
             $qid   = (int) $this->getRequest()->getParam('queue_id');
             if ($qid) {
-                // Queue "Run Now": read the row's admin brief (topics/links)
-                // BEFORE consuming it, so the direction reaches the agents and
-                // the daily cron can't write a second post for the course.
+                // Queue "Run Now": read the row's admin brief (topics/links) so
+                // the direction reaches the agents. The row is consumed only
+                // AFTER a successful run — a failed run (no API key, Claude
+                // error) must not silently swallow the queued course + brief.
                 $row = $this->_db('read')->fetchRow(
                     'SELECT product_id, topics, links FROM mmd_blog_queue WHERE queue_id = ?', array($qid));
                 if ($row) {
                     $pid   = $pid ?: (int) $row['product_id'];
                     $brief = array('topics' => (string) ($row['topics'] ?? ''), 'links' => (string) ($row['links'] ?? ''));
-                    $this->_db('write')->delete('mmd_blog_queue', array('queue_id = ?' => $qid));
                 }
             }
             $result = Mage::getModel('mmd_blog/cron_autoblog')->run('manual', $pid ?: null, $brief);
             if (strpos($result, 'ok:') === 0) {
+                if ($qid) {
+                    $this->_db('write')->delete('mmd_blog_queue', array('queue_id = ?' => $qid));
+                }
                 $session->addSuccess($this->__('Auto-blog: %s', $result));
             } else {
                 $session->addNotice($this->__('Auto-blog: %s', $result));

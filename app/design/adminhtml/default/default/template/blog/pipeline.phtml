@@ -101,6 +101,9 @@ $_urlEdit    = Mage::helper('adminhtml')->getUrl('adminhtml/blog/edit');
     <div class="bp-pipe-bar">
         <div class="bp-pipe-title">Agentic Blog Pipeline
             <span class="bp-pipe-flag <?php echo $_enabled ? 'on' : 'off' ?>"><?php echo $_enabled ? ($_review ? 'REVIEW FLOW · ENABLED' : 'AUTO-PUBLISH · ENABLED') : 'DISABLED' ?></span>
+            <button type="button" class="mmd-iconbtn mmd-tip" data-tip="Refresh timeline" aria-label="Refresh timeline" onclick="window.location.reload()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            </button>
         </div>
         <div class="bp-pipe-caps">
             <span class="bp-cap" title="Published pipeline posts this week (max 2)"><em>Posts</em><b><?php echo (int) $_thisWeek ?>/2</b></span>
