@@ -32,6 +32,29 @@ class MMD_Leads_Block_Adminhtml_Leads_View extends Mage_Adminhtml_Block_Template
         return $this->getUrl('*/*/delete', array('id' => $this->getLead()->getId()));
     }
 
+    public function getAiDraftUrl()
+    {
+        return $this->getUrl('*/*/aidraft', array('id' => $this->getLead()->getId()));
+    }
+
+    /** Prefilled To — the lead's own email. Operator-editable before sending. */
+    public function getInitialTo()
+    {
+        return (string) $this->getLead()->getEmail();
+    }
+
+    /**
+     * Prefilled CC — the same training-team list the auto-reply CCs
+     * (mmd_leads/auto_reply/cc), resolved at the lead's store scope.
+     */
+    public function getInitialCc()
+    {
+        return trim((string) Mage::getStoreConfig(
+            'mmd_leads/auto_reply/cc',
+            (int) $this->getLead()->getStoreId() ?: null
+        ));
+    }
+
     /**
      * Return matched products as a thin array of [title, code, schedule, url]
      * keyed by product_id. Empty array if no fuzzy match.

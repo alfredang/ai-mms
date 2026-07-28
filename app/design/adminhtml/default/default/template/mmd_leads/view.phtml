@@ -10,7 +10,12 @@
 .mmd-lead-view dd{margin:0;color:#e5e7eb;word-break:break-word;}
 .mmd-lead-view .mmd-message{white-space:pre-wrap;background:#0f172a;border:1px solid #334155;border-radius:6px;padding:12px 14px;margin-top:8px;}
 .mmd-lead-view input[type=text], .mmd-lead-view textarea{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #475569;border-radius:6px;background:#0f172a;color:#e5e7eb;font:14px/1.5 monospace;}
-.mmd-lead-view textarea{min-height:240px;}
+.mmd-lead-view textarea{min-height:520px;resize:vertical;}
+.mmd-lead-view .mmd-ai-status{display:flex;align-items:center;gap:8px;margin:0 0 12px;font-size:12px;color:#94a3b8;}
+.mmd-lead-view .mmd-ai-status.is-error{color:#f87171;}
+.mmd-lead-view .mmd-ai-status.is-done{color:#34d399;}
+.mmd-lead-view .mmd-ai-spinner{width:12px;height:12px;border:2px solid #334155;border-top-color:#60a5fa;border-radius:50%;animation:mmdSpin .8s linear infinite;flex:none;}
+@keyframes mmdSpin{to{transform:rotate(360deg);}}
 .mmd-lead-view .mmd-actions{margin-top:14px;display:flex;gap:10px;}
 .mmd-lead-view .mmd-actions button{padding:10px 22px;border:0;border-radius:6px;font-weight:600;cursor:pointer;}
 .mmd-lead-view .mmd-primary{background:#2563eb;color:#fff;}
@@ -92,25 +97,89 @@
 
         <div class="mmd-card">
             <h3><?php echo $this->__('Reply with Course Information') ?></h3>
+            <div class="mmd-ai-status" id="mmd_ai_status">
+                <span class="mmd-ai-spinner"></span>
+                <span id="mmd_ai_status_text"><?php echo $this->__('Drafting reply with AI from the lead message + live course data…') ?></span>
+            </div>
+
             <form method="post" action="<?php echo $this->escapeHtml($this->getReplyPostUrl()) ?>">
                 <input type="hidden" name="form_key" value="<?php echo $this->getFormKey() ?>"/>
 
+                <label style="font-size:12px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:6px;"><?php echo $this->__('Email To') ?></label>
+                <input type="text" name="email_to" id="email_to" autocomplete="off" value="<?php echo $this->escapeHtml($this->getInitialTo()) ?>" style="margin-bottom:14px;"/>
+
+                <label style="font-size:12px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:6px;"><?php echo $this->__('CC (comma-separated)') ?></label>
+                <input type="text" name="email_cc" id="email_cc" autocomplete="off" value="<?php echo $this->escapeHtml($this->getInitialCc()) ?>" style="margin-bottom:14px;"/>
+
                 <label style="font-size:12px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:6px;"><?php echo $this->__('Subject — Course Name') ?></label>
-                <input type="text" name="subject_course" value="<?php echo $this->escapeHtml($this->getInitialSubjectCourse()) ?>" style="margin-bottom:14px;"/>
+                <input type="text" name="subject_course" id="subject_course" autocomplete="off" value="<?php echo $this->escapeHtml($this->getInitialSubjectCourse()) ?>" style="margin-bottom:14px;"/>
 
                 <label style="font-size:12px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:6px;"><?php echo $this->__('Reply Body (HTML allowed)') ?></label>
                 <textarea name="reply_body_html" id="reply_body_html"><?php echo $this->escapeHtml($this->getInitialReplyHtml()) ?></textarea>
 
                 <p style="margin:8px 0 0;font-size:12px;color:#94a3b8;">
-                    <?php echo $this->__('Auto-filled from catalog matches against the lead\'s course interest. Edit freely; sent via the store\'s sender identity, with Reply-To set to your country sales mailbox.') ?>
+                    <?php echo $this->__('AI-drafted from the lead\'s message plus catalog + schedule-API data. Edit freely; sent via the store\'s sender identity, with Reply-To set to your country sales mailbox.') ?>
                 </p>
 
                 <div class="mmd-actions">
                     <button type="submit" class="mmd-primary"><?php echo $this->__('Send Reply') ?></button>
+                    <button type="button" class="mmd-secondary" id="mmd_ai_regen"><?php echo $this->__('Regenerate AI Draft') ?></button>
                     <a href="<?php echo $this->escapeHtml($this->getBackUrl()) ?>"><button type="button" class="mmd-secondary"><?php echo $this->__('Back') ?></button></a>
                     <a href="<?php echo $this->escapeHtml($this->getDeleteUrl()) ?>" onclick="return confirm('<?php echo $this->__('Delete this lead permanently?') ?>');"><button type="button" class="mmd-danger"><?php echo $this->__('Delete') ?></button></a>
                 </div>
             </form>
+
+            <script>
+            (function () {
+                var draftUrl  = '<?php echo $this->escapeUrl($this->getAiDraftUrl()) ?>';
+                var statusBox = document.getElementById('mmd_ai_status');
+                var statusTxt = document.getElementById('mmd_ai_status_text');
+                var subjectEl = document.getElementById('subject_course');
+                var bodyEl    = document.getElementById('reply_body_html');
+                var regenBtn  = document.getElementById('mmd_ai_regen');
+                var seeded    = { subject: subjectEl.value, body: bodyEl.value };
+                var busy      = false;
+
+                function setStatus(state, msg) {
+                    statusBox.className = 'mmd-ai-status' + (state ? ' is-' + state : '');
+                    statusBox.querySelector('.mmd-ai-spinner').style.display = state ? 'none' : '';
+                    statusTxt.textContent = msg;
+                }
+
+                function applyDraft(d, force) {
+                    // Never clobber operator edits: only overwrite a field the
+                    // operator hasn't touched since page load (unless forced
+                    // via the Regenerate button).
+                    if (force || subjectEl.value === seeded.subject) { subjectEl.value = d.subject_course; }
+                    if (force || bodyEl.value === seeded.body)       { bodyEl.value    = d.body_html; }
+                    seeded = { subject: subjectEl.value, body: bodyEl.value };
+                }
+
+                function fetchDraft(force) {
+                    if (busy) { return; }
+                    busy = true;
+                    regenBtn.disabled = true;
+                    setStatus(null, '<?php echo $this->jsQuoteEscape($this->__('Drafting reply with AI from the lead message + live course data…')) ?>');
+                    fetch(draftUrl, { credentials: 'same-origin' })
+                        .then(function (r) { return r.json(); })
+                        .then(function (d) {
+                            if (d && d.ok) {
+                                applyDraft(d, force);
+                                setStatus('done', '<?php echo $this->jsQuoteEscape($this->__('AI draft ready — review and edit before sending.')) ?>');
+                            } else {
+                                setStatus('error', (d && d.error) || '<?php echo $this->jsQuoteEscape($this->__('AI draft failed — the catalog-matched prefill below is still usable.')) ?>');
+                            }
+                        })
+                        .catch(function () {
+                            setStatus('error', '<?php echo $this->jsQuoteEscape($this->__('AI draft failed — the catalog-matched prefill below is still usable.')) ?>');
+                        })
+                        .then(function () { busy = false; regenBtn.disabled = false; });
+                }
+
+                regenBtn.addEventListener('click', function () { fetchDraft(true); });
+                fetchDraft(false);
+            })();
+            </script>
         </div>
     </div>
 
