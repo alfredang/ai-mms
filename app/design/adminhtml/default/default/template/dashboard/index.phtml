@@ -10956,7 +10956,7 @@ $_apiCategories = array(
             array(
                 'method' => 'GET', 'path' => '/courses/api_schedule', 'authKey' => 'wsq',
                 'title' => 'WSQ Schedule API',
-                'description' => 'Every WSQ course (TGS- SKU prefix) in the SG store with its scheduled class dates. Add ?sku=<code> to switch into per-course mode (adds trainer, vacancy, mode, status per class) — bulk-mode shape is unaffected, existing consumers are unaffected.',
+                'description' => 'Every WSQ course (TGS- SKU prefix) in the SG store with its scheduled class dates. Add ?sku=<code> to switch into per-course mode (adds trainer, vacancy, mode, status per class) — bulk-mode shape is unaffected, existing consumers are unaffected. Enabled courses only: bulk mode lists enabled courses, and per-course mode returns 404 not_found for a disabled course.',
                 'queryParams' => array(
                     array('name' => 'sku', 'type' => 'string', 'required' => false, 'description' => 'Course code — switches to per-course schedule mode'),
                 ),
@@ -10978,9 +10978,9 @@ $_apiCategories = array(
             array(
                 'method' => 'GET', 'path' => '/courses/api_courses', 'authKey' => 'wsq',
                 'title' => 'Course Detail API',
-                'description' => 'Full details for one course by SKU — overview, suitability, prerequisites, fee, funding badges, mode, registration link. Falls back to the long description when structured fields are missing rather than returning a hard null.',
+                'description' => 'Full details for one course by SKU — overview, suitability, prerequisites, fee, funding badges, mode, registration link. Falls back to the long description when structured fields are missing rather than returning a hard null. Enabled courses only: a disabled/deactivated course returns 404 not_found so the bot never recommends a course that is no longer offered.',
                 'queryParams' => array(
-                    array('name' => 'sku', 'type' => 'string', 'required' => true, 'description' => 'Course code, e.g. C138 or TGS-2023021752. 404 if not found.'),
+                    array('name' => 'sku', 'type' => 'string', 'required' => true, 'description' => 'Course code, e.g. C138 or TGS-2023021752. 404 if not found or disabled.'),
                 ),
                 'exampleRequest' => "curl -H \"X-API-Key: <key>\" \\\n  \"__BASE_URL__/courses/api_courses?sku=C138\"",
                 'exampleResponse' => "{\n  \"data\": {\n    \"sku\": \"C138\", \"name\": \"Python 3 Essential Training\",\n    \"overview\": \"...\", \"prerequisites\": \"...\", \"duration\": \"15\",\n    \"fee\": { \"list_price\": \"S\$600.00\", \"currency\": \"SGD\" },\n    \"mode\": \"Classroom and/or Live Online\",\n    \"funding_badges\": [\"WSQ\", \"SkillsFuture Credit\"],\n    \"registration_url\": \".../#schedule\"\n  }\n}",

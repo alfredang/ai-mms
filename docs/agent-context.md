@@ -194,6 +194,12 @@ On the MMS read key (`X-API-Key`) you already use for the read endpoints:
 **MMS gives only the LIST price + which schemes apply.** Its own response says subsidised rates
 come from the funding schemes - it does **not** return the actual subsidised dollar figure.
 
+**Enabled courses only.** These read endpoints return **only courses that are live on the
+storefront.** A disabled / deactivated course returns `404 not_found` from `api_courses` and
+`api_schedule`, and never appears in `api_search`. Treat that 404 as **"not currently offered"** -
+tell the customer the course isn't available right now; do **not** say it "doesn't exist", do **not**
+guess a price from memory or the public site, and do **not** go look for it in the LMS.
+
 ### Step 2 - branch on the course code (`sku`) prefix (see Sec 4)
 - **`C-` / `M-` (non-WSQ):** MMS is the **whole** answer - full price, no WSQ funding. The
   LMS has never heard of these; do **not** look there.
@@ -220,6 +226,8 @@ The **course code is identical in both systems**: MMS `sku` **==** LMS `course_c
 - **Don't** report the MMS list price as the "funded price" for a WSQ course - fetch the funded
   figure from the LMS.
 - **Don't** look for non-WSQ (`C-`/`M-`) courses in the LMS - only MMS has them.
+- **Don't** recommend or quote a course the MMS returns as `404 not_found` - a disabled course is
+  not currently offered; never fall back to memory or the public site to price it.
 - These are **read** lookups. *Changing* a course/schedule still goes through the MMS **write**
   APIs (preview → confirm → commit) in the API guide.
 

@@ -61,6 +61,14 @@ class MMD_Courses_Api_CoursesController extends Mage_Core_Controller_Front_Actio
         // (description, name, url_key) resolve correctly.
         $product = Mage::getModel('catalog/product')->setStoreId(self::SG_STORE_ID)->load($product->getId());
 
+        // Never surface a disabled course to the bot. Flat catalog already keeps
+        // disabled products out of loadByAttribute above, but guard explicitly so
+        // the endpoint stays enabled-only even if flat is off or mid-reindex.
+        if ((int) $product->getStatus() === Mage_Catalog_Model_Product_Status::STATUS_DISABLED) {
+            return $this->_json(404, $this->_errEnvelope('not_found',
+                'Course ' . $sku . ' is not currently available.'));
+        }
+
         try {
             $data = $this->_buildCourseData($product);
         } catch (Exception $e) {
