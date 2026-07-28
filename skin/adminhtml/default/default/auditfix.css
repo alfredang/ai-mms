@@ -11,14 +11,18 @@
 }
 
 /* ---- Header ------------------------------------------------ */
+/* Title typography comes from the global page-title net
+   (admin-dashboard.css "Global page-title type ramp") via the
+   h1.afx-page-title class — no per-page font-size here. The flex
+   margin reset only neutralises the net's 10px bottom margin so
+   the right-hand stats align with the title baseline. */
 .auditfix-page .afx-header {
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     justify-content: space-between;
-    margin-bottom: 18px;
-    padding-bottom: 14px;
-    border-bottom: 1px solid rgba(255,255,255,0.06);
+    margin-bottom: 10px;
 }
+.auditfix-page .afx-header h1.afx-page-title { margin: 0 !important; }
 .auditfix-page .afx-eyebrow {
     display: block;
     font-size: 10.5px;
@@ -26,13 +30,6 @@
     letter-spacing: 1.4px;
     color: #6b7280;
     margin-bottom: 4px;
-}
-.auditfix-page h1 {
-    font-size: 22px;
-    font-weight: 500;
-    color: #f3f4f6;
-    margin: 0;
-    letter-spacing: 0.2px;
 }
 .auditfix-page .afx-meta {
     display: flex;
@@ -330,14 +327,10 @@
 :root[data-theme="light"] .auditfix-page .afx-time {
     color: #475569;
 }
-:root[data-theme="light"] .auditfix-page .afx-title h2,
 :root[data-theme="light"] .auditfix-page .afx-section-head h3 {
     color: #0f172a;
 }
 :root[data-theme="light"] .auditfix-page .afx-stat b { color: #0f172a; }
-:root[data-theme="light"] .auditfix-page .afx-header {
-    border-bottom-color: rgba(15,23,42,0.08);
-}
 
 /* Cron schedule cards — light surfaces with the existing tone
    colors as the accent (currentColor still propagates from
