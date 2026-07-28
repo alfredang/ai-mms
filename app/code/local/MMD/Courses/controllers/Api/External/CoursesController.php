@@ -25,6 +25,10 @@
  * own partner-owned values (see CourseSyncService P1 rule), already in the
  * store's own base currency — no conversion needed here.
  *
+ * Only status=Enabled products are returned — a disabled course's product
+ * page 404s, so serving it here would hand callers (e.g. n8n auto-reply) a
+ * broken course_link.
+ *
  * Auth: X-API-Key header compared against mmd/external_api/api_key
  * (own config path — distinct from mmd/course_sync/api_key, which
  * authenticates the opposite direction: this instance calling out to SG).
@@ -99,8 +103,20 @@ class MMD_Courses_Api_External_CoursesController extends Mage_Core_Controller_Fr
 
             $read = Mage::getSingleton('core/resource')->getConnection('core_read');
 
-            $where  = "sku LIKE 'C%'";
-            $params = array();
+            // Only ever serve enabled products — a disabled course still has a
+            // catalog row (and a SKU matching 'C%'), but its product page 404s,
+            // so course_link in the auto-reply would point at a broken page.
+            $statusAttrId = (int) $read->fetchOne(
+                "SELECT attribute_id FROM eav_attribute WHERE entity_type_id = 4 AND attribute_code = 'status' LIMIT 1"
+            );
+            $enabledClause = "entity_id IN (
+                SELECT entity_id FROM catalog_product_entity_int
+                WHERE attribute_id = ? AND store_id = 0 AND value = ?
+            )";
+            $enabledParams = array($statusAttrId, Mage_Catalog_Model_Product_Status::STATUS_ENABLED);
+
+            $where  = "sku LIKE 'C%' AND $enabledClause";
+            $params = $enabledParams;
             if ($courseCode !== '') {
                 $where .= ' AND sku = ?';
                 $params[] = $courseCode;
@@ -111,17 +127,11 @@ class MMD_Courses_Api_External_CoursesController extends Mage_Core_Controller_Fr
                     "SELECT attribute_id FROM eav_attribute WHERE entity_type_id = 4 AND attribute_code = 'name' LIMIT 1"
                 );
                 $entityTypeVarchar = $this->_productVarcharTable();
-                $where = "sku LIKE 'C%' AND entity_id IN (
-                    SELECT entity_id FROM `$entityTypeVarchar`
-                    WHERE attribute_id = ? AND store_id = 0 AND value LIKE ?
-                )";
-                $params = array($nameAttrId, '%' . $search . '%');
-                // also match on SKU directly
-                $where = "(sku LIKE 'C%') AND (sku LIKE ? OR entity_id IN (
+                $where = "(sku LIKE 'C%') AND ($enabledClause) AND (sku LIKE ? OR entity_id IN (
                     SELECT entity_id FROM `$entityTypeVarchar`
                     WHERE attribute_id = ? AND store_id = 0 AND value LIKE ?
                 ))";
-                $params = array('%' . $search . '%', $nameAttrId, '%' . $search . '%');
+                $params = array_merge($enabledParams, array('%' . $search . '%', $nameAttrId, '%' . $search . '%'));
             }
 
             $total = (int) $read->fetchOne("SELECT COUNT(*) FROM catalog_product_entity WHERE $where", $params);
