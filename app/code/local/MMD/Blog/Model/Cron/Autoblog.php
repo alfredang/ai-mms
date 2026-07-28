@@ -43,10 +43,13 @@ class MMD_Blog_Model_Cron_Autoblog
     const TZ_LOCAL     = 'Asia/Singapore';
 
     /**
-     * @param string   $trigger   'cron' | 'manual' (admin Generate Now / queue Run Now)
-     * @param int|null $productId explicit course (queue "Run Now") — bypasses the pickers
+     * @param string     $trigger   'cron' | 'manual' (admin Generate Now / queue Run Now)
+     * @param int|null   $productId explicit course (queue "Run Now") — bypasses the pickers
+     * @param array|null $brief     admin direction from the queue row:
+     *                              array{topics?:string,links?:string} — becomes part
+     *                              of the research + writer prompt input
      */
-    public function run($trigger = 'cron', $productId = null)
+    public function run($trigger = 'cron', $productId = null, $brief = null)
     {
         try {
             if (!Mage::getStoreConfigFlag('mmd_blog/autoblog/enabled')) {
@@ -73,6 +76,10 @@ class MMD_Blog_Model_Cron_Autoblog
             $course = $productId ? $this->_courseById((int) $productId) : $this->_pickCourse();
             if (!$course) {
                 return $this->_log('skipped: no unblogged course with a URL found');
+            }
+            if (is_array($brief)) {
+                $course['topics'] = trim((string) ($brief['topics'] ?? ''));
+                $course['links']  = trim((string) ($brief['links'] ?? ''));
             }
 
             // Agent 1 — topic research (web search). Null when unavailable; the
@@ -747,14 +754,17 @@ class MMD_Blog_Model_Cron_Autoblog
             $write = Mage::getSingleton('core/resource')->getConnection('core_write');
             for ($i = 0; $i < 20; $i++) {
                 $row = $read->fetchRow(
-                    'SELECT queue_id, product_id FROM mmd_blog_queue ORDER BY position ASC, queue_id ASC LIMIT 1');
+                    'SELECT queue_id, product_id, topics, links FROM mmd_blog_queue ORDER BY position ASC, queue_id ASC LIMIT 1');
                 if (!$row) {
                     return null;
                 }
                 $write->delete('mmd_blog_queue', array('queue_id = ?' => (int) $row['queue_id']));
                 $course = $this->_courseById((int) $row['product_id']);
                 if ($course) {
-                    $this->_log('picked queued course ' . $course['sku'] . ' (product ' . (int) $row['product_id'] . ')');
+                    $course['topics'] = trim((string) ($row['topics'] ?? ''));
+                    $course['links']  = trim((string) ($row['links'] ?? ''));
+                    $this->_log('picked queued course ' . $course['sku'] . ' (product ' . (int) $row['product_id'] . ')'
+                        . ($course['topics'] !== '' ? ' with admin topics' : ''));
                     return $course;
                 }
                 $this->_log('queue head product ' . (int) $row['product_id'] . ' unusable — trying next');
@@ -835,13 +845,25 @@ class MMD_Blog_Model_Cron_Autoblog
                 . 'keyPoints (array of 4-7 strings — specific facts, numbers, product names, versions, dates found in research), '
                 . 'sources (array of {title, url} for the 3-5 most authoritative pages consulted).';
 
+            $adminTopics = trim((string) ($course['topics'] ?? ''));
+            $adminLinks  = trim((string) ($course['links'] ?? ''));
+            $adminBlock  = '';
+            if ($adminTopics !== '') {
+                $adminBlock .= "ADMIN-SPECIFIED TOPICS (these take PRIORITY over the generic focus areas — research THESE):\n{$adminTopics}\n\n";
+            }
+            if ($adminLinks !== '') {
+                $adminBlock .= "ADMIN-PROVIDED REFERENCE LINKS (use web search to read what these pages cover and build on their content):\n{$adminLinks}\n\n";
+            }
+
             $input = "Research the latest developments relevant to this instructor-led course so a blog post about it feels current:\n"
                 . "COURSE: {$course['name']}\n"
                 . "COURSE_SUMMARY: " . substr($course['description'], 0, 600) . "\n\n"
-                . ($topics !== '' ? "FOCUS AREAS (pick whichever best fits the course): {$topics}\n\n" : '')
+                . $adminBlock
+                . ($topics !== '' && $adminTopics === '' ? "FOCUS AREAS (pick whichever best fits the course): {$topics}\n\n" : '')
                 . "Recent posts already covered these angles — find something DIFFERENT:\n- "
                 . implode("\n- ", array_map('strval', $recent)) . "\n\n"
-                . "Search the web for the newest releases, benchmarks, incidents, or industry moves tied to the course topic.";
+                . "Search the web for the newest releases, benchmarks, incidents, or industry moves tied to the course topic"
+                . ($adminTopics !== '' ? ' — staying within the admin-specified topics above' : '') . '.';
 
             $raw = $this->_invokeClaude($system, $input, 3000, true);
             if ($raw === '') {
@@ -938,12 +960,26 @@ class MMD_Blog_Model_Cron_Autoblog
                 . "\n";
         }
 
+        $adminTopics = trim((string) ($course['topics'] ?? ''));
+        $adminLinks  = trim((string) ($course['links'] ?? ''));
+        $adminBlock  = '';
+        if ($adminTopics !== '' || $adminLinks !== '') {
+            $adminBlock = "ADMIN BRIEF (the editor's direction — the post MUST be built around this):\n"
+                . ($adminTopics !== '' ? "TOPICS: {$adminTopics}\n" : '')
+                . ($adminLinks !== '' ? "REFERENCE LINKS (cite at least 2 of these as inline links with descriptive anchor text):\n{$adminLinks}\n" : '')
+                . "\n";
+        }
+
         return "Write an in-depth lead-magnet blog post promoting this course:\n"
             . "COURSE: {$course['name']}\n"
             . "COURSE_URL: {$course['url']}\n"
             . "COURSE_SUMMARY: " . substr($course['description'], 0, 1200) . "\n\n"
+            . $adminBlock
             . $researchBlock
             . "Requirements:\n"
+            . ($adminBlock !== ''
+                ? "- The ADMIN BRIEF is the assignment: cover its topics as the core of the article, not as an aside.\n"
+                : '')
             . "- 1200-1800 words of genuinely useful, IN-DEPTH analysis of the topic (not a sales page): "
             . "explain what changed, why it matters, and what practitioners should do about it.\n"
             . ($researchBlock !== ''
