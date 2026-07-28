@@ -623,7 +623,7 @@ function rmRenderPagination(total, pages) {
     var html = '';
     var prevDisabled = rmCurrentPage <= 1 ? ' disabled' : '';
     var nextDisabled = rmCurrentPage >= pages ? ' disabled' : '';
-    html += '<button class="rm-pagination-btn" onclick="rmGoToPage(' + (rmCurrentPage - 1) + ')"' + prevDisabled + '>&#8249;</button>';
+    html += '<button class="rm-pagination-btn" onclick="rmGoToPage(' + (rmCurrentPage - 1) + ')"' + prevDisabled + '>&#8592; Prev</button>';
 
     // Compact numeric window: first, ..., (cur-1), cur, (cur+1), ..., last
     function pageBtn(n) {
@@ -643,7 +643,7 @@ function rmRenderPagination(total, pages) {
         shown[n] = true;
         last = n;
     }
-    html += '<button class="rm-pagination-btn" onclick="rmGoToPage(' + (rmCurrentPage + 1) + ')"' + nextDisabled + '>&#8250;</button>';
+    html += '<button class="rm-pagination-btn" onclick="rmGoToPage(' + (rmCurrentPage + 1) + ')"' + nextDisabled + '>Next &#8594;</button>';
     ctl.innerHTML = html;
 }
 

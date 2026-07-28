@@ -2491,10 +2491,8 @@ button.atm-btn-ghost,button.atm-btn-ghost:hover{background:transparent !importan
 .at-pager{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;color:#94a3b8;font-size:13px}
 .at-pager-ctrls{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .at-pg-ell{padding:0 4px;color:#64748b;font-size:13px;user-select:none}
-button.at-pg-btn,button.at-pg-btn:hover,button.at-pg-btn:focus{padding:6px 12px !important;background:#0f172a !important;background-image:none !important;color:#cbd5e1 !important;border:1px solid #334155 !important;border-radius:6px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;min-width:34px !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
-button.at-pg-btn:hover{background:#1e293b !important}
-button.at-pg-btn.active,button.at-pg-btn.active:hover{background:#2563eb !important;border-color:#2563eb !important;color:#fff !important}
-button.at-pg-btn.disabled,button.at-pg-btn.disabled:hover{opacity:.45;cursor:not-allowed !important;background:#0f172a !important}
+/* .at-pg-btn chip styles retired 2026-07-29 — the global flat rule
+   ("Minimalist admin pagination (global)" above) styles them now. */
 @media(max-width:900px){.at-kpis{grid-template-columns:1fr}}
 
 /* --- Block 28 (template line 10655) --- */
@@ -2536,10 +2534,8 @@ button.al-action-btn:hover{opacity:.85}
 .al-pager{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;color:#94a3b8;font-size:13px}
 .al-pager-ctrls{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .al-pg-ell{padding:0 4px;color:#64748b;font-size:13px;user-select:none}
-button.al-pg-btn,button.al-pg-btn:hover,button.al-pg-btn:focus{padding:6px 12px !important;background:#0f172a !important;background-image:none !important;color:#cbd5e1 !important;border:1px solid #334155 !important;border-radius:6px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;min-width:34px !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
-button.al-pg-btn:hover{background:#1e293b !important}
-button.al-pg-btn.active,button.al-pg-btn.active:hover{background:#2563eb !important;border-color:#2563eb !important;color:#fff !important}
-button.al-pg-btn.disabled,button.al-pg-btn.disabled:hover{opacity:.45;cursor:not-allowed !important;background:#0f172a !important}
+/* .al-pg-btn chip styles retired 2026-07-29 — the global flat rule
+   ("Minimalist admin pagination (global)" above) styles them now. */
 @media(max-width:900px){.al-kpis{grid-template-columns:1fr}}
 
 /* --- Block 29 (template line 11155) --- */
@@ -2927,12 +2923,15 @@ button.mn-vp-btn.active,button.mn-vp-btn.active:hover,button.mn-vp-btn.active:fo
    keep their non-typographic properties (margins, line-height tweaks).
    Native Magento `.content-header h3` is rolled in for parity on stock
    admin pages (Cache, System Config, customer grid, etc.).
-   2026-07-02: retuned to ONE flush 18px page-title spec with a hairline
-   underline (minimalist, no gradient container) so every page title —
-   custom MMD (.dash-title/.dev-page-title), native .content-header h3,
-   and the auto-wrapped .dcf-mag-bar (18px, see sidebar-nav.css §25a) —
-   reads identically. Single source of truth: do NOT re-add a competing
-   28px rule elsewhere.
+   2026-07-02: retuned to ONE flush 18px page-title spec (minimalist, no
+   gradient container) so every page title — custom MMD
+   (.dash-title/.dev-page-title), native .content-header h3, and the
+   auto-wrapped .dcf-mag-bar (18px, see sidebar-nav.css §25a) — reads
+   identically. Single source of truth: do NOT re-add a competing 28px
+   rule elsewhere.
+   2026-07-29: hairline underline + the padding below it removed — the
+   title is now just type on the surface with a tight 10px gap to the
+   content. Do NOT re-add a border-bottom/padding-bottom here or in §25a.
 
    FRAMEWORK NET (do not turn back into a whitelist): a page title is any
    <h1 class="*-title"> OR <h2 class="*-title"> that is NOT a card/modal
@@ -2951,9 +2950,9 @@ button.mn-vp-btn.active,button.mn-vp-btn.active:hover,button.mn-vp-btn.active:fo
   font-weight:700 !important;
   color:var(--t1,#f1f5f9) !important;
   line-height:1.3 !important;
-  margin:0 0 16px !important;
-  padding:0 0 12px !important;
-  border-bottom:1px solid var(--b1,#374151) !important;
+  margin:0 0 10px !important;
+  padding:0 !important;
+  border-bottom:0 !important;
   text-shadow:none !important;
 }
 
@@ -3803,42 +3802,23 @@ button.hsp-btn-submit{
 :root[data-theme="light"] .crd-btn-ghost:hover { color:#0f172a !important; border-color:#94a3b8 !important }
 /* .crd-btn-primary keeps its cyan gradient — works on both surfaces */
 
-/* Chip-style pagination buttons (.al-pg-btn on Assign Learners,
-   .at-pg-btn on Assign Trainers) were hardcoded background:#0f172a
-   with no light-mode override — in light mode the Prev / 2 / Next
-   pills sat as slate-900 dark chips with slate-300 text, hard to
-   read on the white card. Flip bg + border to slate-50 + slate-300,
-   text to slate-700, hover to slate-100. Active stays brand-blue
-   (looks fine on both). */
-:root[data-theme="light"] button.al-pg-btn,
-:root[data-theme="light"] button.al-pg-btn:focus,
-:root[data-theme="light"] button.at-pg-btn,
-:root[data-theme="light"] button.at-pg-btn:focus {
-    background: #f1f5f9 !important;
-    color: #1e293b !important;
-    border-color: #cbd5e1 !important;
-}
-:root[data-theme="light"] button.al-pg-btn:hover:not(.disabled):not(.active),
-:root[data-theme="light"] button.at-pg-btn:hover:not(.disabled):not(.active) {
-    background: #e2e8f0 !important;
+/* Minimalist flat pagination — light mode. The global flat pager
+   ("Minimalist admin pagination (global)" above) hovers items to
+   #e2e8f0, which is invisible on the light surface — darken hover
+   instead. Base #64748b, active #2563eb and disabled opacity read
+   fine on both surfaces; only hover and ellipsis need flipping. */
+:root[data-theme="light"] button[class*="-pg-btn"]:hover:not(.disabled),
+:root[data-theme="light"] a[class*="-pg-btn"]:hover:not(.disabled),
+:root[data-theme="light"] button[class*="-page-btn"]:hover:not(.disabled),
+:root[data-theme="light"] a[class*="-page-btn"]:hover:not(.disabled),
+:root[data-theme="light"] button.pagination-btn:hover:not(.disabled),
+:root[data-theme="light"] a.pagination-btn:hover:not(.disabled) {
     color: #0f172a !important;
-    border-color: #94a3b8 !important;
 }
-:root[data-theme="light"] button.al-pg-btn.active,
-:root[data-theme="light"] button.al-pg-btn.active:hover,
-:root[data-theme="light"] button.at-pg-btn.active,
-:root[data-theme="light"] button.at-pg-btn.active:hover {
-    background: #2563eb !important;
-    border-color: #2563eb !important;
-    color: #ffffff !important;
-}
-:root[data-theme="light"] button.al-pg-btn.disabled,
-:root[data-theme="light"] button.al-pg-btn.disabled:hover,
-:root[data-theme="light"] button.at-pg-btn.disabled,
-:root[data-theme="light"] button.at-pg-btn.disabled:hover {
-    background: #f1f5f9 !important;
+:root[data-theme="light"] [class*="-pg-ellipsis"],
+:root[data-theme="light"] [class*="-page-ellipsis"],
+:root[data-theme="light"] .pagination-ellipsis {
     color: #94a3b8 !important;
-    border-color: #cbd5e1 !important;
 }
 
 /* Course Edit (DCE) — read-only courseware URL boxes (Lesson Plan,

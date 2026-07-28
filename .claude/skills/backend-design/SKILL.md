@@ -123,9 +123,12 @@ Anti-pattern: wrapping every section in a `--d3` card with 16-20px padding "for 
 
 Every admin page has exactly one page title, and it renders **identically
 everywhere**: flush on the page surface (no gradient container), `18px / 700`,
-`var(--t1)`, with a `1px var(--b1)` hairline underline and `0 0 12px` padding /
-`0 0 16px` margin. This is the minimalist look — a title, a hairline, then the
-content. No `.dcf-mag-bar` gradient behind a page title (that bar is only for
+`var(--t1)`, **no underline, no padding-below** — just bare type with a tight
+`0 0 10px` margin to the content. This is the minimalist look — a title, then
+the content. (2026-07-29: the former `1px var(--b1)` hairline underline + 12px
+padding-below were removed as dead visual weight — do NOT re-add a
+border-bottom or padding-bottom to a page title, here or in §25a.) No
+`.dcf-mag-bar` gradient behind a page title (that bar is only for
 **section-card** headers inside forms like Edit Course's "General"/"Inventory").
 
 **The single source of truth** is one rule in
@@ -137,7 +140,7 @@ page-title family by shape so new pages need zero CSS:
 .admin-main h1[class*="-title"],                                   /* every h1 *-title = page title */
 .admin-main h2[class*="-title"]:not([class*="card"]):not([class*="modal"]), /* h2 page titles, minus card/modal sub-heads */
 .admin-main .content-header h3,                                    /* native Magento page titles */
-.admin-main .content-header h3.icon-head { font-size:18px !important; … hairline … }
+.admin-main .content-header h3.icon-head { font-size:18px !important; … no border, margin:0 0 10px … }
 ```
 
 Why this shape:
@@ -228,9 +231,10 @@ choice to honour.
    column on the right when bulk operations are also per-row
    available.
 4. Pagination/footer row — `Showing X-Y of Z records | Show [20]
-   per page | First ‹ Prev 1 Next › Last` — flat-text pager
-   (`.dev-pg-btn` / `-pg-btn`), no chip backgrounds. See "Minimalist
-   pagination" below.
+   per page | ← Prev 1 2 3 … 40 Next →` — flat-text pager
+   (`.dev-pg-btn` / `-pg-btn`), no chip backgrounds, no First/Last
+   buttons (page 1 and the last page are always in the numeric
+   window). See "Minimalist pagination" below.
 
 If a screenshot of your grid wouldn't look indistinguishable from
 the All Reviews screenshot when squinted at, something is off —
@@ -462,23 +466,35 @@ ending in `-pg-btn` or `-page-btn` (e.g. `dash-pg-btn`, `al-pg-btn`,
 both `<button>` and `<a>` elements.
 
 Specs:
+- Shape: `← Prev  1 2 3 … 40  Next →` — Prev/Next always carry the
+  arrow + word; page numbers windowed with a `…` ellipsis; page 1 and
+  the last page always shown as numbers. **No First/Last buttons** —
+  they duplicate the always-visible 1 / N numbers.
 - Container: `display:flex; gap:14px; align-items:center` — applied via
   `[class$="-pager-ctrls"]`.
 - Item: `background:transparent`, `border:0`, `box-shadow:none`,
   `padding:2px 4px`, `font-size:12px`, `font-weight:400`, `color:#64748b`.
-- Hover (not disabled): `color:#e2e8f0`. Nothing else changes.
-- Active page: `color:#22d3ee`, `font-weight:600`. No background.
+- Hover (not disabled): `color:#e2e8f0` (light mode flips this to
+  `#0f172a` via the light-theme override in the same file). Nothing
+  else changes.
+- Active page: `color:#2563eb` (brand blue), `font-weight:600`. No
+  background.
 - Disabled (Prev at page 1, Next at last page): `opacity:.35`,
   `cursor:not-allowed`.
-- Ellipsis: a `<span class="…-pg-ellipsis">` with `color:#475569`.
+- Ellipsis: a `<span class="…-pg-ellipsis">` with `color:#475569`,
+  character `…` (never three dots).
 
 Markup convention (used by every existing pager):
 ```js
 var b = document.createElement('button');
 b.className = '<prefix>-pg-btn' + (opts.active ? ' active' : '')
                                 + (opts.disabled ? ' disabled' : '');
-b.textContent = label;     // 'Prev', '1', '2', …, 'Next'
+b.textContent = label;     // '← Prev', '1', '2', …, 'Next →'
 ```
+
+The Users / All Classes pager (`.rm-pagination-btn` in `rolemanager.css`)
+predates the `-pg-btn` naming net so it duplicates this spec in its own
+file — keep the two in sync if the spec ever changes.
 
 Hard rules:
 - **Never reintroduce filled "chip" pagination** (sky-blue background,
@@ -567,6 +583,27 @@ Specs:
 
 When clustering multiple icon buttons in a row, gap them with 4–6px. Group them in a
 flex container above the textarea / field they control.
+
+**Two extra traps for icon buttons (both caused real "empty box" reports):**
+
+1. **Reset `min-height` too.** §18 sets `min-height: 38px !important` on
+   `.admin-main button` — a 28×28 icon button that resets `width`/`height`/
+   `min-width` but forgets `min-height: 0 !important` still renders 28×38
+   and overflows its host (the credential eye-reveal did exactly this).
+   Copy the full chrome-icon reset from the "icon > button" section — it
+   now includes `min-height`.
+2. **Register the class in the global `> svg` sizing net.** An inline
+   `<svg width="14">` child inside a flex icon button can compute to
+   **width 0** (glyph invisible → "the icon shows empty") unless a CSS
+   rule pins it. The component net lives in `dark-theme.css` (~§ icon
+   buttons): `.admin-main .mmd-grid-action > svg, .mmd-iconbtn > svg,
+   .mn-fq-act > svg, .crd-pwd-eye > svg, .cs-eye-btn > svg { width/height
+   14px, display:block, flex:0 0 auto }`. **Every new icon-button class
+   with an inline SVG must be appended to that selector list** — page-
+   scoped `<style>` blocks can go stale (long-lived SPA tabs, cached
+   bundles), and the global net is the safety fallback that keeps the
+   glyph visible. Diagnose with `getBoundingClientRect().width` on the
+   svg (must be >0) in headless Chrome, not by grepping CSS.
 
 ## Hard rule: icon > button for chrome-level actions
 
@@ -754,7 +791,7 @@ When a mass-action Submit kicks off a long-running operation (reindex, cache flu
   - **Separation = one hairline** between rows (`tr + tr td { border-top: 1px var(--b1) }`), never a background. Hover = subtle `rgba(96,165,250,0.06)` wash on the row (no teal text, no zebra).
   - New admin grid needs zero grid CSS — it inherits §26 automatically. Never re-add a card background, zebra, or per-grid font-size; that's the drift §26 exists to kill.
 - **Custom MMD tables** (dashboard registrations, learner/trainer lists, review lists, config tables) — `sidebar-nav.css` §27 applies the SAME spec as §26 so the WHOLE backend has one table look. It is a **framework net, not a whitelist**: MMD data tables all use the `*-table` naming convention, so §27 matches `.admin-main table[class*="-table"]` (+ the one odd `.cs-tbl`) — every current and future custom table (`dash-table`, `al-table`, `at-table`, `trn-table`, `dash-detail-table`, `mm-table`, …) inherits transparent cells, `var(--font-sans)` 12px, `6px 10px` padding, single-row, hairline separators, flat 11px uppercase headers, and flat (un-carded) `*-table-wrap` wrappers — automatically. §27 does NOT force cell text color, so `.mm-table` semantic modifiers (`td.muted`/`strong`/`status`) survive. Rule for new custom tables: name it `…-table`, give it a `thead`/`tbody`, and it just works — never set your own padding/font-size/header background. Incident: page after page of bespoke `*-table` CSS (11.5–13px fonts, 4–16px padding, header cards) read as different components until the net unified them.
-- **Mass-action / toolbar:** slim self-contained card, **detached** from the grid (own `margin-bottom` + full radius — don't fuse it to the grid header), single flat flex row, selection links left, Actions+Submit right with **no nested panel box**. Controls ~`30px` tall. The global rule is `sidebar-nav.css` §16; the trap is that Magento wraps Actions+Submit in a bare `<fieldset>` (no class) and the right `<td>` may contain `<form>` / nested `<div>`s that pick up `--d3` bg + 20px padding from the generic admin form rules, rendering as a doubled gray panel-in-a-panel. §16a flattens every `[id$="_massaction"] fieldset`, `.massaction fieldset`, `.massaction form`, `.massaction form > div` (transparent bg, no border, no padding). §16b strips the dark-pill background off `.massaction a` so Select All / Unselect All / Select Visible / Unselect Visible render as plain blue links — they're navigation, not buttons. §16c sets the selection-links `td` to `inline-flex; gap:14px;`. Wrapper padding stays tight at `6px 12px`. Pattern reference: the `body.adminhtml-cache-index` block at the end of `sidebar-nav.css`.
+- **Mass-action / toolbar: FLAT — no grey card, ever.** The toolbar is a single slim flex row sitting **directly on the page surface**: `background: transparent`, no border, no radius, no `margin-bottom`; the ONLY separation from the table body is a single `border-bottom: 1px solid var(--b1)` hairline. Selection links left, Actions+Submit right with **no nested panel box**. Controls ~`24-30px` tall. The `--d4`-filled rounded "self-contained card" toolbar is the **retired** look — Cache Management and Index Management were the last two offenders (their §24 per-page overrides re-painted `var(--d4)` + border + 10px radius) and were flattened 2026-07-29; never re-add a fill/border/radius to `[id$="_massaction"]` or `.massaction`, globally or page-scoped. **Toolbar selects (Actions / per-page) are transparent + `1px var(--b2)` border — never a `--d4`/`--d6` grey fill** (the no-gray-inputs hard rule applies to toolbar selects too; `color-scheme: dark` on `:root` makes the native widget render dark). The global rule is `sidebar-nav.css` §16; the trap is that Magento wraps Actions+Submit in a bare `<fieldset>` (no class) and the right `<td>` may contain `<form>` / nested `<div>`s that pick up `--d3` bg + 20px padding from the generic admin form rules, rendering as a doubled gray panel-in-a-panel. §16a flattens every `[id$="_massaction"] fieldset`, `.massaction fieldset`, `.massaction form`, `.massaction form > div` (transparent bg, no border, no padding). §16b strips the dark-pill background off `.massaction a` so Select All / Unselect All / Select Visible / Unselect Visible render as plain blue links — they're navigation, not buttons. §16c sets the selection-links `td` to `inline-flex; gap:14px;`. Wrapper padding stays tight at `6px 12px`.
 - **Status badges:** one clean pill — `padding:3px 12px`, `border-radius:999px`, tinted bg at ~15% alpha + solid semantic text color, 1px tinted ring at ~35% alpha. Token map: `notice`/`minor` → `--green`, `major` → `--yellow`, `critical` → `--red`. The global rule lives at `dark-theme.css` §19. **Don't style only the outer `.grid-severity-*`** — Magento 1's legacy `boxes.css` applies the `bg_notifications.gif` sprite to the inner `<span>` at `background-position: 100%`, and the right edge of that sprite is a serrated/torn shape that leaks through as notched edges on the pill. §19a flattens the inner span first (`.grid-severity-* span`, `.cell-status`, `.cell-status span` → `background:none`, `padding:0`, `border:0`); §19b/§19c then style the pill on the outer. If you add a new severity class, extend §19a's selector list too — otherwise the sprite re-appears.
 - **KPI cards:** only where genuinely useful. The JS auto-injects them on grids via generic heuristics — opt a grid out (like `cache_grid_table`) when the labels would be wrong or the cards just add clutter.
 
@@ -780,6 +817,37 @@ for hairline separators instead of `tr { border-bottom: ... }` (avoids
 ambiguity with `:last-child`). Buttons inside such rows shrink to
 ~30px height to keep the panel compact.
 
+### h3 inside a card = 14px sub-head (global shape net — do not re-fix per page)
+
+The unified heading ramp at the bottom of `sidebar-nav.css` forces
+`.admin-main h1/h2/h3` to the 28px page-title scale with `!important` —
+which used to clobber every card's `<h3>` sub-heading (`.crd-card h3` on
+Credentials rendered "Anthropic (Claude API)" at page-title size even
+though the template asked for 15px; same for `.mn-card`, `.crd-smtp-card`).
+A card heading is a section label, not a page title.
+
+The global exception (right after the ramp in `sidebar-nav.css`) is a
+**shape net**:
+
+```css
+.admin-main [class*="card"]:not(.mmd-auto-card):not(.dcf-mag) h3 {
+    font-size: 14px !important;
+    line-height: 1.4 !important;
+    margin: 0 0 12px !important;
+}
+```
+
+Rules:
+- Name a new card wrapper `…card…` (e.g. `.foo-card`) and its `<h3>`
+  sub-head gets the 14px scale automatically — zero per-page CSS.
+- `.mmd-auto-card` / `.dcf-mag` are excluded because the grid auto-wrap
+  can hoist the real page title inside them — never remove those guards.
+- Don't set a per-page `font-size` on a card `<h3>` without `!important`
+  and expect it to hold — the ramp wins; rely on the net instead.
+- A page title never lives inside a card wrapper (page titles are flush
+  on the surface per the page-title rule above); if you find one, the
+  markup is wrong, not the CSS.
+
 ## Hard rule: NO gray backgrounds on inputs or table cells
 
 **Banned across the entire admin.** The legacy Magento "gray pill" input
@@ -792,6 +860,7 @@ Rules:
 
 - **Inputs** (`.input-text`, `<input type=text|password|email|number|url>`, `<textarea>`) are **transparent** with a `1px var(--b2)` border. Focus gets a faint blue wash (`rgba(96,165,250,0.06)`) — never a gray fill. Readonly/disabled keep the transparent background and switch the text to `--t4`.
 - **Table cells** (`<td>`, including zebra striping) are transparent. Row separation comes from `1px var(--b1)` hairlines on `tr`, not from alternating gray backgrounds. The canonical rule lives in `sidebar-nav.css` §20 (the `.admin-main .input-text` block); per-page overrides must keep `background: transparent !important` for inputs.
+- **Toolbar selects and mass-action bars are covered by this rule too.** A `<select>` in a grid toolbar is transparent + `1px var(--b2)` border (the native widget renders dark via `color-scheme: dark` on `:root`); a `[id$="_massaction"]` / `.massaction` wrapper is transparent with a single bottom hairline. Grey-filled selects (`--d6`) and grey-card toolbars (`--d4` + radius) were removed from Cache/Index Management on 2026-07-29 — don't reintroduce them in per-page overrides.
 - **No new exceptions.** If you find yourself reaching for `background: var(--d4)`/`--d5` on a `<td>` or an `<input>`, that's the bug — pick a border, a hover ring, or a card wrapper instead.
 - When adding a new admin page or overriding a core template, scope inputs explicitly: `body.<route> .grid input.input-text { background: transparent !important; }`. The global rule already handles it, but cached/merged CSS (`media/css/HASH.css`) sometimes lags — explicit per-page rules survive the cache.
 

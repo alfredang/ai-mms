@@ -6887,11 +6887,15 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
                         $_attBucket = (isset($_c['time_status']) && $_c['time_status'] === 'past') ? 'completed' : 'active';
                         $_attUrl    = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/index', array('run_id' => (int)$_c['cr_run_id'], 'bucket' => $_attBucket));
                     ?>
+                    <?php /* Icon-only footer actions (.mmd-iconbtn 26x26 ghost).
+                             Native title tooltip — the card has overflow:hidden,
+                             so the .mmd-tip pill would clip at the footer edge. */ ?>
                     <button type="button"
+                            class="mmd-iconbtn"
                             onclick="event.preventDefault();event.stopPropagation();window.location.href='<?php echo $this->jsQuoteEscape($_attUrl) ?>';"
-                            title="Take attendance for this class"
-                            style="background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.3);color:#22c55e;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;">
-                        Take Attendance
+                            title="Take Attendance"
+                            aria-label="Take Attendance">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1" ry="1"/><path d="M9 12l2 2 4-4"/></svg>
                     </button>
                     <?php endif; ?>
                     <?php /* Feedback QR is a TRAINER tool (shown to the class in
@@ -6899,16 +6903,23 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
                              (owner request 2026-07-07). */ ?>
                     <?php if ($activeRole === 'trainer' && !empty($_c['cr_run_id'])): ?>
                     <button type="button"
+                            class="mmd-iconbtn"
                             onclick="event.preventDefault();event.stopPropagation();lmcShowFeedback(<?php echo (int)$_c['cr_run_id'] ?>, '<?php echo $this->jsQuoteEscape($_c['name']) ?>', '<?php echo $this->jsQuoteEscape($_c['sku']) ?>');"
-                            title="Course Feedback QR"
-                            style="background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.3);color:#60a5fa;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;">
-                        Feedback QR
+                            title="Feedback QR"
+                            aria-label="Feedback QR">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="5" height="5" rx="1"/><rect x="16" y="3" width="5" height="5" rx="1"/><rect x="3" y="16" width="5" height="5" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M21 21v.01"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/><path d="M3 12h.01"/><path d="M12 3h.01"/><path d="M12 16v.01"/><path d="M16 12h1"/><path d="M21 12v.01"/><path d="M12 21v-1"/></svg>
                     </button>
                     <?php endif; ?>
                     </div>
                 </div>
             </a>
             <?php endforeach; ?>
+        </div>
+        <?php /* Flat pager (global [class*="-pg-btn"] rules in admin-dashboard.css).
+                 Hidden by lmcRender() while the filtered set fits on one page. */ ?>
+        <div class="dash-pager" id="lmc-pager" style="display:none;">
+            <div class="dash-pager-info" id="lmc-pager-info"></div>
+            <div class="lmc-pager-ctrls" id="lmc-pager-ctrls"></div>
         </div>
         <?php endif; ?>
         <?php /* per-panel footer removed — the single site footer is page.phtml's .admin-page-footer */ ?>
@@ -7032,21 +7043,92 @@ document.getElementById('lmc-feedback-modal').addEventListener('click', function
 </script>
 
 <script type="text/javascript">
+window._lmcFilter  = 'all';
+window._lmcQuery   = '';
+window._lmcPage    = 1;
+window._lmcPerPage = 12;
+
 function lmcFilter(type, btn) {
     var tabs = document.querySelectorAll('.lmc-tab');
     for (var i = 0; i < tabs.length; i++) tabs[i].classList.remove('active');
     btn.classList.add('active');
-    var cards = document.querySelectorAll('.lmc-card');
-    for (var i = 0; i < cards.length; i++) {
-        cards[i].style.display = (type === 'all' || cards[i].getAttribute('data-time') === type) ? '' : 'none';
-    }
+    window._lmcFilter = type;
+    window._lmcPage = 1;
+    lmcRender();
 }
 function lmcSearch(q) {
-    q = q.toLowerCase();
+    window._lmcQuery = q.toLowerCase();
+    window._lmcPage = 1;
+    lmcRender();
+}
+// Single render pass: filter (tab + search) -> page slice -> pager. Same
+// shape as atRender()/alRender() so all paged lists behave identically.
+function lmcRender() {
     var cards = document.querySelectorAll('.lmc-card');
+    var matched = [];
     for (var i = 0; i < cards.length; i++) {
-        cards[i].style.display = (!q || cards[i].getAttribute('data-search').indexOf(q) >= 0) ? '' : 'none';
+        var c = cards[i];
+        var ok = (window._lmcFilter === 'all' || c.getAttribute('data-time') === window._lmcFilter)
+              && (!window._lmcQuery || (c.getAttribute('data-search') || '').indexOf(window._lmcQuery) >= 0);
+        c.style.display = 'none';
+        if (ok) matched.push(c);
     }
+    var perPage = window._lmcPerPage;
+    var total = matched.length;
+    var pages = Math.max(1, Math.ceil(total / perPage));
+    if (window._lmcPage > pages) window._lmcPage = pages;
+    if (window._lmcPage < 1) window._lmcPage = 1;
+    var start = (window._lmcPage - 1) * perPage;
+    var end = Math.min(start + perPage, total);
+    for (var j = start; j < end; j++) matched[j].style.display = '';
+
+    var pager = document.getElementById('lmc-pager');
+    var info  = document.getElementById('lmc-pager-info');
+    var ctrls = document.getElementById('lmc-pager-ctrls');
+    if (!pager || !info || !ctrls) return;
+    if (total <= perPage) { pager.style.display = 'none'; return; }
+    pager.style.display = '';
+    info.textContent = 'Showing ' + (start + 1) + '-' + end + ' of ' + total + ' classes';
+    ctrls.innerHTML = '';
+    var cur = window._lmcPage;
+    var addBtn = function(label, page, isActive, isDisabled) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'lmc-pg-btn' + (isActive ? ' active' : '') + (isDisabled ? ' disabled' : '');
+        b.textContent = label;
+        if (!isDisabled && page) b.onclick = function() { window._lmcPage = page; lmcRender(); };
+        ctrls.appendChild(b);
+    };
+    var addEll = function() {
+        var s = document.createElement('span');
+        s.className = 'lmc-pg-ellipsis';
+        s.textContent = '…';
+        ctrls.appendChild(s);
+    };
+    var nums = [];
+    if (pages <= 10) {
+        for (var p1 = 1; p1 <= pages; p1++) nums.push(p1);
+    } else {
+        nums.push(1);
+        for (var p2 = cur - 2; p2 <= cur + 2; p2++) {
+            if (p2 > 1 && p2 < pages) nums.push(p2);
+        }
+        nums.push(pages);
+        var dedup = [];
+        for (var di = 0; di < nums.length; di++) {
+            if (di === 0 || nums[di] !== nums[di - 1]) dedup.push(nums[di]);
+        }
+        nums = dedup;
+    }
+    addBtn('← Prev', cur - 1, false, cur <= 1);
+    var prev = 0;
+    for (var k = 0; k < nums.length; k++) {
+        var n = nums[k];
+        if (prev && n - prev > 1) addEll();
+        addBtn(String(n), n, n === cur, false);
+        prev = n;
+    }
+    addBtn('Next →', cur + 1, false, cur >= pages);
 }
 function lmcSetView(view, btn) {
     var grid = document.getElementById('lmc-grid');
@@ -7083,6 +7165,9 @@ function lmcSetView(view, btn) {
     lmcResetSearch();
     setTimeout(lmcResetSearch, 300);
     setTimeout(lmcResetSearch, 1000);
+    // Initial paint: apply the 12-per-page slice to the server-rendered
+    // cards (lmcResetSearch only re-renders when autofill dirtied the box).
+    lmcRender();
 })();
 </script>
 </div>
@@ -10144,11 +10229,14 @@ $_credMask = function ($v) {
     width: 28px !important;
     height: 28px !important;
     min-width: 0 !important;
+    min-height: 0 !important;
+    max-height: none !important;
     background: transparent !important;
     background-image: none !important;
     border: none !important;
     border-radius: 6px !important;
     box-shadow: none !important;
+    text-shadow: none !important;
     outline: none !important;
     padding: 0 !important;
     margin: 0 !important;
@@ -12364,7 +12452,7 @@ window.atRender = function() {
             nums = dedup;
         }
 
-        addBtn('Prev', cur - 1, false, cur <= 1);
+        addBtn('← Prev', cur - 1, false, cur <= 1);
         var prev = 0;
         for (var k = 0; k < nums.length; k++) {
             var n = nums[k];
@@ -12372,7 +12460,7 @@ window.atRender = function() {
             addBtn(String(n), n, n === cur, false);
             prev = n;
         }
-        addBtn('Next', cur + 1, false, cur >= pages);
+        addBtn('Next →', cur + 1, false, cur >= pages);
     } else if (c) {
         c.innerHTML = '';
     }
@@ -13066,7 +13154,7 @@ window.alRender = function() {
             }
             nums = dedup;
         }
-        addBtn('Prev', cur - 1, false, cur <= 1);
+        addBtn('← Prev', cur - 1, false, cur <= 1);
         var prev = 0;
         for (var k = 0; k < nums.length; k++) {
             var n = nums[k];
@@ -13074,7 +13162,7 @@ window.alRender = function() {
             addBtn(String(n), n, n === cur, false);
             prev = n;
         }
-        addBtn('Next', cur + 1, false, cur >= pages);
+        addBtn('Next →', cur + 1, false, cur >= pages);
     } else if (c) {
         c.innerHTML = '';
     }
@@ -15629,9 +15717,9 @@ window.dashRenderPager = function(pages) {
         if (!opts.disabled && page) b.onclick = function(){ window._dashPage = page; window.dashRenderPage(); };
         c.appendChild(b);
     }
-    function ellipsis() { var e = document.createElement('span'); e.className = 'dash-pg-ellipsis'; e.textContent = '...'; c.appendChild(e); }
+    function ellipsis() { var e = document.createElement('span'); e.className = 'dash-pg-ellipsis'; e.textContent = '…'; c.appendChild(e); }
 
-    btn('Prev', window._dashPage - 1, { disabled: window._dashPage <= 1 });
+    btn('← Prev', window._dashPage - 1, { disabled: window._dashPage <= 1 });
 
     var maxNumeric = 5;
     var start = Math.max(1, window._dashPage - 2);
@@ -15642,7 +15730,7 @@ window.dashRenderPager = function(pages) {
     for (var p = start; p <= end; p++) btn(String(p), p, { active: p === window._dashPage });
     if (end < pages) { if (end < pages - 1) ellipsis(); btn(String(pages), pages); }
 
-    btn('Next', window._dashPage + 1, { disabled: window._dashPage >= pages });
+    btn('Next →', window._dashPage + 1, { disabled: window._dashPage >= pages });
 };
 
 (function(){
@@ -15732,8 +15820,8 @@ window.trnRender = function() {
         if (!opts.disabled && page) b.onclick = function(){ window._trnPage = page; window.trnRender(); };
         c.appendChild(b);
     }
-    function dots() { var x=document.createElement('span'); x.className='dash-pg-ellipsis'; x.textContent='...'; c.appendChild(x); }
-    btn('Prev', window._trnPage-1, { disabled: window._trnPage<=1 });
+    function dots() { var x=document.createElement('span'); x.className='dash-pg-ellipsis'; x.textContent='…'; c.appendChild(x); }
+    btn('← Prev', window._trnPage-1, { disabled: window._trnPage<=1 });
     var maxNum = 5;
     var st = Math.max(1, window._trnPage-2);
     var ed = Math.min(pages, st+maxNum-1);
@@ -15741,7 +15829,7 @@ window.trnRender = function() {
     if (st > 1) { btn('1', 1); if (st > 2) dots(); }
     for (var p=st; p<=ed; p++) btn(String(p), p, { active: p === window._trnPage });
     if (ed < pages) { if (ed < pages-1) dots(); btn(String(pages), pages); }
-    btn('Next', window._trnPage+1, { disabled: window._trnPage>=pages });
+    btn('Next →', window._trnPage+1, { disabled: window._trnPage>=pages });
 };
 
 window.trnReset = function() {

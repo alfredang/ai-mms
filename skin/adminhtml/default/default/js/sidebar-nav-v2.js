@@ -1243,9 +1243,9 @@ document.observe('dom:loaded', function() {
             return btn;
         }
 
-        // First + Prev
-        addBtn('First', 1, currentPage <= 1 ? 'disabled' : '');
-        addBtn('&lsaquo; Prev', currentPage - 1, currentPage <= 1 ? 'disabled' : '');
+        // Prev (no First/Last — page 1 and the last page are always in the
+        // numeric window, so the extra buttons were redundant noise)
+        addBtn('&larr; Prev', currentPage - 1, currentPage <= 1 ? 'disabled' : '');
 
         // Page numbers with ellipsis
         var pageNumbers = getPageNumbers(currentPage, totalPages);
@@ -1260,9 +1260,8 @@ document.observe('dom:loaded', function() {
             lastNum = num;
         });
 
-        // Next + Last
-        addBtn('Next &rsaquo;', currentPage + 1, currentPage >= totalPages ? 'disabled' : '');
-        addBtn('Last', totalPages, currentPage >= totalPages ? 'disabled' : '');
+        // Next
+        addBtn('Next &rarr;', currentPage + 1, currentPage >= totalPages ? 'disabled' : '');
 
         bar.insert(pages);
 
