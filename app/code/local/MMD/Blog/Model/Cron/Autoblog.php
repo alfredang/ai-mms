@@ -1120,8 +1120,18 @@ class MMD_Blog_Model_Cron_Autoblog
             $cleaned = substr($cleaned, $start, $end - $start + 1);
         }
         $data = json_decode($cleaned, true);
+        if (!is_array($data)) {
+            // The CLI sometimes emits literal newlines/tabs INSIDE string
+            // values (invalid JSON, intermittent). Escape control chars within
+            // quoted strings only — whitespace between tokens stays untouched.
+            $repaired = preg_replace_callback('/"(?:[^"\\\\]|\\\\.)*"/s', function ($m) {
+                return str_replace(array("\r\n", "\r", "\n", "\t"), array('\n', '\n', '\n', '\t'), $m[0]);
+            }, $cleaned);
+            $data = json_decode($repaired, true);
+        }
         if (!is_array($data) || empty($data['title']) || empty($data['contentHtml'])) {
-            Mage::throwException('Autoblog: invalid JSON from Claude (head: ' . substr($cleaned, 0, 120) . ')');
+            Mage::throwException('Autoblog: invalid JSON from Claude (' . json_last_error_msg()
+                . '; head: ' . substr($cleaned, 0, 120) . ' | tail: ' . substr($cleaned, -80) . ')');
         }
         return array(
             'title'          => trim((string) $data['title']),
