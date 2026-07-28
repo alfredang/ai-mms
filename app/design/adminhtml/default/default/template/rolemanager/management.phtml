@@ -191,8 +191,9 @@ $badgeColors = array(
 ?>
 
 <?php
-// LMS trainer sync controls (admin-level only).
-$_tiCanManage = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', 'training_provider', 'developer'));
+// LMS trainer sync controls (admin-level only; hidden on the Admin Users view).
+$_tiCanManage = $preselectRole !== 'admin'
+    && Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', 'training_provider', 'developer'));
 $_tiSvc       = Mage::getModel('mmd_rolemanager/trainerImportService');
 $_tiLmsUrl    = $_tiSvc->getLmsUrl();
 $_tiHasKey    = $_tiSvc->getApiKey() !== '';
