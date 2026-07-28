@@ -51,7 +51,7 @@ This system runs as a **franchise model**:
 | 💰 **Funding & subsidy hooks** | SG SkillsFuture Credit / WSQ / IBF, MY HRDC — funding tiers (Baseline, MCES) auto-calculated. |
 | 🧾 **Pro Forma Invoices** | On-demand, self-sponsored SkillsFuture-claim pro formas with GST settled on the pre-subsidy list price. |
 | 🏫 **Automatic class formation** | Orders materialise into classes & rosters out-of-band via cron — the storefront HTTP path stays untouched. |
-| 📝 **Course feedback → Reviews** | QR-linked per-class feedback form (customisable via the Course Reviews → Form Builder) whose submissions save straight into the Magento review system as approved course reviews with per-dimension star ratings. |
+| 📝 **Course feedback → Reviews** | QR-linked per-class feedback form (customisable via the Course Reviews → Form Builder) whose submissions save straight into the Magento review system as approved course reviews with per-dimension star ratings. Trainers show the QR from the **Course Feedback** section on their class page; the form auto-fills the course title, code, run ID and class dates from the scanned class. |
 | 👥 **Six-role admin** | Learner / Trainer / Developer / Marketing / Admin / Training Provider with session-based role switching. |
 | 🎒 **Learner login** | Dedicated `/learnerlogin` page on every site — learners sign in with their storefront email + password and land straight on the learner dashboard (no role selection); staff keep using the admin portal. |
 | 🔁 **SG → partner course sync** | Manual-only, one-way export of non-WSQ (C-prefix) courses to MY/GH — bulk "Sync All" or per-course "Sync One" from the partner admin. Partner-owned course fees, schedules and trainer info are never overwritten on update. |
