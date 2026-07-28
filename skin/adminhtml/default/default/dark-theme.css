@@ -6168,21 +6168,22 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
     display: inline-flex;
     margin-right: 6px;
 }
-/* Bare glyph — NOT a button. The generic admin button rule (sidebar-nav.css
-   §18 + boxes.css) styles every <button> with padding/border/bg/radius;
-   we override each of those explicitly with !important so the bell renders
-   as just an icon. See backend-design SKILL.md "icon > button for chrome". */
-.admin-topbar .audit-bell-btn,
-.audit-bell-btn {
+/* The topbar sits INSIDE .admin-main, so sidebar-nav.css §18's
+   `.admin-main button:not(...)` chain (0,5,1 + !important, later file)
+   beats any bare-class rule here: its 8px/20px padding squeezed the SVG
+   to 0 width and its `button span { background:none }` killed the badge.
+   ID-scoping via the wrap's #audit-bell (1,1,0) outranks §18 for good.
+   Geometry matches the neighbouring header controls (38px, 9px radius). */
+#audit-bell .audit-bell-btn {
     position: relative !important;
-    width: 28px !important;
-    height: 28px !important;
+    width: 38px !important;
+    height: 38px !important;
     min-width: 0 !important;
     min-height: 0 !important;
     padding: 0 !important;
     margin: 0 !important;
-    border: 0 !important;
-    border-radius: 0 !important;
+    border: 1px solid var(--b2, #334155) !important;
+    border-radius: 9px !important;
     background: transparent !important;
     background-image: none !important;
     box-shadow: none !important;
@@ -6199,32 +6200,34 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
     -webkit-appearance: none !important;
             appearance: none !important;
 }
-.audit-bell-btn:focus { outline: none; box-shadow: none !important; }
-.audit-bell-btn:focus-visible {
+#audit-bell .audit-bell-btn:focus { outline: none; box-shadow: none !important; }
+#audit-bell .audit-bell-btn:focus-visible {
     outline: 2px solid rgba(255,255,255,0.35);
     outline-offset: 2px;
-    border-radius: 4px;
+    border-radius: 9px;
 }
-.audit-bell-btn:hover {
+#audit-bell .audit-bell-btn:hover {
     color: #fff !important;
-    background: transparent !important;
-    border-color: transparent !important;
+    background: rgba(96, 165, 250, 0.10) !important;
     box-shadow: none !important;
     transform: translateY(-1px);
 }
-.audit-bell-btn:active {
+#audit-bell .audit-bell-btn:active {
     background: transparent !important;
     box-shadow: none !important;
 }
-.audit-bell-btn svg {
-    display: block;
+#audit-bell .audit-bell-btn svg {
+    display: block !important;
+    width: 18px !important;
+    height: 18px !important;
+    flex-shrink: 0 !important;
     pointer-events: none;
 }
-.audit-bell-btn.audit-bell-critical { color: #ff3b5c !important; filter: drop-shadow(0 0 6px rgba(255,59,92,0.55)); }
-.audit-bell-btn.audit-bell-warning  { color: #f5c451 !important; filter: drop-shadow(0 0 5px rgba(245,196,81,0.45)); }
-.audit-bell-btn.audit-bell-info     { color: #8aa1bd !important; }
-.audit-bell-btn.audit-bell-critical:hover { color: #ff5b78 !important; filter: drop-shadow(0 0 9px rgba(255,59,92,0.75)); }
-.audit-bell-btn.audit-bell-warning:hover  { color: #facc55 !important; filter: drop-shadow(0 0 8px rgba(245,196,81,0.65)); }
+#audit-bell .audit-bell-btn.audit-bell-critical { color: #ff3b5c !important; filter: drop-shadow(0 0 6px rgba(255,59,92,0.55)); }
+#audit-bell .audit-bell-btn.audit-bell-warning  { color: #f5c451 !important; filter: drop-shadow(0 0 5px rgba(245,196,81,0.45)); }
+#audit-bell .audit-bell-btn.audit-bell-info     { color: #8aa1bd !important; }
+#audit-bell .audit-bell-btn.audit-bell-critical:hover { color: #ff5b78 !important; filter: drop-shadow(0 0 9px rgba(255,59,92,0.75)); }
+#audit-bell .audit-bell-btn.audit-bell-warning:hover  { color: #facc55 !important; filter: drop-shadow(0 0 8px rgba(245,196,81,0.65)); }
 
 /* Soft swing so a critical bell catches the eye without screaming. */
 @keyframes audit-bell-swing {
@@ -6236,27 +6239,30 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
 }
 .audit-bell-critical svg { animation: audit-bell-swing 3s ease-in-out infinite; transform-origin: 50% 18%; }
 
-.audit-bell-badge {
+/* !important on background/color: §18's `.admin-main button span
+   { background:none !important; color:var(--blue) !important }` reaches
+   the badge span and made the "19" bubble transparent + blue. */
+#audit-bell .audit-bell-badge {
     position: absolute;
-    top: -3px;
+    top: -5px;
     right: -6px;
     min-width: 15px;
     height: 15px;
     padding: 0 4px;
     border-radius: 8px;
-    font-size: 9.5px;
+    font-size: 9.5px !important;
     font-weight: 700;
     line-height: 15px;
     text-align: center;
-    background: #ff3b5c;
-    color: #fff;
+    background: #ff3b5c !important;
+    color: #fff !important;
     box-shadow: 0 0 0 2px var(--d2, #111827);
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.2px;
     pointer-events: none;
 }
-.audit-bell-badge-warning { background: #f5c451; color: #111827; }
-.audit-bell-badge-info    { background: #8aa1bd; color: #111827; }
+#audit-bell .audit-bell-badge-warning { background: #f5c451 !important; color: #111827 !important; }
+#audit-bell .audit-bell-badge-info    { background: #8aa1bd !important; color: #111827 !important; }
 
 .audit-bell-dropdown {
     position: absolute;

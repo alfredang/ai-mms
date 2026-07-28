@@ -53,27 +53,67 @@ $activeRoleLabel = $helper->getRoleLabel($activeRole);
 $userRoles = $helper->getUserRoles();
 $switchUrl = Mage::helper('adminhtml')->getUrl('adminhtml/roleswitch/switch');
 
-/* Audit findings — read once and surface as a bell icon in the topbar.
-   JSON written by scripts/audit/record-findings.php; clear with --clear. */
-$_auditFile = Mage::getBaseDir('var') . '/audit-notifications/findings.json';
-$_audit = null; $_auditTotal = 0;
+/* Audit findings — surfaced as a bell icon in the topbar.
+   Primary source: mmd_audit_issues (MMD_Auditfix nightly scanners), counted
+   as DISTINCT open titles per severity (scanners re-log the same findings
+   every night, so raw row counts are meaningless). Cached 10 min — the
+   table has 100k+ rows and this template runs on every admin page.
+   Fallback: var/audit-notifications/findings.json written by
+   scripts/audit/record-findings.php (clear with --clear). */
+$_auditTotal = 0;
 $_aHigh = $_aMed = $_aQuick = $_aBig = $_aLow = 0;
 $_aSeverity = ''; $_aSummary = ''; $_aWhen = ''; $_aScope = ''; $_aReport = ''; $_aSource = '';
-if (is_file($_auditFile)) {
-    $_audit = @json_decode(file_get_contents($_auditFile), true);
-    if (is_array($_audit) && !empty($_audit['counts'])) {
-        $_aHigh  = (int)($_audit['counts']['high']      ?? 0);
-        $_aMed   = (int)($_audit['counts']['medium']    ?? 0);
-        $_aQuick = (int)($_audit['counts']['quick_win'] ?? 0);
-        $_aBig   = (int)($_audit['counts']['big_bet']   ?? 0);
-        $_aLow   = (int)($_audit['counts']['low']       ?? 0);
-        $_auditTotal = $_aHigh + $_aMed + $_aQuick + $_aBig + $_aLow;
+try {
+    $_aCacheKey = 'mmd_audit_bell_counts';
+    $_aCached = Mage::app()->loadCache($_aCacheKey);
+    $_aDb = $_aCached ? @json_decode($_aCached, true) : null;
+    if (!is_array($_aDb)) {
+        $_aRead  = Mage::getSingleton('core/resource')->getConnection('core_read');
+        $_aTable = Mage::getSingleton('core/resource')->getTableName('mmd_audit_issues');
+        $_aDb = array('high' => 0, 'medium' => 0, 'low' => 0, 'latest' => '', 'title' => '');
+        foreach ($_aRead->fetchAll("SELECT severity, COUNT(DISTINCT title) AS n, MAX(found_at) AS latest
+                                     FROM {$_aTable} WHERE status = 'open' GROUP BY severity") as $_aRow) {
+            $_aDb[$_aRow['severity']] = (int)$_aRow['n'];
+            if ($_aRow['latest'] > $_aDb['latest']) $_aDb['latest'] = (string)$_aRow['latest'];
+        }
+        $_aDb['title'] = (string)$_aRead->fetchOne(
+            "SELECT title FROM {$_aTable} WHERE status = 'open'
+             ORDER BY FIELD(severity, 'high', 'medium', 'low'), found_at DESC LIMIT 1"
+        );
+        Mage::app()->saveCache(json_encode($_aDb), $_aCacheKey, array(), 600);
+    }
+    $_aHigh = (int)($_aDb['high'] ?? 0);
+    $_aMed  = (int)($_aDb['medium'] ?? 0);
+    $_aLow  = (int)($_aDb['low'] ?? 0);
+    $_auditTotal = $_aHigh + $_aMed + $_aLow;
+    if ($_auditTotal > 0) {
         $_aSeverity = $_aHigh > 0 ? 'critical' : ($_aMed > 0 ? 'warning' : 'info');
-        $_aSummary  = (string)($_audit['summary']   ?? '');
-        $_aWhen     = (string)($_audit['timestamp'] ?? '');
-        $_aScope    = (string)($_audit['scope']     ?? '');
-        $_aReport   = (string)($_audit['report']    ?? '');
-        $_aSource   = (string)($_audit['source']    ?? 'audit');
+        $_aSummary  = (string)($_aDb['title'] ?? '');
+        $_aWhen     = (string)($_aDb['latest'] ?? '');
+        $_aScope    = 'Nightly scanners';
+        $_aSource   = 'auditfix';
+    }
+} catch (Exception $e) {
+    $_auditTotal = 0; // table missing on this instance — fall back to the file
+}
+if ($_auditTotal === 0) {
+    $_auditFile = Mage::getBaseDir('var') . '/audit-notifications/findings.json';
+    if (is_file($_auditFile)) {
+        $_audit = @json_decode(file_get_contents($_auditFile), true);
+        if (is_array($_audit) && !empty($_audit['counts'])) {
+            $_aHigh  = (int)($_audit['counts']['high']      ?? 0);
+            $_aMed   = (int)($_audit['counts']['medium']    ?? 0);
+            $_aQuick = (int)($_audit['counts']['quick_win'] ?? 0);
+            $_aBig   = (int)($_audit['counts']['big_bet']   ?? 0);
+            $_aLow   = (int)($_audit['counts']['low']       ?? 0);
+            $_auditTotal = $_aHigh + $_aMed + $_aQuick + $_aBig + $_aLow;
+            $_aSeverity = $_aHigh > 0 ? 'critical' : ($_aMed > 0 ? 'warning' : 'info');
+            $_aSummary  = (string)($_audit['summary']   ?? '');
+            $_aWhen     = (string)($_audit['timestamp'] ?? '');
+            $_aScope    = (string)($_audit['scope']     ?? '');
+            $_aReport   = (string)($_audit['report']    ?? '');
+            $_aSource   = (string)($_audit['source']    ?? 'audit');
+        }
     }
 }
 $roleIcons = array(
