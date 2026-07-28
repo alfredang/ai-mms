@@ -6168,22 +6168,23 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
     display: inline-flex;
     margin-right: 6px;
 }
-/* The topbar sits INSIDE .admin-main, so sidebar-nav.css §18's
-   `.admin-main button:not(...)` chain (0,5,1 + !important, later file)
-   beats any bare-class rule here: its 8px/20px padding squeezed the SVG
-   to 0 width and its `button span { background:none }` killed the badge.
-   ID-scoping via the wrap's #audit-bell (1,1,0) outranks §18 for good.
-   Geometry matches the neighbouring header controls (38px, 9px radius). */
+/* Bare glyph — NOT a button (backend-design "icon > button for chrome":
+   the bell sits beside theme-toggle + avatar; the strip reads as one
+   icon row, no boxes). The topbar sits INSIDE .admin-main, so §18's
+   `.admin-main button` baseline reaches it; ID-scoping via the wrap's
+   #audit-bell (1,1,0) keeps these rules winning even if §18's
+   specificity ever regresses again (2026-07-29: a bare :not() chain at
+   (0,5,1) squeezed the SVG to 0 width and blanked the badge). */
 #audit-bell .audit-bell-btn {
     position: relative !important;
-    width: 38px !important;
-    height: 38px !important;
+    width: 28px !important;
+    height: 28px !important;
     min-width: 0 !important;
     min-height: 0 !important;
     padding: 0 !important;
     margin: 0 !important;
-    border: 1px solid var(--b2, #334155) !important;
-    border-radius: 9px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
     background: transparent !important;
     background-image: none !important;
     box-shadow: none !important;
@@ -6204,11 +6205,12 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
 #audit-bell .audit-bell-btn:focus-visible {
     outline: 2px solid rgba(255,255,255,0.35);
     outline-offset: 2px;
-    border-radius: 9px;
+    border-radius: 4px;
 }
 #audit-bell .audit-bell-btn:hover {
     color: #fff !important;
-    background: rgba(96, 165, 250, 0.10) !important;
+    background: transparent !important;
+    border-color: transparent !important;
     box-shadow: none !important;
     transform: translateY(-1px);
 }
@@ -6244,7 +6246,7 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
    the badge span and made the "19" bubble transparent + blue. */
 #audit-bell .audit-bell-badge {
     position: absolute;
-    top: -5px;
+    top: -3px;
     right: -6px;
     min-width: 15px;
     height: 15px;
