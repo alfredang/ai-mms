@@ -101,9 +101,6 @@ $_urlEdit    = Mage::helper('adminhtml')->getUrl('adminhtml/blog/edit');
     <div class="bp-pipe-bar">
         <div class="bp-pipe-title">Agentic Blog Pipeline
             <span class="bp-pipe-flag <?php echo $_enabled ? 'on' : 'off' ?>"><?php echo $_enabled ? ($_review ? 'REVIEW FLOW · ENABLED' : 'AUTO-PUBLISH · ENABLED') : 'DISABLED' ?></span>
-            <button type="button" class="mmd-iconbtn mmd-tip" data-tip="Refresh timeline" aria-label="Refresh timeline" onclick="window.location.reload()">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-            </button>
         </div>
         <div class="bp-pipe-caps">
             <span class="bp-cap" title="Published pipeline posts this week (max 2)"><em>Posts</em><b><?php echo (int) $_thisWeek ?>/2</b></span>
@@ -124,7 +121,12 @@ $_urlEdit    = Mage::helper('adminhtml')->getUrl('adminhtml/blog/edit');
                 <span class="bp-flow-name"><?php echo htmlspecialchars($_flow['title']) ?></span>
                 <?php if ($_flow['source_sku']): ?><span class="bp-flow-sku"><?php echo htmlspecialchars($_flow['source_sku']) ?></span><?php endif; ?>
                 <span class="bp-badge s-<?php echo $_fcss ?>"><?php echo $_flabel ?></span>
-                <span style="margin-left:auto;display:inline-flex;gap:6px;">
+                <span style="margin-left:auto;display:inline-flex;gap:6px;align-items:center;">
+                    <?php if ($_ai === 0): ?>
+                    <button type="button" class="mmd-iconbtn mmd-tip" data-tip="Refresh timeline" aria-label="Refresh timeline" onclick="window.location.reload()">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                    </button>
+                    <?php endif; ?>
                     <a class="bp-abtn ghost" href="<?php echo htmlspecialchars($_urlEdit . 'id/' . (int) $_flow['post_id'] . '/') ?>">Preview / Edit</a>
                     <?php if ($_pending && $_review): ?>
                     <button type="button" class="bp-abtn ok" onclick="bpReview(<?php echo (int) $_flow['post_id'] ?>,'approve')">&#10003; Approve</button>
@@ -156,6 +158,11 @@ $_urlEdit    = Mage::helper('adminhtml')->getUrl('adminhtml/blog/edit');
         <div class="bp-flow-head">
             <span class="bp-flow-tag nxt">Flow 1 · next (auto)</span>
             <span class="bp-flow-name" style="color:#64748b;">No post in flight — add courses to the queue below and click <b>&#9654; Run Now</b>, or the daily cron researches + writes the next one automatically</span>
+            <span style="margin-left:auto;display:inline-flex;">
+                <button type="button" class="mmd-iconbtn mmd-tip" data-tip="Refresh timeline" aria-label="Refresh timeline" onclick="window.location.reload()">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                </button>
+            </span>
         </div>
         <ol class="bp-steps">
             <?php foreach ($_bpStageNames as $_si => $_sname): ?>
