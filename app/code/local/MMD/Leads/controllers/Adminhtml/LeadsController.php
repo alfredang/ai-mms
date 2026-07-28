@@ -6,8 +6,12 @@
  *   indexAction()       — renders the grid (default landing for the menu).
  *   gridAction()        — AJAX reload of the grid (sort/filter/page).
  *   viewAction()        — single-lead view with the pre-filled reply form.
+ *   aidraftAction()     — AJAX JSON endpoint; asks Claude to draft the reply
+ *                         (subject + HTML body) from the lead context plus
+ *                         live course data from the schedule API.
  *   replyAction()       — POST handler; sends the email via the existing
  *                         Gmail OAuth transport and marks the lead replied.
+ *                         Honours the operator-editable To / CC fields.
  *   deleteAction()      — single delete.
  *   massDeleteAction()  — bulk delete from grid mass-action.
  */
@@ -54,6 +58,36 @@ class MMD_Leads_Adminhtml_LeadsController extends Mage_Adminhtml_Controller_Acti
         $this->renderLayout();
     }
 
+    /**
+     * AJAX: AI-draft the reply for a lead. Returns JSON
+     *   { ok: true, subject_course, body_html }
+     * or { ok: false, error }. Called by view.phtml on page load (and by
+     * the "Regenerate AI Draft" button) to prepopulate the reply form.
+     */
+    public function aidraftAction()
+    {
+        $this->getResponse()->setHeader('Content-Type', 'application/json; charset=utf-8', true);
+
+        $id   = (int) $this->getRequest()->getParam('id');
+        $lead = Mage::getModel('mmd_leads/lead')->load($id);
+        if (!$lead->getId()) {
+            $this->getResponse()->setBody(json_encode(array('ok' => false, 'error' => 'Lead not found.')));
+            return;
+        }
+
+        try {
+            $draft = Mage::helper('mmd_leads/aiDraft')->draft($lead);
+            $this->getResponse()->setBody(json_encode(array(
+                'ok'             => true,
+                'subject_course' => $draft['subject_course'],
+                'body_html'      => $draft['body_html'],
+            ), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        } catch (Exception $e) {
+            Mage::logException($e);
+            $this->getResponse()->setBody(json_encode(array('ok' => false, 'error' => $e->getMessage())));
+        }
+    }
+
     public function replyAction()
     {
         $id   = (int) $this->getRequest()->getParam('id');
@@ -75,48 +109,56 @@ class MMD_Leads_Adminhtml_LeadsController extends Mage_Adminhtml_Controller_Acti
             return;
         }
 
-        try {
-            $storeId = (int) $lead->getStoreId();
-            $sender  = Mage::helper('mmd_leads')->getReplySender($storeId);
+        // Operator-editable recipient + CC list (both optional; To falls
+        // back to the lead's email, CC to none). Field names avoid "email"
+        // so password managers don't autofill them; legacy names accepted.
+        $emailTo = trim((string) $this->getRequest()->getPost('rcpt_addr', ''))
+            ?: trim((string) $this->getRequest()->getPost('email_to', ''))
+            ?: (string) $lead->getEmail();
+        if (!Zend_Validate::is($emailTo, 'EmailAddress')) {
+            Mage::getSingleton('adminhtml/session')->addError(
+                $this->__('"%s" is not a valid To address.', $emailTo)
+            );
+            $this->_redirect('*/*/view', array('id' => $id));
+            return;
+        }
+        $ccRaw = (string) $this->getRequest()->getPost('rcpt_cc', '');
+        if (trim($ccRaw) === '') {
+            $ccRaw = (string) $this->getRequest()->getPost('email_cc', '');
+        }
+        $ccList = array();
+        foreach (preg_split('/[,;]+/', $ccRaw) ?: array() as $cc) {
+            $cc = trim($cc);
+            if ($cc === '') {
+                continue;
+            }
+            if (!Zend_Validate::is($cc, 'EmailAddress')) {
+                Mage::getSingleton('adminhtml/session')->addError(
+                    $this->__('"%s" is not a valid CC address.', $cc)
+                );
+                $this->_redirect('*/*/view', array('id' => $id));
+                return;
+            }
+            $ccList[$cc] = $cc;
+        }
 
+        try {
             // sendTransactional pulls the From identity from the named
             // sender ("general" / "sales" etc); MMD_Email's setReplyTo
             // observer then sets Reply-To to the per-store sales identity
             // so customer replies land in the right country mailbox.
-            $mail = Mage::getModel('core/email_template');
-            /** @var Mage_Core_Model_Email_Template $mail */
-            $mail->setDesignConfig(array('area' => 'frontend', 'store' => $storeId))
-                ->sendTransactional(
-                    'mmd_leads_course_reply',
-                    $sender,
-                    $lead->getEmail(),
-                    $lead->getName(),
-                    array(
-                        'lead_name'       => $lead->getName(),
-                        'subject_course'  => $subjectCourse,
-                        'reply_body_html' => $replyHtml,
-                        'store_brand'     => Mage::helper('mmd_leads')->getStoreBrandName($storeId),
-                        'sender_name'     => Mage::getStoreConfig('contacts/email/sender_email_identity', $storeId)
-                            ? Mage::getStoreConfig(
-                                'trans_email/ident_' . Mage::getStoreConfig('contacts/email/sender_email_identity', $storeId) . '/name',
-                                $storeId
-                            )
-                            : Mage::helper('mmd_leads')->getStoreBrandName($storeId),
-                    ),
-                    $storeId
-                );
+            Mage::helper('mmd_leads')->sendCourseReply($lead, $emailTo, $ccList, $subjectCourse, $replyHtml);
 
-            if (!$mail->getSentSuccess()) {
-                Mage::throwException($this->__('Email send failed — check var/log/system.log'));
-            }
-
+            $lead->logDraftEvent('replied_manual', 'Sent by operator to ' . $emailTo);
             $lead->markReplied(
                 $subjectCourse . "\n\n" . $replyHtml,
                 Mage::getSingleton('admin/session')->getUser()->getId()
             );
 
             Mage::getSingleton('adminhtml/session')->addSuccess(
-                $this->__('Reply sent to %s.', $lead->getEmail())
+                $ccList
+                    ? $this->__('Reply sent to %s (cc: %s).', $emailTo, implode(', ', $ccList))
+                    : $this->__('Reply sent to %s.', $emailTo)
             );
             $this->_redirect('*/*/');
         } catch (Exception $e) {

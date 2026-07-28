@@ -40,6 +40,7 @@ class MMD_Blog_Helper_Linkedin extends Mage_Core_Helper_Abstract
         if ($linkUrl && strpos($commentary, $linkUrl) === false) {
             $commentary .= "\n\n" . $linkUrl;
         }
+        $commentary = $this->escapeLittleText($commentary);
 
         $body = array(
             'author'       => $author,
@@ -107,7 +108,9 @@ class MMD_Blog_Helper_Linkedin extends Mage_Core_Helper_Abstract
         curl_setopt_array($ch, array(
             CURLOPT_CUSTOMREQUEST  => 'PUT',
             CURLOPT_POSTFIELDS     => $bytes,
-            CURLOPT_HTTPHEADER     => array('Authorization: Bearer ' . $token),
+            // Content-Type is required — without it curl sends x-www-form-urlencoded
+            // and LinkedIn 400s the binary PUT (newsletter helper had this right).
+            CURLOPT_HTTPHEADER     => array('Authorization: Bearer ' . $token, 'Content-Type: image/png'),
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT        => 60,
         ));
@@ -143,6 +146,18 @@ class MMD_Blog_Helper_Linkedin extends Mage_Core_Helper_Abstract
         $headerSize = (int) curl_getinfo($ch, CURLINFO_HEADER_SIZE);
         curl_close($ch);
         return array($code, substr($raw, $headerSize), substr($raw, 0, $headerSize));
+    }
+
+    /**
+     * LinkedIn /rest/posts commentary is "little text" — (, ), {, }, [, ], <, >,
+     * *, _, ~, | and @ are markup and MUST be backslash-escaped or LinkedIn
+     * silently truncates the post at the first unescaped char (real incident:
+     * everything after "(up to 70% subsidy" vanished, taking the course link
+     * and hashtags with it). '#' is deliberately NOT escaped so hashtags work.
+     */
+    public function escapeLittleText($text)
+    {
+        return preg_replace('/([\\\\|{}@\[\]()<>*_~])/', '\\\\$1', (string) $text);
     }
 
     private function _token()

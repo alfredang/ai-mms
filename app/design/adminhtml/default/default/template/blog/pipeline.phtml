@@ -93,6 +93,7 @@ $_urlQList   = Mage::helper('adminhtml')->getUrl('adminhtml/blog/queueList');
 $_urlQAdd    = Mage::helper('adminhtml')->getUrl('adminhtml/blog/queueAdd');
 $_urlQRemove = Mage::helper('adminhtml')->getUrl('adminhtml/blog/queueRemove');
 $_urlQOrder  = Mage::helper('adminhtml')->getUrl('adminhtml/blog/queueReorder');
+$_urlQBrief  = Mage::helper('adminhtml')->getUrl('adminhtml/blog/queueBrief');
 $_urlRun     = Mage::helper('adminhtml')->getUrl('adminhtml/blog/generate');
 $_urlEdit    = Mage::helper('adminhtml')->getUrl('adminhtml/blog/edit');
 ?>
@@ -213,6 +214,11 @@ $_urlEdit    = Mage::helper('adminhtml')->getUrl('adminhtml/blog/edit');
             <input type="text" id="bp-course-search" class="bp-input" placeholder="Search course title or code..." oninput="bpSearchCourses(this)" autocomplete="off" />
             <div id="bp-search-results" class="bp-search-results"></div>
         </div>
+        <div class="bp-fld bp-brief-fields">
+            <label>Optional brief for the agents &mdash; the course title + these topics/links become the <b>prompt input</b> for the research &amp; writing of the post</label>
+            <input type="text" id="bp-add-topics" class="bp-input" placeholder="Topics / angle to research and write about (optional)..." autocomplete="off" />
+            <textarea id="bp-add-links" class="bp-input bp-links-input" rows="2" placeholder="Reference links to research, one per line (optional)..."></textarea>
+        </div>
         <table class="mm-table bp-q-table" id="bp-queue-table">
             <thead><tr>
                 <th style="width:34px;"></th>
@@ -225,10 +231,11 @@ $_urlEdit    = Mage::helper('adminhtml')->getUrl('adminhtml/blog/edit');
         </table>
         <p class="bp-note">
             Each row has its own <b>&#9654; Run Now</b> &mdash; it runs the agent team for <b>that</b> course:
-            <b>1. Research</b> the latest AI developments (web search) &rarr; <b>2. Write</b> an in-depth lead-magnet post with a branded hero image &rarr;
+            <b>1. Research</b> the latest AI developments (web search &mdash; guided by the row's <b>topics + reference links</b> when set) &rarr;
+            <b>2. Write</b> an in-depth lead-magnet post built around the admin brief, with a branded hero image &rarr;
             <b>3.</b> email the managers Approve / Request-changes &rarr; <b>4. Schedule</b> the next free Tuesday/Friday 9:00am slot once approved &rarr;
             <b>5.</b> auto-share to LinkedIn + Facebook after publishing. The daily cron runs the top course automatically. Max <b>2 posts per week</b>.<br>
-            Drag &#8942;&#8942; to reorder &middot; &#9654; run &middot; &times; remove.
+            Drag &#8942;&#8942; to reorder &middot; &#9654; run &middot; &#9998; edit the row's topics/links &middot; &times; remove.
         </p>
     </div>
 </div>
@@ -300,6 +307,13 @@ $_urlEdit    = Mage::helper('adminhtml')->getUrl('adminhtml/blog/edit');
     .bp-q-row.bp-q-dragging{opacity:.45;cursor:grabbing;}
     .bp-q-grip{color:#475569;font:700 13px/1 var(--font-sans,sans-serif);letter-spacing:-2px;user-select:none;}
     .bp-q-row:hover .bp-q-grip{color:#94a3b8;}
+    .bp-brief-fields{display:flex;flex-direction:column;gap:6px;margin-top:8px;}
+    .bp-links-input{resize:vertical;min-height:34px;font:400 12px ui-monospace,Menlo,monospace;}
+    .bp-q-brief{display:flex;gap:12px;flex-wrap:wrap;margin-top:3px;font:400 11.5px var(--font-sans,sans-serif);color:#64748b;}
+    .bp-q-brief-links{white-space:nowrap;}
+    .bp-q-brief-row td{border-top:0 !important;padding-top:0 !important;}
+    .bp-q-brief-form{display:flex;flex-direction:column;gap:6px;padding:4px 0 8px;}
+    .bp-q-brief-actions{display:flex;gap:6px;}
     .bp-note{margin:12px 2px 0;font:400 12px/1.6 var(--font-sans,sans-serif);color:#64748b;}
     .bp-note b{color:#cbd5e1;}
 </style>
@@ -312,8 +326,10 @@ var bpUrls = {
     qadd:    <?php echo json_encode($_urlQAdd) ?>,
     qremove: <?php echo json_encode($_urlQRemove) ?>,
     qorder:  <?php echo json_encode($_urlQOrder) ?>,
+    qbrief:  <?php echo json_encode($_urlQBrief) ?>,
     run:     <?php echo json_encode($_urlRun) ?>
 };
+var bpQueueData = [];
 
 function bpReview(id, decision) {
     var fd = new FormData();
@@ -362,10 +378,31 @@ function bpEsc(s) {
 function bpQueueAdd(pid) {
     document.getElementById('bp-search-results').innerHTML = '';
     document.getElementById('bp-course-search').value = '';
+    var topicsEl = document.getElementById('bp-add-topics');
+    var linksEl  = document.getElementById('bp-add-links');
     var fd = new FormData();
     fd.append('form_key', window.FORM_KEY || '');
     fd.append('course_id', String(pid));
+    if (topicsEl && topicsEl.value.trim()) fd.append('topics', topicsEl.value.trim());
+    if (linksEl && linksEl.value.trim())   fd.append('links', linksEl.value.trim());
+    if (topicsEl) topicsEl.value = '';
+    if (linksEl)  linksEl.value = '';
     fetch(bpUrls.qadd, { method: 'POST', body: fd, credentials: 'same-origin' })
+        .then(function () { bpQueueLoad(); });
+}
+
+function bpBriefToggle(qid) {
+    var row = document.querySelector('.bp-q-brief-row[data-bqid="' + qid + '"]');
+    if (row) row.style.display = (row.style.display === 'none' ? '' : 'none');
+}
+
+function bpBriefSave(qid) {
+    var fd = new FormData();
+    fd.append('form_key', window.FORM_KEY || '');
+    fd.append('queue_id', String(qid));
+    fd.append('topics', (document.getElementById('bp-brief-topics-' + qid) || {}).value || '');
+    fd.append('links',  (document.getElementById('bp-brief-links-' + qid)  || {}).value || '');
+    fetch(bpUrls.qbrief, { method: 'POST', body: fd, credentials: 'same-origin' })
         .then(function () { bpQueueLoad(); });
 }
 
@@ -379,12 +416,9 @@ function bpQueueRemove(qid) {
 
 function bpRunNow(qid, pid, name) {
     if (!confirm('Run the blog agent team for "' + name + '" now?\n\nResearch (web search) + writing takes a few minutes; the page will load when the draft has been emailed for approval.')) return;
-    var fd = new FormData();
-    fd.append('form_key', window.FORM_KEY || '');
-    fd.append('queue_id', String(qid));
-    // consume the queue row first so the daily cron can't write a second post for it
-    fetch(bpUrls.qremove, { method: 'POST', body: fd, credentials: 'same-origin' })
-        .then(function () { window.location = bpUrls.run + 'course_id/' + pid + '/'; });
+    // generateAction consumes the queue row server-side (reads the admin
+    // topics/links brief BEFORE deleting it) so the direction reaches the agents.
+    window.location = bpUrls.run + 'queue_id/' + qid + '/course_id/' + pid + '/';
 }
 
 function bpQueueLoad() {
@@ -403,19 +437,40 @@ function bpQueueLoad() {
                 tbody.innerHTML = '<tr><td colspan="5" class="mm-table-empty">Queue is empty — the pipeline falls back to the best-selling unblogged course.</td></tr>';
                 return;
             }
+            bpQueueData = j.queue;
             var html = '';
             j.queue.forEach(function (row, i) {
+                var topics = (row.topics || '').trim();
+                var links  = (row.links || '').trim();
+                var nLinks = links ? links.split('\n').filter(function (l) { return l.trim(); }).length : 0;
+                var brief  = '';
+                if (topics || nLinks) {
+                    brief = '<div class="bp-q-brief">'
+                        + (topics ? '<span title="' + bpEsc(topics) + '">&#127919; ' + bpEsc(topics.length > 90 ? topics.slice(0, 87) + '…' : topics) + '</span>' : '')
+                        + (nLinks ? '<span class="bp-q-brief-links">&#128279; ' + nLinks + ' link' + (nLinks > 1 ? 's' : '') + '</span>' : '')
+                        + '</div>';
+                }
                 html += '<tr class="bp-q-row" draggable="true" data-qid="' + row.queue_id + '">'
                     + '<td class="center"><span class="bp-q-grip">&#8942;&#8942;</span></td>'
                     + '<td class="muted">' + (i + 1) + '</td>'
-                    + '<td class="strong">' + bpEsc(row.name) + '</td>'
+                    + '<td class="strong wrap">' + bpEsc(row.name) + brief + '</td>'
                     + '<td class="muted" style="font-family:ui-monospace,Menlo,monospace;">' + bpEsc(row.sku) + '</td>'
                     + '<td class="center"><div class="mmd-grid-actions" style="justify-content:center;">'
                     + '<button type="button" class="mmd-grid-action mmd-grid-action--check" title="Run Now" onclick="bpRunNow(' + row.queue_id + ',' + row.product_id + ',\'' + bpEsc(row.name).replace(/'/g, "\\'") + '\')">'
                     + '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="6,4 20,12 6,20"/></svg></button>'
+                    + '<button type="button" class="mmd-grid-action mmd-grid-action--edit" title="Edit topics / reference links" onclick="bpBriefToggle(' + row.queue_id + ')">'
+                    + '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>'
                     + '<button type="button" class="mmd-grid-action mmd-grid-action--delete" title="Remove from queue" onclick="bpQueueRemove(' + row.queue_id + ')">'
                     + '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>'
-                    + '</div></td></tr>';
+                    + '</div></td></tr>'
+                    + '<tr class="bp-q-brief-row" data-bqid="' + row.queue_id + '" style="display:none;"><td></td><td></td><td colspan="3">'
+                    + '<div class="bp-q-brief-form">'
+                    + '<input type="text" id="bp-brief-topics-' + row.queue_id + '" class="bp-input" value="' + bpEsc(topics) + '" placeholder="Topics / angle to research and write about..." />'
+                    + '<textarea id="bp-brief-links-' + row.queue_id + '" class="bp-input bp-links-input" rows="2" placeholder="Reference links, one per line...">' + bpEsc(links) + '</textarea>'
+                    + '<div class="bp-q-brief-actions">'
+                    + '<button type="button" class="mm-btn mm-btn-primary mm-btn-sm" onclick="bpBriefSave(' + row.queue_id + ')">Save brief</button>'
+                    + '<button type="button" class="mm-btn mm-btn-ghost mm-btn-sm" onclick="bpBriefToggle(' + row.queue_id + ')">Cancel</button>'
+                    + '</div></div></td></tr>';
             });
             tbody.innerHTML = html;
             bpWireDrag();

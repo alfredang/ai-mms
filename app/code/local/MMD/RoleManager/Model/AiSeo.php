@@ -156,6 +156,15 @@ class MMD_RoleManager_Model_AiSeo
         }
         if (is_dir('/var/www/.claude'))                          $env['HOME'] = '/var/www';
         elseif (is_dir('/root/.claude') && is_readable('/root')) $env['HOME'] = '/root';
+        if (empty($env['HOME']) || !is_writable($env['HOME'])) {
+            $env['HOME'] = sys_get_temp_dir();
+        }
+        // Subscription OAuth tokens (sk-ant-oat*) can't use the direct API
+        // path above, but they DO authenticate the Claude Code CLI headlessly.
+        if (stripos($apiKey, 'sk-ant-oat') === 0) {
+            $env['CLAUDE_CODE_OAUTH_TOKEN'] = $apiKey;
+        }
+        $env['DISABLE_AUTOUPDATER'] = '1';
 
         $proc = @proc_open('timeout 110 claude -p --output-format text', $descriptors, $pipes, null, $env);
         if (!is_resource($proc)) return '';

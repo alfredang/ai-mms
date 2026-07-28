@@ -42,6 +42,30 @@ class MMD_Leads_Model_Lead extends Mage_Core_Model_Abstract
     const MAILERLITE_SKIPPED = 'skipped';
     const MAILERLITE_FAILED  = 'failed';
 
+    /**
+     * AI-draft review lifecycle (cron drafts a personalised reply, emails
+     * the admin approve/request-changes links; approval auto-sends):
+     *   NULL              — no draft yet (cron will pick the lead up)
+     *   pending_review    — draft generated, approval email sent to admin
+     *   changes_requested — admin asked for a rewrite; cron regenerates
+     *   approved_sent     — admin approved, reply auto-sent to the lead
+     */
+    const DRAFT_PENDING_REVIEW    = 'pending_review';
+    const DRAFT_CHANGES_REQUESTED = 'changes_requested';
+    const DRAFT_APPROVED_SENT     = 'approved_sent';
+
+    /** Append one event to the draft_events JSON timeline log (does not save). */
+    public function logDraftEvent($event, $detail = '')
+    {
+        $events = json_decode((string) $this->getDraftEvents(), true);
+        if (!is_array($events)) {
+            $events = array();
+        }
+        $events[] = array('t' => Varien_Date::now(), 'ev' => (string) $event, 'detail' => (string) $detail);
+        $this->setDraftEvents(json_encode(array_slice($events, -30)));
+        return $this;
+    }
+
     protected function _construct()
     {
         $this->_init('mmd_leads/lead');

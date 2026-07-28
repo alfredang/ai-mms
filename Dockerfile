@@ -72,10 +72,22 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Claude CLI — local-dev only fallback for the admin "Generate SEO Meta with AI"
-# button. Production uses the Anthropic API key path when configured, then falls
-# back to a deterministic stub; do not make production deploys depend on NodeSource
-# or npm availability.
+# Claude Code CLI (Agent SDK) — powers the admin AI features (SEO meta,
+# lead reply drafts) authenticated with the subscription OAuth token from
+# mmd_marketing/api/anthropic_key (exported as CLAUDE_CODE_OAUTH_TOKEN by
+# AiSeo::invokeClaude). Installed as the NATIVE standalone binary — no
+# NodeSource/npm dependency — and NON-FATAL so a download hiccup can never
+# block a production deploy; AI features degrade gracefully when absent.
+# /var/www/.claude marks www-data's HOME for the CLI's config writes.
+RUN (HOME=/opt/claude-home bash -c "curl -fsSL https://claude.ai/install.sh | bash" \
+        && ln -sf "$(readlink -f /opt/claude-home/.local/bin/claude)" /usr/local/bin/claude \
+        && chmod -R a+rX /opt/claude-home \
+        || echo "Claude CLI install failed (non-fatal — AI drafts will be unavailable)") \
+    && mkdir -p /var/www/.claude \
+    && chown www-data:www-data /var/www /var/www/.claude
+
+# Legacy local-dev npm install path (kept for compatibility with existing
+# local compose setups that set INSTALL_CLAUDE_CLI=1).
 ARG INSTALL_CLAUDE_CLI=0
 RUN if [ "$INSTALL_CLAUDE_CLI" = "1" ]; then \
         curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
@@ -83,7 +95,7 @@ RUN if [ "$INSTALL_CLAUDE_CLI" = "1" ]; then \
         && npm install -g @anthropic-ai/claude-code \
         && rm -rf /var/lib/apt/lists/*; \
     else \
-        echo "Skipping local-only Claude CLI install"; \
+        echo "Skipping npm Claude CLI install (native binary above is canonical)"; \
     fi
 
 # Set working directory

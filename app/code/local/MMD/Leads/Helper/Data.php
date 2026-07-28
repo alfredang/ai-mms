@@ -164,6 +164,95 @@ class MMD_Leads_Helper_Data extends Mage_Core_Helper_Abstract
     }
 
     /**
+     * Send the operator/approved course-information reply through the
+     * branded mmd_leads_course_reply template. Shared by the admin
+     * replyAction and the review-pipeline auto-send on approval.
+     *
+     * @param  MMD_Leads_Model_Lead $lead
+     * @param  string   $emailTo  recipient (defaults handled by callers)
+     * @param  string[] $ccList
+     * @param  string   $subjectCourse
+     * @param  string   $replyHtml
+     * @throws Exception on send failure
+     */
+    public function sendCourseReply(MMD_Leads_Model_Lead $lead, $emailTo, array $ccList, $subjectCourse, $replyHtml)
+    {
+        $storeId = (int) $lead->getStoreId();
+        $sender  = $this->getReplySender($storeId);
+
+        $mail = Mage::getModel('core/email_template');
+        /** @var Mage_Core_Model_Email_Template $mail */
+        $mail->setDesignConfig(array('area' => 'frontend', 'store' => $storeId));
+
+        // addCc() on the underlying Zend_Mail survives sendTransactional()
+        // (send() only re-adds To/Bcc, never clears Cc).
+        foreach ($ccList as $cc) {
+            $mail->getMail()->addCc($cc);
+        }
+
+        $mail->sendTransactional(
+            'mmd_leads_course_reply',
+            $sender,
+            $emailTo,
+            $lead->getName(),
+            array(
+                'lead_name'       => $lead->getName(),
+                'subject_course'  => $subjectCourse,
+                'reply_body_html' => $replyHtml,
+                'store_brand'     => $this->getStoreBrandName($storeId),
+                'sender_name'     => Mage::getStoreConfig('contacts/email/sender_email_identity', $storeId)
+                    ? Mage::getStoreConfig(
+                        'trans_email/ident_' . Mage::getStoreConfig('contacts/email/sender_email_identity', $storeId) . '/name',
+                        $storeId
+                    )
+                    : $this->getStoreBrandName($storeId),
+            ),
+            $storeId
+        );
+
+        if (!$mail->getSentSuccess()) {
+            Mage::throwException($this->__('Email send failed — check var/log/system.log'));
+        }
+    }
+
+    /**
+     * HMAC review token for the no-login approve / request-changes links in
+     * the draft-approval email — same scheme as the blog review pipeline
+     * (token bound to lead + reviewer email, signed with the crypt key).
+     */
+    public function signDraftReviewToken($leadId, $reviewerEmail)
+    {
+        $secret  = (string) Mage::getConfig()->getNode('global/crypt/key');
+        $payload = 'leadreply|' . (int) $leadId . '|' . strtolower(trim($reviewerEmail));
+        return substr(hash_hmac('sha256', $payload, $secret), 0, 40);
+    }
+
+    public function verifyDraftReviewToken($leadId, $reviewerEmail, $token)
+    {
+        $expected = $this->signDraftReviewToken($leadId, $reviewerEmail);
+        return is_string($token) && hash_equals($expected, (string) $token);
+    }
+
+    /**
+     * Reviewer list for draft-approval emails — mmd_leads/draft_review/reviewers
+     * (comma/semicolon-separated), defaulting to the admin.
+     *
+     * @return string[]
+     */
+    public function getDraftReviewers()
+    {
+        $raw = (string) Mage::getStoreConfig('mmd_leads/draft_review/reviewers');
+        $out = array();
+        foreach (preg_split('/[,;]+/', $raw) ?: array() as $email) {
+            $email = strtolower(trim($email));
+            if ($email !== '' && Zend_Validate::is($email, 'EmailAddress')) {
+                $out[$email] = $email;
+            }
+        }
+        return array_values($out);
+    }
+
+    /**
      * Send the automatic acknowledgement email to a freshly-captured lead
      * and record the outcome on the lead row (auto_reply_status /
      * auto_replied_at). Called from MMD_MagentoCaptcha_IndexController right

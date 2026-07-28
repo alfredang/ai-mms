@@ -183,8 +183,22 @@ class MMD_Blog_Adminhtml_BlogController extends Mage_Adminhtml_Controller_Action
         $session = Mage::getSingleton('adminhtml/session');
         try {
             @set_time_limit(600);
-            $pid    = (int) $this->getRequest()->getParam('course_id');
-            $result = Mage::getModel('mmd_blog/cron_autoblog')->run('manual', $pid ?: null);
+            $pid   = (int) $this->getRequest()->getParam('course_id');
+            $brief = null;
+            $qid   = (int) $this->getRequest()->getParam('queue_id');
+            if ($qid) {
+                // Queue "Run Now": read the row's admin brief (topics/links)
+                // BEFORE consuming it, so the direction reaches the agents and
+                // the daily cron can't write a second post for the course.
+                $row = $this->_db('read')->fetchRow(
+                    'SELECT product_id, topics, links FROM mmd_blog_queue WHERE queue_id = ?', array($qid));
+                if ($row) {
+                    $pid   = $pid ?: (int) $row['product_id'];
+                    $brief = array('topics' => (string) ($row['topics'] ?? ''), 'links' => (string) ($row['links'] ?? ''));
+                    $this->_db('write')->delete('mmd_blog_queue', array('queue_id = ?' => $qid));
+                }
+            }
+            $result = Mage::getModel('mmd_blog/cron_autoblog')->run('manual', $pid ?: null, $brief);
             if (strpos($result, 'ok:') === 0) {
                 $session->addSuccess($this->__('Auto-blog: %s', $result));
             } else {
@@ -285,7 +299,7 @@ class MMD_Blog_Adminhtml_BlogController extends Mage_Adminhtml_Controller_Action
         $result = array('success' => false, 'queue' => array());
         try {
             $result['queue'] = $this->_db('read')->fetchAll(
-                "SELECT q.queue_id, q.product_id, e.sku,
+                "SELECT q.queue_id, q.product_id, q.topics, q.links, e.sku,
                         (SELECT v.value FROM catalog_product_entity_varchar v
                           WHERE v.entity_id = e.entity_id AND v.attribute_id = 71 AND v.store_id = 0 LIMIT 1) AS name
                    FROM mmd_blog_queue q
@@ -315,16 +329,56 @@ class MMD_Blog_Adminhtml_BlogController extends Mage_Adminhtml_Controller_Action
             if ($sku === '') {
                 throw new Exception('Course not found');
             }
-            $pos = (int) $this->_db('read')->fetchOne('SELECT COALESCE(MAX(position),0)+1 FROM mmd_blog_queue');
-            // UNIQUE(product_id) makes re-adding a no-op instead of a duplicate
+            $pos    = (int) $this->_db('read')->fetchOne('SELECT COALESCE(MAX(position),0)+1 FROM mmd_blog_queue');
+            $topics = $this->_briefParam('topics', 1000);
+            $links  = $this->_briefParam('links', 3000);
+            // UNIQUE(product_id): re-adding keeps the row's position but
+            // refreshes the admin brief when new topics/links were supplied.
             $this->_db('write')->query(
-                'INSERT IGNORE INTO mmd_blog_queue (product_id, position) VALUES (?, ?)',
-                array($pid, $pos));
+                'INSERT INTO mmd_blog_queue (product_id, position, topics, links) VALUES (?, ?, ?, ?)
+                 ON DUPLICATE KEY UPDATE
+                     topics = IF(VALUES(topics) IS NULL, topics, VALUES(topics)),
+                     links  = IF(VALUES(links)  IS NULL, links,  VALUES(links))',
+                array($pid, $pos, $topics, $links));
             $result['success'] = true;
         } catch (Exception $e) {
             $result['message'] = $e->getMessage();
         }
         return $this->_json($result);
+    }
+
+    /** POST queue_id + topics/links — save the admin brief on a queued row. */
+    public function queueBriefAction()
+    {
+        $result = array('success' => false);
+        try {
+            if (!$this->getRequest()->isPost()) {
+                throw new Exception('POST required');
+            }
+            $qid = (int) $this->getRequest()->getParam('queue_id');
+            if (!$qid) {
+                throw new Exception('queue_id required');
+            }
+            $this->_db('write')->update('mmd_blog_queue', array(
+                'topics' => $this->_briefParam('topics', 1000),
+                'links'  => $this->_briefParam('links', 3000),
+            ), array('queue_id = ?' => $qid));
+            $result['success'] = true;
+        } catch (Exception $e) {
+            $result['message'] = $e->getMessage();
+        }
+        return $this->_json($result);
+    }
+
+    /** Trimmed + length-capped brief field; null when absent/empty (keeps existing on re-add). */
+    private function _briefParam($key, $maxLen)
+    {
+        $val = $this->getRequest()->getParam($key);
+        if ($val === null) {
+            return null;
+        }
+        $val = trim((string) $val);
+        return $val === '' ? null : mb_substr($val, 0, $maxLen);
     }
 
     public function queueRemoveAction()
