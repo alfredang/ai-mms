@@ -16,6 +16,35 @@
 .mmd-lead-view .mmd-ai-status.is-done{color:#34d399;}
 .mmd-lead-view .mmd-ai-spinner{width:12px;height:12px;border:2px solid #334155;border-top-color:#60a5fa;border-radius:50%;animation:mmdSpin .8s linear infinite;flex:none;}
 @keyframes mmdSpin{to{transform:rotate(360deg);}}
+
+/* Reply-pipeline timeline — lv- scoped copy of the newsletter/blog stepper
+   (.mn-pipe / .bp-pipe, backend-design neon-on-dark). Keep visually in sync. */
+.lv-pipe{background:#0f172a;border:1px solid #24324a;border-radius:14px;padding:16px 20px 10px;margin-bottom:14px;}
+.lv-pipe-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
+.lv-pipe-title{font:800 13px var(--font-sans,-apple-system,'Segoe UI',Arial,sans-serif);color:#f1f5f9;text-transform:uppercase;letter-spacing:.6px;}
+.lv-badge{font:700 11px var(--font-sans,sans-serif);padding:4px 10px;border-radius:999px;border:1px solid;white-space:nowrap;}
+.lv-badge.s-done{color:#34d399;border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.09);}
+.lv-badge.s-pending{color:#f59e0b;border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.1);}
+.lv-badge.s-changes{color:#fb7185;border-color:rgba(251,113,133,.4);background:rgba(251,113,133,.1);}
+.lv-badge.s-muted{color:#94a3b8;border-color:#334155;background:transparent;}
+.lv-steps{list-style:none;display:grid;grid-template-columns:repeat(5,1fr);margin:0 0 6px;padding:0;}
+.lv-step{position:relative;text-align:center;padding-top:36px;font:700 11px var(--font-sans,sans-serif);color:#64748b;}
+.lv-step::before{content:"";position:absolute;top:15px;left:-50%;width:100%;height:2px;background:#334155;}
+.lv-step:first-child::before{display:none;}
+.lv-step.done::before,.lv-step.current::before{background:linear-gradient(90deg,#2563eb,#22d3ee);}
+.lv-dot{position:absolute;top:0;left:50%;transform:translateX(-50%);width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:#1e293b;border:2px solid #334155;color:#64748b;font-size:12px;}
+.lv-step.done .lv-dot{background:#34d399;border-color:#34d399;color:#052e1a;}
+.lv-step.current .lv-dot{background:#22d3ee;border-color:#22d3ee;color:#04212a;box-shadow:0 0 0 5px rgba(34,211,238,.16);}
+.lv-step.done .lv-slabel,.lv-step.current .lv-slabel{color:#f1f5f9;}
+.lv-step.current .lv-slabel{color:#22d3ee;}
+.lv-log{list-style:none;margin:10px 0 4px;padding:10px 0 0;border-top:1px solid #24324a;}
+.lv-log li{font:400 11.5px var(--font-sans,sans-serif);color:#94a3b8;padding:2px 0;}
+.lv-log-t{color:#64748b;font-variant-numeric:tabular-nums;margin-right:8px;}
+:root[data-theme="light"] .lv-pipe{background:#e2e8f0;border-color:#cbd5e1;}
+:root[data-theme="light"] .lv-pipe-title{color:#0f172a;}
+:root[data-theme="light"] .lv-step.done .lv-slabel,:root[data-theme="light"] .lv-step.current .lv-slabel{color:#0f172a;}
+:root[data-theme="light"] .lv-dot{background:#f1f5f9;}
+:root[data-theme="light"] .lv-log{border-top-color:#cbd5e1;}
 .mmd-lead-view .mmd-actions{margin-top:14px;display:flex;gap:10px;}
 .mmd-lead-view .mmd-actions button{padding:10px 22px;border:0;border-radius:6px;font-weight:600;cursor:pointer;}
 .mmd-lead-view .mmd-primary{background:#2563eb;color:#fff;}
@@ -43,6 +72,60 @@
 </style>
 
 <div class="mmd-lead-view">
+
+    <?php
+    /**
+     * Reply pipeline timeline — same stepper component as the newsletter /
+     * blog panels (.mn-pipe / .bp-pipe), lv- scoped copy.
+     * Stages: Received -> Auto-Reply -> AI Draft -> Approval sent -> Replied.
+     */
+    $_lvStageNames = array('Received', 'Auto-Reply', 'AI Draft', 'Approval sent', 'Replied');
+    $_lvEvents = json_decode((string) $lead->getDraftEvents(), true);
+    if (!is_array($_lvEvents)) { $_lvEvents = array(); }
+    $_lvFmt = function ($dt) { return $dt ? date('D j M, g:ia', strtotime($dt)) : ''; };
+
+    if ($lead->getStatus() === MMD_Leads_Model_Lead::STATUS_REPLIED) {
+        $_lvManual = false;
+        foreach ($_lvEvents as $_e) { if (($_e['ev'] ?? '') === 'replied_manual') { $_lvManual = true; } }
+        $_lvStage = array(4, 'Replied · ' . ($_lvManual ? 'manual' : 'auto on approval')
+            . ($lead->getRepliedAt() ? ' · ' . $_lvFmt($lead->getRepliedAt()) : ''), 'done');
+    } elseif ($lead->getDraftStatus() === MMD_Leads_Model_Lead::DRAFT_CHANGES_REQUESTED) {
+        $_lvStage = array(2, 'Changes requested — redrafting', 'changes');
+    } elseif ($lead->getDraftStatus() === MMD_Leads_Model_Lead::DRAFT_PENDING_REVIEW) {
+        $_lvStage = array(3, 'Pending approval'
+            . ($lead->getDraftReviewSentAt() ? ' · sent ' . $_lvFmt($lead->getDraftReviewSentAt()) : ''), 'pending');
+    } elseif ($lead->getDraftSubject()) {
+        $_lvStage = array(2, 'Draft ready — approval email queued', 'pending');
+    } elseif (($lead->getAutoReplyStatus() ?: '') === MMD_Leads_Model_Lead::AUTO_REPLY_SENT) {
+        $_lvStage = array(2, 'AI drafting…', 'muted');
+    } else {
+        $_lvStage = array(1, 'Auto-reply ' . ($lead->getAutoReplyStatus() ?: 'pending'), 'muted');
+    }
+    list($_lvIdx, $_lvLabel, $_lvCss) = $_lvStage;
+    ?>
+    <div class="lv-pipe">
+        <div class="lv-pipe-head">
+            <span class="lv-pipe-title"><?php echo $this->__('Reply Pipeline') ?></span>
+            <span class="lv-badge s-<?php echo $_lvCss ?>"><?php echo $_lvLabel ?></span>
+        </div>
+        <ol class="lv-steps">
+            <?php foreach ($_lvStageNames as $_si => $_sname):
+                $_cls = $_si < $_lvIdx ? 'done' : ($_si === $_lvIdx ? 'current' : ''); ?>
+                <li class="lv-step <?php echo $_cls ?>">
+                    <span class="lv-dot"><?php echo $_si < $_lvIdx ? '&#10003;' : $_si + 1 ?></span>
+                    <span class="lv-slabel"><?php echo $_sname ?></span>
+                </li>
+            <?php endforeach; ?>
+        </ol>
+        <?php if ($_lvEvents): ?>
+        <ul class="lv-log">
+            <?php foreach (array_slice(array_reverse($_lvEvents), 0, 4) as $_e): ?>
+            <li><span class="lv-log-t"><?php echo $this->escapeHtml($_lvFmt($_e['t'] ?? '')) ?></span>
+                <?php echo $this->escapeHtml(($_e['detail'] ?? '') ?: ($_e['ev'] ?? '')) ?></li>
+            <?php endforeach; ?>
+        </ul>
+        <?php endif; ?>
+    </div>
 
     <div class="mmd-grid2">
         <div class="mmd-card">
@@ -106,18 +189,21 @@
                 <input type="hidden" name="form_key" value="<?php echo $this->getFormKey() ?>"/>
 
                 <?php
-                // readonly-until-focus + 1Password/LastPass opt-outs: Chrome and
-                // password managers ignore autocomplete="off" and stuff saved
-                // logins into "email"-named admin inputs (see memory
-                // feedback_chrome_autofill_admin_search_inputs — "interns"
-                // clobbered the prefilled lead email in prod).
-                $af = 'autocomplete="off" data-1p-ignore data-lpignore="true" readonly onfocus="this.removeAttribute(\'readonly\')"';
+                // Password-manager defence in depth: readonly-until-focus +
+                // 1Password/LastPass opt-outs + field names that contain no
+                // "email"/"user" trigger words (extensions heuristically match
+                // on name/id and ignore autocomplete="off" — "interns" from a
+                // saved login clobbered the prefilled lead email in prod; see
+                // memory feedback_chrome_autofill_admin_search_inputs). A JS
+                // watchdog below restores the prefill if anything other than
+                // real typing changes the field.
+                $af = 'autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other" readonly onfocus="this.removeAttribute(\'readonly\')"';
                 ?>
                 <label style="font-size:12px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:6px;"><?php echo $this->__('Email To') ?></label>
-                <input type="text" name="email_to" id="email_to" <?php echo $af ?> value="<?php echo $this->escapeHtml($this->getInitialTo()) ?>" style="margin-bottom:14px;"/>
+                <input type="text" name="rcpt_addr" id="rcpt_addr" <?php echo $af ?> value="<?php echo $this->escapeHtml($this->getInitialTo()) ?>" style="margin-bottom:14px;"/>
 
                 <label style="font-size:12px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:6px;"><?php echo $this->__('CC (comma-separated)') ?></label>
-                <input type="text" name="email_cc" id="email_cc" <?php echo $af ?> value="<?php echo $this->escapeHtml($this->getInitialCc()) ?>" style="margin-bottom:14px;"/>
+                <input type="text" name="rcpt_cc" id="rcpt_cc" <?php echo $af ?> value="<?php echo $this->escapeHtml($this->getInitialCc()) ?>" style="margin-bottom:14px;"/>
 
                 <label style="font-size:12px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:6px;"><?php echo $this->__('Subject — Course Name') ?></label>
                 <input type="text" name="subject_course" id="subject_course" <?php echo $af ?> value="<?php echo $this->escapeHtml($this->getInitialSubjectCourse()) ?>" style="margin-bottom:14px;"/>
@@ -186,6 +272,32 @@
 
                 regenBtn.addEventListener('click', function () { fetchDraft(true); });
                 fetchDraft(false);
+
+                // Autofill watchdog: password managers inject values without
+                // any keystroke. Restore the server prefill on To/CC unless
+                // the change came from the operator actually typing/pasting
+                // in the field.
+                ['rcpt_addr', 'rcpt_cc'].forEach(function (fid) {
+                    var el = document.getElementById(fid);
+                    if (!el) { return; }
+                    var expected = el.value;
+                    var userTouched = false;
+                    ['keydown', 'paste', 'cut', 'drop'].forEach(function (ev) {
+                        el.addEventListener(ev, function () { userTouched = true; });
+                    });
+                    el.addEventListener('input', function () {
+                        if (userTouched) { expected = el.value; }
+                    });
+                    var guard = setInterval(function () {
+                        if (!userTouched && el.value !== expected && document.activeElement !== el) {
+                            el.value = expected;
+                        }
+                    }, 400);
+                    setTimeout(function () { clearInterval(guard); }, 15000);
+                    el.form && el.form.addEventListener('submit', function () {
+                        if (!userTouched && el.value !== expected) { el.value = expected; }
+                    });
+                });
             })();
             </script>
         </div>

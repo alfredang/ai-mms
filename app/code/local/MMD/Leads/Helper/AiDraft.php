@@ -24,15 +24,27 @@ class MMD_Leads_Helper_AiDraft extends Mage_Core_Helper_Abstract
 
     /**
      * @param  MMD_Leads_Model_Lead $lead
+     * @param  string $reviewerFeedback  optional request-changes notes from
+     *                                   the admin — the redraft must honour
+     *                                   them (plus the prior draft as context)
      * @return array{subject_course:string, body_html:string}
      * @throws Exception when every generator tier fails or output is unparseable
      */
-    public function draft(MMD_Leads_Model_Lead $lead)
+    public function draft(MMD_Leads_Model_Lead $lead, $reviewerFeedback = '')
     {
         $context = $this->buildContext($lead);
-        $stdout  = $this->_invokeClaude(
+        $prompt  = $this->_userPrompt($context);
+        $reviewerFeedback = trim((string) $reviewerFeedback);
+        if ($reviewerFeedback !== '') {
+            $prompt .= "\n\nREVISION REQUEST — the admin reviewed a previous draft and asked for changes."
+                . " Rewrite the reply honouring this feedback exactly:\n\"" . $reviewerFeedback . "\"";
+            if (trim((string) $lead->getDraftHtml()) !== '') {
+                $prompt .= "\n\nPrevious draft body for reference:\n" . $lead->getDraftHtml();
+            }
+        }
+        $stdout = $this->_invokeClaude(
             $this->_systemPrompt($context['store_brand']),
-            $this->_userPrompt($context)
+            $prompt
         );
 
         if (trim((string) $stdout) === '') {

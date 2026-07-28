@@ -110,8 +110,11 @@ class MMD_Leads_Adminhtml_LeadsController extends Mage_Adminhtml_Controller_Acti
         }
 
         // Operator-editable recipient + CC list (both optional; To falls
-        // back to the lead's email, CC to none).
-        $emailTo = trim((string) $this->getRequest()->getPost('email_to', '')) ?: (string) $lead->getEmail();
+        // back to the lead's email, CC to none). Field names avoid "email"
+        // so password managers don't autofill them; legacy names accepted.
+        $emailTo = trim((string) $this->getRequest()->getPost('rcpt_addr', ''))
+            ?: trim((string) $this->getRequest()->getPost('email_to', ''))
+            ?: (string) $lead->getEmail();
         if (!Zend_Validate::is($emailTo, 'EmailAddress')) {
             Mage::getSingleton('adminhtml/session')->addError(
                 $this->__('"%s" is not a valid To address.', $emailTo)
@@ -119,8 +122,12 @@ class MMD_Leads_Adminhtml_LeadsController extends Mage_Adminhtml_Controller_Acti
             $this->_redirect('*/*/view', array('id' => $id));
             return;
         }
+        $ccRaw = (string) $this->getRequest()->getPost('rcpt_cc', '');
+        if (trim($ccRaw) === '') {
+            $ccRaw = (string) $this->getRequest()->getPost('email_cc', '');
+        }
         $ccList = array();
-        foreach (preg_split('/[,;]+/', (string) $this->getRequest()->getPost('email_cc', '')) ?: array() as $cc) {
+        foreach (preg_split('/[,;]+/', $ccRaw) ?: array() as $cc) {
             $cc = trim($cc);
             if ($cc === '') {
                 continue;
@@ -136,48 +143,13 @@ class MMD_Leads_Adminhtml_LeadsController extends Mage_Adminhtml_Controller_Acti
         }
 
         try {
-            $storeId = (int) $lead->getStoreId();
-            $sender  = Mage::helper('mmd_leads')->getReplySender($storeId);
-
             // sendTransactional pulls the From identity from the named
             // sender ("general" / "sales" etc); MMD_Email's setReplyTo
             // observer then sets Reply-To to the per-store sales identity
             // so customer replies land in the right country mailbox.
-            $mail = Mage::getModel('core/email_template');
-            /** @var Mage_Core_Model_Email_Template $mail */
-            $mail->setDesignConfig(array('area' => 'frontend', 'store' => $storeId));
+            Mage::helper('mmd_leads')->sendCourseReply($lead, $emailTo, $ccList, $subjectCourse, $replyHtml);
 
-            // addCc() on the underlying Zend_Mail survives sendTransactional()
-            // (send() only re-adds To/Bcc, never clears Cc) — same pattern as
-            // the auto-reply CC in Helper/Data.php::sendAutoReply().
-            foreach ($ccList as $cc) {
-                $mail->getMail()->addCc($cc);
-            }
-
-            $mail->sendTransactional(
-                    'mmd_leads_course_reply',
-                    $sender,
-                    $emailTo,
-                    $lead->getName(),
-                    array(
-                        'lead_name'       => $lead->getName(),
-                        'subject_course'  => $subjectCourse,
-                        'reply_body_html' => $replyHtml,
-                        'store_brand'     => Mage::helper('mmd_leads')->getStoreBrandName($storeId),
-                        'sender_name'     => Mage::getStoreConfig('contacts/email/sender_email_identity', $storeId)
-                            ? Mage::getStoreConfig(
-                                'trans_email/ident_' . Mage::getStoreConfig('contacts/email/sender_email_identity', $storeId) . '/name',
-                                $storeId
-                            )
-                            : Mage::helper('mmd_leads')->getStoreBrandName($storeId),
-                    ),
-                    $storeId
-                );
-
-            if (!$mail->getSentSuccess()) {
-                Mage::throwException($this->__('Email send failed — check var/log/system.log'));
-            }
-
+            $lead->logDraftEvent('replied_manual', 'Sent by operator to ' . $emailTo);
             $lead->markReplied(
                 $subjectCourse . "\n\n" . $replyHtml,
                 Mage::getSingleton('admin/session')->getUser()->getId()

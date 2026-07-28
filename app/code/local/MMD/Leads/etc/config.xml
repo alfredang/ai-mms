@@ -30,6 +30,31 @@
             </adminhtml>
         </routers>
     </admin>
+    <frontend>
+        <routers>
+            <!-- Public no-login review endpoint for AI-drafted lead replies:
+                 /leadreview/review/decide/... — HMAC token links emailed to
+                 the admin (approve auto-sends the reply to the lead). -->
+            <mmd_leads>
+                <use>standard</use>
+                <args>
+                    <module>MMD_Leads</module>
+                    <frontName>leadreview</frontName>
+                </args>
+            </mmd_leads>
+        </routers>
+    </frontend>
+    <crontab>
+        <jobs>
+            <!-- Every 5 min — AI-draft personalised replies for fresh leads
+                 and email the admin approve/request-changes links. Approval
+                 auto-sends; see MMD_Leads_Model_Cron_Draftreview. -->
+            <mmd_leads_draft_review>
+                <schedule><cron_expr>*/5 * * * *</cron_expr></schedule>
+                <run><model>mmd_leads/cron_draftreview::run</model></run>
+            </mmd_leads_draft_review>
+        </jobs>
+    </crontab>
     <global>
         <helpers>
             <mmd_leads>
@@ -105,6 +130,20 @@
                 <email_template>mmd_leads_auto_reply</email_template>
                 <cc>angch@tertiaryinfotech.com,sales@tertiarycourses.com.sg</cc>
             </auto_reply>
+            <!--
+                AI-draft review pipeline: the cron drafts a personalised reply
+                for each fresh lead and emails the reviewers approve /
+                request-changes links; approval auto-sends the reply.
+                reviewers                — comma-separated approval recipients.
+                allow_local_review_email — reviewer emails normally leave a
+                                           production SG host only; set 1 to
+                                           test from localhost/partner envs.
+            -->
+            <draft_review>
+                <enabled>1</enabled>
+                <reviewers>angch@tertiaryinfotech.com</reviewers>
+                <allow_local_review_email>0</allow_local_review_email>
+            </draft_review>
         </mmd_leads>
     </default>
 </config>
