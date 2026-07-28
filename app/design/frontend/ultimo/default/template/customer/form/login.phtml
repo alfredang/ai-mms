@@ -43,10 +43,12 @@
         <div class="new-users grid12-6">
             <div class="content">
                 <h2><?php echo $this->__('New Customers') ?></h2>
-                <p><?php echo $this->__('By creating an account with our store, you will be able to move through the checkout process faster, store multiple shipping addresses, view and track your orders in your account and more.') ?></p>
+                <p><?php echo $this->__('Please do not create an account on our portal. To register for a course, register on the course details page and check out — your learner account is created automatically with your course registration.') ?></p>
             </div>
             <div class="buttons-set">
-                <button type="button" title="<?php echo Mage::helper('core')->quoteEscape($this->__('Create an Account')) ?>" class="button" onclick="window.location='<?php echo $this->getCreateAccountUrl() ?>';"><span><span><?php echo $this->__('Create an Account') ?></span></span></button>
+                <?php /* Standalone registration is disabled (accounts are created by course
+                         checkout only — see MMD_AccountSync::onFrontendPredispatch). */ ?>
+                <button type="button" title="<?php echo Mage::helper('core')->quoteEscape($this->__('Browse Courses')) ?>" class="button" onclick="window.location='<?php echo Mage::getBaseUrl() ?>';"><span><span><?php echo $this->__('Browse Courses') ?></span></span></button>
             </div>
         </div>
         <div class="registered-users grid12-6">

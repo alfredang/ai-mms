@@ -47,7 +47,9 @@ registration, you will receive an automated acknowledgement email and the staff 
 follow up on the registration.') ?></p>
             </div>
             <div class="buttons-set">
-                <button type="button" title="<?php echo Mage::helper('core')->quoteEscape($this->__('Create an Account')) ?>" class="button" onclick="window.location='<?php echo Mage::helper('persistent')->getCreateAccountUrl($this->getCreateAccountUrl()) ?>';"><span><span><?php echo $this->__('Create an Account') ?></span></span></button>
+                <?php /* Standalone registration is disabled (accounts are created by course
+                         checkout only — see MMD_AccountSync::onFrontendPredispatch). */ ?>
+                <button type="button" title="<?php echo Mage::helper('core')->quoteEscape($this->__('Browse Courses')) ?>" class="button" onclick="window.location='<?php echo Mage::getBaseUrl() ?>';"><span><span><?php echo $this->__('Browse Courses') ?></span></span></button>
             </div>
         </div>
         <div class="registered-users grid12-6">

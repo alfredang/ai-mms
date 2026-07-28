@@ -40,4 +40,21 @@
             </admin_user_save_after>
         </events>
     </global>
+
+    <frontend>
+        <events>
+            <!-- Standalone registration is disabled: learner accounts are only
+                 created through course checkout. Generic predispatch (not the
+                 per-action event) so bot URL-casing (createpost/createPost)
+                 cannot dodge the guard. -->
+            <controller_action_predispatch>
+                <observers>
+                    <mmd_accountsync_block_register>
+                        <class>mmd_accountsync/observer</class>
+                        <method>onFrontendPredispatch</method>
+                    </mmd_accountsync_block_register>
+                </observers>
+            </controller_action_predispatch>
+        </events>
+    </frontend>
 </config>
