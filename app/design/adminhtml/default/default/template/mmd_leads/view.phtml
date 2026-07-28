@@ -217,7 +217,12 @@
                 <textarea name="rcpt_addr" id="rcpt_addr" rows="1" wrap="off" <?php echo $af ?> style="margin-bottom:14px;min-height:0;height:42px;resize:none;overflow:hidden;white-space:nowrap;"><?php echo $this->escapeHtml($this->getInitialTo()) ?></textarea>
 
                 <label style="font-size:12px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:6px;"><?php echo $this->__('CC (comma-separated)') ?></label>
-                <input type="text" name="rcpt_cc" id="rcpt_cc" <?php echo $af ?> value="<?php echo $this->escapeHtml($this->getInitialCc()) ?>" style="margin-bottom:14px;"/>
+                <?php
+                // Same single-line TEXTAREA trick as To: once To stopped being
+                // an <input>, CC became the form's FIRST text input and the
+                // password managers moved their autofill ("interns") here.
+                ?>
+                <textarea name="rcpt_cc" id="rcpt_cc" rows="1" wrap="off" <?php echo $af ?> style="margin-bottom:14px;min-height:0;height:42px;resize:none;overflow:hidden;white-space:nowrap;"><?php echo $this->escapeHtml($this->getInitialCc()) ?></textarea>
 
                 <label style="font-size:12px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:6px;"><?php echo $this->__('Subject — Course Name') ?></label>
                 <input type="text" name="subject_course" id="subject_course" <?php echo $af ?> value="<?php echo $this->escapeHtml($this->getInitialSubjectCourse()) ?>" style="margin-bottom:14px;"/>
@@ -296,16 +301,17 @@
                     });
                 }
 
-                // Keep the single-line To textarea single-line.
-                var toEl = document.getElementById('rcpt_addr');
-                if (toEl) {
-                    toEl.addEventListener('keydown', function (e) {
+                // Keep the single-line To/CC textareas single-line.
+                ['rcpt_addr', 'rcpt_cc'].forEach(function (fid) {
+                    var el = document.getElementById(fid);
+                    if (!el) { return; }
+                    el.addEventListener('keydown', function (e) {
                         if (e.key === 'Enter') { e.preventDefault(); }
                     });
-                    toEl.form && toEl.form.addEventListener('submit', function () {
-                        toEl.value = toEl.value.replace(/\s+/g, '');
+                    el.form && el.form.addEventListener('submit', function () {
+                        el.value = el.value.replace(/\s+/g, '');
                     });
-                }
+                });
 
                 // Autofill watchdog: password managers inject values without
                 // any keystroke. Restore the server prefill on To/CC unless
