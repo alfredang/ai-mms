@@ -156,7 +156,26 @@ class MMD_Marketing_Helper_Mailerlite extends Mage_Core_Helper_Abstract
     }
 
     /**
-     * Number of campaigns with status "sent" delivered in the last 30 days.
+     * True when a campaign payload row targets the SG audience — sent to the
+     * Singapore group, or to all active subscribers (no group targeting, e.g.
+     * the API-created flyer blasts). The MailerLite account is shared with
+     * other countries, so campaigns aimed exclusively at another group
+     * (Malaysia) are excluded from every dashboard campaign panel.
+     */
+    protected function _isSgCampaign(array $c)
+    {
+        $groups = isset($c['basic_filter_for_humans']['included_groups'])
+            && is_array($c['basic_filter_for_humans']['included_groups'])
+            ? $c['basic_filter_for_humans']['included_groups'] : array();
+        if (!$groups) { return true; }
+        foreach ($groups as $g) {
+            if (isset($g['id']) && (string) $g['id'] === self::GROUP_ID_SG) { return true; }
+        }
+        return false;
+    }
+
+    /**
+     * Number of SG campaigns with status "sent" delivered in the last 30 days.
      *
      * @return int|null
      */
@@ -171,6 +190,7 @@ class MMD_Marketing_Helper_Mailerlite extends Mage_Core_Helper_Abstract
         $since = strtotime('-30 days');
         $count = 0;
         foreach ($data['data'] as $c) {
+            if (!$this->_isSgCampaign($c)) continue;
             $ts = isset($c['finished_at']) ? strtotime((string)$c['finished_at']) : null;
             if (!$ts && isset($c['created_at'])) $ts = strtotime((string)$c['created_at']);
             if ($ts && $ts >= $since) $count++;
@@ -209,6 +229,7 @@ class MMD_Marketing_Helper_Mailerlite extends Mage_Core_Helper_Abstract
         $bestTs = PHP_INT_MAX;
         $utc = new DateTimeZone('UTC');
         foreach ($data['data'] as $c) {
+            if (!$this->_isSgCampaign($c)) continue;
             $when = isset($c['scheduled_for']) ? (string)$c['scheduled_for'] : '';
             if ($when === '') continue;
             try {
@@ -229,7 +250,7 @@ class MMD_Marketing_Helper_Mailerlite extends Mage_Core_Helper_Abstract
         return $best;
     }
 
-    /** Recent sent campaigns with performance stats (opens, clicks, rates). */
+    /** Recent SG sent campaigns with performance stats (opens, clicks, rates). */
     public function getSentCampaigns($limit = 6)
     {
         $data = $this->_getCached('camp_sent_stats', function () {
@@ -238,6 +259,7 @@ class MMD_Marketing_Helper_Mailerlite extends Mage_Core_Helper_Abstract
         if (!is_array($data) || empty($data['data'])) { return array(); }
         $out = array();
         foreach ($data['data'] as $c) {
+            if (!$this->_isSgCampaign($c)) { continue; }
             $s = isset($c['stats']) && is_array($c['stats']) ? $c['stats'] : array();
             $sent   = isset($s['sent']) ? (int) $s['sent'] : 0;
             $opens  = isset($s['opens_count'])  ? (int) $s['opens_count']  : (isset($s['unique_opens_count'])  ? (int) $s['unique_opens_count']  : 0);
@@ -268,6 +290,7 @@ class MMD_Marketing_Helper_Mailerlite extends Mage_Core_Helper_Abstract
         if (!is_array($data) || empty($data['data'])) { return array(); }
         $out = array();
         foreach ($data['data'] as $c) {
+            if (!$this->_isSgCampaign($c)) { continue; }
             $out[] = array(
                 'name'          => (string) (isset($c['name']) ? $c['name'] : ''),
                 'scheduled_for' => (string) (isset($c['scheduled_for']) ? $c['scheduled_for'] : ''),
