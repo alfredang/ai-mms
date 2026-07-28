@@ -17,6 +17,18 @@ class MMD_Adminhtml_Block_Catalog_Search_Grid
         // terms (stock default was query_id ASC — oldest first).
         $this->setDefaultSort('updated_at');
         $this->setDefaultDir('desc');
+
+        // The stock grid persists the last-used sort in the admin session
+        // (saveParametersInSession), and admin sessions here effectively
+        // never expire — so a sort saved before this default existed keeps
+        // overriding it forever. On a plain page load (no explicit ?sort=)
+        // drop the remembered sort so latest-first always applies; a column
+        // header click still sorts normally via its request param.
+        if (!Mage::app()->getRequest()->getParam($this->getVarNameSort())) {
+            $session = Mage::getSingleton('adminhtml/session');
+            $session->unsetData($this->getId() . $this->getVarNameSort());
+            $session->unsetData($this->getId() . $this->getVarNameDir());
+        }
     }
 
     protected function _prepareCollection()
