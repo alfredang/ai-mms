@@ -225,6 +225,40 @@ try {
         <?php endif; ?>
     </div>
 
+    <?php
+    // KPI cards — dedicated section views only. Counts mirror the server-side
+    // render filters below (learner view: branch-filtered storefront customers;
+    // trainer view: trainer-role operators, global pool) so the numbers always
+    // match the table they sit above. Reuses the .trn-kpi-* component from
+    // admin-dashboard.css (loaded globally via branchscope.xml).
+    if ($isLearnerView || $isTrainerView):
+        $kpiTotal = 0;
+        $kpiActive = 0;
+        if ($isLearnerView) {
+            foreach ($customers as $cust) {
+                $sCode = isset($storeIdToCode[(int)$cust['store_id']]) ? $storeIdToCode[(int)$cust['store_id']] : rm_inferStoreFromEmail($cust['email']);
+                if ($rmApplyBranchFilter && $sCode !== $_activeBranch) continue;
+                $kpiTotal++;
+                if ((int)$cust['is_active']) $kpiActive++;
+            }
+        } else {
+            foreach ($rows as $r) {
+                $rc = $r['roles'] ? explode(',', $r['roles']) : array();
+                if (!in_array('trainer', $rc, true)) continue;
+                $kpiTotal++;
+                if ($r['is_active']) $kpiActive++;
+            }
+        }
+        $kpiInactive = $kpiTotal - $kpiActive;
+        $kpiNoun = $isLearnerView ? 'Learners' : 'Trainers';
+    ?>
+    <div class="trn-kpi-grid">
+        <div class="trn-kpi-card"><div class="trn-kpi-num blue"><?php echo number_format($kpiTotal) ?></div><div class="trn-kpi-lbl">Total <?php echo $kpiNoun ?></div></div>
+        <div class="trn-kpi-card"><div class="trn-kpi-num green"><?php echo number_format($kpiActive) ?></div><div class="trn-kpi-lbl">Total Active <?php echo $kpiNoun ?></div></div>
+        <div class="trn-kpi-card"><div class="trn-kpi-num gray"><?php echo number_format($kpiInactive) ?></div><div class="trn-kpi-lbl">Total Inactive <?php echo $kpiNoun ?></div></div>
+    </div>
+    <?php endif; ?>
+
     <?php if ($_tiCanManage): ?>
     <!-- ===== Sync Trainers from LMS ===== -->
     <div id="ti-card" style="background:#1e2132;border:1px solid #334155;border-radius:12px;padding:18px 20px;margin-bottom:20px;">
