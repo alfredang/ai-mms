@@ -9,6 +9,16 @@
 class MMD_Adminhtml_Block_Catalog_Search_Grid
     extends Mage_Adminhtml_Block_Catalog_Search_Grid
 {
+    public function __construct()
+    {
+        parent::__construct();
+        // Latest terms first. updated_at is bumped every time the term is
+        // searched, so this surfaces both newly-created and recently-reused
+        // terms (stock default was query_id ASC — oldest first).
+        $this->setDefaultSort('updated_at');
+        $this->setDefaultDir('desc');
+    }
+
     protected function _prepareCollection()
     {
         $collection = Mage::getModel('catalogsearch/query')->getResourceCollection();
@@ -91,6 +101,18 @@ class MMD_Adminhtml_Block_Catalog_Search_Grid
                 'filter'  => false,
             ), 'redirect');
         }
+
+        // Surface the sort key for the "latest first" default order. The
+        // timestamp is stored in UTC (MySQL CURRENT_TIMESTAMP) — 'gmtoffset'
+        // converts it to the admin locale timezone for display.
+        $this->addColumnAfter('updated_at', array(
+            'header'    => Mage::helper('catalog')->__('Last Searched'),
+            'index'     => 'updated_at',
+            'type'      => 'datetime',
+            'gmtoffset' => true,
+            'width'     => '160px',
+            'filter'    => false,
+        ), 'display_in_terms');
 
         // parent::_prepareColumns() ran sortColumnsByOrder() BEFORE our
         // addColumnAfter() calls above registered their order, so the
