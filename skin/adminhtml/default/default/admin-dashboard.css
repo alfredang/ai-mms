@@ -2945,7 +2945,10 @@ button.mn-vp-btn.active,button.mn-vp-btn.active:hover,button.mn-vp-btn.active:fo
 .admin-main h1[class*="-title"],
 .admin-main h2[class*="-title"]:not([class*="card"]):not([class*="modal"]),
 .admin-main .content-header h3,
-.admin-main .content-header h3.icon-head{
+.admin-main .content-header h3.icon-head,
+.admin-main .content-header h1,
+.admin-main .page-head h3,
+.admin-main .page-head h1{
   font-size:18px !important;
   font-weight:700 !important;
   color:var(--t1,#f1f5f9) !important;
@@ -2955,6 +2958,31 @@ button.mn-vp-btn.active,button.mn-vp-btn.active:hover,button.mn-vp-btn.active:fo
   border-bottom:0 !important;
   text-shadow:none !important;
 }
+
+/* ---- Page-title icon (global framework companion) ----
+   Every page title carries one leading 18px stroke glyph, injected by
+   sidebar-nav-v2.js::mmdInjectPageTitleIcons() as
+   <span class="mmd-page-icon"><svg…></svg></span>. The icon matches the
+   title's 18px scale and uses the brand blue accent; titles that already
+   ship their own inline svg (e.g. Workflow Guides) are skipped by the
+   injector, so there is never a double glyph. The explicit `> svg`
+   width/height pin below is the anti-flex-collapse guard from the
+   backend-design skill — do not remove it. */
+.admin-main .mmd-page-icon{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  vertical-align:-3px;
+  margin-right:9px;
+  color:var(--blue,#60a5fa);
+}
+.admin-main .mmd-page-icon > svg{
+  width:18px;
+  height:18px;
+  display:block;
+  flex:0 0 auto;
+}
+:root[data-theme="light"] .admin-main .mmd-page-icon{ color:#2563eb; }
 
 /* ============================================================
    LIGHT THEME — dashboard panel overrides
@@ -3859,63 +3887,19 @@ button.hsp-btn-submit{
 :root[data-theme="light"] #dev-filter-toggle[data-open="1"] { color: #2563eb !important; border-color: #2563eb !important; }
 
 /* ============================================================
-   Unified admin page-title styling
+   Unified admin page-title styling — RETIRED (2026-07-29)
    ------------------------------------------------------------
-   Every admin page should render its top-of-content heading at
-   the same 28px / 700 weight — the dominant size already used
-   by most custom panels (.dev-title, .dce-title, .al-title, etc.).
-   The brief: "page title (must be same font size)" across all
-   backend pages.
-
-   Covers:
-     - Custom dashboard panels (.dev-title, .trn-title, .lmc-title,
-       .al-title, .at-title, .crd-title, .lcd-title,
-       .hsp-title, .dce-title, .cs-title, .edt-title)
-     - Stock Magento .page-head / .content-header headings (used
-       by Catalog Products grid, Categories, Customers, Sales,
-       System Configuration, etc.)
+   This block used to re-impose a 28px page-title size and, being
+   later in the file with equal specificity, WON the cascade for
+   .content-header h3 — exactly the competing-rule drift the
+   "Global page-title type ramp" (18px, ~line 2916) exists to
+   kill. The whitelist selectors (.dev-title, .al-title, …) are
+   covered by the ramp's shape net; .page-head h1/h3 and
+   .content-header h1 were folded INTO the ramp selector. Light
+   theme needs no color override here — the ramp uses var(--t1),
+   which :root[data-theme="light"] retokens. Do NOT re-add a
+   page-title font-size rule outside the ramp.
    ============================================================ */
-.dev-title,
-.trn-title,
-.lmc-title,
-.al-title,
-.at-title,
-.crd-title,
-.lcd-title,
-.hsp-title,
-.dce-title,
-.cs-title,
-.edt-title,
-.admin-main .page-head h3,
-.admin-main .page-head h1,
-.admin-main .content-header h3,
-.admin-main .content-header h1 {
-    font-size: 28px !important;
-    font-weight: 700 !important;
-    line-height: 1.2 !important;
-    color: var(--t1, #f1f5f9) !important;
-    margin: 0 0 24px !important;
-    padding: 0 !important;
-    text-transform: none !important;
-    letter-spacing: 0 !important;
-}
-:root[data-theme="light"] .dev-title,
-:root[data-theme="light"] .trn-title,
-:root[data-theme="light"] .lmc-title,
-:root[data-theme="light"] .al-title,
-:root[data-theme="light"] .at-title,
-:root[data-theme="light"] .crd-title,
-:root[data-theme="light"] .lcd-title,
-:root[data-theme="light"] .hsp-title,
-:root[data-theme="light"] .dce-title,
-:root[data-theme="light"] .cs-title,
-:root[data-theme="light"] .edt-title,
-:root[data-theme="light"] .admin-main .page-head h3,
-:root[data-theme="light"] .admin-main .page-head h1,
-:root[data-theme="light"] .admin-main .content-header h3,
-:root[data-theme="light"] .admin-main .content-header h1 {
-    color: #0f172a !important;
-}
 
 /* ============================================================
    Store View bar — light-mode override

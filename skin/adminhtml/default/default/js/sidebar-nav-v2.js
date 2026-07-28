@@ -3503,6 +3503,159 @@ document.addEventListener('DOMContentLoaded', function injectCmsPagesSearch() {
     }, 500);
 })();
 
+/* ============================================================
+   Global page-title icon framework
+   ------------------------------------------------------------
+   Every admin page title gets one leading 18px stroke glyph
+   (<span class="mmd-page-icon">), matching the sidebar's icon
+   language. Targets the SAME shape net as the "Global page-title
+   type ramp" in admin-dashboard.css (h1/h2 *-title minus
+   card/modal, .content-header h3/h1, .page-head h3/h1) plus the
+   auto-wrapped grid-card title span (.dcf-mag.mmd-auto-card >
+   .dcf-mag-bar > span:first-child) — so new pages need zero code.
+
+   Icon resolution, first hit wins:
+     1. keyword match on the title text (registry below — extend
+        here, never per-page);
+     2. clone of the active sidebar nav item's icon (or its
+        tools-group header icon for active sub-items);
+     3. generic document glyph.
+   Titles that already ship their own inline <svg>/<img> (e.g.
+   Workflow Guides) are skipped — never a double glyph. Idempotent
+   via data-mmd-page-icon, so the retry timers are safe. */
+(function () {
+    'use strict';
+
+    var SVG_OPEN = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">';
+
+    var ICONS = {
+        dashboard:   '<rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/>',
+        gradcap:     '<path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1.66 2.69 3 6 3s6-1.34 6-3v-5"/><path d="M22 10v6"/>',
+        users:       '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+        book:        '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>',
+        folder:      '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',
+        filetext:    '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>',
+        bag:         '<path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/>',
+        star:        '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
+        chart:       '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
+        mail:        '<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>',
+        lock:        '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+        link:        '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+        database:    '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>',
+        refresh:     '<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>',
+        clock:       '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+        layers:      '<path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>',
+        userplus:    '<path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/>',
+        tag:         '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.83z"/><line x1="7" y1="7" x2="7.01" y2="7"/>',
+        search:      '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>',
+        shield:      '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/>',
+        gear:        '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.36.16.76.24 1.17.24H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+        checksquare: '<polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
+        award:       '<circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/>',
+        pen:         '<path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>',
+        image:       '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>',
+        globe:       '<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>'
+    };
+
+    // Ordered — first match wins. Specific terms (learner/trainer) sit
+    // above the generic ones they overlap with (user).
+    var KEYWORDS = [
+        [['dashboard'],                                                'dashboard'],
+        [['learner', 'customer'],                                      'gradcap'],
+        [['trainer'],                                                  'users'],
+        [['attendance'],                                               'checksquare'],
+        [['certificate', 'award'],                                     'award'],
+        [['class', 'course', 'product', 'catalog'],                    'book'],
+        [['categor'],                                                  'folder'],
+        [['order', 'invoice', 'registration', 'pro forma', 'proforma', 'shipment', 'credit memo', 'sales'], 'bag'],
+        [['review', 'rating'],                                         'star'],
+        [['report', 'analytic'],                                       'chart'],
+        [['newsletter', 'email', 'template', 'queue', 'subscriber'],   'mail'],
+        [['credential'],                                               'lock'],
+        [['api'],                                                      'link'],
+        [['cache'],                                                    'database'],
+        [['index'],                                                    'refresh'],
+        [['cron', 'schedule'],                                         'clock'],
+        [['audit'],                                                    'layers'],
+        [['lead'],                                                     'userplus'],
+        [['tag', 'badge'],                                             'tag'],
+        [['search'],                                                   'search'],
+        [['role', 'permission', 'user'],                               'shield'],
+        [['blog', 'post'],                                             'pen'],
+        [['media', 'banner', 'image', 'cover'],                        'image'],
+        [['franchise', 'website'],                                     'globe'],
+        [['url', 'rewrite', 'sitemap'],                                'link'],
+        [['store', 'currency', 'config', 'setting', 'system'],         'gear'],
+        [['cms', 'page', 'block', 'widget', 'poll'],                   'filetext']
+    ];
+
+    function iconByKeyword(text) {
+        var t = text.toLowerCase();
+        for (var i = 0; i < KEYWORDS.length; i++) {
+            var words = KEYWORDS[i][0];
+            for (var j = 0; j < words.length; j++) {
+                if (t.indexOf(words[j]) !== -1) return SVG_OPEN + ICONS[KEYWORDS[i][1]] + '</svg>';
+            }
+        }
+        return null;
+    }
+
+    function iconFromSidebar() {
+        var item = document.querySelector('.admin-sidebar .lms-nav-item.active');
+        var svg = item ? item.querySelector('svg:not(.tools-caret)') : null;
+        if (!svg) {
+            var sub = document.querySelector('.admin-sidebar .tools-sub-item.active');
+            var grp = sub ? sub.closest('.tools-group') : null;
+            if (grp) svg = grp.querySelector('.tools-group-toggle svg:not(.tools-caret)');
+        }
+        return svg ? svg.outerHTML : null;
+    }
+
+    function decorate(el) {
+        if (el.dataset.mmdPageIcon) return;
+        // Card/modal sub-headings are not page titles (mirrors the CSS
+        // net's :not() guards for h2 *-title).
+        if (el.tagName === 'H2' && /card|modal/i.test(el.className)) return;
+        // Original .content-header hidden by wrapMmdGridInCard — its
+        // title already re-rendered in the .dcf-mag-bar span.
+        if (el.closest('.mmd-content-header-hidden')) return;
+        // Title ships its own glyph (Workflow Guides etc.) — skip.
+        if (el.querySelector('svg, img, .mmd-page-icon')) return;
+        var text = (el.textContent || '').trim();
+        if (!text) return;
+        var markup = iconByKeyword(text) || iconFromSidebar()
+                  || SVG_OPEN + ICONS.filetext + '</svg>';
+        var span = document.createElement('span');
+        span.className = 'mmd-page-icon';
+        span.setAttribute('aria-hidden', 'true');
+        span.innerHTML = markup;
+        el.insertBefore(span, el.firstChild);
+        el.dataset.mmdPageIcon = '1';
+    }
+
+    function injectPageTitleIcons() {
+        try {
+            var sel = '.admin-main h1[class*="-title"], ' +
+                      '.admin-main h2[class*="-title"], ' +
+                      '.admin-main .content-header h3, ' +
+                      '.admin-main .content-header h1, ' +
+                      '.admin-main .page-head h3, ' +
+                      '.admin-main .page-head h1, ' +
+                      '.admin-main .dcf-mag.mmd-auto-card > .dcf-mag-bar > span:first-child';
+            document.querySelectorAll(sel).forEach(decorate);
+        } catch (e) {}
+    }
+
+    onPageReady(function () {
+        injectPageTitleIcons();
+        // The .dcf-mag-bar title span is created by wrapMmdGridInCard at
+        // its 200/800/1800ms retries — trail each pass.
+        setTimeout(injectPageTitleIcons, 400);
+        setTimeout(injectPageTitleIcons, 1000);
+        setTimeout(injectPageTitleIcons, 2000);
+    });
+})();
+
 /* FOUC suppression: mark the document ready AFTER the initial grid-card / header
    restructuring above has run, so CSS can keep the admin content hidden for that
    brief window and avoid the title "jump". requestAnimationFrame defers past the

@@ -5213,26 +5213,28 @@ body.adminhtml-workflowguides-index .wfg-empty {
     font-size: 12px;
     color: var(--t4, #94a3b8);
 }
+/* The h2 carries .wfg-guide-title so the global page-title ramp
+   (admin-dashboard.css) owns its type — 18px/700/var(--t1), same as
+   every other page title. Only layout + the guide's own icon (which
+   makes the injector skip this title) are styled here, at the same
+   18px glyph scale as .mmd-page-icon. */
 body.adminhtml-workflowguides-index .wfg-guide-header h2 {
     display: flex;
     align-items: center;
     gap: 10px;
-    font: 700 24px/1.3 'Inter', sans-serif;
-    color: var(--t1, #f1f5f9);
-    margin: 0 0 6px;
 }
 body.adminhtml-workflowguides-index .wfg-guide-icon {
-    font-size: 26px;
+    font-size: 18px;
     line-height: 1;
     display: inline-flex;
     align-items: center;
     color: var(--blue, #60a5fa);
-    margin-right: 8px;
 }
 body.adminhtml-workflowguides-index .wfg-guide-icon svg {
-    width: 24px;
-    height: 24px;
+    width: 18px;
+    height: 18px;
     display: block;
+    flex: 0 0 auto;
 }
 body.adminhtml-workflowguides-index .wfg-guide-path {
     font-size: 13px;

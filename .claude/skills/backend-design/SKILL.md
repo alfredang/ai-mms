@@ -156,9 +156,31 @@ Why this shape:
 - The auto-wrapped grid title (`.dcf-mag.mmd-auto-card > .dcf-mag-bar`) is
   flattened to the same 18px flush treatment in `sidebar-nav.css` §25a.
 
+**Page-title icon (2026-07-29 — every page title carries one leading glyph).**
+Each page title opens with a single 18px stroke icon in the brand-blue accent
+(`<span class="mmd-page-icon"><svg…18×18 stroke…></svg></span>`), matching the
+sidebar's icon language. This is a **global framework, zero per-page code**:
+`sidebar-nav-v2.js` (the "Global page-title icon framework" IIFE at the end of
+the file) injects the span into every element the type-ramp net matches, PLUS
+the auto-wrapped grid-card title (`.dcf-mag.mmd-auto-card > .dcf-mag-bar >
+span:first-child`). Icon resolution, first hit wins: (1) keyword match on the
+title text against the `KEYWORDS` registry in that IIFE (learner→grad-cap,
+class/course→book, order/registration→bag, cache→database, search→magnifier,
+…); (2) clone of the active sidebar nav item's icon; (3) generic document
+glyph. Component CSS (`.mmd-page-icon`, 18×18 svg pin, `var(--blue)` /
+light-mode `#2563eb`) lives next to the ramp in `admin-dashboard.css`. Rules:
+- Never hand-place an icon in a page-title template — extend the `KEYWORDS`
+  registry (or rely on the sidebar fallback) so every page stays consistent.
+- A title that legitimately ships its own inline `<svg>`/`<img>` (Workflow
+  Guides' category glyph) is auto-skipped by the injector — never a double
+  glyph; size such bespoke glyphs at the same 18×18 / `var(--blue)` spec.
+- Icon color is the blue accent only — no per-page icon colors, no filled
+  icons; 24×24 viewBox, `stroke-width:2`, `fill:none` (sidebar language).
+
 **Rules for new admin pages:**
 1. Emit the page title as `<h1 class="…-title">` (or `<h2>` if the class does
-   NOT contain `card`/`modal`). It inherits the canonical look with no new CSS.
+   NOT contain `card`/`modal`). It inherits the canonical look — 18px type AND
+   the leading icon — with no new CSS.
 2. Never give a page title its own `font-size` — that recreates the drift this
    rule exists to kill. Section/card/sub headings use §"Section headers" or the
    h4/h5/h6 ramp, never a `*-title` page-title class.
@@ -169,6 +191,11 @@ Incident: page titles had drifted across ~15 bespoke per-module classes
 (`.rm-title` at 24px, `.dash-title` at 28px, native `.content-header h3` at
 28px, …); a class *whitelist* kept missing new ones (e.g. `h2.rm-title` on
 Upcoming Classes stayed huge). The shape-based net above ended the whack-a-mole.
+Second incident (2026-07-29): a leftover "Unified admin page-title styling"
+28px block later in `admin-dashboard.css` silently out-cascaded the 18px ramp
+for `.content-header h3` — native grids rendered 28px while MMD pages sat at
+18px. The block is retired (comment stub remains); `.page-head h1/h3` and
+`.content-header h1` were folded into the ramp selector.
 
 ## Where things live
 
