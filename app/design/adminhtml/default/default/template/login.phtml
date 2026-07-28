@@ -70,6 +70,9 @@ $otpVerifyUrl = Mage::helper('adminhtml')->getUrl('adminhtml/otp/verify', array(
     }
     .field-input:focus { border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(96,165,250,0.15); }
     .field-input::placeholder { color: #64748b; }
+    /* Email fields are single-line textareas (password managers never autofill
+       textareas — see the "interns" incidents); style them like the inputs. */
+    textarea.field-input { resize: none; overflow: hidden; height: 44px; font-family: inherit; line-height: 20px; display: block; }
     .field-pw-wrap { position: relative; }
     .field-pw-wrap .field-input { padding-right: 44px; }
     .pw-toggle,
@@ -217,13 +220,17 @@ $otpVerifyUrl = Mage::helper('adminhtml')->getUrl('adminhtml/otp/verify', array(
                 <input name="form_key" type="hidden" value="<?php echo $formKey ?>" />
                 <div class="field-group">
                     <label class="field-label" for="username">Email</label>
-                    <input type="email" id="username" name="login[username]" class="field-input required-entry" placeholder="Enter your email" />
+                    <!-- Single-line textarea, NOT <input type="email">: password
+                         managers kept autofilling a saved credential ("interns")
+                         into it and ignore autocomplete="off". They never touch
+                         textareas. Enter is handled in JS below. -->
+                    <textarea id="username" name="login[username]" rows="1" wrap="off" class="field-input required-entry" placeholder="Enter your email" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="email"></textarea>
                 </div>
                 <div class="field-group">
                     <label class="field-label" for="login">Password</label>
                     <input type="password" class="no-display" name="dummy" id="dummy" />
                     <div class="field-pw-wrap">
-                        <input type="password" id="login" name="login[password]" class="field-input required-entry" placeholder="Enter your password" autocomplete="new-password" />
+                        <input type="password" id="login" name="login[password]" class="field-input required-entry" placeholder="Enter your password" autocomplete="new-password" readonly onfocus="this.removeAttribute('readonly')" />
                         <button type="button" class="pw-toggle" onclick="togglePw()" aria-label="Toggle password visibility">
                             <svg id="pw-eye-open" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
                             <svg id="pw-eye-closed" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
@@ -245,7 +252,9 @@ $otpVerifyUrl = Mage::helper('adminhtml')->getUrl('adminhtml/otp/verify', array(
                 <div id="otp-step-email">
                     <div class="field-group">
                         <label class="field-label" for="otp-email">Email</label>
-                        <input type="email" id="otp-email" class="field-input" placeholder="Enter your email address" />
+                        <!-- Single-line textarea for the same anti-autofill reason
+                             as #username above. Enter sends the OTP (JS below). -->
+                        <textarea id="otp-email" rows="1" wrap="off" class="field-input" placeholder="Enter your email address" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="email"></textarea>
                     </div>
                     <button type="button" class="btn-otp" id="btn-send-otp" onclick="sendOtp()">Send OTP</button>
                     <div class="login-switch">
@@ -285,6 +294,53 @@ $otpVerifyUrl = Mage::helper('adminhtml')->getUrl('adminhtml/otp/verify', array(
     //<![CDATA[
     var loginForm = new varienForm('loginForm');
 
+    // Anti-autofill plumbing for the single-line email textareas:
+    // block/repurpose Enter, strip pasted newlines, and clear anything a
+    // password manager injects at page load ("interns" incident — fills
+    // happen at load; a manual fill from the extension comes later and
+    // is untouched).
+    (function () {
+        function singleLine(el, onEnter) {
+            if (!el) return;
+            el.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' || e.keyCode === 13) { e.preventDefault(); onEnter(); }
+            });
+            el.addEventListener('input', function () {
+                if (/[\r\n]/.test(el.value)) el.value = el.value.replace(/[\r\n]+/g, '');
+            });
+        }
+        singleLine(document.getElementById('otp-email'), sendOtp);
+        singleLine(document.getElementById('username'), function () {
+            var pwd = document.getElementById('login');
+            if (pwd && !pwd.value) { pwd.focus(); } else { loginForm.submit(); }
+        });
+        var lf = document.getElementById('loginForm');
+        if (lf) lf.addEventListener('submit', function () {
+            var u = document.getElementById('username');
+            if (u) u.value = u.value.replace(/\s+/g, '');
+        });
+        function clearAutofill() {
+            ['username', 'otp-email', 'login'].forEach(function (id) {
+                var el = document.getElementById(id);
+                if (el && el.value && document.activeElement !== el) el.value = '';
+            });
+        }
+        document.addEventListener('DOMContentLoaded', function () {
+            clearAutofill();
+            setTimeout(clearAutofill, 250);
+            setTimeout(clearAutofill, 800);
+        });
+        // Autofill fires an `input` event on the field WITHOUT focusing it
+        // (user typing always has focus) — catch late fills the load-time
+        // sweep above misses. Manual extension fills on a focused field pass.
+        ['username', 'otp-email', 'login'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.addEventListener('input', function () {
+                if (document.activeElement !== el) el.value = '';
+            });
+        });
+    })();
+
     function togglePw() {
         var inp = document.getElementById('login');
         var open = document.getElementById('pw-eye-open');
@@ -321,7 +377,7 @@ $otpVerifyUrl = Mage::helper('adminhtml')->getUrl('adminhtml/otp/verify', array(
     }
 
     function sendOtp() {
-        var email = $('otp-email').value.trim();
+        var email = $('otp-email').value.replace(/\s+/g, '');
         if (!email) { alert('Please enter your email address'); return; }
 
         var btn = $('btn-send-otp');
@@ -377,7 +433,7 @@ $otpVerifyUrl = Mage::helper('adminhtml')->getUrl('adminhtml/otp/verify', array(
         var otp = ($('otp-code').value || '').replace(/[^0-9]/g, '');
         if (otp.length < 6) { alert('Please enter the complete 6-digit OTP'); return; }
 
-        var email = $('otp-email').value.trim();
+        var email = $('otp-email').value.replace(/\s+/g, '');
         var btn = $('btn-verify-otp');
         btn.disabled = true;
         btn.innerHTML = 'Verifying...';
