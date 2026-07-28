@@ -195,10 +195,16 @@ On the MMS read key (`X-API-Key`) you already use for the read endpoints:
 come from the funding schemes - it does **not** return the actual subsidised dollar figure.
 
 **Enabled courses only.** These read endpoints return **only courses that are live on the
-storefront.** A disabled / deactivated course returns `404 not_found` from `api_courses` and
-`api_schedule`, and never appears in `api_search`. Treat that 404 as **"not currently offered"** -
-tell the customer the course isn't available right now; do **not** say it "doesn't exist", do **not**
-guess a price from memory or the public site, and do **not** go look for it in the LMS.
+storefront**, so a disabled / deactivated course is already **excluded from every recommendation**
+(`api_search`, `api_wsq`, `api_nonwsq` never list it). On a **direct** lookup by SKU, `api_courses`
+and `api_schedule` return **`404 error=course_unavailable`** for a disabled course (distinct from
+`404 error=not_found`, which means the SKU genuinely doesn't exist).
+
+**How to handle `course_unavailable`:** treat it as **"not currently offered"** - tell the customer
+the course isn't available right now and, if useful, offer a live alternative. Do **not** say it
+"doesn't exist", do **not** recommend or price it, do **not** guess a price from memory or the public
+site, and do **not** go look for it in the LMS. **Never surface a `course_unavailable` course in a
+recommendation list** - branch on the error code, not the message text.
 
 ### Step 2 - branch on the course code (`sku`) prefix (see Sec 4)
 - **`C-` / `M-` (non-WSQ):** MMS is the **whole** answer - full price, no WSQ funding. The
@@ -226,8 +232,8 @@ The **course code is identical in both systems**: MMS `sku` **==** LMS `course_c
 - **Don't** report the MMS list price as the "funded price" for a WSQ course - fetch the funded
   figure from the LMS.
 - **Don't** look for non-WSQ (`C-`/`M-`) courses in the LMS - only MMS has them.
-- **Don't** recommend or quote a course the MMS returns as `404 not_found` - a disabled course is
-  not currently offered; never fall back to memory or the public site to price it.
+- **Don't** recommend or quote a course the MMS returns as `404 error=course_unavailable` - a
+  disabled course is not currently offered; never fall back to memory or the public site to price it.
 - These are **read** lookups. *Changing* a course/schedule still goes through the MMS **write**
   APIs (preview → confirm → commit) in the API guide.
 

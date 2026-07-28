@@ -66,24 +66,24 @@ class MMD_Courses_Api_ScheduleController extends Mage_Core_Controller_Front_Acti
      */
     private function _perSkuResponse($sku)
     {
+        // Resolve directly (getIdBySku bypasses flat catalog, which omits disabled
+        // products) so a disabled course is distinguishable from a missing one.
+        $id = Mage::getModel('catalog/product')->getIdBySku($sku);
+        if (!$id) {
+            return $this->_json(404, $this->_errEnvelope('not_found',
+                'No course with sku=' . $sku . ' in the SG catalogue.'));
+        }
         try {
-            $product = Mage::getModel('catalog/product')->setStoreId(self::SG_STORE_ID)
-                ->loadByAttribute('sku', $sku);
+            $product = Mage::getModel('catalog/product')->setStoreId(self::SG_STORE_ID)->load($id);
         } catch (Exception $e) {
             Mage::logException($e);
             return $this->_json(500, $this->_errEnvelope('internal_error', $e->getMessage()));
         }
-        if (!$product || !$product->getId()) {
-            return $this->_json(404, $this->_errEnvelope('not_found',
-                'No course with sku=' . $sku . ' in the SG catalogue.'));
-        }
-        $product = Mage::getModel('catalog/product')->setStoreId(self::SG_STORE_ID)->load($product->getId());
 
-        // Never surface a disabled course. Flat catalog already excludes disabled
-        // products from loadByAttribute above; guard explicitly so the per-SKU
-        // endpoint stays enabled-only even if flat is off or mid-reindex.
+        // Never surface a disabled course. Distinct error code (course_unavailable,
+        // not not_found) so the bot can exclude it without parsing the message.
         if ((int) $product->getStatus() === Mage_Catalog_Model_Product_Status::STATUS_DISABLED) {
-            return $this->_json(404, $this->_errEnvelope('not_found',
+            return $this->_json(404, $this->_errEnvelope('course_unavailable',
                 'Course ' . $sku . ' is not currently available.'));
         }
 

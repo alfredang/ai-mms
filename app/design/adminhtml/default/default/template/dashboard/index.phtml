@@ -10965,7 +10965,7 @@ $_apiCategories = array(
             array(
                 'method' => 'GET', 'path' => '/courses/api_schedule', 'authKey' => 'wsq',
                 'title' => 'WSQ Schedule API',
-                'description' => 'Every WSQ course (TGS- SKU prefix) in the SG store with its scheduled class dates. Add ?sku=<code> to switch into per-course mode (adds trainer, vacancy, mode, status per class) — bulk-mode shape is unaffected, existing consumers are unaffected. Enabled courses only: bulk mode lists enabled courses, and per-course mode returns 404 not_found for a disabled course.',
+                'description' => 'Every WSQ course (TGS- SKU prefix) in the SG store with its scheduled class dates. Add ?sku=<code> to switch into per-course mode (adds trainer, vacancy, mode, status per class) — bulk-mode shape is unaffected, existing consumers are unaffected. Enabled courses only: bulk mode lists enabled courses, and per-course mode returns 404 error=course_unavailable for a disabled course (error=not_found only when the SKU genuinely does not exist).',
                 'queryParams' => array(
                     array('name' => 'sku', 'type' => 'string', 'required' => false, 'description' => 'Course code — switches to per-course schedule mode'),
                 ),
@@ -10987,7 +10987,7 @@ $_apiCategories = array(
             array(
                 'method' => 'GET', 'path' => '/courses/api_courses', 'authKey' => 'wsq',
                 'title' => 'Course Detail API',
-                'description' => 'Full details for one course by SKU — overview, suitability, prerequisites, fee, funding badges, mode, registration link. Falls back to the long description when structured fields are missing rather than returning a hard null. Enabled courses only: a disabled/deactivated course returns 404 not_found so the bot never recommends a course that is no longer offered.',
+                'description' => 'Full details for one course by SKU — overview, suitability, prerequisites, fee, funding badges, mode, registration link. Falls back to the long description when structured fields are missing rather than returning a hard null. Enabled courses only: a genuinely-missing SKU returns 404 error=not_found; a disabled/deactivated course returns 404 error=course_unavailable (distinct code so the bot excludes it from recommendations without parsing the message) — it never recommends or prices a course that is no longer offered.',
                 'queryParams' => array(
                     array('name' => 'sku', 'type' => 'string', 'required' => true, 'description' => 'Course code, e.g. C138 or TGS-2023021752. 404 if not found or disabled.'),
                 ),

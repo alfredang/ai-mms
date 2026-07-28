@@ -44,28 +44,29 @@ class MMD_Courses_Api_CoursesController extends Mage_Core_Controller_Front_Actio
                 'Pass ?sku=<course_code> (e.g. ?sku=C814 or ?sku=TGS-2024010234).'));
         }
 
+        // Resolve the SKU directly (getIdBySku bypasses the flat catalog, which
+        // omits disabled products) so we can tell a genuinely-missing course apart
+        // from a disabled one and return an accurate, distinct signal for each.
+        $id = Mage::getModel('catalog/product')->getIdBySku($sku);
+        if (!$id) {
+            return $this->_json(404, $this->_errEnvelope('not_found',
+                'No course with sku=' . $sku . ' exists in the SG catalog.'));
+        }
+
         try {
-            $product = Mage::getModel('catalog/product')->setStoreId(self::SG_STORE_ID)
-                ->loadByAttribute('sku', $sku);
+            // Load against the SG store view so storefront-scoped attributes
+            // (description, name, url_key) resolve correctly.
+            $product = Mage::getModel('catalog/product')->setStoreId(self::SG_STORE_ID)->load($id);
         } catch (Exception $e) {
             Mage::logException($e);
             return $this->_json(500, $this->_errEnvelope('internal_error', $e->getMessage()));
         }
 
-        if (!$product || !$product->getId()) {
-            return $this->_json(404, $this->_errEnvelope('not_found',
-                'No course with sku=' . $sku . ' exists in the SG catalog.'));
-        }
-
-        // Re-load against the SG store view so storefront-scoped attributes
-        // (description, name, url_key) resolve correctly.
-        $product = Mage::getModel('catalog/product')->setStoreId(self::SG_STORE_ID)->load($product->getId());
-
-        // Never surface a disabled course to the bot. Flat catalog already keeps
-        // disabled products out of loadByAttribute above, but guard explicitly so
-        // the endpoint stays enabled-only even if flat is off or mid-reindex.
+        // Never surface a disabled/deactivated course. Distinct error code
+        // (course_unavailable, not not_found) so the bot can exclude it from
+        // recommendations and answers without parsing the message text.
         if ((int) $product->getStatus() === Mage_Catalog_Model_Product_Status::STATUS_DISABLED) {
-            return $this->_json(404, $this->_errEnvelope('not_found',
+            return $this->_json(404, $this->_errEnvelope('course_unavailable',
                 'Course ' . $sku . ' is not currently available.'));
         }
 
