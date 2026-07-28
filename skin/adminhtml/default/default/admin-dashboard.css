@@ -640,18 +640,15 @@ button.dcf-btn-save{background:#2563eb !important;color:#fff !important}
 .dcf-mag-bar{background:linear-gradient(to bottom,#3b4a63,#2f3d52);color:#f1f5f9;padding:13px 22px;font-size:15px;font-weight:700;border-bottom:1px solid #1e293b;display:flex;align-items:center;justify-content:space-between;gap:8px}
 .dcf-mag-bar .dcf-mag-action{background:#0e7490;color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer}
 .dcf-mag-body{padding:8px 24px;background:#2a3548}
-/* Auto-wrapped grid pages: the table needs to read as a solid gray
-   card surface. Override the global `.admin-main .grid { background:
-   transparent }` rule inside the wrap so the card surface paints
-   through grid + hor-scroll + the .data table itself — gives the
-   same visible card body that Transactional Emails / Manage Tax
-   Rules have. Row cells stay transparent (global rule) so the gray
-   shows behind every cell. */
+/* Auto-wrapped grid pages: FLAT — the table sits directly on the page
+   surface with transparent cells and hairline separators (the gray
+   #2a3548 card body was retired 2026-07-29 per "no background grey in
+   table cells"; matches the minimalist .mm-table / Registrations look). */
 .dcf-mag.mmd-auto-card .dcf-mag-body,
 .dcf-mag.mmd-auto-card .dcf-mag-body .grid,
 .dcf-mag.mmd-auto-card .dcf-mag-body .hor-scroll,
 .dcf-mag.mmd-auto-card .dcf-mag-body table.data {
-    background:#2a3548 !important;
+    background:transparent !important;
 }
 /* Product Edit > Prices > Group Price / Tier Price inputs render white
    in dark mode (boxes.css `input.input-text,textarea,select { background:#fff }`
@@ -3442,7 +3439,7 @@ button.hsp-btn-submit{
 :root[data-theme="light"] .dcf-mag.mmd-auto-card .dcf-mag-body,
 :root[data-theme="light"] .dcf-mag.mmd-auto-card .dcf-mag-body .grid,
 :root[data-theme="light"] .dcf-mag.mmd-auto-card .dcf-mag-body .hor-scroll,
-:root[data-theme="light"] .dcf-mag.mmd-auto-card .dcf-mag-body table.data { background:#ffffff !important }
+:root[data-theme="light"] .dcf-mag.mmd-auto-card .dcf-mag-body table.data { background:transparent !important }
 
 /* Rows / labels */
 :root[data-theme="light"] .dcf-row-label { color:#1e293b !important }

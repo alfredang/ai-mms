@@ -907,19 +907,17 @@ body.sidebar-collapsed .admin-main {
 }
 
 /* === 14. Grid Overhaul ===
-   Every .grid in the admin reads as a gray card by default so admin /
-   developer / marketing roles see the same containment everywhere —
-   no dependence on JS wrap firing or per-page rules. When a grid IS
-   already inside a .dcf-mag.mmd-auto-card wrap (the canonical title-
-   bar pattern from wrapAdminGridInCard()), the override at the
-   bottom of this file flattens it back so the outer card's chrome
-   takes over and we don't double-nest two visible borders. */
+   Every .grid in the admin reads as a FLAT list on the page surface —
+   transparent cells, hairline row separators, no gray card behind the
+   rows (2026-07-29: the gray #2a3548 card treatment was retired
+   globally per "no background grey in table cells"; the sales
+   Registrations/Invoices §22a flat look is now the default for every
+   grid, wrapped or not). */
 .admin-main .grid {
-    background: #2a3548 !important;
-    border: 1px solid #475569 !important;
-    border-radius: 10px !important;
-    overflow: hidden !important;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.35) !important;
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
     margin: 8px 0 16px !important;
 }
 
@@ -1124,16 +1122,16 @@ body table.data tr.selected td a {
 }
 .row-action-item:hover { background: #334155; color: #fff; }
 
-/* Grid wrappers — gray card surface (#2a3548), matching the canonical
-   .dcf-mag card. Was previously var(--d1) (#0f172a) which painted the
-   table area the same as the page bg, hiding the card chrome the rest
-   of the admin uses. Inner tables / hor-scroll stay transparent so the
-   gray wrapper shows through. */
+/* Grid wrappers — transparent, flat on the page surface. This net
+   matters because many grids nest an OUTER container div whose id ends
+   in _grid (e.g. #catalog_search_grid on Search Terms) around the
+   .grid div; a background here paints gray behind every "transparent"
+   cell even when .grid itself is flat. Keep all three transparent. */
 .admin-main .grid,
 .admin-main #sales_order_grid,
 .admin-main [id$="_grid"] {
-    background: #2a3548 !important;
-    background-color: #2a3548 !important;
+    background: transparent !important;
+    background-color: transparent !important;
 }
 .admin-main #sales_order_grid_table,
 .admin-main [id$="_grid"] .grid,
@@ -3863,18 +3861,15 @@ body[class*="adminhtml-sales-order-index"] #sales_order_grid {
 
 /* Light-mode mirror — white card with slate-300 border. */
 
-/* Light-mode mirror — white card with slate-300 border.
-   ID-selector twin (#sales_order_grid + [id$="_grid"]) is required
-   to beat the (1,1,0) specificity of the dark-mode wrapper rules
-   above; without it the slate #2a3548 leaks into light mode on
-   Registrations / Invoices / Transactions and any other grid that
-   ships its own id. */
+/* Light-mode mirror — flat/transparent, matching the dark-mode
+   default (the white-card treatment was retired with the gray card,
+   2026-07-29). ID-selector twin kept so nothing repaints the wrappers. */
 :root[data-theme="light"] .admin-main .grid,
 :root[data-theme="light"] .admin-main #sales_order_grid,
 :root[data-theme="light"] .admin-main [id$="_grid"] {
-    background: #ffffff !important;
-    border-color: #cbd5e1 !important;
-    box-shadow: 0 1px 3px rgba(15,23,42,0.08) !important;
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
 }
 :root[data-theme="light"] .dcf-mag.mmd-auto-card .dcf-mag-body .grid {
     background: transparent !important;
