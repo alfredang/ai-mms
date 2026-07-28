@@ -234,7 +234,7 @@ setup. Committed and ready to use after a clone:
 
 - **`.claude/skills/`** — domain skills (`openmage-code-reviewer`, `openmage-module-developer`,
   `openmage-frontend-developer`, `backend-design`, `seo-audit`, `lead-magnets`, `add-country-store`,
-  `recommended-courses`, `mysql`, `web-accessibility`, …).
+  `recommended-courses`, `linkedin-posts`, `mysql`, `web-accessibility`, …).
 - **`.claude/agents/`** — specialised subagents (security auditor, caching/speed optimiser,
   mysql tuner, admin-design-consistency, site-health-checker, `newsletter-designer`, …).
 - **`.claude/hooks/`** — pre/post-tool hooks (PHP lint-on-edit, web-health,

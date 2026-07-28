@@ -2731,9 +2731,11 @@ button.el-btn-primary:hover{background:#1d4ed8 !important}
 
 /* --- Block 31 (template line 12075) --- */
 .mn-wrap{max-width:1500px;margin:0;padding:8px 0 24px;color:#e2e8f0}
-.mn-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:18px;background:#1e293b;border:1px solid #334155;border-radius:12px;padding:18px 22px}
-.mn-title{font-size:28px;font-weight:700;color:var(--t1,#f1f5f9);margin:0;line-height:1.2}
-.mn-sub{font-size:13px;color:#94a3b8;margin:4px 0 0}
+/* Header bar — same treatment as the Agentic Blog/Flyer Pipeline bars
+   (.bp-pipe / .mn-pipe): dark card, 15px/800 title, muted inline sub. */
+.mn-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:18px;background:#0f172a;border:1px solid #24324a;border-radius:14px;padding:18px 20px}
+.mn-head-title{font:800 15px var(--font-sans,-apple-system,'Segoe UI',Arial,sans-serif);color:#f1f5f9;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.mn-head-sub{font:400 13px var(--font-sans,-apple-system,'Segoe UI',Arial,sans-serif);color:#94a3b8}
 .mn-stub-pill{display:inline-block;margin-left:8px;padding:3px 8px;border-radius:6px;background:rgba(245,158,11,.18);color:#fcd34d;border:1px solid rgba(245,158,11,.4);font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
 .mn-toprow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:18px;margin-bottom:18px}
 .mn-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}
@@ -3296,8 +3298,7 @@ button.hsp-btn-submit{
    inputs, drafts list, and the right-side preview all hardcode dark
    slate. Flip each surface for light. The DEMO MODE pill and active
    template tint use semantic colors that read on both surfaces. */
-:root[data-theme="light"] .mn-card,
-:root[data-theme="light"] .mn-head { background:#e2e8f0 !important; border-color:#64748b !important }
+:root[data-theme="light"] .mn-card { background:#e2e8f0 !important; border-color:#64748b !important }
 :root[data-theme="light"] .mn-card h3 { color:#0f172a !important }
 
 /* Drafts list row — outer .mn-card is already flipped above, but the
@@ -3884,7 +3885,7 @@ button.hsp-btn-submit{
 
    Covers:
      - Custom dashboard panels (.dev-title, .trn-title, .lmc-title,
-       .al-title, .at-title, .crd-title, .mn-title, .lcd-title,
+       .al-title, .at-title, .crd-title, .lcd-title,
        .hsp-title, .dce-title, .cs-title, .edt-title)
      - Stock Magento .page-head / .content-header headings (used
        by Catalog Products grid, Categories, Customers, Sales,
@@ -3896,7 +3897,6 @@ button.hsp-btn-submit{
 .al-title,
 .at-title,
 .crd-title,
-.mn-title,
 .lcd-title,
 .hsp-title,
 .dce-title,
@@ -3921,7 +3921,6 @@ button.hsp-btn-submit{
 :root[data-theme="light"] .al-title,
 :root[data-theme="light"] .at-title,
 :root[data-theme="light"] .crd-title,
-:root[data-theme="light"] .mn-title,
 :root[data-theme="light"] .lcd-title,
 :root[data-theme="light"] .hsp-title,
 :root[data-theme="light"] .dce-title,

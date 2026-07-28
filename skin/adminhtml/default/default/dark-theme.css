@@ -1644,6 +1644,12 @@ input[type="checkbox"]:disabled {
     opacity: .4 !important;
     cursor: not-allowed !important;
 }
+/* Disabled boxes used as read-only indicators (Leads grid MailerLite
+   column) must still read clearly when CHECKED — .4-opacity blue on the
+   dark grid rows is nearly invisible. Unchecked-disabled stays faint. */
+input[type="checkbox"]:disabled:checked {
+    opacity: .85 !important;
+}
 input[type="checkbox"]:indeterminate {
     background: #2563eb !important;
     border-color: #2563eb !important;

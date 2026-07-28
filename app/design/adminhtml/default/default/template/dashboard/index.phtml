@@ -14237,11 +14237,9 @@ $_mnBlastStats = array();
 
 <div class="mn-wrap">
     <div class="mn-head">
-        <div>
-            <h1 class="mn-title">Newsletters</h1>
-            <p class="mn-sub"><?php echo htmlspecialchars($_mnCountry) ?> · build with Claude, push to MailerLite as a draft</p>
+        <div class="mn-head-title">Newsletters
+            <span class="mn-head-sub"><?php echo htmlspecialchars($_mnCountry) ?> · build with Claude, push to MailerLite as a draft</span>
         </div>
-        <button type="button" class="mn-btn mn-btn-ghost" onclick="mnNewDraft()" title="Clear the picker and start again">&#8634; Start over</button>
     </div>
 
     <?php /* ===== Agentic flyer production pipeline ===== */ ?>
@@ -14615,26 +14613,6 @@ window.mnPickTpl = function(btn) {
     btn.classList.add('active');
     window._mnState.template = btn.getAttribute('data-tpl');
     mnRefreshPreview();
-};
-
-window.mnNewDraft = function() {
-    if (window._mnState.newsletterId && !confirm('Discard the current selection?')) return;
-    window._mnState.newsletterId = 0;
-    window._mnState.pids = [];
-    window._mnState.pidNames = {};
-    document.getElementById('mn-course-search').value = '';
-    document.getElementById('mn-search-results').innerHTML = '';
-    var draftBtns = document.querySelectorAll('.mn-draft');
-    for (var i = 0; i < draftBtns.length; i++) draftBtns[i].classList.remove('active');
-    mnRenderPids();
-    var stage = document.getElementById('mn-preview-stage');
-    if (stage) stage.style.display = 'none';
-    var empty = document.getElementById('mn-preview-empty');
-    if (empty) empty.style.display = 'flex';
-    var status = document.getElementById('mn-preview-status');
-    if (status) status.textContent = 'No content yet';
-    var ifr = document.getElementById('mn-iframe');
-    if (ifr) ifr.srcdoc = '';
 };
 
 // --- Course picker autocomplete --------------------------------------
