@@ -112,7 +112,7 @@ class MMD_Leads_Adminhtml_LeadsController extends Mage_Adminhtml_Controller_Acti
         // Operator-editable recipient + CC list (both optional; To falls
         // back to the lead's email, CC to none). Field names avoid "email"
         // so password managers don't autofill them; legacy names accepted.
-        $emailTo = trim((string) $this->getRequest()->getPost('rcpt_addr', ''))
+        $emailTo = preg_replace('/\s+/', '', (string) $this->getRequest()->getPost('rcpt_addr', ''))
             ?: trim((string) $this->getRequest()->getPost('email_to', ''))
             ?: (string) $lead->getEmail();
         if (!Zend_Validate::is($emailTo, 'EmailAddress')) {

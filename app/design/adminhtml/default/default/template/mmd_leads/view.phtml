@@ -37,6 +37,8 @@
 .lv-step.current .lv-dot{background:#22d3ee;border-color:#22d3ee;color:#04212a;box-shadow:0 0 0 5px rgba(34,211,238,.16);}
 .lv-step.done .lv-slabel,.lv-step.current .lv-slabel{color:#f1f5f9;}
 .lv-step.current .lv-slabel{color:#22d3ee;}
+.lv-refresh{margin-left:auto;}
+.lv-refresh.is-busy svg{animation:mmdSpin .8s linear infinite;}
 .lv-log{list-style:none;margin:10px 0 4px;padding:10px 0 0;border-top:1px solid #24324a;}
 .lv-log li{font:400 11.5px var(--font-sans,sans-serif);color:#94a3b8;padding:2px 0;}
 .lv-log-t{color:#64748b;font-variant-numeric:tabular-nums;margin-right:8px;}
@@ -107,6 +109,12 @@
         <div class="lv-pipe-head">
             <span class="lv-pipe-title"><?php echo $this->__('Reply Pipeline') ?></span>
             <span class="lv-badge s-<?php echo $_lvCss ?>"><?php echo $_lvLabel ?></span>
+            <button type="button" class="mmd-iconbtn mmd-tip mmd-tip-left lv-refresh" id="lv_refresh"
+                    data-tip="<?php echo $this->__('Refresh pipeline') ?>" aria-label="<?php echo $this->__('Refresh pipeline') ?>">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/>
+                </svg>
+            </button>
         </div>
         <ol class="lv-steps">
             <?php foreach ($_lvStageNames as $_si => $_sname):
@@ -200,7 +208,13 @@
                 $af = 'autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other" readonly onfocus="this.removeAttribute(\'readonly\')"';
                 ?>
                 <label style="font-size:12px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:6px;"><?php echo $this->__('Email To') ?></label>
-                <input type="text" name="rcpt_addr" id="rcpt_addr" <?php echo $af ?> value="<?php echo $this->escapeHtml($this->getInitialTo()) ?>" style="margin-bottom:14px;"/>
+                <?php
+                // Single-line TEXTAREA on purpose: password managers autofill
+                // saved usernames into the first text <input> of a form no
+                // matter what attributes it carries ("interns" kept clobbering
+                // the lead email on prod) — but they never touch textareas.
+                ?>
+                <textarea name="rcpt_addr" id="rcpt_addr" rows="1" wrap="off" <?php echo $af ?> style="margin-bottom:14px;min-height:0;height:42px;resize:none;overflow:hidden;white-space:nowrap;"><?php echo $this->escapeHtml($this->getInitialTo()) ?></textarea>
 
                 <label style="font-size:12px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:6px;"><?php echo $this->__('CC (comma-separated)') ?></label>
                 <input type="text" name="rcpt_cc" id="rcpt_cc" <?php echo $af ?> value="<?php echo $this->escapeHtml($this->getInitialCc()) ?>" style="margin-bottom:14px;"/>
@@ -272,6 +286,26 @@
 
                 regenBtn.addEventListener('click', function () { fetchDraft(true); });
                 fetchDraft(false);
+
+                // Timeline refresh — reload the page to re-read pipeline state.
+                var refreshBtn = document.getElementById('lv_refresh');
+                if (refreshBtn) {
+                    refreshBtn.addEventListener('click', function () {
+                        refreshBtn.classList.add('is-busy');
+                        window.location.reload();
+                    });
+                }
+
+                // Keep the single-line To textarea single-line.
+                var toEl = document.getElementById('rcpt_addr');
+                if (toEl) {
+                    toEl.addEventListener('keydown', function (e) {
+                        if (e.key === 'Enter') { e.preventDefault(); }
+                    });
+                    toEl.form && toEl.form.addEventListener('submit', function () {
+                        toEl.value = toEl.value.replace(/\s+/g, '');
+                    });
+                }
 
                 // Autofill watchdog: password managers inject values without
                 // any keystroke. Restore the server prefill on To/CC unless
