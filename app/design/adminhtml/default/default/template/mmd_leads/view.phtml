@@ -224,8 +224,13 @@
                 ?>
                 <textarea name="rcpt_cc" id="rcpt_cc" rows="1" wrap="off" <?php echo $af ?> style="margin-bottom:14px;min-height:0;height:42px;resize:none;overflow:hidden;white-space:nowrap;"><?php echo $this->escapeHtml($this->getInitialCc()) ?></textarea>
 
-                <label style="font-size:12px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:6px;"><?php echo $this->__('Subject — Course Name') ?></label>
-                <input type="text" name="subject_course" id="subject_course" <?php echo $af ?> value="<?php echo $this->escapeHtml($this->getInitialSubjectCourse()) ?>" style="margin-bottom:14px;"/>
+                <label style="font-size:12px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:6px;"><?php echo $this->__('Subject — Course Name (sent as “Enquiry on …”)') ?></label>
+                <?php
+                // Single-line TEXTAREA like To/CC: with those two hardened,
+                // Subject became the form's first text <input> and the
+                // password-manager autofill ("interns") moved here next.
+                ?>
+                <textarea name="subject_course" id="subject_course" rows="1" wrap="off" <?php echo $af ?> style="margin-bottom:14px;min-height:0;height:42px;resize:none;overflow:hidden;white-space:nowrap;"><?php echo $this->escapeHtml($this->getInitialSubjectCourse()) ?></textarea>
 
                 <label style="font-size:12px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:6px;"><?php echo $this->__('Reply Body (HTML allowed)') ?></label>
                 <textarea name="reply_body_html" id="reply_body_html"><?php echo $this->escapeHtml($this->getInitialReplyHtml()) ?></textarea>
@@ -301,16 +306,19 @@
                     });
                 }
 
-                // Keep the single-line To/CC textareas single-line.
-                ['rcpt_addr', 'rcpt_cc'].forEach(function (fid) {
+                // Keep the single-line textareas single-line; strip whitespace
+                // from the address fields only (never the subject) on submit.
+                ['rcpt_addr', 'rcpt_cc', 'subject_course'].forEach(function (fid) {
                     var el = document.getElementById(fid);
                     if (!el) { return; }
                     el.addEventListener('keydown', function (e) {
                         if (e.key === 'Enter') { e.preventDefault(); }
                     });
-                    el.form && el.form.addEventListener('submit', function () {
-                        el.value = el.value.replace(/\s+/g, '');
-                    });
+                    if (fid !== 'subject_course') {
+                        el.form && el.form.addEventListener('submit', function () {
+                            el.value = el.value.replace(/\s+/g, '');
+                        });
+                    }
                 });
 
                 // Autofill watchdog: password managers inject values without
