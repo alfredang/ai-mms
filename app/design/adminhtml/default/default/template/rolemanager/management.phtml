@@ -165,11 +165,21 @@ $preselectRole = (string) Mage::app()->getRequest()->getParam('role');
 //     filter for this view.
 $_activeBranch = strtoupper((string) Mage::app()->getStore()->getCode());
 if ($_activeBranch === 'DEFAULT' || $_activeBranch === 'ADMIN') $_activeBranch = 'SG';
-$rmApplyBranchFilter = ($preselectRole !== 'admin');
-// "Admin Users" entry point: keep the page title in sync with the filter so
-// the sidebar label and H1 match.
+// Sidebar section views (2026-07): the super-admin "Users" entry is split into
+// "Manage Learners" (?role=learner — storefront customers only) and
+// "Manage Trainers" (?role=trainer — trainer-role operators + LMS sync card).
+// Admins and trainers are small global pools, so the branch filter only
+// applies to the learner-bearing views.
+$isLearnerView = ($preselectRole === 'learner');
+$isTrainerView = ($preselectRole === 'trainer');
+$rmApplyBranchFilter = !in_array($preselectRole, array('admin', 'trainer'), true);
+// Keep the page title in sync with the sidebar label so the H1 matches.
 if ($preselectRole === 'admin') {
     $pageTitle = 'Admin Users';
+} elseif ($isLearnerView) {
+    $pageTitle = 'Manage Learners';
+} elseif ($isTrainerView) {
+    $pageTitle = 'Manage Trainers';
 } elseif ($preselectRole !== '' && isset($allRoles[$preselectRole])) {
     $pageTitle = $allRoles[$preselectRole] . ' Users';
 } else {
@@ -191,8 +201,8 @@ $badgeColors = array(
 ?>
 
 <?php
-// LMS trainer sync controls (admin-level only; hidden on the Admin Users view).
-$_tiCanManage = $preselectRole !== 'admin'
+// LMS trainer sync controls — shown ONLY on the Manage Trainers view.
+$_tiCanManage = $isTrainerView
     && Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', 'training_provider', 'developer'));
 $_tiSvc       = Mage::getModel('mmd_rolemanager/trainerImportService');
 $_tiLmsUrl    = $_tiSvc->getLmsUrl();
@@ -209,7 +219,10 @@ try {
 <div class="rm-wrap">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
         <h2 class="rm-title" style="margin:0"><?php echo htmlspecialchars($pageTitle) ?></h2>
-        <button type="button" onclick="rmNew()" style="padding:8px 18px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">+ Add User</button>
+        <?php // Learners register via the storefront — no manual add on that view. ?>
+        <?php if (!$isLearnerView): ?>
+        <button type="button" onclick="rmNew()" style="padding:8px 18px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">+ Add <?php echo $isTrainerView ? 'Trainer' : 'User' ?></button>
+        <?php endif; ?>
     </div>
 
     <?php if ($_tiCanManage): ?>
@@ -306,7 +319,9 @@ try {
                      fields), silently filtering the list to "No users". */ ?>
             <input type="search" id="rm-search" name="rm-user-filter" autocomplete="off" placeholder="Search by name or email..." oninput="rmFilter()" />
         </div>
-        <select class="rm-select" id="rm-role-filter" onchange="rmFilter()">
+        <?php // Dedicated section views (Manage Learners / Manage Trainers) fix the
+              // role server-side — keep the select in the DOM for rmFilter() but hide it. ?>
+        <select class="rm-select" id="rm-role-filter" onchange="rmFilter()"<?php echo ($isLearnerView || $isTrainerView) ? ' style="display:none"' : '' ?>>
             <option value="">All Roles</option>
             <?php foreach ($allRoles as $code => $label): ?>
             <option value="<?php echo $code ?>"<?php echo ($preselectRole === $code) ? ' selected' : '' ?>><?php echo htmlspecialchars($label) ?></option>
@@ -338,6 +353,10 @@ try {
         <?php foreach ($rows as $r):
             $roles = $r['roles'] ? explode(',', $r['roles']) : array();
             $roles = array_values(array_intersect($roleOrder, $roles));
+            // Section views: Manage Learners shows only storefront customers
+            // (rendered below); Manage Trainers shows only trainer-role operators.
+            if ($isLearnerView) continue;
+            if ($isTrainerView && !in_array('trainer', $roles, true)) continue;
             $isSelf = ($r['user_id'] == $currentUserId);
             $fullName = htmlspecialchars($r['firstname'] . ' ' . $r['lastname']);
             $createdDate = $r['created'] ? date('d M Y', strtotime($r['created'])) : '—';
@@ -413,6 +432,9 @@ try {
         // Edit action knows to use the customer URL.
         $learnerBc = isset($badgeColors['learner']) ? $badgeColors['learner'] : array('bg'=>'#1f2937','color'=>'#94a3b8','dot'=>'#64748b');
         $learnerLabel = htmlspecialchars($helper->getRoleLabel('learner'));
+        // Learner rows belong only to the Users page and the Manage Learners
+        // section — never to the Admin Users / Manage Trainers views.
+        if ($preselectRole !== '' && !$isLearnerView) $customers = array();
         foreach ($customers as $cust):
             $fullName = htmlspecialchars(trim($cust['firstname'] . ' ' . $cust['lastname']));
             if ($fullName === '') $fullName = '(no name)';

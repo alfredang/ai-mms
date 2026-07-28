@@ -103,19 +103,14 @@
         <span>Manage Categories</span>
     </a>
     <?php
-        // Users sidebar entries — pre-filter via ?role= query param picked up
-        // by management.phtml's role filter dropdown.
-        $_usersUrl     = Mage::helper('adminhtml')->getUrl('adminhtml/rolemanagement/index');
+        // Admin Users sidebar entry — pre-filters via ?role=admin, picked up
+        // by management.phtml. (Manage Learners / Manage Trainers live in the
+        // Admin role sidebar below, after Sales.)
         $_adminUsersUrl = Mage::helper('adminhtml')->getUrl('adminhtml/rolemanagement/index', array('_query' => array('role' => 'admin')));
         $_roleParam    = (string) $_req->getParam('role');
         $_isUsersList  = ($_ctrl === 'rolemanagement');
-        $_usersActive  = ($_isUsersList && $_roleParam === '') ? ' active' : '';
         $_adminActive  = ($_isUsersList && $_roleParam === 'admin') ? ' active' : '';
     ?>
-    <a href="<?php echo $_usersUrl ?>" class="lms-nav-item<?php echo $_usersActive ?>">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        <span>Users</span>
-    </a>
     <a href="<?php echo $_adminUsersUrl ?>" class="lms-nav-item<?php echo $_adminActive ?>">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
         <span>Admin Users</span>
@@ -126,26 +121,6 @@
         // on every controller hit, so a deep-link from another role 404s.
         $_auditUrl = Mage::helper('adminhtml')->getUrl('adminhtml/auditissues/index');
         $_auditActive = ($_ctrl === 'auditissues') ? ' active' : '';
-        $_auditOpenCount = 0;
-        // Cache the COUNT for 60s so this query hits the DB at most once per
-        // minute across all super-admin sessions instead of once per page load.
-        // Only runs for Super Admin — the surrounding sidebar block is hidden
-        // for other roles via JS, so executing it for them is pure waste.
-        if ($activeRole === 'training_provider') {
-            try {
-                $_aCache = Mage::app()->getCache();
-                $_aCacheKey = 'MMD_AUDIT_OPEN_COUNT';
-                $_aCached = $_aCache->load($_aCacheKey);
-                if ($_aCached !== false) {
-                    $_auditOpenCount = (int)$_aCached;
-                } else {
-                    $_aReadConn = Mage::getSingleton('core/resource')->getConnection('core_read');
-                    $_aTbl = Mage::getSingleton('core/resource')->getTableName('mmd_audit_issues');
-                    $_auditOpenCount = (int)$_aReadConn->fetchOne("SELECT COUNT(*) FROM {$_aTbl} WHERE status = 'open'");
-                    $_aCache->save((string)$_auditOpenCount, $_aCacheKey, array('MMD_AUDIT_BADGE'), 60);
-                }
-            } catch (Exception $_e) { /* table missing or cache down — silently zero */ }
-        }
     ?>
     <a href="<?php echo $_auditUrl ?>" class="lms-nav-item<?php echo $_auditActive ?>">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
@@ -310,6 +285,23 @@
             <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/proforma/index') ?>" class="tools-sub-item<?php echo ($_ctrl === 'proforma') ? ' active' : '' ?>"><span>Pro Forma Invoice</span></a>
         </div>
     </div>
+    <?php
+        // Manage Learners / Manage Trainers — section views of the Users page
+        // (management.phtml renders each ?role= as its own server-filtered
+        // section; the LMS trainer-sync card shows only on the trainer view).
+        $_learnersUrl    = Mage::helper('adminhtml')->getUrl('adminhtml/rolemanagement/index', array('_query' => array('role' => 'learner')));
+        $_trainersUrl    = Mage::helper('adminhtml')->getUrl('adminhtml/rolemanagement/index', array('_query' => array('role' => 'trainer')));
+        $_learnersActive = ($_isUsersList && $_roleParam === 'learner') ? ' active' : '';
+        $_trainersActive = ($_isUsersList && $_roleParam === 'trainer') ? ' active' : '';
+    ?>
+    <a href="<?php echo $_learnersUrl ?>" class="lms-nav-item<?php echo $_learnersActive ?>">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1.66 2.69 3 6 3s6-1.34 6-3v-5"/><path d="M22 10v6"/></svg>
+        <span>Manage Learners</span>
+    </a>
+    <a href="<?php echo $_trainersUrl ?>" class="lms-nav-item<?php echo $_trainersActive ?>">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span>Manage Trainers</span>
+    </a>
     <div class="tools-group<?php echo _so(array('catalog_product','catalog_category')) ?>">
         <div class="tools-group-toggle" onclick="toggleToolGroup(this)">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
