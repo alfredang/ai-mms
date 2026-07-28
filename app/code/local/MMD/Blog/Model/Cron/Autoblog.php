@@ -582,11 +582,14 @@ class MMD_Blog_Model_Cron_Autoblog
     }
 
     /**
-     * LinkedIn-optimised lead-magnet copy (linkedin-posts skill): emoji hook in
-     * the first line, short body (the excerpt), funding value line, the blog
-     * guide link plus the SPECIFIC course sign-up deep link as the CTA, and a
-     * handful of hashtags at the end. Funding copy is gated on the related
-     * course's SKU prefix (TGS- = WSQ) — never assume every course is funded.
+     * LinkedIn lead-magnet copy (linkedin-posts skill; structure mirrors the
+     * newsletter's _defaultCommentary): emoji hook line, the excerpt, then an
+     * IN-DEPTH "inside the guide" outline pulled from the article's own h2/h3
+     * headings, funding value line, the blog guide link plus the SPECIFIC
+     * course sign-up deep link as the CTA, and hashtags at the end. Funding
+     * copy is gated on the related course's SKU prefix (TGS- = WSQ) — never
+     * assume every course is funded. Reserved-char escaping happens in
+     * MMD_Blog_Helper_Linkedin::escapeLittleText() at share time.
      */
     private function _linkedinCommentary($post, $postUrl)
     {
@@ -603,8 +606,8 @@ class MMD_Blog_Model_Cron_Autoblog
         $isWsq = $course && strpos((string) $course->getSku(), 'TGS-') === 0;
 
         $excerpt = trim((string) $post->getExcerpt());
-        if (mb_strlen($excerpt) > 200) {
-            $excerpt = mb_substr($excerpt, 0, 197);
+        if (mb_strlen($excerpt) > 300) {
+            $excerpt = mb_substr($excerpt, 0, 297);
             $cut     = mb_strrpos($excerpt, ' ');
             $excerpt = ($cut ? mb_substr($excerpt, 0, $cut) : $excerpt) . '…';
         }
@@ -614,11 +617,21 @@ class MMD_Blog_Model_Cron_Autoblog
             $lines[] = '';
             $lines[] = $excerpt;
         }
+
+        $outline = $this->_contentOutline($post);
+        if ($outline) {
+            $lines[] = '';
+            $lines[] = '🔍 Inside the full guide:';
+            foreach ($outline as $point) {
+                $lines[] = '▪ ' . $point;
+            }
+        }
+
         $lines[] = '';
         if ($isWsq) {
-            $lines[] = '🎓 WSQ-funded (up to 70% subsidy) — SkillsFuture Credit claimable';
+            $lines[] = '💰 Up to 70% SkillsFuture funding — WSQ course, SkillsFuture Credit claimable';
         }
-        $lines[] = '📖 Full guide: ' . $postUrl;
+        $lines[] = '📖 Full analysis: ' . $postUrl;
         if ($courseUrl !== '') {
             $lines[] = '👉 Register for the hands-on course: ' . $courseUrl;
         }
@@ -626,6 +639,38 @@ class MMD_Blog_Model_Cron_Autoblog
         $lines[] = implode(' ', $this->_hashtags($post, $isWsq));
 
         return implode("\n", $lines);
+    }
+
+    /**
+     * The article's own h2/h3 headings as an outline (max 6); falls back to the
+     * first sentences of the opening paragraphs when the writer used no headings.
+     */
+    private function _contentOutline($post)
+    {
+        $html = (string) $post->getContent();
+        $out  = array();
+        if (preg_match_all('/<h[23][^>]*>(.*?)<\/h[23]>/is', $html, $m)) {
+            foreach ($m[1] as $h) {
+                $h = trim(html_entity_decode(strip_tags($h), ENT_QUOTES, 'UTF-8'));
+                if (mb_strlen($h) >= 4 && count($out) < 6) {
+                    $out[] = $h;
+                }
+            }
+        }
+        if (!$out && preg_match_all('/<p[^>]*>(.*?)<\/p>/is', $html, $m)) {
+            foreach (array_slice($m[1], 0, 3) as $p) {
+                $p = trim(html_entity_decode(strip_tags($p), ENT_QUOTES, 'UTF-8'));
+                if (mb_strlen($p) > 140) {
+                    $p   = mb_substr($p, 0, 137);
+                    $cut = mb_strrpos($p, ' ');
+                    $p   = ($cut ? mb_substr($p, 0, $cut) : $p) . '…';
+                }
+                if ($p !== '') {
+                    $out[] = $p;
+                }
+            }
+        }
+        return $out;
     }
 
     /** A few relevant hashtags: funding staples + the post's own tags, capped at 6. */
