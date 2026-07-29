@@ -6689,9 +6689,14 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
         ? rtrim(Mage::getBaseUrl(), '/') . '/feedback/respond/index?run_id=' . (int)$_lcdRunId
         : '';
     ?>
+    <?php /* No inline toggle here — lcd-collapsible-sections.js wraps every
+             section body and adds its own collapse handler + caret. An inline
+             nextElementSibling toggle would flip the enhancer's wrapper while
+             an inline display:none on the content kept the QR invisible
+             forever (the bug the old Certificate Delivery section had). */ ?>
     <div class="lcd-section" id="course-feedback">
-        <div class="lcd-section-title" style="cursor:pointer" onclick="var c=this.nextElementSibling;c.style.display=c.style.display==='none'?'':'none';this.querySelector('.lcd-caret').style.transform=c.style.display==='none'?'':'rotate(180deg)'">Course Feedback <svg class="lcd-caret" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition:transform .2s"><polyline points="6 9 12 15 18 9"/></svg></div>
-        <div class="lcd-qr-content" style="display:none">
+        <div class="lcd-section-title">Course Feedback</div>
+        <div class="lcd-qr-content">
             <?php if ($_fbUrl === ''): ?>
             <div style="color:#64748b;font-size:13px;font-style:italic;padding:14px 0;">No scheduled class run yet — the feedback QR appears once this class has a run.</div>
             <?php else: ?>
