@@ -98,14 +98,15 @@ class MMD_CourseImage_Model_Cover
     }
 
     /**
-     * Strip leading "WSQ" tokens from the title — the WSQ badge in the bottom
-     * corner already conveys that signal, so repeating it in the headline is
-     * noise. Matches "WSQ -", "WSQ:", "WSQ –", "WSQ ", or just "WSQ" alone.
+     * Strip leading "WSQ" / "CASL" tokens from the title — those prefixes only
+     * distinguish course segments in the catalog; the funding chips already
+     * convey that signal on the cover, so repeating it in the headline is
+     * noise. Matches "WSQ -", "CASL:", "WSQ –", "CASL ", or the token alone.
      */
     private function cleanTitle(string $title): string
     {
         $t = trim(preg_replace('/\s+/u', ' ', $title) ?? '');
-        $t = preg_replace('/^\s*WSQ\s*[-:–—]?\s*/i', '', $t) ?? $t;
+        $t = preg_replace('/^\s*(?:WSQ|CASL)\s*[-:–—]?\s*/i', '', $t) ?? $t;
         return trim($t);
     }
 
