@@ -5816,6 +5816,31 @@ try {
 //              dashboard accounts (MMD_AccountSync: learner role + synced password).
 $_lcdRunId = (int) (Mage::app()->getRequest()->getParam('run')
     ?: (isset($_selectedCourse['cr_run_id']) ? $_selectedCourse['cr_run_id'] : 0));
+if ($_lcdRunId <= 0) {
+    // No run in the URL and none on the card row (legacy entries built from
+    // order history). Fall back to the course's own course_runs so the
+    // E-Attendance card and the Course Feedback QR still work: prefer the
+    // current / next upcoming run, else the most recent past one.
+    try {
+        $_runRes  = Mage::getSingleton('core/resource');
+        $_runRead = $_runRes->getConnection('core_read');
+        $_runsTbl = $_runRes->getTableName('course_runs');
+        $_runToday = Mage::getModel('core/date')->date('Y-m-d');
+        $_lcdRunId = (int) $_runRead->fetchOne(
+            "SELECT run_id FROM `$_runsTbl`
+              WHERE product_id = ? AND (course_end_date IS NULL OR course_end_date >= ?)
+              ORDER BY course_start_date ASC LIMIT 1",
+            array($_lcdCourseId, $_runToday)
+        );
+        if ($_lcdRunId <= 0) {
+            $_lcdRunId = (int) $_runRead->fetchOne(
+                "SELECT run_id FROM `$_runsTbl` WHERE product_id = ?
+                  ORDER BY course_start_date DESC LIMIT 1",
+                array($_lcdCourseId)
+            );
+        }
+    } catch (Exception $e) {}
+}
 $_eAttendanceNavHtml = '';
 $_eaCardHref = ''; // destination of the E-Attendance content card (set per role below)
 if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) {
