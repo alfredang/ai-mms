@@ -5158,8 +5158,7 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
         try {
             $_roRead = Mage::getSingleton('core/resource')->getConnection('core_read');
             $_roReviews = $_roRead->fetchAll(
-                "SELECT r.review_id, r.created_at, r.status_id, rd.title, rd.nickname, rd.detail, rd.store_id,
-                        (SELECT ROUND(AVG(v.value), 1) FROM rating_option_vote v WHERE v.review_id = r.review_id) AS rating
+                "SELECT r.review_id, r.created_at, r.status_id, rd.title, rd.nickname, rd.detail, rd.store_id
                  FROM review r
                  LEFT JOIN review_detail rd ON rd.review_id = r.review_id
                  WHERE r.entity_pk_value = ?
@@ -5167,6 +5166,21 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                 array($_selectedCourseId)
             );
             $_roReviewStatusMap = array(1 => 'Approved', 2 => 'Pending', 3 => 'Not Approved');
+            // Per-question star votes. The feedback form maps its 3 questions to
+            // fixed rating_ids (see MMD_FeedbackForm RespondController):
+            //   1 = course meets expectation  → "Learning Outcome"
+            //   2 = trainer knowledgeable     → "Trainer Quality"
+            //   5 = training environment      → "Training Environment"
+            $_roVotes = array(); // review_id => rating_id => value(1..5)
+            foreach ($_roRead->fetchAll(
+                "SELECT v.review_id, v.rating_id, v.value
+                 FROM rating_option_vote v
+                 INNER JOIN review r ON r.review_id = v.review_id
+                 WHERE r.entity_pk_value = ? AND v.rating_id IN (1, 2, 5)",
+                array($_selectedCourseId)
+            ) as $_vr) {
+                $_roVotes[(int)$_vr['review_id']][(int)$_vr['rating_id']] = (int)$_vr['value'];
+            }
         } catch (Exception $_roEx) { /* tables may be absent on a stripped DB — leave empties */ }
         ?>
 
@@ -5175,33 +5189,56 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
             <div class="dcf-mag mmd-auto-card">
                 <div class="dcf-mag-bar"><span>Course Review <span style="color:#94a3b8;font-weight:500;font-size:13px;">(<?php echo count($_roReviews) ?>)</span></span></div>
                 <div class="dcf-mag-body">
+                    <?php
+                    $_rvQuestions = array(1 => 'Learning Outcome', 2 => 'Trainer Quality', 5 => 'Training Environment');
+                    // Star cell: "★ N" from the vote, faint dash when the review carries no vote
+                    $_rvStar = function ($_v) {
+                        return $_v
+                            ? '<span style="color:var(--yellow, #f59e0b);">&#9733;</span> ' . (int)$_v
+                            : '<span class="faint">&mdash;</span>';
+                    };
+                    $_rvSnipLen = 80;
+                    ?>
                     <table class="mm-table">
                         <thead>
                             <tr>
-                                <?php foreach (array('ID','Created','Status','Rating','Message','Nickname','Store') as $_h): ?>
+                                <?php foreach (array_merge(array('ID','Created','Status'), array_values($_rvQuestions), array('Message','Nickname','Store')) as $_h): ?>
                                 <th><?php echo $_h ?></th>
                                 <?php endforeach; ?>
                             </tr>
                         </thead>
                         <tbody>
                             <?php if (empty($_roReviews)): ?>
-                            <tr><td colspan="7" class="mm-table-empty">No reviews yet.</td></tr>
+                            <tr><td colspan="9" class="mm-table-empty">No reviews yet.</td></tr>
                             <?php else: foreach ($_roReviews as $_rv):
+                                $_rvId = (int)$_rv['review_id'];
                                 $_st = isset($_roReviewStatusMap[(int)$_rv['status_id']]) ? $_roReviewStatusMap[(int)$_rv['status_id']] : '—';
                                 $_stCls = ((int)$_rv['status_id'] === 1) ? 'var(--green, #22c55e)' : (((int)$_rv['status_id']) === 2 ? 'var(--yellow, #f59e0b)' : 'var(--red, #ef4444)');
                                 $_dt  = $_rv['created_at'] ? date('M j, Y', strtotime($_rv['created_at'])) : '—';
-                                // Rating: real star votes when present, else the "Average Rating: X/5" headline
-                                $_rating = $_rv['rating'] !== null ? (float)$_rv['rating'] : null;
-                                if ($_rating === null && preg_match('/(\d+(?:\.\d+)?)\s*\/\s*5/', (string)$_rv['title'], $_rm)) {
-                                    $_rating = (float)$_rm[1];
+                                $_votes = isset($_roVotes[$_rvId]) ? $_roVotes[$_rvId] : array();
+                                $_msg = trim((string)$_rv['detail']);
+                                $_msgLong = mb_strlen($_msg, 'UTF-8') > $_rvSnipLen;
+                                $_msgSnip = $_msgLong ? rtrim(mb_substr($_msg, 0, $_rvSnipLen, 'UTF-8')) . '…' : $_msg;
+                                // Meta line shown inside the full-message dialog
+                                $_msgMetaBits = array();
+                                foreach ($_rvQuestions as $_qid => $_ql) {
+                                    if (!empty($_votes[$_qid])) $_msgMetaBits[] = $_ql . ' ★' . (int)$_votes[$_qid];
                                 }
+                                $_msgMeta = htmlspecialchars((string)$_rv['nickname']) . ' · ' . $_dt
+                                          . ($_msgMetaBits ? ' · ' . implode(' · ', $_msgMetaBits) : '');
                             ?>
                             <tr>
-                                <td class="muted"><?php echo (int)$_rv['review_id'] ?></td>
+                                <td class="muted"><?php echo $_rvId ?></td>
                                 <td class="nowrap"><?php echo $_dt ?></td>
                                 <td class="status" style="color:<?php echo $_stCls ?>;"><?php echo $_st ?></td>
-                                <td class="nowrap"><?php if ($_rating !== null): ?><span style="color:var(--yellow, #f59e0b);">&#9733;</span> <?php echo number_format($_rating, 1) ?>/5<?php else: ?><span class="faint">—</span><?php endif; ?></td>
-                                <td class="wrap muted"><?php echo htmlspecialchars((string)$_rv['detail']) ?></td>
+                                <?php foreach (array_keys($_rvQuestions) as $_qid): ?>
+                                <td class="nowrap"><?php echo $_rvStar(isset($_votes[$_qid]) ? $_votes[$_qid] : 0) ?></td>
+                                <?php endforeach; ?>
+                                <td class="wrap muted"><?php if ($_msgLong): ?><a href="#" onclick="rvOpenMsg(this); return false;" title="View full message"
+                                        data-msg="<?php echo htmlspecialchars($_msg) ?>"
+                                        data-meta="<?php echo $_msgMeta ?>"
+                                        data-id="<?php echo $_rvId ?>"
+                                        style="color:inherit;text-decoration:none;border-bottom:1px dotted var(--t5, #64748b);cursor:pointer;"><?php echo htmlspecialchars($_msgSnip) ?></a><?php else: echo htmlspecialchars($_msgSnip); endif; ?></td>
                                 <td class="nowrap"><?php echo htmlspecialchars((string)$_rv['nickname']) ?></td>
                                 <td class="faint num">#<?php echo (int)$_rv['store_id'] ?></td>
                             </tr>
@@ -5210,6 +5247,46 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                     </table>
                 </div>
             </div>
+
+            <!-- Full-message dialog (reuses the hsp-modal component from admin-dashboard.css) -->
+            <div class="hsp-modal-backdrop" id="rv-msg-backdrop" onclick="rvCloseMsg()"></div>
+            <div class="hsp-modal" id="rv-msg-modal" role="dialog" aria-labelledby="rv-msg-title" aria-hidden="true">
+                <div class="hsp-modal-header">
+                    <h3 id="rv-msg-title">Review</h3>
+                    <button type="button" class="hsp-modal-close" onclick="rvCloseMsg()" aria-label="Close">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </div>
+                <div class="hsp-modal-body">
+                    <div id="rv-msg-meta" style="color:var(--t4, #94a3b8);font-size:12px;margin-bottom:12px;"></div>
+                    <div id="rv-msg-body" style="color:var(--t2, #e2e8f0);font-size:13px;line-height:1.7;white-space:pre-wrap;"></div>
+                </div>
+            </div>
+            <script>
+            function rvOpenMsg(el) {
+                var bd = document.getElementById('rv-msg-backdrop');
+                var m  = document.getElementById('rv-msg-modal');
+                if (!bd || !m) return;
+                // Hoist to <body> so the fixed-position dialog is never trapped inside the tab panel
+                if (bd.parentNode !== document.body) document.body.appendChild(bd);
+                if (m.parentNode  !== document.body) document.body.appendChild(m);
+                document.getElementById('rv-msg-title').textContent = 'Review #' + el.getAttribute('data-id');
+                document.getElementById('rv-msg-meta').textContent  = el.getAttribute('data-meta');
+                document.getElementById('rv-msg-body').textContent  = el.getAttribute('data-msg');
+                bd.classList.add('open');
+                m.classList.add('open');
+                m.setAttribute('aria-hidden', 'false');
+            }
+            function rvCloseMsg() {
+                var bd = document.getElementById('rv-msg-backdrop');
+                var m  = document.getElementById('rv-msg-modal');
+                if (bd) bd.classList.remove('open');
+                if (m) { m.classList.remove('open'); m.setAttribute('aria-hidden', 'true'); }
+            }
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') rvCloseMsg();
+            });
+            </script>
         </div>
 
         <!-- ===== Tab: Course Schedule (read live custom options) ===== -->
