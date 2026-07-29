@@ -1891,6 +1891,20 @@ body .admin-main [id$="_massaction"] button span span span {
     border-color: var(--b1) !important;
     cursor: default !important;
 }
+/* …but disabled CHECKBOXES used as read-only indicators (e.g. the Leads
+   grid MailerLite column) must keep the checked visual. The `background`
+   SHORTHAND above resets background-image too, wiping dark-theme.css's
+   blue fill + SVG check at equal specificity (this file loads later) —
+   so a checked disabled box painted as an empty square. Re-assert it at
+   higher specificity. */
+.admin-main input[type="checkbox"][disabled]:checked {
+    background: #2563eb !important;
+    border-color: #2563eb !important;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='3.5 8.5 6.5 11.5 12.5 5'/></svg>") !important;
+    background-size: 14px 14px !important;
+    background-position: center !important;
+    background-repeat: no-repeat !important;
+}
 .admin-main input:focus,
 .admin-main select:focus,
 .admin-main textarea:focus {
