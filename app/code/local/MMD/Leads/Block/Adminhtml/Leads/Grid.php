@@ -119,9 +119,11 @@ class MMD_Leads_Block_Adminhtml_Leads_Grid extends Mage_Adminhtml_Block_Widget_G
             'type'    => 'options',
             'width'   => '100px',
             'options' => array(
-                MMD_Leads_Model_Lead::MAILERLITE_SENT    => $helper->__('Sent'),
-                MMD_Leads_Model_Lead::MAILERLITE_SKIPPED => $helper->__('Skipped'),
-                MMD_Leads_Model_Lead::MAILERLITE_FAILED  => $helper->__('Failed'),
+                MMD_Leads_Model_Lead::MAILERLITE_SENT         => $helper->__('Sent'),
+                MMD_Leads_Model_Lead::MAILERLITE_SKIPPED      => $helper->__('Excluded'),
+                MMD_Leads_Model_Lead::MAILERLITE_UNSUBSCRIBED => $helper->__('Unsubscribed'),
+                MMD_Leads_Model_Lead::MAILERLITE_BLOCKED      => $helper->__('Blocked'),
+                MMD_Leads_Model_Lead::MAILERLITE_FAILED       => $helper->__('Failed'),
             ),
             'renderer' => 'MMD_Leads_Block_Adminhtml_Leads_Grid_Renderer_Mailerlite',
         ));

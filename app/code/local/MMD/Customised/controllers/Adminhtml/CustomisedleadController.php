@@ -34,7 +34,9 @@ class MMD_Customised_Adminhtml_CustomisedleadController extends Mage_Adminhtml_C
             $ml->subscribeLead($lead);
             switch ($lead->getMailerliteStatus()) {
                 case 'sent':    $sent++;    break;
-                case 'skipped': $skipped++; break;
+                case 'skipped':
+                case 'unsubscribed':
+                case 'blocked':      $skipped++; break;
                 default:        $failed++;
             }
         }

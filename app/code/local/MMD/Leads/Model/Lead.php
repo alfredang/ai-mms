@@ -32,15 +32,18 @@ class MMD_Leads_Model_Lead extends Mage_Core_Model_Abstract
     /**
      * MailerLite push lifecycle (the lead email is auto-subscribed to the
      * site's configured MailerLite group on capture):
-     *   NULL    — never attempted (legacy rows)
-     *   sent    — subscribed to the group
-     *   skipped — MailerLite not configured, or the address previously
-     *             unsubscribed/bounced (never resurrect opt-outs)
-     *   failed  — API call errored (see var/log/mailerlite.log)
+     *   NULL         — never attempted (legacy rows)
+     *   sent         — subscribed to the group
+     *   skipped      — MailerLite not configured / no email (grid: "Excluded")
+     *   unsubscribed — address previously opted out; never resurrected
+     *   blocked      — MailerLite has the address as bounced / junk
+     *   failed       — API call errored (transient; retryable via mass action)
      */
-    const MAILERLITE_SENT    = 'sent';
-    const MAILERLITE_SKIPPED = 'skipped';
-    const MAILERLITE_FAILED  = 'failed';
+    const MAILERLITE_SENT         = 'sent';
+    const MAILERLITE_SKIPPED      = 'skipped';
+    const MAILERLITE_UNSUBSCRIBED = 'unsubscribed';
+    const MAILERLITE_BLOCKED      = 'blocked';
+    const MAILERLITE_FAILED       = 'failed';
 
     /**
      * AI-draft review lifecycle (cron drafts a personalised reply, emails

@@ -231,6 +231,8 @@ class MMD_Leads_Adminhtml_LeadsController extends Mage_Adminhtml_Controller_Acti
                     $sent++;
                     break;
                 case MMD_Leads_Model_Lead::MAILERLITE_SKIPPED:
+                case MMD_Leads_Model_Lead::MAILERLITE_UNSUBSCRIBED:
+                case MMD_Leads_Model_Lead::MAILERLITE_BLOCKED:
                     $skipped++;
                     break;
                 default:

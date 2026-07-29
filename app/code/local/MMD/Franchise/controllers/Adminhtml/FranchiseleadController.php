@@ -46,7 +46,9 @@ class MMD_Franchise_Adminhtml_FranchiseleadController extends Mage_Adminhtml_Con
             $ml->subscribeLead($lead);
             switch ($lead->getMailerliteStatus()) {
                 case 'sent':    $sent++;    break;
-                case 'skipped': $skipped++; break;
+                case 'skipped':
+                case 'unsubscribed':
+                case 'blocked':      $skipped++; break;
                 default:        $failed++;
             }
         }

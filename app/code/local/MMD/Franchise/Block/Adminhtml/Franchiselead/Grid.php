@@ -40,7 +40,7 @@ class MMD_Franchise_Block_Adminhtml_Franchiselead_Grid extends Mage_Adminhtml_Bl
             'index'    => 'mailerlite_status',
             'type'     => 'options',
             'width'    => '100px',
-            'options'  => array('sent' => 'Sent', 'skipped' => 'Skipped', 'failed' => 'Failed'),
+            'options'  => array('sent' => 'Sent', 'skipped' => 'Excluded', 'unsubscribed' => 'Unsubscribed', 'blocked' => 'Blocked', 'failed' => 'Failed'),
             'renderer' => 'MMD_Leads_Block_Adminhtml_Leads_Grid_Renderer_Mailerlite',
         ));
         return parent::_prepareColumns();

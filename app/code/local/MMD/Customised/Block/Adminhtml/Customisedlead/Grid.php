@@ -22,7 +22,7 @@ class MMD_Customised_Block_Adminhtml_Customisedlead_Grid extends Mage_Adminhtml_
         $this->addColumn('preferred_dates', array('header'=>$h->__('Preferred Dates'),'index'=>'preferred_dates'));
         $this->addColumn('message', array('header'=>$h->__('Message'),'index'=>'message','truncate'=>60));
         $this->addColumn('status', array('header'=>$h->__('Status'),'index'=>'status','width'=>90,'type'=>'options','options'=>array('new'=>'New','replied'=>'Replied','closed'=>'Closed')));
-        $this->addColumn('mailerlite_status', array('header'=>$h->__('MailerLite'),'index'=>'mailerlite_status','type'=>'options','width'=>'100px','options'=>array('sent'=>'Sent','skipped'=>'Skipped','failed'=>'Failed'),'renderer'=>'MMD_Leads_Block_Adminhtml_Leads_Grid_Renderer_Mailerlite'));
+        $this->addColumn('mailerlite_status', array('header'=>$h->__('MailerLite'),'index'=>'mailerlite_status','type'=>'options','width'=>'100px','options'=>array('sent'=>'Sent','skipped'=>'Excluded','unsubscribed'=>'Unsubscribed','blocked'=>'Blocked','failed'=>'Failed'),'renderer'=>'MMD_Leads_Block_Adminhtml_Leads_Grid_Renderer_Mailerlite'));
         return parent::_prepareColumns();
     }
     protected function _prepareMassaction()

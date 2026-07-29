@@ -34,7 +34,9 @@ class MMD_Corporate_Adminhtml_CorporateleadController extends Mage_Adminhtml_Con
             $ml->subscribeLead($lead);
             switch ($lead->getMailerliteStatus()) {
                 case 'sent':    $sent++;    break;
-                case 'skipped': $skipped++; break;
+                case 'skipped':
+                case 'unsubscribed':
+                case 'blocked':      $skipped++; break;
                 default:        $failed++;
             }
         }

@@ -389,9 +389,14 @@ class MMD_Marketing_Helper_Mailerlite extends Mage_Core_Helper_Abstract
 
             $existing = $this->findSubscriber($email);
             $status   = is_array($existing) && isset($existing['status']) ? $existing['status'] : '';
-            if (in_array($status, array('unsubscribed', 'bounced', 'junk'), true)) {
-                Mage::log($label . ': ' . $email . ' is ' . $status . ' — not re-adding', null, 'mailerlite.log');
-                $this->_saveLeadStatus($lead, 'skipped');
+            if ($status === 'unsubscribed') {
+                Mage::log($label . ': ' . $email . ' is unsubscribed — not re-adding', null, 'mailerlite.log');
+                $this->_saveLeadStatus($lead, 'unsubscribed');
+                return;
+            }
+            if (in_array($status, array('bounced', 'junk'), true)) {
+                Mage::log($label . ': ' . $email . ' is ' . $status . ' — blocked, not re-adding', null, 'mailerlite.log');
+                $this->_saveLeadStatus($lead, 'blocked');
                 return;
             }
 
