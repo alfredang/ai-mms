@@ -9,7 +9,7 @@
  * A class is exported when it is CONFIRMED (a trainer is assigned) and
  * COMPLETED (course_end_date, or start date for one-day runs, is before
  * today). Per-class fields:
- *   class_code        — course_runs.class_id (e.g. MY000017)
+ *   class_code        — course_runs.class_id (e.g. C000017)
  *   course_title      — catalog product name (admin scope)
  *   course_code       — course_runs.course_sku
  *   start_date / end_date
@@ -75,7 +75,7 @@ class MMD_Courses_Api_Completed_ClassesController extends Mage_Core_Controller_F
                         r.course_start_date AS start_date,
                         COALESCE(r.course_end_date, r.course_start_date) AS end_date,
                         TRIM(CONCAT(COALESCE(u.firstname,''), ' ', COALESCE(u.lastname,''))) AS trainer_name,
-                        (SELECT COUNT(*) FROM mmd_course_run_attendance a
+                        (SELECT COUNT(DISTINCT a.learner_email) FROM mmd_course_run_attendance a
                           WHERE a.run_id = r.run_id AND a.is_present = 1) AS learners_attended
                    FROM course_runs r
               LEFT JOIN admin_user u ON u.user_id = r.trainer_user_id

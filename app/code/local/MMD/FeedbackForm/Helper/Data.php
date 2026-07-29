@@ -6,7 +6,7 @@ class MMD_FeedbackForm_Helper_Data extends Mage_Core_Helper_Abstract
     const AUTOFILL_START_DATE   = 'start_date';
     const AUTOFILL_END_DATE     = 'end_date';
     const AUTOFILL_TRAINER_NAME = 'trainer_name';
-    const AUTOFILL_CLASS_ID     = 'class_id';   // human run label, e.g. SG000046
+    const AUTOFILL_CLASS_ID     = 'class_id';   // human run label, e.g. C000046
 
     public function getFieldTypes()
     {

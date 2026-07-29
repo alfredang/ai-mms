@@ -136,11 +136,11 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
     <h1 class="att-title">E-Attendance</h1>
     <p class="att-sub"><?php
         if ($preRunRow) {
-            echo 'Mark each learner present or absent, then save.';
+            echo 'Pick a session (each day has AM and PM), mark each learner present or absent, then save.';
         } else {
             echo $isCompleted
-                ? 'Past class — attendance stays editable. Mark or correct each learner, then save.'
-                : 'Select a class, mark each learner present or absent, then save.';
+                ? 'Past class — attendance stays editable. Pick a session, mark or correct each learner, then save.'
+                : 'Select a class, pick a session (each day has AM and PM), mark each learner present or absent, then save.';
         } ?></p>
 
     <!-- Active / Completed switch -->
@@ -229,6 +229,10 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
 
     <!-- Roster -->
     <div class="att-card" id="att-roster-card" style="display:none;">
+        <!-- Session tabs — every class day has an AM and a PM session
+             (2-day class = 4 sessions). Attendance is marked per session. -->
+        <div id="att-sess-tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;"></div>
+
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
                 <span class="att-counter att-c-present">Present: <span id="att-cnt-present">0</span></span>
@@ -237,6 +241,8 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
                 <?php if (!$readonly): ?>
+                <button type="button" id="att-bulk-present" class="att-btn att-btn-green" onclick="attBulkMark(1)" disabled>Mark Present</button>
+                <button type="button" id="att-bulk-absent" class="att-btn att-btn-danger" onclick="attBulkMark(0)" disabled>Mark Absent</button>
                 <button type="button" class="att-btn att-btn-green" onclick="attAllPresent()">All Present</button>
                 <button type="button" class="att-btn att-btn-ghost" onclick="attOpenAdd()">+ Add Learner</button>
                 <?php endif; ?>
@@ -253,6 +259,7 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
         <table class="att-table" id="att-table">
             <thead>
                 <tr>
+                    <?php if (!$readonly): ?><th style="width:34px;"><input type="checkbox" id="att-sel-all" onchange="attSelAll(this.checked)" style="width:15px;height:15px;accent-color:#2563eb;cursor:pointer;" title="Select all"></th><?php endif; ?>
                     <th style="width:40px;">#</th>
                     <th>Learner</th>
                     <th>Email</th>
@@ -334,7 +341,10 @@ var ATT_SHOW_KPIS  = <?php echo $isCompleted ? 'true' : 'false' ?>;        // Co
 var CERT_SEND_URL   = '<?php echo $this->jsQuoteEscape($certSendUrl) ?>';
 var CERT_TOGGLE_URL = '<?php echo $this->jsQuoteEscape($certToggleUrl) ?>';
 var attRunId = 0;
-var attRoster = [];
+var attRoster = [];          // [{learner_name, learner_email, is_walkin, att:{d1am:{p,r},…}}]
+var attSessions = [];        // [{key:'d1am', day:1, ampm:'AM', date:'Y-m-d', label}]
+var attActiveSess = '';      // key of the session being marked
+var attSel = {};             // row-index -> true (bulk-selection state)
 
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
@@ -427,21 +437,74 @@ function attSelectClass(runId) {
         .then(function(r){ return r.json(); })
         .then(function(d){
             if (!d.success) { alert('Error: ' + (d.message || 'load failed')); return; }
-            attRoster = d.roster || [];
+            attRoster   = d.roster || [];
+            attSessions = d.sessions && d.sessions.length ? d.sessions : [{key:'d1am', day:1, ampm:'AM', date:'', label:'Day 1 · AM'}];
+            attSel = {};
+            attActiveSess = attDefaultSession();
+            attRenderSessTabs();
             attRender();
             card.style.display = '';
         })
         .catch(function(){ alert('Network error loading roster.'); });
 }
 
+// Today's session if the class is running now (AM before 1pm), else the first.
+function attDefaultSession() {
+    var now = new Date();
+    var today = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+    var ampm = now.getHours() < 13 ? 'AM' : 'PM';
+    for (var i = 0; i < attSessions.length; i++) {
+        if (attSessions[i].date === today && attSessions[i].ampm === ampm) return attSessions[i].key;
+    }
+    for (var j = 0; j < attSessions.length; j++) {
+        if (attSessions[j].date === today) return attSessions[j].key;
+    }
+    return attSessions[0].key;
+}
+
+// The (p)resent/(r)eason cell of a learner for a session — materialised so
+// edits stick on the roster object and survive session switches until save.
+function attCell(r, sessKey) {
+    if (!r.att || Array.isArray(r.att)) r.att = {};
+    if (!r.att[sessKey]) r.att[sessKey] = { p: 0, r: '' };
+    return r.att[sessKey];
+}
+
+function attRenderSessTabs() {
+    var el = document.getElementById('att-sess-tabs');
+    if (!el) return;
+    var html = '';
+    attSessions.forEach(function(s) {
+        var active = s.key === attActiveSess;
+        var marked = 0;
+        attRoster.forEach(function(r){ if (r.att && r.att[s.key] && r.att[s.key].p) marked++; });
+        html += '<button type="button" onclick="attSetSession(\'' + s.key + '\')" style="'
+            + 'padding:6px 14px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;'
+            + (active
+                ? 'background:#2563eb;border:1px solid #2563eb;color:#fff;'
+                : 'background:transparent;border:1px solid #334155;color:#94a3b8;')
+            + '">' + esc(s.label)
+            + (marked ? ' <span style="opacity:.8;">(' + marked + '✓)</span>' : '')
+            + '</button>';
+    });
+    el.innerHTML = html;
+}
+
+function attSetSession(key) {
+    attActiveSess = key;
+    attSel = {};
+    var selAll = document.getElementById('att-sel-all');
+    if (selAll) selAll.checked = false;
+    attRenderSessTabs();
+    attRender();
+}
+
 function attRender() {
     var tb = document.getElementById('att-tbody');
     var html = '';
     if (!attRoster.length) {
-        var cols = ATT_READONLY ? 4 : 6;
+        var cols = ATT_READONLY ? 5 : 7;
         document.getElementById('att-table').style.display = attRoster.length ? '' : 'none';
-        tb.innerHTML = '';
-        var empty = document.getElementById('att-empty-row');
         document.getElementById('att-roster-card').querySelector('#att-kpis').style.display = 'none';
         tb.innerHTML = '<tr><td colspan="' + cols + '" class="att-empty">No learners enrolled' + (ATT_READONLY ? '' : '. Use “+ Add Learner”.') + '</td></tr>';
         attUpdateCounters();
@@ -449,10 +512,14 @@ function attRender() {
     }
     document.getElementById('att-table').style.display = '';
     attRoster.forEach(function(r, i) {
-        var present = !!r.is_present;
+        var cell = attCell(r, attActiveSess);
+        var present = !!cell.p;
         var rowCls = r.is_walkin ? ' class="walkin"' : '';
-        html += '<tr' + rowCls + ' data-idx="' + i + '">'
-            + '<td style="color:#64748b">' + (i + 1) + '</td>'
+        html += '<tr' + rowCls + ' data-idx="' + i + '">';
+        if (!ATT_READONLY) {
+            html += '<td><input type="checkbox" ' + (attSel[i] ? 'checked' : '') + ' onchange="attSelToggle(' + i + ', this.checked)" style="width:15px;height:15px;accent-color:#2563eb;cursor:pointer;"></td>';
+        }
+        html += '<td style="color:#64748b">' + (i + 1) + '</td>'
             + '<td>' + esc(r.learner_name || '—') + (r.is_walkin ? '<span class="att-badge-walkin">Walk-in</span>' : '') + '</td>'
             + '<td style="color:#94a3b8;font-size:12px;">' + esc(r.learner_email) + '</td>';
         if (ATT_READONLY) {
@@ -465,33 +532,68 @@ function attRender() {
                 + '<input type="checkbox" ' + (present ? 'checked' : '') + ' onchange="attToggle(' + i + ', this.checked)" style="width:16px;height:16px;accent-color:#22c55e;">'
                 + '<span class="att-present-lbl" id="att-lbl-' + i + '" style="color:' + (present ? '#22c55e' : '#f87171') + '">' + (present ? '✓ Present' : '✗ Absent') + '</span>'
                 + '</label></td>'
-                + '<td><input type="text" class="att-reason" id="att-reason-' + i + '" placeholder="Enter reason..." value="' + esc(r.reason_of_absence) + '" oninput="attReason(' + i + ', this.value)"' + (present ? ' style="display:none;"' : '') + '></td>'
+                + '<td><input type="text" class="att-reason" id="att-reason-' + i + '" placeholder="Enter reason..." value="' + esc(cell.r) + '" oninput="attReason(' + i + ', this.value)"' + (present ? ' style="display:none;"' : '') + '></td>'
                 + '<td>' + (r.is_walkin ? '<button type="button" class="att-btn att-btn-danger" style="padding:3px 8px;" onclick="attRemove(' + i + ')">Remove</button>' : '') + '</td>';
         }
         html += '</tr>';
     });
     document.getElementById('att-tbody').innerHTML = html;
     attUpdateCounters();
+    attUpdateBulkButtons();
     if (ATT_SHOW_KPIS) attRenderKpis();
 }
 
 function attToggle(i, checked) {
-    attRoster[i].is_present = checked ? 1 : 0;
+    var cell = attCell(attRoster[i], attActiveSess);
+    cell.p = checked ? 1 : 0;
     var lbl = document.getElementById('att-lbl-' + i);
     var reason = document.getElementById('att-reason-' + i);
     if (lbl) { lbl.textContent = checked ? '✓ Present' : '✗ Absent'; lbl.style.color = checked ? '#22c55e' : '#f87171'; }
-    if (reason) { reason.style.display = checked ? 'none' : ''; if (checked) { reason.value=''; attRoster[i].reason_of_absence=''; } }
+    if (reason) { reason.style.display = checked ? 'none' : ''; if (checked) { reason.value=''; cell.r=''; } }
     attUpdateCounters();
+    attRenderSessTabs();
 }
-function attReason(i, val) { attRoster[i].reason_of_absence = val; }
+function attReason(i, val) { attCell(attRoster[i], attActiveSess).r = val; }
 
 function attAllPresent() {
-    attRoster.forEach(function(r){ r.is_present = 1; r.reason_of_absence = ''; });
+    attRoster.forEach(function(r){ var c = attCell(r, attActiveSess); c.p = 1; c.r = ''; });
+    attRenderSessTabs();
+    attRender();
+}
+
+// ── Multi-select + bulk marking ──────────────────────────────────────────────
+function attSelToggle(i, checked) {
+    if (checked) attSel[i] = true; else delete attSel[i];
+    var selAll = document.getElementById('att-sel-all');
+    if (selAll) selAll.checked = Object.keys(attSel).length === attRoster.length && attRoster.length > 0;
+    attUpdateBulkButtons();
+}
+function attSelAll(checked) {
+    attSel = {};
+    if (checked) attRoster.forEach(function(_, i){ attSel[i] = true; });
+    attRender();
+}
+function attUpdateBulkButtons() {
+    var n = Object.keys(attSel).length;
+    var bp = document.getElementById('att-bulk-present');
+    var ba = document.getElementById('att-bulk-absent');
+    if (bp) { bp.disabled = !n; bp.textContent = n ? 'Mark Present (' + n + ')' : 'Mark Present'; }
+    if (ba) { ba.disabled = !n; ba.textContent = n ? 'Mark Absent (' + n + ')' : 'Mark Absent'; }
+}
+function attBulkMark(present) {
+    Object.keys(attSel).forEach(function(i) {
+        var r = attRoster[i];
+        if (!r) return;
+        var c = attCell(r, attActiveSess);
+        c.p = present ? 1 : 0;
+        if (present) c.r = '';
+    });
+    attRenderSessTabs();
     attRender();
 }
 
 function attUpdateCounters() {
-    var p = 0; attRoster.forEach(function(r){ if (r.is_present) p++; });
+    var p = 0; attRoster.forEach(function(r){ if (attCell(r, attActiveSess).p) p++; });
     document.getElementById('att-cnt-present').textContent = p;
     document.getElementById('att-cnt-absent').textContent = attRoster.length - p;
     document.getElementById('att-cnt-total').textContent = attRoster.length;
@@ -500,12 +602,14 @@ function attUpdateCounters() {
 function attRenderKpis() {
     var kp = document.getElementById('att-kpis');
     var total = attRoster.length;
-    var present = 0; attRoster.forEach(function(r){ if (r.is_present) present++; });
+    var present = 0; attRoster.forEach(function(r){ if (attCell(r, attActiveSess).p) present++; });
     var pct = total ? Math.round((present / total) * 100) : 0;
     var col = pct >= 75 ? '#22c55e' : (pct >= 50 ? '#f59e0b' : '#f87171');
+    var sess = null;
+    attSessions.forEach(function(s){ if (s.key === attActiveSess) sess = s; });
     kp.innerHTML =
         '<div class="att-kpi"><div class="att-kpi-num" style="color:#e2e8f0">' + total + '</div><div class="att-kpi-lbl">No. of Learners</div></div>' +
-        '<div class="att-kpi"><div class="att-kpi-num" style="color:#22c55e">' + present + '</div><div class="att-kpi-lbl">Present</div></div>' +
+        '<div class="att-kpi"><div class="att-kpi-num" style="color:#22c55e">' + present + '</div><div class="att-kpi-lbl">Present' + (sess ? ' — ' + esc(sess.label) : '') + '</div></div>' +
         '<div class="att-kpi"><div class="att-kpi-num" style="color:' + col + '">' + pct + '%</div><div class="att-kpi-lbl">Attendance Rate</div></div>';
     kp.style.display = '';
 }
@@ -514,10 +618,25 @@ function attSave() {
     var btn = document.getElementById('att-save-btn');
     var st = document.getElementById('att-save-status');
     btn.disabled = true; btn.textContent = 'Saving…'; st.textContent = '';
+    // Flatten the full learner × session matrix — every session the trainer
+    // touched (or the server already had) is saved in one call.
+    var records = [];
+    attRoster.forEach(function(r) {
+        attSessions.forEach(function(s) {
+            if (!r.att || Array.isArray(r.att) || !r.att[s.key]) return; // untouched cell — keep server state
+            records.push({
+                learner_email:     r.learner_email,
+                learner_name:      r.learner_name,
+                session_key:       s.key,
+                is_present:        r.att[s.key].p ? 1 : 0,
+                reason_of_absence: r.att[s.key].r || ''
+            });
+        });
+    });
     fetch(ATT_SAVE_URL, {
         method: 'POST', credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ run_id: attRunId, form_key: ATT_FORM_KEY, records: attRoster })
+        body: JSON.stringify({ run_id: attRunId, form_key: ATT_FORM_KEY, records: records })
     })
     .then(function(r){ return r.json(); })
     .then(function(d){

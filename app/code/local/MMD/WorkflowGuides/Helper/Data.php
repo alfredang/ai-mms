@@ -50,7 +50,7 @@ class MMD_WorkflowGuides_Helper_Data extends Mage_Core_Helper_Abstract
                 array('type' => 'ACTION', 'title' => 'Pick mode of training', 'description' => 'Required: Classroom Facilitated, Synchronous e-Learning, Asynchronous e-Learning, or Blended Learning.'),
                 array('type' => 'ACTION', 'title' => 'Pick course vacancy', 'description' => 'Required: Available, Limited, or Fully Booked.'),
                 array('type' => 'LOGIC', 'title' => 'Optionally assign a trainer now', 'description' => 'Check "Assign Trainer" to add a candidate at creation time, or skip and invite one later from the Trainers tab.'),
-                array('type' => 'ACTION', 'title' => 'Save', 'description' => 'The class appears in All Classes with a generated Class ID (e.g. SG000042).'),
+                array('type' => 'ACTION', 'title' => 'Save', 'description' => 'The class appears in All Classes with a generated Class ID (e.g. C000042).'),
             ),
         );
 

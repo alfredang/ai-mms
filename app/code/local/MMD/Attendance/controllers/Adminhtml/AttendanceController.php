@@ -62,20 +62,43 @@ class MMD_Attendance_Adminhtml_AttendanceController extends Mage_Adminhtml_Contr
                 throw new Exception('Class not found.');
             }
 
+            $helper   = Mage::helper('mmd_attendance');
+            $sessions = $helper->sessionsForRun($run);
+
             // Roster = enrolments UNION walk-in attendance rows not in enrolments.
+            // WSQ (TGS-) classes have no materialised enrolments (the class-
+            // formation cron skips TGS SKUs) — fall back to the order history,
+            // which IS the registration record.
             $enrol = $read->fetchAll(
                 "SELECT learner_name, learner_email FROM `$enrolTbl`
                   WHERE run_id = ? ORDER BY learner_name",
                 array($runId)
             );
+            if (empty($enrol)) {
+                $enrol = $helper->orderRosterForRun($run);
+            }
             $att = $read->fetchAll(
-                "SELECT learner_email, learner_name, is_present, reason_of_absence, is_walkin
+                "SELECT learner_email, session_key, learner_name, is_present, reason_of_absence, is_walkin
                    FROM `$attTbl` WHERE run_id = ?",
                 array($runId)
             );
+            // attByEmail[email] = ['name'=>…, 'is_walkin'=>…, 'att'=>[session_key=>['p'=>…,'r'=>…]]]
             $attByEmail = array();
             foreach ($att as $a) {
-                $attByEmail[strtolower($a['learner_email'])] = $a;
+                $key = strtolower((string)$a['learner_email']);
+                if ($key === '') continue;
+                if (!isset($attByEmail[$key])) {
+                    $attByEmail[$key] = array(
+                        'name'      => (string)$a['learner_name'],
+                        'is_walkin' => 0,
+                        'att'       => array(),
+                    );
+                }
+                if ((int)$a['is_walkin'] === 1) $attByEmail[$key]['is_walkin'] = 1;
+                $attByEmail[$key]['att'][(string)$a['session_key']] = array(
+                    'p' => (int)$a['is_present'],
+                    'r' => (string)$a['reason_of_absence'],
+                );
             }
 
             $roster = array();
@@ -86,36 +109,35 @@ class MMD_Attendance_Adminhtml_AttendanceController extends Mage_Adminhtml_Contr
                 $seen[$key] = true;
                 $a = isset($attByEmail[$key]) ? $attByEmail[$key] : null;
                 $roster[] = array(
-                    'learner_name'      => $e['learner_name'],
-                    'learner_email'     => $e['learner_email'],
-                    'is_present'        => $a ? (int)$a['is_present'] : 0,
-                    'reason_of_absence' => $a ? (string)$a['reason_of_absence'] : '',
-                    'is_walkin'         => 0,
+                    'learner_name'  => $e['learner_name'],
+                    'learner_email' => $e['learner_email'],
+                    'is_walkin'     => 0,
+                    'att'           => $a ? $a['att'] : new stdClass(),
                 );
             }
             // Walk-ins recorded in attendance but absent from enrolments.
-            foreach ($att as $a) {
-                $key = strtolower((string)$a['learner_email']);
+            foreach ($attByEmail as $key => $a) {
                 if (isset($seen[$key])) continue;
                 $seen[$key] = true;
                 $roster[] = array(
-                    'learner_name'      => $a['learner_name'],
-                    'learner_email'     => $a['learner_email'],
-                    'is_present'        => (int)$a['is_present'],
-                    'reason_of_absence' => (string)$a['reason_of_absence'],
-                    'is_walkin'         => (int)$a['is_walkin'],
+                    'learner_name'  => $a['name'],
+                    'learner_email' => $key,
+                    'is_walkin'     => (int)$a['is_walkin'],
+                    'att'           => $a['att'],
                 );
             }
 
-            $this->_json(array('success' => true, 'run' => $run, 'roster' => $roster));
+            $this->_json(array('success' => true, 'run' => $run, 'sessions' => $sessions, 'roster' => $roster));
         } catch (Exception $e) {
             $this->_json(array('success' => false, 'message' => $e->getMessage()));
         }
     }
 
     /**
-     * POST JSON — bulk upsert attendance for a run.
-     * body: { run_id, records: [{ learner_email, learner_name, is_present, reason_of_absence }] }
+     * POST JSON — bulk upsert attendance for a run, one record per learner
+     * per session (session_key = 'd<day><am|pm>', e.g. d1am / d2pm).
+     * body: { run_id, records: [{ learner_email, learner_name, session_key,
+     *                             is_present, reason_of_absence }] }
      */
     public function saveAction()
     {
@@ -141,8 +163,9 @@ class MMD_Attendance_Adminhtml_AttendanceController extends Mage_Adminhtml_Contr
             $saved   = 0;
 
             foreach ($records as $r) {
-                $email = trim((string)($r['learner_email'] ?? ''));
-                if ($email === '') continue;
+                $email   = trim((string)($r['learner_email'] ?? ''));
+                $session = strtolower(trim((string)($r['session_key'] ?? '')));
+                if ($email === '' || !preg_match('/^d\d{1,2}(am|pm)$/', $session)) continue;
                 $present = !empty($r['is_present']) ? 1 : 0;
                 $reason  = $present ? '' : trim((string)($r['reason_of_absence'] ?? ''));
                 $name    = trim((string)($r['learner_name'] ?? ''));
@@ -153,6 +176,7 @@ class MMD_Attendance_Adminhtml_AttendanceController extends Mage_Adminhtml_Contr
                         'run_id'             => $runId,
                         'class_id'           => $classId ?: null,
                         'learner_email'      => $email,
+                        'session_key'        => $session,
                         'learner_name'       => $name,
                         'is_present'         => $present,
                         'reason_of_absence'  => $reason !== '' ? $reason : null,
