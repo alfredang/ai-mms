@@ -256,7 +256,19 @@ uses an **explicit url_key allow-list of course-listing categories only**, so a
 landing page can never be caught. Do NOT switch to a "disable every empty active
 category" sweep — it would kill the whole utility menu.
 
-## Curated per-category overrides — re-apply after EVERY global reorder
+## Curated per-category overrides — DEAD since the nightly cron (2026-07-18)
+
+> **STATUS 2026-07-29: curated NON-WSQ overrides no longer stick.** The daily
+> `MMD_RoleManager_Model_Cron_CategoryOrdering` sweep (01:00 UTC, shipped
+> 2026-07-18) re-applies the canonical rule nightly with NO curated exemption,
+> so any non-WSQ pin (positions 101+) is flattened back to alphabetical within
+> a day — verified on prod 2026-07-29: `claude-ai-series` is pure alphabetical
+> despite re-apply 741. The owner's 2026-07-29 request ("sort non-funded
+> courses alphabetically") endorses alphabetical, so DO NOT ship curated
+> re-apply migrations any more — they are dead within 24h. WSQ (TGS-) pins DO
+> survive (the sweep preserves TGS relative order — the 784/785/786 pattern).
+> If a curated non-WSQ order is ever wanted again, the cron itself needs a
+> curated-exemption first. Historical context below.
 
 Some categories deliberately override the canonical alphabetical non-WSQ order
 with a hand-curated sequence at positions 101+ (safely after the WSQ block):
