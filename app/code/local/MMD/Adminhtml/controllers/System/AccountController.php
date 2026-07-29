@@ -81,6 +81,16 @@ class MMD_Adminhtml_System_AccountController extends Mage_Adminhtml_System_Accou
                     throw new Exception('Profile image must be under 8 MB.');
                 }
 
+                // Compress before upload — phone photos arrive at several
+                // MB but the avatar renders at 90px; downscale + JPEG
+                // re-encode cuts a ~1MB PNG to ~30KB. Falls back to the
+                // original bytes if GD can't decode the file.
+                $compressed = $this->_compressProfileImage($bytes);
+                if ($compressed !== null) {
+                    $bytes = $compressed;
+                    $ext   = 'jpg';
+                }
+
                 // R2 key — include user_id + timestamp for cache-busting
                 // on re-upload (R2 PUT overwrites by key; a fresh key
                 // means the browser fetches the new image even when the
@@ -207,5 +217,44 @@ class MMD_Adminhtml_System_AccountController extends Mage_Adminhtml_System_Accou
             );
         }
         $this->getResponse()->setRedirect($this->getUrl('*/*/'));
+    }
+
+    /**
+     * Downscale to max 512px on the longest side and re-encode as JPEG
+     * q85, flattening any alpha onto white. Returns null when GD can't
+     * decode the bytes (caller then uploads the original untouched).
+     *
+     * @param string $bytes
+     * @return string|null
+     */
+    protected function _compressProfileImage($bytes)
+    {
+        if (!function_exists('imagecreatefromstring')) {
+            return null;
+        }
+        $src = @imagecreatefromstring($bytes);
+        if (!$src) {
+            return null;
+        }
+
+        $w = imagesx($src);
+        $h = imagesy($src);
+        $max = 512;
+        $scale = min(1, $max / max($w, $h));
+        $nw = max(1, (int) round($w * $scale));
+        $nh = max(1, (int) round($h * $scale));
+
+        $dst = imagecreatetruecolor($nw, $nh);
+        $white = imagecolorallocate($dst, 255, 255, 255);
+        imagefill($dst, 0, 0, $white);
+        imagecopyresampled($dst, $src, 0, 0, 0, 0, $nw, $nh, $w, $h);
+        imagedestroy($src);
+
+        ob_start();
+        $ok = imagejpeg($dst, null, 85);
+        $out = ob_get_clean();
+        imagedestroy($dst);
+
+        return ($ok && $out !== '' && strlen($out) < strlen($bytes)) ? $out : null;
     }
 }
