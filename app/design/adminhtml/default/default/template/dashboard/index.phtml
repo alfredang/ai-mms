@@ -6802,7 +6802,27 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
                 </div>
                 <div style="padding:24px;text-align:center;">
                     <div style="background:#fff;border-radius:8px;padding:12px;display:inline-block;margin-bottom:16px;">
-                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=<?php echo urlencode($_fbUrl) ?>" alt="Course Feedback QR" width="180" height="180" style="display:block;" />
+                        <?php /* QR is drawn locally by js/qrcode.min.js (vendored,
+                                 loaded via main.xml) — the external api.qrserver.com
+                                 image service rate-limits and intermittently returned
+                                 nothing, leaving a blank white box. The external URL
+                                 remains only as a fallback if the lib fails to load. */ ?>
+                        <div id="lcd-fb-qr" style="width:180px;height:180px;"></div>
+                        <script type="text/javascript">
+                        (function () {
+                            function draw() {
+                                var el = document.getElementById('lcd-fb-qr');
+                                if (!el || el.childNodes.length) return;
+                                if (window.QRCode) {
+                                    new QRCode(el, { text: <?php echo json_encode($_fbUrl) ?>, width: 180, height: 180, correctLevel: QRCode.CorrectLevel.M });
+                                } else {
+                                    el.innerHTML = '<img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=<?php echo urlencode($_fbUrl) ?>" alt="Course Feedback QR" width="180" height="180" style="display:block;" />';
+                                }
+                            }
+                            if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', draw);
+                            else draw();
+                        })();
+                        </script>
                     </div>
                     <div style="color:#cbd5e1;font-size:14px;font-weight:600;margin-bottom:10px;">Scan to share your feedback</div>
                     <div style="color:#94a3b8;font-size:13px;word-break:break-all;margin-bottom:18px;"><?php echo htmlspecialchars($_fbUrl) ?></div>
