@@ -37,22 +37,54 @@ class MMD_Enhancedsalesgrid_Block_Sales_Order extends Mage_Adminhtml_Block_Sales
         $branch    = Mage::helper('branchscope');
         $activeStoreId = (int) $branch->getActiveStoreId();
 
-        // Total registrations for the current store (no other filters).
-        $totalCol = Mage::getResourceModel('sales/order_grid_collection');
+        // Registration KPIs for the current store (no other filters).
+        // created_at is stored in UTC; day boundaries are computed in the
+        // admin timezone (Asia/Singapore) so "Today" flips at local midnight.
+        $tz = new DateTimeZone(Mage::getStoreConfig('general/locale/timezone') ?: 'UTC');
+        $utc = new DateTimeZone('UTC');
+        $todayStart = new DateTime('now', $tz);
+        $todayStart->setTime(0, 0, 0);
+        $weekStart = clone $todayStart;
+        $weekStart->modify('-6 days'); // last 7 days = today + 6 preceding days
+
+        $read  = Mage::getSingleton('core/resource')->getConnection('core_read');
+        $select = $read->select()->from(
+            Mage::getSingleton('core/resource')->getTableName('sales/order_grid'),
+            array(
+                'total' => 'COUNT(*)',
+                'last7' => new Zend_Db_Expr('SUM(created_at >= '
+                    . $read->quote($weekStart->setTimezone($utc)->format('Y-m-d H:i:s')) . ')'),
+                'today' => new Zend_Db_Expr('SUM(created_at >= '
+                    . $read->quote($todayStart->setTimezone($utc)->format('Y-m-d H:i:s')) . ')'),
+            )
+        );
         if ($activeStoreId > 0) {
-            $totalCol->addFieldToFilter('store_id', $activeStoreId);
+            $select->where('store_id = ?', $activeStoreId);
         }
-        $total = $totalCol->getSize();
+        $kpi   = $read->fetchRow($select);
+        $total = (int) $kpi['total'];
 
         $searchIcon = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" '
                     . 'stroke="currentColor" stroke-width="2">'
                     . '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>';
 
+        // KPI cards — same .trn-kpi-* component as Manage Courses / Learners /
+        // Trainers (admin-dashboard.css, loaded globally). Rendered before the
+        // grid wrapper, so wrapMmdGridInCard() inserts the grid card below them.
+        $html  = '<div class="trn-kpi-grid">';
+        $html .= '<div class="trn-kpi-card"><div class="trn-kpi-num blue">' . number_format($total)
+              .  '</div><div class="trn-kpi-lbl">' . Mage::helper('sales')->__('Total Registrations') . '</div></div>';
+        $html .= '<div class="trn-kpi-card"><div class="trn-kpi-num green">' . number_format((int) $kpi['last7'])
+              .  '</div><div class="trn-kpi-lbl">' . Mage::helper('sales')->__('Registrations — Last 7 Days') . '</div></div>';
+        $html .= '<div class="trn-kpi-card"><div class="trn-kpi-num pink">' . number_format((int) $kpi['today'])
+              .  '</div><div class="trn-kpi-lbl">' . Mage::helper('sales')->__('Registrations Today') . '</div></div>';
+        $html .= '</div>';
+
         // Build the consolidated toolbar in a hidden staging container.
         // A small inline script then moves it into the grid's page-header
         // strip so "Registrations" + "New Registration" share the row
         // with Total + Search + Filters.
-        $html  = '<div class="mmd-reg-staging" style="display:none;">';
+        $html .= '<div class="mmd-reg-staging" style="display:none;">';
         $html .= '<span class="mmd-reg-total">' . Mage::helper('sales')->__('Total Registrations')
               .  ' <span>' . number_format($total) . '</span></span>';
         $html .= '<form method="get" action="' . $baseUrl . '" class="mmd-reg-search-form">';
