@@ -164,61 +164,10 @@ class MMD_Attendance_Helper_Data extends Mage_Core_Helper_Abstract
         return 'd' . $day . $ampm;
     }
 
-    // ── WSQ (TGS-) run materialisation ───────────────────────────────────────
-
-    /**
-     * Find the course_runs row for (product, start date) — or, for TGS-
-     * prefixed SKUs ONLY, create it. The class-formation cron intentionally
-     * skips TGS SKUs, so WSQ classes never get a run row and the E-Attendance
-     * / feedback cards had nothing to link to. Creating here is safe for TGS
-     * (nothing else will ever create it -> no duplicate-run race); for other
-     * SKUs the cron owns creation, so this only ever finds.
-     *
-     * @return int run_id, or 0 when nothing exists and creation isn't allowed
-     */
-    public function ensureRun($productId, $sku, $startYmd, $endYmd = '')
-    {
-        $productId = (int) $productId;
-        $sku       = strtoupper(trim((string) $sku));
-        if ($productId <= 0 || !preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $startYmd)) {
-            return 0;
-        }
-        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $endYmd)) {
-            $endYmd = $startYmd;
-        }
-
-        $resource = Mage::getSingleton('core/resource');
-        $read     = $resource->getConnection('core_read');
-        $table    = $resource->getTableName('course_runs');
-
-        $find = "SELECT run_id FROM `$table` WHERE product_id = ? AND course_start_date = ? LIMIT 1";
-        $runId = (int) $read->fetchOne($find, array($productId, $startYmd));
-        if ($runId || substr($sku, 0, 4) !== 'TGS-') {
-            return $runId;
-        }
-
-        $write   = $resource->getConnection('core_write');
-        $classId = MMD_RoleManager_Helper_Data::nextClassId($write, $table, MMD_RoleManager_Helper_Data::CLASS_ID_PREFIX);
-        try {
-            $write->insert($table, array(
-                'class_id'          => $classId,
-                'product_id'        => $productId,
-                'course_sku'        => $sku,
-                'course_start_date' => $startYmd,
-                'course_end_date'   => $endYmd,
-                'course_start_time' => '09:30:00',
-                'course_end_time'   => '18:30:00',
-                'mode_of_training'  => 1,
-                'vacancy'           => 'A',
-                'created_at'        => now(),
-                'created_by'        => 'E-Attendance',
-            ));
-            return (int) $write->lastInsertId();
-        } catch (Exception $e) {
-            // Concurrent create (class_id UNIQUE) — reselect.
-            return (int) $read->fetchOne($find, array($productId, $startYmd));
-        }
-    }
+    /* ensureRun() (WSQ/TGS run materialisation) was removed: classes are
+       C-prefix-only since migration 846 — non-C course codes must never
+       materialise a course_runs row, and every remaining caller was dropped
+       with that change. */
 
     /**
      * Roster derived from order history: order items of the run's product

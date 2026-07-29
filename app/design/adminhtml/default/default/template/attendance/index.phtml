@@ -478,16 +478,27 @@ function attRenderSessTabs() {
         var active = s.key === attActiveSess;
         var marked = 0;
         attRoster.forEach(function(r){ if (r.att && r.att[s.key] && r.att[s.key].p) marked++; });
-        html += '<button type="button" onclick="attSetSession(\'' + s.key + '\')" style="'
+        html += '<button type="button" data-active="' + (active ? '1' : '0') + '" onclick="attSetSession(\'' + s.key + '\')" style="'
             + 'padding:6px 14px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;'
-            + (active
-                ? 'background:#2563eb;border:1px solid #2563eb;color:#fff;'
-                : 'background:transparent;border:1px solid #334155;color:#94a3b8;')
             + '">' + esc(s.label)
             + (marked ? ' <span style="opacity:.8;">(' + marked + '✓)</span>' : '')
             + '</button>';
     });
     el.innerHTML = html;
+    // Force the colors as !important inline styles — the admin dark-theme's
+    // global button rules are !important and beat any plain inline style
+    // (same trap + same fix as the .att-tab strip above).
+    var isLight = (document.documentElement.getAttribute('data-theme') || 'dark') === 'light';
+    el.querySelectorAll('button').forEach(function(b) {
+        var active = b.getAttribute('data-active') === '1';
+        b.style.setProperty('background', active ? '#2563eb' : 'transparent', 'important');
+        b.style.setProperty('background-image', 'none', 'important');
+        b.style.setProperty('border', '1px solid ' + (active ? '#2563eb' : (isLight ? '#cbd5e1' : '#334155')), 'important');
+        b.style.setProperty('color', active ? '#ffffff' : (isLight ? '#475569' : '#94a3b8'), 'important');
+        b.style.setProperty('box-shadow', 'none', 'important');
+        b.style.setProperty('text-shadow', 'none', 'important');
+        b.style.setProperty('text-transform', 'none', 'important');
+    });
 }
 
 function attSetSession(key) {
