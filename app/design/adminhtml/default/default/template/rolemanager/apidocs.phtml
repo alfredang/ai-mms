@@ -197,7 +197,7 @@ $apiKeyMasked = $apiKey !== '' ? substr($apiKey, 0, 6) . str_repeat('•', 12) .
             <span class="api-pill scope-public">Public · API-key gated</span>
         </header>
 
-        <p>Read-only endpoint listing every WSQ course (<code>TGS-</code> SKU prefix) enabled in the Singapore store, with its scheduled class dates. Consumed by the external TMS to keep its course catalog in sync.</p>
+        <p>Read-only endpoint listing every WSQ course (<code>TGS-</code> course code prefix) enabled in the Singapore store, with its scheduled class dates. Consumed by the external TMS to keep its course catalog in sync.</p>
 
         <h3>Endpoint</h3>
         <pre class="url-block">GET <?php echo $this->htmlEscape($prodBaseUrl); ?>/courses/api_schedule</pre>
@@ -228,7 +228,7 @@ $apiKeyMasked = $apiKey !== '' ? substr($apiKey, 0, 6) . str_repeat('•', 12) .
         <h3>Scope</h3>
         <ul>
             <li><strong>Enabled products only</strong> (<code>status = 1</code>) — disabled / discontinued courses are excluded.</li>
-            <li>SKU starts with <code>TGS-</code> (the SkillsFuture course reference — defines "WSQ" per the LMS data model).</li>
+            <li>Course code starts with <code>TGS-</code> (the SkillsFuture course reference — defines "WSQ" per the LMS data model).</li>
             <li>Singapore store view only (<code>store_id = 1</code>); titles and option labels are returned in the SG storefront's text.</li>
         </ul>
 
@@ -261,7 +261,7 @@ $apiKeyMasked = $apiKey !== '' ? substr($apiKey, 0, 6) . str_repeat('•', 12) .
         <table class="api-table">
             <thead><tr><th>Field</th><th>Type</th><th>Notes</th></tr></thead>
             <tbody>
-                <tr><td><code>course_code</code></td><td>string</td><td><strong>The SKU and the official SkillsFuture course reference.</strong> Always <code>TGS-</code> prefix. Stable primary key — TMS should join on this.</td></tr>
+                <tr><td><code>course_code</code></td><td>string</td><td><strong>The course code and the official SkillsFuture course reference.</strong> Always <code>TGS-</code> prefix. Stable primary key — TMS should join on this.</td></tr>
                 <tr><td><code>course_title</code></td><td>string</td><td>Course name as shown in the SG storefront.</td></tr>
                 <tr><td><code>schedules</code></td><td>array</td><td>May be empty (course exists but has no scheduled dates).</td></tr>
             </tbody>
@@ -356,7 +356,7 @@ $apiKeyMasked = $apiKey !== '' ? substr($apiKey, 0, 6) . str_repeat('•', 12) .
             <span class="api-pill method-get">GET</span>
             <span class="api-pill scope-public">Public · API-key gated</span>
         </header>
-        <p>Keyword search across SG storefront courses (any SKU prefix). Used by the WhatsApp bot to answer <em>"do you have a Python course?"</em> style questions.</p>
+        <p>Keyword search across SG storefront courses (any course-code prefix). Used by the WhatsApp bot to answer <em>"do you have a Python course?"</em> style questions.</p>
 
         <h3>Endpoint</h3>
         <pre class="url-block">GET <?php echo $this->htmlEscape($prodBaseUrl); ?>/courses/api_search?q=&lt;keyword&gt;&amp;limit=10</pre>
@@ -407,7 +407,7 @@ $apiKeyMasked = $apiKey !== '' ? substr($apiKey, 0, 6) . str_repeat('•', 12) .
             <span class="api-pill method-get">GET</span>
             <span class="api-pill scope-public">Public · API-key gated</span>
         </header>
-        <p>Full details for one course by SKU — overview, suitability, prerequisites, duration, level, assessment, certification, fee, funding badges, mode, image, course page URL, and registration link.</p>
+        <p>Full details for one course by course code — overview, suitability, prerequisites, duration, level, assessment, certification, fee, funding badges, mode, image, course page URL, and registration link.</p>
 
         <h3>Endpoint</h3>
         <pre class="url-block">GET <?php echo $this->htmlEscape($prodBaseUrl); ?>/courses/api_courses?sku=&lt;course_code&gt;</pre>
@@ -454,7 +454,7 @@ $apiKeyMasked = $apiKey !== '' ? substr($apiKey, 0, 6) . str_repeat('•', 12) .
 
     <section class="api-section" id="bot-schedule-sku">
         <header>
-            <h2>Schedule by SKU (extension of WSQ Schedule)</h2>
+            <h2>Schedule by Course Code (extension of WSQ Schedule)</h2>
             <span class="api-pill method-get">GET</span>
             <span class="api-pill scope-public">Public · API-key gated</span>
         </header>
@@ -477,7 +477,7 @@ $apiKeyMasked = $apiKey !== '' ? substr($apiKey, 0, 6) . str_repeat('•', 12) .
     "classes_count": 2,
     "classes": [
       {
-        "class_id": "SG004267",
+        "class_id": "C004267",
         "start_date": "2026-06-11",
         "end_date": "2026-06-12",
         "time": "09:30-17:30",

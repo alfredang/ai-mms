@@ -135,9 +135,7 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
                       FROM course_run_enrolments
                      GROUP BY run_id
                 ) en ON en.run_id = cr.run_id
-                  WHERE cr.course_start_date = ?
-                    AND cr.class_id LIKE 'SG%'
-                    AND ( (cr.trainer_user_id IS NOT NULL AND cr.trainer_user_id > 0)
+                  WHERE cr.course_start_date = ?                    AND ( (cr.trainer_user_id IS NOT NULL AND cr.trainer_user_id > 0)
                        OR (cr.trainer_option_id IS NOT NULL AND cr.trainer_option_id > 0) )
                     AND cr.invitation_paused = 0
                   ORDER BY cr.course_start_date ASC, cr.course_start_time ASC",
@@ -312,9 +310,7 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
                           GROUP BY run_id
                      ) latest ON latest.run_id = i.run_id AND latest.max_id = i.id
                 ) latest_inv ON latest_inv.run_id = cr.run_id
-                  WHERE cr.course_start_date = ?
-                    AND cr.class_id LIKE 'SG%'
-                  ORDER BY cr.run_id ASC",
+                  WHERE cr.course_start_date = ?                  ORDER BY cr.run_id ASC",
                 array($filterDate)
             );
         } catch (Exception $e) {
@@ -411,8 +407,9 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
     }
 
     /**
-     * Class IDs are formatted "<STORE_CODE>######" (e.g. SG000042, GH000001).
-     * Strip the digits to extract the store code.
+     * Legacy: class IDs were "<STORE_CODE>######" (e.g. SG000042). Since the
+     * uniform C###### scheme (migration 832) there is no store code embedded —
+     * returns null for C-prefixed ids (one store per site anyway).
      */
     private function _storeFromClassId($classId)
     {
@@ -565,9 +562,7 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
                       FROM course_run_enrolments
                      GROUP BY run_id
                 ) en ON en.run_id = cr.run_id
-                  WHERE cr.course_start_date = ?
-                    AND cr.class_id LIKE 'SG%'
-                    AND (cr.trainer_user_id   IS NULL OR cr.trainer_user_id   = 0)
+                  WHERE cr.course_start_date = ?                    AND (cr.trainer_user_id   IS NULL OR cr.trainer_user_id   = 0)
                     AND (cr.trainer_option_id IS NULL OR cr.trainer_option_id = 0)
                     AND cr.invitation_paused = 0
                   ORDER BY cr.course_start_date ASC, cr.course_start_time ASC",

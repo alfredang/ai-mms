@@ -131,7 +131,7 @@ class MMD_Branchscope_Helper_Data extends Mage_Core_Helper_Abstract
      * Edit Course inline design). Two active country stores
      * (SG/NG). Excludes admin (store_id=0) only.
      * Each option carries a 2-letter `code` for the
-     * pill badge, matching the class_id prefix scheme (SG000042 etc.).
+     * pill badge, matching the legacy class_id prefix scheme (uniform C###### since 2026-07).
      *
      * @return array
      */

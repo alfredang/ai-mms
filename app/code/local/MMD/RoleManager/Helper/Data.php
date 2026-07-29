@@ -440,6 +440,13 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
     // -------------------------------------------------------------------------
 
     /**
+     * Uniform class_id prefix — every site (SG/MY/GH) numbers its own runs
+     * C000001, C000002, … with no country prefix (2026-07 change; migration
+     * 832 renumbered the historical SG/MY/GH/NG-prefixed rows).
+     */
+    const CLASS_ID_PREFIX = 'C';
+
+    /**
      * Country-code prefix map: website_id → 2-letter code.
      * Must stay in sync with store setup and $_storeToCc2 in index.phtml.
      */
@@ -448,7 +455,7 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
     );
 
     /**
-     * Compute the next available class_id for a given country prefix.
+     * Compute the next available class_id for a given prefix.
      *
      * Reads MAX(numeric suffix) from course_runs where class_id starts with $cc,
      * then returns $cc + zero-padded($max + 1).  The caller is responsible for
@@ -457,8 +464,8 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
      *
      * @param  object $write      core_write DB connection
      * @param  string $runTable   fully-qualified table name for course_runs
-     * @param  string $cc         two-letter country code (e.g. 'SG')
-     * @return string             e.g. 'SG000042'
+     * @param  string $cc         class_id prefix (self::CLASS_ID_PREFIX)
+     * @return string             e.g. 'C000042'
      */
     public static function nextClassId($write, $runTable, $cc)
     {

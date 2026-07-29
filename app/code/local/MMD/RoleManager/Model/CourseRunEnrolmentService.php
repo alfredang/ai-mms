@@ -25,8 +25,11 @@ class MMD_RoleManager_Model_CourseRunEnrolmentService
 
         $sku = strtoupper(trim((string) $item->getSku()));
 
-        if (substr($sku, 0, 3) === 'TGS') {
-            return; // TGS courses are handled by the external app.
+        // Classes are only formed for non-WSQ / unfunded C-prefix course codes
+        // (C010, C6…). TGS- (WSQ, handled by the external app), M- (partner
+        // legacy) and any other code never materialise a course_runs row.
+        if (!preg_match('/^C[0-9]/', $sku)) {
+            return;
         }
 
         $productId = (int) $item->getProductId();
@@ -423,10 +426,8 @@ class MMD_RoleManager_Model_CourseRunEnrolmentService
         // 2. Derive mode_of_training from selected option if available.
         $modeOfTraining = $this->_extractModeOfTraining($item);
 
-        // 3. Resolve country code from the order's store/website.
-        $_orderWebsiteId = (int) $item->getOrder()->getStore()->getWebsiteId();
-        $_cc      = MMD_RoleManager_Helper_Data::countryCodeForProduct($read, $productId, $_orderWebsiteId);
-        $_classId = MMD_RoleManager_Helper_Data::nextClassId($write, $table, $_cc);
+        // 3. Class IDs use the uniform 'C' prefix on every site (C000001…).
+        $_classId = MMD_RoleManager_Helper_Data::nextClassId($write, $table, MMD_RoleManager_Helper_Data::CLASS_ID_PREFIX);
 
         // 4. Insert new run.
         $row = array(

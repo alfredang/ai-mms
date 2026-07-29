@@ -2999,7 +2999,7 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
             <span class="dcf-store-tab-name"><?php echo htmlspecialchars($_swCountry) ?></span>
         </a>
         <?php endforeach; ?>
-        <span class="dcf-store-switcher-hint" title="Global-scope fields (SKU, price, dates) save the same value across all stores regardless of which tab is active. Store-view fields (titles, meta, descriptions, design overrides) save to the active store only.">
+        <span class="dcf-store-switcher-hint" title="Global-scope fields (course code, price, dates) save the same value across all stores regardless of which tab is active. Store-view fields (titles, meta, descriptions, design overrides) save to the active store only.">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
             <span>Scope</span>
         </span>
@@ -5110,7 +5110,7 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                                     <th style="padding:10px 12px;text-align:left;font-weight:600;width:36px;">Remove</th>
                                     <th style="padding:10px 12px;text-align:left;font-weight:600;">ID</th>
                                     <th style="padding:10px 12px;text-align:left;font-weight:600;">Name</th>
-                                    <th style="padding:10px 12px;text-align:left;font-weight:600;">SKU</th>
+                                    <th style="padding:10px 12px;text-align:left;font-weight:600;">Course Code</th>
                                     <th style="padding:10px 12px;text-align:left;font-weight:600;">Status</th>
                                     <th style="padding:10px 12px;text-align:left;font-weight:600;">Price</th>
                                     <th style="padding:10px 12px;text-align:left;font-weight:600;">Position</th>
@@ -5144,7 +5144,7 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                         </table>
                     </div>
                     <div style="margin-top:14px;display:flex;gap:8px;align-items:center;">
-                        <input type="text" class="dcf-input" name="<?php echo $_gtInfo['name'] ?>_add_skus" placeholder="Add by SKU (comma-separated, e.g. C432, M450)" style="flex:1;" />
+                        <input type="text" class="dcf-input" name="<?php echo $_gtInfo['name'] ?>_add_skus" placeholder="Add by course code (comma-separated, e.g. C432, C450)" style="flex:1;" />
                         <span style="color:#64748b;font-size:12px;">(adds on save)</span>
                     </div>
                 </div>
@@ -11055,7 +11055,7 @@ $_apiCategories = array(
             array(
                 'method' => 'GET', 'path' => '/courses/api_search', 'authKey' => 'wsq',
                 'title' => 'Course Search API',
-                'description' => 'Keyword search across SG storefront courses (any SKU prefix). Used to answer "do you have a Python course?" style questions.',
+                'description' => 'Keyword search across SG storefront courses (any course-code prefix). Used to answer "do you have a Python course?" style questions.',
                 'queryParams' => array(
                     array('name' => 'q', 'type' => 'string', 'required' => true, 'description' => 'Keyword matched against name OR sku (LIKE %q%, case-insensitive)'),
                     array('name' => 'limit', 'type' => 'int', 'required' => false, 'description' => '1-50, default 10, clamped to 50'),
@@ -11066,7 +11066,7 @@ $_apiCategories = array(
             array(
                 'method' => 'GET', 'path' => '/courses/api_courses', 'authKey' => 'wsq',
                 'title' => 'Course Detail API',
-                'description' => 'Full details for one course by SKU — overview, suitability, prerequisites, fee, funding badges, mode, registration link. Falls back to the long description when structured fields are missing rather than returning a hard null. Enabled courses only: a genuinely-missing SKU returns 404 error=not_found; a disabled/deactivated course returns 404 error=course_unavailable (distinct code so the bot excludes it from recommendations without parsing the message) — it never recommends or prices a course that is no longer offered.',
+                'description' => 'Full details for one course by course code — overview, suitability, prerequisites, fee, funding badges, mode, registration link. Falls back to the long description when structured fields are missing rather than returning a hard null. Enabled courses only: a genuinely-missing course code returns 404 error=not_found; a disabled/deactivated course returns 404 error=course_unavailable (distinct code so the bot excludes it from recommendations without parsing the message) — it never recommends or prices a course that is no longer offered.',
                 'queryParams' => array(
                     array('name' => 'sku', 'type' => 'string', 'required' => true, 'description' => 'Course code, e.g. C138 or TGS-2023021752. 404 if not found or disabled.'),
                 ),
@@ -11134,7 +11134,7 @@ $_apiCategories = array(
                 'description' => 'Trainer roster lookup — list all, one by id (with upcoming classes), or trainers eligible for a specific course.',
                 'queryParams' => array(
                     array('name' => 'id', 'type' => 'int', 'required' => false, 'description' => 'Single trainer profile + upcoming accepted classes'),
-                    array('name' => 'course', 'type' => 'string', 'required' => false, 'description' => 'Course SKU — trainers tagged eligible for it'),
+                    array('name' => 'course', 'type' => 'string', 'required' => false, 'description' => 'Course code — trainers tagged eligible for it'),
                 ),
                 'notes' => array('No params = full active roster (status=1, up to 500 rows, no upcoming-classes join — call ?id= for that).', 'PII note: email + telephone are included for bot contact purposes. Endpoint is key-gated — do not expose without stripping PII first.'),
                 'exampleRequest' => "curl -H \"X-API-Key: <key>\" \\\n  \"__BASE_URL__/courses/api_trainers?id=42\"",
@@ -11221,6 +11221,7 @@ $_apiCategories = array(
                     array('name' => '(op fields)', 'type' => 'various', 'required' => false, 'description' => 'add_class: course_sku,start_date,end_date?,start_time?,end_time?,mode?,venue?,vacancy? / update_class + remove_class: class_id (+force) / assign_trainer: class_id,trainer,trainer_email?'),
                 ),
                 'notes' => array(
+                    'Classes exist only for non-WSQ / unfunded C-prefix course codes; add_class with a TGS-/M-/other code -> 422 validation_error.',
                     'Class identity = (course code, start date). add_class on an existing date -> 409 conflict.',
                     'On an unscheduled course, add_class bootstraps it (creates Course Date + Course Time) IF given start_time+end_time; else 422 course_not_scheduled. Prefer asking the user "recurring template or one-off date?" first (recurring = api_template assign_course).',
                     'assign_trainer with an unknown person creates an INACTIVE trainer account (login disabled until an admin enables it); an ambiguous name -> 409 (re-issue with email).',
@@ -11305,7 +11306,7 @@ $_apiCategories = array(
             array(
                 'method' => 'PLANNED', 'path' => '(not built)', 'authKey' => null,
                 'title' => 'Products API',
-                'description' => 'Programmatic create / update / archive of course products — SKU, custom options (course runs), pricing. Use case: bulk-import a vendor\'s syllabus into the catalog.',
+                'description' => 'Programmatic create / update / archive of course products — course code, custom options (course runs), pricing. Use case: bulk-import a vendor\'s syllabus into the catalog.',
             ),
             array(
                 'method' => 'PLANNED', 'path' => '(not built)', 'authKey' => null,

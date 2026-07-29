@@ -785,6 +785,13 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             $regClose  = trim((string) $req->getParam('reg_close_date'));
             if ($sku === '') throw new Exception('course_sku is required');
 
+            // Classes can only be created for non-WSQ / unfunded C-prefix
+            // course codes (C010, C6…). WSQ TGS- runs live in the external
+            // system; M- partner codes are legacy.
+            if (!preg_match('/^C[0-9]/i', $sku)) {
+                throw new Exception('Classes can only be created for C-prefix (non-WSQ / unfunded) course codes — "' . $sku . '" is not eligible.');
+            }
+
             $resource = Mage::getSingleton('core/resource');
             $read     = $resource->getConnection('core_read');
             $write    = $resource->getConnection('core_write');
@@ -816,18 +823,9 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             $startTime = trim((string) $req->getParam('start_time'));
             $endTime   = trim((string) $req->getParam('end_time'));
 
-            // Determine country prefix from the admin's active website.
-            $_helper   = Mage::helper('mmd_rolemanager');
-            $_widForCC = (int) (method_exists($_helper, 'getActiveStoreId') ? $_helper->getActiveStoreId() : 0);
-            if (!$_widForCC) {
-                $_widForCC = (int) $read->fetchOne(
-                    "SELECT website_id FROM catalog_product_website WHERE product_id = ? ORDER BY website_id LIMIT 1",
-                    array($productId)
-                );
-            }
+            // Class IDs use the uniform 'C' prefix on every site (C000001…).
             $_runTable = $resource->getTableName('course_runs');
-            $_cc       = MMD_RoleManager_Helper_Data::countryCodeForProduct($read, $productId, $_widForCC);
-            $_classId  = MMD_RoleManager_Helper_Data::nextClassId($write, $_runTable, $_cc);
+            $_classId  = MMD_RoleManager_Helper_Data::nextClassId($write, $_runTable, MMD_RoleManager_Helper_Data::CLASS_ID_PREFIX);
 
             $runRow = array(
                 'class_id'          => $_classId,

@@ -153,7 +153,10 @@ trainers. Keeps the learner-facing "Course Date" dropdown and the internal class
 **Key facts**
 - **Class identity = (course code, start date).** Two registrations for the same course + date
   are the same class. A different date is a different class.
-- **`class_id`** is `SG######`, assigned by the system on `add_class` commit.
+- **`class_id`** is `C######`, assigned by the system on `add_class` commit.
+- **C-prefix courses only:** classes are only created for non-WSQ / unfunded `C`-prefix course
+  codes. `add_class` on a `TGS-` (WSQ — managed in the external SSG system), `M-` or any other
+  code fails with `422 validation_error`; tell the requester those classes can't be created here.
 - Dates `YYYY-MM-DD`; times `HH:MM` (24h); mode `Physical Classroom` | `Virtual`; vacancy
   `A` (available) | `L` (limited) | `F` (full).
 - **Anything you add or edit here is durable** — a later template roll-out (`api_template`)
@@ -167,9 +170,9 @@ Fields: `course_sku` (req), `start_date` (req), `end_date?` (defaults to start),
 > User (Sylvia): "Add a class for C520 on 15 August, physical."
 1. Preview `add_class { course_sku:"C520", start_date:"2026-08-15", mode:"Physical Classroom" }`.
 2. Server: `human_summary: "A new class for 'C Programming Essential Training' (C520) will be
-   added on 15 Aug 2026 (Fri), Physical Classroom. A new SG-series class id is assigned on
+   added on 15 Aug 2026 (Fri), Physical Classroom. A new class id is assigned on
    confirm."` → relay, get "yes".
-3. Commit → `{ applied:true, target:"SG000123" }`. Tell Sylvia the new class id.
+3. Commit → `{ applied:true, target:"C000123" }`. Tell Sylvia the new class id.
 
 **Edge cases**
 - **Unscheduled course → confirm first, then either path.** If the course has no schedule yet
@@ -210,8 +213,8 @@ Fields: `class_id` (req), `force?`.
 ### op: assign_trainer
 Fields: `class_id` (req), `trainer` (req — name or email), `trainer_email?`.
 
-**Use case — "Put Dr Tan on class SG000123"**
-1. Preview `assign_trainer { class_id:"SG000123", trainer:"Dr Tan" }`.
+**Use case — "Put Dr Tan on class C000123"**
+1. Preview `assign_trainer { class_id:"C000123", trainer:"Dr Tan" }`.
 2. If exactly one "Dr Tan" exists → summary `"...trainer: (none) -> Dr Tan."` → confirm → commit.
 
 **Edge cases**

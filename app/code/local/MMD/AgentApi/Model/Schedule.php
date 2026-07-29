@@ -70,6 +70,15 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
 
         $product = $this->_loadAdmin($sku);
 
+        // Classes can only be created for non-WSQ / unfunded C-prefix course
+        // codes (C010, C6…). WSQ TGS- runs are managed in the external SSG
+        // system; M- partner codes are legacy.
+        if (!preg_match('/^C[0-9]/i', $sku)) {
+            $this->_err('validation_error',
+                'Classes can only be created for C-prefix (non-WSQ / unfunded) course codes — "'
+                . $sku . '" is not eligible. WSQ (TGS-) classes are managed in the external system.', 422);
+        }
+
         // If the course has no "Course Date" list yet it is not schedule-enabled.
         // Rather than refuse, bootstrap it: this first class creates its Course
         // Date + Course Time lists (a one-off, admin-managed schedule, NOT tied to
@@ -94,7 +103,7 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
                 'to' => $label . ' - ' . $this->_intToMode[$mode] . ($venue ? ' @ ' . $venue : ''))),
             'human_summary' => 'A new class for "' . $product->getName() . '" (' . $sku . ') will be added on '
                                 . $label . ' (' . $this->_intToMode[$mode] . ($venue ? ', ' . $venue : '')
-                                . '). A new SG-series class id is assigned on confirm.'
+                                . '). A new class id is assigned on confirm.'
                                 . ($bootstrap ? ' This course has no schedule yet, so this also sets it up ('
                                     . $startTime . '-' . $endTime . ').' : ''),
             'warnings'      => $bootstrap
@@ -134,11 +143,9 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
 
         // 2. Insert the authoritative class record.
         $resource = Mage::getSingleton('core/resource');
-        $read  = $resource->getConnection('core_read');
         $write = $resource->getConnection('core_write');
         $table = $resource->getTableName('course_runs');
-        $cc    = MMD_RoleManager_Helper_Data::countryCodeForProduct($read, $p['product_id']);
-        $classId = MMD_RoleManager_Helper_Data::nextClassId($write, $table, $cc);
+        $classId = MMD_RoleManager_Helper_Data::nextClassId($write, $table, MMD_RoleManager_Helper_Data::CLASS_ID_PREFIX);
         $write->insert($table, array(
             'class_id'          => $classId,
             'product_id'        => $p['product_id'],

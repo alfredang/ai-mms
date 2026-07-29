@@ -50,7 +50,7 @@ abstract class MMD_AgentApi_Model_Abstract
         return Mage::getModel('catalog/product')->setStoreId(self::STORE_ID)->load($id);
     }
 
-    /** Load a course_runs row by class_id (SG######) or not_found. */
+    /** Load a course_runs row by class_id (C######) or not_found. */
     protected function _loadRunByClassId($classId)
     {
         $resource = Mage::getSingleton('core/resource');

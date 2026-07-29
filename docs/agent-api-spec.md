@@ -98,9 +98,9 @@ assign specific roles, send the matching one (it needs no backend change). The s
   "success": true,
   "dry_run": true,
   "op": "update_class",
-  "target": "SG000042",
+  "target": "C000042",
   "diff": [ { "field": "course_start_date", "from": "2026-06-06", "to": "2026-06-13" } ],
-  "human_summary": "Class SG000042 (Data Analytics with RapidMiner): start_date 2026-06-06 -> 2026-06-13.",
+  "human_summary": "Class C000042 (Data Analytics with RapidMiner): start_date 2026-06-06 -> 2026-06-13.",
   "warnings": ["3 learner(s) are enrolled on this class; they will NOT be auto-notified of the date change."],
   "change_token": "sha256:9f2c..."
 }
@@ -108,7 +108,7 @@ assign specific roles, send the matching one (it needs no backend change). The s
 
 ### Commit - `200`
 ```json
-{ "success": true, "applied": true, "op": "update_class", "target": "SG000042",
+{ "success": true, "applied": true, "op": "update_class", "target": "C000042",
   "audit_id": 1187, "reindexed": ["option_value"] }
 ```
 
@@ -158,9 +158,12 @@ WSQ feed at `GET /courses/api_schedule`.)
 > template roll-out will never remove or overwrite it.
 
 ### Shared behaviour
+- **C-prefix courses only:** classes exist only for non-WSQ / unfunded `C`-prefix course codes
+  (`C520`, `C6`…). `add_class` with a `TGS-` (WSQ — classes live in the external SSG system),
+  `M-` or any other code returns `422 validation_error`.
 - **Class identity = (course code, start date).** You never create two classes for the same
   course + start date; `add_class` on an existing date returns `409 conflict`.
-- **`class_id`** is `SG######`, assigned by the system. For `add_class` the exact id is assigned
+- **`class_id`** is `C######`, assigned by the system. For `add_class` the exact id is assigned
   **on commit**; for the other ops you reference an existing `class_id`.
 - **Dates** are `YYYY-MM-DD`. **Times** are `HH:MM` 24h. **Mode** is `Physical Classroom` or
   `Virtual`. **Vacancy** is `A` (available) | `L` (limited) | `F` (full).
@@ -176,7 +179,7 @@ WSQ feed at `GET /courses/api_schedule`.)
 ### `op: add_class`
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `course_sku` | string | yes | Existing course code |
+| `course_sku` | string | yes | Existing **C-prefix** (non-WSQ / unfunded) course code; `TGS-`/`M-`/other → `422` |
 | `start_date` | string | yes | `YYYY-MM-DD` |
 | `end_date` | string | no | defaults to `start_date` (single day) |
 | `start_time`, `end_time` | string | no | `HH:MM` |
@@ -198,7 +201,7 @@ Commit returns the new `class_id` in `target`.
 ### `op: update_class`
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `class_id` | string | yes | `SG######` |
+| `class_id` | string | yes | `C######` |
 | `start_date`, `end_date` | string | no | changing the date warns if enrolments exist |
 | `start_time`, `end_time` | string | no | - |
 | `mode` | string | no | `Physical Classroom` \| `Virtual` |
@@ -211,7 +214,7 @@ Provide only the fields you want to change. Changing the date re-labels the lear
 ### `op: remove_class`
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `class_id` | string | yes | `SG######` |
+| `class_id` | string | yes | `C######` |
 | `force` | bool | conditionally | must be `true` to remove a class that has enrolled learners |
 
 Without `force` on a class with learners -> `422 enrolments_exist` (the preview `warnings` tells
@@ -220,7 +223,7 @@ you the count first). v1 does not notify enrolled learners.
 ### `op: assign_trainer`
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `class_id` | string | yes | `SG######` |
+| `class_id` | string | yes | `C######` |
 | `trainer` | string | yes | Trainer name **or** email. |
 | `trainer_email` | string | conditionally | Required when assigning a brand-new trainer (no account, no email on file). |
 
