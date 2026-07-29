@@ -5158,7 +5158,8 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
         try {
             $_roRead = Mage::getSingleton('core/resource')->getConnection('core_read');
             $_roReviews = $_roRead->fetchAll(
-                "SELECT r.review_id, r.created_at, r.status_id, rd.title, rd.nickname, rd.detail, rd.store_id
+                "SELECT r.review_id, r.created_at, r.status_id, rd.title, rd.nickname, rd.detail, rd.store_id,
+                        (SELECT ROUND(AVG(v.value), 1) FROM rating_option_vote v WHERE v.review_id = r.review_id) AS rating
                  FROM review r
                  LEFT JOIN review_detail rd ON rd.review_id = r.review_id
                  WHERE r.entity_pk_value = ?
@@ -5171,13 +5172,13 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
 
         <!-- ===== Tab: Course Review ===== -->
         <div class="dcf-tab-panel" data-tab="reviews">
-            <div class="dcf-mag">
-                <div class="dcf-mag-bar">Course Review <span style="color:#94a3b8;font-weight:500;font-size:13px;">(<?php echo count($_roReviews) ?>)</span></div>
+            <div class="dcf-mag mmd-auto-card">
+                <div class="dcf-mag-bar"><span>Course Review <span style="color:#94a3b8;font-weight:500;font-size:13px;">(<?php echo count($_roReviews) ?>)</span></span></div>
                 <div class="dcf-mag-body">
                     <table class="mm-table">
                         <thead>
                             <tr>
-                                <?php foreach (array('ID','Created','Status','Title','Nickname','Review','Store') as $_h): ?>
+                                <?php foreach (array('ID','Created','Status','Rating','Message','Nickname','Store') as $_h): ?>
                                 <th><?php echo $_h ?></th>
                                 <?php endforeach; ?>
                             </tr>
@@ -5189,14 +5190,19 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                                 $_st = isset($_roReviewStatusMap[(int)$_rv['status_id']]) ? $_roReviewStatusMap[(int)$_rv['status_id']] : '—';
                                 $_stCls = ((int)$_rv['status_id'] === 1) ? 'var(--green, #22c55e)' : (((int)$_rv['status_id']) === 2 ? 'var(--yellow, #f59e0b)' : 'var(--red, #ef4444)');
                                 $_dt  = $_rv['created_at'] ? date('M j, Y', strtotime($_rv['created_at'])) : '—';
+                                // Rating: real star votes when present, else the "Average Rating: X/5" headline
+                                $_rating = $_rv['rating'] !== null ? (float)$_rv['rating'] : null;
+                                if ($_rating === null && preg_match('/(\d+(?:\.\d+)?)\s*\/\s*5/', (string)$_rv['title'], $_rm)) {
+                                    $_rating = (float)$_rm[1];
+                                }
                             ?>
                             <tr>
                                 <td class="muted"><?php echo (int)$_rv['review_id'] ?></td>
-                                <td><?php echo $_dt ?></td>
+                                <td class="nowrap"><?php echo $_dt ?></td>
                                 <td class="status" style="color:<?php echo $_stCls ?>;"><?php echo $_st ?></td>
-                                <td title="<?php echo htmlspecialchars((string)$_rv['title']) ?>"><?php echo htmlspecialchars((string)$_rv['title']) ?></td>
-                                <td><?php echo htmlspecialchars((string)$_rv['nickname']) ?></td>
-                                <td class="muted" title="<?php echo htmlspecialchars((string)$_rv['detail']) ?>"><?php echo htmlspecialchars((string)$_rv['detail']) ?></td>
+                                <td class="nowrap"><?php if ($_rating !== null): ?><span style="color:var(--yellow, #f59e0b);">&#9733;</span> <?php echo number_format($_rating, 1) ?>/5<?php else: ?><span class="faint">—</span><?php endif; ?></td>
+                                <td class="wrap muted"><?php echo htmlspecialchars((string)$_rv['detail']) ?></td>
+                                <td class="nowrap"><?php echo htmlspecialchars((string)$_rv['nickname']) ?></td>
                                 <td class="faint num">#<?php echo (int)$_rv['store_id'] ?></td>
                             </tr>
                             <?php endforeach; endif; ?>

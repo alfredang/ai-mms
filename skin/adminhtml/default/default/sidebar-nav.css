@@ -5531,6 +5531,16 @@ body.adminhtml-workflowguides-index .wfg-badge-logic {
     border-bottom: none !important;
 }
 
+/* 27b-i. WRAP OPT-OUT — td.wrap is part of the .mm-table component contract
+   (long-content columns like review messages opt back into wrapping). The
+   nowrap in 27b is the default, not a ban — honour the opt-out family-wide. */
+.admin-main table[class*="-table"] tbody td.wrap,
+.admin-main table.cs-tbl tbody td.wrap {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+}
+
 /* 27c. ROW SEPARATOR — one hairline between records. */
 .admin-main table[class*="-table"] tbody tr + tr td,
 .admin-main table.cs-tbl tbody tr + tr td {
