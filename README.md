@@ -101,7 +101,7 @@ This system runs as a **franchise model**:
 │        │                                   │                                │
 │        ▼                                   ▼                                │
 │  course_runs  (class instance,        course_run_enrolments (roster,        │
-│   class_id = SG000042 …)               idempotent INSERT IGNORE)            │
+│   class_id = C000042 …)                idempotent INSERT IGNORE)            │
 └──────────────────────────────────────────────────────────────────────────┘
                                        │
                                        ▼
@@ -111,7 +111,7 @@ This system runs as a **franchise model**:
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Franchise data model — six axioms:** Product = Course · Class identity = `(course_code, title, start_date)` · Class storage = one `course_runs` row (`class_id` like `SG000042`) · Order = Registration · Roster = `course_run_enrolments` · Users = six-role union with unified accounts.
+**Franchise data model — six axioms:** Product = Course · Class identity = `(course_code, title, start_date)` · Class storage = one `course_runs` row (`class_id` like `C000042` — uniform per-site sequence) · Order = Registration · Roster = `course_run_enrolments` · Users = six-role union with unified accounts.
 
 ## Project Structure
 
