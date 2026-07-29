@@ -6,13 +6,16 @@
  * Visual replicates the LMS certificate: navy "CERTIFICATE / OF ACCOMPLISHMENT"
  * header, blue chevron geometry, left-aligned body, signature block, seal.
  *
- * Gate: a learner gets a certificate only if their per-class attendance row is
- * present (is_present = 1) for a COMPLETED class. No assessment data in MMS, no
- * percentage threshold (attendance is per-class binary).
+ * Gate: a learner gets a certificate only for a COMPLETED class where their
+ * OVERALL session attendance exceeds 70% — present sessions / total sessions
+ * of the run (each class day has an AM + PM session; see
+ * MMD_Attendance_Helper_Data::sessionsForRun). No assessment data in MMS.
  */
 class MMD_Certificate_Helper_Data extends Mage_Core_Helper_Abstract
 {
     const ENABLED_CONFIG_PATH = 'mmd/certificate/auto_enabled';
+    /** Overall attendance required for a certificate: strictly more than 70%. */
+    const ATTENDANCE_THRESHOLD = 0.70;
     const LOG_FILE            = 'certificates.log';
     const SIGNER_NAME         = 'Dr. Alfred Ang';
     const SIGNER_TITLE        = 'Managing Director';
@@ -36,8 +39,11 @@ class MMD_Certificate_Helper_Data extends Mage_Core_Helper_Abstract
     // ------------------------------------------------------------------ //
 
     /**
-     * Completed runs (end_date < today) within $daysBack that have at least one
-     * present learner who has not yet been issued a certificate.
+     * Completed runs (end_date <= today — the 18:30 sweep fires AFTER the last
+     * session of the final day, so a class counts as completed the same
+     * evening) within $daysBack that have at least one present learner who has
+     * not yet been issued a certificate. The per-learner 70% attendance gate
+     * is applied afterwards by getEligibleLearners().
      */
     public function getEligibleRuns($daysBack = 7)
     {
@@ -55,7 +61,7 @@ class MMD_Certificate_Helper_Data extends Mage_Core_Helper_Abstract
                FROM `$runs` cr
                JOIN `$att` a ON a.run_id = cr.run_id AND a.is_present = 1
               WHERE cr.course_end_date IS NOT NULL
-                AND cr.course_end_date < ?
+                AND cr.course_end_date <= ?
                 AND cr.course_end_date >= ?
                 AND EXISTS (
                     SELECT 1 FROM `$att` a2
@@ -72,27 +78,55 @@ class MMD_Certificate_Helper_Data extends Mage_Core_Helper_Abstract
     }
 
     /**
-     * Present learners for a run who do NOT already have an issued/sent cert.
+     * Learners for a run whose OVERALL attendance exceeds the 70% threshold
+     * (distinct present sessions / total sessions of the run) and who do NOT
+     * already have an issued/sent cert.
+     *
+     * @param int        $runId
+     * @param array|null $run   optional pre-loaded run row (loadRun shape) —
+     *                          avoids a second lookup from the cron sweep
      */
-    public function getEligibleLearners($runId)
+    public function getEligibleLearners($runId, $run = null)
     {
         $res  = Mage::getSingleton('core/resource');
         $read = $res->getConnection('core_read');
         $att  = $res->getTableName('mmd_course_run_attendance');
         $cert = $res->getTableName('mmd_course_run_certificate');
 
-        return $read->fetchAll(
-            "SELECT a.learner_email, a.learner_name, a.customer_id
+        if ($run === null) {
+            $run = $this->loadRun($runId);
+        }
+        if (!$run) {
+            return array();
+        }
+        $totalSessions = max(1, count(Mage::helper('mmd_attendance')->sessionsForRun($run)));
+
+        // Attendance is per session (one row per run+learner+session_key), so
+        // collapse to one row per learner and count their present sessions.
+        $rows = $read->fetchAll(
+            "SELECT a.learner_email, MAX(a.learner_name) AS learner_name, MAX(a.customer_id) AS customer_id,
+                    COUNT(DISTINCT CASE WHEN a.is_present = 1 THEN a.session_key END) AS present_sessions
                FROM `$att` a
-              WHERE a.run_id = ? AND a.is_present = 1
+              WHERE a.run_id = ?
                 AND NOT EXISTS (
                     SELECT 1 FROM `$cert` c
                      WHERE c.run_id = a.run_id
                        AND LOWER(c.learner_email) = LOWER(a.learner_email)
                        AND c.status IN ('issued','sent')
-                )",
+                )
+              GROUP BY a.learner_email
+             HAVING present_sessions > 0",
             array((int)$runId)
         );
+
+        $eligible = array();
+        foreach ($rows as $row) {
+            if ((int)$row['present_sessions'] / $totalSessions > self::ATTENDANCE_THRESHOLD) {
+                unset($row['present_sessions']);
+                $eligible[] = $row;
+            }
+        }
+        return $eligible;
     }
 
     public function loadRun($runId)

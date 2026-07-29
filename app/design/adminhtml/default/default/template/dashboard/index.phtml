@@ -6683,12 +6683,13 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
         <?php endif; ?>
     </div>
 
-    <?php if ($activeRole === 'trainer'): ?>
-    <!-- TRAINER: Course Feedback — renamed from "Certificate Delivery" and
-         moved after Lesson (owner request 2026-07-29). The QR points at the
-         public per-class feedback form (/feedback/respond/index?run_id=N),
-         which auto-fills Course Title, Course Code, Course Run ID and the
-         class Start/End dates server-side from the course_runs row. -->
+    <!-- TRAINER + LEARNER: Course Feedback — renamed from "Certificate
+         Delivery" and moved after Lesson (owner request 2026-07-29); opened
+         to the learner view as well (owner request 2026-07-29 — both roles
+         see it for every class). The QR points at the public per-class
+         feedback form (/feedback/respond/index?run_id=N), which auto-fills
+         Course Title, Course Code, Course Run ID and the class Start/End
+         dates server-side from the course_runs row. -->
     <?php
     $_fbSku  = isset($_selectedCourse['sku']) ? (string)$_selectedCourse['sku'] : '';
     $_fbUrl  = $_lcdRunId > 0
@@ -6741,7 +6742,6 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
             <?php endif; ?>
         </div>
     </div>
-    <?php endif; ?>
     <?php endif; ?>
 
     <?php if ($activeRole !== 'developer'): ?>
@@ -6799,39 +6799,63 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
     </div>
 
 
-    <?php if ($activeRole !== 'trainer'): ?>
     <?php
-    // Real-data certificate status. We don't have an attendance/cert
-    // tracking schema yet, so the previous static "Minimum Attendance
-    // Not Fulfilled" message lied — it showed regardless of whether the
-    // viewing learner had even ordered the course. Drive the message
-    // from the existing data we DO have:
-    //   no order found                                     -> Not Enrolled
-    //   order exists, course end date in future or unset   -> In Progress
-    //   order exists, course end date passed               -> Course Completed
-    // For Developer / Super Admin who have no learner identity, fall back
-    // to a generic note that certs are per-learner.
+    // Certificate of Achievement — visible to LEARNER and TRAINER (owner
+    // request 2026-07-29: both modes, every class).
+    //   Learner: an issued/sent row in mmd_course_run_certificate wins and
+    //            shows the cert no + download link; otherwise fall back to
+    //            the order-based Not Enrolled / In Progress / Completed
+    //            states (previous behavior).
+    //   Trainer: class-level summary — certificates sent for this run, plus
+    //            the auto-send rule (daily 6:30pm sweep, overall session
+    //            attendance above 70% — see MMD_Certificate).
     $_certState = 'unenrolled';
     $_certEnd   = null;
+    $_certRow   = null;      // learner's own issued cert row
+    $_certSentCount = 0;     // trainer summary: certs sent for this run
     try {
+        $_certResource = Mage::getSingleton('core/resource');
+        $_certRead     = $_certResource->getConnection('core_read');
+        $_certTbl      = $_certResource->getTableName('mmd_course_run_certificate');
         $_certViewerEmail = isset($_loggedInEmail) ? (string)$_loggedInEmail : '';
-        if ($_certViewerEmail !== '' && !empty($_selectedCourseId) && $activeRole === 'learner') {
-            $_certResource = Mage::getSingleton('core/resource');
-            $_certRead     = $_certResource->getConnection('core_read');
-            $_certOrderId  = (int) $_certRead->fetchOne(
-                "SELECT o.entity_id FROM " . $_certResource->getTableName('sales/order') . " o
-                 JOIN " . $_certResource->getTableName('sales/order_item') . " oi ON oi.order_id=o.entity_id
-                 WHERE oi.product_id = ? AND LOWER(o.customer_email) = ? AND o.state NOT IN ('canceled')
-                 ORDER BY o.created_at DESC LIMIT 1",
+        if ($activeRole === 'trainer') {
+            if ($_lcdRunId > 0) {
+                $_certSentCount = (int) $_certRead->fetchOne(
+                    "SELECT COUNT(*) FROM `$_certTbl` WHERE run_id = ? AND status IN ('issued','sent')",
+                    array((int)$_lcdRunId)
+                );
+            }
+        } elseif ($_certViewerEmail !== '' && !empty($_selectedCourseId) && $activeRole === 'learner') {
+            // Prefer the viewed run's cert, else the newest cert for any run
+            // of this course.
+            $_certRow = $_certRead->fetchRow(
+                "SELECT c.cert_no, c.token, c.sent_at
+                   FROM `$_certTbl` c
+                   JOIN `" . $_certResource->getTableName('course_runs') . "` r ON r.run_id = c.run_id
+                  WHERE r.product_id = ? AND LOWER(c.learner_email) = ?
+                    AND c.status IN ('issued','sent')
+                  ORDER BY (c.run_id = " . (int)$_lcdRunId . ") DESC, c.certificate_id DESC
+                  LIMIT 1",
                 array((int)$_selectedCourseId, strtolower($_certViewerEmail))
-            );
-            if ($_certOrderId > 0) {
-                $_certEndProd = isset($_devProd) ? $_devProd : Mage::getModel('catalog/product')->load($_selectedCourseId);
-                $_certEnd     = $_certEndProd->getData('news_to_date');
-                if ($_certEnd && strtotime($_certEnd) < strtotime(date('Y-m-d'))) {
-                    $_certState = 'completed';
-                } else {
-                    $_certState = 'in_progress';
+            ) ?: null;
+            if ($_certRow) {
+                $_certState = 'issued';
+            } else {
+                $_certOrderId = (int) $_certRead->fetchOne(
+                    "SELECT o.entity_id FROM " . $_certResource->getTableName('sales/order') . " o
+                     JOIN " . $_certResource->getTableName('sales/order_item') . " oi ON oi.order_id=o.entity_id
+                     WHERE oi.product_id = ? AND LOWER(o.customer_email) = ? AND o.state NOT IN ('canceled')
+                     ORDER BY o.created_at DESC LIMIT 1",
+                    array((int)$_selectedCourseId, strtolower($_certViewerEmail))
+                );
+                if ($_certOrderId > 0) {
+                    $_certEndProd = isset($_devProd) ? $_devProd : Mage::getModel('catalog/product')->load($_selectedCourseId);
+                    $_certEnd     = $_certEndProd->getData('news_to_date');
+                    if ($_certEnd && strtotime($_certEnd) < strtotime(date('Y-m-d'))) {
+                        $_certState = 'completed';
+                    } else {
+                        $_certState = 'in_progress';
+                    }
                 }
             }
         }
@@ -6840,13 +6864,28 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
     <div class="lcd-section" id="certificate">
         <div class="lcd-section-title">Certificate of Achievement</div>
         <div class="lcd-cert-box">
+            <?php if ($activeRole === 'trainer'): ?>
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>
+            <?php if ($_certSentCount > 0): ?>
+            <div class="lcd-cert-title"><?php echo (int)$_certSentCount ?> Certificate<?php echo $_certSentCount === 1 ? '' : 's' ?> Issued</div>
+            <div class="lcd-cert-sub">Certificates already emailed to learners of this class. New ones are sent automatically at 6:30pm daily to every learner whose overall session attendance is above 70%.</div>
+            <?php else: ?>
+            <div class="lcd-cert-title">No Certificates Issued Yet</div>
+            <div class="lcd-cert-sub">Certificates are emailed automatically at 6:30pm on the day the class completes, to every learner whose overall session attendance is above 70%. Mark attendance for each session to qualify your learners.</div>
+            <?php endif; ?>
+            <?php elseif ($_certState === 'issued'): ?>
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#3df5a8" stroke-width="1.5"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>
+            <div class="lcd-cert-title">Certificate Issued</div>
+            <div class="lcd-cert-sub">Your Certificate of Achievement<?php if (!empty($_certRow['cert_no'])): ?> (<?php echo htmlspecialchars((string)$_certRow['cert_no']) ?>)<?php endif; ?> was emailed to you<?php if (!empty($_certRow['sent_at'])): ?> on <?php echo htmlspecialchars(date('d M Y', strtotime((string)$_certRow['sent_at']))) ?><?php endif; ?>.</div>
+            <a href="<?php echo htmlspecialchars(rtrim(Mage::getBaseUrl(), '/') . '/certificate/download/index?token=' . $_certRow['token'], ENT_QUOTES) ?>" target="_blank" rel="noopener" style="display:inline-block;margin-top:14px;background:#2563eb;color:#fff !important;text-decoration:none !important;padding:10px 22px;border-radius:8px;font-size:13px;font-weight:600;">Download Certificate</a>
+            <?php else: ?>
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
             <?php if ($_certState === 'completed'): ?>
             <div class="lcd-cert-title">Course Completed</div>
-            <div class="lcd-cert-sub">This course ended on <?php echo htmlspecialchars(date('d M Y', strtotime((string)$_certEnd))) ?>. Your certificate will be issued shortly.</div>
+            <div class="lcd-cert-sub">This course ended on <?php echo htmlspecialchars(date('d M Y', strtotime((string)$_certEnd))) ?>. Certificates are emailed automatically at 6:30pm to learners whose overall session attendance is above 70%.</div>
             <?php elseif ($_certState === 'in_progress'): ?>
             <div class="lcd-cert-title">In Progress</div>
-            <div class="lcd-cert-sub">You're enrolled in this course<?php if ($_certEnd): ?> (ends <?php echo htmlspecialchars(date('d M Y', strtotime((string)$_certEnd))) ?>)<?php endif; ?>. Your certificate will be available here once the course is complete.</div>
+            <div class="lcd-cert-sub">You're enrolled in this course<?php if ($_certEnd): ?> (ends <?php echo htmlspecialchars(date('d M Y', strtotime((string)$_certEnd))) ?>)<?php endif; ?>. Your certificate is emailed automatically at 6:30pm on completion, provided your overall session attendance is above 70%.</div>
             <?php elseif ($activeRole === 'learner'): ?>
             <div class="lcd-cert-title">Not Enrolled</div>
             <div class="lcd-cert-sub">You don't have an active enrolment for this course. Once you enrol and complete it, your certificate will appear here.</div>
@@ -6854,9 +6893,9 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
             <div class="lcd-cert-title">Certificate Status</div>
             <div class="lcd-cert-sub">Certificates are issued per-learner. Open this page as the Learner role to see your own certificate status.</div>
             <?php endif; ?>
+            <?php endif; ?>
         </div>
     </div>
-    <?php endif; ?>
 
     <?php /* per-panel footer removed — the single site footer is page.phtml's .admin-page-footer */ ?>
     <?php endif; ?>
