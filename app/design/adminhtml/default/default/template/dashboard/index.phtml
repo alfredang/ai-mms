@@ -1342,22 +1342,19 @@ if ($_loggedInEmail && ($activeRole === 'learner' || $activeRole === 'trainer'))
     }
 }
 
-// Course Run IDs (SG-100000, SG-100001, ...) sourced from course_run_registry —
+// Course Run IDs (C000001, C000002, ...) sourced from course_run_registry —
 // a course gets registered the first time an admin schedules it,
 // and keeps its sequential number thereafter. Courses that haven't been
-// scheduled don't get a Course Run ID row on the card.
-$_lmcCountryPrefix = array(1=>'SG', 2=>'MY', 3=>'GH', 4=>'NG');
-$_lmcRunMap        = array(); // product_id => "SG-100000"
+// scheduled don't get a Course Run ID row on the card. Uniform C###### on
+// every site (2026-07) — no SG-/MY-/ALL- country prefixes.
+$_lmcRunMap        = array(); // product_id => "C000001"
 try {
     $_lmcRead = Mage::getSingleton('core/resource')->getConnection('core_read');
     $_registryRows = $_lmcRead->fetchAll(
         "SELECT product_id, website_id, run_seq FROM course_run_registry"
     );
     foreach ($_registryRows as $_rr) {
-        $_wid    = (int) $_rr['website_id'];
-        $_prefix = isset($_lmcCountryPrefix[$_wid]) ? $_lmcCountryPrefix[$_wid] : 'SG';
-        $_num    = 100000 + (int) $_rr['run_seq'];
-        $_lmcRunMap[(int) $_rr['product_id']] = $_prefix . '-' . str_pad((string)$_num, 6, '0', STR_PAD_LEFT);
+        $_lmcRunMap[(int) $_rr['product_id']] = 'C' . str_pad((string)((int)$_rr['run_seq'] + 1), 6, '0', STR_PAD_LEFT);
     }
 } catch (Exception $e) {
     // course_run_registry migration not yet applied
@@ -2113,37 +2110,21 @@ $_devCountryMap = array(
     'Ghana'     => 3,
     'Nigeria'   => 4,
 );
-$_devCountryPrefix = array(
-    0 => 'ALL',
-    1 => 'SG',
-    2 => 'MY',
-    3 => 'GH',
-    4 => 'NG',
-);
 $_devAllowedCountries = array_keys($_devCountryMap);
 if (!in_array($_devCountry, $_devAllowedCountries)) $_devCountry = 'All';
 $_devWebsiteId = $_devCountryMap[$_devCountry];
-$_devPrefix = isset($_devCountryPrefix[$_devWebsiteId]) ? $_devCountryPrefix[$_devWebsiteId] : 'SG';
 
-// Build a stable rank map for the current scope so we can generate
-// Course Run IDs (SG-100000, SG-100001, ...) that stay consistent across
-// pages. For a country tab, rank = position of the product's entity_id
-// among products on that country's website (sorted ascending). For the
-// "All" tab, rank is computed across every catalog product.
+// Build a stable rank map so we can generate Course Run IDs (C000001,
+// C000002, ...) that stay consistent across pages AND tabs. Rank is always
+// computed across every catalog product (entity_id ascending) — computing
+// it per-website made the same course show a different Run ID on the "All"
+// tab vs its country tab, which was the old ALL-1007xx / SG-1000xx mess.
 $_devRankMap = array();
 try {
     $_rRead = Mage::getSingleton('core/resource')->getConnection('core_read');
-    if ($_devWebsiteId > 0) {
-        $_pwTbl = $_rRead->getTableName('catalog_product_website');
-        $_allCountryIds = $_rRead->fetchCol(
-            "SELECT DISTINCT product_id FROM {$_pwTbl} WHERE website_id=? ORDER BY product_id ASC",
-            array($_devWebsiteId)
-        );
-    } else {
-        $_allCountryIds = $_rRead->fetchCol(
-            "SELECT entity_id FROM " . $_rRead->getTableName('catalog_product_entity') . " ORDER BY entity_id ASC"
-        );
-    }
+    $_allCountryIds = $_rRead->fetchCol(
+        "SELECT entity_id FROM " . $_rRead->getTableName('catalog_product_entity') . " ORDER BY entity_id ASC"
+    );
     foreach ($_allCountryIds as $_idx => $_pid) {
         $_devRankMap[(int)$_pid] = $_idx;
     }
@@ -2631,7 +2612,7 @@ function courseSyncSaveConfig() {
                 <?php endif; ?>
                 <div class="dev-card-row"><span class="dev-card-lbl">Course Code:</span><span class="dev-card-val"><?php echo $_dcRef ? htmlspecialchars($_dcRef) : '—' ?></span></div>
                 <?php $_runRank = isset($_devRankMap[(int)$_dc['id']]) ? $_devRankMap[(int)$_dc['id']] : 0; ?>
-                <div class="dev-card-row"><span class="dev-card-lbl">Course Run ID:</span><span class="dev-card-val"><?php echo $_devPrefix . '-' . (100000 + $_runRank) ?></span></div>
+                <div class="dev-card-row"><span class="dev-card-lbl">Course Run ID:</span><span class="dev-card-val"><?php echo 'C' . str_pad((string)($_runRank + 1), 6, '0', STR_PAD_LEFT) ?></span></div>
                 <?php
                 $_dcActive = ((int)$_dc['status'] === Mage_Catalog_Model_Product_Status::STATUS_ENABLED);
                 $_dcFunded = strtolower((string)$_dc['course_type']) === 'funded';
@@ -5771,14 +5752,14 @@ function lcdNavTo(link, sectionId){
 <?php
 $_lcdCourseId = (int) $_selectedCourse['id'];
 // Course Run ID — match the My Classes / dev cards: real registry entry
-// first, then the SG-{100000+rank} fallback the dev card uses, so the
+// first, then the C{rank+1} fallback the dev card uses, so the
 // same product shows the same Run ID across every view.
 if (isset($_lmcRunMap[$_lcdCourseId])) {
     $_courseRunId = $_lmcRunMap[$_lcdCourseId];
 } elseif (isset($_devRankMap[$_lcdCourseId])) {
-    $_courseRunId = $_devPrefix . '-' . (100000 + (int)$_devRankMap[$_lcdCourseId]);
+    $_courseRunId = 'C' . str_pad((string)((int)$_devRankMap[$_lcdCourseId] + 1), 6, '0', STR_PAD_LEFT);
 } else {
-    $_courseRunId = str_pad($_lcdCourseId * 4321 % 9999999, 7, '0', STR_PAD_LEFT);
+    $_courseRunId = 'C' . str_pad((string)($_lcdCourseId % 999999), 6, '0', STR_PAD_LEFT);
 }
 
 // In developer / course-management mode the Course Details view shows
@@ -5850,6 +5831,35 @@ if ($_lcdRunId <= 0) {
                 array($_lcdCourseId)
             );
         }
+    } catch (Exception $e) {}
+    if ($_lcdRunId <= 0 && $activeRole === 'trainer') {
+        // Still no run: WSQ (TGS-) classes never get a course_runs row from
+        // the class-formation cron (it skips TGS SKUs), which blanked the
+        // E-Attendance card + feedback QR here. Materialise the run from the
+        // class card's dates — ensureRun only CREATES for TGS- SKUs, so it
+        // can never race the cron into a duplicate run for other courses.
+        try {
+            $_eaStartDt = DateTime::createFromFormat('!j M Y', (string)($_selectedCourse['start_date'] ?? ''));
+            $_eaEndDt   = DateTime::createFromFormat('!j M Y', (string)($_selectedCourse['end_date'] ?? ''));
+            if ($_eaStartDt instanceof DateTime) {
+                $_lcdRunId = (int) Mage::helper('mmd_attendance')->ensureRun(
+                    $_lcdCourseId,
+                    (string)($_selectedCourse['sku'] ?? ''),
+                    $_eaStartDt->format('Y-m-d'),
+                    $_eaEndDt instanceof DateTime ? $_eaEndDt->format('Y-m-d') : ''
+                );
+            }
+        } catch (Exception $e) {}
+    }
+}
+if ($_lcdRunId > 0) {
+    // A real run resolved — show its canonical class_id (e.g. C004433)
+    // instead of the legacy card-map placeholder in the Course Run ID row
+    // and the E-Attendance tile.
+    try {
+        $_eaClassId = (string) Mage::getSingleton('core/resource')->getConnection('core_read')
+            ->fetchOne("SELECT class_id FROM course_runs WHERE run_id = ?", array($_lcdRunId));
+        if ($_eaClassId !== '') $_courseRunId = $_eaClassId;
     } catch (Exception $e) {}
 }
 $_eAttendanceNavHtml = '';
@@ -6694,6 +6704,17 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
     $_fbUrl  = $_lcdRunId > 0
         ? rtrim(Mage::getBaseUrl(), '/') . '/feedback/respond/index?run_id=' . (int)$_lcdRunId
         : '';
+    // Human run label (SG000046-style class_id) for the card footer.
+    $_fbClassId = '';
+    if ($_lcdRunId > 0) {
+        try {
+            $_fbRes = Mage::getSingleton('core/resource');
+            $_fbClassId = (string) $_fbRes->getConnection('core_read')->fetchOne(
+                "SELECT class_id FROM `" . $_fbRes->getTableName('course_runs') . "` WHERE run_id = ?",
+                array((int)$_lcdRunId)
+            );
+        } catch (Exception $e) {}
+    }
     ?>
     <?php /* No inline toggle here — lcd-collapsible-sections.js wraps every
              section body and adds its own collapse handler + caret. An inline
@@ -6721,7 +6742,10 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
                         <a href="<?php echo htmlspecialchars($_fbUrl, ENT_QUOTES) ?>" target="_blank" rel="noopener" style="flex:1;display:block;background:#2563eb;color:#fff !important;text-decoration:none !important;padding:12px 18px;border-radius:8px;font-size:13px;font-weight:600;text-align:center;">Open Link</a>
                         <button type="button" onclick="navigator.clipboard.writeText('<?php echo htmlspecialchars($_fbUrl, ENT_QUOTES) ?>')" style="background:#334155 !important;background-image:none !important;color:#e2e8f0 !important;border:1px solid #475569 !important;border-radius:8px !important;padding:12px 24px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;">Copy</button>
                     </div>
-                    <div style="color:#cbd5e1;font-size:13px;"><span style="color:#94a3b8;">Course Ref:</span> <strong style="color:#f1f5f9;letter-spacing:.3px;"><?php echo htmlspecialchars($_fbSku ?: '—') ?></strong></div>
+                    <div style="display:flex;justify-content:center;gap:24px;flex-wrap:wrap;color:#cbd5e1;font-size:13px;">
+                        <span><span style="color:#94a3b8;">Course Code:</span> <strong style="color:#f1f5f9;letter-spacing:.3px;"><?php echo htmlspecialchars($_fbSku ?: '—') ?></strong></span>
+                        <span><span style="color:#94a3b8;">Course Run ID:</span> <strong style="color:#f1f5f9;letter-spacing:.3px;"><?php echo htmlspecialchars($_fbClassId ?: '—') ?></strong></span>
+                    </div>
                 </div>
             </div>
             <?php endif; ?>
@@ -6949,7 +6973,7 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
                 } elseif (isset($_lmcRunMap[$_cId])) {
                     $_cRunId = $_lmcRunMap[$_cId];
                 } elseif (isset($_devRankMap[$_cId])) {
-                    $_cRunId = $_devPrefix . '-' . (100000 + (int)$_devRankMap[$_cId]);
+                    $_cRunId = 'C' . str_pad((string)((int)$_devRankMap[$_cId] + 1), 6, '0', STR_PAD_LEFT);
                 } else {
                     $_cRunId = '—';
                 }
@@ -11036,7 +11060,7 @@ $_apiCategories = array(
                 ),
                 'notes' => array('Cache-Control: no-store — always recomputed from the live DB. Bulk payload ~440KB / 299 courses; poll every 5-15 min, no webhook in v1.', 'course_start_date/course_end_date may be null (~0.25% of rows) when the source label is an unsupported format — fall back to the always-present raw label, do not drop the row.'),
                 'exampleRequest' => "curl -H \"X-API-Key: <key>\" \\\n  \"__BASE_URL__/courses/api_schedule?sku=C138\"",
-                'exampleResponse' => "{\n  \"source_url\": \"...\", \"last_updated\": \"...\", \"confidence\": \"high\",\n  \"data\": {\n    \"course_code\": \"C138\", \"course_title\": \"Python 3 Essential Training\",\n    \"classes_count\": 2,\n    \"classes\": [{\n      \"class_id\": \"SG004267\", \"start_date\": \"2026-06-11\", \"end_date\": \"2026-06-12\",\n      \"time\": \"09:30-17:30\", \"trainer\": \"Sanjiv Venkatram\", \"status\": \"Confirmed\",\n      \"mode\": \"Classroom\", \"venue\": \"Springleaf Tower\", \"seats_available\": \"Available\"\n    }]\n  }\n}",
+                'exampleResponse' => "{\n  \"source_url\": \"...\", \"last_updated\": \"...\", \"confidence\": \"high\",\n  \"data\": {\n    \"course_code\": \"C138\", \"course_title\": \"Python 3 Essential Training\",\n    \"classes_count\": 2,\n    \"classes\": [{\n      \"class_id\": \"C004267\", \"start_date\": \"2026-06-11\", \"end_date\": \"2026-06-12\",\n      \"time\": \"09:30-17:30\", \"trainer\": \"Sanjiv Venkatram\", \"status\": \"Confirmed\",\n      \"mode\": \"Classroom\", \"venue\": \"Springleaf Tower\", \"seats_available\": \"Available\"\n    }]\n  }\n}",
             ),
             array(
                 'method' => 'GET', 'path' => '/courses/api_search', 'authKey' => 'wsq',
@@ -11112,7 +11136,7 @@ $_apiCategories = array(
                     'HARD RULE: every phone in the response is normalised to E.164 SG format (+65########) — a 2026-06-08 incident sent reminders to wrong WhatsApp recipients when raw 8-digit numbers were used.',
                 ),
                 'exampleRequest' => "curl -H \"X-API-Key: <key>\" \\\n  \"__BASE_URL__/courses/api_reminders?target_date=2026-07-24\"",
-                'exampleResponse' => "{\n  \"data\": {\n    \"filter_date\": \"2026-07-24\", \"count\": 1,\n    \"note\": \"MMS does NOT send these reminders...\",\n    \"reminders\": [{\n      \"class_id\": \"SG004267\", \"course_code\": \"C138\", \"start_date\": \"2026-07-24\",\n      \"trainer\": { \"name\": \"Sanjiv Venkatram\", \"email\": \"...\", \"telephone\": \"+6591234567\", \"source\": \"mms-account\" },\n      \"formatted_message\": \"Dear Sanjiv Venkatram\\nThis is a gentle reminder...\"\n    }],\n    \"fallback_check\": { \"summary\": \"3 total classes on 2026-07-24; 1 confirmed; 2 need attention\", \"classes_needing_attention\": [ /* ... */ ] }\n  }\n}",
+                'exampleResponse' => "{\n  \"data\": {\n    \"filter_date\": \"2026-07-24\", \"count\": 1,\n    \"note\": \"MMS does NOT send these reminders...\",\n    \"reminders\": [{\n      \"class_id\": \"C004267\", \"course_code\": \"C138\", \"start_date\": \"2026-07-24\",\n      \"trainer\": { \"name\": \"Sanjiv Venkatram\", \"email\": \"...\", \"telephone\": \"+6591234567\", \"source\": \"mms-account\" },\n      \"formatted_message\": \"Dear Sanjiv Venkatram\\nThis is a gentle reminder...\"\n    }],\n    \"fallback_check\": { \"summary\": \"3 total classes on 2026-07-24; 1 confirmed; 2 need attention\", \"classes_needing_attention\": [ /* ... */ ] }\n  }\n}",
             ),
             array(
                 'method' => 'GET', 'path' => '/courses/api_trainers', 'authKey' => 'trainer',
@@ -11161,7 +11185,7 @@ $_apiCategories = array(
                 ),
                 'notes' => array('A class is exported when CONFIRMED (trainer assigned) AND COMPLETED (end date, or start date for one-day runs, before today). Read-only, never mutates.'),
                 'exampleRequest' => "curl -H \"X-API-Key: <key>\" \\\n  \"__BASE_URL__/courses/api_completed_classes?page=1&page_size=200\"",
-                'exampleResponse' => "{\n  \"success\": true, \"page\": 1, \"total\": 84,\n  \"classes\": [{\n    \"class_code\": \"MY000017\", \"course_title\": \"...\", \"course_code\": \"M042\",\n    \"start_date\": \"2026-07-01\", \"end_date\": \"2026-07-02\",\n    \"trainer_name\": \"...\", \"learners_attended\": 8\n  }]\n}",
+                'exampleResponse' => "{\n  \"success\": true, \"page\": 1, \"total\": 84,\n  \"classes\": [{\n    \"class_code\": \"C000017\", \"course_title\": \"...\", \"course_code\": \"M042\",\n    \"start_date\": \"2026-07-01\", \"end_date\": \"2026-07-02\",\n    \"trainer_name\": \"...\", \"learners_attended\": 8\n  }]\n}",
             ),
             array(
                 'method' => 'GET', 'path' => '/courses/api_sync_export', 'authKey' => 'sync',
@@ -11213,7 +11237,7 @@ $_apiCategories = array(
                     'Enrolment-affecting date changes / removals warn with the learner count but do NOT notify them; remove_class on a class with learners needs "force": true.',
                 ),
                 'exampleRequest' => "curl -X POST \"__BASE_URL__/agent/api_classes\" -H \"X-API-Key: <key>\" -H \"Content-Type: application/json\" \\\n  -d '{\n    \"op\": \"add_class\", \"dry_run\": true,\n    \"actor\": {\"id\": \"wa:+6591234567\", \"name\": \"Sylvia\", \"role\": \"user\"},\n    \"course_sku\": \"C520\", \"start_date\": \"2026-08-15\", \"mode\": \"Physical Classroom\"\n  }'",
-                'exampleResponse' => "{\n  \"success\": true, \"dry_run\": true, \"op\": \"add_class\", \"target\": \"C520\",\n  \"human_summary\": \"A new class for 'C Programming ...' (C520) will be added on 15 Aug 2026 ...\",\n  \"warnings\": [], \"change_token\": \"sha256:...\"\n}\n// commit: resend dry_run:false + change_token -> { applied:true, target:\"SG000123\", audit_id, reindexed }",
+                'exampleResponse' => "{\n  \"success\": true, \"dry_run\": true, \"op\": \"add_class\", \"target\": \"C520\",\n  \"human_summary\": \"A new class for 'C Programming ...' (C520) will be added on 15 Aug 2026 ...\",\n  \"warnings\": [], \"change_token\": \"sha256:...\"\n}\n// commit: resend dry_run:false + change_token -> { applied:true, target:\"C000123\", audit_id, reindexed }",
             ),
             array(
                 'method' => 'POST', 'path' => '/agent/api_course', 'authKey' => 'wsq',
@@ -13497,7 +13521,6 @@ $_elRunsByPid = array();
 if ($_elActive) {
     // Country scope from the logged-in admin (admin.<cc>@…). Default SG.
     $_elWid    = (int) Mage::helper('mmd_rolemanager')->getActiveWebsiteId();
-    $_elPrefix = Mage::helper('mmd_rolemanager')->getActiveCountryRunPrefix();
     $_elCC     = Mage::helper('mmd_rolemanager')->getActiveCountryCode();
 
     // Per-country defaults for the Add New Learner Profile form. Each
@@ -13554,7 +13577,7 @@ if ($_elActive) {
         // list ($_elAllRuns) for the initial dropdown render so admins
         // see something useful before they've picked a course.
         $_elAllRuns = $read->fetchAll(
-            "SELECT cr.run_id, cr.product_id, cr.course_start_date, cr.course_end_date,
+            "SELECT cr.run_id, cr.class_id, cr.product_id, cr.course_start_date, cr.course_end_date,
                     e.sku, v.value AS name
              FROM course_runs cr
              JOIN catalog_product_entity e ON e.entity_id=cr.product_id
@@ -13602,7 +13625,9 @@ if ($_elActive) {
             $_pid = (int)$_rn['product_id'];
             $_st  = $_rn['course_start_date'] ? strtotime($_rn['course_start_date']) : 0;
             if ($_st && $_st < $_elNowTs) continue; // past
-            $_lbl = $_elPrefix . '-' . str_pad((string)(99999 + (int)$_rn['run_id']), 6, '0', STR_PAD_LEFT);
+            $_lbl = !empty($_rn['class_id'])
+                ? $_rn['class_id']
+                : 'C' . str_pad((string)(int)$_rn['run_id'], 6, '0', STR_PAD_LEFT);
             if (!empty($_rn['course_start_date'])) {
                 $_lbl .= '  (' . $_rn['course_start_date'] . ')';
             }
@@ -13673,20 +13698,20 @@ if (!isset($_elCdByPid)) $_elCdByPid = array();
             </div>
             <div>
                 <label class="el-field-label">Course Run ID<span class="req">*</span></label>
-                <input id="el-run-id" type="text" class="el-input" placeholder="Enter course run ID (e.g., SG-100001)" />
+                <input id="el-run-id" type="text" class="el-input" placeholder="Enter course run ID (e.g., C000001)" />
                 <div class="el-helper">Enter the course run ID manually or select from available runs below</div>
                 <div class="el-or">Or Select from Available Course Runs</div>
                 <select id="el-run-select" class="el-input" onchange="elPickRun(this.value)">
                     <option value="">Select a course run...</option>
                     <?php
-                    // Render every SG-active course as a run, ordered by
-                    // ascending Run ID (rank). Run ID = SG-100000 + rank,
+                    // Render every active course as a run, ordered by
+                    // ascending Run ID (rank). Run ID = C{rank+1},
                     // matching the developer dashboard's convention.
                     if (isset($_elCoursesRaw)) {
                         foreach ($_elCoursesRaw as $_c) {
                             $_pid  = (int)$_c['entity_id'];
                             $_rank = isset($_elRankByPid[$_pid]) ? $_elRankByPid[$_pid] : 0;
-                            $_runId = $_elPrefix . '-' . str_pad((string)(100000 + $_rank), 6, '0', STR_PAD_LEFT);
+                            $_runId = 'C' . str_pad((string)($_rank + 1), 6, '0', STR_PAD_LEFT);
                             $_lbl = $_runId . '  —  '
                                   . (strlen($_c['name']) > 70 ? substr($_c['name'], 0, 67) . '...' : $_c['name']);
                             echo '<option value="rank:' . $_rank . '" data-pid="' . $_pid . '" data-runid="' . htmlspecialchars($_runId) . '">'
@@ -13807,7 +13832,6 @@ if (!isset($_elCdByPid)) $_elCdByPid = array();
 window._elState = { pid: 0, sku: '', runId: '', list: [] };
 window._elRunsByPid = <?php echo json_encode($_elRunsByPid) ?>;
 window._elCdByPid   = <?php echo json_encode($_elCdByPid) ?>;
-window._elPrefix    = <?php echo json_encode(isset($_elPrefix) ? $_elPrefix : 'SG') ?>;
 
 window.elPickCourse = function(pid) {
     pid = parseInt(pid, 10) || 0;
@@ -13829,7 +13853,7 @@ window.elPickCourse = function(pid) {
 
     // Repopulate runs dropdown for this product. Two sources are
     // merged so admins always see something to pick:
-    //   1. Real course_runs rows  → "SG-100001 (2026-05-07)"
+    //   1. Real course_runs rows  → "C000001 (2026-05-07)"
     //   2. Course Date custom-options → the title verbatim, prefixed
     //      "cd:" in the value so save logic can tell them apart later.
     var runSel = document.getElementById('el-run-select');
@@ -13837,10 +13861,12 @@ window.elPickCourse = function(pid) {
     var runs = window._elRunsByPid[pid] || [];
     for (var i = 0; i < runs.length; i++) {
         var r = runs[i];
-        var label = window._elPrefix + '-' + String(99999 + parseInt(r.run_id, 10)).padStart(6, '0');
+        var runDisplayId = r.class_id ? r.class_id : ('C' + String(parseInt(r.run_id, 10)).padStart(6, '0'));
+        var label = runDisplayId;
         if (r.course_start_date) label += '  (' + r.course_start_date + (r.course_end_date && r.course_end_date !== r.course_start_date ? ' → ' + r.course_end_date : '') + ')';
         var o = document.createElement('option');
         o.value = String(r.run_id);
+        o.setAttribute('data-runid', runDisplayId);
         o.textContent = label;
         runSel.appendChild(o);
     }
@@ -13878,7 +13904,9 @@ window.elPickRun = function(runId) {
             // Synthetic Course Date entry — surface the title verbatim.
             document.getElementById('el-run-id').value = runId.substring(3);
         } else {
-            document.getElementById('el-run-id').value = window._elPrefix + '-' + String(99999 + parseInt(runId, 10)).padStart(6, '0');
+            // Real course_runs row — surface its actual class_id (C######).
+            var picked = opt ? (opt.getAttribute('data-runid') || '') : '';
+            document.getElementById('el-run-id').value = picked || ('C' + String(parseInt(runId, 10)).padStart(6, '0'));
         }
         // Auto-select the matching course so Currently Enrolled + JSON
         // preview sync to the chosen session's product. State is updated
