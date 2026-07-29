@@ -44,7 +44,7 @@ class MMD_Adminhtml_System_AccountController extends Mage_Adminhtml_System_Accou
         // Profile fields — saved directly via SQL since core model
         // _beforeSave() only persists a whitelist of fields
         $profileData = array();
-        $profileFields = array('tel', 'gender', 'race', 'dob', 'nric_fin', 'linkedin_url', 'trainer_description');
+        $profileFields = array('tel', 'gender', 'race', 'nationality', 'dob', 'nric_fin', 'linkedin_url', 'trainer_description');
         foreach ($profileFields as $field) {
             $value = $this->getRequest()->getParam($field, null);
             $profileData[$field] = ($value !== '' && $value !== null) ? $value : null;

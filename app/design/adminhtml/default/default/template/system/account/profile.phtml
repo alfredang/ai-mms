@@ -16,6 +16,7 @@ $minPwLen = $this->getMinPasswordLength();
 $tel = $this->escapeHtml($user->getData('tel'));
 $gender = $this->escapeHtml($user->getData('gender'));
 $race = $this->escapeHtml($user->getData('race'));
+$nationality = $this->escapeHtml($user->getData('nationality'));
 $dob = $user->getData('dob');
 $dobDisplay = $dob ? date('d M Y', strtotime($dob)) : '';
 $dobInput = $dob ? date('Y-m-d', strtotime($dob)) : '';
@@ -224,7 +225,7 @@ $roleColors = array(
         <div class="bio-item"><p class="bio-label">Race</p><p class="bio-value"><?php echo $race ?: '—' ?></p></div>
         <div class="bio-item"><p class="bio-label">Date of Birth</p><p class="bio-value"><?php echo $dobDisplay ?: '—' ?></p></div>
 
-        <div class="bio-item"><p class="bio-label">Nationality</p><p class="bio-value">—</p></div>
+        <div class="bio-item"><p class="bio-label">Nationality</p><p class="bio-value"><?php echo $nationality ?: '—' ?></p></div>
         <div class="bio-item"><p class="bio-label">NRIC/FIN</p><p class="bio-value"><?php echo $nricDisplay ?: '—' ?></p></div>
         <div class="bio-item">
             <p class="bio-label">LinkedIn Profile</p>
@@ -241,10 +242,10 @@ $roleColors = array(
 <!-- TRAINER PROFILE DESCRIPTION (read-only, trainer role only) -->
 <div class="bio-section" id="trainer-profile-section">
     <h3 class="bio-title">Trainer Profile</h3>
-    <p class="trainer-profile-text"><?php echo $trainerDescription !== '' ? nl2br($this->escapeHtml($trainerDescription)) : '<span style="color:#94a3b8;">No profile description yet — click <strong>Edit Profile</strong> to add one.</span>'; ?></p>
+    <p class="trainer-profile-text"><?php echo $trainerDescription !== '' ? nl2br($this->escapeHtml(preg_replace("/\n{3,}/", "\n\n", preg_replace("/\r\n?/", "\n", trim($trainerDescription))))) : '<span style="color:#94a3b8;">No profile description yet — click <strong>Edit Profile</strong> to add one.</span>'; ?></p>
 </div>
 <style>
-.trainer-profile-text{color:#f1f5f9;font-size:14px;line-height:1.55;margin:0;white-space:pre-wrap}
+.trainer-profile-text{color:#f1f5f9;font-size:14px;line-height:1.55;margin:0}
 .edit-field textarea{width:100%;padding:10px 14px;background:transparent;border:1px solid #4b5563;border-radius:8px;color:#f1f5f9;font-size:14px;outline:none;box-sizing:border-box;font-family:inherit;resize:vertical;min-height:120px}
 .edit-field textarea:focus{border-color:#60a5fa;box-shadow:0 0 0 3px rgba(96,165,250,0.15)}
 </style>
@@ -336,6 +337,10 @@ $roleColors = array(
                     <option value="<?php echo $_r ?>" <?php echo $race === $_r ? 'selected' : '' ?>><?php echo $_r ?></option>
                     <?php endforeach; ?>
                 </select>
+            </div>
+            <div class="edit-field">
+                <label for="pf-nationality">Nationality</label>
+                <input type="text" id="pf-nationality" name="nationality" value="<?php echo $nationality ?>" maxlength="64" placeholder="e.g. Singaporean" />
             </div>
             <div class="edit-field">
                 <label for="pf-dob">Date of Birth</label>
