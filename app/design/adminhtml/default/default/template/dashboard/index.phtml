@@ -5200,19 +5200,25 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                         if ($_v < 5) $_html .= '<span style="color:var(--t5, #64748b);letter-spacing:2px;">' . str_repeat('&#9733;', 5 - $_v) . '</span>';
                         return $_html;
                     };
-                    $_rvSnipLen = 80;
+                    // Fixed layout: metadata columns pinned, Message flexes to the remaining
+                    // width so the table always fits the viewport with single-line rows.
+                    $_rvCols = array(
+                        array('ID', 50), array('Created', 95), array('Status', 80),
+                        array('Learning Outcome', 140), array('Trainer Quality', 130), array('Training Environment', 165),
+                        array('Message', 0), array('Nickname', 175),
+                    );
                     ?>
-                    <table class="mm-table">
+                    <table class="mm-table" style="table-layout:fixed;">
                         <thead>
                             <tr>
-                                <?php foreach (array_merge(array('ID','Created','Status'), array_values($_rvQuestions), array('Message','Nickname','Store')) as $_h): ?>
-                                <th><?php echo $_h ?></th>
+                                <?php foreach ($_rvCols as $_c): ?>
+                                <th<?php if ($_c[1]) echo ' style="width:' . $_c[1] . 'px;"' ?>><?php echo $_c[0] ?></th>
                                 <?php endforeach; ?>
                             </tr>
                         </thead>
                         <tbody>
                             <?php if (empty($_roReviews)): ?>
-                            <tr><td colspan="9" class="mm-table-empty">No reviews yet.</td></tr>
+                            <tr><td colspan="8" class="mm-table-empty">No reviews yet.</td></tr>
                             <?php else: foreach ($_roReviews as $_rv):
                                 $_rvId = (int)$_rv['review_id'];
                                 $_st = isset($_roReviewStatusMap[(int)$_rv['status_id']]) ? $_roReviewStatusMap[(int)$_rv['status_id']] : '—';
@@ -5220,8 +5226,8 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                                 $_dt  = $_rv['created_at'] ? date('M j, Y', strtotime($_rv['created_at'])) : '—';
                                 $_votes = isset($_roVotes[$_rvId]) ? $_roVotes[$_rvId] : array();
                                 $_msg = trim((string)$_rv['detail']);
-                                $_msgLong = mb_strlen($_msg, 'UTF-8') > $_rvSnipLen;
-                                $_msgSnip = $_msgLong ? rtrim(mb_substr($_msg, 0, $_rvSnipLen, 'UTF-8')) . '…' : $_msg;
+                                // Placeholder-only messages (N/A, Nil, -) get no dialog
+                                $_msgClickable = ($_msg !== '') && !in_array(strtolower($_msg), array('n/a', 'na', 'nil', '-', '.'));
                                 // Meta line shown inside the full-message dialog
                                 $_msgMetaBits = array();
                                 foreach ($_rvQuestions as $_qid => $_ql) {
@@ -5237,13 +5243,12 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                                 <?php foreach (array_keys($_rvQuestions) as $_qid): ?>
                                 <td class="nowrap"><?php echo $_rvStar(isset($_votes[$_qid]) ? $_votes[$_qid] : 0) ?></td>
                                 <?php endforeach; ?>
-                                <td class="wrap muted"><?php if ($_msgLong): ?><a href="#" onclick="rvOpenMsg(this); return false;" title="View full message"
+                                <td class="muted"><?php if ($_msgClickable): ?><a href="#" onclick="rvOpenMsg(this); return false;" title="View full message"
                                         data-msg="<?php echo htmlspecialchars($_msg) ?>"
                                         data-meta="<?php echo $_msgMeta ?>"
                                         data-id="<?php echo $_rvId ?>"
-                                        style="color:inherit;text-decoration:none;border-bottom:1px dotted var(--t5, #64748b);cursor:pointer;"><?php echo htmlspecialchars($_msgSnip) ?></a><?php else: echo htmlspecialchars($_msgSnip); endif; ?></td>
+                                        style="color:inherit;text-decoration:none;border-bottom:1px dotted var(--t5, #64748b);cursor:pointer;"><?php echo htmlspecialchars($_msg) ?></a><?php else: echo htmlspecialchars($_msg); endif; ?></td>
                                 <td class="nowrap"><?php echo htmlspecialchars((string)$_rv['nickname']) ?></td>
-                                <td class="faint num">#<?php echo (int)$_rv['store_id'] ?></td>
                             </tr>
                             <?php endforeach; endif; ?>
                         </tbody>
