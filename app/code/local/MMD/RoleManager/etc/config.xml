@@ -107,6 +107,16 @@
                     </mmd_rolemanager_wysiwyg>
                 </observers>
             </cms_wysiwyg_config_prepare>
+            <!-- One store per site: strip Store/Website columns from every
+                 admin grid (fires only for adminhtml template blocks). -->
+            <adminhtml_block_html_before>
+                <observers>
+                    <mmd_rolemanager_grid_store_columns>
+                        <class>mmd_rolemanager/observer</class>
+                        <method>removeStoreColumnsFromAdminGrids</method>
+                    </mmd_rolemanager_grid_store_columns>
+                </observers>
+            </adminhtml_block_html_before>
         </events>
     </global>
 

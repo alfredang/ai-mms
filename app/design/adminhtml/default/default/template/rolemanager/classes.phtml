@@ -219,15 +219,6 @@ if ($_autoWindow < 1) $_autoWindow = 30;
 // E-Attendance per-class link (MMD_Attendance).
 $_attendanceBaseUrl = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/index');
 
-$storeColors = array(
-    'SG' => array('bg' => 'rgba(59,130,246,.12)',  'color' => '#60a5fa'),
-    'MY' => array('bg' => 'rgba(245,158,11,.12)',  'color' => '#f59e0b'),
-    'GH' => array('bg' => 'rgba(16,185,129,.12)',  'color' => '#10b981'),
-    'NG' => array('bg' => 'rgba(34,197,94,.12)',   'color' => '#22c55e'),
-    'IN' => array('bg' => 'rgba(168,85,247,.12)',  'color' => '#a855f7'),
-    'BT' => array('bg' => 'rgba(236,72,153,.12)',  'color' => '#ec4899'),
-);
-
 $assignBase = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_query' => array('panel' => 'assign_learner')));
 ?>
 <div class="rm-wrap">
@@ -300,7 +291,6 @@ $assignBase = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_q
                 <th>Class ID</th>
                 <th>Course</th>
                 <th>Course Code</th>
-                <th>Store</th>
                 <th>Start Date</th>
                 <th>End Date</th>
                 <th>Time</th>
@@ -315,8 +305,6 @@ $assignBase = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_q
         <tbody>
         <?php foreach ($rows as $r):
             $classId   = (string) $r['class_id'];
-            $storeCode = substr($classId, 0, 2);
-            $sStyle    = isset($storeColors[$storeCode]) ? $storeColors[$storeCode] : array('bg'=>'rgba(100,116,139,.12)','color'=>'#94a3b8');
             $startStr  = $r['course_start_date'] ? date('d M Y', strtotime($r['course_start_date'])) : '—';
             $endStr    = $r['course_end_date']   ? date('d M Y', strtotime($r['course_end_date']))   : '—';
             $timeStr   = '';
@@ -351,18 +339,10 @@ $assignBase = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_q
                 data-class-id="<?php echo strtolower($classId) ?>"
                 data-sku="<?php echo strtolower(htmlspecialchars($r['course_sku'])) ?>"
                 data-title="<?php echo strtolower(htmlspecialchars($r['course_title'])) ?>"
-                data-store="<?php echo $storeCode ?>"
                 data-state="<?php echo $state ?>">
                 <td><span class="rm-name" style="font-variant-numeric:tabular-nums"><?php echo htmlspecialchars($classId) ?></span></td>
                 <td><span class="rm-name"><?php echo htmlspecialchars($r['course_title']) ?></span></td>
                 <td><span class="rm-email" style="font-variant-numeric:tabular-nums"><?php echo htmlspecialchars($r['course_sku']) ?></span></td>
-                <td>
-                    <?php if ($storeCode !== ''): ?>
-                        <span class="rm-badge" style="background:<?php echo $sStyle['bg'] ?>;color:<?php echo $sStyle['color'] ?>;"><?php echo $storeCode ?></span>
-                    <?php else: ?>
-                        <span style="color:#475569">—</span>
-                    <?php endif; ?>
-                </td>
                 <td><span class="rm-email" style="font-variant-numeric:tabular-nums"><?php echo $startStr ?></span></td>
                 <td><span class="rm-email" style="font-variant-numeric:tabular-nums"><?php echo $endStr ?></span></td>
                 <td><span class="rm-email" style="font-variant-numeric:tabular-nums"><?php echo $timeStr ?: '—' ?></span></td>
@@ -408,7 +388,7 @@ $assignBase = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_q
             </tr>
             <!-- Expansion row: invite controls for run_id=<?php echo (int)$r['run_id'] ?> -->
             <tr id="cls-expand-<?php echo (int)$r['run_id'] ?>" data-expand-for="<?php echo (int)$r['run_id'] ?>" style="display:none;background:#131929;">
-                <td colspan="13" style="padding:0;border-top:none;">
+                <td colspan="12" style="padding:0;border-top:none;">
                     <div style="padding:14px 20px;display:flex;gap:20px;align-items:center;flex-wrap:wrap;border-top:1px solid #1e293b;">
                         <!-- Trainer dropdown + invite -->
                         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
@@ -451,7 +431,7 @@ $assignBase = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_q
             </tr>
         <?php endforeach; ?>
         <?php if (empty($rows)): ?>
-            <tr><td colspan="13" style="padding:48px 12px;text-align:center;color:#64748b">
+            <tr><td colspan="12" style="padding:48px 12px;text-align:center;color:#64748b">
                 <?php echo htmlspecialchars($_emptyMsg) ?>
             </td></tr>
         <?php endif; ?>

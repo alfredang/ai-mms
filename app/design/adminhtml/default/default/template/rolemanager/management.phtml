@@ -130,14 +130,6 @@ function rm_inferStoreFromEmail($email) {
     // 3. Default: SG (LMS HQ).
     return 'SG';
 }
-$storeColors = array(
-    'SG' => array('bg' => 'rgba(59,130,246,.12)', 'color' => '#60a5fa'),
-    'MY' => array('bg' => 'rgba(245,158,11,.12)', 'color' => '#f59e0b'),
-    'GH' => array('bg' => 'rgba(16,185,129,.12)', 'color' => '#10b981'),
-    'NG' => array('bg' => 'rgba(34,197,94,.12)',  'color' => '#22c55e'),
-    'IN' => array('bg' => 'rgba(168,85,247,.12)', 'color' => '#a855f7'),
-);
-
 $totalUsers = count($rows);
 $activeUsers = 0;
 $multiRoleUsers = 0;
@@ -193,9 +185,9 @@ $mlSubmitUrl = '';
 if ($isLearnerView) {
     $mlSubmitUrl = Mage::helper('adminhtml')->getUrl('adminhtml/rolemanagement/mailerlite');
     try {
-        $mlRows = $read->fetchAll("SELECT email, submitted_at FROM " . $resource->getTableName('mmd_learner_mailerlite'));
+        $mlRows = $read->fetchAll("SELECT email, status, submitted_at FROM " . $resource->getTableName('mmd_learner_mailerlite'));
         foreach ($mlRows as $mr) {
-            $mlSubmitted[strtolower((string) $mr['email'])] = $mr['submitted_at'];
+            $mlSubmitted[strtolower((string) $mr['email'])] = $mr;
         }
     } catch (Exception $e) {
         // Table absent until migration 849 runs — render all as unsubmitted.
@@ -405,10 +397,12 @@ try {
                 <th>Full Name</th>
                 <th>Email</th>
                 <th>Tel</th>
-                <th>Store</th>
                 <th>Created</th>
                 <th>Roles</th>
                 <th>Status</th>
+                <?php if ($isLearnerView): ?>
+                <th style="text-align:center;">MailerLite</th>
+                <?php endif; ?>
                 <th>Actions</th>
             </tr>
         </thead>
@@ -428,7 +422,6 @@ try {
             // Server-side branch filter: skip rows that don't match the active
             // branch on the Users page. Admin Users page always shows all.
             if ($rmApplyBranchFilter && $storeCode !== $_activeBranch) continue;
-            $storeStyle = isset($storeColors[$storeCode]) ? $storeColors[$storeCode] : array('bg'=>'rgba(100,116,139,.12)','color'=>'#94a3b8');
             $telDisplay = trim((string)$r['tel']) !== '' ? htmlspecialchars($r['tel']) : '<span style="color:#475569">—</span>';
         ?>
             <tr class="rm-row" data-uid="<?php echo $r['user_id'] ?>"
@@ -441,13 +434,6 @@ try {
                 <td><span class="rm-name"><?php echo $fullName ?></span></td>
                 <td><span class="rm-email"><?php echo htmlspecialchars($r['email']) ?></span></td>
                 <td><span class="rm-email"><?php echo $telDisplay ?></span></td>
-                <td>
-                    <?php if ($storeCode !== ''): ?>
-                        <span class="rm-badge" style="background:<?php echo $storeStyle['bg'] ?>;color:<?php echo $storeStyle['color'] ?>;"><?php echo $storeCode ?></span>
-                    <?php else: ?>
-                        <span style="color:#475569">—</span>
-                    <?php endif; ?>
-                </td>
                 <td><span class="rm-email" style="font-variant-numeric:tabular-nums"><?php echo $createdDate ?></span></td>
                 <td>
                     <div class="rm-roles">
@@ -509,8 +495,14 @@ try {
             // Users page skips this whole foreach via preselectRole==='admin'
             // since learners aren't admins — but defensive check anyway.
             if ($rmApplyBranchFilter && $sCode !== $_activeBranch) continue;
-            $sStyle = isset($storeColors[$sCode]) ? $storeColors[$sCode] : array('bg'=>'rgba(100,116,139,.12)','color'=>'#94a3b8');
             $isActive = (int)$cust['is_active'];
+            $mlKey = strtolower((string) $cust['email']);
+            $mlRec = isset($mlSubmitted[$mlKey]) ? $mlSubmitted[$mlKey] : null;
+            $mlStatus = $mlRec ? (string) $mlRec['status'] : '';
+            // Selectable unless already in the group. 'excluded' stays
+            // selectable (a store-mapping fix makes a retry meaningful);
+            // unsubscribed / blocked are terminal at MailerLite's end.
+            $mlSelectable = ($mlStatus === '' || $mlStatus === 'excluded');
             $editUrl = str_replace('___ID___', (int)$cust['customer_id'], $learnerEditUrlBase);
         ?>
             <tr class="rm-row" data-uid="c<?php echo (int)$cust['customer_id'] ?>"
@@ -520,11 +512,7 @@ try {
                 data-active="<?php echo $isActive ?>">
                 <?php if ($isLearnerView): ?>
                 <td style="text-align:center;">
-                    <?php $mlKey = strtolower((string) $cust['email']); ?>
-                    <?php if (isset($mlSubmitted[$mlKey])): ?>
-                        <input type="checkbox" disabled checked="checked" onclick="return false;"
-                               title="Submitted to MailerLite <?php echo htmlspecialchars(date('d M Y', strtotime($mlSubmitted[$mlKey]))) ?>" />
-                    <?php else: ?>
+                    <?php if ($mlSelectable): ?>
                         <input type="checkbox" class="ml-cb" value="<?php echo (int)$cust['customer_id'] ?>"
                                title="Not submitted to MailerLite — tick to select" onchange="mlUpdateBar()" />
                     <?php endif; ?>
@@ -533,13 +521,6 @@ try {
                 <td><span class="rm-name"><?php echo $fullName ?></span></td>
                 <td><span class="rm-email"><?php echo htmlspecialchars((string)$cust['email']) ?></span></td>
                 <td><span style="color:#475569">—</span></td>
-                <td>
-                    <?php if ($sCode !== ''): ?>
-                        <span class="rm-badge" style="background:<?php echo $sStyle['bg'] ?>;color:<?php echo $sStyle['color'] ?>;"><?php echo $sCode ?></span>
-                    <?php else: ?>
-                        <span style="color:#475569">—</span>
-                    <?php endif; ?>
-                </td>
                 <td><span class="rm-email" style="font-variant-numeric:tabular-nums"><?php echo $createdDate ?></span></td>
                 <td>
                     <div class="rm-roles">
@@ -550,6 +531,22 @@ try {
                     </div>
                 </td>
                 <td><span class="rm-status <?php echo $isActive ? 'rm-status-active' : 'rm-status-disabled' ?>"><?php echo $isActive ? 'Active' : 'Disabled' ?></span></td>
+                <?php if ($isLearnerView): ?>
+                <td style="text-align:center;">
+                    <?php if ($mlStatus === 'submitted'): ?>
+                        <input type="checkbox" disabled checked="checked" onclick="return false;"
+                               title="Submitted to MailerLite <?php echo htmlspecialchars(date('d M Y', strtotime($mlRec['submitted_at']))) ?>" />
+                    <?php elseif ($mlStatus === 'unsubscribed'): ?>
+                        <span class="rm-badge" style="background:rgba(245,158,11,.12);color:#f59e0b;" title="Unsubscribed at MailerLite — will not be re-added">Unsubscribed</span>
+                    <?php elseif ($mlStatus === 'blocked'): ?>
+                        <span class="rm-badge" style="background:rgba(239,68,68,.12);color:#ef4444;" title="Bounced / marked as junk at MailerLite — cannot be added">Blocked</span>
+                    <?php elseif ($mlStatus === 'excluded'): ?>
+                        <span class="rm-badge" style="background:rgba(100,116,139,.12);color:#94a3b8;" title="Learner's store has no MailerLite subscriber group">Excluded</span>
+                    <?php else: ?>
+                        <input type="checkbox" disabled onclick="return false;" title="Not submitted to MailerLite" />
+                    <?php endif; ?>
+                </td>
+                <?php endif; ?>
                 <td>
                     <div class="rm-actions">
                         <a href="<?php echo $editUrl ?>" class="rm-icon rm-icon-edit" title="Edit Learner" aria-label="Edit Learner">
@@ -820,14 +817,20 @@ function rmDelete(uid) {
 // ===== MailerLite bulk submit (Manage Learners view only) =====
 var ML_URL = '<?php echo $this->jsQuoteEscape($mlSubmitUrl) ?>';
 
+// NOTE: plain for-loops on purpose — the admin loads prototype.js, which
+// replaces Array.prototype.filter/map with Enumerable versions that throw
+// "this.each is not a function" when .call()'d on a NodeList.
 function mlVisibleCbs() {
-    return Array.prototype.filter.call(document.querySelectorAll('.ml-cb'), function(cb) {
-        var tr = cb.closest('tr');
-        return tr && tr.style.display !== 'none';
-    });
+    var out = [], cbs = document.querySelectorAll('.ml-cb');
+    for (var i = 0; i < cbs.length; i++) {
+        var tr = cbs[i].closest('tr');
+        if (tr && tr.style.display !== 'none') out.push(cbs[i]);
+    }
+    return out;
 }
 function mlToggleAll(master) {
-    mlVisibleCbs().forEach(function(cb) { cb.checked = master.checked; });
+    var cbs = mlVisibleCbs();
+    for (var i = 0; i < cbs.length; i++) cbs[i].checked = master.checked;
     mlUpdateBar();
 }
 function mlUpdateBar() {

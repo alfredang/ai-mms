@@ -258,13 +258,19 @@ class MMD_RoleManager_Adminhtml_RolemanagementController extends Mage_Adminhtml_
         $write    = $resource->getConnection('core_write');
         $logTable = $resource->getTableName('mmd_learner_mailerlite');
 
-        // store_id → country code, same normalisation as the learner grid
-        // (the default SG store commonly has code 'default' on this install).
+        // store_id → country code. Store codes vary per install ('default',
+        // 'sg', 'singapore', 'my', 'malaysia', …) so normalise both the
+        // 2-letter and full-name forms; 'default'/'admin' = SG (the HQ store).
+        $codeMap = array(
+            'DEFAULT' => 'SG', 'ADMIN' => 'SG',
+            'SG' => 'SG', 'SINGAPORE' => 'SG',
+            'MY' => 'MY', 'MALAYSIA'  => 'MY',
+            'GH' => 'GH', 'GHANA'     => 'GH',
+        );
         $storeIdToCode = array();
         foreach ($read->fetchAll("SELECT store_id, code FROM " . $resource->getTableName('core/store')) as $sr) {
             $c = strtoupper((string) $sr['code']);
-            if ($c === 'DEFAULT') $c = 'SG';
-            $storeIdToCode[(int) $sr['store_id']] = $c;
+            $storeIdToCode[(int) $sr['store_id']] = isset($codeMap[$c]) ? $codeMap[$c] : $c;
         }
 
         $ids = array_map('intval', $ids);
@@ -277,6 +283,20 @@ class MMD_RoleManager_Adminhtml_RolemanagementController extends Mage_Adminhtml_
              GROUP BY customer_id
         ");
 
+        // Every terminal outcome is recorded so the grid can show WHY an
+        // email isn't in the group (excluded / unsubscribed / blocked).
+        // Transient API failures are NOT recorded — the row stays selectable
+        // for a retry.
+        $recordOutcome = function ($email, $status, $code, $groupId) use ($write, $logTable) {
+            $write->insertOnDuplicate($logTable, array(
+                'email'        => $email,
+                'group_id'     => (string) $groupId,
+                'store_code'   => (string) $code,
+                'status'       => $status,
+                'submitted_at' => now(),
+            ), array('group_id', 'store_code', 'status', 'submitted_at'));
+        };
+
         $details = array();
         foreach ($ids as $id) {
             $customer = Mage::getModel('customer/customer')->load($id);
@@ -288,25 +308,28 @@ class MMD_RoleManager_Adminhtml_RolemanagementController extends Mage_Adminhtml_
             $storeId = isset($orderStores[$id]) ? (int) $orderStores[$id] : (int) $customer->getStoreId();
             $code = isset($storeIdToCode[$storeId]) ? $storeIdToCode[$storeId] : '';
             if (!isset($groupMap[$code])) {
+                $recordOutcome($email, 'excluded', $code, '');
                 $result['skipped']++;
-                $details[] = $email . ': no MailerLite group for store ' . ($code !== '' ? $code : '#' . $storeId);
+                $details[] = $email . ': excluded — no MailerLite group for store ' . ($code !== '' ? $code : '#' . $storeId);
                 continue;
             }
             try {
                 $existing = $mailerlite->findSubscriber($email);
                 $status = is_array($existing) && isset($existing['status']) ? $existing['status'] : '';
-                if (in_array($status, array('unsubscribed', 'bounced', 'junk'), true)) {
+                if ($status === 'unsubscribed') {
+                    $recordOutcome($email, 'unsubscribed', $code, $groupMap[$code]);
                     $result['skipped']++;
-                    $details[] = $email . ': ' . $status . ' — not re-added';
+                    $details[] = $email . ': unsubscribed — not re-added';
+                    continue;
+                }
+                if (in_array($status, array('bounced', 'junk'), true)) {
+                    $recordOutcome($email, 'blocked', $code, $groupMap[$code]);
+                    $result['skipped']++;
+                    $details[] = $email . ': ' . $status . ' — blocked, not re-added';
                     continue;
                 }
                 $mailerlite->addSubscriber($email, $groupMap[$code], array('name' => trim((string) $customer->getName())));
-                $write->insertOnDuplicate($logTable, array(
-                    'email'        => $email,
-                    'group_id'     => $groupMap[$code],
-                    'store_code'   => $code,
-                    'submitted_at' => now(),
-                ), array('group_id', 'store_code', 'submitted_at'));
+                $recordOutcome($email, 'submitted', $code, $groupMap[$code]);
                 $result['added']++;
             } catch (Exception $e) {
                 Mage::logException($e);

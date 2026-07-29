@@ -2,6 +2,34 @@
 class MMD_RoleManager_Model_Observer
 {
     /**
+     * One store per site (franchise model) — a Store / Store View / Website
+     * column on an admin grid is a constant, so it's pure noise. Strip the
+     * known store-scope columns from EVERY adminhtml widget grid (stock +
+     * custom) in one place instead of overriding each grid class. Fires on
+     * adminhtml_block_html_before — after _prepareGrid() added the columns,
+     * before the grid renders. The System > Manage Stores grid is exempt:
+     * that page IS about stores.
+     */
+    public function removeStoreColumnsFromAdminGrids(Varien_Event_Observer $observer)
+    {
+        $block = $observer->getEvent()->getBlock();
+        if (!$block instanceof Mage_Adminhtml_Block_Widget_Grid
+            || $block instanceof Mage_Adminhtml_Block_System_Store_Grid) {
+            return;
+        }
+        foreach (array('store_id', 'store', 'stores', 'store_code', 'store_name',
+                       'store_view', 'website', 'website_id', 'visible_in') as $columnId) {
+            $block->removeColumn($columnId);
+        }
+        // Newsletter Subscribers names its store-GROUP column 'group' — an id
+        // that means Customer Group on other grids, so it can't go in the
+        // global list above.
+        if ($block instanceof Mage_Adminhtml_Block_Newsletter_Subscriber_Grid) {
+            $block->removeColumn('group');
+        }
+    }
+
+    /**
      * On admin login, load user roles into session.
      * If multiple roles, flag for role selection page.
      * If single role, apply immediately.

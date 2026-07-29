@@ -1191,7 +1191,10 @@ foreach (Mage::app()->getStores() as $_s) {
     </div>
     <div class="qr-body">
 
-      <div class="qr-section">
+      <?php // One store per site: with a single store the picker is noise —
+            // keep the select in the DOM (the submit JS reads #qr-store) but
+            // hide the whole section. Multi-store DBs still get the picker. ?>
+      <div class="qr-section"<?php echo count($_qrStores) <= 1 ? ' style="display:none"' : '' ?>>
         <h3>Store</h3>
         <div class="qr-grid">
           <div class="qr-row qr-full">
