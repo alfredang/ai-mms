@@ -129,6 +129,87 @@ class MMD_Certificate_Helper_Data extends Mage_Core_Helper_Abstract
         return $eligible;
     }
 
+    /**
+     * Full class roster with per-learner attendance + certificate status —
+     * drives the trainer's Certificate of Achievement panel. Roster =
+     * course_run_enrolments, else the order history (WSQ classes have no
+     * materialised enrolments), plus attendance-only walk-ins. No 70% filter
+     * here — the trainer sees everyone and decides who to send to manually.
+     *
+     * @return array { total_sessions, learners: [ { learner_email,
+     *                 learner_name, customer_id, present_sessions,
+     *                 attendance_pct, cert_status, cert_no, sent_at } ] }
+     */
+    public function getClassCertRoster(array $run)
+    {
+        $res      = Mage::getSingleton('core/resource');
+        $read     = $res->getConnection('core_read');
+        $att      = $res->getTableName('mmd_course_run_attendance');
+        $cert     = $res->getTableName('mmd_course_run_certificate');
+        $enrolTbl = $res->getTableName('course_run_enrolments');
+        $runId    = (int)$run['run_id'];
+
+        $attHelper = Mage::helper('mmd_attendance');
+        $total     = max(1, count($attHelper->sessionsForRun($run)));
+
+        $enrol = $read->fetchAll(
+            "SELECT learner_name, learner_email FROM `$enrolTbl` WHERE run_id = ? ORDER BY learner_name",
+            array($runId)
+        );
+        if (empty($enrol)) {
+            $enrol = $attHelper->orderRosterForRun($run);
+        }
+
+        $attBy = array();
+        foreach ($read->fetchAll(
+            "SELECT LOWER(learner_email) AS e, MAX(learner_name) AS n, MAX(customer_id) AS cid,
+                    COUNT(DISTINCT CASE WHEN is_present = 1 THEN session_key END) AS p
+               FROM `$att` WHERE run_id = ? GROUP BY LOWER(learner_email)",
+            array($runId)
+        ) as $r) {
+            $attBy[$r['e']] = $r;
+        }
+
+        $certBy = array();
+        foreach ($read->fetchAll(
+            "SELECT LOWER(learner_email) AS e, status, cert_no, sent_at FROM `$cert` WHERE run_id = ?",
+            array($runId)
+        ) as $r) {
+            $certBy[$r['e']] = $r;
+        }
+
+        $out = array(); $seen = array();
+        foreach ($enrol as $l) {
+            $email = strtolower(trim((string)$l['learner_email']));
+            if ($email === '' || isset($seen[$email])) continue;
+            $seen[$email] = true;
+            $out[] = $this->_rosterRow($email, trim((string)$l['learner_name']), $attBy, $certBy, $total);
+        }
+        foreach ($attBy as $email => $a) { // attendance rows not in the roster (walk-ins)
+            if (isset($seen[$email])) continue;
+            $seen[$email] = true;
+            $out[] = $this->_rosterRow($email, (string)$a['n'], $attBy, $certBy, $total);
+        }
+        return array('total_sessions' => $total, 'learners' => $out);
+    }
+
+    protected function _rosterRow($email, $name, array $attBy, array $certBy, $total)
+    {
+        $a = isset($attBy[$email]) ? $attBy[$email] : null;
+        $c = isset($certBy[$email]) ? $certBy[$email] : null;
+        $present = $a ? (int)$a['p'] : 0;
+        return array(
+            'learner_email'    => $email,
+            'learner_name'     => $name !== '' ? $name : ($a ? (string)$a['n'] : ''),
+            'customer_id'      => ($a && !empty($a['cid'])) ? (int)$a['cid'] : null,
+            'present_sessions' => $present,
+            'attendance_pct'   => (int)round($present * 100 / $total),
+            'cert_status'      => $c ? (string)$c['status'] : '',
+            'cert_no'          => $c ? (string)$c['cert_no'] : '',
+            'sent_at'          => $c ? (string)$c['sent_at'] : '',
+        );
+    }
+
     public function loadRun($runId)
     {
         $res  = Mage::getSingleton('core/resource');

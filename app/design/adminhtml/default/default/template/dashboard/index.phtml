@@ -6806,26 +6806,19 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
     //            shows the cert no + download link; otherwise fall back to
     //            the order-based Not Enrolled / In Progress / Completed
     //            states (previous behavior).
-    //   Trainer: class-level summary — certificates sent for this run, plus
-    //            the auto-send rule (daily 6:30pm sweep, overall session
-    //            attendance above 70% — see MMD_Certificate).
+    //   Trainer: per-learner delivery roster (rendered below) — attendance,
+    //            sent status, multi-select manual send. The auto-send rule:
+    //            daily 6:30pm sweep, overall session attendance above 70%
+    //            (see MMD_Certificate).
     $_certState = 'unenrolled';
     $_certEnd   = null;
     $_certRow   = null;      // learner's own issued cert row
-    $_certSentCount = 0;     // trainer summary: certs sent for this run
     try {
         $_certResource = Mage::getSingleton('core/resource');
         $_certRead     = $_certResource->getConnection('core_read');
         $_certTbl      = $_certResource->getTableName('mmd_course_run_certificate');
         $_certViewerEmail = isset($_loggedInEmail) ? (string)$_loggedInEmail : '';
-        if ($activeRole === 'trainer') {
-            if ($_lcdRunId > 0) {
-                $_certSentCount = (int) $_certRead->fetchOne(
-                    "SELECT COUNT(*) FROM `$_certTbl` WHERE run_id = ? AND status IN ('issued','sent')",
-                    array((int)$_lcdRunId)
-                );
-            }
-        } elseif ($_certViewerEmail !== '' && !empty($_selectedCourseId) && $activeRole === 'learner') {
+        if ($_certViewerEmail !== '' && !empty($_selectedCourseId) && $activeRole === 'learner') {
             // Prefer the viewed run's cert, else the newest cert for any run
             // of this course.
             $_certRow = $_certRead->fetchRow(
@@ -6863,17 +6856,121 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
     ?>
     <div class="lcd-section" id="certificate">
         <div class="lcd-section-title">Certificate of Achievement</div>
+        <?php if ($activeRole === 'trainer'): ?>
+        <?php
+        // TRAINER: per-learner delivery roster. Every roster member with their
+        // attendance and certificate status; unsent learners are selectable
+        // (select-all supported) for a manual send that bypasses the 70%
+        // auto-send gate — the trainer's explicit choice is the override.
+        $_certLearners = array(); $_certTotalSessions = 0;
+        if ($_lcdRunId > 0) {
+            try {
+                $_certHelper = Mage::helper('mmd_certificate');
+                $_certRunRow = $_certHelper->loadRun($_lcdRunId);
+                if ($_certRunRow) {
+                    $_certRoster        = $_certHelper->getClassCertRoster($_certRunRow);
+                    $_certLearners      = $_certRoster['learners'];
+                    $_certTotalSessions = (int)$_certRoster['total_sessions'];
+                }
+            } catch (Exception $e) {}
+        }
+        $_certSentTotal = 0;
+        foreach ($_certLearners as $_cl) {
+            if (in_array($_cl['cert_status'], array('issued', 'sent'), true)) $_certSentTotal++;
+        }
+        $_certSendUrl = Mage::helper('adminhtml')->getUrl('adminhtml/certificate/sendSelected');
+        ?>
+        <?php if (empty($_certLearners)): ?>
         <div class="lcd-cert-box">
-            <?php if ($activeRole === 'trainer'): ?>
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>
-            <?php if ($_certSentCount > 0): ?>
-            <div class="lcd-cert-title"><?php echo (int)$_certSentCount ?> Certificate<?php echo $_certSentCount === 1 ? '' : 's' ?> Issued</div>
-            <div class="lcd-cert-sub">Certificates already emailed to learners of this class. New ones are sent automatically at 6:30pm daily to every learner whose overall session attendance is above 70%.</div>
-            <?php else: ?>
-            <div class="lcd-cert-title">No Certificates Issued Yet</div>
-            <div class="lcd-cert-sub">Certificates are emailed automatically at 6:30pm on the day the class completes, to every learner whose overall session attendance is above 70%. Mark attendance for each session to qualify your learners.</div>
-            <?php endif; ?>
-            <?php elseif ($_certState === 'issued'): ?>
+            <div class="lcd-cert-title">No Learners To Certify Yet</div>
+            <div class="lcd-cert-sub">Once this class has enrolled learners they appear here with their certificate status. Certificates are emailed automatically at 6:30pm on the day the class completes, to every learner whose overall session attendance is above 70%.</div>
+        </div>
+        <?php else: ?>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:4px 0 12px;">
+            <div style="color:#cbd5e1;font-size:13px;"><strong style="color:#f1f5f9;"><?php echo (int)$_certSentTotal ?></strong> of <strong style="color:#f1f5f9;"><?php echo count($_certLearners) ?></strong> learners have received their certificate. Auto-send runs daily at 6:30pm for learners above 70% overall session attendance; select learners below to send manually.</div>
+            <button type="button" class="mm-btn mm-btn-primary" id="lcd-cert-send-btn" disabled onclick="lcdCertSendSelected()">Send Certificate</button>
+        </div>
+        <table class="mm-table lcd-cert-table" style="width:100%;">
+            <thead>
+                <tr>
+                    <th class="center" style="width:36px;"><?php if ($_certSentTotal < count($_certLearners)): ?><input type="checkbox" onchange="lcdCertToggleAll(this)" aria-label="Select all unsent learners" /><?php endif; ?></th>
+                    <th>Learner</th>
+                    <th>Email</th>
+                    <th class="center">Attendance</th>
+                    <th>Certificate</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($_certLearners as $_cl):
+                    $_clSent = in_array($_cl['cert_status'], array('issued', 'sent'), true);
+                    $_clPct  = (int)$_cl['attendance_pct'];
+                ?>
+                <tr>
+                    <td class="center" style="width:36px;">
+                        <?php if ($_clSent): ?>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                        <?php else: ?>
+                        <input type="checkbox" class="lcd-cert-pick" data-email="<?php echo htmlspecialchars($_cl['learner_email'], ENT_QUOTES) ?>" onchange="lcdCertCount()" aria-label="Select <?php echo htmlspecialchars($_cl['learner_email'], ENT_QUOTES) ?>" />
+                        <?php endif; ?>
+                    </td>
+                    <td class="strong"><?php echo htmlspecialchars($_cl['learner_name'] !== '' ? $_cl['learner_name'] : '—') ?></td>
+                    <td class="muted"><?php echo htmlspecialchars($_cl['learner_email']) ?></td>
+                    <td class="center" style="color:<?php echo $_clPct > 70 ? 'var(--green)' : 'var(--yellow)' ?>;"><?php echo (int)$_cl['present_sessions'] ?>/<?php echo (int)$_certTotalSessions ?> · <?php echo $_clPct ?>%</td>
+                    <td class="status">
+                        <?php if ($_clSent): ?>
+                        <span style="color:var(--green);">Sent<?php if ($_cl['sent_at']): ?> <?php echo htmlspecialchars(date('d M Y', strtotime((string)$_cl['sent_at']))) ?><?php endif; ?></span><?php if ($_cl['cert_no']): ?><span style="color:var(--t4);"> · <?php echo htmlspecialchars($_cl['cert_no']) ?></span><?php endif; ?>
+                        <?php elseif ($_cl['cert_status'] === 'error'): ?>
+                        <span style="color:var(--red);">Send failed — select to retry</span>
+                        <?php else: ?>
+                        <span style="color:var(--t4);">Not sent</span>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+        <script type="text/javascript">
+        function lcdCertToggleAll(cb) {
+            var boxes = document.querySelectorAll('.lcd-cert-pick');
+            for (var i = 0; i < boxes.length; i++) boxes[i].checked = cb.checked;
+            lcdCertCount();
+        }
+        function lcdCertCount() {
+            var n = document.querySelectorAll('.lcd-cert-pick:checked').length;
+            var btn = document.getElementById('lcd-cert-send-btn');
+            if (!btn) return;
+            btn.disabled = n === 0;
+            btn.textContent = n > 0 ? 'Send Certificate (' + n + ')' : 'Send Certificate';
+        }
+        function lcdCertSendSelected() {
+            var picked = [].slice.call(document.querySelectorAll('.lcd-cert-pick:checked')).map(function (c) { return c.getAttribute('data-email'); });
+            if (!picked.length) return;
+            if (!confirm('Email the Certificate of Achievement to ' + picked.length + ' learner(s) now?')) return;
+            var btn = document.getElementById('lcd-cert-send-btn');
+            btn.disabled = true; btn.textContent = 'Sending…';
+            var body = new URLSearchParams();
+            body.append('form_key', typeof FORM_KEY !== 'undefined' ? FORM_KEY : '');
+            body.append('run_id', '<?php echo (int)$_lcdRunId ?>');
+            for (var i = 0; i < picked.length; i++) body.append('emails[]', picked[i]);
+            fetch('<?php echo $_certSendUrl ?>', {
+                method: 'POST', credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: body.toString()
+            }).then(function (r) { return r.json(); }).then(function (d) {
+                alert(d.message || (d.success ? 'Certificates sent.' : 'Send failed.'));
+                if (d.success || (d.sent && d.sent > 0)) { location.reload(); }
+                else { btn.disabled = false; lcdCertCount(); }
+            }).catch(function () {
+                alert('Network error — please try again.');
+                btn.disabled = false; lcdCertCount();
+            });
+        }
+        </script>
+        <?php endif; ?>
+        <?php else: ?>
+        <div class="lcd-cert-box">
+            <?php if ($_certState === 'issued'): ?>
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#3df5a8" stroke-width="1.5"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>
             <div class="lcd-cert-title">Certificate Issued</div>
             <div class="lcd-cert-sub">Your Certificate of Achievement<?php if (!empty($_certRow['cert_no'])): ?> (<?php echo htmlspecialchars((string)$_certRow['cert_no']) ?>)<?php endif; ?> was emailed to you<?php if (!empty($_certRow['sent_at'])): ?> on <?php echo htmlspecialchars(date('d M Y', strtotime((string)$_certRow['sent_at']))) ?><?php endif; ?>.</div>
@@ -6895,6 +6992,7 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
             <?php endif; ?>
             <?php endif; ?>
         </div>
+        <?php endif; ?>
     </div>
 
     <?php /* per-panel footer removed — the single site footer is page.phtml's .admin-page-footer */ ?>
