@@ -177,8 +177,17 @@ ORDER BY idx.position;
 ```
 
 Expect: all WSQ rows first, then non-WSQ rows in A→Z `name` order, then M/other.
-On prod after deploy, flush Redis / run the reindex API so the flat + block/FPC
-caches pick up the new positions.
+On prod after deploy, flush caches with the **flush-only** endpoint
+(`/reindex/api/flush?token=…`) — **NEVER the full `/reindex/api/run` after an
+ordering migration**: a full reindex re-derives ANCHOR-ONLY index rows (those
+with no base `catalog_category_product` row) from scratch, regenerating stale
+positions (20011/130056-style) and undoing the renumber until the nightly
+sweep. Real incident 2026-07-29: `/reindex/api/run?flush=1` after migration 844
+re-stranded 7 courses (3 WSQ) at the bottom of All Courses; fixed by migration
+847, which also gave every product in the master listing (url_key
+`adult-training-courses`) a DIRECT assignment so its positions survive future
+reindexes. If a full reindex is unavoidable, re-run the renumber (the two 545
+UPDATEs) afterwards — it's exactly what the nightly cron does.
 
 ## Guardrails
 
