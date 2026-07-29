@@ -5191,11 +5191,14 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                 <div class="dcf-mag-body">
                     <?php
                     $_rvQuestions = array(1 => 'Learning Outcome', 2 => 'Trainer Quality', 5 => 'Training Environment');
-                    // Star cell: "★ N" from the vote, faint dash when the review carries no vote
+                    // Star cell: N filled stars + dimmed remainder on the 5-star scale,
+                    // faint dash when the review carries no vote
                     $_rvStar = function ($_v) {
-                        return $_v
-                            ? '<span style="color:var(--yellow, #f59e0b);">&#9733;</span> ' . (int)$_v
-                            : '<span class="faint">&mdash;</span>';
+                        $_v = max(0, min(5, (int)$_v));
+                        if (!$_v) return '<span class="faint">&mdash;</span>';
+                        $_html = '<span style="color:var(--yellow, #f59e0b);letter-spacing:2px;">' . str_repeat('&#9733;', $_v) . '</span>';
+                        if ($_v < 5) $_html .= '<span style="color:var(--t5, #64748b);letter-spacing:2px;">' . str_repeat('&#9733;', 5 - $_v) . '</span>';
+                        return $_html;
                     };
                     $_rvSnipLen = 80;
                     ?>
@@ -5222,7 +5225,7 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                                 // Meta line shown inside the full-message dialog
                                 $_msgMetaBits = array();
                                 foreach ($_rvQuestions as $_qid => $_ql) {
-                                    if (!empty($_votes[$_qid])) $_msgMetaBits[] = $_ql . ' ★' . (int)$_votes[$_qid];
+                                    if (!empty($_votes[$_qid])) $_msgMetaBits[] = $_ql . ' ' . str_repeat('★', max(1, min(5, (int)$_votes[$_qid])));
                                 }
                                 $_msgMeta = htmlspecialchars((string)$_rv['nickname']) . ' · ' . $_dt
                                           . ($_msgMetaBits ? ' · ' . implode(' · ', $_msgMetaBits) : '');
