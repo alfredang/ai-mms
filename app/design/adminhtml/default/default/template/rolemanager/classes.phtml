@@ -21,6 +21,7 @@ $read       = $resource->getConnection('core_read');
 $runsTbl    = $resource->getTableName('course_runs');
 $enrolTbl   = $resource->getTableName('course_run_enrolments');
 $pVarchar   = $resource->getTableName('catalog_product_entity_varchar');
+$pEntity    = $resource->getTableName('catalog_product_entity');
 $invTbl     = $resource->getTableName('course_run_trainer_invitations');
 
 $nameAttrId = (int) $read->fetchOne("
@@ -60,12 +61,9 @@ switch ($_bucket) {
         break;
 }
 
-// Store View filter — map active store_id to class_id prefix (SG/MY/GH/NG/BT/IN/TI)
-$_branchHelper  = Mage::helper('branchscope');
-$_activeStoreId = $_branchHelper ? (int) $_branchHelper->getActiveStoreId() : 1;
-$_storePrefixMap = array(1=>'SG', 2=>'MY', 3=>'GH', 4=>'NG', 5=>'BT', 6=>'IN', 7=>'TI');
-$_activePrefix  = isset($_storePrefixMap[$_activeStoreId]) ? $_storePrefixMap[$_activeStoreId] : null;
-$_whereStore    = $_activePrefix ? "AND cr.class_id LIKE '{$_activePrefix}%'" : '';
+// No Store View filter: class_ids use the uniform 'C' prefix on every site
+// (one store per site), so every run in this DB belongs here.
+$_whereStore    = '';
 
 // Server-side pagination. Without this the query returned every
 // course_runs row matching the bucket+store (often thousands on
@@ -99,7 +97,8 @@ if ($nameAttrId) {
     }
 
     $rows = $read->fetchAll("
-        SELECT cr.run_id, cr.class_id, cr.course_sku, cr.product_id,
+        SELECT cr.run_id, cr.class_id, cr.product_id,
+               COALESCE(NULLIF(TRIM(pe.sku), ''), cr.course_sku) AS course_sku,
                cr.course_start_date, cr.course_end_date,
                cr.course_start_time, cr.course_end_time,
                cr.vacancy, cr.trainer_option_id, cr.trainer_user_id, cr.invitation_paused,
@@ -108,6 +107,8 @@ if ($nameAttrId) {
                COALESCE(en.enrolled, 0) AS enrolled,
                inv.status AS inv_status, inv.trainer_name AS inv_trainer_name
           FROM `$runsTbl` cr
+          LEFT JOIN `$pEntity` pe
+               ON pe.entity_id = cr.product_id
           LEFT JOIN `$pVarchar` pn
                ON pn.entity_id = cr.product_id
               AND pn.attribute_id = $nameAttrId
@@ -283,7 +284,7 @@ $assignBase = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_q
     <div class="rm-filters">
         <div class="rm-search">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-            <input type="search" id="rm-search" name="rm-class-filter" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')" placeholder="Search class ID, SKU, or course title..." oninput="rmFilter()" />
+            <input type="search" id="rm-search" name="rm-class-filter" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')" placeholder="Search class ID, course code, or course title..." oninput="rmFilter()" />
         </div>
         <select class="rm-select" id="rm-state-filter" onchange="rmFilter()">
             <option value="" <?php echo ($_bucket !== 'ongoing') ? 'selected' : '' ?>>All States</option>
@@ -298,7 +299,7 @@ $assignBase = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_q
             <tr>
                 <th>Class ID</th>
                 <th>Course</th>
-                <th>SKU</th>
+                <th>Course Code</th>
                 <th>Store</th>
                 <th>Start Date</th>
                 <th>End Date</th>
