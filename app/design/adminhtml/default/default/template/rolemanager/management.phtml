@@ -185,6 +185,22 @@ if ($preselectRole === 'admin') {
 } else {
     $pageTitle = 'Users';
 }
+// MailerLite submission state (Manage Learners only): emails already pushed
+// to a subscriber group render as a read-only checked box; the rest get a
+// selection checkbox feeding the bulk "Submit to MailerLite" action.
+$mlSubmitted = array();
+$mlSubmitUrl = '';
+if ($isLearnerView) {
+    $mlSubmitUrl = Mage::helper('adminhtml')->getUrl('adminhtml/rolemanagement/mailerlite');
+    try {
+        $mlRows = $read->fetchAll("SELECT email, submitted_at FROM " . $resource->getTableName('mmd_learner_mailerlite'));
+        foreach ($mlRows as $mr) {
+            $mlSubmitted[strtolower((string) $mr['email'])] = $mr['submitted_at'];
+        }
+    } catch (Exception $e) {
+        // Table absent until migration 849 runs — render all as unsubmitted.
+    }
+}
 $saveUrl = Mage::helper('adminhtml')->getUrl('adminhtml/rolemanagement/save');
 $toggleUrl = Mage::helper('adminhtml')->getUrl('adminhtml/rolemanagement/toggle');
 $deleteUrl = Mage::helper('adminhtml')->getUrl('adminhtml/rolemanagement/delete');
@@ -368,10 +384,24 @@ try {
         </select>
     </div>
 
+    <?php if ($isLearnerView): ?>
+    <!-- MailerLite bulk bar — flat toolbar, single hairline separator (backend-design §16). -->
+    <div id="ml-bar" style="display:flex;align-items:center;gap:12px;padding:6px 0;border-bottom:1px solid #1e293b;margin-bottom:6px;">
+        <span id="ml-count" style="font-size:12px;color:#64748b;">0 selected</span>
+        <span id="ml-status" style="font-size:12px;color:#64748b;flex:1;"></span>
+        <button type="button" id="ml-submit" class="mm-btn-primary mm-btn-sm" onclick="mlSubmit(this)" disabled>Submit to MailerLite</button>
+    </div>
+    <?php endif; ?>
+
     <div style="overflow-x:auto;">
     <table class="rm-table" id="rm-table">
         <thead>
             <tr>
+                <?php if ($isLearnerView): ?>
+                <th style="width:34px;text-align:center;">
+                    <input type="checkbox" id="ml-all" onclick="mlToggleAll(this)" title="Select all unsubmitted learners on this page" />
+                </th>
+                <?php endif; ?>
                 <th>Full Name</th>
                 <th>Email</th>
                 <th>Tel</th>
@@ -488,6 +518,18 @@ try {
                 data-email="<?php echo strtolower((string)$cust['email']) ?>"
                 data-roles="learner"
                 data-active="<?php echo $isActive ?>">
+                <?php if ($isLearnerView): ?>
+                <td style="text-align:center;">
+                    <?php $mlKey = strtolower((string) $cust['email']); ?>
+                    <?php if (isset($mlSubmitted[$mlKey])): ?>
+                        <input type="checkbox" disabled checked="checked" onclick="return false;"
+                               title="Submitted to MailerLite <?php echo htmlspecialchars(date('d M Y', strtotime($mlSubmitted[$mlKey]))) ?>" />
+                    <?php else: ?>
+                        <input type="checkbox" class="ml-cb" value="<?php echo (int)$cust['customer_id'] ?>"
+                               title="Not submitted to MailerLite — tick to select" onchange="mlUpdateBar()" />
+                    <?php endif; ?>
+                </td>
+                <?php endif; ?>
                 <td><span class="rm-name"><?php echo $fullName ?></span></td>
                 <td><span class="rm-email"><?php echo htmlspecialchars((string)$cust['email']) ?></span></td>
                 <td><span style="color:#475569">—</span></td>
@@ -773,6 +815,68 @@ function rmDelete(uid) {
     xhr.onload = function() { window.location.reload(); };
     xhr.send('user_id=' + uid + '&form_key=' + RM_FORM_KEY);
 }
+
+<?php if ($isLearnerView): ?>
+// ===== MailerLite bulk submit (Manage Learners view only) =====
+var ML_URL = '<?php echo $this->jsQuoteEscape($mlSubmitUrl) ?>';
+
+function mlVisibleCbs() {
+    return Array.prototype.filter.call(document.querySelectorAll('.ml-cb'), function(cb) {
+        var tr = cb.closest('tr');
+        return tr && tr.style.display !== 'none';
+    });
+}
+function mlToggleAll(master) {
+    mlVisibleCbs().forEach(function(cb) { cb.checked = master.checked; });
+    mlUpdateBar();
+}
+function mlUpdateBar() {
+    var n = document.querySelectorAll('.ml-cb:checked').length;
+    var count = document.getElementById('ml-count');
+    var btn = document.getElementById('ml-submit');
+    if (count) count.textContent = n + ' selected';
+    if (btn) btn.disabled = (n === 0);
+}
+function mlSubmit(btn) {
+    var checked = document.querySelectorAll('.ml-cb:checked');
+    if (!checked.length) return;
+    if (checked.length > 100) { alert('Select at most 100 learners per submit.'); return; }
+    if (!confirm('Submit ' + checked.length + ' learner(s) to their country\'s MailerLite subscriber group?')) return;
+    var fd = new FormData();
+    fd.append('form_key', RM_FORM_KEY);
+    for (var i = 0; i < checked.length; i++) fd.append('customer_ids[]', checked[i].value);
+    btn.disabled = true;
+    var orig = btn.textContent;
+    btn.textContent = 'Submitting…';
+    var st = document.getElementById('ml-status');
+    st.style.color = '#64748b';
+    st.textContent = 'Sending to MailerLite — large selections can take a couple of minutes…';
+    fetch(ML_URL, { method: 'POST', body: fd, credentials: 'same-origin' })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            btn.textContent = orig;
+            if (!d.success) {
+                btn.disabled = false;
+                st.style.color = '#f87171';
+                st.textContent = '✗ ' + (d.message || 'Failed');
+                return;
+            }
+            st.style.color = d.failed ? '#f59e0b' : '#22c55e';
+            st.textContent = '✓ Added ' + d.added
+                + (d.skipped ? ' · skipped ' + d.skipped + ' (opt-out / no group)' : '')
+                + (d.failed ? ' · failed ' + d.failed : '');
+            if (d.details && d.details.length) st.title = d.details.join('\n');
+            // Reload so submitted rows flip to the read-only checked state.
+            setTimeout(function() { window.location.reload(); }, 2500);
+        })
+        .catch(function() {
+            btn.disabled = false;
+            btn.textContent = orig;
+            st.style.color = '#f87171';
+            st.textContent = '✗ Network error';
+        });
+}
+<?php endif; ?>
 
 // Apply pagination + any preselected role filter immediately on first render.
 // Always call rmFilter so pagination renders even when no role is preselected.

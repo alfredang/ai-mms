@@ -211,6 +211,117 @@ class MMD_RoleManager_Adminhtml_RolemanagementController extends Mage_Adminhtml_
         $this->_sendJson($result);
     }
 
+    /**
+     * AJAX (Manage Learners): submit the selected learners' emails to the
+     * MailerLite subscriber group for their country. A learner routes by
+     * their home store (latest order's store, falling back to the
+     * customer's own store_id): SG / MY / GH each have their own group.
+     *
+     * Opt-out guard: POST /subscribers is an upsert that would resurrect
+     * an unsubscribed address, so emails MailerLite already knows as
+     * unsubscribed / bounced / junk are skipped, never re-added (same
+     * rule as MMD_Marketing_Helper_Mailerlite::subscribeLead).
+     *
+     * Successful submissions are recorded in mmd_learner_mailerlite,
+     * which drives the read-only "submitted" checkbox in the grid.
+     */
+    public function mailerliteAction()
+    {
+        $result = array('success' => false, 'added' => 0, 'skipped' => 0, 'failed' => 0);
+        if (!$this->getRequest()->isPost()) {
+            return $this->_sendJson($result);
+        }
+        $ids = $this->getRequest()->getParam('customer_ids');
+        if (!is_array($ids) || empty($ids)) {
+            $result['message'] = 'Select at least one learner.';
+            return $this->_sendJson($result);
+        }
+        if (count($ids) > 100) {
+            $result['message'] = 'Select at most 100 learners per submit.';
+            return $this->_sendJson($result);
+        }
+        $mailerlite = Mage::helper('mmd_marketing/mailerlite');
+        if (!$mailerlite->isConfigured()) {
+            $result['message'] = 'MailerLite API key is not configured (Dashboard → Company Setting → Integrations → MailerLite).';
+            return $this->_sendJson($result);
+        }
+
+        // One MailerLite subscriber group per country store.
+        $groupMap = array(
+            'SG' => '97171109342873057',
+            'MY' => '97171116217337309',
+            'GH' => '194137224356300145',
+        );
+
+        $resource = Mage::getSingleton('core/resource');
+        $read     = $resource->getConnection('core_read');
+        $write    = $resource->getConnection('core_write');
+        $logTable = $resource->getTableName('mmd_learner_mailerlite');
+
+        // store_id → country code, same normalisation as the learner grid
+        // (the default SG store commonly has code 'default' on this install).
+        $storeIdToCode = array();
+        foreach ($read->fetchAll("SELECT store_id, code FROM " . $resource->getTableName('core/store')) as $sr) {
+            $c = strtoupper((string) $sr['code']);
+            if ($c === 'DEFAULT') $c = 'SG';
+            $storeIdToCode[(int) $sr['store_id']] = $c;
+        }
+
+        $ids = array_map('intval', $ids);
+        // Home store = store of the most recent order, per the grid's logic.
+        $orderStores = $read->fetchPairs("
+            SELECT customer_id,
+                   SUBSTRING_INDEX(GROUP_CONCAT(store_id ORDER BY created_at DESC), ',', 1) AS last_store_id
+              FROM " . $resource->getTableName('sales_flat_order') . "
+             WHERE customer_id IN (" . implode(',', $ids) . ")
+             GROUP BY customer_id
+        ");
+
+        $details = array();
+        foreach ($ids as $id) {
+            $customer = Mage::getModel('customer/customer')->load($id);
+            $email = strtolower(trim((string) $customer->getEmail()));
+            if (!$customer->getId() || $email === '') {
+                $result['failed']++;
+                continue;
+            }
+            $storeId = isset($orderStores[$id]) ? (int) $orderStores[$id] : (int) $customer->getStoreId();
+            $code = isset($storeIdToCode[$storeId]) ? $storeIdToCode[$storeId] : '';
+            if (!isset($groupMap[$code])) {
+                $result['skipped']++;
+                $details[] = $email . ': no MailerLite group for store ' . ($code !== '' ? $code : '#' . $storeId);
+                continue;
+            }
+            try {
+                $existing = $mailerlite->findSubscriber($email);
+                $status = is_array($existing) && isset($existing['status']) ? $existing['status'] : '';
+                if (in_array($status, array('unsubscribed', 'bounced', 'junk'), true)) {
+                    $result['skipped']++;
+                    $details[] = $email . ': ' . $status . ' — not re-added';
+                    continue;
+                }
+                $mailerlite->addSubscriber($email, $groupMap[$code], array('name' => trim((string) $customer->getName())));
+                $write->insertOnDuplicate($logTable, array(
+                    'email'        => $email,
+                    'group_id'     => $groupMap[$code],
+                    'store_code'   => $code,
+                    'submitted_at' => now(),
+                ), array('group_id', 'store_code', 'submitted_at'));
+                $result['added']++;
+            } catch (Exception $e) {
+                Mage::logException($e);
+                $result['failed']++;
+                $details[] = $email . ': ' . $e->getMessage();
+            }
+            // Stay under MailerLite's 120 req/min (2 API calls per learner).
+            usleep(250000);
+        }
+
+        $result['success'] = true;
+        $result['details'] = array_slice($details, 0, 10);
+        $this->_sendJson($result);
+    }
+
     protected function _sendJson($data)
     {
         $this->getResponse()
