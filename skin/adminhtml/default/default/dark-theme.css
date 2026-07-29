@@ -4579,16 +4579,6 @@ ul.config-accordion li dt.accordion-toggle:focus {
    Reuses .dev-country-tabs / .dev-country-btn / .dev-search-* from
    admin-dashboard.css so the visual matches the dashboard exactly. */
 .mmd-reg-wrap { margin: 0 0 16px 0; }
-.mmd-reg-total {
-    font-size: 22px !important;
-    font-weight: 700 !important;
-    color: #f1f5f9 !important;
-    margin: 18px 0 14px !important;
-    display: flex !important;
-    align-items: baseline !important;
-    gap: 10px !important;
-}
-.mmd-reg-total span { color: #22d3ee !important; font-weight: 800 !important; }
 .mmd-reg-search-form {
     margin-bottom: 16px !important;
     background: transparent !important;
@@ -4652,29 +4642,22 @@ ul.config-accordion li dt.accordion-toggle:focus {
     margin: 0 12px 0 0 !important;
     min-width: 0 !important;
 }
-/* Hide the "Registrations" title span that wrapAdminGridInCard() in
-   sidebar-nav-v2.js writes into .dcf-mag-bar — the toolbar built by
-   MMD_Enhancedsalesgrid_Block_Sales_Order takes its place flush-left
-   with "Total Registrations N" as the de-facto heading. The h3 itself
-   has to stay non-empty (wrapAdminGridInCard early-returns on blank
-   title), so we hide only the rendered span instead of the h3. */
-body[class*="adminhtml-sales_order"] .dcf-mag-bar > span:first-child:not(.mmd-auto-card-actions):not(.mmd-reg-toolbar):not([class*="mmd-bar-massaction"]),
-body[class*="adminhtml-sales-order"] .dcf-mag-bar > span:first-child:not(.mmd-auto-card-actions):not(.mmd-reg-toolbar):not([class*="mmd-bar-massaction"]) {
+/* Hide the title span that wrapAdminGridInCard() in sidebar-nav-v2.js
+   writes into .dcf-mag-bar on sales_order* routes — EXCEPT the
+   Registrations grid itself (adminhtml-sales_order-index), where the
+   "Total Registrations" title + auto-injected page icon now render as
+   the bar heading. The h3 has to stay non-empty (wrapAdminGridInCard
+   early-returns on blank title), so we hide only the rendered span. */
+body[class*="adminhtml-sales_order"]:not(.adminhtml-sales_order-index) .dcf-mag-bar > span:first-child:not(.mmd-auto-card-actions):not(.mmd-reg-toolbar):not([class*="mmd-bar-massaction"]),
+body[class*="adminhtml-sales-order"]:not(.adminhtml-sales_order-index) .dcf-mag-bar > span:first-child:not(.mmd-auto-card-actions):not(.mmd-reg-toolbar):not([class*="mmd-bar-massaction"]) {
     display: none !important;
 }
-.mmd-reg-toolbar .mmd-reg-total {
-    font-size: 15px !important;
-    font-weight: 700 !important;
-    color: #cbd5e1 !important;
-    margin: 0 !important;
-    display: inline-flex !important;
-    align-items: baseline !important;
-    gap: 6px !important;
-    white-space: nowrap !important;
-}
-.mmd-reg-toolbar .mmd-reg-total span {
-    color: #22d3ee !important;
-    font-weight: 400 !important;
+/* Registrations index — the "Total Registrations" bar title sits left
+   of the search toolbar (.mmd-reg-toolbar flex:1); keep it on one line
+   with breathing room before the search input. */
+body.adminhtml-sales_order-index .dcf-mag-bar > span:first-child:not(.mmd-auto-card-actions) {
+    white-space: nowrap;
+    margin-right: 14px;
 }
 .mmd-reg-toolbar .mmd-reg-search-form {
     display: flex !important;

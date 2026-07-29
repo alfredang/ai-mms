@@ -6,21 +6,20 @@ class MMD_Enhancedsalesgrid_Block_Sales_Order extends Mage_Adminhtml_Block_Sales
         parent::__construct();
 
         $this->_blockGroup = 'enhancedsalesgrid';
-        // Keep "Registrations" as the header text — sidebar-nav-v2.js's
-        // wrapAdminGridInCard() reads the h3 text and EARLY-RETURNS if
-        // it's empty, which would also kill the gray .dcf-mag-bar card
-        // around the grid. The visible "Registrations" word is hidden
-        // via CSS instead (body[...sales_order] .dcf-mag-bar > span:first-child).
-        $this->_headerText = Mage::helper('sales')->__('Registrations');
+        // Rendered as the .dcf-mag-bar title (with the auto-injected
+        // page-title icon) on the index route; other sales_order* routes
+        // still hide the bar span via CSS (dark-theme.css, the
+        // body[...sales_order] .dcf-mag-bar > span:first-child rule).
+        $this->_headerText = Mage::helper('sales')->__('Total Registrations');
         $this->_addButtonLabel = Mage::helper('sales')->__('Create New Registration');
     }
 
     /**
-     * Inject a compact toolbar — Total Registrations + Search input +
-     * Reset + Filters toggle — and relocate it via JS into the grid's
-     * existing header strip (the gray bar that already shows
-     * "Registrations" + "New Registration"). One consolidated row,
-     * no separate cards above the grid.
+     * Inject a compact toolbar — Search input + Reset + Filters toggle —
+     * and relocate it via JS into the grid's existing header strip (the
+     * gray bar that shows the "Total Registrations" title + "New
+     * Registration"). One consolidated row, no separate cards above the
+     * grid. The registration counts live in the KPI cards above.
      *
      * Branch pills are no longer rendered here — the global MMD_Branchscope
      * store_switcher block (injected via branchscope.xml's <default> handle)
@@ -85,8 +84,6 @@ class MMD_Enhancedsalesgrid_Block_Sales_Order extends Mage_Adminhtml_Block_Sales
         // strip so "Registrations" + "New Registration" share the row
         // with Total + Search + Filters.
         $html .= '<div class="mmd-reg-staging" style="display:none;">';
-        $html .= '<span class="mmd-reg-total">' . Mage::helper('sales')->__('Total Registrations')
-              .  ' <span>' . number_format($total) . '</span></span>';
         $html .= '<form method="get" action="' . $baseUrl . '" class="mmd-reg-search-form">';
         $html .= '<input type="hidden" name="store" value="' . (int) $activeStoreId . '" />';
         $html .= '<div class="mmd-reg-search-input-wrap">' . $searchIcon
