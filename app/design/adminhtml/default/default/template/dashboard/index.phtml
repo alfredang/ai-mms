@@ -2286,10 +2286,14 @@ if ($_devWebsiteId > 0) {
 
 // KPI cards above the search panel. Row 1 (all sites): total / enabled /
 // disabled catalog counts. Row 2 (SG instance only): funding mix — WSQ /
-// IBF / CASL counted by their canonical funding-badge tags (the same tag
-// vocabulary the storefront chips read, see MMD_CourseImage), restricted
-// to enabled courses; Unfunded = enabled courses carrying none of the
-// three. Stable whole-catalog numbers, independent of search/filters.
+// IBF / CASL identified by their canonical funding-badge tags (the same
+// tag vocabulary the storefront chips read, see MMD_CourseImage),
+// restricted to enabled courses. Buckets are MUTUALLY EXCLUSIVE so the
+// row tallies with Row 1's enabled total: a course with several funding
+// tags counts once, precedence IBF > CASL > WSQ (IBF overrides WSQ
+// site-wide, e.g. in SEO titles); Unfunded = enabled courses carrying
+// none of the three. Stable whole-catalog numbers, independent of
+// search/filters.
 try {
     $_kpiRes  = Mage::getSingleton('core/resource');
     $_kpiRead = $_kpiRes->getConnection('core_read');
@@ -2312,23 +2316,24 @@ try {
         $_kpiEnabledJoin =
             " JOIN {$_kpiPi} s ON s.entity_id = r.product_id
                    AND s.attribute_id = {$_kpiStatusAttrId} AND s.store_id = 0 AND s.value = 1";
-        $_kpiRows = $_kpiRead->fetchPairs(
-            "SELECT t.name, COUNT(DISTINCT r.product_id)
-               FROM {$_kpiTag} t
-               JOIN {$_kpiRel} r ON r.tag_id = t.tag_id" . $_kpiEnabledJoin . "
-              WHERE t.status = 1 AND t.name IN ('WSQ','IBF','CASL')
-              GROUP BY t.name"
+        $_kpiRow = $_kpiRead->fetchRow(
+            "SELECT SUM(x.has_ibf) AS ibf,
+                    SUM(x.has_casl = 1 AND x.has_ibf = 0) AS casl,
+                    SUM(x.has_wsq = 1 AND x.has_ibf = 0 AND x.has_casl = 0) AS wsq,
+                    COUNT(*) AS funded
+               FROM (SELECT r.product_id,
+                            MAX(t.name = 'WSQ')  AS has_wsq,
+                            MAX(t.name = 'IBF')  AS has_ibf,
+                            MAX(t.name = 'CASL') AS has_casl
+                       FROM {$_kpiTag} t
+                       JOIN {$_kpiRel} r ON r.tag_id = t.tag_id" . $_kpiEnabledJoin . "
+                      WHERE t.status = 1 AND t.name IN ('WSQ','IBF','CASL')
+                      GROUP BY r.product_id) x"
         );
-        $_devKpi['wsq']  = isset($_kpiRows['WSQ'])  ? (int) $_kpiRows['WSQ']  : 0;
-        $_devKpi['ibf']  = isset($_kpiRows['IBF'])  ? (int) $_kpiRows['IBF']  : 0;
-        $_devKpi['casl'] = isset($_kpiRows['CASL']) ? (int) $_kpiRows['CASL'] : 0;
-        $_kpiFunded = (int) $_kpiRead->fetchOne(
-            "SELECT COUNT(DISTINCT r.product_id)
-               FROM {$_kpiTag} t
-               JOIN {$_kpiRel} r ON r.tag_id = t.tag_id" . $_kpiEnabledJoin . "
-              WHERE t.status = 1 AND t.name IN ('WSQ','IBF','CASL')"
-        );
-        $_devKpi['unfunded'] = max(0, $_devKpi['active'] - $_kpiFunded);
+        $_devKpi['wsq']  = (int) ($_kpiRow['wsq'] ?? 0);
+        $_devKpi['ibf']  = (int) ($_kpiRow['ibf'] ?? 0);
+        $_devKpi['casl'] = (int) ($_kpiRow['casl'] ?? 0);
+        $_devKpi['unfunded'] = max(0, $_devKpi['active'] - (int) ($_kpiRow['funded'] ?? 0));
     }
 } catch (Exception $e) {}
 endif; // end if ($_courseManagerActive) — closes the $_devCollection block
