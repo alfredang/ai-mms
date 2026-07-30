@@ -261,9 +261,22 @@ class MMD_Courses_Api_External_CoursesController extends Mage_Core_Controller_Fr
     {
         try {
             $store = $this->_storefrontStore();
-            $url = $store
-                ? (string) $product->getUrlInStore(array('_store' => $store->getId()))
-                : (string) $product->getProductUrl(false);
+            if ($store) {
+                // Mage_Catalog_Model_Product_Url::_getRequestPath() looks up the URL
+                // rewrite using $product->getStoreId() directly — it ignores the
+                // '_store' param entirely. Since products are loaded at admin scope
+                // (STORE_ID = 0) for consistent attribute reads, the rewrite lookup
+                // was always searching store 0 (no rewrites live there) and silently
+                // falling back to the raw catalog/product/view/id/... URL, even when
+                // a proper rewrite exists at the real storefront's store id. Flip the
+                // product's store_id just for this lookup so it finds it.
+                $originalStoreId = $product->getStoreId();
+                $product->setStoreId($store->getId());
+                $url = (string) $product->getUrlInStore(array('_store' => $store->getId()));
+                $product->setStoreId($originalStoreId);
+            } else {
+                $url = (string) $product->getProductUrl(false);
+            }
             if ($url !== '') {
                 return $url;
             }
