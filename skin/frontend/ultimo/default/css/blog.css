@@ -209,6 +209,40 @@
     color: #e2e8f0;
 }
 
+/* FAQ accordion — native <details>/<summary>, no JS. Answers stay in the DOM so
+   Google still indexes them for FAQ rich results. */
+.mmd-faq { margin: 0 0 22px; border-top: 1px solid var(--mb-line); }
+.mmd-faq-item { border-bottom: 1px solid var(--mb-line); }
+.mmd-faq-q {
+    list-style: none;                 /* kill the default disclosure triangle */
+    cursor: pointer;
+    position: relative;
+    padding: 15px 40px 15px 0;
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1.45;
+    color: var(--mb-ink);
+}
+.mmd-faq-q::-webkit-details-marker { display: none; }
+.mmd-faq-q:hover { color: var(--mb-blue); }
+.mmd-faq-q:focus-visible { outline: 2px solid var(--mb-blue); outline-offset: 3px; border-radius: 4px; }
+
+/* Chevron, rotates when the row opens */
+.mmd-faq-q::after {
+    content: "";
+    position: absolute; right: 8px; top: 50%;
+    width: 9px; height: 9px;
+    margin-top: -6px;
+    border-right: 2px solid #6b7280;
+    border-bottom: 2px solid #6b7280;
+    transform: rotate(45deg);
+    transition: transform .18s ease;
+}
+.mmd-faq-item[open] > .mmd-faq-q::after { transform: rotate(-135deg); margin-top: -2px; }
+.mmd-faq-item[open] > .mmd-faq-q { color: var(--mb-blue); }
+.mmd-faq-a { padding: 0 0 16px; }
+.mmd-faq-a > :last-child { margin-bottom: 0; }
+
 /* Lead-magnet CTA */
 .mmd-blog-cta { margin: 36px 0 8px; padding: 26px 28px; border-radius: 14px; background: linear-gradient(135deg, #eff6ff 0%, #eef2ff 100%); border: 1px solid #dbeafe; }
 .mmd-blog-cta h2 { font-size: 21px; font-weight: 800; margin-bottom: 10px; color: var(--mb-navy); }

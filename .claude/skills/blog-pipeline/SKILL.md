@@ -137,3 +137,49 @@ rules, which did not exist at all before.
 
 Escaping: write `&amp;&amp;` for `&&` and `&gt;` for `>` inside `<pre>`, and
 double every `'` for the SQL literal.
+
+### 3. FAQ sections ship as `<details>` accordions
+
+A six-question FAQ written flat as `<h3>Q</h3><p>A</p>` runs ~900px and buries
+the closing CTA below the fold. Author the FAQ as native
+`<details>`/`<summary>` instead — the same content collapses to ~280px:
+
+```html
+<h2>Frequently asked questions</h2>
+<div class="mmd-faq">
+  <details class="mmd-faq-item">
+    <summary class="mmd-faq-q">Question text?</summary>
+    <div class="mmd-faq-a"><p>Answer.</p></div>
+  </details>
+</div>
+```
+
+Native `<details>` over a JS accordion, deliberately: no JS to load or break,
+keyboard + screen-reader accessible for free, and the answers stay in the DOM
+so Google still indexes them for FAQ rich results (a `display:none` JS
+accordion risks the answer text being discounted). Styling lives in
+`blog.css` under "FAQ accordion" — the default disclosure triangle is removed
+(`list-style:none` + `::-webkit-details-marker`) and replaced with a rotating
+chevron.
+
+### 4. NEVER round-trip post content through a `errors='replace'` decode
+
+Migration 866 read each post's existing content out of MySQL with
+`.decode('utf-8', 'replace')`, transformed it, and wrote it back. Every
+em-dash (U+2014) became U+FFFD — 60 corrupted bytes in one post, 72 in the
+other — and shipped as black-diamond `�` on the storefront.
+
+When rewriting existing post content, **rebuild it from the pristine committed
+migration**, never from a DB read. Decode strictly (no `errors=` kwarg, so bad
+bytes raise instead of silently substituting) and gate the output before
+writing:
+
+```python
+assert '�' not in new, 'transform introduced U+FFFD'
+assert new.count('—') == original.count('—'), 'em-dash count changed'
+```
+
+Verify after applying with a byte-level check, not a visual one —
+`LENGTH(content) - LENGTH(REPLACE(content, CHAR(0xEF,0xBF,0xBD USING utf8mb4), ''))`
+must be 0. See [[feedback_migration_applyphp_utf8_outage]] for the related
+apply.php failure mode.
