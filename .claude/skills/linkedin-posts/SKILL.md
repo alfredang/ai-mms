@@ -1,8 +1,8 @@
 ---
 name: linkedin-posts
-description: When the user wants to create LinkedIn post copy or optimize for LinkedIn. Also use when the user mentions "LinkedIn post," "LinkedIn article," "professional post," "post to LinkedIn," "LinkedIn content," "LinkedIn copy," "B2B LinkedIn," "LinkedIn engagement," "LinkedIn feed," "share box," "document post," "poll," "Newsletter," "reshare," or "LinkedIn marketing." For LinkedIn ads, use linkedin-ads.
+description: When the user wants to create LinkedIn post copy or optimize for LinkedIn, OR to actually publish a blog post / course to the Tertiary Infotech LinkedIn feed. Also use when the user mentions "LinkedIn post," "push the blog to LinkedIn," "share on LinkedIn," "LinkedIn article," "professional post," "post to LinkedIn," "LinkedIn content," "LinkedIn copy," "B2B LinkedIn," "LinkedIn engagement," "LinkedIn feed," "share box," "document post," "poll," "Newsletter," "reshare," or "LinkedIn marketing." For LinkedIn ads, use linkedin-ads.
 metadata:
-  version: 1.2.0
+  version: 1.3.0
 ---
 
 # Platforms: LinkedIn
@@ -248,3 +248,81 @@ LinkedIn renders it as plain parentheses.
 - Shared credential: `mmd_marketing/linkedin/*` — a 60-day member token with no
   auto-refresh; renewal playbook lives in the project memory
   (`feedback_linkedin_token_expiry_renewal_playbook`).
+
+## PUBLISHING an existing blog post to LinkedIn (verified 2026-08-01)
+
+**Never hand-write the copy for a blog share.** The pipeline's own
+`_linkedinCommentary()` already implements the house format above — hook,
+excerpt, heading-derived outline, SKU-gated funding line, dual links, hashtags —
+and routes through `escapeLittleText()`. Hand-written copy re-introduces the
+truncation bug and drifts from the format. Build the copy with the pipeline;
+your job is to choose WHICH posts and to verify before sending.
+
+### The rule that matters
+
+Publishing is **public and irreversible** — a LinkedIn post cannot be edited to
+add an image afterwards, and deleting one loses its engagement. So:
+
+1. **Preview the exact commentary before sending** (script below). Read it.
+2. **Confirm scope with the user when `shareEverywhere()` would over-share** —
+   it posts to LinkedIn *and* Facebook in one pass. If the user said "LinkedIn",
+   call the LinkedIn branch only (recipe below), or Facebook goes out
+   unrequested and cannot be recalled.
+3. **Verify every CTA URL returns 200** on its own store domain first.
+4. **Check `linkedin_urn` is empty** — non-empty means already shared; posting
+   again double-posts. Always write the URN back after a successful share so the
+   publish cron and admin re-saves stay no-ops.
+
+### Working recipe (SG prod)
+
+Find the web container fresh each time — deploys rename it:
+
+```bash
+ssh root@76.13.180.29 'for c in $(docker ps -q); do docker exec $c test -f /var/www/html/app/Mage.php 2>/dev/null && docker ps --format "{{.Names}}" -f id=$c; done'
+```
+
+Pipe a PHP script in: `ssh sg "docker exec -i <web> php" < script.php`.
+`_linkedinCommentary()` is private — reach it with Reflection:
+
+```php
+$m = new ReflectionMethod('MMD_Blog_Model_Cron_Autoblog','_linkedinCommentary');
+$m->setAccessible(true);
+$model = Mage::getModel('mmd_blog/cron_autoblog');
+$h = Mage::helper('mmd_blog');
+$p = Mage::getModel('mmd_blog/post')->getCollection()
+       ->addFieldToFilter('url_key', $slug)->getFirstItem();
+$url = $h->getPostUrl($p);
+echo $m->invoke($model, $p, $url);          // PREVIEW first — do not send blind
+```
+
+**LinkedIn-only share** (skips Facebook, keeps the dedup contract):
+
+```php
+$li = Mage::helper('mmd_blog/linkedin');
+if ($p->getLinkedinUrn())     { /* already shared — stop */ }
+if ((int)$p->getStatus() !== 1) { /* not published — stop */ }
+$r = $li->share($m->invoke($model,$p,$url), $url, $p->getHeroImageUrl() ?: null);
+$p->setLinkedinUrn($r['externalId'])->save();   // dedup marker — never skip
+```
+
+Use `shareEverywhere($post)` instead only when BOTH networks are wanted.
+
+### Pre-flight checklist
+
+- [ ] Post `status = 1` (published) and reachable at its public URL
+- [ ] `linkedin_urn` empty (not already shared)
+- [ ] `linkedin_enabled = 1` and `Mage::helper('mmd_blog/linkedin')->isConfigured()`
+- [ ] Commentary previewed and read; length 1,000–1,600 chars
+- [ ] Every link in the commentary returns HTTP 200
+- [ ] Facebook scope confirmed with the user
+- [ ] After: re-read the post row and confirm the URN persisted
+
+### Hero images — decide BEFORE publishing
+
+`share()` attaches `hero_image_url` when present and silently degrades to a
+text+link post when absent (LinkedIn then renders its own OG card). Hand-written
+posts inserted by migration have **no hero**, so they ship image-less unless one
+is generated first via `Helper_Image::generateHero()`. Image posts get materially
+better reach, and **this cannot be fixed after publishing** — check
+`hero_image_url` during pre-flight, not after. (Incident 2026-08-01: the UTAP and
+n8n posts both went out text-only for exactly this reason.)
