@@ -195,6 +195,14 @@
     border-radius: 10px;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    /* Set the light-on-dark colour here, not only on `pre code` — a <pre> written
+       without an inner <code> would otherwise inherit the dark body ink and render
+       almost invisible on the dark card. */
+    font-family: var(--mb-mono);
+    font-size: 13px;
+    line-height: 1.65;
+    white-space: pre;
+    color: #e2e8f0;
 }
 .mmd-blog-post-body pre code {
     display: block;
