@@ -143,6 +143,16 @@ class MMD_Marketing_Helper_Blastguard extends Mage_Core_Helper_Abstract
      * calendar week. Counts cron-proposed flyers (is_auto=1) created this week —
      * the send-side cap (blastsThisWeek) is the separate backstop at the MailerLite
      * boundary, so the two together guarantee "max 2 campaigns OR designs per week".
+     *
+     * SUPERSEDED / EXPIRED rows are NOT counted. A "request changes" rework
+     * supersedes the rejected row and builds a successor for the SAME course and
+     * the SAME weekly slot, so the discarded row must not burn a design slot —
+     * regenerateOnChanges() skips the cap on exactly that reasoning. Counting
+     * them made every rejection permanently eat a slot: one Hermes flyer reworked
+     * twice showed "Designs 3/2" (over its own cap) and left
+     * remainingDesignsThisWeek() at 0, so propose() and autoStartNext() both bailed
+     * and no new flyer could be proposed until the week rolled over
+     * (SG, week of 2026-07-27: rows #30/#31 superseded, #32 shipped).
      */
     public function designsThisWeek()
     {
@@ -152,7 +162,9 @@ class MMD_Marketing_Helper_Blastguard extends Mage_Core_Helper_Abstract
         $tbl  = $res->getTableName('newsletters');
         return (int) $conn->fetchOne(
             'SELECT COUNT(*) FROM ' . $tbl
-          . " WHERE is_auto = 1 AND country_code = 'SG' AND created_at BETWEEN ? AND ?",
+          . " WHERE is_auto = 1 AND country_code = 'SG'"
+          . " AND review_status NOT IN ('superseded', 'expired')"
+          . ' AND created_at BETWEEN ? AND ?',
             array($mon->format('Y-m-d H:i:s'), $sun->format('Y-m-d H:i:s'))
         );
     }
