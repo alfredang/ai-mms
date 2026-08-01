@@ -263,15 +263,67 @@ your job is to choose WHICH posts and to verify before sending.
 Publishing is **public and irreversible** — a LinkedIn post cannot be edited to
 add an image afterwards, and deleting one loses its engagement. So:
 
-1. **Preview the exact commentary before sending** (script below). Read it.
-2. **Confirm scope with the user when `shareEverywhere()` would over-share** —
+1. **EVERY POST SHIPS WITH AN IMAGE. No exceptions.** See the blocking rule
+   below — generate the hero *before* sharing, never publish text-only.
+2. **Preview the exact commentary before sending** (script below). Read it.
+3. **Confirm scope with the user when `shareEverywhere()` would over-share** —
    it posts to LinkedIn *and* Facebook in one pass. If the user said "LinkedIn",
    call the LinkedIn branch only (recipe below), or Facebook goes out
    unrequested and cannot be recalled.
-3. **Verify every CTA URL returns 200** on its own store domain first.
-4. **Check `linkedin_urn` is empty** — non-empty means already shared; posting
+4. **Verify every CTA URL returns 200** on its own store domain first.
+5. **Check `linkedin_urn` is empty** — non-empty means already shared; posting
    again double-posts. Always write the URN back after a successful share so the
    publish cron and admin re-saves stay no-ops.
+
+### 🚨 BLOCKING: never publish a LinkedIn post without an image
+
+`share()` accepts `$imageUrl` and **silently degrades to a text+link post** when
+it is empty — no error, no warning. Posts inserted by migration (every
+hand-written blog post) have `hero_image_url = NULL`, so they ship image-less
+unless you generate one first. Image posts get materially better reach, and
+**this is unfixable after publishing** — LinkedIn cannot add an image to a live
+post.
+
+**If `hero_image_url` is empty, generate it BEFORE calling `share()`:**
+
+```php
+if (!$p->getHeroImageUrl()) {
+    $hero = Mage::helper('mmd_blog/image')->generateHero(
+        $p->getTitle(),
+        (string) $p->getSourceSku()      // TGS- adds the WSQ + SkillsFuture chips
+    );
+    if ($hero === '') {
+        // Renderer AND local fallback both failed — STOP. Do not publish
+        // text-only; fix the image path first.
+        throw new Exception('hero generation failed — not publishing');
+    }
+    $p->setHeroImageUrl($hero)->save();  // persist so the blog page gets it too
+}
+// only now:
+$r = $li->share($commentary, $url, $p->getHeroImageUrl());
+```
+
+`generateHero()` renders the title through the branded CourseImage GD cover and
+uploads to R2 under `blog/auto-*` (that prefix marks it pipeline-replaceable; an
+admin-uploaded hero has no prefix and must never be overwritten). It falls back
+to local `media/blog/` if R2 is down, and returns `''` only if both failed.
+
+Verify the URL returns HTTP 200 before sharing — a 404 hero makes
+`_uploadImage()` throw, and `share()` catches that and quietly posts text-only,
+which is the exact failure this rule exists to prevent.
+
+**Enforced by a hook.** `.claude/hooks/linkedin-share-gate.sh` (PreToolUse /
+Bash) blocks any command containing `->share(`, `shareEverywhere(`, `postFlyer(`
+or a `/rest/posts` POST unless the same command also references the hero image
+AND guards on it. Previews and read-only GET probes pass through. If it blocks
+you, add the gate — do not work around it.
+
+**Incident 2026-08-01:** the UTAP and n8n posts were published with
+`hero=(none)`. The gap was noticed pre-flight but treated as a note rather than
+a blocker, and both went out text-only. Confirmed unfixable in place — a
+`PARTIAL_UPDATE` adding `content.media` returns **HTTP 422 "CreateOnly field
+present in a partial_update request"**. Both had to be deleted and reposted,
+losing their original URNs and engagement.
 
 ### Working recipe (SG prod)
 
@@ -309,20 +361,28 @@ Use `shareEverywhere($post)` instead only when BOTH networks are wanted.
 
 ### Pre-flight checklist
 
+- [ ] **`hero_image_url` set and returning HTTP 200 — generate it if empty.
+      This is a BLOCKER, not a nice-to-have. Never publish text-only.**
 - [ ] Post `status = 1` (published) and reachable at its public URL
 - [ ] `linkedin_urn` empty (not already shared)
 - [ ] `linkedin_enabled = 1` and `Mage::helper('mmd_blog/linkedin')->isConfigured()`
 - [ ] Commentary previewed and read; length 1,000–1,600 chars
 - [ ] Every link in the commentary returns HTTP 200
 - [ ] Facebook scope confirmed with the user
-- [ ] After: re-read the post row and confirm the URN persisted
+- [ ] After: re-read the post row and confirm the URN persisted, and eyeball the
+      live post to confirm the image actually rendered
 
-### Hero images — decide BEFORE publishing
+### A published LinkedIn post CANNOT be edited to add an image
 
-`share()` attaches `hero_image_url` when present and silently degrades to a
-text+link post when absent (LinkedIn then renders its own OG card). Hand-written
-posts inserted by migration have **no hero**, so they ship image-less unless one
-is generated first via `Helper_Image::generateHero()`. Image posts get materially
-better reach, and **this cannot be fixed after publishing** — check
-`hero_image_url` during pre-flight, not after. (Incident 2026-08-01: the UTAP and
-n8n posts both went out text-only for exactly this reason.)
+There is no API or UI path to attach media to a live post — `/rest/posts` allows
+editing `commentary`, but the `content` (media) block is fixed at creation. The
+only ways to get an image onto an already-published share are:
+
+1. **Delete and repost** — loses all reactions, comments and reshares, and
+   burns the original URN. Only worth it within minutes of posting, and only
+   with the user's explicit go-ahead.
+2. **Leave it and fix forward** — keep the text post, make sure the *next* one
+   has its hero.
+
+Never silently delete-and-repost to "fix" a missing image; the engagement loss
+is the user's call, not yours. Ask first.
