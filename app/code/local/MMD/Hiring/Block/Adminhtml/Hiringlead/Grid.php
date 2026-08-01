@@ -4,14 +4,20 @@ class MMD_Hiring_Block_Adminhtml_Hiringlead_Grid extends Mage_Adminhtml_Block_Wi
     public function __construct() { parent::__construct(); $this->setId('hiringLeadGrid'); $this->setDefaultSort('created_at'); $this->setDefaultDir('DESC'); $this->setSaveParametersInSession(true); $this->setUseAjax(true); }
     protected function _prepareCollection()
     {
-        // Sidebar split: Hiring (trainer roles) vs Interns share this grid,
-        // pre-filtered by the roles field ("Intern – …" options on the form).
+        // Sidebar split: Full Time Trainers / Associate Trainers / Interns all
+        // share this grid, pre-filtered on the roles field the form submits
+        // ("Full Time …", "Associate …", "Intern – …").
         $collection = Mage::getModel('mmd_hiring/lead')->getCollection();
         $type = (string) $this->getRequest()->getParam('type');
         if ($type === 'interns') {
             $collection->addFieldToFilter('roles', array('like' => '%Intern%'));
+        } elseif ($type === 'associate') {
+            $collection->addFieldToFilter('roles', array('like' => 'Associate%'));
         } elseif ($type === 'hiring') {
-            $collection->addFieldToFilter('roles', array(array('nlike' => '%Intern%'), array('null' => true)));
+            // Full-time trainers: anything that is neither an intern nor an associate.
+            // Legacy rows with a blank role stay here so nothing is orphaned.
+            $collection->addFieldToFilter('roles', array(array('nlike' => '%Intern%'), array('null' => true)))
+                       ->addFieldToFilter('roles', array(array('nlike' => 'Associate%'), array('null' => true)));
         }
         $this->setCollection($collection);
         return parent::_prepareCollection();
@@ -25,6 +31,7 @@ class MMD_Hiring_Block_Adminhtml_Hiringlead_Grid extends Mage_Adminhtml_Block_Wi
         $this->addColumn('telephone', array('header'=>$h->__('Phone'),'index'=>'telephone'));
         $this->addColumn('roles', array('header'=>$h->__('Role'),'index'=>'roles'));
         $this->addColumn('nationality', array('header'=>$h->__('Nationality'),'index'=>'nationality','width'=>110));
+        $this->addColumn('institution', array('header'=>$h->__('Institution'),'index'=>'institution','width'=>150));
         $this->addColumn('race', array('header'=>$h->__('Race'),'index'=>'race','width'=>80));
         $this->addColumn('gender', array('header'=>$h->__('Gender'),'index'=>'gender','width'=>80));
         $this->addColumn('highest_qualification', array('header'=>$h->__('Qualification'),'index'=>'highest_qualification','width'=>150));

@@ -23,7 +23,8 @@ class MMD_Hiring_IndexController extends Mage_Core_Controller_Front_Action
                 ->setStoreId(Mage::app()->getStore()->getId())->setStoreCode(Mage::app()->getStore()->getCode())
                 ->setName($name)->setEmail($email)->setTelephone((string) ($post['telephone'] ?? ''))
                 ->setPosition((string) ($post['position'] ?? ''))->setRoles((string) ($post['roles'] ?? ''))
-                ->setNationality((string) ($post['nationality'] ?? ''))->setRace((string) ($post['race'] ?? ''))
+                ->setNationality((string) ($post['nationality'] ?? ''))->setInstitution((string) ($post['institution'] ?? ''))
+                ->setRace((string) ($post['race'] ?? ''))
                 ->setGender((string) ($post['gender'] ?? ''))->setHighestQualification((string) ($post['highest_qualification'] ?? ''))
                 ->setMaritalStatus((string) ($post['marital_status'] ?? ''))->setAgeRange((string) ($post['age_range'] ?? ''))
                 ->setYearsExperience((string) ($post['years_experience'] ?? ''))
@@ -43,6 +44,7 @@ class MMD_Hiring_IndexController extends Mage_Core_Controller_Front_Action
         Mage::helper('mmd_leadmail')->notify('Job Application', $name, $email, (string)($post['telephone'] ?? ''), array(
             array('Role Applying For', (string)($post['roles'] ?? '')),
             array('Nationality', (string)($post['nationality'] ?? '')),
+            array('Institution', (string)($post['institution'] ?? '')),
             array('Race', (string)($post['race'] ?? '')),
             array('Gender', (string)($post['gender'] ?? '')),
             array('Highest Qualification', (string)($post['highest_qualification'] ?? '')),

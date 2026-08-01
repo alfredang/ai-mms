@@ -3,8 +3,23 @@ $ts = Mage::helper('magentocaptcha/turnstile'); $k = $ts->getSiteKey(); $u = Mag
 // Optional per-page pre-selected role, passed from the CMS landing block:
 // {{block type="core/template" template="mmd_hiring/form.phtml" role="Full Time Finance Trainer"}}
 $role = trim((string) $this->getRole());
-$roleOpts    = array('Full Time IT/AI Trainer', 'Full Time Finance Trainer', 'Intern – ITE/Polytechnic', 'Intern – University');
+// Grouped so the admin sidebar can split leads three ways: Full Time Trainers,
+// Associate Trainers, Interns (see Hiringlead/Grid.php::_prepareCollection).
+$roleOpts    = array(
+    'Full Time IT/AI Trainer', 'Full Time Finance Trainer',
+    'Associate Trainer',
+    'Intern – ITE', 'Intern – Polytechnic', 'Intern – University', 'Intern – Postgraduate',
+);
 $natOpts     = array('Singapore Citizen', 'Singapore PR', 'Foreigner / Other');
+$instOpts    = array(
+    'ITE College Central', 'ITE College East', 'ITE College West',
+    'Nanyang Polytechnic (NYP)', 'Ngee Ann Polytechnic (NP)', 'Republic Polytechnic (RP)',
+    'Singapore Polytechnic (SP)', 'Temasek Polytechnic (TP)',
+    'National University of Singapore (NUS)', 'Nanyang Technological University (NTU)',
+    'Singapore Management University (SMU)', 'Singapore University of Technology and Design (SUTD)',
+    'Singapore Institute of Technology (SIT)', 'Singapore University of Social Sciences (SUSS)',
+    'Other Institution',
+);
 $raceOpts    = array('Chinese', 'Malay', 'Indian', 'Others');
 $genderOpts  = array('Male', 'Female', 'Prefer not to say');
 $qualOpts    = array('Secondary / O-Level / A-Level', 'ITE / NITEC / Higher NITEC', 'Diploma', "Bachelor's Degree", "Master's Degree", 'PhD', 'Other');
@@ -34,9 +49,12 @@ $ageOpts     = array('Below 21', '21 – 30', '31 – 40', '41 – 50', '51 – 
           <?php foreach ($roleOpts as $o): ?><option value="<?php echo $this->htmlEscape($o) ?>"<?php echo ($role === $o ? ' selected' : '') ?>><?php echo $this->htmlEscape($o) ?></option><?php endforeach; ?>
         </select></div></div>
     <div class="tch-row">
-      <div class="tch-f"><label><?php echo $this->__('Nationality') ?></label>
+      <div class="tch-f"><label><?php echo $this->__('Nationality') ?> <span class="r">*</span></label>
         <select name="nationality"><option value=""><?php echo $this->__('Please select') ?></option>
           <?php foreach ($natOpts as $o): ?><option value="<?php echo $this->htmlEscape($o) ?>"><?php echo $this->htmlEscape($o) ?></option><?php endforeach; ?></select></div>
+      <div class="tch-f"><label><?php echo $this->__('Institution') ?></label>
+        <select name="institution"><option value=""><?php echo $this->__('Please select') ?></option>
+          <?php foreach ($instOpts as $o): ?><option value="<?php echo $this->htmlEscape($o) ?>"><?php echo $this->htmlEscape($o) ?></option><?php endforeach; ?></select></div>
       <div class="tch-f"><label><?php echo $this->__('Race') ?></label>
         <select name="race"><option value=""><?php echo $this->__('Please select') ?></option>
           <?php foreach ($raceOpts as $o): ?><option value="<?php echo $this->htmlEscape($o) ?>"><?php echo $this->htmlEscape($o) ?></option><?php endforeach; ?></select></div>
@@ -67,7 +85,7 @@ $ageOpts     = array('Below 21', '21 – 30', '31 – 40', '41 – 50', '51 – 
   </form></div>
 </div>
 <script>(function(){var EN=<?php echo $k?'true':'false'; ?>,ps=false;
-function v(){var e="",f=document.forms["hiringForm"];if(!f["name"].value)e+="Please enter your name<br/>";if(!/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,})+$/.test(f["email"].value))e+="Please enter a valid email<br/>";if(!f["roles"].value)e+="Please select the role you are applying for<br/>";if(!f["comment"].value)e+="Please add a cover note<br/>";document.getElementById("hiring-error").innerHTML=e;return e==="";}
+function v(){var e="",f=document.forms["hiringForm"];if(!f["name"].value)e+="Please enter your name<br/>";if(!/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,})+$/.test(f["email"].value))e+="Please enter a valid email<br/>";if(!f["roles"].value)e+="Please select the role you are applying for<br/>";if(!f["nationality"].value)e+="Please select your nationality<br/>";if(!f["comment"].value)e+="Please add a cover note<br/>";document.getElementById("hiring-error").innerHTML=e;return e==="";}
 function s(){var b=document.getElementById("hiring-submit");if(b)b.disabled=true;document.forms["hiringForm"].submit();}
 window.onHireTs=function(t){var i=document.getElementById("hiring-tk");if(i)i.value=t;if(ps){ps=false;s();}};window.onHireTsE=function(){ps=false;document.getElementById("hiring-error").innerHTML="Spam check could not run. Please refresh and try again.";};window.onHireTsX=function(){var i=document.getElementById("hiring-tk");if(i)i.value="";};
 document.addEventListener("DOMContentLoaded",function(){var f=document.getElementById("hiringForm");if(!f)return;f.addEventListener("submit",function(e){e.preventDefault();if(!v())return;if(!EN||typeof window.turnstile==="undefined"){s();return;}var i=document.getElementById("hiring-tk");if(i&&i.value){s();return;}ps=true;try{window.turnstile.execute();}catch(x){ps=false;s();}});});})();</script>

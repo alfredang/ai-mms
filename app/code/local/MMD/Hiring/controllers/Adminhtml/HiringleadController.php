@@ -8,8 +8,11 @@ class MMD_Hiring_Adminhtml_HiringleadController extends Mage_Adminhtml_Controlle
 
     public function indexAction()
     {
-        $title = ($this->getRequest()->getParam('type') === 'interns')
-            ? $this->__('Interns') : $this->__('Hiring');
+        switch ((string) $this->getRequest()->getParam('type')) {
+            case 'interns':   $title = $this->__('Interns'); break;
+            case 'associate': $title = $this->__('Associate Trainers'); break;
+            default:          $title = $this->__('Full Time Trainers');
+        }
         $this->loadLayout()->_setActiveMenu('system/hiring_leads')
             ->_title($this->__('System'))->_title($title);
         $this->_addContent($this->getLayout()->createBlock('mmd_hiring/adminhtml_hiringlead'));

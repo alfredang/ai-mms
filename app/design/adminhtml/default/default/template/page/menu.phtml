@@ -415,8 +415,10 @@
             <svg class="tools-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
         </div>
         <div class="tools-group-items">
-            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/hiringlead', array('type' => 'hiring')) ?>" class="tools-sub-item<?php echo ((_so(array('hiringlead')) && $_req->getParam('type') !== 'interns') ? ' active' : '') ?>"><span>Hiring</span></a>
-            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/hiringlead', array('type' => 'interns')) ?>" class="tools-sub-item<?php echo ((_so(array('hiringlead')) && $_req->getParam('type') === 'interns') ? ' active' : '') ?>"><span>Interns</span></a>
+<?php $_hType = (string) $_req->getParam('type'); $_hOn = _so(array('hiringlead')); ?>
+            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/hiringlead', array('type' => 'hiring')) ?>" class="tools-sub-item<?php echo (($_hOn && $_hType !== 'interns' && $_hType !== 'associate') ? ' active' : '') ?>"><span>Full Time Trainers</span></a>
+            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/hiringlead', array('type' => 'associate')) ?>" class="tools-sub-item<?php echo (($_hOn && $_hType === 'associate') ? ' active' : '') ?>"><span>Associate Trainers</span></a>
+            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/hiringlead', array('type' => 'interns')) ?>" class="tools-sub-item<?php echo (($_hOn && $_hType === 'interns') ? ' active' : '') ?>"><span>Interns</span></a>
         </div>
     </div>
     <div class="tools-group<?php echo _so(array('catalog_product_review','formbuilder')) ?>">
