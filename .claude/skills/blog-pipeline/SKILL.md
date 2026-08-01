@@ -87,3 +87,53 @@ Find the web container fresh each time (deploys rename it):
 - Case-study posts from actual client work are the top performers (MSIG,
   MINDEF, Qualcomm pattern): concrete build log + "skills we learned" section
   + WSQ funding CTA to the best-matching TGS- course.
+
+## Article HTML rendering (read before authoring post content)
+
+Two traps that silently mangle a post that looks perfect in the SQL.
+
+### 1. Lists have NO markers unless the theme paints them
+
+Ultimo's `styles.css:46` sets a global `ul,ol { list-style:none }`. Any `<ol>`
+you write renders as an **unnumbered** stack of lines — fatal for a
+step-by-step guide, where "Step 5" silently becomes indistinguishable from
+"Step 4". `.mmd-blog-post-body` therefore paints its own markers with CSS
+counters (`skin/frontend/ultimo/default/css/blog.css`, "Lists" block):
+
+- `<ol> > li::before` — numbered **blue circular badge** (`counter(mb-step)`);
+  use `<ol>` for every sequential click-path / install step list.
+- `<ul> > li::before` — **blue disc**; use for non-sequential lists.
+- `li` carries `padding-left: 34px` + `position: relative`; the marker is
+  absolutely positioned, so text wraps flush instead of under the bullet.
+
+Never re-add `list-style` to fix a missing marker — the global reset beats it
+in the cascade at equal specificity. Extend the `::before` rules instead.
+Verify with a **screenshot**, not source grep: the markup looks identical
+whether or not the markers paint.
+
+### 2. `<pre>` newlines die in the one-line collapse
+
+Post content must be ONE line (apply.php splits on semicolon-at-EOL), but a
+naive `' '.join(html.split())` also eats the newlines **inside `<pre>`**, so
+multi-line shell commands render as one unbroken line and are not
+copy-pasteable. Protect `<pre>` regions and encode their newlines as `&#10;`,
+which survives the collapse and renders as a real break inside the
+`white-space: pre` block:
+
+```python
+def collapse(html):
+    parts = re.split(r'(<pre>.*?</pre>)', html, flags=re.S)
+    return ' '.join(
+        (p.replace('\n', '&#10;') if i % 2 else ' '.join(p.split()))
+        for i, p in enumerate(parts)
+    )
+```
+
+Code blocks style as a dark terminal card and **scroll inside themselves**
+(`overflow-x:auto`) so a long `docker run` never forces the page body to
+scroll sideways on mobile. Incident: migration 864 shipped with every command
+collapsed to one line; fixed by 865 (content re-write) + the blog.css `pre`
+rules, which did not exist at all before.
+
+Escaping: write `&amp;&amp;` for `&&` and `&gt;` for `>` inside `<pre>`, and
+double every `'` for the SQL literal.

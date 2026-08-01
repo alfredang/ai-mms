@@ -142,8 +142,40 @@
 .mmd-blog-post-body p { margin: 0 0 18px; }
 .mmd-blog-post-body h2 { font-size: 24px; font-weight: 700; margin: 34px 0 14px; color: var(--mb-ink); }
 .mmd-blog-post-body h3 { font-size: 19px; font-weight: 700; margin: 26px 0 10px; color: var(--mb-ink); }
-.mmd-blog-post-body ul, .mmd-blog-post-body ol { margin: 0 0 18px 22px; }
-.mmd-blog-post-body li { margin-bottom: 8px; }
+/* Lists — Ultimo's global `ul,ol { list-style:none }` (styles.css:46) strips every
+   marker, so article lists MUST paint their own. Counter-based markers rather than
+   list-style so the numerals/bullets can be styled independently of the text. */
+.mmd-blog-post-body ul, .mmd-blog-post-body ol { margin: 0 0 20px; padding: 0; list-style: none; }
+.mmd-blog-post-body ol { counter-reset: mb-step; }
+.mmd-blog-post-body li { position: relative; margin-bottom: 10px; padding-left: 34px; }
+
+/* Ordered: numbered blue badge — used for the step-by-step click paths */
+.mmd-blog-post-body ol > li::before {
+    counter-increment: mb-step;
+    content: counter(mb-step);
+    position: absolute; left: 0; top: 1px;
+    width: 23px; height: 23px;
+    box-sizing: border-box;
+    border-radius: 50%;
+    background: var(--mb-blue); color: #fff;
+    font-size: 12.5px; font-weight: 700; line-height: 23px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Unordered: teal disc */
+.mmd-blog-post-body ul > li::before {
+    content: "";
+    position: absolute; left: 7px; top: 10px;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--mb-blue);
+}
+
+/* Nested lists: tighter indent, muted marker */
+.mmd-blog-post-body li > ul, .mmd-blog-post-body li > ol { margin: 10px 0 0; }
+.mmd-blog-post-body ul ul > li { padding-left: 20px; }
+.mmd-blog-post-body ul ul > li::before { background: #9ca3af; }
 .mmd-blog-post-body a { color: var(--mb-blue); font-weight: 600; }
 .mmd-blog-post-body a:hover { color: #7c3aed; }
 .mmd-blog-post-body blockquote { border-left: 4px solid var(--mb-blue); margin: 20px 0; padding: 8px 18px; color: #4b5563; background: #f8fafc; border-radius: 0 8px 8px 0; }
@@ -152,6 +184,30 @@
 .mmd-blog-post-body th { background: #f3f4f6; font-weight: 700; color: var(--mb-ink); }
 .mmd-blog-post-body img { max-width: 100%; height: auto; border-radius: 10px; }
 .mmd-blog-post-body code { font-family: var(--mb-mono); font-size: 13.5px; background: #f3f4f6; border: 1px solid var(--mb-line); border-radius: 5px; padding: 1px 6px; color: #b45309; }
+
+/* Code blocks — dark terminal card. Must scroll on its own so a long command never
+   forces the page body to scroll horizontally on mobile. */
+.mmd-blog-post-body pre {
+    margin: 0 0 20px;
+    padding: 16px 18px;
+    background: #0f172a;
+    border: 1px solid #1e293b;
+    border-radius: 10px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+.mmd-blog-post-body pre code {
+    display: block;
+    font-family: var(--mb-mono);
+    font-size: 13px;
+    line-height: 1.65;
+    white-space: pre;
+    background: none;
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    color: #e2e8f0;
+}
 
 /* Lead-magnet CTA */
 .mmd-blog-cta { margin: 36px 0 8px; padding: 26px 28px; border-radius: 14px; background: linear-gradient(135deg, #eff6ff 0%, #eef2ff 100%); border: 1px solid #dbeafe; }
