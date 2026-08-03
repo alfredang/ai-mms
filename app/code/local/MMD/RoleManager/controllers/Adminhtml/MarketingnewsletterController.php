@@ -451,9 +451,9 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
                           INNER JOIN eav_attribute pa ON pa.attribute_id = pd.attribute_id
                           WHERE pd.entity_id = e.entity_id AND pa.attribute_code = 'price'
                             AND pa.entity_type_id = 4 AND pd.store_id = 0 LIMIT 1) AS fee,
-                        (SELECT fv.value FROM catalog_product_entity_varchar fv
+                        (SELECT DATE_FORMAT(fv.value, 'Till %e %b %Y') FROM catalog_product_entity_datetime fv
                           INNER JOIN eav_attribute fa ON fa.attribute_id = fv.attribute_id
-                          WHERE fv.entity_id = e.entity_id AND fa.attribute_code = 'funding_validity'
+                          WHERE fv.entity_id = e.entity_id AND fa.attribute_code = 'news_to_date'
                             AND fa.entity_type_id = 4 AND fv.store_id = 0 LIMIT 1) AS funding_validity
                    FROM " . $this->_qTbl() . " q
                    JOIN catalog_product_entity e ON e.entity_id = q.product_id
