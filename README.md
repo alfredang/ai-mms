@@ -48,7 +48,7 @@ This system runs as a **franchise model**:
 |---------|-------------|
 | 🎓 **Course = Product** | Catalogue of instructor-led / live-online / hybrid courses — no stock, weight, or shipping. |
 | 🌐 **Franchise model** | Same codebase deployed to each partner's own server — **one store per website** (SG, MY, GH), each fully independent (own domain, currency, language, pricing). |
-| 💰 **Funding & subsidy hooks** | SG SkillsFuture Credit / WSQ / IBF, MY HRDC — funding tiers (Baseline, MCES) auto-calculated. |
+| 💰 **Funding & subsidy hooks** | SG SkillsFuture Credit / WSQ / IBF, MY HRDC — funding tiers (Baseline, MCES) auto-calculated. Every WSQ course page shows its SSG **Funding Validity** window (seeded from the TPG master list, editable per course in the admin General tab). |
 | 🧾 **Pro Forma Invoices** | On-demand, self-sponsored SkillsFuture-claim pro formas with GST settled on the pre-subsidy list price. |
 | 🏫 **Automatic class formation** | Orders materialise into classes & rosters out-of-band via cron — the storefront HTTP path stays untouched. |
 | 📝 **Course feedback → Reviews** | QR-linked per-class feedback form (customisable via the Course Reviews → Form Builder) whose submissions save straight into the Magento review system as approved course reviews with per-question star ratings (Learning Outcome / Trainer Quality / Training Environment), browsable per course in the editor's Course Review tab with expandable full messages. Trainers show the QR from the **Course Feedback** section on their class page; the form auto-fills the course title, code, run ID and class dates from the scanned class. |
