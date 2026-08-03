@@ -113,7 +113,7 @@ try {
         $_mlSent10    = $ml->getSentCampaigns(10);  // same cached API payload, longer slice
         $_mlScheduled = $ml->getScheduledCampaigns();
         $ml->snapshotSubscribers();                    // record today's count (idempotent)
-        $_mlGrowth    = $ml->getSubscriberSnapshots(null, 30);  // SG series, oldest→newest
+        $_mlGrowth    = $ml->getMonthlySubscriberSnapshots(null, 13);  // SG monthly closing counts, oldest→newest
     }
 } catch (Exception $e) {
     Mage::logException($e);
@@ -169,11 +169,23 @@ try {
 /* Subscriber growth chart placeholder */
 .mmd-mkt-chart-card{background:#1f2937;border:1px solid var(--b1,#384a60);border-radius:10px;padding:18px 20px;margin-bottom:18px;}
 .mmd-mkt-chart-head{font-size:12px;font-weight:600;color:#cbd5e1;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;}
-.mmd-mkt-chart-body{position:relative;height:140px;display:flex;align-items:end;gap:3px;padding:8px 0;border-bottom:1px solid rgba(56,74,96,.5);}
+.mmd-mkt-chart-body{position:relative;height:160px;display:flex;align-items:stretch;gap:6px;padding:8px 0 0;border-bottom:1px solid rgba(56,74,96,.5);}
 .mmd-mkt-chart-bar{flex:1;background:linear-gradient(180deg,#475569 0%,#334155 100%);border-radius:3px 3px 0 0;opacity:.35;min-height:8px;}
-/* Growth bars — one per daily snapshot, zero-baseline, exact count on hover */
-.mmd-mkt-growth-bar{flex:1;min-width:3px;background:rgba(34,211,238,.5);border-radius:3px 3px 0 0;cursor:pointer;transition:background .15s ease;}
-.mmd-mkt-growth-bar:hover{background:#22d3ee;}
+/* Growth bars — one column per MONTH (closing count), baselined below the
+   smallest month so year-on-year growth is visible; exact count on hover. */
+.mmd-mkt-growth-col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:5px;min-width:0;height:100%;}
+.mmd-mkt-growth-bar{width:72%;max-width:40px;min-height:4px;background:rgba(34,211,238,.5);border-radius:4px 4px 0 0;cursor:pointer;transition:background .15s ease;}
+.mmd-mkt-growth-col:hover .mmd-mkt-growth-bar{background:#22d3ee;}
+.mmd-mkt-growth-bar.is-est{background:rgba(34,211,238,.22);}
+.mmd-mkt-growth-col:hover .mmd-mkt-growth-bar.is-est{background:rgba(34,211,238,.6);}
+.mmd-mkt-growth-xlabel{font-size:10px;color:#94a3b8;white-space:nowrap;flex:0 0 auto;}
+.mmd-mkt-chart-note{font-size:11px;color:#64748b;margin:-4px 0 10px;line-height:1.45;}
+.mmd-mkt-growth-tip i{color:#94a3b8;font-style:normal;}
+:root[data-theme="light"] .mmd-mkt-growth-bar{background:rgba(8,145,178,.5);}
+:root[data-theme="light"] .mmd-mkt-growth-bar.is-est{background:rgba(8,145,178,.22);}
+:root[data-theme="light"] .mmd-mkt-growth-col:hover .mmd-mkt-growth-bar{background:#0891b2;}
+:root[data-theme="light"] .mmd-mkt-growth-col:hover .mmd-mkt-growth-bar.is-est{background:rgba(8,145,178,.6);}
+:root[data-theme="light"] .mmd-mkt-growth-xlabel{color:#64748b;}
 .mmd-mkt-growth-tip{position:absolute;display:none;pointer-events:none;background:#0b0f17;border:1px solid #334155;border-radius:6px;padding:5px 10px;font-size:11px;color:#e2e8f0;white-space:nowrap;z-index:5;transform:translateX(-50%);box-shadow:0 4px 12px rgba(0,0,0,.4);}
 .mmd-mkt-growth-tip b{color:#22d3ee;font-size:12px;}
 .mmd-mkt-chart-empty{color:#64748b;font-size:12px;font-style:italic;text-align:center;margin-top:10px;}
@@ -335,22 +347,46 @@ try {
     <!-- Subscriber-growth chart — real data from daily snapshots
          (mmd_marketing_subscriber_snapshot). MailerLite's API returns only the
          current count, so we record one point/day and chart the series here. -->
-    <?php $_gPoints = array(); foreach ($_mlGrowth as $_g) { $_gPoints[] = array('d' => $_g['date'], 'c' => (int)$_g['count']); } ?>
+    <?php $_gPoints = array(); $_gEst = false;
+          foreach ($_mlGrowth as $_g) {
+              $_gPoints[] = array('d' => $_g['label'], 'c' => (int)$_g['count'], 'e' => !empty($_g['estimated']));
+              if (!empty($_g['estimated'])) { $_gEst = true; }
+          } ?>
     <div class="mmd-mkt-chart-card">
-        <div class="mmd-mkt-chart-head">MailerLite Subscriber Growth — Singapore (last 30 days)</div>
+        <div class="mmd-mkt-chart-head">MailerLite Subscriber Growth — Singapore (by month, last 13 months)</div>
+        <?php if (!empty($_gEst)): ?>
+        <div class="mmd-mkt-chart-note">Lighter bars are reconstructed from subscriber signup dates — daily snapshots only began 13 Jul 2026. They exclude anyone who has since unsubscribed, so early months read slightly low.</div>
+        <?php endif; ?>
         <?php if (count($_gPoints) >= 2): ?>
-            <?php $_gMax = 1; foreach ($_gPoints as $_g) { if ($_g['c'] > $_gMax) { $_gMax = $_g['c']; } } ?>
+            <?php
+                // Baseline the bars below the smallest month so month-to-month
+                // GROWTH is legible. Scaling a ~15k running balance from zero
+                // renders every bar at near-full height and hides the trend.
+                $_gMax = 0; $_gMin = PHP_INT_MAX;
+                foreach ($_gPoints as $_g) {
+                    if ($_g['c'] > $_gMax) { $_gMax = $_g['c']; }
+                    if ($_g['c'] < $_gMin) { $_gMin = $_g['c']; }
+                }
+                $_gBase  = max(0, $_gMin - max(1, (int) round(($_gMax - $_gMin) * 0.35)));
+                $_gSpan  = max(1, $_gMax - $_gBase);
+            ?>
             <div class="mmd-mkt-chart-body" id="mmd-mkt-growth">
-                <?php foreach ($_gPoints as $_g): $_gH = max(2, round($_g['c'] / $_gMax * 100, 1)); ?>
-                    <div class="mmd-mkt-growth-bar" style="height:<?php echo $_gH ?>%;"
-                         data-date="<?php echo htmlspecialchars($_g['d']) ?>"
-                         data-count="<?php echo (int)$_g['c'] ?>"></div>
+                <?php foreach ($_gPoints as $_g): $_gH = max(4, round(($_g['c'] - $_gBase) / $_gSpan * 100, 1)); ?>
+                    <div class="mmd-mkt-growth-col">
+                        <div class="mmd-mkt-growth-bar<?php echo $_g['e'] ? ' is-est' : '' ?>" style="height:<?php echo $_gH ?>%;"
+                             data-date="<?php echo htmlspecialchars($_g['d']) ?>"
+                             data-count="<?php echo (int)$_g['c'] ?>"
+                             data-est="<?php echo $_g['e'] ? '1' : '0' ?>"></div>
+                        <div class="mmd-mkt-growth-xlabel"><?php echo htmlspecialchars($_g['d']) ?></div>
+                    </div>
                 <?php endforeach; ?>
                 <div class="mmd-mkt-growth-tip" id="mmd-mkt-growth-tip"></div>
             </div>
             <div class="mmd-mkt-chart-foot">
                 <span><?php echo htmlspecialchars($_gPoints[0]['d']) ?></span>
-                <span><?php echo number_format($_gPoints[0]['c']) ?> → <b><?php echo number_format(end($_gPoints)['c']) ?></b> subscribers</span>
+                <span><?php echo number_format($_gPoints[0]['c']) ?> → <b><?php echo number_format(end($_gPoints)['c']) ?></b> subscribers
+                    <?php $_gDelta = end($_gPoints)['c'] - $_gPoints[0]['c']; ?>
+                    (<?php echo $_gDelta >= 0 ? '+' : '−' ?><?php echo number_format(abs($_gDelta)) ?>)</span>
                 <span><?php echo htmlspecialchars(end($_gPoints)['d']) ?></span>
             </div>
             <script>
@@ -360,7 +396,8 @@ try {
                 wrap.addEventListener('mouseover', function(e){
                     var bar = e.target.closest ? e.target.closest('.mmd-mkt-growth-bar') : null;
                     if(!bar) return;
-                    tip.innerHTML = '<b>' + Number(bar.getAttribute('data-count')).toLocaleString() + '</b> subscribers &middot; ' + bar.getAttribute('data-date');
+                    tip.innerHTML = '<b>' + Number(bar.getAttribute('data-count')).toLocaleString() + '</b> subscribers &middot; end of ' + bar.getAttribute('data-date')
+                                  + (bar.getAttribute('data-est') === '1' ? ' <i>(reconstructed)</i>' : '');
                     tip.style.display = 'block';
                     var wr = wrap.getBoundingClientRect(), br = bar.getBoundingClientRect();
                     var left = br.left - wr.left + br.width / 2;
@@ -373,9 +410,9 @@ try {
             })();
             </script>
         <?php elseif (count($_gPoints) === 1): ?>
-            <div class="mmd-mkt-chart-empty">Collecting daily snapshots — today's baseline is <b><?php echo number_format($_gPoints[0]['c']) ?></b> subscribers. The growth chart appears from tomorrow.</div>
+            <div class="mmd-mkt-chart-empty"><?php echo htmlspecialchars($_gPoints[0]['d']) ?> closed at <b><?php echo number_format($_gPoints[0]['c']) ?></b> subscribers. The month-by-month chart appears once a second month is recorded.</div>
         <?php else: ?>
-            <div class="mmd-mkt-chart-empty"><?php echo $_mlConfigured ? 'Snapshots start recording from today — the growth chart builds over the coming days.' : 'Set the MailerLite key to start tracking subscriber growth.' ?></div>
+            <div class="mmd-mkt-chart-empty"><?php echo $_mlConfigured ? 'Snapshots start recording from today — the monthly growth chart builds up one bar per month.' : 'Set the MailerLite key to start tracking subscriber growth.' ?></div>
         <?php endif; ?>
     </div>
 

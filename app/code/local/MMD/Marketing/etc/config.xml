@@ -110,6 +110,16 @@
                 <schedule><cron_expr>0 7 * * *</cron_expr></schedule>
                 <run><model>mmd_marketing/cron_subscribersync::watchdog</model></run>
             </mmd_marketing_subscriber_sync_watchdog>
+            <!-- 28th of each month, 03:00 — rebuild the reconstructed months
+                 behind the dashboard subscriber-growth chart. Daily snapshots
+                 only start 2026-07-13, so earlier months are derived from
+                 subscriber signup dates: a ~36-page API walk (~40s) that must
+                 never run inside a page render. The 28th is the last day every
+                 month has, so this fires 12x a year including February. -->
+            <mmd_marketing_subscriber_history>
+                <schedule><cron_expr>0 3 28 * *</cron_expr></schedule>
+                <run><model>mmd_marketing/cron_subscriberhistory::run</model></run>
+            </mmd_marketing_subscriber_history>
         </jobs>
     </crontab>
 </config>

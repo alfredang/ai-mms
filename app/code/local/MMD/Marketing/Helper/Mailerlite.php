@@ -156,6 +156,138 @@ class MMD_Marketing_Helper_Mailerlite extends Mage_Core_Helper_Abstract
     }
 
     /**
+     * Monthly active-subscriber series for a group over the last $months months,
+     * oldest→newest: [['month'=>'Y-m','label'=>'Jul 26','count'=>int], ...].
+     *
+     * Each month is represented by its LAST snapshot — a subscriber count is a
+     * running balance, not a per-day total, so the closing figure is that
+     * month's true standing.
+     *
+     * Daily snapshots only start 2026-07-13, so earlier months come from
+     * backfillEstimatedHistory() and carry estimated=true (the caller dims
+     * them and shows a caveat). A month with both kinds of row resolves to the
+     * REAL snapshot. A month with neither is omitted rather than charted as
+     * zero — a gap means "not recorded", never "no subscribers".
+     */
+    public function getMonthlySubscriberSnapshots($groupId = null, $months = 12)
+    {
+        $groupId = $groupId ?: self::GROUP_ID_SG;
+        $from    = date('Y-m-01', strtotime('-' . ((int) $months - 1) . ' months'));
+        try {
+            $res  = Mage::getSingleton('core/resource');
+            $conn = $res->getConnection('core_read');
+            $tbl  = $res->getTableName('mmd_marketing_subscriber_snapshot');
+            // Closing snapshot per month: join the max snap_date back to its
+            // row. A real snapshot always beats a backfilled one for the same
+            // month, so rank real rows first and keep only the top row.
+            $rows = $conn->fetchAll(
+                'SELECT DATE_FORMAT(s.snap_date, \'%Y-%m\') AS ym, s.snap_date, s.active_count, s.is_estimated'
+              . ' FROM ' . $tbl . ' s'
+              . ' JOIN (SELECT DATE_FORMAT(snap_date, \'%Y-%m\') AS ym,'
+              . '              MIN(is_estimated) AS best,'
+              . '              MAX(snap_date) AS md'
+              . '         FROM ' . $tbl . ' WHERE group_id = ? AND snap_date >= ?'
+              . '        GROUP BY DATE_FORMAT(snap_date, \'%Y-%m\')) m'
+              . '   ON m.ym = DATE_FORMAT(s.snap_date, \'%Y-%m\') AND s.is_estimated = m.best'
+              . ' WHERE s.group_id = ? AND s.snap_date >= ?'
+              . '   AND s.snap_date = (SELECT MAX(x.snap_date) FROM ' . $tbl . ' x'
+              . '                       WHERE x.group_id = s.group_id AND x.is_estimated = s.is_estimated'
+              . '                         AND DATE_FORMAT(x.snap_date, \'%Y-%m\') = DATE_FORMAT(s.snap_date, \'%Y-%m\'))'
+              . ' ORDER BY s.snap_date ASC',
+                array((string) $groupId, $from, (string) $groupId, $from)
+            );
+        } catch (Exception $e) { return array(); }
+        $out = array();
+        foreach ($rows as $r) {
+            $out[] = array(
+                'month'     => $r['ym'],
+                'label'     => date('M y', strtotime($r['snap_date'])),
+                'count'     => (int) $r['active_count'],
+                'estimated' => !empty($r['is_estimated']),
+            );
+        }
+        return $out;
+    }
+
+    /**
+     * Rebuild the historical months of the growth chart from subscriber signup
+     * dates and PERSIST them as is_estimated rows.
+     *
+     * Snapshots only began 2026-07-13 (migration 302), so a rolling 12-month
+     * chart would otherwise be two bars. MailerLite exposes no historical
+     * count, but every subscriber carries subscribed_at — counting ACTIVE
+     * subscribers per signup month and accumulating reproduces the curve that
+     * ends at today's total (it reconciles exactly with the active count).
+     *
+     * CAVEAT, surfaced to the user via is_estimated: this counts people active
+     * TODAY bucketed by when they joined, so anyone who has since unsubscribed
+     * is missing and historical months read slightly LOW versus the list's real
+     * standing back then. Best history obtainable retroactively; genuine daily
+     * snapshots take over going forward and always win for months that have one.
+     *
+     * Writes one row per month dated the month's last day. Real snapshots are
+     * never overwritten — the UPDATE clause only touches is_estimated rows.
+     * Called by the monthly cron; ~36 API pages, far too slow for a page render.
+     *
+     * @return int months written
+     */
+    public function backfillEstimatedHistory($groupId = null, $months = 12)
+    {
+        $groupId = $groupId ?: self::GROUP_ID_SG;
+        if (!$this->isConfigured()) { return 0; }
+
+        $hist = $this->_fetchSignupHistogram($groupId);
+        if (!$hist) { return 0; }
+        ksort($hist);
+
+        $running = 0; $cum = array();
+        foreach ($hist as $ym => $n) { $running += (int) $n; $cum[$ym] = $running; }
+
+        $first    = date('Y-m', strtotime('-' . ((int) $months - 1) . ' months'));
+        $thisYm   = date('Y-m');
+        $res      = Mage::getSingleton('core/resource');
+        $conn     = $res->getConnection('core_write');
+        $tbl      = $res->getTableName('mmd_marketing_subscriber_snapshot');
+        $written  = 0;
+
+        foreach ($cum as $ym => $total) {
+            // 'Y-m' strings sort lexicographically. Skip the current month: it
+            // is still accruing and the daily snapshot already covers it.
+            if ($ym < $first || $ym >= $thisYm) { continue; }
+            $conn->query(
+                'INSERT INTO ' . $tbl . ' (snap_date, group_id, active_count, is_estimated) VALUES (?,?,?,1)'
+              . ' ON DUPLICATE KEY UPDATE active_count = IF(is_estimated = 1, VALUES(active_count), active_count)',
+                array(date('Y-m-t', strtotime($ym . '-01')), (string) $groupId, (int) $total)
+            );
+            $written++;
+        }
+        return $written;
+    }
+
+    /**
+     * Walks every ACTIVE subscriber in a group and tallies signups per 'Y-m'.
+     * Cursor-paginated at 1000/page; hard page cap so a runaway cursor can
+     * never hang the dashboard render.
+     */
+    protected function _fetchSignupHistogram($groupId)
+    {
+        $by = array(); $cursor = null; $pages = 0;
+        do {
+            $url = '/subscribers?limit=1000&filter[status]=active&filter[group]=' . urlencode($groupId)
+                 . ($cursor ? '&cursor=' . urlencode($cursor) : '');
+            $j = $this->_getJson($url);
+            if (!is_array($j) || !isset($j['data'])) { break; }
+            foreach ($j['data'] as $s) {
+                $ym = substr((string) (isset($s['subscribed_at']) ? $s['subscribed_at'] : ''), 0, 7);
+                if ($ym !== '') { $by[$ym] = (isset($by[$ym]) ? $by[$ym] : 0) + 1; }
+            }
+            $cursor = isset($j['meta']['next_cursor']) ? $j['meta']['next_cursor'] : null;
+            $pages++;
+        } while ($cursor && $pages < 60);
+        return $by;
+    }
+
+    /**
      * True when a campaign payload row targets the SG audience — sent to the
      * Singapore group, or to all active subscribers (no group targeting, e.g.
      * the API-created flyer blasts). The MailerLite account is shared with
@@ -567,7 +699,7 @@ class MMD_Marketing_Helper_Mailerlite extends Mage_Core_Helper_Abstract
         return is_array($data) ? $data : null;
     }
 
-    protected function _getCached($cacheKey, $cb)
+    protected function _getCached($cacheKey, $cb, $ttl = null)
     {
         $fullKey = self::CACHE_TAG . '_' . $cacheKey;
         $cache   = Mage::app()->getCache();
@@ -580,7 +712,7 @@ class MMD_Marketing_Helper_Mailerlite extends Mage_Core_Helper_Abstract
         }
         $val = $cb();
         if ($val !== null && $cache) {
-            $cache->save(serialize($val), $fullKey, array(self::CACHE_TAG), self::CACHE_TTL);
+            $cache->save(serialize($val), $fullKey, array(self::CACHE_TAG), $ttl ? (int) $ttl : self::CACHE_TTL);
         }
         return $val;
     }
