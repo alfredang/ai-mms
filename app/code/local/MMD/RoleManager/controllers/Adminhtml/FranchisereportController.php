@@ -1,8 +1,11 @@
 <?php
 /**
- * Franchise Report — Super Admin page (sidebar item below TP Dashboard):
- *  - index      : the report page (completed classes pulled from MY/GH)
- *  - pull       : pull from all configured partners now (JSON summary)
+ * Franchise Management — Super Admin page (sidebar item below TP Dashboard):
+ *  - index      : report (completed classes pulled from MY/GH) + sync sections
+ *  - pull       : pull completed classes from all configured partners (JSON)
+ *  - sync       : trigger a course/category/schedule sync ON a partner (JSON).
+ *                 One-way SG -> partner: the partner endpoint only runs its
+ *                 own pull-from-SG import; nothing can write back to SG.
  *  - saveConfig : store MY/GH endpoint URLs + API keys
  * SG-only feature; partner instances never show the sidebar item.
  */
@@ -16,7 +19,7 @@ class MMD_RoleManager_Adminhtml_FranchisereportController extends Mage_Adminhtml
     public function indexAction()
     {
         $this->loadLayout();
-        $this->_title('Franchise Report');
+        $this->_title('Franchise Management');
         $block = $this->getLayout()->createBlock('core/template')
             ->setTemplate('rolemanager/franchise-report.phtml');
         $this->getLayout()->getBlock('content')->append($block);
@@ -44,6 +47,41 @@ class MMD_RoleManager_Adminhtml_FranchisereportController extends Mage_Adminhtml
             $name = $user ? trim($user->getFirstname() . ' ' . $user->getLastname()) : 'admin';
             $res  = $svc->pullAll($name !== '' ? $name : 'admin');
             $this->_json(array_merge(array('success' => $res['success']), $res));
+        } catch (Exception $e) {
+            $this->_json(array('success' => false, 'message' => $e->getMessage()));
+        }
+    }
+
+    /**
+     * Trigger a sync on ONE partner: partner=my|gh, op=courses|categories|schedules.
+     * SG-only; the partner-side endpoint independently refuses to run outside
+     * country mode, so traffic can only ever flow SG -> franchisee.
+     */
+    public function syncAction()
+    {
+        try {
+            if (!$this->getRequest()->isPost()) throw new Exception('POST required');
+            $this->_validateFormKey();
+
+            if (strtolower((string) getenv('MMS_MODE')) === 'country') {
+                throw new Exception('Franchise sync is only available on the SG instance.');
+            }
+
+            $partner = strtolower(trim((string) $this->getRequest()->getParam('partner')));
+            if (!in_array($partner, array('my', 'gh'), true)) {
+                throw new Exception('Unknown partner — use my or gh.');
+            }
+            $op = strtolower(trim((string) $this->getRequest()->getParam('op')));
+
+            @set_time_limit(0); // partner course sync can take minutes
+
+            $user = Mage::getSingleton('admin/session')->getUser();
+            $name = $user ? trim($user->getFirstname() . ' ' . $user->getLastname()) : 'admin';
+
+            /** @var MMD_RoleManager_Model_FranchiseSyncService $svc */
+            $svc = Mage::getModel('mmd_rolemanager/franchiseSyncService');
+            $res = $svc->trigger($partner, $op, $name !== '' ? $name : 'admin');
+            $this->_json(array_merge(array('success' => !empty($res['success']), 'partner' => strtoupper($partner)), $res));
         } catch (Exception $e) {
             $this->_json(array('success' => false, 'message' => $e->getMessage()));
         }

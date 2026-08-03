@@ -11465,6 +11465,27 @@ $_apiCategories = array(
                 'exampleResponse' => "{\n  \"success\": true, \"total\": 1,\n  \"courses\": [{\n    \"sku\": \"C123\", \"type_id\": \"simple\", \"attributes\": { \"name\": \"...\", \"price\": 250.0 },\n    \"categories\": [\"programming/python\"], \"custom_options\": [ /* Course Date / Time */ ],\n    \"badges\": [\"WSQ\"], \"updated_at\": \"2026-06-01 10:00:00\"\n  }]\n}",
             ),
             array(
+                'method' => 'GET', 'path' => '/courses/api_sync_export/categories', 'authKey' => 'sync',
+                'title' => 'Category Sync Export',
+                'description' => 'SG-side export of the course category tree for the partner Category Sync. Exports every category whose subtree carries a C-prefix course (plus structural ancestors), parents-first, addressed by url_key path — WSQ-only branches never leave SG, and no numeric IDs are exported.',
+                'queryParams' => array(),
+                'notes' => array('Returns 403 when this instance is running in MMS_MODE=country — export is SG-only by design.', 'Fields per category: path, name, is_active, include_in_menu, is_anchor, position, description, meta_title, meta_description, meta_keywords.'),
+                'exampleRequest' => "curl -H \"X-API-Key: <key>\" \\\n  \"__BASE_URL__/courses/api_sync_export/categories\"",
+                'exampleResponse' => "{\n  \"success\": true, \"total\": 214,\n  \"categories\": [{\n    \"path\": \"programming/python\", \"name\": \"Python\", \"is_active\": 1,\n    \"include_in_menu\": 1, \"is_anchor\": 1, \"position\": 3,\n    \"description\": \"...\", \"meta_title\": \"...\"\n  }]\n}",
+            ),
+            array(
+                'method' => 'POST', 'path' => '/courses/api_sync_trigger', 'authKey' => 'sync',
+                'title' => 'Franchisee Sync Trigger',
+                'description' => 'Served by franchisee (country) instances only — lets the SG Franchise Management page kick off a sync ON a partner without a partner admin logging in. The partner then runs its own pull-from-SG import, so data flows strictly SG → partner; nothing here can write back to SG.',
+                'queryParams' => array(),
+                'bodyFields' => array(
+                    array('name' => 'op', 'type' => 'string', 'required' => true, 'description' => 'courses (full course import), categories (mirror SG category tree) or schedules (replace Course Date/Time options with SG\'s)'),
+                ),
+                'notes' => array('Returns 403 unless the instance runs in MMS_MODE=country — the SG instance can never be triggered.', 'Runs synchronously (a full course sync can take minutes); the outcome is also written to the partner\'s mmd_course_sync_log, so a dropped connection never loses the result.'),
+                'exampleRequest' => "curl -X POST -H \"X-API-Key: <key>\" -d 'op=courses' \\\n  \"__BASE_URL__/courses/api_sync_trigger\"",
+                'exampleResponse' => "{\n  \"success\": true, \"op\": \"courses\",\n  \"fetched\": 498, \"created\": 3, \"updated\": 490, \"disabled\": 0,\n  \"skipped\": 5, \"errors\": 0\n}",
+            ),
+            array(
                 'method' => 'GET', 'path' => '/reindex/api/run', 'authKey' => 'reindex',
                 'title' => 'Reindex API',
                 'description' => 'Token-secured trigger for a full reindex (and optional cache flush) without shell access. Reuses the same cron worker the scheduled job uses, so results are logged to the normal Reindex Scheduler page. A lighter GET /reindex/api/flush action exists for a cache-only refresh (faster than a full reindex).',

@@ -157,6 +157,138 @@ class MMD_Courses_Api_Sync_ExportController extends Mage_Core_Controller_Front_A
         }
     }
 
+    /**
+     * GET /courses/api_sync_export/categories
+     *   Header: X-API-Key: <mmd/course_sync/api_key>
+     *
+     * Category-tree export for the partner Category Sync. Exports every
+     * category whose subtree contains at least one C-prefix product (plus the
+     * structural ancestors of those categories) — WSQ-only branches never
+     * leave SG, matching the C-prefix catalog-parity rule. Ordered
+     * parents-first so the importer can create as it walks. Same
+     * cross-install ID safety as the course export: categories are addressed
+     * by url_key path only, never by entity_id.
+     *
+     * Envelope: { success: true, total: N, categories: [
+     *   { path: "parent-uk/child-uk", name, is_active, include_in_menu,
+     *     is_anchor, position, description, meta_title, meta_description,
+     *     meta_keywords } ] }
+     */
+    public function categoriesAction()
+    {
+        // Mode guard: this endpoint is SG-only
+        if (strtolower((string) getenv('MMS_MODE')) === 'country') {
+            return $this->_json(403, array('success' => false, 'error' => 'Export endpoint not available in country mode.'));
+        }
+
+        // Auth — same contract as indexAction
+        $expected = trim((string) Mage::getStoreConfig(self::CONFIG_API_KEY));
+        if ($expected === '') {
+            return $this->_json(503, array('success' => false, 'error' => 'API key not configured (mmd/course_sync/api_key).'));
+        }
+        $provided = (string) $this->getRequest()->getHeader('X-API-Key');
+        if (!hash_equals($expected, $provided)) {
+            return $this->_json(401, array('success' => false, 'error' => 'Invalid or missing X-API-Key.'));
+        }
+
+        try {
+            $read = Mage::getSingleton('core/resource')->getConnection('core_read');
+
+            // Categories directly holding a C-prefix product
+            $cCatIds = $read->fetchCol(
+                "SELECT DISTINCT ccp.category_id
+                 FROM catalog_category_product ccp
+                 JOIN catalog_product_entity p ON p.entity_id = ccp.product_id
+                 WHERE p.sku LIKE 'C%'"
+            );
+
+            // All categories under the default root, parents-first
+            $allCats = $read->fetchAll(
+                "SELECT entity_id, parent_id, path, position
+                 FROM catalog_category_entity
+                 WHERE path LIKE '1/2/%'
+                 ORDER BY LENGTH(path) - LENGTH(REPLACE(path, '/', '')), position, entity_id"
+            );
+
+            // Include each C-bearing category and every ancestor on its path
+            $include = array();
+            $byId = array();
+            foreach ($allCats as $row) {
+                $byId[(int) $row['entity_id']] = $row;
+            }
+            foreach ($cCatIds as $catId) {
+                if (!isset($byId[(int) $catId])) continue;
+                foreach (explode('/', $byId[(int) $catId]['path']) as $seg) {
+                    if ((int) $seg > 2) $include[(int) $seg] = true;
+                }
+            }
+
+            // Attribute values at store 0 for the included set
+            $attrCodes = array(
+                'url_key' => 'varchar', 'name' => 'varchar', 'is_active' => 'int',
+                'include_in_menu' => 'int', 'is_anchor' => 'int',
+                'description' => 'text', 'meta_title' => 'varchar',
+                'meta_description' => 'text', 'meta_keywords' => 'text',
+            );
+            $values = array(); // [entity_id][code] => value
+            if (!empty($include)) {
+                $idList = implode(',', array_map('intval', array_keys($include)));
+                foreach ($attrCodes as $code => $backend) {
+                    $rows = $read->fetchAll(
+                        "SELECT v.entity_id, v.value
+                         FROM catalog_category_entity_{$backend} v
+                         JOIN eav_attribute a ON a.attribute_id = v.attribute_id
+                         WHERE a.entity_type_id = 3 AND a.attribute_code = ?
+                           AND v.store_id = 0 AND v.entity_id IN ($idList)",
+                        array($code)
+                    );
+                    foreach ($rows as $r) {
+                        $values[(int) $r['entity_id']][$code] = $r['value'];
+                    }
+                }
+            }
+
+            $categories = array();
+            foreach ($allCats as $row) {
+                $id = (int) $row['entity_id'];
+                if (!isset($include[$id])) continue;
+
+                // url_key path from root — skip categories we can't address
+                $keys = array();
+                foreach (explode('/', $row['path']) as $seg) {
+                    if ((int) $seg <= 2) continue;
+                    $uk = isset($values[(int) $seg]['url_key']) ? trim((string) $values[(int) $seg]['url_key']) : '';
+                    if ($uk === '') { $keys = array(); break; }
+                    $keys[] = $uk;
+                }
+                if (empty($keys)) continue;
+
+                $v = isset($values[$id]) ? $values[$id] : array();
+                $categories[] = array(
+                    'path'             => implode('/', $keys),
+                    'name'             => isset($v['name']) ? (string) $v['name'] : '',
+                    'is_active'        => isset($v['is_active']) ? (int) $v['is_active'] : 1,
+                    'include_in_menu'  => isset($v['include_in_menu']) ? (int) $v['include_in_menu'] : 1,
+                    'is_anchor'        => isset($v['is_anchor']) ? (int) $v['is_anchor'] : 1,
+                    'position'         => (int) $row['position'],
+                    'description'      => isset($v['description']) ? (string) $v['description'] : null,
+                    'meta_title'       => isset($v['meta_title']) ? (string) $v['meta_title'] : null,
+                    'meta_description' => isset($v['meta_description']) ? (string) $v['meta_description'] : null,
+                    'meta_keywords'    => isset($v['meta_keywords']) ? (string) $v['meta_keywords'] : null,
+                );
+            }
+
+            $this->_json(200, array(
+                'success'    => true,
+                'total'      => count($categories),
+                'categories' => $categories,
+            ));
+        } catch (Exception $e) {
+            Mage::logException($e);
+            $this->_json(500, array('success' => false, 'error' => $e->getMessage()));
+        }
+    }
+
     private function _buildCourse($sku, $read, array $labelCache, array $attrMeta, $rate = null)
     {
         $tbl = Mage::getSingleton('core/resource');

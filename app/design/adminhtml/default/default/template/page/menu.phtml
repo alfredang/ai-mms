@@ -88,10 +88,10 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
         <span>TP Dashboard</span>
     </a>
-    <?php if (strtolower((string) getenv('MMS_MODE')) !== 'country'): // Franchise Report — SG-only (pulls FROM the partners) ?>
+    <?php if (strtolower((string) getenv('MMS_MODE')) !== 'country'): // Franchise Management — SG-only (report pulls FROM the partners; syncs push one-way SG -> partner) ?>
     <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/franchisereport/index') ?>" class="lms-nav-item<?php echo ($_ctrl === 'franchisereport') ? ' active' : '' ?>">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-        <span>Franchise Report</span>
+        <span>Franchise Management</span>
     </a>
     <?php endif; ?>
     <a href="<?php echo $cmsPagesUrl ?>" class="lms-nav-item">

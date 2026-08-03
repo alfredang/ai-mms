@@ -185,6 +185,64 @@ class MMD_RoleManager_Model_CourseSyncService
         return $summary;
     }
 
+    /**
+     * Schedule sync: replace the local Course Date / Course Time custom
+     * options with SG's for every C-prefix course that already exists
+     * locally. This deliberately overrides the P1 custom-option ownership —
+     * it only ever runs from an explicit trigger (SG Franchise Management
+     * page or a partner admin), never from cron. Products absent locally are
+     * skipped (run a course sync first to create them). Returns summary.
+     */
+    public function syncSchedules($triggeredBy = 'admin')
+    {
+        if (!$this->isConfigured()) {
+            throw new Exception('SG sync URL / API key not configured (mmd/course_sync/sg_url + api_key).');
+        }
+
+        $summary = array(
+            'fetched' => 0, 'created' => 0, 'updated' => 0,
+            'disabled' => 0, 'skipped' => 0, 'errors' => 0,
+            'error_msgs' => array(), 'success' => true,
+        );
+
+        $page = 1;
+        do {
+            $payload = $this->_fetchPage($page, 50);
+            $courses = isset($payload['courses']) ? (array) $payload['courses'] : array();
+            $summary['fetched'] += count($courses);
+
+            foreach ($courses as $course) {
+                $sku = isset($course['sku']) ? (string) $course['sku'] : '';
+                if ($sku === '' || strtoupper(substr($sku, 0, 1)) !== 'C') {
+                    $summary['skipped']++;
+                    continue;
+                }
+                $localId = (int) Mage::getModel('catalog/product')->getIdBySku($sku);
+                if ($localId === 0) {
+                    $summary['skipped']++; // not imported yet — course sync first
+                    continue;
+                }
+                try {
+                    $options = isset($course['custom_options']) && is_array($course['custom_options'])
+                        ? $course['custom_options'] : array();
+                    $this->_recreateCustomOptions($localId, $options);
+                    $summary['updated']++;
+                } catch (Exception $e) {
+                    $summary['errors']++;
+                    $summary['error_msgs'][] = $sku . ': ' . $e->getMessage();
+                    Mage::log('CourseSyncService: schedule error sku=' . $sku . ' ' . $e->getMessage(), Zend_Log::ERR, self::LOG_FILE);
+                }
+            }
+
+            $totalPages = isset($payload['total_pages']) ? (int) $payload['total_pages'] : 1;
+            $page++;
+        } while ($page <= $totalPages);
+
+        $summary['success'] = $summary['errors'] === 0;
+        $this->_writeLog($summary, $triggeredBy . ' (schedules)');
+        return $summary;
+    }
+
     /** GET one page (or one SKU) from the SG export endpoint. */
     private function _fetchPage($page, $pageSize, $sku = null)
     {
@@ -513,10 +571,11 @@ class MMD_RoleManager_Model_CourseSyncService
             }
         }
 
-        // Mark the product as having custom options
+        // Mark the product as having custom options (0 when SG has none —
+        // the schedule sync mirrors an empty schedule by clearing local options)
         $write->update(
             $tbl->getTableName('catalog_product_entity'),
-            array('has_options' => 1, 'required_options' => 0),
+            array('has_options' => empty($options) ? 0 : 1, 'required_options' => 0),
             array('entity_id = ?' => $productId)
         );
     }

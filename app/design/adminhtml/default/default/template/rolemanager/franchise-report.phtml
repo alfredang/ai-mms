@@ -1,15 +1,19 @@
 <?php
 /**
- * Franchise Report — dedicated Super Admin page (sidebar: "Franchise Report",
- * below TP Dashboard). Shows confirmed + completed classes pulled from the
- * MY/GH partner sites (mmd_franchise_completed_classes, filled by the Sunday
- * 10:00 SGT cron / the Pull Now button). Rendered by
- * MMD_RoleManager_Adminhtml_FranchisereportController::indexAction().
+ * Franchise Management — dedicated Super Admin page (sidebar: "Franchise
+ * Management", below TP Dashboard). Two halves:
+ *  - Franchisee Completed Classes report — pulled from the MY/GH partner
+ *    sites (mmd_franchise_completed_classes, filled by the Sunday 10:00 SGT
+ *    cron / the Pull Now button).
+ *  - Course / Category / Schedule Sync — triggers the partner's own
+ *    pull-from-SG import via its /courses/api_sync_trigger endpoint.
+ *    Strictly one-way SG -> franchisee; partners can never write back to SG.
+ * Rendered by MMD_RoleManager_Adminhtml_FranchisereportController::indexAction().
  * SG-only: country instances render the not-available notice.
  */
 ?>
 <div class="franchise-report-page" style="padding:4px 0;">
-    <h1 style="font-size:22px;font-weight:700;color:#e2e8f0;margin:0 0 18px;">Franchise Report</h1>
+    <h1 class="franchise-report-title">Franchise Management</h1>
 <?php if (strtolower((string) getenv('MMS_MODE')) !== 'country'): ?>
 <?php
 // ---- Franchisee Completed Classes (SG-only) --------------------------------
@@ -237,5 +241,135 @@ function frSaveConfig() {
         });
 }
 </script>
-<?php endif; // SG-only franchise report card ?>
+
+<?php
+// ---- Franchise Sync (one-way SG -> franchisee) ------------------------------
+// Each section triggers the partner's /courses/api_sync_trigger endpoint,
+// which runs the partner's own pull-from-SG import. SG data is never touched.
+$_fmSyncUrl = Mage::helper('adminhtml')->getUrl('adminhtml/franchisereport/sync');
+$_fmPartners = array(
+    'my' => array('label' => 'Malaysia', 'flag' => '🇲🇾',
+        'configured' => (bool) ($_frMyUrl && Mage::getStoreConfig('mmd/franchise_report/my_key'))),
+    'gh' => array('label' => 'Ghana', 'flag' => '🇬🇭',
+        'configured' => (bool) ($_frGhUrl && Mage::getStoreConfig('mmd/franchise_report/gh_key'))),
+);
+$_fmSections = array(
+    'courses' => array(
+        'title' => 'Course Sync',
+        'desc'  => 'Push all SG non-WSQ (C-prefix) courses to the selected franchisee sites — content, categories, images and badges. Partner-owned fields (course fee, trainer info, class schedule) are preserved on existing courses; new courses are created complete with prices converted to the partner currency.',
+        'icon'  => '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
+    ),
+    'categories' => array(
+        'title' => 'Category Sync',
+        'desc'  => 'Mirror the SG course category tree to the selected franchisee sites — names, ordering, visibility, descriptions and SEO meta. Only categories carrying non-WSQ (C-prefix) courses are exported; WSQ-only branches and partner-specific categories are left untouched.',
+        'icon'  => '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',
+    ),
+    'schedules' => array(
+        'title' => 'Schedule Sync',
+        'desc'  => 'Push the SG class schedules (Course Date / Course Time options) for all courses to the selected franchisee sites. This replaces the partner\'s own schedule options with SG\'s — courses not yet imported on the partner are skipped (run Course Sync first).',
+        'icon'  => '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+        'confirm' => 'Schedule Sync replaces each partner\'s own Course Date / Course Time options with SG\'s. Continue?',
+    ),
+);
+?>
+<div style="display:flex;align-items:center;gap:8px;margin:6px 0 14px;">
+    <div style="font-size:15px;font-weight:700;color:#e2e8f0;">Franchise Sync</div>
+    <span style="background:rgba(34,211,238,.12);border:1px solid rgba(34,211,238,.3);color:#22d3ee;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;">One-way · SG → Franchisee</span>
+    <span style="font-size:12px;color:#64748b;">Franchisee sites can never write back to the SG site.</span>
+</div>
+
+<?php foreach ($_fmSections as $_op => $_sec): ?>
+<div style="margin-bottom:16px;background:#0f172a;border:1px solid #1e3a5f;border-radius:14px;padding:18px 24px;">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:14px;">
+        <div style="flex:1;min-width:260px;">
+            <div style="font-size:14px;font-weight:700;color:#e2e8f0;display:flex;align-items:center;gap:8px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><?php echo $_sec['icon'] ?></svg>
+                <?php echo htmlspecialchars($_sec['title']) ?>
+            </div>
+            <div style="font-size:12px;color:#64748b;margin-top:4px;max-width:720px;"><?php echo htmlspecialchars($_sec['desc']) ?></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+            <?php foreach ($_fmPartners as $_cc => $_p): ?>
+            <label style="display:inline-flex;align-items:center;gap:7px;font-size:13px;color:<?php echo $_p['configured'] ? '#cbd5e1' : '#475569' ?>;cursor:<?php echo $_p['configured'] ? 'pointer' : 'not-allowed' ?>;">
+                <input type="checkbox" class="fm-cc-<?php echo $_op ?>" value="<?php echo $_cc ?>"
+                    <?php echo $_p['configured'] ? 'checked' : 'disabled' ?> />
+                <?php echo $_p['flag'] ?> <?php echo htmlspecialchars($_p['label']) ?><?php if (!$_p['configured']): ?> <span style="font-size:11px;">(not connected)</span><?php endif; ?>
+            </label>
+            <?php endforeach; ?>
+            <button type="button" class="mm-btn mm-btn-primary" id="fm-btn-<?php echo $_op ?>"
+                onclick="fmSync('<?php echo $_op ?>', this<?php echo isset($_sec['confirm']) ? ", '" . $this->jsQuoteEscape($_sec['confirm']) . "'" : '' ?>)">
+                Sync Now
+            </button>
+        </div>
+    </div>
+    <div id="fm-status-<?php echo $_op ?>" style="display:none;background:#1e293b;border-radius:8px;padding:10px 14px;font-size:13px;color:#94a3b8;margin-top:12px;white-space:pre-line;"></div>
+    <div style="font-size:11px;color:#475569;margin-top:10px;">
+        <?php foreach ($_fmPartners as $_cc => $_p):
+            $_last = (string) Mage::getStoreConfig('mmd/franchise_sync/last_' . $_op . '_' . $_cc); ?>
+        <span style="margin-right:16px;">Last sync <?php echo strtoupper($_cc) ?>:
+            <strong style="color:#94a3b8;"><?php echo $_last ? htmlspecialchars(Mage::helper('core')->formatDate($_last, 'medium', true)) : 'never' ?></strong></span>
+        <?php endforeach; ?>
+    </div>
+</div>
+<?php endforeach; ?>
+
+<script>
+function fmSync(op, btn, confirmMsg) {
+    if (confirmMsg && !window.confirm(confirmMsg)) return;
+    var boxes = document.querySelectorAll('.fm-cc-' + op + ':checked');
+    var partners = [];
+    for (var i = 0; i < boxes.length; i++) partners.push(boxes[i].value);
+    var st = document.getElementById('fm-status-' + op);
+    st.style.display = 'block';
+    if (!partners.length) {
+        st.style.color = '#f59e0b';
+        st.textContent = 'Select at least one franchisee site first.';
+        return;
+    }
+    btn.disabled = true; btn.textContent = 'Syncing…';
+    st.style.color = '#94a3b8';
+    st.textContent = 'Starting sync — a full sync can take several minutes per site, keep this page open…';
+    var lines = [];
+    function runNext(idx) {
+        if (idx >= partners.length) {
+            btn.disabled = false; btn.textContent = 'Sync Now';
+            return;
+        }
+        var cc = partners[idx];
+        lines.push(cc.toUpperCase() + ': syncing…');
+        st.textContent = lines.join('\n');
+        var fd = new FormData();
+        fd.append('form_key', window.FORM_KEY || '');
+        fd.append('partner', cc);
+        fd.append('op', op);
+        fetch('<?php echo $this->jsQuoteEscape($_fmSyncUrl) ?>', { method:'POST', body:fd })
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+                if (d.success) {
+                    var bits = [];
+                    if (d.fetched  != null) bits.push(d.fetched + ' fetched');
+                    if (d.created  != null) bits.push(d.created + ' created');
+                    if (d.updated  != null) bits.push(d.updated + ' updated');
+                    if (d.disabled) bits.push(d.disabled + ' retired');
+                    if (d.skipped  != null) bits.push(d.skipped + ' skipped');
+                    lines[lines.length - 1] = cc.toUpperCase() + ': ✓ done — ' + bits.join(', ') + '.';
+                    st.style.color = '#22c55e';
+                } else {
+                    lines[lines.length - 1] = cc.toUpperCase() + ': ✗ ' + (d.message || d.error || (d.error_msgs && d.error_msgs.join('; ')) || 'sync failed');
+                    st.style.color = '#ef4444';
+                }
+                st.textContent = lines.join('\n');
+                runNext(idx + 1);
+            })
+            .catch(function(e){
+                lines[lines.length - 1] = cc.toUpperCase() + ': ✗ network error — ' + e + ' (the sync may still be running on the partner; check its sync log)';
+                st.style.color = '#ef4444';
+                st.textContent = lines.join('\n');
+                runNext(idx + 1);
+            });
+    }
+    runNext(0);
+}
+</script>
+<?php endif; // SG-only franchise management cards ?>
 </div>
