@@ -270,6 +270,170 @@ class MMD_Blog_Adminhtml_BlogController extends Mage_Adminhtml_Controller_Action
         return $this->_json($result);
     }
 
+    /**
+     * Rich preview of a post for the pipeline grid's eye button — returns the
+     * article as a self-contained HTML document for an iframe srcdoc, the same
+     * contract the newsletter preview uses ({success, html}). Unpublished posts
+     * are previewable here (the frontend view route 404s them), which is the
+     * whole point: the reviewer sees the article before approving it.
+     * POST: post_id
+     */
+    public function previewAction()
+    {
+        $result = array('success' => false);
+        try {
+            $id   = (int) $this->getRequest()->getParam('post_id');
+            $post = Mage::getModel('mmd_blog/post')->load($id);
+            if (!$post->getId()) {
+                throw new Exception('This post no longer exists.');
+            }
+            $result['success'] = true;
+            $result['title']   = (string) $post->getTitle();
+            $result['meta']    = $this->_previewMeta($post);
+            // Legacy rows can carry non-UTF-8 bytes; json_encode() would return
+            // false and hand the browser an empty body (blank modal).
+            $result['html']    = @iconv('UTF-8', 'UTF-8//IGNORE', $this->_renderPreviewHtml($post));
+        } catch (Exception $e) {
+            $result['message'] = $e->getMessage();
+        }
+        return $this->_json($result);
+    }
+
+    /** One-line "Draft · 5 min read · TGS-1234" strip for the modal header. */
+    protected function _previewMeta($post)
+    {
+        $labels = array(
+            MMD_Blog_Model_Post::STATUS_DRAFT             => 'Draft',
+            MMD_Blog_Model_Post::STATUS_PUBLISHED         => 'Published',
+            MMD_Blog_Model_Post::STATUS_PENDING_REVIEW    => 'Pending approval',
+            MMD_Blog_Model_Post::STATUS_SCHEDULED         => 'Scheduled',
+            MMD_Blog_Model_Post::STATUS_CHANGES_REQUESTED => 'Changes requested',
+        );
+        $bits = array($labels[(int) $post->getStatus()] ?? 'Draft');
+        $words = str_word_count(strip_tags((string) $post->getContent()));
+        $bits[] = max(1, (int) ceil($words / 200)) . ' min read';
+        if ($post->getRelatedSkus()) {
+            $bits[] = (string) $post->getRelatedSkus();
+        }
+        return implode(' · ', $bits);
+    }
+
+    /**
+     * Build the standalone article document. Mirrors the frontend view template
+     * (hero, meta row, body, lead-magnet CTA, tags) but with every style inlined
+     * — the admin page never loads the Ultimo frontend CSS, so an iframe that
+     * linked to it would render unstyled.
+     */
+    protected function _renderPreviewHtml($post)
+    {
+        $helper  = Mage::helper('mmd_blog');
+        $esc     = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); };
+        $hero    = $helper->getHeroImage($post);
+        $tags    = $helper->getPostTags($post->getId());
+        $courses = $helper->getRelatedCourses($post);
+        $store   = Mage::getStoreConfig('general/store_information/name') ?: 'Tertiary Infotech Academy';
+        $date    = $post->getPublishedAt()
+            ? date('d M Y', strtotime((string) $post->getPublishedAt()))
+            : ($post->getScheduledPublishAt()
+                ? 'Scheduled ' . date('d M Y', strtotime((string) $post->getScheduledPublishAt()))
+                : 'Not yet published');
+        $words   = str_word_count(strip_tags((string) $post->getContent()));
+
+        try {
+            $body = $helper->filterContent($post->getContent());
+        } catch (Exception $e) {
+            $body = (string) $post->getContent();   // preview must never fatal on a bad directive
+        }
+
+        $css = <<<CSS
+*{box-sizing:border-box}
+body{margin:0;background:#fff;color:#1e2833;
+     font:400 16.5px/1.75 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+     -webkit-font-smoothing:antialiased}
+.wrap{max-width:820px;margin:0 auto;padding:0 24px 56px}
+.hero{display:block;width:100%;aspect-ratio:32/9;max-height:300px;object-fit:cover;background:#e8eef5}
+.hero-fb{display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;
+         aspect-ratio:32/9;max-height:300px;color:#fff;font-weight:800;font-size:26px;
+         background:linear-gradient(135deg,#0f172a,#1d4ed8)}
+h1{font-size:34px;line-height:1.25;margin:28px 0 14px;color:#0a1020;letter-spacing:-.4px}
+.meta{display:flex;flex-wrap:wrap;gap:18px;padding-bottom:18px;margin-bottom:26px;
+      border-bottom:1px solid #e4e9f0;color:#64748b;font-size:13.5px;font-weight:600}
+.excerpt{font-size:18px;line-height:1.7;color:#475569;font-style:italic;margin:0 0 26px;
+         padding-left:16px;border-left:3px solid #cbd5e1}
+.body h2{font-size:25px;line-height:1.3;margin:34px 0 12px;color:#0a1020}
+.body h3{font-size:20px;line-height:1.35;margin:26px 0 10px;color:#0a1020}
+.body p{margin:0 0 18px}
+.body ul,.body ol{margin:0 0 18px;padding-left:26px}
+.body li{margin:0 0 9px;list-style:revert}
+.body a{color:#1d4ed8}
+.body img{max-width:100%;height:auto;border-radius:10px;margin:8px 0}
+.body table{width:100%;border-collapse:collapse;margin:0 0 20px;font-size:15px}
+.body th,.body td{border:1px solid #dbe3ec;padding:9px 12px;text-align:left;vertical-align:top}
+.body th{background:#f1f5f9;font-weight:700}
+.body pre{background:#0f172a;color:#e2e8f0;padding:16px;border-radius:10px;overflow-x:auto;
+          font-size:14px;line-height:1.6;white-space:pre-wrap}
+.body code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px}
+.body blockquote{margin:0 0 20px;padding:2px 0 2px 18px;border-left:4px solid #93c5fd;color:#475569}
+.body details{border:1px solid #e4e9f0;border-radius:10px;padding:12px 16px;margin:0 0 12px}
+.body summary{font-weight:700;cursor:pointer;color:#0a1020}
+.cta{margin:38px 0 0;padding:24px 26px;border-radius:14px;background:#f5f8fc;border:1px solid #e0e8f2}
+.cta h2{margin:0 0 8px;font-size:21px;color:#0a1020}
+.cta p{margin:0 0 14px;font-size:15px;color:#475569}
+.cta a{display:block;background:#fff;border:1px solid #d6e0ec;border-radius:10px;padding:13px 16px;
+       margin:0 0 9px;text-decoration:none;color:#0a1020;font-weight:700;font-size:15px}
+.cta a span{display:block;margin-top:3px;color:#1d4ed8;font-weight:600;font-size:13px}
+.tags{margin:30px 0 0;padding-top:18px;border-top:1px solid #e4e9f0;
+      display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.tags b{font-size:13px;color:#64748b;text-transform:uppercase;letter-spacing:.5px}
+.tag{background:#eef2f7;color:#475569;border-radius:999px;padding:5px 12px;font-size:13px;font-weight:600}
+CSS;
+
+        $html = '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+              . '<meta name="viewport" content="width=device-width,initial-scale=1">'
+              . '<title>' . $esc($post->getTitle()) . '</title><style>' . $css . '</style></head><body>';
+
+        $html .= $hero
+            ? '<img class="hero" src="' . $esc($hero) . '" alt="' . $esc($post->getTitle()) . '">'
+            : '<div class="hero-fb">' . $esc($post->getTitle()) . '</div>';
+
+        $html .= '<div class="wrap"><h1>' . $esc($post->getTitle()) . '</h1><div class="meta">'
+              . '<span>' . $esc($post->getAuthor() ?: $store) . '</span>'
+              . '<span>' . $esc($date) . '</span>'
+              . '<span>' . max(1, (int) ceil($words / 200)) . ' min read</span>'
+              . '<span>' . number_format($words) . ' words</span>'
+              . '</div>';
+
+        if (trim((string) $post->getExcerpt()) !== '') {
+            $html .= '<p class="excerpt">' . $esc($post->getExcerpt()) . '</p>';
+        }
+        $html .= '<div class="body">' . $body . '</div>';
+
+        $html .= '<aside class="cta"><h2>Ready to build this skill? &#127891;</h2>'
+              . '<p>Every post funnels readers to the course below &mdash; this is the lead-magnet CTA '
+              . 'the published article will show.</p>';
+        if ($courses) {
+            foreach ($courses as $course) {
+                $html .= '<a href="' . $esc($course->getProductUrl()) . '" target="_blank" rel="noopener">'
+                      . $esc($course->getName())
+                      . '<span>View schedule &amp; register &rarr;</span></a>';
+            }
+        } else {
+            $html .= '<a href="#">No related course linked yet '
+                  . '<span>Set "Related SKUs" on the post so the CTA has a course</span></a>';
+        }
+        $html .= '</aside>';
+
+        if ($tags) {
+            $html .= '<div class="tags"><b>Tags</b>';
+            foreach ($tags as $t) {
+                $html .= '<span class="tag">#' . $esc($t) . '</span>';
+            }
+            $html .= '</div>';
+        }
+
+        return $html . '</div></body></html>';
+    }
+
     /** Course finder for the queue (any enabled course — title or SKU match). */
     public function searchCoursesAction()
     {
