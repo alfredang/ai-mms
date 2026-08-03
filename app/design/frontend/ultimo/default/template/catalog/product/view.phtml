@@ -381,9 +381,14 @@
 
 		// Code lookup — strategy 1: anchor on the " T"/" TSC" marker.
 		// Strategy 2: structured uppercase-dash-digits pattern.
+		// The trailing "TSC" marker is only an anchor for finding the code —
+		// it is not part of the code, and the card's own "TSC Code" label
+		// already says it, so the displayed value drops it (matching what
+		// strategy 2 produces). $_codeFull keeps the marker so the title
+		// slice below still removes the whole span.
 		$_codeFull = '';
 		if (preg_match('#([A-Z]{2,}(?:-[A-Z][A-Z0-9]*)+(?:[-.][0-9][0-9.\-]*)?)\s+(T(?:SC)?)\b#u', $_haystack, $_cm)) {
-			$_skillsCode = trim($_cm[1] . ' ' . $_cm[2]);
+			$_skillsCode = trim($_cm[1]);
 			$_codeFull   = $_cm[0];
 		} elseif (preg_match('#([A-Z]{2,}(?:-[A-Z][A-Z0-9]*)+(?:[-.][0-9][0-9.\-]*))#u', $_haystack, $_cm)) {
 			$_skillsCode = trim($_cm[1]);

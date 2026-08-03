@@ -145,7 +145,7 @@ ai-mms/
 | **CustomOptions** | Enhanced product options with SKU upgrade policies. |
 | **Enhancedsalesgrid** | Admin sales-grid filters & rendering. |
 | **BankPayment** | Bank-transfer payment method. |
-| **Branchscope** | Per-country store-view switcher in admin. |
+| **Branchscope** | Legacy per-country store-view switcher — superseded by the one-store-per-site franchise model; retained for backward compatibility. |
 | **Certificate / Attendance** | Certificates of achievement + e-attendance. |
 | **AccountSync** | Unified learner ↔ shadow admin accounts. |
 | **Courses / Leads** | Course CRUD + admin grid; read-only catalog/schedule/search JSON APIs (`api_wsq`, `api_nonwsq`, `api_courses`, `api_schedule`, `api_search`, `api_faq`, `api_contact`) sharing one auth + envelope via `Helper/Catalogfeed.php`; contact-form lead capture with auto-reply and MailerLite auto-subscribe on capture (opt-outs never re-added), plus a "Send to MailerLite" mass-action and per-lead sync checkbox in the Leads grid. |
