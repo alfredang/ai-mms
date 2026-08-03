@@ -3216,6 +3216,37 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                     </div>
 
                     <?php
+                    // Funding Validity window (WSQ / TGS- courses only) — the
+                    // repurposed news_from_date / news_to_date attributes
+                    // (relabelled by migration 875, seeded from the TPG master
+                    // list by 876). Drives the storefront "Funding Validity"
+                    // card. Hidden for C-/M- courses, where these attributes
+                    // still mirror legacy class dates (Create New Class).
+                    if (stripos((string)$_editCourseData['sku'], 'TGS-') === 0):
+                        $_fvStart = $_editProd->getData('news_from_date');
+                        $_fvEnd   = $_editProd->getData('news_to_date');
+                        $_fvStart = $_fvStart ? date('Y-m-d', strtotime($_fvStart)) : '';
+                        $_fvEnd   = $_fvEnd   ? date('Y-m-d', strtotime($_fvEnd))   : '';
+                    ?>
+                    <div class="dcf-row">
+                        <div class="dcf-row-label">Funding Validity Start Date</div>
+                        <div class="dcf-row-input">
+                            <input type="date" class="dcf-input" name="general_news_from_date" value="<?php echo htmlspecialchars($_fvStart) ?>" />
+                            <div class="dcf-row-help">SSG registration window — funding is claimable from this date.</div>
+                        </div>
+                        <div class="dcf-row-scope">[GLOBAL]</div>
+                    </div>
+                    <div class="dcf-row">
+                        <div class="dcf-row-label">Funding Validity End Date</div>
+                        <div class="dcf-row-input">
+                            <input type="date" class="dcf-input" name="general_news_to_date" value="<?php echo htmlspecialchars($_fvEnd) ?>" />
+                            <div class="dcf-row-help">Learners must register and complete the course by this date to qualify for funding.</div>
+                        </div>
+                        <div class="dcf-row-scope">[GLOBAL]</div>
+                    </div>
+                    <?php endif; ?>
+
+                    <?php
                     // Course-metadata attributes promoted to the General tab.
                     // `level` is an EAV select → pull options live; `sessions`
                     // is text; `duration` is numeric; course type lives on the

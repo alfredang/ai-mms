@@ -574,10 +574,24 @@
 	}
 	unset($_fgExtracted);
 
-	// (6b) Funding Validity — per-course cms/block only (section introduced
-	// 2026-07 for CASL re-registrations; no legacy short_description
-	// fallback). Renders as its own card right after the funding card(s).
+	// (6b) Funding Validity — renders as its own card right after the funding
+	// card(s). A per-course cms/block override wins (legacy CASL
+	// re-registrations); otherwise every WSQ course (TGS- SKU) builds the card
+	// from the Funding Validity Start/End Date attributes (news_from_date /
+	// news_to_date, repurposed + seeded from the SSG TPG master list by
+	// migrations 875/876). Partner sites carry no TGS- SKUs, so this is
+	// SG-only by construction.
 	$_fundingValidityHtml = $_courseSectionHtml('funding_validity');
+	if ($_fundingValidityHtml === '' && stripos((string)$_product->getSku(), 'TGS-') === 0) {
+		$_fvStartTs = $_product->getData('news_from_date') ? strtotime($_product->getData('news_from_date')) : 0;
+		$_fvEndTs   = $_product->getData('news_to_date')   ? strtotime($_product->getData('news_to_date'))   : 0;
+		if ($_fvStartTs && $_fvEndTs) {
+			$_fundingValidityHtml = '<p>Funding for this course is valid from <strong>' . date('j M Y', $_fvStartTs)
+				. '</strong> to <strong>' . date('j M Y', $_fvEndTs)
+				. '</strong>. Register and complete the course within this period to qualify for funding support.</p>';
+		}
+		unset($_fvStartTs, $_fvEndTs);
+	}
 
 	//Rich snippets
 	$useRichSnippets = ($helperSnippets->isEnabledOnProductPage() && $productTypeId !== 'grouped');
