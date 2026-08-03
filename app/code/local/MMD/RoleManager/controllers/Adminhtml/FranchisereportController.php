@@ -18,10 +18,22 @@ class MMD_RoleManager_Adminhtml_FranchisereportController extends Mage_Adminhtml
 
     public function indexAction()
     {
+        // ?section= picks the page under the Franchise Management sidebar
+        // group: '' = the completed-classes report, or one of the sync pages.
+        $titles = array(
+            ''           => 'Franchise Report',
+            'courses'    => 'Course Sync',
+            'categories' => 'Category Sync',
+            'schedules'  => 'Schedule Sync',
+        );
+        $section = strtolower(trim((string) $this->getRequest()->getParam('section')));
+        if (!isset($titles[$section])) $section = '';
+
         $this->loadLayout();
-        $this->_title('Franchise Management');
+        $this->_title($titles[$section]);
         $block = $this->getLayout()->createBlock('core/template')
-            ->setTemplate('rolemanager/franchise-report.phtml');
+            ->setTemplate('rolemanager/franchise-report.phtml')
+            ->setData('section', $section);
         $this->getLayout()->getBlock('content')->append($block);
         $this->renderLayout();
     }

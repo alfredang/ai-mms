@@ -1,28 +1,47 @@
 <?php
 /**
- * Franchise Management — dedicated Super Admin page (sidebar: "Franchise
- * Management", below TP Dashboard). Two halves:
- *  - Franchisee Completed Classes report — pulled from the MY/GH partner
- *    sites (mmd_franchise_completed_classes, filled by the Sunday 10:00 SGT
- *    cron / the Pull Now button).
- *  - Course / Category / Schedule Sync — triggers the partner's own
- *    pull-from-SG import via its /courses/api_sync_trigger endpoint.
- *    Strictly one-way SG -> franchisee; partners can never write back to SG.
- * Rendered by MMD_RoleManager_Adminhtml_FranchisereportController::indexAction().
+ * Franchise Management — Super Admin sidebar group with four pages, all
+ * served by MMD_RoleManager_Adminhtml_FranchisereportController::indexAction()
+ * and routed by ?section= (mirrored in the sidebar sub-items):
+ *  - '' (Franchise Report) — confirmed + completed classes pulled from the
+ *    MY/GH partner sites (mmd_franchise_completed_classes, filled by the
+ *    Sunday 10:00 SGT cron / the Pull Now button) + Partner Connection
+ *    Settings.
+ *  - courses / categories / schedules — one sync page each; triggers the
+ *    partner's own pull-from-SG import via its /courses/api_sync_trigger
+ *    endpoint. Strictly one-way SG -> franchisee; partners can never write
+ *    back to SG.
  * SG-only: country instances render the not-available notice.
  */
+$_frSection = strtolower((string) $this->getSection());
+$_frTitles  = array(
+    ''           => 'Franchise Report',
+    'courses'    => 'Course Sync',
+    'categories' => 'Category Sync',
+    'schedules'  => 'Schedule Sync',
+);
+if (!isset($_frTitles[$_frSection])) $_frSection = '';
+
+// Partner connection config — shared by the report and every sync page.
+$_frMyUrl  = (string) Mage::getStoreConfig('mmd/franchise_report/my_url');
+$_frGhUrl  = (string) Mage::getStoreConfig('mmd/franchise_report/gh_url');
+$_fmPartners = array(
+    'my' => array('label' => 'Malaysia', 'flag' => '🇲🇾',
+        'configured' => (bool) ($_frMyUrl && Mage::getStoreConfig('mmd/franchise_report/my_key'))),
+    'gh' => array('label' => 'Ghana', 'flag' => '🇬🇭',
+        'configured' => (bool) ($_frGhUrl && Mage::getStoreConfig('mmd/franchise_report/gh_key'))),
+);
 ?>
 <div class="franchise-report-page" style="padding:4px 0;">
-    <h1 class="franchise-report-title">Franchise Management</h1>
+    <h1 class="franchise-report-title"><?php echo htmlspecialchars($_frTitles[$_frSection]) ?></h1>
 <?php if (strtolower((string) getenv('MMS_MODE')) !== 'country'): ?>
+<?php if ($_frSection === ''): ?>
 <?php
 // ---- Franchisee Completed Classes (SG-only) --------------------------------
 // Local copy pulled weekly (Sun 10:00 SGT cron) / on demand from the MY/GH
 // /courses/api_completed_classes endpoints into mmd_franchise_completed_classes.
 $_frRows = array();
 $_frLastPull = (string) Mage::getStoreConfig('mmd/franchise_report/last_pull');
-$_frMyUrl = (string) Mage::getStoreConfig('mmd/franchise_report/my_url');
-$_frGhUrl = (string) Mage::getStoreConfig('mmd/franchise_report/gh_url');
 $_frPullUrl = Mage::helper('adminhtml')->getUrl('adminhtml/franchisereport/pull');
 $_frCfgUrl  = Mage::helper('adminhtml')->getUrl('adminhtml/franchisereport/saveConfig');
 try {
@@ -88,7 +107,7 @@ try {
     </div>
 
     <?php if (empty($_frRows)): ?>
-    <?php $_frConfigured = (($_frMyUrl && Mage::getStoreConfig('mmd/franchise_report/my_key')) || ($_frGhUrl && Mage::getStoreConfig('mmd/franchise_report/gh_key'))); ?>
+    <?php $_frConfigured = ($_fmPartners['my']['configured'] || $_fmPartners['gh']['configured']); ?>
     <div style="text-align:center;color:#64748b;font-size:13px;padding:26px 0;">
         <?php if ($_frConfigured): ?>
             No completed classes yet — the partner sites have no confirmed &amp; completed classes with attendance taken.
@@ -242,21 +261,15 @@ function frSaveConfig() {
 }
 </script>
 
-<?php
-// ---- Franchise Sync (one-way SG -> franchisee) ------------------------------
-// Each section triggers the partner's /courses/api_sync_trigger endpoint,
-// which runs the partner's own pull-from-SG import. SG data is never touched.
+<?php else: // ---- Sync page (courses | categories | schedules) -------------
+// Triggers the partner's /courses/api_sync_trigger endpoint, which runs the
+// partner's own pull-from-SG import. SG data is never touched.
 $_fmSyncUrl = Mage::helper('adminhtml')->getUrl('adminhtml/franchisereport/sync');
-$_fmPartners = array(
-    'my' => array('label' => 'Malaysia', 'flag' => '🇲🇾',
-        'configured' => (bool) ($_frMyUrl && Mage::getStoreConfig('mmd/franchise_report/my_key'))),
-    'gh' => array('label' => 'Ghana', 'flag' => '🇬🇭',
-        'configured' => (bool) ($_frGhUrl && Mage::getStoreConfig('mmd/franchise_report/gh_key'))),
-);
+$_fmReportUrl = Mage::helper('adminhtml')->getUrl('adminhtml/franchisereport/index');
 $_fmSections = array(
     'courses' => array(
         'title' => 'Course Sync',
-        'desc'  => 'Push all SG non-WSQ (C-prefix) courses to the selected franchisee sites — content, categories, images and badges. Partner-owned fields (course fee, trainer info, class schedule) are preserved on existing courses; new courses are created complete with prices converted to the partner currency.',
+        'desc'  => 'Push all SG non-WSQ (C-prefix) courses to the selected franchisee sites — content, categories, images and badges. Partner-owned fields (course fee, trainer info, class schedule) are preserved on existing courses; new courses are created complete with prices converted to the partner currency. Courses retired on SG are disabled on the partner.',
         'icon'  => '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
     ),
     'categories' => array(
@@ -271,14 +284,15 @@ $_fmSections = array(
         'confirm' => 'Schedule Sync replaces each partner\'s own Course Date / Course Time options with SG\'s. Continue?',
     ),
 );
+$_op  = $_frSection;
+$_sec = $_fmSections[$_op];
+$_fmAnyConfigured = ($_fmPartners['my']['configured'] || $_fmPartners['gh']['configured']);
 ?>
 <div style="display:flex;align-items:center;gap:8px;margin:6px 0 14px;">
-    <div style="font-size:15px;font-weight:700;color:#e2e8f0;">Franchise Sync</div>
     <span style="background:rgba(34,211,238,.12);border:1px solid rgba(34,211,238,.3);color:#22d3ee;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;">One-way · SG → Franchisee</span>
     <span style="font-size:12px;color:#64748b;">Franchisee sites can never write back to the SG site.</span>
 </div>
 
-<?php foreach ($_fmSections as $_op => $_sec): ?>
 <div style="margin-bottom:16px;background:#0f172a;border:1px solid #1e3a5f;border-radius:14px;padding:18px 24px;">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:14px;">
         <div style="flex:1;min-width:260px;">
@@ -311,7 +325,13 @@ $_fmSections = array(
         <?php endforeach; ?>
     </div>
 </div>
-<?php endforeach; ?>
+
+<?php if (!$_fmAnyConfigured): ?>
+<div style="font-size:12px;color:#64748b;">
+    No franchisee connected yet — add the partner URLs and API keys under
+    <a href="<?php echo $_fmReportUrl ?>" style="color:#22d3ee;">Franchise Report → Partner Connection Settings</a> first.
+</div>
+<?php endif; ?>
 
 <script>
 function fmSync(op, btn, confirmMsg) {
@@ -371,5 +391,6 @@ function fmSync(op, btn, confirmMsg) {
     runNext(0);
 }
 </script>
-<?php endif; // SG-only franchise management cards ?>
+<?php endif; // section switch ?>
+<?php endif; // SG-only franchise management pages ?>
 </div>
