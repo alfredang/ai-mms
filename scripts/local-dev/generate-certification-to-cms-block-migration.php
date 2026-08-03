@@ -51,7 +51,7 @@ $aidName = (int) $db->fetchOne("SELECT attribute_id FROM eav_attribute WHERE ent
 $WS      = '(?:\s|&nbsp;|\x{00A0}|\x{2007}|\x{202F})';
 $pattern = '#<h[1-6][^>]*>' . $WS . '*(?:<br\s*/?>' . $WS . '*)*(?:Certifications?|Certificate)' . $WS . '*(?:</span>)?' . $WS . '*[.:]?' . $WS . '*</h[1-6]>(.*?)(?=(?:<[a-z][a-z0-9]*\b[^>]*>' . $WS . '*)*<h[1-6]|\z)#siu';
 
-$BULLET_TERTIARY = '<li><strong>Certificate of Completion from Tertiary Courses</strong> - Upon meeting at least 75% attendance and passing the assessment(s), participants will receive a Certificate of Completion from Tertiary Courses.</li>';
+$BULLET_TERTIARY = '<li><strong>Certificate of Achievement from Tertiary Infotech Academy Pte Ltd</strong> - Upon meeting at least 75% attendance and passing the assessment(s), participants will receive a Certificate of Achievement from Tertiary Infotech Academy Pte Ltd.</li>';
 $BULLET_OPENCERT = '<li><strong>OpenCerts from SkillsFuture Singapore</strong> - After passing the assessment(s) and achieving at least 75% attendance, participants will receive a OpenCert (aka Statement of Achievement) from SkillsFuture Singapore, certifying that they have achieved the Competency Standard(s) in the above Skills Framework.</li>';
 
 $rows = $db->fetchAll(

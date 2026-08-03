@@ -2280,7 +2280,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
         $certificateHtml = $cmsHtml('certification');
         if ($isSg) {
             $certificateHtml  = '<ul>';
-            $certificateHtml .= '<li><strong>Certificate of Completion from Tertiary Courses</strong> - Upon meeting at least 75% attendance and passing the assessment(s), participants will receive a Certificate of Completion from Tertiary Courses.</li>';
+            $certificateHtml .= '<li><strong>Certificate of Achievement from Tertiary Infotech Academy Pte Ltd</strong> - Upon meeting at least 75% attendance and passing the assessment(s), participants will receive a Certificate of Achievement from Tertiary Infotech Academy Pte Ltd.</li>';
             if ($isWsq) {
                 $certificateHtml .= '<li><strong>OpenCerts from SkillsFuture Singapore</strong> - After passing the assessment(s) and achieving at least 75% attendance, participants will receive an OpenCert (aka Statement of Achievement) from SkillsFuture Singapore, certifying that they have achieved the Competency Standard(s) in the above Skills Framework.</li>';
             }
