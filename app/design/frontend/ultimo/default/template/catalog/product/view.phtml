@@ -409,11 +409,15 @@
 	}
 
 	// (5) Certification section.
-	// SG store: ALWAYS render a standardised writeup keyed off the SKU
-	// prefix, regardless of whatever heading variant ("Certificate" /
-	// "Certification" / "Certifications") the legacy description used.
-	// - TGS-* SKUs (WSQ courses) → Certificate of Completion + OpenCert
-	// - All other SG SKUs (C-prefix etc.) → Certificate of Completion only
+	// SG store: the per-course cms/block `course_<sku>_certification` is the
+	// SOURCE OF TRUTH (migration 885 moved the copy there out of
+	// short_description, so ops can edit it from the Edit Course screen).
+	//
+	// The SKU-keyed writeup below is only a FALLBACK for a course whose block
+	// is missing/empty (e.g. a brand-new course created after 885). It keeps
+	// the same rules the migration used:
+	//   - TGS-* SKUs (WSQ courses) → Certificate of Completion + OpenCert
+	//   - CASL and all other SG SKUs (C-prefix etc.) → Certificate only
 	// Other stores keep the original per-course extraction.
 	if (Mage::app()->getStore()->getId() == 1) {
 		// Strip whatever heading variant the description carries so it
@@ -421,27 +425,18 @@
 		list($_certIgnored, $shortDescription) = $_extractSection('(?:Certifications?|Certificate)', $shortDescription);
 		unset($_certIgnored);
 
-		// CASL courses carry TGS- SKUs too but do NOT award OpenCerts
-		// (rule 2026-07-23) — key off the name prefix.
-		$_isCaslCert = (stripos(trim((string) $_product->getName()), 'CASL') === 0);
-		$_isWsqCert = !$_isCaslCert && (stripos((string) $_product->getSku(), 'TGS-') === 0);
-		$_certificationHtml  = '<ul class="cert-bullets">';
-		$_certificationHtml .= '<li><strong>Certificate of Completion from Tertiary Courses</strong> - Upon meeting at least 75% attendance and passing the assessment(s), participants will receive a Certificate of Completion from Tertiary Courses.</li>';
-		if ($_isWsqCert) {
-			$_certificationHtml .= '<li><strong>OpenCerts from SkillsFuture Singapore</strong> - After passing the assessment(s) and achieving at least 75% attendance, participants will receive a OpenCert (aka Statement of Achievement) from SkillsFuture Singapore, certifying that they have achieved the Competency Standard(s) in the above Skills Framework.</li>';
-		}
-		$_certificationHtml .= '</ul>';
-
-		// Append per-course certification supplement from the cms_block
-		// `course_<sku>_certification`. Carries vendor-specific copy like
-		// "Certification Exam at Pearson Vue" for CompTIA courses (migration
-		// 151). The SG baseline bullets above are hardcoded and the
-		// per-course block ALSO has its own baseline (migration 143), so we
-		// can't append the whole block or we'd double the bullets — extract
-		// just the Pearson-Vue-and-after suffix and append that.
-		$_certBlock = $_courseSectionHtml('certification');
-		if ($_certBlock !== '' && preg_match('#<p>\s*<strong>\s*Certification Exam at Pearson Vue\s*</strong>\s*</p>.*$#siu', $_certBlock, $_pvMatch)) {
-			$_certificationHtml .= $_pvMatch[0];
+		$_certificationHtml = $_courseSectionHtml('certification');
+		if ($_certificationHtml === '') {
+			// CASL courses carry TGS- SKUs too but do NOT award OpenCerts
+			// (rule 2026-07-23) — key off the name prefix.
+			$_isCaslCert = (stripos(trim((string) $_product->getName()), 'CASL') === 0);
+			$_isWsqCert = !$_isCaslCert && (stripos((string) $_product->getSku(), 'TGS-') === 0);
+			$_certificationHtml  = '<ul class="cert-bullets">';
+			$_certificationHtml .= '<li><strong>Certificate of Completion from Tertiary Courses</strong> - Upon meeting at least 75% attendance and passing the assessment(s), participants will receive a Certificate of Completion from Tertiary Courses.</li>';
+			if ($_isWsqCert) {
+				$_certificationHtml .= '<li><strong>OpenCerts from SkillsFuture Singapore</strong> - After passing the assessment(s) and achieving at least 75% attendance, participants will receive a OpenCert (aka Statement of Achievement) from SkillsFuture Singapore, certifying that they have achieved the Competency Standard(s) in the above Skills Framework.</li>';
+			}
+			$_certificationHtml .= '</ul>';
 		}
 	} else {
 		// Other active stores: strip the heading variant
