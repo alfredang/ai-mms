@@ -142,34 +142,46 @@ in the old table without moving it), update `backend_type`/`frontend_input`/`sou
 match, then reindex + flush.
 </details>
 
-### C. Leftover `›` sub-menu arrows on 3 nav items (still undecided — user hasn't picked an option)
+### C. ✅ RESOLVED (both Ghana and Malaysia confirmed live)
 
-"Generative AI Series", "Agentic AI Series", "AI Applications Series" still show a `›`
-arrow/mega-sub-panel in the AI Courses dropdown on MY/GH (not present on SG), because they
-still have real grandchild categories underneath them (Prompt Engineering, RAG & Fine Tuning,
-GenAI Content/Video Creation, AI Ethics & Governance under Generative AI Series; Copilot
-Studio Agents, n8n AI Automations, Low/Full Code AI Agent Platforms under Agentic AI Series;
-Computer Vision, Reinforcement Learning (RL) under AI Applications Series) — SG evidently
-flattened these away entirely (its "Generative AI Series" page shows courses directly, no
-subcategory tiles, breadcrumb goes straight to the course).
+Checked SG directly instead of guessing between the 3 originally-proposed options — turned
+out SG did none of them. All 8 matching grandchild categories on SG are still fully
+`is_active=1` and still hold their products directly (2–40 products each, nothing moved or
+deleted) — the **only** difference is `include_in_menu=0`. 3 categories (AI Ethics &
+Governance, Low Code AI Agent Platforms, Full Code AI Agent Platforms) don't exist on SG at
+all but DO have real courses on GH/MY (1, 4, 5 products respectively) — user chose to hide
+these the same way (`include_in_menu=0`) rather than delete, since deleting wasn't really
+"matching SG" so much as an unrelated content decision outside scope.
 
-Root cause confirmed: this Ultimo mega-menu block (`Infortis_UltraMegamenu_Block_Navigation`)
-only checks `getIsActive()` on children when deciding whether to render the arrow/sub-panel —
-it does NOT check `include_in_menu`. So hiding these grandchildren from the menu specifically
-(without touching their content) is NOT possible via `include_in_menu=0`; the only way to make
-the arrow disappear is to either deactivate (`is_active=0`, which also 404s their own standalone
-pages) or actually restructure content (move courses up into the parent Series category, then
-deactivate/retire the now-empty grandchildren) — this is content work, not a config flag.
+This corrected an earlier wrong conclusion from a pure code-read: initially traced
+`Infortis_UltraMegamenu_Block_Navigation`'s render function and saw it only checks
+`getIsActive()` on children, not `include_in_menu` — concluded `include_in_menu` couldn't be
+the lever. That was incomplete: the children LIST itself is built earlier via
+`getChildrenNodes()` (flat-catalog tree walk, used when flat catalog is enabled), which DOES
+filter by `include_in_menu` before the render function ever sees the list. SG's real behavior
+proved this empirically; the static code trace alone would have led to the wrong (more
+destructive) fix.
 
-Three options were presented to the user, still undecided:
-1. Deactivate the 11 grandchild categories outright (`is_active=0`) — fast, but kills their
-   standalone URLs (e.g. `/prompt-engineering-courses.html` → 404).
-2. Fold their courses up into the parent Series category first (reassign products), then
-   deactivate the now-empty grandchildren — matches what SG most likely actually did, more
-   thorough, more changes to review, but preserves every course's discoverability.
-3. Leave as-is — cosmetic-only difference, nav is functionally correct otherwise.
+Applied: `include_in_menu = 0` on all 11 grandchild categories (Prompt Engineering, GenAI
+Content Creation, GenAI Video Creation, RAG & Fine Tuning, AI Ethics & Governance, Copilot
+Studio Agents, n8n AI Automations, Low Code AI Agent Platforms, Full Code AI Agent Platforms,
+Computer Vision, Reinforcement Learning) on both GH and MY, + `catalog_category_flat` reindex
++ cache/Redis db0 flush. Verified via curl: no `nav-item--parent` class on any of the 9
+top-level Series items on either site — zero arrows, matching SG exactly.
 
-**Resume by asking the user which of these three they want**, then execute for both GH and MY.
+**Bonus fix found while verifying**: the AI Courses dropdown panel was rendering at
+`width:800px` (leftover `umm_dd_width` category attribute from before promotion, when this
+was a wide mega panel) vs SG's `width:260px`. Set `umm_dd_width='260px'` on the "AI Courses"
+category on both sites — confirmed via curl, panel width now matches SG exactly.
+
+**Gotcha hit mid-fix, worth remembering**: after running the `include_in_menu` fix on Ghana,
+moved on to the width question before confirming the SAME `include_in_menu` fix had actually
+been run on Malaysia — it hadn't (only the width fix got run there initially). Always verify
+each fix landed on BOTH sites independently before moving to the next item; don't assume
+parity between GH/MY just because one was confirmed.
+
+## All three items (A, B, C) are now fully resolved and verified live on both Ghana and
+## Malaysia as of 2026-07-14. Nothing outstanding on this task unless new drift is found.
 
 ## Environment gotchas learned this session (don't re-discover these)
 

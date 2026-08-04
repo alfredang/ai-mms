@@ -1,0 +1,15 @@
+services:
+  web:
+    ports:
+      - "8081:80"
+    environment:
+      - LOCAL_BASE_URL=http://localhost:8081/
+
+  db_mysql:
+    ports:
+      - "127.0.0.1:3308:3306"
+    volumes:
+      - mysql_data_my:/var/lib/mysql
+
+volumes:
+  mysql_data_my:

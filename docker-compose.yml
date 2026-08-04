@@ -106,11 +106,6 @@ services:
   db_mysql:
     image: mysql:5.7
     platform: linux/amd64
-    ports:
-      # Bind to loopback only — MySQL must not be reachable from the LAN
-      # or (if this compose ever runs on a cloud VM) the public internet.
-      # Use 127.0.0.1:3307 from a GUI client on the host.
-      - "127.0.0.1:3307:3306"
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
