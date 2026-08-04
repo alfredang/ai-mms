@@ -1392,37 +1392,40 @@ a.practice-exam-cta:focus-visible { outline: 2px solid #065f46; outline-offset: 
     color: #5b21b6;
 }
 
-/* ===== Course Brochure CTA — minimalist text link with icon ===== */
-.brochure-cta {
+/* ===== Course Brochure CTA — filled orange button inside the brochure card.
+   Mirrors a.practice-exam-cta (the other in-card CTA) so both cards read as one
+   family; only the hue differs (#ea580c = the brochure card's icon colour).
+   `color` is forced with !important for the same reason as the practice CTA:
+   Ultimo's generic `a:hover` blue would otherwise wash the label out. ===== */
+a.brochure-cta,
+a.brochure-cta:link,
+a.brochure-cta:visited {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 2px 0;
-    background: none;
-    border: 0;
-    border-radius: 0;
-    box-shadow: none;
-    color: #ea580c;
+    background: #ea580c;
+    color: #ffffff !important;
     font-size: 14px;
     font-weight: 600;
-    line-height: 1.4;
+    line-height: 1.2;
     text-decoration: none;
-    transition: color 0.12s ease;
+    padding: 9px 18px;
+    border-radius: 8px;
+    box-shadow: 0 1px 2px rgba(234, 88, 12, 0.25);
+    transition: background .15s ease, box-shadow .15s ease, transform .15s ease;
 }
-.brochure-cta:hover,
-.brochure-cta:focus {
-    color: #c2410c;
-    text-decoration: underline;
-    text-underline-offset: 3px;
-    background: none;
-    box-shadow: none;
-    transform: none;
+a.brochure-cta:hover,
+a.brochure-cta:focus,
+a.brochure-cta:active {
+    background: #c2410c;
+    color: #ffffff !important;
+    text-decoration: none;
+    box-shadow: 0 4px 12px rgba(194, 65, 12, 0.35);
+    transform: translateY(-1px);
 }
+a.brochure-cta:focus-visible { outline: 2px solid #9a3412; outline-offset: 2px; }
 .brochure-cta__icon {
     flex: 0 0 auto;
-    width: auto; height: auto;
-    background: none;
-    border-radius: 0;
     display: inline-flex;
     color: inherit;
 }
@@ -1438,41 +1441,6 @@ a.practice-exam-cta:focus-visible { outline: 2px solid #065f46; outline-offset: 
     font-size: 11.5px;
     font-weight: 500;
 }
-
-/* ===== Course Brochure — simplified single-row card ===== */
-.course-policy-card--brochure-simple {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 14px 18px;
-    color: #c2410c;
-    text-decoration: none;
-    transition: background 0.12s ease, box-shadow 0.12s ease, color 0.12s ease;
-}
-.course-policy-card--brochure-simple:hover,
-.course-policy-card--brochure-simple:focus {
-    color: #9a3412;
-    text-decoration: none;
-    background: #fff7ed;
-}
-.brochure-simple__label {
-    font-size: 15px;
-    font-weight: 600;
-    line-height: 1.3;
-}
-.brochure-simple__icon {
-    flex: 0 0 auto;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-    background: #ea580c;
-    color: #fff;
-}
-.brochure-simple__icon svg { width: 18px; height: 18px; display: block; }
 
 /* ==========================================================================
    Product page 3-column row fit — keep the right (Course Fee) column in the
