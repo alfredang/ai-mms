@@ -127,8 +127,6 @@ $_urlEdit    = Mage::helper('adminhtml')->getUrl('adminhtml/blog/edit');
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
                     </button>
                     <?php endif; ?>
-                    <button type="button" class="bp-abtn ghost" onclick="bpPreview(<?php echo (int) $_flow['post_id'] ?>)">&#128065; Preview</button>
-                    <a class="bp-abtn ghost" href="<?php echo htmlspecialchars($_urlEdit . 'id/' . (int) $_flow['post_id'] . '/') ?>">Edit</a>
                     <?php if ($_pending && $_review): ?>
                     <button type="button" class="bp-abtn ok" onclick="bpReview(<?php echo (int) $_flow['post_id'] ?>,'approve')">&#10003; Approve</button>
                     <button type="button" class="bp-abtn ghost" onclick="bpReview(<?php echo (int) $_flow['post_id'] ?>,'changes')">&#9998; Request changes</button>
