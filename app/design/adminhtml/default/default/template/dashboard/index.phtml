@@ -3374,14 +3374,45 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                  'placeholder' => 'WSQ funding narrative (SFC / UTAP / PSEA / SFEC) and/or HRD Corp Claimable content (HTML supported)...',
                  'hint' => 'Single shared block — renders inside the WSQ Funding card on SG WSQ courses (fee tiles auto-compute from product price; do NOT enter fee tables here), and as the Funding and Grant card on other active country stores.'],
             ];
-            foreach ($_cmsPanels as $_pn): ?>
+            foreach ($_cmsPanels as $_pn):
+                // WSQ (TGS-) courses: the Funding and Grant section is
+                // checkbox-driven (2026-08) — the six scheme checkboxes
+                // read/write the SAME funding badge tags that drive the
+                // storefront chips and the AI cover (syncProductTags), and
+                // the storefront WSQ Funding card renders canonical copy per
+                // ticked scheme with links generated from the course's own
+                // SKU. The legacy per-course cms/block is not consulted.
+                $_fbCheckboxMode = ($_pn['code'] === 'funding_and_grant') && (stripos($_cmsSku, 'TGS-') === 0);
+                if ($_fbCheckboxMode) {
+                    try { $_fbBadges = Mage::helper('mmd_courseimage')->getProductBadges($_editProd); }
+                    catch (Exception $e) { $_fbBadges = array(); }
+                    // A TGS- course with no funding tags yet (fresh import)
+                    // defaults to everything ticked — the common case.
+                    $_fbFresh    = empty($_fbBadges);
+                    $_fbWsqValue = in_array('CASL', $_fbBadges, true) ? 'CASL' : 'WSQ';
+                    $_fbDefs = array(
+                        array('value' => $_fbWsqValue,       'label' => 'WSQ/CASL',         'checked' => $_fbFresh || in_array('WSQ', $_fbBadges, true) || in_array('CASL', $_fbBadges, true)),
+                        array('value' => 'MCES',             'label' => 'MCES/SME',          'checked' => $_fbFresh || in_array('MCES', $_fbBadges, true)),
+                        array('value' => 'SFEC',             'label' => 'SFEC',              'checked' => $_fbFresh || in_array('SFEC', $_fbBadges, true)),
+                        array('value' => 'UTAP',             'label' => 'UTAP',              'checked' => $_fbFresh || in_array('UTAP', $_fbBadges, true)),
+                        array('value' => 'PSEA',             'label' => 'PSEA',              'checked' => $_fbFresh || in_array('PSEA', $_fbBadges, true)),
+                        array('value' => 'Absentee Payroll', 'label' => 'Absentee Payroll',  'checked' => $_fbFresh || in_array('Absentee Payroll', $_fbBadges, true)),
+                    );
+                }
+            ?>
             <div class="dcf-section">
                 <div class="dcf-section-title">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
                     <?php echo htmlspecialchars($_pn['label']) ?>
+                    <?php if ($_fbCheckboxMode): ?>
+                    <span style="font-size:11px;color:#94a3b8;font-weight:normal;margin-left:8px;">Funding badge tags: <code><?php echo htmlspecialchars($_cmsSku) ?></code></span>
+                    <?php else: ?>
                     <span style="font-size:11px;color:#94a3b8;font-weight:normal;margin-left:8px;">CMS Block: <code>course_<?php echo htmlspecialchars($_cmsSku) ?>_<?php echo $_pn['code'] ?></code></span>
+                    <?php endif; ?>
                 </div>
-                <?php if ($_pn['hint']): ?>
+                <?php if ($_fbCheckboxMode): ?>
+                <div style="font-size:12px;color:#94a3b8;margin:0 0 6px;">Tick the funding schemes this course qualifies for — the storefront WSQ Funding card, the funding chips and the AI cover badges all follow these. Fee tiles auto-compute from the course price; MCES/SME controls the MCES/SME Nett tile; scheme links are generated from the course code.</div>
+                <?php elseif ($_pn['hint']): ?>
                 <div style="font-size:12px;color:#94a3b8;margin:0 0 6px;"><?php echo htmlspecialchars($_pn['hint']) ?></div>
                 <?php endif; ?>
                 <?php if ($_pn['code'] === 'brochure'):
@@ -3436,7 +3467,19 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                 </div>
                 <?php endif; ?>
                 <?php endif; ?>
+                <?php if ($_fbCheckboxMode): ?>
+                <input type="hidden" name="_funding_badges_loaded" value="1">
+                <div style="display:flex;flex-wrap:wrap;gap:10px 26px;padding:6px 0 4px;">
+                    <?php foreach ($_fbDefs as $_fb): ?>
+                    <label style="display:inline-flex;align-items:center;gap:7px;font-size:12px;color:#cbd5e1;cursor:pointer;">
+                        <input type="checkbox" name="funding_badges[]" value="<?php echo htmlspecialchars($_fb['value']) ?>"<?php echo $_fb['checked'] ? ' checked' : '' ?>>
+                        <?php echo htmlspecialchars($_fb['label']) ?>
+                    </label>
+                    <?php endforeach; ?>
+                </div>
+                <?php else: ?>
                 <textarea class="dcf-textarea dcf-textarea-rich" name="cms_block_<?php echo $_pn['code'] ?>" placeholder="<?php echo htmlspecialchars($_pn['placeholder']) ?>"><?php echo htmlspecialchars($_cmsBlockHtml($_pn['code'])) ?></textarea>
+                <?php endif; ?>
             </div>
             <?php if ($_pn['code'] === 'learning_outcomes'): ?>
             <!-- Course Topics — the `learning_outcomes` product attribute (not a

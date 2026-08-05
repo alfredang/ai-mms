@@ -121,7 +121,18 @@
 	$_isNonWsqSgCourse = (strncasecmp((string) $_courseSku, 'C', 1) === 0)
 		&& (Mage::app()->getStore()->getCode() === 'singapore');
 	$_showFundingOptionsOnly = ($_isNonWsqSgCourse || $_isNoFundingCourse);
-	$_inner            = $_courseSectionHtml('funding_and_grant');
+	// SG WSQ (TGS-) courses: checkbox-driven (2026-08). The narrative is
+	// built from the course's funding badge TAGS — the same tags behind the
+	// storefront chips and the Edit Course "Funding and Grant" checkboxes —
+	// with every link generated from the course's own SKU. The per-course
+	// funding_and_grant cms/block is no longer consulted for these courses.
+	$_isSgWsqCourse = (stripos($_courseSku, 'TGS-') === 0)
+		&& (Mage::app()->getStore()->getCode() === 'singapore');
+	if ($_isSgWsqCourse) {
+		$_inner = Mage::helper('mmd_courseimage')->getWsqFundingNarrativeHtml($_product);
+	} else {
+		$_inner = $_courseSectionHtml('funding_and_grant');
+	}
 	if ($_inner !== '') {
 		$_hasWsqFunding = true;
 	}
@@ -135,7 +146,7 @@
 		$_wsqStripPattern = null;
 		if (preg_match_all($_wsqPattern, $shortDescription, $_wsqMatches)) {
 			$_wsqStripPattern = $_wsqPattern;
-			if (!$_hasWsqFunding) {
+			if (!$_hasWsqFunding && !$_isSgWsqCourse) {
 				$_hasWsqFunding = true;
 				// Some legacy descriptions contain an empty rounded wrapper
 				// immediately before the real funding wrapper. Preserve every
@@ -145,7 +156,11 @@
 			}
 		} elseif (preg_match($_wsqHeadingPattern, $shortDescription, $_wsqMatch)) {
 			$_wsqStripPattern = $_wsqHeadingPattern;
-			if (!$_hasWsqFunding) { $_hasWsqFunding = true; $_inner = $_wsqMatch[1]; }
+			// TGS- courses never ADOPT description content (badges are the
+			// only source, so unticking WSQ truly removes the card) — but the
+			// strip below still runs to clean any legacy residue out of the
+			// About card.
+			if (!$_hasWsqFunding && !$_isSgWsqCourse) { $_hasWsqFunding = true; $_inner = $_wsqMatch[1]; }
 		}
 		if ($_wsqStripPattern !== null) {
 			// Remove every legacy rounded funding wrapper from the About card.
@@ -229,7 +244,11 @@
 					'html' => '<h3>PSEA</h3>'
 						. '<p>Eligible Singapore Citizens can use their PSEA funds to offset course fee payable after funding.</p>'
 						. '<p>To check for Post-Secondary Education Account (PSEA) eligibility for this course, '
-						. '<a href="https://www.myskillsfuture.gov.sg/content/portal/en/training-exchange/course-directory/course-detail.html?courseReferenceNumber=' . rawurlencode((string) $_courseSku) . '" target="_blank">'
+						// Current SSG deep-link format (the legacy portal
+						// .../course-detail.html?courseReferenceNumber= URL
+						// 301s here). Keep in sync with
+						// MMD_CourseImage_Helper_Data::getWsqFundingNarrativeHtml().
+						. '<a href="https://courses.myskillsfuture.gov.sg/courses/' . rawurlencode((string) $_courseSku) . '" target="_blank">'
 						. '<span style="color: #ff0000; text-decoration-line: underline;">Visit SkillsFuture (course code: ' . $this->escapeHtml($_courseSku) . ')</span></a></p>'
 						. '<ul>'
 						. '<li>Scroll down to &ldquo;Keyword Tags&rdquo; to verify for PSEA eligibility.</li>'
@@ -560,8 +579,11 @@
 	// narrative (SG WSQ) or HRD Corp content (MY) per course. When the WSQ
 	// card has ALREADY consumed it ($_hasWsqFunding == true), suppress the
 	// separate Funding and Grant card to avoid rendering the same content
-	// twice. Otherwise (non-WSQ products), this card renders the block.
-	if ($_hasWsqFunding) {
+	// twice. SG WSQ (TGS-) courses are checkbox-driven and never read the
+	// block — without this guard, unticking WSQ would resurface the retired
+	// block as a Funding and Grant card. Otherwise (non-WSQ products), this
+	// card renders the block.
+	if ($_hasWsqFunding || $_isSgWsqCourse) {
 		$_fundingAndGrantHtml = '';
 	} else {
 		$_fundingAndGrantHtml = $_courseSectionHtml('funding_and_grant');
@@ -1084,11 +1106,16 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 								<span class="wsq-fee-tile__value"><?php echo $_fmt($_wsqBaseline); ?></span>
 								<span class="wsq-fee-tile__hint">SG/PR age 21+ · 50% funded</span>
 							</div>
+							<?php /* MCES/SME tile is checkbox-gated on TGS- courses (the
+							          MCES badge tag); other funded courses keep it
+							          unconditionally. Maths unchanged: price*0.30+GST. */ ?>
+							<?php if (!$_isSgWsqCourse || in_array('MCES', (array) $_courseBadges, true)): ?>
 							<div class="wsq-fee-tile wsq-fee-tile--mces" role="row">
 								<span class="wsq-fee-tile__label">MCES / SME Nett</span>
 								<span class="wsq-fee-tile__value"><?php echo $_fmt($_wsqMces); ?></span>
 								<span class="wsq-fee-tile__hint">SG age 40+ · 70% funded</span>
 							</div>
+							<?php endif; ?>
 						</div>
 						<?php endif; ?>
 						<?php if ($_wsqNarrativeHtml !== ''): ?>

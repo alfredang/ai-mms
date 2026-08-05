@@ -375,6 +375,90 @@ class MMD_CourseImage_Helper_Data extends Mage_Core_Helper_Abstract
     }
 
     /**
+     * Build the canonical WSQ Funding narrative for an SG WSQ (TGS-) course
+     * from its funding badge TAGS — the checkbox-driven replacement for the
+     * per-course `funding_and_grant` cms/block (2026-08 refactor).
+     *
+     * The Edit Course "Funding and Grant" checkboxes read/write the same
+     * badge tags that drive the storefront chips and the AI cover, so one
+     * tick keeps all three surfaces consistent. Scheme gating:
+     *
+     *   WSQ or CASL badge — gates the whole narrative ('' = no funding card)
+     *   SFEC badge        — SkillsFuture Enterprise Credit section
+     *   (always)          — SkillsFuture Credit (SFC) section; universal on
+     *                       every funded WSQ/CASL course, no checkbox
+     *   UTAP badge        — UTAP section
+     *   PSEA badge        — PSEA section
+     *   Absentee Payroll  — badge only, no narrative section yet
+     *   MCES badge        — gates the MCES/SME fee tile (in view.phtml),
+     *                       not a narrative section
+     *
+     * Every link is generated from the course's OWN SKU (for WSQ courses the
+     * SKU is the SSG course reference number), which retires the class of bug
+     * where a copy-pasted block linked to another course's SkillsFuture page.
+     * SFC / PSEA use the current SSG deep-link format
+     * https://courses.myskillsfuture.gov.sg/courses/<code> (the legacy
+     * .../course-detail.html?courseReferenceNumber= URL 301s there).
+     *
+     * Returned HTML is raw <h3> + body sections — the product-view template's
+     * existing post-processor wraps each into a .wsq-sub mini-card, so the
+     * storefront card design is untouched. The AI brochure generator consumes
+     * the same output so page and PDF can never drift.
+     */
+    public function getWsqFundingNarrativeHtml(Mage_Catalog_Model_Product $product): string
+    {
+        $sku = (string) $product->getSku();
+        if ($sku === '') {
+            return '';
+        }
+        $badges = $this->getProductBadges($product);
+        if (!in_array('WSQ', $badges, true) && !in_array('CASL', $badges, true)) {
+            return '';
+        }
+        $skuUrl  = rawurlencode($sku);
+        $skuHtml = htmlspecialchars($sku, ENT_COMPAT, 'UTF-8');
+        $red     = '<span style="color: #ff0000; text-decoration-line: underline;">';
+        $html    = '';
+
+        if (in_array('SFEC', $badges, true)) {
+            $html .= '<h3>SkillsFuture Enterprise Credit (SFEC)</h3>'
+                . '<p>Eligible Singapore-registered companies can tap on $10000 SFEC to cover out-of-pocket expenses.'
+                . '<a href="https://skillsfuture.gobusiness.gov.sg/course-directory/courses/' . $skuUrl . '" target="_blank">'
+                . $red . 'Click here to submit SkillsFuture Enterprise Credit</span></a></p>';
+        }
+
+        $html .= '<h3>SkillsFuture Credit (SFC)</h3>'
+            . '<p>Eligible Singapore Citizens can use their SFC to offset course fee payable after funding but the $4,000 Additional SFC (Mid-Career Support) cannot be used. '
+            . '<a href="https://courses.myskillsfuture.gov.sg/courses/' . $skuUrl . '" title="SkillsFuture Credit" target="_blank">'
+            . $red . 'Click here for SkillsFuture Credit submission</span></a></p>';
+
+        if (in_array('UTAP', $badges, true)) {
+            $html .= '<h3>UTAP</h3>'
+                . '<p>Eligible NTUC members can apply for 50% of the unfunded fee from UTAP, '
+                . 'capped up to $250/year and for members aged 40 and above, capped up to $500/year. '
+                . '<a href="https://www.ntuc.org.sg/wps/portal/up2/home/eserviceslanding?id=6bc1ca2c-ce81-4acb-a28f-c0be586e185f" target="_blank">'
+                . $red . 'Click here to submit UTAP</span></a></p>';
+        }
+
+        if (in_array('PSEA', $badges, true)) {
+            $html .= '<h3>PSEA</h3>'
+                . '<p>Eligible Singapore Citizens can use their PSEA funds to offset course fee payable after funding.</p>'
+                . '<p>To check for Post-Secondary Education Account (PSEA) eligibility for this course, '
+                . '<a href="https://courses.myskillsfuture.gov.sg/courses/' . $skuUrl . '" target="_blank">'
+                . $red . 'Visit SkillsFuture (course code: ' . $skuHtml . ')</span></a></p>'
+                . '<ul>'
+                . '<li>Scroll down to &ldquo;Keyword Tags&rdquo; to verify for PSEA eligibility.</li>'
+                . '<li>If there is &ldquo;PSEA&rdquo; under keyword tags, the course is eligible for PSEA.</li>'
+                . '</ul>'
+                . '<p>Once you are eligible for PSEA, please download and fill up the '
+                . '<a href="https://www.moe.gov.sg/-/media/files/financial-matters/psea-ad-hoc-withdrawal-form.pdf" target="_blank">'
+                . $red . 'PSEA Withdrawal Form</span></a> and email to us.</p>';
+        }
+
+        return $html;
+    }
+
+    /**
      * Map a canonical badge name to its CSS modifier suffix. Used by the
      * storefront template to emit class="course-badge course-badge--wsq"
      * and friends — the palette lives in skin/.../css/custom.css.

@@ -197,6 +197,32 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 $_b->setContent($_v)->save();
             }
 
+            // Funding and Grant checkboxes (WSQ / TGS- courses only, 2026-08).
+            // The six scheme checkboxes write the SAME funding badge tags that
+            // drive the storefront chips + AI cover (syncProductTags), and the
+            // storefront WSQ Funding card renders canonical copy per ticked
+            // scheme. Marker input guards against clear-all when the panel
+            // wasn't rendered (mirrors the assessment_methods pattern above).
+            // Badges outside the checkbox set (SkillsFuture Credit, IBF, HRDF)
+            // are preserved as-is.
+            if ($req->getParam('_funding_badges_loaded') !== null
+                && stripos($_cmsSku, 'TGS-') === 0) {
+                $_fbChecked = $req->getParam('funding_badges');
+                if (!is_array($_fbChecked)) { $_fbChecked = []; }
+                $_fbCheckboxSet = ['WSQ', 'CASL', 'MCES', 'SFEC', 'UTAP', 'PSEA', 'Absentee Payroll'];
+                $_fbChecked = array_values(array_intersect(
+                    array_map('strval', $_fbChecked), $_fbCheckboxSet
+                ));
+                try {
+                    $_ciHelper  = Mage::helper('mmd_courseimage');
+                    $_fbCurrent = $_ciHelper->getProductBadges($product);
+                    $_fbKeep    = array_values(array_diff($_fbCurrent, $_fbCheckboxSet));
+                    $_ciHelper->syncProductTags($product, array_merge($_fbChecked, $_fbKeep));
+                } catch (Exception $_fbEx) {
+                    Mage::log('Funding badge save failed: ' . $_fbEx->getMessage(), null, 'mmd_rolemanager.log');
+                }
+            }
+
             // SEO — per-country store view.
             //
             // The dashboard template emits a hidden seo_target_store_id
@@ -2369,7 +2395,13 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             'assessment_html'    => $sfRaw,  // alias for back-compat
             'skills_html'        => $sfRaw,
             'certificate_html'   => $certificateHtml,
-            'funding_html'       => $cmsHtml('funding_and_grant'),
+            // WSQ (TGS-) courses build funding from the badge-tag checkboxes
+            // (same canonical narrative the storefront card renders) so the
+            // brochure and the product page can never drift; other courses
+            // keep the per-course cms/block (HRD Corp etc.).
+            'funding_html'       => $isWsq
+                ? Mage::helper('mmd_courseimage')->getWsqFundingNarrativeHtml($admin)
+                : $cmsHtml('funding_and_grant'),
             'trainer_html'       => $this->_sanitizeRichHtml((string) $admin->getData('trainerprofile')),
             // Read the provider name from the DB per country —
             // general/store_information/name carries the consumer
