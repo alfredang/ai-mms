@@ -310,7 +310,7 @@ RewriteRule ^(.*)$ https://www.tertiarycourses.com.sg/$1 [L,R=301]
     ## country-instance box (it only ever serves its own domain anyway).
     RewriteCond %{ENV:MMS_MODE} !^country$
     RewriteCond %{HTTP_HOST} !^(www\.)?tertiarycourses\.com\.sg$ [NC]
-    RewriteCond %{HTTP_HOST} !^(localhost|127\.0\.0\.1)(:[0-9]+)?$ [NC]
+    RewriteCond %{HTTP_HOST} !^(localhost|127\.0\.0\.1|host\.docker\.internal)(:[0-9]+)?$ [NC]
     RewriteCond %{HTTP_HOST} !^$
     RewriteRule ^(.*)$ https://www.tertiarycourses.com.sg/$1 [L,R=301]
 

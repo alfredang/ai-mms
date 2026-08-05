@@ -165,7 +165,16 @@ class MMD_Branchscope_Helper_Data extends Mage_Core_Helper_Abstract
 
         $options = array();
         foreach ($codeMap as $sid => $code) {
-            $store = Mage::app()->getStore($sid);
+            // Mage::app()->getStore() throws Mage_Core_Model_Store_Exception
+            // for a missing store id rather than returning null — catch it
+            // so a dev/partner DB that's missing a row (e.g. no GH/NG store
+            // locally) doesn't take down the whole admin panel for any role
+            // whose header renders this widget.
+            try {
+                $store = Mage::app()->getStore($sid);
+            } catch (Mage_Core_Model_Store_Exception $e) {
+                continue;
+            }
             if (!$store || !$store->getId()) {
                 continue; // skip if a store row is missing in this env
             }

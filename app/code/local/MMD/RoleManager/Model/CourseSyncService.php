@@ -34,6 +34,14 @@ class MMD_RoleManager_Model_CourseSyncService
     const LOG_TABLE        = 'mmd_course_sync_log';
 
     /**
+     * Kept as an independent local constant rather than a cross-module
+     * reference — AgentApi/Model/Schedule.php and AgentApi/Model/Template.php
+     * each already define their own copy of this same string rather than
+     * RoleManager depending on AgentApi for one literal.
+     */
+    const COURSE_DATE_OPTION_TITLE = 'Course Date';
+
+    /**
      * Attributes the country owns after first import — never overwritten on
      * UPDATE (P1): course fee + trainer info stay local.
      */
@@ -76,50 +84,86 @@ class MMD_RoleManager_Model_CourseSyncService
         $page = 1;
         $seenSkus = array();
 
-        do {
-            $payload = $this->_fetchPage($page, 50);
-            $courses  = isset($payload['courses']) ? (array)$payload['courses'] : array();
-            $summary['fetched'] += count($courses);
+        // Flat-catalog trap, both halves (category-side precedent: see
+        // CategorySyncService). _upsertCourse() swaps into admin store scope
+        // around $product->save() (see the comment there for why), and while
+        // in that scope any product-save-triggered category reindexing would
+        // otherwise look up catalog_category_flat_store_0 — which never
+        // exists, flat tables are only ever generated per REAL store — and
+        // fatal with "table doesn't exist". Disabling flat_catalog_category
+        // for the duration sidesteps that. flat_catalog_product is disabled
+        // too, defensively — the pre-existing setStoreId(0) comment below
+        // documents a related (if not identical) historical flat-resource
+        // incident on this exact save path.
+        $flatPaths = array('catalog/frontend/flat_catalog_product', 'catalog/frontend/flat_catalog_category');
+        $wasFlat = array();
+        $touchedFlat = false;
+        foreach ($flatPaths as $fp) {
+            $wasFlat[$fp] = (string) Mage::getStoreConfig($fp);
+            if ($wasFlat[$fp] !== '' && $wasFlat[$fp] !== '0') {
+                Mage::getConfig()->saveConfig($fp, '0', 'default', 0);
+                $touchedFlat = true;
+            }
+        }
+        if ($touchedFlat) {
+            Mage::getConfig()->reinit();
+            Mage::app()->reinitStores();
+        }
 
-            foreach ($courses as $course) {
-                $sku = isset($course['sku']) ? (string)$course['sku'] : '';
-                if ($sku === '' || strtoupper(substr($sku, 0, 1)) !== 'C') {
-                    $summary['skipped']++;
-                    continue; // safety invariant: only C-prefix
-                }
-                if (isset($course['status']) && (int)$course['status'] === 2) {
-                    $summary['skipped']++;
-                    continue;
-                }
-                $seenSkus[$sku] = true;
-                $lastErr = null;
-                for ($attempt = 0; $attempt < 3; $attempt++) {
-                    try {
-                        $isNew = $this->_upsertCourse($course);
-                        if ($isNew) $summary['created']++;
-                        else        $summary['updated']++;
-                        $lastErr = null;
-                        break;
-                    } catch (Exception $e) {
-                        $lastErr = $e;
-                        // Retry on InnoDB deadlock (1213), back off slightly
-                        if ($attempt < 2 && strpos($e->getMessage(), '1213') !== false) {
-                            usleep(300000 * ($attempt + 1));
-                            continue;
+        try {
+            do {
+                $payload = $this->_fetchPage($page, 50);
+                $courses  = isset($payload['courses']) ? (array)$payload['courses'] : array();
+                $summary['fetched'] += count($courses);
+
+                foreach ($courses as $course) {
+                    $sku = isset($course['sku']) ? (string)$course['sku'] : '';
+                    if ($sku === '' || strtoupper(substr($sku, 0, 1)) !== 'C') {
+                        $summary['skipped']++;
+                        continue; // safety invariant: only C-prefix
+                    }
+                    if (isset($course['status']) && (int)$course['status'] === 2) {
+                        $summary['skipped']++;
+                        continue;
+                    }
+                    $seenSkus[$sku] = true;
+                    $lastErr = null;
+                    for ($attempt = 0; $attempt < 3; $attempt++) {
+                        try {
+                            $isNew = $this->_upsertCourse($course);
+                            if ($isNew) $summary['created']++;
+                            else        $summary['updated']++;
+                            $lastErr = null;
+                            break;
+                        } catch (Exception $e) {
+                            $lastErr = $e;
+                            // Retry on InnoDB deadlock (1213), back off slightly
+                            if ($attempt < 2 && strpos($e->getMessage(), '1213') !== false) {
+                                usleep(300000 * ($attempt + 1));
+                                continue;
+                            }
+                            break;
                         }
-                        break;
+                    }
+                    if ($lastErr !== null) {
+                        $summary['errors']++;
+                        $summary['error_msgs'][] = $sku . ': ' . $lastErr->getMessage();
+                        Mage::log('CourseSyncService: error sku=' . $sku . ' ' . $lastErr->getMessage(), Zend_Log::ERR, self::LOG_FILE);
                     }
                 }
-                if ($lastErr !== null) {
-                    $summary['errors']++;
-                    $summary['error_msgs'][] = $sku . ': ' . $lastErr->getMessage();
-                    Mage::log('CourseSyncService: error sku=' . $sku . ' ' . $lastErr->getMessage(), Zend_Log::ERR, self::LOG_FILE);
-                }
-            }
 
-            $totalPages = isset($payload['total_pages']) ? (int)$payload['total_pages'] : 1;
-            $page++;
-        } while ($page <= $totalPages);
+                $totalPages = isset($payload['total_pages']) ? (int)$payload['total_pages'] : 1;
+                $page++;
+            } while ($page <= $totalPages);
+        } finally {
+            if ($touchedFlat) {
+                foreach ($flatPaths as $fp) {
+                    Mage::getConfig()->saveConfig($fp, $wasFlat[$fp], 'default', 0);
+                }
+                Mage::getConfig()->reinit();
+                Mage::app()->reinitStores();
+            }
+        }
 
         // Disable local C-products absent from the export (retirement)
         $summary['disabled'] = $this->_disableRetiredCourses($seenSkus);
@@ -164,6 +208,21 @@ class MMD_RoleManager_Model_CourseSyncService
         }
         $summary['fetched'] = 1;
 
+        // Same flat-catalog trap as pull() — see the comment there.
+        $flatPaths = array('catalog/frontend/flat_catalog_product', 'catalog/frontend/flat_catalog_category');
+        $wasFlat = array();
+        $touchedFlat = false;
+        foreach ($flatPaths as $fp) {
+            $wasFlat[$fp] = (string) Mage::getStoreConfig($fp);
+            if ($wasFlat[$fp] !== '' && $wasFlat[$fp] !== '0') {
+                Mage::getConfig()->saveConfig($fp, '0', 'default', 0);
+                $touchedFlat = true;
+            }
+        }
+        if ($touchedFlat) {
+            Mage::getConfig()->reinit();
+            Mage::app()->reinitStores();
+        }
         try {
             $isNew = $this->_upsertCourse($courses[0]);
             if ($isNew) $summary['created']++;
@@ -172,6 +231,14 @@ class MMD_RoleManager_Model_CourseSyncService
             $summary['errors']++;
             $summary['error_msgs'][] = $sku . ': ' . $e->getMessage();
             Mage::log('CourseSyncService: pullOne error sku=' . $sku . ' ' . $e->getMessage(), Zend_Log::ERR, self::LOG_FILE);
+        } finally {
+            if ($touchedFlat) {
+                foreach ($flatPaths as $fp) {
+                    Mage::getConfig()->saveConfig($fp, $wasFlat[$fp], 'default', 0);
+                }
+                Mage::getConfig()->reinit();
+                Mage::app()->reinitStores();
+            }
         }
 
         try {
@@ -225,7 +292,7 @@ class MMD_RoleManager_Model_CourseSyncService
                 try {
                     $options = isset($course['custom_options']) && is_array($course['custom_options'])
                         ? $course['custom_options'] : array();
-                    $this->_recreateCustomOptions($localId, $options);
+                    $this->_mergeScheduleOptions($localId, $options);
                     $summary['updated']++;
                 } catch (Exception $e) {
                     $summary['errors']++;
@@ -240,6 +307,115 @@ class MMD_RoleManager_Model_CourseSyncService
 
         $summary['success'] = $summary['errors'] === 0;
         $this->_writeLog($summary, $triggeredBy . ' (schedules)');
+        return $summary;
+    }
+
+    /**
+     * Courseware sync (bulk): fill-blanks-only merge of SG's courseware
+     * links into every C-prefix course that already exists locally.
+     * Deliberate manual retrigger — never runs as part of the regular
+     * course pull() (which only ports courseware on first-sync CREATE, see
+     * _upsertCourse()). Products absent locally are skipped (run Course
+     * Sync first). No product save happens here, so no flat-catalog
+     * handling is needed — plain course_courseware row upserts.
+     */
+    public function pullCourseware($triggeredBy = 'admin')
+    {
+        if (!$this->isConfigured()) {
+            throw new Exception('SG sync URL / API key not configured (mmd/course_sync/sg_url + api_key).');
+        }
+
+        $summary = array(
+            'fetched' => 0, 'created' => 0, 'updated' => 0,
+            'disabled' => 0, 'skipped' => 0, 'errors' => 0,
+            'error_msgs' => array(), 'success' => true,
+        );
+
+        $page = 1;
+        do {
+            $payload = $this->_fetchPage($page, 50);
+            $courses = isset($payload['courses']) ? (array) $payload['courses'] : array();
+            $summary['fetched'] += count($courses);
+
+            foreach ($courses as $course) {
+                $sku = isset($course['sku']) ? (string) $course['sku'] : '';
+                if ($sku === '' || strtoupper(substr($sku, 0, 1)) !== 'C') {
+                    $summary['skipped']++;
+                    continue;
+                }
+                $localId = (int) Mage::getModel('catalog/product')->getIdBySku($sku);
+                if ($localId === 0) {
+                    $summary['skipped']++; // not imported yet — course sync first
+                    continue;
+                }
+                try {
+                    $courseware = isset($course['courseware']) && is_array($course['courseware'])
+                        ? $course['courseware'] : array();
+                    $this->_mergeCourseware($localId, $courseware);
+                    $summary['updated']++;
+                } catch (Exception $e) {
+                    $summary['errors']++;
+                    $summary['error_msgs'][] = $sku . ': ' . $e->getMessage();
+                    Mage::log('CourseSyncService: courseware error sku=' . $sku . ' ' . $e->getMessage(), Zend_Log::ERR, self::LOG_FILE);
+                }
+            }
+
+            $totalPages = isset($payload['total_pages']) ? (int) $payload['total_pages'] : 1;
+            $page++;
+        } while ($page <= $totalPages);
+
+        $summary['success'] = $summary['errors'] === 0;
+        $this->_writeLog($summary, $triggeredBy . ' (courseware)');
+        return $summary;
+    }
+
+    /**
+     * Courseware sync (single SKU): same fill-blanks merge as
+     * pullCourseware(), for exactly one already-imported course — the
+     * manual per-course retrigger button on the country-mode Manage
+     * Courses page. Errors if the course doesn't exist locally yet.
+     */
+    public function pullCoursewareOne($sku, $triggeredBy = 'admin')
+    {
+        if (!$this->isConfigured()) {
+            throw new Exception('SG sync URL / API key not configured (mmd/course_sync/sg_url + api_key).');
+        }
+        $sku = trim((string) $sku);
+        if ($sku === '' || strtoupper(substr($sku, 0, 1)) !== 'C') {
+            throw new Exception('Only C-prefix (non-WSQ) course codes can be synced.');
+        }
+
+        $summary = array(
+            'fetched' => 0, 'created' => 0, 'updated' => 0,
+            'disabled' => 0, 'skipped' => 0, 'errors' => 0,
+            'error_msgs' => array(), 'success' => true,
+        );
+
+        $localId = (int) Mage::getModel('catalog/product')->getIdBySku($sku);
+        if ($localId === 0) {
+            throw new Exception($sku . ' has not been synced from SG yet — run Course Sync first.');
+        }
+
+        $payload = $this->_fetchPage(1, 1, $sku);
+        $courses = isset($payload['courses']) ? (array) $payload['courses'] : array();
+        if (empty($courses)) {
+            throw new Exception('SG returned no course for ' . $sku);
+        }
+        $summary['fetched'] = 1;
+
+        try {
+            $courseware = isset($courses[0]['courseware']) && is_array($courses[0]['courseware'])
+                ? $courses[0]['courseware'] : array();
+            $this->_mergeCourseware($localId, $courseware);
+            $summary['updated']++;
+        } catch (Exception $e) {
+            $summary['errors']++;
+            $summary['error_msgs'][] = $sku . ': ' . $e->getMessage();
+            Mage::log('CourseSyncService: pullCoursewareOne error sku=' . $sku . ' ' . $e->getMessage(), Zend_Log::ERR, self::LOG_FILE);
+        }
+
+        $summary['success'] = $summary['errors'] === 0;
+        $this->_writeLog($summary, $triggeredBy . ' (courseware single: ' . $sku . ')');
         return $summary;
     }
 
@@ -343,7 +519,28 @@ class MMD_RoleManager_Model_CourseSyncService
             ));
         }
 
-        $product->save();
+        // Mage_Catalog_Model_Product::setOrigData() is a stock no-op unless
+        // Mage::app()->getStore()->isAdmin() — a storefront-save perf
+        // shortcut that assumes orig-data tracking is only ever needed from
+        // the admin. Course Sync now also runs from the frontend-area
+        // TriggerController (/courses/api_sync_trigger), so without this,
+        // _getOrigObject()->getOrigData() comes back null on every UPDATE
+        // and Mage_Eav_Model_Entity_Abstract::_collectSaveData()'s foreach
+        // over it throws. Swap into admin scope for just the save, restore
+        // after — mirrors the setStoreId(0) trick above for the same class
+        // of "this must look like an admin operation" requirement.
+        $prevStore = Mage::app()->getStore();
+        $swappedStore = !$prevStore->isAdmin();
+        if ($swappedStore) {
+            Mage::app()->setCurrentStore(Mage::app()->getStore(Mage_Core_Model_App::ADMIN_STORE_ID));
+        }
+        try {
+            $product->save();
+        } finally {
+            if ($swappedStore) {
+                Mage::app()->setCurrentStore($prevStore);
+            }
+        }
         $savedId = (int) $product->getId();
 
         // Categories — assign by url_key/name (find-or-create)
@@ -356,6 +553,13 @@ class MMD_RoleManager_Model_CourseSyncService
         // recreating them on update would clobber all three with SG's data.
         if ($isNew && isset($c['custom_options']) && is_array($c['custom_options']) && !empty($c['custom_options'])) {
             $this->_recreateCustomOptions($savedId, $c['custom_options']);
+        }
+
+        // Courseware — CREATE only, same P1 shape as custom options above.
+        // Subsequent re-syncs of courseware are a deliberate, separate manual
+        // action (pullCourseware() / pullCoursewareOne()), never bundled here.
+        if ($isNew && isset($c['courseware']) && is_array($c['courseware'])) {
+            $this->_mergeCourseware($savedId, $c['courseware']);
         }
 
         // Badge tags — sync canonical tags
@@ -580,6 +784,183 @@ class MMD_RoleManager_Model_CourseSyncService
         );
     }
 
+    /**
+     * Additive-merge replacement for _recreateCustomOptions() used by
+     * syncSchedules(). Grouped by option title (e.g. "Course Date"):
+     *   - No local option with that title yet -> first-sync full port via
+     *     saveOption()/saveOptionValue(), which (unlike _recreateCustomOptions())
+     *     correctly writes custom_options_option_view_mode, fixing the
+     *     invisible-option bug.
+     *   - Local option already exists -> additive merge only. The option row
+     *     itself (title/sort_order/view_mode) is never touched; only SG
+     *     values not already present locally (case/whitespace-insensitive)
+     *     get appended. An existing "Course Date" option additionally has any
+     *     value whose parsed end date is before today pruned — unconditionally,
+     *     including admin_managed=1 values (confirmed requirement: a stale
+     *     date is stale regardless of who added it). Unparseable titles are
+     *     left alone.
+     */
+    private function _mergeScheduleOptions($productId, array $sgOptions)
+    {
+        /** @var MMD_CustomOptions_Model_Catalog_Product_Option $optionModel */
+        $optionModel = Mage::getModel('customoptions/catalog_product_option');
+
+        // Group by title — SG's export should already be one entry per
+        // title, but merge defensively rather than assume.
+        $byTitle = array();
+        foreach ($sgOptions as $opt) {
+            $title = trim((string) ($opt['title'] ?? ''));
+            if ($title === '') continue;
+            if (!isset($byTitle[$title])) {
+                $byTitle[$title] = array(
+                    'type'       => (string) ($opt['type'] ?? 'drop_down'),
+                    'sort_order' => (int) ($opt['sort_order'] ?? 0),
+                    'values'     => array(),
+                );
+            }
+            if (!empty($opt['values']) && is_array($opt['values'])) {
+                $byTitle[$title]['values'] = array_merge($byTitle[$title]['values'], $opt['values']);
+            }
+        }
+
+        foreach ($byTitle as $title => $group) {
+            $localOptionId = $this->_findLocalOptionIdByTitle($productId, $title);
+
+            if ($localOptionId === 0) {
+                // First sync for this option title — full port.
+                $localOptionId = (int) $optionModel->saveOption($productId, array(
+                    'type'            => $group['type'],
+                    'is_require'      => 0,
+                    'sort_order'      => $group['sort_order'],
+                    'title'           => $title,
+                    'view_mode'       => 1,
+                    'customer_groups' => '',
+                ), 0, 0, $group['type']);
+
+                foreach ($group['values'] as $v) {
+                    $vTitle = trim((string) ($v['title'] ?? ''));
+                    if ($vTitle === '') continue;
+                    $optionModel->saveOptionValue($localOptionId, array(
+                        'sku'        => $v['sku'] ?? null,
+                        'sort_order' => (int) ($v['sort_order'] ?? 0),
+                        'title'      => $vTitle,
+                        'price'      => (float) ($v['price'] ?? 0),
+                        'price_type' => $v['price_type'] ?? 'fixed',
+                    ), array(), array(), 0, 0);
+                }
+                continue; // first sync — pruning is scoped to existing options only
+            }
+
+            // Existing option — additive merge only, option row untouched.
+            $existingTitles = $this->_normalizedValueTitles($localOptionId);
+            foreach ($group['values'] as $v) {
+                $vTitle = trim((string) ($v['title'] ?? ''));
+                if ($vTitle === '') continue;
+                $norm = $this->_normalizeTitle($vTitle);
+                if (isset($existingTitles[$norm])) continue; // already present locally
+                $optionModel->saveOptionValue($localOptionId, array(
+                    'sku'        => $v['sku'] ?? null,
+                    'sort_order' => (int) ($v['sort_order'] ?? 0),
+                    'title'      => $vTitle,
+                    'price'      => (float) ($v['price'] ?? 0),
+                    'price_type' => $v['price_type'] ?? 'fixed',
+                ), array(), array(), 0, 0);
+                $existingTitles[$norm] = true; // avoid re-adding a dup within this same payload
+            }
+
+            if ($this->_normalizeTitle($title) === $this->_normalizeTitle(self::COURSE_DATE_OPTION_TITLE)) {
+                $this->_pruneStalePastDates($localOptionId);
+            }
+        }
+
+        $optionModel->updateProductFlags($productId);
+    }
+
+    /** trim + collapse internal whitespace + case-fold, mirrors the existing strcasecmp(trim(...)) pattern in _findOrCreateOption. */
+    private function _normalizeTitle($s)
+    {
+        return strtolower(trim(preg_replace('/\s+/', ' ', (string) $s)));
+    }
+
+    /** Find a product's local custom-option id by title (normalized match), or 0. */
+    private function _findLocalOptionIdByTitle($productId, $title)
+    {
+        $read = Mage::getSingleton('core/resource')->getConnection('core_read');
+        $tbl  = Mage::getSingleton('core/resource');
+        $rows = $read->fetchPairs(
+            "SELECT o.option_id, t.title
+             FROM " . $tbl->getTableName('catalog_product_option') . " o
+             JOIN " . $tbl->getTableName('catalog_product_option_title') . " t
+               ON t.option_id = o.option_id AND t.store_id = 0
+             WHERE o.product_id = ?",
+            array($productId)
+        );
+        $norm = $this->_normalizeTitle($title);
+        foreach ($rows as $optionId => $optTitle) {
+            if ($this->_normalizeTitle($optTitle) === $norm) return (int) $optionId;
+        }
+        return 0;
+    }
+
+    /** Normalized set of existing value titles under a given option_id. */
+    private function _normalizedValueTitles($optionId)
+    {
+        $read = Mage::getSingleton('core/resource')->getConnection('core_read');
+        $tbl  = Mage::getSingleton('core/resource');
+        $rows = $read->fetchCol(
+            "SELECT t.title
+             FROM " . $tbl->getTableName('catalog_product_option_type_value') . " v
+             JOIN " . $tbl->getTableName('catalog_product_option_type_title') . " t
+               ON t.option_type_id = v.option_type_id AND t.store_id = 0
+             WHERE v.option_id = ?",
+            array($optionId)
+        );
+        $set = array();
+        foreach ($rows as $t) {
+            $set[$this->_normalizeTitle($t)] = true;
+        }
+        return $set;
+    }
+
+    /**
+     * Delete "Course Date" values whose parsed end date is before today.
+     * Applies unconditionally, including admin_managed=1 values — confirmed
+     * requirement, a deliberate departure from the admin_managed protection
+     * AgentApi/Model/Template.php's reconciliation otherwise respects.
+     * Unparseable titles are left alone (can't confidently prove they're past).
+     */
+    private function _pruneStalePastDates($optionId)
+    {
+        $read  = Mage::getSingleton('core/resource')->getConnection('core_read');
+        $write = Mage::getSingleton('core/resource')->getConnection('core_write');
+        $tbl   = Mage::getSingleton('core/resource');
+
+        $rows = $read->fetchAll(
+            "SELECT v.option_type_id, t.title
+             FROM " . $tbl->getTableName('catalog_product_option_type_value') . " v
+             JOIN " . $tbl->getTableName('catalog_product_option_type_title') . " t
+               ON t.option_type_id = v.option_type_id AND t.store_id = 0
+             WHERE v.option_id = ?",
+            array($optionId)
+        );
+
+        /** @var MMD_RoleManager_Model_CourseRunEnrolmentService $dateParser */
+        $dateParser = Mage::getModel('mmd_rolemanager/courseRunEnrolmentService');
+        $today = date('Y-m-d');
+
+        foreach ($rows as $row) {
+            $parsed = $dateParser->_parseDate($row['title']);
+            if ($parsed === null) continue; // can't confidently prove it's past
+            $end = $parsed[1];
+            if ($end >= $today) continue;
+
+            $otid = (int) $row['option_type_id'];
+            foreach (array('catalog_product_option_type_value', 'catalog_product_option_type_title', 'catalog_product_option_type_price') as $t) {
+                $write->delete($tbl->getTableName($t), array('option_type_id = ?' => $otid));
+            }
+        }
+    }
+
     /** Sync badge tags for a product — add missing, leave extras. */
     private function _syncBadges($productId, array $badges)
     {
@@ -608,6 +989,46 @@ class MMD_RoleManager_Model_CourseSyncService
             } catch (Exception $e) {
                 // tag relation may not exist in all DB versions — non-fatal
             }
+        }
+    }
+
+    /**
+     * Fill-blanks-only merge of courseware links into course_courseware.
+     * Once the partner has set a field locally (non-empty), SG never
+     * overwrites it again — same P1 pattern as price/trainer info. On a
+     * brand-new local row (no existing course_courseware yet) every field
+     * is blank, so this behaves as a full port.
+     */
+    private function _mergeCourseware($productId, array $sg)
+    {
+        $fields = array(
+            'lesson_plan_url', 'learner_guide_url', 'learner_slides_url',
+            'trainer_slides_url', 'lab_url', 'courseware_link', 'brochure_link',
+            'google_meet_url', 'certificate_url',
+        );
+
+        $read  = Mage::getSingleton('core/resource')->getConnection('core_read');
+        $write = Mage::getSingleton('core/resource')->getConnection('core_write');
+        $tbl   = Mage::getSingleton('core/resource')->getTableName('course_courseware');
+
+        $existing = $read->fetchRow("SELECT * FROM `$tbl` WHERE product_id = ?", array($productId));
+
+        $data = array();
+        foreach ($fields as $f) {
+            $localVal = $existing ? trim((string) ($existing[$f] ?? '')) : '';
+            if ($localVal !== '') continue; // partner already set this — never overwrite (P1)
+            $sgVal = isset($sg[$f]) ? trim((string) $sg[$f]) : '';
+            if ($sgVal === '') continue; // nothing to fill in from SG either
+            $data[$f] = $sgVal;
+        }
+
+        if (empty($data)) return;
+
+        if ($existing) {
+            $write->update($tbl, $data, array('id = ?' => (int) $existing['id']));
+        } else {
+            $data['product_id'] = $productId;
+            $write->insert($tbl, $data);
         }
     }
 

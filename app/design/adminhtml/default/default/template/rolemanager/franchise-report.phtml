@@ -19,6 +19,7 @@ $_frTitles  = array(
     'courses'    => 'Course Sync',
     'categories' => 'Category Sync',
     'schedules'  => 'Schedule Sync',
+    'courseware' => 'Courseware Sync',
 );
 if (!isset($_frTitles[$_frSection])) $_frSection = '';
 
@@ -279,9 +280,14 @@ $_fmSections = array(
     ),
     'schedules' => array(
         'title' => 'Schedule Sync',
-        'desc'  => 'Push the SG class schedules (Course Date / Course Time options) for all courses to the selected franchisee sites. This replaces the partner\'s own schedule options with SG\'s — courses not yet imported on the partner are skipped (run Course Sync first).',
+        'desc'  => 'Push the SG class schedules (Course Date / Course Time options) for all courses to the selected franchisee sites. New SG dates are added alongside the partner\'s own — nothing existing is overwritten — and past dates are pruned from every option to keep the dropdown tidy. Courses not yet imported on the partner are skipped (run Course Sync first).',
         'icon'  => '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
-        'confirm' => 'Schedule Sync replaces each partner\'s own Course Date / Course Time options with SG\'s. Continue?',
+        'confirm' => 'Schedule Sync adds SG\'s new class dates to each partner and removes any dates that are now in the past. Existing future dates are kept as-is. Continue?',
+    ),
+    'courseware' => array(
+        'title' => 'Courseware Sync',
+        'desc'  => 'Push SG\'s courseware links (lesson plan, learner/trainer slides, guides, brochure, Drive folder) to the selected franchisee sites for courses that already exist there. Fill-blanks-only — once a partner sets their own courseware link, SG never overwrites it. Courses not yet imported on the partner are skipped (run Course Sync first).',
+        'icon'  => '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>',
     ),
 );
 $_op  = $_frSection;
