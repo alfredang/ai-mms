@@ -64,6 +64,32 @@ class MMD_RoleManager_Adminhtml_CoursesyncController extends Mage_Adminhtml_Cont
         }
     }
 
+    public function pullCoursewareOneAction()
+    {
+        try {
+            if (!$this->getRequest()->isPost()) throw new Exception('POST required');
+            $this->_validateFormKey();
+
+            if (strtolower((string) getenv('MMS_MODE')) !== 'country') {
+                throw new Exception('Course sync is only available in country mode.');
+            }
+
+            /** @var MMD_RoleManager_Model_CourseSyncService $svc */
+            $svc = Mage::getModel('mmd_rolemanager/courseSyncService');
+            if (!$svc->isConfigured()) throw new Exception('Set the SG Sync URL and API key first.');
+
+            $sku = trim((string) $this->getRequest()->getParam('sku'));
+
+            $user = Mage::getSingleton('admin/session')->getUser();
+            $name = $user ? trim($user->getFirstname() . ' ' . $user->getLastname()) : '';
+            $who  = $name !== '' ? $name : ($user ? (string)$user->getEmail() : 'admin');
+            $res  = $svc->pullCoursewareOne($sku, $who);
+            $this->_json(array_merge(array('success' => $res['success']), $res));
+        } catch (Exception $e) {
+            $this->_json(array('success' => false, 'message' => $e->getMessage()));
+        }
+    }
+
     public function saveConfigAction()
     {
         try {
