@@ -3931,6 +3931,30 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                                 );
                             }
                         }
+                        if (empty($_seed) && $_loRaw !== '' && preg_match('#<h3[^>]*>#i', $_loRaw)) {
+                            // Modern Course-Topics HTML (the storefront "What
+                            // You'll Learn" card): <h3>Topic N ...</h3> headings
+                            // each followed by a <ul><li> outline. Split on the
+                            // h3s and collect each one's list items.
+                            $_sdParts = preg_split('#<h3[^>]*>(.*?)</h3>#is', $_loRaw, -1, PREG_SPLIT_DELIM_CAPTURE);
+                            for ($_sdPi = 1; $_sdPi < count($_sdParts); $_sdPi += 2) {
+                                $_sdT = trim(html_entity_decode(strip_tags($_sdParts[$_sdPi])), " :\t\n\r\0\x0B");
+                                if ($_sdT === '') continue;
+                                $_sdBody = isset($_sdParts[$_sdPi + 1]) ? $_sdParts[$_sdPi + 1] : '';
+                                $_sdSubs = array();
+                                if (preg_match_all('#<li[^>]*>(.*?)</li>#is', $_sdBody, $_sdLi)) {
+                                    foreach ($_sdLi[1] as $_st) {
+                                        $_st = trim(html_entity_decode(strip_tags($_st)), " :\t\n\r\0\x0B");
+                                        if ($_st !== '') $_sdSubs[] = $_st;
+                                    }
+                                }
+                                $_seed[] = array(
+                                    'title'   => $_sdT,
+                                    'subsecs' => $_sdSubs,
+                                    'links'   => array(),
+                                );
+                            }
+                        }
                         echo json_encode($_seed);
                     ?>;
 
@@ -6314,6 +6338,26 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
                 $_devLessonTopics[] = array('title' => $_lt, 'subsecs' => $_dvSubs, 'links' => array());
             }
         }
+        if (empty($_devLessonTopics) && $_descRaw !== '' && preg_match('#<h3[^>]*>#i', $_descRaw)) {
+            // Modern Course-Topics HTML (the storefront "What You'll Learn"
+            // card): <h3>Topic N ...</h3> headings each followed by a
+            // <ul><li> outline. Split on the h3s and collect each one's
+            // list items as its sub-topics.
+            $_dvParts = preg_split('#<h3[^>]*>(.*?)</h3>#is', $_descRaw, -1, PREG_SPLIT_DELIM_CAPTURE);
+            for ($_dvPi = 1; $_dvPi < count($_dvParts); $_dvPi += 2) {
+                $_lt = trim(html_entity_decode(strip_tags($_dvParts[$_dvPi])), " :\t\n\r\0\x0B");
+                if ($_lt === '') continue;
+                $_dvBody = isset($_dvParts[$_dvPi + 1]) ? $_dvParts[$_dvPi + 1] : '';
+                $_dvSubs = array();
+                if (preg_match_all('#<li[^>]*>(.*?)</li>#is', $_dvBody, $_dvLi)) {
+                    foreach ($_dvLi[1] as $_st) {
+                        $_st = trim(html_entity_decode(strip_tags($_st)), " :\t\n\r\0\x0B");
+                        if ($_st !== '') $_dvSubs[] = $_st;
+                    }
+                }
+                $_devLessonTopics[] = array('title' => $_lt, 'subsecs' => $_dvSubs, 'links' => array());
+            }
+        }
     } catch (Exception $e) {}
     $_lessonTypeLabels = array('web'=>'Web','doc'=>'Document','yt'=>'YouTube','act'=>'Activity','qz'=>'Quiz');
     $_lessonTypeColors = array('web'=>'#2563eb','doc'=>'#16a34a','yt'=>'#dc2626','act'=>'#f59e0b','qz'=>'#a855f7');
@@ -6797,6 +6841,26 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
                     foreach (preg_split('#</?(?:p|li|br|div)[^>]*>#i', $_shBody) as $_ln) {
                         $_ln = trim(html_entity_decode(strip_tags($_ln)), " :\t\n\r\0\x0B");
                         if ($_ln !== '') $_shSubs[] = $_ln;
+                    }
+                }
+                $_sharedLessonTopics[] = array('title' => $_lt, 'subsecs' => $_shSubs, 'links' => array());
+            }
+        }
+        if (empty($_sharedLessonTopics) && $_sharedDescRaw !== '' && preg_match('#<h3[^>]*>#i', $_sharedDescRaw)) {
+            // Modern Course-Topics HTML (the storefront "What You'll Learn"
+            // card): <h3>Topic N ...</h3> headings each followed by a
+            // <ul><li> outline. Split on the h3s and collect each one's
+            // list items as its sub-topics.
+            $_shParts = preg_split('#<h3[^>]*>(.*?)</h3>#is', $_sharedDescRaw, -1, PREG_SPLIT_DELIM_CAPTURE);
+            for ($_shPi = 1; $_shPi < count($_shParts); $_shPi += 2) {
+                $_lt = trim(html_entity_decode(strip_tags($_shParts[$_shPi])), " :\t\n\r\0\x0B");
+                if ($_lt === '') continue;
+                $_shBody = isset($_shParts[$_shPi + 1]) ? $_shParts[$_shPi + 1] : '';
+                $_shSubs = array();
+                if (preg_match_all('#<li[^>]*>(.*?)</li>#is', $_shBody, $_shLi)) {
+                    foreach ($_shLi[1] as $_st) {
+                        $_st = trim(html_entity_decode(strip_tags($_st)), " :\t\n\r\0\x0B");
+                        if ($_st !== '') $_shSubs[] = $_st;
                     }
                 }
                 $_sharedLessonTopics[] = array('title' => $_lt, 'subsecs' => $_shSubs, 'links' => array());
