@@ -1,0 +1,253 @@
+<?php
+/**
+ * Admin "Featured Reviews" grid — what the storefront testimonials actually
+ * show (homepage strip + /testimonials), in one place.
+ *
+ * Reuses the rolemanager.css `rm-*` token set (loaded globally on every admin
+ * page) so this page needs zero new CSS: .rm-wrap / .rm-title / .rm-kpi /
+ * .rm-filters / .rm-table / .rm-pagination all come from there.
+ *
+ * Read-only except for "Remove" (demote). Promoting a review happens on
+ * All Reviews, which is where you'd be when you spot one worth featuring.
+ */
+$resource  = Mage::getSingleton('core/resource');
+$read      = $resource->getConnection('core_read');
+$reviewTbl = $resource->getTableName('review/review');
+$detailTbl = $resource->getTableName('review/review_detail');
+$voteTbl   = $resource->getTableName('rating/rating_option_vote');
+$pEntity   = $resource->getTableName('catalog_product_entity');
+$pVarchar  = $resource->getTableName('catalog_product_entity_varchar');
+$eavAttr   = $resource->getTableName('eav_attribute');
+$eavType   = $resource->getTableName('eav_entity_type');
+
+$nameAttrId = (int) $read->fetchOne(
+    "SELECT a.attribute_id FROM {$eavAttr} a
+       INNER JOIN {$eavType} t ON t.entity_type_id = a.entity_type_id
+      WHERE t.entity_type_code = 'catalog_product' AND a.attribute_code = 'name'"
+);
+
+// ── KPIs ────────────────────────────────────────────────────────────────
+$_totalFeatured = (int) $read->fetchOne("SELECT COUNT(*) FROM {$reviewTbl} WHERE is_featured = 1");
+$_liveFeatured  = (int) $read->fetchOne(
+    "SELECT COUNT(*) FROM {$reviewTbl} WHERE is_featured = 1 AND status_id = " . Mage_Review_Model_Review::STATUS_APPROVED
+);
+// Featured but not approved never reaches the storefront — surface it rather
+// than let someone wonder why their pick isn't showing.
+$_hiddenFeatured = $_totalFeatured - $_liveFeatured;
+
+// ── Pagination ──────────────────────────────────────────────────────────
+$_pageSize = 50;
+$_curPage  = max(1, (int) Mage::app()->getRequest()->getParam('page', 1));
+$_totalRows = $_totalFeatured;
+$_totalPages = $_totalRows > 0 ? (int) ceil($_totalRows / $_pageSize) : 1;
+if ($_curPage > $_totalPages) {
+    $_curPage = $_totalPages;
+}
+$_offset = ($_curPage - 1) * $_pageSize;
+
+// ── Rows ────────────────────────────────────────────────────────────────
+$rows = $read->fetchAll(
+    "SELECT r.review_id, r.created_at, r.status_id, r.entity_pk_value,
+            d.title, d.detail, d.nickname,
+            pe.sku,
+            pv.value AS course_name,
+            (SELECT AVG(v.value) FROM {$voteTbl} v WHERE v.review_id = r.review_id) AS score
+       FROM {$reviewTbl} r
+       INNER JOIN {$detailTbl} d ON d.review_id = r.review_id
+       LEFT JOIN {$pEntity} pe ON pe.entity_id = r.entity_pk_value
+       LEFT JOIN {$pVarchar} pv ON pv.entity_id = r.entity_pk_value
+            AND pv.attribute_id = {$nameAttrId} AND pv.store_id = 0
+      WHERE r.is_featured = 1
+      ORDER BY r.created_at DESC
+      LIMIT {$_pageSize} OFFSET {$_offset}"
+);
+
+$_allReviewsUrl = Mage::helper('adminhtml')->getUrl('adminhtml/catalog_product_review');
+$_editBase      = 'adminhtml/catalog_product_review/edit';
+$_unfeatureBase = 'adminhtml/featuredreviews/unfeature';
+$_pageTitle     = 'Featured Reviews';
+?>
+<div class="rm-wrap">
+
+    <!-- Page header -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h2 class="rm-title" style="margin:0"><?php echo $this->__($_pageTitle) ?></h2>
+        <a href="<?php echo $_allReviewsUrl ?>"
+           style="padding:8px 18px;background:#2563eb;color:#fff !important;border:none;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none !important;white-space:nowrap;">+ Add from All Reviews</a>
+    </div>
+
+    <p style="color:#64748b;font-size:12.5px;margin:0 0 20px;max-width:760px;line-height:1.6;">
+        These reviews appear on the storefront &mdash; 4 at random in the
+        <strong style="color:#94a3b8;">What our learners say</strong> band on the homepage, and all of
+        them on the
+        <a href="<?php echo Mage::getUrl('testimonials') ?>" target="_blank" style="color:#60a5fa;">Testimonials page</a>.
+        To feature a review, open <a href="<?php echo $_allReviewsUrl ?>" style="color:#60a5fa;">All Reviews</a>,
+        select it, and use the <em>Mark as Featured</em> action.
+    </p>
+
+    <!-- KPIs -->
+    <div class="rm-kpi">
+        <div class="rm-kpi-card">
+            <div class="rm-kpi-num blue"><?php echo number_format($_totalFeatured) ?></div>
+            <div class="rm-kpi-lbl"><?php echo $this->__('Featured Reviews') ?></div>
+        </div>
+        <div class="rm-kpi-card">
+            <div class="rm-kpi-num green"><?php echo number_format($_liveFeatured) ?></div>
+            <div class="rm-kpi-lbl"><?php echo $this->__('Live on Storefront') ?></div>
+        </div>
+        <div class="rm-kpi-card">
+            <div class="rm-kpi-num<?php echo $_hiddenFeatured > 0 ? '' : ' purple' ?>"
+                 <?php echo $_hiddenFeatured > 0 ? 'style="color:#f59e0b"' : '' ?>><?php echo number_format($_hiddenFeatured) ?></div>
+            <div class="rm-kpi-lbl"><?php echo $this->__('Hidden (Not Approved)') ?></div>
+        </div>
+    </div>
+
+    <!-- Filter -->
+    <div class="rm-filters">
+        <div class="rm-search">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input type="search" id="fr-search" name="fr-review-filter" autocomplete="off"
+                   readonly onfocus="this.removeAttribute('readonly')"
+                   placeholder="Search learner, course, course code, or quote..." oninput="frFilter()" />
+        </div>
+    </div>
+
+    <?php /* table-layout:fixed so the Review column's percentage width is
+             actually honoured. Without it the browser sizes columns to
+             content and the long quote pushes Status/Actions off-screen. */ ?>
+    <div style="overflow-x:auto;">
+    <table class="rm-table" id="fr-table" style="table-layout:fixed;width:100%;">
+        <thead>
+            <tr>
+                <th style="width:92px;">Date</th>
+                <th style="width:140px;">Learner</th>
+                <th style="width:210px;">Course</th>
+                <th style="width:130px;">Course Code</th>
+                <th style="width:110px;">Rating</th>
+                <th>Review</th>
+                <th style="width:100px;">Status</th>
+                <th style="width:86px;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+        <?php if (!$rows): ?>
+            <tr><td colspan="8" style="padding:28px 10px;text-align:center;color:#64748b;white-space:normal;height:auto;">
+                <?php echo $this->__('No featured reviews yet. Open All Reviews, select the ones worth showing, and choose "Mark as Featured".') ?>
+            </td></tr>
+        <?php endif; ?>
+        <?php foreach ($rows as $r):
+            $_rid       = (int) $r['review_id'];
+            $_approved  = ((int) $r['status_id'] === Mage_Review_Model_Review::STATUS_APPROVED);
+            $_score     = $r['score'] !== null ? round((float) $r['score'], 1) : 5.0;
+            $_full      = (int) floor($_score);
+            $_quote     = trim((string) $r['detail']);
+            // "N/A" is what the feedback form writes when a learner rates but
+            // leaves no comment — show the summary line instead of a dead cell.
+            if ($_quote === '' || strtoupper($_quote) === 'N/A') {
+                $_quote = (string) $r['title'];
+            }
+            $_editUrl   = Mage::helper('adminhtml')->getUrl($_editBase, array('id' => $_rid));
+            $_unfUrl    = Mage::helper('adminhtml')->getUrl($_unfeatureBase, array('id' => $_rid));
+            $_haystack  = strtolower($r['nickname'] . ' ' . $r['course_name'] . ' ' . $r['sku'] . ' ' . $_quote);
+        ?>
+            <tr class="fr-row" data-search="<?php echo htmlspecialchars($_haystack, ENT_QUOTES) ?>">
+                <td style="color:#94a3b8;font-size:12px;"><?php echo date('d M Y', strtotime($r['created_at'])) ?></td>
+                <td style="overflow:hidden;text-overflow:ellipsis;"><span class="rm-name" title="<?php echo $this->escapeHtml($r['nickname']) ?>"><?php echo $this->escapeHtml($r['nickname']) ?></span></td>
+                <td style="overflow:hidden;text-overflow:ellipsis;">
+                    <?php if ($r['course_name']): ?>
+                        <span style="color:#cbd5e1;font-size:12.5px;" title="<?php echo $this->escapeHtml($r['course_name']) ?>"><?php echo $this->escapeHtml($r['course_name']) ?></span>
+                    <?php else: ?>
+                        <span style="color:#64748b;">&mdash;</span>
+                    <?php endif; ?>
+                </td>
+                <td style="color:#94a3b8;font-size:12px;"><?php echo $this->escapeHtml($r['sku'] ? $r['sku'] : '—') ?></td>
+                <td style="white-space:nowrap;">
+                    <span style="color:#f59e0b;letter-spacing:1px;"><?php echo str_repeat('&#9733;', $_full) . str_repeat('<span style="color:#475569">&#9733;</span>', 5 - $_full) ?></span>
+                    <span style="color:#64748b;font-size:11px;margin-left:4px;"><?php echo number_format($_score, 1) ?></span>
+                </td>
+                <?php /* Opt out of .rm-table's global nowrap for this column
+                         only — a review quote must wrap or it blows the row
+                         out to several thousand pixels wide. */ ?>
+                <td style="white-space:normal;line-height:1.45;height:auto;padding:8px 10px;color:#94a3b8;font-size:12px;">
+                    <span title="<?php echo $this->escapeHtml($_quote) ?>"
+                          style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;"><?php echo $this->escapeHtml($_quote) ?></span>
+                </td>
+                <td>
+                    <?php if ($_approved): ?>
+                        <span class="rm-status rm-status-active"><?php echo $this->__('Live') ?></span>
+                    <?php else: ?>
+                        <span class="rm-status" style="background:rgba(245,158,11,.15);color:#f59e0b;"><?php echo $this->__('Not Approved') ?></span>
+                    <?php endif; ?>
+                </td>
+                <td style="white-space:nowrap;">
+                    <a href="<?php echo $_editUrl ?>" class="mmd-iconbtn" title="<?php echo $this->__('Edit review') ?>">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    </a>
+                    <a href="<?php echo $_unfUrl ?>" class="mmd-iconbtn" title="<?php echo $this->__('Remove from featured') ?>"
+                       onclick="return confirm('<?php echo $this->jsQuoteEscape($this->__('Remove this review from the storefront testimonials?')) ?>');">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                    </a>
+                </td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+    </div>
+
+    <?php
+        $_pageBase = Mage::helper('adminhtml')->getUrl('*/*/index', array('_query' => array()));
+        $_pageBase = preg_replace('#[?&]page=\d+#i', '', $_pageBase);
+        $_pageBase = rtrim($_pageBase, '?&');
+        $_pageJoin = strpos($_pageBase, '?') === false ? '?' : '&';
+        $_firstOfPage = $_totalRows > 0 ? (($_curPage - 1) * $_pageSize + 1) : 0;
+        $_lastOfPage  = $_totalRows > 0 ? min($_curPage * $_pageSize, $_totalRows) : 0;
+    ?>
+    <div class="rm-pagination">
+        <div class="rm-pagination-summary">
+            <?php if ($_totalRows > 0): ?>
+                Showing <?php echo $_firstOfPage ?>&ndash;<?php echo $_lastOfPage ?> of <?php echo number_format($_totalRows) ?>
+            <?php else: ?>
+                No featured reviews
+            <?php endif; ?>
+        </div>
+        <div class="rm-pagination-controls">
+            <?php if ($_totalPages > 1): ?>
+                <?php $_prev = max(1, $_curPage - 1); $_next = min($_totalPages, $_curPage + 1); ?>
+                <a href="<?php echo $_pageBase . $_pageJoin . 'page=' . $_prev ?>"
+                   class="rm-pagination-btn<?php echo $_curPage <= 1 ? ' disabled' : '' ?>"
+                   <?php echo $_curPage <= 1 ? 'onclick="event.preventDefault()"' : '' ?>>&#8592; Prev</a>
+                <?php
+                    $_toShow = array_unique(array_filter(
+                        array(1, $_curPage - 1, $_curPage, $_curPage + 1, $_totalPages),
+                        function ($n) use ($_totalPages) { return $n >= 1 && $n <= $_totalPages; }
+                    ));
+                    sort($_toShow);
+                    $_last = 0;
+                    foreach ($_toShow as $_n):
+                        if ($_last && ($_n - $_last) > 1): ?>
+                            <span class="rm-pagination-ellipsis">&hellip;</span>
+                        <?php endif; ?>
+                        <a href="<?php echo $_pageBase . $_pageJoin . 'page=' . $_n ?>"
+                           class="rm-pagination-btn<?php echo $_n === $_curPage ? ' active' : '' ?>"><?php echo $_n ?></a>
+                    <?php $_last = $_n; endforeach; ?>
+                <a href="<?php echo $_pageBase . $_pageJoin . 'page=' . $_next ?>"
+                   class="rm-pagination-btn<?php echo $_curPage >= $_totalPages ? ' disabled' : '' ?>"
+                   <?php echo $_curPage >= $_totalPages ? 'onclick="event.preventDefault()"' : '' ?>>Next &#8594;</a>
+            <?php endif; ?>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+// Client-side filter over the current page only (page size 50 — small enough
+// that filtering in the DOM is safe here, unlike the 22k All Reviews grid).
+// Plain for-loop, not Array generics: prototype.js breaks those on NodeLists.
+function frFilter() {
+    var q = (document.getElementById('fr-search').value || '').toLowerCase().trim();
+    var rows = document.querySelectorAll('#fr-table tbody tr.fr-row');
+    for (var i = 0; i < rows.length; i++) {
+        var hay = rows[i].getAttribute('data-search') || '';
+        rows[i].style.display = (!q || hay.indexOf(q) !== -1) ? '' : 'none';
+    }
+}
+</script>
