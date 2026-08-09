@@ -1,0 +1,55 @@
+<?php
+/**
+ * Homepage "What our learners say" strip — 4 random featured reviews,
+ * rendered in the homepage `postscript` region immediately after the blog
+ * strip. Randomised per request (see MMD_Reviews_Block_Featured::getCacheKey).
+ * @var MMD_Reviews_Block_Featured $this
+ */
+$helper  = $this->helper('mmd_reviews');
+$reviews = $this->getReviews();
+if (!count($reviews)) {
+    return;
+}
+?>
+<div class="mmd-rev-home">
+    <div class="mmd-rev-head">
+        <div>
+            <p class="mmd-rev-kicker">[ LEARNER STORIES ]</p>
+            <h2>What our learners say</h2>
+        </div>
+        <a class="mmd-rev-all" href="<?php echo $helper->getTestimonialsUrl() ?>">View all testimonials &rarr;</a>
+    </div>
+    <div class="mmd-rev-grid">
+        <?php foreach ($reviews as $review): ?>
+        <?php
+            $name  = $review['nickname'];
+            $score = (float) $review['score'];
+            $full  = (int) floor($score);
+        ?>
+        <article class="mmd-rev-card">
+            <div class="mmd-rev-stars" aria-label="<?php echo $this->escapeHtml($score) ?> out of 5">
+                <?php for ($i = 1; $i <= 5; $i++): ?>
+                    <span class="mmd-rev-star<?php echo $i <= $full ? ' is-on' : '' ?>">&#9733;</span>
+                <?php endfor; ?>
+            </div>
+            <?php if ($review['title']): ?>
+                <h3 class="mmd-rev-title"><?php echo $this->escapeHtml($review['title']) ?></h3>
+            <?php endif; ?>
+            <blockquote class="mmd-rev-quote"><?php echo $this->escapeHtml($review['detail']) ?></blockquote>
+            <div class="mmd-rev-foot">
+                <span class="mmd-rev-avatar mmd-rev-av-<?php echo $helper->getAvatarIndex($name) ?>"><?php echo $this->escapeHtml($helper->getInitials($name)) ?></span>
+                <div class="mmd-rev-who">
+                    <span class="mmd-rev-name"><?php echo $this->escapeHtml($name) ?></span>
+                    <?php if ($review['course_name']): ?>
+                        <?php if ($review['course_url']): ?>
+                            <a class="mmd-rev-course" href="<?php echo $review['course_url'] ?>"><?php echo $this->escapeHtml($review['course_name']) ?></a>
+                        <?php else: ?>
+                            <span class="mmd-rev-course"><?php echo $this->escapeHtml($review['course_name']) ?></span>
+                        <?php endif; ?>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </article>
+        <?php endforeach; ?>
+    </div>
+</div>

@@ -1,0 +1,88 @@
+<?xml version="1.0"?>
+<!--
+  MMD_Reviews — featured course reviews as storefront testimonials.
+
+  Data:      `review.is_featured` (migration 897) — a flag on the stock review
+             table, NOT a parallel testimonial table. Admins pick which
+             approved reviews are marketing-worthy from the All Reviews grid.
+  Frontend:  homepage "What our learners say" strip (4 random featured reviews,
+             rendered in `postscript` immediately after the blog strip) and
+             /testimonials listing every featured review.
+  Admin:     the Featured column + filter + massaction live on the stock
+             All Reviews grid via MMD_Adminhtml_Block_Review_Grid, and the
+             edit-form checkbox via the review_edit_form block rewrite.
+-->
+<config>
+    <modules>
+        <MMD_Reviews>
+            <version>1.0.0</version>
+        </MMD_Reviews>
+    </modules>
+
+    <global>
+        <helpers>
+            <mmd_reviews>
+                <class>MMD_Reviews_Helper</class>
+            </mmd_reviews>
+        </helpers>
+        <blocks>
+            <mmd_reviews>
+                <class>MMD_Reviews_Block</class>
+            </mmd_reviews>
+            <adminhtml>
+                <rewrite>
+                    <review_edit_form>MMD_Reviews_Block_Adminhtml_Edit_Form</review_edit_form>
+                </rewrite>
+            </adminhtml>
+        </blocks>
+        <!-- Persist is_featured on the stock review save (the flag rides in on
+             the edit form, which posts through Mage_Adminhtml's review
+             controller — an observer avoids rewriting that controller). -->
+        <events>
+            <review_save_after>
+                <observers>
+                    <mmd_reviews_featured>
+                        <class>mmd_reviews/observer</class>
+                        <method>saveFeaturedFlag</method>
+                    </mmd_reviews_featured>
+                </observers>
+            </review_save_after>
+        </events>
+        <models>
+            <mmd_reviews>
+                <class>MMD_Reviews_Model</class>
+            </mmd_reviews>
+        </models>
+    </global>
+
+    <frontend>
+        <routers>
+            <mmd_reviews>
+                <use>standard</use>
+                <args>
+                    <module>MMD_Reviews</module>
+                    <frontName>testimonials</frontName>
+                </args>
+            </mmd_reviews>
+        </routers>
+        <layout>
+            <updates>
+                <mmd_reviews>
+                    <file>mmd_reviews.xml</file>
+                </mmd_reviews>
+            </updates>
+        </layout>
+    </frontend>
+
+    <admin>
+        <routers>
+            <adminhtml>
+                <args>
+                    <modules>
+                        <mmd_reviews before="Mage_Adminhtml">MMD_Reviews_Adminhtml</mmd_reviews>
+                    </modules>
+                </args>
+            </adminhtml>
+        </routers>
+    </admin>
+</config>

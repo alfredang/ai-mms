@@ -71,23 +71,39 @@ class MMD_Adminhtml_Block_Review_Grid extends Mage_Adminhtml_Block_Review_Grid
     }
 
     /**
-     * Wire the Store View bar's ?store=N to actually filter the grid.
+     * Two jobs, both of which must happen BEFORE load():
      *
-     * Stock Mage_Adminhtml_Block_Review_Grid only joins store data for
-     * display (addStoreData) and never filters by ?store=. The grid's
-     * collection runs _applyStoresFilterToSelect during _beforeLoad, so
-     * the store id must be set BEFORE load() is called from
-     * Mage_Adminhtml_Block_Widget_Grid::_prepareCollection. Hooking
-     * _beforeLoadCollection is the right place — it fires between filter
-     * setup and load().
+     * 1. Wire the Store View bar's ?store=N to actually filter the grid.
+     *    Stock Mage_Adminhtml_Block_Review_Grid only joins store data for
+     *    display (addStoreData) and never filters by ?store=. The grid's
+     *    collection runs _applyStoresFilterToSelect during _beforeLoad, so
+     *    the store id must be set before load() is called from
+     *    Mage_Adminhtml_Block_Widget_Grid::_prepareCollection. This hook
+     *    fires between filter setup and load().
+     *
+     * 2. Pull `review.is_featured` into the select so the Featured column can
+     *    display, sort and filter. Unlike the per-rating values (separate
+     *    table, stripped by the EAV collection's _loadEntities), is_featured
+     *    is a real column on `rt` — the collection's own select — so adding
+     *    it to the column list survives the load and filters work for free.
      */
     protected function _beforeLoadCollection()
     {
         parent::_beforeLoadCollection();
+
         $storeId = (int) $this->getRequest()->getParam('store', 0);
         if ($storeId > 0 && $this->getCollection()) {
             $this->getCollection()->addStoreFilter($storeId);
         }
+
+        if ($this->getCollection()) {
+            try {
+                $this->getCollection()->getSelect()->columns('rt.is_featured');
+            } catch (Exception $e) {
+                Mage::logException($e);
+            }
+        }
+
         return $this;
     }
 
@@ -183,6 +199,25 @@ class MMD_Adminhtml_Block_Review_Grid extends Mage_Adminhtml_Block_Review_Grid
             $this->removeColumn('detail');
         }
 
+        // Featured flag — drives the storefront testimonials strip + page.
+        // filter_condition_callback is REQUIRED: this grid runs on an EAV
+        // product collection, whose addFieldToFilter() resolves the field as a
+        // product attribute and throws "Invalid attribute name: is_featured".
+        // The callback applies the condition straight to the select instead.
+        $this->addColumn('is_featured', array(
+            'header'   => Mage::helper('review')->__('Featured'),
+            'align'    => 'center',
+            'width'    => '80px',
+            'index'    => 'is_featured',
+            'type'     => 'options',
+            'options'  => array(
+                1 => Mage::helper('review')->__('Featured'),
+                0 => Mage::helper('review')->__('No'),
+            ),
+            'renderer' => 'mmd/widget_grid_column_renderer_featured',
+            'filter_condition_callback' => array($this, 'filterFeatured'),
+        ));
+
         // Add a column per rating question.
         foreach ($this->_getRatings() as $ratingId => $label) {
             $code = 'rating_' . $ratingId;
@@ -213,6 +248,7 @@ class MMD_Adminhtml_Block_Review_Grid extends Mage_Adminhtml_Block_Review_Grid
         $order[] = 'visible_in';
         $order[] = 'type';
         $order[] = 'status';
+        $order[] = 'is_featured';
         $order[] = 'action';
 
         // Re-sequence the _columns array in the desired order; anything
@@ -233,5 +269,48 @@ class MMD_Adminhtml_Block_Review_Grid extends Mage_Adminhtml_Block_Review_Grid
             end($sorted);
             $this->_lastColumnId = key($sorted);
         }
+    }
+
+    /**
+     * Filter callback for the Featured column — see the addColumn() note.
+     *
+     * @param Varien_Data_Collection_Db                $collection
+     * @param Mage_Adminhtml_Block_Widget_Grid_Column  $column
+     * @return $this
+     */
+    public function filterFeatured($collection, $column)
+    {
+        $value = $column->getFilter()->getValue();
+        // '' / null means "no filter"; 0 is a legitimate value, so compare
+        // against null explicitly rather than using empty().
+        if ($value === null || $value === '') {
+            return $this;
+        }
+        $collection->getSelect()->where('rt.is_featured = ?', (int) $value);
+        return $this;
+    }
+
+    /**
+     * Add the featured mass actions. Editing 22k reviews one at a time isn't
+     * a workflow, so featuring is primarily a bulk operation from the grid.
+     */
+    protected function _prepareMassaction()
+    {
+        parent::_prepareMassaction();
+
+        try {
+            $this->getMassactionBlock()->addItem('mmd_feature', array(
+                'label' => Mage::helper('review')->__('Mark as Featured'),
+                'url'   => $this->getUrl('adminhtml/featured/massFeatured'),
+            ));
+            $this->getMassactionBlock()->addItem('mmd_unfeature', array(
+                'label' => Mage::helper('review')->__('Remove from Featured'),
+                'url'   => $this->getUrl('adminhtml/featured/massUnfeatured'),
+            ));
+        } catch (Exception $e) {
+            Mage::logException($e);
+        }
+
+        return $this;
     }
 }

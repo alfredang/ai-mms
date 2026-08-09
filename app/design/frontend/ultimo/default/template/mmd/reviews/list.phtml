@@ -1,0 +1,63 @@
+<?php
+/**
+ * /testimonials — every featured review, newest first.
+ * @var MMD_Reviews_Block_Featured $this
+ */
+$helper  = $this->helper('mmd_reviews');
+$reviews = $this->getReviews();
+?>
+<div class="mmd-rev-page">
+    <div class="mmd-rev-header">
+        <p class="mmd-rev-kicker">[ TESTIMONIALS ]</p>
+        <h1>What our <span class="mmd-rev-accent">learners say</span></h1>
+        <p class="mmd-rev-sub">Real feedback from learners who trained with
+            <strong>Tertiary Infotech Academy</strong> — across WSQ, IBF and
+            self-sponsored courses.</p>
+    </div>
+
+    <?php if (!count($reviews)): ?>
+        <p class="mmd-rev-empty"><?php echo $this->__('No testimonials have been published yet.') ?></p>
+    <?php else: ?>
+    <div class="mmd-rev-grid mmd-rev-grid-page">
+        <?php foreach ($reviews as $review): ?>
+        <?php
+            $name  = $review['nickname'];
+            $score = (float) $review['score'];
+            $full  = (int) floor($score);
+        ?>
+        <article class="mmd-rev-card">
+            <div class="mmd-rev-stars" aria-label="<?php echo $this->escapeHtml($score) ?> out of 5">
+                <?php for ($i = 1; $i <= 5; $i++): ?>
+                    <span class="mmd-rev-star<?php echo $i <= $full ? ' is-on' : '' ?>">&#9733;</span>
+                <?php endfor; ?>
+            </div>
+            <?php if ($review['title']): ?>
+                <h3 class="mmd-rev-title"><?php echo $this->escapeHtml($review['title']) ?></h3>
+            <?php endif; ?>
+            <blockquote class="mmd-rev-quote"><?php echo $this->escapeHtml($review['detail']) ?></blockquote>
+            <?php /* Only offer the toggle when the quote is actually long
+                     enough to be clamped at 12 lines (~600 chars at this
+                     column width) — otherwise it's a dead control. */ ?>
+            <?php if (mb_strlen((string) $review['detail'], 'UTF-8') > 600): ?>
+                <details class="mmd-rev-more">
+                    <summary><?php echo $this->__('Read more') ?></summary>
+                </details>
+            <?php endif; ?>
+            <div class="mmd-rev-foot">
+                <span class="mmd-rev-avatar mmd-rev-av-<?php echo $helper->getAvatarIndex($name) ?>"><?php echo $this->escapeHtml($helper->getInitials($name)) ?></span>
+                <div class="mmd-rev-who">
+                    <span class="mmd-rev-name"><?php echo $this->escapeHtml($name) ?></span>
+                    <?php if ($review['course_name']): ?>
+                        <?php if ($review['course_url']): ?>
+                            <a class="mmd-rev-course" href="<?php echo $review['course_url'] ?>"><?php echo $this->escapeHtml($review['course_name']) ?></a>
+                        <?php else: ?>
+                            <span class="mmd-rev-course"><?php echo $this->escapeHtml($review['course_name']) ?></span>
+                        <?php endif; ?>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </article>
+        <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
+</div>

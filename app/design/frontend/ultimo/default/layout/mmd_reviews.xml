@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<layout version="0.1.0">
+
+    <!-- Shared testimonial skin -->
+    <mmd_reviews_default>
+        <reference name="head">
+            <action method="addItem"><type>skin_css</type><name>css/testimonials.css</name><params/></action>
+        </reference>
+    </mmd_reviews_default>
+
+    <!-- Homepage "What our learners say" strip — 4 RANDOM featured reviews as
+         a FULL-WIDTH band in the postscript region, immediately AFTER the blog
+         strip (blog.home.latest is added by mmd_blog.xml; `after=` orders it
+         within the same region regardless of layout-file load order). -->
+    <cms_index_index>
+        <update handle="mmd_reviews_default"/>
+        <reference name="postscript">
+            <block type="mmd_reviews/featured" name="reviews.home.featured"
+                   after="blog.home.latest" template="mmd/reviews/home.phtml">
+                <action method="setMode"><mode>home</mode></action>
+            </block>
+        </reference>
+    </cms_index_index>
+
+    <!-- /testimonials — every featured review -->
+    <mmd_reviews_index_index>
+        <update handle="mmd_reviews_default"/>
+        <reference name="root">
+            <action method="setTemplate"><template>page/1column.phtml</template></action>
+        </reference>
+        <reference name="content">
+            <block type="mmd_reviews/featured" name="reviews.list"
+                   template="mmd/reviews/list.phtml">
+                <action method="setMode"><mode>all</mode></action>
+            </block>
+        </reference>
+    </mmd_reviews_index_index>
+
+</layout>

@@ -1,0 +1,218 @@
+/* ==========================================================================
+   MMD_Reviews — featured reviews as storefront testimonials.
+   Loaded on the homepage (the "What our learners say" strip, sitting directly
+   under the blog strip) and on /testimonials.
+
+   Palette + type ramp deliberately mirror blog.css so the two homepage bands
+   read as one system: same mono kicker, same 14px card radius, same hairline
+   border, same blue accent.
+   ========================================================================== */
+
+.mmd-rev-home,
+.mmd-rev-page {
+    --mr-ink: #111827;
+    --mr-text: #374151;
+    --mr-muted: #6b7280;
+    --mr-line: #e5e7eb;
+    --mr-blue: #2563eb;
+    --mr-navy: #1e3a8a;
+    --mr-amber: #f59e0b;
+    --mr-mono: "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    color: var(--mr-text);
+}
+.mmd-rev-home a,
+.mmd-rev-page a { text-decoration: none; }
+
+/* --- Homepage band --------------------------------------------------------
+   Same full-width postscript treatment as the blog strip: clear:both drops it
+   below both floated columns so it spans sidebar + content like the footer. */
+.postscript:has(.mmd-rev-home) { clear: both; width: 100%; float: none; }
+.mmd-rev-home {
+    clear: both;
+    width: 100%;
+    margin: 30px 0 10px;
+    padding: 0 15px;
+    box-sizing: border-box;
+}
+.mmd-rev-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 22px;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+.mmd-rev-head h2 { font-size: 26px; font-weight: 800; color: var(--mr-ink); margin: 4px 0 0; }
+.mmd-rev-kicker {
+    font: 600 12px/1 var(--mr-mono);
+    letter-spacing: 3px;
+    color: var(--mr-blue);
+    text-transform: uppercase;
+    margin-bottom: 13px;
+}
+.mmd-rev-all { font-weight: 700; font-size: 14px; color: var(--mr-blue) !important; white-space: nowrap; }
+.mmd-rev-all:hover { color: #7c3aed !important; text-decoration: none; }
+
+/* --- /testimonials page header -------------------------------------------- */
+.mmd-rev-page { max-width: 1080px; margin: 10px auto 46px; }
+.mmd-rev-header { margin: 22px 0 26px; }
+.mmd-rev-header h1 {
+    font-size: 34px;
+    line-height: 1.22;
+    font-weight: 800;
+    color: var(--mr-ink);
+    margin: 0 0 12px;
+    max-width: 780px;
+}
+.mmd-rev-accent {
+    background: linear-gradient(90deg, #2563eb, #7c3aed);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+.mmd-rev-sub { color: var(--mr-muted); font-size: 15px; max-width: 660px; margin: 0; }
+.mmd-rev-sub strong { color: var(--mr-navy); }
+.mmd-rev-empty { text-align: center; color: var(--mr-muted); padding: 60px 0; }
+
+/* --- Card grid -------------------------------------------------------------
+   Homepage: one row of 4. Page: auto-fill so long quotes get room. */
+.mmd-rev-grid { display: grid; gap: 24px; grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 1100px) { .mmd-rev-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 620px)  { .mmd-rev-grid { grid-template-columns: 1fr; } }
+
+/* The /testimonials page shows full, unclamped quotes, so card heights vary
+   wildly (a 4-line Google review next to a 25-line LinkedIn one). In a grid
+   that forces every card in a row to the tallest card's height, leaving the
+   short ones half empty and stranding the overflow on its own row. CSS
+   columns let each card take its natural height and flow into the shortest
+   column instead — masonry, no JS. */
+/* 2 columns, not 3: CSS columns BALANCE content, so a handful of cards fill
+   the first N columns and leave the rest visibly empty. At the current volume
+   (a few featured reviews) 2 wide columns always fill; 3 stranded the third.
+   The 420px min means it degrades to 1 column on narrow screens, and if the
+   featured set ever grows the cards simply get taller, never lopsided. */
+.mmd-rev-grid-page {
+    display: block;
+    columns: 2 420px;
+    column-gap: 24px;
+    max-width: 900px;
+}
+.mmd-rev-grid-page .mmd-rev-card {
+    /* break-inside stops a card being split across two columns. */
+    break-inside: avoid;
+    -webkit-column-break-inside: avoid;
+    margin: 0 0 24px;
+    /* inline-flex + width:100% keeps the flex column layout (footer pinned to
+       the bottom via margin-top:auto) working inside a CSS column. */
+    display: inline-flex;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.mmd-rev-card {
+    background: #fff;
+    border: 1px solid var(--mr-line);
+    border-radius: 14px;
+    padding: 20px 20px 18px;
+    display: flex;
+    flex-direction: column;
+    transition: box-shadow .2s ease, transform .2s ease;
+}
+.mmd-rev-card:hover { box-shadow: 0 12px 32px rgba(15, 23, 42, .13); transform: translateY(-2px); }
+
+/* --- Stars ----------------------------------------------------------------- */
+.mmd-rev-stars { display: flex; gap: 2px; margin-bottom: 11px; }
+.mmd-rev-star { color: #d8dde5; font-size: 15px; line-height: 1; }
+.mmd-rev-star.is-on { color: var(--mr-amber); }
+
+/* --- Quote ----------------------------------------------------------------- */
+.mmd-rev-title {
+    font-size: 15px;
+    line-height: 1.35;
+    font-weight: 700;
+    color: var(--mr-ink);
+    margin: 0 0 8px;
+}
+.mmd-rev-quote {
+    margin: 0 0 16px;
+    padding: 0;
+    border: 0;
+    color: var(--mr-text);
+    font-size: 13.5px;
+    line-height: 1.65;
+    /* Clamp on the homepage so four cards stay the same height; the
+       /testimonials page shows every word. */
+    display: -webkit-box;
+    -webkit-line-clamp: 7;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+/* On /testimonials the quote is clamped to 12 lines with a native
+   <details> "Read more" toggle, rather than shown in full: a single 25-line
+   LinkedIn recommendation next to three 4-line Google reviews left a whole
+   masonry column empty. 12 lines keeps cards comparable; the full text is one
+   click away and is still in the DOM for SEO/crawlers. */
+.mmd-rev-page .mmd-rev-quote { -webkit-line-clamp: 12; margin-bottom: 6px; }
+.mmd-rev-more { margin: 0 0 14px; }
+.mmd-rev-more > summary {
+    cursor: pointer;
+    list-style: none;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--mr-blue);
+}
+.mmd-rev-more > summary::-webkit-details-marker { display: none; }
+.mmd-rev-more > summary::after { content: ' \25BE'; }
+.mmd-rev-more[open] > summary::after { content: ' \25B4'; }
+.mmd-rev-more[open] > summary { margin-bottom: 8px; }
+/* When expanded, drop the clamp on the sibling quote above. */
+.mmd-rev-card:has(.mmd-rev-more[open]) .mmd-rev-quote {
+    display: block;
+    overflow: visible;
+    -webkit-line-clamp: none;
+}
+
+/* --- Attribution ----------------------------------------------------------- */
+.mmd-rev-foot {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    margin-top: auto;
+    padding-top: 14px;
+    border-top: 1px solid var(--mr-line);
+}
+.mmd-rev-avatar {
+    flex: 0 0 auto;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: .3px;
+}
+/* Deterministic per-name colour (helper hashes the name) so a learner keeps
+   the same avatar even though the homepage order is random each request. */
+.mmd-rev-av-0 { background: #2563eb; }
+.mmd-rev-av-1 { background: #7c3aed; }
+.mmd-rev-av-2 { background: #0891b2; }
+.mmd-rev-av-3 { background: #db2777; }
+.mmd-rev-av-4 { background: #ea580c; }
+.mmd-rev-av-5 { background: #059669; }
+
+.mmd-rev-who { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
+.mmd-rev-name { font-weight: 700; font-size: 13px; color: var(--mr-ink); }
+.mmd-rev-course {
+    font-size: 12px;
+    color: var(--mr-blue) !important;
+    line-height: 1.35;
+    /* Course titles are long; keep the footer to two tidy lines. */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+a.mmd-rev-course:hover { color: #7c3aed !important; text-decoration: underline; }
