@@ -9,7 +9,7 @@ On-site search redirects are **data, not code**. A user searching a term whose
 `catalogsearch_query.redirect` is set gets a 302 straight to that URL instead of
 a results page.
 
-## The two rules that matter most
+## The three rules that matter most
 
 **1. ALWAYS apply live on prod.** Shipping a migration is necessary but NOT
 sufficient. Prod's `catalogsearch_query` is populated by real searchers and
@@ -17,6 +17,12 @@ diverges hard from localhost. Verify on the live domain before reporting done.
 
 **2. A correction must OVERWRITE; only a fill uses the empty-only guard.**
 This is where this task goes wrong most often — see the incident below.
+
+**3. Follow the target to its FINAL status — `200` on the first hop is not
+enough.** A redirect target that returns `301` may chain into a `404`. Always
+curl with `-L` and check the final code, then confirm the destination course is
+actually enabled (`status = 1`) / the category is `is_active = 1`. A 301 to a
+retired course is still a dead end. See "The 404 sweep" below.
 
 ## The empty-only-guard trap (real incident, 2026-07-28)
 
@@ -42,11 +48,17 @@ match by LIKE pattern, not a frozen exact-term list.**
 ### 1. Identify the target and confirm it is reachable
 
 ```bash
-curl -sS -o /dev/null -w "HTTP=%{http_code} -> %{redirect_url}\n" '<TARGET_URL>'
+# first hop AND final destination -- a 301 can chain into a 404
+curl -sS -o /dev/null -w "first=%{http_code} -> %{redirect_url}\n" '<TARGET_URL>'
+curl -sS -o /dev/null -w "final=%{http_code}\n" -L '<TARGET_URL>'
 ```
 
-Must be **200**. A 301/302/404 target re-introduces the dead end. Prefer a
-product page; a flat category page is second-best; never a homepage bounce.
+The **final** code must be **200**. A target that 404s — or 301s into a 404 —
+re-introduces the dead end. Prefer a product page; a flat category page is
+second-best; never a homepage bounce.
+
+If the first hop is a 301, prefer redirecting the search term **straight at the
+final URL** so users take one hop instead of two.
 
 Watch for **two similarly-named courses** (a WSQ `TGS-` and a non-WSQ `C-`
 variant of the same subject is common). Confirm which one is intended before
@@ -158,6 +170,94 @@ another partner's domain.
 Redirects go stale when a course is later disabled or its url_key changes —
 the target then 404s. Re-validate targets when retiring or renaming a course
 (memory `feedback_search_redirects_rot_when_course_disabled`).
+
+## The 404 sweep (audit ALL redirects, not just the one you're editing)
+
+Rot accumulates silently. A 2026-08-10 audit of SG prod found **141 of 1,269**
+distinct redirect targets broken — 110 hard 404s plus 31 that 301-chained into
+a 404 — affecting 834 search rows / 13,257 popularity. Users searching those
+terms hit a dead end with no results and no way back.
+
+Run this sweep whenever asked to "check the search terms for 404s", and after
+any bulk course retirement or slug rename.
+
+```bash
+# 1. dump every distinct target with its traffic weight
+ssh root@76.13.180.29 "docker exec <CONTAINER> php -r \"
+require_once '/var/www/html/app/Mage.php'; Mage::app();
+\\\$r = Mage::getSingleton('core/resource')->getConnection('core_read');
+foreach(\\\$r->fetchAll(\\\"SELECT redirect, COUNT(*) c, SUM(popularity) pop FROM catalogsearch_query
+  WHERE store_id=1 AND redirect IS NOT NULL AND redirect<>'' GROUP BY redirect ORDER BY pop DESC\\\") as \\\$x)
+  echo \\\$x['c'],\\\"\t\\\",\\\$x['pop'],\\\"\t\\\",\\\$x['redirect'],PHP_EOL;
+\"" > targets.tsv
+
+# 2. check first hop AND final code for each (parallelise -- 1200+ URLs)
+#    macOS split has no `-n r/N`; use `split -l N` and background the chunks.
+```
+
+**Diagnose before repairing.** Resolve each broken slug against prod's own
+`core_url_rewrite` + live entity status. The 2026-08 sweep found the cause was
+almost never bad redirect data — it was that the destination had been retired
+(`status = 2`) or its category deactivated (`is_active = 0`).
+
+Then split the broken set in two:
+
+**A. The course was RENAMED (a live successor exists).** Repoint the search rows
+at the new URL *and* add a 301 rewrite so the old course URL keeps working —
+see the section below.
+
+**B. The course is RETIRED with no successor.** Do **not** invent a
+replacement. Set `redirect = NULL` so Magento serves live search results
+instead of a 404. This is a genuine improvement: `rpa` went from a hard 404 to
+HTTP 200 with 5 relevant courses. In the sweep all 732 affected terms returned
+200 after clearing.
+
+**Never auto-pick a replacement by fuzzy matching.** In the same sweep, token
+scoring proposed `basic-tableau-training` → *basic-accounting-course*,
+`linux-operating-system` → *robot-operating-system*, `adobe-xd` → *Adobe
+Lightroom*, and `basic-electronics-for-kids` → *hydroponics*. Only accept a
+match that is exact, a known prefix variant (`wsq-`/`casl-`/`ibf-`), or covers
+**≥2 distinctive tokens** — and curl-verify each one returns 200 before writing
+it. Everything else goes to bucket B. (memory
+`feedback_autopopulate_fuzzy_search_redirects_wrong`)
+
+**Only clear a target you have PROVEN dead.** A curl code of `000` is a timeout
+or a network block from the audit host, not a 404 — leave those rows alone.
+
+## Course URL renames must be a 301 (never a 404)
+
+When a course's `url_key` changes, the old URL must **301 permanently** to the
+new one. Otherwise every external backlink, bookmark, Google result and stored
+search redirect breaks. Magento records renames in `core_url_rewrite`, but rows
+go stale when a product is swapped, re-created, or its rewrite points at a
+now-retired entity — the old slug then 404s.
+
+`options = 'RP'` is what makes a rewrite a **301 permanent**; an empty
+`options` is a 302 temporary. Always use `'RP'` for a rename.
+
+```sql
+-- repoint an existing rewrite to the new slug, as a 301
+UPDATE core_url_rewrite
+SET target_path = '<new-slug>.html', options = 'RP', is_system = 0
+WHERE request_path = '<old-slug>.html' AND store_id IN (0, 1);
+
+-- or create one when no row exists (store 0 = default scope, 1 = SG)
+INSERT IGNORE INTO core_url_rewrite
+  (store_id, id_path, request_path, target_path, is_system, options)
+VALUES
+  (0, CONCAT('manual-301-', MD5('<old-slug>.html'), '-0'),
+   '<old-slug>.html', '<new-slug>.html', 0, 'RP');
+```
+
+Verify the old URL 301s **and** the final page is 200:
+
+```bash
+curl -sS -o /dev/null -w "%{http_code}"    'https://www.tertiarycourses.com.sg/<old-slug>.html'  # 301
+curl -sS -o /dev/null -w "%{http_code}" -L 'https://www.tertiarycourses.com.sg/<old-slug>.html'  # 200
+```
+
+A rename is only finished when: the old URL 301s to a 200 page, the new URL is
+200, and no `catalogsearch_query.redirect` still points at the old slug.
 
 ## Related memories
 
