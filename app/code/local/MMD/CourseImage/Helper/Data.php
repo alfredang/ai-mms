@@ -427,10 +427,13 @@ class MMD_CourseImage_Helper_Data extends Mage_Core_Helper_Abstract
                 . $red . 'Click here to submit SkillsFuture Enterprise Credit</span></a></p>';
         }
 
+        // Inline-styled button (not a class-only one) because the AI brochure
+        // PDF consumes this HTML too and never loads custom.css.
         $html .= '<h3>SkillsFuture Credit (SFC)</h3>'
-            . '<p>Eligible Singapore Citizens can use their SFC to offset course fee payable after funding but the $4,000 Additional SFC (Mid-Career Support) cannot be used. '
-            . '<a href="https://courses.myskillsfuture.gov.sg/courses/' . $skuUrl . '" title="SkillsFuture Credit" target="_blank">'
-            . $red . 'Click here for SkillsFuture Credit submission</span></a></p>';
+            . '<p>Eligible Singapore Citizens can use their SFC to offset course fee payable after funding but the $4,000 Additional SFC (Mid-Career Support) cannot be used.</p>'
+            . '<p><a class="wsq-portal-btn" href="https://courses.myskillsfuture.gov.sg/courses/' . $skuUrl . '" title="SkillsFuture Credit" target="_blank" '
+            . 'style="display: inline-block; padding: 8px 18px; background: #2563eb; color: #ffffff; font-weight: 600; border-radius: 6px; text-decoration: none;">'
+            . 'Direct Application on SkillsFuture Portal</a></p>';
 
         if (in_array('UTAP', $badges, true)) {
             $html .= '<h3>UTAP</h3>'
@@ -451,7 +454,7 @@ class MMD_CourseImage_Helper_Data extends Mage_Core_Helper_Abstract
                 . '<li>If there is &ldquo;PSEA&rdquo; under keyword tags, the course is eligible for PSEA.</li>'
                 . '</ul>'
                 . '<p>Once you are eligible for PSEA, please download and fill up the '
-                . '<a href="https://www.moe.gov.sg/-/media/files/financial-matters/psea-ad-hoc-withdrawal-form.pdf" target="_blank">'
+                . '<a href="https://www.moe.gov.sg/api/media/94b3eeb8-ceed-47e3-9f58-921b33970c9a/psea-ad-hoc-withdrawal-form.pdf" target="_blank">'
                 . $red . 'PSEA Withdrawal Form</span></a> and email to us.</p>';
         }
 
