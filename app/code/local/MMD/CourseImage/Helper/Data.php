@@ -448,7 +448,6 @@ class MMD_CourseImage_Helper_Data extends Mage_Core_Helper_Abstract
             $pseaSubmitUrl = Mage::getUrl('mmd_psea', array('_query' => array('course' => $sku)));
             $html .= '<h3>PSEA</h3>'
                 . '<p>Eligible Singapore Citizens can use their PSEA funds to offset course fee payable after funding.</p>'
-                . '<p>To check for Post-Secondary Education Account (PSEA) eligibility for this course:</p>'
                 . '<p><a class="wsq-portal-btn wsq-portal-btn--psea" href="https://courses.myskillsfuture.gov.sg/courses/' . $skuUrl . '" title="Check PSEA Eligibility (course code: ' . $skuHtml . ')" target="_blank" '
                 . 'style="display: inline-block; padding: 8px 18px; background: #16a34a; color: #ffffff; font-weight: 600; border-radius: 6px; text-decoration: none;">'
                 . 'Check PSEA Eligibility</a></p>'
