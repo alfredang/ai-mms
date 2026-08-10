@@ -422,9 +422,10 @@ class MMD_CourseImage_Helper_Data extends Mage_Core_Helper_Abstract
 
         if (in_array('SFEC', $badges, true)) {
             $html .= '<h3>SkillsFuture Enterprise Credit (SFEC)</h3>'
-                . '<p>Eligible Singapore-registered companies can tap on $10000 SFEC to cover out-of-pocket expenses.'
-                . '<a href="https://skillsfuture.gobusiness.gov.sg/course-directory/courses/' . $skuUrl . '" target="_blank">'
-                . $red . 'Click here to submit SkillsFuture Enterprise Credit</span></a></p>';
+                . '<p>Eligible Singapore-registered companies can tap on $10000 SFEC to cover out-of-pocket expenses.</p>'
+                . '<p><a class="wsq-portal-btn wsq-portal-btn--sfec" href="https://skillsfuture.gobusiness.gov.sg/course-directory/courses/' . $skuUrl . '" target="_blank" '
+                . 'style="display: inline-block; padding: 8px 18px; background: #0891b2; color: #ffffff; font-weight: 600; border-radius: 6px; text-decoration: none;">'
+                . 'View on SkillsFuture for Business</a></p>';
         }
 
         // Inline-styled button (not a class-only one) because the AI brochure
