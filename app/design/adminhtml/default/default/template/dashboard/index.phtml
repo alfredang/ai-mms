@@ -10835,7 +10835,23 @@ $_credMask = function ($v) {
             </div>
             <div class="crd-row">
                 <label class="crd-label">Refresh Token</label>
-                <?php $_renderRevealable('gmail_refresh_token', 'gmail_refresh_token', $_creds['mmd_email/google/refresh_token'], '1//0g…', 'Obtain from the OAuth Playground after granting Gmail send scope.') ?>
+                <?php $_renderRevealable('gmail_refresh_token', 'gmail_refresh_token', $_creds['mmd_email/google/refresh_token'], '1//0g…', 'Renewed automatically by the Google Sign-In button below (manual paste still works).') ?>
+            </div>
+            <?php
+                $_gmailAdminFront  = (string) Mage::getConfig()->getNode('admin/routers/adminhtml/args/frontName');
+                $_gmailRedirectUri = Mage::getBaseUrl(Mage_Core_Model_Store::URL_TYPE_WEB) . $_gmailAdminFront . '/maildiagnose/gmailcallback/';
+            ?>
+            <div class="crd-row" style="display:flex; align-items:flex-start; gap:14px; flex-wrap:wrap; margin-top:4px;">
+                <a class="mm-btn" href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/maildiagnose/gmailauth') ?>">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-right:7px;"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg>
+                    Renew via Google Sign-In
+                </a>
+                <span class="crd-sub" style="flex:1 1 260px; margin:0; font-size:11.5px; line-height:1.55;">
+                    One click: sign in as the mailbox above and the new refresh token is saved &amp; verified automatically.
+                    One-time setup: the OAuth client in Google Cloud Console must list
+                    <code style="user-select:all;"><?php echo htmlspecialchars($_gmailRedirectUri) ?></code>
+                    as an Authorized redirect URI.
+                </span>
             </div>
         </div>
 
@@ -14895,7 +14911,7 @@ $_mnBlastStats = array();
                 $_liUrl = (is_array($_dec2) && !empty($_dec2['_linkedin_url'])) ? (string) $_dec2['_linkedin_url'] : ''; ?>
             <div class="mn-blast">
                 <div class="mn-blast-head">
-                    <span class="mn-blast-name"><?php echo htmlspecialchars($_b['title']) ?></span>
+                    <span class="mn-blast-name"><?php echo htmlspecialchars(trim((string) ($_b['product_name'] ?? '')) !== '' ? $_b['product_name'] : $_b['title']) ?></span>
                     <span class="mn-badge s-done">Blasted &middot; <?php echo !empty($_b['sent_at']) ? date('D j M, g:ia', strtotime($_b['sent_at'])) : '—' ?></span>
                     <?php if ($_liUrl): ?><a class="mn-blast-li" href="<?php echo htmlspecialchars($_liUrl) ?>" target="_blank" rel="noopener">in &middot; View LinkedIn post</a><?php endif; ?>
                     <?php if (empty($_s)): ?><span class="mn-badge s-muted">Stats syncing&hellip;</span><?php endif; ?>
