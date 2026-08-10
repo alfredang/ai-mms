@@ -2315,6 +2315,75 @@ a.brochure-cta:focus-visible { outline: 2px solid #9a3412; outline-offset: 2px; 
     border-color: #2563eb;
     color: #1d4ed8;
 }
+/* Social share + like row (below the rating summary) — light-theme twin of
+   the blog article share bar (blog.css .mmd-blog-share-*): "SHARE" label,
+   circular brand icon buttons with brand-colour hover fills, copy-link with
+   copied feedback, and a thumbs-up like pill fed by courses/index/like. */
+.product-view .course-share-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    margin: 0 0 18px;
+}
+.product-view .course-share {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.product-view .course-share__label {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #64748b;
+    margin-right: 4px;
+}
+.product-view .course-share__ic {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    color: #4b5563;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    transition: color .15s ease, border-color .15s ease, background .15s ease, transform .12s ease;
+}
+.product-view .course-share__ic svg { width: 16px; height: 16px; display: block; }
+.product-view .course-share__ic:hover { transform: translateY(-2px); text-decoration: none; color: #fff; }
+.product-view .course-share__ic--linkedin:hover { background: #0a66c2; border-color: #0a66c2; }
+.product-view .course-share__ic--x:hover        { background: #111827; border-color: #111827; }
+.product-view .course-share__ic--facebook:hover { background: #1877f2; border-color: #1877f2; }
+.product-view .course-share__ic--whatsapp:hover { background: #25d366; border-color: #25d366; }
+.product-view .course-share__ic--email:hover    { background: #6b7280; border-color: #6b7280; }
+.product-view .course-share__ic--copy:hover     { background: #2563eb; border-color: #2563eb; }
+.product-view .course-share__ic--copy.is-copied { background: #16a34a; border-color: #16a34a; color: #fff; }
+.product-view .course-like {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    padding: 7px 14px;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #4b5563;
+    cursor: pointer;
+    transition: border-color .15s ease, color .15s ease, background .15s ease, transform .1s ease;
+}
+.product-view .course-like svg { width: 18px; height: 18px; display: block; transition: transform .15s ease; }
+.product-view .course-like:hover { border-color: #2563eb; color: #2563eb; }
+.product-view .course-like:active { transform: scale(0.96); }
+.product-view .course-like.is-liked { background: #2563eb; border-color: #2563eb; color: #fff; cursor: default; }
+.product-view .course-like.is-liked svg { transform: translateY(-1px); }
+.product-view .course-like__count { font-variant-numeric: tabular-nums; }
+.product-view .course-like__label { font-weight: 600; }
 .product-view .box-reviews .date,
 .product-view .box-reviews small.date {
     display: block;
@@ -2627,9 +2696,10 @@ a.brochure-cta:focus-visible { outline: 2px solid #9a3412; outline-offset: 2px; 
     /* 4. Funding badges */
     .catalog-product-view .course-badges--view { order: 4; }
 
-    /* 5. Star review summary */
+    /* 5. Star review summary, then the social share row right after it */
     .catalog-product-view .product-primary-column .ratings,
     .catalog-product-view .product-primary-column .no-rating { order: 5; }
+    .catalog-product-view .product-primary-column .course-share-row { order: 5; }
 
     /* 6. Course description (long blurb) */
     .catalog-product-view .product-primary-column .short-description { order: 6; }
