@@ -2195,7 +2195,9 @@ a.brochure-cta:focus-visible { outline: 2px solid #9a3412; outline-offset: 2px; 
 /* Star rendering — reuse the .rating-box width-percent trick but render
    crisp Unicode stars instead of the legacy PNG sprite. The empty track
    is the gray star row; .rating overlays a clipped gold star row sized
-   by inline width:%. */
+   by inline width:%. Also applied to the rating summary above the fold
+   (.ratings) so the top stars match the gold review-card stars. */
+.product-view .ratings .rating-box,
 .product-view .box-reviews .rating-box {
     display: inline-block;
     position: relative;
@@ -2211,9 +2213,11 @@ a.brochure-cta:focus-visible { outline: 2px solid #9a3412; outline-offset: 2px; 
     padding: 0;
     overflow: hidden;
 }
+.product-view .ratings .rating-box::before,
 .product-view .box-reviews .rating-box::before {
     content: "\2605\2605\2605\2605\2605";
 }
+.product-view .ratings .rating-box .rating,
 .product-view .box-reviews .rating-box .rating {
     position: absolute;
     top: 0;
@@ -2227,6 +2231,7 @@ a.brochure-cta:focus-visible { outline: 2px solid #9a3412; outline-offset: 2px; 
     font-size: inherit;
     line-height: 1;
 }
+.product-view .ratings .rating-box .rating::before,
 .product-view .box-reviews .rating-box .rating::before {
     content: "\2605\2605\2605\2605\2605";
     letter-spacing: 2px;
@@ -2331,6 +2336,7 @@ a.brochure-cta:focus-visible { outline: 2px solid #9a3412; outline-offset: 2px; 
     .product-view .box-reviews dl dt { padding: 12px 14px 8px !important; }
     .product-view .box-reviews dl dd { padding: 8px 14px 14px !important; }
     .product-view .box-reviews .ratings-table th { font-size: 13px; }
+    .product-view .ratings .rating-box,
     .product-view .box-reviews .rating-box { width: 80px; font-size: 14px; }
     #acctab-trainers + .panel #trainers img { float: none; display: block; margin: 0 0 10px; }
 }
