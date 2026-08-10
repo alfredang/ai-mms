@@ -1060,7 +1060,7 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 			<?php if (!empty($_mmdBadges)): ?>
 				<ul class="course-badges course-badges--view" aria-label="<?php echo $this->__('Funding eligibility'); ?>">
 					<?php foreach ($_mmdBadges as $_b): ?>
-						<li class="course-badge course-badge--<?php echo Mage::helper('mmd_courseimage')->getBadgeCssClass($_b); ?>"><?php echo $this->escapeHtml($_b); ?></li>
+						<li class="course-badge course-badge--<?php echo Mage::helper('mmd_courseimage')->getBadgeCssClass($_b); ?>" title="<?php echo $this->escapeHtml($_b); ?>"><?php echo $this->escapeHtml(Mage::helper('mmd_courseimage')->getBadgeDisplayLabel($_b)); ?></li>
 					<?php endforeach; ?>
 				</ul>
 			<?php endif; ?>

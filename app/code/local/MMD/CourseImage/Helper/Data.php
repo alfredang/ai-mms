@@ -489,6 +489,20 @@ class MMD_CourseImage_Helper_Data extends Mage_Core_Helper_Abstract
         return $map[$badgeName] ?? 'default';
     }
 
+    /**
+     * Short display label for a canonical badge name. The tag rows, CSS
+     * classes and checkbox gating all keep the canonical long name — only
+     * the storefront pill text is abbreviated so the full badge set fits
+     * on one row under the course title.
+     */
+    public function getBadgeDisplayLabel(string $badgeName): string
+    {
+        $map = [
+            'SkillsFuture Credit' => 'SFC',
+        ];
+        return $map[$badgeName] ?? $badgeName;
+    }
+
     public function env(string $key, ?string $default = null): ?string
     {
         $val = getenv($key);
