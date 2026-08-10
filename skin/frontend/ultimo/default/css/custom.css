@@ -2236,6 +2236,85 @@ a.brochure-cta:focus-visible { outline: 2px solid #9a3412; outline-offset: 2px; 
     content: "\2605\2605\2605\2605\2605";
     letter-spacing: 2px;
 }
+/* Rating summary row (above the fold) — stars + pill links.
+   Markup is stock review/helper/summary.phtml: .ratings > .rating-box +
+   p.rating-links (count link, "|" separator, add-review link). Restyled to
+   match the site's chip language (course-code chip / funding pills): the
+   count becomes a soft slate pill, "Add Your Review" an outlined blue pill,
+   and the raw "|" separator is dropped. */
+.product-view .product-shop .ratings {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 2px 0 16px;
+}
+.product-view .product-shop .ratings .rating-links {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+}
+.product-view .product-shop .ratings .rating-links .separator { display: none; }
+.product-view .product-shop .ratings .rating-links a {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 12px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.5;
+    text-decoration: none;
+    transition: background .15s ease, color .15s ease, border-color .15s ease;
+}
+.product-view .product-shop .ratings .rating-links a:first-of-type {
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    color: #0f172a;
+}
+.product-view .product-shop .ratings .rating-links a:first-of-type:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+.product-view .product-shop .ratings .rating-links a:last-of-type {
+    background: #fff;
+    border: 1px solid #bfdbfe;
+    color: #2563eb;
+}
+.product-view .product-shop .ratings .rating-links a:last-of-type::before {
+    content: "+";
+    margin-right: 5px;
+    font-weight: 700;
+    line-height: 1;
+}
+.product-view .product-shop .ratings .rating-links a:last-of-type:hover {
+    background: #eff6ff;
+    border-color: #2563eb;
+    color: #1d4ed8;
+}
+/* Empty state ("Be the first to review this product") — same outlined pill. */
+.product-view .product-shop .no-rating {
+    margin: 2px 0 16px;
+}
+.product-view .product-shop .no-rating a {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 12px;
+    border-radius: 999px;
+    background: #fff;
+    border: 1px solid #bfdbfe;
+    color: #2563eb;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.5;
+    text-decoration: none;
+    transition: background .15s ease, color .15s ease, border-color .15s ease;
+}
+.product-view .product-shop .no-rating a:hover {
+    background: #eff6ff;
+    border-color: #2563eb;
+    color: #1d4ed8;
+}
 .product-view .box-reviews .date,
 .product-view .box-reviews small.date {
     display: block;
