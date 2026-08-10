@@ -1072,7 +1072,9 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 			// (mmd/blog/view.phtml): circular brand icons, copy-link, thumbs-up.
 			$_coursesHelper = Mage::helper('courses');
 			$_shareUrl      = $_product->getProductUrl();
-			$_shareLikes    = $_coursesHelper->getProductLikes($_product->getId());
+			// Count shown on the thumbs-up = course page views (report_event),
+			// not the mmd_product_like tally — clicking still records a like.
+			$_shareViews    = $_coursesHelper->getProductViews($_product->getId());
 			?>
 			<div class="course-share-row">
 				<div class="course-share" aria-label="<?php echo $this->__('Share this course'); ?>">
@@ -1085,9 +1087,10 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 				<button type="button" class="course-like" id="course-like"
 					data-product="<?php echo (int) $_product->getId(); ?>"
 					data-url="<?php echo $this->escapeHtml(Mage::getUrl('courses/index/like')); ?>"
-					aria-label="<?php echo $this->__('Like this course'); ?>">
+					aria-label="<?php echo $this->__('Like this course'); ?>"
+					title="<?php echo $this->__('%s view(s)', $_shareViews); ?>">
 					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/></svg>
-					<span class="course-like__count" id="course-like-count"><?php echo $_shareLikes; ?></span>
+					<span class="course-like__count" id="course-like-count"><?php echo $_shareViews; ?></span>
 					<span class="course-like__label"><?php echo $this->__('Like'); ?></span>
 				</button>
 			</div>
@@ -1095,23 +1098,16 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 			(function () {
 				var btn = document.getElementById('course-like');
 				if (!btn) return;
-				var countEl = document.getElementById('course-like-count');
 				var liked = false;
 				btn.addEventListener('click', function () {
 					if (liked) return;
 					liked = true;
 					btn.classList.add('is-liked');
+					// Still record the like server-side; the displayed count
+					// stays the page-view total, so no count update here.
 					var xhr = new XMLHttpRequest();
 					xhr.open('POST', btn.getAttribute('data-url'), true);
 					xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-					xhr.onload = function () {
-						try {
-							var rsp = JSON.parse(xhr.responseText);
-							if (rsp.ok && typeof rsp.likes !== 'undefined') {
-								countEl.textContent = rsp.likes;
-							}
-						} catch (e) {}
-					};
 					xhr.send('product_id=' + btn.getAttribute('data-product'));
 				});
 			})();

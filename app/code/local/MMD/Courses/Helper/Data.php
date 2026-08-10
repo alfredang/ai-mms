@@ -110,6 +110,24 @@ class MMD_Courses_Helper_Data extends Mage_Core_Helper_Abstract
         );
     }
 
+    /** Total recorded page views for a product (Mage_Reports catalog_product_view events). */
+    public function getProductViews($productId)
+    {
+        $resource = Mage::getSingleton('core/resource');
+        $read     = $resource->getConnection('core_read');
+        return (int) $read->fetchOne(
+            $read->select()
+                ->from(array('e' => $resource->getTableName('reports/event')), 'COUNT(*)')
+                ->join(
+                    array('t' => $resource->getTableName('reports/event_type')),
+                    't.event_type_id = e.event_type_id',
+                    array()
+                )
+                ->where('t.event_name = ?', 'catalog_product_view')
+                ->where('e.object_id = ?', (int) $productId)
+        );
+    }
+
     /**
      * Register a thumbs-up on a course. One like per visitor (keyed by IP+UA
      * hash) — a repeat click is a no-op that just returns the current count.
