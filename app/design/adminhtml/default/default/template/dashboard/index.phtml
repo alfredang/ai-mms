@@ -10842,6 +10842,16 @@ $_credMask = function ($v) {
                 <label class="crd-label">Refresh Token</label>
                 <?php $_renderRevealable('gmail_refresh_token', 'gmail_refresh_token', $_creds['mmd_email/google/refresh_token'], '1//0g…', 'Renewed automatically by the Google Sign-In button below (manual paste still works).') ?>
             </div>
+            <div class="crd-row">
+                <label class="crd-label">Service Account</label>
+                <span class="crd-hint" style="margin:0;">
+                    <?php if (Mage::helper('mmd_email/gmail')->hasServiceAccount()): ?>
+                        Configured — sends use the domain-wide-delegated service account (never expires); the refresh token above is the fallback path.
+                    <?php else: ?>
+                        Not configured — POST the key JSON to <code>/maildiagnose/setgmailsa</code> to make sends immune to refresh-token expiry.
+                    <?php endif; ?>
+                </span>
+            </div>
             <?php
                 $_gmailAdminFront  = (string) Mage::getConfig()->getNode('admin/routers/adminhtml/args/frontName');
                 $_gmailRedirectUri = Mage::getBaseUrl(Mage_Core_Model_Store::URL_TYPE_WEB) . $_gmailAdminFront . '/maildiagnose/gmailcallback/';

@@ -593,6 +593,84 @@ class MMD_Email_Adminhtml_MaildiagnoseController extends Mage_Adminhtml_Controll
         ]);
     }
 
+    /**
+     * Store (or clear) the domain-wide-delegated service-account key that
+     * the Gmail helper prefers over the user refresh token. POST the full
+     * key JSON (as downloaded from Google Cloud Console) in the `sa_json`
+     * field — never a GET query string, the private key is too large and
+     * would land in access logs. Pass clear=1 to remove the key and fall
+     * back to the refresh-token flow.
+     *
+     *   POST /maildiagnose/setgmailsa   body: sa_json=<key json>
+     *   POST /maildiagnose/setgmailsa   body: clear=1
+     *
+     * One-time prerequisites in Google Workspace Admin → Security → API
+     * Controls → Domain-wide Delegation: the SA's OAuth2 client id must be
+     * granted scope https://www.googleapis.com/auth/gmail.send.
+     */
+    public function setgmailsaAction()
+    {
+        if (!$this->getRequest()->isPost()) {
+            $this->_emit(['error' => 'POST required — send the key JSON as sa_json=<...> (or clear=1).']);
+            return;
+        }
+
+        if ((string) $this->getRequest()->getPost('clear') === '1') {
+            try {
+                Mage::getConfig()->saveConfig('mmd_email/google/sa_key', '', 'default', 0);
+                Mage::app()->getCacheInstance()->cleanType('config');
+                Mage::app()->cleanCache();
+            } catch (Exception $e) {
+                $this->_emit(['error' => $e->getMessage()]);
+                return;
+            }
+            $this->_emit(['setgmailsa_result' => 'OK — service-account key cleared; Gmail falls back to the refresh-token flow.']);
+            return;
+        }
+
+        $raw = trim((string) $this->getRequest()->getPost('sa_json'));
+        if ($raw === '') {
+            $this->_emit(['error' => 'Missing sa_json — POST the full service-account key JSON.']);
+            return;
+        }
+        $key = json_decode($raw, true);
+        if (!is_array($key)
+            || (isset($key['type']) ? $key['type'] : '') !== 'service_account'
+            || empty($key['client_email'])
+            || empty($key['private_key'])) {
+            $this->_emit(['error' => 'sa_json is not a valid service-account key (need type=service_account, client_email, private_key).']);
+            return;
+        }
+
+        try {
+            Mage::getConfig()->saveConfig('mmd_email/google/sa_key', $raw, 'default', 0);
+            Mage::app()->getCacheInstance()->cleanType('config');
+            Mage::app()->cleanCache();
+        } catch (Exception $e) {
+            $this->_emit(['error' => $e->getMessage(), 'exception' => get_class($e)]);
+            return;
+        }
+
+        // Round-trip a token so DWD / scope problems surface immediately.
+        // getAccessToken() prefers the SA path we just saved.
+        $tokenTest = null;
+        try {
+            $token = Mage::helper('mmd_email/gmail')->getAccessToken();
+            $tokenTest = ['ok' => true, 'access_token_length' => strlen((string) $token)];
+        } catch (Exception $e) {
+            $tokenTest = ['ok' => false, 'error' => $e->getMessage()];
+        }
+
+        $this->_emit([
+            'setgmailsa_result' => 'OK — service-account key saved (' . $key['client_email'] . '). Gmail now prefers it over the refresh token.',
+            'impersonating'     => (string) Mage::getStoreConfig('mmd_email/google/user'),
+            'token_test'        => $tokenTest,
+            'note'              => $tokenTest['ok']
+                ? 'Service-account token works. Sends are now immune to refresh-token expiry/revocation.'
+                : 'Key saved but the token grant failed — usually the DWD grant (client id + gmail.send scope) is missing in Workspace Admin, or the impersonated user is not a Workspace mailbox.',
+        ]);
+    }
+
     public function marketingcfgAction()
     {
         // Clear Magento's config cache so we read the fresh value from DB,

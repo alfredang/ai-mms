@@ -14,6 +14,15 @@
  *
  * No SMTP, no password — Google's preferred path for Workspace mailboxes.
  *
+ * Service account (preferred when configured): a Workspace domain-wide-
+ * delegated service account key (mmd_email/google/sa_key, the full JSON)
+ * mints access tokens by signing a JWT locally — no refresh token, no
+ * user consent, nothing to expire or revoke on password changes. The
+ * user-consent refresh-token flow above remains as fallback, so either
+ * credential alone keeps mail flowing. DWD grant lives in Workspace
+ * Admin → Security → API Controls → Domain-wide Delegation (scope
+ * https://www.googleapis.com/auth/gmail.send).
+ *
  * Token caching: getAccessToken() round-trips to Google every call, which
  * adds ~200ms per email. For now that's fine. If volume becomes an issue,
  * cache the access token in core/cache for ~3500 seconds (just under the
@@ -21,8 +30,10 @@
  */
 class MMD_Email_Helper_Gmail extends Mage_Core_Helper_Abstract
 {
+    const SA_SCOPE = 'https://www.googleapis.com/auth/gmail.send';
+
     /**
-     * @return array{user:string, client_id:string, client_secret:string, refresh_token:string}
+     * @return array{user:string, client_id:string, client_secret:string, refresh_token:string, sa_key:string}
      */
     public function getConfig()
     {
@@ -31,20 +42,53 @@ class MMD_Email_Helper_Gmail extends Mage_Core_Helper_Abstract
             'client_id'     => trim((string) Mage::getStoreConfig('mmd_email/google/client_id')),
             'client_secret' => trim((string) Mage::getStoreConfig('mmd_email/google/client_secret')),
             'refresh_token' => trim((string) Mage::getStoreConfig('mmd_email/google/refresh_token')),
+            'sa_key'        => trim((string) Mage::getStoreConfig('mmd_email/google/sa_key')),
         );
     }
 
     /**
-     * True when all four required OAuth2 fields are filled in. The
-     * Observer checks this before bypassing the SMTP transport.
+     * True when a usable credential set exists: the sending mailbox plus
+     * either the service-account key or the full OAuth refresh-token
+     * triple. The Observer checks this before bypassing the SMTP transport.
      */
     public function isConfigured()
     {
         $c = $this->getConfig();
-        return $c['user'] !== ''
-            && $c['client_id'] !== ''
-            && $c['client_secret'] !== ''
-            && $c['refresh_token'] !== '';
+        if ($c['user'] === '') {
+            return false;
+        }
+        return $this->hasServiceAccount()
+            || ($c['client_id'] !== '' && $c['client_secret'] !== '' && $c['refresh_token'] !== '');
+    }
+
+    /**
+     * True when a structurally valid service-account key JSON is saved.
+     */
+    public function hasServiceAccount()
+    {
+        return $this->_saKey() !== null;
+    }
+
+    /**
+     * Parse + validate the saved service-account key. Null when absent
+     * or malformed (missing type/client_email/private_key).
+     *
+     * @return array|null
+     */
+    protected function _saKey()
+    {
+        $raw = trim((string) Mage::getStoreConfig('mmd_email/google/sa_key'));
+        if ($raw === '') {
+            return null;
+        }
+        $key = json_decode($raw, true);
+        if (!is_array($key)
+            || (isset($key['type']) ? $key['type'] : '') !== 'service_account'
+            || empty($key['client_email'])
+            || empty($key['private_key'])) {
+            return null;
+        }
+        return $key;
     }
 
     /**
@@ -67,26 +111,115 @@ class MMD_Email_Helper_Gmail extends Mage_Core_Helper_Abstract
     }
 
     /**
-     * Exchange the saved refresh token for a fresh access token.
-     * Throws on auth failure so the caller can log a clear error.
+     * Get a fresh access token. Prefers the service account (self-signed
+     * JWT — cannot expire like a user refresh token); falls back to the
+     * user-consent refresh-token exchange when the SA is absent or fails,
+     * so either credential alone keeps mail flowing.
      *
      * @return string Access token
      * @throws Exception
      */
     public function getAccessToken()
     {
-        $c = $this->getConfig();
         if (!$this->isConfigured()) {
             throw new Exception('Gmail OAuth2 not configured');
         }
 
-        $body = http_build_query(array(
+        $saError = null;
+        if ($this->hasServiceAccount()) {
+            try {
+                return $this->_getServiceAccountToken();
+            } catch (Exception $e) {
+                $saError = $e->getMessage();
+                Mage::log('Gmail SA token failed, falling back to refresh token: ' . $saError, Zend_Log::WARN);
+            }
+        }
+
+        $c = $this->getConfig();
+        if ($c['client_id'] === '' || $c['client_secret'] === '' || $c['refresh_token'] === '') {
+            throw new Exception('Gmail service-account token failed and no refresh-token fallback is configured: ' . $saError);
+        }
+
+        try {
+            return $this->_getRefreshTokenToken();
+        } catch (Exception $e) {
+            throw new Exception($saError !== null
+                ? 'Gmail auth failed on both paths. SA: ' . $saError . ' | Refresh: ' . $e->getMessage()
+                : $e->getMessage());
+        }
+    }
+
+    /**
+     * Mint an access token from the domain-wide-delegated service account:
+     * sign a JWT (RS256) claiming iss = the SA, sub = the impersonated
+     * mailbox, scope = gmail.send, then swap it at the token endpoint.
+     *
+     * @return string Access token
+     * @throws Exception
+     */
+    protected function _getServiceAccountToken()
+    {
+        $key  = $this->_saKey();
+        $user = trim((string) Mage::getStoreConfig('mmd_email/google/user'));
+        if ($key === null) {
+            throw new Exception('Service-account key missing or malformed');
+        }
+
+        $now    = time();
+        $b64url = function ($data) {
+            return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
+        };
+        $segments = $b64url(json_encode(array('alg' => 'RS256', 'typ' => 'JWT')))
+            . '.' . $b64url(json_encode(array(
+                'iss'   => $key['client_email'],
+                'sub'   => $user,
+                'scope' => self::SA_SCOPE,
+                'aud'   => 'https://oauth2.googleapis.com/token',
+                'iat'   => $now,
+                'exp'   => $now + 3600,
+            )));
+
+        $signature = '';
+        if (!openssl_sign($segments, $signature, $key['private_key'], OPENSSL_ALGO_SHA256)) {
+            throw new Exception('Service-account JWT signing failed: ' . openssl_error_string());
+        }
+        $jwt = $segments . '.' . $b64url($signature);
+
+        return $this->_postToken(http_build_query(array(
+            'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+            'assertion'  => $jwt,
+        )));
+    }
+
+    /**
+     * Exchange the saved refresh token for a fresh access token.
+     * Throws on auth failure so the caller can log a clear error.
+     *
+     * @return string Access token
+     * @throws Exception
+     */
+    protected function _getRefreshTokenToken()
+    {
+        $c = $this->getConfig();
+
+        return $this->_postToken(http_build_query(array(
             'client_id'     => $c['client_id'],
             'client_secret' => $c['client_secret'],
             'refresh_token' => $c['refresh_token'],
             'grant_type'    => 'refresh_token',
-        ));
+        )));
+    }
 
+    /**
+     * POST a form-encoded grant to Google's token endpoint and return the
+     * access token. Shared by the SA JWT-bearer and refresh-token grants.
+     *
+     * @param string $body application/x-www-form-urlencoded body
+     * @return string Access token
+     * @throws Exception
+     */
+    protected function _postToken($body)
+    {
         $ch = curl_init('https://oauth2.googleapis.com/token');
         curl_setopt_array($ch, array(
             CURLOPT_POST           => true,
@@ -108,7 +241,7 @@ class MMD_Email_Helper_Gmail extends Mage_Core_Helper_Abstract
         if ($code >= 400 || !isset($rsp['access_token'])) {
             $msg = isset($rsp['error_description']) ? $rsp['error_description']
                  : (isset($rsp['error']) ? $rsp['error'] : substr($raw, 0, 300));
-            throw new Exception('Gmail token refresh failed (' . $code . '): ' . $msg);
+            throw new Exception('Gmail token grant failed (' . $code . '): ' . $msg);
         }
         return (string) $rsp['access_token'];
     }
