@@ -110,11 +110,29 @@ class MMD_Courses_Helper_Data extends Mage_Core_Helper_Abstract
         );
     }
 
-    /** Total recorded page views for a product (Mage_Reports catalog_product_view events). */
+    /**
+     * All-time page views for a product. Reads the aggregated viewed-product
+     * report (rolled up daily BEFORE the log cleaner prunes guest rows out of
+     * report_event — clean_after_day=1, so the raw log only holds ~a day of
+     * guest views). Falls back to the raw event log for courses too new to
+     * have been aggregated yet.
+     */
     public function getProductViews($productId)
     {
-        $resource = Mage::getSingleton('core/resource');
-        $read     = $resource->getConnection('core_read');
+        $productId = (int) $productId;
+        $resource  = Mage::getSingleton('core/resource');
+        $read      = $resource->getConnection('core_read');
+
+        $views = (int) $read->fetchOne(
+            $read->select()
+                ->from($resource->getTableName('reports/viewed_aggregated_yearly'), 'SUM(views_num)')
+                ->where('product_id = ?', $productId)
+                ->where('store_id = ?', (int) Mage::app()->getStore()->getId())
+        );
+        if ($views > 0) {
+            return $views;
+        }
+
         return (int) $read->fetchOne(
             $read->select()
                 ->from(array('e' => $resource->getTableName('reports/event')), 'COUNT(*)')
@@ -124,7 +142,7 @@ class MMD_Courses_Helper_Data extends Mage_Core_Helper_Abstract
                     array()
                 )
                 ->where('t.event_name = ?', 'catalog_product_view')
-                ->where('e.object_id = ?', (int) $productId)
+                ->where('e.object_id = ?', $productId)
         );
     }
 
