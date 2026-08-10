@@ -14911,7 +14911,7 @@ $_mnBlastStats = array();
                 $_liUrl = (is_array($_dec2) && !empty($_dec2['_linkedin_url'])) ? (string) $_dec2['_linkedin_url'] : ''; ?>
             <div class="mn-blast">
                 <div class="mn-blast-head">
-                    <span class="mn-blast-name"><?php echo htmlspecialchars(trim((string) ($_b['product_name'] ?? '')) !== '' ? $_b['product_name'] : $_b['title']) ?></span>
+                    <span class="mn-blast-name"><?php echo htmlspecialchars($_b['title']) ?></span>
                     <span class="mn-badge s-done">Blasted &middot; <?php echo !empty($_b['sent_at']) ? date('D j M, g:ia', strtotime($_b['sent_at'])) : '—' ?></span>
                     <?php if ($_liUrl): ?><a class="mn-blast-li" href="<?php echo htmlspecialchars($_liUrl) ?>" target="_blank" rel="noopener">in &middot; View LinkedIn post</a><?php endif; ?>
                     <?php if (empty($_s)): ?><span class="mn-badge s-muted">Stats syncing&hellip;</span><?php endif; ?>

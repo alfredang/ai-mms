@@ -857,4 +857,149 @@ class MMD_Email_Adminhtml_MaildiagnoseController extends Mage_Adminhtml_Controll
             ->setHeader('Content-Type', 'application/json', true)
             ->setBody(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
     }
+
+    // ------------------------------------------------------------------ //
+    //  One-click Gmail OAuth renewal (Credentials panel "Renew via Google
+    //  Sign-In" button). Replaces the OAuth Playground copy-paste dance:
+    //
+    //    gmailauth     → redirects to Google's consent screen using the
+    //                    SAVED client_id (state nonce in the admin session)
+    //    gmailcallback → exchanges the returned code server-side with the
+    //                    saved client_secret, stores the new refresh token
+    //                    (+ the authenticated mailbox), clears config cache
+    //
+    //  ONE-TIME prerequisite in Google Cloud Console: the OAuth client must
+    //  list <base>/adminlogin/maildiagnose/gmailcallback/ as an Authorized
+    //  redirect URI (the panel prints the exact URL for this site).
+    //  The token exchange itself returns a working access token, so a
+    //  successful callback IS the verification round-trip.
+    // ------------------------------------------------------------------ //
+
+    protected function _gmailRedirectUri()
+    {
+        $frontName = (string) Mage::getConfig()->getNode('admin/routers/adminhtml/args/frontName');
+        return Mage::getBaseUrl(Mage_Core_Model_Store::URL_TYPE_WEB) . $frontName . '/maildiagnose/gmailcallback/';
+    }
+
+    protected function _credentialsPanelUrl()
+    {
+        return Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_query' => array('panel' => 'credentials')));
+    }
+
+    public function gmailauthAction()
+    {
+        $session  = Mage::getSingleton('adminhtml/session');
+        $clientId = trim((string) Mage::getStoreConfig('mmd_email/google/client_id'));
+        if ($clientId === '') {
+            $session->addError('Save a Google Client ID first — the sign-in flow needs it.');
+            $this->_redirectUrl($this->_credentialsPanelUrl());
+            return;
+        }
+
+        $state = Mage::helper('core')->getRandomString(32);
+        $session->setGmailOauthState($state);
+
+        $params = array(
+            'response_type' => 'code',
+            'client_id'     => $clientId,
+            'redirect_uri'  => $this->_gmailRedirectUri(),
+            // mail.google.com is the scope the Gmail send helper uses;
+            // openid+email lets us read WHICH mailbox was authenticated so
+            // the saved "user" always matches the token's account.
+            'scope'         => 'https://mail.google.com/ openid email',
+            'access_type'   => 'offline',
+            // prompt=consent forces Google to issue a NEW refresh token even
+            // when the account previously consented (default re-auth returns
+            // no refresh_token at all).
+            'prompt'        => 'consent',
+            'state'         => $state,
+        );
+        $loginHint = trim((string) Mage::getStoreConfig('mmd_email/google/user'));
+        if ($loginHint !== '') {
+            $params['login_hint'] = $loginHint;
+        }
+        $this->_redirectUrl('https://accounts.google.com/o/oauth2/v2/auth?' . http_build_query($params));
+    }
+
+    public function gmailcallbackAction()
+    {
+        $session = Mage::getSingleton('adminhtml/session');
+        $request = $this->getRequest();
+
+        $expectedState = (string) $session->getGmailOauthState();
+        $session->unsGmailOauthState();
+
+        if ($request->getParam('error')) {
+            $session->addError('Google sign-in was cancelled or refused: ' . $this->escapeHtml($request->getParam('error')));
+            $this->_redirectUrl($this->_credentialsPanelUrl());
+            return;
+        }
+
+        $code  = (string) $request->getParam('code');
+        $state = (string) $request->getParam('state');
+        if ($code === '' || $expectedState === '' || !hash_equals($expectedState, $state)) {
+            $session->addError('Gmail renewal failed: invalid or expired sign-in state. Please click "Renew via Google Sign-In" again.');
+            $this->_redirectUrl($this->_credentialsPanelUrl());
+            return;
+        }
+
+        $clientId     = trim((string) Mage::getStoreConfig('mmd_email/google/client_id'));
+        $clientSecret = trim((string) Mage::getStoreConfig('mmd_email/google/client_secret'));
+
+        $ch = curl_init('https://oauth2.googleapis.com/token');
+        curl_setopt_array($ch, array(
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => http_build_query(array(
+                'code'          => $code,
+                'client_id'     => $clientId,
+                'client_secret' => $clientSecret,
+                'redirect_uri'  => $this->_gmailRedirectUri(),
+                'grant_type'    => 'authorization_code',
+            )),
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 20,
+        ));
+        $raw  = curl_exec($ch);
+        $http = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        $data = json_decode((string) $raw, true) ?: array();
+
+        if ($http !== 200 || empty($data['refresh_token'])) {
+            $why = isset($data['error_description']) ? $data['error_description']
+                 : (isset($data['error']) ? $data['error'] : ('HTTP ' . $http));
+            $session->addError('Gmail token exchange failed: ' . $this->escapeHtml($why)
+                . '. Check that the redirect URI shown on the Credentials panel is registered on the OAuth client in Google Cloud Console.');
+            $this->_redirectUrl($this->_credentialsPanelUrl());
+            return;
+        }
+
+        // The Gmail API sends as the AUTHENTICATED account, so keep the saved
+        // mailbox in lockstep with the id_token's email claim.
+        $email = '';
+        if (!empty($data['id_token'])) {
+            $parts = explode('.', (string) $data['id_token']);
+            if (isset($parts[1])) {
+                $claims = json_decode((string) base64_decode(strtr($parts[1], '-_', '+/')), true) ?: array();
+                $email  = isset($claims['email']) ? trim((string) $claims['email']) : '';
+            }
+        }
+
+        try {
+            $cfg = Mage::getConfig();
+            $cfg->saveConfig('mmd_email/google/refresh_token', $data['refresh_token'], 'default', 0);
+            if ($email !== '') {
+                $cfg->saveConfig('mmd_email/google/user', $email, 'default', 0);
+            }
+            Mage::app()->getCacheInstance()->cleanType('config');
+        } catch (Exception $e) {
+            Mage::logException($e);
+            $session->addError('Google issued a token but saving it failed: ' . $this->escapeHtml($e->getMessage()));
+            $this->_redirectUrl($this->_credentialsPanelUrl());
+            return;
+        }
+
+        $session->addSuccess('Gmail refresh token renewed' . ($email !== '' ? ' for ' . $this->escapeHtml($email) : '')
+            . ' — verified working (Google returned a live access token with it).');
+        $this->_redirectUrl($this->_credentialsPanelUrl());
+    }
 }
