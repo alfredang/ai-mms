@@ -930,7 +930,7 @@ class MMD_Email_Adminhtml_MaildiagnoseController extends Mage_Adminhtml_Controll
         $session->unsGmailOauthState();
 
         if ($request->getParam('error')) {
-            $session->addError('Google sign-in was cancelled or refused: ' . $this->escapeHtml($request->getParam('error')));
+            $session->addError('Google sign-in was cancelled or refused: ' . Mage::helper('core')->escapeHtml($request->getParam('error')));
             $this->_redirectUrl($this->_credentialsPanelUrl());
             return;
         }
@@ -967,7 +967,7 @@ class MMD_Email_Adminhtml_MaildiagnoseController extends Mage_Adminhtml_Controll
         if ($http !== 200 || empty($data['refresh_token'])) {
             $why = isset($data['error_description']) ? $data['error_description']
                  : (isset($data['error']) ? $data['error'] : ('HTTP ' . $http));
-            $session->addError('Gmail token exchange failed: ' . $this->escapeHtml($why)
+            $session->addError('Gmail token exchange failed: ' . Mage::helper('core')->escapeHtml($why)
                 . '. Check that the redirect URI shown on the Credentials panel is registered on the OAuth client in Google Cloud Console.');
             $this->_redirectUrl($this->_credentialsPanelUrl());
             return;
@@ -993,12 +993,12 @@ class MMD_Email_Adminhtml_MaildiagnoseController extends Mage_Adminhtml_Controll
             Mage::app()->getCacheInstance()->cleanType('config');
         } catch (Exception $e) {
             Mage::logException($e);
-            $session->addError('Google issued a token but saving it failed: ' . $this->escapeHtml($e->getMessage()));
+            $session->addError('Google issued a token but saving it failed: ' . Mage::helper('core')->escapeHtml($e->getMessage()));
             $this->_redirectUrl($this->_credentialsPanelUrl());
             return;
         }
 
-        $session->addSuccess('Gmail refresh token renewed' . ($email !== '' ? ' for ' . $this->escapeHtml($email) : '')
+        $session->addSuccess('Gmail refresh token renewed' . ($email !== '' ? ' for ' . Mage::helper('core')->escapeHtml($email) : '')
             . ' — verified working (Google returned a live access token with it).');
         $this->_redirectUrl($this->_credentialsPanelUrl());
     }
