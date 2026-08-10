@@ -1,0 +1,133 @@
+<?php
+/**
+ * Generate migration 916: move the "About IBF Certification" section from the
+ * 7 IBF courses' short_description into the new per-course
+ * `course_<sku>_about_ibf_certification` cms/block, which the new
+ * "About IBF Certification" card (after the Certification card) renders from.
+ *
+ * Companion to the view.phtml / dashboard / CoursesaveController change that
+ * introduces the `about_ibf_certification` section code — same block-first,
+ * regex-fallback contract as the other five sections
+ * (memory per-course-cms-block-sections).
+ *
+ * Rules (same shape as 915):
+ *   - seed the block from the section body (heading excluded — the card
+ *     supplies its own title); skip a course whose body is empty so the
+ *     regex fallback keeps rendering;
+ *   - strip the inline section via SKU-joined exact-byte REPLACE — no-ops on
+ *     diverged partner rows (feedback_sku_migrations_hit_partners_irreversibly)
+ *     and on re-runs; literals hex-encoded for apply.php's utf8 connection
+ *     (feedback_migration_applyphp_utf8_outage);
+ *   - the strip pattern reuses view.phtml::$_extractSection's whitespace class
+ *     and wrapper-safe lookahead
+ *     (feedback_section_strip_must_preserve_next_wrapper_div).
+ *
+ * Local/prod MD5 parity of every touched row was verified before generation.
+ *
+ * NOTE (feedback_content_generator_not_idempotent_after_apply): this generator
+ * READS the data it migrates — re-running it AFTER the migration has been
+ * applied emits an empty file. Restore from git rather than regenerating.
+ *
+ * Run:
+ *   docker exec ai-mms-web-1 php /var/www/html/scripts/local-dev/generate-ibf-about-certification-migration.php
+ */
+
+declare(strict_types=1);
+
+require_once dirname(__DIR__, 2) . '/app/Mage.php';
+Mage::app('admin');
+
+$outFile = dirname(__DIR__, 2) . '/migrations/916-ibf-about-certification-to-cms-block.sql';
+
+$db = Mage::getSingleton('core/resource')->getConnection('core_read');
+
+$aidSd = (int) $db->fetchOne("SELECT attribute_id FROM eav_attribute WHERE entity_type_id=4 AND attribute_code='short_description'");
+
+// Same whitespace class + wrapper-safe lookahead as view.phtml's $_extractSection,
+// and the same title pattern the new (4b) call site uses.
+$WS      = '(?:\s|&nbsp;|\x{00A0}|\x{2007}|\x{202F})';
+$pattern = '#<h[1-6][^>]*>' . $WS . '*(?:<br\s*/?>' . $WS . '*)*About' . $WS . '+IBF' . $WS . '+Certifications?' . $WS . '*:?' . $WS . '*</h[1-6]>(.*?)(?=(?:<[a-z][a-z0-9]*\b[^>]*>' . $WS . '*)*<h[1-6]|\z)#siu';
+
+$rows = $db->fetchAll(
+    "SELECT e.entity_id, e.sku, t.value AS sd
+       FROM catalog_product_entity e
+       JOIN catalog_product_entity_text t
+         ON t.entity_id = e.entity_id AND t.attribute_id = ? AND t.store_id = 0
+      WHERE t.value LIKE '%About IBF Certification%'
+      ORDER BY e.sku",
+    [$aidSd]
+);
+
+$lit = static function (string $s): string {
+    return $s === '' ? "''" : '0x' . bin2hex($s);
+};
+
+$stats = ['seen' => 0, 'stripped' => 0, 'block_seeded' => 0, 'skipped' => 0];
+$sql   = [];
+
+foreach ($rows as $r) {
+    $sku = (string) $r['sku'];
+    $sd  = (string) $r['sd'];
+    $stats['seen']++;
+
+    if (!preg_match($pattern, $sd, $m)) {
+        $stats['skipped']++;
+        continue;
+    }
+    $body = trim($m[1]);
+
+    $identifier = 'course_' . $sku . '_about_ibf_certification';
+    $existing   = trim((string) $db->fetchOne('SELECT content FROM cms_block WHERE identifier = ?', [$identifier]));
+    if ($existing === '' && $body === '') {
+        // Nothing to card — keep the heading for the regex fallback.
+        $stats['skipped']++;
+        continue;
+    }
+
+    $stmt = "-- {$sku}\n";
+    if ($existing === '') {
+        $title = 'Course ' . $sku . ' — About IBF Certification';
+        $stmt .= sprintf(
+            "INSERT INTO cms_block (title, identifier, content, creation_time, update_time, is_active)\n"
+            . "  SELECT %s, %s, %s, NOW(), NOW(), 1 FROM DUAL\n"
+            . "  WHERE NOT EXISTS (SELECT 1 FROM cms_block WHERE identifier = %s);\n"
+            . "INSERT IGNORE INTO cms_block_store (block_id, store_id)\n"
+            . "  SELECT block_id, 0 FROM cms_block WHERE identifier = %s;\n",
+            $lit($title), $lit($identifier), $lit($body), $lit($identifier), $lit($identifier)
+        );
+        $stats['block_seeded']++;
+    }
+    $stmt .= sprintf(
+        "UPDATE catalog_product_entity_text t\n"
+        . "  JOIN catalog_product_entity e ON e.entity_id = t.entity_id AND e.sku = %s\n"
+        . "   SET t.value = REPLACE(t.value, %s, '')\n"
+        . " WHERE t.attribute_id = @a_sdesc AND t.store_id = 0;\n",
+        $lit($sku), $lit($m[0])
+    );
+    $stats['stripped']++;
+
+    $sql[] = $stmt;
+}
+
+$header = "-- 916: Move the \"About IBF Certification\" section from short_description\n"
+    . "-- into the new per-course `course_<sku>_about_ibf_certification` cms/block,\n"
+    . "-- rendered by the new About IBF Certification card after the Certification\n"
+    . "-- card. Generated by\n"
+    . "-- scripts/local-dev/generate-ibf-about-certification-migration.php.\n"
+    . "--\n"
+    . "-- Idempotent + partner-safe: SKU-joined exact-byte REPLACE no-ops when the\n"
+    . "-- bytes are absent. Literals hex-encoded for apply.php's utf8 connection.\n"
+    . "--\n"
+    . sprintf(
+        "-- courses seen: %d  stripped: %d  blocks seeded: %d  skipped: %d\n\n",
+        $stats['seen'], $stats['stripped'], $stats['block_seeded'], $stats['skipped']
+    )
+    . "SET @a_sdesc := (SELECT attribute_id FROM eav_attribute WHERE entity_type_id = 4 AND attribute_code = 'short_description');\n\n";
+
+file_put_contents($outFile, $header . implode("\n\n", $sql) . "\n");
+
+echo "wrote: $outFile\n";
+echo '  bytes: ' . number_format(filesize($outFile)) . "\n";
+foreach ($stats as $k => $v) {
+    printf("  %-14s %d\n", $k, $v);
+}

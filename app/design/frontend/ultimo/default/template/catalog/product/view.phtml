@@ -481,6 +481,14 @@
 		unset($_certExtracted);
 	}
 
+	// (4b) About IBF Certification — carried by IBF courses only (the TSC
+	// addressed + MySkills Portfolio / certification links). Per-course
+	// cms/block first, regex fallback from short_description.
+	list($_ibfExtracted, $shortDescription) = $_extractSection('About' . $_WS . '+IBF' . $_WS . '+Certifications?', $shortDescription);
+	$_aboutIbfHtml = $_courseSectionHtml('about_ibf_certification');
+	if ($_aboutIbfHtml === '') { $_aboutIbfHtml = $_ibfExtracted; }
+	unset($_ibfExtracted);
+
 	if ($_isNoFundingCourse) {
 		$shortDescription = preg_replace('#(<p\b[^>]*>\s*)WSQ\s+#iu', '$1', $shortDescription, 1);
 		$shortDescription = preg_replace('#^\s*WSQ\s+#iu', '', $shortDescription, 1);
@@ -968,6 +976,18 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 								<h3 class="course-policy-card__title">Certification</h3>
 							</header>
 							<div class="course-policy-card__body std"><?php echo $_certificationHtml; ?></div>
+						</section>
+					<?php endif; ?>
+
+					<?php if ($_aboutIbfHtml !== ''): ?>
+						<section class="course-policy-card course-policy-card--ibf">
+							<header class="course-policy-card__header">
+								<span class="course-policy-card__icon" aria-hidden="true">
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="22" x2="21" y2="22"/><line x1="6" y1="18" x2="6" y2="11"/><line x1="10" y1="18" x2="10" y2="11"/><line x1="14" y1="18" x2="14" y2="11"/><line x1="18" y1="18" x2="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg>
+								</span>
+								<h3 class="course-policy-card__title">About IBF Certification</h3>
+							</header>
+							<div class="course-policy-card__body std"><?php echo $_aboutIbfHtml; ?></div>
 						</section>
 					<?php endif; ?>
 

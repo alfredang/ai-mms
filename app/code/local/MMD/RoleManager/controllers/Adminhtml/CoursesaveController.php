@@ -171,11 +171,12 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             // the row; non-empty upserts. See scripts/local-dev/cms-block-phase01.php
             // for the bootstrap that initially populated these from short_description.
             $_cmsSections = [
-                'learning_outcomes' => 'Learning Outcomes',
-                'brochure'          => 'Brochure',
-                'skills_framework'  => 'Skills Framework',
-                'certification'     => 'Certification',
-                'funding_and_grant' => 'Funding and Grant',
+                'learning_outcomes'       => 'Learning Outcomes',
+                'brochure'                => 'Brochure',
+                'skills_framework'        => 'Skills Framework',
+                'certification'           => 'Certification',
+                'about_ibf_certification' => 'About IBF Certification',
+                'funding_and_grant'       => 'Funding and Grant',
             ];
             $_cmsSku = (string) $product->getSku();
             foreach ($_cmsSections as $_sec => $_label) {
