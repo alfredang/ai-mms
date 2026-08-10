@@ -439,9 +439,10 @@ class MMD_CourseImage_Helper_Data extends Mage_Core_Helper_Abstract
         if (in_array('UTAP', $badges, true)) {
             $html .= '<h3>UTAP</h3>'
                 . '<p>Eligible NTUC members can apply for 50% of the unfunded fee from UTAP, '
-                . 'capped up to $250/year and for members aged 40 and above, capped up to $500/year. '
-                . '<a href="https://www.ntuc.org.sg/wps/portal/up2/home/eserviceslanding?id=6bc1ca2c-ce81-4acb-a28f-c0be586e185f" target="_blank">'
-                . $red . 'Click here to submit UTAP</span></a></p>';
+                . 'capped up to $250/year and for members aged 40 and above, capped up to $500/year.</p>'
+                . '<p><a class="wsq-portal-btn wsq-portal-btn--utap" href="https://utap.ntuc.org.sg/onlineClaim" target="_blank" '
+                . 'style="display: inline-block; padding: 8px 18px; background: #9333ea; color: #ffffff; font-weight: 600; border-radius: 6px; text-decoration: none;">'
+                . 'Submit UTAP Claim</a></p>';
         }
 
         if (in_array('PSEA', $badges, true)) {
