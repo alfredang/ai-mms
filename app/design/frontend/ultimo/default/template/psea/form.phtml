@@ -1,0 +1,225 @@
+<?php
+/**
+ * PSEA Withdrawal Form submission page (/psea-submission/).
+ * Linked from the PSEA section of the WSQ Funding card. The learner attaches
+ * their filled MOE PSEA ad-hoc withdrawal form; it is emailed to ops with the
+ * file attached (no DB record). Styles scoped to .tc-psea.
+ */
+$tsHelper  = Mage::helper('magentocaptcha/turnstile');
+$tsSiteKey = $tsHelper->getSiteKey();
+$courseCode = trim((string) $this->getRequest()->getParam('course', ''));
+$formUrl    = 'https://www.moe.gov.sg/api/media/94b3eeb8-ceed-47e3-9f58-921b33970c9a/psea-ad-hoc-withdrawal-form.pdf';
+?>
+<?php if ($tsSiteKey): ?>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<?php endif; ?>
+<style>
+.tc-psea{max-width:680px;margin:0 auto;}
+.tc-psea .tc-hero{background:#15803d;color:#fff;border-radius:14px;padding:28px 28px;margin-bottom:22px;box-shadow:0 10px 30px rgba(21,128,61,.18);}
+.tc-psea .tc-hero h1{color:#fff;margin:0 0 8px;font-size:28px;line-height:1.2;font-weight:700;}
+.tc-psea .tc-hero p{color:#dcfce7;margin:0;font-size:15px;line-height:1.55;}
+.tc-psea .tc-steps{list-style:none;padding:0;margin:14px 0 0;display:flex;flex-direction:column;gap:8px;}
+.tc-psea .tc-steps li{color:#f0fdf4;font-size:14px;position:relative;padding-left:30px;line-height:1.5;}
+.tc-psea .tc-steps li span{position:absolute;left:0;top:1px;width:20px;height:20px;background:#22c55e;border-radius:50%;color:#fff;font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;}
+.tc-psea .tc-hero a{color:#bbf7d0;text-decoration:underline;}
+.tc-psea .tc-card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:26px 28px;box-shadow:0 4px 14px rgba(15,23,42,.04);}
+.tc-psea .tc-card h2{font-size:20px;font-weight:700;color:#0f172a;margin:0 0 18px;padding:0;border:0;}
+.tc-psea form ul.form-list{list-style:none;padding:0;margin:0;}
+.tc-psea form ul.form-list li{margin:0 0 14px;background:transparent;border:0;padding:0;}
+.tc-psea form ul.form-list li.fields{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.tc-psea form ul.form-list li.fields .field{margin:0;}
+.tc-psea form label{display:block;font-weight:600;color:#0f172a;font-size:13.5px;margin:0 0 6px;}
+.tc-psea form label.required em{color:#e11d48;font-style:normal;margin-right:3px;}
+.tc-psea form .input-box{width:100%;}
+.tc-psea form input.input-text,
+.tc-psea form textarea.input-text{
+  width:100%;box-sizing:border-box;padding:11px 14px;border:1.5px solid #d1d5db;border-radius:10px;
+  font-size:14.5px;color:#0f172a;background:#fff;transition:border-color .15s ease,box-shadow .15s ease;
+  font-family:inherit;line-height:1.4;height:auto !important;
+}
+.tc-psea form input.input-text:focus,
+.tc-psea form textarea.input-text:focus{outline:0;border-color:#16a34a;box-shadow:0 0 0 4px rgba(22,163,74,.14);}
+.tc-psea form textarea.input-text{min-height:110px;resize:vertical;width:100% !important;}
+.tc-psea .tc-file{border:2px dashed #86efac;border-radius:12px;background:#f0fdf4;padding:18px;text-align:center;}
+.tc-psea .tc-file input[type=file]{width:100%;font-size:14px;color:#166534;}
+.tc-psea .tc-file .tc-file-hint{color:#4d7c0f;font-size:12.5px;margin:8px 0 0;}
+.tc-psea .buttons-set{margin-top:18px;padding:0;border:0;text-align:left;display:flex;flex-direction:column;gap:10px;}
+.tc-psea .buttons-set p.required{color:#6b7280;font-size:12.5px;margin:0;}
+.tc-psea .buttons-set .error{color:#dc2626;font-size:13px;line-height:1.5;min-height:0;}
+.tc-psea .buttons-set .error:empty{display:none;}
+.tc-psea button.tc-submit{
+  display:inline-flex;align-items:center;justify-content:center;gap:10px;
+  background:#16a34a;color:#fff;border:0;border-radius:12px;padding:14px 28px;
+  font-size:15.5px;font-weight:700;letter-spacing:.2px;cursor:pointer;
+  box-shadow:0 8px 18px rgba(22,163,74,.28);
+  transition:transform .15s ease,box-shadow .15s ease,background .15s ease;
+  width:auto;align-self:flex-start;min-width:200px;
+}
+.tc-psea button.tc-submit:hover{transform:translateY(-1px);background:#15803d;box-shadow:0 12px 24px rgba(22,163,74,.34);}
+.tc-psea button.tc-submit:disabled{opacity:.65;cursor:default;transform:none;}
+.tc-psea .tc-trust{color:#6b7280;font-size:12.5px;margin:10px 0 0;display:inline-flex;align-items:center;gap:6px;}
+.tc-psea .tc-trust svg{width:14px;height:14px;color:#22c55e;}
+@media (max-width:600px){
+  .tc-psea form ul.form-list li.fields{grid-template-columns:1fr;}
+  .tc-psea .tc-hero{padding:22px 20px;}
+  .tc-psea .tc-hero h1{font-size:23px;}
+  .tc-psea .tc-card{padding:20px 18px;}
+  .tc-psea button.tc-submit{width:100%;}
+}
+</style>
+
+<div id="messages_product_view"><?php echo $this->getMessagesBlock()->getGroupedHtml() ?></div>
+
+<div class="tc-psea">
+
+  <div class="tc-hero">
+    <h1><?php echo $this->__('Submit Your PSEA Withdrawal Form') ?></h1>
+    <p><?php echo $this->__('Use your Post-Secondary Education Account (PSEA) to offset the course fee payable after funding.') ?></p>
+    <ul class="tc-steps">
+      <li><span>1</span><?php echo $this->__('Download and fill up the') ?> <a href="<?php echo $this->escapeHtml($formUrl) ?>" target="_blank" rel="noopener"><?php echo $this->__('PSEA Ad-hoc Withdrawal Form') ?></a>.</li>
+      <li><span>2</span><?php echo $this->__('Attach the completed form below (PDF or a clear photo/scan).') ?></li>
+      <li><span>3</span><?php echo $this->__('Submit — our team will process it and confirm with you by email.') ?></li>
+    </ul>
+  </div>
+
+  <div class="tc-card">
+    <h2><?php echo $this->__('Your Details') ?></h2>
+
+    <form action="<?php echo Mage::getUrl('mmd_psea/index/post') ?>" name="pseaForm" id="pseaForm" method="post" enctype="multipart/form-data">
+      <?php echo $this->getBlockHtml('formkey') ?>
+      <ul class="form-list">
+        <li class="fields">
+          <div class="field">
+            <label for="name" class="required"><em>*</em><?php echo $this->__('Name') ?></label>
+            <div class="input-box">
+              <input name="name" id="name" placeholder="<?php echo $this->__('Your full name') ?>" class="input-text required-entry" type="text" />
+            </div>
+          </div>
+          <div class="field">
+            <label for="email" class="required"><em>*</em><?php echo $this->__('Email') ?></label>
+            <div class="input-box">
+              <input name="email" id="email" placeholder="you@example.com" class="input-text required-entry validate-email" type="email" />
+            </div>
+          </div>
+        </li>
+        <li class="fields">
+          <div class="field">
+            <label for="telephone"><?php echo $this->__('Telephone') ?></label>
+            <div class="input-box">
+              <input name="telephone" id="telephone" placeholder="+65 9XXX XXXX" class="input-text" type="tel" />
+            </div>
+          </div>
+          <div class="field">
+            <label for="course_code"><?php echo $this->__('Course Code') ?></label>
+            <div class="input-box">
+              <input name="course_code" id="course_code" value="<?php echo $this->escapeHtml($courseCode) ?>" placeholder="<?php echo $this->__('e.g. TGS-2024045801') ?>" class="input-text" type="text" />
+            </div>
+          </div>
+        </li>
+        <li class="wide">
+          <label for="psea_form" class="required"><em>*</em><?php echo $this->__('Filled PSEA Withdrawal Form') ?></label>
+          <div class="tc-file">
+            <input type="file" name="psea_form" id="psea_form" accept=".pdf,.jpg,.jpeg,.png" />
+            <p class="tc-file-hint"><?php echo $this->__('PDF, JPG or PNG — max 8 MB.') ?></p>
+          </div>
+        </li>
+        <li class="wide">
+          <label for="message"><?php echo $this->__('Message (optional)') ?></label>
+          <div class="input-box">
+            <textarea name="message" id="message" placeholder="<?php echo $this->__('Anything we should know — class date, invoice number…') ?>" class="input-text" rows="4"></textarea>
+          </div>
+        </li>
+      </ul>
+
+      <div class="buttons-set">
+        <p class="required"><?php echo $this->__('* Required fields') ?></p>
+        <div id="error" class="error"></div>
+        <input type="text" name="hideit" id="hideit" value="" style="display:none !important;" />
+        <input type="hidden" name="cf-turnstile-response" id="cf-turnstile-response" value="" />
+        <?php if ($tsSiteKey): ?>
+        <div class="cf-turnstile"
+             data-sitekey="<?php echo $this->htmlEscape($tsSiteKey) ?>"
+             data-appearance="interaction-only"
+             data-callback="onTurnstileSuccess"
+             data-error-callback="onTurnstileError"
+             data-expired-callback="onTurnstileExpired"></div>
+        <?php endif; ?>
+        <button type="submit" id="tc-submit-btn" title="<?php echo $this->__('Submit PSEA Form') ?>" class="tc-submit">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:18px;height:18px;"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          <?php echo $this->__('Submit PSEA Form') ?>
+        </button>
+        <p class="tc-trust">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+          <?php echo $this->__('Your form goes straight to our admissions team. Your details stay private.') ?>
+        </p>
+      </div>
+    </form>
+  </div>
+
+</div>
+
+<script type="text/javascript">
+(function () {
+    var TURNSTILE_ENABLED = <?php echo $tsSiteKey ? 'true' : 'false'; ?>;
+    var MAX_BYTES = 8388608;
+    var pendingSubmit = false;
+
+    function validateForm() {
+        var error = "";
+        var f = document.forms["pseaForm"];
+        if (!f["name"].value) { error += "Please enter your name<br/>"; }
+        if (!/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,})+$/.test(f["email"].value)) {
+            error += "Please enter a valid email<br/>";
+        }
+        var file = f["psea_form"];
+        if (!file.files || !file.files.length) {
+            error += "Please attach your filled PSEA Withdrawal Form<br/>";
+        } else {
+            var name = file.files[0].name.toLowerCase();
+            if (!/\.(pdf|jpe?g|png)$/.test(name)) {
+                error += "The form must be a PDF, JPG or PNG file<br/>";
+            } else if (file.files[0].size > MAX_BYTES) {
+                error += "The attached file is over 8 MB — please compress it<br/>";
+            }
+        }
+        document.getElementById("error").innerHTML = error;
+        return error === "";
+    }
+
+    function doSubmit() {
+        var btn = document.getElementById("tc-submit-btn");
+        if (btn) { btn.disabled = true; }
+        document.forms["pseaForm"].submit();
+    }
+
+    window.onTurnstileSuccess = function (token) {
+        var input = document.getElementById("cf-turnstile-response");
+        if (input) { input.value = token; }
+        if (pendingSubmit) { pendingSubmit = false; doSubmit(); }
+    };
+    window.onTurnstileError = function () {
+        pendingSubmit = false;
+        document.getElementById("error").innerHTML =
+            "Spam check could not run. Please refresh the page and try again.";
+    };
+    window.onTurnstileExpired = function () {
+        var input = document.getElementById("cf-turnstile-response");
+        if (input) { input.value = ""; }
+    };
+
+    document.addEventListener("DOMContentLoaded", function () {
+        var form = document.getElementById("pseaForm");
+        if (!form) { return; }
+        form.addEventListener("submit", function (e) {
+            e.preventDefault();
+            if (!validateForm()) { return; }
+            if (!TURNSTILE_ENABLED || typeof window.turnstile === "undefined") { doSubmit(); return; }
+            var input = document.getElementById("cf-turnstile-response");
+            if (input && input.value) { doSubmit(); return; }
+            pendingSubmit = true;
+            try { window.turnstile.execute(); }
+            catch (err) { pendingSubmit = false; doSubmit(); }
+        });
+    });
+})();
+</script>

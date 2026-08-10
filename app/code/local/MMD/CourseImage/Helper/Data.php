@@ -417,7 +417,6 @@ class MMD_CourseImage_Helper_Data extends Mage_Core_Helper_Abstract
         }
         $skuUrl  = rawurlencode($sku);
         $skuHtml = htmlspecialchars($sku, ENT_COMPAT, 'UTF-8');
-        $red     = '<span style="color: #ff0000; text-decoration-line: underline;">';
         $html    = '';
 
         if (in_array('SFEC', $badges, true)) {
@@ -446,18 +445,24 @@ class MMD_CourseImage_Helper_Data extends Mage_Core_Helper_Abstract
         }
 
         if (in_array('PSEA', $badges, true)) {
+            $pseaSubmitUrl = Mage::getUrl('mmd_psea', array('_query' => array('course' => $sku)));
             $html .= '<h3>PSEA</h3>'
                 . '<p>Eligible Singapore Citizens can use their PSEA funds to offset course fee payable after funding.</p>'
-                . '<p>To check for Post-Secondary Education Account (PSEA) eligibility for this course, '
-                . '<a href="https://courses.myskillsfuture.gov.sg/courses/' . $skuUrl . '" target="_blank">'
-                . $red . 'Visit SkillsFuture (course code: ' . $skuHtml . ')</span></a></p>'
+                . '<p>To check for Post-Secondary Education Account (PSEA) eligibility for this course:</p>'
+                . '<p><a class="wsq-portal-btn wsq-portal-btn--psea" href="https://courses.myskillsfuture.gov.sg/courses/' . $skuUrl . '" title="Check PSEA Eligibility (course code: ' . $skuHtml . ')" target="_blank" '
+                . 'style="display: inline-block; padding: 8px 18px; background: #16a34a; color: #ffffff; font-weight: 600; border-radius: 6px; text-decoration: none;">'
+                . 'Check PSEA Eligibility</a></p>'
                 . '<ul>'
                 . '<li>Scroll down to &ldquo;Keyword Tags&rdquo; to verify for PSEA eligibility.</li>'
                 . '<li>If there is &ldquo;PSEA&rdquo; under keyword tags, the course is eligible for PSEA.</li>'
                 . '</ul>'
-                . '<p>Once you are eligible for PSEA, please download and fill up the '
-                . '<a href="https://www.moe.gov.sg/api/media/94b3eeb8-ceed-47e3-9f58-921b33970c9a/psea-ad-hoc-withdrawal-form.pdf" target="_blank">'
-                . $red . 'PSEA Withdrawal Form</span></a> and email to us.</p>';
+                . '<p>Once you are eligible for PSEA, please download and fill up the PSEA Withdrawal Form, then submit the completed form to us:</p>'
+                . '<p><a class="wsq-portal-btn wsq-portal-btn--psea-outline" href="https://www.moe.gov.sg/api/media/94b3eeb8-ceed-47e3-9f58-921b33970c9a/psea-ad-hoc-withdrawal-form.pdf" target="_blank" '
+                . 'style="display: inline-block; padding: 6px 16px; background: #ffffff; color: #16a34a; font-weight: 600; border-radius: 6px; text-decoration: none; border: 2px solid #16a34a; margin-right: 8px;">'
+                . 'PSEA Withdrawal Form</a>'
+                . '<a class="wsq-portal-btn wsq-portal-btn--psea" href="' . htmlspecialchars($pseaSubmitUrl, ENT_COMPAT, 'UTF-8') . '" '
+                . 'style="display: inline-block; padding: 8px 18px; background: #16a34a; color: #ffffff; font-weight: 600; border-radius: 6px; text-decoration: none;">'
+                . 'Submit PSEA Form</a></p>';
         }
 
         return $html;

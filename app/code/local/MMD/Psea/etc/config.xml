@@ -1,0 +1,42 @@
+<?xml version="1.0"?>
+<!--
+  MMD_Psea — PSEA Withdrawal Form submission page (SG only).
+
+  Storefront page at /psea-submission/ where a learner attaches their filled
+  PSEA ad-hoc withdrawal form; it is emailed to enquiry@tertiaryinfotech.com
+  (cc sales@tertiarycourses.com.sg) with the form attached. Deliberately NO
+  database record — the email IS the submission (per ops request 2026-08).
+  Linked from the PSEA section of the WSQ Funding card on course pages.
+-->
+<config>
+    <modules>
+        <MMD_Psea>
+            <version>1.0.0</version>
+        </MMD_Psea>
+    </modules>
+    <frontend>
+        <routers>
+            <mmd_psea>
+                <use>standard</use>
+                <args>
+                    <module>MMD_Psea</module>
+                    <frontName>psea-submission</frontName>
+                </args>
+            </mmd_psea>
+        </routers>
+        <layout>
+            <updates>
+                <mmd_psea>
+                    <file>psea.xml</file>
+                </mmd_psea>
+            </updates>
+        </layout>
+    </frontend>
+    <global>
+        <helpers>
+            <mmd_psea>
+                <class>MMD_Psea_Helper</class>
+            </mmd_psea>
+        </helpers>
+    </global>
+</config>
