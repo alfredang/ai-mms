@@ -135,7 +135,7 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         return array(
             'id'        => $productId,
             'sku'       => $sku,
-            'name'      => preg_replace('/^\s*WSQ\s*[-\x{2013}]\s*/iu', '', $name),
+            'name'      => $name,
             'raw_name'  => $name,
             'price'     => (float) $raw('price'),
             'duration'  => $raw('duration'),
@@ -284,7 +284,7 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
             if (!empty($existing[$sku]['_ai'])) { return $existing[$sku]; }
         }
 
-        $name   = preg_replace('/^\s*WSQ\s*[-\x{2013}]\s*/iu', '', $raw('name'));
+        $name   = (string) $raw('name');
         $isWsq  = (stripos($sku, 'TGS-') === 0);
         $desc   = (string) ($raw('short_description') ?: $raw('meta_description'));
         $desc   = trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($desc), ENT_QUOTES | ENT_HTML5, 'UTF-8')));

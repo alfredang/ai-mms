@@ -14663,7 +14663,15 @@ if ($_mnActive) {
             "SELECT n.newsletter_id, n.title, n.subject, n.status, n.review_status, n.review_decisions,
                     n.scheduled_send_at, n.sent_at, n.blast_stats, n.mailerlite_id, n.is_auto, n.course_pids, n.created_at, n.updated_at,
                     (SELECT e.sku FROM catalog_product_entity e
-                      WHERE e.entity_id = CAST(SUBSTRING_INDEX(n.course_pids, ',', 1) AS UNSIGNED) LIMIT 1) AS sku
+                      WHERE e.entity_id = CAST(SUBSTRING_INDEX(n.course_pids, ',', 1) AS UNSIGNED) LIMIT 1) AS sku,
+                    (SELECT pv.value FROM catalog_product_entity_varchar pv
+                      WHERE pv.entity_id = CAST(SUBSTRING_INDEX(n.course_pids, ',', 1) AS UNSIGNED)
+                        AND pv.store_id = 0
+                        AND pv.attribute_id = (SELECT ea.attribute_id FROM eav_attribute ea
+                                                WHERE ea.attribute_code = 'name'
+                                                  AND ea.entity_type_id = (SELECT et.entity_type_id FROM eav_entity_type et
+                                                                            WHERE et.entity_type_code = 'catalog_product'))
+                      LIMIT 1) AS product_name
              FROM " . Mage::getSingleton('core/resource')->getTableName('newsletters') . " n
              WHERE n.country_code = ? AND n.template_key = 'agentic_flyer'
                AND n.review_status NOT IN ('superseded', 'expired')
@@ -14773,7 +14781,7 @@ $_mnBlastStats = array();
             <div class="mn-flow">
                 <div class="mn-flow-head">
                     <span class="mn-flow-tag <?php echo $_ai === 0 ? 'cur' : 'nxt' ?>">Flow <?php echo $_ai + 1 ?> · <?php echo $_ai === 0 ? 'current' : 'next (auto)' ?></span>
-                    <span class="mn-flow-name"><?php echo htmlspecialchars($_flow['title']) ?></span>
+                    <span class="mn-flow-name"><?php echo htmlspecialchars(trim((string) ($_flow['product_name'] ?? '')) !== '' ? $_flow['product_name'] : $_flow['title']) ?></span>
                     <span class="mn-badge s-<?php echo $_fcss ?>"><?php echo $_flabel ?></span>
                 </div>
                 <ol class="mn-steps">
@@ -14803,6 +14811,7 @@ $_mnBlastStats = array();
              with stage, reviewers, approval-email date, schedule, source, preview
              and icon actions (approve / request changes / delete). -->
         <?php if (!empty($_mnPipe)): ?>
+        <div class="mn-ptable-scroll">
         <table class="mn-ptable">
             <thead><tr><th>Course title</th><th>Code</th><th>Stage</th><th>Reviewers</th><th>Approval sent</th><th>Scheduled / Sent</th><th>Source</th><th class="center">Preview</th><th class="ta-r">Actions</th></tr></thead>
             <tbody>
@@ -14815,17 +14824,18 @@ $_mnBlastStats = array();
                 $_pending  = ((string) $_r['review_status'] === 'pending' || (string) $_r['review_status'] === 'changes_requested');
                 $_deletable = !in_array((string) $_r['status'], array('scheduled', 'sent'), true);
                 $_isBlasted = ((string) $_r['status'] === 'sent');
+                $_rTitle = trim((string) ($_r['product_name'] ?? '')) !== '' ? (string) $_r['product_name'] : (string) $_r['title'];
                 if ($_isBlasted) {
                     $_bsDec = json_decode((string) $_r['review_decisions'], true);
                     $_mnBlastStats[(int) $_r['newsletter_id']] = array(
-                        'title'   => (string) $_r['title'],
+                        'title'   => $_rTitle,
                         'sent_at' => !empty($_r['sent_at']) ? date('D j M Y, g:ia', strtotime($_r['sent_at'])) : '',
                         'li'      => (is_array($_bsDec) && !empty($_bsDec['_linkedin_url'])) ? (string) $_bsDec['_linkedin_url'] : '',
                         'stats'   => (($_tmp = json_decode((string) $_r['blast_stats'], true)) && is_array($_tmp)) ? $_tmp : null,
                     );
                 } ?>
                 <tr>
-                    <td class="strong"><?php echo htmlspecialchars($_r['title']) ?></td>
+                    <td class="strong mn-title" title="<?php echo htmlspecialchars($_rTitle) ?>"><?php echo htmlspecialchars($_rTitle) ?></td>
                     <td class="muted" style="font-family:ui-monospace,Menlo,monospace;font-size:12px;white-space:nowrap;"><?php echo htmlspecialchars($_r['sku'] ?: '—') ?></td>
                     <td><span class="mn-badge s-<?php echo $_rcss ?>"><?php echo $_rlabel /* may contain &middot; entities */ ?></span></td>
                     <td class="tnum"><?php echo (int)$_na ?>/1</td>
@@ -14852,7 +14862,7 @@ $_mnBlastStats = array();
                             <button type="button" class="mmd-grid-action mmd-grid-action--edit" title="Request changes" onclick="mnReview(<?php echo (int)$_r['newsletter_id'] ?>,'changes')"><?php echo $_svgEdit ?></button>
                         <?php endif; ?>
                         <?php if ($_deletable): ?>
-                            <button type="button" class="mmd-grid-action mmd-grid-action--delete" title="Delete" onclick="mnDeleteDraft(<?php echo (int)$_r['newsletter_id'] ?>, <?php echo htmlspecialchars(json_encode($_r['title'])) ?>)"><?php echo $_svgClose ?></button>
+                            <button type="button" class="mmd-grid-action mmd-grid-action--delete" title="Delete" onclick="mnDeleteDraft(<?php echo (int)$_r['newsletter_id'] ?>, <?php echo htmlspecialchars(json_encode($_rTitle)) ?>)"><?php echo $_svgClose ?></button>
                         <?php endif; ?>
                         <?php if (!$_pending && !$_deletable): ?><span class="muted">—</span><?php endif; ?>
                         </div>
@@ -14861,6 +14871,7 @@ $_mnBlastStats = array();
             <?php endforeach; ?>
             </tbody>
         </table>
+        </div>
         <?php endif; ?>
 
         <?php /* ===== Recent blasts — MailerLite-style performance per campaign.
@@ -14973,9 +14984,11 @@ $_mnBlastStats = array();
         .mn-badge.s-pending{color:#f59e0b;border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.1);}
         .mn-badge.s-changes{color:#fb7185;border-color:rgba(251,113,133,.4);background:rgba(251,113,133,.1);}
         .mn-badge.s-muted{color:#94a3b8;border-color:#334155;background:transparent;}
+        .mn-ptable-scroll{overflow-x:auto;}
         .mn-ptable{width:100%;border-collapse:collapse;}
-        .mn-ptable th{text-align:left;font:700 10.5px -apple-system,Segoe UI,Arial,sans-serif;text-transform:uppercase;letter-spacing:.6px;color:#64748b;padding:8px 10px;border-bottom:1px solid #24324a;}
-        .mn-ptable td{padding:10px;font:400 13px -apple-system,Segoe UI,Arial,sans-serif;color:#cbd5e1;border-bottom:1px solid #1c2740;vertical-align:middle;}
+        .mn-ptable th{text-align:left;font:700 10.5px -apple-system,Segoe UI,Arial,sans-serif;text-transform:uppercase;letter-spacing:.6px;color:#64748b;padding:8px 10px;border-bottom:1px solid #24324a;white-space:nowrap;}
+        .mn-ptable td{padding:10px;font:400 13px -apple-system,Segoe UI,Arial,sans-serif;color:#cbd5e1;border-bottom:1px solid #1c2740;vertical-align:middle;white-space:nowrap;}
+        .mn-ptable td.mn-title{max-width:380px;overflow:hidden;text-overflow:ellipsis;}
         .mn-ptable td.strong{color:#f1f5f9;font-weight:600;}
         .mn-ptable td.muted,.mn-ptable .muted{color:#64748b;}
         .mn-ptable td.tnum{font-variant-numeric:tabular-nums;}
