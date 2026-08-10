@@ -84,7 +84,7 @@ class MMD_Branchscope_Helper_Data extends Mage_Core_Helper_Abstract
         $devCountry = (string) $req->getParam('dev_country', '');
         if ($devCountry !== '' && $req->getParam(self::URL_PARAM, null) === null) {
             $map = array(
-                'All' => 0, 'Singapore' => 1, 'Malaysia' => 2, 'Ghana' => 3, 'Nigeria' => 4,
+                'All' => 0, 'Singapore' => 1, 'Malaysia' => 2, 'Ghana' => 3,
             );
             if (isset($map[$devCountry])) {
                 $req->setParam(self::URL_PARAM, $map[$devCountry]);
@@ -137,12 +137,13 @@ class MMD_Branchscope_Helper_Data extends Mage_Core_Helper_Abstract
      */
     public function getCountryStorePillOptions()
     {
-        // Map preserves the desired pill order.
+        // Map preserves the desired pill order. Retired stores (Nigeria,
+        // Bhutan, India, Infotech) are intentionally absent — only the
+        // three live franchise sites remain (2026-08 sweep).
         $codeMap = array(
             1 => 'SG',
             2 => 'MY',
             3 => 'GH',
-            4 => 'NG',
         );
 
         // In country mode (standalone NG/etc. instance) only show SG +

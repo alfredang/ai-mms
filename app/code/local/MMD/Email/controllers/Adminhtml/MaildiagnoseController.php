@@ -27,8 +27,9 @@ class MMD_Email_Adminhtml_MaildiagnoseController extends Mage_Adminhtml_Controll
      * order-email path falls back to whatever SMTP creds are saved here.
      */
     protected $_smtpWebsites = array(
+        // One store per site — Nigeria (website 4) retired, card removed
+        // 2026-08-10 (its website id no longer exists on any instance).
         'singapore' => array('id' => 1, 'label' => 'Singapore (fallback)'),
-        'nigeria'   => array('id' => 4, 'label' => 'Nigeria'),
     );
 
     /**
@@ -100,7 +101,6 @@ class MMD_Email_Adminhtml_MaildiagnoseController extends Mage_Adminhtml_Controll
             'gmail_refresh_token'  => 'mmd_email/google/refresh_token',
             'kael_review_key'      => 'mmd_company/api/kael_review_key',
             'whatsapp_singapore'   => 'mmd_company/whatsapp/singapore',
-            'whatsapp_nigeria'     => 'mmd_company/whatsapp/nigeria',
         ];
 
         try {
