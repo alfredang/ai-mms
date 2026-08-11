@@ -106,13 +106,81 @@ class MMD_Courses_Api_ScheduleController extends Mage_Core_Controller_Front_Acti
     }
 
     /**
-     * Read upcoming classes from course_runs for the given product, joined
-     * to the trainer name via the product option value title (trainers are
-     * stored as custom-option values). Sorted ascending by start date.
-     * Vacancy uses the single-char enum from course_runs (A/L/F/-);
-     * we surface a friendly label too.
+     * Build the upcoming class list for a course. The published schedule is
+     * the "Course Date" custom-option values — the same source the product
+     * page renders. course_runs rows only exist for C-prefix courses once an
+     * order has been materialised (TGS- and M- SKUs are never materialised),
+     * so a run ENRICHES its matching date (class_id, trainer, vacancy, venue)
+     * rather than defining the schedule. Runs with no matching option label
+     * are appended so a formed class is never hidden. Sorted ascending by
+     * start date, unparseable labels last.
      */
     private function _collectClasses($product)
+    {
+        $today = Mage::getModel('core/date')->date('Y-m-d');
+        $runs  = $this->_upcomingRuns($product);
+
+        $runsByStart = array();
+        foreach ($runs as $r) {
+            if (!empty($r['course_start_date'])) {
+                $runsByStart[$r['course_start_date']] = $r;
+            }
+        }
+
+        $parser  = Mage::getModel('mmd_rolemanager/courseRunEnrolmentService');
+        $out     = array();
+        $covered = array();
+        foreach ($this->_courseDateLabels($product) as $label) {
+            $parsed = $parser ? $parser->_parseDate($label) : null;
+            if (!is_array($parsed) || empty($parsed[0]) || empty($parsed[1])) {
+                $parsed = $this->_parseCrossMonthRange($label);
+            }
+            $start = is_array($parsed) && !empty($parsed[0]) ? $parsed[0] : null;
+            $end   = is_array($parsed) && !empty($parsed[1]) ? $parsed[1] : null;
+            if ($start !== null && $start < $today) {
+                continue; // past session — the storefront hides these too
+            }
+            if ($start !== null && isset($runsByStart[$start])) {
+                $covered[$runsByStart[$start]['run_id']] = true;
+                $out[] = $this->_classFromRun($runsByStart[$start], $label);
+            } else {
+                $out[] = array(
+                    'class_id'        => null,
+                    'raw'             => $label,
+                    'start_date'      => $start,
+                    'end_date'        => $end,
+                    'time'            => '09:30-17:30',
+                    'trainer'         => null,
+                    'status'          => 'Scheduled',
+                    'mode'            => null,
+                    'venue'           => null,
+                    'vacancy_code'    => '-',
+                    'seats_available' => $this->_vacancyLabel('-'),
+                );
+            }
+        }
+
+        foreach ($runs as $r) {
+            if (!isset($covered[$r['run_id']])) {
+                $out[] = $this->_classFromRun($r, null);
+            }
+        }
+
+        usort($out, function ($a, $b) {
+            if ($a['start_date'] === $b['start_date']) return 0;
+            if ($a['start_date'] === null) return 1;
+            if ($b['start_date'] === null) return -1;
+            return strcmp($a['start_date'], $b['start_date']);
+        });
+        return $out;
+    }
+
+    /**
+     * Upcoming course_runs rows for the product, joined to the trainer name
+     * via the product option value title (trainers are stored as
+     * custom-option values).
+     */
+    private function _upcomingRuns($product)
     {
         $resource = Mage::getSingleton('core/resource');
         $read     = $resource->getConnection('core_read');
@@ -121,8 +189,9 @@ class MMD_Courses_Api_ScheduleController extends Mage_Core_Controller_Front_Acti
 
         $select = $read->select()
             ->from(array('cr' => $runs), array(
-                'run_id', 'course_sku', 'trainer_option_id',
+                'run_id', 'class_id', 'course_sku', 'trainer_option_id',
                 'course_start_date', 'course_end_date',
+                'course_start_time', 'course_end_time',
                 'vacancy', 'mode_of_training', 'venue_building',
             ))
             ->joinLeft(
@@ -135,26 +204,60 @@ class MMD_Courses_Api_ScheduleController extends Mage_Core_Controller_Front_Acti
             ->order('cr.course_start_date ASC')
             ->limit(50);
 
-        $rows = $read->fetchAll($select);
+        return $read->fetchAll($select);
+    }
 
-        $out = array();
-        foreach ($rows as $r) {
-            $trainer = trim((string) ($r['trainer_name'] ?? ''));
-            $hasTrainer = $trainer !== '';
-            $out[] = array(
-                'class_id'        => $this->_formatClassId((int) $r['run_id']),
-                'start_date'      => $r['course_start_date'] ?: null,
-                'end_date'        => $r['course_end_date']   ?: null,
-                'time'            => '09:30-17:30', // stock default — actual time per-run not in this table
-                'trainer'         => $hasTrainer ? $trainer : null,
-                'status'          => $hasTrainer ? 'Confirmed' : 'Pending',
-                'mode'            => $this->_modeLabel($r['mode_of_training']),
-                'venue'           => trim((string) ($r['venue_building'] ?? '')) ?: null,
-                'vacancy_code'    => (string) ($r['vacancy'] ?? '-'),
-                'seats_available' => $this->_vacancyLabel($r['vacancy']),
-            );
+    /**
+     * Vacancy uses the single-char enum from course_runs (A/L/F/-);
+     * we surface a friendly label too.
+     */
+    private function _classFromRun(array $r, $label)
+    {
+        $trainer    = trim((string) ($r['trainer_name'] ?? ''));
+        $hasTrainer = $trainer !== '';
+        $time       = '09:30-17:30';
+        if (!empty($r['course_start_time']) && !empty($r['course_end_time'])) {
+            $time = substr($r['course_start_time'], 0, 5) . '-' . substr($r['course_end_time'], 0, 5);
         }
-        return $out;
+        return array(
+            'class_id'        => !empty($r['class_id']) ? (string) $r['class_id'] : null,
+            'raw'             => $label,
+            'start_date'      => $r['course_start_date'] ?: null,
+            'end_date'        => $r['course_end_date']   ?: null,
+            'time'            => $time,
+            'trainer'         => $hasTrainer ? $trainer : null,
+            'status'          => $hasTrainer ? 'Confirmed' : 'Pending',
+            'mode'            => $this->_modeLabel($r['mode_of_training']),
+            'venue'           => trim((string) ($r['venue_building'] ?? '')) ?: null,
+            'vacancy_code'    => (string) ($r['vacancy'] ?? '-'),
+            'seats_available' => $this->_vacancyLabel($r['vacancy']),
+        );
+    }
+
+    /**
+     * The "Course Date" custom-option value labels for the product — the
+     * published schedule as rendered on the product page.
+     */
+    private function _courseDateLabels($product)
+    {
+        $options = Mage::getModel('catalog/product_option')->getCollection()
+            ->addProductToFilter($product->getId())
+            ->addTitleToResult(self::SG_STORE_ID)
+            ->addValuesToResult(self::SG_STORE_ID);
+
+        $labels = array();
+        foreach ($options as $option) {
+            if (strcasecmp(trim((string) $option->getTitle()), self::COURSE_DATE_OPTION_TITLE) !== 0) {
+                continue;
+            }
+            foreach ($option->getValues() as $value) {
+                $label = trim((string) $value->getTitle());
+                if ($label !== '') {
+                    $labels[] = $label;
+                }
+            }
+        }
+        return $labels;
     }
 
     private function _modeLabel($v)
@@ -176,11 +279,6 @@ class MMD_Courses_Api_ScheduleController extends Mage_Core_Controller_Front_Acti
             case 'F': return 'Full';
             default:  return 'Contact for availability';
         }
-    }
-
-    private function _formatClassId($runId)
-    {
-        return 'SG' . str_pad((string) $runId, 6, '0', STR_PAD_LEFT);
     }
 
     private function _productUrl($product)
@@ -236,36 +334,22 @@ class MMD_Courses_Api_ScheduleController extends Mage_Core_Controller_Front_Acti
 
     private function _extractSchedules($product, $parser)
     {
-        $options = Mage::getModel('catalog/product_option')->getCollection()
-            ->addProductToFilter($product->getId())
-            ->addTitleToResult(self::SG_STORE_ID)
-            ->addValuesToResult(self::SG_STORE_ID);
-
         $schedules = array();
-        foreach ($options as $option) {
-            if (strcasecmp(trim((string) $option->getTitle()), self::COURSE_DATE_OPTION_TITLE) !== 0) {
-                continue;
+        foreach ($this->_courseDateLabels($product) as $label) {
+            $entry = array(
+                'raw'               => $label,
+                'course_start_date' => null,
+                'course_end_date'   => null,
+            );
+            $parsed = $parser->_parseDate($label);
+            if (!is_array($parsed) || empty($parsed[0]) || empty($parsed[1])) {
+                $parsed = $this->_parseCrossMonthRange($label);
             }
-            foreach ($option->getValues() as $value) {
-                $label = trim((string) $value->getTitle());
-                if ($label === '') {
-                    continue;
-                }
-                $entry = array(
-                    'raw'               => $label,
-                    'course_start_date' => null,
-                    'course_end_date'   => null,
-                );
-                $parsed = $parser->_parseDate($label);
-                if (!is_array($parsed) || empty($parsed[0]) || empty($parsed[1])) {
-                    $parsed = $this->_parseCrossMonthRange($label);
-                }
-                if (is_array($parsed) && !empty($parsed[0]) && !empty($parsed[1])) {
-                    $entry['course_start_date'] = $parsed[0];
-                    $entry['course_end_date']   = $parsed[1];
-                }
-                $schedules[] = $entry;
+            if (is_array($parsed) && !empty($parsed[0]) && !empty($parsed[1])) {
+                $entry['course_start_date'] = $parsed[0];
+                $entry['course_end_date']   = $parsed[1];
             }
+            $schedules[] = $entry;
         }
         return $schedules;
     }
