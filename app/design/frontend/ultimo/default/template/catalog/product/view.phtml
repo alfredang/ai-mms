@@ -324,8 +324,18 @@
 	// Helper: build a "<h[1-6]> Section </h[1-6]>(.*?)" extractor whose
 	// lookahead stops before any wrapper opening tag that immediately
 	// precedes the next heading. Returns [bodyHtml, descriptionWithSectionRemoved].
+	//
+	// The title may be wrapped in inline formatting tags inside the heading —
+	// WYSIWYG authors produce e.g. <h2><span style="font-size: 1.5em;">Course
+	// Brochure</span></h2>. Without tolerating those wrappers the section is
+	// invisible to this extractor, so it stays inline in the description AND
+	// double-renders next to its card (real case: TGS-2020504020, stripped by
+	// migration 938). Only inline/presentational tags are allowed through, so
+	// the pattern can't run past a real block-level boundary.
 	$_extractSection = function ($title, $desc) use ($_WS) {
-		$pattern = '#<h[1-6][^>]*>' . $_WS . '*(?:<br\s*/?>' . $_WS . '*)*' . $title . $_WS . '*:?' . $_WS . '*</h[1-6]>(.*?)(?=(?:<[a-z][a-z0-9]*\b[^>]*>' . $_WS . '*)*<h[1-6]|\z)#siu';
+		$inlineOpen  = '(?:<(?:span|strong|em|b|i|u|font)\b[^>]*>' . $_WS . '*)*';
+		$inlineClose = '(?:</(?:span|strong|em|b|i|u|font)>' . $_WS . '*)*';
+		$pattern = '#<h[1-6][^>]*>' . $_WS . '*(?:<br\s*/?>' . $_WS . '*)*' . $inlineOpen . $title . $_WS . '*:?' . $_WS . '*' . $inlineClose . '</h[1-6]>(.*?)(?=(?:<[a-z][a-z0-9]*\b[^>]*>' . $_WS . '*)*<h[1-6]|\z)#siu';
 		if (preg_match($pattern, $desc, $m)) {
 			return [trim($m[1]), preg_replace($pattern, '', $desc)];
 		}
