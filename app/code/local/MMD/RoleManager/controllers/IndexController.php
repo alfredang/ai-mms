@@ -22,6 +22,12 @@ class MMD_RoleManager_IndexController extends Mage_Adminhtml_Controller_Action
     const ATTEMPT_WINDOW = 600;  // seconds
 
     /**
+     * Roles that may sign in at /lmslogin. Admin + Super Admin
+     * (training_provider) use /adminlogin, which accepts every role.
+     */
+    protected $_lmsRoles = array('learner', 'trainer', 'developer', 'marketing');
+
+    /**
      * Skip admin auth for the public actions (same recipe as
      * MMD_OtpLogin_Adminhtml_OtpController::preDispatch).
      */
@@ -97,22 +103,18 @@ class MMD_RoleManager_IndexController extends Mage_Adminhtml_Controller_Action
                 throw new Exception('Your email or password is incorrect.');
             }
 
-            // Must actually be a learner — staff-only accounts use /tigerdragon.
-            $helper = Mage::helper('mmd_rolemanager');
-            $roles  = $helper->getUserRolesFromDb($user->getId());
-            if (!in_array('learner', $roles, true)) {
-                throw new Exception('This login is for learners. Staff should sign in at the staff portal.');
+            // Must hold at least one LMS role (learner / trainer / developer /
+            // marketing). Admin + Super Admin accounts use /adminlogin.
+            $helper   = Mage::helper('mmd_rolemanager');
+            $roles    = $helper->getUserRolesFromDb($user->getId());
+            $lmsRoles = array_values(array_intersect($roles, $this->_lmsRoles));
+            if (!$lmsRoles) {
+                throw new Exception('This login is for LMS users. Admins should sign in at the staff portal.');
             }
 
-            // Establish the learner session — role FORCED to learner, no
-            // role-selection step regardless of any other roles on the account.
-            $adminSession = Mage::getSingleton('admin/session');
-            $adminSession->setUser($user);
-            $adminSession->setUserRoles(array('learner'));
-            $adminSession->setActiveRoleCode('learner');
-            $adminSession->setNeedsRoleSelect(false);
-            $helper->applyRoleAcl($user->getId(), 'learner');
-            $adminSession->setAcl(Mage::getResourceModel('admin/acl')->loadAcl());
+            // Establish the session confined to the LMS roles. One role →
+            // applied immediately; several → the role-selection page decides.
+            $needsRoleSelect = $this->_establishLmsSession($user, $lmsRoles);
 
             $session->unsLearnerLoginAttempts();
             // Commit the session BEFORE redirecting — PHP writes sessions at
@@ -120,7 +122,7 @@ class MMD_RoleManager_IndexController extends Mage_Adminhtml_Controller_Action
             // dashboard while the DB row is stale and get bounced (same race
             // as the role-select double-click / redirect-loop incidents).
             session_write_close();
-            $this->_redirect('adminhtml/dashboard');
+            $this->_redirect($needsRoleSelect ? 'adminhtml/roleselect/index' : 'adminhtml/dashboard');
             return;
         } catch (Exception $e) {
             $session->setLearnerLoginError($e->getMessage());
@@ -262,23 +264,20 @@ class MMD_RoleManager_IndexController extends Mage_Adminhtml_Controller_Action
                 return $this->_json($result);
             }
 
-            $helper = Mage::helper('mmd_rolemanager');
-            $roles  = $helper->getUserRolesFromDb($user->getId());
-            if (!in_array('learner', $roles, true)) {
-                $result['message'] = 'This login is for learners. Staff should sign in at the staff portal.';
+            $helper   = Mage::helper('mmd_rolemanager');
+            $roles    = $helper->getUserRolesFromDb($user->getId());
+            $lmsRoles = array_values(array_intersect($roles, $this->_lmsRoles));
+            if (!$lmsRoles) {
+                $result['message'] = 'This login is for LMS users. Admins should sign in at the staff portal.';
                 return $this->_json($result);
             }
 
-            $adminSession = Mage::getSingleton('admin/session');
-            $adminSession->setUser($user);
-            $adminSession->setUserRoles(array('learner'));
-            $adminSession->setActiveRoleCode('learner');
-            $adminSession->setNeedsRoleSelect(false);
-            $helper->applyRoleAcl($user->getId(), 'learner');
-            $adminSession->setAcl(Mage::getResourceModel('admin/acl')->loadAcl());
+            $needsRoleSelect = $this->_establishLmsSession($user, $lmsRoles);
 
             $result['success']  = true;
-            $result['redirect'] = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard');
+            $result['redirect'] = Mage::helper('adminhtml')->getUrl(
+                $needsRoleSelect ? 'adminhtml/roleselect/index' : 'adminhtml/dashboard'
+            );
             // Commit the session before the JSON reply — the browser follows
             // result.redirect immediately and must see the fresh session row.
             session_write_close();
@@ -287,6 +286,34 @@ class MMD_RoleManager_IndexController extends Mage_Adminhtml_Controller_Action
             $result['message'] = 'Login failed. Please try again.';
         }
         return $this->_json($result);
+    }
+
+    /**
+     * Establish the admin session for an /lmslogin sign-in, confined to the
+     * user's LMS roles (already intersected with $_lmsRoles by the caller —
+     * admin/training_provider never appear here, so a Super Admin who also
+     * teaches signs in at /lmslogin as trainer, never as Super Admin).
+     *
+     * @param  Mage_Admin_Model_User $user
+     * @param  array                 $lmsRoles non-empty, validated
+     * @return bool  true when the user still has to pick a role
+     */
+    protected function _establishLmsSession(Mage_Admin_Model_User $user, array $lmsRoles)
+    {
+        $helper       = Mage::helper('mmd_rolemanager');
+        $adminSession = Mage::getSingleton('admin/session');
+        $adminSession->setUser($user);
+        $adminSession->setUserRoles($lmsRoles);
+        if (count($lmsRoles) === 1) {
+            $adminSession->setActiveRoleCode($lmsRoles[0]);
+            $adminSession->setNeedsRoleSelect(false);
+            $helper->applyRoleAcl($user->getId(), $lmsRoles[0]);
+            $adminSession->setAcl(Mage::getResourceModel('admin/acl')->loadAcl());
+            return false;
+        }
+        $adminSession->setActiveRoleCode(null);
+        $adminSession->setNeedsRoleSelect(true);
+        return true;
     }
 
     /**
@@ -371,9 +398,12 @@ class MMD_RoleManager_IndexController extends Mage_Adminhtml_Controller_Action
         $session->unsLearnerLoginEmail();
 
         $logoUrl   = Mage::getBaseUrl('skin') . 'adminhtml/default/default/images/admin-logo.png';
-        $postUrl   = Mage::getUrl('learnerlogin/index/login');
-        $sendUrl   = Mage::getUrl('learnerlogin/index/send');
-        $verifyUrl = Mage::getUrl('learnerlogin/index/verify');
+        // Post back to whichever frontName served the page (/lmslogin, or the
+        // legacy /learnerlogin alias) so the session cookie path stays put.
+        $route     = $this->getRequest()->getModuleName() === 'learnerlogin' ? 'learnerlogin' : 'lmslogin';
+        $postUrl   = Mage::getUrl($route . '/index/login');
+        $sendUrl   = Mage::getUrl($route . '/index/send');
+        $verifyUrl = Mage::getUrl($route . '/index/verify');
         $forgotUrl = Mage::getUrl('customer/account/forgotpassword');
         $formKey   = Mage::getSingleton('core/session')->getFormKey();
         $siteName  = Mage::app()->getStore()->getFrontendName();

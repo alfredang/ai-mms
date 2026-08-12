@@ -1,13 +1,17 @@
 <?php
 /**
- * Learner login page — /learnerlogin on every site (SG/MY/GH).
+ * LMS login page — /lmslogin on every site (SG/MY/GH), for the learner,
+ * trainer, developer and marketing roles. /learnerlogin is a legacy alias.
+ * Admin + Super Admin sign in at the staff portal (/adminlogin), which
+ * accepts every role.
  *
  * EXACT visual clone of the staff admin login (template/login.phtml): same
  * stylesheet block, same OTP-first flow (email -> Send OTP -> 6-digit code ->
  * auto-verify), same password fallback via "Login with password instead".
- * Differences: learner branding/copy, no Google sign-in, no policy modal,
- * and the endpoints are the learnerlogin/index send/verify/login actions
- * which FORCE the learner role (no role-selection screen, ever).
+ * Differences: LMS branding/copy, no Google sign-in, no policy modal, and
+ * the endpoints are the lmslogin/index send/verify/login actions, which
+ * confine the session to the LMS roles (multi-LMS-role users get the
+ * role-selection screen; single-role users land straight on the dashboard).
  *
  * Rendered standalone by MMD_RoleManager_IndexController::_renderPage() —
  * $this is the CONTROLLER (not a block), so asset URLs use Mage::getBaseUrl
@@ -22,7 +26,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, nofollow" />
-    <title>Learner Login - Tertiary Infotech Academy</title>
+    <title>LMS Login - Tertiary Infotech Academy</title>
     <link rel="icon" href="/media/favicon/default/favicon_1.png" type="image/png" />
     <link rel="shortcut icon" href="/media/favicon/default/favicon_1.png" type="image/png" />
     <style>
@@ -141,8 +145,8 @@
             <div class="login-logo">
                 <img src="<?php echo htmlspecialchars($logoUrl) ?>" alt="Tertiary Infotech Academy" />
             </div>
-            <h1 class="login-title">Learner Login</h1>
-            <p class="login-subtitle">Sign in with your <?php echo htmlspecialchars($siteName ?: 'Tertiary Courses') ?> account to access your courses.</p>
+            <h1 class="login-title">LMS Login</h1>
+            <p class="login-subtitle">Sign in with your <?php echo htmlspecialchars($siteName ?: 'Tertiary Courses') ?> account to access the LMS.</p>
 
             <div id="messages">
                 <?php if ($error !== ''): ?>

@@ -92,16 +92,17 @@ class MMD_RoleManager_Model_Observer
     }
 
     /**
-     * Allow the public learner-login actions (/learnerlogin form + POST)
-     * without an admin login — same pattern as MMD_OtpLogin::allowOtpAction:
-     * the core Mage_Admin_Model_Observer::actionPreDispatchAdmin forwards
+     * Allow the public LMS-login actions (/lmslogin form + POST, plus the
+     * legacy /learnerlogin alias) without an admin login — same pattern as
+     * MMD_OtpLogin::allowOtpAction: the core
+     * Mage_Admin_Model_Observer::actionPreDispatchAdmin forwards
      * unauthenticated admin requests to the staff login page unless the
      * request is already marked dispatched.
      */
     public function allowLearnerloginAction(Varien_Event_Observer $observer)
     {
         $request = Mage::app()->getRequest();
-        if ($request->getModuleName() !== 'learnerlogin') {
+        if (!in_array($request->getModuleName(), array('lmslogin', 'learnerlogin'), true)) {
             return;
         }
         $action = strtolower($request->getActionName());
@@ -214,15 +215,21 @@ class MMD_RoleManager_Model_Observer
             return in_array($key, $this->_learnerAllowlist(), true) ? self::ACCESS_ALLOW : self::ACCESS_DENY;
         }
 
-        // Operator roles: preserve prior behavior (status quo, zero regression).
-        // _roleControllerMap() below has NEVER matched at runtime — the key was
-        // built from getModuleName() (the admin frontName, e.g. 'tigerdragon'),
-        // not 'adminhtml' — so operators have never been predispatch-restricted;
-        // custom MMD admin controllers gate themselves via Helper::isRoleAllowed().
-        // Turning on map enforcement for operators (now that the key is correct)
-        // is a SEPARATE, operator-tested change — intentionally deferred so this
-        // learner-focused change can't lock operators out. To enable it later,
-        // replace this `return ALLOW` with the map lookup (see _roleControllerMap).
+        // Operator roles: per-role controller map ENFORCED (enabled 2026-08-12
+        // on the operator's instruction — each role sees only its own pages).
+        // A mapped controller requires the active role to be in its list; an
+        // unmapped controller falls through to Magento's standard ACL, and an
+        // empty active role (session established outside the role flow, e.g.
+        // API/oauth paths) keeps the pre-enforcement behavior so in-flight
+        // sessions can't be locked out mid-request. Custom MMD admin
+        // controllers additionally gate themselves via Helper::isRoleAllowed().
+        if ($activeRole === '' || $activeRole === null) {
+            return self::ACCESS_ALLOW;
+        }
+        $map = $this->_roleControllerMap();
+        if (isset($map[$key])) {
+            return in_array($activeRole, $map[$key], true) ? self::ACCESS_ALLOW : self::ACCESS_DENY;
+        }
         return self::ACCESS_ALLOW;
     }
 
@@ -247,6 +254,7 @@ class MMD_RoleManager_Model_Observer
     {
         return array_merge($this->_aclWhitelist(), array(
             'adminhtml_selfmark', // learner attendance self check-in (confirm + submit)
+            'adminhtml_calendar', // My Calendar — learner's own enrolled classes
             // change-password is adminhtml_system_account, already in the whitelist
         ));
     }
@@ -260,8 +268,9 @@ class MMD_RoleManager_Model_Observer
             // Admin login + standard navigation
             'adminhtml_index',
             'adminhtml_dashboard',
-            // Learner login page (public form; logged-in users just get
-            // redirected to the dashboard by its indexAction)
+            // LMS login page (public form; logged-in users just get
+            // redirected to the dashboard by its indexAction) + legacy alias
+            'lmslogin_index',
             'learnerlogin_index',
             // Role selection / switching / management UI
             'adminhtml_roleselect',

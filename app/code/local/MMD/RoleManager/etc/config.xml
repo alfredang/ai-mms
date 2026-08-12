@@ -129,14 +129,26 @@
                     </modules>
                 </args>
             </adminhtml>
-            <!-- Learner login — /learnerlogin on every site (SG/MY/GH).
+            <!-- LMS login — /lmslogin on every site (SG/MY/GH), for the
+                 learner, trainer, developer and marketing roles (admin and
+                 Super Admin sign in at /adminlogin, which accepts ALL roles).
                  Registered as an ADMIN router (not frontend) so the resulting
-                 session is the same adminhtml session the learner dashboard
-                 uses; a frontend-area login would land in the 'frontend'
-                 session cookie and be invisible to /tigerdragon. Learners
+                 session is the same adminhtml session the dashboard uses;
+                 a frontend-area login would land in the 'frontend' session
+                 cookie and be invisible to the admin frontName. Learners
                  authenticate with their storefront email+password (AccountSync
-                 keeps admin_user.password identical to the customer hash) and
-                 are forced into the learner role with NO role selection. -->
+                 keeps admin_user.password identical to the customer hash) or
+                 via OTP; staff LMS roles use their dashboard credentials/OTP.
+                 A user with several LMS roles goes through role selection. -->
+            <lmslogin>
+                <use>admin</use>
+                <args>
+                    <module>MMD_RoleManager</module>
+                    <frontName>lmslogin</frontName>
+                </args>
+            </lmslogin>
+            <!-- Legacy alias — /learnerlogin predates /lmslogin and is kept so
+                 old bookmarks/emails keep working. Same controller. -->
             <learnerlogin>
                 <use>admin</use>
                 <args>
