@@ -52,6 +52,7 @@ This system runs as a **franchise model**:
 | 📋 **Course-page section cards** | Six per-course CMS block sections — Learning Outcomes, Brochure, Skills Framework, Certification, About IBF Certification, Funding — render as styled cards on every course page (block-first, with regex fallback from the description) and are edited per course in the Course Details tab. |
 | 🧾 **Pro Forma Invoices** | On-demand, self-sponsored SkillsFuture-claim pro formas with GST settled on the pre-subsidy list price. |
 | 🏫 **Automatic class formation** | Orders materialise into classes & rosters out-of-band via cron — the storefront HTTP path stays untouched. |
+| 📅 **Class calendars** | Role-aware calendar (month / day / year) of confirmed classes: trainers see **My Calendar** with their own assigned classes, learners see the classes they're enrolled in, and admins get a **Training Calendar** across all trainers. |
 | 📝 **Course feedback → Reviews** | QR-linked per-class feedback form (customisable via the Course Reviews → Form Builder) whose submissions save straight into the Magento review system as approved course reviews with per-question star ratings (Learning Outcome / Trainer Quality / Training Environment), browsable per course in the editor's Course Review tab with expandable full messages. Trainers show the QR from the **Course Feedback** section on their class page; the form auto-fills the course title, code, run ID and class dates from the scanned class. |
 | ⭐ **Featured testimonials** | Admins hand-pick marketing-worthy course reviews from the All Reviews grid (Featured column, filter, and bulk "Mark as Featured"), then manage the curated set on **Course Reviews → Featured Reviews** — a dedicated page showing exactly what the public sees, with live/hidden KPIs and one-click removal. The homepage shows 4 **random** featured reviews in a band directly under the blog strip, and `/testimonials` lists them all — each card showing the star rating, the quote and a link to the course the learner took. |
 | 🔗 **Social share & likes** | Every course page carries a share bar (LinkedIn, X, Facebook, WhatsApp, Email, copy-link) and a thumbs-up Like button beside the pill-styled review summary — the same share row as the blog. The number on the button is the course page's **view count** (from Magento's `report_event` log, with an "N view(s)" tooltip); clicking still records a one-per-visitor like. |
@@ -140,7 +141,7 @@ ai-mms/
 
 | Module | Purpose |
 |--------|---------|
-| **RoleManager** | Six-role admin system + class/roster management + class-id generation. |
+| **RoleManager** | Six-role admin system + class/roster management + class-id generation + role-aware class calendars (trainer/learner **My Calendar**, admin **Training Calendar**). |
 | **Proforma** | On-demand Pro Forma Invoice PDF (self-sponsored SFC claims; WSQ funding breakdown). |
 | **CourseImage** | AI cover-image renderer + funding-badge tags (the same tags drive the storefront chips, the cover, and the WSQ Funding card). |
 | **EmailLogin** | Email-only admin login. |
