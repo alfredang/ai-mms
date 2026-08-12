@@ -932,6 +932,18 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 						</section>
 					<?php endif; ?>
 
+					<?php if ($_fundingValidityHtml !== ''): ?>
+						<section class="course-policy-card course-policy-card--funding-validity">
+							<header class="course-policy-card__header">
+								<span class="course-policy-card__icon" aria-hidden="true">
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+								</span>
+								<h3 class="course-policy-card__title">Funding Validity</h3>
+							</header>
+							<div class="course-policy-card__body std"><?php echo $_fundingValidityHtml; ?></div>
+						</section>
+					<?php endif; ?>
+
 					<?php if ($_learningOutcomesHtml !== ''): ?>
 						<section class="course-policy-card course-policy-card--learning">
 							<header class="course-policy-card__header">
@@ -1224,17 +1236,8 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 				</section>
 			<?php endif; ?>
 
-			<?php if ($_fundingValidityHtml !== ''): ?>
-				<section class="course-policy-card course-policy-card--funding-validity course-policy-card--wsq-in-primary">
-					<header class="course-policy-card__header">
-						<span class="course-policy-card__icon" aria-hidden="true">
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-						</span>
-						<h3 class="course-policy-card__title">Funding Validity</h3>
-					</header>
-					<div class="course-policy-card__body std"><?php echo $_fundingValidityHtml; ?></div>
-				</section>
-			<?php endif; ?>
+			<?php /* Funding Validity card renders in the left (info-stack) column,
+			          right after Skills Framework. See above. */ ?>
 
 			<?php echo $this->getChildHtml('container_product_primary_1'); ?>
 
