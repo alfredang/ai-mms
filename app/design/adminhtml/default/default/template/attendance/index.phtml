@@ -29,6 +29,17 @@ if ($preRun > 0) {
     }
 }
 
+// Back to Class — focused mode was entered from the class detail page
+// (View Course card), so offer the way back to that exact class: the same
+// dashboard URL the My Classes cards use (course_id + run query param).
+$backUrl = '';
+if ($preRunRow && !empty($preRunRow['product_id'])) {
+    $backUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array(
+        'course_id' => (int) $preRunRow['product_id'],
+        '_query'    => array('run' => $preRun),
+    ));
+}
+
 $loadUrl   = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/load');
 $saveUrl   = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/save');
 $addUrl    = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/addLearner');
@@ -196,9 +207,16 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
          renders in its place. -->
     <div class="att-card">
         <?php if ($preRunRow): ?>
-        <label class="att-label">Class</label>
-        <div style="font-size:14px;font-weight:600;color:#e2e8f0;">
-            <?php echo htmlspecialchars($preRunRow['class_id'] . ' · ' . $preRunRow['course_title']) ?>
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+            <div>
+                <label class="att-label">Class</label>
+                <div style="font-size:14px;font-weight:600;color:#e2e8f0;">
+                    <?php echo htmlspecialchars($preRunRow['class_id'] . ' · ' . $preRunRow['course_title']) ?>
+                </div>
+            </div>
+            <?php if ($backUrl): ?>
+            <a class="att-btn att-btn-ghost" href="<?php echo $backUrl ?>" style="text-decoration:none;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;">&larr; Back to Class</a>
+            <?php endif; ?>
         </div>
         <?php endif; ?>
         <label class="att-label" for="att-class"<?php echo $preRunRow ? ' style="display:none;"' : '' ?>>Class</label>
