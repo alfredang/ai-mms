@@ -1100,6 +1100,9 @@ if ($_loggedInEmail && ($activeRole === 'learner' || $activeRole === 'trainer'))
     // $_learnerCourses (e.g. a class scheduled before any learner
     // enrolled in it).
     try {
+        // Logged-in admin uid — used for per-run trainer-confirmation checks
+        // in the expansion below AND the trainer-extra pull further down.
+        $_curUid = (int) (($_su = Mage::getSingleton('admin/session')->getUser()) ? $_su->getId() : 0);
         $_lcProductIds = array_unique(array_map(function ($c) { return (int)$c['id']; }, $_learnerCourses));
         $_runsByPid = array();
         if (!empty($_lcProductIds)) {
@@ -1142,6 +1145,20 @@ if ($_loggedInEmail && ($activeRole === 'learner' || $activeRole === 'trainer'))
                     if ($_learnerRunIds !== null && !isset($_learnerRunIds[(int)$_run['run_id']])) {
                         continue;
                     }
+                    // Trainer: include only runs where THIS trainer is the
+                    // confirmed trainer (accepted invitation sets
+                    // trainer_option_id; Create New Class sets
+                    // trainer_user_id — same definition as the All Classes
+                    // grid's "confirmed" state). A run still pending a
+                    // trainer, or confirmed for another trainer, must not
+                    // appear on My Assigned Classes even though the course's
+                    // trainers attribute matched this user.
+                    if ($activeRole === 'trainer') {
+                        $_runTrainerOk = ($_curUid > 0 && (int)$_run['trainer_user_id'] === $_curUid)
+                            || (!empty($_optMatches) && (int)$_run['trainer_option_id'] > 0
+                                && in_array((int)$_run['trainer_option_id'], $_optMatches, true));
+                        if (!$_runTrainerOk) continue;
+                    }
                     $_card = $_lc;
                     if (!empty($_run['course_start_date'])) $_card['start_date'] = date('j M Y', strtotime($_run['course_start_date']));
                     if (!empty($_run['course_end_date']))   $_card['end_date']   = date('j M Y', strtotime($_run['course_end_date']));
@@ -1173,7 +1190,6 @@ if ($_loggedInEmail && ($activeRole === 'learner' || $activeRole === 'trainer'))
         // trainer_user_id is THIS trainer's account (set via Create New
         // Class or an accepted invitation), unioned with the legacy EAV
         // option match. Runs whenever the trainer has either signal.
-        $_curUid = (int) (($_su = Mage::getSingleton('admin/session')->getUser()) ? $_su->getId() : 0);
         if ($activeRole === 'trainer' && (!empty($_optMatches) || $_curUid > 0)) {
             $_lcSeenRunIds = array();
             foreach ($_learnerCourses as $_lc) {
@@ -1239,6 +1255,19 @@ if ($_loggedInEmail && ($activeRole === 'learner' || $activeRole === 'trainer'))
             }
         }
     } catch (Exception $e) {}
+
+    // Trainer: My Assigned Classes shows ONLY real scheduled classes —
+    // course_runs rows carrying the canonical C###### class_id, with this
+    // trainer confirmed (enforced above). Legacy order/EAV-derived cards
+    // with no course_runs row behind them used to render fabricated
+    // "ALL-1002xx" Run IDs and a fictional "Confirmed" status; drop them
+    // instead of displaying them.
+    if ($activeRole === 'trainer') {
+        $_learnerCourses = array_values(array_filter($_learnerCourses, function ($_c) {
+            return !empty($_c['cr_run_id']) && !empty($_c['run_id'])
+                && preg_match('/^C\d+$/', (string) $_c['run_id']);
+        }));
+    }
 
     // Re-classify each card's time_status from its displayed dates and
     // recount the three KPIs so they match the cards 1:1. Without this,
@@ -7230,8 +7259,13 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
         <?php if (empty($_learnerCourses)): ?>
         <div class="lmc-empty">
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+            <?php if ($activeRole === 'trainer'): ?>
+            <div style="font-size:16px;font-weight:600;color:#94a3b8;margin-bottom:4px;">No confirmed classes found</div>
+            <div>You have no scheduled classes confirmed for you yet</div>
+            <?php else: ?>
             <div style="font-size:16px;font-weight:600;color:#94a3b8;margin-bottom:4px;">No enrolled courses found</div>
             <div>You haven't enrolled in any courses yet</div>
+            <?php endif; ?>
         </div>
         <?php else: ?>
         <div class="lmc-grid" id="lmc-grid">
