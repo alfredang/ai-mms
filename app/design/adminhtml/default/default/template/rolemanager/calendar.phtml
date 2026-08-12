@@ -1,0 +1,370 @@
+<?php
+/**
+ * Class calendar — month (default) / day / year views over course_runs.
+ *
+ * Block data:
+ *   mode — 'trainer' (own assigned classes) | 'learner' (own enrolled
+ *          classes) | 'admin' (all trainers' classes)
+ *
+ * Invariants:
+ *   - CONFIRMED classes only: a trainer is assigned (trainer_user_id or
+ *     trainer_option_id set).
+ *   - C-prefix course codes only — TGS-/M-/other SKUs never render here.
+ *
+ * URL params: ?view=month|day|year&date=YYYY-MM-DD (anchor date).
+ */
+$_mode = (string) $this->getData('mode');
+if (!in_array($_mode, array('trainer', 'learner', 'admin'), true)) {
+    $_mode = 'admin';
+}
+
+$_req  = Mage::app()->getRequest();
+$_view = (string) $_req->getParam('view', 'month');
+if (!in_array($_view, array('month', 'day', 'year'), true)) {
+    $_view = 'month';
+}
+
+$_today  = Mage::getModel('core/date')->date('Y-m-d');
+$_anchor = (string) $_req->getParam('date', $_today);
+$_parts  = explode('-', $_anchor);
+if (count($_parts) !== 3 || !checkdate((int)$_parts[1], (int)$_parts[2], (int)$_parts[0])) {
+    $_anchor = $_today;
+}
+list($_aY, $_aM, $_aD) = array_map('intval', explode('-', $_anchor));
+
+// Visible date range per view.
+switch ($_view) {
+    case 'day':
+        $_rangeStart = $_rangeEnd = $_anchor;
+        break;
+    case 'year':
+        $_rangeStart = sprintf('%04d-01-01', $_aY);
+        $_rangeEnd   = sprintf('%04d-12-31', $_aY);
+        break;
+    default: // month
+        $_rangeStart = sprintf('%04d-%02d-01', $_aY, $_aM);
+        $_rangeEnd   = date('Y-m-t', strtotime($_rangeStart));
+        break;
+}
+
+$resource  = Mage::getSingleton('core/resource');
+$read      = $resource->getConnection('core_read');
+$runsTbl   = $resource->getTableName('course_runs');
+$enrolTbl  = $resource->getTableName('course_run_enrolments');
+$pVarchar  = $resource->getTableName('catalog_product_entity_varchar');
+$pEntity   = $resource->getTableName('catalog_product_entity');
+$eavOptVal = $resource->getTableName('eav_attribute_option_value');
+$auTbl     = $resource->getTableName('admin_user');
+
+$nameAttrId = (int) $read->fetchOne("
+    SELECT a.attribute_id
+      FROM " . $resource->getTableName('eav_attribute') . " a
+      INNER JOIN " . $resource->getTableName('eav_entity_type') . " t ON t.entity_type_id = a.entity_type_id
+     WHERE t.entity_type_code = 'catalog_product' AND a.attribute_code = 'name'
+");
+
+// Learner scope: enrolment rows matching the signed-in user's email.
+$_learnerWhere = '';
+if ($_mode === 'learner') {
+    $u = Mage::getSingleton('admin/session')->getUser();
+    $_learnerEmail = $u ? strtolower(trim((string) $u->getEmail())) : '';
+    $_learnerWhere = "AND EXISTS (
+        SELECT 1 FROM `$enrolTbl` le
+         WHERE le.run_id = cr.run_id
+           AND LOWER(TRIM(le.learner_email)) = " . $read->quote($_learnerEmail) . "
+    )";
+}
+
+$rows = array();
+if ($nameAttrId) {
+    $rows = $read->fetchAll("
+        SELECT cr.run_id, cr.class_id, cr.product_id,
+               COALESCE(NULLIF(TRIM(pe.sku), ''), cr.course_sku) AS course_sku,
+               cr.course_start_date, cr.course_end_date,
+               cr.course_start_time, cr.course_end_time,
+               cr.trainer_option_id, cr.trainer_user_id,
+               COALESCE(pn.value, '(deleted product)') AS course_title,
+               COALESCE(en.enrolled, 0) AS enrolled,
+               COALESCE(
+                   NULLIF(TRIM(CONCAT(COALESCE(au.firstname,''),' ',COALESCE(au.lastname,''))), ''),
+                   tov.value, ''
+               ) AS trainer_name
+          FROM `$runsTbl` cr
+          LEFT JOIN `$pEntity` pe ON pe.entity_id = cr.product_id
+          LEFT JOIN `$pVarchar` pn
+               ON pn.entity_id = cr.product_id
+              AND pn.attribute_id = $nameAttrId
+              AND pn.store_id = 0
+          LEFT JOIN (
+              SELECT run_id, COUNT(*) AS enrolled FROM `$enrolTbl` GROUP BY run_id
+          ) en ON en.run_id = cr.run_id
+          LEFT JOIN `$auTbl` au ON au.user_id = cr.trainer_user_id
+          LEFT JOIN `$eavOptVal` tov
+               ON tov.option_id = cr.trainer_option_id AND tov.store_id = 0
+         WHERE cr.course_start_date IS NOT NULL
+           AND cr.course_start_date <= " . $read->quote($_rangeEnd) . "
+           AND COALESCE(cr.course_end_date, cr.course_start_date) >= " . $read->quote($_rangeStart) . "
+           AND (cr.trainer_user_id > 0 OR cr.trainer_option_id > 0)
+           AND COALESCE(NULLIF(TRIM(pe.sku), ''), cr.course_sku) REGEXP '^C[0-9]'
+           $_learnerWhere
+         ORDER BY cr.course_start_date ASC, cr.course_start_time ASC
+    ");
+}
+
+// Trainer scope: keep only runs assigned to the signed-in trainer —
+// account pointer first, then legacy EAV email match (courses_trainers),
+// then full-name fallback. Mirrors MMD_Attendance_Helper_Data::_filterToTrainer.
+if ($_mode === 'trainer' && !empty($rows)) {
+    $u     = Mage::getSingleton('admin/session')->getUser();
+    $uid   = $u ? (int) $u->getId() : 0;
+    $email = $u ? strtolower(trim((string) $u->getEmail())) : '';
+    $name  = $u ? strtolower(trim($u->getFirstname() . ' ' . $u->getLastname())) : '';
+
+    $myOptionIds = array();
+    try {
+        $ids = $read->fetchCol(
+            "SELECT relation_id FROM " . $resource->getTableName('courses_trainers')
+          . " WHERE LOWER(TRIM(email)) = ?",
+            array($email)
+        );
+        foreach ($ids as $id) $myOptionIds[(int)$id] = true;
+    } catch (Exception $e) { /* non-fatal */ }
+
+    $rows = array_values(array_filter($rows, function ($r) use ($uid, $myOptionIds, $name) {
+        $matchAccount = $uid > 0 && (int)$r['trainer_user_id'] === $uid;
+        $matchEmail   = (int)$r['trainer_option_id'] > 0 && isset($myOptionIds[(int)$r['trainer_option_id']]);
+        $matchName    = $name !== '' && strtolower(trim((string)$r['trainer_name'])) === $name;
+        return $matchAccount || $matchEmail || $matchName;
+    }));
+}
+
+// Expand each run onto every visible day it spans.
+$eventsByDate = array(); // 'Y-m-d' => [row, ...]
+foreach ($rows as $r) {
+    $s = max((string)$r['course_start_date'], $_rangeStart);
+    $e = min((string)($r['course_end_date'] ?: $r['course_start_date']), $_rangeEnd);
+    $ts = strtotime($s);
+    $te = strtotime($e);
+    if ($ts === false || $te === false) continue;
+    for ($t = $ts; $t <= $te; $t += 86400) {
+        $eventsByDate[date('Y-m-d', $t)][] = $r;
+    }
+}
+
+$_calUrl = function ($view, $date) {
+    return Mage::helper('adminhtml')->getUrl('adminhtml/calendar/index', array('view' => $view, 'date' => $date));
+};
+
+// Prev / next anchors per view.
+switch ($_view) {
+    case 'day':
+        $_prev = date('Y-m-d', strtotime($_anchor . ' -1 day'));
+        $_next = date('Y-m-d', strtotime($_anchor . ' +1 day'));
+        $_label = date('D, d M Y', strtotime($_anchor));
+        break;
+    case 'year':
+        $_prev = sprintf('%04d-01-01', $_aY - 1);
+        $_next = sprintf('%04d-01-01', $_aY + 1);
+        $_label = sprintf('%04d', $_aY);
+        break;
+    default:
+        $_prev = date('Y-m-d', strtotime($_rangeStart . ' -1 month'));
+        $_next = date('Y-m-d', strtotime($_rangeStart . ' +1 month'));
+        $_label = date('F Y', strtotime($_rangeStart));
+        break;
+}
+
+$_pageTitle = ($_mode === 'admin') ? 'Training Calendar' : 'My Calendar';
+$_fmtTime = function ($r) {
+    if (empty($r['course_start_time'])) return '';
+    $out = date('H:i', strtotime($r['course_start_time']));
+    if (!empty($r['course_end_time'])) {
+        $out .= '–' . date('H:i', strtotime($r['course_end_time']));
+    }
+    return $out;
+};
+?>
+<style>
+.mmd-cal-wrap { max-width: 1200px; }
+.mmd-cal-toolbar { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:0 0 14px; flex-wrap:wrap; }
+.mmd-cal-nav { display:flex; align-items:center; gap:6px; }
+.mmd-cal-label { font-size:14px; font-weight:600; color:var(--t1); min-width:150px; text-align:center; }
+.mmd-cal-views { display:flex; gap:6px; }
+.mmd-cal-view-btn { height:28px; padding:2px 14px; font-size:12px; border-radius:6px; border:1px solid var(--b2); background:transparent; color:var(--t4); text-decoration:none; display:inline-flex; align-items:center; }
+.mmd-cal-view-btn:hover { color:var(--t1); border-color:var(--b3); text-decoration:none; }
+.mmd-cal-view-btn.active { color:var(--blue); border-color:var(--blue); background:rgba(96,165,250,0.12); font-weight:600; }
+.mmd-cal-grid { width:100%; border:1px solid var(--b1); border-radius:8px; overflow:hidden; border-collapse:separate; border-spacing:0; table-layout:fixed; }
+.mmd-cal-grid th { padding:6px 8px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.6px; color:var(--t4); text-align:left; border-bottom:1px solid var(--b1); }
+.mmd-cal-grid td { vertical-align:top; height:96px; padding:5px 6px; border-top:1px solid var(--b1); }
+.mmd-cal-grid td + td, .mmd-cal-grid th + th { border-left:1px solid var(--b1); }
+.mmd-cal-grid tr:first-child td { border-top:0; }
+.mmd-cal-daynum { font-size:11px; color:var(--t4); display:inline-block; margin-bottom:4px; }
+.mmd-cal-cell-out .mmd-cal-daynum { color:var(--t5); }
+.mmd-cal-cell-today .mmd-cal-daynum { color:var(--blue); font-weight:700; }
+.mmd-cal-chip { display:block; margin:0 0 3px; padding:2px 6px; font-size:11px; line-height:1.35; color:var(--blue); border:1px solid rgba(96,165,250,0.35); border-radius:2px; background:transparent; text-decoration:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.mmd-cal-chip:hover { border-color:var(--blue); box-shadow:0 0 6px rgba(96,165,250,0.25); color:var(--blue); text-decoration:none; }
+.mmd-cal-more { display:block; font-size:10.5px; color:var(--t4); text-decoration:none; padding:1px 6px; }
+.mmd-cal-more:hover { color:var(--t1); text-decoration:none; }
+.mmd-cal-empty { padding:28px 0; color:var(--t4); font-size:12.5px; text-align:center; }
+.mmd-cal-year { display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:14px; }
+.mmd-cal-mini { border:1px solid var(--b1); border-radius:8px; padding:10px 12px; }
+.mmd-cal-mini-title { display:block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.6px; color:var(--t3); text-decoration:none; margin-bottom:8px; }
+.mmd-cal-mini-title:hover { color:var(--blue); text-decoration:none; }
+.mmd-cal-mini table { width:100%; border-collapse:collapse; table-layout:fixed; }
+.mmd-cal-mini th { font-size:9.5px; color:var(--t5); font-weight:600; text-align:center; padding:2px 0; }
+.mmd-cal-mini td { text-align:center; padding:1px 0; }
+.mmd-cal-mini-day { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; font-size:10.5px; color:var(--t4); border-radius:4px; text-decoration:none; }
+a.mmd-cal-mini-day:hover { color:var(--t1); text-decoration:none; }
+.mmd-cal-mini-day.has-events { color:var(--blue); font-weight:700; border:1px solid rgba(96,165,250,0.35); }
+.mmd-cal-mini-day.is-today { outline:1px solid var(--blue); outline-offset:1px; }
+</style>
+<div class="mmd-cal-wrap">
+    <h1 class="mmd-cal-title" style="margin:0 0 10px;"><?php echo $this->__($_pageTitle) ?></h1>
+
+    <div class="mmd-cal-toolbar">
+        <div class="mmd-cal-nav">
+            <a class="mmd-cal-view-btn" href="<?php echo $_calUrl($_view, $_prev) ?>">&larr; Prev</a>
+            <a class="mmd-cal-view-btn" href="<?php echo $_calUrl($_view, $_today) ?>">Today</a>
+            <a class="mmd-cal-view-btn" href="<?php echo $_calUrl($_view, $_next) ?>">Next &rarr;</a>
+            <span class="mmd-cal-label"><?php echo $this->escapeHtml($_label) ?></span>
+        </div>
+        <div class="mmd-cal-views">
+            <?php foreach (array('day' => 'Day', 'month' => 'Month', 'year' => 'Year') as $_vk => $_vl): ?>
+            <a class="mmd-cal-view-btn<?php echo ($_view === $_vk) ? ' active' : '' ?>" href="<?php echo $_calUrl($_vk, $_anchor) ?>"><?php echo $_vl ?></a>
+            <?php endforeach; ?>
+        </div>
+    </div>
+
+<?php if ($_view === 'month'): ?>
+    <?php
+    $_daysInMonth = (int) date('t', strtotime($_rangeStart));
+    $_startDow    = ((int) date('N', strtotime($_rangeStart))) - 1; // Mon=0
+    $_cells       = array();
+    for ($i = 0; $i < $_startDow; $i++) $_cells[] = null;
+    for ($d = 1; $d <= $_daysInMonth; $d++) $_cells[] = $d;
+    while (count($_cells) % 7 !== 0) $_cells[] = null;
+    ?>
+    <table class="mmd-cal-grid">
+        <thead>
+            <tr><?php foreach (array('Mon','Tue','Wed','Thu','Fri','Sat','Sun') as $_dw): ?><th><?php echo $_dw ?></th><?php endforeach; ?></tr>
+        </thead>
+        <tbody>
+        <?php foreach (array_chunk($_cells, 7) as $_week): ?>
+            <tr>
+            <?php foreach ($_week as $_d): ?>
+                <?php if ($_d === null): ?>
+                <td class="mmd-cal-cell-out"></td>
+                <?php else:
+                    $_date   = sprintf('%04d-%02d-%02d', $_aY, $_aM, $_d);
+                    $_events = isset($eventsByDate[$_date]) ? $eventsByDate[$_date] : array();
+                ?>
+                <td class="<?php echo ($_date === $_today) ? 'mmd-cal-cell-today' : '' ?>">
+                    <span class="mmd-cal-daynum"><?php echo $_d ?></span>
+                    <?php foreach (array_slice($_events, 0, 3) as $r):
+                        $_tip = $r['class_id'] . ' — ' . $r['course_title']
+                              . ($_fmtTime($r) ? ' (' . $_fmtTime($r) . ')' : '')
+                              . ($_mode === 'admin' && $r['trainer_name'] !== '' ? ' · ' . $r['trainer_name'] : '');
+                    ?>
+                    <a class="mmd-cal-chip" href="<?php echo $_calUrl('day', $_date) ?>" title="<?php echo $this->escapeHtml($_tip) ?>"><?php echo $this->escapeHtml($r['class_id'] . ' · ' . $r['course_title']) ?></a>
+                    <?php endforeach; ?>
+                    <?php if (count($_events) > 3): ?>
+                    <a class="mmd-cal-more" href="<?php echo $_calUrl('day', $_date) ?>">+<?php echo count($_events) - 3 ?> more</a>
+                    <?php endif; ?>
+                </td>
+                <?php endif; ?>
+            <?php endforeach; ?>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+    <?php if (empty($eventsByDate)): ?>
+    <div class="mmd-cal-empty">No confirmed classes in <?php echo $this->escapeHtml($_label) ?>.</div>
+    <?php endif; ?>
+
+<?php elseif ($_view === 'day'): ?>
+    <?php
+    $_events = isset($eventsByDate[$_anchor]) ? $eventsByDate[$_anchor] : array();
+    $_cols   = 7 - (($_mode === 'trainer') ? 1 : 0) - (($_mode === 'learner') ? 1 : 0);
+    ?>
+    <table class="mm-table">
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th>Class ID</th>
+                <th>Course</th>
+                <th>Course Code</th>
+                <?php if ($_mode !== 'trainer'): ?><th>Trainer</th><?php endif; ?>
+                <?php if ($_mode !== 'learner'): ?><th class="num">Enrolled</th><?php endif; ?>
+                <th>Dates</th>
+            </tr>
+        </thead>
+        <tbody>
+        <?php if (empty($_events)): ?>
+            <tr><td colspan="<?php echo $_cols ?>" class="mm-table-empty">No confirmed classes on <?php echo $this->escapeHtml($_label) ?>.</td></tr>
+        <?php else: foreach ($_events as $r):
+            $_datesStr = date('d M Y', strtotime($r['course_start_date']));
+            if (!empty($r['course_end_date']) && $r['course_end_date'] !== $r['course_start_date']) {
+                $_datesStr .= ' – ' . date('d M Y', strtotime($r['course_end_date']));
+            }
+        ?>
+            <tr>
+                <td class="muted"><?php echo $this->escapeHtml($_fmtTime($r) ?: '—') ?></td>
+                <td class="muted"><?php echo $this->escapeHtml($r['class_id']) ?></td>
+                <td class="strong wrap"><?php echo $this->escapeHtml($r['course_title']) ?></td>
+                <td class="muted"><?php echo $this->escapeHtml($r['course_sku']) ?></td>
+                <?php if ($_mode !== 'trainer'): ?><td><?php echo $this->escapeHtml($r['trainer_name'] !== '' ? $r['trainer_name'] : '—') ?></td><?php endif; ?>
+                <?php if ($_mode !== 'learner'): ?><td class="num"><?php echo (int)$r['enrolled'] ?></td><?php endif; ?>
+                <td class="muted"><?php echo $this->escapeHtml($_datesStr) ?></td>
+            </tr>
+        <?php endforeach; endif; ?>
+        </tbody>
+    </table>
+
+<?php else: /* year */ ?>
+    <div class="mmd-cal-year">
+        <?php for ($m = 1; $m <= 12; $m++):
+            $_mStart = sprintf('%04d-%02d-01', $_aY, $m);
+            $_mDays  = (int) date('t', strtotime($_mStart));
+            $_mDow   = ((int) date('N', strtotime($_mStart))) - 1;
+        ?>
+        <div class="mmd-cal-mini">
+            <a class="mmd-cal-mini-title" href="<?php echo $_calUrl('month', $_mStart) ?>"><?php echo date('F', strtotime($_mStart)) ?></a>
+            <table>
+                <thead>
+                    <tr><?php foreach (array('M','T','W','T','F','S','S') as $_dw): ?><th><?php echo $_dw ?></th><?php endforeach; ?></tr>
+                </thead>
+                <tbody>
+                <?php
+                $_cells = array();
+                for ($i = 0; $i < $_mDow; $i++) $_cells[] = null;
+                for ($d = 1; $d <= $_mDays; $d++) $_cells[] = $d;
+                while (count($_cells) % 7 !== 0) $_cells[] = null;
+                foreach (array_chunk($_cells, 7) as $_week): ?>
+                    <tr>
+                    <?php foreach ($_week as $_d): ?>
+                        <td>
+                        <?php if ($_d !== null):
+                            $_date = sprintf('%04d-%02d-%02d', $_aY, $m, $_d);
+                            $_has  = !empty($eventsByDate[$_date]);
+                            $_cls  = 'mmd-cal-mini-day' . ($_has ? ' has-events' : '') . (($_date === $_today) ? ' is-today' : '');
+                        ?>
+                            <?php if ($_has): ?>
+                            <a class="<?php echo $_cls ?>" href="<?php echo $_calUrl('day', $_date) ?>" title="<?php echo count($eventsByDate[$_date]) ?> class<?php echo count($eventsByDate[$_date]) > 1 ? 'es' : '' ?>"><?php echo $_d ?></a>
+                            <?php else: ?>
+                            <span class="<?php echo $_cls ?>"><?php echo $_d ?></span>
+                            <?php endif; ?>
+                        <?php endif; ?>
+                        </td>
+                    <?php endforeach; ?>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        <?php endfor; ?>
+    </div>
+    <?php if (empty($eventsByDate)): ?>
+    <div class="mmd-cal-empty">No confirmed classes in <?php echo (int)$_aY ?>.</div>
+    <?php endif; ?>
+<?php endif; ?>
+</div>
