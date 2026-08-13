@@ -153,6 +153,7 @@ class MMD_FeedbackForm_RespondController extends Mage_Core_Controller_Front_Acti
         $eavAttr   = $resource->getTableName('eav_attribute');
         $eavType   = $resource->getTableName('eav_entity_type');
         $eavOptVal = $resource->getTableName('eav_attribute_option_value');
+        $auTbl     = $resource->getTableName('admin_user');
 
         $nameAttrId = (int)$read->fetchOne(
             "SELECT a.attribute_id FROM `$eavAttr` a
@@ -162,14 +163,22 @@ class MMD_FeedbackForm_RespondController extends Mage_Core_Controller_Front_Acti
 
         return $read->fetchRow(
             "SELECT cr.run_id, cr.class_id, cr.course_sku, cr.product_id,
-                    cr.course_start_date, cr.course_end_date,
-                    cr.trainer_option_id,
+                    cr.course_start_date,
+                    -- Single-day classes leave course_end_date NULL.
+                    COALESCE(cr.course_end_date, cr.course_start_date) AS course_end_date,
+                    cr.trainer_option_id, cr.trainer_user_id,
                     COALESCE(pn.value, cr.course_sku) AS course_title,
-                    COALESCE(tov.value, '') AS trainer_name
+                    -- Phase 2: account-confirmed trainer wins, EAV is the fallback.
+                    COALESCE(
+                        NULLIF(TRIM(CONCAT(COALESCE(au.firstname,''),' ',COALESCE(au.lastname,''))), ''),
+                        tov.value, ''
+                    ) AS trainer_name
                FROM `$runsTbl` cr
                LEFT JOIN `$pVarchar` pn
                     ON pn.entity_id = cr.product_id AND pn.store_id = 0
                    AND pn.attribute_id = $nameAttrId
+               LEFT JOIN `$auTbl` au
+                    ON au.user_id = cr.trainer_user_id
                LEFT JOIN `$eavOptVal` tov
                     ON tov.option_id = cr.trainer_option_id AND tov.store_id = 0
               WHERE cr.run_id = ?",
