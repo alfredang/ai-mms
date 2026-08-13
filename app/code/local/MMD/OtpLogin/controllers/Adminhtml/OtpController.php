@@ -190,6 +190,10 @@ class MMD_OtpLogin_Adminhtml_OtpController extends Mage_Adminhtml_Controller_Act
             $adminSession = Mage::getSingleton('admin/session');
             $adminSession->setUser($user);
             $adminSession->setAcl(Mage::getResourceModel('admin/acl')->loadAcl());
+            // Assigned password (bulk default / admin reset): the RoleManager
+            // predispatch gate holds this session on the account screen until
+            // the user picks their own password.
+            $adminSession->setMmdForcePasswordChange((bool) $user->getMmdForcePasswordChange());
 
             // Fire the same event Magento's password login fires so
             // RoleManager picks up the roles, sets needsRoleSelect, and

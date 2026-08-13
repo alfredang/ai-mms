@@ -99,6 +99,16 @@
                     </mmd_rolemanager_learnerlogin_public>
                 </observers>
             </controller_action_predispatch>
+            <!-- Clear the force-password-change flag once the user saves a
+                 new password on their own account. -->
+            <admin_user_save_after>
+                <observers>
+                    <mmd_rolemanager_force_pw_clear>
+                        <class>mmd_rolemanager/observer</class>
+                        <method>onAdminUserSaveAfter</method>
+                    </mmd_rolemanager_force_pw_clear>
+                </observers>
+            </admin_user_save_after>
             <cms_wysiwyg_config_prepare>
                 <observers>
                     <mmd_rolemanager_wysiwyg>

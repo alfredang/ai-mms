@@ -44,6 +44,13 @@ class MMD_RoleManager_Model_Observer
             $roles = $helper->getUserRolesFromDb($user->getId());
             $session->setUserRoles($roles);
 
+            // Password assigned by an admin (bulk default / reset): the
+            // predispatch gate below confines the session to the
+            // change-password screen until they set their own. Covers the
+            // stock /adminlogin password form; the LMS + OTP controllers set
+            // the same flag on their own login paths.
+            $session->setMmdForcePasswordChange((bool) $user->getMmdForcePasswordChange());
+
             if (count($roles) > 1) {
                 // Multiple roles — need role selection page
                 $session->setNeedsRoleSelect(true);
@@ -150,6 +157,18 @@ class MMD_RoleManager_Model_Observer
 
             // Pure decision (no session/HTTP) — unit-testable via evaluateAccess().
             $activeRole = Mage::helper('mmd_rolemanager')->getActiveRoleCode();
+            // Password assigned by an admin (bulk default / reset): confine the
+            // session to the change-password screen until they set their own.
+            // Checked before any role logic so no role can slip past it.
+            if ($session->getMmdForcePasswordChange()
+                    && !in_array($key, $this->_passwordChangeAllowlist(), true)) {
+                $controller->getResponse()->setRedirect(
+                    Mage::helper('adminhtml')->getUrl('adminhtml/system_account/index')
+                );
+                $controller->setFlag('', Mage_Core_Controller_Varien_Action::FLAG_NO_DISPATCH, true);
+                return;
+            }
+
             $result = $this->evaluateAccess(
                 $key,
                 $actionName,
@@ -176,6 +195,37 @@ class MMD_RoleManager_Model_Observer
     const ACCESS_ALLOW      = 'allow';
     const ACCESS_DENY       = 'deny';
     const ACCESS_ROLESELECT = 'roleselect';
+
+    /**
+     * Clear the force-password-change flag once the user actually sets a new
+     * password on their own account. Fires on admin_user_save_after, which
+     * Mage_Adminhtml_System_AccountController::saveAction triggers — so both
+     * the LMS and staff portals are covered without touching core.
+     */
+    public function onAdminUserSaveAfter(Varien_Event_Observer $observer)
+    {
+        try {
+            $user = $observer->getEvent()->getObject();
+            if (!$user || !$user->getId() || !$user->getNewPassword()) {
+                return; // nothing saved, or the save didn't include a password
+            }
+            $res = Mage::getSingleton('core/resource');
+            $res->getConnection('core_write')->update(
+                $res->getTableName('admin_user'),
+                array('mmd_force_password_change' => 0),
+                array('user_id = ?' => (int) $user->getId())
+            );
+            $session = Mage::getSingleton('admin/session');
+            if ($session->getMmdForcePasswordChange()) {
+                $session->unsMmdForcePasswordChange();
+                $session->addSuccess(
+                    Mage::helper('adminhtml')->__('Your password has been updated. Welcome!')
+                );
+            }
+        } catch (Exception $e) {
+            Mage::logException($e);
+        }
+    }
 
     /**
      * Pure access decision for a controller `<module>_<controller>` key given the
@@ -243,6 +293,22 @@ class MMD_RoleManager_Model_Observer
             Mage::helper('adminhtml')->getUrl('adminhtml/index/denied')
         );
         $controller->setFlag('', Mage_Core_Controller_Varien_Action::FLAG_NO_DISPATCH, true);
+    }
+
+    /**
+     * The only controllers reachable while a forced password change is
+     * pending: the account screen itself (form + save), logout, and the
+     * ajax/notification endpoints the admin chrome calls on every page.
+     */
+    protected function _passwordChangeAllowlist()
+    {
+        return array(
+            'adminhtml_system_account',
+            'adminhtml_index',      // login / logout / denied
+            'adminhtml_ajax',
+            'adminhtml_notification',
+            'adminhtml_messages',
+        );
     }
 
     /**

@@ -304,6 +304,9 @@ class MMD_RoleManager_IndexController extends Mage_Adminhtml_Controller_Action
         $adminSession = Mage::getSingleton('admin/session');
         $adminSession->setUser($user);
         $adminSession->setUserRoles($lmsRoles);
+        // Password was assigned (bulk default / admin reset) — the predispatch
+        // gate confines this session to the change-password screen.
+        $adminSession->setMmdForcePasswordChange((bool) $user->getMmdForcePasswordChange());
         if (count($lmsRoles) === 1) {
             $adminSession->setActiveRoleCode($lmsRoles[0]);
             $adminSession->setNeedsRoleSelect(false);
