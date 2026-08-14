@@ -237,7 +237,10 @@ document.getElementById("fb-form").addEventListener("submit", function(e) {
         $label    = htmlspecialchars($field['label']);
         $req      = !empty($field['required']) && empty($field['readonly']);
         $reqMark  = $req ? ' <span class="fb-req">*</span>' : '';
-        $readonly = !empty($field['readonly']) ? ' readonly disabled' : '';
+        // `readonly` alone blocks editing. `disabled` would additionally grey the
+        // text out (making prefilled values read as empty placeholders) and stop
+        // the browser submitting them, so the course context never reaches POST.
+        $readonly = !empty($field['readonly']) ? ' readonly' : '';
         $reqAttr  = ($req && empty($field['readonly'])) ? ' required' : '';
 
         // Resolve autofill value.
@@ -327,7 +330,11 @@ body{background:#0f172a;font-family:Arial,sans-serif;color:#e2e8f0;min-height:10
 .fb-section{margin-bottom:28px;}
 .fb-section-title{font-size:14px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #1e293b;}
 .fb-field{margin-bottom:16px;}
-.fb-field-readonly .fb-input{background:#0f172a;color:#64748b;cursor:default;}
+/* Prefilled class details: full-strength text so they read as real answered
+   values, not greyed-out placeholders. The muted border + background is what
+   signals "not editable". */
+.fb-field-readonly .fb-input{background:#172033;color:#e2e8f0;cursor:default;border-color:#2b3a55;-webkit-text-fill-color:#e2e8f0;opacity:1;}
+.fb-field-readonly .fb-input:focus{border-color:#2b3a55;}
 .fb-label{display:block;font-size:13px;color:#94a3b8;margin-bottom:6px;}
 .fb-req{color:#f87171;}
 .fb-input{width:100%;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:10px 12px;color:#e2e8f0;font-size:14px;outline:none;transition:border .15s;}
