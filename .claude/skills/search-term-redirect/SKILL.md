@@ -123,7 +123,7 @@ including odd punctuation — that is the case most likely to be missing.
 ### 5. Ship the matching migration
 
 So a rebuilt/restored DB keeps the state. Same LIKE pattern, plus the SG guard.
-Use `redirect <> @tgt` (not the empty-only guard) for a correction:
+Use the **NULL-safe** `NOT (redirect <=> @tgt)` for a correction:
 
 ```sql
 SET @sg  := (SELECT COUNT(*) FROM core_store WHERE store_id = 1 AND code = 'singapore');
@@ -133,9 +133,18 @@ UPDATE catalogsearch_query
 SET redirect = @tgt, num_results = 1, is_processed = 1
 WHERE @sg = 1
   AND store_id = 1
-  AND redirect <> @tgt
+  AND NOT (redirect <=> @tgt)
   AND (LOWER(query_text) LIKE '%<KEYWORD>%');
 ```
+
+> **Never write a bare `redirect <> @tgt`.** In SQL three-valued logic
+> `NULL <> 'x'` is NULL, not TRUE, so it silently skips every row where
+> `redirect IS NULL` — precisely the empty rows a fill must populate. This bug
+> shipped twice (2026-08-16, 2026-08-17). `NOT (redirect <=> @tgt)` fills unset
+> rows AND overwrites wrong ones in one guard.
+>
+> Also: `rowCount()` counts *changed* rows, not *matched* — `0` never proves
+> "already correct". Re-SELECT the rows to confirm actual state.
 
 Dry-run with the real runner (never the `mysql` client):
 
