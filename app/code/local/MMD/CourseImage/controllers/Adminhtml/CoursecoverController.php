@@ -44,10 +44,12 @@ class MMD_CourseImage_Adminhtml_CoursecoverController extends Mage_Adminhtml_Con
             $title = (string) $product->getName();
             $sku   = (string) $product->getSku();
 
+            $ciHelper = Mage::helper('mmd_courseimage');
+
             // Whitelist badge names so a malicious POST can't inject arbitrary
             // text into the rendered PNG. Order from the request is preserved
             // so the admin can control left-to-right placement by tick order.
-            $allowedBadges = Mage::helper('mmd_courseimage')->getAllBadges();
+            $allowedBadges = $ciHelper->getAllBadges();
             $rawBadges = (array) $this->getRequest()->getParam('badges', []);
             $badges = [];
             foreach ($rawBadges as $b) {
@@ -55,6 +57,15 @@ class MMD_CourseImage_Adminhtml_CoursecoverController extends Mage_Adminhtml_Con
                 if ($b !== '' && in_array($b, $allowedBadges, true) && !in_array($b, $badges, true)) {
                     $badges[] = $b;
                 }
+            }
+
+            // Unfunded non-WSQ courses (C-prefix SKU) must render WITHOUT the
+            // "FUNDING AVAILABLE" header and chip row. Enforced server-side as
+            // well as in the checkbox defaults, because the same POST also
+            // drives syncProductTags() below — and those tags gate the
+            // storefront chips AND the WSQ Funding card.
+            if (!$ciHelper->isFundableSku($sku)) {
+                $badges = [];
             }
 
             /** @var MMD_CourseImage_Model_Cover $renderer */
@@ -72,7 +83,7 @@ class MMD_CourseImage_Adminhtml_CoursecoverController extends Mage_Adminhtml_Con
             // Persist the ticked badges as Magento tags so the storefront
             // chip renderer (catalog list / product view) reads the same
             // source of truth as the cover image. Idempotent + diff-based.
-            Mage::helper('mmd_courseimage')->syncProductTags($product, $badges);
+            $ciHelper->syncProductTags($product, $badges);
 
             $this->getResponse()
                 ->setHeader('Content-Type', 'application/json', true)
@@ -81,7 +92,7 @@ class MMD_CourseImage_Adminhtml_CoursecoverController extends Mage_Adminhtml_Con
                     'url'   => $upload['url'],
                     'bytes' => $upload['bytes'],
                     'sku'   => $sku,
-                    'wsq'   => Mage::helper('mmd_courseimage')->isWsqCourse($sku),
+                    'wsq'   => $ciHelper->isWsqCourse($sku),
                 ]));
         } catch (Throwable $e) {
             Mage::logException($e);
@@ -244,6 +255,14 @@ class MMD_CourseImage_Adminhtml_CoursecoverController extends Mage_Adminhtml_Con
 
             $title = (string) $product->getName();
             $sku   = (string) $product->getSku();
+
+            // Unfunded non-WSQ courses (C-prefix SKU) never carry funding
+            // chips, regardless of which boxes the bulk form had ticked — the
+            // bulk run spans a whole SKU filter, so one ticked WSQ box would
+            // otherwise stamp WSQ on every unfunded course in the batch.
+            if (!$ciHelper->isFundableSku($sku)) {
+                $badges = [];
+            }
 
             /** @var MMD_CourseImage_Model_Cover $renderer */
             $renderer = Mage::getModel('mmd_courseimage/cover');

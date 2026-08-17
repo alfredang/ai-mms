@@ -245,6 +245,12 @@ class MMD_AgentApi_Model_Ops extends MMD_AgentApi_Model_Abstract
         if (!$allowFunding) {
             $badges = array();
         }
+        // Unfunded non-WSQ courses (C-prefix SKU) never carry funding chips,
+        // even if stale badge tags say otherwise - the tags are what this method
+        // reads, so a polluted product would otherwise re-stamp WSQ on regen.
+        if (!$helper->isFundableSku((string) $product->getSku())) {
+            $badges = array();
+        }
         return array(array_values($badges), $allowFunding);
     }
 

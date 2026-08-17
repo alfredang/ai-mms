@@ -54,6 +54,23 @@ class MMD_CourseImage_Helper_Data extends Mage_Core_Helper_Abstract
     }
 
     /**
+     * Can this course legitimately carry funding badges at all?
+     *
+     * Only TGS- courses are funded — WSQ and CASL both use TGS- SKUs (the SKU
+     * IS the SSG course reference). A `C`-prefix SKU is an unfunded non-WSQ
+     * short course and must never show WSQ / SkillsFuture / UTAP / PSEA /
+     * MCES chips on its cover, nor carry the matching badge tags (which also
+     * gate the storefront chips and the WSQ Funding card).
+     *
+     * Mirrors the SKU gate the Edit Course "Funding and Grant" checkboxes
+     * already use (dashboard/index.phtml `$_fbCheckboxMode`).
+     */
+    public function isFundableSku(string $sku): bool
+    {
+        return $this->isWsqCourse($sku);
+    }
+
+    /**
      * Master list of badge labels the AI cover renderer + chip checkboxes
      * support. Order here drives the order admins see them in the UI.
      */
@@ -103,11 +120,19 @@ class MMD_CourseImage_Helper_Data extends Mage_Core_Helper_Abstract
 
     /**
      * Resolve default badges for a product based on the website it lives in.
-     * Falls back to the SG defaults for the legacy WSQ shortcut so existing
-     * callers that key off the SKU still behave sensibly.
+     *
+     * Gated on the SKU first: only TGS- courses (WSQ and CASL both carry TGS-
+     * SKUs) are funded, so a non-WSQ C-prefix course must start with NOTHING
+     * ticked. Previously this keyed off the website alone, which pre-ticked
+     * WSQ/MCES/UTAP on every SG course and silently rendered funding chips
+     * onto unfunded C-prefix covers (and wrote the matching tags).
      */
     public function getDefaultBadgesForProduct(Mage_Catalog_Model_Product $product): array
     {
+        if (!$this->isFundableSku((string) $product->getSku())) {
+            return [];
+        }
+
         $websiteIds = $product->getWebsiteIds() ?: [];
         // Prefer the first website Magento returns; admins editing a course
         // are typically scoped to one country at a time.
