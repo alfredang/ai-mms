@@ -3,13 +3,18 @@
  * Regenerate auto-generated blog hero images through the editorial renderer
  * (mmd_blog/hero), replacing the old course-cover-styled ones.
  *
- * Only touches posts whose hero_image_url contains "/blog/auto-" — that prefix
- * marks a pipeline-generated hero. Admin-uploaded heroes (no prefix) and
- * external heroes (e.g. a YouTube thumbnail) are never overwritten, matching
- * the contract in MMD_Blog_Helper_Image.
+ * Targets two groups:
+ *   1. hero_image_url LIKE '%/blog/auto-%' — pipeline-generated heroes, safe to
+ *      re-render (that prefix is the replaceable marker).
+ *   2. hero_image_url NULL/'' — posts that fell back to the CSS gradient card.
+ *      Giving them a real hero is what makes the listing consistent.
+ *
+ * Admin-uploaded heroes (a /blog/ URL without the auto- prefix) and external
+ * heroes (e.g. a YouTube thumbnail) are NEVER overwritten, matching the
+ * contract in MMD_Blog_Helper_Image.
  *
  * Usage (inside the web container):
- *   php scripts/maintenance/regenerate-blog-heroes.php [--dry-run]
+ *   php scripts/maintenance/regenerate-blog-heroes.php [--dry-run] [--only-empty]
  */
 
 require_once dirname(__FILE__) . '/../../app/Mage.php';
@@ -33,10 +38,19 @@ function kickerFor($post)
     return 'Article';
 }
 
-$posts = Mage::getModel('mmd_blog/post')->getCollection()
-    ->addFieldToFilter('hero_image_url', array('like' => '%/blog/auto-%'));
+$onlyEmpty = in_array('--only-empty', $argv, true);
 
-printf("%d post(s) with auto-generated heroes%s\n\n", count($posts), $dryRun ? ' (DRY RUN)' : '');
+// mmd_blog_post is a FLAT table, so the EAV-style array-of-['attribute'=>...]
+// OR syntax is not available (it fatals in prepareSqlCondition). Passing one
+// field name with an array of conditions is the flat-collection OR form.
+$conds = array(array('null' => true), array('eq' => ''));
+if (!$onlyEmpty) {
+    array_unshift($conds, array('like' => '%/blog/auto-%'));
+}
+$posts = Mage::getModel('mmd_blog/post')->getCollection()
+    ->addFieldToFilter('hero_image_url', $conds);
+
+printf("%d post(s) to render%s\n\n", count($posts), $dryRun ? ' (DRY RUN)' : '');
 
 $done = 0;
 $failed = 0;
