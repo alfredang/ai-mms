@@ -100,10 +100,26 @@ require_once '/var/www/html/app/Mage.php'; Mage::app();
 \\\$w = Mage::getSingleton('core/resource')->getConnection('core_write');
 \\\$tgt='<TARGET_URL>';
 \\\$n = \\\$w->query(\\\"UPDATE catalogsearch_query SET redirect=?, num_results=1, is_processed=1
-  WHERE store_id=1 AND (LOWER(query_text) LIKE '%<KEYWORD>%')\\\", array(\\\$tgt))->rowCount();
+  WHERE store_id=1 AND NOT (redirect <=> ?)
+    AND (LOWER(query_text) LIKE '%<KEYWORD>%')\\\", array(\\\$tgt, \\\$tgt))->rowCount();
 echo 'rows updated: ',\\\$n,PHP_EOL;
 \""
 ```
+
+`NOT (redirect <=> ?)` is the **NULL-safe** guard — it fills unset rows AND
+overwrites wrong ones, while no-opping on rows already correct. A bare
+`redirect <> ?` silently skips every `redirect IS NULL` row, because
+`NULL <> 'x'` is NULL, not TRUE. That trap has bitten three times (2026-08-16
+agentic-AI-for-HR, 2026-08-17 IoT, 2026-08-17 genai-SEO) — each time the
+user's own literal search term was one of the skipped rows.
+
+**Never trust `rowCount()`** — MySQL counts *changed* rows, so `0` never means
+"already correct". Always re-SELECT the matched rows afterwards (step 4).
+
+Beware the flip side: because this guard fills NULL rows, a loose `<KEYWORD>`
+sweeps in every unrelated term that happens to contain it. Keep the pattern
+tight, and run a **collateral check** — rows now pointing at the target that
+do *not* match the topic keyword must come back empty.
 
 No cache flush is needed — the redirect is read per-search from the DB.
 
@@ -145,6 +161,17 @@ WHERE @sg = 1
 >
 > Also: `rowCount()` counts *changed* rows, not *matched* — `0` never proves
 > "already correct". Re-SELECT the rows to confirm actual state.
+
+**The flip side of the NULL-safe guard: keep `<KEYWORD>` tight.** Because it
+fills unset rows, a generic pattern captures every empty row containing that
+substring. A rebuilt DB has far more empty rows than today's prod, so a
+migration that looked surgical live can mis-redirect dozens of unrelated
+courses on restore — SG prod carries ~180 empty `%genai%` rows (`genai video`,
+`genai hr`, `genai fintech`, …). For a generic keyword (`ai`, `genai`, `seo`),
+use an explicit verified term list plus one tight course-title pattern instead
+of a bare LIKE. Then run a **collateral check** — rows now pointing at the
+target that do *not* match the topic keyword must return `count=0`. Worked
+example: `migrations/1042-search-redirect-genai-seo.sql`.
 
 Dry-run with the real runner (never the `mysql` client):
 
