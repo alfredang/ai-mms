@@ -31,9 +31,13 @@ class MMD_Blog_Model_Hero
     public const HEIGHT = 900;
 
     private const PAD_X = 90;
-    private const MAX_TITLE_LINES = 4;
-    private const TITLE_MIN_PX = 40;
-    private const TITLE_MAX_PX = 82;
+    // 5 lines and a lower ceiling: long course-style titles ("Lean Six Sigma
+    // Green Belt Training Singapore: WSQ CLSSGB Guide") should step DOWN in
+    // size and wrap rather than clip. Cards are ~380px wide on the listing, so
+    // 64px on a 1600px canvas is still comfortably legible when scaled.
+    private const MAX_TITLE_LINES = 5;
+    private const TITLE_MIN_PX = 34;
+    private const TITLE_MAX_PX = 64;
 
     /**
      * Topic themes. Each entry: two background stops, an accent, a motif name
@@ -261,31 +265,40 @@ class MMD_Blog_Model_Hero
     }
 
     /**
-     * Headline, auto-fitted: shrink until it fits MAX_TITLE_LINES within the
-     * left column, then draw with a soft shadow for legibility.
+     * Headline, auto-fitted on BOTH axes.
+     *
+     * Fitting on line-count alone is not enough: 4 lines at the max size needs
+     * ~420px, more than the band left below the kicker, so long titles used to
+     * run off the bottom of the canvas (and under the card's fade). The loop
+     * therefore also requires the rendered block to fit $availH.
      */
     private function drawTitle(\GdImage $im, string $title, string $font, array $theme, int $top): void
     {
         $maxW = (int) (self::WIDTH * 0.56) - self::PAD_X;
-        $size = self::TITLE_MAX_PX;
-        $lines = array();
+        // Reserve room for the accent underline + bottom margin.
+        $availH = self::HEIGHT - $top - 150;
 
-        for (; $size >= self::TITLE_MIN_PX; $size -= 2) {
+        $size = self::TITLE_MAX_PX;
+        $lines = $this->wrap($title, $font, $size, $maxW);
+
+        for (; $size > self::TITLE_MIN_PX; $size -= 2) {
             $lines = $this->wrap($title, $font, $size, $maxW);
-            if (count($lines) <= self::MAX_TITLE_LINES) {
+            $blockH = (int) round($size * 1.24) * count($lines);
+            if (count($lines) <= self::MAX_TITLE_LINES && $blockH <= $availH) {
                 break;
             }
         }
+        // Still too long at the minimum size — clamp lines and ellipsise.
         if (count($lines) > self::MAX_TITLE_LINES) {
             $lines = array_slice($lines, 0, self::MAX_TITLE_LINES);
             $last = count($lines) - 1;
-            $lines[$last] = rtrim($lines[$last], " .") . '...';
+            $lines[$last] = rtrim($lines[$last], " .,:;") . '…';
         }
 
-        $lineH = (int) round($size * 1.28);
+        $lineH = (int) round($size * 1.24);
         $blockH = $lineH * count($lines);
-        // Vertically center the block in the space below the kicker.
-        $y = $top + (int) max(0, ((self::HEIGHT - $top - 170) - $blockH) / 2) + $size;
+        // Vertically center the block in the band below the kicker.
+        $y = $top + (int) max(0, ($availH - $blockH) / 2) + $size;
 
         $white  = imagecolorallocate($im, 0xFF, 0xFF, 0xFF);
         $shadow = imagecolorallocatealpha($im, 0, 0, 0, 85);
