@@ -119,7 +119,17 @@ COPY --chown=www-data:www-data . /var/www/html/
 # COMPOSER_PROCESS_TIMEOUT=0: google/apiclient-services ships a large
 # zip (every Google API's PHP classes) and the unzip can take 5+ min
 # on slower runners. Default 300s timeout would kill it mid-extract.
-RUN COMPOSER_PROCESS_TIMEOUT=0 composer install --no-dev --no-interaction --optimize-autoloader --ignore-platform-req=php
+#
+# GITHUB_TOKEN (optional Coolify build variable): composer downloads most
+# dists from codeload.github.com; anonymous requests get rate-limited
+# (HTTP 429) when several builds run the same day (2026-08-17: two deploys
+# failed at 59/62 packages). An authenticated token raises the limit to
+# 5000/h. The token is configured and removed inside ONE layer so it is
+# never persisted in the image filesystem.
+ARG GITHUB_TOKEN
+RUN if [ -n "$GITHUB_TOKEN" ]; then composer config -g github-oauth.github.com "$GITHUB_TOKEN"; fi \
+ && COMPOSER_PROCESS_TIMEOUT=0 composer install --no-dev --no-interaction --optimize-autoloader --ignore-platform-req=php \
+ && (composer config -g --unset github-oauth.github.com 2>/dev/null || true)
 
 # Keep Cm_RedisSession disabled in every image build. The module is disabled
 # in source (app/etc/modules/Cm_RedisSession.xml) due to a vendor package
