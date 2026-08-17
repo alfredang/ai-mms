@@ -31,13 +31,26 @@ class MMD_Blog_Model_Hero
     public const HEIGHT = 900;
 
     private const PAD_X = 90;
-    // 5 lines and a lower ceiling: long course-style titles ("Lean Six Sigma
+    // 5 lines and a low ceiling: long course-style titles ("Lean Six Sigma
     // Green Belt Training Singapore: WSQ CLSSGB Guide") should step DOWN in
     // size and wrap rather than clip. Cards are ~380px wide on the listing, so
-    // 64px on a 1600px canvas is still comfortably legible when scaled.
+    // 56px on a 1600px canvas is still comfortably legible when scaled.
     private const MAX_TITLE_LINES = 5;
-    private const TITLE_MIN_PX = 34;
-    private const TITLE_MAX_PX = 64;
+    private const TITLE_MIN_PX = 30;
+    private const TITLE_MAX_PX = 56;
+
+    /**
+     * SAFE BAND — the only vertical slice guaranteed to be visible everywhere.
+     *
+     * The listing card crops 16:9 (the full canvas), but the POST PAGE banner
+     * is `.mmd-blog-post-hero { aspect-ratio: 32/9 }` with `object-fit: cover`,
+     * which shows only the middle half: y=225..675 of a 1600x900 canvas. Text
+     * outside that band is invisible on the post page no matter how small the
+     * font is — which is why "just shrink the title" does not fix a clipped
+     * banner. ALL text must be laid out inside these bounds.
+     */
+    private const SAFE_TOP    = 258;
+    private const SAFE_BOTTOM = 660;
 
     /**
      * Topic themes. Each entry: two background stops, an accent, a motif name
@@ -248,7 +261,9 @@ class MMD_Blog_Model_Hero
         $th   = abs($box[7] - $box[1]);
 
         $x = self::PAD_X;
-        $y = 150;
+        // Baseline inside the 32:9 safe band, not at the canvas top — a kicker
+        // at y=150 is cropped away entirely on the post-page banner.
+        $y = self::SAFE_TOP + $th;
         $padX = 26;
         $padY = 16;
 
@@ -261,7 +276,7 @@ class MMD_Blog_Model_Hero
         $ink = imagecolorallocate($im, $r, $g, $b);
         imagettftext($im, $size, 0, $x + $padX, $y, $ink, $font, $text);
 
-        return $y + 150;
+        return $y + $padY + 34;
     }
 
     /**
@@ -275,8 +290,10 @@ class MMD_Blog_Model_Hero
     private function drawTitle(\GdImage $im, string $title, string $font, array $theme, int $top): void
     {
         $maxW = (int) (self::WIDTH * 0.56) - self::PAD_X;
-        // Reserve room for the accent underline + bottom margin.
-        $availH = self::HEIGHT - $top - 150;
+        // Measure against the SAFE BAND, not the canvas: anything below
+        // SAFE_BOTTOM is cropped off by the 32:9 post-page banner. Reserve ~46px
+        // for the accent underline that sits under the last line.
+        $availH = self::SAFE_BOTTOM - $top - 46;
 
         $size = self::TITLE_MAX_PX;
         $lines = $this->wrap($title, $font, $size, $maxW);
@@ -343,7 +360,9 @@ class MMD_Blog_Model_Hero
     private function drawMotif(\GdImage $im, array $theme): void
     {
         $cx = (int) (self::WIDTH * 0.775);
-        $cy = (int) (self::HEIGHT * 0.50);
+        // Centre on the safe band (= canvas centre here, but stated explicitly
+        // so the motif follows the band if the crop ever changes).
+        $cy = (int) ((self::SAFE_TOP + self::SAFE_BOTTOM) / 2);
         [$r, $g, $b] = $theme['accent'];
 
         // Halo behind every motif so it reads as a focal point.
