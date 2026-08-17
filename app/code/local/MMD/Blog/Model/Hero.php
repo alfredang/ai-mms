@@ -83,6 +83,13 @@ class MMD_Blog_Model_Hero
         ),
     );
 
+    /**
+     * Per-post variation seed, derived from the title in render(). Deterministic
+     * (same title always renders the same art) but differs between posts, so
+     * two articles sharing a theme do not produce identical motifs.
+     */
+    private int $seed = 0;
+
     private const THEME_DEFAULT = array(
         'bg' => array(0x08, 0x12, 0x28), 'bg2' => array(0x14, 0x32, 0x64),
         'accent' => array(0x59, 0xEB, 0xFD), 'motif' => 'nodes', 'kw' => array(),
@@ -112,6 +119,7 @@ class MMD_Blog_Model_Hero
 
         $theme = $this->pickTheme($title . ' ' . $kicker);
         $clean = $this->cleanTitle($title);
+        $this->seed = (int) hexdec(substr(md5($clean), 0, 6));
 
         $im = imagecreatetruecolor(self::WIDTH, self::HEIGHT);
         imagealphablending($im, true);
@@ -162,11 +170,19 @@ class MMD_Blog_Model_Hero
         return trim($t);
     }
 
-    /** Diagonal two-stop gradient — darker top-left, lighter bottom-right. */
+    /**
+     * Diagonal two-stop gradient — darker top-left, lighter bottom-right. The
+     * lighter stop is nudged per post (seed-driven, +/-14) so two articles in
+     * the same theme differ in tone as well as in motif geometry.
+     */
     private function drawBackground(\GdImage $im, array $theme): void
     {
         [$r1, $g1, $b1] = $theme['bg'];
         [$r2, $g2, $b2] = $theme['bg2'];
+        $shift = ($this->seed % 29) - 14;
+        $r2 = max(0, min(255, $r2 + $shift));
+        $g2 = max(0, min(255, $g2 + (int) round($shift * 0.6)));
+        $b2 = max(0, min(255, $b2 + (int) round($shift * 1.2)));
         $w = self::WIDTH;
         $hh = self::HEIGHT;
         $max = $w + $hh;
@@ -490,17 +506,26 @@ class MMD_Blog_Model_Hero
         $this->thickPolygon($im, array($cx + 96, $cy + 118, $cx + 40, $cy + 108, $cx + 62, $cy + 252), $c, 7);
     }
 
+    /**
+     * Hub-and-spoke agent graph. The spoke COUNT is varied per post (5-8) by
+     * the caller's seed so two posts sharing a theme — e.g. several "Agentic
+     * AI" articles — do not render byte-identical artwork side by side in the
+     * listing.
+     */
     private function motifNodes(\GdImage $im, int $cx, int $cy, array $theme): void
     {
         [$r, $g, $b] = $theme['accent'];
         $c = imagecolorallocate($im, $r, $g, $b);
         $edge = imagecolorallocatealpha($im, $r, $g, $b, 72);
 
-        // Hub-and-spoke: a coordinator agent with workers.
-        $nodes = array(
-            array(0, -215), array(200, -105), array(200, 125),
-            array(0, 232), array(-200, 125), array(-200, -105),
-        );
+        $count = 5 + ($this->seed % 4);      // 5..8 spokes
+        $rot   = ($this->seed % 12) * (M_PI / 18); // small rotation offset
+        $rx = 215;
+        $nodes = array();
+        for ($i = 0; $i < $count; $i++) {
+            $a = $rot - M_PI / 2 + 2 * M_PI * $i / $count;
+            $nodes[] = array((int) round(cos($a) * $rx), (int) round(sin($a) * $rx));
+        }
         foreach ($nodes as $n) {
             $this->thickLine($im, $cx, $cy, $cx + $n[0], $cy + $n[1], $edge, 6);
         }
