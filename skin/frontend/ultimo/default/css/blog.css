@@ -237,6 +237,31 @@
     color: #e2e8f0;
 }
 
+/* Summary card — the "here's the whole post in one paragraph" lede that opens
+   most posts. Neutral gray card so it reads as a distinct callout without
+   competing with the blue funding/CTA cards further down the page. */
+.mmd-summary {
+    background: #f9fafb;
+    border: 1px solid var(--mb-line);
+    border-left: 3px solid var(--mb-blue);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin: 0 0 24px;
+}
+.mmd-summary-label {
+    font: 700 11px/1 var(--mb-mono);
+    letter-spacing: 2.5px;
+    color: var(--mb-muted);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+.mmd-summary p { margin: 0; color: var(--mb-text); }
+.mmd-summary p + p { margin-top: 12px; }
+
+@media (max-width: 600px) {
+    .mmd-summary { padding: 14px 16px; }
+}
+
 /* FAQ accordion — native <details>/<summary>, no JS. Answers stay in the DOM so
    Google still indexes them for FAQ rich results. */
 .mmd-faq { margin: 0 0 22px; border-top: 1px solid var(--mb-line); }
