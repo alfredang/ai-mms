@@ -23,10 +23,11 @@ verify against code when versions drift.
 3. **Writer agent** — 1200–1800-word in-depth post as strict JSON
    (title/slug/excerpt/contentHtml/meta/tags), cites ≥2 research sources,
    ≥2 CTA links to the course URL, WSQ/SkillsFuture funding hooks, FAQ.
-4. **Hero** — `Helper_Image::generateHero()` renders the TITLE through
-   `MMD_CourseImage_Model_Cover` (TGS- SKU adds WSQ + SkillsFuture chips) to
-   R2 under `blog/auto-*`. That prefix marks pipeline-replaceable heroes;
-   an admin-uploaded hero (no prefix) is NEVER overwritten.
+4. **Hero** — `Helper_Image::generateHero($title, $sku, $kicker)` renders the
+   TITLE through **`MMD_Blog_Model_Hero`** (the EDITORIAL renderer — see
+   "Hero images" below; NOT the course cover) to R2 under `blog/auto-*`. That
+   prefix marks pipeline-replaceable heroes; an admin-uploaded hero (no
+   prefix) is NEVER overwritten.
 5. **Approval** — `sendForReview()` emails both managers HMAC-token links
    (`blog|id|email` domain-prefixed, can't cross with newsletter tokens).
    ONE approval books the next free **Tue/Fri 09:00 SGT** slot via an atomic
@@ -87,6 +88,109 @@ Find the web container fresh each time (deploys rename it):
 - Case-study posts from actual client work are the top performers (MSIG,
   MINDEF, Qualcomm pattern): concrete build log + "skills we learned" section
   + WSQ funding CTA to the best-matching TGS- course.
+
+## Hero images (read before generating or fixing any post hero)
+
+**A blog hero is EDITORIAL, not a course cover.** This is the single rule to
+remember. `MMD_CourseImage_Model_Cover` renders the Tertiary logo lockup plus a
+"FUNDING AVAILABLE / WSQ / SkillsFuture Credit" chip row — correct on a product
+tile, wrong on an article card. When the blog listing mixed the two, the
+course-cover posts read as ad tiles sitting among real editorial cards (admin
+feedback 2026-08-17: *"it looks like the course product image"*).
+
+Heroes now render through **`MMD_Blog_Model_Hero`** (`Model/Hero.php`):
+
+- **1600×900** (16:9) — matches the `.mmd-blog-card-hero` crop and the
+  `og:image` ratio social platforms expect. The course cover is 1600×900 too
+  but composed for a product grid, not a wide card.
+- **8 topic themes** (`THEMES`), each = 2 background stops + accent + motif +
+  the keywords that select it. Picked by scanning `title + kicker`, first hit
+  wins, so **order specific topics above generic ones**. Themes exist so the
+  listing is not one repeated blue block: security=teal, seo=violet,
+  marketing=pink, automation=green, code=cyan, data=amber, video=rose,
+  funding=sky.
+- **A generated motif** per theme (shield / magnifier / funnel / terminal /
+  chart / play / rosette / node-graph) in the right column. This is what makes
+  a card look designed rather than typeset — do not drop it back to text-only.
+- **No logo, no funding chips, ever.** If a hero needs to advertise funding,
+  that belongs in the post body's CTA, not the image.
+
+Adding a theme = append to `THEMES` (above the generic ones) + write a
+`motifX()` method + add the `case` in `drawMotif()`. Reuse the primitives
+(`thickLine`, `thickPolygon`, `roundedRect`) rather than raw GD calls.
+
+**Every post should have a real hero.** A NULL `hero_image_url` falls back to
+the CSS gradient card (`.mmd-blog-hero-fallback`), which next to rendered
+artwork reads as a missing image. Backfill with
+`scripts/maintenance/regenerate-blog-heroes.php` (`--dry-run` first;
+`--only-empty` to touch just the NULL ones). It targets `hero_image_url LIKE
+'%/blog/auto-%'` **OR** NULL/empty, so admin-uploaded and external heroes (e.g.
+a YouTube thumbnail) are preserved. Kickers come from
+`Helper_Data::getPostTags()`, skipping the generic `WSQ`/`SkillsFuture` labels.
+Note it also picks up **drafts and scheduled posts**, not just published ones —
+query `status=1` separately if you only meant to count live cards.
+
+`mmd_blog_post` is a **flat** table, so the EAV `array(array('attribute'=>…))`
+OR syntax fatals in `prepareSqlCondition` ("Array to string conversion"). The
+flat-collection OR form is one field name plus an array of conditions:
+`addFieldToFilter('hero_image_url', array(array('like'=>…), array('null'=>true)))`.
+
+### Title fitting — fit on BOTH axes
+
+Auto-fitting on **line count alone lets long titles run off the canvas**: 4
+lines at 82px needs ~420px, more than the band below the kicker, so the
+headline rendered past the bottom edge and under the card's fade (admin
+feedback 2026-08-17: *"seems to be cropped or clipped for those with long blog
+title"*). The shrink loop must ALSO test the rendered block height against the
+available band. Current settings: max 64px (not 82), min 34px, up to 5 lines —
+course-style titles like "Lean Six Sigma Green Belt Training Singapore: WSQ
+CLSSGB Guide" then step down and wrap rather than clip. Cards render ~380px
+wide, so 64px on a 1600px canvas is still comfortably legible.
+
+**Same-theme posts must not render identical art.** Several "Agentic AI" posts
+all drew the same green node graph and looked duplicated in the grid. A
+title-derived seed (`md5` → int, set in `render()`) varies the node-graph spoke
+count (5–8), its rotation and the gradient's lighter stop. Deterministic: the
+same title always renders the same image, so re-running the backfill is stable.
+
+### Hand-copied container files DO NOT survive a deploy
+
+To apply a renderer change immediately (rather than waiting on Coolify), the
+working move is `docker cp` of the changed PHP into the running web container
+plus a re-run of the backfill. **But the next deploy overwrites those files with
+whatever is in its build**, and Coolify often has several builds queued, so a
+build from an OLDER commit can land after your fix and silently revert it.
+
+Symptom: the course-cover images come back. Diagnose with, not by guessing —
+
+```
+docker exec <web> grep -c 'mmd_blog/hero'      app/code/local/MMD/Blog/Helper/Image.php   # want 2
+docker exec <web> grep -c 'courseimage/cover'  app/code/local/MMD/Blog/Helper/Image.php   # want 0
+```
+
+`Hero.php` present but `Helper/Image.php` still calling `courseimage/cover` is
+exactly this race — the build carried the new file but not the commit that
+rewired the caller. Fix: re-`docker cp` both files, re-run the backfill, and
+check `application_deployment_queues` for builds still queued behind you. The
+regenerated R2 URLs are stored in the DB, so **already-rendered heroes are not
+lost** by a bad build — only newly generated ones would revert.
+
+### GD traps these renderers hit (both cost a debug cycle)
+
+- **`imagesetthickness` is ignored by `imageellipse`** on most GD builds. A
+  "thin, aliased ring" is not a colour problem — build the stroke by stacking
+  ~20 concentric `imageellipse` calls at decreasing diameter.
+- **Never build a translucent rounded rect from overlapping shapes.** The
+  classic two-rectangles-plus-four-corner-ellipses construction double-blends
+  every pixel in the overlap when alpha < 127, so the corners render darker and
+  read as four "bumps" on the pill. Draw it **scanline by scanline** (one
+  `imageline` per row, x-inset from the circle equation) so each pixel is
+  touched exactly once — see `roundedRect()`. Stroking the pill on top makes it
+  worse, because `imagearc` corners never land exactly on the filled edge.
+
+Verify a hero by **rendering it to a PNG and looking at it**, never by reading
+the code — every defect above (bumps, thin rings, text colliding with the
+motif) is invisible in source and obvious in the image.
 
 ## Article HTML rendering (read before authoring post content)
 
