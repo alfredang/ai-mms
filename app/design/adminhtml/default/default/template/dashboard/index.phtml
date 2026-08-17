@@ -14769,6 +14769,36 @@ $_mnBlastStats = array();
         <div class="mn-pipe-empty">No agentic flyer in the pipeline yet. Add courses to the queue below and click <b>Run Now</b>, or the cron proposes one every Monday &amp; Thursday.</div>
         <?php endif; ?>
 
+        <!-- next-flyer queue: sits directly under the flow steppers (moved up
+             2026-08-18, admin request) — add WSQ courses, drag to reorder,
+             delete; the Mon/Thu proposer consumes the TOP row -->
+        <div class="mn-card mn-fq-card">
+            <h3>Next flyer queue</h3>
+            <div class="mn-fld">
+                <label>Add WSQ courses &mdash; the pipeline sends the <b>top</b> course each Monday &amp; Thursday</label>
+                <input type="text" id="mn-course-search" class="mn-input" placeholder="Search WSQ course title or TGS code..." oninput="mnSearchCourses(this)" autocomplete="off" />
+                <div id="mn-search-results" class="mn-search-results"></div>
+                <div id="mn-pids" class="mn-pids" style="display:none;"></div>
+            </div>
+            <table class="mm-table mn-fq-table" id="mn-queue-table">
+                <thead><tr>
+                    <th style="width:34px;"></th>
+                    <th style="width:26px;">#</th>
+                    <th>Course title</th>
+                    <th style="width:150px;">Course code</th>
+                    <th class="num" style="width:110px;">Course fee</th>
+                    <th style="width:160px;">Funding validity</th>
+                    <th style="width:150px;">Status</th>
+                    <th class="center" style="width:104px;">Actions</th>
+                </tr></thead>
+                <tbody id="mn-queue-list"></tbody>
+            </table>
+            <p style="margin:12px 2px 0;font:400 12px/1.6 -apple-system,Segoe UI,Arial,sans-serif;color:#64748b;">
+                Each row has its own <b style="color:#cbd5e1;">&#9654; Run Now</b> &mdash; it runs the pipeline for <b>that</b> course: <b>1. Design</b> the flyer &rarr; <b>2.</b> email the managers Approve / Request-changes &rarr; <b>3. Schedule</b> to MailerLite once a manager approves. As soon as a flow reaches <b>Scheduled</b>, the <b>next</b> course in the queue auto-starts on its own (no click needed). The Mon &amp; Thu cron also runs the top course automatically. Max <b>2 flyers per week</b>.<br>
+                Drag &#8942;&#8942; to reorder &middot; &#9654; run &middot; &#128065; preview &middot; &times; remove.
+            </p>
+        </div>
+
         <!-- data table: drafts + proposals merged (2026-07-04) — one row per flyer
              with stage, reviewers, approval-email date, schedule, source, preview
              and icon actions (approve / request changes / delete). -->
@@ -14964,6 +14994,11 @@ $_mnBlastStats = array();
            STANDARD in dark-theme.css (26x26 ghost square, one-row Actions
            cell). Do not restate size/border here — the global rule wins the
            §18 button cascade with !important; a local clone just drifts. */
+        /* next-flyer queue card — lives inside .mn-pipe since 2026-08-18, so
+           restyle the .mn-card wrapper to match the .mn-flow sub-cards
+           (admin-dashboard.css paints .mn-card #1e293b for the old standalone
+           placement — too light nested on the #0f172a pipe surface). */
+        .mn-pipe .mn-fq-card{background:#0d1730;border:1px solid #24324a;border-radius:12px;padding:16px 18px;margin-bottom:12px;}
         /* next-flyer queue table: drag affordances */
         .mn-fq-table{margin:14px 0 4px;}
         .mn-fq-row{cursor:grab;}
@@ -14975,43 +15010,10 @@ $_mnBlastStats = array();
     <?php /* Simplified 2026-07-04 (admin request): the Template picker card is
              gone (only one template exists) and the Drafts card is merged into
              the pipeline table above — one row per flyer with preview + icon
-             actions. The panel is now: pipeline table + next-flyer queue. */ ?>
-
-    <div class="mn-grid">
-        <!-- LEFT: next-flyer queue (add WSQ courses, drag to reorder, delete;
-             the Mon/Thu proposer consumes the TOP row) -->
-        <div class="mn-card" style="grid-column:1/-1;">
-            <h3>Next flyer queue</h3>
-            <div class="mn-fld">
-                <label>Add WSQ courses &mdash; the pipeline sends the <b>top</b> course each Monday &amp; Thursday</label>
-                <input type="text" id="mn-course-search" class="mn-input" placeholder="Search WSQ course title or TGS code..." oninput="mnSearchCourses(this)" autocomplete="off" />
-                <div id="mn-search-results" class="mn-search-results"></div>
-                <div id="mn-pids" class="mn-pids" style="display:none;"></div>
-            </div>
-            <table class="mm-table mn-fq-table" id="mn-queue-table">
-                <thead><tr>
-                    <th style="width:34px;"></th>
-                    <th style="width:26px;">#</th>
-                    <th>Course title</th>
-                    <th style="width:150px;">Course code</th>
-                    <th class="num" style="width:110px;">Course fee</th>
-                    <th style="width:160px;">Funding validity</th>
-                    <th style="width:150px;">Status</th>
-                    <th class="center" style="width:104px;">Actions</th>
-                </tr></thead>
-                <tbody id="mn-queue-list"></tbody>
-            </table>
-            <p style="margin:12px 2px 0;font:400 12px/1.6 -apple-system,Segoe UI,Arial,sans-serif;color:#64748b;">
-                Each row has its own <b style="color:#cbd5e1;">&#9654; Run Now</b> &mdash; it runs the pipeline for <b>that</b> course: <b>1. Design</b> the flyer &rarr; <b>2.</b> email the managers Approve / Request-changes &rarr; <b>3. Schedule</b> to MailerLite once a manager approves. As soon as a flow reaches <b>Scheduled</b>, the <b>next</b> course in the queue auto-starts on its own (no click needed). The Mon &amp; Thu cron also runs the top course automatically. Max <b>2 flyers per week</b>.<br>
-                Drag &#8942;&#8942; to reorder &middot; &#9654; run &middot; &#128065; preview &middot; &times; remove.
-            </p>
-        </div>
-
-        <?php /* The permanent Live Preview pane was removed 2026-07-04 (admin
-                 request) — the popup modal (same one drafts use, with its own
-                 Desktop/Mobile toggle) is the single preview surface, opened
-                 via the "Preview flyer" button. */ ?>
-    </div>
+             actions. 2026-08-18: the next-flyer queue card moved INSIDE the
+             pipeline card, directly under the flow steppers. The permanent
+             Live Preview pane was removed 2026-07-04 — the popup modal is the
+             single preview surface, opened via the "Preview flyer" button. */ ?>
 </div>
 
 <script type="text/javascript">
