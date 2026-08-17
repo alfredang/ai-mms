@@ -41,6 +41,14 @@ class MMD_Blog_Block_List extends Mage_Core_Block_Template
         return (int) $this->_filteredCollection()->getSize();
     }
 
+    /** Total published posts, ignoring tag/search filters — for the header count. */
+    public function getTotalPublishedCount()
+    {
+        return (int) Mage::getModel('mmd_blog/post')->getCollection()
+            ->addPublishedFilter()
+            ->getSize();
+    }
+
     public function getCurrentPage()
     {
         return max(1, (int) $this->getRequest()->getParam('p', 1));

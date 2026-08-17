@@ -14,7 +14,8 @@ $allTags = $helper->getPublishedTagNames();
 ?>
 <div class="mmd-blog">
     <header class="mmd-blog-header">
-        <p class="mmd-blog-kicker">[ BLOG ]</p>
+        <?php $total = $this->getTotalPublishedCount(); ?>
+        <p class="mmd-blog-kicker">[ BLOG &middot; <?php echo $total ?> <?php echo $total === 1 ? 'ARTICLE' : 'ARTICLES' ?> ]</p>
         <h1>Level up with <span class="mmd-blog-accent">AI &amp; tech skills</span> that pay for themselves.</h1>
         <p class="mmd-blog-sub">Practical guides from our trainers — plus how to fund your upskilling with
             <strong>WSQ funding</strong> and <strong>SkillsFuture Credit</strong>.</p>
