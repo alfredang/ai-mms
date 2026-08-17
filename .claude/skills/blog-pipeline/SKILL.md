@@ -152,6 +152,35 @@ OR syntax fatals in `prepareSqlCondition` ("Array to string conversion"). The
 flat-collection OR form is one field name plus an array of conditions:
 `addFieldToFilter('hero_image_url', array(array('like'=>…), array('null'=>true)))`.
 
+### The 32:9 SAFE BAND — the rule that actually prevents clipped banners
+
+The listing card shows the whole 16:9 canvas, but the POST PAGE banner is
+`.mmd-blog-post-hero { aspect-ratio: 32/9 }` with `object-fit: cover`, so it
+shows **only the middle half**: `y = 225..675` of a 1600×900 canvas. The top and
+bottom 225px are cropped away on every post page.
+
+This is why *"make the title font smaller"* does not, on its own, fix a clipped
+banner — a kicker at y=150 is invisible at any font size, and a title centred on
+the CANVAS drifts below y=675 as it grows. Lay all text out between `SAFE_TOP`
+(258) and `SAFE_BOTTOM` (660), measure the title fit against that band, and
+centre the motif on it. Decorative glow may spill outside; ink may not.
+
+Verify numerically, not by eye — pixel-scan the rendered PNG for white text and
+assert the span is inside the band:
+
+```php
+$im = imagecreatefrompng($f); $top = null; $bot = null;
+for ($y = 20; $y < 900; $y++) { $hit = false;
+  for ($x = 90; $x < 920; $x += 2) { $c = imagecolorat($im,$x,$y);
+    if ((($c>>16)&0xFF) > 205 && (($c>>8)&0xFF) > 205 && ($c&0xFF) > 205) { $hit = true; break; } }
+  if ($hit) { if ($top === null) $top = $y; $bot = $y; } }
+// require: $top >= 225 && $bot <= 675
+```
+
+Test with the longest real titles ("Build Your Own IoT Backend: IoTFlow, a
+Self-Hosted Platform with a Python SDK"), not a short sample — short titles pass
+trivially and prove nothing.
+
 ### Title fitting — fit on BOTH axes
 
 Auto-fitting on **line count alone lets long titles run off the canvas**: 4
@@ -159,10 +188,11 @@ lines at 82px needs ~420px, more than the band below the kicker, so the
 headline rendered past the bottom edge and under the card's fade (admin
 feedback 2026-08-17: *"seems to be cropped or clipped for those with long blog
 title"*). The shrink loop must ALSO test the rendered block height against the
-available band. Current settings: max 64px (not 82), min 34px, up to 5 lines —
-course-style titles like "Lean Six Sigma Green Belt Training Singapore: WSQ
-CLSSGB Guide" then step down and wrap rather than clip. Cards render ~380px
-wide, so 64px on a 1600px canvas is still comfortably legible.
+available band (the SAFE BAND above, not the canvas). Current settings: max
+56px, min 30px, up to 5 lines — course-style titles like "Lean Six Sigma Green
+Belt Training Singapore: WSQ CLSSGB Guide" then step down and wrap rather than
+clip. Cards render ~380px wide, so 56px on a 1600px canvas is still comfortably
+legible.
 
 **Same-theme posts must not render identical art.** Several "Agentic AI" posts
 all drew the same green node graph and looked duplicated in the grid. A
