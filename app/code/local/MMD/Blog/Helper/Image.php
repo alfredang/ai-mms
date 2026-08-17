@@ -52,21 +52,26 @@ class MMD_Blog_Helper_Image extends Mage_Core_Helper_Abstract
     }
 
     /**
-     * Auto-generated branded hero for a pipeline post: renders the post title
-     * through the CourseImage GD cover (same on-brand navy/cyan design as the
-     * course covers) and stores it under blog/auto-* — the prefix marks it as
-     * replaceable by the pipeline, unlike an admin-uploaded hero.
+     * Auto-generated EDITORIAL hero for a pipeline post, stored under
+     * blog/auto-* — the prefix marks it as replaceable by the pipeline, unlike
+     * an admin-uploaded hero.
      *
-     * @param string $title post title
-     * @param string $sku   source course SKU (TGS- adds the WSQ funding chips)
+     * Renders through mmd_blog/hero, NOT the course cover: a blog card is an
+     * article, not a product. The course cover carries the Tertiary logo
+     * lockup and the "FUNDING AVAILABLE / WSQ / SkillsFuture Credit" chip row,
+     * which on the blog listing made posts read as ad tiles sitting among
+     * editorial cards. The editorial renderer instead picks a topic-specific
+     * palette + motif so each post is visually distinct at thumbnail size.
+     *
+     * @param string $title  post title
+     * @param string $sku    source course SKU (kept for signature compatibility;
+     *                       no longer drives funding chips)
+     * @param string $kicker category label for the pill, e.g. "GENERATIVE AI"
      * @return string public URL ('' only if even the local fallback failed)
      */
-    public function generateHero($title, $sku = '')
+    public function generateHero($title, $sku = '', $kicker = '')
     {
-        $badges = ($sku !== '' && stripos($sku, 'TGS-') === 0)
-            ? array('WSQ', 'SkillsFuture Credit')
-            : array();
-        $png  = Mage::getModel('mmd_courseimage/cover')->render((string) $title, (string) $sku, $badges);
+        $png  = Mage::getModel('mmd_blog/hero')->render((string) $title, (string) $kicker);
         $base = Mage::helper('mmd_blog')->slugify(mb_substr((string) $title, 0, 60));
         $key  = 'blog/auto-' . date('Ymd-His') . '-' . ($base !== '' ? $base : 'hero') . '.png';
 
