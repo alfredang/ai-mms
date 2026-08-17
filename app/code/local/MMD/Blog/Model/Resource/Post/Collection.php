@@ -16,6 +16,19 @@ class MMD_Blog_Model_Resource_Post_Collection extends Mage_Core_Model_Resource_D
         return $this;
     }
 
+    /** Free-text search across title, excerpt and content (blog posts only). */
+    public function addSearchFilter($query)
+    {
+        $adapter = $this->getConnection();
+        $like    = '%' . addcslashes((string) $query, '\\%_') . '%';
+        $this->getSelect()->where(implode(' OR ', array(
+            $adapter->quoteInto('main_table.title LIKE ?', $like),
+            $adapter->quoteInto('main_table.excerpt LIKE ?', $like),
+            $adapter->quoteInto('main_table.content LIKE ?', $like),
+        )));
+        return $this;
+    }
+
     /** Restrict to posts carrying a given Magento tag name. */
     public function addTagFilter($tagName)
     {

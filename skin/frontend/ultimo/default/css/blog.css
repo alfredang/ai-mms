@@ -33,8 +33,28 @@
 .mmd-blog-sub strong { color: var(--mb-navy); }
 .mmd-blog-empty { text-align: center; color: var(--mb-muted); padding: 60px 0; }
 
+/* --- Blog search box -------------------------------------------------------- */
+.mmd-blog-search { display: flex; align-items: center; position: relative; max-width: 460px; margin: 0 0 20px; }
+.mmd-blog-search-icon { position: absolute; left: 14px; display: inline-flex; color: var(--mb-muted); pointer-events: none; }
+.mmd-blog-search input[type="search"] { flex: 1; min-width: 0; height: 40px; background: #fff; border: 1px solid var(--mb-line2); border-right: 0; border-radius: 999px 0 0 999px; padding: 0 14px 0 38px; font-size: 13px; color: var(--mb-ink); outline: none; box-shadow: none; transition: border-color .15s ease, box-shadow .15s ease; }
+.mmd-blog-search input[type="search"]:focus { border-color: var(--mb-blue); box-shadow: 0 2px 8px rgba(37, 99, 235, .15); }
+.mmd-blog-search button { height: 40px; background: var(--mb-blue); border: 1px solid var(--mb-blue); border-radius: 0 999px 999px 0; color: #fff; font-size: 13px; font-weight: 700; padding: 0 20px; cursor: pointer; transition: background .15s ease, border-color .15s ease; }
+.mmd-blog-search button:hover { background: var(--mb-navy); border-color: var(--mb-navy); }
+.mmd-blog-search-summary { color: var(--mb-muted); font-size: 13px; margin: -6px 0 18px; }
+.mmd-blog-search-summary strong { color: var(--mb-ink); }
+.mmd-blog-search-clear { margin-left: 10px; color: var(--mb-blue) !important; font-weight: 600; text-decoration: underline; }
+.mmd-blog-search-clear:hover { color: var(--mb-navy) !important; }
+
 /* --- Tag filter strip ------------------------------------------------------ */
 .mmd-blog-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 16px 0 4px; margin-bottom: 22px; border-top: 1px solid var(--mb-line); }
+/* Collapsed = first two pill rows only. Content-box: 2 pill rows (~26px) + 8px gap
+   = 61px content; the 16/4px padding sits outside it. Sync with list.phtml's COLLAPSED_MAX. */
+.mmd-blog-filter.is-collapsed { max-height: 61px; overflow: hidden; margin-bottom: 0; }
+/* Toggle sits 8px under the strip in both states: expanded strip keeps its 22px
+   margin (pull up by 14), collapsed strip has 0 (push down by 8). */
+.mmd-blog-filter-toggle { display: inline-flex; align-items: center; gap: 5px; background: none; border: 0; padding: 0; margin: -14px 0 22px; color: var(--mb-blue); font-size: 12px; font-weight: 700; cursor: pointer; }
+.mmd-blog-filter.is-collapsed + .mmd-blog-filter-toggle { margin-top: 8px; }
+.mmd-blog-filter-toggle:hover { text-decoration: underline; }
 .mmd-blog-filter-label { font: 600 10px/1 var(--mb-mono); letter-spacing: 2.5px; color: var(--mb-blue); text-transform: uppercase; margin-right: 6px; }
 
 /* Tag pill (filter strip + cards + post footer) */

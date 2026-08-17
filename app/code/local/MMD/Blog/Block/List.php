@@ -1,21 +1,44 @@
 <?php
 /**
  * Blog listing block — published posts, optional tag filter (tagAction sets
- * TagName), simple page/limit pagination via ?p=N.
+ * TagName), optional free-text search via ?q= (blog posts only), simple
+ * page/limit pagination via ?p=N.
  */
 class MMD_Blog_Block_List extends Mage_Core_Block_Template
 {
     private const PER_PAGE = 12;
 
-    /** @return MMD_Blog_Model_Resource_Post_Collection */
-    public function getPosts()
+    /** Base published collection with the active tag/search filters applied. */
+    private function _filteredCollection()
     {
         $collection = Mage::getModel('mmd_blog/post')->getCollection()->addPublishedFilter();
         if ($this->getTagName()) {
             $collection->addTagFilter($this->getTagName());
         }
-        $collection->setPageSize(self::PER_PAGE)->setCurPage($this->getCurrentPage());
+        if ($this->getSearchQuery() !== '') {
+            $collection->addSearchFilter($this->getSearchQuery());
+        }
         return $collection;
+    }
+
+    /** @return MMD_Blog_Model_Resource_Post_Collection */
+    public function getPosts()
+    {
+        return $this->_filteredCollection()
+            ->setPageSize(self::PER_PAGE)
+            ->setCurPage($this->getCurrentPage());
+    }
+
+    /** The ?q= blog search term (trimmed; '' when not searching). */
+    public function getSearchQuery()
+    {
+        return trim((string) $this->getRequest()->getParam('q', ''));
+    }
+
+    /** Total matches for the current filters — for the "N results" line. */
+    public function getResultCount()
+    {
+        return (int) $this->_filteredCollection()->getSize();
     }
 
     public function getCurrentPage()
@@ -25,11 +48,7 @@ class MMD_Blog_Block_List extends Mage_Core_Block_Template
 
     public function getLastPage()
     {
-        $collection = Mage::getModel('mmd_blog/post')->getCollection()->addPublishedFilter();
-        if ($this->getTagName()) {
-            $collection->addTagFilter($this->getTagName());
-        }
-        return max(1, (int) ceil($collection->getSize() / self::PER_PAGE));
+        return max(1, (int) ceil($this->_filteredCollection()->getSize() / self::PER_PAGE));
     }
 
     public function getPageUrl($page)
@@ -37,7 +56,14 @@ class MMD_Blog_Block_List extends Mage_Core_Block_Template
         $base = $this->getTagName()
             ? Mage::helper('mmd_blog')->getTagUrl($this->getTagName())
             : Mage::helper('mmd_blog')->getListUrl();
-        return $page > 1 ? $base . '?p=' . (int) $page : $base;
+        $params = array();
+        if ($this->getSearchQuery() !== '') {
+            $params['q'] = $this->getSearchQuery();
+        }
+        if ($page > 1) {
+            $params['p'] = (int) $page;
+        }
+        return $params ? $base . '?' . http_build_query($params) : $base;
     }
 
     /** Latest N published posts — for the homepage "From our blog" strip. */

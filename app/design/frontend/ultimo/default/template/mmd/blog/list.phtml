@@ -9,6 +9,7 @@
 $helper = $this->helper('mmd_blog');
 $posts  = $this->getPosts();
 $tag    = $this->getTagName();
+$query  = $this->getSearchQuery();
 $allTags = $helper->getPublishedTagNames();
 ?>
 <div class="mmd-blog">
@@ -19,18 +20,60 @@ $allTags = $helper->getPublishedTagNames();
             <strong>WSQ funding</strong> and <strong>SkillsFuture Credit</strong>.</p>
     </header>
 
+    <form class="mmd-blog-search" method="get" action="<?php echo $helper->getListUrl() ?>" role="search">
+        <span class="mmd-blog-search-icon" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></span>
+        <input type="search" name="q" value="<?php echo $this->escapeHtml($query) ?>" placeholder="Search blog posts&hellip;" aria-label="Search blog posts" maxlength="200"/>
+        <button type="submit">Search</button>
+    </form>
+
+    <?php if ($query !== ''): ?>
+    <p class="mmd-blog-search-summary">
+        <?php $n = $this->getResultCount(); ?>
+        <strong><?php echo $n ?></strong> <?php echo $n === 1 ? 'article' : 'articles' ?> matching &ldquo;<?php echo $this->escapeHtml($query) ?>&rdquo;
+        <a class="mmd-blog-search-clear" href="<?php echo $helper->getListUrl() ?>">Clear search</a>
+    </p>
+    <?php endif; ?>
+
     <?php if ($allTags): ?>
-    <div class="mmd-blog-filter">
+    <?php // Collapsed to two rows by default; expanded when a tag filter is active so the active pill is visible. ?>
+    <div class="mmd-blog-filter<?php echo $tag ? '' : ' is-collapsed' ?>" id="mmd-blog-filter">
         <span class="mmd-blog-filter-label">Tags</span>
         <a class="mmd-blog-tag<?php echo $tag ? '' : ' is-active' ?>" href="<?php echo $helper->getListUrl() ?>">All</a>
         <?php foreach ($allTags as $t): ?>
             <a class="mmd-blog-tag<?php echo $tag === $t ? ' is-active' : '' ?>" href="<?php echo $helper->getTagUrl($t) ?>">#<?php echo $this->escapeHtml($t) ?></a>
         <?php endforeach; ?>
     </div>
+    <button type="button" class="mmd-blog-filter-toggle" id="mmd-blog-filter-toggle"
+            aria-controls="mmd-blog-filter" aria-expanded="<?php echo $tag ? 'true' : 'false' ?>">
+        <?php echo $tag ? 'Show fewer tags &#9650;' : 'Show all tags &#9660;' ?>
+    </button>
+    <script>
+    (function () {
+        var strip  = document.getElementById('mmd-blog-filter');
+        var toggle = document.getElementById('mmd-blog-filter-toggle');
+        if (!strip || !toggle) { return; }
+        // Hide the toggle when every pill already fits in the collapsed height.
+        // scrollHeight includes the strip's 21px padding/border on top of the
+        // 61px collapsed max-height in blog.css — anything ≤ 90 means two rows fit.
+        var COLLAPSED_MAX = 90;
+        if (strip.scrollHeight <= COLLAPSED_MAX) {
+            strip.classList.remove('is-collapsed');
+            toggle.style.display = 'none';
+            return;
+        }
+        toggle.addEventListener('click', function () {
+            var collapsed = strip.classList.toggle('is-collapsed');
+            toggle.innerHTML = collapsed ? 'Show all tags ▼' : 'Show fewer tags ▲';
+            toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+        });
+    })();
+    </script>
     <?php endif; ?>
 
     <?php if (!count($posts)): ?>
-        <p class="mmd-blog-empty">No articles yet — check back soon.</p>
+        <p class="mmd-blog-empty"><?php echo $query !== ''
+            ? 'No articles matched your search — try a different keyword or browse the tags above.'
+            : 'No articles yet — check back soon.' ?></p>
     <?php else: ?>
     <div class="mmd-blog-grid">
         <?php foreach ($posts as $post): ?>

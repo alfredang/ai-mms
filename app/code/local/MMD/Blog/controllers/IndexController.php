@@ -19,6 +19,12 @@ class MMD_Blog_IndexController extends Mage_Core_Controller_Front_Action
         if ($head) {
             $head->setTitle('Blog | ' . Mage::getStoreConfig('general/store_information/name'));
             $head->setDescription('Practical guides on AI, tech and professional upskilling — with WSQ funding and SkillsFuture Credit tips from ' . Mage::getStoreConfig('general/store_information/name') . '.');
+            $q = trim((string) $this->getRequest()->getParam('q', ''));
+            if ($q !== '') {
+                $head->setTitle('Search "' . $q . '" | Blog');
+                // Search result pages are thin/infinite variants of /blog — keep them out of the index.
+                $head->setRobots('NOINDEX,FOLLOW');
+            }
         }
         $this->renderLayout();
     }
