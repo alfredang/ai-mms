@@ -136,6 +136,20 @@ Then `curl -o /dev/null -w '%{http_code}'` the returned R2 URL (want 200) and
 `ssh sg "docker exec -i <web> php" < script.php` and flush the cache afterwards
 or the listing keeps serving the old card.
 
+**THREE templates render blog cards — fix them together.** A hero change that
+only touches the listing leaves the other two showing the gradient fallback:
+
+| Surface | Template | Crop |
+|---|---|---|
+| Listing `/blog` | `mmd/blog/list.phtml` | 16:9 (full canvas) |
+| Post page banner | `mmd/blog/view.phtml` | **32:9 — see safe band below** |
+| Homepage "From Our Blog" | `mmd/blog/home.phtml` | 16:9 |
+
+All three use the same `mmd_blog/list` block and `$helper->getHeroImage($post)`,
+so the data is never the problem — a fallback-only surface means that template
+is missing the `if ($heroImg)` branch. Grep all three for `getHeroImage` after
+any hero work.
+
 **Every post should have a real hero.** A NULL `hero_image_url` falls back to
 the CSS gradient card (`.mmd-blog-hero-fallback`), which next to rendered
 artwork reads as a missing image. Backfill with
