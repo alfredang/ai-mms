@@ -119,6 +119,23 @@ Adding a theme = append to `THEMES` (above the generic ones) + write a
 `motifX()` method + add the `case` in `drawMotif()`. Reuse the primitives
 (`thickLine`, `thickPolygon`, `roundedRect`) rather than raw GD calls.
 
+**Generating the hero for ONE new post** (the usual case after hand-writing a
+post). Pass a `$kicker` — without one the pill is omitted and the card loses
+its category cue; pick the post's most specific tag, not `WSQ`:
+
+```php
+$post = Mage::getModel('mmd_blog/post')->getCollection()
+    ->addFieldToFilter('url_key', 'your-slug')->getFirstItem();
+$url = Mage::helper('mmd_blog/image')
+    ->generateHero($post->getTitle(), '', 'Digital Marketing');   // title, sku (unused), kicker
+$post->setHeroImageUrl($url)->save();
+```
+
+Then `curl -o /dev/null -w '%{http_code}'` the returned R2 URL (want 200) and
+**look at the PNG** before calling it done. On prod, run it via
+`ssh sg "docker exec -i <web> php" < script.php` and flush the cache afterwards
+or the listing keeps serving the old card.
+
 **Every post should have a real hero.** A NULL `hero_image_url` falls back to
 the CSS gradient card (`.mmd-blog-hero-fallback`), which next to rendered
 artwork reads as a missing image. Backfill with
