@@ -20,11 +20,15 @@ if (!count($posts)) {
     </div>
     <div class="mmd-blog-grid">
         <?php foreach ($posts as $post): ?>
-        <?php $url = $helper->getPostUrl($post); $likes = (int) $post->getLikeCount(); ?>
-        <?php $kickerTags = array_slice($helper->getPostTags($post->getId()), 0, 2); ?>
+        <?php $url = $helper->getPostUrl($post); $likes = (int) $post->getLikeCount(); $heroImg = $helper->getHeroImage($post); ?>
         <article class="mmd-blog-card">
             <a class="mmd-blog-card-hero" href="<?php echo $url ?>">
-                <span class="mmd-blog-hero-fallback"><span class="mmd-blog-hero-kicker">[ <?php echo $this->escapeHtml($kickerTags ? mb_strtoupper(implode(' · ', $kickerTags), 'UTF-8') : 'ARTICLE') ?> ]</span><span class="mmd-blog-hero-title"><?php echo $this->escapeHtml($post->getTitle()) ?></span></span>
+                <?php if ($heroImg): ?>
+                    <img src="<?php echo $this->escapeHtml($heroImg) ?>" alt="<?php echo $this->escapeHtml($post->getTitle()) ?>" loading="lazy"/>
+                <?php else: ?>
+                    <?php $kickerTags = array_slice($helper->getPostTags($post->getId()), 0, 2); ?>
+                    <span class="mmd-blog-hero-fallback"><span class="mmd-blog-hero-kicker">[ <?php echo $this->escapeHtml($kickerTags ? mb_strtoupper(implode(' · ', $kickerTags), 'UTF-8') : 'ARTICLE') ?> ]</span><span class="mmd-blog-hero-title"><?php echo $this->escapeHtml($post->getTitle()) ?></span></span>
+                <?php endif; ?>
             </a>
             <div class="mmd-blog-card-body">
                 <div class="mmd-blog-card-meta">
