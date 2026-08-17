@@ -195,6 +195,8 @@ $_ogSiteName = (string) Mage::getStoreConfig('general/store_information/name') ?
  * https://developers.google.com/search/docs/appearance/structured-data/course
  * ---------------------------------------------------------------------- */
 if ($_product && $_product->getId()):
+    $_orgName = (string) (Mage::getStoreConfig('general/store_information/name') ?: 'Tertiary Courses');
+    $_orgLogo = $_curBase . '/skin/frontend/ultimo/default/images/TertiaryCoursesSingapore.png';
     $_jsonLd = [
         '@context' => 'https://schema.org',
         '@type'    => 'Course',
@@ -202,35 +204,83 @@ if ($_product && $_product->getId()):
         'description' => trim((string) ($_product->getMetaDescription()
             ?: strip_tags((string) $_product->getShortDescription())
             ?: strip_tags((string) $_product->getDescription()))),
-        'url'      => $_selfCanonical,
+        'url'        => $_selfCanonical,
+        'courseCode' => (string) $_product->getSku(),
+        'inLanguage' => 'en',
         'provider' => [
             '@type' => 'Organization',
-            'name'  => (string) (Mage::getStoreConfig('general/store_information/name') ?: 'Tertiary Courses'),
+            'name'  => $_orgName,
             'sameAs'=> $_curBase,
+            'logo'  => $_orgLogo,
         ],
     ];
     if ($_ogImage) {
         $_jsonLd['image'] = $_ogImage;
     }
+    // aggregateRating — from the stock review summary (rating_summary is 0–100).
+    try {
+        $_ratingSummary = Mage::getModel('review/review_summary')
+            ->setStoreId($_curStoreId)
+            ->load($_product->getId());
+        if ((int) $_ratingSummary->getReviewsCount() > 0 && (float) $_ratingSummary->getRatingSummary() > 0) {
+            $_jsonLd['aggregateRating'] = [
+                '@type'       => 'AggregateRating',
+                'ratingValue' => (string) round(((float) $_ratingSummary->getRatingSummary()) / 20, 1),
+                'bestRating'  => '5',
+                'reviewCount' => (int) $_ratingSummary->getReviewsCount(),
+            ];
+        }
+    } catch (Exception $_e) { /* no-op */ }
     // hasCourseInstance — required by Google as of 2023 for the Course
     // rich result to show. courseMode defaults to Blended (we offer
-    // classroom + live online for every course).
-    $_courseInstance = [
-        '@type'      => 'CourseInstance',
-        'courseMode' => 'Blended',
-    ];
+    // classroom + live online for every course). ISO 8601 workload:
+    // 7.5 hours → PT7H30M; whole hours → PTnH.
+    $_iso = null;
     $_durationHours = $_product->getResource()->getAttributeRawValue(
         $_product->getId(), 'duration', $_curStoreId
     );
     if (is_numeric($_durationHours) && (float) $_durationHours > 0) {
-        // ISO 8601 duration. Course schema expects an ISO 8601 string.
-        // 7.5 hours → PT7H30M; whole hours → PTnH.
         $_h = (int) floor((float) $_durationHours);
         $_m = (int) round((((float) $_durationHours) - $_h) * 60);
         $_iso = 'PT' . $_h . 'H' . ($_m > 0 ? $_m . 'M' : '');
-        $_courseInstance['courseWorkload'] = $_iso;
     }
-    $_jsonLd['hasCourseInstance'] = $_courseInstance;
+    // Real upcoming runs from the "Course Date" custom option — dates a
+    // generative answer cannot invent ("15/16 Aug 2026 (Sat/Sun)",
+    // "30 Sep/1 Oct 2026"). Unparseable titles are skipped silently.
+    $_instances = [];
+    try {
+        foreach ($_product->getOptions() as $_opt) {
+            if (stripos((string) $_opt->getTitle(), 'course date') === false) continue;
+            $_optValues = $_opt->getValues();
+            if (!$_optValues) continue;
+            foreach ($_optValues as $_val) {
+                $_t = trim(preg_replace('/\(.*?\)/', '', (string) $_val->getTitle()));
+                $_start = $_end = false;
+                if (preg_match('#^(\d{1,2})\s*([A-Za-z]{3,9})?\s*/\s*(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{4})#', $_t, $_dm)) {
+                    $_start = strtotime($_dm[1] . ' ' . ($_dm[2] !== '' ? $_dm[2] : $_dm[4]) . ' ' . $_dm[5]);
+                    $_end   = strtotime($_dm[3] . ' ' . $_dm[4] . ' ' . $_dm[5]);
+                } elseif (preg_match('#^(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{4})#', $_t, $_dm)) {
+                    $_start = $_end = strtotime($_dm[1] . ' ' . $_dm[2] . ' ' . $_dm[3]);
+                }
+                if (!$_start || !$_end || $_end < strtotime('today')) continue;
+                $_inst = [
+                    '@type'      => 'CourseInstance',
+                    'courseMode' => 'Blended',
+                    'startDate'  => date('Y-m-d', $_start),
+                    'endDate'    => date('Y-m-d', $_end),
+                ];
+                if ($_iso) {
+                    $_inst['courseWorkload'] = $_iso;
+                }
+                $_instances[] = $_inst;
+                if (count($_instances) >= 10) break 2;
+            }
+        }
+    } catch (Exception $_e) { /* no-op */ }
+    if (!$_instances) {
+        $_instances = [['@type' => 'CourseInstance', 'courseMode' => 'Blended'] + ($_iso ? ['courseWorkload' => $_iso] : [])];
+    }
+    $_jsonLd['hasCourseInstance'] = count($_instances) === 1 ? $_instances[0] : $_instances;
     // Offers — price + currency from the current store.
     $_price = (float) $_product->getFinalPrice();
     if ($_price > 0) {
@@ -243,8 +293,43 @@ if ($_product && $_product->getId()):
             'availability'  => 'https://schema.org/InStock',
         ];
     }
+    // BreadcrumbList — tells the summariser where this course sits in the
+    // catalog (Home > category > course). Built from the stock breadcrumb path.
+    $_crumbLd = null;
+    try {
+        $_crumbItems = [[
+            '@type'    => 'ListItem',
+            'position' => 1,
+            'name'     => 'Home',
+            'item'     => $_curBase . '/',
+        ]];
+        $_pos = 2;
+        foreach (Mage::helper('catalog')->getBreadcrumbPath() as $_crumb) {
+            $_item = [
+                '@type'    => 'ListItem',
+                'position' => $_pos++,
+                'name'     => trim(strip_tags((string) $_crumb['label'])),
+            ];
+            if (!empty($_crumb['link'])) {
+                $_item['item'] = (string) $_crumb['link'];
+            } else {
+                $_item['item'] = $_selfCanonical;
+            }
+            $_crumbItems[] = $_item;
+        }
+        if (count($_crumbItems) > 1) {
+            $_crumbLd = [
+                '@context'        => 'https://schema.org',
+                '@type'           => 'BreadcrumbList',
+                'itemListElement' => $_crumbItems,
+            ];
+        }
+    } catch (Exception $_e) { /* no-op */ }
 ?>
 <script type="application/ld+json"><?php echo json_encode($_jsonLd, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?></script>
+<?php if ($_crumbLd): ?>
+<script type="application/ld+json"><?php echo json_encode($_crumbLd, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?></script>
+<?php endif; ?>
 <?php endif; ?>
 
 <link rel="icon" href="<?php echo $this->getFaviconFile(); ?>" type="image/x-icon" />

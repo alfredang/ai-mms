@@ -121,3 +121,29 @@ $allTags = $helper->getPublishedTagNames();
     <?php endif; ?>
     <?php endif; ?>
 </div>
+<?php if (count($posts)): ?>
+<script type="application/ld+json">
+<?php
+// CollectionPage + ItemList of the visible posts — makes the blog index
+// machine-legible for generative answers without touching the rendered design.
+$listItems = array();
+$pos = 1;
+foreach ($posts as $post) {
+    $listItems[] = array(
+        '@type'    => 'ListItem',
+        'position' => $pos++,
+        'name'     => $post->getTitle(),
+        'url'      => $helper->getPostUrl($post),
+    );
+}
+echo json_encode(array(
+    '@context'   => 'https://schema.org',
+    '@type'      => 'CollectionPage',
+    'name'       => 'Blog — Tertiary Courses',
+    'url'        => $helper->getListUrl(),
+    'publisher'  => array('@type' => 'Organization', 'name' => Mage::getStoreConfig('general/store_information/name') ?: 'Tertiary Infotech Academy'),
+    'mainEntity' => array('@type' => 'ItemList', 'itemListElement' => $listItems),
+), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+?>
+</script>
+<?php endif; ?>
