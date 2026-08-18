@@ -493,6 +493,76 @@ class MMD_CourseImage_Helper_Data extends Mage_Core_Helper_Abstract
     }
 
     /**
+     * Canonical ATC / partner-accreditation vocabulary (2026-08).
+     *
+     * Keyed by the stable machine key stored (comma-separated) in the
+     * `atc_partners` product attribute. Each entry carries the storefront
+     * card title ('label') and the canonical card body copy ('html').
+     * The Edit Course "ATC" checkboxes and the storefront accreditation
+     * cards both read this map — one vocabulary, no drift.
+     */
+    public function getAtcPartners(): array
+    {
+        return [
+            'microsoft_lp' => [
+                'label' => 'Microsoft Learning Partner',
+                'html'  => '<p>We are an <strong>Authorised Microsoft Learning Partner (Org ID: 5238476)</strong>. '
+                    . 'To get the official Microsoft certification, please register your certification exam at a Pearson VUE test center.</p>',
+            ],
+            'comptia_adp' => [
+                'label' => 'CompTIA Authorised Delivery Partner',
+                'html'  => '<p>We are an <strong>Authorised CompTIA Delivery Partner</strong>. '
+                    . 'To get the official CompTIA certification, please register your certification exam at a Pearson VUE test center.</p>',
+            ],
+            'linux_foundation_atp' => [
+                'label' => 'Linux Foundation Authorised Training Partner',
+                'html'  => '<p>We are a <strong>Linux Foundation Authorised Training Partner</strong>. '
+                    . 'To get the official Linux Foundation certification, please register your certification exam on the Linux Foundation training portal.</p>',
+            ],
+            'autodesk_atc' => [
+                'label' => 'Autodesk Authorised Training Center',
+                'html'  => '<p>We are an <strong>Autodesk Authorised Training Center (ATC)</strong>. '
+                    . 'To get the official Autodesk certification, please register your certification exam at a Pearson VUE test center.</p>',
+            ],
+            'pearson_vue_atp' => [
+                'label' => 'Pearson VUE Authorised Training Partner',
+                'html'  => '<p>We are a <strong>Pearson VUE Authorised Training Partner</strong>. '
+                    . 'Our courses prepare you for certification exams delivered through the Pearson VUE network.</p>',
+            ],
+            'pearson_vue_test_center' => [
+                'label' => 'Pearson VUE Authorised Test Center',
+                'html'  => '<p>We are a <strong>Pearson VUE Authorised Test Center</strong>. '
+                    . 'You can register and sit your proctored certification exam right at our training center.</p>',
+            ],
+            'kryterion_atc' => [
+                'label' => 'Kryterion Authorized Testing Center',
+                'html'  => '<p>We are a <strong>Kryterion Authorized Testing Center</strong>. '
+                    . 'You can register and sit your proctored Kryterion certification exam at our training center.</p>',
+            ],
+            'psi_atc' => [
+                'label' => 'PSI Authorized Testing Center',
+                'html'  => '<p>We are a <strong>PSI Authorized Testing Center</strong>. '
+                    . 'You can register and sit your proctored PSI certification exam at our training center.</p>',
+            ],
+        ];
+    }
+
+    /**
+     * Selected ATC partner keys for a product, in canonical vocabulary
+     * order. Reads the comma-separated `atc_partners` attribute and drops
+     * anything outside the vocabulary.
+     */
+    public function getProductAtcPartners(Mage_Catalog_Model_Product $product): array
+    {
+        $raw = trim((string) $product->getData('atc_partners'));
+        if ($raw === '') {
+            return [];
+        }
+        $selected = array_filter(array_map('trim', explode(',', $raw)));
+        return array_values(array_intersect(array_keys($this->getAtcPartners()), $selected));
+    }
+
+    /**
      * Map a canonical badge name to its CSS modifier suffix. Used by the
      * storefront template to emit class="course-badge course-badge--wsq"
      * and friends — the palette lives in skin/.../css/custom.css.

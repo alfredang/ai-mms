@@ -224,6 +224,21 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 }
             }
 
+            // ATC / partner-accreditation checkboxes (2026-08). Multi-select
+            // of canonical partner keys stored comma-separated on the
+            // `atc_partners` attribute — vocabulary + storefront card copy in
+            // MMD_CourseImage_Helper_Data::getAtcPartners(). One storefront
+            // card renders per key, below the course description. Marker
+            // input guards against clear-all when the panel wasn't rendered
+            // (mirrors the assessment_methods pattern above).
+            if ($req->getParam('_atc_partners_loaded') !== null) {
+                $_atc = $req->getParam('atc_partners');
+                if (!is_array($_atc)) { $_atc = []; }
+                $_atcVocab = array_keys(Mage::helper('mmd_courseimage')->getAtcPartners());
+                $_atc = array_values(array_intersect($_atcVocab, array_map('strval', $_atc)));
+                $product->setData('atc_partners', $_atc ? implode(',', $_atc) : null);
+            }
+
             // SEO — per-country store view.
             //
             // The dashboard template emits a hidden seo_target_store_id

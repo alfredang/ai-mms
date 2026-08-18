@@ -3429,6 +3429,37 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
             <?php endif; ?>
             <?php endforeach; ?>
 
+            <?php
+            // ===== ATC / partner accreditations (2026-08) =====
+            // Multi-select checkboxes writing the `atc_partners` attribute
+            // (comma-separated canonical keys). The storefront shows one
+            // accreditation card per tick below the course description —
+            // card title + copy come from the same helper vocabulary.
+            $_atcVocabAdmin = array();
+            $_atcSelectedAdmin = array();
+            try {
+                $_atcVocabAdmin    = Mage::helper('mmd_courseimage')->getAtcPartners();
+                $_atcSelectedAdmin = Mage::helper('mmd_courseimage')->getProductAtcPartners($_editProd);
+            } catch (Exception $e) { $_atcVocabAdmin = array(); $_atcSelectedAdmin = array(); }
+            ?>
+            <div class="dcf-section">
+                <div class="dcf-section-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>
+                    ATC
+                    <span style="font-size:11px;color:#94a3b8;font-weight:normal;margin-left:8px;">Attribute: <code>atc_partners</code></span>
+                </div>
+                <div style="font-size:12px;color:#94a3b8;margin:0 0 6px;">Tick the partner accreditations that apply to this course &mdash; the storefront shows one accreditation card per tick, right below the course description.</div>
+                <input type="hidden" name="_atc_partners_loaded" value="1">
+                <div style="display:flex;flex-wrap:wrap;gap:10px 26px;padding:6px 0 4px;">
+                    <?php foreach ($_atcVocabAdmin as $_atcK => $_atcDef): ?>
+                    <label style="display:inline-flex;align-items:center;gap:7px;font-size:12px;color:#cbd5e1;cursor:pointer;">
+                        <input type="checkbox" name="atc_partners[]" value="<?php echo htmlspecialchars($_atcK) ?>"<?php echo in_array($_atcK, $_atcSelectedAdmin, true) ? ' checked' : '' ?>>
+                        <?php echo htmlspecialchars($_atcDef['label']) ?>
+                    </label>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+
             <?php /* ===== AI Brochure: one-click generate =====
                  Mirrors the SEO Meta UX (one-click, no modal):
                    1. POST product_id to adminhtml/coursesave/generateBrochure

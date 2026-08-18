@@ -595,6 +595,45 @@
 			. '</section>';
 	}
 
+	// (5c) ATC / partner accreditations (2026-08). The inline "Autodesk ATC"
+	// remark (heading + "We are Autodesk Authorized Training Center..."
+	// paragraph, or the legacy image-badge variant) is stripped from the
+	// narrative at render time — the atc_partners-driven cards below replace
+	// it. Kept separate from the (5b) strip array so it doesn't toggle the
+	// Free Practice Exams card.
+	$shortDescription = preg_replace(array(
+		// "Autodesk ATC" heading + its following paragraph(s).
+		'#<h[1-6][^>]*>\s*Autodesk\s+ATC\s*</h[1-6]>(?:\s*<p\b[^>]*>.*?</p>)*#is',
+		// Standalone "We are Autodesk Authorised Training Center" paragraph.
+		'#<p[^>]*>(?:(?!</p>).)*?We\s+are(?:(?!</p>).)*?Autodesk\s+Authori[sz]ed\s+Training\s+Cent(?:er|re)(?:(?!</p>).)*?</p>#is',
+		// Legacy Autodesk ATC image-badge paragraph.
+		'#<p[^>]*>(?:(?!</p>).)*?<img[^>]*autodesk-atc[^>]*>(?:(?!</p>).)*?</p>#is',
+	), '', $shortDescription);
+
+	// (5d) ATC / partner-accreditation cards — driven by the `atc_partners`
+	// attribute (Edit Course → ATC checkboxes). One card per selected
+	// partner, title = the partner accreditation name, canonical copy from
+	// MMD_CourseImage_Helper_Data::getAtcPartners(). Rendered below the
+	// About (course description) card.
+	$_atcCardsHtml = '';
+	try {
+		$_atcHelper = Mage::helper('mmd_courseimage');
+		$_atcVocab  = $_atcHelper->getAtcPartners();
+		foreach ($_atcHelper->getProductAtcPartners($_product) as $_atcKey) {
+			$_atcCardsHtml .= '<section class="course-policy-card course-policy-card--atc">'
+				. '<header class="course-policy-card__header">'
+				. '<span class="course-policy-card__icon" aria-hidden="true">'
+				. '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>'
+				. '</span>'
+				. '<h3 class="course-policy-card__title">' . htmlspecialchars($_atcVocab[$_atcKey]['label'], ENT_COMPAT, 'UTF-8') . '</h3>'
+				. '</header>'
+				. '<div class="course-policy-card__body std">' . $_atcVocab[$_atcKey]['html'] . '</div>'
+				. '</section>';
+		}
+	} catch (Exception $e) {
+		$_atcCardsHtml = '';
+	}
+
 	// (6) Funding and Grant. Per-course cms/block first, regex fallback
 	// for legacy content still in short_description. Stores without this
 	// section return empty from both block and regex, so no card renders.
@@ -1166,12 +1205,17 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 			          the "About" card and ABOVE the funding cards, on ALL stores
 			          (SG/MY/GH). */ ?>
 			<?php echo $_practiceExamCardHtml; ?>
+
+			<?php /* ATC / partner-accreditation cards — one per selected
+			          atc_partners key, directly below the course description
+			          (after the Bonus card when present), on ALL stores. */ ?>
+			<?php echo $_atcCardsHtml; ?>
 			<?php if (!$_isSgStore): /* MY/GH only: the HRD Corp funding card is
 			          injected by JS right after the About card, which would push
-			          this server-rendered Bonus card below it. Re-seat the Bonus
-			          card directly under the About card so it stays ABOVE the HRD
+			          these server-rendered Bonus/ATC cards below it. Re-seat them
+			          directly under the About card so they stay ABOVE the HRD
 			          Corp card. Runs on DOMContentLoaded after the injector. */ ?>
-			<script>(function(){function seat(){var a=document.querySelector('.course-policy-card--about'),p=document.querySelector('.course-policy-card--practice');if(a&&p&&a.parentNode)a.parentNode.insertBefore(p,a.nextSibling);}if(document.readyState!=='loading')seat();else document.addEventListener('DOMContentLoaded',seat);})();</script>
+			<script>(function(){function seat(){var a=document.querySelector('.course-policy-card--about');if(!a||!a.parentNode)return;var p=document.querySelector('.course-policy-card--practice');if(p)a.parentNode.insertBefore(p,a.nextSibling);var ref=p||a,atc=document.querySelectorAll('.course-policy-card--atc');for(var i=0;i<atc.length;i++){ref.parentNode.insertBefore(atc[i],ref.nextSibling);ref=atc[i];}}if(document.readyState!=='loading')seat();else document.addEventListener('DOMContentLoaded',seat);})();</script>
 			<?php endif; ?>
 
 			<?php
