@@ -44,7 +44,9 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
               . ' JOIN ' . $res->getTableName('tag/relation') . ' r ON r.tag_id = t.tag_id'
               . ' WHERE r.product_id = ?', array((int) $productId)
             );
-            $allowed = array('WSQ','SkillsFuture Credit','PSEA','UTAP','SFEC','MCES','Absentee Payroll','IBF','HRDF');
+            // UTAP deliberately excluded — most courses are under UTAP review (2026-08),
+            // so outbound flyers/newsletters must not advertise UTAP funding.
+            $allowed = array('WSQ','SkillsFuture Credit','PSEA','SFEC','MCES','Absentee Payroll','IBF','HRDF');
             foreach ($rows as $n) { if (in_array($n, $allowed, true)) $badges[] = $n; }
         } catch (Exception $e) { /* badges are optional */ }
 
@@ -325,7 +327,7 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
             }
         }
 
-        $prompt = "You are a direct-response copywriter for Tertiary Courses Singapore, writing a course FLYER that must drive sign-ups. Write copy that is SPECIFIC to THIS course — name the actual tools, concepts and outcomes a learner gains. Never generic (\"learn by doing\", \"start from zero\", \"build something real\" are BANNED — they say nothing). Plain English, benefit-led, each line a concrete result the reader can picture.\n\n"
+        $prompt = "You are a direct-response copywriter for Tertiary Courses Singapore, writing a course FLYER that must drive sign-ups. Write copy that is SPECIFIC to THIS course — name the actual tools, concepts and outcomes a learner gains. Never generic (\"learn by doing\", \"start from zero\", \"build something real\" are BANNED — they say nothing). Plain English, benefit-led, each line a concrete result the reader can picture. NEVER mention UTAP or NTUC UTAP funding anywhere — most courses are under UTAP review and outbound marketing must not advertise it.\n\n"
             . "COURSE\nTitle: {$name}\nCourse code: {$sku}\nWSQ funded: " . ($isWsq ? 'yes' : 'no') . "\nDuration: {$days} day(s)\nWhat it covers: {$desc}\nSyllabus topics: {$topicList}\n\n"
             . $prev
             . ($fb !== '' ? "MANAGER FEEDBACK you MUST act on (this is why the previous version was rejected — address every point directly, don't just reword):\n{$fb}\n\n" : "")
