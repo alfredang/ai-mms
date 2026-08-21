@@ -176,6 +176,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 'skills_framework'        => 'Skills Framework',
                 'certification'           => 'Certification',
                 'about_ibf_certification' => 'About IBF Certification',
+                'exam_voucher'            => 'Complimentary Exam Voucher',
                 'funding_and_grant'       => 'Funding and Grant',
             ];
             $_cmsSku = (string) $product->getSku();

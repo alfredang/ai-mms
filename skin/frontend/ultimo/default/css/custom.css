@@ -840,6 +840,7 @@ li.level2 > a > span > .cat-label,
 .course-policy-card--about         .course-policy-card__header { background: linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%); }
 .course-policy-card--assessment    .course-policy-card__header { background: linear-gradient(180deg, #fdf4ff 0%, #fae8ff 100%); }
 .course-policy-card--ibf           .course-policy-card__header { background: linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%); }
+.course-policy-card--voucher       .course-policy-card__header { background: linear-gradient(180deg, #fffbeb 0%, #fef3c7 100%); }
 
 .course-policy-card__icon {
     flex: 0 0 28px;
@@ -859,6 +860,15 @@ li.level2 > a > span > .cat-label,
 .course-policy-card--ibf           .course-policy-card__icon { background: #2563eb; }
 /* ATC / partner-accreditation cards (atc_partners attribute) — slate award icon. */
 .course-policy-card--atc           .course-policy-card__icon { background: #475569; }
+/* "Complimentary Exam Voucher" card — amber ticket, ringed like the practice
+   card so it reads as an included perk rather than a policy notice. Kept off
+   the practice card's green so the two perks stay visually distinct when a
+   course carries both. */
+.course-policy-card--voucher { border-color: #fde68a; box-shadow: 0 1px 2px rgba(217, 119, 6, 0.08), 0 0 0 1px rgba(245, 158, 11, 0.12); }
+.course-policy-card--voucher       .course-policy-card__icon { background: #d97706; }
+.course-policy-card--voucher       .course-policy-card__title { color: #92400e; }
+.course-policy-card--voucher       .course-policy-card__body p { margin: 0 0 10px; }
+.course-policy-card--voucher       .course-policy-card__body p:last-child { margin-bottom: 0; }
 /* Bonus "Free Practice Exams" card — lifted out of the neutral card family with
    a soft green ring so it reads as a perk, not a policy notice. */
 .course-policy-card--practice { border-color: #a7f3d0; box-shadow: 0 1px 2px rgba(5, 150, 105, 0.08), 0 0 0 1px rgba(16, 185, 129, 0.12); }
