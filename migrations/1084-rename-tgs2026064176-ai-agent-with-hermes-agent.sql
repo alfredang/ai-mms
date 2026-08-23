@@ -104,6 +104,13 @@ UPDATE catalogsearch_query
    SET redirect = 'https://www.tertiarycourses.com.sg/casl-ai-agent-with-hermes-agent.html'
  WHERE redirect LIKE '%wsq-build-agentic-ai-and-nlp-applications-with-langflow.html%';
 
+-- Chain-flatten: 4 "hermes" / "hermes agent" rows pointed at the interim
+-- wsq-ai-agent-with-hermes-agent.html slug, which now 301s to the casl- slug.
+-- Anchor on the FULL filename so no sibling course's rows are swept up.
+UPDATE catalogsearch_query
+   SET redirect = 'https://www.tertiarycourses.com.sg/casl-ai-agent-with-hermes-agent.html'
+ WHERE redirect LIKE '%/wsq-ai-agent-with-hermes-agent.html%';
+
 -- The bare-slug 301 already exists in core_url_rewrite for both old slugs
 -- (wsq-build-agentic-ai-and-nlp-applications-with-langflow.html and
 -- wsq-ai-agent-with-hermes-agent.html), so no rewrite row is inserted here.
