@@ -73,6 +73,15 @@ class MMD_Blog_Model_Hero
             'accent' => array(0xFF, 0x8A, 0xB0), 'motif' => 'funnel',
             'kw' => array('linkedin', 'marketing', 'content', 'social', 'brand', 'audience', 'lead'),
         ),
+        // Named agentic CODING tools sit above 'automation': their titles almost
+        // always also say "agent"/"agentic", which would otherwise steal them
+        // into the green node-graph and make a coding article look like an n8n
+        // workflow piece.
+        'coding_agent' => array(
+            'bg' => array(0x0B, 0x14, 0x2C), 'bg2' => array(0x16, 0x30, 0x5C),
+            'accent' => array(0x59, 0xEB, 0xFD), 'motif' => 'terminal',
+            'kw' => array('claude code', 'codex', 'cursor', 'copilot', 'coding agent', 'pair programmer'),
+        ),
         'automation' => array(
             'bg' => array(0x0A, 0x1C, 0x14), 'bg2' => array(0x12, 0x3A, 0x2A),
             'accent' => array(0x5E, 0xE8, 0x9B), 'motif' => 'nodes',

@@ -103,12 +103,29 @@ Heroes now render through **`MMD_Blog_Model_Hero`** (`Model/Hero.php`):
 - **1600×900** (16:9) — matches the `.mmd-blog-card-hero` crop and the
   `og:image` ratio social platforms expect. The course cover is 1600×900 too
   but composed for a product grid, not a wide card.
-- **8 topic themes** (`THEMES`), each = 2 background stops + accent + motif +
+- **9 topic themes** (`THEMES`), each = 2 background stops + accent + motif +
   the keywords that select it. Picked by scanning `title + kicker`, first hit
   wins, so **order specific topics above generic ones**. Themes exist so the
   listing is not one repeated blue block: security=teal, seo=violet,
-  marketing=pink, automation=green, code=cyan, data=amber, video=rose,
-  funding=sky.
+  marketing=pink, coding_agent=cyan, automation=green, code=cyan, data=amber,
+  video=rose, funding=sky.
+- **`coding_agent` must stay ABOVE `automation`.** A named-tool title ("Codex
+  vs Claude Code…", "Getting Started with Claude Code…", "Build n8n Workflows
+  with Claude Code or Codex") almost always also contains *agent*/*agentic*,
+  which `automation` matches — so those posts all rendered the same green
+  node-graph and read as n8n workflow pieces rather than coding articles
+  (admin feedback 2026-08-24 on the Codex vs Claude Code card). `coding_agent`
+  keys off the tool names only (`claude code`, `codex`, `cursor`, `copilot`,
+  `coding agent`, `pair programmer`) and draws the cyan terminal; n8n /
+  OpenClaw / Hermes posts keep the green nodes. **After ANY keyword edit, tally
+  `pickTheme()` across every existing title before regenerating** — one new
+  keyword silently re-themes unrelated posts:
+
+  ```php
+  $h = Mage::getModel('mmd_blog/hero');
+  $m = (new ReflectionClass($h))->getMethod('pickTheme'); $m->setAccessible(true);
+  foreach ($rows as $r) printf("%-9s | %s\n", $m->invoke($h, $r['title'])['motif'], $r['title']);
+  ```
 - **A generated motif** per theme (shield / magnifier / funnel / terminal /
   chart / play / rosette / node-graph) in the right column. This is what makes
   a card look designed rather than typeset — do not drop it back to text-only.
