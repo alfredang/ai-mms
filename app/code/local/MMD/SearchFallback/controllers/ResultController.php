@@ -191,8 +191,13 @@ class MMD_SearchFallback_ResultController extends Mage_CatalogSearch_ResultContr
             }
             $cms = Mage::getModel('cms/page')->load($cmsId, 'identifier');
             if ($cms->getId() && (int) $cms->getIsActive() === 1) {
-                $stores = $cms->getStores();
-                if (in_array(0, (array) $stores) || in_array($storeId, (array) $stores)) {
+                // _afterLoad puts the store list in 'store_id' (array),
+                // not 'stores' — read both to be safe.
+                $stores = array_map('intval', array_merge(
+                    (array) $cms->getData('store_id'),
+                    (array) $cms->getData('stores')
+                ));
+                if (in_array(0, $stores, true) || in_array($storeId, $stores, true)) {
                     return true;
                 }
             }
