@@ -180,10 +180,15 @@ class MMD_SearchFallback_ResultController extends Mage_CatalogSearch_ResultContr
             return false;
         }
 
-        // CMS page fallback — the slug might be a CMS page identifier
-        // (with the .html suffix stripped).
-        $cmsId = preg_replace('#\.html$#i', '', $path);
-        if ($cmsId !== '') {
+        // CMS page fallback — the slug might be a CMS page identifier.
+        // This site's CMS identifiers usually INCLUDE the .html suffix
+        // (sfec.html, utap.html), so try the raw path first, then the
+        // suffix-stripped variant.
+        $candidates = array_unique(array($path, preg_replace('#\.html$#i', '', $path)));
+        foreach ($candidates as $cmsId) {
+            if ($cmsId === '') {
+                continue;
+            }
             $cms = Mage::getModel('cms/page')->load($cmsId, 'identifier');
             if ($cms->getId() && (int) $cms->getIsActive() === 1) {
                 $stores = $cms->getStores();
