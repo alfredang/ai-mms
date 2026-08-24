@@ -169,7 +169,23 @@ any hero work.
 
 **Every post should have a real hero.** A NULL `hero_image_url` falls back to
 the CSS gradient card (`.mmd-blog-hero-fallback`), which next to rendered
-artwork reads as a missing image. Backfill with
+artwork reads as a missing image.
+
+**A post created BY A MIGRATION has no hero at all** — the SQL only writes the
+article, so the card ships as the gradient fallback until someone generates one.
+Diagnose in this order, because the fallback looks like a rendered image and
+sends you into the renderer for nothing: **check `hero_image_url` FIRST**, and
+only then look at the theme/motif.
+
+```sql
+SELECT post_id, hero_image_url FROM mmd_blog_post WHERE url_key = '<slug>';
+```
+
+Empty → generate one (snippet above) and ship the returned R2 URL in a
+follow-up migration, guarded to only fill an empty or `blog/auto-*` value so an
+admin upload is never clobbered — see
+`migrations/1096-blog-codex-vs-claude-code-hero.sql` for the shape. Backfill
+many with
 `scripts/maintenance/regenerate-blog-heroes.php` (`--dry-run` first;
 `--only-empty` to touch just the NULL ones). It targets `hero_image_url LIKE
 '%/blog/auto-%'` **OR** NULL/empty, so admin-uploaded and external heroes (e.g.
