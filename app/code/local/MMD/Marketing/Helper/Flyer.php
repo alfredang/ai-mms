@@ -16,7 +16,14 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
 {
     /** Course data the flyer needs — lightweight attribute reads (no full
      *  product load, which pulls the options collection and fails on CLI). */
-    public function courseData($productId)
+    /**
+     * @param string|null $prefDate  optional 'Y-m-d' intake preference (queue
+     *   special instruction). It can only PROMOTE a date the course actually
+     *   publishes (Course Date options / course_runs) to the front of the
+     *   flyer's intake list — an unknown date is ignored, so a blast can never
+     *   advertise an intake the course does not sell.
+     */
+    public function courseData($productId, $prefDate = null)
     {
         $productId = (int) $productId;
         $res  = Mage::getResourceModel('catalog/product');
@@ -67,46 +74,24 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         // keep future dates, take the soonest 2.
         $runs = array();
         try {
-            $rc   = Mage::getSingleton('core/resource');
-            $conn = $rc->getConnection('core_read');
-            $titles = $conn->fetchCol(
-                'SELECT tt.title FROM ' . $rc->getTableName('catalog/product_option') . ' o'
-              . ' JOIN ' . $rc->getTableName('catalog/product_option_type_value') . ' v ON v.option_id = o.option_id'
-              . ' JOIN ' . $rc->getTableName('catalog/product_option_type_title') . ' tt ON tt.option_type_id = v.option_type_id AND tt.store_id = 0'
-              . ' JOIN ' . $rc->getTableName('catalog/product_option_title') . ' ot ON ot.option_id = o.option_id AND ot.store_id = 0'
-              . " WHERE o.product_id = ? AND ot.title = 'Course Date'"
-              . ' ORDER BY v.sort_order ASC, v.option_type_id ASC',
-                array((int) $productId)
-            );
-            $today = strtotime('today');
-            $picked = array();
+            $all  = $this->publishedIntakeDates($productId);
             $seen = array();
-            foreach ($titles as $t) {
-                // Take the leading "<day>[/<day2>] <Mon> <Year>" — first day of a range.
-                if (!preg_match('/(\d{1,2})(?:\s*\/\s*\d{1,2})?\s+([A-Za-z]{3,})\s+(\d{4})/', (string) $t, $m)) { continue; }
-                $ts = strtotime($m[1] . ' ' . $m[2] . ' ' . $m[3]);
-                if (!$ts || $ts < $today) { continue; }
-                $date = date('Y-m-d', $ts);
-                if (isset($seen[$date])) { continue; }   // one row per calendar date
-                $seen[$date] = true;
-                $picked[] = array('ts' => $ts, 'date' => $date, 'evening' => (stripos((string) $t, 'evening') !== false));
-                if (count($picked) >= 2) { break; }
+            foreach ($all as $p) { $seen[$p['date']] = true; }
+            // Intake preference (queue special instruction): promote the requested
+            // date to the front IF the course really publishes it; else soonest-first.
+            $pd = trim((string) $prefDate);
+            if ($pd !== '' && isset($seen[$pd])) {
+                usort($all, function ($a, $b) use ($pd) {
+                    if ($a['date'] === $pd) { return -1; }
+                    if ($b['date'] === $pd) { return 1; }
+                    return $a['ts'] <=> $b['ts'];
+                });
             }
-            foreach ($picked as $p) {
+            foreach (array_slice($all, 0, 2) as $p) {
                 $runs[] = array(
                     'course_start_date' => $p['date'],
                     'course_start_time' => $p['evening'] ? '19:00:00' : '09:00:00',
                     'course_end_date'   => $p['date'],
-                );
-            }
-            // Fallback: if the course has no date options, use materialised course_runs.
-            if (empty($runs)) {
-                $runs = $conn->fetchAll(
-                    'SELECT course_start_date, course_start_time, course_end_date FROM '
-                  . $rc->getTableName('course_runs')
-                  . ' WHERE product_id = ? AND course_start_date >= CURDATE()'
-                  . ' ORDER BY course_start_date ASC LIMIT 2',
-                    array((int) $productId)
                 );
             }
         } catch (Exception $e) { /* runs optional */ }
@@ -152,6 +137,12 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
             'accent'    => $accent[0],
             'accent_bg' => $accent[1],
             'accent_br' => $accent[2],
+            // Dark-surface palette (hero / QR band / funding card / footer). A
+            // colour refinement ships all of these together — see _colorSchemes().
+            'ink'       => isset($pitch[$key]['ink'])      ? $pitch[$key]['ink']      : '#0a1020',
+            'ink_soft'  => isset($pitch[$key]['ink_soft']) ? $pitch[$key]['ink_soft'] : '#12203f',
+            'ink_br'    => isset($pitch[$key]['ink_br'])   ? $pitch[$key]['ink_br']   : '#22345c',
+            'eyebrow'   => isset($pitch[$key]['eyebrow'])  ? $pitch[$key]['eyebrow']  : '#22d3ee',
             'logo'      => isset($pitch[$key]['logo']) ? $pitch[$key]['logo'] : '',
         );
     }
@@ -234,6 +225,178 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
 
     /** Stored per-SKU design refinements (JSON keyed by SKU). Read straight from
      *  core_config_data so a saveConfig() earlier in the same request is honoured. */
+    /**
+     * Every FUTURE intake date this course actually sells, soonest first — the
+     * single source of truth for flyer dates. PRIMARY: the "Course Date"
+     * custom-option titles (the confirmed published schedule a learner picks at
+     * checkout — "8 Jul 2026 (Wed)", "5/6 Aug 2026 Evening (Wed/Thu)").
+     * FALLBACK: materialised course_runs (only fills once orders form a class).
+     * Also serves the queue UI's intake picker, so the admin can only ever pin
+     * a date that really exists.
+     *
+     * @return array of ['ts' => int, 'date' => 'Y-m-d', 'evening' => bool]
+     */
+    public function publishedIntakeDates($productId)
+    {
+        $rc   = Mage::getSingleton('core/resource');
+        $conn = $rc->getConnection('core_read');
+        $titles = $conn->fetchCol(
+            'SELECT tt.title FROM ' . $rc->getTableName('catalog/product_option') . ' o'
+          . ' JOIN ' . $rc->getTableName('catalog/product_option_type_value') . ' v ON v.option_id = o.option_id'
+          . ' JOIN ' . $rc->getTableName('catalog/product_option_type_title') . ' tt ON tt.option_type_id = v.option_type_id AND tt.store_id = 0'
+          . ' JOIN ' . $rc->getTableName('catalog/product_option_title') . ' ot ON ot.option_id = o.option_id AND ot.store_id = 0'
+          . " WHERE o.product_id = ? AND ot.title = 'Course Date'"
+          . ' ORDER BY v.sort_order ASC, v.option_type_id ASC',
+            array((int) $productId)
+        );
+        $today = strtotime('today');
+        $all = array();
+        $seen = array();
+        foreach ($titles as $t) {
+            // Take the leading "<day>[/<day2>] <Mon> <Year>" — first day of a range.
+            if (!preg_match('/(\d{1,2})(?:\s*\/\s*\d{1,2})?\s+([A-Za-z]{3,})\s+(\d{4})/', (string) $t, $m)) { continue; }
+            $ts = strtotime($m[1] . ' ' . $m[2] . ' ' . $m[3]);
+            if (!$ts || $ts < $today) { continue; }
+            $date = date('Y-m-d', $ts);
+            if (isset($seen[$date])) { continue; }   // one row per calendar date
+            $seen[$date] = true;
+            $all[] = array('ts' => $ts, 'date' => $date, 'evening' => (stripos((string) $t, 'evening') !== false));
+        }
+        if (empty($all)) {
+            foreach ($conn->fetchAll(
+                'SELECT course_start_date, course_start_time FROM ' . $rc->getTableName('course_runs')
+              . ' WHERE product_id = ? AND course_start_date >= CURDATE() ORDER BY course_start_date ASC',
+                array((int) $productId)) as $r) {
+                $d = (string) $r['course_start_date'];
+                if (isset($seen[$d])) { continue; }
+                $seen[$d] = true;
+                $all[] = array('ts' => (int) strtotime($d), 'date' => $d,
+                               'evening' => (strpos((string) $r['course_start_time'], '19:') === 0));
+            }
+        }
+        usort($all, function ($a, $b) { return $a['ts'] <=> $b['ts']; });
+        return $all;
+    }
+
+    /**
+     * COLOUR SCHEMES — the vocabulary a special instruction / change-request can
+     * name ("use a green colour scheme", "make it teal"). Each entry is a COMPLETE,
+     * self-consistent palette, not just one swatch, because the flyer paints five
+     * different surfaces and they must move together:
+     *
+     *   accent    - buttons, links, the logo chip
+     *   accent_bg - tinted panel fills          accent_br - their borders
+     *   ink       - the big dark hero / QR band / funding card / footer
+     *   ink_soft  - the SKU chip fill on top of `ink`   ink_br - its border
+     *   eyebrow   - the small uppercase label on `ink` (must pop on it)
+     *
+     * WHY THIS EXISTS (bug 2026-08-24): asking for "green" used to change nothing.
+     * regenerateCopy() only ever persisted hook/outcomes/journey — never a colour —
+     * and the dark bands were hardcoded #0a1020, so the palette could not move even
+     * in principle. A rework came back with new words on the same black design.
+     * Keep colour a FIRST-CLASS refinement key; never re-hardcode a surface below.
+     */
+    protected function _colorSchemes()
+    {
+        return array(
+            'blue'   => array('accent' => array('#2563eb', '#eaf0fe', '#c7d7fe'), 'ink' => '#0a1020', 'ink_soft' => '#12203f', 'ink_br' => '#22345c', 'eyebrow' => '#22d3ee'),
+            'green'  => array('accent' => array('#047857', '#dcf7ea', '#a7e8cb'), 'ink' => '#06231a', 'ink_soft' => '#0d3a2b', 'ink_br' => '#1b5c45', 'eyebrow' => '#4ade80'),
+            'teal'   => array('accent' => array('#0d9488', '#d6f5f2', '#9fe4dd'), 'ink' => '#06231f', 'ink_soft' => '#0c3a34', 'ink_br' => '#1a5b53', 'eyebrow' => '#5eead4'),
+            'purple' => array('accent' => array('#7c3aed', '#efe7fe', '#d6c4fb'), 'ink' => '#170a2e', 'ink_soft' => '#26134a', 'ink_br' => '#3d2470', 'eyebrow' => '#c4b5fd'),
+            'orange' => array('accent' => array('#c2410c', '#fdeede', '#f5cfa8'), 'ink' => '#2a1103', 'ink_soft' => '#431c06', 'ink_br' => '#6b2f0e', 'eyebrow' => '#fdba74'),
+            'red'    => array('accent' => array('#b91c1c', '#fde5e5', '#f6bcbc'), 'ink' => '#2b0a0a', 'ink_soft' => '#451212', 'ink_br' => '#6d2020', 'eyebrow' => '#fca5a5'),
+            'pink'   => array('accent' => array('#ea4b71', '#fdeaef', '#f7c9d5'), 'ink' => '#2c0a16', 'ink_soft' => '#471226', 'ink_br' => '#6f1f3c', 'eyebrow' => '#fda4c0'),
+            'navy'   => array('accent' => array('#1d4ed8', '#e6edff', '#c3d4fe'), 'ink' => '#050c1c', 'ink_soft' => '#0f1c38', 'ink_br' => '#1e3157', 'eyebrow' => '#7dd3fc'),
+        );
+    }
+
+    /**
+     * Detect a colour-scheme request inside free text (a queue special instruction
+     * or a manager change-request) and return the refinement keys to persist, or
+     * null when no colour was asked for. Matches a named scheme ("green", "teal")
+     * or an explicit hex ("#0a7d3c"), the hex deriving its own dark surfaces.
+     *
+     * Deliberately conservative: it requires a colour word to appear near a
+     * design word (colour / scheme / theme / palette / design / look) so an
+     * instruction about CONTENT — "cover the green energy transition module" —
+     * cannot silently repaint the flyer.
+     */
+    public function detectColorRequest($text)
+    {
+        $t = strtolower(trim((string) $text));
+        if ($t === '') { return null; }
+        $designish = '(colou?r|scheme|theme|palette|design|look|styling|branding)';
+
+        // Explicit hex wins — "#0a7d3c" is unambiguous.
+        if (preg_match('/#([0-9a-f]{6})\b/i', $t, $m)) {
+            return $this->paletteFromHex('#' . strtolower($m[1]));
+        }
+        // Any CSS colour name the admin types resolves too — the named schemes
+        // above are hand-tuned presets, NOT a whitelist. Anything else falls back
+        // to deriving a full palette from that colour's hex, so "make it maroon"
+        // works without shipping a preset for every colour.
+        $extra = array(
+            'maroon' => '#7f1d1d', 'crimson' => '#dc143c', 'magenta' => '#c026d3',
+            'violet' => '#8b5cf6', 'indigo' => '#4f46e5', 'cyan' => '#0891b2',
+            'turquoise' => '#14b8a6', 'emerald' => '#059669', 'lime' => '#65a30d',
+            'olive' => '#4d7c0f', 'amber' => '#b45309', 'gold' => '#a16207',
+            'yellow' => '#a16207', 'brown' => '#78350f', 'slate' => '#334155',
+            'grey' => '#334155', 'gray' => '#334155', 'black' => '#0a1020',
+            'charcoal' => '#1f2937', 'burgundy' => '#7f1d1d', 'mint' => '#10b981',
+            'aqua' => '#06b6d4', 'coral' => '#f97316', 'salmon' => '#fb7185',
+        );
+        foreach ($this->_colorSchemes() as $name => $p) {
+            if (strpos($t, $name) === false) { continue; }
+            // The colour word must sit near a design word, in either order.
+            if (preg_match('/' . $name . '\W+(\w+\W+){0,3}?' . $designish . '/', $t)
+             || preg_match('/' . $designish . '\W+(\w+\W+){0,3}?' . $name . '/', $t)) {
+                return array(
+                    'accent'    => $p['accent'],
+                    'ink'       => $p['ink'],
+                    'ink_soft'  => $p['ink_soft'],
+                    'ink_br'    => $p['ink_br'],
+                    'eyebrow'   => $p['eyebrow'],
+                    '_color'    => $name,
+                );
+            }
+        }
+        // Not a preset — try the wider colour vocabulary, same nearness rule.
+        foreach ($extra as $name => $hex) {
+            if (strpos($t, $name) === false) { continue; }
+            if (preg_match('/' . $name . '\W+(\w+\W+){0,3}?' . $designish . '/', $t)
+             || preg_match('/' . $designish . '\W+(\w+\W+){0,3}?' . $name . '/', $t)) {
+                return $this->paletteFromHex($hex);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Build a full palette from one accent hex: a light tint + border for panels,
+     * and a very dark, slightly hue-shifted `ink` for the hero band, so a custom
+     * hex gets the same coherent treatment as a named scheme.
+     */
+    public function paletteFromHex($hex)
+    {
+        $hex = ltrim((string) $hex, '#');
+        if (strlen($hex) !== 6) { return null; }
+        $r = hexdec(substr($hex, 0, 2)); $g = hexdec(substr($hex, 2, 2)); $b = hexdec(substr($hex, 4, 2));
+        $mix = function ($c, $target, $amt) { return (int) round($c + ($target - $c) * $amt); };
+        $rgb = function ($r, $g, $b) { return sprintf('#%02x%02x%02x', max(0, min(255, $r)), max(0, min(255, $g)), max(0, min(255, $b))); };
+        return array(
+            'accent'   => array(
+                '#' . strtolower($hex),
+                $rgb($mix($r, 255, .90), $mix($g, 255, .90), $mix($b, 255, .90)),   // tint
+                $rgb($mix($r, 255, .70), $mix($g, 255, .70), $mix($b, 255, .70)),   // border
+            ),
+            'ink'      => $rgb($mix($r, 8, .90), $mix($g, 12, .90), $mix($b, 20, .90)),
+            'ink_soft' => $rgb($mix($r, 8, .80), $mix($g, 12, .80), $mix($b, 20, .80)),
+            'ink_br'   => $rgb($mix($r, 8, .66), $mix($g, 12, .66), $mix($b, 20, .66)),
+            'eyebrow'  => $rgb($mix($r, 255, .55), $mix($g, 255, .55), $mix($b, 255, .55)),
+            '_color'   => '#' . strtolower($hex),
+        );
+    }
+
     protected function _designRefinements()
     {
         try {
@@ -373,6 +536,14 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
             }
         }
         if (count($copy['outcomes']) < 3) { return null; }
+
+        // COLOUR REQUESTS ride the same channel (bug 2026-08-24: "change to green"
+        // used to regenerate only the words and re-send the same black design —
+        // colour was never persisted and the dark bands were hardcoded). Detect a
+        // colour ask in the feedback/instruction and persist the full palette so
+        // render() repaints every surface on the very next build.
+        $palette = $this->detectColorRequest($fb0);
+        if ($palette) { $copy = array_merge($copy, $palette); }
 
         // Persist into the per-SKU refinements store so _mergedPitch() overlays it.
         $all = $this->_designRefinements();
@@ -595,9 +766,9 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
      * Full flyer HTML for one course. $mode = 'email' (table-safe, hosted QR) or
      * 'preview' (same markup — email clients degrade gracefully).
      */
-    public function render($productId)
+    public function render($productId, $prefDate = null)
     {
-        $c = $this->courseData($productId);
+        $c = $this->courseData($productId, $prefDate);
         if (!$c) {
             return '';
         }
@@ -612,6 +783,11 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         $accent   = isset($c['accent'])    ? $c['accent']    : '#2563eb';
         $accentBg = isset($c['accent_bg']) ? $c['accent_bg'] : '#eaf0fe';
         $accentBr = isset($c['accent_br']) ? $c['accent_br'] : '#c7d7fe';
+        // Dark surfaces retint with the scheme; defaults are the original blues.
+        $ink     = isset($c['ink'])      ? $c['ink']      : '#0a1020';
+        $inkSoft = isset($c['ink_soft']) ? $c['ink_soft'] : '#12203f';
+        $inkBr   = isset($c['ink_br'])   ? $c['ink_br']   : '#22345c';
+        $eyebrow = isset($c['eyebrow'])  ? $c['eyebrow']  : '#22d3ee';
 
         // Persuasive hook — real per-course marketing copy. Flagship SKUs get a
         // curated angle (kept in one place with the outcomes); everything else uses
@@ -634,8 +810,8 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
             $n40   = ($feeF - $feeF * 0.70) + $gstF;
             $offerHtml = '<table role="presentation" width="100%" style="margin-top:18px;"><tr>'
                 . '<td class="fl-stack" style="padding:0 10px 6px 0;"><span style="font:600 13.5px ' . $sans . ';color:#8fa1c6;"><s>S$' . number_format($feeF + $gstF, 0) . ' w/GST</s></span></td>'
-                . '<td class="fl-stack" style="padding:0 10px 6px 0;"><span style="display:inline-block;font:800 15px ' . $sans . ';color:#fff;background:#1d4ed8;padding:7px 13px;border-radius:999px;white-space:nowrap;">S$' . number_format($n40, 0) . ' nett &middot; age 40+</span></td>'
-                . '<td class="fl-stack" style="padding-bottom:6px;"><span style="font:700 12.5px ' . $sans . ';color:#7dd3fc;">as low as S$0 with SkillsFuture Credit</span></td>'
+                . '<td class="fl-stack" style="padding:0 10px 6px 0;"><span style="display:inline-block;font:800 15px ' . $sans . ';color:#fff;background:' . $accent . ';padding:7px 13px;border-radius:999px;white-space:nowrap;">S$' . number_format($n40, 0) . ' nett &middot; age 40+</span></td>'
+                . '<td class="fl-stack" style="padding-bottom:6px;"><span style="font:700 12.5px ' . $sans . ';color:' . $eyebrow . ';">as low as S$0 with SkillsFuture Credit</span></td>'
                 . '</tr></table>';
         }
 
@@ -769,8 +945,8 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
                     . '</tr>';
             };
             $fundingHtml = '<tr><td style="padding:8px 30px 18px;">'
-                . '<table role="presentation" width="100%" style="background:#0a1020;border-radius:14px;"><tr><td style="padding:20px 22px;">'
-                . '<div style="font:800 10.5px ' . $sans . ';letter-spacing:1.2px;text-transform:uppercase;color:#22d3ee;margin-bottom:14px;">Your fee after funding &mdash; Singaporeans aged 40+</div>'
+                . '<table role="presentation" width="100%" style="background:' . $ink . ';border-radius:14px;"><tr><td style="padding:20px 22px;">'
+                . '<div style="font:800 10.5px ' . $sans . ';letter-spacing:1.2px;text-transform:uppercase;color:' . $eyebrow . ';margin-bottom:14px;">Your fee after funding &mdash; Singaporeans aged 40+</div>'
                 . '<table role="presentation" width="100%" style="border-collapse:collapse;">'
                 . $frow('Full course fee', $m($fee))
                 . $frow('GST (9%)', '+ ' . $m($gst))
@@ -778,7 +954,7 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
                 . '<tr><td colspan="2" style="border-top:1px solid #22345c;padding-top:4px;"></td></tr>'
                 . $frow('Nett payable (age 40+)', $m($net40), true)
                 . '</table>'
-                . '<div style="margin-top:14px;background:#12203f;border:1px solid #22345c;border-radius:10px;padding:12px 14px;font:600 13px/1.5 ' . $sans . ';color:#7dd3fc;">Then claim the balance with your <b style="color:#fff;">SkillsFuture Credit</b> &mdash; pay as little as <b style="color:#fff;">S$0</b> out of pocket.</div>'
+                . '<div style="margin-top:14px;background:' . $inkSoft . ';border:1px solid ' . $inkBr . ';border-radius:10px;padding:12px 14px;font:600 13px/1.5 ' . $sans . ';color:#7dd3fc;">Then claim the balance with your <b style="color:#fff;">SkillsFuture Credit</b> &mdash; pay as little as <b style="color:#fff;">S$0</b> out of pocket.</div>'
                 . '<div style="margin-top:10px;font:400 11.5px ' . $sans . ';color:#8fa1c6;">Below age 40: 50% WSQ funding &rarr; nett payable ' . $m($net50) . '. Funding subject to eligibility.</div>'
                 . '</td></tr></table></td></tr>';
         }
@@ -823,14 +999,14 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         . '</td></tr>'
         // hero — headline, hook, the OFFER (price drop) and a first CTA: the funnel
         // opens with the full value story instead of burying the price at the bottom
-        . '<tr><td class="fl-hero" style="background:#0a1020;padding:34px 30px 30px;">'
+        . '<tr><td class="fl-hero" style="background:' . $ink . ';padding:34px 30px 30px;">'
         .   (!empty($c['logo']) ? '<div style="margin-bottom:16px;"><span style="display:inline-block;font:800 20px ' . $sans . ';color:' . $accent . ';background:#ffffff;padding:6px 13px;border-radius:9px;letter-spacing:-.5px;">' . $h($c['logo']) . '</span></div>' : '')
-        .   '<div style="font:700 11px ' . $sans . ';letter-spacing:1.6px;text-transform:uppercase;color:#22d3ee;margin-bottom:14px;">Hands-on Workshop &middot; ' . ((int) (isset($c['days']) ? $c['days'] : 1)) . ' Day' . (((int) (isset($c['days']) ? $c['days'] : 1)) > 1 ? 's' : '') . ($c['is_wsq'] ? ' &middot; Up to 70% Funded' : '') . '</div>'
+        .   '<div style="font:700 11px ' . $sans . ';letter-spacing:1.6px;text-transform:uppercase;color:' . $eyebrow . ';margin-bottom:14px;">Hands-on Workshop &middot; ' . ((int) (isset($c['days']) ? $c['days'] : 1)) . ' Day' . (((int) (isset($c['days']) ? $c['days'] : 1)) > 1 ? 's' : '') . ($c['is_wsq'] ? ' &middot; Up to 70% Funded' : '') . '</div>'
         .   '<h1 class="fl-h1" style="margin:0;font:800 31px/1.12 ' . $sans . ';color:#ffffff;letter-spacing:-.6px;">' . $h($c['name']) . '</h1>'
         .   ($hook ? '<div style="margin:16px 0 0;font:400 14.5px/1.55 ' . $sans . ';color:#b7c4e0;max-width:54ch;">' . $h($hook) . '</div>' : '')
         .   $offerHtml
         .   '<a href="' . $h($c['url']) . '" style="display:inline-block;margin-top:16px;background:' . $accent . ';color:#fff;text-decoration:none;font:700 14px ' . $sans . ';padding:12px 22px;border-radius:10px;">Claim my funded seat &rarr;</a>'
-        .   '<div style="margin-top:18px;font:400 12.5px ' . $mono . ';letter-spacing:1px;color:#9fb3d8;background:#12203f;border:1px solid #22345c;display:inline-block;padding:6px 12px;border-radius:8px;">' . $h($c['sku']) . '</div>'
+        .   '<div style="margin-top:18px;font:400 12.5px ' . $mono . ';letter-spacing:1px;color:#9fb3d8;background:' . $inkSoft . ';border:1px solid ' . $inkBr . ';display:inline-block;padding:6px 12px;border-radius:8px;">' . $h($c['sku']) . '</div>'
         . '</td></tr>'
         // facts
         . '<tr><td style="background:#eef2f7;border-bottom:1px solid #e4e9f0;">'
@@ -853,10 +1029,10 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         // funding badges
         . ($badgesHtml ? '<tr><td style="padding:14px 30px 8px;"><div style="font:700 12px ' . $sans . ';text-transform:uppercase;letter-spacing:.7px;color:#7c8aa3;margin-bottom:12px;">Offset your fee with</div><table role="presentation"><tr>' . $badgesHtml . '</tr></table></td></tr>' : '')
         // CTA + QR
-        . '<tr><td style="background:#0a1020;padding:26px 30px;">'
+        . '<tr><td style="background:' . $ink . ';padding:26px 30px;">'
         .   '<table role="presentation" width="100%"><tr>'
         .     '<td valign="middle">'
-        .       '<div style="font:700 10.5px ' . $sans . ';letter-spacing:1.2px;text-transform:uppercase;color:#22d3ee;">Seats are limited</div>'
+        .       '<div style="font:700 10.5px ' . $sans . ';letter-spacing:1.2px;text-transform:uppercase;color:' . $eyebrow . ';">Seats are limited</div>'
         .       '<div style="font:800 22px ' . $sans . ';color:#fff;margin-top:6px;">Scan to register</div>'
         .       '<div style="font:400 13px/1.5 ' . $sans . ';color:#aebbd8;margin-top:8px;max-width:34ch;">Point your phone camera at the code, or visit the course page.</div>'
         .       '<a href="' . $h($c['url']) . '" style="display:inline-block;margin-top:16px;background:' . $accent . ';color:#fff;text-decoration:none;font:700 14px ' . $sans . ';padding:11px 20px;border-radius:10px;">Register now &rarr;</a>'
@@ -876,7 +1052,7 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         .   '</td></tr></table>'
         . '</td></tr>'
         // footer (two lines, matches approved artifact)
-        . '<tr><td style="background:#0a1020;padding:14px 22px;border-top:1px solid #1c2740;font:400 11px/1.7 ' . $sans . ';color:#8593ad;">Tertiary Infotech Academy Pte Ltd &middot; UEN 201200696W<br>+65 6100 0613 &middot; enquiry@tertiaryinfotech.com</td></tr>'
+        . '<tr><td style="background:' . $ink . ';padding:14px 22px;border-top:1px solid ' . $inkBr . ';font:400 11px/1.7 ' . $sans . ';color:#8593ad;">Tertiary Infotech Academy Pte Ltd &middot; UEN 201200696W<br>+65 6100 0613 &middot; enquiry@tertiaryinfotech.com</td></tr>'
         // HARD RULE (admin, 2026-07-04): EVERY flyer design carries the standard
         // MailerLite unsubscribe footer with the {$unsubscribe} merge tag, so the
         // preview, the approval email, and the blast all show the real footer.

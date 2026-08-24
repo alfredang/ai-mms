@@ -417,7 +417,18 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
                 throw new Exception('This course is already in the pipeline (flow #' . $dupe
                     . ' is pending or scheduled) — approve or delete that one first.');
             }
-            $nid   = $model->createProposal($pid);
+            // Run Now on a queued course honours that row's design brief (special
+            // instructions + pinned intake) — same as when the cron pops it.
+            $brief = array('instructions' => '', 'run_date' => null);
+            try {
+                $qrow = $this->_db('read')->fetchRow(
+                    'SELECT instructions, run_date FROM ' . $this->_qTbl() . ' WHERE product_id = ?', array($pid));
+                if ($qrow) {
+                    $brief['instructions'] = trim((string) $qrow['instructions']);
+                    $brief['run_date']     = $qrow['run_date'] ?: null;
+                }
+            } catch (Exception $e) { /* columns not migrated yet — run without a brief */ }
+            $nid   = $model->createProposal($pid, $brief['instructions'], $brief['run_date']);
             if (!$nid) throw new Exception('Could not build a flyer for that course (missing course data).');
             $model->sendForReview($nid);
 
@@ -444,7 +455,7 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
         $result = array('success' => false, 'queue' => array());
         try {
             $result['queue'] = $this->_db('read')->fetchAll(
-                "SELECT q.queue_id, q.product_id, e.sku,
+                "SELECT q.queue_id, q.product_id, q.instructions, q.run_date, e.sku,
                         (SELECT v.value FROM catalog_product_entity_varchar v
                           WHERE v.entity_id = e.entity_id AND v.attribute_id = 71 AND v.store_id = 0 LIMIT 1) AS name,
                         (SELECT pd.value FROM catalog_product_entity_decimal pd
@@ -477,11 +488,83 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
                 'SELECT sku FROM catalog_product_entity WHERE entity_id = ?', array($pid));
             if ($sku === '') throw new Exception('Course not found');
             if (stripos($sku, 'TGS-') !== 0) throw new Exception('Only WSQ (TGS-) courses can join the flyer queue.');
+            list($instr, $runDate) = $this->_queueBriefFromRequest($pid);
             $pos = (int) $this->_db('read')->fetchOne('SELECT COALESCE(MAX(position),0)+1 FROM ' . $this->_qTbl());
             // UNIQUE(product_id) makes re-adding a no-op instead of a duplicate
             $this->_db('write')->query(
-                'INSERT IGNORE INTO ' . $this->_qTbl() . ' (product_id, position) VALUES (?, ?)',
-                array($pid, $pos));
+                'INSERT IGNORE INTO ' . $this->_qTbl() . ' (product_id, position, instructions, run_date) VALUES (?, ?, ?, ?)',
+                array($pid, $pos, $instr, $runDate));
+            $result['success'] = true;
+        } catch (Exception $e) {
+            $result['message'] = $e->getMessage();
+        }
+        return $this->_json($result);
+    }
+
+    /**
+     * Validate the optional design brief on a queue row: free-text special
+     * instructions (steers the AI copy + colour scheme) and an optional intake
+     * pin. The pin is only accepted if the course really publishes that date
+     * (Course Date options / course_runs) — the flyer must never advertise an
+     * intake the course does not sell.
+     *
+     * @return array [$instructions, $runDateOrNull]
+     */
+    protected function _queueBriefFromRequest($pid)
+    {
+        $instr = trim((string) $this->getRequest()->getParam('instructions'));
+        if (function_exists('mb_substr')) { $instr = mb_substr($instr, 0, 1000); }
+        $runDate = trim((string) $this->getRequest()->getParam('run_date'));
+        if ($runDate === '') { return array($instr, null); }
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $runDate)) {
+            throw new Exception('run_date must be YYYY-MM-DD');
+        }
+        $ok = false;
+        foreach (Mage::helper('mmd_marketing/flyer')->publishedIntakeDates($pid) as $d) {
+            if ($d['date'] === $runDate) { $ok = true; break; }
+        }
+        if (!$ok) {
+            throw new Exception('That course has no published intake on ' . $runDate
+                . ' — pick one of its real Course Dates (the flyer can only advertise dates the course actually sells).');
+        }
+        return array($instr, $runDate);
+    }
+
+    /** POST queue_id (+ instructions / run_date) — edit the brief on a queued row. */
+    public function flyerQueueUpdateAction()
+    {
+        $result = array('success' => false);
+        try {
+            if (!$this->getRequest()->isPost()) throw new Exception('POST required');
+            $qid = (int) $this->getRequest()->getParam('queue_id');
+            if (!$qid) throw new Exception('queue_id required');
+            $pid = (int) $this->_db('read')->fetchOne(
+                'SELECT product_id FROM ' . $this->_qTbl() . ' WHERE queue_id = ?', array($qid));
+            if (!$pid) throw new Exception('Queue row not found');
+            list($instr, $runDate) = $this->_queueBriefFromRequest($pid);
+            $this->_db('write')->update($this->_qTbl(),
+                array('instructions' => $instr, 'run_date' => $runDate),
+                array('queue_id = ?' => $qid));
+            $result['success'] = true;
+        } catch (Exception $e) {
+            $result['message'] = $e->getMessage();
+        }
+        return $this->_json($result);
+    }
+
+    /** GET course_id — the course's future published intake dates, for the pin picker. */
+    public function flyerCourseDatesAction()
+    {
+        $result = array('success' => false, 'dates' => array());
+        try {
+            $pid = (int) $this->getRequest()->getParam('course_id');
+            if (!$pid) throw new Exception('course_id required');
+            foreach (Mage::helper('mmd_marketing/flyer')->publishedIntakeDates($pid) as $d) {
+                $result['dates'][] = array(
+                    'date'    => $d['date'],
+                    'label'   => date('j M Y (D)', $d['ts']) . ($d['evening'] ? ' · Evening' : ''),
+                );
+            }
             $result['success'] = true;
         } catch (Exception $e) {
             $result['message'] = $e->getMessage();

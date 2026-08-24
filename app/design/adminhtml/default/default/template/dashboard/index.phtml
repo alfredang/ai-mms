@@ -14829,7 +14829,7 @@ $_mnBlastStats = array();
             </table>
             <p style="margin:12px 2px 0;font:400 12px/1.6 -apple-system,Segoe UI,Arial,sans-serif;color:#64748b;">
                 Each row has its own <b style="color:#cbd5e1;">&#9654; Run Now</b> &mdash; it runs the pipeline for <b>that</b> course: <b>1. Design</b> the flyer &rarr; <b>2.</b> email the managers Approve / Request-changes &rarr; <b>3. Schedule</b> to MailerLite once a manager approves. As soon as a flow reaches <b>Scheduled</b>, the <b>next</b> course in the queue auto-starts on its own (no click needed). The Mon &amp; Thu cron also runs the top course automatically. Max <b>2 flyers per week</b>.<br>
-                Drag &#8942;&#8942; to reorder &middot; &#9654; run &middot; &#128065; preview &middot; &times; remove.
+                Drag &#8942;&#8942; to reorder &middot; &#9654; run &middot; &#9998; design brief (special instructions + intake) &middot; &#128065; preview &middot; &times; remove.
             </p>
         </div>
 
@@ -15183,7 +15183,8 @@ window.mnRenderPids = function() {
 var MN_SVG = {
     run:  '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>',
     eye:  '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>',
-    close:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
+    close:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+    edit: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.83 2.83 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></svg>'
 };
 window._mnQueue = [];
 window.mnFlyerQueueLoad = function() {
@@ -15219,6 +15220,16 @@ window.mnFlyerQueueRender = function() {
             '<td class="mn-fq-status"></td>' +
             '<td class="center"></td>';
         tr.children[2].textContent = row.name || ('#' + row.product_id);
+        // Design brief summary (special instructions + pinned intake) under the title.
+        if ((row.instructions && row.instructions.trim()) || row.run_date) {
+            var brief = document.createElement('div');
+            brief.style.cssText = 'font:400 11px/1.5 -apple-system,Segoe UI,Arial,sans-serif;color:#64748b;margin-top:2px;white-space:normal;';
+            var parts = [];
+            if (row.run_date) parts.push('Intake ' + row.run_date);
+            if (row.instructions && row.instructions.trim()) parts.push('\u201C' + (row.instructions.length > 90 ? row.instructions.slice(0, 90) + '\u2026' : row.instructions) + '\u201D');
+            brief.textContent = parts.join(' \u00b7 ');
+            tr.children[2].appendChild(brief);
+        }
         tr.children[3].textContent = row.sku || '';
         tr.children[4].textContent = fee;
         tr.children[5].textContent = row.funding_validity || '—';
@@ -15239,6 +15250,8 @@ window.mnFlyerQueueRender = function() {
         };
         wrap.appendChild(mkAct('check', 'Run Now — design this flyer + send for approval', MN_SVG.run,
             function () { mnFlyerQueueRun(row.queue_id, row.product_id, row.name || row.sku); }));
+        wrap.appendChild(mkAct('edit', 'Design brief — special instructions + intake date for this flyer', MN_SVG.edit,
+            function () { mnFlyerQueueBrief(row, tr); }));
         wrap.appendChild(mkAct('view', 'Preview flyer', MN_SVG.eye,
             function () { mnPreviewCourse(row.product_id, (row.sku || '') + ' — ' + (row.name || '')); }));
         wrap.appendChild(mkAct('delete', 'Remove from queue', MN_SVG.close,
@@ -15294,20 +15307,93 @@ window.mnFlyerQueueRemove = function(qid, name) {
     }).then(function () { mnFlyerQueueLoad(); });
 };
 
+// Inline design-brief editor for a queue row: special instructions (steers the
+// AI copy + colour scheme) and an optional intake pin limited to the course's
+// REAL published dates (server re-validates). Toggles a full-width editor row
+// under the course row; Save posts to flyerQueueUpdate and reloads the list.
+window.mnFlyerQueueBrief = function(row, tr) {
+    var existing = tr.nextElementSibling;
+    if (existing && existing.classList.contains('mn-fq-brief-row')) { existing.remove(); return; }
+    var er = document.querySelector('#mn-queue-list .mn-fq-brief-row');
+    if (er) er.remove();
+    var edit = document.createElement('tr');
+    edit.className = 'mn-fq-brief-row';
+    var td = document.createElement('td');
+    td.setAttribute('colspan', '8');
+    td.style.cssText = 'padding:10px 12px 12px;';
+    td.innerHTML =
+        '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">' +
+        '  <input type="text" class="mn-input mn-fq-brief-instr" maxlength="1000" style="flex:1 1 320px;height:28px;font-size:12px;" ' +
+        '         placeholder="Special instructions for this flyer — e.g. green colour scheme, lead with SkillsFuture Credit, punchier hook..." />' +
+        '  <select class="mn-input mn-fq-brief-date" style="flex:0 0 auto;height:28px;font-size:12px;padding:2px 8px;">' +
+        '    <option value="">Lead intake: soonest (default)</option>' +
+        '  </select>' +
+        '  <button type="button" class="mm-btn mm-btn-primary mm-btn-sm mn-fq-brief-save">Save brief</button>' +
+        '  <button type="button" class="mm-btn mm-btn-ghost mm-btn-sm mn-fq-brief-cancel">Cancel</button>' +
+        '</div>' +
+        '<div style="font:400 11px/1.5 -apple-system,Segoe UI,Arial,sans-serif;color:#64748b;margin-top:6px;">' +
+        'Applies to <b style="color:#cbd5e1;">this flyer only</b> (consumed when the row runs). A colour ask repaints the whole design; the intake list only offers dates the course actually sells.' +
+        '</div>';
+    edit.appendChild(td);
+    tr.parentNode.insertBefore(edit, tr.nextSibling);
+    var instr = td.querySelector('.mn-fq-brief-instr');
+    var dsel  = td.querySelector('.mn-fq-brief-date');
+    instr.value = row.instructions || '';
+    if (row.run_date) {
+        var o = document.createElement('option');
+        o.value = row.run_date; o.textContent = 'Lead intake: ' + row.run_date; o.selected = true;
+        dsel.appendChild(o);
+    }
+    // Load the course's real published intake dates into the picker.
+    fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/marketingnewsletter/flyerCourseDates') ?>' + '?course_id=' + row.product_id, { credentials: 'same-origin' })
+    .then(function (r) { return r.json(); })
+    .then(function (j) {
+        if (!j || !j.success || !j.dates) return;
+        var cur = dsel.value;
+        while (dsel.options.length > 1) dsel.remove(1);
+        j.dates.forEach(function (d) {
+            var o = document.createElement('option');
+            o.value = d.date; o.textContent = 'Lead intake: ' + d.label;
+            if (d.date === cur) o.selected = true;
+            dsel.appendChild(o);
+        });
+    });
+    td.querySelector('.mn-fq-brief-cancel').onclick = function () { edit.remove(); };
+    td.querySelector('.mn-fq-brief-save').onclick = function () {
+        var fd = new FormData();
+        fd.append('queue_id', String(row.queue_id));
+        fd.append('instructions', instr.value);
+        fd.append('run_date', dsel.value);
+        fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/marketingnewsletter/flyerQueueUpdate') ?>', { method: 'POST', body: fd, credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+            if (!j || !j.success) { alert((j && j.message) || 'Could not save the brief.'); return; }
+            mnFlyerQueueLoad();
+        });
+    };
+    instr.focus();
+};
+
 // Run Now for ANY queue row (not just the top): design that course's flyer +
 // send for approval, then remove it from the queue. Same pipeline the Mon/Thu
 // cron and autoStartNext use, guarded by the 2/week cap server-side.
 window.mnFlyerQueueRun = function(qid, pid, name) {
     if (!confirm('Run the pipeline now for "' + (name || pid) + '"?\n\nStep 1 designs the flyer, step 2 emails the managers for approval. It schedules to MailerLite once a manager approves (max 2 flyers per week).')) return;
-    var rf = new FormData(); rf.append('queue_id', String(qid));
-    fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/marketingnewsletter/flyerQueueRemove') ?>', { method:'POST', body:rf, credentials:'same-origin' });
+    // Order matters: queueApproval FIRST (the server reads this row's design
+    // brief — special instructions + pinned intake — while the row still
+    // exists), THEN remove the row, and only on success (a failed run used to
+    // silently lose the queue row).
     var fd = new FormData(); fd.append('course_id', String(pid));
     fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/marketingnewsletter/queueApproval') ?>', { method:'POST', body:fd, credentials:'same-origin' })
     .then(function (r) { return r.json(); })
     .then(function (j) {
         if (!j || !j.success) { alert((j && j.message) || 'Could not run.'); mnFlyerQueueLoad(); return; }
-        alert(j.message || 'Pipeline started — approval email sent to the managers.');
-        location.reload();
+        var rf = new FormData(); rf.append('queue_id', String(qid));
+        fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/marketingnewsletter/flyerQueueRemove') ?>', { method:'POST', body:rf, credentials:'same-origin' })
+            .then(function () {
+                alert(j.message || 'Pipeline started — approval email sent to the managers.');
+                location.reload();
+            });
     })
     .catch(function (e) { alert('Network error: ' + (e && e.message ? e.message : e)); });
 };

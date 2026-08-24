@@ -81,7 +81,7 @@ class MMD_Marketing_Model_Cron_Flyer
             $this->_log('propose: skipped — flyer queue empty and no popular upcoming class found');
             return;
         }
-        $newsletterId = $this->createProposal($productId);
+        $newsletterId = $this->createProposal($productId, $this->_poppedBrief['instructions'], $this->_poppedBrief['run_date']);
         if ($newsletterId) {
             $this->sendForReview($newsletterId);
             $this->_log('propose: proposal #' . $newsletterId . ' for product ' . $productId . ' sent for review');
@@ -96,17 +96,38 @@ class MMD_Marketing_Model_Cron_Flyer
      */
     public function popFlyerQueue()
     {
+        $this->_poppedBrief = array('instructions' => '', 'run_date' => null);
         try {
             $row = $this->_read()->fetchRow(
-                'SELECT queue_id, product_id FROM mmd_marketing_flyer_queue ORDER BY position ASC, queue_id ASC LIMIT 1');
+                'SELECT queue_id, product_id, instructions, run_date FROM mmd_marketing_flyer_queue ORDER BY position ASC, queue_id ASC LIMIT 1');
             if (!$row) { return null; }
             $this->_write()->delete('mmd_marketing_flyer_queue', array('queue_id = ?' => (int) $row['queue_id']));
-            $this->_log('propose: consumed flyer-queue head — product ' . (int) $row['product_id']);
+            // The row's design brief (special instructions + pinned intake) travels
+            // with the pop — per-ROW by design: consumed once, never inherited by a
+            // later flyer for the same course.
+            $this->_poppedBrief = array(
+                'instructions' => trim((string) (isset($row['instructions']) ? $row['instructions'] : '')),
+                'run_date'     => (isset($row['run_date']) && $row['run_date']) ? (string) $row['run_date'] : null,
+            );
+            $this->_log('propose: consumed flyer-queue head — product ' . (int) $row['product_id']
+                . ($this->_poppedBrief['instructions'] !== '' ? ' (with special instructions)' : '')
+                . ($this->_poppedBrief['run_date'] ? ' (intake ' . $this->_poppedBrief['run_date'] . ')' : ''));
             return (int) $row['product_id'];
         } catch (Exception $e) {
-            return null; // table missing (migration not applied) — fall back to auto-pick
+            // Table missing (migration not applied) — retry without the new columns
+            // so a code deploy that outruns its migration still consumes the queue.
+            try {
+                $row = $this->_read()->fetchRow(
+                    'SELECT queue_id, product_id FROM mmd_marketing_flyer_queue ORDER BY position ASC, queue_id ASC LIMIT 1');
+                if (!$row) { return null; }
+                $this->_write()->delete('mmd_marketing_flyer_queue', array('queue_id = ?' => (int) $row['queue_id']));
+                return (int) $row['product_id'];
+            } catch (Exception $e2) { return null; }
         }
     }
+
+    /** Design brief carried by the most recent popFlyerQueue() call. */
+    protected $_poppedBrief = array('instructions' => '', 'run_date' => null);
 
     /**
      * Cron entry (hourly): pipeline housekeeping.
@@ -359,7 +380,15 @@ class MMD_Marketing_Model_Cron_Flyer
     }
 
     /** Render the flyer and store a 'pending' review row; returns newsletter_id. */
-    public function createProposal($productId)
+    /**
+     * @param string      $instructions  admin's special instructions from the queue
+     *   row ("teal colour scheme", "lead with HRDC") — steers the AI copy exactly
+     *   like manager change-request feedback, and any colour ask repaints the
+     *   design (Helper_Flyer::detectColorRequest).
+     * @param string|null $runDate  optional 'Y-m-d' — pin WHICH published intake
+     *   the flyer leads with; ignored unless the course really sells that date.
+     */
+    public function createProposal($productId, $instructions = '', $runDate = null)
     {
         // HARD GATE (admin 2026-07-14): SG blasts WSQ courses ONLY. A WSQ course's
         // SKU starts with 'TGS-' (the SkillsFuture course reference). Non-WSQ
@@ -395,9 +424,11 @@ class MMD_Marketing_Model_Cron_Flyer
         // AI-GENERATE the course-specific copy (hook/outcomes/journey) before rendering.
         // With no feedback this reuses any prior AI copy for the SKU (no API burn);
         // regenerateOnChanges passes the manager's feedback so a rework always differs.
-        try { $this->_flyer()->regenerateCopy($productId, ''); }
+        // Special instructions act exactly like feedback: non-empty forces a fresh
+        // AI generation (and colour detection); empty reuses prior copy (no API burn).
+        try { $this->_flyer()->regenerateCopy($productId, (string) $instructions); }
         catch (Exception $e) { $this->_log('createProposal: regenerateCopy failed — ' . $e->getMessage()); }
-        $flyerHtml = $this->_flyer()->render($productId);
+        $flyerHtml = $this->_flyer()->render($productId, $runDate);
         if ($flyerHtml === '') {
             return null;
         }
@@ -669,7 +700,7 @@ class MMD_Marketing_Model_Cron_Flyer
         $pid = $this->popFlyerQueue();
         if (!$pid) { $pid = $this->pickPopularUpcomingClass(); }
         if (!$pid) { $this->_log('autoStartNext: no queued or popular course — nothing to auto-start'); return null; }
-        $nid = $this->createProposal($pid);
+        $nid = $this->createProposal($pid, $this->_poppedBrief['instructions'], $this->_poppedBrief['run_date']);
         if ($nid) {
             $this->sendForReview($nid);
             $this->_log('autoStartNext: proposal #' . $nid . ' (product ' . $pid . ') auto-started + sent for review');
