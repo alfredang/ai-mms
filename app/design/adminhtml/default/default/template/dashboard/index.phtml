@@ -15188,7 +15188,7 @@ var MN_SVG = {
 };
 window._mnQueue = [];
 window.mnFlyerQueueLoad = function() {
-    fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/marketingnewsletter/flyerQueueList') ?>', { credentials: 'same-origin' })
+    return fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/marketingnewsletter/flyerQueueList') ?>', { credentials: 'same-origin' })
     .then(function (r) { return r.json(); })
     .then(function (j) {
         window._mnQueue = (j && j.success && j.queue) ? j.queue : [];
@@ -15295,7 +15295,18 @@ window.mnFlyerQueueAdd = function(pid) {
     .then(function (r) { return r.json(); })
     .then(function (j) {
         if (!j || !j.success) { alert((j && j.message) || 'Could not add to the queue.'); return; }
-        mnFlyerQueueLoad();
+        // Open the design brief on the just-added row so special instructions
+        // (colour scheme, angle, intake pin) are set as part of the request —
+        // before the cron / Run Now can design the flyer without them.
+        mnFlyerQueueLoad().then(function () {
+            for (var i = 0; i < window._mnQueue.length; i++) {
+                var row = window._mnQueue[i];
+                if (parseInt(row.product_id, 10) !== parseInt(pid, 10)) continue;
+                var tr = document.querySelector('#mn-queue-list tr[data-qid="' + row.queue_id + '"]');
+                if (tr) mnFlyerQueueBrief(row, tr);
+                break;
+            }
+        });
     });
 };
 window.mnFlyerQueueRemove = function(qid, name) {
