@@ -1,0 +1,146 @@
+<?php
+/**
+ * UTAP lead-magnet form - embedded on utap.html via
+ * {{block type="core/template" template="mmd/utap_lead_form.phtml"}}.
+ * Posts into the existing Contact Us pipeline (contacts/index/post ->
+ * mmd_lead row + staff email + auto-reply + MailerLite subscribe), so no
+ * new backend is needed. Invisible anti-spam: honeypot `hideit` +
+ * Cloudflare Turnstile (same widget every MMD lead form uses).
+ */
+$ts        = Mage::helper('magentocaptcha/turnstile');
+$tsSiteKey = $ts->getSiteKey();
+$postUrl   = Mage::getUrl('contacts/index/post');
+?>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<style>
+.utapf-wrap{margin:34px auto;background:#fff;border:1px solid #e9e5f8;border-radius:16px;box-shadow:0 18px 50px rgba(76,29,149,.12);overflow:hidden}
+.utapf-head{background:linear-gradient(120deg,#7c3aed,#6d28d9);color:#fff;padding:26px 30px}
+.utapf-head .k{color:#ddd6fe;font-weight:700;letter-spacing:.1em;text-transform:uppercase;font-size:11.5px;margin:0 0 6px}
+.utapf-head h3{color:#fff;margin:0 0 6px;font-size:24px;line-height:1.2}
+.utapf-head p{color:#e2dbfa;margin:0;font-size:15px}
+.utapf-body{padding:26px 30px 30px}
+.utapf-row{display:flex;gap:16px;flex-wrap:wrap}
+.utapf-field{flex:1 1 220px;margin-bottom:16px}
+.utapf-field.utapf-full{flex-basis:100%}
+.utapf-field label{display:block;font-weight:600;color:#0f172a;font-size:14px;margin-bottom:6px}
+.utapf-field label .req{color:#e11d48}
+.utapf-field input,.utapf-field textarea,.utapf-field select{width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid #d6dbe4;border-radius:9px;font-size:15px;color:#0f172a;background:#fbfcfe;height:auto}
+.utapf-field input:focus,.utapf-field textarea:focus,.utapf-field select:focus{outline:none;border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.16);background:#fff}
+.utapf-field textarea{min-height:90px;resize:vertical}
+.utapf-error{color:#dc2626;font-size:14px;margin:0 0 14px;min-height:1px}
+.utapf-submit{display:inline-flex;align-items:center;gap:10px;background:#6d28d9;color:#fff;border:0;border-radius:999px;padding:14px 30px;font-size:16px;font-weight:700;cursor:pointer;transition:background .15s}
+.utapf-submit:hover{background:#5b21b6}
+.utapf-submit svg{width:18px;height:18px}
+.utapf-trust{display:flex;align-items:center;gap:8px;color:#64748b;font-size:13px;margin:16px 0 0}
+.utapf-trust svg{width:16px;height:16px;color:#7c3aed}
+</style>
+
+<div class="utapf-wrap">
+  <div class="utapf-head">
+    <p class="k"><?php echo $this->__('Free for NTUC members') ?></p>
+    <h3><?php echo $this->__('Get Your Free UTAP Claim Kit') ?></h3>
+    <p><?php echo $this->__('The step-by-step claim walkthrough, the full NTUC-approved AI tool list, and a personalised savings estimate for your course - from our training consultants within 1 business day.') ?></p>
+  </div>
+  <div class="utapf-body">
+    <form action="<?php echo $postUrl ?>" method="post" id="utapLeadForm" name="utapLeadForm">
+      <div class="utapf-error" id="utap-error"></div>
+      <div class="utapf-row">
+        <div class="utapf-field"><label><?php echo $this->__('Full Name') ?> <span class="req">*</span></label>
+          <input type="text" name="name" maxlength="255" /></div>
+        <div class="utapf-field"><label><?php echo $this->__('Email') ?> <span class="req">*</span></label>
+          <input type="email" name="email" maxlength="255" /></div>
+      </div>
+      <div class="utapf-row">
+        <div class="utapf-field"><label><?php echo $this->__('Phone / WhatsApp') ?></label>
+          <input type="tel" name="telephone" maxlength="64" placeholder="<?php echo $this->__('Optional') ?>" /></div>
+        <div class="utapf-field"><label><?php echo $this->__('I want to use UTAP for') ?></label>
+          <select name="courses" id="utap-interest">
+            <option value="UTAP-supported course">A UTAP-supported course</option>
+            <option value="AI tool subscription (from 1 May 2026)">An AI tool subscription (from 1 May 2026)</option>
+            <option value="Both - course and AI tool subscription">Both - course and AI tool subscription</option>
+          </select></div>
+      </div>
+      <div class="utapf-field utapf-full"><label><?php echo $this->__('Which course or AI tool are you eyeing? (optional)') ?></label>
+        <textarea id="utap-note" placeholder="<?php echo $this->__('e.g. WSQ Data Analytics, ChatGPT Plus, Claude Pro...') ?>"></textarea></div>
+
+      <?php /* Backend requires a non-empty `comment`; JS enriches it with the
+              visitor's selection + note, but the default keeps it valid even
+              if JS never runs. */ ?>
+      <input type="hidden" name="comment" id="utap-comment" value="UTAP Claim Kit request (utap.html lead magnet)" />
+      <input type="text" name="hideit" id="utap-hideit" value="" tabindex="-1" autocomplete="off" style="display:none !important;" />
+      <input type="hidden" name="cf-turnstile-response" id="utap-turnstile-token" value="" />
+      <?php if ($tsSiteKey): ?>
+      <div class="cf-turnstile"
+           data-sitekey="<?php echo $this->htmlEscape($tsSiteKey) ?>"
+           data-appearance="interaction-only"
+           data-callback="onUtapTurnstileSuccess"
+           data-error-callback="onUtapTurnstileError"
+           data-expired-callback="onUtapTurnstileExpired"></div>
+      <?php endif; ?>
+
+      <button type="submit" id="utap-submit" class="utapf-submit">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        <?php echo $this->__('Send Me the Claim Kit') ?>
+      </button>
+      <p class="utapf-trust">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+        <?php echo $this->__('We reply within 1 business day. Your details stay private.') ?>
+      </p>
+    </form>
+  </div>
+</div>
+
+<script type="text/javascript">
+(function () {
+    var TURNSTILE_ENABLED = <?php echo $tsSiteKey ? 'true' : 'false'; ?>;
+    var pendingSubmit = false;
+
+    function validateForm() {
+        var error = "", f = document.forms["utapLeadForm"];
+        if (!f["name"].value) { error += "Please enter your name<br/>"; }
+        if (!/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,})+$/.test(f["email"].value)) { error += "Please enter a valid email<br/>"; }
+        document.getElementById("utap-error").innerHTML = error;
+        return error === "";
+    }
+    function composeComment() {
+        var interest = document.getElementById("utap-interest").value;
+        var note = document.getElementById("utap-note").value;
+        var comment = "UTAP Claim Kit request - interested in: " + interest;
+        if (note) { comment += "\nCourse / AI tool in mind: " + note; }
+        document.getElementById("utap-comment").value = comment;
+    }
+    function doSubmit() {
+        var btn = document.getElementById("utap-submit");
+        if (btn) { btn.disabled = true; }
+        document.forms["utapLeadForm"].submit();
+    }
+    window.onUtapTurnstileSuccess = function (token) {
+        var input = document.getElementById("utap-turnstile-token");
+        if (input) { input.value = token; }
+        if (pendingSubmit) { pendingSubmit = false; doSubmit(); }
+    };
+    window.onUtapTurnstileError = function () {
+        pendingSubmit = false;
+        document.getElementById("utap-error").innerHTML = "Spam check could not run. Please refresh the page and try again.";
+    };
+    window.onUtapTurnstileExpired = function () {
+        var input = document.getElementById("utap-turnstile-token");
+        if (input) { input.value = ""; }
+    };
+    document.addEventListener("DOMContentLoaded", function () {
+        var form = document.getElementById("utapLeadForm");
+        if (!form) { return; }
+        form.addEventListener("submit", function (e) {
+            e.preventDefault();
+            if (!validateForm()) { return; }
+            composeComment();
+            if (!TURNSTILE_ENABLED || typeof window.turnstile === "undefined") { doSubmit(); return; }
+            var input = document.getElementById("utap-turnstile-token");
+            if (input && input.value) { doSubmit(); return; }
+            pendingSubmit = true;
+            try { window.turnstile.execute(); }
+            catch (err) { pendingSubmit = false; doSubmit(); }
+        });
+    });
+})();
+</script>
