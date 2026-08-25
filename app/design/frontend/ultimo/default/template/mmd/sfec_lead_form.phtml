@@ -1,0 +1,150 @@
+<?php
+/**
+ * SFEC lead-magnet form - embedded on sfec.html via
+ * {{block type="core/template" template="mmd/sfec_lead_form.phtml"}}.
+ * Posts into the existing Contact Us pipeline (contacts/index/post ->
+ * mmd_lead row + staff email + auto-reply + MailerLite subscribe), so no
+ * new backend is needed. Invisible anti-spam: honeypot `hideit` +
+ * Cloudflare Turnstile (same widget every MMD lead form uses).
+ */
+$ts        = Mage::helper('magentocaptcha/turnstile');
+$tsSiteKey = $ts->getSiteKey();
+$postUrl   = Mage::getUrl('contacts/index/post');
+?>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<style>
+.sfecf-wrap{margin:34px auto;background:#fff;border:1px solid #e6e9ef;border-radius:16px;box-shadow:0 18px 50px rgba(15,23,42,.10);overflow:hidden}
+.sfecf-head{background:linear-gradient(135deg,#0f172a,#14304a 70%,#0d9488 160%);color:#fff;padding:26px 30px}
+.sfecf-head .k{color:#5eead4;font-weight:700;letter-spacing:.1em;text-transform:uppercase;font-size:11.5px;margin:0 0 6px}
+.sfecf-head h3{color:#fff;margin:0 0 6px;font-size:24px;line-height:1.2}
+.sfecf-head p{color:#cbd5e1;margin:0;font-size:15px}
+.sfecf-body{padding:26px 30px 30px}
+.sfecf-row{display:flex;gap:16px;flex-wrap:wrap}
+.sfecf-field{flex:1 1 220px;margin-bottom:16px}
+.sfecf-field.sfecf-full{flex-basis:100%}
+.sfecf-field label{display:block;font-weight:600;color:#0f172a;font-size:14px;margin-bottom:6px}
+.sfecf-field label .req{color:#e11d48}
+.sfecf-field input,.sfecf-field textarea,.sfecf-field select{width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid #d6dbe4;border-radius:9px;font-size:15px;color:#0f172a;background:#fbfcfe;height:auto}
+.sfecf-field input:focus,.sfecf-field textarea:focus,.sfecf-field select:focus{outline:none;border-color:#14b8a6;box-shadow:0 0 0 3px rgba(20,184,166,.16);background:#fff}
+.sfecf-field textarea{min-height:90px;resize:vertical}
+.sfecf-error{color:#dc2626;font-size:14px;margin:0 0 14px;min-height:1px}
+.sfecf-submit{display:inline-flex;align-items:center;gap:10px;background:#f4511e;color:#fff;border:0;border-radius:999px;padding:14px 30px;font-size:16px;font-weight:700;cursor:pointer;transition:background .15s}
+.sfecf-submit:hover{background:#d63c0c}
+.sfecf-submit svg{width:18px;height:18px}
+.sfecf-trust{display:flex;align-items:center;gap:8px;color:#64748b;font-size:13px;margin:16px 0 0}
+.sfecf-trust svg{width:16px;height:16px;color:#14b8a6}
+</style>
+
+<div class="sfecf-wrap">
+  <div class="sfecf-head">
+    <p class="k"><?php echo $this->__('Free for eligible employers') ?></p>
+    <h3><?php echo $this->__('Get Your Free SFEC Claim Kit') ?></h3>
+    <p><?php echo $this->__('The step-by-step claim walkthrough, an eligibility check for your company, and a personalised training plan that maximises your S$10,000 credit before 30 Nov 2026 - from our training consultants within 1 business day.') ?></p>
+  </div>
+  <div class="sfecf-body">
+    <form action="<?php echo $postUrl ?>" method="post" id="sfecLeadForm" name="sfecLeadForm">
+      <div class="sfecf-error" id="sfec-error"></div>
+      <div class="sfecf-row">
+        <div class="sfecf-field"><label><?php echo $this->__('Full Name') ?> <span class="req">*</span></label>
+          <input type="text" name="name" maxlength="255" /></div>
+        <div class="sfecf-field"><label><?php echo $this->__('Work Email') ?> <span class="req">*</span></label>
+          <input type="email" name="email" maxlength="255" /></div>
+      </div>
+      <div class="sfecf-row">
+        <div class="sfecf-field"><label><?php echo $this->__('Company Name') ?></label>
+          <input type="text" name="company" maxlength="255" placeholder="<?php echo $this->__('Optional') ?>" /></div>
+        <div class="sfecf-field"><label><?php echo $this->__('Phone / WhatsApp') ?></label>
+          <input type="tel" name="telephone" maxlength="64" placeholder="<?php echo $this->__('Optional') ?>" /></div>
+      </div>
+      <div class="sfecf-row">
+        <div class="sfecf-field"><label><?php echo $this->__('I want to') ?></label>
+          <select name="courses" id="sfec-interest">
+            <option value="Check my company's SFEC eligibility">Check my company's SFEC eligibility</option>
+            <option value="Plan SFEC-claimable training for my team">Plan SFEC-claimable training for my team</option>
+            <option value="Get help submitting an SFEC claim">Get help submitting an SFEC claim</option>
+          </select></div>
+      </div>
+      <div class="sfecf-field sfecf-full"><label><?php echo $this->__('Which courses or skills is your team interested in? (optional)') ?></label>
+        <textarea id="sfec-note" placeholder="<?php echo $this->__('e.g. WSQ Data Analytics, AI Agents, Cybersecurity...') ?>"></textarea></div>
+
+      <?php /* Backend requires a non-empty `comment`; JS enriches it with the
+              visitor's selection + note, but the default keeps it valid even
+              if JS never runs. */ ?>
+      <input type="hidden" name="comment" id="sfec-comment" value="SFEC Claim Kit request (sfec.html lead magnet)" />
+      <input type="text" name="hideit" id="sfec-hideit" value="" tabindex="-1" autocomplete="off" style="display:none !important;" />
+      <input type="hidden" name="cf-turnstile-response" id="sfec-turnstile-token" value="" />
+      <?php if ($tsSiteKey): ?>
+      <div class="cf-turnstile"
+           data-sitekey="<?php echo $this->htmlEscape($tsSiteKey) ?>"
+           data-appearance="interaction-only"
+           data-callback="onSfecTurnstileSuccess"
+           data-error-callback="onSfecTurnstileError"
+           data-expired-callback="onSfecTurnstileExpired"></div>
+      <?php endif; ?>
+
+      <button type="submit" id="sfec-submit" class="sfecf-submit">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        <?php echo $this->__('Send Me the Claim Kit') ?>
+      </button>
+      <p class="sfecf-trust">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+        <?php echo $this->__('We reply within 1 business day. Your details stay private.') ?>
+      </p>
+    </form>
+  </div>
+</div>
+
+<script type="text/javascript">
+(function () {
+    var TURNSTILE_ENABLED = <?php echo $tsSiteKey ? 'true' : 'false'; ?>;
+    var pendingSubmit = false;
+
+    function validateForm() {
+        var error = "", f = document.forms["sfecLeadForm"];
+        if (!f["name"].value) { error += "Please enter your name<br/>"; }
+        if (!/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,})+$/.test(f["email"].value)) { error += "Please enter a valid email<br/>"; }
+        document.getElementById("sfec-error").innerHTML = error;
+        return error === "";
+    }
+    function composeComment() {
+        var interest = document.getElementById("sfec-interest").value;
+        var note = document.getElementById("sfec-note").value;
+        var comment = "SFEC Claim Kit request - " + interest;
+        if (note) { comment += "\nCourses / skills in mind: " + note; }
+        document.getElementById("sfec-comment").value = comment;
+    }
+    function doSubmit() {
+        var btn = document.getElementById("sfec-submit");
+        if (btn) { btn.disabled = true; }
+        document.forms["sfecLeadForm"].submit();
+    }
+    window.onSfecTurnstileSuccess = function (token) {
+        var input = document.getElementById("sfec-turnstile-token");
+        if (input) { input.value = token; }
+        if (pendingSubmit) { pendingSubmit = false; doSubmit(); }
+    };
+    window.onSfecTurnstileError = function () {
+        pendingSubmit = false;
+        document.getElementById("sfec-error").innerHTML = "Spam check could not run. Please refresh the page and try again.";
+    };
+    window.onSfecTurnstileExpired = function () {
+        var input = document.getElementById("sfec-turnstile-token");
+        if (input) { input.value = ""; }
+    };
+    document.addEventListener("DOMContentLoaded", function () {
+        var form = document.getElementById("sfecLeadForm");
+        if (!form) { return; }
+        form.addEventListener("submit", function (e) {
+            e.preventDefault();
+            if (!validateForm()) { return; }
+            composeComment();
+            if (!TURNSTILE_ENABLED || typeof window.turnstile === "undefined") { doSubmit(); return; }
+            var input = document.getElementById("sfec-turnstile-token");
+            if (input && input.value) { doSubmit(); return; }
+            pendingSubmit = true;
+            try { window.turnstile.execute(); }
+            catch (err) { pendingSubmit = false; doSubmit(); }
+        });
+    });
+})();
+</script>
