@@ -22,6 +22,7 @@ class MMD_SearchFallback_ResultController extends Mage_CatalogSearch_ResultContr
         /** @var Mage_CatalogSearch_Model_Query $query */
         $query = Mage::helper('catalogsearch')->getQuery();
         $query->setStoreId(Mage::app()->getStore()->getId());
+        $this->_applyTokenSynonyms($query);
 
         if ($query->getQueryText() != '') {
             // Course-code search: a query that exactly matches the SKU of an
@@ -77,6 +78,33 @@ class MMD_SearchFallback_ResultController extends Mage_CatalogSearch_ResultContr
         } else {
             $this->_redirectReferer();
         }
+    }
+
+    /**
+     * Word-level synonym expansion: course names use both "GenAI" and
+     * "Generative AI", so a search phrased with either spelling must return
+     * both sets (e.g. "business presentation with genai" ≡ "business
+     * presentations with generative ai"). Stock synonym_for only fires on a
+     * WHOLE-query match, so a "genai" synonym row never helps a longer
+     * phrase — instead we expand the token in-place at search time and let
+     * Fulltext::prepareResult's synonym_for hook search the expanded text.
+     * The expansion carries BOTH spellings so neither name set drops out.
+     * A synonym_for already curated in admin always wins; the expanded text
+     * persists on the row via the controller's existing $query->save().
+     */
+    protected function _applyTokenSynonyms(Mage_CatalogSearch_Model_Query $query)
+    {
+        if ((string) $query->getSynonymFor() !== '') {
+            return;
+        }
+        $text = (string) $query->getQueryText();
+        $hasGenai = (bool) preg_match('/\bgenai\b/i', $text);
+        $hasGenerativeAi = (bool) preg_match('/\bgenerative\s+ai\b/i', $text);
+        if ($hasGenai === $hasGenerativeAi) {
+            return; // neither spelling present, or both already are
+        }
+        $pattern = $hasGenai ? '/\bgenai\b/i' : '/\bgenerative\s+ai\b/i';
+        $query->setSynonymFor(preg_replace($pattern, 'generative ai genai', $text, 1));
     }
 
     /**
