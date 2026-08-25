@@ -112,8 +112,12 @@ class MMD_MagentoCaptcha_IndexController extends Mage_Core_Controller_Front_Acti
             // Mail failures are logged, not surfaced: the lead is already
             // captured above, so the visitor still gets a success message.
             try {
+                // UTAP claim-kit leads (utap.html lead magnet) additionally go
+                // to the enquiry mailbox so course consultants can fulfil the
+                // kit; the default CC list (angch@/tansc@) still applies.
+                $isUtapLead = strpos((string)($post['comment'] ?? ''), 'UTAP Claim Kit request') === 0;
                 $sent = Mage::helper('mmd_leadmail')->notify(
-                    'Website Enquiry',
+                    $isUtapLead ? 'UTAP Claim Kit Request' : 'Website Enquiry',
                     (string)($post['name'] ?? ''),
                     (string)($post['email'] ?? ''),
                     (string)($post['telephone'] ?? ''),
@@ -122,7 +126,8 @@ class MMD_MagentoCaptcha_IndexController extends Mage_Core_Controller_Front_Acti
                         array('Courses Interested', (string)($post['courses'] ?? '')),
                         array('Course Code', (string)($post['course_code'] ?? '')),
                     ),
-                    (string)($post['comment'] ?? '')
+                    (string)($post['comment'] ?? ''),
+                    $isUtapLead ? array('enquiry@tertiaryinfotech.com') : array()
                 );
                 if (!$sent) {
                     Mage::log('Contact form: staff notification failed for lead #' . $lead->getId(), null, 'mmd_leadmail.log');
