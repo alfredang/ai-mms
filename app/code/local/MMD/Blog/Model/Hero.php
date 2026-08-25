@@ -82,6 +82,18 @@ class MMD_Blog_Model_Hero
             'accent' => array(0x59, 0xEB, 0xFD), 'motif' => 'terminal',
             'kw' => array('claude code', 'codex', 'cursor', 'copilot', 'coding agent', 'pair programmer'),
         ),
+        // CAD / BIM tools sit above 'automation', 'code', 'data' and 'video':
+        // these titles nearly always also say "design"/"visual" (a video kw),
+        // "app" (a code kw) or "drawing", which would otherwise render a
+        // play-button or terminal on an AutoCAD/Revit article.
+        'cad' => array(
+            'bg' => array(0x07, 0x16, 0x2A), 'bg2' => array(0x0E, 0x33, 0x50),
+            'accent' => array(0x7C, 0xC4, 0xFF), 'motif' => 'blueprint',
+            'kw' => array(
+                'autocad', 'revit', 'fusion 360', 'inventor', '3ds max', 'civil 3d',
+                'autodesk', 'bim', 'cad', '3d modeling', '3d modelling', 'technical drawing',
+            ),
+        ),
         'automation' => array(
             'bg' => array(0x0A, 0x1C, 0x14), 'bg2' => array(0x12, 0x3A, 0x2A),
             'accent' => array(0x5E, 0xE8, 0x9B), 'motif' => 'nodes',
@@ -388,6 +400,7 @@ class MMD_Blog_Model_Hero
             case 'chart':    $this->motifChart($im, $cx, $cy, $theme); break;
             case 'play':     $this->motifPlay($im, $cx, $cy, $theme); break;
             case 'badge':    $this->motifBadge($im, $cx, $cy, $theme); break;
+            case 'blueprint': $this->motifBlueprint($im, $cx, $cy, $theme); break;
             case 'nodes':
             default:         $this->motifNodes($im, $cx, $cy, $theme); break;
         }
@@ -522,6 +535,54 @@ class MMD_Blog_Model_Hero
             $cx + 100, $cy,
             $cx - 62, $cy + 92,
         ), 3, imagecolorallocatealpha($im, $r, $g, $b, 60));
+    }
+
+    /**
+     * Drafting sheet: a faint construction grid, an isometric extruded solid and
+     * a dimension line — the visual language of AutoCAD/Revit/Fusion, so a CAD
+     * article never has to borrow the video or terminal motif.
+     */
+    private function motifBlueprint(\GdImage $im, int $cx, int $cy, array $theme): void
+    {
+        [$r, $g, $b] = $theme['accent'];
+        $c    = imagecolorallocate($im, $r, $g, $b);
+        $soft = imagecolorallocatealpha($im, $r, $g, $b, 88);
+        $grid = imagecolorallocatealpha($im, $r, $g, $b, 112);
+
+        // Construction grid behind the solid. Pitch varies per post so a grid of
+        // CAD cards does not read as the same image repeated.
+        $pitch = 62 + ($this->seed % 4) * 9;
+        for ($i = -3; $i <= 3; $i++) {
+            imageline($im, $cx + $i * ($pitch + 12), $cy - 250, $cx + $i * ($pitch + 12), $cy + 210, $grid);
+            imageline($im, $cx - 250, $cy + $i * $pitch, $cx + 250, $cy + $i * $pitch, $grid);
+        }
+
+        // Isometric block: top face, then the two visible side faces. Its
+        // footprint and extrusion depth are seed-driven for the same reason.
+        $tx = $cx;      $ty = $cy - 168;
+        $hw = 150 + ($this->seed % 5) * 14;
+        $hh = (int) round($hw * 0.52);
+        $dep = 120 + (($this->seed >> 3) % 5) * 18;
+        $this->thickPolygon($im, array(
+            $tx, $ty, $tx + $hw, $ty + $hh, $tx, $ty + $hh * 2, $tx - $hw, $ty + $hh,
+        ), $c, 7);
+        $this->thickPolygon($im, array(
+            $tx - $hw, $ty + $hh, $tx, $ty + $hh * 2, $tx, $ty + $hh * 2 + $dep, $tx - $hw, $ty + $hh + $dep,
+        ), $soft, 7);
+        $this->thickPolygon($im, array(
+            $tx + $hw, $ty + $hh, $tx, $ty + $hh * 2, $tx, $ty + $hh * 2 + $dep, $tx + $hw, $ty + $hh + $dep,
+        ), $c, 7);
+
+        // Dimension line with end ticks under the solid.
+        $dy = $cy + 232;
+        $this->thickLine($im, $cx - $hw, $dy, $cx + $hw, $dy, $c, 6);
+        $this->thickLine($im, $cx - $hw, $dy - 26, $cx - $hw, $dy + 26, $c, 6);
+        $this->thickLine($im, $cx + $hw, $dy - 26, $cx + $hw, $dy + 26, $c, 6);
+
+        // Vertex handles — the "selected geometry" cue from a CAD viewport.
+        foreach (array(array($tx, $ty), array($tx - $hw, $ty + $hh), array($tx + $hw, $ty + $hh)) as $p) {
+            imagefilledrectangle($im, $p[0] - 9, $p[1] - 9, $p[0] + 9, $p[1] + 9, $c);
+        }
     }
 
     private function motifBadge(\GdImage $im, int $cx, int $cy, array $theme): void
