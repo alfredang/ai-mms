@@ -114,6 +114,17 @@ class MMD_Blog_Model_Hero
             'accent' => array(0xFF, 0x7A, 0x8A), 'motif' => 'play',
             'kw' => array('video', 'youtube', 'infographic', 'image', 'creative', 'design', 'visual'),
         ),
+        // Urban farming sits above 'funding': these titles almost always also say
+        // "course"/"skillsfuture", which would otherwise render a funding rosette
+        // on an article about growing food.
+        'farming' => array(
+            'bg' => array(0x06, 0x1C, 0x18), 'bg2' => array(0x0E, 0x3E, 0x30),
+            'accent' => array(0x6E, 0xE7, 0xA8), 'motif' => 'sprout',
+            'kw' => array(
+                'hydroponic', 'hydroponics', 'urban farming', 'farming', 'farm',
+                'grow', 'vertical farm', 'agriculture', 'crop', 'melon', 'harvest',
+            ),
+        ),
         'funding' => array(
             'bg' => array(0x08, 0x1A, 0x2E), 'bg2' => array(0x10, 0x38, 0x54),
             'accent' => array(0x66, 0xD0, 0xFF), 'motif' => 'badge',
@@ -401,6 +412,7 @@ class MMD_Blog_Model_Hero
             case 'play':     $this->motifPlay($im, $cx, $cy, $theme); break;
             case 'badge':    $this->motifBadge($im, $cx, $cy, $theme); break;
             case 'blueprint': $this->motifBlueprint($im, $cx, $cy, $theme); break;
+            case 'sprout':   $this->motifSprout($im, $cx, $cy, $theme); break;
             case 'nodes':
             default:         $this->motifNodes($im, $cx, $cy, $theme); break;
         }
@@ -425,6 +437,72 @@ class MMD_Blog_Model_Hero
         // Keyhole inside.
         imagefilledellipse($im, $cx, $cy - 30, 78, 78, $c);
         imagefilledrectangle($im, $cx - 22, $cy - 30, $cx + 22, $cy + 78, $c);
+    }
+
+    /**
+     * Hydroponics: a seedling in a net pot suspended over a nutrient reservoir,
+     * roots hanging into the solution. Leaf count varies with the per-post seed
+     * so two farming posts do not render identical art.
+     */
+    private function motifSprout(\GdImage $im, int $cx, int $cy, array $theme): void
+    {
+        [$r, $g, $b] = $theme['accent'];
+        $c = imagecolorallocate($im, $r, $g, $b);
+
+        // Reservoir: tank walls, plus the waterline drawn as two segments either
+        // side of the net pot so the surface stays visible rather than hidden
+        // behind it. The seed nudges the level so posts vary slightly.
+        $water = $cy + 70 + ($this->seed % 3) * 8;
+        $halfW = 215;
+        $this->thickLine($im, $cx - $halfW, $water, $cx - 62, $water, $c, 10);
+        $this->thickLine($im, $cx + 62, $water, $cx + $halfW, $water, $c, 10);
+        $this->thickLine($im, $cx - $halfW, $water, $cx - $halfW, $cy + 250, $c, 9);
+        $this->thickLine($im, $cx + $halfW, $water, $cx + $halfW, $cy + 250, $c, 9);
+        $this->thickLine($im, $cx - $halfW, $cy + 250, $cx + $halfW, $cy + 250, $c, 9);
+
+        // Net pot straddling the waterline.
+        $potTop = $water - 74;
+        $this->thickPolygon($im, array(
+            $cx - 78, $potTop,
+            $cx + 78, $potTop,
+            $cx + 54, $water + 30,
+            $cx - 54, $water + 30,
+        ), $c, 8);
+        // Net slots.
+        foreach (array(-34, 0, 34) as $dx) {
+            $this->thickLine($im, $cx + $dx, $potTop + 18, $cx + (int) round($dx * 0.72), $water + 14, $c, 5);
+        }
+
+        // Roots trailing into the solution.
+        foreach (array(-40, -14, 14, 40) as $i => $dx) {
+            $len = 92 + ($i % 2) * 34;
+            $this->thickLine($im, $cx + $dx, $water + 24, $cx + $dx + ($i % 2 ? 18 : -18), $water + $len, $c, 5);
+        }
+
+        // Stem.
+        $this->thickLine($im, $cx, $potTop + 6, $cx, $cy - 176, $c, 11);
+
+        // Leaves, alternating up the stem. 3-5 pairs depending on the seed.
+        $pairs = 3 + ($this->seed % 3);
+        for ($i = 0; $i < $pairs; $i++) {
+            $ly = $potTop - 4 - $i * 62;
+            $span = 132 - $i * 20;
+            $lift = 46 - $i * 6;
+            // Left leaf.
+            $this->thickPolygon($im, array(
+                $cx, $ly,
+                $cx - $span / 2, $ly - $lift,
+                $cx - $span, $ly - $lift / 3,
+                $cx - $span / 2, $ly + $lift / 3,
+            ), $c, 7);
+            // Right leaf.
+            $this->thickPolygon($im, array(
+                $cx, $ly - 26,
+                $cx + $span / 2, $ly - 26 - $lift,
+                $cx + $span, $ly - 26 - $lift / 3,
+                $cx + $span / 2, $ly - 26 + $lift / 3,
+            ), $c, 7);
+        }
     }
 
     private function motifSearch(\GdImage $im, int $cx, int $cy, array $theme): void
