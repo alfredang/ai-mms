@@ -107,6 +107,20 @@ class MMD_Blog_Model_Hero
                 'seedling', 'nutrient solution', 'greenhouse',
             ),
         ),
+        // IoT sits above 'automation', 'code' and 'data': these titles routinely
+        // also say "sensor data" (data), "build" (code) or "automation", any of
+        // which would otherwise render a chart or terminal on a connected-device
+        // article. Without this theme an IoT post falls all the way through to
+        // THEME_DEFAULT and draws the same generic blue node graph as everything
+        // else that misses.
+        'iot' => array(
+            'bg' => array(0x06, 0x18, 0x26), 'bg2' => array(0x0C, 0x36, 0x48),
+            'accent' => array(0x4F, 0xD8, 0xE8), 'motif' => 'sensor',
+            'kw' => array(
+                'iot', 'internet of things', 'sensor', 'raspberry pi', 'arduino',
+                'esp8266', 'esp32', 'mqtt', 'microcontroller', 'smart device', 'embedded',
+            ),
+        ),
         'automation' => array(
             'bg' => array(0x0A, 0x1C, 0x14), 'bg2' => array(0x12, 0x3A, 0x2A),
             'accent' => array(0x5E, 0xE8, 0x9B), 'motif' => 'nodes',
@@ -420,6 +434,7 @@ class MMD_Blog_Model_Hero
             case 'badge':    $this->motifBadge($im, $cx, $cy, $theme); break;
             case 'blueprint': $this->motifBlueprint($im, $cx, $cy, $theme); break;
             case 'sprout':   $this->motifSprout($im, $cx, $cy, $theme); break;
+            case 'sensor':   $this->motifSensor($im, $cx, $cy, $theme); break;
             case 'nodes':
             default:         $this->motifNodes($im, $cx, $cy, $theme); break;
         }
@@ -600,6 +615,47 @@ class MMD_Blog_Model_Hero
         $this->thickPolygon($im, array(
             $cx + 210, $cy - 160, $cx + 150, $cy - 150, $cx + 190, $cy - 105,
         ), $c, 7);
+    }
+
+    /**
+     * A sensor board broadcasting upward: a chip with pin legs and three
+     * widening signal arcs. Says "device sending readings" rather than the
+     * node-graph's "things connected to things", so an IoT article reads
+     * differently from an automation one in the listing.
+     */
+    private function motifSensor(\GdImage $im, int $cx, int $cy, array $theme): void
+    {
+        [$r, $g, $b] = $theme['accent'];
+        $c    = imagecolorallocate($im, $r, $g, $b);
+        $soft = imagecolorallocatealpha($im, $r, $g, $b, 78);
+
+        $by = $cy + 130;   // board sits low; arcs radiate into the space above
+        $bw = 150;
+        $bh = 96;
+
+        // Pin legs on both sides of the board.
+        for ($i = 0; $i < 4; $i++) {
+            $y = $by - $bh / 2 + 18 + $i * 20;
+            $this->thickLine($im, $cx - $bw / 2 - 34, (int) $y, $cx - $bw / 2, (int) $y, $soft, 7);
+            $this->thickLine($im, $cx + $bw / 2, (int) $y, $cx + $bw / 2 + 34, (int) $y, $soft, 7);
+        }
+
+        // Board body + inner die.
+        $this->roundedRect($im, $cx - $bw / 2, (int) ($by - $bh / 2), $cx + $bw / 2, (int) ($by + $bh / 2), 16, $soft);
+        $this->roundedRectOutline($im, $cx - $bw / 2, (int) ($by - $bh / 2), $cx + $bw / 2, (int) ($by + $bh / 2), 16, $c, 6);
+        $this->roundedRect($im, $cx - 34, $by - 26, $cx + 34, $by + 26, 8, $c);
+
+        // Three broadcast arcs, widening as they rise. imagearc ignores
+        // imagesetthickness, so stack passes to build a readable stroke.
+        $seedShift = ($this->seed % 3) * 6;
+        for ($n = 1; $n <= 3; $n++) {
+            $w  = 150 + $n * 132;
+            $h  = 110 + $n * 96;
+            $ay = $by - $bh / 2 - 6;
+            for ($t = 0; $t < 7; $t++) {
+                imagearc($im, $cx, (int) $ay, $w - $t * 2, $h - $t * 2, 206 + $seedShift, 334 - $seedShift, $n === 1 ? $c : $soft);
+            }
+        }
     }
 
     private function motifPlay(\GdImage $im, int $cx, int $cy, array $theme): void
