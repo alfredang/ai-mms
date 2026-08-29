@@ -27,12 +27,30 @@ class MMD_Blog_Helper_Linkedin extends Mage_Core_Helper_Abstract
     }
 
     /**
+     * Organisation author URN (urn:li:organization:NNNN) for company-page
+     * posts, or null when unset. Posting as the org additionally requires the
+     * token to carry w_organization_social — callers should treat a failure as
+     * cosmetic, exactly like the member share.
+     */
+    public function orgUrn()
+    {
+        $env = $this->_env('LINKEDIN_ORG_URN');
+        if ($env !== null) {
+            return $env;
+        }
+        $urn = trim((string) Mage::getStoreConfig('mmd_marketing/linkedin/org_urn'));
+        return $urn !== '' ? $urn : null;
+    }
+
+    /**
+     * @param string|null $author author URN override (e.g. orgUrn() for the
+     *                            company page); null = the configured member.
      * @return array{externalId:string,externalUrl:string}
      */
-    public function share($commentary, $linkUrl = null, $imageUrl = null)
+    public function share($commentary, $linkUrl = null, $imageUrl = null, $author = null)
     {
         $token  = $this->_token();
-        $author = $this->_author();
+        if ($author === null || $author === '') { $author = $this->_author(); }
         if (!$token || !$author) {
             Mage::throwException('LinkedIn not configured: set LINKEDIN_ACCESS_TOKEN and LINKEDIN_AUTHOR_URN.');
         }

@@ -24,10 +24,15 @@ class MMD_Marketing_Helper_Linkedin extends Mage_Core_Helper_Abstract
 
     const CFG_TOKEN  = 'mmd_marketing/linkedin/access_token';
     const CFG_AUTHOR = 'mmd_marketing/linkedin/author_urn';
+    // Optional organisation author (urn:li:organization:NNNN). When set AND the
+    // token carries w_organization_social, the pipelines post to the company
+    // page as well as the member feed. Empty = org posting silently skipped.
+    const CFG_ORG    = 'mmd_marketing/linkedin/org_urn';
     const CFG_ENABLED = 'mmd_marketing/linkedin/enabled';
 
     protected function _token()  { return trim((string) Mage::helper('core')->decrypt(Mage::getStoreConfig(self::CFG_TOKEN))); }
     protected function _author() { return trim((string) Mage::getStoreConfig(self::CFG_AUTHOR)); }
+    public function orgUrn()     { return trim((string) Mage::getStoreConfig(self::CFG_ORG)); }
 
     public function isConfigured()
     {
@@ -249,13 +254,15 @@ class MMD_Marketing_Helper_Linkedin extends Mage_Core_Helper_Abstract
      * Non-fatal by contract: any failure returns ok=false without throwing so the
      * approval pipeline continues (MailerLite scheduling must not depend on this).
      */
-    public function postFlyer($productId, $commentary = '')
+    public function postFlyer($productId, $commentary = '', $author = null)
     {
         if (!$this->isConfigured()) {
             return array('ok' => false, 'msg' => 'LinkedIn not configured');
         }
         $token  = $this->_token();
-        $author = $this->_author();
+        // $author override lets callers post the same card as the organisation
+        // (orgUrn()) instead of the member; image upload owner follows it.
+        if ($author === null || $author === '') { $author = $this->_author(); }
         $c = Mage::helper('mmd_marketing/flyer')->courseData($productId);
         if (!$c) { return array('ok' => false, 'msg' => 'no course data'); }
 

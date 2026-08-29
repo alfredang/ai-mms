@@ -663,6 +663,10 @@ class MMD_Marketing_Model_Cron_Flyer
             }
         } catch (Exception $e) { $this->_log('scheduleApproved: LinkedIn error: ' . $e->getMessage()); }
 
+        // LinkedIn company-page auto-post — same non-fatal, once-only contract.
+        try { $this->_postLinkedinOrgOnce($newsletterId, 'scheduleApproved'); }
+        catch (Exception $e) { $this->_log('scheduleApproved: LinkedIn org error: ' . $e->getMessage()); }
+
         // Facebook page auto-post — same non-fatal, once-only contract as LinkedIn.
         try { $this->_postFacebookOnce($newsletterId, 'scheduleApproved'); }
         catch (Exception $e) { $this->_log('scheduleApproved: Facebook error: ' . $e->getMessage()); }
@@ -815,11 +819,48 @@ class MMD_Marketing_Model_Cron_Flyer
             }
         } catch (Exception $e) { $this->_log('markBlasted: LinkedIn error: ' . $e->getMessage()); }
 
+        // LinkedIn company-page auto-post — covers campaigns approved before the
+        // org credential existed AND acts as the blast-time trigger. Once only.
+        try { $this->_postLinkedinOrgOnce((int) $row['newsletter_id'], 'markBlasted'); }
+        catch (Exception $e) { $this->_log('markBlasted: LinkedIn org error: ' . $e->getMessage()); }
+
         // Facebook page auto-post — covers campaigns approved before Facebook was
         // configured AND acts as the blast-time trigger. Once only.
         try { $this->_postFacebookOnce((int) $row['newsletter_id'], 'markBlasted'); }
         catch (Exception $e) { $this->_log('markBlasted: Facebook error: ' . $e->getMessage()); }
         return true;
+    }
+
+    /**
+     * Post the campaign's flyer card to the LinkedIn COMPANY PAGE once (deduped
+     * by the _linkedin_org_url marker in review_decisions — the org twin of
+     * _linkedin_url). Fires only when mmd_marketing/linkedin/org_urn is set AND
+     * the token carries w_organization_social; otherwise a silent skip, so this
+     * ships dormant until the LinkedIn app's Community Management API access is
+     * approved. Non-fatal by the same contract as the member post.
+     */
+    protected function _postLinkedinOrgOnce($newsletterId, $context)
+    {
+        $li = Mage::helper('mmd_marketing/linkedin');
+        $org = $li->orgUrn();
+        if ($org === '' || !$li->isConfigured()) { return; }
+        // Re-read the row: the caller may have just written _linkedin_url /
+        // _facebook_url and a stale copy here would clobber them.
+        $row = $this->_read()->fetchRow('SELECT * FROM ' . $this->_tbl() . ' WHERE newsletter_id = ?', array((int) $newsletterId));
+        if (!$row) { return; }
+        $dec = json_decode((string) $row['review_decisions'], true);
+        if (!is_array($dec)) { $dec = array(); }
+        if (!empty($dec['_linkedin_org_url'])) { return; }
+
+        $pid = (int) trim(strtok((string) $row['course_pids'], ','));
+        if (!$pid) { return; }
+        $res = $li->postFlyer($pid, '', $org);
+        $this->_log($context . ': LinkedIn org ' . (!empty($res['ok']) ? 'posted ' . $res['url'] : 'skipped/failed: ' . $res['msg']));
+        if (!empty($res['ok'])) {
+            $dec['_linkedin_org_url'] = $res['url'];
+            $this->_write()->update($this->_tbl(), array('review_decisions' => json_encode($dec)),
+                array('newsletter_id = ?' => (int) $newsletterId));
+        }
     }
 
     /**

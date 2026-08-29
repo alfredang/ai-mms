@@ -562,6 +562,28 @@ class MMD_Blog_Model_Cron_Autoblog
             $parts[] = 'linkedin: ERROR ' . $e->getMessage();
         }
 
+        // LinkedIn company page (same commentary + hero, author = org URN).
+        // Dormant until mmd_marketing/linkedin/org_urn is set AND the token
+        // carries w_organization_social; deduped by linkedin_org_urn.
+        try {
+            $linkedin = Mage::helper('mmd_blog/linkedin');
+            $orgUrn   = $linkedin->orgUrn();
+            if (!Mage::getStoreConfigFlag('mmd_blog/autoblog/linkedin_enabled') || !$orgUrn) {
+                $parts[] = 'linkedin-org: off';
+            } elseif ($post->getLinkedinOrgUrn()) {
+                $parts[] = 'linkedin-org: already shared';
+            } elseif (!$linkedin->isConfigured()) {
+                $parts[] = 'linkedin-org: skipped (credentials not set)';
+            } else {
+                $result = $linkedin->share($commentary, $postUrl, $post->getHeroImageUrl() ?: null, $orgUrn);
+                $post->setLinkedinOrgUrn($result['externalId'])->save();
+                $parts[] = 'linkedin-org: ok ' . $result['externalId'];
+            }
+        } catch (Exception $e) {
+            Mage::log('Blog LinkedIn org share failed: ' . $e->getMessage(), null, 'mmd_blog.log');
+            $parts[] = 'linkedin-org: ERROR ' . $e->getMessage();
+        }
+
         // Facebook page (link post; the og card carries the visual)
         try {
             $facebook = Mage::helper('mmd_marketing/facebook');
