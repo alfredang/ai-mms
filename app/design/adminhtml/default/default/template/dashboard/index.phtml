@@ -3040,9 +3040,10 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                 'label'    => 'Marketing',
                 'children' => array(
                     'meta'        => 'SEO Meta',
-                    'related'     => 'Related Products',
-                    'upsells'     => 'Up-sells',
+                    'related'     => 'Related Courses',
+                    'upsells'     => 'Recommended Courses',
                     'crosssells'  => 'Cross-sells',
+                    'articles'    => 'Related Articles',
                 ),
             ),
             'design'           => 'Design',
@@ -5152,13 +5153,13 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
         // when *_links_loaded is set.
         $_linkTabs = array(
             'related'    => array(
-                'title' => 'Related Products',
+                'title' => 'Related Courses',
                 'links' => $_editProd->getRelatedProductCollection()->addAttributeToSelect('name')->addAttributeToSelect('sku')->addAttributeToSelect('price')->addAttributeToSelect('status'),
                 'flag'  => '_related_loaded',
                 'name'  => 'related',
             ),
             'upsells'    => array(
-                'title' => 'Up-sells',
+                'title' => 'Recommended Courses',
                 'links' => $_editProd->getUpSellProductCollection()->addAttributeToSelect('name')->addAttributeToSelect('sku')->addAttributeToSelect('price')->addAttributeToSelect('status'),
                 'flag'  => '_upsells_loaded',
                 'name'  => 'upsells',
@@ -5224,6 +5225,61 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
             </div>
         </div>
         <?php endforeach; ?>
+
+        <?php
+        // ===== Related Articles — blog posts linked to this course =====
+        // Selection is stored in mmd_blog_post_product (post_id, product_id).
+        // The storefront course page renders a random sample of the checked
+        // posts in the right column, under the Photo Gallery.
+        $_blogPostRows  = array();
+        $_linkedPostIds = array();
+        try {
+            $_bpRead = Mage::getSingleton('core/resource')->getConnection('core_read');
+            $_blogPostRows = $_bpRead->fetchAll(
+                "SELECT post_id, title, url_key, status, published_at
+                 FROM mmd_blog_post
+                 ORDER BY published_at DESC, post_id DESC"
+            );
+            $_linkedPostIds = array_map('intval', $_bpRead->fetchCol(
+                "SELECT post_id FROM mmd_blog_post_product WHERE product_id = ?",
+                array($_selectedCourseId)
+            ));
+        } catch (Exception $_bpEx) { /* blog tables absent on a stripped DB */ }
+        ?>
+        <div class="dcf-tab-panel" data-tab="articles">
+            <div class="dcf-mag">
+                <div class="dcf-mag-bar">Related Articles</div>
+                <div class="dcf-mag-body">
+                    <?php if (empty($_blogPostRows)): ?>
+                    <div style="color:#64748b;font-size:13px;">No blog articles found.</div>
+                    <?php else: ?>
+                    <input type="hidden" name="_articles_loaded" value="1" />
+                    <div style="margin-bottom:10px;color:#94a3b8;font-size:13px;">
+                        Tick the blog articles related to this course. A random selection of them
+                        is shown on the course page under the Photo Gallery.
+                    </div>
+                    <input type="text" class="dcf-input" id="dcf-article-filter" placeholder="Filter articles by title..." style="margin-bottom:10px;" oninput="(function(q){document.querySelectorAll('#dcf-article-list label').forEach(function(l){l.style.display = l.textContent.toLowerCase().indexOf(q) === -1 ? 'none' : 'block';});})(this.value.toLowerCase())" />
+                    <div id="dcf-article-list" style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:14px 16px;max-height:520px;overflow-y:auto;">
+                        <?php foreach ($_blogPostRows as $_bp):
+                            $_bpId   = (int) $_bp['post_id'];
+                            $_bpOn   = in_array($_bpId, $_linkedPostIds, true);
+                            $_bpPub  = ((int) $_bp['status']) === 1;
+                            $_bpDim  = $_bpPub ? '' : 'opacity:.5;';
+                        ?>
+                        <label style="display:block;margin:4px 0;color:#cbd5e1;font-size:13.5px;cursor:pointer;<?php echo $_bpDim ?>">
+                            <input type="checkbox" name="articles[]" value="<?php echo $_bpId ?>"<?php echo $_bpOn ? ' checked' : '' ?> style="accent-color:#2563eb;margin-right:8px;" />
+                            <?php echo htmlspecialchars($_bp['title']) ?>
+                            <span style="color:#64748b;">(<?php echo htmlspecialchars((string) $_bp['published_at']) ?><?php echo $_bpPub ? '' : ' &middot; not published' ?>)</span>
+                        </label>
+                        <?php endforeach; ?>
+                    </div>
+                    <div style="margin-top:10px;color:#64748b;font-size:12px;">
+                        <?php echo count($_blogPostRows) ?> articles &middot; <?php echo count($_linkedPostIds) ?> linked to this course
+                    </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
 
         <?php
         // ===== Read-only data tab (Reviews) =====

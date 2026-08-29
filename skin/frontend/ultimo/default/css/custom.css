@@ -2972,6 +2972,52 @@ a.brochure-cta:focus-visible { outline: 2px solid #9a3412; outline-offset: 2px; 
 .photo-gallery-item a:hover img { transform: scale(1.05); }
 
 /* --------------------------------------------------------------------
+   Course page right column — Related Articles
+   Blog posts linked to the course (mmd_blog_post_product), rendered as
+   thumbnail cards under the Photo Gallery.
+   -------------------------------------------------------------------- */
+.box-related-articles { margin-bottom: 20px; }
+.box-related-articles > .section-title {
+    font-size: 14px;
+    margin: 0 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #e5e7eb;
+}
+.related-articles-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.related-article-item a {
+    display: block;
+    overflow: hidden;
+    border-radius: 4px;
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    text-decoration: none;
+}
+.related-article-item img {
+    display: block;
+    width: 100%;
+    height: 110px;
+    object-fit: cover;
+    transition: transform .25s;
+}
+.related-article-item a:hover img { transform: scale(1.05); }
+.related-article-title {
+    display: block;
+    padding: 10px 12px;
+    font-size: 13px;
+    line-height: 1.4;
+    font-weight: 600;
+    color: #1f2937;
+}
+.related-article-item a:hover .related-article-title { color: #2563eb; }
+
+/* --------------------------------------------------------------------
    Course tabs — Job Roles
    Replace Ultimo's default '>' arrow bullet with chip-style pills so
    the list reads as discrete job titles rather than a navigation tree.

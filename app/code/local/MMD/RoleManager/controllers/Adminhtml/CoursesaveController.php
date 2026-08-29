@@ -473,6 +473,24 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 $product->{$_lkCfg['setter']}($_linkData);
             }
 
+            // === Related Articles — replace this course's rows in
+            //     mmd_blog_post_product with the checked set. Only runs when
+            //     the tab was actually rendered (_articles_loaded flag).
+            if ($req->getParam('_articles_loaded')) {
+                try {
+                    $_artWrite = Mage::getSingleton('core/resource')->getConnection('core_write');
+                    $_artPostIds = array_unique(array_map('intval', (array) $req->getParam('articles', array())));
+                    $_artWrite->delete('mmd_blog_post_product', array('product_id = ?' => (int) $courseId));
+                    foreach ($_artPostIds as $_artPid) {
+                        if ($_artPid <= 0) continue;
+                        $_artWrite->insert('mmd_blog_post_product', array(
+                            'post_id'    => $_artPid,
+                            'product_id' => (int) $courseId,
+                        ));
+                    }
+                } catch (Exception $_artEx) { /* blog link table absent — skip silently */ }
+            }
+
             $product->save();
 
             // === Course Schedule tab — edit/remove existing custom_option values
