@@ -211,10 +211,15 @@ class MMD_Blog_Model_Hero
     /**
      * Strip the segment prefixes that only matter in the catalog. A blog
      * headline reading "WSQ - ..." is course furniture, not an article title.
+     *
+     * Post titles are stored with HTML entities (&mdash; etc.) because migration
+     * content must stay pure ASCII, so decode first — imagettftext draws the raw
+     * string and would otherwise render a literal "&mdash;" in the headline.
      */
     private function cleanTitle(string $title): string
     {
-        $t = trim(preg_replace('/\s+/u', ' ', $title) ?? '');
+        $t = html_entity_decode($title, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $t = trim(preg_replace('/\s+/u', ' ', $t) ?? '');
         $t = preg_replace('/^\s*(?:WSQ|CASL|IBF)\s*[-:–—]?\s*/i', '', $t) ?? $t;
         return trim($t);
     }
