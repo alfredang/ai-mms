@@ -94,6 +94,19 @@ class MMD_Blog_Model_Hero
                 'autodesk', 'bim', 'cad', '3d modeling', '3d modelling', 'technical drawing',
             ),
         ),
+        // Urban farming sits above EVERY generic theme, not just 'funding'. These
+        // titles routinely also contain "build"/"grow" (code), "process" (data) and
+        // "course"/"skillsfuture" (funding) - a post called "Building a Hydroponic
+        // System From Scratch" rendered the blue terminal window until this moved up.
+        'farming' => array(
+            'bg' => array(0x06, 0x1C, 0x18), 'bg2' => array(0x0E, 0x3E, 0x30),
+            'accent' => array(0x6E, 0xE7, 0xA8), 'motif' => 'sprout',
+            'kw' => array(
+                'hydroponic', 'hydroponics', 'urban farming', 'farming', 'farm',
+                'grow', 'vertical farm', 'agriculture', 'crop', 'melon', 'harvest',
+                'seedling', 'nutrient solution', 'greenhouse',
+            ),
+        ),
         'automation' => array(
             'bg' => array(0x0A, 0x1C, 0x14), 'bg2' => array(0x12, 0x3A, 0x2A),
             'accent' => array(0x5E, 0xE8, 0x9B), 'motif' => 'nodes',
@@ -113,17 +126,6 @@ class MMD_Blog_Model_Hero
             'bg' => array(0x22, 0x0C, 0x14), 'bg2' => array(0x48, 0x16, 0x2E),
             'accent' => array(0xFF, 0x7A, 0x8A), 'motif' => 'play',
             'kw' => array('video', 'youtube', 'infographic', 'image', 'creative', 'design', 'visual'),
-        ),
-        // Urban farming sits above 'funding': these titles almost always also say
-        // "course"/"skillsfuture", which would otherwise render a funding rosette
-        // on an article about growing food.
-        'farming' => array(
-            'bg' => array(0x06, 0x1C, 0x18), 'bg2' => array(0x0E, 0x3E, 0x30),
-            'accent' => array(0x6E, 0xE7, 0xA8), 'motif' => 'sprout',
-            'kw' => array(
-                'hydroponic', 'hydroponics', 'urban farming', 'farming', 'farm',
-                'grow', 'vertical farm', 'agriculture', 'crop', 'melon', 'harvest',
-            ),
         ),
         'funding' => array(
             'bg' => array(0x08, 0x1A, 0x2E), 'bg2' => array(0x10, 0x38, 0x54),
