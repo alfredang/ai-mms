@@ -28,11 +28,22 @@ class MMD_Marketing_Helper_Linkedin extends Mage_Core_Helper_Abstract
     // token carries w_organization_social, the pipelines post to the company
     // page as well as the member feed. Empty = org posting silently skipped.
     const CFG_ORG    = 'mmd_marketing/linkedin/org_urn';
+    // Company-page posts authenticate with the DEDICATED org app's token
+    // (LinkedIn requires the Community Management API to be an app's only
+    // product, so the org credential comes from a different app than the
+    // member one). Core-encrypted. Falls back to the member token when unset.
+    const CFG_ORG_TOKEN = 'mmd_marketing/linkedin/org_access_token';
     const CFG_ENABLED = 'mmd_marketing/linkedin/enabled';
 
     protected function _token()  { return trim((string) Mage::helper('core')->decrypt(Mage::getStoreConfig(self::CFG_TOKEN))); }
     protected function _author() { return trim((string) Mage::getStoreConfig(self::CFG_AUTHOR)); }
     public function orgUrn()     { return trim((string) Mage::getStoreConfig(self::CFG_ORG)); }
+    protected function _orgToken()
+    {
+        $enc = trim((string) Mage::getStoreConfig(self::CFG_ORG_TOKEN));
+        $dec = $enc !== '' ? trim((string) Mage::helper('core')->decrypt($enc)) : '';
+        return $dec !== '' ? $dec : $this->_token();
+    }
 
     public function isConfigured()
     {
@@ -259,10 +270,11 @@ class MMD_Marketing_Helper_Linkedin extends Mage_Core_Helper_Abstract
         if (!$this->isConfigured()) {
             return array('ok' => false, 'msg' => 'LinkedIn not configured');
         }
-        $token  = $this->_token();
         // $author override lets callers post the same card as the organisation
-        // (orgUrn()) instead of the member; image upload owner follows it.
+        // (orgUrn()) instead of the member; image upload owner follows it, and
+        // org posts sign with the org app's token.
         if ($author === null || $author === '') { $author = $this->_author(); }
+        $token = ($author !== '' && $author === $this->orgUrn()) ? $this->_orgToken() : $this->_token();
         $c = Mage::helper('mmd_marketing/flyer')->courseData($productId);
         if (!$c) { return array('ok' => false, 'msg' => 'no course data'); }
 

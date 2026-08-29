@@ -43,14 +43,31 @@ class MMD_Blog_Helper_Linkedin extends Mage_Core_Helper_Abstract
     }
 
     /**
+     * Token for company-page posts — the dedicated org app's credential
+     * (mmd_marketing/linkedin/org_access_token, core-encrypted). Falls back to
+     * the member token when unset.
+     */
+    private function _orgToken()
+    {
+        $enc = trim((string) Mage::getStoreConfig('mmd_marketing/linkedin/org_access_token'));
+        if ($enc !== '') {
+            $dec = trim((string) Mage::helper('core')->decrypt($enc));
+            if ($dec !== '') {
+                return $dec;
+            }
+        }
+        return $this->_token();
+    }
+
+    /**
      * @param string|null $author author URN override (e.g. orgUrn() for the
      *                            company page); null = the configured member.
      * @return array{externalId:string,externalUrl:string}
      */
     public function share($commentary, $linkUrl = null, $imageUrl = null, $author = null)
     {
-        $token  = $this->_token();
         if ($author === null || $author === '') { $author = $this->_author(); }
+        $token = ($author !== null && $author === $this->orgUrn()) ? $this->_orgToken() : $this->_token();
         if (!$token || !$author) {
             Mage::throwException('LinkedIn not configured: set LINKEDIN_ACCESS_TOKEN and LINKEDIN_AUTHOR_URN.');
         }
