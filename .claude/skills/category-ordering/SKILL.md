@@ -1,20 +1,94 @@
 ---
 name: category-ordering
-description: Enforce the storefront category listing order — WSQ (TGS- SKU) courses first, then non-WSQ (C- SKU) courses ALPHABETICALLY by course name, then partner (M-prefix / other) last — in EVERY category. Also covers DISABLING an empty category (no products on the storefront). Use when asked to "sort courses in a category", "WSQ first", "list WSQ courses before non-WSQ", "order the category alphabetically", "fix the course order on a category page", "disable this empty category", "hide the empty category", or after adding/renaming a course that must slot into the right place in its category listing. Delivered as an idempotent migrations/NNN-*.sql that renumbers catalog_category_product.position AND mirrors it into catalog_category_product_index. Partner-safe (no SKU list; prefix convention holds on every site).
+description: Enforce the storefront category listing order — funded courses (ANY TGS- SKU, i.e. WSQ + CASL + IBF) ALWAYS before non-WSQ (C- SKU) courses, which are ALPHABETICAL by course name, then partner (M-prefix / other) last — in EVERY category. Also covers DISABLING an empty category (no products on the storefront). Use when asked to "sort courses in a category", "WSQ first", "list WSQ courses before non-WSQ", "order the category alphabetically", "fix the course order on a category page", "disable this empty category", "hide the empty category", or after adding/renaming a course that must slot into the right place in its category listing. Delivered as an idempotent migrations/NNN-*.sql that renumbers catalog_category_product.position AND mirrors it into catalog_category_product_index. Partner-safe (no SKU list; prefix convention holds on every site).
 ---
 
-# Category ordering (WSQ-first, non-WSQ alphabetical)
+# Category ordering (funded-first, non-WSQ alphabetical)
 
 The **hard rule** for every category listing on every storefront (SG/MY/GH):
 
-1. **WSQ** courses first — SKU `TGS-%`. Existing relative order preserved.
+1. **Funded courses first — ANY `TGS-%` SKU.** Existing relative order preserved.
 2. **Non-WSQ** courses next — SKU `C%`. Ordered **alphabetically by course name**.
 3. **Everything else** last — partner `M`-prefix / other. Existing order preserved.
+
+**Group 1 is the SKU prefix, not the title prefix.** `TGS-` covers **WSQ, CASL
+and IBF** alike — the course-code prefix is the ONLY test. A course titled
+`CASL - …` or `IBF - …` is group 1 exactly like a `WSQ - …` one, and must sit
+above every `C`-prefix course. Never gate this on the title text, and never
+treat "WSQ-first" as meaning only titles starting with `WSQ`.
+
+> Owner's standing instruction (2026-08-31): "always place the WSQ, CASL and IBF
+> course (TGS-* prefix course code) before the non-WSQ courses (C* prefix course
+> code) in any catalog page."
 
 The alphabetical key is the product `name` at `store_id = 0`. Because AI Vibe
 Coding course names share the `AI Vibe Coding ...` stem, and Microsoft cert
 courses start with the exam code (`AI-102`, `AZ-104` ...), alphabetical reads
 naturally as topic/exam-code order.
+
+## Adding a course to a category — NEVER append at MAX(position)+1 blindly
+
+Appending a new `TGS-` row at `MAX(position) + 1` is only safe in a category
+whose products are **all** `TGS-`. In any category that also holds `C-` courses,
+that lands the funded course **below** the non-WSQ block and breaks rule 1.
+
+> Real incident 2026-08-31: migration 1269 added three `TGS-` courses with
+> `MAX(position)+1` into AI for Retail (436), Microsoft Copilot Series (357) and
+> AI Vibe Coding Series (414) — all three then listed the new CASL/WSQ course
+> UNDER the C-prefix block. Fixed by 1273.
+
+So, when adding a course to a category:
+
+1. Check whether the category holds any `C`-prefix product.
+2. All-TGS → `MAX(position)+1` is fine.
+3. Mixed → give the new row a position **above the whole C-block**, e.g.
+   `MIN(position) - 1` (negative positions are fine; the sweep compacts them),
+   or re-apply the canonical rule afterwards.
+
+Audit query — every category where a funded course sits below a non-WSQ one:
+
+```sql
+SELECT i.category_id, e.sku, i.position
+FROM catalog_category_product_index i
+JOIN catalog_product_entity e ON e.entity_id = i.product_id
+WHERE i.store_id = 1 AND e.sku LIKE 'TGS-%'
+  AND i.position > (
+    SELECT MIN(i2.position) FROM catalog_category_product_index i2
+    JOIN catalog_product_entity e2 ON e2.entity_id = i2.product_id
+    WHERE i2.category_id = i.category_id AND i2.store_id = i.store_id
+      AND e2.sku LIKE 'C%')
+ORDER BY i.category_id;
+```
+
+Expect **0 rows**. Run it after any migration that adds products to categories.
+
+## Re-applying the rule catalog-wide — EXCLUDE curated categories
+
+A global 545-style renumber also re-alphabetises the non-WSQ block, which
+**destroys hand-curated C-orders** (the failure behind the 22 historical
+`reapply-curated-orders-*.sql` files). Categories listed in
+`mmd/category_ordering/curated_url_keys` must therefore be excluded from the
+renumber, and their WSQ-first violations fixed with a targeted lift instead:
+
+```sql
+DROP TEMPORARY TABLE IF EXISTS tmp_curated_cats;
+CREATE TEMPORARY TABLE tmp_curated_cats (category_id INT PRIMARY KEY);
+INSERT IGNORE INTO tmp_curated_cats (category_id)
+SELECT v.entity_id FROM catalog_category_entity_varchar v
+JOIN eav_attribute a ON a.attribute_id = v.attribute_id
+ AND a.entity_type_id = 3 AND a.attribute_code = 'url_key'
+WHERE v.store_id = 0
+  AND FIND_IN_SET(v.value, (SELECT value FROM (SELECT value FROM core_config_data
+        WHERE path = 'mmd/category_ordering/curated_url_keys'
+          AND scope='default' AND scope_id=0 LIMIT 1) cfg)) > 0;
+-- then: ... WHERE i.category_id NOT IN (SELECT category_id FROM tmp_curated_cats)
+```
+
+For the excluded ones, lift only the offending `TGS-` rows above the C-block
+(`SET position = <category MIN(position)> - 1`), leaving the curated C order
+untouched. Pattern: `migrations/1273-reorder-tgs-before-c-all-categories.sql`.
+**Verify on PROD before shipping** — a curated order can look "already
+flattened" on the stale local DB while prod still has it intact.
 
 ## HARD RULE — never name a flat table in a migration (it 502s every site)
 
