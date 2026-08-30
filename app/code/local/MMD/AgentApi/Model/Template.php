@@ -425,6 +425,16 @@ class MMD_AgentApi_Model_Template extends MMD_AgentApi_Model_Abstract
     }
 
     /**
+     * Public single-product apply — used by the admin Course Schedule tab's
+     * "Switch template" action (CoursesaveController::switchScheduleTemplateAction)
+     * so the admin and agent surfaces share one apply path.
+     */
+    public function applyGroupToProduct($group, $productId)
+    {
+        return $this->_applyGroupToProducts($group, array((int) $productId));
+    }
+
+    /**
      * Faithful port of OptionsController::runGlobalApplyAction() core. Applies the
      * template to its own products, or to an explicit $productIds set (used by
      * assign_course to apply to a single new member).
@@ -469,12 +479,19 @@ class MMD_AgentApi_Model_Template extends MMD_AgentApi_Model_Abstract
         }
         unset($opt);
 
+        // place matters: 'apo' loads the relation rows of EVERY member product and
+        // saveProductOptions deletes the options of any member NOT in $productIds as
+        // "removed remnants". Safe only for the full-membership roll-out. An explicit
+        // subset (assign_course / admin template switch) must use 'product', which
+        // scopes the relation read — same as the admin OptionsController's chunked
+        // _apply() — or every other member's schedule would be wiped.
+        $place = ($productIds === null) ? 'apo' : 'product';
         if ($productIds === null) {
             $productIds = $this->_resolveProductIds($group);
         }
         if (!empty($productIds)) {
             Mage::getModel('catalog/product_option')->saveProductOptions(
-                $newOpts, array(), $productIds, $group, $group->getIsActive(), 'apo', array());
+                $newOpts, array(), $productIds, $group, $group->getIsActive(), $place, array());
             Mage::getResourceModel('catalog/product_indexer_price')->reindexProductIds($productIds);
         }
         return count($productIds);

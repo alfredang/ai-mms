@@ -5483,6 +5483,48 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                     } catch (Exception $_csEx) { /* tables present but query may fail on a stripped DB */ }
                     ?>
                     <input type="hidden" name="_schedule_loaded" value="1" />
+                    <?php
+                    // Schedule-option template (MMD_CustomOptions group) this course is
+                    // linked to, plus the full template list for the switcher. Membership
+                    // truth is custom_options_relation.
+                    $_csCurGroups = array();   // group_id => title
+                    $_csAllGroups = array();
+                    try {
+                        $_csRead = Mage::getSingleton('core/resource')->getConnection('core_read');
+                        $_csCurGroups = $_csRead->fetchPairs(
+                            'SELECT g.group_id, g.title
+                               FROM custom_options_relation r
+                               JOIN custom_options_group g ON g.group_id = r.group_id
+                              WHERE r.product_id = ?
+                              GROUP BY g.group_id, g.title
+                              ORDER BY g.title',
+                            array((int) $_selectedCourseId));
+                        $_csAllGroups = $_csRead->fetchAll(
+                            'SELECT group_id, title, is_active FROM custom_options_group ORDER BY title');
+                    } catch (Exception $_csGx) { /* template tables absent on a stripped DB */ }
+                    ?>
+                    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:0 0 12px;margin-bottom:4px;border-bottom:1px solid var(--b1,#384a60);">
+                        <span style="color:var(--t4,#94a3b8);font-size:12px;">Schedule Template:</span>
+                        <?php if (!empty($_csCurGroups)): foreach ($_csCurGroups as $_csGt): ?>
+                        <span style="display:inline-flex;align-items:center;padding:3px 10px;border:1px solid var(--blue,#60a5fa);border-radius:999px;color:var(--blue,#60a5fa);font-size:11px;font-weight:600;"><?php echo htmlspecialchars($_csGt) ?></span>
+                        <?php endforeach; else: ?>
+                        <span style="display:inline-flex;align-items:center;padding:3px 10px;border:1px solid var(--b2,#475569);border-radius:999px;color:var(--t4,#94a3b8);font-size:11px;">None — manual schedule</span>
+                        <?php endif; ?>
+                        <?php if (!empty($_csAllGroups)): ?>
+                        <span style="flex:0 0 auto;width:1px;height:18px;background:var(--b1,#384a60);margin:0 4px;"></span>
+                        <select id="cs-tpl-select" style="height:28px;padding:2px 8px;font-size:12px;border-radius:6px;background:transparent;border:1px solid var(--b2,#475569);color:var(--t2,#e2e8f0);max-width:340px;">
+                            <option value="">— Select another template —</option>
+                            <?php foreach ($_csAllGroups as $_csG):
+                                $_csGid = (int) $_csG['group_id'];
+                                $_csIsCur = isset($_csCurGroups[$_csGid]) || isset($_csCurGroups[(string) $_csGid]);
+                            ?>
+                            <option value="<?php echo $_csGid ?>"<?php echo $_csIsCur ? ' disabled' : '' ?>><?php echo htmlspecialchars($_csG['title']) ?><?php echo ((int) $_csG['is_active'] === 2 ? ' (disabled)' : '') . ($_csIsCur ? ' — current' : '') ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <button type="button" class="mm-btn mm-btn-sm" onclick="csSwitchTemplate(this)">Switch Template</button>
+                        <span id="cs-tpl-status" style="color:var(--t4,#94a3b8);font-size:11px;"></span>
+                        <?php endif; ?>
+                    </div>
                     <div style="color:var(--t4,#94a3b8);border-bottom:1px solid var(--b1,#384a60);padding:0 0 12px;margin-bottom:4px;font-size:12px;line-height:1.55;">
                         Edit each session's <strong style="color:var(--t2,#e2e8f0);">title</strong>, <strong style="color:var(--t2,#e2e8f0);">price</strong>, or <strong style="color:var(--t2,#e2e8f0);">sort order</strong> below. Use <strong style="color:var(--t2,#e2e8f0);">Remove</strong> to mark a row for deletion or <strong style="color:var(--t2,#e2e8f0);">+ Add session</strong> to queue a new row. Save Changes commits everything in one go.
                     </div>
@@ -5697,6 +5739,57 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                                 if (btn) btn.disabled = false;
                                 if (status) status.textContent = '';
                                 alert('Renumber failed: ' + e);
+                            });
+                        };
+
+                        /* Switch this course onto a different schedule-option template
+                           (custom_options_group). Server-side: removes the old template's
+                           options for THIS course, applies the selected template, and
+                           carries over admin-added (admin_managed) dates. */
+                        window.csSwitchTemplate = function(btn) {
+                            var sel = document.getElementById('cs-tpl-select');
+                            if (!sel || !sel.value) { alert('Select a template to switch to first.'); return; }
+                            var name = sel.options[sel.selectedIndex].text;
+                            if (!confirm('Switch this course to schedule template:\n\n    ' + name + '\n\n' +
+                                'The current template’s Course Date / Course Time options on this course are ' +
+                                'replaced by the selected template’s schedule. Hand-added (admin-confirmed) ' +
+                                'dates are kept.\n\nThis writes to the DB immediately — unsaved edits in the ' +
+                                'table below are discarded when the page reloads.')) return;
+                            var status = document.getElementById('cs-tpl-status');
+                            if (status) status.textContent = 'Switching…';
+                            if (btn) btn.disabled = true;
+                            var fd = new FormData();
+                            fd.append('form_key', '<?php echo Mage::getSingleton("core/session")->getFormKey() ?>');
+                            fd.append('course_id', '<?php echo (int) $_selectedCourseId ?>');
+                            fd.append('group_id', sel.value);
+                            fetch('<?php echo Mage::helper("adminhtml")->getUrl("adminhtml/coursesave/switchScheduleTemplate") ?>', {
+                                method: 'POST', body: fd, credentials: 'same-origin'
+                            })
+                            .then(function(r){ return r.json(); })
+                            .then(function(j){
+                                if (btn) btn.disabled = false;
+                                if (!j || !j.success) {
+                                    if (status) status.textContent = '';
+                                    alert('Template switch failed: ' + ((j && j.message) || 'unknown error'));
+                                    return;
+                                }
+                                if (j.no_change) {
+                                    if (status) status.textContent = '';
+                                    alert(j.message || 'Course is already on that template.');
+                                    return;
+                                }
+                                var msg = 'Switched to "' + j.to + '".';
+                                if (j.restored_admin_dates) msg += '\nHand-added dates carried over: ' + j.restored_admin_dates + '.';
+                                if (j.dropped_admin_dates && j.dropped_admin_dates.length) {
+                                    msg += '\nCould not carry over (no matching option in the new template): ' + j.dropped_admin_dates.join(', ');
+                                }
+                                alert(msg + '\n\nReloading to show the new schedule.');
+                                window.location.reload();
+                            })
+                            .catch(function(e){
+                                if (btn) btn.disabled = false;
+                                if (status) status.textContent = '';
+                                alert('Template switch failed: ' + e);
                             });
                         };
 
