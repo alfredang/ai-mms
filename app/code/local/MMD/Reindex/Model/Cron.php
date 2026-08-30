@@ -59,6 +59,21 @@ class MMD_Reindex_Model_Cron
             $results['_fatal'] = 'fail: ' . $e->getMessage();
         }
 
+        // A full reindex re-derives anchor-only catalog_category_product_index
+        // rows at stale positions (9999/20015-style), which sorts WSQ courses
+        // below non-WSQ until the nightly ordering sweep. Re-apply the listing
+        // rule immediately so the storefront order survives every reindex.
+        try {
+            $ordering = Mage::getModel('mmd_rolemanager/cron_categoryOrdering');
+            if ($ordering) {
+                $ordering->run();
+                $results['category_ordering'] = 'ok';
+            }
+        } catch (Exception $e) {
+            $results['category_ordering'] = 'fail: ' . $e->getMessage();
+            Mage::logException($e);
+        }
+
         $duration = round(microtime(true) - $started, 1);
         $fail     = count(array_filter($results, function ($v) { return strpos($v, 'fail') === 0; }));
         $ok       = count($results) - $fail;

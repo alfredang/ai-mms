@@ -182,7 +182,18 @@ On prod after deploy, flush caches with the **flush-only** endpoint
 ordering migration**: a full reindex re-derives ANCHOR-ONLY index rows (those
 with no base `catalog_category_product` row) from scratch, regenerating stale
 positions (20011/130056-style) and undoing the renumber until the nightly
-sweep. Real incident 2026-07-29: `/reindex/api/run?flush=1` after migration 844
+sweep.
+
+> **2026-08-30 update: full reindexes now self-heal.** `MMD_Reindex_Model_Cron::run()`
+> chains `mmd_rolemanager/cron_categoryOrdering::run()` after the indexer loop, so
+> every full reindex (nightly cron, `/reindex/api/run`, admin Reindex Now) re-applies
+> the ordering rule — including the curated exemption — immediately. Root cause it
+> fixes: the nightly full reindex ran AFTER the 01:00 UTC ordering sweep, so the
+> catalog was scrambled most of every day (23 categories found broken on SG prod
+> 2026-08-30; repaired by migration 1201, which is the 545 copy + the curated
+> branch — copy **1201**, not bare 545, for future reorders). The "never full
+> reindex after an ordering migration" caution above still applies to any instance
+> running code older than this change. Real incident 2026-07-29: `/reindex/api/run?flush=1` after migration 844
 re-stranded 7 courses (3 WSQ) at the bottom of All Courses; fixed by migration
 847, which also gave every product in the master listing (url_key
 `adult-training-courses`) a DIRECT assignment so its positions survive future
