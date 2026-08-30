@@ -40,6 +40,14 @@ class MMD_RoleManager_Model_Cron_CategoryOrdering
     const CONFIG_ENABLED = 'mmd/category_ordering/enabled';
 
     /**
+     * Comma-separated category url_keys whose non-WSQ order is CURATED and
+     * must not be re-alphabetised (WSQ-first is still enforced). Set in
+     * core_config_data so a curated order can be granted/revoked without a
+     * deploy; seeded by migrations/1199.
+     */
+    const CONFIG_CURATED = 'mmd/category_ordering/curated_url_keys';
+
+    /**
      * Cron entry point.
      */
     public function run()
@@ -58,8 +66,10 @@ class MMD_RoleManager_Model_Cron_CategoryOrdering
             $write->query('SET @a_pname := (SELECT attribute_id FROM eav_attribute '
                 . "WHERE entity_type_id = 4 AND attribute_code = 'name')");
 
-            $indexRows = $write->query($this->_indexSql())->rowCount();
-            $baseRows  = $write->query($this->_baseSql())->rowCount();
+            $curated = $this->_curatedCategoryIds($write);
+
+            $indexRows = $write->query($this->_indexSql($curated))->rowCount();
+            $baseRows  = $write->query($this->_baseSql($curated))->rowCount();
 
             $msg = sprintf(
                 'MMD category ordering: reordered %d index row(s), %d base row(s) in %.1fs',
@@ -77,12 +87,88 @@ class MMD_RoleManager_Model_Cron_CategoryOrdering
     }
 
     /**
-     * Renumber the storefront-facing index, per (category_id, store_id).
+     * Resolve the curated url_keys to category ids on THIS instance.
      *
+     * Returns [] when unset/empty or when no url_key matches (partner DBs
+     * have their own category ids and may not carry these categories), in
+     * which case the sweep behaves exactly as before.
+     *
+     * @param  Varien_Db_Adapter_Interface $write
+     * @return int[]
+     */
+    protected function _curatedCategoryIds($write)
+    {
+        // Read core_config_data DIRECTLY, not via Mage::getStoreConfig(): the
+        // config cache is populated at app init, so a migration that seeds
+        // this row is invisible to the cron until a cache flush. A daily job
+        // must not depend on someone having flushed.
+        $raw = (string) $write->fetchOne(
+            $write->select()
+                ->from('core_config_data', array('value'))
+                ->where('path = ?', self::CONFIG_CURATED)
+                ->order(array('scope_id ASC'))
+                ->limit(1)
+        );
+        if (trim($raw) === '') {
+            return array();
+        }
+
+        $keys = array_filter(array_map('trim', explode(',', $raw)));
+        if (!$keys) {
+            return array();
+        }
+
+        $select = $write->select()
+            ->from(array('v' => 'catalog_category_entity_varchar'), array('entity_id'))
+            ->join(array('a' => 'eav_attribute'), 'a.attribute_id = v.attribute_id', array())
+            ->where('a.entity_type_id = ?', 3)
+            ->where('a.attribute_code = ?', 'url_key')
+            ->where('v.store_id = ?', 0)
+            ->where('v.value IN (?)', $keys);
+
+        return array_map('intval', $write->fetchCol($select));
+    }
+
+    /**
+     * SQL fragment that keeps a curated category's non-WSQ rows in their
+     * existing position order instead of re-alphabetising them.
+     *
+     * Empty string when nothing is curated, so the generated SQL — and its
+     * plan — is byte-identical to the pre-exemption sweep.
+     *
+     * @param  int[]  $curated
+     * @param  string $posCol  qualified position column for this query
      * @return string
      */
-    protected function _indexSql()
+    protected function _curatedOrderExpr(array $curated, $posCol)
     {
+        if (!$curated) {
+            return '';
+        }
+
+        list($catCol, $skuCol) = $posCol === 'i.position'
+            ? array('i.category_id', 'e.sku')
+            : array('p.category_id', 'e.sku');
+
+        return sprintf(
+            "      CASE WHEN %s IN (%s) AND %s NOT LIKE 'TGS-%%' THEN %s END ASC,\n",
+            $catCol,
+            implode(',', $curated),
+            $skuCol,
+            $posCol
+        );
+    }
+
+    /**
+     * Renumber the storefront-facing index, per (category_id, store_id).
+     *
+     * @param  int[] $curated
+     * @return string
+     */
+    protected function _indexSql(array $curated = array())
+    {
+        $curatedExpr = $this->_curatedOrderExpr($curated, 'i.position');
+
         return "
 UPDATE catalog_category_product_index idx
 JOIN (
@@ -101,7 +187,7 @@ JOIN (
       i.store_id ASC,
       CASE WHEN e.sku LIKE 'TGS-%' THEN 0 WHEN e.sku LIKE 'C%' THEN 1 ELSE 2 END ASC,
       CASE WHEN e.sku LIKE 'TGS-%' THEN i.position END ASC,
-      CASE WHEN e.sku LIKE 'TGS-%' THEN NULL ELSE nv.value END ASC,
+{$curatedExpr}      CASE WHEN e.sku LIKE 'TGS-%' THEN NULL ELSE nv.value END ASC,
       i.product_id ASC
   ) sorted
 ) ranked
@@ -116,8 +202,10 @@ SET idx.position = ranked.new_pos";
      *
      * @return string
      */
-    protected function _baseSql()
+    protected function _baseSql(array $curated = array())
     {
+        $curatedExpr = $this->_curatedOrderExpr($curated, 'p.position');
+
         return "
 UPDATE catalog_category_product cp
 JOIN (
@@ -135,7 +223,7 @@ JOIN (
       p.category_id ASC,
       CASE WHEN e.sku LIKE 'TGS-%' THEN 0 WHEN e.sku LIKE 'C%' THEN 1 ELSE 2 END ASC,
       CASE WHEN e.sku LIKE 'TGS-%' THEN p.position END ASC,
-      CASE WHEN e.sku LIKE 'TGS-%' THEN NULL ELSE nv.value END ASC,
+{$curatedExpr}      CASE WHEN e.sku LIKE 'TGS-%' THEN NULL ELSE nv.value END ASC,
       p.product_id ASC
   ) sorted
 ) ranked ON ranked.category_id = cp.category_id AND ranked.product_id = cp.product_id
