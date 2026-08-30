@@ -3179,3 +3179,31 @@ a.brochure-cta:focus-visible { outline: 2px solid #9a3412; outline-offset: 2px; 
         padding-right: 0 !important;
     }
 }
+
+/* --------------------------------------------------------------------
+   Nested menu flyouts: clear the parent column instead of overlapping it.
+
+   Ultimo positions a level-2 "classic" dropdown at left:60px
+   (css/infortis/ultra-megamenu/menu-dropdown.css), which slides the flyout
+   OVER the parent dropdown's own links — e.g. the AI Applications Series
+   subcategory list covered the series names next to it. Push it to the full
+   width of the parent panel so the two columns sit side by side, and give it
+   a small negative top offset so the first child lines up with its parent
+   row. Applies to every nested dropdown in the main nav, not just AI Courses.
+   -------------------------------------------------------------------- */
+.nav-regular .nav-panel li.classic:hover > .nav-panel--dropdown,
+.nav-regular .nav-submenu--mega > li.classic:hover > .nav-panel--dropdown {
+    left: 100%;
+    top: -20px; /* cancels the panel's 20px padding so rows align */
+    margin-left: 1px;
+}
+
+/* Submenus size to their content; never inherit a parent panel's wide
+   inline width. (The AI Applications Series category also had a stale
+   umm_dd_width=1000px, cleared by migration 1219.) */
+.nav-regular .nav-panel li.classic > ul.nav-panel--dropdown {
+    width: auto !important;
+    min-width: 13em;
+    max-width: 20em;
+    white-space: nowrap;
+}
