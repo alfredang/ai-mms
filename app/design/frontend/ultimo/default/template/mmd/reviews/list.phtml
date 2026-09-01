@@ -26,10 +26,18 @@ $reviews = $this->getReviews();
             $full  = (int) floor($score);
         ?>
         <article class="mmd-rev-card">
-            <div class="mmd-rev-stars" aria-label="<?php echo $this->escapeHtml($score) ?> out of 5">
-                <?php for ($i = 1; $i <= 5; $i++): ?>
-                    <span class="mmd-rev-star<?php echo $i <= $full ? ' is-on' : '' ?>">&#9733;</span>
-                <?php endfor; ?>
+            <div class="mmd-rev-meta">
+                <div class="mmd-rev-stars" aria-label="<?php echo $this->escapeHtml($score) ?> out of 5">
+                    <?php for ($i = 1; $i <= 5; $i++): ?>
+                        <span class="mmd-rev-star<?php echo $i <= $full ? ' is-on' : '' ?>">&#9733;</span>
+                    <?php endfor; ?>
+                </div>
+                <?php /* Month + year only: several of these are Google reviews
+                         dated from a relative age ("5 weeks ago"), so an exact
+                         day would be false precision. */ ?>
+                <?php if (!empty($review['created_at'])): ?>
+                    <time class="mmd-rev-date" datetime="<?php echo $this->escapeHtml(substr($review['created_at'], 0, 10)) ?>"><?php echo $this->escapeHtml(date('M Y', strtotime($review['created_at']))) ?></time>
+                <?php endif; ?>
             </div>
             <?php if ($review['title']): ?>
                 <h3 class="mmd-rev-title"><?php echo $this->escapeHtml($review['title']) ?></h3>

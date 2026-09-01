@@ -81,31 +81,36 @@
 @media (max-width: 620px)  { .mmd-rev-grid { grid-template-columns: 1fr; } }
 
 /* The /testimonials page shows full, unclamped quotes, so card heights vary
-   wildly (a 4-line Google review next to a 25-line LinkedIn one). In a grid
-   that forces every card in a row to the tallest card's height, leaving the
-   short ones half empty and stranding the overflow on its own row. CSS
-   columns let each card take its natural height and flow into the shortest
-   column instead — masonry, no JS. */
-/* 2 columns, not 3: CSS columns BALANCE content, so a handful of cards fill
-   the first N columns and leave the rest visibly empty. At the current volume
-   (a few featured reviews) 2 wide columns always fill; 3 stranded the third.
-   The 420px min means it degrades to 1 column on narrow screens, and if the
-   featured set ever grows the cards simply get taller, never lopsided. */
+   wildly (a 4-line Google review next to a 25-line LinkedIn one). This was a
+   CSS multi-column (masonry) layout, which let each card take its natural
+   height — but multi-column fills the FIRST column top-to-bottom before
+   starting the second, so with reviews ordered newest-first the 2nd-newest sat
+   below the newest and the top-right card was the 13th. Reading order did not
+   match "latest first".
+
+   Grid is the deliberate trade: row-wise flow makes the visual order match the
+   sort order, at the cost of cards in a row no longer tiling at their natural
+   heights. `align-items: start` keeps a short card from stretching, so the
+   cost is some uneven whitespace between rows rather than half-empty cards. */
 .mmd-rev-grid-page {
-    display: block;
-    columns: 2 420px;
-    column-gap: 24px;
+    /* Grid, NOT CSS multi-column. Reviews are ordered newest-first, and a
+       `columns: 2` layout fills the left column top-to-bottom before starting
+       the right one — so the 2nd-newest review landed below the newest and the
+       top-right card was the 13th. Grid flows row-wise, so reading order
+       left-to-right actually matches "latest on top". */
+    display: grid;
+    /* min() floor, not a bare 420px: on a narrow phone a hard 420px minimum
+       overflows the viewport horizontally (the old `columns` shorthand degraded
+       on its own). */
+    grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr));
+    gap: 24px;
     max-width: 900px;
+    /* Cards in a row size to the tallest; start-align so a short review does
+       not stretch into a mostly-empty card. */
+    align-items: start;
 }
 .mmd-rev-grid-page .mmd-rev-card {
-    /* break-inside stops a card being split across two columns. */
-    break-inside: avoid;
-    -webkit-column-break-inside: avoid;
-    margin: 0 0 24px;
-    /* inline-flex + width:100% keeps the flex column layout (footer pinned to
-       the bottom via margin-top:auto) working inside a CSS column. */
-    display: inline-flex;
-    width: 100%;
+    margin: 0;
     box-sizing: border-box;
 }
 
@@ -122,6 +127,26 @@
 
 /* --- Stars ----------------------------------------------------------------- */
 .mmd-rev-stars { display: flex; gap: 2px; margin-bottom: 11px; }
+/* /testimonials cards pair the stars with the review date on one row; the
+   wrapper owns the spacing so the bare .mmd-rev-stars rule above still holds
+   on the homepage strip, which has no date. */
+.mmd-rev-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 11px;
+}
+.mmd-rev-meta .mmd-rev-stars { margin-bottom: 0; }
+.mmd-rev-date {
+    flex: 0 0 auto;
+    font-family: var(--mr-mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--mr-muted);
+    white-space: nowrap;
+}
 .mmd-rev-star { color: #d8dde5; font-size: 15px; line-height: 1; }
 .mmd-rev-star.is-on { color: var(--mr-amber); }
 
