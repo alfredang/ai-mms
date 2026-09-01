@@ -127,9 +127,10 @@
 
 /* --- Stars ----------------------------------------------------------------- */
 .mmd-rev-stars { display: flex; gap: 2px; margin-bottom: 11px; }
-/* /testimonials cards pair the stars with the review date on one row; the
-   wrapper owns the spacing so the bare .mmd-rev-stars rule above still holds
-   on the homepage strip, which has no date. */
+/* Both the homepage strip and /testimonials pair the stars with the review
+   date on one row. The wrapper owns the spacing, so the bare .mmd-rev-stars
+   rule above still holds anywhere the stars appear without a .mmd-rev-meta
+   parent (e.g. a review with no created_at). */
 .mmd-rev-meta {
     display: flex;
     align-items: center;
