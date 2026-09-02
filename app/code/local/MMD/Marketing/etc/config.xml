@@ -110,6 +110,16 @@
                 <schedule><cron_expr>0 7 * * *</cron_expr></schedule>
                 <run><model>mmd_marketing/cron_subscribersync::watchdog</model></run>
             </mmd_marketing_subscriber_sync_watchdog>
+            <!-- Mondays 08:00 — probe the Facebook + LinkedIn credentials the
+                 way the platforms see them and email the reviewers BEFORE a
+                 share starts failing. shareEverywhere() returns a per-network
+                 string and never throws, so a dead token is invisible: the
+                 2026-08-29 Facebook token died silently and three blog posts
+                 missed the page for four days. Read-only; rotates nothing. -->
+            <mmd_marketing_token_health>
+                <schedule><cron_expr>0 8 * * 1</cron_expr></schedule>
+                <run><model>mmd_marketing/cron_tokenhealth::run</model></run>
+            </mmd_marketing_token_health>
             <!-- 28th of each month, 03:00 — rebuild the reconstructed months
                  behind the dashboard subscriber-growth chart. Daily snapshots
                  only start 2026-07-13, so earlier months are derived from
