@@ -1,4 +1,4 @@
--- 1313: Blog post -- case study: 3-day agentic AI training at Kacific Satellite Broadband,
+-- 1316: Blog post -- case study: 3-day agentic AI training at Kacific Satellite Broadband,
 -- culminating in a working procure-to-pay ERP system (Claude Code / Copilot Studio / build day).
 -- SG-only (CTA is an SG WSQ course). Published live (status=1), dated 2026-09-04.
 -- All external URLs verified HTTP 200 on 2026-09-04.
@@ -15,7 +15,7 @@ SELECT 'We Built a Working ERP System in Three Days: Agentic AI Training at Kaci
   'Dr. Alfred Ang', 1, '2026-09-04', 'TGS-2022017524', 'TGS-2022017524',
   'Agentic AI Training Case Study: Building an ERP in 3 Days at Kacific Satellite Broadband', CONCAT('Case study: a three-day agentic AI programme at Kacific Satellite Broadband ', CHAR(0xE2,0x80,0x94 USING utf8mb4), ' Claude Code, Microsoft Copilot Studio, and a working ERP system built on day three. See the live demo, the stack, and the lessons.'),
   'agentic AI training Singapore, Copilot Studio course, Claude Code training, corporate AI training Singapore, Power Automate Copilot Studio WSQ, AI agents ERP, in-house AI training, Kacific',
-  0, NOW(), NOW()
+  96, NOW(), NOW()
 FROM DUAL WHERE @is_sg = 1
   AND NOT EXISTS (SELECT 1 FROM (SELECT post_id FROM mmd_blog_post WHERE url_key = 'agentic-ai-training-kacific-satellite-broadband-erp-case-study') x);
 
@@ -58,3 +58,11 @@ WHERE NOT EXISTS (SELECT 1 FROM (SELECT tag_id FROM tag WHERE name = 'WSQ') x);
 INSERT IGNORE INTO mmd_blog_post_tag (post_id, tag_id)
 SELECT p.post_id, t.tag_id FROM mmd_blog_post p JOIN tag t ON t.name = 'WSQ'
 WHERE p.url_key = 'agentic-ai-training-kacific-satellite-broadband-erp-case-study';
+
+-- Renumbered from 1313 (a concurrent session shipped a different 1313), so this
+-- file re-runs against a DB that already has the post. Every statement above is
+-- guarded by NOT EXISTS / INSERT IGNORE, and this keeps the seeded like count
+-- aligned without clobbering real likes accrued on the storefront.
+UPDATE mmd_blog_post SET likes = 96
+ WHERE url_key = 'agentic-ai-training-kacific-satellite-broadband-erp-case-study'
+   AND likes = 0;
