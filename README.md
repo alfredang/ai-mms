@@ -2,7 +2,7 @@
 
 # Tertiary Courses LMS (ai-mms)
 
-[![OpenMage](https://img.shields.io/badge/OpenMage-LTS%20v20.12.3-f46f25)](https://www.openmage.org/)
+[![OpenMage](https://img.shields.io/badge/OpenMage-LTS%20v20.12.0-f46f25)](https://www.openmage.org/)
 [![PHP](https://img.shields.io/badge/PHP-8.2-777BB4?logo=php&logoColor=white)](https://www.php.net/)
 [![MySQL](https://img.shields.io/badge/MySQL-5.7-4479A1?logo=mysql&logoColor=white)](https://www.mysql.com/)
 [![Apache](https://img.shields.io/badge/Apache-2.4-D22128?logo=apache&logoColor=white)](https://httpd.apache.org/)
@@ -76,7 +76,7 @@ This system runs as a **franchise model**:
 
 | Layer | Technology |
 |-------|------------|
-| **Platform** | OpenMage LTS v20.12.3 (Magento 1.x) |
+| **Platform** | OpenMage LTS v20.12.0 (Magento 1.x) |
 | **Language** | PHP 8.2 |
 | **Database** | MySQL 5.7 |
 | **Web Server** | Apache 2.4 |
