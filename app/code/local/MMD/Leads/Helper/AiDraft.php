@@ -43,7 +43,7 @@ class MMD_Leads_Helper_AiDraft extends Mage_Core_Helper_Abstract
             }
         }
         $stdout = $this->_invokeClaude(
-            $this->_systemPrompt($context['store_brand']),
+            $this->_systemPrompt($context['store_brand'], $lead->getKind()),
             $prompt
         );
 
@@ -60,7 +60,7 @@ class MMD_Leads_Helper_AiDraft extends Mage_Core_Helper_Abstract
         }
 
         return array(
-            'subject_course' => trim((string) ($parsed['subject_course'] ?? '')) ?: trim((string) $lead->getCoursesInterested()) ?: 'your enquiry',
+            'subject_course' => trim((string) ($parsed['subject_course'] ?? '')) ?: trim($lead->getEnquiryInterest()) ?: 'your enquiry',
             'body_html'      => trim((string) $parsed['body_html']),
         );
     }
@@ -72,38 +72,47 @@ class MMD_Leads_Helper_AiDraft extends Mage_Core_Helper_Abstract
     {
         $helper  = Mage::helper('mmd_leads');
         $storeId = (int) $lead->getStoreId();
+        $kind    = $lead->getKind();
 
-        // Best single recommendation (exact course-code match wins, then
-        // keyword scoring) + up to 3 fuzzy catalog matches as alternates.
-        $recommended = $helper->recommendCourse($lead);
+        // Franchise enquiries are about a partnership, not a course — skip
+        // the catalog lookups so the model has nothing irrelevant to pitch.
+        $recommended = null;
+        $matches     = array();
+        $schedule    = null;
+        if ($kind !== 'franchise') {
+            // Best single recommendation (exact course-code match wins, then
+            // keyword scoring) + up to 3 fuzzy catalog matches as alternates.
+            $recommended = $helper->recommendCourse($lead);
 
-        $matches = array();
-        $text    = trim($lead->getCoursesInterested() . ' ' . $lead->getComment());
-        if ($text !== '') {
-            $coll = $helper->matchCourses($text, $storeId);
-            if ($coll) {
-                foreach ($coll as $product) {
-                    $matches[] = $helper->buildCourseSnippet($product, $storeId);
+            $text = trim($lead->getEnquiryInterest() . ' ' . $lead->getEnquiryMessage());
+            if ($text !== '') {
+                $coll = $helper->matchCourses($text, $storeId);
+                if ($coll) {
+                    foreach ($coll as $product) {
+                        $matches[] = $helper->buildCourseSnippet($product, $storeId);
+                    }
                 }
             }
-        }
 
-        // Live upcoming classes from the schedule API for the recommended
-        // (or form-supplied) course code.
-        $sku = $recommended ? $recommended['code'] : trim((string) $lead->getCourseCode());
-        $schedule = $sku !== '' ? $this->fetchScheduleFromApi($sku, $storeId) : null;
+            // Live upcoming classes from the schedule API for the recommended
+            // (or form-supplied) course code.
+            $sku = $recommended ? $recommended['code'] : trim((string) $lead->getCourseCode());
+            $schedule = $sku !== '' ? $this->fetchScheduleFromApi($sku, $storeId) : null;
+        }
 
         return array(
             'store_brand'  => $helper->getStoreBrandName($storeId),
             'store_url'    => Mage::app()->getStore($storeId ?: null)->getBaseUrl(),
+            'kind'         => $kind,
             'lead'         => array(
+                'enquiry_type'      => $lead->getKindLabel(),
                 'name'              => (string) $lead->getName(),
                 'email'             => (string) $lead->getEmail(),
                 'company'           => (string) $lead->getCompany(),
                 'telephone'         => (string) $lead->getTelephone(),
-                'courses_interested' => (string) $lead->getCoursesInterested(),
-                'course_code'       => (string) $lead->getCourseCode(),
-                'message'           => (string) $lead->getComment(),
+                'interest'          => $lead->getEnquiryInterest(),
+                'details'           => $lead->getEnquiryFacts(),
+                'message'           => $lead->getEnquiryMessage(),
             ),
             'recommended'  => $recommended,
             'matches'      => $matches,
@@ -149,11 +158,12 @@ class MMD_Leads_Helper_AiDraft extends Mage_Core_Helper_Abstract
         }
     }
 
-    protected function _systemPrompt($storeBrand)
+    protected function _systemPrompt($storeBrand, $kind = 'general')
     {
-        return 'You are a training consultant at ' . $storeBrand . ', a professional '
-            . 'course-training academy. You draft warm, precise reply emails to course '
-            . 'enquiries. You only state facts present in the provided data — never invent '
+        $role = $kind === 'franchise'
+            ? 'the partnerships manager at ' . $storeBrand . ', a professional course-training academy that appoints regional franchise partners. You draft warm, precise reply emails to franchise partnership enquiries.'
+            : 'a training consultant at ' . $storeBrand . ', a professional course-training academy. You draft warm, precise reply emails to course and corporate training enquiries.';
+        return 'You are ' . $role . ' You only state facts present in the provided data — never invent '
             . 'dates, prices, or policies. Output exactly the JSON object requested, no '
             . 'preamble, no markdown fences.';
     }
@@ -167,16 +177,70 @@ class MMD_Leads_Helper_AiDraft extends Mage_Core_Helper_Abstract
             'live_schedule'      => $ctx['schedule'],
         ), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 
+        $preamble = <<<PROMPT
+The body you write is inserted into a branded email template that ALREADY renders:
+- greeting: "Hi <name>, Thanks for getting in touch with {$ctx['store_brand']}. Here are the details you asked about:"
+- closing: a follow-up invitation and a signature.
+So write ONLY the middle content — no greeting, no sign-off, no subject line inside the body.
+PROMPT;
+
+        $footer = <<<PROMPT
+Simple HTML only: <p>, <br/>, <strong>, <a>. No inline CSS, no images, no tables.
+Keep the whole body under 220 words. Professional, warm, concise.
+
+Return ONLY this JSON object:
+{"subject_course": "...", "body_html": "..."}
+PROMPT;
+
+        if ($ctx['kind'] === 'corporate' || $ctx['kind'] === 'customised') {
+            $what = $ctx['kind'] === 'corporate' ? 'corporate on-site training' : 'customised training';
+            return <<<PROMPT
+Draft the reply to this {$what} enquiry from a company.
+
+DATA (lead + related courses pulled from our catalog):
+{$data}
+
+{$preamble}
+
+Requirements for body_html:
+1. Acknowledge their request specifically — the training topic, company, number of participants and preferred dates from lead.details / lead.message — and directly answer anything they asked in their message. Never invent an answer to something the data does not cover; say our training consultant will confirm it.
+2. Confirm we deliver this as an in-house / customised programme for their team (on-site at their premises, live online, or at our training centre) and that the curriculum is tailored to their participants' level and use cases.
+3. If recommended_course or other_matches genuinely cover their topic, mention 1–2 of them by title (with the link) as the public courses the customised programme can be built from. Skip this if nothing matches their topic.
+4. State the next step: our training consultant will get back with a proposal and quotation, and list what would help us tailor it if not already given (participants' current level, preferred dates, delivery mode, any specific tools/use cases). Do NOT quote prices, duration or dates.
+5. If recommended_course.kind is "wsq", add ONE sentence that WSQ funding / SkillsFuture Enterprise Credit may apply for Singapore companies and we will advise on eligibility.
+6. {$footer}
+
+subject_course: a short topic for the subject line "Re: Your enquiry about <subject_course>" — e.g. "corporate training on <topic>".
+PROMPT;
+        }
+
+        if ($ctx['kind'] === 'franchise') {
+            return <<<PROMPT
+Draft the reply to this regional franchise partnership enquiry.
+
+DATA:
+{$data}
+
+{$preamble}
+
+Requirements for body_html:
+1. Thank them for their interest in becoming a franchise partner for their country/region (lead.details) and acknowledge anything specific they wrote in lead.message.
+2. Briefly explain the partnership: the partner runs the academy's courses under our brand in their market with our course catalogue, courseware, trainer support and website platform, while they handle local marketing, delivery and learner support.
+3. State the next step: our partnerships team will arrange an introductory call to walk through the partnership model and requirements, and ask them for a short background (their organisation, training experience, target market and timeline) if not already given. Do NOT quote fees, investment amounts, revenue shares or timelines.
+4. No course listings — this is not a course enquiry.
+5. {$footer}
+
+subject_course: a short topic for the subject line "Re: Your enquiry about <subject_course>" — e.g. "franchise partnership in <country>".
+PROMPT;
+        }
+
         return <<<PROMPT
 Draft the reply to this course enquiry lead.
 
 DATA (lead + course info pulled from our catalog and schedule API):
 {$data}
 
-The body you write is inserted into a branded email template that ALREADY renders:
-- greeting: "Hi <name>, Thanks for getting in touch with {$ctx['store_brand']}. Here are the details you asked about:"
-- closing: a follow-up invitation and a signature.
-So write ONLY the middle content — no greeting, no sign-off, no subject line inside the body.
+{$preamble}
 
 Requirements for body_html:
 1. First, directly address what the lead actually asked in their message (e.g. an application status, invoice/billing question, schedule question) in 1–2 short paragraphs. If their question needs internal follow-up we cannot answer from the data (like an order status), say our team is checking and will confirm shortly — do not invent a status.
@@ -188,13 +252,9 @@ Requirements for body_html:
 3. Next Schedule: use the earliest upcoming class from live_schedule (format "Mon, 3 Aug 2026" or a range; include mode e.g. Classroom / Live Online and seats note if available). If no schedule data, write "Please contact us for upcoming dates."
 4. If recommended_course.kind is "wsq", add one short paragraph noting WSQ funding: no upfront payment needed, we apply the WSQ subsidy on their behalf, SkillsFuture Credit can offset the balance, and they may also apply via the MySkillsFuture portal link (recommended_course.myskillsfuture_url).
 5. If the lead mentioned paying by company invoice, note that corporate/invoice billing is available and our team will arrange it.
-6. Simple HTML only: <p>, <br/>, <strong>, <a>. No inline CSS, no images, no tables.
-7. Keep the whole body under 220 words. Professional, warm, concise.
+6. {$footer}
 
 subject_course: a short topic for the subject line "Re: Your enquiry about <subject_course>" — normally the recommended course title, else the lead's stated interest.
-
-Return ONLY this JSON object:
-{"subject_course": "...", "body_html": "..."}
 PROMPT;
     }
 

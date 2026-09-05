@@ -57,6 +57,46 @@ class MMD_Leads_Model_Lead extends Mage_Core_Model_Abstract
     const DRAFT_CHANGES_REQUESTED = 'changes_requested';
     const DRAFT_APPROVED_SENT     = 'approved_sent';
 
+    /**
+     * Lead kind — the draft-review pipeline (cron, approval email, decide
+     * endpoint, AI prompt) runs over every kind; the Corporate / Franchise /
+     * Customised models extend this class and override these accessors so
+     * the pipeline reads each table's own columns.
+     */
+    public function getKind()
+    {
+        return 'general';
+    }
+
+    public function getKindLabel()
+    {
+        return 'General Enquiry';
+    }
+
+    /** Free-text message the visitor typed. */
+    public function getEnquiryMessage()
+    {
+        return (string) $this->getComment();
+    }
+
+    /** What the enquiry is about — course interest, training topic, country. */
+    public function getEnquiryInterest()
+    {
+        return (string) $this->getCoursesInterested();
+    }
+
+    /** Extra structured form fields as label => value (empty values dropped). */
+    public function getEnquiryFacts()
+    {
+        return array_filter(array('Course Code' => (string) $this->getCourseCode()), 'strlen');
+    }
+
+    /** Admin path (after the adminhtml frontName) for the "edit manually" link. */
+    public function getAdminPath()
+    {
+        return 'leads/view/id/' . (int) $this->getId() . '/';
+    }
+
     /** Append one event to the draft_events JSON timeline log (does not save). */
     public function logDraftEvent($event, $detail = '')
     {

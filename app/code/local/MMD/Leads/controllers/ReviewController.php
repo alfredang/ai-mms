@@ -1,7 +1,10 @@
 <?php
 /**
  * Public no-login admin review endpoint for AI-drafted lead replies —
- * /leadreview/review/decide/id/<lead>/d/<approve|changes>/e/<email>/t/<token>
+ * /leadreview/review/decide/id/<lead>/d/<approve|changes>/e/<email>/t/<token>[/k/<kind>]
+ *
+ * <kind> selects the lead table (corporate / franchise / customised — see
+ * MMD_Leads_Helper_Data::getLeadKinds()); omitted = general enquiry lead.
  *
  * Authorisation is the HMAC token bound to lead + reviewer email (same
  * contract as the blog pipeline's /blog/index/decide). Links only ever go
@@ -23,16 +26,19 @@ class MMD_Leads_ReviewController extends Mage_Core_Controller_Front_Action
         $decision = (string) $req->getParam('d');
         $email    = strtolower(trim((string) $req->getParam('e')));
         $token    = (string) $req->getParam('t');
+        $kind     = (string) $req->getParam('k', 'general');
         $helper   = Mage::helper('mmd_leads');
 
-        if (!$helper->verifyDraftReviewToken($id, $email, $token)
+        $lead = $helper->getLeadModel($kind);
+        if (!$lead
+            || !$helper->verifyDraftReviewToken($id, $email, $token, $kind)
             || !in_array($email, $helper->getDraftReviewers(), true)
         ) {
             return $this->_reviewPage('Invalid or expired link',
                 '<p style="color:#475569;">This approval link is not valid. Please use the buttons in the latest review email.</p>', '#ef4444');
         }
 
-        $lead = Mage::getModel('mmd_leads/lead')->load($id);
+        $lead->load($id);
         if (!$lead->getId()) {
             return $this->_reviewPage('Not found',
                 '<p style="color:#475569;">This lead no longer exists.</p>', '#ef4444');
@@ -71,12 +77,12 @@ class MMD_Leads_ReviewController extends Mage_Core_Controller_Front_Action
         if (!$req->isPost()) {
             $action = $this->_esc($req->getRequestUri());
             return $this->_reviewPage('Confirm before sending',
-                '<p style="color:#475569;">You are about to send this reply to lead <b>#' . (int) $lead->getId() . '</b>:</p>'
+                '<p style="color:#475569;">You are about to send this reply to ' . $this->_esc($lead->getKindLabel()) . ' lead <b>#' . (int) $lead->getId() . '</b>:</p>'
                 . '<table role="presentation" style="font-size:13px;color:#334155;border-collapse:collapse;margin:0 0 10px;">'
                 . '<tr><td style="padding:2px 12px 2px 0;color:#94a3b8;">To</td><td><b>' . $this->_esc($lead->getName()) . '</b> &lt;' . $this->_esc($lead->getEmail()) . '&gt;</td></tr>'
                 . '<tr><td style="padding:2px 12px 2px 0;color:#94a3b8;">Subject</td><td>Re: Your enquiry about ' . $this->_esc($lead->getDraftSubject()) . '</td></tr>'
                 . '</table>'
-                . '<p style="font-size:12.5px;color:#64748b;background:#f8fafc;border:1px solid #e4e9f0;border-radius:8px;padding:8px 12px;white-space:pre-wrap;margin:0 0 12px;">Their message: ' . $this->_esc(mb_substr((string) $lead->getComment(), 0, 400)) . '</p>'
+                . '<p style="font-size:12.5px;color:#64748b;background:#f8fafc;border:1px solid #e4e9f0;border-radius:8px;padding:8px 12px;white-space:pre-wrap;margin:0 0 12px;">Their message: ' . $this->_esc(mb_substr($lead->getEnquiryMessage(), 0, 400)) . '</p>'
                 . '<div style="border:1px solid #e4e9f0;border-radius:10px;padding:14px 16px;font-size:14px;line-height:1.6;color:#0f172a;max-height:340px;overflow:auto;">' . $lead->getDraftHtml() . '</div>'
                 . '<form method="post" action="' . $action . '" style="margin-top:16px;display:flex;gap:10px;">'
                 . '<input type="hidden" name="v" value="' . $vNow . '"/>'
@@ -95,7 +101,7 @@ class MMD_Leads_ReviewController extends Mage_Core_Controller_Front_Action
         // Atomic claim — only the first approval flips pending -> approved
         // and sends; a concurrent second click sees 0 rows and reports done.
         $write   = Mage::getSingleton('core/resource')->getConnection('core_write');
-        $table   = Mage::getSingleton('core/resource')->getTableName('mmd_leads/lead');
+        $table   = $lead->getResource()->getMainTable();
         $claimed = $write->update(
             $table,
             array('draft_status' => MMD_Leads_Model_Lead::DRAFT_APPROVED_SENT),
@@ -113,7 +119,7 @@ class MMD_Leads_ReviewController extends Mage_Core_Controller_Front_Action
         }
 
         $helper  = Mage::helper('mmd_leads');
-        $subject = (string) $lead->getDraftSubject() ?: (trim((string) $lead->getCoursesInterested()) ?: 'your enquiry');
+        $subject = (string) $lead->getDraftSubject() ?: (trim($lead->getEnquiryInterest()) ?: 'your enquiry');
         $ccList  = array();
         foreach (preg_split('/[,;]+/', (string) Mage::getStoreConfig('mmd_leads/auto_reply/cc', (int) $lead->getStoreId() ?: null)) ?: array() as $cc) {
             $cc = trim($cc);

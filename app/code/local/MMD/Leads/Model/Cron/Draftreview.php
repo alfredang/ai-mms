@@ -37,27 +37,32 @@ class MMD_Leads_Model_Cron_Draftreview
 
         $done = 0;
 
-        // Fresh leads awaiting a first draft. Bounded created_at window so
-        // enabling the feature never mass-drafts the historical backlog.
-        $fresh = Mage::getModel('mmd_leads/lead')->getCollection()
-            ->addFieldToFilter('status', MMD_Leads_Model_Lead::STATUS_NEW)
-            ->addFieldToFilter('draft_status', array('null' => true))
-            ->addFieldToFilter('created_at', array('gteq' => date('Y-m-d H:i:s', time() - self::LOOKBACK_DAYS * 86400)))
-            ->setOrder('lead_id', 'ASC')
-            ->setPageSize(self::MAX_PER_RUN);
-        foreach ($fresh as $lead) {
-            $done += $this->_draftAndSend($lead) ? 1 : 0;
-        }
+        // Same pipeline for every lead kind — General Enquiry, Corporate
+        // Training, Franchise Enquiry, Customised Training (each its own
+        // table; the models share MMD_Leads_Model_Lead).
+        foreach (Mage::helper('mmd_leads')->getLeadKinds() as $modelAlias) {
+            // Fresh leads awaiting a first draft. Bounded created_at window so
+            // enabling the feature never mass-drafts the historical backlog.
+            $fresh = Mage::getModel($modelAlias)->getCollection()
+                ->addFieldToFilter('status', MMD_Leads_Model_Lead::STATUS_NEW)
+                ->addFieldToFilter('draft_status', array('null' => true))
+                ->addFieldToFilter('created_at', array('gteq' => date('Y-m-d H:i:s', time() - self::LOOKBACK_DAYS * 86400)))
+                ->setOrder('lead_id', 'ASC')
+                ->setPageSize(self::MAX_PER_RUN);
+            foreach ($fresh as $lead) {
+                $done += $this->_draftAndSend($lead) ? 1 : 0;
+            }
 
-        // Change-requested leads awaiting a regenerate (the decide endpoint
-        // regenerates synchronously; this is the retry safety net).
-        $redo = Mage::getModel('mmd_leads/lead')->getCollection()
-            ->addFieldToFilter('status', MMD_Leads_Model_Lead::STATUS_NEW)
-            ->addFieldToFilter('draft_status', MMD_Leads_Model_Lead::DRAFT_CHANGES_REQUESTED)
-            ->setOrder('lead_id', 'ASC')
-            ->setPageSize(self::MAX_PER_RUN);
-        foreach ($redo as $lead) {
-            $done += $this->_draftAndSend($lead, (string) $lead->getDraftFeedback()) ? 1 : 0;
+            // Change-requested leads awaiting a regenerate (the decide endpoint
+            // regenerates synchronously; this is the retry safety net).
+            $redo = Mage::getModel($modelAlias)->getCollection()
+                ->addFieldToFilter('status', MMD_Leads_Model_Lead::STATUS_NEW)
+                ->addFieldToFilter('draft_status', MMD_Leads_Model_Lead::DRAFT_CHANGES_REQUESTED)
+                ->setOrder('lead_id', 'ASC')
+                ->setPageSize(self::MAX_PER_RUN);
+            foreach ($redo as $lead) {
+                $done += $this->_draftAndSend($lead, (string) $lead->getDraftFeedback()) ? 1 : 0;
+            }
         }
 
         return $done . ' draft(s) processed';
@@ -77,7 +82,7 @@ class MMD_Leads_Model_Cron_Draftreview
         } catch (Exception $e) {
             // Leave draft_status untouched — the bounded window retries on
             // the next runs and naturally stops after LOOKBACK_DAYS.
-            $this->_log('draft generation failed for lead #' . $lead->getId() . ': ' . $e->getMessage());
+            $this->_log('draft generation failed for ' . $lead->getKind() . ' lead #' . $lead->getId() . ': ' . $e->getMessage());
             return false;
         }
 
@@ -136,23 +141,33 @@ class MMD_Leads_Model_Cron_Draftreview
             }
         }
 
-        $leadUrl = $base . '/index.php/adminlogin/leads/view/id/' . (int) $lead->getId() . '/';
+        $kind    = $lead->getKind();
+        $leadUrl = $base . '/index.php/adminlogin/' . $lead->getAdminPath();
+        // Non-general kinds carry /k/<kind> so the decide endpoint loads the
+        // right table; general links stay unchanged.
+        $kindSeg = $kind === 'general' ? '' : '/k/' . $kind;
+
+        $facts = '';
+        foreach ($lead->getEnquiryFacts() as $label => $value) {
+            $facts .= '<tr><td style="padding:2px 12px 2px 0;color:#64748b;">' . htmlspecialchars($label) . '</td><td>' . htmlspecialchars($value) . '</td></tr>';
+        }
 
         $sentAny = false;
         foreach ($helper->getDraftReviewers() as $email) {
-            $tok     = $helper->signDraftReviewToken($lead->getId(), $email);
-            $approve = $base . '/leadreview/review/decide/id/' . (int) $lead->getId() . '/d/approve/e/' . rawurlencode($email) . '/t/' . $tok;
-            $changes = $base . '/leadreview/review/decide/id/' . (int) $lead->getId() . '/d/changes/e/' . rawurlencode($email) . '/t/' . $tok;
+            $tok     = $helper->signDraftReviewToken($lead->getId(), $email, $kind);
+            $approve = $base . '/leadreview/review/decide/id/' . (int) $lead->getId() . '/d/approve/e/' . rawurlencode($email) . '/t/' . $tok . $kindSeg;
+            $changes = $base . '/leadreview/review/decide/id/' . (int) $lead->getId() . '/d/changes/e/' . rawurlencode($email) . '/t/' . $tok . $kindSeg;
 
             $html = '<div style="font-family:-apple-system,Segoe UI,Arial,sans-serif;max-width:720px;margin:0 auto;">'
-                . '<p style="font-size:15px;color:#0a1020;">Hi — an AI-drafted reply to a new lead is ready for your approval. '
+                . '<p style="font-size:15px;color:#0a1020;">Hi — an AI-drafted reply to a new <b>' . htmlspecialchars($lead->getKindLabel()) . '</b> lead is ready for your approval. '
                 . 'If approved, it is emailed to the lead immediately.</p>'
                 . '<table role="presentation" style="font-size:13px;color:#334155;border-collapse:collapse;margin:0 0 4px;">'
                 . '<tr><td style="padding:2px 12px 2px 0;color:#64748b;">Lead</td><td><b>' . htmlspecialchars($lead->getName()) . '</b> &lt;' . htmlspecialchars($lead->getEmail()) . '&gt;' . ($lead->getCompany() ? ' · ' . htmlspecialchars($lead->getCompany()) : '') . '</td></tr>'
-                . '<tr><td style="padding:2px 12px 2px 0;color:#64748b;">Interest</td><td>' . htmlspecialchars($lead->getCoursesInterested() ?: '—') . ($lead->getCourseCode() ? ' (' . htmlspecialchars($lead->getCourseCode()) . ')' : '') . '</td></tr>'
+                . '<tr><td style="padding:2px 12px 2px 0;color:#64748b;">Interest</td><td>' . htmlspecialchars($lead->getEnquiryInterest() ?: '—') . '</td></tr>'
+                . $facts
                 . '<tr><td style="padding:2px 12px 2px 0;color:#64748b;">Store</td><td>' . htmlspecialchars($helper->getStoreLabel($storeId)) . '</td></tr>'
                 . '</table>'
-                . '<p style="font-size:13px;color:#475569;background:#f1f5f9;border-radius:8px;padding:10px 14px;white-space:pre-wrap;margin:10px 0 0;">' . htmlspecialchars($lead->getComment()) . '</p>'
+                . '<p style="font-size:13px;color:#475569;background:#f1f5f9;border-radius:8px;padding:10px 14px;white-space:pre-wrap;margin:10px 0 0;">' . htmlspecialchars($lead->getEnquiryMessage()) . '</p>'
                 . '<table role="presentation" style="margin:18px 0;"><tr>'
                 . '<td style="padding-right:10px;"><a href="' . htmlspecialchars($approve) . '" style="background:#059669;color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:11px 22px;border-radius:8px;display:inline-block;">&#10003; Review &amp; approve</a></td>'
                 . '<td><a href="' . htmlspecialchars($changes) . '" style="background:#e2e8f0;color:#0a1020;text-decoration:none;font-weight:700;font-size:14px;padding:11px 22px;border-radius:8px;display:inline-block;">&#9998; Request changes</a></td>'
@@ -168,8 +183,8 @@ class MMD_Leads_Model_Cron_Draftreview
                 . '<p style="margin:12px 0 0;color:#64748b;">— sent via the branded course-reply template with greeting/signature.</p>'
                 . '</div>'
                 . '</div>';
-            $subject = '[Approval needed] Lead #' . (int) $lead->getId() . ' · ' . $lead->getName()
-                . ' — ' . ($lead->getDraftSubject() ?: $lead->getCoursesInterested());
+            $subject = '[Approval needed] ' . ($kind === 'general' ? 'Lead' : $lead->getKindLabel() . ' lead') . ' #' . (int) $lead->getId() . ' · ' . $lead->getName()
+                . ' — ' . ($lead->getDraftSubject() ?: $lead->getEnquiryInterest());
 
             try {
                 if ($gmail) {
@@ -183,7 +198,7 @@ class MMD_Leads_Model_Cron_Draftreview
                     $transport ? $mail->send($transport) : $mail->send();
                 }
                 $sentAny = true;
-                $this->_log('sendForReview: emailed ' . $email . ' for lead #' . $lead->getId());
+                $this->_log('sendForReview: emailed ' . $email . ' for ' . $kind . ' lead #' . $lead->getId());
             } catch (Exception $e) {
                 $this->_log('sendForReview mail to ' . $email . ' failed: ' . $e->getMessage());
             }

@@ -35,6 +35,13 @@ class MMD_Franchise_Block_Adminhtml_Franchiselead_Grid extends Mage_Adminhtml_Bl
             'type'    => 'options',
             'options' => array('new' => 'New', 'replied' => 'Replied', 'closed' => 'Closed'),
         ));
+        $this->addColumn('draft_status', array(
+            'header'  => $h->__('Reply Draft'),
+            'index'   => 'draft_status',
+            'width'   => 130,
+            'type'    => 'options',
+            'options' => array('pending_review' => 'Pending approval', 'changes_requested' => 'Changes requested', 'approved_sent' => 'Approved & sent'),
+        ));
         $this->addColumn('mailerlite_status', array(
             'header'   => $h->__('MailerLite'),
             'index'    => 'mailerlite_status',

@@ -220,17 +220,43 @@ class MMD_Leads_Helper_Data extends Mage_Core_Helper_Abstract
      * the draft-approval email — same scheme as the blog review pipeline
      * (token bound to lead + reviewer email, signed with the crypt key).
      */
-    public function signDraftReviewToken($leadId, $reviewerEmail)
+    public function signDraftReviewToken($leadId, $reviewerEmail, $kind = 'general')
     {
         $secret  = (string) Mage::getConfig()->getNode('global/crypt/key');
-        $payload = 'leadreply|' . (int) $leadId . '|' . strtolower(trim($reviewerEmail));
+        // General leads keep the original payload so links already emailed
+        // stay valid; other kinds are bound to their kind as well.
+        $payload = 'leadreply|' . ($kind === 'general' ? '' : $kind . '|')
+            . (int) $leadId . '|' . strtolower(trim($reviewerEmail));
         return substr(hash_hmac('sha256', $payload, $secret), 0, 40);
     }
 
-    public function verifyDraftReviewToken($leadId, $reviewerEmail, $token)
+    public function verifyDraftReviewToken($leadId, $reviewerEmail, $token, $kind = 'general')
     {
-        $expected = $this->signDraftReviewToken($leadId, $reviewerEmail);
+        $expected = $this->signDraftReviewToken($leadId, $reviewerEmail, $kind);
         return is_string($token) && hash_equals($expected, (string) $token);
+    }
+
+    /**
+     * Lead kinds the draft-review pipeline covers: kind => model alias. Every
+     * model extends MMD_Leads_Model_Lead (see getKind()).
+     *
+     * @return array<string,string>
+     */
+    public function getLeadKinds()
+    {
+        return array(
+            'general'    => 'mmd_leads/lead',
+            'corporate'  => 'mmd_corporate/lead',
+            'franchise'  => 'mmd_franchise/lead',
+            'customised' => 'mmd_customised/lead',
+        );
+    }
+
+    /** @return MMD_Leads_Model_Lead|null  fresh model for the kind, null if unknown */
+    public function getLeadModel($kind)
+    {
+        $kinds = $this->getLeadKinds();
+        return isset($kinds[$kind]) ? Mage::getModel($kinds[$kind]) : null;
     }
 
     /**
@@ -454,7 +480,7 @@ class MMD_Leads_Helper_Data extends Mage_Core_Helper_Abstract
             }
         }
 
-        $text    = trim($lead->getCoursesInterested() . ' ' . $lead->getComment() . ' ' . $code);
+        $text    = trim($lead->getEnquiryInterest() . ' ' . $lead->getEnquiryMessage() . ' ' . $code);
         $product = $this->_scoreCourses($text, $storeId, $spec);
         return $product ? $this->_buildRecommendation($product, $spec) : null;
     }
