@@ -58,6 +58,16 @@ class MMD_Blog_Model_Hero
      * keyword hit wins, so put specific topics above generic ones.
      */
     private const THEMES = array(
+        // Microsoft Copilot family (Microsoft 365 Copilot, Copilot Studio agents,
+        // Power Automate). Sits FIRST so "copilot" never falls through to the
+        // coding_agent terminal — an M365 productivity / HR / interviewing post
+        // is not a coding-agent post. Same-series posts must share a theme
+        // (the node graph varies by title seed), hence one theme for all four.
+        'm365_copilot' => array(
+            'bg' => array(0x12, 0x0E, 0x36), 'bg2' => array(0x2A, 0x22, 0x7A),
+            'accent' => array(0xA8, 0xB8, 0xFF), 'motif' => 'nodes',
+            'kw' => array('microsoft 365 copilot', 'copilot studio', 'm365 copilot', 'microsoft copilot', 'power automate', 'copilot for'),
+        ),
         'security' => array(
             'bg' => array(0x0A, 0x12, 0x22), 'bg2' => array(0x10, 0x2A, 0x38),
             'accent' => array(0x34, 0xE0, 0xC8), 'motif' => 'shield',
