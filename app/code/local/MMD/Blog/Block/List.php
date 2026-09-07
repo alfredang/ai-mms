@@ -8,6 +8,9 @@ class MMD_Blog_Block_List extends Mage_Core_Block_Template
 {
     private const PER_PAGE = 12;
 
+    /** How many numbered page buttons the pager shows around the current page. */
+    private const WINDOW = 5;
+
     /** Base published collection with the active tag/search filters applied. */
     private function _filteredCollection()
     {
@@ -54,9 +57,36 @@ class MMD_Blog_Block_List extends Mage_Core_Block_Template
         return max(1, (int) $this->getRequest()->getParam('p', 1));
     }
 
+    /** getCurrentPage() clamped into 1..getLastPage() — for the pager UI. */
+    public function getDisplayPage()
+    {
+        return min($this->getCurrentPage(), $this->getLastPage());
+    }
+
     public function getLastPage()
     {
         return max(1, (int) ceil($this->_filteredCollection()->getSize() / self::PER_PAGE));
+    }
+
+    /**
+     * Page numbers to render around the current page, as a sliding window of
+     * at most WINDOW entries. The template adds First/Last itself, so this
+     * never has to list every page — at 500+ posts the old "1..N" loop drew
+     * 40+ buttons and grew without bound.
+     *
+     * @return int[] ascending page numbers, always including the current page
+     */
+    public function getPageWindow()
+    {
+        $last = $this->getLastPage();
+        $cur  = min($this->getCurrentPage(), $last);
+        $half = (int) floor(self::WINDOW / 2);
+
+        $start = max(1, $cur - $half);
+        $end   = min($last, $start + self::WINDOW - 1);
+        $start = max(1, $end - self::WINDOW + 1);
+
+        return range($start, $end);
     }
 
     public function getPageUrl($page)

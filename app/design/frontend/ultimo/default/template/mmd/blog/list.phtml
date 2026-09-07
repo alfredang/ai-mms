@@ -110,13 +110,29 @@ $allTags = $helper->getPublishedTagNames();
         <?php endforeach; ?>
     </div>
 
-    <?php $last = $this->getLastPage(); $cur = $this->getCurrentPage(); ?>
+    <?php $last = $this->getLastPage(); $cur = $this->getDisplayPage(); ?>
     <?php if ($last > 1): ?>
-    <nav class="mmd-blog-pager">
-        <?php for ($i = 1; $i <= $last; $i++): ?>
-            <a class="mmd-blog-pg<?php echo $i === $cur ? ' is-active' : '' ?>" href="<?php echo $this->getPageUrl($i) ?>"><?php echo $i ?></a>
-        <?php endfor; ?>
-        <?php if ($cur < $last): ?><a class="mmd-blog-pg mmd-blog-pg-next" href="<?php echo $this->getPageUrl($cur + 1) ?>">Next &rarr;</a><?php endif; ?>
+    <?php $window = $this->getPageWindow(); $first = reset($window); $lastShown = end($window); ?>
+    <nav class="mmd-blog-pager" aria-label="Blog pages">
+        <?php if ($cur > 1): ?>
+            <a class="mmd-blog-pg mmd-blog-pg-edge" href="<?php echo $this->getPageUrl(1) ?>" rel="first">&laquo; First</a>
+            <a class="mmd-blog-pg mmd-blog-pg-edge" href="<?php echo $this->getPageUrl($cur - 1) ?>" rel="prev">&lsaquo; Back</a>
+        <?php endif; ?>
+
+        <?php if ($first > 1): ?><span class="mmd-blog-pg-gap">&hellip;</span><?php endif; ?>
+
+        <?php foreach ($window as $i): ?>
+            <a class="mmd-blog-pg<?php echo $i === $cur ? ' is-active' : '' ?>" href="<?php echo $this->getPageUrl($i) ?>"<?php echo $i === $cur ? ' aria-current="page"' : '' ?>><?php echo $i ?></a>
+        <?php endforeach; ?>
+
+        <?php if ($lastShown < $last): ?><span class="mmd-blog-pg-gap">&hellip;</span><?php endif; ?>
+
+        <?php if ($cur < $last): ?>
+            <a class="mmd-blog-pg mmd-blog-pg-edge" href="<?php echo $this->getPageUrl($cur + 1) ?>" rel="next">Next &rsaquo;</a>
+            <a class="mmd-blog-pg mmd-blog-pg-edge" href="<?php echo $this->getPageUrl($last) ?>" rel="last">Last &raquo;</a>
+        <?php endif; ?>
+
+        <span class="mmd-blog-pg-count">Page <?php echo $cur ?> of <?php echo $last ?></span>
     </nav>
     <?php endif; ?>
     <?php endif; ?>

@@ -105,11 +105,22 @@
 .mmd-blog-taglist { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; }
 .mmd-blog-taglist .mmd-blog-tag { padding: 3px 10px; font-size: 11px; }
 
-/* --- Numbered pager --------------------------------------------------------- */
-.mmd-blog-pager { display: flex; justify-content: center; gap: 8px; align-items: center; margin-top: 32px; }
+/* --- Windowed pager (First / Back / 5 numbers / Next / Last) ---------------- */
+.mmd-blog-pager { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 32px; }
 .mmd-blog-pg { min-width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; padding: 0 12px; border: 1px solid var(--mb-line2); border-radius: 8px; color: var(--mb-text) !important; font-size: 13px; font-weight: 600; background: #fff; }
 .mmd-blog-pg:hover { border-color: var(--mb-blue); color: var(--mb-blue) !important; text-decoration: none; }
 .mmd-blog-pg.is-active { border-color: var(--mb-blue); background: var(--mb-blue); color: #fff !important; }
+.mmd-blog-pg-edge { color: var(--mb-muted) !important; }
+.mmd-blog-pg-gap { color: var(--mb-muted); font-size: 13px; font-weight: 600; padding: 0 2px; user-select: none; }
+/* Page x of y — its own line under the buttons so the strip stays centred. */
+.mmd-blog-pg-count { flex-basis: 100%; text-align: center; color: var(--mb-muted); font-size: 12px; margin-top: 4px; }
+
+@media (max-width: 560px) {
+    .mmd-blog-pager { gap: 6px; }
+    .mmd-blog-pg { min-width: 30px; height: 30px; padding: 0 9px; font-size: 12px; }
+    /* Keep Back/Next reachable on a phone; First/Last are one tap further. */
+    .mmd-blog-pg-edge[rel="first"], .mmd-blog-pg-edge[rel="last"] { display: none; }
+}
 
 /* --- Single post ------------------------------------------------------------ */
 .mmd-blog-post { max-width: 860px; }
