@@ -171,6 +171,7 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
     {
         $classId = $this->_require($body, 'class_id');
         $run     = $this->_loadRunByClassId($classId);
+        $this->_assertCourseEligible($run);
 
         $fields = array();
         $diff   = array();
@@ -256,6 +257,7 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
         $classId = $this->_require($body, 'class_id');
         $force   = !empty($body['force']);
         $run     = $this->_loadRunByClassId($classId);
+        $this->_assertCourseEligible($run);
         $enrol   = $this->_enrolmentCount($run['run_id']);
 
         if ($enrol > 0 && !$force) {
@@ -303,6 +305,7 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
         $trainer = $this->_require($body, 'trainer');
         $emailIn = trim((string) $this->_opt($body, 'trainer_email', ''));
         $run     = $this->_loadRunByClassId($classId);
+        $this->_assertCourseEligible($run);
 
         $res     = $this->_resolveTrainer($trainer, $emailIn);
         $oldName = $this->_currentTrainerName($run);
@@ -312,10 +315,14 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
         }
 
         $warnings = array();
+        // An account that already exists is never modified (_resolveTrainer refuses
+        // with trainer_account_exists), so there is no "link" case to warn about here.
+        if ($res['mode'] === 'existing' && !$this->_isAccountActive($res['user_id'])) {
+            $warnings[] = $res['name'] . "'s MMS login is currently disabled, so they cannot sign in to see "
+                . 'this class until an admin enables their account. The assignment itself still applies.';
+        }
         if ($res['mode'] === 'create') {
-            if ($res['source'] === 'link') {
-                $warnings[] = $res['name'] . ' already has an MMS account - assigning them grants that existing account the trainer role (no new account is created; email ' . $res['email'] . ').';
-            } elseif ($res['source'] === 'legacy') {
+            if ($res['source'] === 'legacy') {
                 $warnings[] = $res['name'] . ' is not set up as an MMS trainer yet - assigning them will set up their trainer account (email ' . $res['email'] . ').';
             } else {
                 $warnings[] = $res['name'] . ' is a new trainer - assigning them will create their MMS trainer account (email ' . $res['email'] . '). A brand-new account starts with login disabled until an admin enables it.';
@@ -327,11 +334,7 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
             'diff'          => array(array('field' => 'trainer', 'from' => $oldName ?: null, 'to' => $res['name'])),
             'human_summary' => 'Class ' . $classId . ' (' . $run['course_sku'] . ') trainer: '
                                 . ($oldName ?: '(none)') . ' -> ' . $res['name']
-                                . ($res['mode'] === 'create'
-                                    ? ($res['source'] === 'link'
-                                        ? ' (the trainer role will be added to their existing account)'
-                                        : ' (a trainer account will be set up for them)')
-                                    : '') . '.',
+                                . ($res['mode'] === 'create' ? ' (a trainer account will be set up for them)' : '') . '.',
             'warnings'      => $warnings,
             'token_payload' => array('class_id' => $classId, 'run_id' => (int) $run['run_id'],
                 'mode' => $res['mode'], 'user_id' => isset($res['user_id']) ? (int) $res['user_id'] : 0,
@@ -362,6 +365,52 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
     }
 
     /* ------------------------------------------------------------- internals */
+
+    /**
+     * Refuse to touch a class unless its course is still an eligible
+     * (non-WSQ / unfunded) C-prefix course.
+     *
+     * add_class checks the SKU it was given. update_class / remove_class /
+     * assign_trainer are handed a class_id instead, so they must resolve the
+     * course themselves — and they must read the LIVE product SKU, never
+     * course_runs.course_sku. That column is a display snapshot taken when the
+     * class was formed and is re-synced by migration 845; on SG today 36 rows
+     * hold a snapshot that disagrees with the live product. A guard reading the
+     * snapshot would wave those through.
+     *
+     * TRIM before matching: some SKUs carry a leading space (" C1235"), and those
+     * are legitimate C-courses that must keep working.
+     *
+     * Fails closed when the product is gone: without a live SKU we cannot prove
+     * the course is eligible, so we refuse rather than assume.
+     */
+    protected function _assertCourseEligible(array $run)
+    {
+        $resource = Mage::getSingleton('core/resource');
+        $read     = $resource->getConnection('core_read');
+        $pe       = $resource->getTableName('catalog/product');
+
+        $liveSku = $read->fetchOne(
+            "SELECT sku FROM `{$pe}` WHERE entity_id = ? LIMIT 1",
+            array((int) $run['product_id'])
+        );
+
+        if ($liveSku === false || $liveSku === null || trim((string) $liveSku) === '') {
+            $this->_err('orphaned_class',
+                'Class ' . $run['class_id'] . ' points at a course that no longer exists in the '
+                . 'catalog (product id ' . (int) $run['product_id'] . '), so its eligibility cannot '
+                . 'be verified. It cannot be changed from here.', 422);
+        }
+
+        if (!preg_match('/^C[0-9]/i', trim((string) $liveSku))) {
+            $this->_err('course_not_eligible',
+                'Class ' . $run['class_id'] . ' belongs to course ' . trim((string) $liveSku)
+                . ', which is not a non-WSQ / unfunded C-prefix course. WSQ (TGS-) classes are '
+                . 'managed in the external SSG system and changing them here would leave the '
+                . 'official course run untouched and out of step. Ask an admin to make this change '
+                . 'in the system that owns it.', 422);
+        }
+    }
 
     protected function _runExists($productId, $start, $end)
     {
@@ -692,14 +741,31 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
         // The email we would use (from an email input or an explicit trainer_email).
         $email = trim((string) ($isEmail ? $input : $emailIn));
 
-        // 2. Existing admin_user with this email but no trainer role yet. The commit
-        //    (_ensureTrainerAccount) dedupes by email and just grants the trainer role,
-        //    so surface that accurately instead of claiming a brand-new account is made.
+        // 2. Someone who already has an MMS account.
+        //
+        //    a) They already hold the trainer role -> nothing to change, just assign.
+        //       Step 1 above only sees ACTIVE accounts (getTrainerAccounts filters
+        //       is_active = 1), and trainer accounts created here start INACTIVE — so
+        //       without this branch the first trainer the agent creates would become
+        //       un-assignable on the very next call.
+        //
+        //    b) They exist WITHOUT the trainer role -> refuse. Granting the role also
+        //       rewrites that account's permission group (applyRoleAcl replaces the
+        //       user's single admin_role 'U' row), so an existing Admin or Super Admin
+        //       would silently be moved into the Trainer group. This operation never
+        //       modifies an account that already exists.
         if ($email !== '' && strpos($email, '@') !== false) {
             $existing = $this->_findAdminUserByEmail($email);
             if ($existing) {
-                return array('mode' => 'create', 'source' => 'link',
-                    'user_id' => $existing['user_id'], 'name' => $existing['name'], 'email' => $email);
+                if ($this->_hasTrainerRole($existing['user_id'])) {
+                    return array('mode' => 'existing', 'user_id' => (int) $existing['user_id'],
+                        'name' => $existing['name'], 'email' => $existing['email']);
+                }
+                $this->_err('trainer_account_exists',
+                    $existing['name'] . ' (' . $existing['email'] . ') already has an MMS account but is '
+                    . 'not set up as a trainer. Granting the trainer role would also change what that '
+                    . 'account can access, so it cannot be done from here — ask an admin to add the '
+                    . 'trainer role in Role Management, then assign the class.', 422);
             }
         }
 
@@ -719,7 +785,35 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
         return array('mode' => 'create', 'source' => 'new', 'name' => $name, 'email' => $email);
     }
 
-    /** Existing admin_user by email (any role) -> ['user_id','name','email'] or null. */
+    /** Is this admin_user's login enabled? */
+    protected function _isAccountActive($userId)
+    {
+        $resource = Mage::getSingleton('core/resource');
+        $read = $resource->getConnection('core_read');
+        $au   = $resource->getTableName('admin_user');
+        return (bool) $read->fetchOne(
+            "SELECT is_active FROM `{$au}` WHERE user_id = ? LIMIT 1",
+            array((int) $userId)
+        );
+    }
+
+    /** Does this admin_user already hold the trainer role? (active or not) */
+    protected function _hasTrainerRole($userId)
+    {
+        $resource = Mage::getSingleton('core/resource');
+        $read = $resource->getConnection('core_read');
+        $rm   = $resource->getTableName('mmd_user_role_map');
+        return (bool) $read->fetchOne(
+            "SELECT 1 FROM `{$rm}` WHERE user_id = ? AND role_code = 'trainer' LIMIT 1",
+            array((int) $userId)
+        );
+    }
+
+    /**
+     * Existing admin_user by email (any role) -> ['user_id','name','email'] or null.
+     * Normalises with LOWER(TRIM(...)) on BOTH sides so this and the
+     * _ensureTrainerAccount guard can never disagree about whether an account exists.
+     */
     protected function _findAdminUserByEmail($email)
     {
         $resource = Mage::getSingleton('core/resource');
@@ -727,7 +821,7 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
         $au = $resource->getTableName('admin_user');
         $row = $read->fetchRow(
             "SELECT user_id, TRIM(CONCAT(COALESCE(firstname,''), ' ', COALESCE(lastname,''))) AS name, email"
-            . " FROM `{$au}` WHERE LOWER(email) = ? LIMIT 1",
+            . " FROM `{$au}` WHERE LOWER(TRIM(email)) = ? LIMIT 1",
             array(strtolower(trim($email)))
         );
         if (!$row) { return null; }
@@ -772,7 +866,21 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
         $auTbl   = $resource->getTableName('admin_user');
         $roleTbl = $resource->getTableName('mmd_user_role_map');
 
-        $userId = (int) $read->fetchOne("SELECT user_id FROM `{$auTbl}` WHERE LOWER(email) = ? LIMIT 1", array(strtolower($email)));
+        // Invariant, enforced here rather than left to callers: this method NEVER
+        // modifies an account that already exists. Granting a role would also rewrite
+        // the account's permission group via applyRoleAcl. _resolveTrainer already
+        // refuses such cases; this is the backstop so a future caller cannot
+        // reintroduce the behaviour by accident. Normalised identically to
+        // _findAdminUserByEmail (LOWER(TRIM(...)) both sides) so the two never disagree.
+        $userId = (int) $read->fetchOne(
+            "SELECT user_id FROM `{$auTbl}` WHERE LOWER(TRIM(email)) = ? LIMIT 1",
+            array(strtolower(trim($email)))
+        );
+        if ($userId) {
+            $this->_err('trainer_account_exists',
+                'An MMS account already exists for ' . $email . '. This operation never modifies an '
+                . 'existing account — ask an admin to grant the trainer role in Role Management.', 422);
+        }
         $created = false;
         if (!$userId) {
             $parts = preg_split('/\s+/', trim($fullName ?: $email), 2);

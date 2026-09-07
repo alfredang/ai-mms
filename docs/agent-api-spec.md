@@ -158,9 +158,24 @@ WSQ feed at `GET /courses/api_schedule`.)
 > template roll-out will never remove or overwrite it.
 
 ### Shared behaviour
-- **C-prefix courses only:** classes exist only for non-WSQ / unfunded `C`-prefix course codes
-  (`C520`, `C6`…). `add_class` with a `TGS-` (WSQ — classes live in the external SSG system),
-  `M-` or any other code returns `422 validation_error`.
+- **C-prefix courses only — now enforced by the server on ALL FOUR ops.** `add_class` validates the
+  SKU it is given. `update_class`, `remove_class` and `assign_trainer` receive a `class_id`, so they
+  resolve the course themselves and validate it before doing anything:
+  - the check reads the **LIVE product SKU** (`catalog_product_entity.sku` via `product_id`), never
+    `course_runs.course_sku` — that column is a display snapshot re-synced by migration 845, and on
+    SG today 36 rows hold a snapshot that disagrees with the live product;
+  - the SKU is **TRIM**ed before matching, because some legitimate C-courses carry a leading space;
+  - a class whose product no longer exists returns **`422 orphaned_class`** — without a live SKU
+    eligibility cannot be proven, so it fails closed;
+  - a class on a non-`C` course returns **`422 course_not_eligible`**.
+  Nothing in this system notifies SSG, so a funded class changed here would silently diverge from
+  its official run — hence the refusal rather than a warning.
+- **One or two teaching days only.** `start_date` and `end_date` ARE the class's two teaching
+  days (not the ends of a span), and label correctly — `2027-10-02` + `2027-10-04` publishes as
+  `2/4 Oct 2027 (Sat/Mon)`, a two-day class. A course taught on three or more days cannot be
+  represented: two dates cannot describe three days, and the middle ones are silently dropped.
+  Refuse such requests and direct them to the admin schedule templates, which write the label
+  directly and support both forms (`5-7 Jan 2026 (Mon-Wed)`, `7/14/21 Mar 2026 (Sat)`).
 - **Class identity = (course code, start date).** You never create two classes for the same
   course + start date; `add_class` on an existing date returns `409 conflict`.
 - **`class_id`** is `C######`, assigned by the system. For `add_class` the exact id is assigned
@@ -228,8 +243,19 @@ you the count first). v1 does not notify enrolled learners.
 | `trainer_email` | string | conditionally | Required when assigning a brand-new trainer (no account, no email on file). |
 
 - If the name matches several trainers -> `409 ambiguous_trainer` (re-issue with the email).
-- Assigning someone with no MMS account creates an **inactive** trainer account (login disabled
-  until an admin enables it); the preview `warnings` say so.
+- **Never modifies an account that already exists.** Three outcomes, decided in `_resolveTrainer`:
+  | Who they are | Result |
+  |---|---|
+  | Already holds the trainer role (active or not) | Assigned. No account change. |
+  | Has an MMS account **without** the trainer role | `422 trainer_account_exists` — refused. An admin must grant the role in Role Management first. |
+  | No MMS account at all | An **inactive** trainer account is created (login disabled until an admin enables it); the preview `warnings` say so. |
+- The refusal exists because granting a role also rewrites the account's permission group
+  (`applyRoleAcl` replaces the user's single `admin_role` 'U' row), which would silently move an
+  existing Admin or Super Admin into the Trainer group. `_ensureTrainerAccount` enforces the same
+  invariant as a backstop, so a future caller cannot reintroduce the behaviour.
+- Email matching is `LOWER(TRIM(...))` on both sides everywhere, so the lookup and the backstop
+  cannot disagree about whether an account exists.
+- If the assigned trainer's login is disabled, `warnings` says so; the assignment still applies.
 
 ---
 
