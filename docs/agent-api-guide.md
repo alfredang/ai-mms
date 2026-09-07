@@ -154,9 +154,28 @@ trainers. Keeps the learner-facing "Course Date" dropdown and the internal class
 - **Class identity = (course code, start date).** Two registrations for the same course + date
   are the same class. A different date is a different class.
 - **`class_id`** is `C######`, assigned by the system on `add_class` commit.
-- **C-prefix courses only:** classes are only created for non-WSQ / unfunded `C`-prefix course
-  codes. `add_class` on a `TGS-` (WSQ — managed in the external SSG system), `M-` or any other
-  code fails with `422 validation_error`; tell the requester those classes can't be created here.
+- **C-prefix courses only — the server enforces this on all four ops.** You do not need to check
+  the course code yourself; if a class is not eligible the preview refuses and tells you why:
+  - `422 validation_error` — `add_class` with a `TGS-` (WSQ, managed in the external SSG system),
+    `M-` or other code.
+  - `422 course_not_eligible` — `update_class` / `remove_class` / `assign_trainer` on a class whose
+    course is not a C-prefix course. Relay it: the class must be changed in the system that owns it.
+  - `422 orphaned_class` — the class points at a course that no longer exists in the catalog, so
+    its eligibility cannot be verified. Nothing to do; tell the requester and stop.
+  **Why the refusals exist:** nothing in this website talks to SSG. Cancelling or moving a funded
+  class here would change what customers see while the official SSG run stayed exactly as it was,
+  with no one notified. Don't look for a way around these errors — there isn't one, by design.
+
+- **One or two teaching days only.** A class records a start day and an end day, and those ARE its
+  two teaching days — `start_date: 2027-10-02, end_date: 2027-10-04` means a two-day class on the
+  2nd and the 4th, and publishes correctly as `2/4 Oct 2027 (Sat/Mon)`. Single-day and two-day
+  classes are both fine.
+  **A course taught on three or more days cannot be created here** — two stored dates can't
+  describe three days. Asked for a class on 5, 6 and 7 January, this API would record the 5th and
+  the 7th and publish `5/7 Jan`, silently dropping the 6th. If the requester wants a class of
+  three or more teaching days, say so plainly and ask them to add it through the admin panel,
+  which can express it (`5-7 Jan 2026 (Mon-Wed)` for a run of days, `7/14/21 Mar 2026 (Sat)` for
+  separate dates).
 - Dates `YYYY-MM-DD`; times `HH:MM` (24h); mode `Physical Classroom` | `Virtual`; vacancy
   `A` (available) | `L` (limited) | `F` (full).
 - **Anything you add or edit here is durable** — a later template roll-out (`api_template`)
@@ -225,10 +244,19 @@ Fields: `class_id` (req), `trainer` (req — name or email), `trainer_email?`.
   was supplied. Ask the user for the trainer's email and pass it as `trainer_email`.
 - Assigning someone brand-new **creates an inactive trainer account** (they can't log in until an
   admin enables it) — the preview `warnings` say so; relay that.
-- If the email belongs to an **existing MMS account** (even one not yet tagged as a trainer), that
-  account is **reused** — it's granted the trainer role, **no duplicate is created**. The preview
-  says "already has an MMS account … grants that existing account the trainer role"; relay that so
-  the user knows it's a link, not a new account.
+- **`422 trainer_account_exists`** — the email belongs to someone who **already has an MMS account
+  but is not set up as a trainer** (e.g. an Admin or Marketing user). This is refused, by design:
+  granting the trainer role would also rewrite that account's permission group and silently change
+  what that person can access. **Relay the message and stop** — an admin must add the trainer role
+  in Role Management first, then you can assign the class. Do not try another spelling of their
+  name or a different email to get around it.
+- **This op never modifies an account that already exists.** That is the one sentence to remember.
+  Someone who is already a trainer is simply assigned (no account change at all). Someone brand new
+  gets an account created. Anyone in between is handed to a human.
+- It is still the only op here that can **create a user account**, so when you are unsure of a
+  trainer's identity, ask for their email rather than guessing from a partial name.
+- If an existing trainer's **login is disabled**, the preview warns you. The assignment still
+  applies — they just cannot sign in to see the class until an admin enables their account.
 
 ---
 
