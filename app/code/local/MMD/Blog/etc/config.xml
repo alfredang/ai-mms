@@ -70,6 +70,18 @@
                     </mmd_blog>
                 </observers>
             </controller_front_init_routers>
+
+            <!-- Blog posts are not categories/products/CMS pages, so stock
+                 sitemap generation skips them. Append them just before
+                 </urlset> (global: the sitemap runs from cron + adminhtml). -->
+            <sitemap_urlset_generating_before>
+                <observers>
+                    <mmd_blog_sitemap>
+                        <class>mmd_blog/observer_sitemap</class>
+                        <method>addPosts</method>
+                    </mmd_blog_sitemap>
+                </observers>
+            </sitemap_urlset_generating_before>
         </events>
     </global>
 
