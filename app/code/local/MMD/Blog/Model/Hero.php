@@ -564,21 +564,29 @@ class MMD_Blog_Model_Hero
         [$r, $g, $b] = $theme['accent'];
         $c = imagecolorallocate($im, $r, $g, $b);
 
-        $w = 250;
+        // Seed-driven variation: the marketing theme covers a whole family of
+        // channel posts (social, email, PPC, affiliate, content...), so without
+        // this every one of them draws an identical funnel and the listing reads
+        // as a broken repeat. Mouth width, stem width and dot count all vary.
+        $w    = 230 + ($this->seed % 5) * 12;          // 230..278
+        $stem = 46 + (($this->seed >> 3) % 4) * 7;     // 46..67
         $pts = array(
             $cx - $w, $cy - 200,
             $cx + $w, $cy - 200,
-            $cx + 55, $cy + 30,
-            $cx + 55, $cy + 215,
-            $cx - 55, $cy + 150,
-            $cx - 55, $cy + 30,
+            $cx + $stem, $cy + 30,
+            $cx + $stem, $cy + 215,
+            $cx - $stem, $cy + 150,
+            $cx - $stem, $cy + 30,
         );
         $this->thickPolygon($im, $pts, $c, 9);
 
-        // Audience dots falling in.
+        // Audience dots falling in; count and spacing vary with the seed too.
         $dot = imagecolorallocatealpha($im, $r, $g, $b, 35);
-        for ($i = 0; $i < 7; $i++) {
-            imagefilledellipse($im, $cx - 190 + $i * 62, $cy - 265, 26, 26, $dot);
+        $n     = 6 + (($this->seed >> 6) % 3);         // 6..8
+        $pitch = (int) round(($w * 1.5) / max(1, $n - 1));
+        $start = $cx - (int) round($pitch * ($n - 1) / 2);
+        for ($i = 0; $i < $n; $i++) {
+            imagefilledellipse($im, $start + $i * $pitch, $cy - 265, 26, 26, $dot);
         }
     }
 
