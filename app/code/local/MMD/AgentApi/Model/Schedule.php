@@ -826,7 +826,16 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
             $this->_err('not_found',
                 'Course ' . $sku . ' has no date starting ' . $start . ' on the website.', 404);
         }
-        // The destination gets the same shape treatment as a new date: the
+        // A move keeps the class's length. Asked to shift a two-day class to a
+        // new start, the answer is a two-day class on that date - not a one-day
+        // one, which is what defaulting the end to the start would have given.
+        // An explicit new_end_date still wins; this only fills in the blank.
+        if (!array_key_exists('new_end_date', $body) || $body['new_end_date'] === '' || $body['new_end_date'] === null) {
+            $span    = (int) floor((strtotime($value['end']) - strtotime($value['start'])) / 86400);
+            $newEnd  = date('Y-m-d', strtotime($newStart . ' +' . $span . ' days'));
+        }
+
+        // The destination still gets the same shape treatment as a new date: the
         // template, not the request, decides how many days the class runs.
         $shape    = $this->_resolveShape($product->getId(), $newStart, $newEnd);
         $newStart = $shape['start'];
@@ -1696,6 +1705,49 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
      * Anything else (cross-month AND non-adjacent) renders as a dash RANGE and
      * would wrongly imply the days in between are taught.
      */
+    /**
+     * How many days a class on this template runs, or null when it varies.
+     *
+     * Used for a date the template does not itself start a class on. The date is
+     * then a one-off, but the DURATION still belongs to the course: template B01
+     * runs 26 classes across a year and every one of them is two days, so a
+     * one-off on that course is a two-day class too. Without this, moving a
+     * two-day class onto an off-pattern date silently turned it into a one-day
+     * class — the course's own shape quietly lost.
+     *
+     * Returns null the moment the template mixes lengths (the A-templates pair a
+     * one-day daytime class with a two-day evening one), because then there is
+     * no single answer and guessing one would be worse than asking.
+     *
+     * Sampled over a year around the date so the answer reflects the template
+     * rather than one unusual month.
+     */
+    protected function _templateClassLength($generator, $code, $around)
+    {
+        $from = date('Y-m-d', strtotime($around . ' -6 months'));
+        $to   = date('Y-m-d', strtotime($around . ' +6 months'));
+
+        $lengths = array();
+        foreach ((array) $generator->generateForCode($code, $from, $to) as $entry) {
+            $candidate = isset($entry['title']) ? (string) $entry['title'] : '';
+            if ($candidate === '') {
+                continue;
+            }
+            list($s, $e) = $this->_parseLabel($candidate);
+            if ($s === null) {
+                continue;
+            }
+            if ($e === null) {
+                $e = $s;
+            }
+            $lengths[(int) floor((strtotime($e) - strtotime($s)) / 86400) + 1] = true;
+            if (count($lengths) > 1) {
+                return null;      // mixed - no single answer
+            }
+        }
+        return $lengths ? (int) key($lengths) : null;
+    }
+
     protected function _fallbackLabelIsSafe($start, $end)
     {
         $s = strtotime($start);
@@ -1786,6 +1838,23 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
         }
 
         if (!$options) {
+            // Not a day this template starts a class on. That makes the date a
+            // one-off — but NOT the duration. How many days a course runs is a
+            // property of the course, and a one-off date on a two-day course is
+            // still a two-day class. Ask the template how long its classes are
+            // and hold the new date to that.
+            $len = $this->_templateClassLength($generator, $code, $start);
+            $asked = (int) floor((strtotime($end) - strtotime($start)) / 86400) + 1;
+
+            if ($len !== null && $len !== $asked) {
+                $end = date('Y-m-d', strtotime($start . ' +' . ($len - 1) . ' days'));
+                $out['end']     = $end;
+                $out['amended'] = true;
+                $out['warnings'][] = 'Every class on schedule template "' . trim($title) . '" runs '
+                    . $len . ' days, but ' . $asked . ' day' . ($asked === 1 ? ' was' : 's were')
+                    . ' asked for. It has been set to ' . $len . ' days (' . $start . ' to ' . $end
+                    . ') so the class matches the course.';
+            }
             $out['label'] = $this->_shapedDateLabel($productId, $start, $end);
             $out['warnings'][] = 'This course follows schedule template "' . trim($title) . '", which does '
                 . 'not normally start a class on ' . $start . '. Adding it anyway is fine — it becomes a '
