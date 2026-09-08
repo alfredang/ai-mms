@@ -314,13 +314,50 @@ class MMD_Adminhtml_Model_Schedule_Generator
         }
 
         // Generic span (weekday c/d/e fills, e.g. Mon-Wed).
-        $endNum = (int) $endDay->format('j');
         $endDow = $endDay->format('D');
-        if ($endNum < $day) {
-            return $day . ' ' . $month . ' - ' . $endNum . ' ' . $this->_nextMonth($date)
-                . ' ' . $year . ' (' . $dow . '-' . $endDow . ')';
+        return $this->pairLabel($date, $endDay, '-') . ' (' . $dow . '-' . $endDow . ')';
+    }
+
+    /**
+     * Format a two-date label in a shape the LMS date parser can read back
+     * (MMD_RoleManager_Model_CourseRunEnrolmentService::_parseDate).
+     *
+     * That grammar is narrow, and each case needs a different shape:
+     *
+     *   same month            "2{$sep}4 Oct 2027"          both the list and range parsers take it
+     *   cross-month, "/"      "30 Sep / 1 Oct 2026"        two named days; the cross-month parser is
+     *                                                      SLASH-only, the hyphen form is not in the
+     *                                                      grammar at all
+     *   cross-month, "-"      "28 Sep 2026 - 1 Oct 2026"   a RUN of days. It cannot use the slash
+     *                                                      form above - that would say two days are
+     *                                                      taught when four are - so it takes the
+     *                                                      both-years range shape instead
+     *   cross-year            "31 Dec 2026 - 1 Jan 2027"   the only shape carrying BOTH years; every
+     *                                                      other form infers the end year from month
+     *                                                      order, which is wrong when the pair
+     *                                                      straddles New Year
+     *
+     * $sep therefore carries meaning, not just punctuation: "/" = these two days,
+     * "-" = every day from the first to the last.
+     *
+     * Always pass real DateTime objects. Deriving the partner day by arithmetic
+     * on the day-of-month (`$day - 1`) is what produced the "0/1 Apr 2027"
+     * labels found live on the site: it breaks whenever the span crosses a month
+     * boundary, and silently gets the month and year wrong even when it doesn't
+     * hit zero.
+     *
+     * Public so MMD_AgentApi's per-class/per-date labelling uses the identical
+     * rules - two copies of this logic is exactly how the shapes drifted apart.
+     */
+    public function pairLabel(DateTime $a, DateTime $b, $sep)
+    {
+        if ($a->format('M Y') === $b->format('M Y')) {
+            return $a->format('j') . $sep . $b->format('j M Y');
         }
-        return $day . '-' . $endNum . ' ' . $month . ' ' . $year . ' (' . $dow . '-' . $endDow . ')';
+        if ($sep === '/' && $a->format('Y') === $b->format('Y')) {
+            return $a->format('j M') . ' / ' . $b->format('j M Y');
+        }
+        return $a->format('j M Y') . ' - ' . $b->format('j M Y');
     }
 
     /**
@@ -329,15 +366,12 @@ class MMD_Adminhtml_Model_Schedule_Generator
      */
     protected function _evening(DateTime $date, array $backDows)
     {
-        $day   = (int) $date->format('j');
-        $month = $date->format('M');
-        $year  = (int) $date->format('Y');
-        $dow   = $date->format('D');
+        $dow = $date->format('D');
 
         if (in_array($dow, $backDows, true)) {
             $extra = clone $date;
             $extra->modify('-1 day');
-            return ($day - 1) . '/' . $day . ' ' . $month . ' ' . $year
+            return $this->pairLabel($extra, $date, '/')
                 . ' Evening (' . $extra->format('D') . '/' . $dow . ')';
         }
 
@@ -347,12 +381,7 @@ class MMD_Adminhtml_Model_Schedule_Generator
 
         $extra = clone $date;
         $extra->modify('+1 day');
-        $eday = (int) $extra->format('j');
-        if ($eday < $day) {
-            return $day . ' ' . $month . ' / ' . $eday . ' ' . $this->_nextMonth($date)
-                . ' ' . $year . ' Evening (' . $dow . '/' . $extra->format('D') . ')';
-        }
-        return $day . '/' . $eday . ' ' . $month . ' ' . $year
+        return $this->pairLabel($date, $extra, '/')
             . ' Evening (' . $dow . '/' . $extra->format('D') . ')';
     }
 
