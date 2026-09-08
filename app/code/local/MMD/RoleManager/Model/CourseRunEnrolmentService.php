@@ -1,7 +1,12 @@
 <?php
 /**
  * Bridges a completed Magento order into the course_runs / course_run_enrolments
- * class model for TGS-prefixed SKUs.
+ * class model.
+ *
+ * Non-WSQ C-prefix course codes ONLY - see the guard in assignOrderItem(). This
+ * was originally built for TGS- (WSQ) SKUs, but commit 6c8cec43 (2026-07-29)
+ * reversed that: classes now exist only for unfunded C-prefix courses, and the
+ * funded/partner runs that predated it were purged by migration 846.
  *
  * Called from MMD_CustomOptions_Model_Observer::quoteSubmitSuccess() after normal
  * order processing. Failures are logged and never bubble up into checkout.

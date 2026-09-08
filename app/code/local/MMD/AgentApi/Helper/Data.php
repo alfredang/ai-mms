@@ -80,16 +80,22 @@ class MMD_AgentApi_Helper_Data extends Mage_Core_Helper_Abstract
             $token   = $this->computeToken($capability, $op, isset($preview['token_payload']) ? $preview['token_payload'] : array());
 
             if ($dryRun) {
-                return $this->_json($controller, 200, array(
+                $out = array(
                     'success'       => true,
                     'dry_run'       => true,
                     'op'            => $op,
                     'target'        => isset($preview['target']) ? $preview['target'] : null,
                     'diff'          => isset($preview['diff']) ? $preview['diff'] : array(),
                     'human_summary' => isset($preview['human_summary']) ? $preview['human_summary'] : '',
-                    'warnings'      => isset($preview['warnings']) ? $preview['warnings'] : array(),
-                    'change_token'  => $token,
-                ));
+                );
+                // Ordered label => value facts for the agent to relay. Optional:
+                // capabilities that do not build one simply omit the key.
+                if (!empty($preview['details'])) {
+                    $out['details'] = $preview['details'];
+                }
+                $out['warnings']     = isset($preview['warnings']) ? $preview['warnings'] : array();
+                $out['change_token'] = $token;
+                return $this->_json($controller, 200, $out);
             }
 
             // 6. Commit - verify the caller's token against the freshly computed one.

@@ -90,6 +90,36 @@ assign specific roles, send the matching one (it needs no backend change). The s
 `actor` in the audit log but does **not** re-check authorization - vetting the requester is
 **your** responsibility before you ever call.
 
+## 4a. `details` — the facts to relay (schedule previews)
+
+Every `api_classes` preview returns an ordered **`details`** object alongside `human_summary`:
+label → value, already written for a person. It exists because "a date will be added" is not
+enough for anyone to catch a mistake with; these are the things needed to check the change before
+it reaches the website.
+
+```json
+"details": {
+  "Course": "WSQ - Mastering The Art of Conflict Resolution...",
+  "Course code": "TGS-2023021752",
+  "Course type": "WSQ / SkillsFuture funded",
+  "Schedule template": "(SG) WSQ-B01 Mon-Tues/Sat-Sun 1st wk",
+  "Class times": "9:30am - 6:30pm",
+  "Dates on this course": "16 (16 still upcoming)",
+  "Next one after today": "27 Sep/ 04 Oct 2026 (Sun)",
+  "New date": "15 Jun 2027 (Tue)",
+  "Runs for": "1 day (Tue)",
+  "Still needed after this": "the SkillsFuture (SSG) course run - not done by this change"
+}
+```
+
+- **Keys are ordered** and JSON preserves that order — relay them top to bottom, don't reorder.
+- The keys **vary by op** (`New date` / `Date now` + `Changing to` / `Date being removed`;
+  class ops add `Class id`, `Runs now`, `Learners enrolled`). Render whatever is present rather
+  than expecting a fixed set.
+- `details` is **informational**; `warnings[]` is still the thing that must be said out loud, and
+  `human_summary` is still the one-line version.
+- Other capabilities may omit the key entirely.
+
 ## 5. Standard responses
 
 ### Preview (dry_run) - `200`
@@ -150,15 +180,61 @@ trainers. Keeps the learner-facing "Course Date" option and the internal class r
 and re-indexes. (Named `api_classes`, not `api_schedule`, to avoid confusion with the read-only
 WSQ feed at `GET /courses/api_schedule`.)
 
-`op` is one of: `add_class`, `update_class`, `remove_class`, `assign_trainer`.
+`op` is one of: `add_class`, `update_class`, `remove_class`, `assign_trainer`, `add_date`,
+`update_date`, `remove_date`.
+
+## Course and date are required, and must be exact
+
+The course is never inferred from a title, and the date is never inferred from a phrase. Both are
+enforced server-side before any other validation runs:
+
+| Condition | Error | HTTP |
+|---|---|---|
+| `course_sku` missing or blank | `course_ref_required` | 400 |
+| `course_sku` contains a space, or has no digit (i.e. is a course *name*) | `course_ref_required` | 400 |
+| `course_sku` well-formed but unknown | `not_found` | 404 |
+| `class_id` missing, or not `C######` | `class_ref_required` | 400 |
+| `start_date` / `new_start_date` missing or not `YYYY-MM-DD` | `validation_error` | 400 |
+
+Course titles overlap across the catalogue, so a near match is a different course, and a date
+added to it is live and bookable on that course's page. `not_found` deliberately offers **no**
+suggested alternatives — a shortlist invites picking one, and the requester is the one who has to
+name the course.
+
+SKU lookup falls back to a `TRIM()` comparison, so the handful of catalogue SKUs carrying stray
+whitespace (`" C1235"`) resolve whether or not the caller includes it.
+
+## Two families of op - pick by the course code
+
+**Every course is reachable by exactly one family.** Which one depends on whether the course keeps
+class records, and that is decided by its course-code prefix:
+
+| Course code | Family | Ops | Why |
+|---|---|---|---|
+| `C…` (non-WSQ / unfunded) | **class ops** | `add_class`, `update_class`, `remove_class`, `assign_trainer` | MMS runs these courses. The class record holds the trainer, roster and certificates; the learner-facing date is kept in sync with it. |
+| `TGS-…` (WSQ) and `M…` (partner) | **date ops** | `add_date`, `update_date`, `remove_date` | These courses have **no class records at all**, so there is no `class_id` to address. The "Course Date" value IS the schedule. |
+
+Since commit `6c8cec43` (2026-07-29) classes are formed only for C-prefix course codes, and the
+funded/partner runs that predated it were purged - on SG today there are **4,084 class records, all
+C-prefix, and zero for TGS-**. WSQ attendance, assessment and certification are regulated and live
+in SSG's system; duplicating them here would carry no weight with the regulator.
+
+Using the wrong family is refused, never guessed:
+- a **date op on a C-course** -> `422 use_class_ops`;
+- a **class op on a TGS-/M-course** -> `422 validation_error` (`add_class`) or `422
+  course_not_eligible` (the class_id ops).
+
+The routing keys off the **SKU prefix**, not "does this course have runs yet" - a brand-new
+C-course has no runs and must still route to the class ops, or it would pick up a class-less date.
 
 > **There is no bulk "generate a range" op here.** To add several dates to one course, call
-> `add_class` once per date. To roll out a whole schedule across MANY courses at once, use
-> `api_template` (below). Every date you add/edit here is **admin-managed** and durable: a later
+> `add_class` / `add_date` once per date. To roll out a whole schedule across MANY courses at once,
+> use `api_template` (below). Every date you add/edit here is **admin-managed** and durable: a later
 > template roll-out will never remove or overwrite it.
 
 ### Shared behaviour
-- **C-prefix courses only — now enforced by the server on ALL FOUR ops.** `add_class` validates the
+- **C-prefix courses only — enforced by the server on all four CLASS ops.** (The date ops are the
+  mirror image: they refuse C-prefix courses. See "Two families" above.) `add_class` validates the
   SKU it is given. `update_class`, `remove_class` and `assign_trainer` receive a `class_id`, so they
   resolve the course themselves and validate it before doing anything:
   - the check reads the **LIVE product SKU** (`catalog_product_entity.sku` via `product_id`), never
@@ -170,12 +246,24 @@ WSQ feed at `GET /courses/api_schedule`.)
   - a class on a non-`C` course returns **`422 course_not_eligible`**.
   Nothing in this system notifies SSG, so a funded class changed here would silently diverge from
   its official run — hence the refusal rather than a warning.
-- **One or two teaching days only.** `start_date` and `end_date` ARE the class's two teaching
-  days (not the ends of a span), and label correctly — `2027-10-02` + `2027-10-04` publishes as
-  `2/4 Oct 2027 (Sat/Mon)`, a two-day class. A course taught on three or more days cannot be
-  represented: two dates cannot describe three days, and the middle ones are silently dropped.
-  Refuse such requests and direct them to the admin schedule templates, which write the label
-  directly and support both forms (`5-7 Jan 2026 (Mon-Wed)`, `7/14/21 Mar 2026 (Sat)`).
+- **Date labels come from the course's schedule template, not from a guess.** The template
+  (`A01`-`E04` slot codes, resolved via `custom_options_relation` -> `custom_options_group.title`)
+  defines the SHAPE of a class — which days it runs — so it decides whether a label reads
+  `2/4 Oct` (two separate days) or `2-4 Oct` (a run of days). A generated label is accepted only
+  when **both its first and last dates match** the stored `start_date` and `end_date`; a slot that
+  merely fires on the start date can otherwise produce a label describing a different class.
+  - No template, or none that accounts for the dates -> falls back to the start/end heuristic, but
+    **only where that heuristic is provably right**: both dates in the same calendar month (the
+    slash form names both days), or the dates adjacent (the dash spans exactly those two days).
+  - Anything else — cross-month AND non-adjacent — returns **`422 ambiguous_date_shape`** rather
+    than emitting a dash range that would wrongly imply the days in between are taught.
+  - A course attached to more than one schedule template returns **`422 ambiguous_template`**. The
+    schema permits it (`custom_options_relation` is unique on `(group_id, option_id, product_id)`),
+    so the shape is genuinely undecidable rather than something to pick arbitrarily.
+  - Single-day classes (`start_date == end_date`) never consult the template — they cannot be
+    misread.
+  Labels are only written when a class is created or its dates change; nothing relabels existing
+  classes in bulk, and a template switch does not rewrite any label.
 - **Class identity = (course code, start date).** You never create two classes for the same
   course + start date; `add_class` on an existing date returns `409 conflict`.
 - **`class_id`** is `C######`, assigned by the system. For `add_class` the exact id is assigned
@@ -256,6 +344,80 @@ you the count first). v1 does not notify enrolled learners.
 - Email matching is `LOWER(TRIM(...))` on both sides everywhere, so the lookup and the backstop
   cannot disagree about whether an account exists.
 - If the assigned trainer's login is disabled, `warnings` says so; the assignment still applies.
+
+---
+
+## Date ops - for courses with no class records (`TGS-`, `M…`)
+
+These three edit the learner-facing "Course Date" list **and nothing else** - they never touch
+`course_runs`, because these courses have none. A date is addressed by the date itself, not a
+`class_id`.
+
+### Shared behaviour (date ops)
+
+- **`end_date` is optional when identifying an existing date.** Give `start_date` alone and the
+  server finds the one date that starts then. If a course has both a single-day and a multi-day
+  date starting on the same day, it returns **`409 ambiguous_date`** listing them - re-issue with
+  `end_date`. It never picks one for you.
+- **Labels are shaped by the same rules as the class ops** - schedule template first, safe fallback
+  second, `422 ambiguous_date_shape` rather than a misleading dash range. See "Date labels" above.
+- **Booking safety.** WSQ courses keep no enrolment rows, so the count comes from the **orders**
+  side: order lines whose stored option value is this exact date. `update_date` warns with the
+  count; `remove_date` refuses with **`422 bookings_exist`** unless you pass `force: true`.
+  Removing a date does **not** cancel or refund anything and nobody is notified - say so.
+- **Every WSQ change carries a SkillsFuture warning** in `warnings`:
+  > *This is a WSQ course. The website date is added/changed/removed, but the matching SkillsFuture
+  > (SSG) course run is NOT - that is a separate step and has not been done.*
+
+  Relay it. This API only does the website side; creating the SSG course run is a separate
+  capability and a **human decision** - do not chain to it automatically. (The schedule audit found
+  165 website dates with no SSG run behind them; every one is this gap.)
+- Dates added/edited here are **admin-managed** and durable - a later template roll-out will never
+  remove or overwrite them.
+
+### `op: add_date`
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `course_sku` | string | yes | Must **not** be a `C`-prefix code |
+| `start_date` | string | yes | `YYYY-MM-DD` |
+| `end_date` | string | no | Defaults to `start_date` (single-day) |
+| `start_time` | string | conditionally | `HH:MM`; required only when bootstrapping (see below) |
+| `end_time` | string | conditionally | `HH:MM`; same |
+
+- A date the course already offers -> `409 conflict`.
+- `end_date` before `start_date` -> `400 validation_error`.
+- **Unscheduled courses:** if the course has no "Course Date" list yet, `add_date` bootstraps one -
+  but only with `start_time` + `end_time` (no template to inherit a time from). Without them ->
+  `422 course_not_scheduled`.
+
+### `op: update_date`
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `course_sku` | string | yes | Must **not** be a `C`-prefix code |
+| `start_date` | string | yes | The date to change, as it is **now** |
+| `end_date` | string | no | Only to disambiguate (see above) |
+| `new_start_date` | string | yes | `YYYY-MM-DD` |
+| `new_end_date` | string | no | Defaults to `new_start_date` |
+
+- No date starting `start_date` -> `404 not_found`.
+- Moving onto a date the course already offers -> `409 conflict`.
+- New dates identical to the current ones -> `400 validation_error`.
+
+### `op: remove_date`
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `course_sku` | string | yes | Must **not** be a `C`-prefix code |
+| `start_date` | string | yes | The date to take down |
+| `end_date` | string | no | Only to disambiguate |
+| `force` | bool | conditionally | Must be `true` to remove a date that has orders against it |
+
+Takes the date off the website so it can no longer be booked. Existing orders are left untouched.
+
+```json
+{ "op":"add_date", "dry_run":true,
+  "actor":{"id":"wa:+6591234567","name":"Sylvia","role":"user"},
+  "course_sku":"TGS-2020505317", "start_date":"2026-11-18", "end_date":"2026-11-19" }
+```
 
 ---
 
