@@ -215,25 +215,56 @@ class MMD_Marketing_Model_Cron_Flyer
         );
     }
 
+    /** Cancel a confirmed booking before handing it to the existing revision pipeline. */
+    public function requestScheduledChanges($newsletterId, $countryCode, $feedback, $reviewer)
+    {
+        if (trim($feedback) === '') { throw new Exception('Please describe the changes required.'); }
+        $db = $this->_write();
+        $db->beginTransaction();
+        try {
+            // Serialize admin retries; do not release the booking until the
+            // provider confirms cancellation. A scheduling worker is never interrupted.
+            $row = $db->fetchRow('SELECT * FROM ' . $this->_tbl()
+                . ' WHERE newsletter_id = ? AND country_code = ? FOR UPDATE', array($newsletterId, $countryCode));
+            if (!$row || (string) $row['status'] !== 'scheduled' || trim((string) $row['mailerlite_id']) === '') {
+                throw new Exception('Only a scheduled, unsent flyer can be reopened. Refresh the page.');
+            }
+            $campaignId = (string) $row['mailerlite_id'];
+            Mage::helper('mmd_marketing/mailerlite')->cancelScheduledCampaign($campaignId);
+            $decisions = json_decode((string) $row['review_decisions'], true);
+            if (!is_array($decisions)) { $decisions = array(); }
+            foreach ($this->_guard()->reviewers() as $email) { unset($decisions[strtolower($email)]); }
+            $decisions[$reviewer] = 'changes';
+            $decisions['_cancelled_campaign'] = array('id' => $campaignId,
+                'scheduled_send_at' => $row['scheduled_send_at'], 'at' => $this->_nowStr(), 'by' => $reviewer);
+            $db->update($this->_tbl(), array('status' => 'draft', 'mailerlite_id' => null,
+                'scheduled_send_at' => null, 'review_status' => 'changes_requested',
+                'review_feedback' => trim($feedback), 'review_decisions' => json_encode($decisions)),
+                array('newsletter_id = ?' => $newsletterId));
+            // This ledger reserves send slots, not just completed sends. Retain
+            // cancellation history above while freeing only this exact booking.
+            $db->delete(Mage::getSingleton('core/resource')->getTableName('mmd_marketing_blast_log'),
+                array('newsletter_id = ?' => $newsletterId, 'mailerlite_id = ?' => $campaignId));
+            $db->commit();
+        } catch (Exception $e) {
+            $db->rollBack();
+            throw $e;
+        }
+    }
+
     /**
      * Rework a rejected flow: supersede it, re-render the SAME course with fresh
      * catalog data (carrying the manager's feedback), and re-send for approval.
-     * Called SYNCHRONOUSLY the moment a manager requests changes (admin button +
-     * email link) so a fresh approval email goes out immediately — the hourly
-     * followUp() is just a safety net. Returns the new newsletter_id or null.
-     *
-     * No weekly-design-cap check here on purpose: reworking a rejected design
-     * reuses the same weekly slot (the old row is superseded first), so it is NOT
-     * a new design against the "max 2/week" rule — capping it here would strand a
-     * flow with no way to be revised. It fires only on an explicit human change
-     * request (one regenerate per request), so there is no runaway loop.
+     * Called synchronously by review actions; followUp retries failed generation.
+     * Returns the new newsletter_id or null. Revisions skip the weekly design
+     * cap because they replace the old proposal, not create an additional blast.
      */
     public function regenerateOnChanges($newsletterId)
     {
         $row = $this->_read()->fetchRow('SELECT * FROM ' . $this->_tbl() . ' WHERE newsletter_id = ?', array($newsletterId));
         if (!$row) { return null; }
         $old = (int) $row['newsletter_id'];
-        if (in_array((string) $row['status'], array('scheduled', 'sent'), true)
+        if (in_array((string) $row['status'], array('scheduling', 'scheduled', 'sent'), true)
             || trim((string) $row['mailerlite_id']) !== '') {
             return null; // already booked — nothing to rework
         }
@@ -608,6 +639,9 @@ class MMD_Marketing_Model_Cron_Flyer
         if (trim((string) $row['mailerlite_id']) !== '' || (string) $row['status'] === 'scheduled') {
             return array(true, 'Already scheduled.');
         }
+        if ((string) $row['review_status'] !== 'pending') {
+            return array(false, 'This version is no longer awaiting approval. Review the latest revised flyer.');
+        }
 
         // ATOMIC CLAIM (migration 334): two near-simultaneous approvals both passed
         // the read above and each created a MailerLite campaign (real double-booking
@@ -619,10 +653,11 @@ class MMD_Marketing_Model_Cron_Flyer
                 'newsletter_id = ?' => $newsletterId,
                 "(mailerlite_id IS NULL OR mailerlite_id = '')",
                 "status NOT IN ('scheduling','scheduled','sent')",
+                "review_status = 'pending'",
             )
         );
         if (!$claimed) {
-            return array(true, 'Already scheduled.');
+            return array(false, 'This flyer changed while approving. Refresh and review the latest version.');
         }
 
         // Create + schedule the MailerLite campaign for the chosen Mon/Thu 08:00 slot.

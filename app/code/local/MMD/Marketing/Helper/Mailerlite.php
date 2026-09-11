@@ -816,6 +816,29 @@ class MMD_Marketing_Helper_Mailerlite extends Mage_Core_Helper_Abstract
         return $this->_getJson('/campaigns/' . rawurlencode($id));
     }
 
+    /** Cancel only an unsent campaign and verify the provider has returned it to draft. */
+    public function cancelScheduledCampaign($id)
+    {
+        $campaign = $this->getCampaign($id);
+        $data = isset($campaign['data']) ? $campaign['data'] : array();
+        if (!isset($data['id']) || (string) $data['id'] !== (string) $id
+            || !in_array(isset($data['status']) ? $data['status'] : '', array('ready', 'draft'), true)
+            || !empty($data['is_currently_sending_out'])) {
+            throw new Exception('Cannot cancel: MailerLite has not confirmed an unsent campaign. It may already be sending or sent.');
+        }
+        // Draft also permits safe recovery if cancellation succeeded but a prior
+        // request lost its connection before the local transaction committed.
+        if ($data['status'] === 'ready') {
+            $this->_send('POST', '/campaigns/' . rawurlencode($id) . '/cancel', array());
+        }
+        $campaign = $this->getCampaign($id);
+        $data = isset($campaign['data']) ? $campaign['data'] : array();
+        if (!isset($data['id'], $data['status']) || (string) $data['id'] !== (string) $id
+            || $data['status'] !== 'draft' || !empty($data['is_currently_sending_out'])) {
+            throw new Exception('Cancellation could not be verified. No revision was started; check MailerLite and retry.');
+        }
+    }
+
     /** Delete a campaign (cleanup after a verification draft). */
     public function deleteCampaign($id)
     {

@@ -15024,7 +15024,9 @@ $_mnBlastStats = array();
                 $_na = count(array_filter($_dec, function ($d) { return $d === 'approve'; }));
                 $_sentAt = !empty($_dec['_sent_at']) ? date('j M · g:ia', strtotime($_dec['_sent_at'])) : '—';
                 $_pending  = ((string) $_r['review_status'] === 'pending' || (string) $_r['review_status'] === 'changes_requested');
-                $_deletable = !in_array((string) $_r['status'], array('scheduled', 'sent'), true);
+                $_scheduled = (string) $_r['status'] === 'scheduled';
+                $_pending = $_pending && !in_array((string) $_r['status'], array('scheduling', 'scheduled', 'sent'), true);
+                $_deletable = !in_array((string) $_r['status'], array('scheduling', 'scheduled', 'sent'), true);
                 $_isBlasted = ((string) $_r['status'] === 'sent');
                 $_rTitle = trim((string) ($_r['product_name'] ?? '')) !== '' ? (string) $_r['product_name'] : (string) $_r['title'];
                 if ($_isBlasted) {
@@ -15060,13 +15062,18 @@ $_mnBlastStats = array();
                     <td class="ta-r">
                         <div class="mmd-grid-actions" style="justify-content:flex-end;">
                         <?php if ($_pending): ?>
+                            <?php if ((string) $_r['review_status'] === 'pending'): ?>
                             <button type="button" class="mmd-grid-action mmd-grid-action--check" title="Approve" onclick="mnReview(<?php echo (int)$_r['newsletter_id'] ?>,'approve')"><?php echo $_svgCheck ?></button>
+                            <?php endif; ?>
                             <button type="button" class="mmd-grid-action mmd-grid-action--edit" title="Request changes" onclick="mnReview(<?php echo (int)$_r['newsletter_id'] ?>,'changes')"><?php echo $_svgEdit ?></button>
+                        <?php endif; ?>
+                        <?php if ($_scheduled): ?>
+                            <button type="button" class="mmd-grid-action mmd-grid-action--edit" aria-label="Request changes &amp; review again" title="Request changes &amp; review again" onclick="mnOpenChangesBox(<?php echo (int)$_r['newsletter_id'] ?>, true)"><?php echo $_svgEdit ?></button>
                         <?php endif; ?>
                         <?php if ($_deletable): ?>
                             <button type="button" class="mmd-grid-action mmd-grid-action--delete" title="Delete" onclick="mnDeleteDraft(<?php echo (int)$_r['newsletter_id'] ?>, <?php echo htmlspecialchars(json_encode($_rTitle)) ?>)"><?php echo $_svgClose ?></button>
                         <?php endif; ?>
-                        <?php if (!$_pending && !$_deletable): ?><span class="muted">—</span><?php endif; ?>
+                        <?php if (!$_pending && !$_scheduled && !$_deletable): ?><span class="muted">—</span><?php endif; ?>
                         </div>
                     </td>
                 </tr>
@@ -15653,12 +15660,17 @@ window.mnPreviewPicked = function() {
 // --- Agentic flyer: manager approve / request-changes (human in the loop) ---
 window.mnReview = function(id, decision) {
     if (decision === 'changes') { mnOpenChangesBox(id); return; }   // styled box, not prompt()
-    if (!confirm('Approve this flyer?\n\nIt schedules to MailerLite only after BOTH managers approve (max 2 campaigns/week).')) return;
+    if (!confirm('Approve this flyer?\n\nOne designated manager approval schedules it to MailerLite (max 2 campaigns/week).')) return;
     mnSubmitReview(id, 'approve', '');
 };
 
 window.mnSubmitReview = function(id, decision, feedback) {
+    if (window.mnReviewBusy) return;
+    window.mnReviewBusy = true;
+    var submit = document.getElementById('mn-changes-submit');
+    if (submit) submit.disabled = true;
     var fd = new FormData();
+    fd.append('form_key', '<?php echo Mage::getSingleton('core/session')->getFormKey() ?>');
     fd.append('newsletter_id', String(id));
     fd.append('decision', decision);
     fd.append('feedback', feedback);
@@ -15673,15 +15685,19 @@ window.mnSubmitReview = function(id, decision, feedback) {
     })
     .catch(function (err) {
         alert('Network error — please try again: ' + (err && err.message ? err.message : err));
+    }).then(function () {
+        window.mnReviewBusy = false;
+        if (submit) submit.disabled = false;
     });
 };
 
 // --- Request-changes message box (replaces the native prompt) ---------
-window.mnOpenChangesBox = function(id) {
+window.mnOpenChangesBox = function(id, scheduled) {
     var box = document.getElementById('mn-changes-modal');
     if (!box) return;
     if (box.parentNode !== document.body) document.body.appendChild(box);
     box.setAttribute('data-nid', String(id));
+    document.getElementById('mn-changes-warning').hidden = !scheduled;
     var ta = document.getElementById('mn-changes-text');
     if (ta) ta.value = '';
     box.style.display = 'flex';
@@ -15699,7 +15715,6 @@ window.mnSendChanges = function() {
     if (!box) return;
     var fb = ta ? ta.value.replace(/^\s+|\s+$/g, '') : '';
     if (fb === '') { if (ta) ta.focus(); return; }
-    mnCloseChangesBox();
     mnSubmitReview(parseInt(box.getAttribute('data-nid'), 10) || 0, 'changes', fb);
 };
 
@@ -15916,11 +15931,12 @@ document.addEventListener('keydown', function (ev) {
 <div id="mn-changes-modal" style="display:none;position:fixed;inset:0;z-index:4000;background:rgba(3,7,18,.72);align-items:center;justify-content:center;padding:20px;" onclick="if(event.target===this)mnCloseChangesBox()">
     <div style="width:100%;max-width:520px;background:#0f172a;border:1px solid #24324a;border-radius:14px;padding:22px 24px;box-shadow:0 30px 80px -30px rgba(0,0,0,.8);" onclick="event.stopPropagation()">
         <div style="font:800 16px -apple-system,Segoe UI,Arial,sans-serif;color:#f1f5f9;">Request changes</div>
+        <p id="mn-changes-warning" hidden>The scheduled email will be cancelled before revision. The revised flyer requires fresh manager approval and a new send slot. Already published social posts will not be removed. If sending has started, this action is unavailable.</p>
         <div style="margin-top:6px;font:400 12.5px/1.5 -apple-system,Segoe UI,Arial,sans-serif;color:#94a3b8;">Tell the pipeline what should change &mdash; a new design, a different course, wording. The design will be regenerated and re-sent for approval.</div>
         <textarea id="mn-changes-text" rows="5" placeholder="e.g. Lead with the 25 Jul intake and shorten the hero copy." style="margin-top:14px;width:100%;box-sizing:border-box;background:transparent;border:1px solid #334155;border-radius:9px;padding:11px 12px;font:400 13px/1.5 -apple-system,Segoe UI,Arial,sans-serif;color:#e5e7eb;resize:vertical;"></textarea>
         <div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px;">
             <button type="button" class="mn-btn mn-btn-ghost" onclick="mnCloseChangesBox()">Cancel</button>
-            <button type="button" class="mn-btn mn-btn-cta" onclick="mnSendChanges()">Send feedback</button>
+            <button type="button" id="mn-changes-submit" class="mm-btn mm-btn-primary" onclick="mnSendChanges()">Request changes &amp; review again</button>
         </div>
     </div>
 </div>

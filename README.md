@@ -74,6 +74,13 @@ This system runs as a **franchise model**:
 
 ## Tech Stack
 
+Scheduled, unsent newsletter flyers can be reopened with **Request changes & review again**.
+The pipeline verifies MailerLite cancellation before regenerating from feedback,
+releases the cancelled send slot, and requires fresh manager approval. Already
+sending or blasted flyers cannot be reopened; existing social posts are unchanged.
+Run the isolated regression checks with
+`docker exec ai-mms-web-1 php /var/www/html/scripts/local-dev/test-flyer-scheduled-changes.php`.
+
 | Layer | Technology |
 |-------|------------|
 | **Platform** | OpenMage LTS v20.12.0 (Magento 1.x) |

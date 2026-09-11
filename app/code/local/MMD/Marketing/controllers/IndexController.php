@@ -46,6 +46,9 @@ class MMD_Marketing_IndexController extends Mage_Core_Controller_Front_Action
         if (in_array((string) $row['status'], array('scheduled', 'sent'), true)) {
             return $this->_page('Already scheduled', '<p style="color:#475569;">This flyer has already been approved and scheduled — nothing more to do.</p>', '#059669');
         }
+        if ((string) $row['review_status'] !== 'pending' || (string) $row['status'] === 'scheduling') {
+            return $this->_page('Review the latest version', '<p>This flyer is being revised or is no longer open for review. Please use the latest approval email.</p>');
+        }
 
         $decisions = json_decode((string) $row['review_decisions'], true);
         if (!is_array($decisions)) { $decisions = array(); }
@@ -59,7 +62,7 @@ class MMD_Marketing_IndexController extends Mage_Core_Controller_Front_Action
                     'review_decisions' => json_encode($decisions),
                     'review_feedback'  => $fb,
                     'review_status'    => 'changes_requested',
-                ), array('newsletter_id = ?' => $id));
+                ), array('newsletter_id = ?' => $id, "review_status = 'pending'", "status NOT IN ('scheduling','scheduled','sent')"));
                 // Regenerate + re-send NOW so a fresh approval email arrives
                 // immediately (don't wait for the hourly followUp cron).
                 $newId = Mage::getModel('mmd_marketing/cron_flyer')->regenerateOnChanges($id);
@@ -83,7 +86,7 @@ class MMD_Marketing_IndexController extends Mage_Core_Controller_Front_Action
         // no second approval required. The first approve schedules to MailerLite.
         $decisions[$email] = 'approve';
         $this->_write()->update($this->_tbl(), array('review_decisions' => json_encode($decisions)),
-            array('newsletter_id = ?' => $id));
+            array('newsletter_id = ?' => $id, "review_status = 'pending'", "status NOT IN ('scheduling','scheduled','sent')"));
 
         list($ok, $msg) = Mage::getModel('mmd_marketing/cron_flyer')->scheduleApproved($id);
         if ($ok) {

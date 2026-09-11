@@ -321,11 +321,16 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
             $feedback     = trim((string) $this->getRequest()->getParam('feedback'));
             if (!$newsletterId) throw new Exception('newsletter_id required');
             if (!in_array($decision, array('approve', 'changes'), true)) throw new Exception('Invalid decision');
+            if (!Mage::getSingleton('core/session')->validateFormKey($this->getRequest()->getParam('form_key'))) {
+                throw new Exception('Your session expired. Refresh the page and try again.');
+            }
+            if ($decision === 'changes' && $feedback === '') throw new Exception('Please describe the changes required.');
 
             $guard     = Mage::helper('mmd_marketing/blastguard');
             $reviewers = array_map('strtolower', $guard->reviewers());
             $me        = strtolower((string) Mage::getSingleton('admin/session')->getUser()->getEmail());
-            if (!in_array($me, $reviewers, true)) {
+            $adminChanges = $decision === 'changes' && Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin'));
+            if (!in_array($me, $reviewers, true) && !$adminChanges) {
                 throw new Exception('Only the designated managers can approve here ('
                     . implode(', ', $guard->reviewers()) . '). You are signed in as ' . $me . '.');
             }
@@ -335,8 +340,12 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
                 array($newsletterId, $cc)
             );
             if (!$row) throw new Exception('Newsletter not found');
-            if (trim((string) $row['mailerlite_id']) !== '' || in_array((string) $row['status'], array('scheduled', 'sent'), true)) {
+            $reopenScheduled = $decision === 'changes' && (string) $row['status'] === 'scheduled';
+            if (!$reopenScheduled && (trim((string) $row['mailerlite_id']) !== '' || in_array((string) $row['status'], array('scheduling', 'scheduled', 'sent'), true))) {
                 throw new Exception('This flyer is already scheduled — nothing more to approve.');
+            }
+            if (!$reopenScheduled && !in_array((string) $row['review_status'], array('pending', 'changes_requested'), true)) {
+                throw new Exception('This version is no longer open for review. Refresh and use the latest flyer.');
             }
 
             $decisions = json_decode((string) $row['review_decisions'], true);
@@ -344,21 +353,35 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
             $decisions[$me] = $decision;
 
             if ($decision === 'changes') {
-                $this->_db('write')->update($this->_tbl(), array(
-                    'review_decisions' => json_encode($decisions),
-                    'review_feedback'  => $feedback,
-                    'review_status'    => 'changes_requested',
-                ), array('newsletter_id = ?' => $newsletterId));
+                if ($reopenScheduled) {
+                    Mage::getModel('mmd_marketing/cron_flyer')->requestScheduledChanges($newsletterId, $cc, $feedback, $me);
+                } else {
+                    $changed = $this->_db('write')->update($this->_tbl(), array(
+                        'review_decisions' => json_encode($decisions),
+                        'review_feedback'  => $feedback,
+                        'review_status'    => 'changes_requested',
+                    ), array('newsletter_id = ?' => $newsletterId,
+                        "status NOT IN ('scheduling','scheduled','sent')", "review_status IN ('pending','changes_requested')"));
+                    if (!$changed) throw new Exception('This flyer changed while requesting edits. Refresh and try again.');
+                }
                 // Regenerate + re-send NOW (don't wait for the hourly followUp cron):
                 // supersede this row, re-render the same course with the feedback,
                 // and email both managers a fresh approval immediately.
-                $newId = Mage::getModel('mmd_marketing/cron_flyer')->regenerateOnChanges($newsletterId);
+                $newId = null;
+                try {
+                    $newId = Mage::getModel('mmd_marketing/cron_flyer')->regenerateOnChanges($newsletterId);
+                } catch (Exception $e) {
+                    // Cancellation and feedback are already committed. Report the
+                    // saved request accurately; followUp can retry the revision.
+                    Mage::logException($e);
+                }
                 $result['success'] = true;
                 $result['stage']   = 'changes_requested';
                 $result['newsletter_id'] = $newId ?: $newsletterId;
                 $result['message'] = $newId
                     ? 'Change request recorded — a revised flyer was emailed to the managers for approval.'
                     : 'Change request recorded. The design will be revised and re-sent shortly.';
+                if ($reopenScheduled) $result['message'] = 'Scheduled email cancelled. ' . $result['message'];
                 return $this->_json($result);
             }
 
@@ -366,7 +389,7 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
             // is enough; the first approve schedules. No second approval required.
             $this->_db('write')->update($this->_tbl(),
                 array('review_decisions' => json_encode($decisions)),
-                array('newsletter_id = ?' => $newsletterId));
+                array('newsletter_id = ?' => $newsletterId, "review_status = 'pending'", "status NOT IN ('scheduling','scheduled','sent')"));
 
             // one approval -> schedule through the guarded (cap-enforced) pipeline
             list($ok, $msg) = Mage::getModel('mmd_marketing/cron_flyer')->scheduleApproved($newsletterId);
