@@ -1027,6 +1027,8 @@ class MMD_Blog_Model_Cron_Autoblog
      */
     private function _invokeClaude($system, $prompt, $maxTokens, $webSearch = false)
     {
+        $provider = Mage::getModel('mmd_rolemanager/aiProvider');
+        if ($provider->isOpenAi()) return $provider->invoke($prompt, $system, array(), $webSearch);
         $cfg    = Mage::helper('mmd_rolemanager')->getMarketingApiConfig();
         $apiKey = trim((string) ($cfg['anthropic_key'] ?? ''));
         $model  = trim((string) ($cfg['anthropic_model'] ?? '')) ?: 'claude-sonnet-4-6';

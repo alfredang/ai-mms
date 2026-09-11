@@ -86,6 +86,21 @@ RUN (HOME=/opt/claude-home bash -c "curl -fsSL https://claude.ai/install.sh | ba
     && mkdir -p /var/www/.claude \
     && chown www-data:www-data /var/www /var/www/.claude
 
+# OpenAI OAuth uses the official Codex client, pinned and checksum-verified.
+# Auth is encrypted in the DB, not baked into the image or a home directory.
+RUN set -eu; \
+    case "$(uname -m)" in \
+      x86_64) codex_target=x86_64-unknown-linux-musl; codex_sha=7368b2055ed02157fea2695bb9f5af3ee7b0e40c5a3bebc81dfc596704244cfd ;; \
+      aarch64) codex_target=aarch64-unknown-linux-musl; codex_sha=1cc3eb4c2fbab048c8afae0bebb1e54745f88d91e5249a448765d34a2a2ba9bb ;; \
+      *) exit 1 ;; \
+    esac; \
+    curl -fsSL --retry 3 "https://github.com/openai/codex/releases/download/rust-v0.149.0/codex-${codex_target}.tar.gz" -o /tmp/mmd-codex.tar.gz; \
+    echo "${codex_sha}  /tmp/mmd-codex.tar.gz" | sha256sum -c -; \
+    tar -xzf /tmp/mmd-codex.tar.gz -C /usr/local/bin; \
+    mv "/usr/local/bin/codex-${codex_target}" /usr/local/bin/codex; \
+    chmod 755 /usr/local/bin/codex; \
+    rm /tmp/mmd-codex.tar.gz
+
 # Legacy local-dev npm install path (kept for compatibility with existing
 # local compose setups that set INSTALL_CLAUDE_CLI=1).
 ARG INSTALL_CLAUDE_CLI=0

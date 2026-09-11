@@ -10855,6 +10855,57 @@ $_credMask = function ($v) {
         };
         ?>
 
+        <?php if (Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', 'training_provider'))): ?>
+        <?php $_aiProvider = Mage::getModel('mmd_rolemanager/aiProvider'); ?>
+        <div class="crd-card">
+            <h3><span class="crd-dot"></span>AI Provider</h3>
+            <div class="crd-row">
+                <label class="crd-label" for="crd-ai-provider">Provider for all AI features</label>
+                <select class="crd-input" id="crd-ai-provider" aria-describedby="crd-ai-scope">
+                    <option value="claude"<?php echo !$_aiProvider->isOpenAi() ? ' selected' : '' ?>>Claude (OAuth / existing API configuration)</option>
+                    <option value="openai"<?php echo $_aiProvider->isOpenAi() ? ' selected' : '' ?>>OpenAI OAuth — GPT-5.6 Sol</option>
+                </select>
+                <div class="crd-hint" id="crd-ai-scope">Applies globally to email reply drafts, blogs, newsletters, flyers, SEO and brochure copy. No automatic fallback to Claude when OpenAI is selected.</div>
+            </div>
+            <div class="crd-row">
+                <label class="crd-label" for="crd-openai-auth">OpenAI OAuth connection</label>
+                <input class="crd-input" id="crd-openai-auth" type="file" accept=".json,application/json" aria-describedby="crd-openai-help" />
+                <div class="crd-hint" id="crd-openai-help">Status: <?php echo $_aiProvider->hasOpenAiAuth() ? 'Credentials saved (tested again when you save)' : 'Not connected' ?>. Sign in using <code>codex login --device-auth -c cli_auth_credentials_store='"file"'</code>, then upload your Codex <code>auth.json</code> here. Leave blank to reuse the saved login. Tokens are encrypted and never displayed. Do not email or share this file.</div>
+            </div>
+            <button type="button" class="mm-btn mm-btn-primary" id="crd-ai-save" onclick="crdSaveAiProvider()">Test &amp; save provider</button>
+            <p class="crd-hint" id="crd-ai-result" role="status" aria-live="polite"></p>
+        </div>
+        <script>
+        function crdSaveAiProvider() {
+            var button = document.getElementById('crd-ai-save');
+            var result = document.getElementById('crd-ai-result');
+            var file = document.getElementById('crd-openai-auth');
+            var data = new FormData();
+            data.append('form_key', <?php echo json_encode(Mage::getSingleton('core/session')->getFormKey()) ?>);
+            data.append('provider', document.getElementById('crd-ai-provider').value);
+            if (file.files.length) data.append('oauth_file', file.files[0]);
+            button.disabled = true;
+            result.textContent = 'Testing and saving the selected provider…';
+            var request = new XMLHttpRequest();
+            request.open('POST', <?php echo json_encode(Mage::helper('adminhtml')->getUrl('adminhtml/aiprovider/save')) ?>, true);
+            request.timeout = 125000;
+            request.onload = function() {
+                button.disabled = false;
+                try {
+                    var response = JSON.parse(request.responseText);
+                    result.textContent = response.message || 'Unable to save provider.';
+                    if (response.success) file.value = '';
+                } catch (e) { result.textContent = 'Session expired or server unavailable. Reload and try again.'; }
+            };
+            request.onerror = request.ontimeout = function() {
+                button.disabled = false;
+                result.textContent = 'Connection interrupted. Reload to check the saved provider before retrying.';
+            };
+            request.send(data);
+        }
+        </script>
+        <?php endif; ?>
+
         <div class="crd-card<?php echo $_creds['mmd_marketing/api/anthropic_key'] ? ' has-value' : '' ?>">
             <h3><span class="crd-dot"></span>Anthropic (Claude API)</h3>
             <div class="crd-row">

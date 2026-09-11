@@ -880,8 +880,9 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
      */
     protected function _callClaude(array $messages, $templateKey, $cc, array $pids, array $turnImages = array())
     {
+        $provider = Mage::getModel('mmd_rolemanager/aiProvider');
         $cfg = Mage::helper('mmd_rolemanager')->getMarketingApiConfig();
-        if (empty($cfg['anthropic_key'])) {
+        if (!$provider->isOpenAi() && empty($cfg['anthropic_key'])) {
             return array(
                 'text'    => $this->_stubClaudeResponse($messages, $templateKey, $cc, $pids, $turnImages),
                 'stubbed' => true,
@@ -969,6 +970,18 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
             } else {
                 $apiMessages[] = array('role' => $m['role'], 'content' => $m['content']);
             }
+        }
+
+        if ($provider->isOpenAi()) {
+            $transcript = ''; $images = array();
+            foreach ($messages as $message) {
+                $transcript .= "\n\n" . ($message['role'] === 'assistant' ? 'ASSISTANT' : 'USER') . ":\n" . (string) $message['content'];
+                foreach (($message['images'] ?? array()) as $img) {
+                    $images[] = $img;
+                    $transcript .= "\n[Reference image " . count($images) . " attached to this turn]";
+                }
+            }
+            return array('text' => $provider->invoke($transcript, $system, $images), 'stubbed' => false);
         }
 
         $apiKey = trim((string) $cfg['anthropic_key']);

@@ -1739,11 +1739,17 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             $stubbed = false;
             $stubReason = '';
 
+            $provider = Mage::getModel('mmd_rolemanager/aiProvider');
+            $useOpenAi = $provider->isOpenAi();
+            if ($useOpenAi) {
+                $stdout = $provider->invoke($tpl, 'You are an SEO copywriter. The meta title brand suffix MUST be exactly "| Tertiary Courses ' . $country . '". Output the labeled sections requested.');
+            }
+
             // Tier 1 — direct API, only when a real `sk-ant-api*` key is
             // configured. OAuth tokens (sk-ant-oat*) are skipped here
             // because they hit aggressive rate limits and consistently
             // 429; we go straight to the CLI instead.
-            if (stripos($apiKey, 'sk-ant-api') === 0) {
+            if (!$useOpenAi && stripos($apiKey, 'sk-ant-api') === 0) {
                 try {
                     $body = json_encode(array(
                         'model'      => $model,
@@ -1783,7 +1789,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             // API key; bypasses the 429 the API path hits. We bound it
             // with `timeout 75s` so a hung CLI can never lock up an
             // Apache worker for minutes again.
-            if ($stdout === '') {
+            if (!$useOpenAi && $stdout === '') {
                 $descriptors = array(
                     0 => array('pipe', 'r'),
                     1 => array('pipe', 'w'),
@@ -2878,8 +2884,14 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
         $stubbed = false;
         $stubReason = '';
 
+        $provider = Mage::getModel('mmd_rolemanager/aiProvider');
+        $useOpenAi = $provider->isOpenAi();
+        if ($useOpenAi) {
+            $stdout = $provider->invoke($tpl, 'You are a brochure copywriter. Output ONLY the JSON object requested, without markdown fences or commentary.');
+        }
+
         // Tier 1 — direct API (sk-ant-api* keys only).
-        if (stripos($apiKey, 'sk-ant-api') === 0) {
+        if (!$useOpenAi && stripos($apiKey, 'sk-ant-api') === 0) {
             try {
                 $body = json_encode(array(
                     'model'      => $model,
@@ -2915,7 +2927,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
         }
 
         // Tier 2 — `claude` CLI piped over stdin (host's ~/.claude OAuth).
-        if ($stdout === '') {
+        if (!$useOpenAi && $stdout === '') {
             $descriptors = array(
                 0 => array('pipe', 'r'),
                 1 => array('pipe', 'w'),

@@ -175,6 +175,10 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
      */
     protected function _callClaude($prompt)
     {
+        $provider = Mage::getModel('mmd_rolemanager/aiProvider');
+        if ($provider->isOpenAi()) {
+            return $provider->invoke($prompt, 'You are a course-marketing copywriter. Output ONLY the exact JSON object requested, without markdown fences or commentary.');
+        }
         $cfg   = Mage::helper('mmd_rolemanager')->getMarketingApiConfig();
         $key   = trim((string) ($cfg['anthropic_key'] ?? ''));
         $model = trim((string) ($cfg['anthropic_model'] ?? '')) ?: 'claude-opus-4-6';

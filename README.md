@@ -80,10 +80,23 @@ releases the cancelled send slot, and requires fresh manager approval. Already
 sending or blasted flyers cannot be reopened; existing social posts are unchanged.
 Run the isolated regression checks with
 `docker exec ai-mms-web-1 php /var/www/html/scripts/local-dev/test-flyer-scheduled-changes.php`.
-Flyer generation routes subscription OAuth through the installed Claude client;
-API keys use the Messages API. Organisation-level access denials hold the revision
+**Credentials → AI Provider** selects Claude (existing OAuth/API configuration) or
+OpenAI OAuth globally for email reply drafts, blog research/writing, newsletter
+chat, flyer revisions, SEO and brochure copy. OpenAI uses **`gpt-5.6-sol`** via the
+official pinned Codex client, with no silent fallback to Claude. Import a Codex
+ChatGPT OAuth `auth.json`; **Test & save provider** validates model access before
+activation. Only admin/training-provider roles can change the global connection.
+OAuth tokens are encrypted in the database, never displayed, and materialised
+only in private temporary sessions (no shell, plugins or app tools). Reference
+images and blog research web search are preserved. Keep auth.json out of Git,
+email and chat. Changing providers does not approve or send pending content.
+See [OpenAI authentication](https://learn.chatgpt.com/docs/auth) for device login.
+
+Claude-mode flyer generation routes subscription OAuth through the installed
+Claude client; API keys use the Messages API. Organisation-level access denials hold the revision
 without emailing rejected copy and display an actionable admin error. Authentication
 routing checks: `docker exec ai-mms-web-1 php /var/www/html/scripts/local-dev/test-flyer-claude-auth.php`.
+Provider checks: `docker exec ai-mms-web-1 php /var/www/html/scripts/local-dev/test-ai-provider.php`.
 
 | Layer | Technology |
 |-------|------------|
