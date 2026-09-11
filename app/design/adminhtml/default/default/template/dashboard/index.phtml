@@ -10865,7 +10865,7 @@ $_credMask = function ($v) {
                     <option value="claude"<?php echo !$_aiProvider->isOpenAi() ? ' selected' : '' ?>>Claude (OAuth / existing API configuration)</option>
                     <option value="openai"<?php echo $_aiProvider->isOpenAi() ? ' selected' : '' ?>>OpenAI OAuth — GPT-5.6 Sol</option>
                 </select>
-                <div class="crd-hint" id="crd-ai-scope">Applies globally to email reply drafts, blogs, newsletters, flyers, SEO and brochure copy. No automatic fallback to Claude when OpenAI is selected.</div>
+                <div class="crd-hint" id="crd-ai-scope">Applies globally to email reply drafts, blogs, newsletters, flyers, SEO and brochure copy. Claude fallback is used only when enabled below and OpenAI generation fails.</div>
             </div>
             <div class="crd-row">
                 <label class="crd-label" for="crd-openai-auth">OpenAI OAuth connection</label>
@@ -10875,15 +10875,33 @@ $_credMask = function ($v) {
             <button type="button" class="mm-btn mm-btn-primary" id="crd-ai-save" onclick="crdSaveAiProvider()">Test &amp; save provider</button>
             <p class="crd-hint" id="crd-ai-result" role="status" aria-live="polite"></p>
         </div>
+        <div class="crd-card">
+            <h3><span class="crd-dot"></span>Claude OAuth — Opus 5 backup</h3>
+            <div class="crd-row">
+                <label class="crd-label" for="crd-claude-token">New Claude OAuth token</label>
+                <input type="password" class="crd-input" id="crd-claude-token" autocomplete="new-password" aria-describedby="crd-claude-help" />
+                <div class="crd-hint" id="crd-claude-help">Model: claude-opus-5. <?php echo $_aiProvider->hasClaudeAuth() ? 'A connection is saved.' : 'Not connected.' ?> Generate a token with <code>claude setup-token</code>. Leave blank to retain it. New tokens are tested, encrypted and never displayed. This connection takes precedence over the legacy Claude API configuration.</div>
+            </div>
+            <div class="crd-row">
+                <label for="crd-claude-fallback"><input type="checkbox" id="crd-claude-fallback"<?php echo $_aiProvider->isClaudeFallbackEnabled() ? ' checked' : '' ?> /> Use Claude Opus 5 if OpenAI generation fails</label>
+                <div class="crd-hint">An enabled fallback sends the same prompt and reference images to Claude. Its use is recorded in ai-provider.log. This does not change the primary provider or bypass content approval.</div>
+            </div>
+            <button type="button" class="mm-btn mm-btn-primary" id="crd-claude-save" onclick="crdSaveAiProvider(true)">Test &amp; save Claude backup</button>
+            <p class="crd-hint" id="crd-claude-result" role="status" aria-live="polite"></p>
+        </div>
         <script>
-        function crdSaveAiProvider() {
-            var button = document.getElementById('crd-ai-save');
-            var result = document.getElementById('crd-ai-result');
+        function crdSaveAiProvider(backup) {
+            var button = document.getElementById(backup ? 'crd-claude-save' : 'crd-ai-save');
+            var result = document.getElementById(backup ? 'crd-claude-result' : 'crd-ai-result');
             var file = document.getElementById('crd-openai-auth');
             var data = new FormData();
             data.append('form_key', <?php echo json_encode(Mage::getSingleton('core/session')->getFormKey()) ?>);
             data.append('provider', document.getElementById('crd-ai-provider').value);
-            if (file.files.length) data.append('oauth_file', file.files[0]);
+            if (backup) {
+                data.append('connection', 'claude_backup');
+                data.append('claude_token', document.getElementById('crd-claude-token').value);
+                data.append('fallback_enabled', document.getElementById('crd-claude-fallback').checked ? '1' : '0');
+            } else if (file.files.length) data.append('oauth_file', file.files[0]);
             button.disabled = true;
             result.textContent = 'Testing and saving the selected provider…';
             var request = new XMLHttpRequest();
@@ -10894,7 +10912,10 @@ $_credMask = function ($v) {
                 try {
                     var response = JSON.parse(request.responseText);
                     result.textContent = response.message || 'Unable to save provider.';
-                    if (response.success) file.value = '';
+                    if (response.success) {
+                        if (backup) document.getElementById('crd-claude-token').value = '';
+                        else file.value = '';
+                    }
                 } catch (e) { result.textContent = 'Session expired or server unavailable. Reload and try again.'; }
             };
             request.onerror = request.ontimeout = function() {

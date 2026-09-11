@@ -83,7 +83,13 @@ Run the isolated regression checks with
 **Credentials → AI Provider** selects Claude (existing OAuth/API configuration) or
 OpenAI OAuth globally for email reply drafts, blog research/writing, newsletter
 chat, flyer revisions, SEO and brochure copy. OpenAI uses **`gpt-5.6-sol`** via the
-official pinned Codex client, with no silent fallback to Claude. Import a Codex
+official pinned Codex client. Optional, explicitly enabled fallback uses a tested
+Claude OAuth connection with **`claude-opus-5`**. OpenAI is tried first; failed
+generation retries once through Claude with the same prompt/images/research mode.
+Fallback use is logged in `var/log/ai-provider.log`; both failures hold the content.
+The **Claude OAuth — Opus 5 backup** card tests and encrypts replacement tokens
+without changing the primary provider. It also supplies the managed Claude
+connection when Claude is selected as primary. Import a Codex
 ChatGPT OAuth `auth.json`; **Test & save provider** validates model access before
 activation. Only admin/training-provider roles can change the global connection.
 OAuth tokens are encrypted in the database, never displayed, and materialised

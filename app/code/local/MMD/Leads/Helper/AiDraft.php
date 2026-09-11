@@ -267,7 +267,7 @@ PROMPT;
     protected function _invokeClaude($system, $prompt)
     {
         $provider = Mage::getModel('mmd_rolemanager/aiProvider');
-        if ($provider->isOpenAi()) return $provider->invoke($prompt, $system);
+        if ($provider->usesManagedClient()) return $provider->invoke($prompt, $system);
         $cfg    = Mage::helper('mmd_rolemanager')->getMarketingApiConfig();
         $apiKey = trim((string) ($cfg['anthropic_key']   ?? ''));
         $model  = trim((string) ($cfg['anthropic_model'] ?? '')) ?: 'claude-sonnet-4-6';

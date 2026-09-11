@@ -882,7 +882,7 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
     {
         $provider = Mage::getModel('mmd_rolemanager/aiProvider');
         $cfg = Mage::helper('mmd_rolemanager')->getMarketingApiConfig();
-        if (!$provider->isOpenAi() && empty($cfg['anthropic_key'])) {
+        if (!$provider->usesManagedClient() && empty($cfg['anthropic_key'])) {
             return array(
                 'text'    => $this->_stubClaudeResponse($messages, $templateKey, $cc, $pids, $turnImages),
                 'stubbed' => true,
@@ -972,7 +972,7 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
             }
         }
 
-        if ($provider->isOpenAi()) {
+        if ($provider->usesManagedClient()) {
             $transcript = ''; $images = array();
             foreach ($messages as $message) {
                 $transcript .= "\n\n" . ($message['role'] === 'assistant' ? 'ASSISTANT' : 'USER') . ":\n" . (string) $message['content'];

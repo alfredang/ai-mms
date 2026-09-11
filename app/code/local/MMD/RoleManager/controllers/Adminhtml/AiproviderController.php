@@ -9,6 +9,16 @@ class MMD_RoleManager_Adminhtml_AiproviderController extends Mage_Adminhtml_Cont
                 $this->getResponse()->setHttpResponseCode(403);
                 throw new DomainException('An administrator session and valid form key are required.');
             }
+            if ($this->getRequest()->getPost('connection') === 'claude_backup') {
+                Mage::getModel('mmd_rolemanager/aiProvider')->configureClaudeBackup(
+                    (string) $this->getRequest()->getPost('claude_token'),
+                    $this->getRequest()->getPost('fallback_enabled') === '1'
+                );
+                $this->getResponse()->setHeader('Content-Type', 'application/json', true)
+                    ->setHeader('Cache-Control', 'no-store', true)->setBody(json_encode(array('success' => true,
+                        'message' => 'Claude Opus 5 connection and fallback preference saved. Primary provider unchanged.')));
+                return;
+            }
             $auth = null;
             if (isset($_FILES['oauth_file']) && $_FILES['oauth_file']['error'] !== UPLOAD_ERR_NO_FILE) {
                 $file = $_FILES['oauth_file'];

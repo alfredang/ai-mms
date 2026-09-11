@@ -1740,7 +1740,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             $stubReason = '';
 
             $provider = Mage::getModel('mmd_rolemanager/aiProvider');
-            $useOpenAi = $provider->isOpenAi();
+            $useOpenAi = $provider->usesManagedClient();
             if ($useOpenAi) {
                 $stdout = $provider->invoke($tpl, 'You are an SEO copywriter. The meta title brand suffix MUST be exactly "| Tertiary Courses ' . $country . '". Output the labeled sections requested.');
             }
@@ -2885,7 +2885,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
         $stubReason = '';
 
         $provider = Mage::getModel('mmd_rolemanager/aiProvider');
-        $useOpenAi = $provider->isOpenAi();
+        $useOpenAi = $provider->usesManagedClient();
         if ($useOpenAi) {
             $stdout = $provider->invoke($tpl, 'You are a brochure copywriter. Output ONLY the JSON object requested, without markdown fences or commentary.');
         }

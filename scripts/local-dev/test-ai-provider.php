@@ -13,10 +13,18 @@ class ProviderTestClient extends MMD_RoleManager_Model_AiProvider
 {
     public $reply = 'OK';
     public $fail = false;
+    public $claudeFail = false;
+    public $claudeCalls = array();
     protected function runClient($prompt, $system, array $images, $webSearch, &$auth)
     {
         if ($this->fail) throw new DomainException('Test failure');
         return $this->reply;
+    }
+    protected function runClaudeClient($prompt, $system, array $images, $webSearch, $token)
+    {
+        $this->claudeCalls[] = array($prompt, $system, $images, $webSearch);
+        if ($this->claudeFail) throw new DomainException('Claude test failure');
+        return 'OK';
     }
 }
 function providerCheck($ok, $label) {
@@ -50,6 +58,36 @@ $encrypted = $db->fetchOne($db->select()->from($table, 'value')->where('path = ?
 providerCheck(strpos($encrypted, 'fixture') === false && json_decode(Mage::helper('core')->decrypt($encrypted), true)['tokens']['account_id'] === 'fixture-account', 'stored credential is encrypted');
 $p->selectProvider('claude');
 providerCheck(!$p->isOpenAi() && $p->hasOpenAiAuth(), 'switch back retains saved OpenAI login');
+$tokenFixture = 'sk-ant-oat-' . str_repeat('x', 80);
+$p->claudeFail = true;
+try { $p->configureClaudeBackup($tokenFixture, true); } catch (DomainException $e) {}
+providerCheck(!$p->hasClaudeAuth() && !$p->isClaudeFallbackEnabled(), 'failed backup test cannot activate fallback or save token');
+$p->claudeFail = false;
+$p->configureClaudeBackup($tokenFixture, true);
+providerCheck($p->hasClaudeAuth() && $p->isClaudeFallbackEnabled() && !$p->isOpenAi(), 'backup is opt-in and preserves primary');
+$stored = $db->fetchOne($db->select()->from($table, 'value')->where('path = ?', MMD_RoleManager_Model_AiProvider::CLAUDE_AUTH_PATH));
+providerCheck($stored !== $tokenFixture && Mage::helper('core')->decrypt($stored) === $tokenFixture, 'Claude token is encrypted');
+$p->selectProvider('openai');
+$p->claudeCalls = array();
+$p->invoke('Normal prompt');
+providerCheck(!$p->claudeCalls, 'healthy OpenAI never calls fallback');
+$p->fail = true;
+providerCheck($p->invoke('Feedback', 'System', array(), true) === 'OK', 'failed OpenAI calls Claude once');
+providerCheck($p->claudeCalls === array(array('Feedback', 'System', array(), true)), 'fallback preserves prompt, system and research mode');
+$p->claudeFail = true;
+$held = false;
+try { $p->invoke('Both fail'); } catch (DomainException $e) { $held = strpos($e->getMessage(), 'Both OpenAI and Claude') !== false; }
+providerCheck($held, 'both failures stop generation');
+$p->claudeCalls = array();
+try { $p->invoke('Bad image', '', array(array('data' => 'bad'))); } catch (DomainException $e) {}
+providerCheck(!$p->claudeCalls, 'invalid input never triggers fallback');
+$p->configureClaudeBackup('', false);
+$held = false;
+try { $p->invoke('Disabled fallback'); } catch (DomainException $e) { $held = true; }
+providerCheck($held && !$p->claudeCalls, 'disabled fallback never calls Claude');
+$p->fail = false; $p->claudeFail = false;
+$p->selectProvider('claude');
+providerCheck($p->usesManagedClient() && $p->invoke('Claude primary') === 'OK', 'Claude selection uses the managed Opus 5 connection');
 class ProviderRoutingFake extends MMD_RoleManager_Model_AiProvider
 {
     public static $calls = array();

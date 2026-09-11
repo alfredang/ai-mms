@@ -264,6 +264,7 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
     {
         $provider = Mage::getModel('mmd_rolemanager/aiProvider');
         if ($provider->isOpenAi()) return $provider->hasOpenAiAuth();
+        if ($provider->hasClaudeAuth()) return true;
         $cfg = $this->getMarketingApiConfig();
         return $cfg['anthropic_key'] !== '';
     }
