@@ -107,4 +107,29 @@ $ml->responses = array(campaign('draft'), campaign('draft'));
 $before = count($ml->requests);
 $ml->cancelScheduledCampaign('fixture-campaign');
 check(count($ml->requests) === $before, 'retry accepts verified draft without cancelling twice');
+class FlyerDeniedGenerator
+{
+    public $calls = 0;
+    public function regenerateCopy($pid, $feedback)
+    {
+        $this->calls++;
+        throw new DomainException('Claude access disabled. Configure an authorised API key.');
+    }
+}
+class FlyerDeniedRevision extends FlyerChangesTestModel
+{
+    public $generator;
+    protected function _flyer() { return $this->generator; }
+    public function sendForReview($newsletterId, $onlyEmails = null, $isReminder = false, $isRevision = false)
+    {
+        throw new Exception('TEST FAILURE: rejected copy must never be emailed');
+    }
+}
+$db->update($table, array('review_status' => 'changes_requested', 'course_pids' => '1'), array('newsletter_id = ?' => $id));
+$deniedModel = new FlyerDeniedRevision();
+$deniedModel->generator = new FlyerDeniedGenerator();
+check($deniedModel->regenerateOnChanges($id) === null, 'denied generation does not create or email a revision');
+check($deniedModel->generator->calls === 1, 'permanent auth denial is not immediately retried');
+$held = $db->fetchRow('SELECT review_status, review_decisions FROM ' . $table . ' WHERE newsletter_id = ?', $id);
+check($held['review_status'] === 'changes_requested' && isset(json_decode($held['review_decisions'], true)['_revision_error']), 'held revision records actionable failure for admin');
 echo "All scheduled-flyer regression tests passed. No external requests made.\n";

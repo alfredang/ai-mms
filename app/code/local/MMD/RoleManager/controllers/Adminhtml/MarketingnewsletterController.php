@@ -380,7 +380,15 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
                 $result['newsletter_id'] = $newId ?: $newsletterId;
                 $result['message'] = $newId
                     ? 'Change request recorded — a revised flyer was emailed to the managers for approval.'
-                    : 'Change request recorded. The design will be revised and re-sent shortly.';
+                    : 'Change request saved, but no revised email was sent. Check the AI service and retry.';
+                if (!$newId) {
+                    $latestDecisions = json_decode((string) $this->_db('read')->fetchOne(
+                        'SELECT review_decisions FROM ' . $this->_tbl() . ' WHERE newsletter_id = ?', array($newsletterId)), true);
+                    if (!empty($latestDecisions['_revision_error'])) {
+                        $result['message'] = 'Change request saved, but no revised email was sent. ' . $latestDecisions['_revision_error'];
+                    }
+                    $result['stage'] = 'revision_held';
+                }
                 if ($reopenScheduled) $result['message'] = 'Scheduled email cancelled. ' . $result['message'];
                 return $this->_json($result);
             }

@@ -80,6 +80,10 @@ releases the cancelled send slot, and requires fresh manager approval. Already
 sending or blasted flyers cannot be reopened; existing social posts are unchanged.
 Run the isolated regression checks with
 `docker exec ai-mms-web-1 php /var/www/html/scripts/local-dev/test-flyer-scheduled-changes.php`.
+Flyer generation routes subscription OAuth through the installed Claude client;
+API keys use the Messages API. Organisation-level access denials hold the revision
+without emailing rejected copy and display an actionable admin error. Authentication
+routing checks: `docker exec ai-mms-web-1 php /var/www/html/scripts/local-dev/test-flyer-claude-auth.php`.
 
 | Layer | Technology |
 |-------|------------|

@@ -69,7 +69,7 @@ class MMD_Marketing_IndexController extends Mage_Core_Controller_Front_Action
                 return $this->_page('Thanks — we’ll revise it',
                     '<p style="color:#475569;">' . ($newId
                         ? 'Your feedback was recorded and a revised flyer has just been emailed to the managers for approval.'
-                        : 'Your feedback was recorded. The system will regenerate the design and email a fresh version to review shortly.')
+                        : 'Your feedback was recorded, but no revised email was sent. Please ask the admin to check the AI generation service and retry.')
                     . '</p>', '#f59e0b');
             }
             $post = Mage::getUrl('newsletter-review/index/decide', array('id'=>$id,'d'=>'changes','e'=>rawurlencode($email),'t'=>$token,'_secure'=>true));

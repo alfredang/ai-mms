@@ -292,8 +292,14 @@ class MMD_Marketing_Model_Cron_Flyer
         //      is byte-identical, regenerate once more before sending.
         // ============================================================
         $copy = null;
+        $revisionError = 'The AI service could not generate valid revised copy. No revised email was sent.';
         for ($attempt = 1; $attempt <= 3 && !$copy; $attempt++) {
             try { $copy = $this->_flyer()->regenerateCopy($pid, $fb); }
+            catch (DomainException $e) {
+                $revisionError = $e->getMessage();
+                $this->_log('regenerate: HELD #' . $old . ' - ' . $revisionError);
+                break; // permission failures cannot be cured by immediate retries
+            }
             catch (Exception $e) { $this->_log('regenerate: regenerateCopy error (try ' . $attempt . ') — ' . $e->getMessage()); }
             if (!$copy && $attempt < 3) { sleep(3); }   // brief backoff (429/timeout)
         }
@@ -301,7 +307,11 @@ class MMD_Marketing_Model_Cron_Flyer
             // Generation failed — HOLD. Do not supersede, do not email the same
             // design. followUp() will retry on the next cron tick. Guarded so a
             // concurrent run that already superseded this row isn't resurrected.
-            $this->_write()->update($this->_tbl(), array('review_status' => 'changes_requested'),
+            $decisions = json_decode((string) $row['review_decisions'], true);
+            if (!is_array($decisions)) { $decisions = array(); }
+            $decisions['_revision_error'] = $revisionError;
+            $this->_write()->update($this->_tbl(), array('review_status' => 'changes_requested',
+                'review_decisions' => json_encode($decisions)),
                 array('newsletter_id = ?' => $old, "review_status = 'changes_requested'"));
             $this->_log('regenerate: HELD #' . $old . ' — copy generation failed after retries; NOT re-sending the rejected design');
             return null;
