@@ -4,7 +4,19 @@
 # Update intentionally: docker pull php:8.2-apache &&
 # docker inspect --format='{{index .RepoDigests 0}}' php:8.2-apache
 # Current pin: php:8.2-apache as of 2026-06-01
+FROM node:22.22.3-bookworm-slim@sha256:e21fc383b50d5347dc7a9f1cae45b8f4e2f0d39f7ade28e4eef7d2934522b752 AS ai-sdk
+WORKDIR /opt/mmd-ai-sdk
+COPY scripts/ai/package.json scripts/ai/package-lock.json ./
+RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund
+COPY scripts/ai/bridge.mjs scripts/ai/codex-client ./
+RUN chmod 755 codex-client && node --check bridge.mjs
+
 FROM php:8.2-apache@sha256:affc043fbd9acaa9a6394a71d162726fc0a6e4bea0400a3b94f925b6130858dd
+
+# Official OAuth-compatible SDKs and Node runtime; no npm at runtime.
+COPY --from=ai-sdk /usr/local/bin/node /usr/local/bin/node
+COPY --from=ai-sdk /opt/mmd-ai-sdk /opt/mmd-ai-sdk
+RUN node --version && node --check /opt/mmd-ai-sdk/bridge.mjs
 
 # Build trigger: 2026-05-22 (bumped to force COPY layer rebuild — Coolify
 # was reusing a stale image so migrations/112-backfill-course-image-url-from-r2.sql
@@ -72,7 +84,7 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Claude Code CLI (Agent SDK) — powers the admin AI features (SEO meta,
+# Legacy Claude Code CLI — powers unmigrated API/OAuth configuration (SEO meta,
 # lead reply drafts) authenticated with the subscription OAuth token from
 # mmd_marketing/api/anthropic_key (exported as CLAUDE_CODE_OAUTH_TOKEN by
 # AiSeo::invokeClaude). Installed as the NATIVE standalone binary — no
@@ -100,18 +112,6 @@ RUN set -eu; \
     mv "/usr/local/bin/codex-${codex_target}" /usr/local/bin/codex; \
     chmod 755 /usr/local/bin/codex; \
     rm /tmp/mmd-codex.tar.gz
-
-# Legacy local-dev npm install path (kept for compatibility with existing
-# local compose setups that set INSTALL_CLAUDE_CLI=1).
-ARG INSTALL_CLAUDE_CLI=0
-RUN if [ "$INSTALL_CLAUDE_CLI" = "1" ]; then \
-        curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-        && apt-get install -y nodejs \
-        && npm install -g @anthropic-ai/claude-code \
-        && rm -rf /var/lib/apt/lists/*; \
-    else \
-        echo "Skipping npm Claude CLI install (native binary above is canonical)"; \
-    fi
 
 # Set working directory
 WORKDIR /var/www/html

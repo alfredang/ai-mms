@@ -15740,7 +15740,21 @@ window.mnSubmitReview = function(id, decision, feedback) {
     if (window.mnReviewBusy) return;
     window.mnReviewBusy = true;
     var submit = document.getElementById('mn-changes-submit');
-    if (submit) submit.disabled = true;
+    var cancel = document.getElementById('mn-changes-cancel');
+    var status = document.getElementById('mn-changes-status');
+    var originalLabel = submit ? submit.textContent : '';
+    if (submit) {
+        submit.disabled = true;
+        submit.setAttribute('aria-busy', 'true');
+        submit.textContent = decision === 'changes' ? 'Regenerating & sending…' : 'Saving…';
+    }
+    if (cancel) cancel.disabled = true;
+    if (status) {
+        status.hidden = false;
+        status.textContent = decision === 'changes'
+            ? 'Creating a fresh design and emailing it for approval. This can take up to two minutes.'
+            : 'Saving your decision…';
+    }
     var fd = new FormData();
     fd.append('form_key', '<?php echo Mage::getSingleton('core/session')->getFormKey() ?>');
     fd.append('newsletter_id', String(id));
@@ -15749,17 +15763,35 @@ window.mnSubmitReview = function(id, decision, feedback) {
     fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/marketingnewsletter/reviewDecision') ?>', {
         method: 'POST', body: fd, credentials: 'same-origin'
     })
-    .then(function (r) { return r.json(); })
+    .then(function (r) {
+        return r.text().then(function (body) {
+            var parsed = null;
+            try { parsed = JSON.parse(body); } catch (e) {}
+            if (!r.ok || !parsed) throw new Error('Server returned HTTP ' + r.status + '. Refresh and try again.');
+            return parsed;
+        });
+    })
     .then(function (j) {
-        if (!j || !j.success) { alert((j && j.message) || 'Action failed.'); return; }
+        if (!j || !j.success) {
+            if (status) status.textContent = (j && j.message) || 'Action failed.';
+            alert((j && j.message) || 'Action failed.');
+            return;
+        }
+        if (status) status.textContent = j.message || 'Recorded.';
         alert(j.message || 'Recorded.');
         location.reload();
     })
     .catch(function (err) {
+        if (status) status.textContent = 'Request failed: ' + (err && err.message ? err.message : err);
         alert('Network error — please try again: ' + (err && err.message ? err.message : err));
     }).then(function () {
         window.mnReviewBusy = false;
-        if (submit) submit.disabled = false;
+        if (submit) {
+            submit.disabled = false;
+            submit.removeAttribute('aria-busy');
+            submit.textContent = originalLabel;
+        }
+        if (cancel) cancel.disabled = false;
     });
 };
 
@@ -15772,6 +15804,8 @@ window.mnOpenChangesBox = function(id, scheduled) {
     document.getElementById('mn-changes-warning').hidden = !scheduled;
     var ta = document.getElementById('mn-changes-text');
     if (ta) ta.value = '';
+    var status = document.getElementById('mn-changes-status');
+    if (status) { status.hidden = true; status.textContent = ''; }
     box.style.display = 'flex';
     document.body.style.overflow = 'hidden';
     if (ta) setTimeout(function(){ ta.focus(); }, 50);
@@ -16007,9 +16041,10 @@ document.addEventListener('keydown', function (ev) {
         <div style="margin-top:6px;font:400 12.5px/1.5 -apple-system,Segoe UI,Arial,sans-serif;color:#94a3b8;">Tell the pipeline what should change &mdash; a new design, a different course, wording. The design will be regenerated and re-sent for approval.</div>
         <textarea id="mn-changes-text" rows="5" placeholder="e.g. Lead with the 25 Jul intake and shorten the hero copy." style="margin-top:14px;width:100%;box-sizing:border-box;background:transparent;border:1px solid #334155;border-radius:9px;padding:11px 12px;font:400 13px/1.5 -apple-system,Segoe UI,Arial,sans-serif;color:#e5e7eb;resize:vertical;"></textarea>
         <div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px;">
-            <button type="button" class="mn-btn mn-btn-ghost" onclick="mnCloseChangesBox()">Cancel</button>
+            <button type="button" class="mn-btn mn-btn-ghost" id="mn-changes-cancel" onclick="mnCloseChangesBox()">Cancel</button>
             <button type="button" id="mn-changes-submit" class="mm-btn mm-btn-primary" onclick="mnSendChanges()">Request changes &amp; review again</button>
         </div>
+        <p id="mn-changes-status" class="mn-feat-meta" role="status" aria-live="polite" hidden></p>
     </div>
 </div>
 <?php /* Blast-performance popup — MailerLite-style numbers for one Blasted flyer,

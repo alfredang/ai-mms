@@ -1,0 +1,5 @@
+#!/bin/sh
+# The SDK does not yet expose these isolation switches as ThreadOptions.
+command_name=$1
+shift
+exec /usr/local/bin/codex "$command_name" --ignore-user-config --ignore-rules "$@" --ephemeral

@@ -174,21 +174,9 @@ class MMD_RoleManager_Model_AiProvider
         $pipes = array();
         try {
             $this->privateFile($dir . '/auth.json', $auth);
-            $this->privateFile($dir . '/prompt.txt', $system . "\n\n" . $prompt);
-            $args = array('/usr/bin/timeout', '-k', '5', '110', $this->clientBinary(), 'exec',
-                '--ignore-user-config', '--ignore-rules', '--skip-git-repo-check', '--ephemeral',
-                '--sandbox', 'read-only', '--json', '--color', 'never',
-                '--model', self::OPENAI_MODEL,
-                '-c', 'forced_login_method="chatgpt"', '-c', 'cli_auth_credentials_store="file"',
-                '-c', 'web_search="' . ($webSearch ? 'live' : 'disabled') . '"',
-                '-c', 'project_doc_max_bytes=0', '-c', 'approval_policy="never"');
-            // Copywriting is not an agent workflow. No shell, files, plugins, browsers or apps.
-            foreach (array('shell_tool', 'unified_exec', 'multi_agent', 'multi_agent_v2', 'apps', 'plugins',
-                'hooks', 'memories', 'skill_search', 'image_generation', 'view_image', 'browser_use',
-                'browser_use_external', 'computer_use', 'code_mode', 'code_mode_host', 'tool_suggest') as $feature) {
-                $args[] = '--disable';
-                $args[] = $feature;
-            }
+            $input = array(array('type' => 'text', 'text' => $system . "\n\n" . $prompt));
+            $args = array('/usr/bin/timeout', '-k', '5', '110', $this->clientBinary(),
+                '/opt/mmd-ai-sdk/bridge.mjs', 'openai', $webSearch ? '1' : '0');
             foreach ($images as $i => $img) {
                 $bytes = base64_decode((string) ($img['data'] ?? ''), true);
                 $info = $bytes !== false ? @getimagesizefromstring($bytes) : false;
@@ -197,13 +185,12 @@ class MMD_RoleManager_Model_AiProvider
                 }
                 $path = $dir . '/image-' . $i . '.' . array('image/png' => 'png', 'image/jpeg' => 'jpg', 'image/webp' => 'webp')[$info['mime']];
                 $this->privateFile($path, $bytes);
-                $args[] = '--image';
-                $args[] = $path;
+                $input[] = array('type' => 'local_image', 'path' => $path);
             }
-            $args[] = '-';
-            // Only intentional CLI configuration is inherited; no app/API/environment secrets.
+            $this->privateFile($dir . '/prompt.json', json_encode($input));
+            // Only intentional SDK configuration is inherited; no app/API/environment secrets.
             $env = array('PATH' => '/usr/local/bin:/usr/bin:/bin', 'CODEX_HOME' => $dir);
-            $proc = @proc_open($args, array(0 => array('file', $dir . '/prompt.txt', 'r'),
+            $proc = @proc_open($args, array(0 => array('file', $dir . '/prompt.json', 'r'),
                 1 => array('pipe', 'w'), 2 => array('pipe', 'w')), $pipes, $dir, $env);
             if (!is_resource($proc)) {
                 throw new DomainException('Unable to start the OpenAI client.');
@@ -257,12 +244,12 @@ class MMD_RoleManager_Model_AiProvider
 
     protected function clientBinary()
     {
-        return '/usr/local/bin/codex';
+        return '/usr/local/bin/node';
     }
 
     protected function runClaudeClient($prompt, $system, array $images, $webSearch, $token)
     {
-        if (!is_executable('/usr/local/bin/claude') || !$token) {
+        if (!is_executable($this->clientBinary()) || !$token) {
             throw new DomainException('Claude OAuth or its client is unavailable. Check Credentials.');
         }
         $dir = sys_get_temp_dir() . '/mmd-claude-' . bin2hex(random_bytes(16));
@@ -276,11 +263,8 @@ class MMD_RoleManager_Model_AiProvider
             }
             $input = json_encode(array('type' => 'user', 'message' => array('role' => 'user', 'content' => $content))) . "\n";
             $this->privateFile($dir . '/prompt.jsonl', $input);
-            $args = array('/usr/bin/timeout', '-k', '5', '60', '/usr/local/bin/claude', '-p',
-                '--model', self::CLAUDE_MODEL, '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose',
-                '--tools', $webSearch ? 'WebSearch,WebFetch' : '', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}',
-                '--setting-sources', '', '--no-session-persistence');
-            if ($webSearch) { $args[] = '--allowedTools'; $args[] = 'WebSearch,WebFetch'; }
+            $args = array('/usr/bin/timeout', '-k', '5', '60', $this->clientBinary(),
+                '/opt/mmd-ai-sdk/bridge.mjs', 'claude', $webSearch ? '1' : '0');
             $env = array('PATH' => '/usr/local/bin:/usr/bin:/bin', 'CLAUDE_CONFIG_DIR' => $dir,
                 'CLAUDE_CODE_OAUTH_TOKEN' => $token, 'DISABLE_AUTOUPDATER' => '1');
             $proc = @proc_open($args, array(0 => array('file', $dir . '/prompt.jsonl', 'r'),

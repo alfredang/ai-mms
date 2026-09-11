@@ -83,7 +83,8 @@ Run the isolated regression checks with
 **Credentials → AI Provider** selects Claude (existing OAuth/API configuration) or
 OpenAI OAuth globally for email reply drafts, blog research/writing, newsletter
 chat, flyer revisions, SEO and brochure copy. OpenAI uses **`gpt-5.6-sol`** via the
-official pinned Codex client. Optional, explicitly enabled fallback uses a tested
+official **`@openai/codex-sdk` (0.149.0)**. Optional, explicitly enabled fallback uses
+**`@anthropic-ai/claude-agent-sdk` (0.3.268)** and a tested
 Claude OAuth connection with **`claude-opus-5`**. OpenAI is tried first; failed
 generation retries once through Claude with the same prompt/images/research mode.
 Fallback use is logged in `var/log/ai-provider.log`; both failures hold the content.
@@ -97,6 +98,14 @@ only in private temporary sessions (no shell, plugins or app tools). Reference
 images and blog research web search are preserved. Keep auth.json out of Git,
 email and chat. Changing providers does not approve or send pending content.
 See [OpenAI authentication](https://learn.chatgpt.com/docs/auth) for device login.
+
+Both OAuth-compatible SDKs run through `scripts/ai/bridge.mjs` with pinned,
+lockfile-verified dependencies and Node 22 in Docker. The Codex SDK uses the
+checksum-pinned Codex runtime; Claude Agent SDK uses its matching bundled runtime.
+These are the official agent SDKs, not REST API-key clients. SDK environments
+are isolated, tool access is disabled except explicitly requested research search,
+and credentials/prompts are not included in error output. Run SDK boundary tests
+with `node --test scripts/ai/bridge.test.mjs` after `npm ci --prefix scripts/ai`.
 
 Claude-mode flyer generation routes subscription OAuth through the installed
 Claude client; API keys use the Messages API. Organisation-level access denials hold the revision

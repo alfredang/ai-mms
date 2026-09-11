@@ -132,4 +132,9 @@ check($deniedModel->regenerateOnChanges($id) === null, 'denied generation does n
 check($deniedModel->generator->calls === 1, 'permanent auth denial is not immediately retried');
 $held = $db->fetchRow('SELECT review_status, review_decisions FROM ' . $table . ' WHERE newsletter_id = ?', $id);
 check($held['review_status'] === 'changes_requested' && isset(json_decode($held['review_decisions'], true)['_revision_error']), 'held revision records actionable failure for admin');
+$dashboard = file_get_contents(dirname(__DIR__, 2) . '/app/design/adminhtml/default/default/template/dashboard/index.phtml');
+check(strpos($dashboard, "submit.textContent = decision === 'changes' ? 'Regenerating & sending…' : 'Saving…';") !== false
+    && strpos($dashboard, 'id="mn-changes-status"') !== false
+    && strpos($dashboard, "if (cancel) cancel.disabled = true;") !== false,
+    'request-changes modal shows a visible busy state and blocks duplicate clicks');
 echo "All scheduled-flyer regression tests passed. No external requests made.\n";
