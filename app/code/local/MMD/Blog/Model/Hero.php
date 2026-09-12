@@ -622,10 +622,15 @@ class MMD_Blog_Model_Hero
         $this->thickLine($im, $cx - 250, $cy + 200, $cx + 260, $cy + 200, $c, 8);
         $this->thickLine($im, $cx - 250, $cy + 200, $cx - 250, $cy - 230, $c, 8);
 
-        // Bars.
+        // Bars. Heights are nudged per post from the title seed so a family of
+        // data-themed articles (e.g. the IBF-STS finance series, where five of
+        // seven resolve to this theme) does not render five identical charts in
+        // the listing. The last bar stays tallest so the "rising" read and the
+        // trend arrow below still line up.
         $heights = array(110, 190, 150, 265, 330);
         foreach ($heights as $i => $bh) {
-            $x = $cx - 190 + $i * 92;
+            $bh += (($this->seed >> ($i * 3)) % 7) * 9 - 27;
+            $x   = $cx - 190 + $i * 92;
             imagefilledrectangle($im, $x, $cy + 200 - $bh, $x + 58, $cy + 194, $i === 4 ? $c : $soft);
         }
         // Trend arrow.
