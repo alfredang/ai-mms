@@ -187,7 +187,11 @@ $_urlEdit    = Mage::helper('adminhtml')->getUrl('adminhtml/blog/edit');
                 MMD_Blog_Model_Post::STATUS_CHANGES_REQUESTED), true); ?>
             <tr>
                 <td class="strong"><?php echo htmlspecialchars($_r['title']) ?></td>
-                <td class="muted" style="font-family:ui-monospace,Menlo,monospace;font-size:12px;white-space:nowrap;"><?php echo htmlspecialchars($_r['related_skus'] ?: '—') ?></td>
+                <td class="muted bp-pt-sku"><?php
+                    // one nowrap span per SKU: wrap between SKUs, never inside one
+                    echo $_r['related_skus']
+                        ? implode(', ', array_map(function ($s) { return '<span style="white-space:nowrap;">' . htmlspecialchars(trim($s)) . '</span>'; }, explode(',', $_r['related_skus'])))
+                        : '—' ?></td>
                 <td><span class="bp-badge s-<?php echo $_rcss ?>"><?php echo $_rlabel ?></span></td>
                 <td class="muted"><?php echo htmlspecialchars($_sentAt) ?></td>
                 <td><?php
@@ -333,7 +337,11 @@ $_urlEdit    = Mage::helper('adminhtml')->getUrl('adminhtml/blog/edit');
     .bp-ptable{width:100%;border-collapse:collapse;margin:6px 0 16px;}
     .bp-ptable th{text-align:left;font:700 10.5px var(--font-sans,sans-serif);text-transform:uppercase;letter-spacing:.6px;color:#64748b;padding:8px 10px;border-bottom:1px solid #24324a;}
     .bp-ptable td{padding:10px;font:400 13px var(--font-sans,sans-serif);color:#cbd5e1;border-bottom:1px solid #1c2740;vertical-align:middle;}
-    .bp-ptable td.strong{color:#f1f5f9;font-weight:600;}
+    .bp-ptable td.strong{color:#f1f5f9;font-weight:600;min-width:260px;}
+    /* A multi-SKU row ("TGS-a,TGS-b,TGS-c") must wrap at the commas, or the
+       auto-layout table hands the Course column ~340px and squeezes every
+       title into a 5-line sliver. */
+    .bp-ptable td.bp-pt-sku{font:600 12px ui-monospace,Menlo,monospace;max-width:190px;word-break:normal;}
     .bp-ptable td.muted{color:#64748b;}
     .bp-ptable td.tnum{font-variant-numeric:tabular-nums;}
     .bp-ptable .ta-r{text-align:right;}
