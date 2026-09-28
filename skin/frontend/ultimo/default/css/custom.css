@@ -3228,3 +3228,19 @@ a.brochure-cta:focus-visible { outline: 2px solid #9a3412; outline-offset: 2px; 
     max-width: 20em;
     white-space: nowrap;
 }
+
+/* AI Applications Series flyout in two columns (requested 2026-09-28).
+   The list grew to 11 industry subcategories, which made a long single
+   column. Scoped by the item's own link so no other flyout changes; uses CSS
+   columns (not display:grid) so Ultimo's hover show/hide keeps working.
+   umm_dd_columns cannot do this: it is only honoured for Mega dropdowns, and
+   a Mega panel nested in the classic AI Courses dropdown overlaps its parent. */
+.nav-regular .nav-panel li.classic:has(> a[href$="/ai-applications-series.html"]) > ul.nav-panel--dropdown {
+    width: 30em !important;
+    max-width: none;
+    column-count: 2;
+    column-gap: 1.5em;
+}
+.nav-regular .nav-panel li.classic:has(> a[href$="/ai-applications-series.html"]) > ul.nav-panel--dropdown > li {
+    break-inside: avoid;
+}
