@@ -2853,6 +2853,22 @@ function courseSyncSaveConfig() {
                 <?php if ($_dc['price'] > 0): ?>
                 <div class="dev-card-row"><span class="dev-card-lbl">Price:</span><span class="dev-card-val">$<?php echo number_format($_dc['price'], 2) ?></span></div>
                 <?php endif; ?>
+                <?php
+                // Funding End Date = news_to_date, which only means the SSG
+                // funding validity end on WSQ (TGS-) courses; on C- courses it
+                // is a legacy class-date mirror, so show NA for non-WSQ.
+                $_dcIsWsq = stripos($_dcRef, 'TGS-') === 0;
+                $_dcFundEndTs = ($_dcIsWsq && $_dc['funding_end']) ? strtotime(substr($_dc['funding_end'], 0, 10)) : false;
+                $_dcFundEnd = $_dcFundEndTs ? date('M d, Y', $_dcFundEndTs) : '';
+                // Green > 3 months left, orange within 3 months, red once expired.
+                $_dcFundEndColor = '';
+                if ($_dcFundEndTs) {
+                    $_dcToday = strtotime(date('Y-m-d'));
+                    $_dcFundEndColor = $_dcFundEndTs < $_dcToday ? '#f87171'
+                        : ($_dcFundEndTs <= strtotime('+3 months', $_dcToday) ? '#fb923c' : '#4ade80');
+                }
+                ?>
+                <div class="dev-card-row"><span class="dev-card-lbl">Funding End Date:</span><span class="dev-card-val"<?php echo $_dcFundEndColor ? ' style="color:' . $_dcFundEndColor . ';"' : '' ?>><?php echo $_dcIsWsq ? ($_dcFundEnd ?: '&mdash;') : 'NA' ?></span></div>
                 <div class="dev-card-row"><span class="dev-card-lbl">Status:</span><span class="dev-card-val"><span style="display:inline-block;padding:2px 12px;border-radius:999px;font-size:11px;font-weight:600;line-height:1.5;<?php echo $_dcActive
                     ? 'color:#4ade80;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.35);'
                     : 'color:#f87171;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.35);' ?>"><?php echo $_dcActive ? 'Active' : 'Disabled' ?></span></span></div>
