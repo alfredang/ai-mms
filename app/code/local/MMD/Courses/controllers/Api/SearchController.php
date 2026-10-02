@@ -129,6 +129,11 @@ class MMD_Courses_Api_SearchController extends Mage_Core_Controller_Front_Action
     {
         // Course covers are the storefront's authoritative product images.
         $cover = trim((string) $product->getData('course_image_url'));
+        if ($cover === '' && $product->getId()) {
+            // Flat collections can omit an attribute until their schema is rebuilt.
+            $source = Mage::getModel('catalog/product')->setStoreId(self::SG_STORE_ID)->load($product->getId());
+            $cover = trim((string) $source->getData('course_image_url'));
+        }
         if ($cover !== '' && preg_match('#^https?://#i', $cover)) {
             return $cover;
         }
