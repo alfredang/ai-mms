@@ -1,7 +1,7 @@
 <?php
 /**
  * Single blog post — hero, meta row, share buttons, thumbs-up like, article body,
- * lead-magnet CTA (related courses + WSQ funding / SkillsFuture Credit hook),
+ * lead-magnet CTA (related courses + store-specific funding guidance),
  * tags, JSON-LD Article schema. Design mirrors tertiaryinfotech.com/blog.
  * @var MMD_Blog_Block_View $this
  */
@@ -12,6 +12,7 @@ $courses = $this->getRelatedCourses();
 $tags    = $this->getTags();
 $heroImg = $helper->getHeroImage($post);
 $storeName = Mage::getStoreConfig('general/store_information/name') ?: 'Tertiary Infotech Academy';
+$isMalaysia = Mage::app()->getStore()->getCode() === 'malaysia';
 $contentHtml = $this->getContentHtml();
 ?>
 <article class="mmd-blog mmd-blog-post" itemscope itemtype="https://schema.org/Article">
@@ -68,7 +69,11 @@ $contentHtml = $this->getContentHtml();
     <!-- Lead magnet CTA: every post funnels readers to course registration. -->
     <aside class="mmd-blog-cta">
         <h2>Ready to build this skill? &#127891;</h2>
+        <?php if ($isMalaysia): ?>
+        <p>Join our hands-on, instructor-led training. For employer-sponsored training, ask us whether a specific programme is registered under <strong>HRD Corp Claimable Courses (SBL-KHAS)</strong>. Eligibility and grant approval depend on HRD Corp requirements.</p>
+        <?php else: ?>
         <p>Join the hands-on, instructor-led training below. <strong>WSQ courses enjoy up to 70% SkillsFuture (WSQ) funding</strong> for eligible Singaporeans and PRs, and you can <strong>offset the fee with your SkillsFuture Credit</strong>. Seats are limited — reserve yours today.</p>
+        <?php endif; ?>
         <?php if ($courses): ?>
         <div class="mmd-blog-cta-courses">
             <?php foreach ($courses as $course): ?>
@@ -99,7 +104,9 @@ $contentHtml = $this->getContentHtml();
 <?php
 // BlogPosting (Article subtype) — publisher logo + author + honest dates are
 // exactly the authorship/freshness signals AI Overview summarisers lean on.
-$orgLogo = rtrim(Mage::getBaseUrl(Mage_Core_Model_Store::URL_TYPE_LINK), '/') . '/skin/frontend/ultimo/default/images/TertiaryCoursesSingapore.png';
+$orgLogo = rtrim(Mage::getBaseUrl(Mage_Core_Model_Store::URL_TYPE_LINK), '/')
+    . '/skin/frontend/ultimo/default/images/TertiaryCourses'
+    . ($isMalaysia ? 'Malaysia' : 'Singapore') . '.png';
 $schema = array(
     '@context'      => 'https://schema.org',
     '@type'         => 'BlogPosting',

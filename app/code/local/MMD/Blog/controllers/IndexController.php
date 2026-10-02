@@ -18,7 +18,11 @@ class MMD_Blog_IndexController extends Mage_Core_Controller_Front_Action
         $head = $this->getLayout()->getBlock('head');
         if ($head) {
             $head->setTitle('Blog | ' . Mage::getStoreConfig('general/store_information/name'));
-            $head->setDescription('Practical guides on AI, tech and professional upskilling — with WSQ funding and SkillsFuture Credit tips from ' . Mage::getStoreConfig('general/store_information/name') . '.');
+            if (Mage::app()->getStore()->getCode() === 'malaysia') {
+                $head->setDescription('Practical AI and tech training guides for Malaysia. Explore skills and HRD Corp Claimable Courses (SBL-KHAS) eligibility for employers.');
+            } else {
+                $head->setDescription('Practical guides on AI, tech and professional upskilling — with WSQ funding and SkillsFuture Credit tips from ' . Mage::getStoreConfig('general/store_information/name') . '.');
+            }
             $q = trim((string) $this->getRequest()->getParam('q', ''));
             if ($q !== '') {
                 $head->setTitle('Search "' . $q . '" | Blog');
