@@ -78,7 +78,7 @@ class MMD_Courses_Api_SearchController extends Mage_Core_Controller_Front_Action
         $collection = Mage::getModel('catalog/product')->getCollection()
             ->setStoreId(self::SG_STORE_ID)
             ->addStoreFilter(self::SG_STORE_ID)
-            ->addAttributeToSelect(array('name', 'sku', 'price', 'small_image', 'short_description'))
+            ->addAttributeToSelect(array('name', 'sku', 'price', 'small_image', 'course_image_url', 'url_key', 'short_description'))
             ->addAttributeToFilter('status', Mage_Catalog_Model_Product_Status::STATUS_ENABLED)
             ->addAttributeToFilter('visibility', array('neq' => Mage_Catalog_Model_Product_Visibility::VISIBILITY_NOT_VISIBLE))
             ->addAttributeToFilter(array(
