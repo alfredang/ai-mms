@@ -68,6 +68,7 @@ OpenMage 1.x (Magento 1 LTS v20.12.3) customized as a Course Registration + LMS 
   - 🇸🇬 SG **non-WSQ** courses: SKU starts with `C` (e.g. `C6`, `C009`).
   - 🌏 All **other stores** (MY/NG/GH/BT/IN): SKU starts with `M`.
   When a feature should only fire for one segment (funding tiles, subsidy badges, WSQ-specific copy), key off the SKU prefix **and** `Mage::app()->getStore()->getCode()` together — never assume "all SG = WSQ" or "all C-prefix = SG".
+- **HARD RULE — non-WSQ schedule template matches its WSQ twin when the day counts match.** A C-prefix course and the TGS- twin its Funding block links to, running the **same number of days** (non-WSQ `duration` ÷ 7.5 vs the WSQ template's series letter A=1…E=5), **must** be on the same template code — `(SG) WSQ-B09 …` ⇒ `B09 …`. Match on the code, never the weekday names; only the non-WSQ side moves. Different day counts ⇒ the rule does not apply (user's choice). The switch is a code path (`CoursesaveController::switchScheduleTemplateAction`), never SQL. Audit/fix the whole catalogue with `~/.claude/skills/non-wsq-schedule/align_templates.php` (run in the web container; `--apply` to switch). A conversion, repurpose or duration change is not finished while a same-day pair is mismatched.
 - **The admin panel is rebranded** as "Tertiary Infotech Academy — Magento Management System". Treat the admin as a TMS for instructors + operations staff, not a generic e-commerce backoffice.
 
 ### LMS data model — single source of truth
