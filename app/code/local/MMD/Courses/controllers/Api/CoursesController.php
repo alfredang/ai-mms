@@ -169,6 +169,11 @@ class MMD_Courses_Api_CoursesController extends Mage_Core_Controller_Front_Actio
 
     private function _productImageUrl($product)
     {
+        // Course covers are the storefront's authoritative product images.
+        $cover = trim((string) $product->getData('course_image_url'));
+        if ($cover !== '' && preg_match('#^https?://#i', $cover)) {
+            return $cover;
+        }
         $img = (string) $product->getSmallImage();
         if ($img === '' || $img === 'no_selection') {
             return '';

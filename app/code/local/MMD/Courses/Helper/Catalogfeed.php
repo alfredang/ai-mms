@@ -241,6 +241,11 @@ class MMD_Courses_Helper_Catalogfeed extends Mage_Core_Helper_Abstract
 
     public function productImageUrl($product)
     {
+        // Course covers are the storefront's authoritative product images.
+        $cover = trim((string) $product->getData('course_image_url'));
+        if ($cover !== '' && preg_match('#^https?://#i', $cover)) {
+            return $cover;
+        }
         $img = (string) $product->getSmallImage();
         if ($img === '' || $img === 'no_selection') {
             return '';
