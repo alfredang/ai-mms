@@ -149,6 +149,19 @@ class MMD_Blog_Model_Cron_Autoblog
 
     // ---------------------------------------------------------------- flow gates
 
+    private function _isMalaysia()
+    {
+        if (Mage::app()->getStore()->getCode() === 'malaysia') {
+            return true;
+        }
+        // Manual generation and review run in the admin store on the MY
+        // server; its default base URL still identifies the country.
+        $host = strtolower((string) parse_url(
+            (string) Mage::getStoreConfig('web/unsecure/base_url', 0), PHP_URL_HOST
+        ));
+        return (bool) preg_match('/(^|\.)tertiarycourses\.com\.my$/', $host);
+    }
+
     /**
      * Review flow = auto_publish OFF (migration 450 turns it off on the SG
      * instance only; partner sites keep the legacy immediate-publish path).
@@ -410,7 +423,10 @@ class MMD_Blog_Model_Cron_Autoblog
                 : '')
             . "A manager reviewed it and requested changes:\n\"" . ($feedback !== '' ? $feedback : 'Improve the draft.') . "\"\n\n"
             . "Rewrite the post applying the feedback. Keep it a lead magnet (inline sign-up links to the course URL, "
-            . "funding/SkillsFuture hooks, FAQ, 'What to do next' CTA) and keep it strongly SEO-optimised. "
+            . ($this->_isMalaysia()
+                ? "a practical FAQ and 'What to do next' CTA). Remove Singapore, WSQ and SkillsFuture funding claims. Do not claim this course is HRD Corp Claimable without verified programme registration. "
+                : "funding/SkillsFuture hooks, FAQ, 'What to do next' CTA). ")
+            . "Keep it strongly SEO-optimised. "
             . "Respond with the SAME single JSON object shape as before.";
 
         $raw = $this->_invokeClaude($this->_writerSystemPrompt(), $input, 8000);
@@ -632,7 +648,7 @@ class MMD_Blog_Model_Cron_Autoblog
             $courseUrl = rtrim(Mage::getUrl('', array('_direct' => '')), '/')
                 . '/' . $course->getUrlKey() . '.html';
         }
-        $isWsq = $course && strpos((string) $course->getSku(), 'TGS-') === 0;
+        $isWsq = !$this->_isMalaysia() && $course && strpos((string) $course->getSku(), 'TGS-') === 0;
 
         $excerpt = trim((string) $post->getExcerpt());
         if (mb_strlen($excerpt) > 300) {
@@ -859,7 +875,8 @@ class MMD_Blog_Model_Cron_Autoblog
                 . ' ORDER BY post_id DESC LIMIT 8'
             );
 
-            $system = 'You are a technology-trends research agent for a Singapore training academy. '
+            $system = 'You are a technology-trends research agent for a '
+                . ($this->_isMalaysia() ? 'Malaysian' : 'Singapore') . ' training academy. '
                 . 'Use web search to find what is genuinely NEW and newsworthy (last 60 days). '
                 . 'After researching, respond with ONE JSON object only — no markdown fences, no preamble. Keys: '
                 . 'topic (string, the chosen topic), angle (string, the specific fresh angle for a blog post), '
@@ -945,7 +962,10 @@ class MMD_Blog_Model_Cron_Autoblog
 
     private function _writerSystemPrompt()
     {
-        return 'You are the content marketer for a Singapore SkillsFuture-approved training academy. '
+        return 'You are the content marketer for a '
+            . ($this->_isMalaysia()
+                ? 'Malaysian professional training academy. Do not assert course-specific HRD Corp Claimable Courses (SBL-KHAS) eligibility without verified programme registration. '
+                : 'Singapore SkillsFuture-approved training academy. ')
             . 'You write conversion-focused blog posts that act as lead magnets for instructor-led courses, '
             . 'and every post is aggressively SEO-optimised: one clear target keyphrase used in the title, '
             . 'the first paragraph, at least two h2 headings and the meta fields; scannable h2/h3 structure; '
@@ -960,6 +980,7 @@ class MMD_Blog_Model_Cron_Autoblog
     private function _writerInput(array $course, $research = null)
     {
         $isWsq = strpos($course['sku'], 'TGS-') === 0;
+        $isMalaysia = $this->_isMalaysia();
 
         $researchBlock = '';
         if (is_array($research)) {
@@ -1008,12 +1029,16 @@ class MMD_Blog_Model_Cron_Autoblog
                 ? "- Reference the latest developments from the research brief with specifics (product names, versions, dates) and cite at least 2 of the SOURCES as inline links (rel-follow, descriptive anchor text).\n"
                 : '')
             . "- Weave in at least 2 inline links to COURSE_URL with action anchor text (e.g. sign up, register).\n"
-            . ($isWsq
-                ? "- This is a WSQ course: explicitly mention up to 70% WSQ funding for eligible Singaporeans/PRs, that SkillsFuture Credit can be used to offset the fee, and SME subsidy support.\n"
-                : "- Explicitly mention that SkillsFuture Credit can be claimed for this course and highlight WSQ funding availability across our WSQ course catalogue.\n")
+            . ($isMalaysia
+                ? "- Write for Malaysia. Do not repeat Singapore, WSQ, SkillsFuture or MySkillsFuture copy even if it appears in the course source text.\n"
+                  . "- No verified HRD Corp programme registration is supplied here. Do not claim this specific course is funded or claimable. If funding is relevant, describe HRD Corp Claimable Courses (SBL-KHAS) only in general terms and say employer eligibility and grant approval must be checked.\n"
+                : ($isWsq
+                    ? "- This is a WSQ course: explicitly mention up to 70% WSQ funding for eligible Singaporeans/PRs, that SkillsFuture Credit can be used to offset the fee, and SME subsidy support.\n"
+                    : "- Explicitly mention that SkillsFuture Credit can be claimed for this course and highlight WSQ funding availability across our WSQ course catalogue.\n"))
             . "- End with a 'What to do next' section whose final call-to-action links to COURSE_URL.\n"
-            . "- Include a short FAQ (3 questions) with an answer about funding/SkillsFuture claims.\n"
-            . "- Singapore audience, professional but energetic tone.";
+            . ($isMalaysia
+                ? "- Include a short FAQ (3 questions). Any funding answer must avoid course-specific eligibility claims.\n- Malaysian audience, professional but energetic tone."
+                : "- Include a short FAQ (3 questions) with an answer about funding/SkillsFuture claims.\n- Singapore audience, professional but energetic tone.");
     }
 
     /**
