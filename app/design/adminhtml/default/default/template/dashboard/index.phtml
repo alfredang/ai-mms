@@ -3955,6 +3955,8 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                 <?php endif; ?>
                 <div class="lcd-detail-row"><span class="lcd-detail-label">Course Title</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_editCourseData['name']) ?></span></div>
                 <div class="lcd-detail-row"><span class="lcd-detail-label">Course Code</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_editCourseData['sku'] ?: '—') ?></span></div>
+                <?php $_cdSched = isset($_devScheduleMap[(int) $_selectedCourseId]) ? $_devScheduleMap[(int) $_selectedCourseId] : ''; ?>
+                <div class="lcd-detail-row"><span class="lcd-detail-label">Course Schedule</span><span class="lcd-detail-value"><?php echo $_cdSched !== '' ? htmlspecialchars($_cdSched) : '—' ?></span></div>
                 <div style="padding:10px 0 0;margin:6px 0 0;">
                     <div style="font-size:14px;font-weight:700;color:#fff;margin:0 0 6px;">Course Duration</div>
                     <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;color:#cbd5e1;"><span>Training Hours:</span><strong style="color:#fff"><?php echo $_cdDur ?></strong></div>
@@ -6620,6 +6622,8 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
         <?php endif; ?>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Course Title</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['name']) ?></span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Course Code</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['sku'] ?: '—') ?></span></div>
+        <?php $_lcdSched = isset($_devScheduleMap[(int) $_selectedCourse['id']]) ? $_devScheduleMap[(int) $_selectedCourse['id']] : ''; ?>
+        <div class="lcd-detail-row"><span class="lcd-detail-label">Course Schedule</span><span class="lcd-detail-value"><?php echo $_lcdSched !== '' ? htmlspecialchars($_lcdSched) : '—' ?></span></div>
         <?php if (!$_courseManagerActive): /* learner/trainer viewing a real class: run-level fields are legitimate. Developer/course view is course-level only (no run fields, no trainer row). */ ?>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Course Run ID</span><span class="lcd-detail-value"><?php echo $_courseRunId ?></span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Start Date</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['start_date']) ?></span></div>
