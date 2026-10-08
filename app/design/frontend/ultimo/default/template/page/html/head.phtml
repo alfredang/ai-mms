@@ -81,13 +81,13 @@ $_curFullUrl = $this->helper('core/url')->getCurrentUrl();
 $_curPath = parse_url($_curFullUrl, PHP_URL_PATH) ?: '/';
 $_selfCanonical = $_curBase . $_curPath;
 
-// hreflang map. Only stores with a live DNS-pointed domain. Adding a store here
-// before its DNS is cut over makes Google crawl URLs that 404 — actively harmful.
-// To enable a reserved store: confirm DNS resolves to this hosting, then add the
-// store_id => 'en-XX' line and the matching .htaccess sitemap rewrite + robots
-// Sitemap directive.
+// hreflang: self-referencing only. Each franchise site (SG/MY/GH) is a standalone
+// install serving exactly one store, so the cluster is just the current store —
+// never another partner's domain (a hardcoded store 1 = en-SG here made MY pages
+// declare the SG URL as their alternate + x-default).
+$_hreflangLocales = ['singapore' => 'en-SG', 'malaysia' => 'en-MY', 'ghana' => 'en-GH'];
 $_hreflangMap = [
-    1 => 'en-SG', // singapore
+    $_curStoreId => $_hreflangLocales[$_curStore->getCode()] ?? 'en',
 ];
 
 // Resolve per-store paths for the current page.
@@ -143,9 +143,9 @@ foreach ($_hreflangMap as $_storeId => $_lang):
 ?>
 <link rel="alternate" hreflang="<?php echo $_lang; ?>" href="<?php echo htmlspecialchars($_storeUrl, ENT_QUOTES, 'UTF-8'); ?>" />
 <?php endforeach; ?>
-<?php // x-default points at SG (store_id=1), the primary commercial market.
-$_xdBase = isset($_stores[1]) ? rtrim($_stores[1]->getBaseUrl(Mage_Core_Model_Store::URL_TYPE_LINK), '/') : $_curBase;
-$_xdPath = $_perStorePath[1] ?? $_curPath;
+<?php // x-default points at the current site itself (one store per site).
+$_xdBase = $_curBase;
+$_xdPath = $_perStorePath[$_curStoreId] ?? $_curPath;
 ?>
 <link rel="alternate" hreflang="x-default" href="<?php echo htmlspecialchars($_xdBase . $_xdPath, ENT_QUOTES, 'UTF-8'); ?>" />
 <?php endif; ?>
@@ -178,8 +178,11 @@ if ($_product && $_product->getId()) {
 if (!$_ogImage && $_blogPost && $_blogPost->getId()) {
     $_ogImage = (string) Mage::helper('mmd_blog')->getHeroImage($_blogPost);
 }
+// Current store's own header logo (Design > Header > Logo Image Src), so each
+// franchise site brands its schema/share cards with its own logo.
+$_storeLogo = $this->getSkinUrl((string) Mage::getStoreConfig('design/header/logo_src') ?: 'images/logo.png');
 if (!$_ogImage) {
-    $_ogImage = $_curBase . '/skin/frontend/ultimo/default/images/TertiaryCoursesSingapore.png';
+    $_ogImage = $_storeLogo;
 }
 $_ogSiteName = (string) Mage::getStoreConfig('general/store_information/name') ?: 'Tertiary Courses';
 ?>
@@ -204,7 +207,7 @@ $_ogSiteName = (string) Mage::getStoreConfig('general/store_information/name') ?
  * ---------------------------------------------------------------------- */
 if ($_product && $_product->getId()):
     $_orgName = (string) (Mage::getStoreConfig('general/store_information/name') ?: 'Tertiary Courses');
-    $_orgLogo = $_curBase . '/skin/frontend/ultimo/default/images/TertiaryCoursesSingapore.png';
+    $_orgLogo = $_storeLogo;
     $_jsonLd = [
         '@context' => 'https://schema.org',
         '@type'    => 'Course',
@@ -267,6 +270,11 @@ if ($_product && $_product->getId()):
                 if (preg_match('#^(\d{1,2})\s*([A-Za-z]{3,9})?\s*/\s*(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{4})#', $_t, $_dm)) {
                     $_start = strtotime($_dm[1] . ' ' . ($_dm[2] !== '' ? $_dm[2] : $_dm[4]) . ' ' . $_dm[5]);
                     $_end   = strtotime($_dm[3] . ' ' . $_dm[4] . ' ' . $_dm[5]);
+                    // The title carries only the end date's year, so a range that
+                    // crosses New Year ("30 Dec/2 Jan 2027") starts in the prior year.
+                    if ($_start && $_end && $_start > $_end) {
+                        $_start = strtotime('-1 year', $_start);
+                    }
                 } elseif (preg_match('#^(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{4})#', $_t, $_dm)) {
                     $_start = $_end = strtotime($_dm[1] . ' ' . $_dm[2] . ' ' . $_dm[3]);
                 }
