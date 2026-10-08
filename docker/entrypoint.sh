@@ -325,8 +325,17 @@ if [ -f /var/www/html/scripts/seo/generate-sitemaps.php ]; then
     echo "entrypoint: generating active sitemap XML files..."
     php /var/www/html/scripts/seo/generate-sitemaps.php \
         || echo "entrypoint: WARNING — sitemap generation failed (non-fatal)"
-    chown www-data:www-data /var/www/html/sitemap_*.xml 2>/dev/null || true
-    chmod a+r /var/www/html/sitemap_*.xml 2>/dev/null || true
+    chown www-data:www-data /var/www/html/sitemap.xml /var/www/html/sitemap_*.xml 2>/dev/null || true
+    chmod a+r /var/www/html/sitemap.xml /var/www/html/sitemap_*.xml 2>/dev/null || true
+fi
+
+# Country instances: the repo's robots.txt names the SG sitemap. Point its
+# Sitemap directive at this site's own /sitemap.xml (e.g. com.my on MY). The
+# docroot is rebuilt from the image on every deploy, so this re-runs each boot.
+if [ "${MMS_MODE:-}" = "country" ] && [ -n "${MMS_BASE_URL:-}" ] && [ -f /var/www/html/robots.txt ]; then
+    sed -i "s#^Sitemap:.*#Sitemap: ${MMS_BASE_URL%/}/sitemap.xml#" /var/www/html/robots.txt \
+        && echo "entrypoint: robots.txt Sitemap -> ${MMS_BASE_URL%/}/sitemap.xml" \
+        || echo "entrypoint: WARNING — robots.txt Sitemap rewrite failed (non-fatal)"
 fi
 
 # One-shot reindex: catalog_url + catalog_category_flat. Required after the

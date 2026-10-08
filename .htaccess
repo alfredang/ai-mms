@@ -73,9 +73,11 @@ deny from 78.128.113.18
 SetEnvIf Host ^(www\.)?tertiarycourses\.com\.sg$ MAGE_RUN_CODE=singapore
 SetEnvIf Host ^(www\.)?tertiarycourses\.com\.sg$ MAGE_RUN_TYPE=store
 
-## Redirect non-www to www for tertiarycourses.com.sg
-RewriteCond %{HTTP_HOST} ^tertiarycourses\.com\.sg$ [NC]
-RewriteRule ^(.*)$ https://www.tertiarycourses.com.sg/$1 [L,R=301]
+## Redirect non-www to www on each franchise site's OWN domain (SG/MY/GH).
+## Same-host only: tertiarycourses.com.my -> www.tertiarycourses.com.my, never
+## to another partner's domain.
+RewriteCond %{HTTP_HOST} ^tertiarycourses\.(com\.sg|com\.my|com\.gh)$ [NC]
+RewriteRule ^(.*)$ https://www.tertiarycourses.%1/$1 [L,R=301]
 
 ############################################
 ## uncomment these lines for CGI mode
@@ -316,7 +318,18 @@ RewriteRule ^(.*)$ https://www.tertiarycourses.com.sg/$1 [L,R=301]
 
     ## Single canonical sitemap served directly at /sitemap.xml (no per-host rewrite).
 
-Redirect 301 /project-management-sme-chinese.html https://www.tertiarycourses.com.sg/project-management-sme-training-singapore.html
+    ## SG-only legacy 301s (absolute com.sg targets) — host-gated so the same
+    ## .htaccess on a partner box (MY/GH) never bounces its visitors to SG.
+    <If "%{HTTP_HOST} =~ /^(www\.)?tertiarycourses\.com\.sg$/i">
+        Redirect 301 /project-management-sme-chinese.html https://www.tertiarycourses.com.sg/project-management-sme-training-singapore.html
+    </If>
+
+    ## MY-only 301s for retired course slugs that 404 on .com.my (host-gated,
+    ## same-domain targets verified 200 on www.tertiarycourses.com.my).
+    <If "%{HTTP_HOST} =~ /^(www\.)?tertiarycourses\.com\.my$/i">
+        Redirect 301 /ai-vibe-coding-for-mobile-apps-development.html https://www.tertiarycourses.com.my/ai-vibe-coding-for-ios-mobile-apps-development.html
+        Redirect 301 /microsoft-power-automate-rpa-developer-associate-pl-500-exam-prep.html https://www.tertiarycourses.com.my/power-automate-software-training.html
+    </If>
 
 ############################################
 ## uncomment next line to enable light API calls processing
@@ -644,15 +657,19 @@ deny from 185.157.161.62
 deny from 185.86.106.179
 
 
+## SG-only legacy 301s (absolute com.sg targets) — host-gated so partner
+## boxes (MY/GH) running this same .htaccess never redirect to SG.
+<If "%{HTTP_HOST} =~ /^(www\.)?tertiarycourses\.com\.sg$/i">
 Redirect 301 /project-consultancy.html https://www.tertiarycourses.com.sg/
 
 Redirect 301 /pytohn-machine-learning-with-scikit-learn-trai https://www.tertiarycourses.com.sg/ai-vibe-coding-for-python-financial-analysis.html
 Redirect 301 /ebook-publishing-and-distribution-essential-tr https://www.tertiarycourses.com.sg/wsq-microsoft-security-operations-analyst-sc-200.html
-RewriteOptions inherit
 
 Redirect 301 /contact-us.html https://www.tertiarycourses.com.sg/contacts
 Redirect 301 /laptop-rental.html https://www.tertiarycourses.com.sg/
 Redirect 301 /course-feedback-143.html https://www.tertiarycourses.com.sg/contacts
+</If>
+RewriteOptions inherit
 
 #Redirect 301 /revit-for-structural-design-professional-certification-prep-acp.html https://www.tertiarycourses.com.sg/
 

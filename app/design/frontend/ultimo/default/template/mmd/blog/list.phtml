@@ -17,8 +17,12 @@ $allTags = $helper->getPublishedTagNames();
         <?php $total = $this->getTotalPublishedCount(); ?>
         <p class="mmd-blog-kicker">[ BLOG &middot; <?php echo $total ?> <?php echo $total === 1 ? 'ARTICLE' : 'ARTICLES' ?> ]</p>
         <h1>Level up with <span class="mmd-blog-accent">AI &amp; tech skills</span> that pay for themselves.</h1>
+        <?php if (Mage::app()->getStore()->getCode() === 'singapore'): // WSQ / SkillsFuture are SG-only ?>
         <p class="mmd-blog-sub">Practical guides from our trainers — plus how to fund your upskilling with
             <strong>WSQ funding</strong> and <strong>SkillsFuture Credit</strong>.</p>
+        <?php else: ?>
+        <p class="mmd-blog-sub">Practical guides from our trainers.</p>
+        <?php endif; ?>
     </header>
 
     <form class="mmd-blog-search" method="get" action="<?php echo $helper->getListUrl() ?>" role="search">

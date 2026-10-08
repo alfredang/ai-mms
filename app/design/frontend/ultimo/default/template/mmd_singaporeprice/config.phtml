@@ -1,4 +1,7 @@
 <?php /** @var MMD_SingaporePrice_Block_Config $this */ ?>
+<?php // SG-only: partner sites must not ship the SG GST/funding map in their HTML.
+// sg-pricing.js already no-ops when window.MMD_SG_PRICING is undefined.
+if (!Mage::helper('mmd_singaporeprice')->isActive()) return; ?>
 <script type="text/javascript">
     window.MMD_SG_PRICING = <?php echo $this->getConfigJson() ?>;
 </script>

@@ -68,7 +68,11 @@ $contentHtml = $this->getContentHtml();
     <!-- Lead magnet CTA: every post funnels readers to course registration. -->
     <aside class="mmd-blog-cta">
         <h2>Ready to build this skill? &#127891;</h2>
+        <?php if (Mage::app()->getStore()->getCode() === 'singapore'): // WSQ / SkillsFuture are SG-only ?>
         <p>Join the hands-on, instructor-led training below. <strong>WSQ courses enjoy up to 70% SkillsFuture (WSQ) funding</strong> for eligible Singaporeans and PRs, and you can <strong>offset the fee with your SkillsFuture Credit</strong>. Seats are limited — reserve yours today.</p>
+        <?php else: ?>
+        <p>Join the hands-on, instructor-led training below. Seats are limited — reserve yours today.</p>
+        <?php endif; ?>
         <?php if ($courses): ?>
         <div class="mmd-blog-cta-courses">
             <?php foreach ($courses as $course): ?>
@@ -99,7 +103,7 @@ $contentHtml = $this->getContentHtml();
 <?php
 // BlogPosting (Article subtype) — publisher logo + author + honest dates are
 // exactly the authorship/freshness signals AI Overview summarisers lean on.
-$orgLogo = rtrim(Mage::getBaseUrl(Mage_Core_Model_Store::URL_TYPE_LINK), '/') . '/skin/frontend/ultimo/default/images/TertiaryCoursesSingapore.png';
+$orgLogo = $this->getSkinUrl((string) Mage::getStoreConfig('design/header/logo_src') ?: 'images/logo.png');
 $schema = array(
     '@context'      => 'https://schema.org',
     '@type'         => 'BlogPosting',

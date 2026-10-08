@@ -20,12 +20,20 @@ $waPath = 'M24.50 7.51A11.93 11.93 0 0 0 16.04 4C9.43 4 4.05 9.38 4.04 15.99c0 2
         . 'c.15.20 2.10 3.21 5.10 4.50.71.31 1.27.49 1.71.63.72.23 1.37.20 1.89.12.58-.09 1.77-.72 2.02-1.42'
         . '.25-.70.25-1.30.17-1.42-.07-.13-.27-.20-.57-.35Z';
 
+// SG funding schemes are SG-only. A partner site keeps its own per-store
+// core_translate override (e.g. MY HRD Corp copy); untranslated, it gets a
+// neutral line instead of the SG scheme list.
+$fundingDesc = $this->__('SFC, WSQ, IBF, SFEC, UTAP, PSEA');
+if (Mage::app()->getStore()->getCode() !== 'singapore' && $fundingDesc === 'SFC, WSQ, IBF, SFEC, UTAP, PSEA') {
+    $fundingDesc = $this->__('Funding &amp; subsidy options');
+}
+
 // Enquiry options -> each opens WhatsApp with a context-specific message.
 $options = array(
     array(
         'icon'  => '&#128176;', // money bag
         'label' => $this->__('Course Funding'),
-        'desc'  => $this->__('SFC, WSQ, IBF, SFEC, UTAP, PSEA'),
+        'desc'  => $fundingDesc,
         'link'  => $helper->getLinkWithText(
             $this->__('Hi %s, I would like to enquire about course funding / subsidies.', $brand)
         ),
