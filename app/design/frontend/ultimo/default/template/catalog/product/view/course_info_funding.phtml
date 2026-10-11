@@ -1,0 +1,136 @@
+<?php
+/* Standard funding + appeal sections for the SG Course Info accordion.
+   Rendered by prerequisite.phtml for SG funded courses (TGS- SKU: WSQ, CASL,
+   IBF) in place of the per-course boilerplate it strips from the blob. Each
+   scheme section is gated on the course's funding badge tag — the same tags
+   that drive the WSQ Funding card — so the two can never disagree.
+   Facts verified against official sources on 11 Oct 2026 (MySkillsFuture,
+   EnterpriseSG / SWDA memos, NTUC U Portal, MOE). The current SFEC expires
+   30 Nov 2026; rewrite that section when the redesigned SFEC publishes its
+   rates and claim steps. Each <h2> becomes one accordion tab. */
+$_product = $this->getProduct();
+$_sku = (string) $_product->getSku();
+try {
+    $_badges = Mage::helper('mmd_courseimage')->getProductBadges($_product);
+} catch (Exception $e) {
+    $_badges = array();
+}
+$_has = function ($badge) use ($_badges) { return in_array($badge, $_badges, true); };
+$_msfCourseUrl = 'https://courses.myskillsfuture.gov.sg/courses/' . rawurlencode($_sku);
+$_ext = ' target="_blank" rel="noopener"';
+?>
+<h2>Funding Eligibility Criteria</h2>
+<h3>Self-sponsored learners (individuals)</h3>
+<ul>
+<li>Singapore Citizens and Singapore Permanent Residents aged 21 and above.</li>
+<li>Up to <strong>50%</strong> course fee funding. Singapore Citizens aged 40 and above receive up to <strong>70%</strong> under the Mid-career Enhanced Subsidy (MCES).</li>
+<?php if ($_has('SkillsFuture Credit')): ?>
+<li>Singapore Citizens aged 25 and above can pay the remaining fee with SkillsFuture Credit.</li>
+<?php endif; ?>
+</ul>
+<h3>Company-sponsored learners</h3>
+<ul>
+<li>Singapore Citizens and Singapore Permanent Residents who are <strong>direct employees</strong> of the sponsoring company.</li>
+<li>Up to <strong>50%</strong> course fee funding, or up to <strong>70%</strong> for employees of SMEs (Enhanced Training Support for SMEs) and for Singapore Citizens aged 40 and above. An SME has no more than 200 employees or an annual turnover of no more than $100 million.</li>
+<?php if ($_has('Absentee Payroll')): ?>
+<li>Employers can also claim Absentee Payroll funding for employees who attend during working hours.</li>
+<?php endif; ?>
+<?php if ($_has('SFEC')): ?>
+<li>Eligible companies can offset their out-of-pocket fees with SkillsFuture Enterprise Credit (SFEC).</li>
+<?php endif; ?>
+</ul>
+<h3>Conditions for all funded learners</h3>
+<ul>
+<li>Attendance is taken digitally with Singpass for every session, including the assessment.</li>
+<li>You must complete the course and pass all assessments (assessed as Competent).</li>
+<li>If these conditions are not met, the funding is clawed back and the learner or employer pays the full course fee.</li>
+<li>9% GST is charged on the full course fee before funding.</li>
+<li>Promo and discount codes cannot be used on funded courses.</li>
+<li>Any balance after funding can be paid in cash<?php echo $_has('SkillsFuture Credit') ? ', with SkillsFuture Credit' : ''; ?><?php echo $_has('PSEA') ? ', with PSEA (Singapore Citizens with a PSEA)' : ''; ?><?php echo $_has('UTAP') ? ', or partly reimbursed by UTAP for NTUC members' : ''; ?>.</li>
+</ul>
+
+<?php if ($_has('SkillsFuture Credit')): ?>
+<h2>How to Apply SkillsFuture Credit Claim for Individuals</h2>
+<p>Singapore Citizens aged 25 and above can use their SkillsFuture Credit (base tier) to pay the course fee after funding. The $4,000 mid-career top-up cannot be used for this course.</p>
+<ol>
+<li>Register for this course as <strong>self-sponsored</strong> and tell us you will use SkillsFuture Credit. Do not pay the amount you plan to claim.</li>
+<li>We email you an invoice showing the course fee after funding.</li>
+<li>From 60 days before the course starts, and no later than the course start date, log in to <a href="https://www.myskillsfuture.gov.sg/content/portal/en/career-resources/career-resources/how-to-guides/claim-sfc.html"<?php echo $_ext; ?>>MySkillsFuture</a> with Singpass and click <strong>Claim credits</strong>.</li>
+<li>Click <strong>Submit a Claim</strong> and search for this course by its course code, <a href="<?php echo $this->escapeHtml($_msfCourseUrl); ?>"<?php echo $_ext; ?>><?php echo $this->escapeHtml($_sku); ?></a>.</li>
+<li>Select your class start date, enter the course fee payable after funding and the amount of credit to claim, then upload the invoice (PDF, JPG or PNG, under 4MB).</li>
+<li>Review, accept the terms and click <strong>Agree and Submit</strong>. The credit is paid directly to us; processing can take up to 14 working days.</li>
+</ol>
+<p><strong>Changing or withdrawing:</strong> cancel the claim on MySkillsFuture at least one day before the course starts. If your class date changes, cancel the claim and submit a new one with the new date.</p>
+<?php endif; ?>
+
+<?php if ($_has('SFEC')): ?>
+<h2>How to Apply SkillsFuture Enterprise Credit (SFEC)</h2>
+<p>SFEC helps companies pay for employee training. The current SFEC ends on <strong>30 November 2026</strong>, and a redesigned SFEC starts on 1 December 2026.</p>
+<h3>Current SFEC: classes ending on or before 30 November 2026</h3>
+<ul>
+<li>Eligible companies received a one-off <strong>$10,000</strong> credit, notified by letter to their Corppass administrator. Eligibility generally required at least 3 Singapore Citizen or PR employees and Skills Development Levy contributions.</li>
+<li>SFEC covers up to 90% of the company's out-of-pocket course fee after other subsidies.</li>
+</ul>
+<ol>
+<li>Check your company's SFEC eligibility and balance on <a href="https://www.enterprisesg.gov.sg/financial-support/skillsfuture-enterprise-credit"<?php echo $_ext; ?>>EnterpriseSG</a>.</li>
+<li>Register your Singapore Citizen or PR employee for a class that <strong>ends by 30 November 2026</strong>, as <strong>company-sponsored</strong>, and pay the course fee after funding.</li>
+<li>Your employee attends and completes the course. We submit the attendance and assessment results to SWDA.</li>
+<li>No separate claim is needed. SFEC is calculated automatically once the course fee grant is approved and is paid quarterly to your company's IRAS GIRO or PayNow Corporate account.</li>
+</ol>
+<p>Any unused balance of the current SFEC expires on 30 November 2026.</p>
+<h3>Redesigned SFEC from 1 December 2026</h3>
+<p>Companies with at least 3 resident employees receive a fresh $10,000 in an online SFEC wallet that offsets out-of-pocket fees <strong>upfront at enrolment</strong>, instead of reimbursing them afterwards. SWDA has not yet published the support rates and claim steps; see <a href="https://www.ourworkforce.gov.sg/programmes-directory/programme/skillsfuture-enterprise-credit-enhanced"<?php echo $_ext; ?>>OurWorkforce</a> or our <a href="<?php echo $this->escapeHtml(Mage::getUrl('', array('_direct' => 'sfec.html'))); ?>">SFEC guide</a>.</p>
+<?php endif; ?>
+
+<?php if ($_has('UTAP')): ?>
+<h2>How to Apply UTAP (NTUC Members)</h2>
+<p>NTUC members can claim <strong>50% of the unfunded course fee</strong> under the Union Training Assistance Programme (UTAP), capped at <strong>$250 a year</strong> (aged below 40) or <strong>$500 a year</strong> (aged 40 and above). The cap is shared with UTAP claims for AI tool subscriptions.</p>
+<p><strong>Eligibility:</strong> you must be an NTUC member paying full membership fees, with your membership paid up before and during the course and when you claim. The course must not be fully paid for by your employer or another source.</p>
+<ol>
+<li>Make sure your NTUC membership is paid up before the course starts.</li>
+<li>Register for this course with us and pay the course fee after funding<?php echo $_has('SkillsFuture Credit') ? ' and SkillsFuture Credit' : ''; ?>.</li>
+<li>Attend at least 75% of the course and sit all assessments.</li>
+<li>Within <strong>6 months</strong> after the course ends, go to the <a href="https://www.ntuc.org.sg/uportal/programmes/union-training-assistance-programme"<?php echo $_ext; ?>>NTUC U Portal</a>, open UTAP under E-services, log in with Singpass and choose <strong>Course Fee Claim</strong>.</li>
+<li>Enter the nett course fee you paid (after all subsidies and SkillsFuture Credit, including GST), and upload your invoice or receipt and your certificate or result slip (PDF, JPG or PNG, up to 5MB each).</li>
+<li>NTUC usually pays the claim within 4 weeks of submission.</li>
+</ol>
+<p>Read more in our <a href="<?php echo $this->escapeHtml(Mage::getUrl('', array('_direct' => 'utap.html'))); ?>">UTAP guide</a>.</p>
+<?php endif; ?>
+
+<?php if ($_has('PSEA')): ?>
+<h2>How to Apply PSEA</h2>
+<p>Singapore Citizens with a Post-Secondary Education Account (PSEA), which stays open until around the year you turn 31, can use it to pay the course fee after funding for PSEA-approved courses. You can also use a sibling's PSEA after your own has been used up.</p>
+<ol>
+<li>Check that this course shows the <strong>PSEA</strong> tag on its <a href="<?php echo $this->escapeHtml($_msfCourseUrl); ?>"<?php echo $_ext; ?>>MySkillsFuture page</a>.</li>
+<li>Check your PSEA balance on MOE's Student Finance System with Singpass.</li>
+<li>Download and complete the <a href="https://www.moe.gov.sg/api/media/94b3eeb8-ceed-47e3-9f58-921b33970c9a/psea-ad-hoc-withdrawal-form.pdf"<?php echo $_ext; ?>>PSEA withdrawal form</a>, then <a href="<?php echo $this->escapeHtml(Mage::getUrl('mmd_psea', array('_query' => array('course' => $_sku)))); ?>">submit it to us</a>.</li>
+<li>We submit the withdrawal request to MOE. You (and your sibling, if you are using their account) authorise it in the Student Finance System. Nothing is withdrawn without this authorisation.</li>
+<li>MOE pays us directly. If you have already paid, we refund the amount covered by PSEA.</li>
+</ol>
+<p>More details: <a href="https://www.moe.gov.sg/financial-matters/psea/overview"<?php echo $_ext; ?>>MOE PSEA overview</a>.</p>
+<?php endif; ?>
+
+<?php if ($_has('Free AI Subscription')): ?>
+<h2>How to Claim the Free AI Tools Subscription</h2>
+<p>Singapore Citizens aged 18 and above who complete this course can redeem a <strong>free 6-month subscription</strong> to ChatGPT Plus, Google AI Pro, Manus AI, Microsoft 365 Personal or Singtel AI Pass (six AI tools). The course must end on or after 16 September 2026, and each person can redeem one subscription only, however many eligible courses they take.</p>
+<ol>
+<li>Optionally, take the AI Ready Quiz on MySkillsFuture to check your AI readiness level.</li>
+<li>Enrol in this course, which carries the <strong>Free AI subscription</strong> label on MySkillsFuture.</li>
+<li>Attend and successfully complete all course requirements.</li>
+<li>Watch for the redemption email from SWDA with the subscription request form (check your spam folder).</li>
+<li>Choose your AI tool and submit the form within <strong>60 days</strong> of receiving the email. You cannot change your choice afterwards.</li>
+<li>Follow the activation instructions in the confirmation email.</li>
+</ol>
+<p>Full details: <a href="https://www.myskillsfuture.gov.sg/content/portal/en/career-resources/career-resources/education-career-personal-development/redeem-ai-subscription.html"<?php echo $_ext; ?>>MySkillsFuture</a> and our <a href="<?php echo $this->escapeHtml(Mage::getUrl('', array('_direct' => 'blog/how-to-claim-free-ai-subscription-singapore-eligibility-steps-courses'))); ?>">claim guide</a>.</p>
+<?php endif; ?>
+
+<h2>Appeal Process</h2>
+<p>If you disagree with an assessment decision, you have the right to appeal.</p>
+<ol>
+<li>When the assessor gives you feedback, say whether you agree with the outcome. If you agree, you and the assessor sign the Assessment Summary Record; if you disagree, do not sign it.</li>
+<li>Discuss the decision with the assessor or the assessment manager first.</li>
+<li>If you are still not satisfied, tell the assessor you intend to appeal. The assessor records this in the feedback section of the Assessment Summary Record and informs the assessment manager.</li>
+<li>Lodge your appeal within <strong>7 days</strong>, giving your reasons, using the <a href="https://docs.google.com/forms/u/1/d/e/1FAIpQLSf8CcVv_ITUOWE75kV6H7dCaJ5-skqcdfpqSV-Bmn8Pjdx4pg/viewform?usp=send_form"<?php echo $_ext; ?>>Candidate Appeal Form</a>. The assessor can help you write and lodge it.</li>
+<li>An Assessment Appeal Panel reviews the information from you and the assessor and makes a decision. A record of the appeal and its outcome is kept.</li>
+<li>You will be told the outcome within <strong>2 weeks</strong> of lodging the appeal. The panel's decision is final.</li>
+</ol>

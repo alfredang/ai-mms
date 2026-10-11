@@ -1,11 +1,20 @@
-<?php $prerequisite = $this->getProduct()->getPrerequisite(); ?>
+<?php $_product = $this->getProduct(); $prerequisite = $_product->getPrerequisite(); ?>
 <?php
 /* Drop retired boilerplate sections from the per-course Course Info blob at
    render time (the blob is 800 hand-edited rows, so a SQL rewrite is fragile).
    A section = an <h2> plus everything up to the next <h2>; it is removed only
-   when its markup is self-contained (balanced <div>s), else left untouched. */
+   when its markup is self-contained (balanced <div>s), else left untouched.
+   On SG every funding/appeal section is also dropped: funded courses (TGS-:
+   WSQ, CASL, IBF) get the standard set from course_info_funding.phtml
+   instead, and non-WSQ courses carry no funding at all. */
+$_isSg = (Mage::app()->getStore()->getCode() === 'singapore');
+$_sku = (string) $_product->getSku();
+$_isSgFunded = $_isSg && stripos($_sku, 'TGS-') === 0
+    && !in_array($_sku, array('TGS-2020504243'), true); // no-funding list, mirrors view.phtml
 if ($prerequisite) {
-    $_retired = '/promotion code|progressive wage model|\(pwm\)/i';
+    $_retired = $_isSg
+        ? '/promotion code|progressive wage model|\(pwm\)|funding elig|skills ?future (credit )?claim|level-?up|utap|^\s*note:?\s*$|appeal|psea|\bsfec\b|enterprise credit|free ai|training grant|sponsored individuals|hrdf|course fee funding|funding validity/i'
+        : '/promotion code|progressive wage model|\(pwm\)/i';
     $_parts = preg_split('#(<h2\b[^>]*>.*?</h2>)#is', $prerequisite, -1, PREG_SPLIT_DELIM_CAPTURE);
     $_out = $_parts[0];
     for ($_i = 1; $_i < count($_parts); $_i += 2) {
@@ -17,6 +26,12 @@ if ($prerequisite) {
         }
     }
     $prerequisite = $_out;
+}
+if ($_isSgFunded) {
+    $prerequisite .= $this->getLayout()->createBlock('core/template')
+        ->setTemplate('catalog/product/view/course_info_funding.phtml')
+        ->setProduct($_product)
+        ->toHtml();
 }
 ?>
 <?php if (trim(strip_tags($prerequisite)) !== ''){ ?>
