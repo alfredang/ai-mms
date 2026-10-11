@@ -447,7 +447,8 @@ class MMD_CourseImage_Helper_Data extends Mage_Core_Helper_Abstract
 
         if (in_array('SFEC', $badges, true)) {
             $html .= '<h3>SkillsFuture Enterprise Credit (SFEC)</h3>'
-                . '<p>Eligible Singapore-registered companies can tap on $10000 SFEC to cover out-of-pocket expenses.</p>'
+                // Current SFEC expires 30 Nov 2026; revisit when the redesigned SFEC publishes rates.
+                . '<p>Eligible companies can use their $10,000 SFEC to cover up to 90% of out-of-pocket course fees for classes ending on or before 30 Nov 2026. A redesigned SFEC starts on 1 Dec 2026.</p>'
                 . '<p><a class="wsq-portal-btn wsq-portal-btn--sfec" href="https://skillsfuture.gobusiness.gov.sg/course-directory/courses/' . $skuUrl . '" target="_blank" '
                 . 'style="display: inline-block; padding: 8px 18px; background: #0891b2; color: #ffffff; font-weight: 600; border-radius: 6px; text-decoration: none;">'
                 . 'View on SkillsFuture for Business</a></p>';
