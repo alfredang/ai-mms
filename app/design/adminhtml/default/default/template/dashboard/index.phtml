@@ -7415,6 +7415,69 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
 
     <?php echo $_lcdTrainerCardHtml; /* TRAINER + LEARNER: Approved Trainers — after Lesson */ ?>
 
+    <?php endif; ?>
+
+    <?php if ($activeRole !== 'developer'): ?>
+    <?php
+    // Certificate of Achievement — visible to LEARNER and TRAINER (owner
+    // request 2026-07-29: both modes, every class).
+    //   Learner: an issued/sent row in mmd_course_run_certificate wins and
+    //            shows the cert no + download link; otherwise fall back to
+    //            the order-based Not Enrolled / In Progress / Completed
+    //            states (previous behavior).
+    //   Trainer: per-learner delivery roster (rendered below) — attendance,
+    //            sent status, multi-select manual send. The auto-send rule:
+    //            daily 6:30pm sweep, overall session attendance above 70%
+    //            (see MMD_Certificate).
+    $_certState = 'unenrolled';
+    $_certEnd   = null;
+    $_certRow   = null;      // learner's own issued cert row
+    try {
+        $_certResource = Mage::getSingleton('core/resource');
+        $_certRead     = $_certResource->getConnection('core_read');
+        $_certTbl      = $_certResource->getTableName('mmd_course_run_certificate');
+        $_certViewerEmail = isset($_loggedInEmail) ? (string)$_loggedInEmail : '';
+        if ($_certViewerEmail !== '' && !empty($_selectedCourseId) && $activeRole === 'learner') {
+            // Prefer the viewed run's cert, else the newest cert for any run
+            // of this course.
+            $_certRow = $_certRead->fetchRow(
+                "SELECT c.cert_no, c.token, c.sent_at
+                   FROM `$_certTbl` c
+                   JOIN `" . $_certResource->getTableName('course_runs') . "` r ON r.run_id = c.run_id
+                  WHERE r.product_id = ? AND LOWER(c.learner_email) = ?
+                    AND c.status IN ('issued','sent')
+                  ORDER BY (c.run_id = " . (int)$_lcdRunId . ") DESC, c.certificate_id DESC
+                  LIMIT 1",
+                array((int)$_selectedCourseId, strtolower($_certViewerEmail))
+            ) ?: null;
+            if ($_certRow) {
+                $_certState = 'issued';
+            } else {
+                $_certOrderId = (int) $_certRead->fetchOne(
+                    "SELECT o.entity_id FROM " . $_certResource->getTableName('sales/order') . " o
+                     JOIN " . $_certResource->getTableName('sales/order_item') . " oi ON oi.order_id=o.entity_id
+                     WHERE oi.product_id = ? AND LOWER(o.customer_email) = ? AND o.state NOT IN ('canceled')
+                     ORDER BY o.created_at DESC LIMIT 1",
+                    array((int)$_selectedCourseId, strtolower($_certViewerEmail))
+                );
+                if ($_certOrderId > 0) {
+                    $_certEndProd = isset($_devProd) ? $_devProd : Mage::getModel('catalog/product')->load($_selectedCourseId);
+                    $_certEnd     = $_certEndProd->getData('news_to_date');
+                    if ($_certEnd && strtotime($_certEnd) < strtotime(date('Y-m-d'))) {
+                        $_certState = 'completed';
+                    } else {
+                        $_certState = 'in_progress';
+                    }
+                }
+            }
+        }
+    } catch (Exception $e) {}
+    ?>
+    <?php /* Course Feedback + Certificate of Achievement share one row (2 columns)
+             on wide screens; Certificate takes the full row when Feedback is
+             hidden (non trainer/learner roles). */ ?>
+    <div class="lcd-feedback-cert-row">
+    <?php if ($activeRole === 'trainer' || $activeRole === 'learner'): ?>
     <!-- TRAINER + LEARNER: Course Feedback — renamed from "Certificate
          Delivery" and moved after Lesson (owner request 2026-07-29); opened
          to the learner view as well (owner request 2026-07-29 — both roles
@@ -7496,116 +7559,6 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
     </div>
     <?php endif; ?>
 
-    <?php if ($activeRole !== 'developer'): ?>
-    <div class="lcd-section" id="additional-documents">
-        <div class="lcd-section-title"<?php if ($activeRole === 'trainer'): ?> style="display:flex;align-items:center;justify-content:space-between;"<?php endif; ?>>
-            <span>Additional Documents</span>
-            <?php if ($activeRole === 'trainer'): ?>
-            <button type="button" style="background:#2563eb !important;background-image:none !important;color:#fff !important;border:none !important;border-radius:8px !important;padding:8px 18px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;display:inline-flex !important;align-items:center !important;gap:6px !important;">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                Upload Files
-            </button>
-            <?php endif; ?>
-        </div>
-        <?php if (!empty($_courseDocuments)): ?>
-        <?php if ($activeRole === 'trainer'): ?>
-        <div style="color:#94a3b8;font-size:13px;margin-bottom:14px;">Course materials uploaded for learners.</div>
-        <?php endif; ?>
-        <?php foreach ($_courseDocuments as $_doc):
-            $_docName    = (string)$_doc['filename'];
-            $_docUrl     = (string)$_doc['file_url'];
-            $_docBy      = (string)$_doc['uploaded_by'];
-            $_docDateStr = '';
-            if (!empty($_doc['created_at'])) {
-                $_dts = strtotime((string)$_doc['created_at']);
-                if ($_dts) $_docDateStr = date('d/m/Y', $_dts);
-            }
-        ?>
-        <div style="display:flex;align-items:center;gap:14px;background:#0f172a;border:1px solid #1f2937;border-radius:10px;padding:14px 16px;margin-bottom:8px;">
-            <div style="width:40px;height:40px;border-radius:8px;background:rgba(37,99,235,.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-            </div>
-            <div style="flex:1;min-width:0;">
-                <div style="color:#f1f5f9;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><?php echo htmlspecialchars($_docName) ?></div>
-                <?php if ($_docBy !== '' || $_docDateStr !== ''): ?>
-                <div style="color:#94a3b8;font-size:12px;margin-top:2px;">
-                    <?php if ($_docBy !== ''): ?>Uploaded by <?php echo htmlspecialchars($_docBy) ?><?php endif; ?>
-                    <?php if ($_docBy !== '' && $_docDateStr !== ''): ?> &nbsp;&bull;&nbsp; <?php endif; ?>
-                    <?php if ($_docDateStr !== ''): ?><?php echo htmlspecialchars($_docDateStr) ?><?php endif; ?>
-                </div>
-                <?php endif; ?>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
-                <a href="<?php echo $_docUrl !== '' ? htmlspecialchars($_docUrl) : 'javascript:void(0);' ?>" <?php echo $_docUrl !== '' ? 'target="_blank" rel="noopener"' : '' ?> title="Open" style="width:32px;height:32px;border-radius:6px;border:1px solid #334155;background:transparent;display:inline-flex;align-items:center;justify-content:center;color:#cbd5e1;text-decoration:none;<?php echo $_docUrl === '' ? 'opacity:.4;cursor:default;' : '' ?>">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                </a>
-            </div>
-        </div>
-        <?php endforeach; ?>
-        <?php else: ?>
-        <div class="lcd-empty-box">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-            <div class="lcd-empty-title">No additional documents</div>
-        </div>
-        <?php endif; ?>
-    </div>
-
-
-    <?php
-    // Certificate of Achievement — visible to LEARNER and TRAINER (owner
-    // request 2026-07-29: both modes, every class).
-    //   Learner: an issued/sent row in mmd_course_run_certificate wins and
-    //            shows the cert no + download link; otherwise fall back to
-    //            the order-based Not Enrolled / In Progress / Completed
-    //            states (previous behavior).
-    //   Trainer: per-learner delivery roster (rendered below) — attendance,
-    //            sent status, multi-select manual send. The auto-send rule:
-    //            daily 6:30pm sweep, overall session attendance above 70%
-    //            (see MMD_Certificate).
-    $_certState = 'unenrolled';
-    $_certEnd   = null;
-    $_certRow   = null;      // learner's own issued cert row
-    try {
-        $_certResource = Mage::getSingleton('core/resource');
-        $_certRead     = $_certResource->getConnection('core_read');
-        $_certTbl      = $_certResource->getTableName('mmd_course_run_certificate');
-        $_certViewerEmail = isset($_loggedInEmail) ? (string)$_loggedInEmail : '';
-        if ($_certViewerEmail !== '' && !empty($_selectedCourseId) && $activeRole === 'learner') {
-            // Prefer the viewed run's cert, else the newest cert for any run
-            // of this course.
-            $_certRow = $_certRead->fetchRow(
-                "SELECT c.cert_no, c.token, c.sent_at
-                   FROM `$_certTbl` c
-                   JOIN `" . $_certResource->getTableName('course_runs') . "` r ON r.run_id = c.run_id
-                  WHERE r.product_id = ? AND LOWER(c.learner_email) = ?
-                    AND c.status IN ('issued','sent')
-                  ORDER BY (c.run_id = " . (int)$_lcdRunId . ") DESC, c.certificate_id DESC
-                  LIMIT 1",
-                array((int)$_selectedCourseId, strtolower($_certViewerEmail))
-            ) ?: null;
-            if ($_certRow) {
-                $_certState = 'issued';
-            } else {
-                $_certOrderId = (int) $_certRead->fetchOne(
-                    "SELECT o.entity_id FROM " . $_certResource->getTableName('sales/order') . " o
-                     JOIN " . $_certResource->getTableName('sales/order_item') . " oi ON oi.order_id=o.entity_id
-                     WHERE oi.product_id = ? AND LOWER(o.customer_email) = ? AND o.state NOT IN ('canceled')
-                     ORDER BY o.created_at DESC LIMIT 1",
-                    array((int)$_selectedCourseId, strtolower($_certViewerEmail))
-                );
-                if ($_certOrderId > 0) {
-                    $_certEndProd = isset($_devProd) ? $_devProd : Mage::getModel('catalog/product')->load($_selectedCourseId);
-                    $_certEnd     = $_certEndProd->getData('news_to_date');
-                    if ($_certEnd && strtotime($_certEnd) < strtotime(date('Y-m-d'))) {
-                        $_certState = 'completed';
-                    } else {
-                        $_certState = 'in_progress';
-                    }
-                }
-            }
-        }
-    } catch (Exception $e) {}
-    ?>
     <div class="lcd-section" id="certificate">
         <div class="lcd-section-title">Certificate of Achievement</div>
         <?php if ($activeRole === 'trainer'): ?>
@@ -7743,6 +7696,60 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
             <div class="lcd-cert-sub">Certificates are issued per-learner. Open this page as the Learner role to see your own certificate status.</div>
             <?php endif; ?>
             <?php endif; ?>
+        </div>
+        <?php endif; ?>
+    </div>
+    </div>
+
+    <div class="lcd-section" id="additional-documents">
+        <div class="lcd-section-title"<?php if ($activeRole === 'trainer'): ?> style="display:flex;align-items:center;justify-content:space-between;"<?php endif; ?>>
+            <span>Additional Documents</span>
+            <?php if ($activeRole === 'trainer'): ?>
+            <button type="button" style="background:#2563eb !important;background-image:none !important;color:#fff !important;border:none !important;border-radius:8px !important;padding:8px 18px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;display:inline-flex !important;align-items:center !important;gap:6px !important;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                Upload Files
+            </button>
+            <?php endif; ?>
+        </div>
+        <?php if (!empty($_courseDocuments)): ?>
+        <?php if ($activeRole === 'trainer'): ?>
+        <div style="color:#94a3b8;font-size:13px;margin-bottom:14px;">Course materials uploaded for learners.</div>
+        <?php endif; ?>
+        <?php foreach ($_courseDocuments as $_doc):
+            $_docName    = (string)$_doc['filename'];
+            $_docUrl     = (string)$_doc['file_url'];
+            $_docBy      = (string)$_doc['uploaded_by'];
+            $_docDateStr = '';
+            if (!empty($_doc['created_at'])) {
+                $_dts = strtotime((string)$_doc['created_at']);
+                if ($_dts) $_docDateStr = date('d/m/Y', $_dts);
+            }
+        ?>
+        <div style="display:flex;align-items:center;gap:14px;background:#0f172a;border:1px solid #1f2937;border-radius:10px;padding:14px 16px;margin-bottom:8px;">
+            <div style="width:40px;height:40px;border-radius:8px;background:rgba(37,99,235,.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            </div>
+            <div style="flex:1;min-width:0;">
+                <div style="color:#f1f5f9;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><?php echo htmlspecialchars($_docName) ?></div>
+                <?php if ($_docBy !== '' || $_docDateStr !== ''): ?>
+                <div style="color:#94a3b8;font-size:12px;margin-top:2px;">
+                    <?php if ($_docBy !== ''): ?>Uploaded by <?php echo htmlspecialchars($_docBy) ?><?php endif; ?>
+                    <?php if ($_docBy !== '' && $_docDateStr !== ''): ?> &nbsp;&bull;&nbsp; <?php endif; ?>
+                    <?php if ($_docDateStr !== ''): ?><?php echo htmlspecialchars($_docDateStr) ?><?php endif; ?>
+                </div>
+                <?php endif; ?>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+                <a href="<?php echo $_docUrl !== '' ? htmlspecialchars($_docUrl) : 'javascript:void(0);' ?>" <?php echo $_docUrl !== '' ? 'target="_blank" rel="noopener"' : '' ?> title="Open" style="width:32px;height:32px;border-radius:6px;border:1px solid #334155;background:transparent;display:inline-flex;align-items:center;justify-content:center;color:#cbd5e1;text-decoration:none;<?php echo $_docUrl === '' ? 'opacity:.4;cursor:default;' : '' ?>">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                </a>
+            </div>
+        </div>
+        <?php endforeach; ?>
+        <?php else: ?>
+        <div class="lcd-empty-box">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <div class="lcd-empty-title">No additional documents</div>
         </div>
         <?php endif; ?>
     </div>

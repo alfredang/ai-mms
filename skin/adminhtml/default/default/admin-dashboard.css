@@ -1240,6 +1240,13 @@ div.dce-value::-webkit-scrollbar-thumb:hover{background:#64748b}
 .lcd-back{display:inline-block;background:#334155;color:#fff !important;text-decoration:none !important;border-radius:10px;padding:12px 24px;font-size:15px;font-weight:600;margin-bottom:20px;border:none}
 .lcd-back:hover{background:#475569;color:#fff !important}
 .lcd-section{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:22px 24px;margin-bottom:16px}
+/* Course detail: Course Feedback + Certificate of Achievement side by side */
+/* (flex-wrap: stacks on its own when the content area is narrower than ~920px) */
+.lcd-feedback-cert-row{display:flex;flex-wrap:wrap;gap:16px;margin-bottom:16px;align-items:flex-start}
+.lcd-feedback-cert-row>.lcd-section{margin-bottom:0;min-width:0;box-sizing:border-box}
+.lcd-feedback-cert-row>#course-feedback{flex:2 1 360px}
+.lcd-feedback-cert-row>#certificate{flex:3 1 540px}
+.lcd-feedback-cert-row .lcd-cert-table{display:block;overflow-x:auto}
 .lcd-section-title{font-size:18px;font-weight:700;color:#fff;margin:0 0 14px;display:flex;align-items:center;justify-content:space-between}
 .lcd-section-title .lcd-caret{color:#60a5fa;cursor:pointer;transition:transform .2s}
 .lcd-tile{display:flex;align-items:center;gap:14px;background:#334155;border:1px solid #475569;border-radius:10px;padding:14px 16px;text-decoration:none !important;color:#e5e7eb;margin-bottom:8px;transition:background .15s;cursor:pointer}
