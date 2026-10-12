@@ -507,12 +507,14 @@ class MMD_RoleManager_IndexController extends Mage_Adminhtml_Controller_Action
             '<p>You are registered for <strong>' . $this->_esc($run['course_name']) . '</strong>'
                 . ' (Class <strong>' . $this->_esc($run['class_id']) . '</strong>'
                 . $this->_classDateText($run) . ').</p>'
-                . '<p>Sign in to the Learning Management System to see your class, materials and attendance:</p>'
+                . '<p><strong>Please log in to the Learning Management System to download the latest course'
+                . ' material</strong> before your class:</p>'
                 . '<ol style="padding-left:20px;margin:0 0 16px;">'
                 . '<li>Open the login page using the button below.</li>'
                 . '<li>Enter <strong>' . $this->_esc($email) . '</strong> and click <strong>Send OTP</strong>.</li>'
-                . '<li>Enter the 6-digit code we email you. No password needed.</li></ol>',
-            'Sign in with OTP'
+                . '<li>Enter the 6-digit code we email you. No password needed.</li>'
+                . '<li>Open your class and download the latest course material.</li></ol>',
+            'Log in to download course material'
         ));
     }
 
@@ -566,9 +568,10 @@ class MMD_RoleManager_IndexController extends Mage_Adminhtml_Controller_Action
             $name,
             '<p>We have received your trainer registration for <strong>' . $this->_esc($run['course_name']) . '</strong>'
                 . ' (Class <strong>' . $this->_esc($run['class_id']) . '</strong>' . $this->_classDateText($run) . ').</p>'
-                . '<p>Your account is <strong>pending approval</strong> by our team. Once approved, sign in with'
-                . ' <strong>' . $this->_esc($email) . '</strong> — click <strong>Send OTP</strong> and enter the'
-                . ' 6-digit code we email you.</p>',
+                . '<p>Your account is <strong>pending approval</strong> by our team. Once approved,'
+                . ' <strong>please log in to download the latest course material</strong> for this class:'
+                . ' sign in with <strong>' . $this->_esc($email) . '</strong>, click <strong>Send OTP</strong>'
+                . ' and enter the 6-digit code we email you, then open the class to download the material.</p>',
             'Go to the login page'
         ));
 
