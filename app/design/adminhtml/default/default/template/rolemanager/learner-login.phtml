@@ -6,7 +6,7 @@
  * its own single-card design (template/login.phtml) — do not merge the two.
  *
  * Two-column layout:
- *  - LEFT  — welcome message + new learner / trainer registration (Name,
+ *  - LEFT  — academy branding + new learner / trainer registration (Name,
  *    Email, Class Code, Role; Learner by default). Posts to
  *    MMD_RoleManager_IndexController::registerAction: learners are enrolled
  *    into the class at once and emailed a welcome; trainers are created
@@ -87,11 +87,10 @@
     .lp-brand::after  { width: 1080px; height: 1080px; right: -480px; top: -640px; border-color: var(--lp-arc-2); }
     .lp-brand > * { position: relative; z-index: 1; }
 
-    .lp-brand-top { display: flex; align-items: center; gap: 12px; font-size: 15px; font-weight: 600; letter-spacing: 0.2px; }
-    .lp-brand-top img { width: 40px; height: 40px; border-radius: 10px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35); }
+    .lp-brand-top { display: flex; align-items: center; gap: 16px; font-size: clamp(22px, 2.2vw, 30px); line-height: 1.2; font-weight: 700; letter-spacing: 0.2px; }
+    .lp-brand-top img { width: 64px; height: 64px; flex-shrink: 0; border-radius: 10px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35); }
     .lp-brand-inner { width: 100%; max-width: 540px; margin: auto 0; }
-    .lp-eyebrow { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase; color: var(--lp-eyebrow); }
-    .lp-hero { margin: 10px 0 14px; font-size: clamp(30px, 3.2vw, 42px); line-height: 1.08; font-weight: 700; letter-spacing: -0.6px; }
+    .lp-eyebrow { margin: 0 0 14px; font-size: 12px; font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase; color: var(--lp-eyebrow); }
     .lp-lead { margin: 0 0 28px; font-size: 15px; line-height: 1.65; color: rgba(255, 255, 255, 0.78); max-width: 480px; }
     .lp-brand-foot { margin: 0; font-size: 12px; color: rgba(255, 255, 255, 0.55); }
 
@@ -154,8 +153,8 @@
     /* ---------- Right: sign-in ---------- */
     .lp-auth { display: flex; align-items: center; justify-content: center; padding: 48px clamp(20px, 4vw, 56px); }
     .login-card { width: 100%; max-width: 400px; }
-    .lp-auth-logo { display: none; margin-bottom: 20px; }
-    .lp-auth-logo img { height: 48px; border-radius: 12px; }
+    .lp-auth-logo { display: none; align-items: center; gap: 16px; margin-bottom: 20px; font-size: 24px; line-height: 1.2; font-weight: 700; }
+    .lp-auth-logo img { width: 64px; height: 64px; flex-shrink: 0; border-radius: 12px; }
     .lp-auth-eyebrow { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase; color: var(--lp-link); }
     .login-title { margin: 6px 0 6px; font-size: 28px; font-weight: 700; letter-spacing: -0.4px; color: var(--lp-text); }
     .login-subtitle { margin: 0 0 28px; font-size: 14px; line-height: 1.55; color: var(--lp-muted); }
@@ -217,7 +216,7 @@
     @media (max-width: 960px) {
         .lp-shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; }
         .lp-auth { order: -1; padding: 32px 16px 40px; }
-        .lp-auth-logo { display: block; }
+        .lp-auth-logo { display: flex; }
         .lp-brand { padding: 32px 16px; }
         .lp-brand-top { display: none; }
         .lp-brand-inner { margin: 0; }
@@ -233,8 +232,8 @@
 <body id="page-login">
 <div class="lp-shell">
 
-    <!-- LEFT: welcome + new learner / trainer registration -->
-    <section class="lp-brand" aria-labelledby="lp-hero">
+    <!-- LEFT: academy branding + new learner / trainer registration -->
+    <section class="lp-brand" aria-labelledby="lp-reg-title">
         <div class="lp-brand-top">
             <img src="<?php echo htmlspecialchars($logoUrl) ?>" alt="" />
             <span>Tertiary Infotech Academy</span>
@@ -242,12 +241,11 @@
 
         <div class="lp-brand-inner">
             <p class="lp-eyebrow">Learning Management System</p>
-            <h1 class="lp-hero" id="lp-hero">Welcome to Tertiary Infotech Academy</h1>
             <p class="lp-lead">Your class materials, schedules, attendance and certificates, all in one place. New here? Register with the Class No from your course administrator.</p>
 
             <div class="lp-reg-card">
                 <form id="lp-reg-form" novalidate>
-                    <h2 class="lp-reg-title">New learner or trainer registration</h2>
+                    <h2 class="lp-reg-title" id="lp-reg-title">New learner or trainer registration</h2>
                     <p class="lp-reg-sub">Already registered? <a href="#otp-email" onclick="document.getElementById('otp-email').focus(); return false;">Sign in here</a>.</p>
 
                     <div class="lp-field">
@@ -299,7 +297,8 @@
     <section class="lp-auth" aria-labelledby="lp-signin-title">
         <div class="login-card">
             <div class="lp-auth-logo">
-                <img src="<?php echo htmlspecialchars($logoUrl) ?>" alt="Tertiary Infotech Academy" />
+                <img src="<?php echo htmlspecialchars($logoUrl) ?>" alt="" />
+                <span>Tertiary Infotech Academy</span>
             </div>
             <p class="lp-auth-eyebrow">Welcome back</p>
             <h2 class="login-title" id="lp-signin-title">Sign in to the LMS</h2>
