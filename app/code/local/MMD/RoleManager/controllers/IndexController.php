@@ -16,7 +16,7 @@
  */
 class MMD_RoleManager_IndexController extends Mage_Adminhtml_Controller_Action
 {
-    protected $_publicActions = array('index', 'login', 'send', 'verify');
+    protected $_publicActions = array('index', 'login', 'send', 'verify', 'register');
 
     const MAX_ATTEMPTS = 5;      // per session
     const ATTEMPT_WINDOW = 600;  // seconds
@@ -353,6 +353,299 @@ class MMD_RoleManager_IndexController extends Mage_Adminhtml_Controller_Action
         }
     }
 
+    /**
+     * Self-registration from the login page's left column: Name + Email +
+     * Class Code (the C###### class_id the admin hands out) + Role.
+     *
+     *  - Learner: storefront customer is created (MMD_AccountSync then makes
+     *    the ACTIVE learner dashboard account), the learner is added to the
+     *    class roster (course_run_enrolments, INSERT IGNORE = idempotent) and
+     *    gets a welcome email telling them to sign in with OTP.
+     *  - Trainer: an INACTIVE dashboard account with the trainer role is
+     *    created — a class code alone must never hand out trainer access —
+     *    and the admin is emailed to approve it (Users page → activate). The
+     *    class's assigned trainer is left for the admin to set.
+     *
+     * The reply never says whether the email already had an account.
+     */
+    public function registerAction()
+    {
+        $result = array('success' => false, 'message' => '');
+        $req = $this->getRequest();
+        if (!$req->isPost() || !$this->_validateFormKey()) {
+            $result['message'] = 'Your session has expired. Please refresh the page and try again.';
+            return $this->_json($result);
+        }
+
+        $name      = trim(preg_replace('/\s+/u', ' ', (string) $req->getParam('name')));
+        $email     = strtolower(trim((string) $req->getParam('email')));
+        $classCode = strtoupper(trim((string) $req->getParam('class_code')));
+        $role      = $req->getParam('role') === 'trainer' ? 'trainer' : 'learner';
+        $okMessage = $role === 'trainer'
+            ? 'Thank you! Your trainer registration is pending approval. We have emailed you the details.'
+            : 'You are registered! We have emailed you a welcome message — you can now sign in with your email and an OTP.';
+
+        // Honeypot: bots fill every field; pretend success, do nothing.
+        if (trim((string) $req->getParam('website')) !== '') {
+            $result['success'] = true;
+            $result['message'] = $okMessage;
+            return $this->_json($result);
+        }
+
+        $session = Mage::getSingleton('core/session');
+        $now = time();
+        $attempts = array_filter((array) $session->getLmsRegisterAttempts(), function ($t) use ($now) {
+            return ($now - $t) < self::ATTEMPT_WINDOW;
+        });
+        if (count($attempts) >= self::MAX_ATTEMPTS) {
+            $result['message'] = 'Too many attempts. Please try again in a few minutes.';
+            return $this->_json($result);
+        }
+        $attempts[] = $now;
+        $session->setLmsRegisterAttempts($attempts);
+
+        if (mb_strlen($name) < 2 || mb_strlen($name) > 80) {
+            $result['message'] = 'Please enter your name.';
+            return $this->_json($result);
+        }
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $result['message'] = 'Please enter a valid email address.';
+            return $this->_json($result);
+        }
+        $run = preg_match('/^C\d{6}$/', $classCode) ? $this->_loadOpenClass($classCode) : null;
+        if (!$run) {
+            $result['message'] = 'That Class No is not valid or the class has ended. Please check it with your course administrator.';
+            return $this->_json($result);
+        }
+
+        try {
+            if ($role === 'trainer') {
+                $this->_registerTrainer($name, $email, $run);
+            } else {
+                $this->_registerLearner($name, $email, $run);
+            }
+            $session->unsLmsRegisterAttempts();
+            $result['success'] = true;
+            $result['message'] = $okMessage;
+        } catch (Mage_Core_Exception $e) {
+            // e.g. MMD_Email rejects a domain with no MX record
+            $result['message'] = $e->getMessage();
+        } catch (Exception $e) {
+            Mage::logException($e);
+            $result['message'] = 'Registration failed. Please try again or contact us.';
+        }
+        return $this->_json($result);
+    }
+
+    /** The class for this code, if it has not ended yet (else null). */
+    protected function _loadOpenClass($classCode)
+    {
+        $res  = Mage::getSingleton('core/resource');
+        $read = $res->getConnection('core_read');
+        $run  = $read->fetchRow(
+            "SELECT run_id, product_id, class_id, course_start_date, course_start_time
+               FROM `" . $res->getTableName('course_runs') . "`
+              WHERE class_id = ? AND COALESCE(course_end_date, course_start_date) >= CURDATE()
+              LIMIT 1",
+            array($classCode)
+        );
+        if (!$run) {
+            return null;
+        }
+        $run['course_name'] = (string) Mage::getResourceModel('catalog/product')
+            ->getAttributeRawValue((int) $run['product_id'], 'name', 0);
+        return $run;
+    }
+
+    protected function _registerLearner($name, $email, array $run)
+    {
+        $res     = Mage::getSingleton('core/resource');
+        $read    = $res->getConnection('core_read');
+        $write   = $res->getConnection('core_write');
+        $adminId = (int) $read->fetchOne(
+            "SELECT user_id FROM `" . $res->getTableName('admin_user') . "` WHERE LOWER(email) = ? LIMIT 1",
+            array($email)
+        );
+        $customer = $this->_loadCustomerByEmail($email);
+        if (!$customer) {
+            Mage::throwException('Registration is unavailable right now. Please try again later.');
+        }
+
+        if ($customer->getId()) {
+            // Existing storefront learner — make sure the dashboard account exists.
+            Mage::helper('mmd_accountsync')->onCustomerSaved($customer);
+        } elseif ($adminId) {
+            // Staff member without a storefront account: just add the learner
+            // role. Creating a customer here would push its fresh password hash
+            // onto their existing dashboard login (AccountSync sync).
+            Mage::helper('mmd_accountsync')->_addLearnerRole($adminId, false);
+        } else {
+            list($first, $last) = $this->_splitName($name);
+            // loadByEmail() on a miss wipes the model data (website_id too),
+            // so set scope explicitly — the site's one store view.
+            $store   = Mage::app()->getDefaultStoreView();
+            $storeId = (int) $store->getId();
+            $customer->setWebsiteId((int) $store->getWebsiteId())
+                ->setFirstname($first)
+                ->setLastname($last)
+                ->setEmail($email)
+                ->setStoreId($storeId)
+                ->setGroupId((int) Mage::getStoreConfig(Mage_Customer_Model_Group::XML_PATH_DEFAULT_ID, $storeId))
+                ->setPassword(Mage::helper('core')->getRandomString(24))
+                ->save(); // customer_save_after -> AccountSync creates the learner dashboard account
+        }
+
+        $write->query(
+            "INSERT IGNORE INTO `" . $res->getTableName('course_run_enrolments') . "`
+                (product_id, run_id, learner_email, learner_name) VALUES (?, ?, ?, ?)",
+            array((int) $run['product_id'], (int) $run['run_id'], $email, $name)
+        );
+
+        $this->_sendMail($email, $name, 'Welcome to Tertiary Infotech Academy', $this->_emailHtml(
+            'Welcome to Tertiary Infotech Academy',
+            $name,
+            '<p>You are registered for <strong>' . $this->_esc($run['course_name']) . '</strong>'
+                . ' (Class <strong>' . $this->_esc($run['class_id']) . '</strong>'
+                . $this->_classDateText($run) . ').</p>'
+                . '<p>Sign in to the Learning Management System to see your class, materials and attendance:</p>'
+                . '<ol style="padding-left:20px;margin:0 0 16px;">'
+                . '<li>Open the login page using the button below.</li>'
+                . '<li>Enter <strong>' . $this->_esc($email) . '</strong> and click <strong>Send OTP</strong>.</li>'
+                . '<li>Enter the 6-digit code we email you. No password needed.</li></ol>',
+            'Sign in with OTP'
+        ));
+    }
+
+    protected function _registerTrainer($name, $email, array $run)
+    {
+        $res     = Mage::getSingleton('core/resource');
+        $read    = $res->getConnection('core_read');
+        $write   = $res->getConnection('core_write');
+        $auTbl   = $res->getTableName('admin_user');
+        $adminId = (int) $read->fetchOne("SELECT user_id FROM `$auTbl` WHERE LOWER(email) = ? LIMIT 1", array($email));
+        $status  = 'Existing account #' . $adminId . ' — roles NOT changed; add the trainer role in Users if appropriate.';
+
+        if (!$adminId) {
+            // Raw insert (no admin_user_save_after): reuse the storefront hash
+            // when the person is already a customer so AccountSync never
+            // overwrites their storefront password with a random one.
+            $customer = $this->_loadCustomerByEmail($email);
+            $hash = ($customer && $customer->getId()) ? (string) $customer->getPasswordHash() : '';
+            if ($hash === '') {
+                $hash = Mage::helper('core')->getHash(
+                    Mage::helper('core')->getRandomString(24),
+                    Mage_Admin_Model_User::HASH_SALT_LENGTH
+                );
+            }
+            list($first, $last) = $this->_splitName($name);
+            $nowGmt = Mage::getModel('core/date')->gmtDate();
+            $write->insert($auTbl, array(
+                'firstname'       => mb_substr($first, 0, 32),
+                'lastname'        => mb_substr($last, 0, 32),
+                'email'           => substr($email, 0, 128),
+                'username'        => substr($email, 0, 40),
+                'password'        => $hash,
+                'is_active'       => 0, // pending admin approval
+                'created'         => $nowGmt,
+                'modified'        => $nowGmt,
+                'lognum'          => 0,
+                'reload_acl_flag' => 0,
+            ));
+            $adminId = (int) $write->lastInsertId();
+            $write->query(
+                "INSERT IGNORE INTO `" . $res->getTableName('mmd_user_role_map') . "`
+                    (user_id, role_code, is_primary, created_at) VALUES (?, 'trainer', 1, ?)",
+                array($adminId, $nowGmt)
+            );
+            Mage::helper('mmd_rolemanager')->applyRoleAcl($adminId, 'trainer');
+            $status = 'New INACTIVE trainer account #' . $adminId . ' — activate it in Users to approve.';
+        }
+
+        $this->_sendMail($email, $name, 'Your trainer registration - Tertiary Infotech Academy', $this->_emailHtml(
+            'Thank you for registering as a trainer',
+            $name,
+            '<p>We have received your trainer registration for <strong>' . $this->_esc($run['course_name']) . '</strong>'
+                . ' (Class <strong>' . $this->_esc($run['class_id']) . '</strong>' . $this->_classDateText($run) . ').</p>'
+                . '<p>Your account is <strong>pending approval</strong> by our team. Once approved, sign in with'
+                . ' <strong>' . $this->_esc($email) . '</strong> — click <strong>Send OTP</strong> and enter the'
+                . ' 6-digit code we email you.</p>',
+            'Go to the login page'
+        ));
+
+        $adminMail = (string) Mage::getStoreConfig('trans_email/ident_general/email');
+        if ($adminMail !== '') {
+            $this->_sendMail($adminMail, 'Admin', 'Trainer sign-up awaiting approval: ' . $name, $this->_emailHtml(
+                'Trainer sign-up awaiting approval',
+                'Admin',
+                '<p><strong>' . $this->_esc($name) . '</strong> (' . $this->_esc($email) . ') registered as a'
+                    . ' <strong>trainer</strong> with Class No <strong>' . $this->_esc($run['class_id']) . '</strong>'
+                    . ' — ' . $this->_esc($run['course_name']) . $this->_classDateText($run) . '.</p>'
+                    . '<p>' . $this->_esc($status) . '</p>',
+                null
+            ));
+        }
+    }
+
+    /** "Jane Tan Mei Ling" -> ['Jane', 'Tan Mei Ling']; one word -> [word, '-']. */
+    protected function _splitName($name)
+    {
+        $parts = explode(' ', $name, 2);
+        return array($parts[0], isset($parts[1]) && $parts[1] !== '' ? $parts[1] : '-');
+    }
+
+    protected function _classDateText(array $run)
+    {
+        if (empty($run['course_start_date'])) {
+            return '';
+        }
+        return ', starting ' . date('j M Y', strtotime($run['course_start_date']));
+    }
+
+    protected function _esc($s)
+    {
+        return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
+    }
+
+    /** Branded HTML email body; $cta = button label linking to /lmslogin (null = none). */
+    protected function _emailHtml($heading, $name, $bodyHtml, $cta)
+    {
+        $loginUrl = Mage::getUrl('lmslogin', array('_nosid' => true));
+        $button = $cta === null ? '' :
+            '<p style="margin:24px 0;"><a href="' . $this->_esc($loginUrl) . '" style="display:inline-block;'
+            . 'background:#2563eb;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 24px;'
+            . 'border-radius:8px;">' . $this->_esc($cta) . '</a></p>'
+            . '<p style="font-size:12px;color:#64748b;">Or copy this link: ' . $this->_esc($loginUrl) . '</p>';
+        return '<div style="background:#f1f5f9;padding:24px 12px;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;">'
+            . '<div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;">'
+            . '<div style="background:#0f2350;color:#ffffff;padding:20px 28px;font-size:13px;letter-spacing:1px;'
+            . 'text-transform:uppercase;font-weight:600;">Tertiary Infotech Academy</div>'
+            . '<div style="padding:28px;color:#1e293b;font-size:15px;line-height:1.6;">'
+            . '<h1 style="font-size:20px;margin:0 0 16px;color:#0f172a;">' . $this->_esc($heading) . '</h1>'
+            . '<p>Hi ' . $this->_esc($name) . ',</p>' . $bodyHtml . $button
+            . '<p style="margin-top:24px;">— Tertiary Infotech Academy</p></div></div></div>';
+    }
+
+    /** Gmail-first transport, same as the OTP mail in sendAction(). Never throws. */
+    protected function _sendMail($to, $toName, $subject, $bodyHtml)
+    {
+        try {
+            $fromName = (string) Mage::getStoreConfig('trans_email/ident_general/name');
+            $fromMail = (string) Mage::getStoreConfig('trans_email/ident_general/email');
+            $gmail = Mage::helper('mmd_email/gmail');
+            if ($gmail && $gmail->isConfigured()) {
+                $gmail->send($to, $subject, $bodyHtml, $fromName);
+            } else {
+                Mage::getModel('core/email')
+                    ->setToEmail($to)->setToName($toName)
+                    ->setSubject($subject)->setBody($bodyHtml)
+                    ->setFromEmail($fromMail)->setFromName($fromName)->setType('html')
+                    ->send();
+            }
+        } catch (Exception $e) {
+            Mage::logException($e);
+        }
+    }
+
     /** Send a JSON response. */
     protected function _json(array $data)
     {
@@ -407,9 +700,11 @@ class MMD_RoleManager_IndexController extends Mage_Adminhtml_Controller_Action
         $postUrl   = Mage::getUrl($route . '/index/login');
         $sendUrl   = Mage::getUrl($route . '/index/send');
         $verifyUrl = Mage::getUrl($route . '/index/verify');
+        $registerUrl = Mage::getUrl($route . '/index/register');
         $forgotUrl = Mage::getUrl('customer/account/forgotpassword');
         $formKey   = Mage::getSingleton('core/session')->getFormKey();
         $siteName  = Mage::app()->getStore()->getFrontendName();
+        $siteUrl   = Mage::getBaseUrl(Mage_Core_Model_Store::URL_TYPE_WEB, true);
 
         ob_start();
         include Mage::getDesign()->getTemplateFilename('rolemanager/learner-login.phtml');

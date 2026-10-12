@@ -1,23 +1,27 @@
 <?php
 /**
- * LMS login page — /lmslogin on every site (SG/MY/GH), for the learner,
- * trainer, developer and marketing roles. /learnerlogin is a legacy alias.
- * Admin + Super Admin sign in at the staff portal (/adminlogin), which
- * accepts every role.
+ * LMS login page — /lmslogin on every site (SG/MY/GH), for learners and
+ * trainers (plus developer / marketing). /learnerlogin is a legacy alias.
+ * Admin + Super Admin sign in at the staff portal (/adminlogin), which keeps
+ * its own single-card design (template/login.phtml) — do not merge the two.
  *
- * EXACT visual clone of the staff admin login (template/login.phtml): same
- * stylesheet block, same OTP-first flow (email -> Send OTP -> 6-digit code ->
- * auto-verify), same password fallback via "Login with password instead".
- * Differences: LMS branding/copy, no Google sign-in, no policy modal, and
- * the endpoints are the lmslogin/index send/verify/login actions, which
- * confine the session to the LMS roles (multi-LMS-role users get the
- * role-selection screen; single-role users land straight on the dashboard).
+ * Two-column layout:
+ *  - LEFT  — welcome message + new learner / trainer registration (Name,
+ *    Email, Class Code, Role; Learner by default). Posts to
+ *    MMD_RoleManager_IndexController::registerAction: learners are enrolled
+ *    into the class at once and emailed a welcome; trainers are created
+ *    inactive pending admin approval.
+ *  - RIGHT — the usual OTP-first sign-in (email -> Send OTP -> 6-digit code ->
+ *    auto-verify) with the "Login with password instead" fallback. Endpoints
+ *    are the lmslogin/index send/verify/login actions, which confine the
+ *    session to the LMS roles.
+ * Below 960px the columns stack with sign-in FIRST (returning users).
  *
  * Rendered standalone by MMD_RoleManager_IndexController::_renderPage() —
  * $this is the CONTROLLER (not a block), so asset URLs use Mage::getBaseUrl
  * and the JS below is vanilla (prototype.js isn't loaded here).
- * Variables in scope: $logoUrl, $postUrl, $sendUrl, $verifyUrl, $formKey,
- * $siteName, $error, $prevEmail, $forgotUrl.
+ * Variables in scope: $logoUrl, $postUrl, $sendUrl, $verifyUrl, $registerUrl,
+ * $formKey, $siteName, $siteUrl, $error, $prevEmail, $forgotUrl.
  */
 ?>
 <!DOCTYPE html>
@@ -30,123 +34,276 @@
     <link rel="icon" href="/media/favicon/default/favicon_1.png" type="image/png" />
     <link rel="shortcut icon" href="/media/favicon/default/favicon_1.png" type="image/png" />
     <style>
+    :root {
+        --lp-bg: #0b1120;
+        --lp-brand-1: #0a1a3a;
+        --lp-brand-2: #12306b;
+        --lp-arc: rgba(125, 211, 252, 0.26);
+        --lp-arc-2: rgba(125, 211, 252, 0.12);
+        --lp-text: #f1f5f9;
+        --lp-text-2: #cbd5e1;
+        --lp-muted: #94a3b8;
+        --lp-faint: #64748b;
+        --lp-line: #1e293b;
+        --lp-line-2: #334155;
+        --lp-field: rgba(15, 23, 42, 0.55);
+        --lp-accent: #2563eb;
+        --lp-accent-hover: #3b82f6;
+        --lp-accent-press: #1d4ed8;
+        --lp-link: #60a5fa;
+        --lp-link-hover: #93c5fd;
+        --lp-eyebrow: #7dd3fc;
+        --lp-ok: #34d399;
+        --lp-bad: #fca5a5;
+        --lp-ring: rgba(96, 165, 250, 0.25);
+    }
     * { box-sizing: border-box; }
-    body#page-login {
-        background: #111827;
+    html, body { margin: 0; padding: 0; }
+    body {
+        background: var(--lp-bg);
+        color: var(--lp-text);
         font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
-        margin: 0; padding: 0; min-height: 100vh;
+        -webkit-font-smoothing: antialiased;
+        min-height: 100vh;
     }
-    #page-login .login-container { background: transparent; width: 100%; margin: 0; display: flex; justify-content: center; align-items: flex-start; padding: 40px 20px 20px; }
-    .login-card {
-        background: rgba(30, 41, 59, 0.85);
-        backdrop-filter: blur(12px);
-        border: 1px solid #374151;
-        border-radius: 20px;
-        box-shadow: 0 20px 60px rgba(0,0,0,0.4);
-        width: 440px;
-        max-width: 100%;
-        padding: 40px 36px 32px;
-    }
-    .login-logo { text-align: center; margin-bottom: 20px; }
-    .login-logo img { height: 64px; border-radius: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
-    .login-title { text-align: center; color: #f1f5f9; font-size: 24px; font-weight: 700; margin: 0 0 4px; }
-    .login-subtitle { text-align: center; color: #94a3b8; font-size: 14px; margin: 0 0 28px; }
+    .hidden, [hidden] { display: none !important; }
 
-    /* Form fields */
-    .field-group { margin-bottom: 18px; }
-    .field-label { display: block; color: #cbd5e1; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
-    .field-input {
-        width: 100%; padding: 12px 16px; background: #374151; border: 1px solid #4b5563;
-        border-radius: 10px; color: #f1f5f9; font-size: 14px; outline: none;
+    .lp-shell { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr); min-height: 100vh; }
+
+    /* ---------- Left: brand band + registration ---------- */
+    .lp-brand {
+        position: relative; overflow: hidden;
+        display: flex; flex-direction: column; gap: 32px;
+        padding: 40px clamp(24px, 5vw, 72px);
+        background:
+            radial-gradient(900px 520px at -10% 115%, rgba(37, 99, 235, 0.38), transparent 60%),
+            linear-gradient(160deg, var(--lp-brand-1), var(--lp-brand-2));
+    }
+    .lp-brand::before, .lp-brand::after {
+        content: ""; position: absolute; border-radius: 50%;
+        border: 1.5px solid var(--lp-arc); pointer-events: none;
+    }
+    .lp-brand::before { width: 680px; height: 680px; right: -300px; top: -380px; }
+    .lp-brand::after  { width: 1080px; height: 1080px; right: -480px; top: -640px; border-color: var(--lp-arc-2); }
+    .lp-brand > * { position: relative; z-index: 1; }
+
+    .lp-brand-top { display: flex; align-items: center; gap: 12px; font-size: 15px; font-weight: 600; letter-spacing: 0.2px; }
+    .lp-brand-top img { width: 40px; height: 40px; border-radius: 10px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35); }
+    .lp-brand-inner { width: 100%; max-width: 540px; margin: auto 0; }
+    .lp-eyebrow { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase; color: var(--lp-eyebrow); }
+    .lp-hero { margin: 10px 0 14px; font-size: clamp(30px, 3.2vw, 42px); line-height: 1.08; font-weight: 700; letter-spacing: -0.6px; }
+    .lp-lead { margin: 0 0 28px; font-size: 15px; line-height: 1.65; color: rgba(255, 255, 255, 0.78); max-width: 480px; }
+    .lp-brand-foot { margin: 0; font-size: 12px; color: rgba(255, 255, 255, 0.55); }
+
+    .lp-reg-card {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 16px; padding: 26px 26px 24px;
+        backdrop-filter: blur(8px);
+        box-shadow: 0 24px 60px rgba(2, 6, 23, 0.35);
+    }
+    .lp-reg-title { margin: 0 0 4px; font-size: 17px; font-weight: 650; }
+    .lp-reg-sub { margin: 0 0 20px; font-size: 13px; color: rgba(255, 255, 255, 0.62); }
+    .lp-reg-sub a { color: var(--lp-eyebrow); text-decoration: none; font-weight: 600; }
+    .lp-reg-sub a:hover { text-decoration: underline; }
+    .lp-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .lp-field { margin-bottom: 14px; }
+    .lp-label { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 500; color: rgba(255, 255, 255, 0.85); }
+    .lp-input {
+        width: 100%; height: 44px; padding: 0 14px;
+        background: rgba(2, 6, 23, 0.35); border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 10px; color: #fff; font: inherit; font-size: 14px; outline: none;
         transition: border-color 0.15s, box-shadow 0.15s;
     }
-    .field-input:focus { border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(96,165,250,0.15); }
-    .field-input::placeholder { color: #64748b; }
+    .lp-input::placeholder { color: rgba(255, 255, 255, 0.4); }
+    .lp-input:focus { border-color: var(--lp-link); box-shadow: 0 0 0 3px var(--lp-ring); }
+    .lp-input-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: 1.5px; text-transform: uppercase; }
+    .lp-seg { display: flex; height: 44px; padding: 3px; gap: 3px; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 10px; background: rgba(2, 6, 23, 0.35); }
+    .lp-seg label { flex: 1; position: relative; }
+    .lp-seg input { position: absolute; opacity: 0; width: 0; height: 0; }
+    .lp-seg span {
+        display: flex; align-items: center; justify-content: center; height: 100%;
+        border-radius: 7px; font-size: 13px; font-weight: 600; color: rgba(255, 255, 255, 0.65);
+        cursor: pointer; transition: background 0.15s, color 0.15s;
+    }
+    .lp-seg span:hover { color: #fff; }
+    .lp-seg input:checked + span { background: var(--lp-accent); color: #fff; }
+    .lp-seg input:focus-visible + span { box-shadow: 0 0 0 3px var(--lp-ring); }
+    .lp-hint { margin: -2px 0 16px; font-size: 12px; color: rgba(255, 255, 255, 0.55); }
+    .lp-hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+    .lp-reg-msg { margin: 0 0 12px; font-size: 13px; font-weight: 500; color: var(--lp-bad); }
+    .lp-reg-done { text-align: center; padding: 18px 6px 6px; }
+    .lp-reg-done svg { color: var(--lp-ok); margin-bottom: 10px; }
+    .lp-reg-done p { margin: 6px 0 18px; font-size: 14px; line-height: 1.6; color: rgba(255, 255, 255, 0.8); }
+
+    /* ---------- Shared buttons / links ---------- */
+    .lp-btn, .btn-primary, .btn-otp {
+        display: block; width: 100%; height: 46px; padding: 0 16px;
+        background: var(--lp-accent); color: #fff; border: 0; border-radius: 10px;
+        font: inherit; font-size: 15px; font-weight: 600; cursor: pointer;
+        transition: background 0.15s;
+    }
+    .lp-btn:hover, .btn-primary:hover, .btn-otp:hover { background: var(--lp-accent-hover); }
+    .lp-btn:active, .btn-primary:active, .btn-otp:active { background: var(--lp-accent-press); }
+    .lp-btn:focus-visible, .btn-primary:focus-visible, .btn-otp:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--lp-ring); }
+    .lp-btn:disabled, .btn-otp:disabled { opacity: 0.6; cursor: not-allowed; }
+    .btn-primary, .btn-otp { margin-top: 6px; }
+    .lp-link-btn { background: none; border: 0; padding: 0; font: inherit; font-size: 14px; font-weight: 600; color: var(--lp-eyebrow); cursor: pointer; }
+    .lp-link-btn:hover { text-decoration: underline; }
+
+    /* ---------- Right: sign-in ---------- */
+    .lp-auth { display: flex; align-items: center; justify-content: center; padding: 48px clamp(20px, 4vw, 56px); }
+    .login-card { width: 100%; max-width: 400px; }
+    .lp-auth-logo { display: none; margin-bottom: 20px; }
+    .lp-auth-logo img { height: 48px; border-radius: 12px; }
+    .lp-auth-eyebrow { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase; color: var(--lp-link); }
+    .login-title { margin: 6px 0 6px; font-size: 28px; font-weight: 700; letter-spacing: -0.4px; color: var(--lp-text); }
+    .login-subtitle { margin: 0 0 28px; font-size: 14px; line-height: 1.55; color: var(--lp-muted); }
+
+    .field-group { margin-bottom: 18px; }
+    .field-label { display: block; color: var(--lp-text-2); font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+    .field-input {
+        width: 100%; height: 46px; padding: 0 16px; background: var(--lp-field); border: 1px solid var(--lp-line-2);
+        border-radius: 10px; color: var(--lp-text); font: inherit; font-size: 14px; outline: none;
+        transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .field-input:focus { border-color: var(--lp-link); box-shadow: 0 0 0 3px var(--lp-ring); }
+    .field-input::placeholder { color: var(--lp-faint); }
     .field-pw-wrap { position: relative; }
     .field-pw-wrap .field-input { padding-right: 44px; }
-    .pw-toggle,
-    .pw-toggle:hover,
-    .pw-toggle:focus,
-    .pw-toggle:active {
+    .pw-toggle {
         position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
-        background: transparent !important; background-image: none !important;
-        border: 0 !important; box-shadow: none !important;
-        cursor: pointer; color: #64748b; padding: 4px; line-height: 0;
+        background: transparent; border: 0; box-shadow: none;
+        cursor: pointer; color: var(--lp-faint); padding: 4px; line-height: 0;
     }
-    .pw-toggle:hover { color: #94a3b8; }
+    .pw-toggle:hover { color: var(--lp-muted); }
     .pw-toggle svg { display: block; width: 20px; height: 20px; }
 
-    /* Messages */
-    #messages { list-style: none; padding: 0; margin: 0 0 16px; }
-    #messages .error-msg {
-        color: #f87171; padding: 6px 0; font-size: 13px;
-        font-weight: 500; text-align: center;
-    }
+    #messages .error-msg { color: #f87171; padding: 0 0 14px; font-size: 13px; font-weight: 500; }
 
-    /* Buttons */
-    .btn-primary, .btn-otp {
-        display: block; width: 100%; padding: 13px;
-        background: #2563eb; color: #fff;
-        border: none; border-radius: 10px; font-size: 15px; font-weight: 600;
-        cursor: pointer; transition: background 0.15s, transform 0.1s; margin-top: 8px;
-    }
-    .btn-primary:hover, .btn-otp:hover {
-        background: #3b82f6;
-        transform: translateY(-1px);
-    }
-    .btn-primary:active, .btn-otp:active {
-        background: #1d4ed8;
-        transform: translateY(0);
-    }
-    .btn-otp:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
-
-    /* Links */
     .login-links { text-align: center; margin-top: 16px; }
-    .login-links a { color: #60a5fa; font-size: 13px; text-decoration: none; }
-    .login-links a:hover { color: #93c5fd; text-decoration: underline; }
+    .login-links a { color: var(--lp-link); font-size: 13px; text-decoration: none; }
+    .login-links a:hover { color: var(--lp-link-hover); text-decoration: underline; }
     .login-switch { text-align: center; margin-top: 18px; }
-    .login-switch a { color: #60a5fa; font-size: 14px; text-decoration: underline; cursor: pointer; font-weight: 600; }
-    .login-switch a:hover { color: #93c5fd; }
+    .login-switch a { color: var(--lp-link); font-size: 14px; cursor: pointer; font-weight: 600; text-decoration: none; }
+    .login-switch a:hover { color: var(--lp-link-hover); text-decoration: underline; }
 
-    /* Footer */
-    .login-footer { text-align: center; color: #4b5563; font-size: 12px; margin-top: 24px; padding-top: 20px; border-top: 1px solid #374151; }
-    .login-footer a { color: #64748b; text-decoration: none; margin: 0 8px; }
-    .login-footer a:hover { color: #94a3b8; }
-    .login-footer .site-link { display: block; margin-top: 10px; color: #60a5fa; font-size: 12px; }
-    .login-footer .site-link:hover { color: #93c5fd; }
+    .login-footer { text-align: center; color: var(--lp-faint); font-size: 12px; margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--lp-line); line-height: 1.6; }
+    .login-footer .site-link { display: block; margin-top: 6px; color: var(--lp-link); text-decoration: none; }
+    .login-footer .site-link:hover { color: var(--lp-link-hover); }
 
-    /* OTP input */
     .otp-row { display: flex; justify-content: center; margin: 20px 0; }
     .otp-digit {
-        width: 100%; max-width: 360px; height: 64px; text-align: center;
-        font-family: 'Courier New', monospace; font-size: 28px; font-weight: 700;
+        width: 100%; height: 64px; text-align: center;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 28px; font-weight: 700;
         letter-spacing: 14px; padding-left: 14px;
-        background: #374151; border: 1px solid #4b5563; border-radius: 10px; color: #f1f5f9;
-        outline: none; transition: border-color 0.15s;
+        background: var(--lp-field); border: 1px solid var(--lp-line-2); border-radius: 10px; color: var(--lp-text);
+        outline: none; transition: border-color 0.15s, box-shadow 0.15s;
     }
-    .otp-digit::placeholder { color: #64748b; letter-spacing: 14px; }
-    .otp-digit:focus { border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(96,165,250,0.15); }
-    .otp-verify-title { text-align: center; color: #f1f5f9; font-size: 17px; font-weight: 700; margin: 8px 0 6px; }
-    .otp-verify-sub { text-align: center; color: #94a3b8; font-size: 14px; margin: 0 0 6px; line-height: 1.5; }
-    .otp-verify-sub strong { color: #f1f5f9; font-weight: 700; }
-    .otp-sent-msg { text-align: center; color: #34d399; font-size: 13px; margin: 8px 0 4px; }
-    .otp-spam-hint { text-align: center; color: #34d399; font-size: 12px; margin: 0 0 18px; opacity: 0.9; }
+    .otp-digit::placeholder { color: var(--lp-faint); letter-spacing: 14px; }
+    .otp-digit:focus { border-color: var(--lp-link); box-shadow: 0 0 0 3px var(--lp-ring); }
+    .otp-verify-title { color: var(--lp-text); font-size: 17px; font-weight: 700; margin: 0 0 6px; }
+    .otp-verify-sub { color: var(--lp-muted); font-size: 14px; margin: 0; line-height: 1.5; }
+    .otp-verify-sub strong { color: var(--lp-text); font-weight: 700; }
+    .otp-sent-msg { text-align: center; color: var(--lp-ok); font-size: 13px; margin: 0 0 4px; }
+    .otp-spam-hint { text-align: center; color: var(--lp-muted); font-size: 12px; margin: 0 0 18px; }
     .otp-resend { text-align: center; margin-top: 14px; }
-    .otp-resend a { color: #60a5fa; font-size: 13px; cursor: pointer; text-decoration: none; font-weight: 600; }
-    .otp-resend-sep { color: #4b5563; margin: 0 10px; }
+    .otp-resend a { color: var(--lp-link); font-size: 13px; cursor: pointer; text-decoration: none; font-weight: 600; }
+    .otp-resend a:hover { text-decoration: underline; }
+    .otp-resend-sep { color: var(--lp-line-2); margin: 0 10px; }
 
-    /* Hidden */
-    .hidden { display: none !important; }
+    /* ---------- Narrow screens: stack, sign-in first ---------- */
+    .lp-only-narrow { display: none; }
+    @media (max-width: 960px) {
+        .lp-shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; }
+        .lp-auth { order: -1; padding: 32px 16px 40px; }
+        .lp-auth-logo { display: block; }
+        .lp-brand { padding: 32px 16px; }
+        .lp-brand-top { display: none; }
+        .lp-brand-inner { margin: 0; }
+        .lp-only-wide { display: none; }
+        .lp-only-narrow { display: inline; }
+    }
+    @media (max-width: 480px) {
+        .lp-row { grid-template-columns: minmax(0, 1fr); gap: 0; }
+        .lp-reg-card { padding: 20px 16px; }
+    }
     </style>
 </head>
 <body id="page-login">
-    <div class="login-container">
+<div class="lp-shell">
+
+    <!-- LEFT: welcome + new learner / trainer registration -->
+    <section class="lp-brand" aria-labelledby="lp-hero">
+        <div class="lp-brand-top">
+            <img src="<?php echo htmlspecialchars($logoUrl) ?>" alt="" />
+            <span>Tertiary Infotech Academy</span>
+        </div>
+
+        <div class="lp-brand-inner">
+            <p class="lp-eyebrow">Learning Management System</p>
+            <h1 class="lp-hero" id="lp-hero">Welcome to Tertiary Infotech Academy</h1>
+            <p class="lp-lead">Your class materials, schedules, attendance and certificates, all in one place. New here? Register with the Class No from your course administrator.</p>
+
+            <div class="lp-reg-card">
+                <form id="lp-reg-form" novalidate>
+                    <h2 class="lp-reg-title">New learner or trainer registration</h2>
+                    <p class="lp-reg-sub">Already registered? <a href="#otp-email" onclick="document.getElementById('otp-email').focus(); return false;">Sign in here</a>.</p>
+
+                    <div class="lp-field">
+                        <label class="lp-label" for="lp-reg-name">Name</label>
+                        <input type="text" id="lp-reg-name" name="name" class="lp-input" autocomplete="name" maxlength="80" placeholder="As shown on your NRIC / passport" required />
+                    </div>
+                    <div class="lp-field">
+                        <label class="lp-label" for="lp-reg-email">Email</label>
+                        <input type="email" id="lp-reg-email" name="email" class="lp-input" autocomplete="email" maxlength="128" placeholder="you@example.com" required />
+                    </div>
+                    <div class="lp-row">
+                        <div class="lp-field">
+                            <label class="lp-label" for="lp-reg-class">Class No</label>
+                            <input type="text" id="lp-reg-class" name="class_code" class="lp-input lp-input-code" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="7" placeholder="C000000" required />
+                        </div>
+                        <div class="lp-field">
+                            <span class="lp-label" id="lp-reg-role-label">I am a</span>
+                            <div class="lp-seg" role="radiogroup" aria-labelledby="lp-reg-role-label">
+                                <label><input type="radio" name="role" value="learner" checked /><span>Learner</span></label>
+                                <label><input type="radio" name="role" value="trainer" /><span>Trainer</span></label>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="lp-hint" id="lp-reg-hint">Your Class No is provided by your course administrator.</p>
+
+                    <!-- Honeypot: hidden from people, filled by bots -->
+                    <div class="lp-hp" aria-hidden="true">
+                        <label for="lp-reg-website">Website</label>
+                        <input type="text" id="lp-reg-website" name="website" tabindex="-1" autocomplete="off" />
+                    </div>
+
+                    <p class="lp-reg-msg" id="lp-reg-error" role="alert" hidden></p>
+                    <button type="submit" class="lp-btn" id="lp-reg-submit">Register</button>
+                </form>
+
+                <div class="lp-reg-done" id="lp-reg-done" hidden>
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg>
+                    <h2 class="lp-reg-title">Check your inbox</h2>
+                    <p id="lp-reg-done-text"></p>
+                    <button type="button" class="lp-link-btn" id="lp-reg-again">Register someone else</button>
+                </div>
+            </div>
+        </div>
+
+        <p class="lp-brand-foot">&copy; <?php echo date('Y') ?> Tertiary Infotech Academy Pte Ltd</p>
+    </section>
+
+    <!-- RIGHT: sign-in (OTP first, password fallback) -->
+    <section class="lp-auth" aria-labelledby="lp-signin-title">
         <div class="login-card">
-            <div class="login-logo">
+            <div class="lp-auth-logo">
                 <img src="<?php echo htmlspecialchars($logoUrl) ?>" alt="Tertiary Infotech Academy" />
             </div>
-            <h1 class="login-title">LMS Login</h1>
-            <p class="login-subtitle">Sign in with your <?php echo htmlspecialchars($siteName ?: 'Tertiary Courses') ?> account to access the LMS.</p>
+            <p class="lp-auth-eyebrow">Welcome back</p>
+            <h2 class="login-title" id="lp-signin-title">Sign in to the LMS</h2>
+            <p class="login-subtitle">Enter the email you registered with and we&rsquo;ll send you a one-time code &mdash; no password needed.</p>
 
             <div id="messages">
                 <?php if ($error !== ''): ?>
@@ -195,8 +352,8 @@
                     </div>
                 </div>
                 <div id="otp-step-verify" class="hidden">
-                    <h2 class="otp-verify-title">Verify your identity</h2>
-                    <p class="otp-verify-sub">An OTP has been sent to<br/><strong id="otp-sent-email">your email</strong>.</p>
+                    <h3 class="otp-verify-title">Verify your identity</h3>
+                    <p class="otp-verify-sub">An OTP has been sent to <strong id="otp-sent-email">your email</strong>.</p>
                     <div class="otp-row">
                         <input type="text" id="otp-code" class="otp-digit" maxlength="6" inputmode="numeric" autocomplete="one-time-code" placeholder="______" oninput="otpInput(this)" onpaste="otpPaste(event)" onfocus="this.select()" aria-label="6-digit OTP code" />
                     </div>
@@ -213,10 +370,11 @@
 
             <div class="login-footer">
                 Same email as your course-registration account.
-                <a href="https://www.tertiarycourses.com.sg/" class="site-link">https://www.tertiarycourses.com.sg/</a>
+                <a href="<?php echo htmlspecialchars($siteUrl) ?>" class="site-link"><?php echo htmlspecialchars($siteUrl) ?></a>
             </div>
         </div>
-    </div>
+    </section>
+</div>
 
     <script type="text/javascript">
     //<![CDATA[
@@ -334,6 +492,80 @@
         xhr.onerror = function() { btn.disabled = false; btn.innerHTML = 'Verify &amp; Log In'; alert('Network error'); };
         xhr.send('email=' + encodeURIComponent(email) + '&otp=' + encodeURIComponent(otp) + '&form_key=<?php echo $formKey ?>');
     }
+
+    // Registration (left column)
+    (function () {
+        var form = $('lp-reg-form');
+        var err  = $('lp-reg-error');
+        var btn  = $('lp-reg-submit');
+        var done = $('lp-reg-done');
+        var hint = $('lp-reg-hint');
+        var code = $('lp-reg-class');
+        var HINT_DEFAULT = hint.textContent;
+
+        function showError(msg) { err.textContent = msg; err.hidden = false; }
+
+        code.addEventListener('input', function () {
+            code.value = code.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        });
+        Array.prototype.forEach.call(form.querySelectorAll('input[name="role"]'), function (r) {
+            r.addEventListener('change', function () {
+                hint.textContent = r.value === 'trainer'
+                    ? 'Trainer accounts are activated after approval by our team.'
+                    : HINT_DEFAULT;
+            });
+        });
+
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            err.hidden = true;
+            var name  = $('lp-reg-name').value.replace(/\s+/g, ' ').trim();
+            var email = $('lp-reg-email').value.replace(/\s+/g, '');
+            var cls   = code.value.trim();
+            var role  = form.querySelector('input[name="role"]:checked').value;
+            if (name.length < 2) { showError('Please enter your name.'); $('lp-reg-name').focus(); return; }
+            if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { showError('Please enter a valid email address.'); $('lp-reg-email').focus(); return; }
+            if (!/^C\d{6}$/.test(cls)) { showError('Class No looks like C004036. Please check the number you were given.'); code.focus(); return; }
+
+            btn.disabled = true;
+            btn.textContent = 'Registering…';
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '<?php echo $registerUrl ?>');
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.onload = function () {
+                btn.disabled = false;
+                btn.textContent = 'Register';
+                var resp;
+                try { resp = JSON.parse(xhr.responseText); } catch (x) { showError('Something went wrong. Please try again.'); return; }
+                if (resp.success) {
+                    $('lp-reg-done-text').textContent = resp.message;
+                    // Pre-fill the sign-in email so the learner can go straight to OTP.
+                    if (!$('otp-email').value) { $('otp-email').value = email; }
+                    form.hidden = true;
+                    done.hidden = false;
+                } else {
+                    showError(resp.message || 'Registration failed. Please try again.');
+                }
+            };
+            xhr.onerror = function () { btn.disabled = false; btn.textContent = 'Register'; showError('Network error. Please try again.'); };
+            xhr.send([
+                'name=' + encodeURIComponent(name),
+                'email=' + encodeURIComponent(email),
+                'class_code=' + encodeURIComponent(cls),
+                'role=' + encodeURIComponent(role),
+                'website=' + encodeURIComponent($('lp-reg-website').value),
+                'form_key=<?php echo $formKey ?>'
+            ].join('&'));
+        });
+
+        $('lp-reg-again').addEventListener('click', function () {
+            form.reset();
+            hint.textContent = HINT_DEFAULT;
+            done.hidden = true;
+            form.hidden = false;
+            $('lp-reg-name').focus();
+        });
+    })();
     //]]>
     </script>
 </body>

@@ -113,7 +113,7 @@ class MMD_RoleManager_Model_Observer
             return;
         }
         $action = strtolower($request->getActionName());
-        if (in_array($action, array('index', 'login', 'send', 'verify'), true)) {
+        if (in_array($action, array('index', 'login', 'send', 'verify', 'register'), true)) {
             $request->setDispatched(true);
         }
     }
