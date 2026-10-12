@@ -375,6 +375,7 @@ class MMD_Certificate_Helper_Data extends Mage_Core_Helper_Abstract
     {
         $esc  = function($s) { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); };
         $name = $esc($name); $course = $esc($course); $dates = $esc($dates);
+        $sigImg = Mage::getModuleDir('', 'MMD_Certificate') . DS . 'assets' . DS . 'signature.png';
 
         // Chevron decoration as inline SVG (top-right + bottom-right corners).
         // mPDF honours position:fixed on DIRECT body children placed at explicit
@@ -407,6 +408,7 @@ class MMD_Certificate_Helper_Data extends Mage_Core_Helper_Abstract
         .course { position: fixed; top: 135mm; left: 24mm; width: 150mm; font-size: 23px; font-weight: 800; color: #2563eb; }
         .held { position: fixed; top: 150mm; left: 24mm; width: 150mm; font-size: 15px; color: #475569; }
         .held b { color: #111827; }
+        .sig-img { position: fixed; top: 236mm; left: 26mm; }
         .sig-name { position: fixed; top: 250mm; left: 24mm; width: 60mm; font-size: 15px; color: #111827; border-top: 1px solid #94a3b8; padding-top: 6px; }
         .sig-title { position: fixed; top: 258mm; left: 24mm; width: 70mm; font-size: 13px; color: #475569; }
         .sig-org { position: fixed; top: 263mm; left: 24mm; width: 80mm; font-size: 13px; font-weight: 700; color: #1e3a8a; }
@@ -425,6 +427,7 @@ class MMD_Certificate_Helper_Data extends Mage_Core_Helper_Abstract
             <div class="for">For completing the course</div>
             <div class="course">' . ($course !== '' ? $course : '&nbsp;') . '</div>
             <div class="held">Held on <b>' . ($dates !== '' ? $dates : 'N/A') . '</b></div>
+            <div class="sig-img"><img src="' . $esc($sigImg) . '" style="width: 45mm; height: 12.9mm;" /></div>
             <div class="sig-name">' . self::SIGNER_NAME . '</div>
             <div class="sig-title">' . self::SIGNER_TITLE . '</div>
             <div class="sig-org">' . self::SIGNER_ORG . '</div>
