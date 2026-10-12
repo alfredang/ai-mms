@@ -148,7 +148,11 @@ class MMD_MagentoCaptcha_IndexController extends Mage_Core_Controller_Front_Acti
             }
 
             $translate->setTranslateInline(true);
-            $session->addSuccess($this->__('Thank you for your submission. We will respond in 7 working days. If you do not receive any response from us, please call our office hotline +65 6100 0613 for further assistance.'));
+            if (Mage::app()->getStore()->getCode() === 'malaysia') {
+                $session->addSuccess($this->__('Thank you for your submission. We will respond within 1 business day. If you do not receive any response from us, please call our office hotline +603 7931 9658 for further assistance.'));
+            } else {
+                $session->addSuccess($this->__('Thank you for your submission. We will respond in 7 working days. If you do not receive any response from us, please call our office hotline +65 6100 0613 for further assistance.'));
+            }
         } catch (Mage_Core_Exception $e) {
             $translate->setTranslateInline(true);
             Mage::logException($e);

@@ -138,6 +138,7 @@ class MMD_Leads_Helper_Data extends Mage_Core_Helper_Abstract
     {
         static $map = array(
             'singapore' => 'Tertiary Courses Singapore',
+            'malaysia'  => 'Tertiary Courses Malaysia',
             'nigeria'   => 'Tertiary Courses Nigeria',
         );
         try {

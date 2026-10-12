@@ -92,8 +92,9 @@ class MMD_Email_Helper_Gmail extends Mage_Core_Helper_Abstract
     }
 
     /**
-     * Singapore (and the admin panel, which is staffed by the SG team)
-     * sends all transactional mail through Gmail OAuth2. Every other
+     * Singapore, Malaysia and the admin panel send all transactional mail
+     * through Gmail OAuth2 (each site serves one store, so the code check
+     * only switches on for that site). Every other
      * country store stays on Aschroder SMTPPro, which uses the per-store
      * SMTP credentials still configured in core_config_data.
      *
@@ -107,7 +108,7 @@ class MMD_Email_Helper_Gmail extends Mage_Core_Helper_Abstract
         } catch (Exception $e) {
             return false;
         }
-        return $code === 'singapore' || $code === 'admin';
+        return $code === 'singapore' || $code === 'malaysia' || $code === 'admin';
     }
 
     /**
