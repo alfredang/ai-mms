@@ -58,23 +58,30 @@
         --lp-ring: rgba(96, 165, 250, 0.25);
     }
     * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; }
+    html, body { margin: 0; padding: 0; height: 100%; }
     body {
         background: var(--lp-bg);
         color: var(--lp-text);
         font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
         -webkit-font-smoothing: antialiased;
-        min-height: 100vh;
     }
     .hidden, [hidden] { display: none !important; }
 
-    .lp-shell { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr); min-height: 100vh; }
+    /* Desktop: exactly one window tall — no page scroll. Vertical spacing
+       scales with the window height (clamp/vh); on a very short window each
+       column scrolls on its own instead of the page. */
+    .lp-shell {
+        display: grid; height: 100vh; height: 100dvh;
+        grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1fr) auto;
+    }
 
     /* ---------- Left: brand band + registration ---------- */
     .lp-brand {
         position: relative; overflow: hidden;
-        display: flex; flex-direction: column; gap: 32px;
-        padding: 40px clamp(24px, 5vw, 72px);
+        grid-column: 1; grid-row: 1 / span 2; overflow-y: auto;
+        display: flex; flex-direction: column; gap: clamp(12px, 3vh, 32px);
+        padding: clamp(20px, 4vh, 40px) clamp(24px, 5vw, 72px);
         background:
             radial-gradient(900px 520px at -10% 115%, rgba(37, 99, 235, 0.38), transparent 60%),
             linear-gradient(160deg, var(--lp-brand-1), var(--lp-brand-2));
@@ -88,28 +95,27 @@
     .lp-brand > * { position: relative; z-index: 1; }
 
     .lp-brand-top { display: flex; align-items: center; gap: 16px; font-size: clamp(22px, 2.2vw, 30px); line-height: 1.2; font-weight: 700; letter-spacing: 0.2px; }
-    .lp-brand-top img { width: 64px; height: 64px; flex-shrink: 0; border-radius: 10px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35); }
+    .lp-brand-top img { width: clamp(48px, 7vh, 64px); height: clamp(48px, 7vh, 64px); flex-shrink: 0; border-radius: 10px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35); }
     .lp-brand-inner { width: 100%; max-width: 540px; margin: auto 0; }
-    .lp-eyebrow { margin: 0 0 14px; font-size: 12px; font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase; color: var(--lp-eyebrow); }
-    .lp-lead { margin: 0 0 28px; font-size: 15px; line-height: 1.65; color: rgba(255, 255, 255, 0.78); max-width: 480px; }
-    .lp-brand-foot { margin: 0; font-size: 12px; color: rgba(255, 255, 255, 0.55); }
+    .lp-eyebrow { margin: 0 0 clamp(8px, 1.4vh, 14px); font-size: 12px; font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase; color: var(--lp-eyebrow); }
+    .lp-lead { margin: 0 0 clamp(14px, 2.6vh, 28px); font-size: 15px; line-height: 1.6; color: rgba(255, 255, 255, 0.78); max-width: 480px; }
 
     .lp-reg-card {
         background: rgba(255, 255, 255, 0.05);
         border: 1px solid rgba(255, 255, 255, 0.12);
-        border-radius: 16px; padding: 26px 26px 24px;
+        border-radius: 16px; padding: clamp(16px, 2.6vh, 26px) 26px;
         backdrop-filter: blur(8px);
         box-shadow: 0 24px 60px rgba(2, 6, 23, 0.35);
     }
     .lp-reg-title { margin: 0 0 4px; font-size: 17px; font-weight: 650; }
-    .lp-reg-sub { margin: 0 0 20px; font-size: 13px; color: rgba(255, 255, 255, 0.62); }
+    .lp-reg-sub { margin: 0 0 clamp(10px, 2vh, 20px); font-size: 13px; color: rgba(255, 255, 255, 0.62); }
     .lp-reg-sub a { color: var(--lp-eyebrow); text-decoration: none; font-weight: 600; }
     .lp-reg-sub a:hover { text-decoration: underline; }
     .lp-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-    .lp-field { margin-bottom: 14px; }
-    .lp-label { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 500; color: rgba(255, 255, 255, 0.85); }
+    .lp-field { margin-bottom: clamp(8px, 1.4vh, 14px); }
+    .lp-label { display: block; margin-bottom: 5px; font-size: 13px; font-weight: 500; color: rgba(255, 255, 255, 0.85); }
     .lp-input {
-        width: 100%; height: 44px; padding: 0 14px;
+        width: 100%; height: clamp(38px, 5vh, 44px); padding: 0 14px;
         background: rgba(2, 6, 23, 0.35); border: 1px solid rgba(255, 255, 255, 0.16);
         border-radius: 10px; color: #fff; font: inherit; font-size: 14px; outline: none;
         transition: border-color 0.15s, box-shadow 0.15s;
@@ -117,7 +123,7 @@
     .lp-input::placeholder { color: rgba(255, 255, 255, 0.4); }
     .lp-input:focus { border-color: var(--lp-link); box-shadow: 0 0 0 3px var(--lp-ring); }
     .lp-input-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: 1.5px; text-transform: uppercase; }
-    .lp-seg { display: flex; height: 44px; padding: 3px; gap: 3px; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 10px; background: rgba(2, 6, 23, 0.35); }
+    .lp-seg { display: flex; height: clamp(38px, 5vh, 44px); padding: 3px; gap: 3px; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 10px; background: rgba(2, 6, 23, 0.35); }
     .lp-seg label { flex: 1; position: relative; }
     .lp-seg input { position: absolute; opacity: 0; width: 0; height: 0; }
     .lp-seg span {
@@ -128,7 +134,7 @@
     .lp-seg span:hover { color: #fff; }
     .lp-seg input:checked + span { background: var(--lp-accent); color: #fff; }
     .lp-seg input:focus-visible + span { box-shadow: 0 0 0 3px var(--lp-ring); }
-    .lp-hint { margin: -2px 0 16px; font-size: 12px; color: rgba(255, 255, 255, 0.55); }
+    .lp-hint { margin: -2px 0 clamp(10px, 1.6vh, 16px); font-size: 12px; color: rgba(255, 255, 255, 0.55); }
     .lp-hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
     .lp-reg-msg { margin: 0 0 12px; font-size: 13px; font-weight: 500; color: var(--lp-bad); }
     .lp-reg-done { text-align: center; padding: 18px 6px 6px; }
@@ -137,7 +143,7 @@
 
     /* ---------- Shared buttons / links ---------- */
     .lp-btn, .btn-primary, .btn-otp {
-        display: block; width: 100%; height: 46px; padding: 0 16px;
+        display: block; width: 100%; height: clamp(40px, 5.2vh, 46px); padding: 0 16px;
         background: var(--lp-accent); color: #fff; border: 0; border-radius: 10px;
         font: inherit; font-size: 15px; font-weight: 600; cursor: pointer;
         transition: background 0.15s;
@@ -151,18 +157,32 @@
     .lp-link-btn:hover { text-decoration: underline; }
 
     /* ---------- Right: sign-in ---------- */
-    .lp-auth { display: flex; align-items: center; justify-content: center; padding: 48px clamp(20px, 4vw, 56px); }
+    .lp-auth {
+        grid-column: 2; grid-row: 1; overflow-y: auto;
+        display: flex; align-items: center; justify-content: center;
+        padding: clamp(20px, 4vh, 48px) clamp(20px, 4vw, 56px);
+    }
+    .lp-auth > .login-card { margin: auto 0; }
+    .lp-powered {
+        grid-column: 2; grid-row: 2; margin: 0;
+        padding: 14px 16px clamp(14px, 2.4vh, 22px);
+        text-align: center; font-size: 12px; color: var(--lp-faint);
+    }
+    .lp-powered a { color: var(--lp-text-2); text-decoration: none; }
+    .lp-powered a:hover { color: var(--lp-link-hover); text-decoration: underline; }
     .login-card { width: 100%; max-width: 400px; }
-    .lp-auth-logo { display: none; align-items: center; gap: 16px; margin-bottom: 20px; font-size: 24px; line-height: 1.2; font-weight: 700; }
-    .lp-auth-logo img { width: 64px; height: 64px; flex-shrink: 0; border-radius: 12px; }
+    .lp-auth-head { display: none; margin-bottom: 28px; }
+    .lp-auth-logo { display: flex; align-items: center; gap: 12px; font-size: 20px; line-height: 1.2; font-weight: 700; }
+    .lp-auth-logo img { width: 40px; height: 40px; flex-shrink: 0; border-radius: 10px; }
+    .lp-auth-head .lp-eyebrow { margin: 12px 0 0; }
     .lp-auth-eyebrow { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase; color: var(--lp-link); }
     .login-title { margin: 6px 0 6px; font-size: 28px; font-weight: 700; letter-spacing: -0.4px; color: var(--lp-text); }
-    .login-subtitle { margin: 0 0 28px; font-size: 14px; line-height: 1.55; color: var(--lp-muted); }
+    .login-subtitle { margin: 0 0 clamp(16px, 3vh, 28px); font-size: 14px; line-height: 1.55; color: var(--lp-muted); }
 
-    .field-group { margin-bottom: 18px; }
+    .field-group { margin-bottom: clamp(12px, 2vh, 18px); }
     .field-label { display: block; color: var(--lp-text-2); font-size: 13px; font-weight: 500; margin-bottom: 6px; }
     .field-input {
-        width: 100%; height: 46px; padding: 0 16px; background: var(--lp-field); border: 1px solid var(--lp-line-2);
+        width: 100%; height: clamp(40px, 5.2vh, 46px); padding: 0 16px; background: var(--lp-field); border: 1px solid var(--lp-line-2);
         border-radius: 10px; color: var(--lp-text); font: inherit; font-size: 14px; outline: none;
         transition: border-color 0.15s, box-shadow 0.15s;
     }
@@ -187,7 +207,7 @@
     .login-switch a { color: var(--lp-link); font-size: 14px; cursor: pointer; font-weight: 600; text-decoration: none; }
     .login-switch a:hover { color: var(--lp-link-hover); text-decoration: underline; }
 
-    .login-footer { text-align: center; color: var(--lp-faint); font-size: 12px; margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--lp-line); line-height: 1.6; }
+    .login-footer { text-align: center; color: var(--lp-faint); font-size: 12px; margin-top: clamp(16px, 3vh, 28px); padding-top: clamp(12px, 2vh, 20px); border-top: 1px solid var(--lp-line); line-height: 1.6; }
     .login-footer .site-link { display: block; margin-top: 6px; color: var(--lp-link); text-decoration: none; }
     .login-footer .site-link:hover { color: var(--lp-link-hover); }
 
@@ -213,12 +233,15 @@
 
     /* ---------- Narrow screens: stack, sign-in first ---------- */
     .lp-only-narrow { display: none; }
+    /* Mobile / tablet: normal page scroll; compact header + sign-in first,
+       then registration, then the Powered-by line. */
     @media (max-width: 960px) {
-        .lp-shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; }
-        .lp-auth { order: -1; padding: 32px 16px 40px; }
-        .lp-auth-logo { display: flex; }
-        .lp-brand { padding: 32px 16px; }
-        .lp-brand-top { display: none; }
+        .lp-shell { display: flex; flex-direction: column; height: auto; min-height: 100vh; }
+        .lp-auth { order: 1; overflow: visible; padding: 24px 16px 32px; }
+        .lp-brand { order: 2; flex: 1 0 auto; overflow: hidden; padding: 28px 16px; }
+        .lp-powered { order: 3; padding: 16px; background: var(--lp-brand-2); color: rgba(255, 255, 255, 0.6); }
+        .lp-auth-head { display: block; }
+        .lp-brand-top, .lp-brand-inner > .lp-eyebrow { display: none; }
         .lp-brand-inner { margin: 0; }
         .lp-only-wide { display: none; }
         .lp-only-narrow { display: inline; }
@@ -289,16 +312,17 @@
                 </div>
             </div>
         </div>
-
-        <p class="lp-brand-foot">&copy; <?php echo date('Y') ?> Tertiary Infotech Academy Pte Ltd</p>
     </section>
 
     <!-- RIGHT: sign-in (OTP first, password fallback) -->
     <section class="lp-auth" aria-labelledby="lp-signin-title">
         <div class="login-card">
-            <div class="lp-auth-logo">
-                <img src="<?php echo htmlspecialchars($logoUrl) ?>" alt="" />
-                <span>Tertiary Infotech Academy</span>
+            <div class="lp-auth-head">
+                <div class="lp-auth-logo">
+                    <img src="<?php echo htmlspecialchars($logoUrl) ?>" alt="" />
+                    <span>Tertiary Infotech Academy</span>
+                </div>
+                <p class="lp-eyebrow">Learning Management System</p>
             </div>
             <p class="lp-auth-eyebrow">Welcome back</p>
             <h2 class="login-title" id="lp-signin-title">Sign in to the LMS</h2>
@@ -373,6 +397,8 @@
             </div>
         </div>
     </section>
+
+    <p class="lp-powered">Powered by <a href="https://www.tertiaryinfotech.com/" target="_blank" rel="noopener">Tertiary Infotech Academy Pte Ltd</a></p>
 </div>
 
     <script type="text/javascript">
