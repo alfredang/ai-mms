@@ -60,6 +60,11 @@ include_once 'Varien/Autoload.php';
 
 Varien_Autoload::register();
 
+// Zend_* classes ship via composer (same lookup as app/Mage.php); without this every
+// missing /media file fatals on Zend_Controller_Request_Http and returns 500, not 404.
+$autoloaderPath = getenv('COMPOSER_VENDOR_PATH') ?: (is_dir(dirname($bp) . $ds . 'vendor') ? dirname($bp) . $ds . 'vendor' : $bp . $ds . 'vendor');
+require_once $autoloaderPath . $ds . 'autoload.php';
+
 $varDirectory = $bp . $ds . Mage_Core_Model_Config_Options::VAR_DIRECTORY;
 
 $configCacheFile = $varDirectory . $ds . 'resource_config.json';
