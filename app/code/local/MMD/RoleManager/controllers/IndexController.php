@@ -414,7 +414,7 @@ class MMD_RoleManager_IndexController extends Mage_Adminhtml_Controller_Action
         }
         $run = preg_match('/^C\d{6}$/', $classCode) ? $this->_loadOpenClass($classCode) : null;
         if (!$run) {
-            $result['message'] = 'That Class No is not valid or the class has ended. Please check it with your course administrator.';
+            $result['message'] = 'That Course Run ID is not valid or the class has ended. Please check it with your course administrator.';
             return $this->_json($result);
         }
 
@@ -581,7 +581,7 @@ class MMD_RoleManager_IndexController extends Mage_Adminhtml_Controller_Action
                 'Trainer sign-up awaiting approval',
                 'Admin',
                 '<p><strong>' . $this->_esc($name) . '</strong> (' . $this->_esc($email) . ') registered as a'
-                    . ' <strong>trainer</strong> with Class No <strong>' . $this->_esc($run['class_id']) . '</strong>'
+                    . ' <strong>trainer</strong> with Course Run ID <strong>' . $this->_esc($run['class_id']) . '</strong>'
                     . ' — ' . $this->_esc($run['course_name']) . $this->_classDateText($run) . '.</p>'
                     . '<p>' . $this->_esc($status) . '</p>',
                 null

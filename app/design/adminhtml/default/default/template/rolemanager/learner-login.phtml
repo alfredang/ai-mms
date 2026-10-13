@@ -7,7 +7,7 @@
  *
  * Two-column layout:
  *  - LEFT  — academy branding + new learner / trainer registration (Name,
- *    Email, Class Code, Role; Learner by default). Posts to
+ *    Email, Course Run ID, Role; Learner by default). Posts to
  *    MMD_RoleManager_IndexController::registerAction: learners are enrolled
  *    into the class at once and emailed a welcome; trainers are created
  *    inactive pending admin approval.
@@ -241,7 +241,7 @@
 
         <div class="lp-brand-inner">
             <p class="lp-eyebrow">Learning Management System</p>
-            <p class="lp-lead">Your class materials, schedules, attendance and certificates, all in one place. New here? Register with the Class No from your course administrator.</p>
+            <p class="lp-lead">Your class materials, schedules, attendance and certificates, all in one place. New here? Register with the Course Run ID from your course administrator.</p>
 
             <div class="lp-reg-card">
                 <form id="lp-reg-form" novalidate>
@@ -258,7 +258,7 @@
                     </div>
                     <div class="lp-row">
                         <div class="lp-field">
-                            <label class="lp-label" for="lp-reg-class">Class No</label>
+                            <label class="lp-label" for="lp-reg-class">Course Run ID</label>
                             <input type="text" id="lp-reg-class" name="class_code" class="lp-input lp-input-code" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="7" placeholder="C000000" required />
                         </div>
                         <div class="lp-field">
@@ -269,7 +269,7 @@
                             </div>
                         </div>
                     </div>
-                    <p class="lp-hint" id="lp-reg-hint">Your Class No is provided by your course administrator.</p>
+                    <p class="lp-hint" id="lp-reg-hint">Your Course Run ID is provided by your course administrator.</p>
 
                     <!-- Honeypot: hidden from people, filled by bots -->
                     <div class="lp-hp" aria-hidden="true">
@@ -524,7 +524,7 @@
             var role  = form.querySelector('input[name="role"]:checked').value;
             if (name.length < 2) { showError('Please enter your name.'); $('lp-reg-name').focus(); return; }
             if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { showError('Please enter a valid email address.'); $('lp-reg-email').focus(); return; }
-            if (!/^C\d{6}$/.test(cls)) { showError('Class No looks like C004036. Please check the number you were given.'); code.focus(); return; }
+            if (!/^C\d{6}$/.test(cls)) { showError('A Course Run ID looks like C004036. Please check the ID you were given.'); code.focus(); return; }
 
             btn.disabled = true;
             btn.textContent = 'Registering…';
