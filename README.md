@@ -28,6 +28,8 @@ panel — see **[docs/admin-guide/](docs/admin-guide/)**:
 - [Changing a course fee](docs/admin-guide/changing-course-fees.md)
 - [Changing the currency conversion rate](docs/admin-guide/changing-currency-conversion.md)
 
+Country catalogue maintenance: [Malaysia and Ghana Course Info updates](docs/partner-course-info.md).
+
 ## About
 
 **Tertiary Courses LMS** is a complete, production-grade course-registration and learning-management platform built on OpenMage 1.x (Magento 1 LTS) and customised for **Tertiary Infotech Academy**. Every product is a *course* (instructor-led trainings, workshops, certifications) — there is no physical inventory or shipping. The storefront *is* the course-registration portal, and the admin panel is rebranded as a Training Management System for instructors and operations staff.
