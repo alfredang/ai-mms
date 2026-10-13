@@ -9,8 +9,14 @@
  *      category whose subtree holds a C-prefix course, parents-first, keyed
  *      by url_key path (no numeric IDs cross install).
  *   2. Walks each path, find-or-creates the category under the local default
- *      root (parent 2), and updates name / is_active / include_in_menu /
- *      is_anchor / position / description / meta fields at admin scope.
+ *      root (parent 2). A category created THIS run gets the full field port
+ *      (name / is_active / include_in_menu / is_anchor / position /
+ *      description / meta fields) at admin scope. A category that already
+ *      existed — whether shared with SG or partner-only — is never touched
+ *      again: partner-side customisation (a translated name, local SEO copy,
+ *      a category the partner intentionally disabled) survives every
+ *      subsequent run. Mirrors the same additive-only discipline as
+ *      CourseSyncService's P1 fields / the schedule-sync merge.
  *   3. Never deletes or disables local categories absent from SG — extras
  *      (partner-specific branches) are left untouched.
  *   4. Reindexes catalog_url + category flat and flushes cache.
@@ -122,8 +128,10 @@ class MMD_RoleManager_Model_CategorySyncService
     }
 
     /**
-     * Find-or-create the category at $path and sync its fields.
-     * $pathIds caches resolved local IDs per url_key path for the run.
+     * Find-or-create the category at $path. Only a category created THIS
+     * call gets SG's fields ported onto it — an already-existing one (leaf
+     * or ancestor) is left completely untouched. $pathIds caches resolved
+     * local IDs per url_key path for the run.
      */
     private function _upsertCategory($path, array $c, array &$pathIds, array &$summary)
     {
@@ -138,6 +146,7 @@ class MMD_RoleManager_Model_CategorySyncService
             $walkPath = implode('/', $walked);
             if (isset($pathIds[$walkPath])) {
                 $catId = $pathIds[$walkPath];
+                $isNew = false;
             } else {
                 $catId = $this->_findByUrlKey($urlKey, $parentId);
                 if ($catId === 0) {
@@ -156,6 +165,8 @@ class MMD_RoleManager_Model_CategorySyncService
                     $cat->save();
                     $catId = (int) $cat->getId();
                     $isNew = true;
+                } else {
+                    $isNew = false;
                 }
                 $pathIds[$walkPath] = $catId;
             }
@@ -167,28 +178,25 @@ class MMD_RoleManager_Model_CategorySyncService
             return;
         }
 
-        // Sync the exported fields onto the leaf at admin scope
-        $cat   = Mage::getModel('catalog/category')->setStoreId(0)->load($catId);
-        $dirty = false;
-        foreach (self::$_syncedAttrs as $code) {
-            if (!array_key_exists($code, $c) || $c[$code] === null) continue;
-            $new = is_int($c[$code]) ? $c[$code] : (string) $c[$code];
-            if ((string) $cat->getData($code) !== (string) $new) {
-                $cat->setData($code, $new);
-                $dirty = true;
-            }
-        }
-        if (isset($c['position']) && (int) $cat->getPosition() !== (int) $c['position']) {
-            $cat->setPosition((int) $c['position']);
-            $dirty = true;
-        }
-        if ($dirty) {
-            $cat->save();
+        if (!$isNew) {
+            // Already existed before this run — never touched again, so
+            // partner-side edits to a shared category survive every
+            // subsequent sync (same discipline as the schedule-sync merge).
+            $summary['skipped']++;
+            return;
         }
 
-        if ($isNew)      $summary['created']++;
-        elseif ($dirty)  $summary['updated']++;
-        else             $summary['skipped']++;
+        // First sync for this category — full port of SG's exported fields.
+        $cat = Mage::getModel('catalog/category')->setStoreId(0)->load($catId);
+        foreach (self::$_syncedAttrs as $code) {
+            if (!array_key_exists($code, $c) || $c[$code] === null) continue;
+            $cat->setData($code, is_int($c[$code]) ? $c[$code] : (string) $c[$code]);
+        }
+        if (isset($c['position'])) {
+            $cat->setPosition((int) $c['position']);
+        }
+        $cat->save();
+        $summary['created']++;
     }
 
     /** Resolve a url_key under a parent to a local category ID (0 = none). */

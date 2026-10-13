@@ -27,6 +27,9 @@
  *   categories: [ "url_key/path", ... ],
  *   custom_options: [ { title, type, sort_order, values: [{title,price,...}] } ],
  *   badges: [ "SkillsFuture Credit", ... ],
+ *   courseware: { lesson_plan_url, learner_guide_url, learner_slides_url,
+ *     trainer_slides_url, lab_url, courseware_link, brochure_link,
+ *     google_meet_url, certificate_url } or null (no course_courseware row),
  *   course_image_url: "<SG R2 or local URL — importer fetches bytes from here>",
  *   updated_at: "2026-06-01 10:00:00"
  *
@@ -357,6 +360,9 @@ class MMD_Courses_Api_Sync_ExportController extends Mage_Core_Controller_Front_A
         // Badge tags (canonical MMD_CourseImage vocabulary)
         $badges = $this->_getBadges($pid, $read);
 
+        // Courseware links (lesson plan, guides, slides, brochure, Drive folder)
+        $courseware = $this->_getCourseware($pid, $read);
+
         return array(
             'sku'           => $sku,
             'type_id'       => $product->getTypeId(),
@@ -367,6 +373,7 @@ class MMD_Courses_Api_Sync_ExportController extends Mage_Core_Controller_Front_A
             'categories'    => $categories,
             'custom_options'=> $customOptions,
             'badges'        => $badges,
+            'courseware'    => $courseware,
             'updated_at'    => $product->getUpdatedAt(),
         );
     }
@@ -509,6 +516,23 @@ class MMD_Courses_Api_Sync_ExportController extends Mage_Core_Controller_Front_A
     }
 
     /** Returns badge names from the catalog_product_tag / tag join for this product. */
+    /**
+     * The 9 course_courseware fields the admin "Courseware" edit UI actually
+     * writes (CoursesaveController.php) — the table has a few legacy unused
+     * columns (facilitator_guide_url, assessment_plan_url, etc.) not exported.
+     */
+    private function _getCourseware($productId, $read)
+    {
+        $row = $read->fetchRow(
+            "SELECT lesson_plan_url, learner_guide_url, learner_slides_url,
+                    trainer_slides_url, lab_url, courseware_link, brochure_link,
+                    google_meet_url, certificate_url
+               FROM course_courseware WHERE product_id = ?",
+            array($productId)
+        );
+        return $row ?: null;
+    }
+
     private function _getBadges($productId, $read)
     {
         $tbl = Mage::getSingleton('core/resource');

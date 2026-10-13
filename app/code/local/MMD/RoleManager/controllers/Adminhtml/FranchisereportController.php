@@ -13,6 +13,13 @@ class MMD_RoleManager_Adminhtml_FranchisereportController extends Mage_Adminhtml
 {
     protected function _isAllowed()
     {
+        // SG-only feature. The sidebar link is already hidden on partner
+        // instances (menu.phtml), but that alone doesn't stop a direct URL
+        // hit — block every action here too, the same way syncAction() was
+        // already blocking the actual trigger.
+        if (strtolower((string) getenv('MMS_MODE')) === 'country') {
+            return false;
+        }
         return Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', 'training_provider'));
     }
 
@@ -25,6 +32,7 @@ class MMD_RoleManager_Adminhtml_FranchisereportController extends Mage_Adminhtml
             'courses'    => 'Course Sync',
             'categories' => 'Category Sync',
             'schedules'  => 'Schedule Sync',
+            'courseware' => 'Courseware Sync',
         );
         $section = strtolower(trim((string) $this->getRequest()->getParam('section')));
         if (!isset($titles[$section])) $section = '';

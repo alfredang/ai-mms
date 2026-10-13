@@ -5,7 +5,7 @@
  *
  * POST /courses/api_sync_trigger
  *   Header: X-API-Key: <mmd/course_sync/api_key>  (same key as course sync)
- *   Body:   op=courses | categories | schedules
+ *   Body:   op=courses | categories | schedules | courseware
  *
  * One-way traffic guarantee (SG -> partner, never back):
  *   - 403 unless MMS_MODE=country, so the SG instance can never be triggered.
@@ -19,6 +19,10 @@
  *                SG category tree)
  *   schedules  — MMD_RoleManager_Model_CourseSyncService::syncSchedules()
  *                (replace local Course Date/Time custom options with SG's)
+ *   courseware — MMD_RoleManager_Model_CourseSyncService::pullCourseware()
+ *                (fill-blanks-only merge of courseware links for every
+ *                already-imported course; never overwrites a link the
+ *                partner has already set)
  *
  * Runs synchronously — a full course sync can take minutes; the SG caller
  * uses a long curl timeout. Results are also written to mmd_course_sync_log
@@ -50,8 +54,8 @@ class MMD_Courses_Api_Sync_TriggerController extends Mage_Core_Controller_Front_
         }
 
         $op = strtolower(trim((string) $this->getRequest()->getParam('op')));
-        if (!in_array($op, array('courses', 'categories', 'schedules'), true)) {
-            return $this->_json(400, array('success' => false, 'error' => 'Unknown op — use courses, categories or schedules.'));
+        if (!in_array($op, array('courses', 'categories', 'schedules', 'courseware'), true)) {
+            return $this->_json(400, array('success' => false, 'error' => 'Unknown op — use courses, categories, schedules or courseware.'));
         }
 
         @set_time_limit(0);
@@ -75,13 +79,21 @@ class MMD_Courses_Api_Sync_TriggerController extends Mage_Core_Controller_Front_
                     }
                     $res = $svc->pull('SG remote trigger');
                     break;
-                default: // schedules
+                case 'schedules':
                     /** @var MMD_RoleManager_Model_CourseSyncService $svc */
                     $svc = Mage::getModel('mmd_rolemanager/courseSyncService');
                     if (!$svc->isConfigured()) {
                         return $this->_json(503, array('success' => false, 'error' => 'This site has no SG sync URL / API key configured yet.'));
                     }
                     $res = $svc->syncSchedules('SG remote trigger');
+                    break;
+                default: // courseware
+                    /** @var MMD_RoleManager_Model_CourseSyncService $svc */
+                    $svc = Mage::getModel('mmd_rolemanager/courseSyncService');
+                    if (!$svc->isConfigured()) {
+                        return $this->_json(503, array('success' => false, 'error' => 'This site has no SG sync URL / API key configured yet.'));
+                    }
+                    $res = $svc->pullCourseware('SG remote trigger');
             }
             $this->_json(200, array_merge(array('success' => !empty($res['success']), 'op' => $op), $res));
         } catch (Exception $e) {

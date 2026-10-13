@@ -19,7 +19,7 @@ class MMD_RoleManager_Model_FranchiseSyncService
     const LOG_FILE = 'franchise-sync.log';
 
     /** @var string[] ops accepted by the partner trigger endpoint */
-    public static $ops = array('courses', 'categories', 'schedules');
+    public static $ops = array('courses', 'categories', 'schedules', 'courseware');
 
     /**
      * Trigger one sync op on one partner. Returns the partner's summary
