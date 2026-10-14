@@ -93,7 +93,7 @@
         </div>
         <div style="display:none;"><?php echo $this->getChildHtml('footer') ?></div>
         <div class="admin-page-footer">
-            Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y'); ?>
+            Powered by <strong><?php $_dsv = Mage::app()->getDefaultStoreView(); echo $_dsv && $_dsv->getCode() === 'malaysia' ? 'Tertiary Infotech Sdn. Bhd.' : 'Tertiary Infotech Academy Pte Ltd'; ?></strong> &copy; <?php echo date('Y'); ?>
         </div>
     </div>
     </div>
