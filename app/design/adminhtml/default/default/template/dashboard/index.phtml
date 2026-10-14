@@ -2595,6 +2595,66 @@ $_syncCfgSgUrl = (string) Mage::getStoreConfig('mmd/course_sync/sg_url');
 
     <div id="course-sync-status" style="display:none;background:#1e293b;border-radius:8px;padding:12px 16px;font-size:13px;color:#94a3b8;margin-bottom:16px;"></div>
 
+    <?php if (MMD_RoleManager_Model_Sync_MalaysiaSync::isActive()): ?>
+    <?php
+    // Malaysia-aware sync: "Sync" buttons only create a dry run; review the report, then Apply.
+    $_mySync = Mage::getModel('mmd_rolemanager/sync_malaysiaSync');
+    $_myRuns = array();
+    try { $_myRuns = $_mySync->getRuns(8); } catch (Exception $e) { /* audit tables not migrated yet */ }
+    $_myUrl = function ($a) { return Mage::helper('adminhtml')->getUrl('adminhtml/coursesync/' . $a); };
+    ?>
+    <div id="my-sync" style="margin-bottom:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
+            <div style="font-weight:700;font-size:12px;line-height:1.4;color:var(--t4);text-transform:uppercase;letter-spacing:0.6px;">Malaysia-aware sync — dry run, review, apply</div>
+            <div style="display:flex;gap:6px;">
+                <button type="button" class="mm-btn mm-btn-sm" onclick="mySyncPost('<?php echo $this->jsQuoteEscape($_myUrl('planCategories')) ?>', {}, this, 'Dry run: categories')">Dry run: categories</button>
+            </div>
+        </div>
+        <div style="font-size:12px;color:var(--t4);margin-bottom:8px;">Sync All / Sync One create a dry run here — nothing changes until you open the report and press Apply. Prices, schedules, trainers, delivery options and status are never synced; new Singapore courses arrive as disabled drafts.</div>
+        <table class="mm-table">
+            <thead><tr><th class="num">Run</th><th>Type</th><th>Status</th><th>Dry run</th><th>Changes</th><th></th></tr></thead>
+            <tbody>
+            <?php if (!$_myRuns): ?>
+                <tr><td colspan="6" class="mm-table-empty">No sync runs yet.</td></tr>
+            <?php endif; ?>
+            <?php foreach ($_myRuns as $_r): $_s = json_decode((string) $_r['summary'], true) ?: array(); ?>
+                <tr>
+                    <td class="num muted">#<?php echo (int) $_r['run_id'] ?></td>
+                    <td><?php echo $this->escapeHtml($_r['op'] . ($_r['scope'] ? ' (' . $_r['scope'] . ')' : '')) ?></td>
+                    <td class="status" style="color:<?php echo $_r['status'] === 'applied' ? 'var(--green)' : ($_r['status'] === 'planned' ? 'var(--yellow)' : 'var(--t4)') ?>"><?php echo $this->escapeHtml(str_replace('_', ' ', $_r['status'])) ?></td>
+                    <td class="muted"><?php echo $this->escapeHtml($_r['planned_at'] . ' · ' . $_r['planned_by']) ?></td>
+                    <td class="muted"><?php echo $this->escapeHtml(implode(' · ', array_map(function ($k, $v) { return str_replace('_', ' ', $k) . ' ' . $v; }, array_keys($_s), $_s))) ?></td>
+                    <td style="text-align:right;white-space:nowrap;">
+                        <a class="mm-btn mm-btn-sm" target="_blank" href="<?php echo $this->escapeHtml(Mage::helper('adminhtml')->getUrl('adminhtml/coursesync/report', array('run_id' => $_r['run_id']))) ?>">Report</a>
+                        <?php if ($_r['status'] === 'planned'): ?>
+                        <button type="button" class="mm-btn mm-btn-sm mm-btn-primary" onclick="if(confirm('Apply dry run #<?php echo (int) $_r['run_id'] ?> to the Malaysia site? It can be rolled back.')) mySyncPost('<?php echo $this->jsQuoteEscape($_myUrl('apply')) ?>', {run_id:<?php echo (int) $_r['run_id'] ?>}, this, 'Apply')">Apply</button>
+                        <?php elseif ($_r['status'] === 'applied'): ?>
+                        <button type="button" class="mm-btn mm-btn-sm" onclick="if(confirm('Roll back sync #<?php echo (int) $_r['run_id'] ?>? Every value it changed is restored.')) mySyncPost('<?php echo $this->jsQuoteEscape($_myUrl('rollback')) ?>', {run_id:<?php echo (int) $_r['run_id'] ?>}, this, 'Roll back')">Roll back</button>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+    <script>
+    function mySyncPost(url, params, btn, label) {
+        var status = document.getElementById('course-sync-status');
+        status.style.display = 'block'; status.style.color = '#94a3b8';
+        status.textContent = label + ' — working, this can take a few minutes…';
+        btn.disabled = true;
+        var fd = new FormData(); fd.append('form_key', window.FORM_KEY || '');
+        for (var k in params) { fd.append(k, params[k]); }
+        fetch(url, { method:'POST', body:fd }).then(function(r){ return r.json(); }).then(function(d){
+            btn.disabled = false;
+            status.style.color = d.success ? '#22c55e' : '#ef4444';
+            status.textContent = d.success ? (label + ' done.') : (label + ' failed: ' + (d.message || 'unknown error'));
+            if (d.success) setTimeout(function(){ location.reload(); }, 1500);
+        }).catch(function(e){ btn.disabled = false; status.style.color = '#ef4444'; status.textContent = 'Network error: ' + e; });
+    }
+    </script>
+    <?php endif; ?>
+
     <!-- SG connection config -->
     <details style="margin-top:4px;">
         <summary style="font-size:12px;font-weight:600;color:#64748b;cursor:pointer;user-select:none;">SG Connection Settings</summary>
@@ -2633,7 +2693,10 @@ function courseSyncRun(btn) {
         .then(function(d){
             btn.disabled = false;
             btn.textContent = 'Sync All';
-            if (d.success) {
+            if (d.success && d.dry_run) {
+                status.style.color = '#22c55e';
+                status.textContent = 'Dry run #' + d.run_id + ' ready — ' + d.courses_changed + ' courses would change, ' + d.drafts + ' new drafts. Nothing changed yet: open its report below, then Apply.';
+            } else if (d.success) {
                 status.style.color = '#22c55e';
                 status.textContent = 'Sync complete — fetched:' + d.fetched + ' created:' + d.created + ' updated:' + d.updated + (d.disabled?' disabled:'+d.disabled:'') + (d.errors?' errors:'+d.errors:'');
             } else {
@@ -2672,7 +2735,9 @@ function courseSyncRunOne(btn) {
             btn.textContent = 'Sync One';
             if (d.success) {
                 status.style.color = '#22c55e';
-                status.textContent = sku + ' synced — ' + (d.created ? 'created new course' : 'updated (your fee/schedule/trainer preserved)');
+                status.textContent = d.dry_run
+                    ? sku + ' dry run #' + d.run_id + ' ready — ' + (d.drafts ? 'new draft' : d.field_changes + ' field changes') + '. Nothing changed yet: open its report below, then Apply.'
+                    : sku + ' synced — ' + (d.created ? 'created new course' : 'updated (your fee/schedule/trainer preserved)');
                 setTimeout(function(){ location.reload(); }, 2500);
             } else {
                 status.style.color = '#ef4444';
@@ -11449,7 +11514,22 @@ $_credMask = function ($v) {
             <div class="crd-row">
                 <label class="crd-label">Service Account</label>
                 <span class="crd-hint" style="margin:0;">
-                    <?php if (Mage::helper('mmd_email/gmail')->hasServiceAccount()): ?>
+                    <?php
+                        // Optional integration: a missing/stale Gmail helper must never fatal the
+                        // whole dashboard (it blanked My Classes on MY) — log and show "not configured".
+                        $_gmailSa = false;
+                        try {
+                            $_gmailHelper = Mage::helper('mmd_email/gmail');
+                            if (method_exists($_gmailHelper, 'hasServiceAccount')) {
+                                $_gmailSa = (bool) $_gmailHelper->hasServiceAccount();
+                            } else {
+                                Mage::log('Dashboard: MMD_Email_Helper_Gmail::hasServiceAccount() unavailable', Zend_Log::WARN, 'mmd_dashboard.log');
+                            }
+                        } catch (Throwable $e) {
+                            Mage::log('Dashboard: Gmail helper check failed: ' . $e->getMessage(), Zend_Log::WARN, 'mmd_dashboard.log');
+                        }
+                    ?>
+                    <?php if ($_gmailSa): ?>
                         Configured — sends use the domain-wide-delegated service account (never expires); the refresh token above is the fallback path.
                     <?php else: ?>
                         Not configured — POST the key JSON to <code>/maildiagnose/setgmailsa</code> to make sends immune to refresh-token expiry.
@@ -12225,7 +12305,8 @@ $_apiCategories = array(
                 'bodyFields' => array(
                     array('name' => 'op', 'type' => 'string', 'required' => true, 'description' => 'courses (full course import), categories (mirror SG category tree) or schedules (replace Course Date/Time options with SG\'s)'),
                 ),
-                'notes' => array('Returns 403 unless the instance runs in MMS_MODE=country — the SG instance can never be triggered.', 'Runs synchronously (a full course sync can take minutes); the outcome is also written to the partner\'s mmd_course_sync_log, so a dropped connection never loses the result.'),
+                'notes' => array('Returns 403 unless the instance runs in MMS_MODE=country — the SG instance can never be triggered.', 'Runs synchronously (a full course sync can take minutes); the outcome is also written to the partner\'s mmd_course_sync_log, so a dropped connection never loses the result.',
+                    'Malaysia site (Malaysia-aware sync): courses / categories only create a DRY RUN and return its run_id + change counts (dry_run: true) — nothing changes until a Malaysia admin reviews the report and applies it (Developer panel → Malaysia-aware sync); every applied run can be rolled back. schedules returns 409 — Malaysia manages its own class dates.'),
                 'exampleRequest' => "curl -X POST -H \"X-API-Key: <key>\" -d 'op=courses' \\\n  \"__BASE_URL__/courses/api_sync_trigger\"",
                 'exampleResponse' => "{\n  \"success\": true, \"op\": \"courses\",\n  \"fetched\": 498, \"created\": 3, \"updated\": 490, \"disabled\": 0,\n  \"skipped\": 5, \"errors\": 0\n}",
             ),
