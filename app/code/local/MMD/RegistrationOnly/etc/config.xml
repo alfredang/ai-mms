@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<!--
+  MMD_RegistrationOnly — "Registration only" checkout for the Malaysia site (group decision 3):
+  no payment is collected online; the learner picks a Registration Type (Individual /
+  Self-sponsored | Company-sponsored, plus company details) and the order is recorded as a
+  pending registration. Payment method code: registration.
+  Inactive by default and only available on the 'malaysia' store, so SG / GH checkout is unchanged.
+  Malaysia enables it (and disables every other method) via core_config_data.
+-->
+<config>
+    <modules><MMD_RegistrationOnly><version>1.0.0</version></MMD_RegistrationOnly></modules>
+    <global>
+        <models><mmd_registrationonly><class>MMD_RegistrationOnly_Model</class></mmd_registrationonly></models>
+        <blocks><mmd_registrationonly><class>MMD_RegistrationOnly_Block</class></mmd_registrationonly></blocks>
+        <helpers><mmd_registrationonly><class>MMD_RegistrationOnly_Helper</class></mmd_registrationonly></helpers>
+    </global>
+    <default>
+        <payment>
+            <registration>
+                <active>0</active>
+                <model>mmd_registrationonly/method</model>
+                <title>Registration only (no online payment)</title>
+                <order_status>pending</order_status>
+                <allowspecific>0</allowspecific>
+                <sort_order>1</sort_order>
+            </registration>
+        </payment>
+    </default>
+</config>

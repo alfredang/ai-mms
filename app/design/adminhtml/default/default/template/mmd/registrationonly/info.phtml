@@ -1,0 +1,22 @@
+<?php
+/**
+ * "Registration only" payment info — checkout review, My Account order view and order emails.
+ * (Own template: the stock payment/info/default.phtml uses PHP-7 implode() argument order.)
+ *
+ * @var MMD_RegistrationOnly_Block_Info $this
+ */
+?>
+<p><strong><?php echo $this->escapeHtml($this->getMethod()->getTitle()) ?></strong></p>
+<?php if ($_specificInfo = $this->getSpecificInformation()): ?>
+<table style="font-size:12px;line-height:1.4;">
+    <tbody>
+    <?php foreach ($_specificInfo as $_label => $_value): ?>
+        <tr>
+            <th style="text-align:left;padding-right:8px;vertical-align:top;"><strong><?php echo $this->escapeHtml($_label) ?>:</strong></th>
+            <td><?php echo nl2br($this->escapeHtml(implode("\n", $this->getValueAsArray($_value)))) ?></td>
+        </tr>
+    <?php endforeach; ?>
+    </tbody>
+</table>
+<?php endif; ?>
+<?php echo $this->getChildHtml() ?>

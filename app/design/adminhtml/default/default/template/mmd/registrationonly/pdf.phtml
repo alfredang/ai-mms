@@ -1,0 +1,11 @@
+<?php
+/**
+ * "Registration only" payment info for invoice / credit memo PDFs.
+ *
+ * @var MMD_RegistrationOnly_Block_Info $this
+ */
+?>
+<?php echo $this->escapeHtml($this->getMethod()->getTitle()) ?>{{pdf_row_separator}}
+<?php foreach ($this->getSpecificInformation() as $_label => $_value): ?>
+<?php echo $this->escapeHtml($_label) ?>: <?php echo $this->escapeHtml(implode(' ', $this->getValueAsArray($_value))) ?>{{pdf_row_separator}}
+<?php endforeach; ?>

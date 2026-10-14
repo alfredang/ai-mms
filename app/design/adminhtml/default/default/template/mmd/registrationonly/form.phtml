@@ -1,0 +1,47 @@
+<?php
+/**
+ * "Registration only" checkout form (Malaysia). Company fields are shown — and validated, since
+ * Magento's validation skips hidden fields — only for a company-sponsored registration.
+ *
+ * @var MMD_RegistrationOnly_Block_Form $this
+ */
+$_code   = $this->getMethodCode();
+$_helper = Mage::helper('mmd_registrationonly');
+$_type   = (string) $this->getInfoData('registration_type');
+$_isCo   = ($_type === MMD_RegistrationOnly_Helper_Data::TYPE_COMPANY);
+$_toggle = "var c=document.getElementById('" . $_code . "_company');if(c){c.style.display=(this.value==='company'?'':'none');}";
+?>
+<ul class="form-list" id="payment_form_<?php echo $_code ?>" style="display:none;">
+    <li>
+        <p class="mmd-reg-note"><strong><?php echo $this->escapeHtml($_helper->getNoPaymentStatement()) ?></strong></p>
+    </li>
+    <li>
+        <label class="required"><em>*</em><?php echo $this->__('Registration Type') ?></label>
+        <div class="input-box">
+            <?php $_first = true; foreach ($_helper->getTypeLabels() as $_value => $_label): ?>
+                <div style="clear:both;margin:6px 0;">
+                    <input type="radio" name="payment[registration_type]" value="<?php echo $_value ?>" id="<?php echo $_code . '_type_' . $_value ?>"
+                           class="radio<?php echo $_first ? ' validate-one-required-by-name' : '' ?>"
+                           onclick="<?php echo $_toggle ?>"<?php echo $_type === $_value ? ' checked="checked"' : '' ?> />
+                    <label for="<?php echo $_code . '_type_' . $_value ?>" style="float:none;display:inline;font-weight:normal;margin-left:4px;"><?php echo $this->escapeHtml($_label) ?></label>
+                </div>
+            <?php $_first = false; endforeach; ?>
+        </div>
+    </li>
+    <li id="<?php echo $_code ?>_company"<?php echo $_isCo ? '' : ' style="display:none;"' ?>>
+        <ul class="form-list">
+            <?php foreach ($_helper->getCompanyFields() as $_key => $_label): ?>
+                <?php $_req = ($_key !== 'company_reg_no'); ?>
+                <li>
+                    <label for="<?php echo $_code . '_' . $_key ?>"<?php echo $_req ? ' class="required"><em>*</em>' : '>' ?><?php echo $this->escapeHtml($_label) ?></label>
+                    <div class="input-box">
+                        <input type="<?php echo $_key === 'contact_email' ? 'email' : 'text' ?>" id="<?php echo $_code . '_' . $_key ?>"
+                               name="payment[<?php echo $_key ?>]" title="<?php echo $this->quoteEscape($_label) ?>"
+                               class="input-text<?php echo $_req ? ' required-entry' : '' ?><?php echo $_key === 'contact_email' ? ' validate-email' : '' ?>"
+                               value="<?php echo $this->escapeHtml($this->getInfoData($_key)) ?>" />
+                    </div>
+                </li>
+            <?php endforeach; ?>
+        </ul>
+    </li>
+</ul>
