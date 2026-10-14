@@ -74,7 +74,7 @@
 
     </div>
 
-    <div class="paypal-wrapper"><?php echo $this->getChildHtml('', true, true) ?></div>
+    <?php if (Mage::app()->getStore()->getCode() !== 'malaysia'): // Malaysia: registration-only checkout, no PayPal shortcut ?><div class="paypal-wrapper"><?php echo $this->getChildHtml('', true, true) ?></div><?php endif; ?>
 
 <?php endif; ?>
 
