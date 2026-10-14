@@ -20,6 +20,9 @@
  *   schedules  — MMD_RoleManager_Model_CourseSyncService::syncSchedules()
  *                (replace local Course Date/Time custom options with SG's)
  *
+ * Malaysia (MMD_RoleManager_Model_Sync_MalaysiaSync::isActive()): courses / categories only
+ * create a dry run (nothing changes until a Malaysia admin applies it); schedules -> 409.
+ *
  * Runs synchronously — a full course sync can take minutes; the SG caller
  * uses a long curl timeout. Results are also written to mmd_course_sync_log
  * locally, so a dropped connection never loses the outcome.
@@ -56,6 +59,24 @@ class MMD_Courses_Api_Sync_TriggerController extends Mage_Core_Controller_Front_
 
         @set_time_limit(0);
         @ignore_user_abort(true);
+
+        // Malaysia: a trigger only creates a dry run; a Malaysia admin reviews and applies it.
+        // Schedules are never synced — Malaysia manages its own class dates.
+        if (MMD_RoleManager_Model_Sync_MalaysiaSync::isActive()) {
+            if ($op === 'schedules') {
+                return $this->_json(409, array('success' => false, 'op' => $op,
+                    'error' => 'Malaysia manages its own class schedules — schedule sync is disabled for this site.'));
+            }
+            try {
+                $svc = Mage::getModel('mmd_rolemanager/sync_malaysiaSync');
+                $res = $op === 'categories' ? $svc->planCategories('SG remote trigger') : $svc->planCourses('SG remote trigger');
+                $res['message'] = 'Dry run #' . $res['run_id'] . ' created — review and apply it in the Malaysia admin. Nothing was changed.';
+                return $this->_json(200, array('op' => $op) + $res);
+            } catch (Exception $e) {
+                Mage::logException($e);
+                return $this->_json(500, array('success' => false, 'op' => $op, 'error' => $e->getMessage()));
+            }
+        }
 
         try {
             switch ($op) {

@@ -244,7 +244,7 @@ class MMD_RoleManager_Model_CourseSyncService
     }
 
     /** GET one page (or one SKU) from the SG export endpoint. */
-    private function _fetchPage($page, $pageSize, $sku = null)
+    protected function _fetchPage($page, $pageSize, $sku = null)
     {
         // Tell SG which currency to convert price/special_price/custom-option
         // fixed prices into before exporting, so this country's courses are
@@ -377,7 +377,7 @@ class MMD_RoleManager_Model_CourseSyncService
     }
 
     /** Resolve attribute_set name → local attribute_set_id */
-    private function _resolveAttributeSetId($name)
+    protected function _resolveAttributeSetId($name)
     {
         $read = Mage::getSingleton('core/resource')->getConnection('core_read');
         $id   = (int) $read->fetchOne(
@@ -394,7 +394,7 @@ class MMD_RoleManager_Model_CourseSyncService
     }
 
     /** Resolve an exported attribute value (label or label[]) to the local option ID(s) */
-    private function _resolveAttrValue($code, $value)
+    protected function _resolveAttrValue($code, $value)
     {
         $attr = Mage::getSingleton('eav/config')->getAttribute('catalog_product', $code);
         if (!$attr || !$attr->getId()) return $value; // unknown attribute — pass through
@@ -522,7 +522,7 @@ class MMD_RoleManager_Model_CourseSyncService
     }
 
     /** Delete existing custom options for a product and recreate from export data. */
-    private function _recreateCustomOptions($productId, array $options)
+    protected function _recreateCustomOptions($productId, array $options)
     {
         $write = Mage::getSingleton('core/resource')->getConnection('core_write');
         $tbl   = Mage::getSingleton('core/resource');
@@ -684,7 +684,7 @@ class MMD_RoleManager_Model_CourseSyncService
     }
 
     /** Run catalog_url and flat catalog indexers. */
-    private function _reindex()
+    protected function _reindex()
     {
         $indexerCodes = array('catalog_url', 'catalog_product_flat', 'catalog_category_flat', 'catalogsearch_fulltext');
         foreach ($indexerCodes as $code) {
