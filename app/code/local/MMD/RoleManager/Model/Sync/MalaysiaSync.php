@@ -15,7 +15,9 @@
  *
  * Rules (see MMD_RoleManager_Model_Sync_MyLocaliser for the wording rules):
  *   - copied from SG: title, overview / outline / outcomes / prerequisites / audience, note,
- *     duration, sessions, level, cover image, shared categories; all text localised
+ *     duration, sessions, level; all text localised. Shared categories are ADDED only — a course is
+ *     never taken out of a Malaysia category. Cover images are not copied (Malaysia keeps its own;
+ *     new drafts start with SG's cover). Both group decisions of 14 Oct.
  *   - generated for Malaysia: meta title (= title), meta description (<= 160), keywords
  *     without SG terms, URL key without singapore / wsq / skillsfuture tokens
  *   - NEVER touched on Malaysia: price, special price, trainer, venue / delivery options,
@@ -203,7 +205,6 @@ class MMD_RoleManager_Model_Sync_MalaysiaSync extends MMD_RoleManager_Model_Cour
             'meta_keyword' => $loc->keywords($a['meta_keyword'] ?? ''),
             'duration' => (string) ($a['duration'] ?? ''), 'sessions' => (string) ($a['sessions'] ?? ''),
             'level' => $this->_optionId('product', 'level', (string) ($a['level'] ?? '')),
-            'course_image_url' => (string) ($a['course_image_url'] ?? ''),
         );
         foreach (self::$_contentFields as $f) {
             $want[$f] = $loc->localise($a[$f] ?? '');
@@ -252,7 +253,8 @@ class MMD_RoleManager_Model_Sync_MalaysiaSync extends MMD_RoleManager_Model_Cour
         }
         if ($wantCats) {
             $have = $this->_productCategoryPositions($pid);   // category_id => position (restored on rollback)
-            $catIds = array_keys($wantCats);
+            // add-only: Malaysia's own category assignments are never removed (group decision 14 Oct)
+            $catIds = array_values(array_unique(array_merge(array_map('intval', array_keys($have)), array_keys($wantCats))));
             sort($catIds);
             if ($this->_productCategories($pid) !== $catIds) {
                 $this->_change($runId, 'product', $pid, $sku, 'categories', null, (object) $have, $catIds);
