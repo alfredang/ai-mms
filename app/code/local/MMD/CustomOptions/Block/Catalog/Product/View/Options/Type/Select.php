@@ -135,7 +135,9 @@ class MMD_CustomOptions_Block_Catalog_Product_View_Options_Type_Select extends M
 				/* elseif($statusopt=="Close")*/
 				elseif($today>=strtotime($courseRegDate) &&  $_value->getreg_course()!="")
 				 {
-					 $selectOptions['disabled'] = 'disabled'; 
+					 // Malaysia storefront: expired / already-started classes are not shown at all (group decision 14 Oct)
+					 if (!Mage::app()->getStore()->isAdmin() && Mage::app()->getStore()->getCode() === 'malaysia') continue;
+					 $selectOptions['disabled'] = 'disabled';
 				 }
 				
 				/*
