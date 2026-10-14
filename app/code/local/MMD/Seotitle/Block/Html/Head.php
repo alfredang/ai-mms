@@ -8,7 +8,7 @@
  *      (SG = Singapore, MY = Malaysia, GH = Ghana — each partner DB carries its
  *      own brand, so one shared code path yields the right postfix per site).
  *   2. Course product pages carry the correct funding PREFIX:
- *        - Malaysia site  -> every course           -> "HRD Corp funded"
+ *        - Malaysia site  -> fixed templates instead, see _malaysiaTitle()
  *        - Singapore site -> IBF-badged course       -> "IBF funded"
  *                            (IBF wins over WSQ — every IBF course is also TGS-)
  *        - Singapore site -> WSQ course (SKU TGS-)   -> "WSQ funded"
@@ -37,6 +37,11 @@ class MMD_Seotitle_Block_Html_Head extends Mage_Page_Block_Html_Head
         }
 
         try {
+            // Malaysia: fixed per-page-type templates (SEO audit, Batch 2).
+            $myTitle = $this->_malaysiaTitle();
+            if ($myTitle !== null) {
+                return htmlspecialchars($myTitle, ENT_QUOTES, 'UTF-8');
+            }
             // Transform in the decoded space, then re-encode like the parent.
             $decoded = trim(html_entity_decode($title, ENT_QUOTES, 'UTF-8'));
             $decoded = $this->_applyFundingPrefix($decoded);
@@ -46,6 +51,35 @@ class MMD_Seotitle_Block_Html_Head extends Mage_Page_Block_Html_Head
             Mage::logException($e);
             return $title;
         }
+    }
+
+    /**
+     * Malaysia site titles, built from the product / category NAME (stored meta_titles on MY
+     * were copied from SG and carry SG branding):
+     *   Course:   "<Course> Training Malaysia | HRD Corp Claimable"
+     *   Category: "<Topic> Training Courses Malaysia | Tertiary Courses"
+     * Other pages keep their own title; one already ending "| Tertiary Courses" (homepage) gets
+     * no second brand. null = not the Malaysia site, use the standard composer.
+     *
+     * @return string|null
+     */
+    protected function _malaysiaTitle()
+    {
+        if (Mage::app()->getStore()->getCode() !== 'malaysia') {
+            return null;
+        }
+        $product = Mage::registry('current_product');
+        if ($product && $product->getId()) {
+            $name = trim((string) $product->getName());
+            return (preg_match('/\bTraining$/i', $name) ? $name : $name . ' Training') . ' Malaysia | HRD Corp Claimable';
+        }
+        $category = Mage::registry('current_category');
+        if ($category && $category->getId()) {
+            $topic = preg_replace('/\s+(?:Training\s+)?(?:Courses?|Training)$/i', '', trim((string) $category->getName()));
+            return $topic . ' Training Courses Malaysia | Tertiary Courses';
+        }
+        $title = trim(html_entity_decode(parent::getTitle(), ENT_QUOTES, 'UTF-8'));
+        return preg_match('/\|\s*Tertiary Courses$/i', $title) ? $title : null;
     }
 
     /**
@@ -98,11 +132,6 @@ class MMD_Seotitle_Block_Html_Head extends Mage_Page_Block_Html_Head
         }
 
         $brand = (string) Mage::getStoreConfig('general/store_information/name');
-
-        // Malaysia: every course product page.
-        if (stripos($brand, 'Malaysia') !== false) {
-            return 'HRD Corp funded';
-        }
 
         // Singapore: IBF wins over WSQ (every IBF course is also a TGS- WSQ SKU).
         if (stripos($brand, 'Singapore') !== false) {

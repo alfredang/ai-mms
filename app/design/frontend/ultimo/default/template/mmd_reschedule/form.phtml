@@ -21,6 +21,8 @@ $turnstile  = Mage::helper('magentocaptcha/turnstile');
 $tsEnabled  = $turnstile->isConfigured();
 $tsSiteKey  = $tsEnabled ? $turnstile->getSiteKey() : '';
 $tokenField = MMD_MagentoCaptcha_Helper_Turnstile::TOKEN_FIELD;
+// Malaysia: no Singapore course-type badges, SG course codes or SG phone number on this page.
+$isMy       = (Mage::app()->getStore()->getCode() === 'malaysia');
 ?>
 <style>
 .rs-wrap{max-width:720px;margin:2rem auto;font-family:sans-serif;color:#1e293b}
@@ -63,8 +65,10 @@ $tokenField = MMD_MagentoCaptcha_Helper_Turnstile::TOKEN_FIELD;
 .rs-divider{text-align:center;color:#94a3b8;font-size:.8rem;margin:1rem 0;display:flex;align-items:center;gap:.5rem}
 .rs-divider::before,.rs-divider::after{content:'';flex:1;height:1px;background:#e2e8f0}
 .rs-badge{display:inline-block;font-size:.7rem;font-weight:700;padding:.15rem .45rem;border-radius:4px;margin-left:.4rem;vertical-align:middle}
-.rs-badge-wsq{background:#dbeafe;color:#1e40af}
-.rs-badge-nonwsq{background:#fef3c7;color:#92400e}
+<?php if (!$isMy): ?>
+.rs-badge-tgs{background:#dbeafe;color:#1e40af}
+.rs-badge-nontgs{background:#fef3c7;color:#92400e}
+<?php endif; ?>
 .rs-otp-inputs{display:flex;gap:.5rem;margin:.5rem 0}
 .rs-otp-inputs input{width:46px;height:52px;text-align:center;font-size:1.3rem;font-weight:700;letter-spacing:.05rem;border:1.5px solid #d1d5db;border-radius:6px;padding:0}
 .rs-otp-inputs input:focus{border-color:#0d9488;box-shadow:0 0 0 3px rgba(13,148,136,.15)}
@@ -156,7 +160,7 @@ $tokenField = MMD_MagentoCaptcha_Helper_Turnstile::TOKEN_FIELD;
     <!-- Hidden state fields -->
     <input type="hidden" id="rs-run-id">
     <input type="hidden" id="rs-target-run-id">
-    <input type="hidden" id="rs-is-wsq" value="0">
+    <input type="hidden" id="rs-is-tgs" value="0">
     <input type="hidden" id="rs-course-code-h">
 
     <div class="rs-row">
@@ -170,7 +174,7 @@ $tokenField = MMD_MagentoCaptcha_Helper_Turnstile::TOKEN_FIELD;
      </div>
     </div>
 
-    <!-- Target date: sibling-runs dropdown (WSQ, if LMS ready) or text input -->
+    <!-- Target date: sibling-runs dropdown (TGS- courses, if LMS ready) or text input -->
     <div id="rs-sibling-loading" class="rs-loading" style="display:none">Loading available dates&hellip;</div>
     <div class="rs-field" id="rs-target-select-field" style="display:none">
      <label for="rs-target-select">New Class Date <span style="color:#dc2626">*</span></label>
@@ -247,7 +251,7 @@ $tokenField = MMD_MagentoCaptcha_Helper_Turnstile::TOKEN_FIELD;
      </div>
      <div class="rs-field">
       <label for="rs-fb-code">Course Code <span style="color:#dc2626">*</span></label>
-      <input type="text" id="rs-fb-code" maxlength="64" placeholder="e.g. C099 or TGS-xxxxx">
+      <input type="text" id="rs-fb-code" maxlength="64" placeholder="<?= $isMy ? 'e.g. C099' : 'e.g. C099 or TGS-xxxxx' ?>">
      </div>
     </div>
     <div class="rs-row">
@@ -490,9 +494,13 @@ function rsLoadEnrollments() {
         list.innerHTML = '';
         courses.forEach(function(c, idx) {
             var li    = document.createElement('li');
-            var badge = c.is_wsq
-                ? '<span class="rs-badge rs-badge-wsq">WSQ</span>'
-                : '<span class="rs-badge rs-badge-nonwsq">Non-WSQ</span>';
+<?php if ($isMy): ?>
+            var badge = '';
+<?php else: ?>
+            var badge = c.is_tgs
+                ? '<span class="rs-badge rs-badge-tgs">WSQ</span>'
+                : '<span class="rs-badge rs-badge-nontgs">Non-WSQ</span>';
+<?php endif; ?>
             var dateStr = c.course_start_date
                 ? c.course_start_date + (c.course_end_date && c.course_end_date !== c.course_start_date
                     ? ' – ' + c.course_end_date : '')
@@ -526,7 +534,7 @@ window.rsSelectCourse = function() {
 
 function rsFillStep4(course) {
     qs('rs-run-id').value             = course.run_id || '';
-    qs('rs-is-wsq').value             = course.is_wsq ? '1' : '0';
+    qs('rs-is-tgs').value             = course.is_tgs ? '1' : '0';
     qs('rs-course-code-h').value      = course.course_sku || '';
     qs('rs-course-title-display').value = course.course_title || '';
     qs('rs-start-date-display').value   = course.course_start_date || '';
@@ -539,7 +547,7 @@ function rsFillStep4(course) {
     qs('rs-target-select').innerHTML = '<option value="">-- Select a date --</option>';
     qs('rs-next-date').value = '';
 
-    if (course.is_wsq) {
+    if (course.is_tgs) {
         qs('rs-sibling-loading').style.display   = 'block';
         qs('rs-target-text-field').style.display = 'none';
         post('getsiblingruns', { run_id: course.run_id }).then(function(r) {
@@ -591,8 +599,8 @@ window.rsSubmit = function() {
     var course = qs('rs-course-title-display').value.trim();
     var code   = qs('rs-course-code-h').value.trim();
     var startD = qs('rs-start-date-display').value.trim();
-    var isWsq  = qs('rs-is-wsq').value === '1';
-    var usingSel = isWsq && qs('rs-target-select-field').style.display !== 'none';
+    var isTgs  = qs('rs-is-tgs').value === '1';
+    var usingSel = isTgs && qs('rs-target-select-field').style.display !== 'none';
     var nextD  = usingSel
         ? (qs('rs-target-select').options[qs('rs-target-select').selectedIndex] || {}).text || ''
         : qs('rs-next-date').value.trim();
@@ -612,7 +620,7 @@ window.rsSubmit = function() {
         next_course_start_date:nextD,
         run_id:                qs('rs-run-id').value,
         target_run_id:         qs('rs-target-run-id').value,
-        is_wsq:                isWsq ? '1' : '0',
+        is_tgs:                isTgs ? '1' : '0',
         comment:               qs('rs-comment').value.trim(),
         hideit:                qs('rs-hideit').value,
     };
@@ -722,7 +730,7 @@ function rsDoSubmit(payload, isFb) {
         qs('rs-success').style.display = 'block';
     }).catch(function() {
         setLoading(isFb ? 'rs-btn-fb-submit' : 'rs-btn-submit', false);
-        showError('Network error. Please try again or call +65 6100 0613.');
+        showError('Network error. Please try again or call <?= $isMy ? '+603 7931 9658' : '+65 6100 0613' ?>.');
     });
 }
 
@@ -741,7 +749,7 @@ window.rsFallbackSubmit = function() {
     if (!name || !nric || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !phone || !course || !code || !start) {
         showError('Please complete all required fields.'); return;
     }
-    var isWsq = /^TGS-/i.test(code);
+    var isTgs = /^TGS-/i.test(code);
     var payload = {
         email:                 email,
         name:                  name,
@@ -753,7 +761,7 @@ window.rsFallbackSubmit = function() {
         next_course_start_date:qs('rs-fb-nextdate').value.trim(),
         run_id:                '',
         target_run_id:         '',
-        is_wsq:                isWsq ? '1' : '0',
+        is_tgs:                isTgs ? '1' : '0',
         comment:               qs('rs-fb-comment').value.trim(),
         hideit:                qs('rs-fb-hideit').value,
     };

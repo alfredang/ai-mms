@@ -18,7 +18,10 @@ class MMD_Blog_IndexController extends Mage_Core_Controller_Front_Action
         $head = $this->getLayout()->getBlock('head');
         if ($head) {
             $head->setTitle('Blog | ' . Mage::getStoreConfig('general/store_information/name'));
-            $head->setDescription('Practical guides on AI, tech and professional upskilling — with WSQ funding and SkillsFuture Credit tips from ' . Mage::getStoreConfig('general/store_information/name') . '.');
+            // Malaysia: no Singapore funding schemes in the blog description (HRD Corp claimable courses instead).
+            $head->setDescription(Mage::app()->getStore()->getCode() === 'malaysia'
+                ? 'Practical guides on AI, tech and professional upskilling, with HRD Corp claimable training tips from ' . Mage::getStoreConfig('general/store_information/name') . '.'
+                : 'Practical guides on AI, tech and professional upskilling — with WSQ funding and SkillsFuture Credit tips from ' . Mage::getStoreConfig('general/store_information/name') . '.');
             $q = trim((string) $this->getRequest()->getParam('q', ''));
             if ($q !== '') {
                 $head->setTitle('Search "' . $q . '" | Blog');
@@ -34,6 +37,11 @@ class MMD_Blog_IndexController extends Mage_Core_Controller_Front_Action
         $tag = trim((string) $this->getRequest()->getParam('tag'));
         if ($tag === '') {
             return $this->_redirect('blog');
+        }
+        // Malaysia: Singapore funding-scheme tags are retired — one-step 301 to the blog home.
+        if (Mage::app()->getStore()->getCode() === 'malaysia' && preg_match('/^(?:wsq|skillsfuture|ibf|ibf-sts|utap|psea|sfec)$/i', $tag)) {
+            $this->getResponse()->setRedirect(Mage::getUrl('blog'), 301);
+            return;
         }
         $this->loadLayout();
         $head = $this->getLayout()->getBlock('head');

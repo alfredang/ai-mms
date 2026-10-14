@@ -170,6 +170,15 @@
 			$shortDescription = preg_replace($_wsqStripPattern, '', $shortDescription);
 		}
 	}
+	// WSQ funding (SG GST + SG/PR subsidy tiles) is Singapore-only. The Malaysia
+	// site runs this same template on a DB cloned from SG, so copied funding
+	// blocks / wrappers must never produce the card there (the strip above still
+	// runs). Scoped to the Malaysia store only, per the MY partner's sign-off.
+	$_isSgStore = (Mage::app()->getStore()->getCode() === 'singapore');
+	$_isMyStore = (Mage::app()->getStore()->getCode() === 'malaysia');
+	if ($_isMyStore) {
+		$_hasWsqFunding = false;
+	}
 	if ($_hasWsqFunding) {
 		{
 			$_inner = preg_replace('#<h[1-6][^>]*>' . $_WS . '*WSQ' . $_WS . '+Funding' . $_WS . '*</h[1-6]>#siu', '', $_inner);
@@ -577,7 +586,6 @@
 	// Free Practice Exams card (button-CTA design). Placed in the left column
 	// on SG and in the primary (center) column, right after the "About" card,
 	// on the partner stores (MY/GH). Built once here; echoed per store below.
-	$_isSgStore = (Mage::app()->getStore()->getCode() === 'singapore');
 	// Body source: the per-course cms/block wins so ops can tailor the copy per
 	// course; the canonical wording below is the fallback when no block exists
 	// (which is the normal case — only courses needing bespoke copy get one).
@@ -687,6 +695,11 @@
 	} else {
 		$_fundingAndGrantHtml = $_courseSectionHtml('funding_and_grant');
 		if ($_fundingAndGrantHtml === '') { $_fundingAndGrantHtml = $_fgExtracted; }
+		// Malaysia: a funding block still carrying copied SG funding copy
+		// (WSQ / SkillsFuture / links to the SG site) is dropped, not shown.
+		if ($_isMyStore && preg_match('#WSQ|SkillsFuture|tertiarycourses\.com\.sg#i', $_fundingAndGrantHtml)) {
+			$_fundingAndGrantHtml = '';
+		}
 	}
 	unset($_fgExtracted);
 
@@ -1299,6 +1312,17 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 			          the "About" card and ABOVE the funding cards, on ALL stores
 			          (SG/MY/GH). */ ?>
 			<?php echo $_practiceExamCardHtml; ?>
+
+			<?php if ($_isMyStore): /* Malaysia: every course is HRD Corp claimable. Rendered
+			          server-side (was injected by JS from the MY head includes, with a
+			          "100% / fully funded" claim) using the partner-approved wording. The
+			          legacy JS injector skips when this card is already on the page. */ ?>
+				<section class="course-policy-card course-policy-card--hrdf">
+					<img src="https://pub-77c0dec029944b0386e40673ce81081f.r2.dev/wysiwyg/hrdcorp-claimable-seal.png" alt="HRD Corp Claimable" width="74" height="74" style="float:right;width:74px;height:74px;margin:0 0 8px 14px" loading="lazy" />
+					<h3>&#127974; HRD Corp Claimable</h3>
+					<p>This course is <strong>HRD Corp claimable</strong> for eligible employers. Grant approval and reimbursement remain subject to HRD Corp requirements, the employer&rsquo;s available levy and the approved grant details. <a href="/hrd-corp-claimable-courses.html">How the HRD Corp process works &rarr;</a></p>
+				</section>
+			<?php endif; ?>
 
 			<?php /* ATC / partner-accreditation and certification-exam venue cards
 			          render in the left column, after the Certification card. */ ?>

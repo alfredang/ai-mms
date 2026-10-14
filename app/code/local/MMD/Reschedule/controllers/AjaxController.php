@@ -250,7 +250,7 @@ class MMD_Reschedule_AjaxController extends Mage_Core_Controller_Front_Action
                     'course_title'      => (string) $r['course_title'],
                     'course_start_date' => (string) $r['course_start_date'],
                     'course_end_date'   => (string) $r['course_end_date'],
-                    'is_wsq'            => false,
+                    'is_tgs'            => false,
                 );
             }
         } catch (Exception $e) {
@@ -278,7 +278,7 @@ class MMD_Reschedule_AjaxController extends Mage_Core_Controller_Front_Action
                                           (isset($enr['courseSku']) ? (string) $enr['courseSku'] : 'Unknown'),
                     'course_start_date' => $startDate,
                     'course_end_date'   => isset($enr['endDate']) ? (string) $enr['endDate'] : null,
-                    'is_wsq'            => true,
+                    'is_tgs'            => true,
                 );
             }
         }
@@ -335,7 +335,8 @@ class MMD_Reschedule_AjaxController extends Mage_Core_Controller_Front_Action
         $nextDate    = $this->_post('next_course_start_date');
         $runId       = $this->_post('run_id');
         $targetRunId = $this->_post('target_run_id');
-        $isWsq       = $this->_post('is_wsq') === '1';
+        // Form field is_tgs (TGS- course); is_wsq still accepted from forms opened before the rename.
+        $isWsq       = ($this->_post('is_tgs') !== '' ? $this->_post('is_tgs') : $this->_post('is_wsq')) === '1';
         $comment     = $this->_post('comment');
 
         if (!$name || !$nric || !Zend_Validate::is($email, 'EmailAddress')
