@@ -20,6 +20,7 @@ class MMD_Certificate_Helper_Data extends Mage_Core_Helper_Abstract
     const SIGNER_NAME         = 'Dr. Alfred Ang';
     const SIGNER_TITLE        = 'Managing Director';
     const SIGNER_ORG          = 'Tertiary Infotech Academy';
+    const SIGNER_ORG_MY       = 'Tertiary Infotech Sdn. Bhd.';   // Malaysia site issues its own certificates
 
     public function allowedRoles()
     {
@@ -430,7 +431,7 @@ class MMD_Certificate_Helper_Data extends Mage_Core_Helper_Abstract
             <div class="sig-img"><img src="' . $esc($sigImg) . '" style="width: 45mm; height: 12.9mm;" /></div>
             <div class="sig-name">' . self::SIGNER_NAME . '</div>
             <div class="sig-title">' . self::SIGNER_TITLE . '</div>
-            <div class="sig-org">' . self::SIGNER_ORG . '</div>
+            <div class="sig-org">' . ($this->_isMalaysia() ? self::SIGNER_ORG_MY : self::SIGNER_ORG) . '</div>
             <div class="logo"><div class="l">T</div></div>
             <div class="seal"><div class="t">T</div><div class="s">TERTIARY<br>INFOTECH</div></div>
         </body></html>';
@@ -482,23 +483,35 @@ class MMD_Certificate_Helper_Data extends Mage_Core_Helper_Abstract
             . '<p>You can also download your certificate here: <a href="' . $e($url) . '">' . $e($url) . '</a></p>'
             . '<p>Your commitment to learning and professional growth is commendable, and we wish you continued success '
             . 'in applying your new skills.</p>'
-            . '<p>For learners who have achieved at least 75% attendance and passed their assessment for WSQ courses, '
+            . ($this->_isMalaysia() ? '' :
+              '<p>For learners who have achieved at least 75% attendance and passed their assessment for WSQ courses, '
             . 'they can view and download their WSQ SOA (Statement of Attainment) through '
             . '<a href="https://www.MySkillsFuture.gov.sg">www.MySkillsFuture.gov.sg</a>.</p>'
             . '<p>Please note that SkillsFuture Singapore uses OpenCerts to issue the WSQ Statements of Attainment (SOA). '
-            . 'The OpenCerts will be ready for viewing/downloading 4-5 weeks upon completion of WSQ courses.</p>'
+            . 'The OpenCerts will be ready for viewing/downloading 4-5 weeks upon completion of WSQ courses.</p>')
             . '<p>Best regards,<br/><strong>Support Team</strong><br/><strong>' . $e($info['short_name']) . '</strong><br/>'
             . 'Email: <a href="mailto:' . $e($info['support_email']) . '">' . $e($info['support_email']) . '</a></p>';
     }
 
     public function companyInfo()
     {
+        $my = $this->_isMalaysia();
         return array(
-            'name'          => 'Tertiary Infotech Academy',
+            'name'          => $my ? self::SIGNER_ORG_MY : 'Tertiary Infotech Academy',
             'short_name'    => 'Tertiary Infotech',
             'support_email' => Mage::getStoreConfig('trans_email/ident_support/email') ?: 'enquiry@tertiaryinfotech.com',
             'from_email'    => Mage::getStoreConfig('trans_email/ident_general/email') ?: 'noreply@tertiarycourses.com.sg',
-            'website'       => 'https://www.tertiarycourses.com.sg',
+            'website'       => $my ? 'https://www.tertiarycourses.com.my' : 'https://www.tertiarycourses.com.sg',
         );
+    }
+
+    /**
+     * Malaysia partner site? Certificates are issued from admin / cron, so key off the site's
+     * own store view rather than the current (admin) store.
+     */
+    protected function _isMalaysia()
+    {
+        $store = Mage::app()->getDefaultStoreView();
+        return $store && $store->getCode() === 'malaysia';
     }
 }

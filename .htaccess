@@ -460,6 +460,9 @@ ExpiresByType application/vnd.ms-fontobject "access plus 1 year"
 ## revalidate on every visit.
 ExpiresByType text/html "access plus 0 seconds"
 ExpiresByType application/json "access plus 0 seconds"
+## Sitemaps are regenerated daily — never let crawlers/proxies cache them for a year.
+ExpiresByType application/xml "access plus 0 seconds"
+ExpiresByType text/xml "access plus 0 seconds"
 
 </IfModule>
 
@@ -486,7 +489,7 @@ ExpiresByType application/json "access plus 0 seconds"
     <FilesMatch "\.(css|js)$">
         Header set Cache-Control "public, max-age=600, must-revalidate"
     </FilesMatch>
-    <FilesMatch "\.(html?|json)$">
+    <FilesMatch "\.(html?|json|xml)$">
         Header set Cache-Control "no-cache, must-revalidate"
     </FilesMatch>
 </IfModule>

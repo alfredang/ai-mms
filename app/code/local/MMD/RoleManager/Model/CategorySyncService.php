@@ -207,6 +207,12 @@ class MMD_RoleManager_Model_CategorySyncService
         );
     }
 
+    /** The SG category tree (read-only) — used by the Malaysia-aware sync's dry run. */
+    public function fetchExport()
+    {
+        return $this->_fetch();
+    }
+
     /** GET the SG categories export. */
     private function _fetch()
     {

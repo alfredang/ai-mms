@@ -6,6 +6,8 @@
  *  - pull      : manual bulk sync now (JSON summary)
  *  - pullOne   : sync a single C-prefix course by SKU (JSON summary)
  *  - saveConfig: store SG URL + API key
+ * On the Malaysia site pull / pullOne only create a dry run (MMD_RoleManager_Model_Sync_MalaysiaSync);
+ * planCategories / report / apply / rollback complete the review -> apply -> rollback flow.
  */
 class MMD_RoleManager_Adminhtml_CoursesyncController extends Mage_Adminhtml_Controller_Action
 {
@@ -28,10 +30,10 @@ class MMD_RoleManager_Adminhtml_CoursesyncController extends Mage_Adminhtml_Cont
             $svc = Mage::getModel('mmd_rolemanager/courseSyncService');
             if (!$svc->isConfigured()) throw new Exception('Set the SG Sync URL and API key first.');
 
-            $user = Mage::getSingleton('admin/session')->getUser();
-            $name = $user ? trim($user->getFirstname() . ' ' . $user->getLastname()) : '';
-            $who  = $name !== '' ? $name : ($user ? (string)$user->getEmail() : 'admin');
-            $res  = $svc->pull($who);
+            $who  = $this->_who();
+            $res  = MMD_RoleManager_Model_Sync_MalaysiaSync::isActive()
+                ? Mage::getModel('mmd_rolemanager/sync_malaysiaSync')->planCourses($who)   // dry run only
+                : $svc->pull($who);
             $this->_json(array_merge(array('success' => $res['success']), $res));
         } catch (Exception $e) {
             $this->_json(array('success' => false, 'message' => $e->getMessage()));
@@ -54,14 +56,74 @@ class MMD_RoleManager_Adminhtml_CoursesyncController extends Mage_Adminhtml_Cont
 
             $sku = trim((string) $this->getRequest()->getParam('sku'));
 
-            $user = Mage::getSingleton('admin/session')->getUser();
-            $name = $user ? trim($user->getFirstname() . ' ' . $user->getLastname()) : '';
-            $who  = $name !== '' ? $name : ($user ? (string)$user->getEmail() : 'admin');
-            $res  = $svc->pullOne($sku, $who);
+            $who  = $this->_who();
+            $res  = MMD_RoleManager_Model_Sync_MalaysiaSync::isActive()
+                ? Mage::getModel('mmd_rolemanager/sync_malaysiaSync')->planCourses($who, $sku)   // dry run only
+                : $svc->pullOne($sku, $who);
             $this->_json(array_merge(array('success' => $res['success']), $res));
         } catch (Exception $e) {
             $this->_json(array('success' => false, 'message' => $e->getMessage()));
         }
+    }
+
+    // ---- Malaysia-aware sync: dry run -> review -> apply -> (rollback) ----
+
+    /** Dry run of the SG category tree (Malaysia only). */
+    public function planCategoriesAction()
+    {
+        $this->_malaysiaAction(function ($svc, $who) {
+            return $svc->planCategories($who);
+        });
+    }
+
+    public function applyAction()
+    {
+        $this->_malaysiaAction(function ($svc, $who, $runId) {
+            return array('success' => true, 'run_id' => $runId) + $svc->apply($runId, $who);
+        });
+    }
+
+    public function rollbackAction()
+    {
+        $this->_malaysiaAction(function ($svc, $who, $runId) {
+            return array('success' => true, 'run_id' => $runId) + $svc->rollback($runId, $who);
+        });
+    }
+
+    /** Dry-run / audit report of one run (HTML, opens in a new tab). */
+    public function reportAction()
+    {
+        if (!MMD_RoleManager_Model_Sync_MalaysiaSync::isActive()) {
+            $this->norouteAction();
+            return;
+        }
+        $block = $this->getLayout()->createBlock('adminhtml/template')
+            ->setTemplate('rolemanager/my-sync-report.phtml')
+            ->setRunId((int) $this->getRequest()->getParam('run_id'));
+        $this->getResponse()->setBody($block->toHtml());
+    }
+
+    protected function _malaysiaAction($fn)
+    {
+        try {
+            if (!$this->getRequest()->isPost()) throw new Exception('POST required');
+            $this->_validateFormKey();
+            if (!MMD_RoleManager_Model_Sync_MalaysiaSync::isActive()) {
+                throw new Exception('The Malaysia-aware sync is only available on the Malaysia site.');
+            }
+            @set_time_limit(0);
+            $svc = Mage::getModel('mmd_rolemanager/sync_malaysiaSync');
+            $this->_json($fn($svc, $this->_who(), (int) $this->getRequest()->getParam('run_id')));
+        } catch (Exception $e) {
+            $this->_json(array('success' => false, 'message' => $e->getMessage()));
+        }
+    }
+
+    protected function _who()
+    {
+        $user = Mage::getSingleton('admin/session')->getUser();
+        $name = $user ? trim($user->getFirstname() . ' ' . $user->getLastname()) : '';
+        return $name !== '' ? $name : ($user ? (string) $user->getEmail() : 'admin');
     }
 
     public function saveConfigAction()
