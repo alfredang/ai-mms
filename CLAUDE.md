@@ -66,7 +66,7 @@ OpenMage 1.x (Magento 1 LTS v20.12.3) customized as a Course Registration + LMS 
 - **Course code (SKU) prefix conventions** — use these to gate per-segment storefront/template logic:
   - 🇸🇬 SG **WSQ** courses: SKU starts with `TGS-` (the SKU *is* the SkillsFuture course reference).
   - 🇸🇬 SG **non-WSQ** courses: SKU starts with `C` (e.g. `C6`, `C009`).
-  - 🌏 All **other stores** (MY/NG/GH/BT/IN): SKU starts with `M`.
+  - 🌏 **Partner stores (MY/GH):** their catalogues are clones of SG's non-WSQ courses and use the **same `C`-prefix SKUs** (e.g. `C978` on `.com.my`). `M`-prefix SKUs are legacy partner codes. So a `C` SKU alone never means "SG" — always pair it with the store code.
   When a feature should only fire for one segment (funding tiles, subsidy badges, WSQ-specific copy), key off the SKU prefix **and** `Mage::app()->getStore()->getCode()` together — never assume "all SG = WSQ" or "all C-prefix = SG".
 - **HARD RULE — non-WSQ schedule template matches its WSQ twin when the day counts match.** A C-prefix course and the TGS- twin its Funding block links to, running the **same number of days** (non-WSQ `duration` ÷ 7.5 vs the WSQ template's series letter A=1…E=5), **must** be on the same template code — `(SG) WSQ-B09 …` ⇒ `B09 …`. Match on the code, never the weekday names; only the non-WSQ side moves. Different day counts ⇒ the rule does not apply (user's choice). The switch is a code path (`CoursesaveController::switchScheduleTemplateAction`), never SQL. Audit/fix the whole catalogue with `~/.claude/skills/non-wsq-schedule/align_templates.php` (run in the web container; `--apply` to switch). A conversion, repurpose or duration change is not finished while a same-day pair is mismatched.
 - **The admin panel is rebranded** as "Tertiary Infotech Academy — Magento Management System". Treat the admin as a TMS for instructors + operations staff, not a generic e-commerce backoffice.
@@ -322,6 +322,7 @@ Current `.dockerignore` excludes `media/` then re-includes the small theme dirs 
 - `apply.php` uses a `schema_migrations` ledger so each `.sql` runs at most once per DB.
 - On first-run against a pre-existing production DB (no ledger yet, `admin_user` already populated), `apply.php` enters **tolerant mode** and swallows idempotency errors (MySQL 1050/1051/1060/1061/1068/1091) for that single run so previously-applied DDL doesn't abort the chain. Future runs are strict.
 - Keep new migrations idempotent anyway (`INSERT IGNORE`, `ON DUPLICATE KEY UPDATE`, etc.) — safer on re-runs.
+- **Every SG-content migration must be SG-guarded** (`@is_sg`) — blog posts, course copy, funding text, redirects. Migrations run on every partner DB too: 13 unguarded blog migrations (e.g. `1087`, `1088`, `307`, `311`) published ~21 Singapore WSQ/SkillsFuture blog posts on `.com.my`.
 
 ### Deployment
 
