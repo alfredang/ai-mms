@@ -16,6 +16,8 @@
  *   php scripts/maintenance/sg-course-days-fix.php            REPORT ONLY — changes nothing, prints what would happen
  *   php scripts/maintenance/sg-course-days-fix.php --apply    makes the changes
  *   add --skip=C104,C337 to leave those courses untouched (held for a later run)
+ *   add --allow-booked=C104 to switch that course even though an order uses one of its dates (only after SG ops
+ *   has agreed to move those learners; their orders keep their own copy of the date)
  *
  * Safety:
  *   - refuses on any site other than Singapore
@@ -59,6 +61,13 @@ foreach ($argv as $a) {
         $skip = array_map('strtoupper', array_filter(array_map('trim', explode(',', substr($a, 7)))));
         $fix = array_diff_key($fix, array_flip($skip));
         echo "held (not touched): " . implode(', ', $skip) . "\n";
+    }
+}
+$allowBooked = array();
+foreach ($argv as $a) {
+    if (strpos($a, '--allow-booked=') === 0) {
+        $allowBooked = array_map('strtoupper', array_filter(array_map('trim', explode(',', substr($a, 15)))));
+        echo "switched even with booked dates (SG ops agreed): " . implode(', ', $allowBooked) . "\n";
     }
 }
 
@@ -170,7 +179,9 @@ foreach ($fix as $sku => $f) {
                 $bookedNow[] = trim((string) $d['title']);
             }
         }
-        if ($bookedNow) {
+        if ($bookedNow && in_array($sku, $allowBooked, true)) {
+            echo "  booked dates dropped from the schedule (SG ops moving these learners): " . implode(' | ', $bookedNow) . "\n";
+        } elseif ($bookedNow) {
             $failed++;
             echo "  HELD — template NOT switched: an order uses " . implode(' | ', $bookedNow) . " (decide with SG ops, then run again)\n";
             continue;
