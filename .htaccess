@@ -388,6 +388,13 @@ RewriteRule ^(.*)$ https://www.tertiarycourses.%1/$1 [L,R=301]
     ## (the .htaccess Header directive runs AFTER the front-controller rewrite
     ## below, so SetEnvIf Request_URI sees /index.php and never matches —
     ## tag the env here via [E=] before the rewrite, then mod_headers reads it).
+    ## SEO: /index.php/<page> renders the same page as /<page> with a self-canonical,
+    ## so GSC reported "Duplicate, Google chose different canonical than user".
+    ## 301 storefront pages (course/category .html, blog posts) to the clean URL.
+    ## Admin (/index.php/adminlogin/... links in lead emails), APIs and POSTs are untouched.
+    RewriteCond %{REQUEST_METHOD} ^(GET|HEAD)$
+    RewriteRule ^index\.php/(blog/.+|[^/]+\.html)$ /$1 [R=301,L,NE]
+
     RewriteRule ^directory/currency/switch(/|$) - [E=noindex_url:1]
     RewriteRule ^catalog/seo_sitemap(/|$) - [E=noindex_url:1]
     RewriteRule ^customer/account(/|$) - [E=noindex_url:1]
