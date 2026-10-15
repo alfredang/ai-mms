@@ -35,6 +35,7 @@ class MMD_RoleManager_Model_Sync_MalaysiaSync extends MMD_RoleManager_Model_Cour
 {
     const STORE        = 2;
     const RUN_TTL_HRS  = 48;
+    const PROTECTED_FIELDS_PATH = 'mmd/my_sync/protected_fields';
     const RUN_TABLE    = 'mmd_my_sync_run';
     const CHANGE_TABLE = 'mmd_my_sync_change';
     const RATE_NORMAL  = 1100;
@@ -213,9 +214,14 @@ class MMD_RoleManager_Model_Sync_MalaysiaSync extends MMD_RoleManager_Model_Cour
             }
         }
         $oldDuration = (string) $this->_effective('product', $pid, 'duration');
+        // "SKU:field" pairs Malaysia fixed by hand (e.g. "C523:prerequisite") — never overwritten by the sync
+        $protected = array_map('trim', explode(',', (string) Mage::getStoreConfig(self::PROTECTED_FIELDS_PATH)));
         foreach ($want as $f => $v) {
             if ($v === '' || $v === null || ($f === 'url_key' && $newKey === '')) {
                 continue;   // SG has nothing — keep Malaysia's value
+            }
+            if (in_array($sku . ':' . $f, $protected, true)) {
+                continue;   // Malaysia-owned wording
             }
             $n += $this->_planAttr($runId, 'product', $pid, $sku, $f, $v);
         }
