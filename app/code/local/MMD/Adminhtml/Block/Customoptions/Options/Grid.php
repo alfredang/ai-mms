@@ -42,9 +42,59 @@ class MMD_Adminhtml_Block_Customoptions_Options_Grid extends Mage_Adminhtml_Bloc
 
     protected function _prepareCollection() {
       $collection = Mage::getModel('customoptions/group')->getCollection();
-      $collection->addProductsCount()->setShellRequest();      
+      $statusAttrId = (int) Mage::getSingleton('eav/config')
+          ->getAttribute(Mage_Catalog_Model_Product::ENTITY, 'status')->getId();
+      // Course counts split by enable/disable status (store 0 — status is
+      // global on every site). Joining the status row also drops relation
+      // rows whose product was deleted, so Total = Active + Disabled.
+      $collection->getSelect()
+          ->joinLeft(array('relation' => $collection->getTable('customoptions/relation')),
+              'relation.group_id = main_table.group_id', array())
+          ->joinLeft(array('pst' => $collection->getTable('catalog/product') . '_int'),
+              'pst.entity_id = relation.product_id AND pst.store_id = 0 AND pst.attribute_id = ' . $statusAttrId,
+              array(
+                  'products'          => 'COUNT(DISTINCT pst.entity_id)',
+                  'active_products'   => 'COUNT(DISTINCT IF(pst.value = 1, pst.entity_id, NULL))',
+                  'disabled_products' => 'COUNT(DISTINCT IF(pst.value <> 1, pst.entity_id, NULL))',
+              ))
+          ->columns(array(
+              'schedule_type' => new Zend_Db_Expr(self::scheduleTypeSql('main_table.title')),
+              'duration_code' => new Zend_Db_Expr(self::durationCodeSql('main_table.title')),
+          ))
+          ->group('main_table.group_id');
+      $collection->setShellRequest();
       $this->setCollection($collection);
       return parent::_prepareCollection();
+    }
+
+    /** WSQ templates carry "WSQ" in the title ("(SG) WSQ-B09 …"); everything else is non-WSQ. */
+    public static function scheduleTypeSql($titleExpr) {
+      return "IF({$titleExpr} LIKE '%WSQ%', 'wsq', 'nonwsq')";
+    }
+
+    /** Series letter of the template code (A=1 day … E=5 days); 'X' when the title has no A–E code. */
+    public static function durationCodeSql($titleExpr) {
+      $sql = 'CASE';
+      foreach (array_keys(self::getDurationOptions()) as $letter) {
+        if ($letter === 'X') continue;
+        $sql .= " WHEN {$titleExpr} REGEXP BINARY '(^|[^A-Za-z]){$letter}[0-9]{2}' THEN '{$letter}'";
+      }
+      return $sql . " ELSE 'X' END";
+    }
+
+    public static function getScheduleTypeOptions() {
+      return array('wsq' => 'WSQ', 'nonwsq' => 'Non-WSQ');
+    }
+
+    public static function getDurationOptions() {
+      return array(
+        'A' => 'A - 1 day',
+        'B' => 'B - 2 days',
+        'C' => 'C - 3 days',
+        'D' => 'D - 4 days',
+        'E' => 'E - 5 days',
+        'X' => 'Other',
+      );
     }
 
     protected function getStoreId() {
@@ -59,11 +109,41 @@ class MMD_Adminhtml_Block_Customoptions_Options_Grid extends Mage_Adminhtml_Bloc
             'align' => 'left',
         ));
         
+        $this->addColumn('schedule_type', array(
+            'header'  => $helper->__('Type'),
+            'index'   => 'schedule_type',
+            'type'    => 'options',
+            'options' => self::getScheduleTypeOptions(),
+            'width'   => 90,
+        ));
+
+        $this->addColumn('duration_code', array(
+            'header'  => $helper->__('Duration'),
+            'index'   => 'duration_code',
+            'type'    => 'options',
+            'options' => self::getDurationOptions(),
+            'width'   => 100,
+        ));
+
+        $this->addColumn('active_products', array(
+            'header' => $helper->__('Active Courses'),
+            'type'   => 'number',
+            'index'  => 'active_products',
+            'width'  => 80,
+        ));
+
+        $this->addColumn('disabled_products', array(
+            'header' => $helper->__('Disabled Courses'),
+            'type'   => 'number',
+            'index'  => 'disabled_products',
+            'width'  => 80,
+        ));
+
         $this->addColumn('products', array(
-            'header' => $helper->__('Products'),
-            'type' => 'number',
-            'index' => 'products',
-            'width' => 80
+            'header' => $helper->__('Total Courses'),
+            'type'   => 'number',
+            'index'  => 'products',
+            'width'  => 80,
         ));
 
 	

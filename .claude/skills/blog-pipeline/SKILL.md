@@ -89,6 +89,10 @@ Find the web container fresh each time (deploys rename it):
   MINDEF, Qualcomm pattern): concrete build log + "skills we learned" section
   + WSQ funding CTA to the best-matching TGS- course.
 
+## Malaysia banner workflow
+
+For `tertiarycourses.com.my`, use the dedicated [malaysia-blog skill](/Users/alfredang/.codex/skills/malaysia-blog/SKILL.md). Every published post must use the current verified `MMD_Blog_Model_Hero` template, including manually written and migrated posts. In this workflow, "latest profile image" means the latest blog banner design/template, not a portrait. Compare renderer versions, preview both the 16:9 card and 32:9 article crop, generate/upload a real banner, and verify its saved URL and public pages before declaring publication complete. A whole-blog refresh covers every published post, not just homepage cards; preserve content, metadata, tags and likes. Apply Malaysia-only DB/media changes and immutable R2 image keys; never deploy to or alter Singapore as part of a Malaysia banner repair.
+
 ## Hero images (read before generating or fixing any post hero)
 
 **A blog hero is EDITORIAL, not a course cover.** This is the single rule to

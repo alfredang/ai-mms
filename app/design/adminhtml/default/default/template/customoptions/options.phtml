@@ -26,6 +26,15 @@ $batchGenerateUrl = Mage::helper('adminhtml')->getUrl('*/customoptions_options/r
 $batchApplyUrl    = Mage::helper('adminhtml')->getUrl('*/customoptions_options/runBulkApplyBatch');
 $stateUrl         = Mage::helper('adminhtml')->getUrl('*/customoptions_options/getBulkState');
 $bulkDataJson = json_encode($bulkTemplates);
+
+// Current grid filter (title / type / duration) — pre-fills the filter bar.
+$_grid       = $this->getChild('grid');
+$_gridFilter = Mage::helper('adminhtml')->prepareFilterString(
+    (string) $_grid->getParam($_grid->getVarNameFilter(), '')
+);
+$_fTitle    = isset($_gridFilter['title']) ? (string) $_gridFilter['title'] : '';
+$_fType     = isset($_gridFilter['schedule_type']) ? (string) $_gridFilter['schedule_type'] : '';
+$_fDuration = isset($_gridFilter['duration_code']) ? (string) $_gridFilter['duration_code'] : '';
 ?>
 <div class="content-header">
     <h3 class="icon-head"><?php echo Mage::helper('customoptions')->__('Manage Class Schedule') ?></h3>
@@ -54,6 +63,61 @@ body[class*="customoptions"] .dcf-mag.mmd-auto-card .mmd-auto-card-actions > but
     width: 100% !important;
     max-width: none !important;
 }
+
+/* ── Header bar layout: [title … bulk actions] / [page buttons] / [filters] ── */
+body[class*="customoptions"] .dcf-mag.mmd-auto-card > .dcf-mag-bar > .mmd-bar-massaction {
+    margin-left: auto !important;
+}
+body[class*="customoptions"] #customoptionsOptionsGrid_massaction .no-display {
+    display: none !important;
+}
+#mcs-filterbar {
+    flex: 1 1 100%;
+    order: 100;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 18px;
+    padding-top: 12px;
+    border-top: 1px solid var(--b1);
+    font-weight: 400;
+}
+#mcs-filterbar .mcs-field {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--t4);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+}
+#mcs-filterbar .mcs-search-field { flex: 1 1 280px; max-width: 420px; }
+#mcs-filterbar input.mcs-search,
+#mcs-filterbar select {
+    height: 30px !important;
+    padding: 2px 10px !important;
+    border: 1px solid var(--b2) !important;
+    border-radius: 6px !important;
+    background: transparent !important;
+    color: var(--t2) !important;
+    font-size: 12px !important;
+    text-transform: none;
+    letter-spacing: 0;
+    box-sizing: border-box;
+}
+#mcs-filterbar input.mcs-search { width: 100% !important; }
+#mcs-filterbar select { min-width: 130px; }
+#mcs-filterbar input.mcs-search:focus,
+#mcs-filterbar select:focus { border-color: var(--blue) !important; outline: none !important; }
+#mcs-filterbar .mcs-reset {
+    font-size: 12px;
+    color: var(--t4);
+    text-decoration: none;
+}
+#mcs-filterbar .mcs-reset:hover { color: var(--t1); }
+#mcs-filterbar .mcs-reset[hidden] { display: none; }
 
 /* ── Bulk panel shell ── */
 #mmd-bulk-gen-panel {
@@ -292,6 +356,31 @@ body[class*="customoptions"] .dcf-mag.mmd-auto-card .mmd-auto-card-actions > but
 }
 .mbg-btn-flash { animation: mbg-flash-border 0.5s ease-in-out 4; }
 </style>
+
+<div id="mcs-filterbar" role="search" aria-label="Filter schedules">
+    <label class="mcs-field mcs-search-field">
+        <input type="search" id="mmd-schedule-search-input" class="input-text mcs-search"
+               placeholder="<?php echo $this->escapeHtml($this->__('Search title… (Enter)')) ?>"
+               value="<?php echo $this->escapeHtml($_fTitle) ?>" aria-label="<?php echo $this->__('Search title') ?>">
+    </label>
+    <label class="mcs-field"><?php echo $this->__('Type') ?>
+        <select id="mcs-filter-type" data-filter-key="schedule_type">
+            <option value=""><?php echo $this->__('All') ?></option>
+            <?php foreach (MMD_Adminhtml_Block_Customoptions_Options_Grid::getScheduleTypeOptions() as $_v => $_l): ?>
+            <option value="<?php echo $_v ?>"<?php echo $_fType === $_v ? ' selected' : '' ?>><?php echo $this->__($_l) ?></option>
+            <?php endforeach; ?>
+        </select>
+    </label>
+    <label class="mcs-field"><?php echo $this->__('Duration') ?>
+        <select id="mcs-filter-duration" data-filter-key="duration_code">
+            <option value=""><?php echo $this->__('All') ?></option>
+            <?php foreach (MMD_Adminhtml_Block_Customoptions_Options_Grid::getDurationOptions() as $_v => $_l): ?>
+            <option value="<?php echo $_v ?>"<?php echo $_fDuration === $_v ? ' selected' : '' ?>><?php echo $this->__($_l) ?></option>
+            <?php endforeach; ?>
+        </select>
+    </label>
+    <a href="#" class="mcs-reset" id="mcs-filter-reset"<?php echo ($_fTitle === '' && $_fType === '' && $_fDuration === '') ? ' hidden' : '' ?>><?php echo $this->__('Reset filters') ?></a>
+</div>
 
 <div><?php echo $this->getGridHtml() ?></div>
 
@@ -896,55 +985,44 @@ if (runBtn) {
 /* ── Init count ── */
 mmdBulkUpdateCount();
 
-/* ── Schedule title search (injected into massaction row) ── */
-(function injectScheduleSearch() {
-    function go() {
-        var firstCell = document.querySelector('#customoptionsOptionsGrid table.massaction > tbody > tr > td:first-child')
-                     || document.querySelector('#customoptionsOptionsGrid table.massaction tr > td:first-child');
-        var titleFilter = document.getElementById('customoptionsOptionsGrid_filter_title');
-        if (!firstCell || !titleFilter) { return setTimeout(go, 100); }
-        if (document.getElementById('mmd-schedule-search-input')) return;
-        var wrap = document.createElement('span');
-        wrap.id = 'mmd-schedule-search-wrap';
-        wrap.style.cssText = 'display:inline-block;margin-left:24px;vertical-align:middle;';
-        var input = document.createElement('input');
-        input.type = 'text';
-        input.id   = 'mmd-schedule-search-input';
-        input.className   = 'input-text';
-        input.placeholder = 'Search title…';
-        input.value = titleFilter.value || '';
-        input.style.cssText = 'width:320px;height:30px;padding:4px 10px;border-radius:6px;border:1px solid #2a3447;background:#0f172a;color:#e5e7eb;font-size:13px;box-sizing:border-box;vertical-align:middle;';
-        function doSearch() {
-            var val = (input.value || '').trim();
-            var url = _scheduleListUrl;
-            // Always send an explicit filter segment so Magento overwrites the
-            // session value even when clearing (empty val → btoa('title=') resets it).
-            url += 'filter/' + btoa('title=' + encodeURIComponent(val)) + '/';
-            window.location.href = url;
+/* ── Filter bar: search + Type + Duration (moved into the header card) ── */
+(function initScheduleFilters() {
+    var fb = document.getElementById('mcs-filterbar');
+    if (!fb) return;
+    var input = document.getElementById('mmd-schedule-search-input');
+    var selects = fb.querySelectorAll('select[data-filter-key]');
+
+    function apply(clear) {
+        // Send every key explicitly so Magento overwrites the session-saved
+        // filter even when a value is cleared.
+        var parts = ['title=' + encodeURIComponent(clear ? '' : (input.value || '').trim())];
+        for (var i = 0; i < selects.length; i++) {
+            parts.push(selects[i].getAttribute('data-filter-key') + '=' +
+                       encodeURIComponent(clear ? '' : selects[i].value));
         }
-        input.addEventListener('keydown', function (e) {
-            if (e.keyCode !== 13) return;
-            e.preventDefault();
-            doSearch();
-        });
-        var clearBtn = document.createElement('button');
-        clearBtn.type = 'button';
-        clearBtn.title = 'Clear search';
-        clearBtn.textContent = '×';
-        clearBtn.style.cssText = 'margin-left:6px;background:none;border:none;color:#64748b;font-size:18px;line-height:1;cursor:pointer;vertical-align:middle;padding:0 4px;';
-        clearBtn.addEventListener('click', function () {
-            input.value = '';
-            doSearch();
-        });
-        wrap.appendChild(input);
-        wrap.appendChild(clearBtn);
-        firstCell.appendChild(wrap);
+        window.location.href = _scheduleListUrl + '?filter=' + encodeURIComponent(btoa(parts.join('&')));
     }
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', go);
-    } else {
-        go();
+    input.addEventListener('keydown', function (e) {
+        if (e.keyCode !== 13) return;
+        e.preventDefault();
+        apply(false);
+    });
+    for (var i = 0; i < selects.length; i++) {
+        selects[i].addEventListener('change', function () { apply(false); });
     }
+    document.getElementById('mcs-filter-reset').addEventListener('click', function (e) {
+        e.preventDefault();
+        apply(true);
+    });
+
+    // The global grid JS builds the .dcf-mag-bar header card after load;
+    // dock the filter row inside it (below the page buttons) once it exists.
+    var tries = 0;
+    (function dock() {
+        var bar = document.querySelector('.dcf-mag.mmd-auto-card > .dcf-mag-bar');
+        if (bar) { bar.appendChild(fb); return; }
+        if (++tries < 50) setTimeout(dock, 100);
+    })();
 })();
 
 /* ── Shared helpers ── */

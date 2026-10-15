@@ -358,6 +358,9 @@
 	$_learningOutcomesHtml = $_courseSectionHtml('learning_outcomes');
 	if ($_learningOutcomesHtml === '') { $_learningOutcomesHtml = $_loExtracted; }
 	unset($_loExtracted);
+	// The Learning Outcomes card is shown for SG WSQ (TGS-) courses only;
+	// non-WSQ (C-/M-prefix) courses never render it.
+	if (!$_isSgWsqCourse) { $_learningOutcomesHtml = ''; }
 
 	// (3) Course Brochure — per-course cms/block first, regex fallback.
 	list($_brExtracted, $shortDescription) = $_extractSection('Course' . $_WS . '+Brochure', $shortDescription);
@@ -378,7 +381,11 @@
 	// media PDF or an older URL embedded in the brochure CMS block.
 	$_brochureStoreId = (int) Mage::app()->getStore()->getId();
 	$_isSingaporeCourse = $_isSgWsqCourse || $_isNonWsqSgCourse;
-	if ($_isSingaporeCourse) {
+	// Malaysia non-WSQ courses: same rule, reading the MY site's own
+	// brochure_link (the MY brochure in each course's Brochure/Malaysia folder).
+	$_isMyNonWsqCourse = (strncasecmp((string) $_courseSku, 'C', 1) === 0)
+		&& (Mage::app()->getStore()->getCode() === 'malaysia');
+	if ($_isSingaporeCourse || $_isMyNonWsqCourse) {
 		$_courseBrochureUrl = Mage::helper('courses')->getPublishedBrochureUrl($_product->getId());
 		if ($_courseBrochureUrl === '') {
 			$_courseBrochureHtml = '';
@@ -445,6 +452,15 @@
 		$_titleSrc = preg_replace('#\s+under\s+.*?Skills\s+Framework\s*\.?\s*$#iu', '', $_titleSrc);
 		$_skillsTitle = trim($_titleSrc);
 	}
+
+	// (4a) CASL Skills — CASL re-registrations (name prefix "CASL") list the
+	// CASL skills the course covers in a per-course cms/block
+	// `course_<sku>_casl_skills` (a <ul>). When present it REPLACES the
+	// Skills Framework (TSC) card; a CASL course without the block keeps the
+	// TSC card.
+	$_caslSkillsHtml = (stripos(trim((string) $_product->getName()), 'CASL') === 0)
+		? $_courseSectionHtml('casl_skills')
+		: '';
 
 	// (5) Certification section.
 	// SG store: the per-course cms/block `course_<sku>_certification` is the
@@ -1042,7 +1058,17 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 					<?php /* WSQ Funding card renders in the primary (middle) column,
 					          right under the course description. See below. */ ?>
 
-					<?php if (($_skillsTitle !== '' || $_skillsCode !== '') && !$_isNoFundingCourse): ?>
+					<?php if ($_caslSkillsHtml !== '' && !$_isNoFundingCourse): ?>
+						<section class="course-policy-card course-policy-card--skills course-policy-card--casl-skills">
+							<header class="course-policy-card__header">
+								<span class="course-policy-card__icon" aria-hidden="true">
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+								</span>
+								<h3 class="course-policy-card__title">CASL Skills</h3>
+							</header>
+							<div class="course-policy-card__body std"><?php echo $_caslSkillsHtml; ?></div>
+						</section>
+					<?php elseif (($_skillsTitle !== '' || $_skillsCode !== '') && !$_isNoFundingCourse): ?>
 						<section class="course-policy-card course-policy-card--skills">
 							<header class="course-policy-card__header">
 								<span class="course-policy-card__icon" aria-hidden="true">

@@ -1,0 +1,198 @@
+<?php
+/**
+ * Manage Class Schedule → Schedule Distribution
+ * @var MMD_Adminhtml_Block_Customoptions_Distribution $this
+ */
+$report  = $this->getReport();
+$series  = $report['series'];
+$type    = $this->getTypeFilter();
+$listUrl = $this->getUrl('*/customoptions_options/index');
+
+$sum = function ($key) use ($series) { return array_sum(array_column($series, $key)); };
+$totCourses   = $sum('courses');
+$totSchedules = $sum('schedules');
+
+/**
+ * One single-series vertical bar chart. $bars = [[label, value, tooltip], …].
+ * $avg draws a dashed reference line (null = none).
+ */
+$barChart = function (array $bars, $avg = null, $fmt = '%d') {
+    $max = max(1, $avg ?: 0, max(array_merge(array(0), array_column($bars, 1))));
+    $h = '<div class="sd-chart" role="img">';
+    if ($avg !== null) {
+        $h .= '<div class="sd-avg" style="bottom:' . round($avg / $max * 100, 2) . '%"></div>';
+    }
+    foreach ($bars as $b) {
+        $pct = round($b[1] / $max * 100, 2);
+        $h .= '<div class="sd-col mmd-tip" data-tip="' . htmlspecialchars($b[2]) . '" aria-label="' . htmlspecialchars($b[2]) . '">'
+            . '<span class="sd-val">' . sprintf($fmt, $b[1]) . '</span>'
+            . '<span class="sd-bar" style="height:' . $pct . '%"></span>'
+            . '<span class="sd-lbl">' . htmlspecialchars($b[0]) . '</span></div>';
+    }
+    return $h . '</div>';
+};
+
+$seriesBars = function ($key, $noun, $fmt = '%d') use ($series) {
+    $bars = array();
+    foreach ($series as $s) {
+        $bars[] = array($s['letter'], $s[$key], $s['label'] . ': ' . sprintf($fmt, $s[$key]) . ' ' . $noun);
+    }
+    return $bars;
+};
+?>
+<style>
+.sd-wrap { display: flex; flex-direction: column; gap: 18px; }
+.sd-sub { margin: -4px 0 0; color: var(--t4); font-size: 12px; }
+.sd-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.sd-kpi { border: 1px solid var(--b1); border-radius: 8px; padding: 12px 14px; }
+.sd-kpi b { display: block; color: var(--t1); font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.sd-kpi span { color: var(--t4); font-size: 10.5px; text-transform: uppercase; letter-spacing: 1.2px; }
+.sd-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.sd-grid-wide { grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); }
+.sd-card { border: 1px solid var(--b1); border-radius: 8px; padding: 12px 14px 10px; min-width: 0; }
+.sd-card h3 { margin: 0 0 2px !important; color: var(--t1); }
+.sd-card p { margin: 0 0 10px; color: var(--t4); font-size: 11.5px; }
+.sd-section { margin: 4px 0 0; color: var(--t4); font: 700 12px/1.4 var(--font-sans, inherit); text-transform: uppercase; letter-spacing: 0.6px; }
+.sd-chart { position: relative; display: flex; align-items: flex-end; gap: 6px; height: 170px; padding: 18px 0 20px;
+            border-bottom: 1px solid var(--b2); box-sizing: content-box; }
+.sd-col { position: relative; flex: 1 1 0; min-width: 0; height: 100%; display: flex; flex-direction: column;
+          justify-content: flex-end; align-items: center; }
+.sd-bar { display: block; width: 100%; max-width: 34px; min-height: 1px; background: var(--blue);
+          border-radius: 4px 4px 0 0; transition: background .15s ease; }
+.sd-col:hover .sd-bar { background: var(--blue-2, #93c5fd); }
+.sd-val { color: var(--t2); font-size: 11px; font-variant-numeric: tabular-nums; margin-bottom: 3px; }
+.sd-lbl { position: absolute; bottom: -18px; color: var(--t4); font-size: 10.5px; white-space: nowrap;
+          max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.sd-chart-dense .sd-val { font-size: 10px; }
+.sd-chart-dense .sd-lbl { font-size: 9.5px; writing-mode: vertical-rl; transform: rotate(180deg); bottom: auto; top: 100%; margin-top: 3px; }
+.sd-chart-dense { margin-bottom: 34px; }
+.sd-avg { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--t5, #475569); pointer-events: none; z-index: 1; }
+.sd-card-full { grid-column: 1 / -1; }
+.sd-recs { list-style: none; margin: 0; padding: 0; }
+.sd-recs li { display: flex; gap: 12px; padding: 8px 0; color: var(--t2); font-size: 12px; line-height: 1.5; }
+.sd-recs li + li { border-top: 1px solid var(--b1); }
+.sd-recs .sd-kind { flex: 0 0 82px; color: var(--t4); font-size: 10.5px; font-weight: 600; text-transform: uppercase;
+                    letter-spacing: 1.2px; padding-top: 2px; }
+.sd-note { color: var(--t4); font-size: 11.5px; margin: 6px 0 0; }
+@media (max-width: 1200px) { .sd-grid { grid-template-columns: 1fr; } .sd-kpis { grid-template-columns: repeat(2, 1fr); } }
+</style>
+
+<div class="sd-wrap">
+    <h1 class="sd-title"><?php echo $this->__('Schedule Distribution') ?></h1>
+    <p class="sd-sub"><?php echo $this->__('Active courses vs schedule templates by duration series (A = 1 day … E = 5 days). Registrations = last %d months; runs = Course Dates in the next %d days.',
+        MMD_Adminhtml_Block_Customoptions_Distribution::DEMAND_MONTHS, MMD_Adminhtml_Block_Customoptions_Distribution::RUN_WINDOW_DAYS) ?></p>
+
+    <div class="dev-country-tabs" role="tablist" aria-label="<?php echo $this->__('Filter by schedule type') ?>">
+        <?php foreach (array('' => $this->__('All')) + $this->getTypeOptions() as $_v => $_l): ?>
+        <a class="dev-country-btn<?php echo $type === $_v ? ' active' : '' ?>" role="tab"
+           aria-selected="<?php echo $type === $_v ? 'true' : 'false' ?>"
+           href="<?php echo $this->getUrl('*/*/distribution', $_v === '' ? array() : array('type' => $_v)) ?>"><?php echo $this->escapeHtml($_l) ?></a>
+        <?php endforeach; ?>
+    </div>
+
+    <div class="sd-kpis">
+        <div class="sd-kpi"><b><?php echo $totCourses ?></b><span><?php echo $this->__('Active courses on schedules') ?></span></div>
+        <div class="sd-kpi"><b><?php echo $totSchedules ?></b><span><?php echo $this->__('Active schedules (A–E)') ?></span></div>
+        <div class="sd-kpi"><b><?php echo $totSchedules ? sprintf('%.1f', $totCourses / $totSchedules) : '0' ?></b><span><?php echo $this->__('Courses per schedule') ?></span></div>
+        <div class="sd-kpi"><b><?php echo $sum('demand') ?></b><span><?php echo $this->__('Registrations, %d months', MMD_Adminhtml_Block_Customoptions_Distribution::DEMAND_MONTHS) ?></span></div>
+    </div>
+
+    <div class="sd-section"><?php echo $this->__('By duration series') ?></div>
+    <div class="sd-grid">
+        <div class="sd-card">
+            <h3><?php echo $this->__('Active courses') ?></h3>
+            <p><?php echo $this->__('Enabled courses attached to a schedule template') ?></p>
+            <?php echo $barChart($seriesBars('courses', 'active courses')) ?>
+        </div>
+        <div class="sd-card">
+            <h3><?php echo $this->__('Schedules') ?></h3>
+            <p><?php echo $this->__('Active schedule templates in the series') ?></p>
+            <?php echo $barChart($seriesBars('schedules', 'schedules')) ?>
+        </div>
+        <div class="sd-card">
+            <h3><?php echo $this->__('Courses per schedule') ?></h3>
+            <p><?php echo $this->__('Higher = more courses compete for the same week slot. Dashed line = overall %.1f', $totSchedules ? $totCourses / $totSchedules : 0) ?></p>
+            <?php echo $barChart($seriesBars('ratio', 'courses per schedule', '%.1f'), $totSchedules ? $totCourses / $totSchedules : null, '%.1f') ?>
+        </div>
+    </div>
+
+    <table class="mm-table sd-table">
+        <thead><tr>
+            <th><?php echo $this->__('Duration') ?></th>
+            <th class="num"><?php echo $this->__('Schedules') ?></th>
+            <th class="num"><?php echo $this->__('Active courses') ?></th>
+            <th class="num"><?php echo $this->__('Courses / schedule') ?></th>
+            <th class="num"><?php echo $this->__('Registrations') ?></th>
+            <th class="num"><?php echo $this->__('Runs next %d days', MMD_Adminhtml_Block_Customoptions_Distribution::RUN_WINDOW_DAYS) ?></th>
+        </tr></thead>
+        <tbody>
+        <?php foreach ($series as $s): ?>
+            <tr>
+                <td class="strong"><a href="<?php echo $listUrl ?>?filter=<?php echo urlencode(base64_encode('title=&schedule_type=' . $type . '&duration_code=' . $s['letter'])) ?>"><?php echo $this->escapeHtml($s['label']) ?></a></td>
+                <td class="num"><?php echo $s['schedules'] ?></td>
+                <td class="num"><?php echo $s['courses'] ?></td>
+                <td class="num"><?php echo sprintf('%.1f', $s['ratio']) ?></td>
+                <td class="num"><?php echo $s['demand'] ?></td>
+                <td class="num"><?php echo $s['runs'] ?></td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+
+    <div class="sd-section"><?php echo $this->__('Active courses per schedule template') ?></div>
+    <div class="sd-grid sd-grid-wide">
+        <?php foreach ($series as $s): if (empty($s['templates'])) continue; ?>
+        <?php
+            $bars = array();
+            foreach ($s['templates'] as $t) {
+                $bars[] = array($t['label'], count($t['courses']), sprintf('%s — %d active courses · %d registrations · %d runs in %d days%s',
+                    $t['title'], count($t['courses']), $t['demand'], $t['runs'],
+                    MMD_Adminhtml_Block_Customoptions_Distribution::RUN_WINDOW_DAYS, $t['is_active'] ? '' : ' (template disabled)'));
+            }
+        ?>
+        <div class="sd-card<?php echo count($s['templates']) > 12 ? ' sd-card-full' : '' ?>">
+            <h3><?php echo $this->escapeHtml($s['label']) ?></h3>
+            <p><?php echo $this->__('%d schedules · dashed line = %.1f courses per schedule on average', $s['schedules'], $s['ratio']) ?></p>
+            <?php echo str_replace('class="sd-chart"', 'class="sd-chart sd-chart-dense"', $barChart($bars, $s['ratio'] ?: null)) ?>
+        </div>
+        <?php endforeach; ?>
+    </div>
+
+    <div class="sd-section"><?php echo $this->__('Recommendations') ?></div>
+    <?php if ($report['recommendations']): ?>
+    <ul class="sd-recs">
+        <?php foreach ($report['recommendations'] as $r): ?>
+        <li><span class="sd-kind"><?php echo $this->escapeHtml($r['kind']) ?></span><span><?php echo $this->escapeHtml($r['text']) ?></span></li>
+        <?php endforeach; ?>
+    </ul>
+    <?php else: ?>
+    <p class="sd-note"><?php echo $this->__('No recommendations — the allocation is already even.') ?></p>
+    <?php endif; ?>
+
+    <div class="sd-section"><?php echo $this->__('Suggested rebalancing moves (WSQ)') ?></div>
+    <?php if ($report['moves']): ?>
+    <table class="mm-table">
+        <thead><tr>
+            <th><?php echo $this->__('Duration') ?></th>
+            <th><?php echo $this->__('Course') ?></th>
+            <th class="num"><?php echo $this->__('Registrations') ?></th>
+            <th><?php echo $this->__('From (courses)') ?></th>
+            <th><?php echo $this->__('To (courses)') ?></th>
+        </tr></thead>
+        <tbody>
+        <?php foreach ($report['moves'] as $m): ?>
+            <tr>
+                <td class="muted"><?php echo $m['letter'] ?></td>
+                <td class="strong"><?php echo $this->escapeHtml($m['course']['sku'] . ' — ' . $m['course']['name']) ?></td>
+                <td class="num"><?php echo $m['course']['demand'] ?></td>
+                <td><?php echo $this->escapeHtml($m['from']) ?> <span class="muted">(<?php echo $m['from_count'] ?> → <?php echo $m['from_count'] - 1 ?>)</span></td>
+                <td><?php echo $this->escapeHtml($m['to']) ?> <span class="muted">(<?php echo $m['to_count'] ?> → <?php echo $m['to_count'] + 1 ?>)</span></td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+    <?php else: ?>
+    <p class="sd-note"><?php echo $this->__('No moves needed — WSQ templates in each series are within one course of each other.') ?></p>
+    <?php endif; ?>
+    <p class="sd-note"><?php echo $this->__('Moves are suggestions only — nothing is changed here. Courses above their template\'s average demand are never proposed. After moving a WSQ course, its same-day non-WSQ twin must follow to the matching code (run align_templates.php). Non-WSQ templates are not rebalanced directly for that reason.') ?></p>
+</div>

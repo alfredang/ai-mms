@@ -7197,8 +7197,8 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
     // are intentionally excluded from this section.
     // Trainers see Trainer Slides, Learner Guide, Lesson Plan,
     // Activities/Labs and the Courseware Link (per product 2026-07-20,
-    // widened from the 2026-05-07 Trainer-Slides-only rule). Brochure
-    // Link and Learner Slides stay developer-facing.
+    // widened from the 2026-05-07 Trainer-Slides-only rule).
+    // Malaysia also exposes its published brochure; SG keeps its existing set.
     $_trCwLabels = array(
         'trainer_slides_url'     => 'Trainer Slides',
         'learner_guide_url'      => 'Learner Guide',
@@ -7206,6 +7206,11 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
         'lab_url'                => 'Activities/Labs',
         'courseware_link'        => 'Courseware Link',
     );
+    if (strtoupper((string) getenv('MMS_COUNTRY_CODE')) === 'MY'
+            && Mage::app()->getStore($_pageStoreId)->getCode() === 'malaysia'
+            && preg_match('/^[CM]/i', (string) $_selectedCourse['sku'])) {
+        $_trCwLabels['brochure_link'] = 'Brochure';
+    }
     $_trCwSaved = array();
     foreach ($_trCwLabels as $_k => $_lbl) {
         $_url = isset($_courseware[$_k]) ? trim((string) $_courseware[$_k]) : '';

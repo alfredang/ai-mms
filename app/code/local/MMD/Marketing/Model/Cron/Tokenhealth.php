@@ -47,11 +47,13 @@ class MMD_Marketing_Model_Cron_Tokenhealth
         $out = array();
         try {
             $fb = Mage::helper('mmd_marketing/facebook');
-            if (!Mage::getStoreConfigFlag('mmd_marketing/facebook/enabled')) {
-                return array(array('label' => 'facebook', 'level' => 'warn', 'detail' => 'DISABLED in config'));
+            // Same kill-switch semantics as the helper: only an explicit '0'
+            // disables; an unset key means "on if credentials exist".
+            if ((string) Mage::getStoreConfig('mmd_marketing/facebook/enabled') === '0') {
+                return array(array('label' => 'facebook', 'level' => 'ok', 'detail' => 'off (kill switch)'));
             }
             if (!$fb->isConfigured()) {
-                return array(array('label' => 'facebook', 'level' => 'error', 'detail' => 'not configured'));
+                return array($this->_unconfigured('facebook', 'facebook_enabled'));
             }
 
             $token  = Mage::helper('core')->decrypt(Mage::getStoreConfig('mmd_marketing/facebook/access_token'));
@@ -98,7 +100,7 @@ class MMD_Marketing_Model_Cron_Tokenhealth
         try {
             $li = Mage::helper('mmd_blog/linkedin');
             if (!$li->isConfigured()) {
-                return array(array('label' => 'linkedin', 'level' => 'error', 'detail' => 'not configured'));
+                return array($this->_unconfigured('linkedin', 'linkedin_enabled'));
             }
             // A cheap authenticated call: userinfo works for both member scopes
             // and org tokens; a 401 is what an expired token actually returns.
@@ -119,6 +121,25 @@ class MMD_Marketing_Model_Cron_Tokenhealth
             $out[] = array('label' => 'linkedin', 'level' => 'error', 'detail' => 'probe failed: ' . $e->getMessage());
         }
         return $out;
+    }
+
+    /**
+     * A network with no credentials is only a problem if something on this
+     * site is trying to post to it. The newsletter flyer posts only when
+     * credentials exist, so the one consumer that "expects" a network is the
+     * autoblog with its per-network share switch on — there an unset token
+     * means every share is skipped silently. Otherwise (e.g. Malaysia, where
+     * the autoblog is off and no social accounts are linked) it is simply
+     * not used here, and alerting on it every Monday is noise.
+     */
+    protected function _unconfigured($label, $autoblogSwitch)
+    {
+        $expected = Mage::getStoreConfigFlag('mmd_blog/autoblog/enabled')
+            && Mage::getStoreConfigFlag('mmd_blog/autoblog/' . $autoblogSwitch);
+        return $expected
+            ? array('label' => $label, 'level' => 'error',
+                'detail' => 'not configured - autoblog shares to it are being skipped')
+            : array('label' => $label, 'level' => 'ok', 'detail' => 'not used on this site');
     }
 
     /**

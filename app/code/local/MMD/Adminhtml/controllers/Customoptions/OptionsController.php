@@ -54,6 +54,14 @@ class MMD_Adminhtml_Customoptions_OptionsController extends Mage_Adminhtml_Contr
             ->renderLayout();
     }
 
+    /** Read-only report: active courses vs schedules per duration series + rebalancing advice. */
+    public function distributionAction() {
+        $this->_title($this->__('Manage Class Schedule'))->_title($this->__('Schedule Distribution'));
+        $this->loadLayout()
+            ->_setActiveMenu('catalog/customoptions')
+            ->renderLayout();
+    }
+
     public function newAction() {
         $this->_forward('edit');
     }

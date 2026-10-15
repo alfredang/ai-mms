@@ -322,11 +322,9 @@ bug. Copy the exact WA path from SG's `block_header_top_left` in the local backu
 
 ## 11. Blog — partner-relevant, funnels to PARTNER courses
 
-`mmd_blog_post` table. Partner blog is cloned SG → delete all, insert partner posts:
-`DELETE FROM mmd_blog_post_vote; mmd_blog_post_tag; mmd_blog_post;` then INSERT. In-content
-CTAs use `{{store direct_url='<url_key>.html'}}` (resolves to the partner domain; double the
-single quotes inside the SQL literal). Never reference WSQ/SkillsFuture/Singapore. Hide the
-hardcoded blog funding CTA via the head-includes CSS in §6.
+Use the existing `mmd_blog_post` rows. Match by verified slug/ID; do not delete and recreate the blog for image repairs. In-content CTAs must resolve to the partner domain and its courses. Preserve local funding content and hide SG-only funding as described in section 6.
+
+For Malaysia article publication or banner repairs, follow the dedicated [malaysia-blog skill](/Users/alfredang/.codex/skills/malaysia-blog/SKILL.md). Every published banner must be generated from the latest verified editorial template (`MMD_Blog_Model_Hero`), including migrated/hand-written posts; no blank or text-only fallback cards. Preview 16:9 cards and centered 32:9 article crops, upload to new Malaysia-specific R2 keys, save the URL on Malaysia only, and verify all affected live pages and preservation of unrelated fields. Whole-blog requests cover all published posts, not just the latest homepage cards.
 
 ## 12. Collapse the clone to ONE store (each partner = one store per server)
 
