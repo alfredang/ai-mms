@@ -189,7 +189,7 @@ ai-mms/
 | **CourseImage** | AI cover-image renderer + funding-badge tags (the same tags drive the storefront chips, the cover, the WSQ Funding card, and the Free AI Subscription perk card). |
 | **EmailLogin** | Email-only admin login. |
 | **FlatCategoryUrl** | Flat category URLs (`/<url_key>.html`) across all stores. |
-| **CustomOptions** | Enhanced product options with SKU upgrade policies. |
+| **CustomOptions** | Enhanced product options with SKU upgrade policies; class-schedule templates (Manage Class Schedule) plus a read-only **Schedule Distribution** report comparing active courses vs schedules per duration series, with rebalancing advice. |
 | **Enhancedsalesgrid** | Admin sales-grid filters & rendering. |
 | **BankPayment** | Bank-transfer payment method. |
 | **Branchscope** | Legacy per-country store-view switcher — superseded by the one-store-per-site franchise model; retained for backward compatibility. |
@@ -284,7 +284,7 @@ setup. Committed and ready to use after a clone:
 
 - **`.claude/skills/`** — domain skills (`openmage-code-reviewer`, `openmage-module-developer`,
   `openmage-frontend-developer`, `backend-design`, `seo-audit`, `lead-magnets`, `add-country-store`,
-  `recommended-courses`, `linkedin-posts`, `mysql`, `web-accessibility`, …).
+  `recommended-courses`, `linkedin-posts`, `malaysia-blog`, `mysql`, `web-accessibility`, …).
 - **`.claude/agents/`** — specialised subagents (security auditor, caching/speed optimiser,
   mysql tuner, admin-design-consistency, site-health-checker, `newsletter-designer`, …).
 - **`.claude/hooks/`** — pre/post-tool hooks (PHP lint-on-edit, web-health,
