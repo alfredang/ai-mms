@@ -15,11 +15,14 @@
  * Usage (inside the Singapore web container):
  *   php scripts/maintenance/sg-course-days-fix.php            REPORT ONLY — changes nothing, prints what would happen
  *   php scripts/maintenance/sg-course-days-fix.php --apply    makes the changes
+ *   add --skip=C104,C337 to leave those courses untouched (held for a later run)
  *
  * Safety:
  *   - refuses on any site other than Singapore
  *   - every removed date (value + title + price rows) is copied to table sgfix_removed_dates first
  *   - a date is NEVER removed if any order line for the course contains that date label (it is reported)
+ *   - a template is NEVER switched while an order uses one of the course's current dates (course HELD, FAILED=1)
+ *   - a date whose backup cannot be written in full is kept
  *   - a value that cannot be read as a date ("TBC", "On request", no title, …) is NEVER removed (it is reported)
  *   - only Course Date values of these 10 courses are touched; past registrations keep their own copy
  * Idempotent: a second --apply finds nothing left to do.
@@ -51,6 +54,13 @@ $fix = array(
     'C1762' => array(4, '30',   'D03'),   // already 4-day on live (verify only)
     'C1394' => array(4, '30',   'D04'),   // 4-day schedule kept; old 5-day dates removed
 );
+foreach ($argv as $a) {
+    if (strpos($a, '--skip=') === 0) {
+        $skip = array_map('strtoupper', array_filter(array_map('trim', explode(',', substr($a, 7)))));
+        $fix = array_diff_key($fix, array_flip($skip));
+        echo "held (not touched): " . implode(', ', $skip) . "\n";
+    }
+}
 
 $r0 = Mage::getSingleton('core/resource');
 $read = $r0->getConnection('core_read');
@@ -141,8 +151,30 @@ foreach ($fix as $sku => $f) {
         }
     }
 
-    // 2. schedule template
+    // 2. schedule template — the switch drops every date of the old template, so never switch while an
+    //    order uses one of the course's current dates (the course is held and reported instead)
+    $orderLabels = $read->fetchCol("SELECT product_options FROM sales_flat_order_item WHERE sku = ? OR product_id = ?", array($sku, $pid));
+    $isBooked = function ($label) use ($orderLabels) {
+        foreach ($orderLabels as $po) {
+            // exact label only: order options store it as a quoted string ("4 Oct" must not match "14 Oct")
+            if ($label !== '' && strpos((string) $po, '"' . $label . '"') !== false) {
+                return true;
+            }
+        }
+        return false;
+    };
     if ($cur !== array($to)) {
+        $bookedNow = array();
+        foreach ($dates($pid) as $d) {
+            if ($isBooked(trim((string) $d['title']))) {
+                $bookedNow[] = trim((string) $d['title']);
+            }
+        }
+        if ($bookedNow) {
+            $failed++;
+            echo "  HELD — template NOT switched: an order uses " . implode(' | ', $bookedNow) . " (decide with SG ops, then run again)\n";
+            continue;
+        }
         if ($apply) {
             $req = new Mage_Core_Controller_Request_Http();
             $req->setParam('course_id', $pid)->setParam('group_id', $groups[$to])
@@ -164,7 +196,6 @@ foreach ($fix as $sku => $f) {
     }
 
     // 3. dates whose number of days does not fit; duplicates
-    $orderLabels = $read->fetchCol("SELECT product_options FROM sales_flat_order_item WHERE sku = ? OR product_id = ?", array($sku, $pid));
     $remove = array();
     $seen = array();
     $kept = 0;
@@ -190,15 +221,7 @@ foreach ($fix as $sku => $f) {
             $kept++;
             continue;
         }
-        $booked = false;
-        foreach ($orderLabels as $po) {
-            // exact label only: order options store it as a quoted string ("4 Oct" must not match "14 Oct")
-            if ($label !== '' && strpos((string) $po, '"' . $label . '"') !== false) {
-                $booked = true;
-                break;
-            }
-        }
-        if ($booked) {
+        if ($isBooked($label)) {
             $totals['blocked']++;
             echo "  KEPT (an order uses it): $label\n";
             continue;
@@ -221,18 +244,25 @@ foreach ($fix as $sku => $f) {
     echo "  dates kept (correct length): $kept\n";
 
     if ($apply && $remove) {
-        $ids = array_keys($remove);
+        $ids = array();
         foreach ($remove as $vid => $r) {
-            $write->insertIgnore('sgfix_removed_dates', array(
-                'option_type_id' => $vid, 'option_id' => $r[2], 'sku' => $sku, 'reason' => $r[1], 'title' => $r[0],
+            $bak = array(
                 'value_row'  => json_encode($read->fetchRow("SELECT * FROM {$tVal} WHERE option_type_id = ?", array($vid))),
                 'title_rows' => json_encode($read->fetchAll("SELECT * FROM {$tValT} WHERE option_type_id = ?", array($vid))),
                 'price_rows' => json_encode($read->fetchAll("SELECT * FROM {$tValP} WHERE option_type_id = ?", array($vid))),
+            );
+            if (in_array(false, $bak, true)) {   // backup could not be written in full — keep the date
+                echo "  KEPT (backup failed — check by hand): {$r[0]}\n";
+                continue;
+            }
+            $write->insertIgnore('sgfix_removed_dates', array(
+                'option_type_id' => $vid, 'option_id' => $r[2], 'sku' => $sku, 'reason' => $r[1], 'title' => $r[0],
                 'removed_at' => gmdate('Y-m-d H:i:s'),
-            ));
+            ) + $bak);
+            $ids[] = $vid;
         }
         // only rows saved in the backup table are removed
-        $saved = array_map('intval', $read->fetchCol("SELECT option_type_id FROM sgfix_removed_dates WHERE option_type_id IN (" . implode(',', array_map('intval', $ids)) . ")"));
+        $saved = !$ids ? array() : array_map('intval', $read->fetchCol("SELECT option_type_id FROM sgfix_removed_dates WHERE option_type_id IN (" . implode(',', array_map('intval', $ids)) . ")"));
         if ($saved) {
             $in = implode(',', $saved);
             $write->query("DELETE FROM {$tValP} WHERE option_type_id IN ($in)");
@@ -258,7 +288,7 @@ foreach (array_keys($fix) as $sku) {
         $pids[] = $p;
     }
 }
-$in = implode(',', $pids);
+$in = $pids ? implode(',', $pids) : '0';
 $hasBak = $read->isTableExists('sgfix_removed_dates');
 $orph = array(
     'removed dates still having a title row' => !$hasBak ? 0 : (int) $read->fetchOne(
@@ -273,7 +303,6 @@ $orph = array(
         "SELECT COUNT(*) FROM {$tOpt} o JOIN {$tOptT} ot ON ot.option_id = o.option_id AND ot.store_id = 0 AND ot.title = 'Course Date'
           WHERE o.product_id IN ($in) AND NOT EXISTS (SELECT 1 FROM {$tVal} v WHERE v.option_id = o.option_id)"),
 );
-$preexisting = (int) $read->fetchOne("SELECT COUNT(*) FROM {$tValT} tt LEFT JOIN {$tVal} v ON v.option_type_id = tt.option_type_id WHERE v.option_type_id IS NULL");
 if ($apply) {
     Mage::app()->cleanCache();
 }
