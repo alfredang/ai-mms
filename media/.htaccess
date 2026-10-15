@@ -33,6 +33,16 @@ RemoveType .php .phtml .php3 .php4 .php5 .php7 .php8 .phps .phar
     ForceType text/plain
 </FilesMatch>
 
+# Course brochure PDFs are linked with a ?v=<mtime> cache-buster, so Google sees
+# every version as a separate URL ("Duplicate without user-selected canonical").
+# A PDF can't carry <link rel=canonical>, so declare the query-less URL in an
+# HTTP Link header (Google honours rel=canonical there for non-HTML files).
+<IfModule mod_headers.c>
+    <If "%{REQUEST_URI} =~ m#^/media/courses/brochures/[^/]+\.pdf$#">
+        Header always set Link "expr=<https://%{HTTP_HOST}%{REQUEST_URI}>; rel=\"canonical\""
+    </If>
+</IfModule>
+
 <IfModule mod_rewrite.c>
     Options +FollowSymLinks
     RewriteEngine on
