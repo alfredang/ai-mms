@@ -322,6 +322,7 @@ RewriteRule ^(.*)$ https://www.tertiarycourses.%1/$1 [L,R=301]
     ## .htaccess on a partner box (MY/GH) never bounces its visitors to SG.
     <If "%{HTTP_HOST} =~ /^(www\.)?tertiarycourses\.com\.sg$/i">
         Redirect 301 /project-management-sme-chinese.html https://www.tertiarycourses.com.sg/project-management-sme-training-singapore.html
+        Redirect 301 /media/wysiwyg/Step-by_Step_Guide_for_SkillsFuture_Claim.pdf https://www.tertiarycourses.com.sg/how-to-claim-skillsfuture-credit.html
     </If>
 
     ## MY-only 301s for retired course slugs that 404 on .com.my (host-gated,
