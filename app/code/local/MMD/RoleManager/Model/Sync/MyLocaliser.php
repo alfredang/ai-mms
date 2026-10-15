@@ -68,6 +68,9 @@ class MMD_RoleManager_Model_Sync_MyLocaliser
     {
         $text = html_entity_decode(strip_tags($this->localise((string) $text)), ENT_QUOTES, 'UTF-8');
         $text = trim(preg_replace('/\s+/u', ' ', str_replace("\xEF\xBF\xBD", '-', $text)));
+        if (preg_match('/' . self::SG_TERMS . '/iu', $text)) {
+            return '';   // still Singapore-specific after localising (short plain text) — callers keep Malaysia's value
+        }
         if (mb_strlen($text) <= 170) {
             return $text;
         }
