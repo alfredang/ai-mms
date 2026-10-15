@@ -2,7 +2,7 @@
 /**
  * Singapore course corrections — group approval of 14 Oct 2026 ("single consolidated approval").
  *
- *   C188  2 days / 15 h    C104  2 days / 15 h    C1768 4 days / 30 h    C337  1 day / 7.5 h
+ *   C188  2 days / 15 h    C104  2 days / 15 h    C1768 4 days / 30 h    C337  2 days / 15 h (SG ops, 15 Oct)
  *   C428  2 days / 15 h    C1231 2 days / 15 h    C384  2 days / 15 h    C683  2 days / 15 h
  *   C1762 4 days / 30 h    C1394 4 days / 30 h (remove its old 5-day dates)
  *
@@ -46,7 +46,7 @@ $fix = array(
     'C188'  => array(2, '15',   'B17'),   // was A17 Tues/Sat 4th wk
     'C104'  => array(2, '15',   'B13'),   // was A14 Thurs/Sun 3rd wk
     'C1768' => array(4, '30',   'D03'),   // was C03 Wed-Fri/Sat 3rd wk
-    'C337'  => array(1, '7.5',  'A11'),   // was B11 Mon-Tues/Sat-Sun 3rd wk
+    'C337'  => array(2, '15',   'B11'),   // SG ops 15 Oct: 2 days / 15 h — its B11 2-day dates were right, the course length was wrong
     'C428'  => array(2, '15',   'B03'),   // schedule already 2-day on live; sessions was 1
     'C1231' => array(2, '15',   'B03'),   // was A04 Thurs/Sun 1st wk
     'C384'  => array(2, '15',   'B03'),   // was A04 Thurs/Sun 1st wk
