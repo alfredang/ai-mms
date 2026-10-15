@@ -1579,6 +1579,9 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 
 			<div <?php if ($useRichSnippets) echo $helperSnippets->getOfferItemscope(); ?>>
 				<div id="productTypeData" class="product-type-data<?php echo $productTypeClasses; ?>"><?php echo $this->getChildHtml('product_type_data'); ?></div>
+				<?php if ($_isMyStore && Mage::getStoreConfigFlag('mmd/my_sst/show_notice')): // Malaysia 8% SST — fee shown before SST (switched on with the SST setup) ?>
+					<div class="my-sst-note" style="margin-top:2px;font-size:13px;color:#555;"><?php echo $this->__('+ 8% SST') ?></div>
+				<?php endif; ?>
 				<?php echo $this->getTierPriceHtml(); ?>
 				<?php echo $priceProperties; ?>
 			</div> <?php //end: offers ?>

@@ -13,6 +13,17 @@
         <models><mmd_registrationonly><class>MMD_RegistrationOnly_Model</class></mmd_registrationonly></models>
         <blocks><mmd_registrationonly><class>MMD_RegistrationOnly_Block</class></mmd_registrationonly></blocks>
         <helpers><mmd_registrationonly><class>MMD_RegistrationOnly_Helper</class></mmd_registrationonly></helpers>
+        <events>
+            <!-- Malaysia booking-only: never invoice a registration in Magento (offline process) -->
+            <sales_order_load_after>
+                <observers>
+                    <mmd_registrationonly_block_invoice>
+                        <class>mmd_registrationonly/observer</class>
+                        <method>blockInvoice</method>
+                    </mmd_registrationonly_block_invoice>
+                </observers>
+            </sales_order_load_after>
+        </events>
     </global>
     <default>
         <payment>

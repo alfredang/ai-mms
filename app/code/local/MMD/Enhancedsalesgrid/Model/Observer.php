@@ -102,6 +102,22 @@ class MMD_Enhancedsalesgrid_Model_Observer
 
 		$select->distinct(true);
 
+        // Malaysia CSV/Excel export only — accounting fields for the 8% SST (Mr Saeid, 15 Oct 2026).
+        // Subqueries keyed on the order, so they never multiply rows; read by the grid's MY export columns.
+        if (strpos($route, 'adminhtml/sales_order/export') === 0
+            && Mage::app()->getDefaultStoreView()->getCode() === 'malaysia') {
+            $res = Mage::getSingleton('core/resource');
+            $item = $res->getTableName('sales/order_item');
+            $select->columns(array(
+                'my_payment_info'  => "(SELECT p.additional_information FROM {$res->getTableName('sales/order_payment')} p WHERE p.parent_id = main_table.entity_id LIMIT 1)",
+                'my_course_codes'  => "(SELECT GROUP_CONCAT(DISTINCT i.sku SEPARATOR ', ') FROM {$item} i WHERE i.order_id = main_table.entity_id AND i.parent_item_id IS NULL)",
+                'my_participants'  => "(SELECT SUM(i.qty_ordered) FROM {$item} i WHERE i.order_id = main_table.entity_id AND i.parent_item_id IS NULL)",
+                'my_tax_percent'   => "(SELECT MAX(i.tax_percent) FROM {$item} i WHERE i.order_id = main_table.entity_id)",
+                'my_subtotal'      => "(SELECT o.subtotal FROM {$res->getTableName('sales/order')} o WHERE o.entity_id = main_table.entity_id)",
+                'my_payment_method'=> "(SELECT p.method FROM {$res->getTableName('sales/order_payment')} p WHERE p.parent_id = main_table.entity_id LIMIT 1)",
+            ));
+        }
+
         // General Search (`?q=`) — Reg #, learner name (denormalised
         // on the grid table as billing_name), customer email, and
         // course name (sales_flat_order_item.name). MUST be added

@@ -74,6 +74,10 @@
 
     </div>
 
+    <?php if (Mage::app()->getStore()->getCode() === 'malaysia' && Mage::getStoreConfigFlag('mmd/my_sst/show_notice')): // Malaysia 8% SST (switched on with the SST setup) ?>
+        <p class="my-sst-notice" style="clear:both;margin:8px 0 0;font-size:13px;color:#555;"><?php echo $this->__('Course fees are shown before SST. An 8% SST is included in the estimated total during registration.') ?></p>
+    <?php endif; ?>
+
     <?php if (Mage::app()->getStore()->getCode() !== 'malaysia'): // Malaysia: registration-only checkout, no PayPal shortcut ?><div class="paypal-wrapper"><?php echo $this->getChildHtml('', true, true) ?></div><?php endif; ?>
 
 <?php endif; ?>
