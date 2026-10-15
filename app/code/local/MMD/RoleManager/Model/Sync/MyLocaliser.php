@@ -19,6 +19,8 @@
  *   R5  "in Singapore" -> "in Malaysia", "like Singapore" -> "like Kuala Lumpur" (generic phrasing only).
  *   R6  Sections under an h2/h3 about SG funding (Training Grant, SkillsFuture, UTAP, PWM,
  *       WSQ promo rules) are removed, then headings left with no content are dropped.
+ *   R7  Singapore prices and GST: tables, rows, list items and paragraphs mentioning GST, S$ or
+ *       SGD are removed (group, 15 Oct: no S$ or Singapore GST wording on Malaysia).
  *
  * Anything still matching SG terms after the rules is reported by remainingSgTerms() for
  * manual review rather than rewritten blindly.
@@ -49,6 +51,7 @@ class MMD_RoleManager_Model_Sync_MyLocaliser
         $html = $this->_localiseSgLinks($html);
         $html = $this->_localiseCompany($html);
         $html = $this->_removeSgSchemes($html);
+        $html = $this->_removeSgPricing($html);
         $html = preg_replace('#\bin' . self::WS . '+Singapore\b#u', 'in Malaysia', $html);
         $html = preg_replace('#\blike' . self::WS . '+Singapore\b#u', 'like Kuala Lumpur', $html);
         // tidy: empty paragraphs/list items left behind by removed sentences
@@ -61,7 +64,7 @@ class MMD_RoleManager_Model_Sync_MyLocaliser
         return trim($html);
     }
 
-    const SG_TERMS = 'WSQ|SkillsFuture|Singapore|\bSSG\b|UTAP|\bIBF\b|PSEA|SFEC|SWDA|\bIRAS\b|InvoiceNow|\bCPF\b|\bACRA\b';
+    const SG_TERMS = 'WSQ|SkillsFuture|Singapore|\bSSG\b|UTAP|\bIBF\b|PSEA|SFEC|SWDA|\bIRAS\b|InvoiceNow|\bCPF\b|\bACRA\b|\bGST\b|S\$|\bSGD\b';
 
     /** Plain-text meta description, localised, <= $max chars (whole sentences, else a clause). */
     public function metaDescription($text, $max = 160)
@@ -192,5 +195,12 @@ class MMD_RoleManager_Model_Sync_MyLocaliser
         // "WSQ" as a label: "this WSQ course", "the WSQ assessment", "WSQ - X" titles
         $html = preg_replace('#\bWSQ' . self::WS . '*-' . self::WS . '*#u', '', $html);
         return preg_replace('#\bWSQ' . self::WS . '+#u', '', $html);
+    }
+
+    protected function _removeSgPricing($html)
+    {
+        $sg = '\bGST\b|S\$|\bSGD\b';
+        $html = preg_replace('#<table\b[^>]*>(?:(?!</table>).)*?(?:' . $sg . ')(?:(?!</table>).)*?</table>#siu', '', $html);
+        return preg_replace('#<(tr|li|p)\b[^>]*>(?:(?!</\1>).)*?(?:' . $sg . ')(?:(?!</\1>).)*?</\1>#siu', '', $html);
     }
 }
