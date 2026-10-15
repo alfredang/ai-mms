@@ -19,8 +19,11 @@
  *   R5  "in Singapore" -> "in Malaysia", "like Singapore" -> "like Kuala Lumpur" (generic phrasing only).
  *   R6  Sections under an h2/h3 about SG funding (Training Grant, SkillsFuture, UTAP, PWM,
  *       WSQ promo rules) are removed, then headings left with no content are dropped.
- *   R7  Singapore prices and GST: tables, rows, list items and paragraphs mentioning GST, S$ or
- *       SGD are removed (group, 15 Oct: no S$ or Singapore GST wording on Malaysia).
+ *   R7  Singapore prices and tax (group, 15 Oct): tables, rows, list items and paragraphs with S$ / SGD
+ *       prices or GST rates ("9% GST", "inclusive of GST", "before GST") are removed; remaining course
+ *       tax wording becomes Malaysia's — "Goods and Services Tax (GST)" -> "Malaysia Sales and Service
+ *       Tax (SST)", "GST" -> "SST" (Malaysia uses SST). Historical GST references live only in trainer
+ *       bios / CMS pages, which the sync never touches.
  *
  * Anything still matching SG terms after the rules is reported by remainingSgTerms() for
  * manual review rather than rewritten blindly.
@@ -199,8 +202,14 @@ class MMD_RoleManager_Model_Sync_MyLocaliser
 
     protected function _removeSgPricing($html)
     {
-        $sg = '\bGST\b|S\$|\bSGD\b';
+        $ws = self::WS;
+        $sg = 'S\$|\bSGD\b|\d+(?:\.\d+)?' . $ws . '*%' . $ws . '*GST\b|(?:inclusive|exclusive|including|excluding|before|after|incl\.?|excl\.?)'
+            . $ws . '+(?:of' . $ws . '+)?GST\b';
         $html = preg_replace('#<table\b[^>]*>(?:(?!</table>).)*?(?:' . $sg . ')(?:(?!</table>).)*?</table>#siu', '', $html);
-        return preg_replace('#<(tr|li|p)\b[^>]*>(?:(?!</\1>).)*?(?:' . $sg . ')(?:(?!</\1>).)*?</\1>#siu', '', $html);
+        $html = preg_replace('#<(tr|li|p)\b[^>]*>(?:(?!</\1>).)*?(?:' . $sg . ')(?:(?!</\1>).)*?</\1>#siu', '', $html);
+        // Malaysia uses Sales and Service Tax: course tax wording follows Malaysia
+        $html = preg_replace('#Goods' . $ws . '+and' . $ws . '+Services' . $ws . '+Tax' . $ws . '*\(GST\)#u', 'Malaysia Sales and Service Tax (SST)', $html);
+        $html = preg_replace('#Goods' . $ws . '+and' . $ws . '+Services' . $ws . '+Tax#u', 'Sales and Service Tax', $html);
+        return preg_replace('#\bGST\b#u', 'SST', $html);
     }
 }
