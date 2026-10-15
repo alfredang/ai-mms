@@ -489,7 +489,7 @@ class MMD_Certificate_Helper_Data extends Mage_Core_Helper_Abstract
             . '<a href="https://www.MySkillsFuture.gov.sg">www.MySkillsFuture.gov.sg</a>.</p>'
             . '<p>Please note that SkillsFuture Singapore uses OpenCerts to issue the WSQ Statements of Attainment (SOA). '
             . 'The OpenCerts will be ready for viewing/downloading 4-5 weeks upon completion of WSQ courses.</p>')
-            . '<p>Best regards,<br/><strong>Support Team</strong><br/><strong>' . $e($info['short_name']) . '</strong><br/>'
+            . '<p>Best regards,<br/><strong>Support Team</strong><br/><strong>' . $e($this->_isMalaysia() ? $info['name'] : $info['short_name']) . '</strong><br/>'
             . 'Email: <a href="mailto:' . $e($info['support_email']) . '">' . $e($info['support_email']) . '</a></p>';
     }
 
