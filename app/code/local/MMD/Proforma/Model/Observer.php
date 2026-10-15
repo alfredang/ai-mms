@@ -21,6 +21,12 @@ class MMD_Proforma_Model_Observer
             return;
         }
 
+        // Malaysia is booking-only — quotations / invoices are prepared offline, and this
+        // is a Singapore document (SG legal entity, GST), so no button there.
+        if ($order->getStore()->getCode() === 'malaysia') {
+            return;
+        }
+
         // Respect the standard sales-order ACL: anyone who can view the order
         // can regenerate its pro forma invoice.
         if (!Mage::getSingleton('admin/session')->isAllowed('sales/order')) {

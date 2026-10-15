@@ -99,6 +99,9 @@ class MMD_Enhancedsalesgrid_Block_Sales_Order_Grid extends Mage_Adminhtml_Block_
         } 
 	protected function _prepareColumns()
     {
+        if ($this->_isExport && Mage::app()->getDefaultStoreView()->getCode() === 'malaysia') {
+            return $this->_prepareMalaysiaExportColumns();
+        }
         $store = $this->_getStore();
 
         // 1. Reg #  — no filter (per spec, only the 6 listed columns filter)
@@ -282,6 +285,107 @@ class MMD_Enhancedsalesgrid_Block_Sales_Order_Grid extends Mage_Adminhtml_Block_
         $this->addExportType('*/*/exportExcel', Mage::helper('sales')->__('Excel XML'));
 
         return $this;
+    }
+
+    /**
+     * Malaysia CSV / Excel export — the accounting columns for the 8% SST (Mr Saeid, 15 Oct 2026), in his order.
+     * No payment columns: Malaysia is booking-only and payments are recorded offline by the Malaysia team.
+     * The my_* fields are added by the observer for Malaysia export requests only; the on-screen grid and the
+     * Singapore export keep the columns above.
+     */
+    protected function _prepareMalaysiaExportColumns()
+    {
+        $h = Mage::helper('sales');
+        $cols = array(
+            'real_order_id'   => array('Reg #', 'increment_id'),
+            'created_at'      => array('Reg Date', 'created_at', 'datetime'),
+            'billing_name'    => array('Learner Name', 'billing_name'),
+            'customer_email'  => array('Learner Email', 'customer_email'),
+            'my_reg_type'     => array('Registration Type', 'my_payment_info', 'text', '_myRegType'),
+            'my_company'      => array('Company Name', 'my_payment_info', 'text', '_myCompany'),
+            'my_course_codes' => array('Course Code', 'my_course_codes'),
+            'products_ordered'=> array('Course Title', 'products_ordered', 'text', '_myCourseTitle'),
+            'product_options' => array('Course Date', 'product_options', 'text', '_myPlain'),
+            'my_participants' => array('Participants', 'my_participants', 'text', '_myInt'),
+            'my_subtotal'     => array('Subtotal (before discount)', 'my_subtotal', 'text', '_myMoney'),
+            'discount_amount' => array('Discount', 'discount_amount', 'text', '_myMoney'),
+            'my_net'          => array('Subtotal after Discount', 'my_subtotal', 'text', '_myNet'),
+            'my_tax_percent'  => array('SST Rate', 'my_tax_percent', 'text', '_myRate'),
+            'tax_amount'      => array('SST Amount', 'tax_amount', 'text', '_myMoney'),
+            'grand_total'     => array('Estimated Total (incl. SST)', 'grand_total', 'text', '_myMoney'),
+            'my_payment_method' => array('Payment Method', 'my_payment_method'),
+            'status'          => array('Registration Status', 'status', 'options'),
+        );
+        foreach ($cols as $id => $c) {
+            $col = array('header' => $h->__($c[0]), 'index' => $c[1], 'type' => isset($c[2]) ? $c[2] : 'text');
+            if (isset($c[3])) {
+                $col['frame_callback'] = array($this, $c[3]);
+            }
+            if ($id === 'product_options') {
+                $col['renderer'] = 'MMD_Enhancedsalesgrid_Block_Sales_Order_Grid_Renderer_Options';
+            }
+            if ($id === 'status') {
+                $col['options'] = Mage::getSingleton('sales/order_config')->getStatuses();
+            }
+            $this->addColumn($id, $col);
+        }
+        return $this;
+    }
+
+    protected function _myInfo($row)
+    {
+        $info = @unserialize((string) $row->getData('my_payment_info'), array('allowed_classes' => false));
+        return is_array($info) ? $info : array();
+    }
+
+    public function _myRegType($v, $row)
+    {
+        $info = $this->_myInfo($row);
+        $type = isset($info['registration_type']) ? $info['registration_type'] : '';
+        return $type === 'company' ? 'Company-sponsored' : ($type === 'individual' ? 'Self-sponsored' : '');
+    }
+
+    public function _myCompany($v, $row)
+    {
+        $info = $this->_myInfo($row);
+        return isset($info['company_name']) ? trim($info['company_name']) : '';
+    }
+
+    public function _myCourseTitle($v, $row)
+    {
+        // "1 x AI for Accounting (C104)" -> "AI for Accounting"
+        $titles = array();
+        foreach (preg_split('/\R/', (string) $row->getData('products_ordered')) as $line) {
+            $titles[] = trim(preg_replace(array('/^\d+\s+x\s+/', '/\s+\([^()]*\)$/'), '', $line));
+        }
+        return implode(', ', array_filter($titles));
+    }
+
+    public function _myPlain($v)
+    {
+        // Course Date renderer output ("13/14 May 2026<br/>…", "------") -> plain text
+        $v = html_entity_decode(str_replace('<br/>', ', ', (string) $v), ENT_QUOTES, 'UTF-8');
+        return $v === '------' ? '' : $v;
+    }
+
+    public function _myInt($v)
+    {
+        return (string) (int) round((float) $v);
+    }
+
+    public function _myMoney($v)
+    {
+        return number_format((float) $v, 2, '.', '');
+    }
+
+    public function _myNet($v, $row)
+    {
+        return $this->_myMoney((float) $row->getData('my_subtotal') + (float) $row->getData('discount_amount'));
+    }
+
+    public function _myRate($v)
+    {
+        return (float) $v > 0 ? rtrim(rtrim(number_format((float) $v, 2, '.', ''), '0'), '.') . '%' : '0%';
     }
 
     /**
