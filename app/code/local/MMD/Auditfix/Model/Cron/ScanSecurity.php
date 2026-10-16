@@ -66,7 +66,7 @@ class MMD_Auditfix_Model_Cron_ScanSecurity extends MMD_Auditfix_Model_Cron_Abstr
         $orphans = $read->fetchAll(
             "SELECT u.user_id, u.email FROM {$tbl} u
              LEFT JOIN {$roleTbl} m ON m.user_id = u.user_id
-             WHERE u.is_active = 1 AND m.map_id IS NULL"
+             WHERE u.is_active = 1 AND m.user_id IS NULL"
         );
         foreach ($orphans as $r) {
             $this->helper()->logIssue(array(
