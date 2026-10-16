@@ -39,4 +39,21 @@ class Infortis_Infortis_Helper_Image extends Mage_Core_Helper_Abstract
 		}
 		return $url;
 	}
+
+	/**
+	 * width/height attributes matching the URL getImg() returns, so the browser
+	 * reserves the image's box before it loads (no layout shift). height:auto is
+	 * inline so the height attribute can never stretch the image, even while a
+	 * browser still has an older custom.css cached (custom.css repeats it).
+	 * Course covers are 1600x900. Callers' <img> tags must not have a style attribute.
+	 *
+	 * @return string e.g. ' width="1600" height="900" style="height:auto"', or '' when unknown
+	 */
+	public function getImgSizeAttr($product, $w, $h)
+	{
+		if (trim((string) $product->getData('course_image_url')) !== '') {
+			return ' width="1600" height="900" style="height:auto"';
+		}
+		return ($w > 0 && $h > 0) ? ' width="' . (int) $w . '" height="' . (int) $h . '" style="height:auto"' : '';
+	}
 }

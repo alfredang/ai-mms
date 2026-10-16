@@ -165,7 +165,7 @@
 
                 <a class="product-image" href="<?php echo $_item->getProductUrl(); ?>" title="<?php echo $this->escapeHtml($_item->getName()); ?>">
 
-                    <img src="<?php echo $helpImg->getImg($_item, $imgWidth, $imgHeight, 'small_image'); ?>" alt="<?php echo $this->escapeHtml($_item->getName()); ?>" loading="lazy" decoding="async" />
+                    <img<?php echo $helpImg->getImgSizeAttr($_item, $imgWidth, $imgHeight); ?> src="<?php echo $helpImg->getImg($_item, $imgWidth, $imgHeight, 'small_image'); ?>" alt="<?php echo $this->escapeHtml($_item->getName()); ?>" loading="lazy" decoding="async" />
 
                 </a>
 
