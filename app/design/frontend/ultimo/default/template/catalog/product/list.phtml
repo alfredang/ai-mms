@@ -238,7 +238,7 @@
 
                 <a href="<?php echo $_product->getProductUrl() ?>" title="<?php echo $this->stripTags($this->getImageLabel($_product, 'small_image'), null, true) ?>" class="product-image" style="max-width:<?php echo $imgWidth; ?>px;">
 
-                    <img id="product-collection-image-<?php echo $_product->getId(); ?>"
+                    <img<?php echo $helpImg->getImgSizeAttr($_product, $imgWidth, $imgHeight); ?> id="product-collection-image-<?php echo $_product->getId(); ?>"
 
                         src="<?php echo $helpImg->getImg($_product, $imgWidth, $imgHeight, 'small_image'); ?>"
 
@@ -512,7 +512,7 @@
 
                     <a href="<?php echo $_product->getProductUrl() ?>" title="<?php echo $this->stripTags($this->getImageLabel($_product, 'small_image'), null, true); ?>" class="product-image">
 
-                        <img id="product-collection-image-<?php echo $_product->getId(); ?>"
+                        <img<?php echo $helpImg->getImgSizeAttr($_product, $imgWidth, $imgHeight); ?> id="product-collection-image-<?php echo $_product->getId(); ?>"
 
                             src="<?php echo $helpImg->getImg($_product, $imgWidth, $imgHeight, 'small_image'); ?>"
 

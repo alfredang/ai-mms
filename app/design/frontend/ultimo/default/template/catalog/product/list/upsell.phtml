@@ -188,11 +188,11 @@
 
                     <?php if ($lazy): ?>
 
-                        <img class="lazyOwl" data-src="<?php echo $helpImg->getImg($_product, $imgWidth, $imgHeight, 'small_image'); ?>" alt="<?php echo $this->escapeHtml($_product->getName()) ?>" />
+                        <img<?php echo $helpImg->getImgSizeAttr($_product, $imgWidth, $imgHeight); ?> class="lazyOwl" data-src="<?php echo $helpImg->getImg($_product, $imgWidth, $imgHeight, 'small_image'); ?>" alt="<?php echo $this->escapeHtml($_product->getName()) ?>" />
 
                     <?php else: ?>
 
-                        <img src="<?php echo $helpImg->getImg($_product, $imgWidth, $imgHeight, 'small_image'); ?>" alt="<?php echo $this->escapeHtml($_product->getName()) ?>" loading="lazy" decoding="async" />
+                        <img<?php echo $helpImg->getImgSizeAttr($_product, $imgWidth, $imgHeight); ?> src="<?php echo $helpImg->getImg($_product, $imgWidth, $imgHeight, 'small_image'); ?>" alt="<?php echo $this->escapeHtml($_product->getName()) ?>" loading="lazy" decoding="async" />
 
                     <?php endif; ?>
 

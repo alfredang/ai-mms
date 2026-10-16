@@ -3179,6 +3179,23 @@ a.brochure-cta:focus-visible { outline: 2px solid #9a3412; outline-offset: 2px; 
     }
 }
 
+/* Reserve the banner's box BEFORE Owl initialises. ultra-slideshow.css keeps
+   .slides display:none until the carousel JS runs (~6s on a phone), so the
+   rules above (which target Owl's runtime wrappers) can't help then and the
+   whole page jumped down when the banner appeared (CLS ~0.7). The holder
+   .the-slideshow is always rendered: give it the banner's footprint up front.
+   Mobile: every SG/MY banner is ~2.83:1 (1440x508 / 1600x563); aspect-ratio
+   only sets a minimum, a taller slide still grows the box. */
+.cms-index-index .the-slideshow:not(.hide-below-768) {
+    aspect-ratio: 1440 / 508;
+}
+@media (min-width: 768px) {
+    .cms-index-index .the-slideshow:not(.hide-below-768) {
+        aspect-ratio: auto;
+        min-height: 404px;
+    }
+}
+
 /* Search results page title: the query text is echoed into the H1, so long
    queries render huge at Ultimo's default h1 size (2.6666em). Shrink it to
    read as a page header, not a headline. */
@@ -3255,4 +3272,13 @@ a.brochure-cta:focus-visible { outline: 2px solid #9a3412; outline-offset: 2px; 
 }
 .nav-regular .nav-panel li.classic:has(> a[href$="/ai-applications-series.html"]) > ul.nav-panel--dropdown > li {
     break-inside: avoid;
+}
+
+/* Site speed Step 1 — course-cover images carry width/height attributes
+   (Infortis_Infortis_Helper_Image::getImgSizeAttr) so the browser reserves
+   their box before they load. Keep height:auto here or the height="900"
+   attribute would stretch them. */
+.itemslider .product-image img[height],
+.category-products .product-image img[height] {
+    height: auto;
 }
