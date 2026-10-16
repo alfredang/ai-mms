@@ -1,0 +1,41 @@
+/* =============================================================================================================
+   MALAYSIA-ONLY storefront CSS — loaded only on the 'malaysia' store (layout handle STORE_malaysia in local.xml),
+   after custom.css, so these rules override it there. Singapore and other partner sites never load this file.
+   Approved by Mr Saeid, 16 Oct 2026 (Malaysia page-stability fixes).
+   ============================================================================================================= */
+
+/* 1. "+ 8% SST" note directly under the price on mobile course pages.
+   The mobile course page is a flex column ranked with `order` (custom.css, "11. Course Fee heading + price").
+   The note had no rank, so it defaulted to order 0 and appeared at the very top of the page. Rank it with the
+   price; it follows the price in the page, so it sits right below it. Desktop is not a flex column: unaffected. */
+.catalog-product-view .my-sst-note { order: 11; }
+
+/* 2. Homepage banners not cropped on tablets / small laptops.
+   custom.css fixes the slider at 404px tall from 768px up and crops the banner to fill it (object-fit: cover),
+   which cut up to 427px off EACH side at 768px (149px at 1280). Here the height follows the banners' own shape
+   (~2.84:1, 1600x563) and is capped at 404px: nothing is cut below ~1145px wide; wider screens look as before.
+   width:100% is required — with an auto width, aspect-ratio + max-height would shrink the slider's width. */
+@media (min-width: 768px) {
+    .the-slideshow .owl-wrapper-outer,
+    .the-slideshow .owl-wrapper-outer.autoHeight {
+        width: 100% !important;
+        height: auto !important;
+        aspect-ratio: 1440 / 508;
+        min-height: 0 !important;
+        max-height: 404px !important;
+    }
+    .the-slideshow .owl-wrapper, .the-slideshow .owl-item, .the-slideshow .owl-item > div {
+        height: 100% !important;
+    }
+    .the-slideshow .owl-item img, .the-slideshow .slides img {
+        height: 100% !important;
+        max-height: 404px !important;
+    }
+    /* the space reserved before the carousel starts (site speed Step 1) gets the same shape and cap */
+    .cms-index-index .the-slideshow:not(.hide-below-768) {
+        width: 100%;
+        aspect-ratio: 1440 / 508;
+        min-height: 0;
+        max-height: 404px;
+    }
+}
