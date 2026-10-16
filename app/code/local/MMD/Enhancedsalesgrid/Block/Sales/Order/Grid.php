@@ -269,7 +269,9 @@ class MMD_Enhancedsalesgrid_Block_Sales_Order_Grid extends Mage_Adminhtml_Block_
                     ),
                     array(
                         'caption' => Mage::helper('sales')->__('Cancel'),
-                        'url'     => array('base' => '*/sales_order/cancel'),
+                        // cancelAction requires a form key (Sales_OrderController::preDispatch)
+                        'url'     => array('base' => '*/sales_order/cancel',
+                                           'params' => array('form_key' => Mage::getSingleton('core/session')->getFormKey())),
                         'field'   => 'order_id',
                         'confirm' => Mage::helper('sales')->__('Cancel this registration?'),
                     ),
