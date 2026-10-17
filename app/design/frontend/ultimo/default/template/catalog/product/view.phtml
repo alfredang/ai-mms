@@ -1339,6 +1339,46 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 			          (SG/MY/GH). */ ?>
 			<?php echo $_practiceExamCardHtml; ?>
 
+			<?php /* "Why Take This Course?" — four benefit tiles on every non-WSQ
+			          (C + digit SKU) course, on all stores (SG/MY/GH). Sits after the
+			          Bonus card and ABOVE the funding cards (SG Funding Options, MY
+			          HRD Corp). Copy is store-neutral so partner sites need no
+			          override. */ ?>
+			<?php if (preg_match('/^C\d/i', $_courseSku)): ?>
+				<section class="course-policy-card course-policy-card--why">
+					<header class="course-policy-card__header">
+						<span class="course-policy-card__icon" aria-hidden="true">
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+						</span>
+						<h3 class="course-policy-card__title"><?php echo $this->__('Why Take This Course?'); ?></h3>
+					</header>
+					<div class="course-policy-card__body">
+						<ul class="why-grid">
+							<li class="why-tile why-tile--hands-on">
+								<span class="why-tile__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-4 0v5"/><path d="M14 10V4a2 2 0 0 0-4 0v6"/><path d="M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg></span>
+								<strong class="why-tile__title"><?php echo $this->__('Hands-On Learning'); ?></strong>
+								<span class="why-tile__text"><?php echo $this->__('Learn by doing. Every topic is practised hands-on, so you leave with skills you can use at work straight away.'); ?></span>
+							</li>
+							<li class="why-tile why-tile--coaching">
+								<span class="why-tile__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+								<strong class="why-tile__title"><?php echo $this->__('Live Coaching'); ?></strong>
+								<span class="why-tile__text"><?php echo $this->__('Experienced instructors coach you live, answer your questions and guide you step by step.'); ?></span>
+							</li>
+							<li class="why-tile why-tile--consult">
+								<span class="why-tile__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></span>
+								<strong class="why-tile__title"><?php echo $this->__('Free Post-Course Consultation'); ?></strong>
+								<span class="why-tile__text"><?php echo $this->__('Stuck after class? Message your trainer any time for guidance as you apply what you have learned.'); ?></span>
+							</li>
+							<li class="why-tile why-tile--updated">
+								<span class="why-tile__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></span>
+								<strong class="why-tile__title"><?php echo $this->__('Always-Updated Materials'); ?></strong>
+								<span class="why-tile__text"><?php echo $this->__('Materials are refreshed to stay relevant. Log in to our LMS any time to get the latest version.'); ?></span>
+							</li>
+						</ul>
+					</div>
+				</section>
+			<?php endif; ?>
+
 			<?php if ($_isMyStore): /* Malaysia: every course is HRD Corp claimable. Rendered
 			          server-side (was injected by JS from the MY head includes, with a
 			          "100% / fully funded" claim) using the partner-approved wording. The
@@ -1357,7 +1397,7 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 			          the server-rendered Bonus card below it. Re-seat it directly
 			          under the About card so it stays ABOVE the HRD Corp card.
 			          Runs on DOMContentLoaded after the injector. */ ?>
-			<script>(function(){function seat(){var a=document.querySelector('.course-policy-card--about');if(!a||!a.parentNode)return;var p=document.querySelector('.course-policy-card--practice');if(p)a.parentNode.insertBefore(p,a.nextSibling);}if(document.readyState!=='loading')seat();else document.addEventListener('DOMContentLoaded',seat);})();</script>
+			<script>(function(){function seat(){var a=document.querySelector('.course-policy-card--about');if(!a||!a.parentNode)return;var p=document.querySelector('.course-policy-card--practice');if(p)a.parentNode.insertBefore(p,a.nextSibling);var w=document.querySelector('.course-policy-card--why');if(w)a.parentNode.insertBefore(w,(p||a).nextSibling);}if(document.readyState!=='loading')seat();else document.addEventListener('DOMContentLoaded',seat);})();</script>
 			<?php endif; ?>
 
 			<?php

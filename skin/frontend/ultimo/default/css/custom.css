@@ -898,6 +898,53 @@ li.level2 > a > span > .cat-label,
 .course-policy-card--practice      .course-policy-card__title { color: #065f46; }
 .course-policy-card--practice      .course-policy-card__body p { margin: 0 0 10px; }
 .course-policy-card--practice      .course-policy-card__body p:last-child { margin-bottom: 0; }
+/* "Why Take This Course?" card (non-WSQ C-prefix courses, all stores) — a
+   rainbow header and four tiles, each in its own colour family (orange / blue /
+   green / violet), so the benefits read as a bright selling point above the
+   funding cards. */
+.course-policy-card--why { border-color: #fed7aa; box-shadow: 0 1px 2px rgba(234, 88, 12, 0.08), 0 0 0 1px rgba(249, 115, 22, 0.12); }
+.course-policy-card--why .course-policy-card__header { background: linear-gradient(90deg, #fff7ed 0%, #eff6ff 35%, #ecfdf5 68%, #f5f3ff 100%); }
+.course-policy-card--why .course-policy-card__icon { background: linear-gradient(135deg, #f97316 0%, #2563eb 50%, #7c3aed 100%); }
+.course-policy-card--why .course-policy-card__title { color: #9a3412; }
+.why-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.why-grid .why-tile {
+    margin: 0;
+    padding: 14px 14px 14px 64px;
+    position: relative;
+    border-radius: 10px;
+    transition: transform .15s ease, box-shadow .15s ease;
+}
+/* Opt out of the generic card-list dot bullet + dashed divider. */
+.course-policy-card--why .course-policy-card__body ul.why-grid li.why-tile::before { content: none; display: none; }
+.course-policy-card--why .course-policy-card__body ul.why-grid li.why-tile { border: 1px solid var(--why-bd, #e5e7eb); }
+.why-grid .why-tile:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08); }
+.why-tile__icon {
+    position: absolute; left: 14px; top: 14px;
+    width: 38px; height: 38px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff;
+}
+.why-tile__icon svg { width: 20px; height: 20px; display: block; }
+.why-tile__title { display: block; margin: 0 0 4px; font-size: 14.5px; font-weight: 700; line-height: 1.3; }
+.why-tile__text { display: block; font-size: 13px; line-height: 1.55; color: #475569; }
+.why-tile--hands-on { background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%); --why-bd: #fed7aa; }
+.why-tile--hands-on .why-tile__icon { background: linear-gradient(135deg, #fb923c 0%, #ea580c 100%); }
+.why-tile--hands-on .why-tile__title { color: #9a3412; }
+.why-tile--coaching { background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); --why-bd: #bfdbfe; }
+.why-tile--coaching .why-tile__icon { background: linear-gradient(135deg, #60a5fa 0%, #2563eb 100%); }
+.why-tile--coaching .why-tile__title { color: #1e40af; }
+.why-tile--consult { background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); --why-bd: #a7f3d0; }
+.why-tile--consult .why-tile__icon { background: linear-gradient(135deg, #34d399 0%, #059669 100%); }
+.why-tile--consult .why-tile__title { color: #065f46; }
+.why-tile--updated { background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%); --why-bd: #ddd6fe; }
+.why-tile--updated .why-tile__icon { background: linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%); }
+.why-tile--updated .why-tile__title { color: #5b21b6; }
+@media (max-width: 600px) {
+    .why-grid { grid-template-columns: 1fr; gap: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .why-grid .why-tile, .why-grid .why-tile:hover { transition: none; transform: none; }
+}
 /* "Start Practising" button on the Free Practice Exams card — filled green to
    match the practice-card family (#059669 icon). color is forced with
    !important so the Ultimo theme's generic a:hover blue can't wash the label
