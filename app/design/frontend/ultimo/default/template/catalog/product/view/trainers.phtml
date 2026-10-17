@@ -54,7 +54,10 @@ if (trim((string) $blob) !== '') {
         if ($name === '' || mb_strlen($name, 'UTF-8') > 60) { continue; }
         // Skip <strong> runs that are section headings, not trainer names.
         if (preg_match('/(course|training|framework|profile|assessment|topic|http|@|learning outcome)/i', $name)) { continue; }
-        $trainers[] = array('name' => $name, 'blob' => isset($parts[$i + 1]) ? $parts[$i + 1] : '');
+        // <strong data-course-bio> marks a course-specific bio that must win
+        // over the shared Trainer Profile page.
+        $trainers[] = array('name' => $name, 'blob' => isset($parts[$i + 1]) ? $parts[$i + 1] : '',
+            'own' => (bool) preg_match('#^<strong[^>]*\bdata-course-bio\b#i', $parts[$i]));
     }
 }
 
@@ -70,7 +73,7 @@ if (empty($trainers) && trim(strip_tags((string) $blob)) !== '') {
         $name = trim($tm[1]) . ' Trainer';
     }
     if ($name === '' || mb_strlen($name, 'UTF-8') > 60) { $name = $this->__('Course Trainer'); }
-    $trainers[] = array('name' => $name, 'blob' => $blob);
+    $trainers[] = array('name' => $name, 'blob' => $blob, 'own' => false);
 }
 
 if (empty($trainers)) { return; } // nothing to show — tab stays hidden
@@ -88,8 +91,8 @@ foreach ($trainers as $t) {
 // Per-trainer bio: prefer the Trainer Profile page (courses_trainers), else the
 // blob segment cleaned to plain text.
 $ctTable = $res->getTableName('courses_trainers');
-$resolveBio = function ($name, $blobSeg) use ($read, $ctTable) {
-    $profile = (string) $read->fetchOne(
+$resolveBio = function ($name, $blobSeg, $own = false) use ($read, $ctTable) {
+    $profile = $own ? '' : (string) $read->fetchOne(
         "SELECT description FROM {$ctTable} "
         . "WHERE LOWER(TRIM(title)) = LOWER(TRIM(?)) AND status = 1 "
         . "AND description IS NOT NULL AND TRIM(description) <> '' "
@@ -131,7 +134,7 @@ $initial = function ($name) {
 <h2><?php echo $this->__('Trainers') ?></h2>
 <div class="std course-trainers-acc" id="trainers">
     <?php foreach ($final as $idx => $t): ?>
-        <?php $bio = $resolveBio($t['name'], $t['blob']); $open = ($idx === 0); ?>
+        <?php $bio = $resolveBio($t['name'], $t['blob'], $t['own']); $open = ($idx === 0); ?>
         <div class="tacc-item<?php echo $open ? ' is-open' : ''; ?>">
             <button type="button" class="tacc-head" aria-expanded="<?php echo $open ? 'true' : 'false'; ?>">
                 <span class="tacc-avatar" aria-hidden="true"><?php echo htmlspecialchars($initial($t['name']), ENT_QUOTES, 'UTF-8'); ?></span>
@@ -143,7 +146,13 @@ $initial = function ($name) {
                 if ($bio['rich']) {
                     echo $bio['html'];
                 } elseif (trim($bio['html']) !== '') {
-                    echo '<p>' . nl2br(htmlspecialchars($bio['html'], ENT_QUOTES, 'UTF-8')) . '</p>';
+                    // Plain-text bio: escape, then make bare http(s) URLs clickable.
+                    $txt = preg_replace(
+                        '#https?://[^\s<]+?(?=[.,;:)]?(?:\s|$))#u',
+                        '<a href="$0" target="_blank" rel="noopener">$0</a>',
+                        htmlspecialchars($bio['html'], ENT_QUOTES, 'UTF-8')
+                    );
+                    echo '<p>' . nl2br($txt) . '</p>';
                 } else {
                     echo '<p><em>' . $this->__('Profile coming soon.') . '</em></p>';
                 }
