@@ -93,6 +93,7 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
         $mode      = $this->_modeInt($this->_opt($body, 'mode', 'Physical Classroom'));
         $venue     = (string) $this->_opt($body, 'venue', '');
         $vacancy   = $this->_vacancy($this->_opt($body, 'vacancy', 'A'));
+        $link      = $this->_virtualLink($this->_opt($body, 'virtual_link', ''));
 
         if (strtotime($endDate) < strtotime($startDate)) {
             $this->_err('validation_error', 'end_date cannot be before start_date.', 400);
@@ -142,6 +143,9 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
         $details['New class on']  = $label;
         $details['Runs for']      = $this->_spanText($startDate, $endDate);
         $details['Delivered as']  = $this->_intToMode[$mode] . ($venue !== '' ? ' at ' . $venue : '');
+        if ($link !== '') {
+            $details['Virtual Training Link'] = $link;
+        }
         $details['Places']        = array('A' => 'available', 'L' => 'limited', 'F' => 'full');
         $details['Places']        = $details['Places'][$vacancy];
         if ($bootstrap) {
@@ -165,6 +169,7 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
             'token_payload' => array('sku' => $sku, 'product_id' => (int) $product->getId(),
                 'start' => $startDate, 'end' => $endDate, 'start_time' => $startTime, 'end_time' => $endTime,
                 'mode' => $mode, 'venue' => $venue, 'vacancy' => $vacancy, 'label' => $label,
+                'virtual_link' => $link,
                 'bootstrap' => $bootstrap),
         );
     }
@@ -209,6 +214,7 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
             'course_end_time'   => $p['end_time'] !== '' ? $p['end_time'] : null,
             'mode_of_training'  => $p['mode'],
             'venue_building'    => $p['venue'] !== '' ? $p['venue'] : null,
+            'virtual_link'      => !empty($p['virtual_link']) ? $p['virtual_link'] : null,
             'vacancy'           => $p['vacancy'],
             'created_at'        => now(),
             'created_by'        => 'Agent',
@@ -256,6 +262,13 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
             if ($new !== $run['vacancy']) {
                 $fields['vacancy'] = $new;
                 $diff[] = array('field' => 'vacancy', 'from' => $run['vacancy'], 'to' => $new);
+            }
+        }
+        if (array_key_exists('virtual_link', $body) && $body['virtual_link'] !== '') {
+            $new = $this->_virtualLink($body['virtual_link']);
+            if ($new !== (string) $run['virtual_link']) {
+                $fields['virtual_link'] = $new;
+                $diff[] = array('field' => 'virtual_link', 'from' => $run['virtual_link'], 'to' => $new);
             }
         }
         if (!$diff) {
@@ -1022,6 +1035,16 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
                 . 'official course run untouched and out of step. Ask an admin to make this change '
                 . 'in the system that owns it.', 422);
         }
+    }
+
+    /** Optional Zoom / Google Meet / Teams link for one class: '' or an http(s) URL. */
+    protected function _virtualLink($v)
+    {
+        $v = trim((string) $v);
+        if ($v !== '' && !preg_match('#^https?://\S+$#i', $v)) {
+            $this->_err('validation_error', 'virtual_link must be an http(s) URL.', 400);
+        }
+        return $v;
     }
 
     protected function _runExists($productId, $start, $end)

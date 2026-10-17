@@ -6576,6 +6576,24 @@ if ($_lcdRunId <= 0) {
         }
     } catch (Exception $e) {}
 }
+// Virtual Training Link card (trainer + learner): the class's own link
+// (course_runs.virtual_link — set on the class, or by the Google Calendar sync)
+// wins over the older per-course course_courseware.google_meet_url; the
+// physical/virtual decision follows the class's own mode when a run is known.
+$_vtLink = trim((string) $_courseware['google_meet_url']);
+$_vtPhysical = null; // null = no run row → the card falls back to the course mode
+if ($_lcdRunId > 0) {
+    try {
+        $_vtRun = Mage::getSingleton('core/resource')->getConnection('core_read')->fetchRow(
+            "SELECT mode_of_training, virtual_link FROM " . Mage::getSingleton('core/resource')->getTableName('course_runs') . " WHERE run_id = ?",
+            array($_lcdRunId)
+        );
+        if ($_vtRun) {
+            $_vtPhysical = ((int) $_vtRun['mode_of_training'] === 1);
+            if (trim((string) $_vtRun['virtual_link']) !== '') $_vtLink = trim((string) $_vtRun['virtual_link']);
+        }
+    } catch (Exception $e) { /* virtual_link column may not exist yet (pre-1829) */ }
+}
 $_eAttendanceNavHtml = '';
 $_eaCardHref = ''; // destination of the E-Attendance content card (set per role below)
 if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) {
@@ -7150,13 +7168,13 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
     </div>
     <?php endif; ?>
 
-    <!-- TRAINER: Google Meet — N/A for Physical, real link for Virtual/Hybrid. -->
+    <!-- TRAINER: Virtual Training Link — N/A for Physical, real link for Virtual/Hybrid. -->
     <?php
-    $_meetUrl = trim((string)(isset($_courseware['google_meet_url']) ? $_courseware['google_meet_url'] : ''));
-    $_isPhysical = ($_modeKey === 1);
+    $_meetUrl = $_vtLink;
+    $_isPhysical = ($_vtPhysical === null ? ($_modeKey === 1) : $_vtPhysical);
     ?>
     <div class="lcd-section" id="google-meet">
-        <div class="lcd-section-title">Google Meet</div>
+        <div class="lcd-section-title">Virtual Training Link</div>
         <?php if ($_isPhysical): ?>
         <div class="lcd-tile lcd-tile-static">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
@@ -7169,7 +7187,7 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
         <a href="<?php echo htmlspecialchars($_meetUrl) ?>" target="_blank" rel="noopener" class="lcd-tile" style="text-decoration:none;color:inherit;">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
             <div class="lcd-tile-body">
-                <div class="lcd-tile-title">Join Google Meet</div>
+                <div class="lcd-tile-title">Join Virtual Training</div>
                 <div class="lcd-tile-sub" style="word-break:break-all;"><?php echo htmlspecialchars($_meetUrl) ?></div>
             </div>
         </a>
@@ -7178,7 +7196,7 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
             <div class="lcd-tile-body">
                 <div class="lcd-tile-title" style="color:#94a3b8;">Not yet configured</div>
-                <div class="lcd-tile-sub">The trainer hasn't added a Google Meet link for this class.</div>
+                <div class="lcd-tile-sub">No virtual training link has been added for this class yet.</div>
             </div>
         </div>
         <?php endif; ?>
@@ -7265,13 +7283,13 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
     </div>
     <?php endif; ?>
 
-    <!-- LEARNER: Google Meet — same N/A vs link logic as trainer. -->
+    <!-- LEARNER: Virtual Training Link — same N/A vs link logic as trainer. -->
     <?php
-    $_meetUrlL = trim((string)(isset($_courseware['google_meet_url']) ? $_courseware['google_meet_url'] : ''));
-    $_isPhysicalL = ($_modeKey === 1);
+    $_meetUrlL = $_vtLink;
+    $_isPhysicalL = ($_vtPhysical === null ? ($_modeKey === 1) : $_vtPhysical);
     ?>
     <div class="lcd-section" id="google-meet">
-        <div class="lcd-section-title">Google Meet</div>
+        <div class="lcd-section-title">Virtual Training Link</div>
         <?php if ($_isPhysicalL): ?>
         <div class="lcd-tile lcd-tile-static">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
@@ -7284,7 +7302,7 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
         <a href="<?php echo htmlspecialchars($_meetUrlL) ?>" target="_blank" rel="noopener" class="lcd-tile" style="text-decoration:none;color:inherit;">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
             <div class="lcd-tile-body">
-                <div class="lcd-tile-title">Join Google Meet</div>
+                <div class="lcd-tile-title">Join Virtual Training</div>
                 <div class="lcd-tile-sub" style="word-break:break-all;"><?php echo htmlspecialchars($_meetUrlL) ?></div>
             </div>
         </a>
@@ -7293,7 +7311,7 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
             <div class="lcd-tile-body">
                 <div class="lcd-tile-title" style="color:#94a3b8;">Not yet configured</div>
-                <div class="lcd-tile-sub">No Google Meet link has been added for this class yet.</div>
+                <div class="lcd-tile-sub">No virtual training link has been added for this class yet.</div>
             </div>
         </div>
         <?php endif; ?>
@@ -12378,7 +12396,7 @@ $_apiCategories = array(
                     array('name' => 'actor', 'type' => 'object', 'required' => true, 'description' => '{ id: "wa:+65...", name, role? } - requester identity for the audit log'),
                     array('name' => 'dry_run', 'type' => 'bool', 'required' => false, 'description' => 'true = preview (returns diff + change_token); omit/false = commit'),
                     array('name' => 'change_token', 'type' => 'string', 'required' => false, 'description' => 'Required on commit - the token from the matching preview'),
-                    array('name' => '(op fields)', 'type' => 'various', 'required' => false, 'description' => 'add_class: course_sku,start_date,end_date?,start_time?,end_time?,mode?,venue?,vacancy? / update_class + remove_class: class_id (+force) / assign_trainer: class_id,trainer,trainer_email? / add_date: course_sku,start_date,end_date?,start_time?,end_time? / update_date: course_sku,start_date,end_date?,new_start_date,new_end_date? / remove_date: course_sku,start_date,end_date?,force?'),
+                    array('name' => '(op fields)', 'type' => 'various', 'required' => false, 'description' => 'add_class: course_sku,start_date,end_date?,start_time?,end_time?,mode?,venue?,vacancy?,virtual_link? / update_class: class_id + any add_class field incl. virtual_link (Zoom/Meet URL) / remove_class: class_id (+force) / assign_trainer: class_id,trainer,trainer_email? / add_date: course_sku,start_date,end_date?,start_time?,end_time? / update_date: course_sku,start_date,end_date?,new_start_date,new_end_date? / remove_date: course_sku,start_date,end_date?,force?'),
                 ),
                 'notes' => array(
                     'COURSE CODE + EXACT DATE ARE MANDATORY and are never inferred. A missing/blank course_sku, or one that reads like a course NAME (contains a space, or has no digit) -> 400 course_ref_required. A well-formed but unknown code -> 404 not_found with NO suggested alternatives (a shortlist invites picking one). Missing class_id or one not shaped C###### -> 400 class_ref_required. A missing or non-YYYY-MM-DD date -> 400 validation_error. SKU lookup falls back to TRIM() so the few padded catalogue SKUs (" C1235") still resolve.',
@@ -12909,6 +12927,12 @@ if ($_cncActive) {
                     <input type="email" id="cnc-admin-email" class="cnc-input" placeholder="admin@example.com" />
                 </div>
             </div>
+            <div class="cnc-row">
+                <div class="cnc-field cnc-field-full">
+                    <label class="cnc-label" for="cnc-virtual-link">Virtual Training Link</label>
+                    <input type="url" id="cnc-virtual-link" class="cnc-input" placeholder="https://zoom.us/... — leave blank for a virtual class to get a Google Meet link automatically" />
+                </div>
+            </div>
         </div>
 
         <!-- Vacancy -->
@@ -13054,6 +13078,7 @@ window.cncSubmit = function(ev) {
     fd.append('wheelchair',        val('cnc-wheelchair'));
     fd.append('mode_of_training',  val('cnc-mode'));
     fd.append('admin_email',       val('cnc-admin-email'));
+    fd.append('virtual_link',      val('cnc-virtual-link'));
     fd.append('vacancy',           val('cnc-vacancy'));
     var btn = ev.target.querySelector('.cnc-btn-primary');
     if (btn) { btn.disabled = true; btn.textContent = 'Creating...'; }

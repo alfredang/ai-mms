@@ -205,6 +205,14 @@
                 <schedule><cron_expr>* * * * *</cron_expr></schedule>
                 <run><model>mmd_rolemanager/cron_classFormation::run</model></run>
             </mmd_rolemanager_class_formation>
+            <!-- Google Calendar sync — every 15 min. Links each upcoming class
+                 to its site-calendar event, creating it (with a Meet link for a
+                 virtual class that has none) when missing. No-op without the
+                 service-account key. Kill switch: mmd/gcal_sync/enabled = 0. -->
+            <mmd_rolemanager_gcal_sync>
+                <schedule><cron_expr>*/15 * * * *</cron_expr></schedule>
+                <run><model>mmd_rolemanager/cron_googleCalendarSync::run</model></run>
+            </mmd_rolemanager_gcal_sync>
             <!-- Trainer invitation auto-sweep — Mon & Thu at 10:00 SGT.
                  Finds upcoming classes (within 30 days) with enrolled learners
                  but no trainer and no pending invitation, then sends the next

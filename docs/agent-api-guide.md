@@ -257,7 +257,7 @@ C-course has no classes yet, and it still belongs to the class ops.
 
 ### op: add_class
 Fields: `course_sku` (req), `start_date` (req), `end_date?` (defaults to start), `start_time?`,
-`end_time?`, `mode?`, `venue?`, `vacancy?`.
+`end_time?`, `mode?`, `venue?`, `vacancy?`, `virtual_link?`.
 
 **Use case — "Add a Python class on 15 Aug"**
 > User (Sylvia): "Add a class for C520 on 15 August, physical."
@@ -280,12 +280,19 @@ Fields: `course_sku` (req), `start_date` (req), `end_date?` (defaults to start),
     and tied to no template.
 - **`409 conflict`** — a class already exists for that course+date. Nothing to do.
 - `add_class` does **not** set a trainer — follow with `assign_trainer`.
+- **Online class link → `virtual_link`.** When the user gives a Zoom / Meet / Teams link for a
+  virtual class, pass it as `virtual_link` (a full `http(s)://` URL, else `400 validation_error`).
+  It belongs to that ONE class and shows on the trainer's and learners' "Virtual Training Link"
+  card. Don't put a class's link anywhere course-level. If a virtual class has no link, the
+  backend's Google Calendar sync (every 15 min) creates the calendar event with a Google Meet
+  link and saves it to the class automatically.
 - A newly added class starts with an **empty roster**. Learner enrolments are materialised from
   actual orders by a backend job (~1 min after a booking), not by this call.
 
 ### op: update_class
 Fields: `class_id` (req) + any of `start_date`, `end_date`, `start_time`, `end_time`, `mode`,
-`venue`, `vacancy`. Send only what changes.
+`venue`, `vacancy`, `virtual_link`. Send only what changes. (Use `virtual_link` to add or
+replace an online class's Zoom / Meet link after the class exists.)
 
 **Edge cases**
 - Changing the **date** re-labels the bookable date and takes ownership of it (stays durable).

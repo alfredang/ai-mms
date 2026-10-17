@@ -915,7 +915,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
      *       end_date, reg_open_date, reg_close_date, venue_block,
      *       venue_street, venue_building, venue_floor, venue_unit,
      *       postal_code, room, wheelchair (Yes/No), mode_of_training
-     *       (1-4), admin_email, vacancy (A/L/F)
+     *       (1-4), admin_email, virtual_link (Zoom/Meet URL), vacancy (A/L/F)
      * Returns JSON { success, product_id?, run_id?, message? }
      */
     public function createNewClassAction()
@@ -998,6 +998,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 'wheelchair'        => strtolower(trim((string) $req->getParam('wheelchair'))) === 'yes' ? 1 : 0,
                 'mode_of_training'  => (int) $req->getParam('mode_of_training') ?: 1,
                 'admin_email'       => trim((string) $req->getParam('admin_email')),
+                'virtual_link'      => preg_match('#^https?://\S+$#', trim((string) $req->getParam('virtual_link'))) ? trim((string) $req->getParam('virtual_link')) : null,
                 'vacancy'           => substr(strtoupper(trim((string) $req->getParam('vacancy'))), 0, 1) ?: 'A',
                 'created_by'        => (($_u = Mage::getSingleton('admin/session')->getUser()) ? strtolower(trim((string) $_u->getEmail())) : ''),
             );

@@ -289,6 +289,7 @@ C-course has no runs and must still route to the class ops, or it would pick up 
 | `mode` | string | no | `Physical Classroom` \| `Virtual` (default Physical) |
 | `venue` | string | no | - |
 | `vacancy` | string | no | `A`\|`L`\|`F` (default `A`) |
+| `virtual_link` | string | no | Zoom / Google Meet / Teams URL for this class (`http(s)://…`, else `400`). Shown on the class page's "Virtual Training Link" card. Leave out for a virtual class to get a Google Meet link from the calendar sync. |
 | `start_time`, `end_time` | string | conditionally | Normally optional, but **required** when bootstrapping a not-yet-scheduled course (see above). |
 
 To set the trainer, follow with `assign_trainer` (add_class does not take a trainer).
@@ -310,6 +311,7 @@ Commit returns the new `class_id` in `target`.
 | `mode` | string | no | `Physical Classroom` \| `Virtual` |
 | `venue` | string | no | - |
 | `vacancy` | string | no | `A`\|`L`\|`F` |
+| `virtual_link` | string | no | Zoom / Google Meet / Teams URL (`http(s)://…`) |
 
 Provide only the fields you want to change. Changing the date re-labels the learner-facing
 "Course Date" and marks it admin-managed (durable). To change the trainer, use `assign_trainer`.

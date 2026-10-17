@@ -155,10 +155,17 @@ class MMD_Email_Helper_Gmail extends Mage_Core_Helper_Abstract
      * sign a JWT (RS256) claiming iss = the SA, sub = the impersonated
      * mailbox, scope = gmail.send, then swap it at the token endpoint.
      *
+     * @param string $scope OAuth scope to request (default gmail.send); the
+     *                      Google Calendar sync passes the calendar scope.
      * @return string Access token
      * @throws Exception
      */
-    protected function _getServiceAccountToken()
+    public function getServiceAccountToken($scope = self::SA_SCOPE)
+    {
+        return $this->_getServiceAccountToken($scope);
+    }
+
+    protected function _getServiceAccountToken($scope = self::SA_SCOPE)
     {
         $key  = $this->_saKey();
         $user = trim((string) Mage::getStoreConfig('mmd_email/google/user'));
@@ -174,7 +181,7 @@ class MMD_Email_Helper_Gmail extends Mage_Core_Helper_Abstract
             . '.' . $b64url(json_encode(array(
                 'iss'   => $key['client_email'],
                 'sub'   => $user,
-                'scope' => self::SA_SCOPE,
+                'scope' => $scope,
                 'aud'   => 'https://oauth2.googleapis.com/token',
                 'iat'   => $now,
                 'exp'   => $now + 3600,
