@@ -299,6 +299,60 @@ input.button,
     display: none !important;
 }
 
+/* Homepage featured slider — star rating row just above Register Now.
+   Every tile renders .home-rating (empty when the course has no reviews)
+   at a fixed height, so rated and unrated tiles keep their buttons on
+   the same baseline. Gold Unicode stars match the product-view stars. */
+.itemslider .home-rating {
+    height: 20px;
+    margin: 0 0 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.itemslider .home-rating .ratings {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+}
+.itemslider .home-rating .rating-box {
+    display: inline-block;
+    position: relative;
+    width: 90px;
+    height: 16px;
+    margin: 0;
+    background: none !important;
+    font-size: 16px;
+    line-height: 1;
+    color: #d1d5db;
+    letter-spacing: 2px;
+    text-indent: 0;
+    white-space: nowrap;
+    overflow: hidden;
+}
+.itemslider .home-rating .rating-box::before { content: "\2605\2605\2605\2605\2605"; }
+.itemslider .home-rating .rating-box .rating {
+    position: absolute;
+    top: 0;
+    left: 0;
+    float: none;
+    height: 100%;
+    background: none !important;
+    color: #f5b301;
+    font-size: inherit;
+    line-height: 1;
+    overflow: hidden;
+    white-space: nowrap;
+}
+.itemslider .home-rating .rating-box .rating::before { content: "\2605\2605\2605\2605\2605"; }
+.itemslider .home-rating .amount {
+    font-size: 12px;
+    line-height: 1;
+    color: #6b7280;
+    text-transform: none;
+}
+
 /* The button is wrapped in a <p> by Ultimo. Centre the inline-block
    pill inside that block-level paragraph so it sits middle of the
    card instead of left-aligned. */

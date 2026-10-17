@@ -420,7 +420,8 @@
 
             <h3 class="product-name"><a href="<?php echo $_product->getProductUrl() ?>" title="<?php echo $this->stripTags($_product->getName(), null, true) ?>"><?php echo $_helper->productAttribute($_product, $_product->getName(), 'name') ?></a></h3>
 
-            <?php /* Ratings hidden on homepage featured slider so Register Now buttons align */ ?>
+            <?php /* Fixed-height rating row on every tile (empty when unrated) so Register Now buttons stay aligned */ ?>
+            <div class="home-rating"><?php if ($_product->getRatingSummary()) echo $this->getReviewsSummaryHtml($_product, 'short'); ?></div>
 
             <?php echo $this->getPriceHtml($_product, true, $hash) ?>
 
