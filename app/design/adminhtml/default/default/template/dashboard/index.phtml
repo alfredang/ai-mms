@@ -7587,6 +7587,7 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
                 <div style="background:#2563eb;padding:14px 18px;display:flex;align-items:center;gap:10px;">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1" ry="1"/><path d="M9 12l2 2 4-4"/></svg>
                     <span style="color:#fff;font-size:14px;font-weight:700;">Course Feedback</span>
+                    <button type="button" class="lcd-fb-zoom-btn" onclick="lcdFbQrZoom()" title="Expand QR code to full window" aria-label="Expand QR code to full window"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/><path d="M11 8v6M8 11h6"/></svg></button>
                 </div>
                 <div style="padding:24px;text-align:center;">
                     <div style="background:#fff;border-radius:8px;padding:12px;display:inline-block;margin-bottom:16px;">
@@ -7595,7 +7596,7 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
                                  image service rate-limits and intermittently returned
                                  nothing, leaving a blank white box. The external URL
                                  remains only as a fallback if the lib fails to load. */ ?>
-                        <div id="lcd-fb-qr" style="width:180px;height:180px;"></div>
+                        <div id="lcd-fb-qr" onclick="lcdFbQrZoom()" title="Click to expand" style="width:180px;height:180px;cursor:zoom-in;"></div>
                         <script type="text/javascript">
                         (function () {
                             function draw() {
@@ -7609,6 +7610,41 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
                             }
                             if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', draw);
                             else draw();
+
+                            // Full-window QR for projecting to the class. The QR box
+                            // is a fixed CSS-px size capped by the viewport, so the
+                            // trainer's Ctrl/Cmd + grows it (centred) until it fills
+                            // the window. Appended to <body> so no transformed /
+                            // collapsible ancestor can clip the fixed overlay.
+                            window.lcdFbQrZoom = function () {
+                                var ov = document.getElementById('lcd-fb-qr-overlay');
+                                if (!ov) {
+                                    ov = document.createElement('div');
+                                    ov.id = 'lcd-fb-qr-overlay';
+                                    ov.setAttribute('role', 'dialog');
+                                    ov.setAttribute('aria-modal', 'true');
+                                    ov.setAttribute('aria-label', 'Course Feedback QR code');
+                                    ov.innerHTML = '<button type="button" class="lcd-fb-qr-close" title="Close (Esc)" aria-label="Close">&times;</button>'
+                                        + '<div class="lcd-fb-qr-title">Scan to share your feedback</div>'
+                                        + '<div class="lcd-fb-qr-big"></div>'
+                                        + '<div class="lcd-fb-qr-meta">' + <?php echo json_encode(htmlspecialchars($_fbUrl) . '<br>Course Code: <strong>' . htmlspecialchars($_fbSku ?: '—') . '</strong> &nbsp;·&nbsp; Course Run ID: <strong>' . htmlspecialchars($_fbClassId ?: '—') . '</strong>') ?> + '</div>';
+                                    document.body.appendChild(ov);
+                                    var big = ov.querySelector('.lcd-fb-qr-big');
+                                    if (window.QRCode) {
+                                        new QRCode(big, { text: <?php echo json_encode($_fbUrl) ?>, width: 1024, height: 1024, correctLevel: QRCode.CorrectLevel.M });
+                                    } else {
+                                        big.innerHTML = '<img src="https://api.qrserver.com/v1/create-qr-code/?size=1024x1024&data=<?php echo urlencode($_fbUrl) ?>" alt="Course Feedback QR" />';
+                                    }
+                                    ov.addEventListener('click', function (e) {
+                                        if (e.target === ov || e.target.className === 'lcd-fb-qr-close') ov.style.display = 'none';
+                                    });
+                                    document.addEventListener('keydown', function (e) {
+                                        if (e.key === 'Escape' && ov.style.display !== 'none') ov.style.display = 'none';
+                                    });
+                                }
+                                ov.style.display = 'flex';
+                                ov.querySelector('.lcd-fb-qr-close').focus();
+                            };
                         })();
                         </script>
                     </div>

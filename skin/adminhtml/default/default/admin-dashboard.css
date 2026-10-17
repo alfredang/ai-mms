@@ -1247,6 +1247,24 @@ div.dce-value::-webkit-scrollbar-thumb:hover{background:#64748b}
 .lcd-feedback-cert-row>#course-feedback{flex:2 1 360px}
 .lcd-feedback-cert-row>#certificate{flex:3 1 540px}
 .lcd-feedback-cert-row .lcd-cert-table{display:block;overflow-x:auto}
+/* Course Feedback QR — zoom icon in the blue card head + full-window overlay.
+   The big QR is 560px but capped by the viewport, so Ctrl/Cmd + grows it
+   (centred) until it spans the window. */
+.admin-main .lcd-fb-zoom-btn{margin-left:auto !important;width:28px !important;height:28px !important;min-width:0 !important;min-height:0 !important;padding:0 !important;border:0 !important;border-radius:0 !important;background:transparent !important;background-image:none !important;box-shadow:none !important;text-shadow:none !important;color:#fff !important;cursor:zoom-in !important;display:inline-flex !important;align-items:center;justify-content:center;line-height:1 !important;font-size:0 !important;-webkit-appearance:none !important;appearance:none !important;transition:transform .15s ease,opacity .15s ease;opacity:.85}
+.admin-main .lcd-fb-zoom-btn:hover{opacity:1;transform:scale(1.1);background:transparent !important}
+.admin-main .lcd-fb-zoom-btn:focus-visible{outline:2px solid rgba(255,255,255,.6);outline-offset:2px;border-radius:4px !important}
+.admin-main .lcd-fb-zoom-btn > svg{width:18px !important;height:18px !important;display:block !important;flex:0 0 auto !important;pointer-events:none}
+#lcd-fb-qr-overlay{position:fixed;inset:0;z-index:100000;display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:16px;box-sizing:border-box;background:rgba(2,6,23,.94);overflow:auto;cursor:zoom-out}
+#lcd-fb-qr-overlay .lcd-fb-qr-big{width:min(560px,94vw,calc(100vh - 150px));aspect-ratio:1/1;flex:0 0 auto;background:#fff;border-radius:12px;padding:3%;box-sizing:border-box;cursor:default}
+#lcd-fb-qr-overlay .lcd-fb-qr-big canvas,#lcd-fb-qr-overlay .lcd-fb-qr-big img{width:100% !important;height:100% !important;image-rendering:pixelated}
+#lcd-fb-qr-overlay .lcd-fb-qr-title{color:#f1f5f9;font:700 22px/1.2 var(--font-sans,-apple-system,"Segoe UI",Arial,sans-serif);text-align:center}
+#lcd-fb-qr-overlay .lcd-fb-qr-meta{color:#94a3b8;font:400 13px/1.6 var(--font-sans,-apple-system,"Segoe UI",Arial,sans-serif);text-align:center;word-break:break-all;max-width:94vw}
+#lcd-fb-qr-overlay .lcd-fb-qr-meta strong{color:#f1f5f9}
+#lcd-fb-qr-overlay .lcd-fb-qr-close{position:fixed;top:14px;right:18px;width:40px !important;height:40px !important;min-width:0 !important;min-height:0 !important;padding:0 !important;border:0 !important;border-radius:8px !important;background:transparent !important;background-image:none !important;box-shadow:none !important;color:#cbd5e1 !important;font:300 34px/1 Arial,sans-serif !important;cursor:pointer !important}
+#lcd-fb-qr-overlay .lcd-fb-qr-close:hover{color:#fff !important;background:rgba(255,255,255,.08) !important}
+/* Ctrl/Cmd + shrinks the CSS viewport; once it is short, drop the caption so
+   the QR alone fills the window height instead of shrinking under the text. */
+@media (max-height:600px){#lcd-fb-qr-overlay .lcd-fb-qr-title,#lcd-fb-qr-overlay .lcd-fb-qr-meta{display:none}#lcd-fb-qr-overlay .lcd-fb-qr-big{width:min(94vw,92vh)}}
 .lcd-section-title{font-size:18px;font-weight:700;color:#fff;margin:0 0 14px;display:flex;align-items:center;justify-content:space-between}
 .lcd-section-title .lcd-caret{color:#60a5fa;cursor:pointer;transition:transform .2s}
 .lcd-tile{display:flex;align-items:center;gap:14px;background:#334155;border:1px solid #475569;border-radius:10px;padding:14px 16px;text-decoration:none !important;color:#e5e7eb;margin-bottom:8px;transition:background .15s;cursor:pointer}
