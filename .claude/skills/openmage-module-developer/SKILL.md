@@ -190,16 +190,14 @@ Apply locally:
 docker exec ai-mms-web-1 php /var/www/html/migrations/apply.php
 ```
 
-**Conditional statements (column/table guards, SG-only fixes) — the no-op is always `'DO 0'`, never `'SELECT 1'`:**
+Guarded (instance- or schema-conditional) statements use PREPARE, and the no-op branch is **always `'DO 0'`, never `'SELECT 1'`** — a SELECT result left unread makes the next statement fail with PDO 2014 on exactly the sites where the guard is false (every partner site for an SG guard; GH outage 2026-10-19, migration 1692):
 
 ```sql
-SET @sql := IF(@has = 0,
-    'ALTER TABLE mmd_foo_thing ADD COLUMN `note` VARCHAR(255) NULL DEFAULT NULL',
-    'DO 0');
-PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql := IF(@mms_instance = 'SG', 'UPDATE …', 'DO 0');
+PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 ```
 
-`apply.php` runs each statement with `PDO::exec()`; a prepared `SELECT` leaves an unread result set and the next statement fails with error 2014, aborting every later migration and crash-looping the container (Ghana outage 2026-10-19, migration 1692). The no-op branch only runs on *other* sites, so a local SG apply never catches it — also run the file with `@mms_instance` set to `'GH'` before shipping.
+Localhost is SG, so it only exercises the TRUE branch. Test the FALSE branch too (e.g. re-run the statements with the condition forced false) before shipping.
 
 ## Models & resource models
 

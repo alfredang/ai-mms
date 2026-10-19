@@ -161,7 +161,21 @@ foreach ($pending as $f) {
             $stmt = trim($stmt);
             if ($stmt === '') continue;
             try {
-                $pdo->exec($stmt);
+                // A statement that returns rows (a guard's `'SELECT 1'` no-op run via
+                // EXECUTE, or a bare SELECT) must have its result drained: exec() leaves
+                // it unread and the NEXT statement dies with PDO 2014, aborting the chain
+                // (GH outage 2026-10-19, migration 1692). Leading comments are skipped
+                // only for the keyword check.
+                $head = preg_replace('~^(\s*(--[^\n]*|#[^\n]*|/\*.*?\*/))*\s*~s', '', $stmt);
+                if (preg_match('/^(EXECUTE|SELECT|SHOW|CALL)\b/i', $head)) {
+                    $res = $pdo->query($stmt);
+                    if ($res->columnCount() > 0) {
+                        $res->fetchAll();
+                    }
+                    $res->closeCursor();
+                } else {
+                    $pdo->exec($stmt);
+                }
             } catch (PDOException $stmtErr) {
                 $code = (int)($stmtErr->errorInfo[1] ?? 0);
                 if ($tolerantMode && in_array($code, $tolerantErrors, true)) {

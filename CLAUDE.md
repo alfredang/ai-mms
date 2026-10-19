@@ -179,6 +179,15 @@ Before `git push`:
      `WHERE LENGTH(col) = CHAR_LENGTH(col)`. `QUOTE()` does NOT fix this — the
      bytes are invalid UTF-8, not an escaping problem. (Real outage 2026-06-05;
      see memory `feedback_migration_applyphp_utf8_outage`.)
+   - **Guarded statements: the no-op branch is `'DO 0'`, never `'SELECT 1'`.**
+     `IF(@mms_instance='SG', 'UPDATE …', 'SELECT 1')` passes on SG (localhost + prod
+     take the TRUE branch) but on every partner the `EXECUTE`d SELECT leaves an unread
+     result → next statement fails with PDO 2014 → chain aborts → site down. Real
+     outage 2026-10-19: migration 1692 took **Ghana fully down** (503) on its first
+     deploy in 7 weeks. `apply.php` now drains row-returning statements as a safety net,
+     but write `'DO 0'` anyway and check `grep -n "'SELECT" migrations/NNN-*.sql`.
+     A localhost dry-run never exercises the partner (guard-FALSE) path — reason about
+     it explicitly. See memory `feedback_migration_prepare_select1_noop_breaks_applyphp`.
    - **Search-term redirect migrations specifically** (`catalogsearch_query.redirect`):
      restore/remap is data-only, never code. Validate every target returns
      200/302 on **its own store domain** (SG→com.sg, MY→com.my, GH→com.gh)
@@ -322,7 +331,6 @@ Current `.dockerignore` excludes `media/` then re-includes the small theme dirs 
 - `apply.php` uses a `schema_migrations` ledger so each `.sql` runs at most once per DB.
 - On first-run against a pre-existing production DB (no ledger yet, `admin_user` already populated), `apply.php` enters **tolerant mode** and swallows idempotency errors (MySQL 1050/1051/1060/1061/1068/1091) for that single run so previously-applied DDL doesn't abort the chain. Future runs are strict.
 - Keep new migrations idempotent anyway (`INSERT IGNORE`, `ON DUPLICATE KEY UPDATE`, etc.) — safer on re-runs.
-- **The no-op branch of a guarded `PREPARE` is always `'DO 0'`, never `'SELECT 1'`.** `apply.php` uses `PDO::exec()`, so a prepared `SELECT` leaves an unread result and the next statement fails (error 2014) — the chain aborts and the container crash-loops on every site that takes the no-op branch (Ghana outage 2026-10-19, migration 1692). Test guarded migrations with `@mms_instance` set to a non-SG code too.
 - **Every SG-content migration must be SG-guarded** (`@is_sg`) — blog posts, course copy, funding text, redirects. Migrations run on every partner DB too: 13 unguarded blog migrations (e.g. `1087`, `1088`, `307`, `311`) published ~21 Singapore WSQ/SkillsFuture blog posts on `.com.my`.
 
 ### Deployment
