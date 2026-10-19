@@ -7966,6 +7966,7 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
         </div>
         <?php else: ?>
         <div class="lmc-grid" id="lmc-grid">
+            <?php $_lmcDsv = Mage::app()->getDefaultStoreView(); $_lmcIsMy = $_lmcDsv && $_lmcDsv->getCode() === 'malaysia'; // MY: every course is HRD Corp claimable ?>
             <?php foreach ($_learnerCourses as $_c): ?>
             <a class="lmc-card" href="<?php echo $_c['detail_url'] ?>" data-time="<?php echo $_c['time_status'] ?>" data-search="<?php echo strtolower($_c['name'] . ' ' . $_c['sku']) ?>">
                 <div class="lmc-card-img-wrap">
@@ -8009,7 +8010,9 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
                     </div>
                     <div class="lmc-card-row">
                         <span class="lmc-card-label">Course Type</span>
-                        <?php if (!empty($_c['course_type'])): ?>
+                        <?php if ($_lmcIsMy): ?>
+                        <span class="lmc-badge">HRD Corp Claimable</span>
+                        <?php elseif (!empty($_c['course_type'])): ?>
                         <span class="lmc-badge"><?php echo htmlspecialchars($_c['course_type']) ?></span>
                         <?php else: ?>
                         <span class="lmc-card-value">Standard</span>

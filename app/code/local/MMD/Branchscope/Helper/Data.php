@@ -55,7 +55,25 @@ class MMD_Branchscope_Helper_Data extends Mage_Core_Helper_Abstract
         // URL. We intentionally do NOT honour session-stickiness here —
         // every fresh page load reverts to Singapore so the active branch
         // never silently follows the user across unrelated pages.
-        return self::DEFAULT_STORE_ID;
+        return $this->_getDefaultStoreId();
+    }
+
+    /**
+     * Singapore (1) where it exists. A single-store partner site has no
+     * store 1 (MY = 2, GH = 3), so defaulting to 1 filtered every
+     * store-scoped admin grid (Registrations, invoices, leads, dashboard)
+     * down to zero rows there — use the site's own first store instead.
+     *
+     * @return int
+     */
+    protected function _getDefaultStoreId()
+    {
+        $stores = Mage::app()->getStores(); // non-admin stores, keyed by id
+        if (empty($stores) || isset($stores[self::DEFAULT_STORE_ID])) {
+            return self::DEFAULT_STORE_ID;
+        }
+        ksort($stores);
+        return (int) key($stores);
     }
 
     /**
