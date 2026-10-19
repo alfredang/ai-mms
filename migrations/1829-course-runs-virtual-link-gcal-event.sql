@@ -16,7 +16,7 @@ SET @has := (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
                AND COLUMN_NAME = 'virtual_link');
 SET @sql := IF(@has = 0,
     'ALTER TABLE course_runs ADD COLUMN `virtual_link` VARCHAR(512) NULL DEFAULT NULL AFTER `mode_of_training`',
-    'SELECT 1');
+    'DO 0');
 PREPARE stmt FROM @sql;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
@@ -27,7 +27,7 @@ SET @has := (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
                AND COLUMN_NAME = 'gcal_event_id');
 SET @sql := IF(@has = 0,
     'ALTER TABLE course_runs ADD COLUMN `gcal_event_id` VARCHAR(255) NULL DEFAULT NULL AFTER `virtual_link`',
-    'SELECT 1');
+    'DO 0');
 PREPARE stmt FROM @sql;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
