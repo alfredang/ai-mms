@@ -190,6 +190,17 @@ Apply locally:
 docker exec ai-mms-web-1 php /var/www/html/migrations/apply.php
 ```
 
+**Conditional statements (column/table guards, SG-only fixes) — the no-op is always `'DO 0'`, never `'SELECT 1'`:**
+
+```sql
+SET @sql := IF(@has = 0,
+    'ALTER TABLE mmd_foo_thing ADD COLUMN `note` VARCHAR(255) NULL DEFAULT NULL',
+    'DO 0');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+```
+
+`apply.php` runs each statement with `PDO::exec()`; a prepared `SELECT` leaves an unread result set and the next statement fails with error 2014, aborting every later migration and crash-looping the container (Ghana outage 2026-10-19, migration 1692). The no-op branch only runs on *other* sites, so a local SG apply never catches it — also run the file with `@mms_instance` set to `'GH'` before shipping.
+
 ## Models & resource models
 
 ```php

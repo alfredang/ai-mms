@@ -45,6 +45,8 @@ Rules for new migrations:
 
   Often the right answer is to drop the flat write entirely and write EAV only, letting the post-deploy reindex propagate it.
 
+- **The PREPARE no-op must be `'DO 0'` — never `'SELECT 1'` (or any `SELECT`) — CRITICAL, this causes total outages.** `apply.php` runs every statement with `PDO::exec()`. A prepared `SELECT` returns a result set that is never read, so the *next* statement (`DEALLOCATE PREPARE`) fails with `SQLSTATE[HY000] 2014 Cannot execute queries while other unbuffered queries are active`, the chain aborts and the container crash-loops. It hides on SG because SG takes the real branch; it fires on every site that takes the no-op branch (partner sites for SG-only fixes, or any DB where an `ALTER ... ADD COLUMN` guard finds the column already there). Real outage 2026-10-19: migration 1692 (`IF(@mms_instance='SG', 'UPDATE ...', 'SELECT 1')`) kept Ghana's site down ("no available server") until fixed to `'DO 0'`. **Reject on sight**: `'SELECT 1'`, `'SELECT 0'` or any `SELECT` as either branch of an `IF(...)` that feeds `PREPARE`. Test the no-op branch before shipping — run the file's statements with `@mms_instance` set to a non-SG code (e.g. `'GH'`) using the same PDO options as `apply.php` (`ERRMODE_EXCEPTION`, `EMULATE_PREPARES=false`, `exec()` per statement).
+
 ### 4. Never commit credentials or runtime artefacts
 
 Reject any diff that adds:
