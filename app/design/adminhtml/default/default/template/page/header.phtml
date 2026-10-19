@@ -142,8 +142,9 @@ $roleIcons = array(
 <div class="header-top lms-header">
     <div class="header-left-brand">
         <a href="<?php echo $this->getUrl('adminhtml/dashboard') ?>" class="header-brand-link">
-            <img src="<?php echo $this->getSkinUrl('images/admin-logo.png') ?>" alt="Tertiary Infotech Academy" class="header-brand-img" />
-            <span class="header-brand-text">Tertiary Infotech Academy</span>
+            <?php $_dsv = Mage::app()->getDefaultStoreView(); $_brandName = $_dsv && $_dsv->getCode() === 'malaysia' ? 'Tertiary Courses Malaysia' : 'Tertiary Infotech Academy'; ?>
+            <img src="<?php echo $this->getSkinUrl('images/admin-logo.png') ?>" alt="<?php echo $_brandName ?>" class="header-brand-img" />
+            <span class="header-brand-text"><?php echo $_brandName ?></span>
         </a>
     </div>
 
