@@ -44,6 +44,7 @@ Rules for new migrations:
   ```
 
   Often the right answer is to drop the flat write entirely and write EAV only, letting the post-deploy reindex propagate it.
+- **A guard's no-op branch is `'DO 0'` — reject `'SELECT 1'` (or any `'SELECT …'`) on sight.** `EXECUTE` of a SELECT returns a result set; the next statement then dies with PDO `2014 Cannot execute queries while other unbuffered queries are active`. It never fires where the guard is TRUE (SG localhost, SG prod), only where it is FALSE — i.e. **every partner site** for an `@mms_instance='SG'` / `@is_sg` guard. Real outage 2026-10-19: migration 1692's `IF(@c904_flat_ok, 'UPDATE …', 'SELECT 1')` passed on SG and took Ghana fully down (503). `apply.php` now drains row-returning statements, but still write `'DO 0'` — it is the documented no-op and works under any runner. Check: `grep -n "'SELECT" migrations/NNN-*.sql` must show no IF() else-branch.
 
 ### 4. Never commit credentials or runtime artefacts
 
