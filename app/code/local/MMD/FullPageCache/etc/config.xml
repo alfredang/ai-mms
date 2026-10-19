@@ -1,0 +1,68 @@
+<?xml version="1.0"?>
+<!--
+  MMD_FullPageCache — site speed Step 5 (approved by Mr Saeid for Malaysia STAGING testing, 16 Oct 2026).
+  Server-side cache of whole public pages for anonymous visitors (home, category, course, blog, CMS), stored in the
+  normal Magento cache backend (Redis on the live sites) under the "Full Page Cache (MMD)" cache type.
+
+  OFF unless BOTH switches are on (either one is the instant rollback, no deploy):
+    1. config mmd_fpc/general/enabled = 1 (default 0; set per website/store)
+    2. cache type "Full Page Cache (MMD)" enabled in System > Cache Management (new cache types start disabled)
+  See Model/Observer.php for what is / is never cached and how the cache is cleared.
+-->
+<config>
+    <modules><MMD_FullPageCache><version>1.0.0</version></MMD_FullPageCache></modules>
+    <global>
+        <models><mmd_fpc><class>MMD_FullPageCache_Model</class></mmd_fpc></models>
+        <cache>
+            <types>
+                <mmd_fpc translate="label,description" module="core">
+                    <label>Full Page Cache (MMD)</label>
+                    <description>Whole public pages for anonymous visitors (site speed Step 5).</description>
+                    <tags>MMD_FPC</tags>
+                </mmd_fpc>
+            </types>
+        </cache>
+        <events>
+            <!-- clear the page cache when anything shown on public pages is saved/deleted (admin, API, cron, sync, CLI) -->
+            <model_save_after>
+                <observers><mmd_fpc_clean><class>mmd_fpc/observer</class><method>cleanOnModelChange</method></mmd_fpc_clean></observers>
+            </model_save_after>
+            <model_delete_after>
+                <observers><mmd_fpc_clean><class>mmd_fpc/observer</class><method>cleanOnModelChange</method></mmd_fpc_clean></observers>
+            </model_delete_after>
+            <!-- any admin POST (covers admin screens that write with SQL instead of models) + write APIs -->
+            <controller_action_postdispatch>
+                <observers><mmd_fpc_clean_post><class>mmd_fpc/observer</class><method>cleanOnWriteRequest</method></mmd_fpc_clean_post></observers>
+            </controller_action_postdispatch>
+        </events>
+    </global>
+    <frontend>
+        <events>
+            <controller_action_predispatch>
+                <observers><mmd_fpc_serve><class>mmd_fpc/observer</class><method>serve</method></mmd_fpc_serve></observers>
+            </controller_action_predispatch>
+            <controller_front_send_response_before>
+                <observers><mmd_fpc_store><class>mmd_fpc/observer</class><method>store</method></mmd_fpc_store></observers>
+            </controller_front_send_response_before>
+        </events>
+    </frontend>
+    <crontab>
+        <jobs>
+            <!-- cron runs on store time (Malaysia/Singapore, UTC+8), but the course page decides "today" in UTC (Magento sets
+                 PHP to UTC), so a date whose cut-off has passed disappears at 08:00 local, not 00:00. Clear at both: 00:00
+                 (the agreed nightly clear) and 08:00 (when expired dates actually drop off). Magento cron runs every minute. -->
+            <mmd_fpc_daily_clean>
+                <schedule><cron_expr>0 0,8 * * *</cron_expr></schedule>
+                <run><model>mmd_fpc/observer::cleanAll</model></run>
+            </mmd_fpc_daily_clean>
+        </jobs>
+    </crontab>
+    <default>
+        <mmd_fpc>
+            <general>
+                <enabled>0</enabled>
+                <lifetime>1800</lifetime>
+            </general>
+        </mmd_fpc>
+    </default>
+</config>
