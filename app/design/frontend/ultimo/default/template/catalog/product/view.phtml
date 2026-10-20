@@ -450,7 +450,9 @@
 		}
 		$_titleSrc = preg_replace('#^.*?follows\s+the\s+guideline\s+of\s+#iu', '', $_titleSrc);
 		$_titleSrc = preg_replace('#\s+under\s+.*?Skills\s+Framework\s*\.?\s*$#iu', '', $_titleSrc);
-		$_skillsTitle = trim($_titleSrc);
+		// "{Code}: {Title}" bodies leave the ": " separator in front once the
+		// code is sliced out — drop it so the card doesn't show ": Title".
+		$_skillsTitle = trim(preg_replace('#^[\s:\x{2013}\x{2014}-]+#u', '', $_titleSrc));
 	}
 
 	// (4a) CASL Skills — CASL re-registrations (name prefix "CASL") list the
