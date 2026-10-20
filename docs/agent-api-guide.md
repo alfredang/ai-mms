@@ -39,6 +39,12 @@ the rules, every endpoint, realistic chat scenarios, and the edge cases that bit
 - All write endpoints are `POST`, `Content-Type: application/json`.
 - Auth: header `X-API-Key: <secret>` (the same key you use for the read endpoints). Missing
   server key → `503 api_disabled`; wrong key → `401 unauthorized`.
+- **A bare `403` with the body `Forbidden` (no JSON) is not the API refusing you** — it is the
+  site's bot filter, which used to reject any User-Agent containing `python` (so
+  `python-requests/…`) or an empty one, before the API ever ran. `/agent/api_*` and
+  `/courses/api_*` are exempt from it since 2026-10-21. If you still see a bare `Forbidden`, send
+  your own User-Agent (e.g. `User-Agent: Kael-OpenClaw/1.0`) and report it — don't tell the user the
+  API is down.
 
 ---
 
@@ -339,6 +345,28 @@ Fields: `class_id` (req), `trainer` (req — name or email), `trainer_email?`.
 - If an existing trainer's **login is disabled**, the preview warns you. The assignment still
   applies — they just cannot sign in to see the class until an admin enables their account.
 
+**Use case — a trainer says "my class isn't under My Assigned Classes"**
+Check before you change anything, with the read-only lookup (GET, same `X-API-Key`):
+```
+GET /courses/api_trainer_classes?course_sku=C817&date=2026-10-23&trainer_email=afiq980@gmail.com
+```
+- `count: 0` → there is no class for that course on that date. Ask them for the course code and
+  date again; don't guess a neighbouring course or date.
+- A class with `assigned_to_trainer: true` → they are already assigned; the panel should show it
+  after they sign in again. Nothing to change.
+- `trainer` is someone else → **stop and hand to ops**. Never reassign a class away from another
+  trainer because a trainer asked.
+- `trainer: null` → unassigned. Tell the user the `class_id`, mention it if
+  `trainer.in_course_trainer_pool` is `false` (they aren't on that course's approved trainer list),
+  then run `assign_trainer` (preview → confirm → commit) and re-run the lookup to confirm
+  `assigned_to_trainer: true`.
+- `google_calendar_event: true` → the class already has a Google Calendar event. Assigning a
+  trainer does **not** add them to that existing invite, so tell them it will show in their MMS
+  trainer calendar and My Assigned Classes, but ops has to add them to the Google invite.
+
+`trainer_email` on its own lists that trainer's upcoming assigned classes. Without `date` you get
+every class ending today or later.
+
 ---
 
 ### The date ops — `TGS-` (WSQ) and `M-` (partner) courses
@@ -565,6 +593,12 @@ never-scheduled course). Fields: `template` (req), `course_sku` (req).
 1. `api_classes add_class { course_sku, start_date, mode }` → commit → note the new `class_id`.
 2. `api_classes assign_trainer { class_id, trainer }` → commit.
 
+**A2. A trainer can't see their class**
+1. `GET /courses/api_trainer_classes?course_sku=…&date=…&trainer_email=…` → get the `class_id`,
+   the current `trainer`, and `assigned_to_trainer`.
+2. Only if `trainer` is `null`: `api_classes assign_trainer { class_id, trainer:<email> }` → commit.
+3. Re-run step 1 and confirm `assigned_to_trainer: true` before telling the trainer it is done.
+
 **B. Rebrand a course's funding and fix the cover**
 1. `api_content set_badges { sku, badges:[...] }` → commit.
 2. `api_ops regenerate_image { sku }` → commit. (Order matters — badges first, image second.)
@@ -618,6 +652,7 @@ never-scheduled course). Fields: `template` (req), `course_sku` (req).
 | `POST /agent/api_content` | update_copy, set_badges | Copy + funding chips (`set_cms_section` = 501) |
 | `POST /agent/api_ops` | reindex, flush_cache, enable, disable, regenerate_image | Ops + cover render (`run_class_formation` = 501) |
 | `POST /agent/api_template` | generate_and_apply, assign_course | Bulk schedule to ALL products on a template; or add one course to a template |
+| `GET /courses/api_trainer_classes` | (read-only) | Find a class by `course_sku` + `date`, or list a `trainer_email`'s assigned classes; check `assigned_to_trainer` before and after `assign_trainer` |
 
 Every one: `dry_run:true` to preview, relay `human_summary` + `warnings`, `dry_run:false` +
 `change_token` to commit.

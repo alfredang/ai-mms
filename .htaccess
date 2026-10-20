@@ -624,6 +624,11 @@ SetEnvIfNoCase User-Agent "^RSiteAuditor" bad_bot
 SetEnvIfNoCase User-Agent "^Fish-Search-Robot" bad_bot
 SetEnvIfNoCase User-Agent "^Exabot" bad_bot
 SetEnvIfNoCase User-Agent "^MegaIndex" bad_bot
+# Key-gated machine APIs (X-API-Key auth) are exempt from the UA filter: the
+# Kael/OpenClaw agent calls them with python-requests, which "python" above
+# blocked with a bare 403 before auth ran. REDIRECT_ covers the index.php pass.
+SetEnvIf Request_URI "^/(agent|courses)/api_" mms_key_api !bad_bot
+SetEnvIf REDIRECT_mms_key_api "1" mms_key_api !bad_bot
 <Limit GET POST HEAD>
 Order Allow,Deny
 Allow from all

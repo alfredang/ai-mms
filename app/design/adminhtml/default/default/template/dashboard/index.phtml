@@ -12314,6 +12314,24 @@ $_apiCategories = array(
                 'exampleResponse' => "{\n  \"data\": {\n    \"trainer\": { \"id\": 42, \"name\": \"Sanjiv Venkatram\", \"email\": \"...\", \"telephone\": \"...\", \"area_of_expertise\": \"...\" },\n    \"upcoming_classes\": [{ \"course_sku\": \"C138\", \"start_date\": \"2026-07-24\", \"mode\": \"Classroom\" }],\n    \"upcoming_classes_count\": 1\n  }\n}",
             ),
             array(
+                'method' => 'GET', 'path' => '/courses/api_trainer_classes', 'authKey' => 'trainer',
+                'title' => 'Trainer Class Assignments API',
+                'description' => 'Who is assigned to which class, using the same rule as the trainer\'s My Assigned Classes panel. Lets the trainer-support agent (Kael) find the class_id for a course + date and verify a trainer before/after POST /agent/api_classes op=assign_trainer.',
+                'queryParams' => array(
+                    array('name' => 'trainer_email', 'type' => 'string', 'required' => false, 'description' => 'Alone: that trainer\'s upcoming assigned classes. With course_sku: flags each class assigned_to_trainer and adds in_course_trainer_pool.'),
+                    array('name' => 'course_sku', 'type' => 'string', 'required' => false, 'description' => 'Course code, e.g. C817. 404 if unknown.'),
+                    array('name' => 'date', 'type' => 'string', 'required' => false, 'description' => 'YYYY-MM-DD — classes running on that date (multi-day classes match on any day). Default: every class ending today or later.'),
+                ),
+                'notes' => array(
+                    'At least one of trainer_email / course_sku is required (400 otherwise). Read-only, never cached (Cache-Control: no-store), so a check straight after an assign_trainer commit shows the new trainer.',
+                    'Only C-prefix (non-WSQ) courses have classes; a TGS- course returns count 0.',
+                    'trainer.source is "account" (trainer_user_id) or "eav" (legacy trainer option). next_step is set when a class has no trainer.',
+                    'google_calendar_event = the class already has a Google Calendar event. The calendar sync only creates events, so assigning a trainer afterwards does NOT add them to the existing invite.',
+                ),
+                'exampleRequest' => "curl -H \"X-API-Key: <key>\" \\\n  \"__BASE_URL__/courses/api_trainer_classes?course_sku=C817&date=2026-10-23&trainer_email=trainer@example.com\"",
+                'exampleResponse' => "{\n  \"success\": true,\n  \"trainer\": { \"email\": \"trainer@example.com\", \"mms_account\": true, \"user_id\": 192, \"name\": \"...\",\n               \"login_active\": true, \"has_trainer_role\": true, \"in_course_trainer_pool\": false },\n  \"count\": 1,\n  \"classes\": [{\n    \"class_id\": \"C004058\", \"course_sku\": \"C817\", \"course_title\": \"Gemini for Google Sheet\",\n    \"start_date\": \"2026-10-23\", \"end_date\": \"2026-10-23\", \"start_time\": \"09:30\", \"end_time\": \"17:30\",\n    \"mode\": \"Physical Classroom\", \"virtual_link\": null, \"google_calendar_event\": true, \"learners_enrolled\": 2,\n    \"trainer\": null, \"latest_invitation\": null, \"assigned_to_trainer\": false,\n    \"next_step\": \"No trainer assigned. Use POST /agent/api_classes op=assign_trainer with class_id=C004058 ...\"\n  }]\n}",
+            ),
+            array(
                 'method' => 'GET / POST', 'path' => '/courses/api_courseware', 'authKey' => 'wsq',
                 'title' => 'Courseware URL API',
                 'description' => 'Read/write Google Drive links for a course\'s courseware (slides, lesson plan, learner guide, labs, brochure). POST is used by the courseware repos\' /lms-push command after a build.',

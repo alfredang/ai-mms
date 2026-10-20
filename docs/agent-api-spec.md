@@ -34,6 +34,9 @@ X-API-Key: <secret>
 
 - Missing/blank server-side key -> `503 api_disabled`.
 - Wrong key -> `401 unauthorized`.
+- A bare `403` body `Forbidden` (not JSON) is the site's User-Agent bot filter, not this API.
+  `/agent/api_*` and `/courses/api_*` are exempt since 2026-10-21; if it recurs, send your own
+  `User-Agent` header.
 
 The key identifies **you (the agent)** as a trusted caller. It does **not** identify the human
 who asked - that is the `actor` field (below), which you must always supply.
@@ -346,6 +349,28 @@ you the count first). v1 does not notify enrolled learners.
 - Email matching is `LOWER(TRIM(...))` on both sides everywhere, so the lookup and the backstop
   cannot disagree about whether an account exists.
 - If the assigned trainer's login is disabled, `warnings` says so; the assignment still applies.
+
+### Verifying an assignment - `GET /courses/api_trainer_classes` (read-only)
+
+Not part of the write protocol: a plain GET with the same `X-API-Key`, no `actor`, no token.
+Use it to find the `class_id` for a course + date and to confirm a trainer before and after
+`assign_trainer`. "Assigned" means the same as the trainer's My Assigned Classes panel.
+
+| Param | Required | Notes |
+|---|---|---|
+| `trainer_email` | one of the two | Alone: that trainer's upcoming assigned classes. With `course_sku`: adds `assigned_to_trainer` per class + `trainer.in_course_trainer_pool` |
+| `course_sku` | one of the two | `404 not_found` if unknown |
+| `date` | no | `YYYY-MM-DD`; classes running on that date (any day of a multi-day class). Default: classes ending today or later |
+
+Response: `trainer` (`mms_account`, `user_id`, `name`, `login_active`, `has_trainer_role`,
+`in_course_trainer_pool`) or `null`; `classes[]` with `class_id`, `course_sku`, `course_title`,
+dates/times, `mode`, `virtual_link`, `google_calendar_event`, `learners_enrolled`, `trainer`
+(`name`, `email`, `source` = `account`|`eav`) or `null`, `latest_invitation`,
+`assigned_to_trainer`, `next_step` (set when unassigned). Errors: `400 validation_error` (neither
+param / bad date), `401`, `404`. `Cache-Control: no-store`.
+
+`google_calendar_event: true` means the class already has a Google event; the calendar sync only
+creates events, so a trainer assigned afterwards is **not** added to that invite - tell ops.
 
 ---
 
