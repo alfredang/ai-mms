@@ -138,13 +138,32 @@ class MMD_FullPageCache_Model_Observer
 
     /**
      * whole page cache (cron job, sync, scripts). Every clear is logged to var/log/mmd_fpc.log with its reason, so the
-     * hit rate can be explained on live. (Cron passes a schedule object, not a string.)
+     * hit rate can be explained on live. (Cron passes a schedule object, not a string.) The same line also goes to the
+     * mmd_fpc_log table (migration 1832): var/ is wiped on every redeploy, the database is not.
      */
     public function cleanAll($reason = 'manual / cron')
     {
         Mage::app()->cleanCache(array(self::TAG));   // always (cheap), so nothing stale survives a later re-enable
         if (Mage::app()->useCache(self::TYPE)) {       // log only while the cache type is switched on (no noise on SG)
-            Mage::log('cleared: ' . (is_string($reason) ? $reason : 'nightly job'), Zend_Log::INFO, 'mmd_fpc.log');
+            $text = is_string($reason) ? $reason : 'nightly job';
+            Mage::log('cleared: ' . $text, Zend_Log::INFO, 'mmd_fpc.log');
+            $this->_logToDb($text, !is_string($reason));
+        }
+    }
+
+    /** Persistent copy of the clear log; never lets a logging problem break a clear. Nightly job keeps 180 days. */
+    protected function _logToDb($text, $prune)
+    {
+        try {
+            $res = Mage::getSingleton('core/resource');
+            $db  = $res->getConnection('core_write');
+            $t   = $res->getTableName('mmd_fpc_log');
+            $db->insert($t, array('created_at' => gmdate('Y-m-d H:i:s'), 'reason' => mb_substr((string) $text, 0, 255)));
+            if ($prune) {
+                $db->delete($t, array('created_at < ?' => gmdate('Y-m-d H:i:s', time() - 180 * 86400)));
+            }
+        } catch (Throwable $e) {   // Throwable, not Exception: a PHP Error must not break a clear either
+            Mage::log('mmd_fpc_log write failed: ' . $e->getMessage(), Zend_Log::WARN, 'mmd_fpc.log');
         }
     }
 
