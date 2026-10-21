@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<!-- Isolated Docker test database only; never use this as application configuration. -->
+<config><global><install><date>Wed, 01 Jan 2020 00:00:00 +0000</date></install>
+<crypt><key>local-handover-test-key-only</key></crypt><disable_local_modules>false</disable_local_modules>
+<resources><db><table_prefix></table_prefix></db><default_setup><connection>
+<host>mms-nonfunded-test-mysql</host><username>root</username><password>local-test-only</password><dbname>mms_handover_test</dbname>
+<initStatements>SET NAMES utf8</initStatements><model>mysql4</model><type>pdo_mysql</type><active>1</active>
+</connection></default_setup></resources><session_save>files</session_save>
+</global><admin><routers><adminhtml><args><frontName>handover-test-admin</frontName></args></adminhtml></routers></admin></config>

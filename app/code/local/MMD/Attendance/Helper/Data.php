@@ -32,6 +32,15 @@ class MMD_Attendance_Helper_Data extends Mage_Core_Helper_Abstract
      */
     public function sessionsForRun($run)
     {
+        $imported = Mage::helper('mmd_rolemanager/handover')->sessions(isset($run['run_id']) ? $run['run_id'] : 0);
+        if ($imported) {
+            $rows = array(); $days = array();
+            foreach ($imported as $s) {
+                if (!isset($days[$s['date']])) $days[$s['date']] = count($days) + 1;
+                $rows[] = array('key'=>$s['key'],'day'=>$days[$s['date']],'ampm'=>$s['start_time']<'12:00'?'AM':'PM','date'=>$s['date'],'start_time'=>$s['start_time'],'end_time'=>$s['end_time'],'label'=>date('D j M',strtotime($s['date'])) . ' ' . $s['start_time'] . '-' . $s['end_time']);
+            }
+            return $rows;
+        }
         $days = $this->classDaysForRun($run);
         if (empty($days)) {
             $start   = isset($run['course_start_date']) ? (string) $run['course_start_date'] : '';
@@ -74,6 +83,8 @@ class MMD_Attendance_Helper_Data extends Mage_Core_Helper_Abstract
      */
     public function classDaysForRun($run)
     {
+        $imported = Mage::helper('mmd_rolemanager/handover')->sessions(isset($run['run_id']) ? $run['run_id'] : 0);
+        if ($imported) return array_values(array_unique(array_column($imported, 'date')));
         $productId = (int) (isset($run['product_id']) ? $run['product_id'] : 0);
         $startYmd  = isset($run['course_start_date']) ? (string) $run['course_start_date'] : '';
         if ($productId <= 0 || $startYmd === '' || $startYmd === '0000-00-00') {
@@ -150,6 +161,14 @@ class MMD_Attendance_Helper_Data extends Mage_Core_Helper_Abstract
      */
     public function currentSessionKey($run)
     {
+        $imported = Mage::helper('mmd_rolemanager/handover')->sessions(isset($run['run_id']) ? $run['run_id'] : 0);
+        if ($imported) {
+            $now = Mage::getModel('core/date')->date('Y-m-d H:i');
+            foreach ($imported as $s) {
+                if ($now >= $s['date'] . ' ' . $s['start_time'] && $now <= $s['date'] . ' ' . $s['end_time']) return $s['key'];
+            }
+            return '';
+        }
         $sessions = $this->sessionsForRun($run);
         $today    = Mage::getModel('core/date')->date('Y-m-d');
         $hour     = (int) Mage::getModel('core/date')->date('H');
@@ -424,6 +443,8 @@ class MMD_Attendance_Helper_Data extends Mage_Core_Helper_Abstract
      */
     public function isWithinAttendanceWindow($run)
     {
+        if (!Mage::helper('mmd_rolemanager/handover')->isActive(isset($run['run_id']) ? $run['run_id'] : 0)) return false;
+        if (Mage::helper('mmd_rolemanager/handover')->isManaged(isset($run['run_id']) ? $run['run_id'] : 0)) return $this->currentSessionKey($run) !== '';
         $start = isset($run['course_start_date']) ? (string) $run['course_start_date'] : '';
         $end   = isset($run['course_end_date'])   ? (string) $run['course_end_date']   : '';
         if ($start === '' || $start === '0000-00-00') {

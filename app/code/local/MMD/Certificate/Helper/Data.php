@@ -57,7 +57,7 @@ class MMD_Certificate_Helper_Data extends Mage_Core_Helper_Abstract
         $today  = Mage::getModel('core/date')->date('Y-m-d');
         $cutoff = date('Y-m-d', strtotime('-' . (int)$daysBack . ' days'));
 
-        return $read->fetchCol(
+        $eligible = $read->fetchCol(
             "SELECT DISTINCT cr.run_id
                FROM `$runs` cr
                JOIN `$att` a ON a.run_id = cr.run_id AND a.is_present = 1
@@ -76,6 +76,7 @@ class MMD_Certificate_Helper_Data extends Mage_Core_Helper_Abstract
                 )",
             array($today, $cutoff)
         );
+        return array_values(array_filter($eligible, function($runId){return Mage::helper('mmd_rolemanager/handover')->isActive($runId);}));
     }
 
     /**
@@ -89,6 +90,7 @@ class MMD_Certificate_Helper_Data extends Mage_Core_Helper_Abstract
      */
     public function getEligibleLearners($runId, $run = null)
     {
+        if (!Mage::helper('mmd_rolemanager/handover')->isActive($runId)) return array();
         $res  = Mage::getSingleton('core/resource');
         $read = $res->getConnection('core_read');
         $att  = $res->getTableName('mmd_course_run_attendance');
@@ -122,6 +124,8 @@ class MMD_Certificate_Helper_Data extends Mage_Core_Helper_Abstract
 
         $eligible = array();
         foreach ($rows as $row) {
+            if (Mage::helper('mmd_rolemanager/handover')->isManaged($runId)
+                && !$read->fetchOne('SELECT enrolment_id FROM ' . $res->getTableName('course_run_enrolments') . ' WHERE run_id=? AND LOWER(learner_email)=?',array((int)$runId,strtolower($row['learner_email'])))) continue;
             if ((int)$row['present_sessions'] / $totalSessions > self::ATTENDANCE_THRESHOLD) {
                 unset($row['present_sessions']);
                 $eligible[] = $row;

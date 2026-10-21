@@ -105,6 +105,9 @@ class MMD_RoleManager_Model_Cron_GoogleCalendarSync
 
     protected function _syncRun(array $r, $dryRun)
     {
+        if (Mage::helper('mmd_rolemanager/handover')->isManaged($r['run_id'])) {
+            return $r['class_id'] . ': externally managed by TMS; existing Calendar events retained';
+        }
         $res   = Mage::getSingleton('core/resource');
         $write = $res->getConnection('core_write');
         $read  = $res->getConnection('core_read');

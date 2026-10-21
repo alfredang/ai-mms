@@ -406,6 +406,26 @@ class MMD_RoleManager_Model_CourseRunEnrolmentService
         $productId, $sku, $startDate, $endDate, $startTime, $endTime,
         Mage_Sales_Model_Order_Item $item
     ) {
+        $r = Mage::getSingleton('core/resource');
+        $write = $r->getConnection('core_write');
+        $lock = 'mmd-class-product-' . (int)$productId;
+        if (!(int)$write->fetchOne('SELECT GET_LOCK(?,15)',array($lock))) throw new RuntimeException('Class materialization is busy.');
+        $idLocked = false;
+        try {
+            // The C###### counter is shared across products, including TMS imports.
+            $idLocked = (bool)$write->fetchOne('SELECT GET_LOCK(?,15)',array('mmd-class-id'));
+            if (!$idLocked) throw new RuntimeException('Class ID allocator is busy.');
+            return $this->_findOrCreateRunUnlocked($productId,$sku,$startDate,$endDate,$startTime,$endTime,$item);
+        } finally {
+            if ($idLocked) $write->fetchOne('SELECT RELEASE_LOCK(?)',array('mmd-class-id'));
+            $write->fetchOne('SELECT RELEASE_LOCK(?)',array($lock));
+        }
+    }
+
+    private function _findOrCreateRunUnlocked(
+        $productId, $sku, $startDate, $endDate, $startTime, $endTime,
+        Mage_Sales_Model_Order_Item $item
+    ) {
         $resource = Mage::getSingleton('core/resource');
         $read     = $resource->getConnection('core_read');
         $write    = $resource->getConnection('core_write');
@@ -518,6 +538,8 @@ class MMD_RoleManager_Model_CourseRunEnrolmentService
              VALUES (?, ?, ?, ?)",
             array($productId, $runId, $email, $name)
         )->rowCount();
+
+        Mage::helper('mmd_rolemanager/handover')->noteIndependentMembership($runId, $email);
 
         if ($affected > 0) {
             $this->_log("run_id=$runId: enrolled $email");

@@ -118,6 +118,7 @@ class MMD_Attendance_Adminhtml_AttendanceController extends Mage_Adminhtml_Contr
             // Walk-ins recorded in attendance but absent from enrolments.
             foreach ($attByEmail as $key => $a) {
                 if (isset($seen[$key])) continue;
+                if (Mage::helper('mmd_rolemanager/handover')->isManaged($runId) && !(int)$a['is_walkin']) continue;
                 $seen[$key] = true;
                 $roster[] = array(
                     'learner_name'  => $a['name'],
@@ -253,6 +254,7 @@ class MMD_Attendance_Adminhtml_AttendanceController extends Mage_Adminhtml_Contr
                 // course_run_enrolments has UNIQUE (product_id, run_id, learner_email)
                 $write->insertOnDuplicate($enrolTbl, $enrolData, array('learner_name'));
             }
+            Mage::helper('mmd_rolemanager/handover')->noteIndependentMembership($runId, $email);
 
             // Seed an absent attendance row, flagged walk-in.
             $write->insertOnDuplicate(

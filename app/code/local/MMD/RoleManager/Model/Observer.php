@@ -157,6 +157,20 @@ class MMD_RoleManager_Model_Observer
 
             // Pure decision (no session/HTTP) — unit-testable via evaluateAccess().
             $activeRole = Mage::helper('mmd_rolemanager')->getActiveRoleCode();
+            $handoverRunId = (int) ($controller->getRequest()->getParam('run') ?: $controller->getRequest()->getParam('run_id'));
+            $handoverProductId = (int)$controller->getRequest()->getParam('course_id');
+            if (!$handoverRunId && $controller->getRequest()->isPost()
+                && stripos((string)$controller->getRequest()->getHeader('Content-Type'),'application/json')!==false) {
+                $handoverBody=json_decode((string)$controller->getRequest()->getRawBody(),true);
+                if(is_array($handoverBody)){$handoverRunId=(int)($handoverBody['run_id']??0);$handoverProductId=(int)($handoverBody['course_id']??0);}
+            }
+            if ($handoverRunId && !Mage::helper('mmd_rolemanager/handover')->canAccessRun(
+                $handoverRunId, $activeRole, $session->getUser()->getId(), $session->getUser()->getEmail(),
+                $handoverProductId
+            )) {
+                $this->_denyAccess($controller);
+                return;
+            }
             // Password assigned by an admin (bulk default / reset): confine the
             // session to the change-password screen until they set their own.
             // Checked before any role logic so no role can slip past it.

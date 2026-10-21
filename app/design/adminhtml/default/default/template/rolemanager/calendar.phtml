@@ -141,6 +141,18 @@ if ($_mode === 'trainer' && !empty($rows)) {
 // Expand each run onto every visible day it spans.
 $eventsByDate = array(); // 'Y-m-d' => [row, ...]
 foreach ($rows as $r) {
+    if (!Mage::helper('mmd_rolemanager/handover')->isActive($r['run_id'])) continue;
+    $importedSessions = Mage::helper('mmd_rolemanager/handover')->sessions($r['run_id']);
+    if ($importedSessions) {
+        foreach ($importedSessions as $session) {
+            if ($session['date'] < $_rangeStart || $session['date'] > $_rangeEnd) continue;
+            $entry = $r;
+            $entry['course_start_time'] = $session['start_time'];
+            $entry['course_end_time'] = $session['end_time'];
+            $eventsByDate[$session['date']][] = $entry;
+        }
+        continue;
+    }
     $s = max((string)$r['course_start_date'], $_rangeStart);
     $e = min((string)($r['course_end_date'] ?: $r['course_start_date']), $_rangeEnd);
     $ts = strtotime($s);

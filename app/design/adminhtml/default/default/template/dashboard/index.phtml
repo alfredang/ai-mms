@@ -1141,6 +1141,7 @@ if ($_loggedInEmail && ($activeRole === 'learner' || $activeRole === 'trainer'))
                 }
                 $_addedForPid = 0;
                 foreach ($_runsByPid[$_pid] as $_run) {
+                    if (!Mage::helper('mmd_rolemanager/handover')->isActive($_run['run_id'])) continue;
                     // Learner: include only the run(s) they're enrolled in.
                     if ($_learnerRunIds !== null && !isset($_learnerRunIds[(int)$_run['run_id']])) {
                         continue;
@@ -7564,6 +7565,18 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
     <?php /* Course Feedback + Certificate of Achievement share one row (2 columns)
              on wide screens; Certificate takes the full row when Feedback is
              hidden (non trainer/learner roles). */ ?>
+    <?php $_handoverSessions = Mage::helper('mmd_rolemanager/handover')->sessions($_lcdRunId); ?>
+    <?php if ($_handoverSessions): ?>
+    <div class="lcd-section">
+        <div class="lcd-section-title">Class Sessions (from TMS)</div>
+        <?php foreach ($_handoverSessions as $_handoverSession): ?>
+        <p><?php echo $this->escapeHtml($_handoverSession['date'] . ' ' . $_handoverSession['start_time'] . ' - ' . $_handoverSession['end_time'] . ' ' . $_handoverSession['venue']); ?>
+        <?php if (!empty($_handoverSession['virtual_link'])): ?>
+            <a href="<?php echo $this->escapeHtml($_handoverSession['virtual_link']); ?>" target="_blank" rel="noopener noreferrer">Join this session</a>
+        <?php endif; ?></p>
+        <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
     <div class="lcd-feedback-cert-row">
     <?php if ($activeRole === 'trainer' || $activeRole === 'learner'): ?>
     <!-- TRAINER + LEARNER: Course Feedback — renamed from "Certificate
@@ -7578,6 +7591,7 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
     $_fbUrl  = $_lcdRunId > 0
         ? rtrim(Mage::getBaseUrl(), '/') . '/feedback/respond/index?run_id=' . (int)$_lcdRunId
         : '';
+    $_fbUrl = Mage::helper('mmd_rolemanager/handover')->feedbackUrl($_lcdRunId, $_fbUrl);
     // Human run label (SG000046-style class_id) for the card footer.
     $_fbClassId = '';
     if ($_lcdRunId > 0) {

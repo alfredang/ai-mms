@@ -51,6 +51,8 @@ Grouped by topic. Pointers only — full content lives in the linked files.
 
 ## Ops / dev workflow
 
+- [Preserve unified-account passwords during learner provisioning](feedback_accountsync_existing_password.md) — customer-save observers copy the storefront password back to the dashboard; new customers for existing trainers must inherit the existing hash. Same-process fixtures also need store-level config cache updates.
+
 - [Repo root must stay clean](feedback_repo_root_must_be_clean.md) — no screenshots, scratch scripts, tmp/ dirs, or stale duplicates in repo root; save Playwright PNGs to /tmp not project root
 - [Localhost curl + Host header follows 301 to prod](feedback_localhost_curl_host_header_redirects.md) — `curl -L http://localhost:8080 -H 'Host: tertiarycourses.com.sg'` reads PROD, not local. Drop -L or drop Host header when verifying local changes.
 - [HTTP 500 on every route after container restart → mod_headers dropped](feedback_apache_500_mod_headers.md) — diagnostic checklist; permanent fix lives in docker/entrypoint.sh

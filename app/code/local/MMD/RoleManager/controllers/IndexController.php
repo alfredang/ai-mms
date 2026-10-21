@@ -500,6 +500,7 @@ class MMD_RoleManager_IndexController extends Mage_Adminhtml_Controller_Action
                 (product_id, run_id, learner_email, learner_name) VALUES (?, ?, ?, ?)",
             array((int) $run['product_id'], (int) $run['run_id'], $email, $name)
         );
+        Mage::helper('mmd_rolemanager/handover')->noteIndependentMembership($run['run_id'], $email);
 
         $this->_sendMail($email, $name, 'Welcome to Tertiary Infotech Academy', $this->_emailHtml(
             'Welcome to Tertiary Infotech Academy',

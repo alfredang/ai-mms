@@ -56,6 +56,9 @@ class MMD_RoleManager_Model_TrainerInvitationService
             if (!$run) {
                 return array('success' => false, 'message' => 'Class run not found.');
             }
+            if (Mage::helper('mmd_rolemanager/handover')->isManaged($runId)) {
+                return array('success' => false, 'message' => 'TMS owns invitations and trainer assignments for this class.');
+            }
             if (!empty($run['invitation_paused'])) {
                 return array('success' => false, 'message' => 'Invitations are paused for this class.');
             }
@@ -132,6 +135,9 @@ class MMD_RoleManager_Model_TrainerInvitationService
         $inv = $this->_loadInvitationByToken($token);
         if (!$inv) {
             return array('success' => false, 'message' => 'Invalid or expired invitation link.', 'html' => 'invalid');
+        }
+        if (Mage::helper('mmd_rolemanager/handover')->isManaged($inv['run_id'])) {
+            return array('success' => false, 'message' => 'Manage this assignment in TMS.', 'html' => 'inactive');
         }
         if ($inv['status'] === 'accepted') {
             return array('success' => true, 'message' => 'You have already accepted this invitation.', 'html' => 'already_accepted');
@@ -210,6 +216,9 @@ class MMD_RoleManager_Model_TrainerInvitationService
         $inv = $this->_loadInvitationByToken($token);
         if (!$inv) {
             return array('success' => false, 'message' => 'Invalid or expired invitation link.', 'html' => 'invalid');
+        }
+        if (Mage::helper('mmd_rolemanager/handover')->isManaged($inv['run_id'])) {
+            return array('success'=>false,'message'=>'Manage this assignment in TMS.','html'=>'inactive');
         }
         if ($inv['status'] === 'declined') {
             return array('success' => true, 'message' => 'You have already declined this invitation.', 'html' => 'already_declined');
@@ -391,6 +400,9 @@ class MMD_RoleManager_Model_TrainerInvitationService
 
     protected function _dispatchInvitation(array $run, array $trainer)
     {
+        if (Mage::helper('mmd_rolemanager/handover')->isManaged($run['run_id'])) {
+            return array('success'=>false,'message'=>'TMS owns invitations for this class.');
+        }
         $token   = $this->_generateToken();
         $baseUrl = Mage::getBaseUrl(Mage_Core_Model_Store::URL_TYPE_WEB);
         $acceptUrl  = rtrim($baseUrl, '/') . '/trainer_invite/respond?token=' . $token . '&action=accept';

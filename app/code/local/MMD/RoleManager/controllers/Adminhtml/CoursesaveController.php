@@ -1559,6 +1559,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 "INSERT IGNORE INTO {$tbl} (product_id, run_id, learner_email, learner_name) VALUES (?, ?, ?, ?)",
                 array($productId, $runId, $email, $name)
             );
+            Mage::helper('mmd_rolemanager/handover')->noteIndependentMembership($runId, $email);
             // If this learner was previously hidden via Remove, clear the
             // exclusion so they reappear in the roster.
             $write->delete(
