@@ -26,10 +26,14 @@ class MMD_RoleManager_Helper_Handover extends Mage_Core_Helper_Abstract
         $r=Mage::getSingleton('core/resource');$read=$r->getConnection('core_read');
         $run=$read->fetchRow('SELECT * FROM ' . $r->getTableName('course_runs') . ' WHERE run_id=?',array((int)$runId));
         if(!$run || ($productId && (int)$run['product_id']!==(int)$productId))return false;
+        // A session may predate a block, role removal or email correction.
+        $account=$read->fetchRow('SELECT is_active,email FROM ' . $r->getTableName('admin/user') . ' WHERE user_id=?',array((int)$userId));
+        if(!$account || !(int)$account['is_active'])return false;
+        if(in_array($role,array('trainer','learner'),true) && !$read->fetchOne('SELECT 1 FROM ' . $r->getTableName('mmd_user_role_map') . ' WHERE user_id=? AND role_code=?',array((int)$userId,$role)))return false;
         if(in_array($role,array('admin','super_admin','training_provider','developer'),true))return true;
         if(!(int)$link['active'])return false;
         if($role==='trainer')return (int)$run['trainer_user_id']===(int)$userId;
-        if($role==='learner')return (bool)$read->fetchOne('SELECT enrolment_id FROM ' . $r->getTableName('course_run_enrolments') . ' WHERE run_id=? AND LOWER(learner_email)=?',array((int)$runId,strtolower(trim($email))));
+        if($role==='learner')return (bool)$read->fetchOne('SELECT enrolment_id FROM ' . $r->getTableName('course_run_enrolments') . ' WHERE run_id=? AND LOWER(learner_email)=?',array((int)$runId,strtolower(trim($account['email']))));
         return false;
     }
     public function sessions($runId)

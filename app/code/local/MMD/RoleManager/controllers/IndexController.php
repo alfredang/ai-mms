@@ -16,7 +16,7 @@
  */
 class MMD_RoleManager_IndexController extends Mage_Adminhtml_Controller_Action
 {
-    protected $_publicActions = array('index', 'login', 'send', 'verify', 'register');
+    protected $_publicActions = array('index', 'login', 'send', 'verify', 'register', 'class');
 
     const MAX_ATTEMPTS = 5;      // per session
     const ATTEMPT_WINDOW = 600;  // seconds
@@ -46,10 +46,33 @@ class MMD_RoleManager_IndexController extends Mage_Adminhtml_Controller_Action
     {
         $adminSession = Mage::getSingleton('admin/session');
         if ($adminSession->isLoggedIn()) {
-            $this->_redirect('adminhtml/dashboard');
+            $this->getResponse()->setRedirect(Mage::helper('mmd_rolemanager/classAccess')->destination($adminSession->getNeedsRoleSelect()));
             return;
         }
         $this->getResponse()->setBody($this->_renderPage());
+    }
+
+    /** Stable participant entry; authentication and exact membership are checked on every visit. */
+    public function classAction()
+    {
+        $helper = Mage::helper('mmd_rolemanager/classAccess');
+        $session = Mage::getSingleton('admin/session');
+        try {
+            $runId = $this->getRequest()->getParam('run_id');
+            $helper->remember($runId);
+            if (!$session->isLoggedIn()) {
+                return $this->getResponse()->setRedirect($helper->urls($runId)['participant_login_url']);
+            }
+            if ($session->getNeedsRoleSelect()) return $this->getResponse()->setRedirect($helper->destination(true));
+            if ($session->getMmdForcePasswordChange()) return $this->_redirect('adminhtml/system_account/index');
+            $target = $helper->enter((int) $runId);
+            Mage::getSingleton('core/session')->unsMmsClassRunId();
+            if (!$target) throw new InvalidArgumentException('Class access is unavailable. Please contact training support using the email registered for your class.');
+            return $this->getResponse()->setRedirect($target);
+        } catch (InvalidArgumentException $e) {
+            Mage::getSingleton('core/session')->unsMmsClassRunId();
+            $this->getResponse()->setHttpResponseCode(403)->setBody(Mage::helper('core')->escapeHtml($e->getMessage()));
+        }
     }
 
     /** Handle the login POST. */
@@ -121,8 +144,9 @@ class MMD_RoleManager_IndexController extends Mage_Adminhtml_Controller_Action
             // shutdown (after the response), so a fast browser can hit the
             // dashboard while the DB row is stale and get bounced (same race
             // as the role-select double-click / redirect-loop incidents).
+            $destination = Mage::helper('mmd_rolemanager/classAccess')->destination($needsRoleSelect);
             session_write_close();
-            $this->_redirect($needsRoleSelect ? 'adminhtml/roleselect/index' : 'adminhtml/dashboard');
+            $this->getResponse()->setRedirect($destination);
             return;
         } catch (Exception $e) {
             $session->setLearnerLoginError($e->getMessage());
@@ -275,9 +299,7 @@ class MMD_RoleManager_IndexController extends Mage_Adminhtml_Controller_Action
             $needsRoleSelect = $this->_establishLmsSession($user, $lmsRoles);
 
             $result['success']  = true;
-            $result['redirect'] = Mage::helper('adminhtml')->getUrl(
-                $needsRoleSelect ? 'adminhtml/roleselect/index' : 'adminhtml/dashboard'
-            );
+            $result['redirect'] = Mage::helper('mmd_rolemanager/classAccess')->destination($needsRoleSelect);
             // Commit the session before the JSON reply — the browser follows
             // result.redirect immediately and must see the fresh session row.
             session_write_close();

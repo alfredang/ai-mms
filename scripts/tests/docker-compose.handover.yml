@@ -1,0 +1,67 @@
+# Disposable, isolated fixtures. No production config, credentials or network.
+services:
+  mailpit:
+    image: axllent/mailpit:latest
+    networks: [fixture]
+  mysql:
+    image: mysql:5.7
+    container_name: mms-nonfunded-test-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: local-test-only
+      MYSQL_DATABASE: mms_handover_test
+    volumes:
+      - ../../seed/country-base.sql.gz:/docker-entrypoint-initdb.d/seed.sql.gz:ro
+    healthcheck:
+      test: [CMD, mysqladmin, ping, -h, localhost, -plocal-test-only]
+      interval: 3s
+      retries: 40
+    networks: [fixture]
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_PASSWORD: local-test-only
+      POSTGRES_DB: mms_access_test
+    ports: ["127.0.0.1:15439:5432"]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U postgres -d mms_access_test"]
+      interval: 3s
+      retries: 30
+    networks: [fixture]
+  api:
+    image: ai-mms-web:latest
+    container_name: mms-nonfunded-test-api
+    entrypoint: [php]
+    command: [-S, "0.0.0.0:8080", -t, /var/www/html, /var/www/html/index.php]
+    environment:
+      MMS_HANDOVER_ISOLATED_TEST: "1"
+      MMS_SKIP_TOPOLOGY_CHECK: "1"
+      MAGE_IS_DEVELOPER_MODE: "1"
+    volumes:
+      - ../../:/var/www/html:ro
+      - ./fixtures/tms-handover-local.xml:/var/www/html/app/etc/local.xml:ro
+    tmpfs: [/var/www/html/var]
+    ports: ["127.0.0.1:18089:8080"]
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks: [fixture]
+  tms-tests:
+    image: ai-lms-tms-app:latest
+    profiles: [tests]
+    entrypoint: [node]
+    environment:
+      MMS_ACCESS_ISOLATED_TEST: "1"
+      MMS_ACCESS_TEST_HOST: postgres
+      NODE_PATH: /app/node_modules
+      MMS_TEST_TYPESCRIPT_PATH: /test-deps/typescript
+    volumes:
+      - ../../../AI-LMS-TMS:/fixture:ro
+      - ../../../AI-LMS-TMS/node_modules/typescript:/test-deps/typescript:ro
+    tmpfs: [/fixture/node_modules]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [fixture]
+networks:
+  fixture:
+    internal: true

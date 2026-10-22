@@ -61,9 +61,9 @@ class MMD_RoleManager_Adminhtml_RoleselectController extends Mage_Adminhtml_Cont
         // still says needsRoleSelect=true, and the predispatch observer
         // bounces it straight back here ("have to click the role twice",
         // reported 2026-07-07; same race behind the 2026-07-06 redirect loop).
+        $destination = Mage::helper('mmd_rolemanager/classAccess')->destination();
         session_write_close();
-
-        $this->_redirect('adminhtml/dashboard');
+        $this->getResponse()->setRedirect($destination);
     }
 
     /**

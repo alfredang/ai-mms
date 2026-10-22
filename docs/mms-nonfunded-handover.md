@@ -17,6 +17,8 @@ Apply `migrations/9999-nonfunded-tms-handover.sql` through the real `migrations/
 | `mmd/tms_handover/website_id` | Allowed MMS website; default `1`. |
 | `mmd/tms_handover/course_allowlist` | Explicit comma-separated pilot codes. Empty means no imports. |
 | `mmd/tms_handover/access_verified` | Keep false until actual pilot trainer/learner login and Drive permissions have been tested. An unverified class reports incomplete readiness. |
+| `mmd/tms_handover/public_origin` | Canonical participant HTTPS origin matching TMS `MMS_PUBLIC_ORIGIN` and MMS dashboard URLs. Empty/mismatched values leave access incomplete; login and role selection must remain on the same origin. |
+| `mmd/tms_handover/pilot_start_date` | Full-run first-session minimum, default `2026-10-23` in Singapore time. Match the TMS setting. |
 
 Both enabled state and credential are required. Provider, calendar, website, pilot allowlist, source identity, current product code, participants, times, revision, and content hash are validated. A `dry_run: true` request previews create/adopt/update without writing accounts/classes/rosters.
 
@@ -47,3 +49,19 @@ Load the repository's structural `seed/country-base.sql.gz` into that disposable
 The test network should have no external access. Only the test process disables the external customer-email MX lookup for deterministic `example.com` fixtures; production email validation remains intact. No test sends invitations or changes a real Google Calendar.
 
 Lint all changed PHP/PHTML files in the MMS PHP runtime. Verify the model/helper/controller aliases and affected routes before deployment. The feature is inactive until configured, and production pilot access verification remains an operations rollout step.
+
+## Participant class access — 22 October 2026
+
+Apply `9999z-nonfunded-class-access.sql` after `9999-nonfunded-tms-handover.sql`. The import now requires TMS's exact full-run approval (`handover_approval` with reviewer, approval time and verified first-session timestamp). Initial application must finish before the full first session. MMS retains the initial handover time; routine updates can continue during an already approved run. A future first-session change requires a newer explicit review before the old/new start and retains the same class ID. Legacy mappings without valid pre-class metadata require review; they are not automatically approved.
+
+The import result includes the applied `snapshot_hash`, `participant_login_url` and `participant_class_url` in addition to the existing operations `class_url`. A participant link has the form `/lmslogin/index/class/?run_id=<run_id>`. It stores only a numeric run identity through password/OTP login and role selection, then authorizes the signed-in account against that exact run. Current account status, participant role and membership are rechecked, including when the browser session predates a block, role removal or email update. A forwarded link cannot grant membership.
+
+TMS owns the access emails, reminder routing, recipient status and explicit resends. MMS import/account provisioning stays silent and MMS's existing invitation suppression remains in force. No new welcome email, unsolicited OTP, TMS password transfer or second acceptance workflow is added. The normal OTP is sent only when requested at login.
+
+The participant origin must match dashboard URLs so authentication cookies and role selection stay on one site. Configure the production origin explicitly; an import API alias/historical hostname is not sufficient evidence. The separate TMS notification switch defaults off, and funded `TGS` communication remains on its existing path.
+
+Use `docker compose -p mms-access-verification -f scripts/tests/docker-compose.handover.yml up -d` for the isolated sanitized MySQL/PostgreSQL/Mailpit fixture. Run `exec -T api php /var/www/html/scripts/tests/run-tms-handover-suite.php` through that same Compose project/file to verify actual migrations twice, existing importer/contract/API regressions, password login, captured OTP, real role-selection CSRF forms and blocked/withdrawn access. The suite expects a fresh disposable seed. The `tms-tests` profile runs the matching TMS notification outbox test without external network access. `down --volumes` resets only this explicitly named disposable project; do not use the normal development/production Compose project for these tests.
+
+Related lesson: [Recheck current account and session state](lessons/feedback_mms_class_access_session_state.md).
+
+Verified on 22 October: 44 existing database checks, 12 contract checks, five API/auth/dry-run checks and 23 class-access/password/captured-OTP/role-selection checks passed. Changed runtime PHP files linted cleanly; both handover migrations passed through `apply.php`, and a second run had no pending files. Matching TMS notification/concurrency/funded-routing tests passed with no added TypeScript diagnostics. Production activation and real participant inbox/Google access remain pending.

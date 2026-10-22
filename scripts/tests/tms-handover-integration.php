@@ -12,7 +12,12 @@ $checks=0;
 function check($condition,$message){global $checks;if(!$condition)throw new RuntimeException($message);$checks++;}
 function applySnapshot($service,array $data){$data['snapshot_hash']=MMD_Courses_Model_TmsContract::contentHash($data);return $service->apply($data);}
 function previewSnapshot($service,array $data){$data['snapshot_hash']=MMD_Courses_Model_TmsContract::contentHash($data);return $service->preview($data);}
-foreach(array('course_allowlist'=>'C916','provider_id'=>'tertiary-sg','website_id'=>'1','calendar_id'=>'sales@tertiarycourses.com.sg','access_verified'=>'1') as $key=>$value)Mage::getConfig()->saveConfig('mmd/tms_handover/'.$key,$value);
+foreach(array('course_allowlist'=>'C916','provider_id'=>'tertiary-sg','website_id'=>'1','calendar_id'=>'sales@tertiarycourses.com.sg','access_verified'=>'1','public_origin'=>'http://localhost:18089') as $key=>$value) {
+    Mage::getConfig()->saveConfig('mmd/tms_handover/'.$key,$value);
+    Mage::app()->getStore()->setConfig('mmd/tms_handover/'.$key,$value);
+}
+$w->query("UPDATE core_config_data SET value='http://localhost:18089/' WHERE path IN ('web/unsecure/base_url','web/secure/base_url')");
+foreach(array('web/unsecure/base_url'=>'http://localhost:18089/','web/secure/base_url'=>'http://localhost:18089/','web/secure/use_in_adminhtml'=>'0','web/secure/use_in_frontend'=>'0') as $key=>$value) { Mage::getConfig()->saveConfig($key,$value);Mage::app()->getStore()->setConfig($key,$value); }
 Mage::getConfig()->reinit();
 // The test network has no public DNS. Only the isolated test process disables
 // the external MX lookup; production keeps the normal email validation observer.
@@ -22,6 +27,7 @@ if(!$productId){$w->insert('catalog_product_entity',array('entity_type_id'=>4,'a
 $learner=array('source_id'=>'test-learner','email'=>'pilotlearner@example.com','name'=>'Pilot Learner');
 $trainer=array('source_id'=>'test-trainer','email'=>'pilottrainer@example.com','name'=>'Pilot Trainer','confirmed'=>true);
 $data=array('schema_version'=>1,'source_provider_id'=>'tertiary-sg','source_run_key'=>'calendar:test:pilot','website_id'=>1,'course_code'=>'C916','course_title'=>'Pilot','calendar_id'=>'sales@tertiarycourses.com.sg','event_occurrences'=>array('pilot-event'),'revision'=>1,'request_id'=>'test-request','snapshot_hash'=>hash('sha256','version1'),'roster_complete'=>true,'cancelled'=>false,'sessions'=>array(array('key'=>'s1234567','source_id'=>'pilot-event','date'=>'2026-11-10','start_time'=>'09:30','end_time'=>'17:30','mode'=>1,'virtual_link'=>'','venue'=>'Room 1')),'learners'=>array($learner),'trainers'=>array($trainer),'courseware'=>array('learner_guide_url'=>'https://example.com/guide','trainer_slides_url'=>'https://example.com/slides'),'feedback_url'=>'https://example.com/feedback/pilot');
+$data['handover_approval']=array('approved_at'=>'2026-10-21T00:00:00Z','approved_by'=>'isolated-operator','first_session_at'=>'2026-11-10T01:30:00.000Z');
 $svc=Mage::getModel('courses/tmsImport');
 check($svc instanceof MMD_Courses_Model_TmsImport,'Importer alias did not instantiate.');
 $before=(int)$w->fetchOne('SELECT COUNT(*) FROM course_runs');$beforeUsers=(int)$w->fetchOne('SELECT COUNT(*) FROM admin_user');
@@ -92,8 +98,11 @@ $data['revision']=9;$data['snapshot_hash']=hash('sha256','version9');$data['canc
 check(!$h->canAccessRun($runId,'trainer',$trainerUser,$trainer['email']),'Cancelled run retains active teaching access.');
 check(!$h->canAccessRun($runId,'learner',$learnerUser,$learner['email']),'Cancelled run allows an independently registered learner to enter.');
 $new=$data;$new['source_run_key']='calendar:test:new-class';$new['event_occurrences']=array('new-event');$new['revision']=1;$new['snapshot_hash']=hash('sha256','new-class');$new['cancelled']=false;$new['sessions']=array($data['sessions'][0]);$new['sessions'][0]['date']='2026-12-10';
+$new['handover_approval']['first_session_at']='2026-12-10T01:30:00Z';
 $created=applySnapshot($svc,$new);check($created['run_id']!==$runId,'New class reused an unrelated run.');
-$new['revision']=2;$new['snapshot_hash']=hash('sha256','rescheduled');$new['sessions'][0]['date']='2026-12-11';$rescheduled=applySnapshot($svc,$new);
+$new['revision']=2;$new['snapshot_hash']=hash('sha256','rescheduled');$new['sessions'][0]['date']='2026-12-11';
+$new['handover_approval']['approved_at']=gmdate('c');$new['handover_approval']['first_session_at']='2026-12-11T01:30:00Z';
+$rescheduled=applySnapshot($svc,$new);
 check($rescheduled['run_id']===$created['run_id'] && $rescheduled['class_id']===$created['class_id'],'Reschedule created another class.');
 check((string)$w->fetchOne('SELECT course_start_date FROM course_runs WHERE run_id=?',array($created['run_id']))==='2026-12-11','Rescheduled date was not applied.');
 $new['revision']=3;$new['learners']=array(array_merge($learner,array('active'=>false)));$inactive=applySnapshot($svc,$new);

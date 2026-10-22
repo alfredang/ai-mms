@@ -7,7 +7,7 @@ $pdo=new PDO('mysql:host='.$c->host.';dbname='.$c->dbname.';charset=utf8',(strin
 $config=$pdo->prepare("INSERT INTO core_config_data(scope,scope_id,path,value) VALUES('default',0,?,?) ON DUPLICATE KEY UPDATE value=VALUES(value)");
 foreach(array('enabled'=>'1','api_key'=>'isolated-http-test-key','course_allowlist'=>'C916','provider_id'=>'tertiary-sg','calendar_id'=>'sales@tertiarycourses.com.sg','website_id'=>'1') as $key=>$value)$config->execute(array('mmd/tms_handover/'.$key,$value));
 $pdo->exec("UPDATE core_config_data SET value='http://mms-nonfunded-test-api:8080/' WHERE path IN ('web/unsecure/base_url','web/secure/base_url')");
-if(in_array('--prepare',$argv,true)){echo "Isolated HTTP fixture configured.\n";exit(0);}
+if(in_array('--prepare',$argv,true)){require $root.'/app/Mage.php';Mage::app('admin')->cleanCache();echo "Isolated HTTP fixture configured.\n";exit(0);}
 require $root.'/app/code/local/MMD/Courses/Model/TmsContract.php';
 function request($body,$key='isolated-http-test-key',$method='POST'){
     $curl=curl_init('http://mms-nonfunded-test-api:8080/courses/api_tms_import');

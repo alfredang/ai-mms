@@ -113,7 +113,7 @@ class MMD_RoleManager_Model_Observer
             return;
         }
         $action = strtolower($request->getActionName());
-        if (in_array($action, array('index', 'login', 'send', 'verify', 'register'), true)) {
+        if (in_array($action, array('index', 'login', 'send', 'verify', 'register', 'class'), true)) {
             $request->setDispatched(true);
         }
     }
@@ -154,6 +154,9 @@ class MMD_RoleManager_Model_Observer
             $route = $controller->getRequest()->getRouteName();
             $ctrl  = $controller->getRequest()->getControllerName();
             $key   = $route . '_' . $ctrl;
+            // The participant entry handles auth/role selection before exact-run access itself.
+            if (in_array($controller->getRequest()->getModuleName(), array('lmslogin','learnerlogin'), true)
+                && $ctrl === 'index' && strtolower($controller->getRequest()->getActionName()) === 'class') return;
 
             // Pure decision (no session/HTTP) — unit-testable via evaluateAccess().
             $activeRole = Mage::helper('mmd_rolemanager')->getActiveRoleCode();

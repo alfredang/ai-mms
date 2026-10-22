@@ -51,6 +51,7 @@ class MMD_Courses_Model_TmsImport
             $w->beginTransaction();
             $linkTable = $this->table('mmd_tms_run_link');
             $link = $w->fetchRow("SELECT * FROM `$linkTable` WHERE provider_id=? AND source_run_key=? FOR UPDATE",array($provider,$data['source_run_key']));
+            $approval = $this->checkApproval($data, $link);
             $replayed = false;
             if ($link) {
                 $currentSku = $w->fetchOne('SELECT p.sku FROM ' . $this->table('course_runs') . ' r JOIN ' . $this->table('catalog/product') . ' p ON p.entity_id=r.product_id WHERE r.run_id=?',array($link['run_id']));
@@ -72,6 +73,8 @@ class MMD_Courses_Model_TmsImport
             $sessionIdentity=function(array $sessions){return array_map(function($s){return array_intersect_key($s,array_flip(array('key','source_id','date','start_time','end_time')));},$sessions);};
             if ($marks && (!$oldSessions || $sessionIdentity($oldSessions)!==$sessionIdentity($data['sessions']))) throw new InvalidArgumentException('Class sessions already have attendance; resolve the schedule mapping/change explicitly.');
             $row = array('provider_id'=>$provider,'source_run_key'=>$data['source_run_key'],'run_id'=>$runId,'course_code'=>$data['course_code'],'revision'=>$data['revision'],'snapshot_hash'=>$data['snapshot_hash'],'active'=>$data['cancelled']?0:1,'sessions_json'=>json_encode($data['sessions']),'feedback_url'=>(string)($data['feedback_url']??''),'synced_at'=>gmdate('Y-m-d H:i:s'));
+            $row = array_merge($row, $approval);
+            if (!$link) $row['handover_at'] = gmdate('Y-m-d H:i:s');
             if ($link) $w->update($linkTable,$row,array('link_id = ?'=>$link['link_id']));
             else { $w->insert($linkTable,$row); $link = array('link_id'=>(int)$w->lastInsertId()); }
             $linkId = (int) $link['link_id'];
@@ -97,8 +100,13 @@ class MMD_Courses_Model_TmsImport
             if (empty($data['feedback_url'])) $warnings[]='Mapped TMS feedback form is missing; native MMS feedback is suppressed.';
             // Permission tests require the actual roles; never infer access from a URL string.
             if (!Mage::getStoreConfigFlag('mmd/tms_handover/access_verified')) $warnings[]='Pilot login/courseware access verification is pending.';
+            $participantUrls = array();
+            try { $participantUrls = Mage::helper('mmd_rolemanager/classAccess')->urls($runId); }
+            catch (InvalidArgumentException $e) { $warnings[] = $e->getMessage(); }
+            // Recheck time immediately before committing an INITIAL handover.
+            $this->checkApproval($data, isset($link['handover_at']) ? $link : null);
             $classUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard/index',array('course_id'=>$productId,'_query'=>array('run'=>$runId),'_nosecret'=>true));
-            $result = array_merge(array('success'=>true,'source_run_key'=>$data['source_run_key'],'revision'=>$data['revision'],'run_id'=>$runId,'class_id'=>$run['class_id'],'class_url'=>$classUrl,'readiness'=>$data['cancelled']?'cancelled':($warnings?'incomplete':'ready'),'warnings'=>$warnings,'request_id'=>$data['request_id']??'','replayed'=>$replayed),$counts);
+            $result = array_merge(array('success'=>true,'source_run_key'=>$data['source_run_key'],'revision'=>$data['revision'],'snapshot_hash'=>$data['snapshot_hash'],'run_id'=>$runId,'class_id'=>$run['class_id'],'class_url'=>$classUrl,'readiness'=>$data['cancelled']?'cancelled':($warnings?'incomplete':'ready'),'warnings'=>$warnings,'request_id'=>$data['request_id']??'','replayed'=>$replayed),$counts,$participantUrls);
             $w->update($linkTable,array('result_json'=>json_encode($result)),array('link_id = ?'=>$linkId));
             $w->insert($this->table('mmd_tms_sync_log'),array('provider_id'=>$provider,'source_run_key'=>$data['source_run_key'],'revision'=>$data['revision'],'result_json'=>json_encode($result),'created_at'=>gmdate('Y-m-d H:i:s')));
             $w->commit();
@@ -108,6 +116,32 @@ class MMD_Courses_Model_TmsImport
             if ($this->_idLockHeld) { $w->fetchOne('SELECT RELEASE_LOCK(?)',array('mmd-class-id')); $this->_idLockHeld=false; }
             $w->fetchOne('SELECT RELEASE_LOCK(?)',array($lock));
         }
+    }
+
+    protected function checkApproval(array $data, $link)
+    {
+        $approval = $data['handover_approval'] ?? array();
+        if (!is_array($approval) || !is_string($approval['approved_by'] ?? null) || trim($approval['approved_by']) === '' || strlen($approval['approved_by']) > 128
+            || !is_string($approval['approved_at'] ?? null) || !is_string($approval['first_session_at'] ?? null)
+            || strlen($approval['approved_at']) > 64 || strlen($approval['first_session_at']) > 64)
+            throw new InvalidArgumentException('Provide a valid exact-run approval and reviewer.');
+        $first = $data['sessions'][0];
+        $start = strtotime($first['date'] . 'T' . $first['start_time'] . ':00+08:00');
+        $approved = strtotime((string) ($approval['approved_at'] ?? ''));
+        $reviewed = strtotime((string) ($approval['first_session_at'] ?? ''));
+        $minimum = (string) (Mage::getStoreConfig('mmd/tms_handover/pilot_start_date') ?: '2026-10-23');
+        if (!$start || !$approved || !$reviewed || empty($approval['approved_by']) || $reviewed !== $start || $first['date'] < $minimum || $approved >= $start || $approved > time())
+            throw new InvalidArgumentException('An exact full-run approval before its first session is required.');
+        if ($link) {
+            $oldStart = strtotime(($link['approved_first_session_at'] ?? '') . ' UTC');
+            $reviewedReschedule = $oldStart && $oldStart > time() && $start > time() && $approved > strtotime(($link['approved_at'] ?? '') . ' UTC');
+            if (empty($link['handover_at']) || strtotime($link['handover_at'] . ' UTC') >= $start
+                || ($oldStart !== $start && !$reviewedReschedule))
+                throw new InvalidArgumentException('Existing handover has no valid pre-class approval or its full first session changed.');
+        } elseif (time() >= $start) {
+            throw new InvalidArgumentException('Initial MMS handover cannot migrate a course midway.');
+        }
+        return array('approved_at' => gmdate('Y-m-d H:i:s', $approved), 'approved_first_session_at' => gmdate('Y-m-d H:i:s', $start));
     }
 
     protected function resolveRun(array $data,$productId)
