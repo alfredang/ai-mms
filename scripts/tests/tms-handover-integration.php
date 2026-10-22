@@ -123,4 +123,23 @@ $afterUser=$w->fetchRow("SELECT user_id,password,firstname FROM admin_user WHERE
 check($afterUser['user_id']===$emailUser['user_id'] && $afterUser['password']===$emailUser['password'],'Email change replaced an account or its password.');
 check($afterUser['firstname']==='After' && (int)$w->fetchOne('SELECT COUNT(*) FROM course_run_enrolments WHERE run_id=? AND learner_email=?',array($created['run_id'],'afterchange@example.com'))===1,'Changed profile/email did not reach the class roster.');
 check((int)$w->fetchOne('SELECT COUNT(*) FROM course_run_enrolments WHERE run_id=? AND learner_email=?',array($created['run_id'],'beforechange@example.com'))===0,'Old email retained active class membership.');
+// Use an isolated earlier cutoff so this test can exercise a first import after
+// its actual start without waiting for a production pilot day to pass.
+$sgNow=new DateTimeImmutable('now',new DateTimeZone('Asia/Singapore'));
+$lateDay=$sgNow->modify('-1 day')->format('Y-m-d');
+$olderDay=$sgNow->modify('-2 days')->format('Y-m-d');
+Mage::app()->getStore()->setConfig('mmd/tms_handover/pilot_start_date',$lateDay);
+$late=$data;$late['source_run_key']='calendar:test:after-start';$late['event_occurrences']=array('after-start-event');$late['revision']=1;$late['cancelled']=false;
+$late['sessions']=array(array('key'=>'sabc5678','source_id'=>'after-start-event','date'=>$lateDay,'start_time'=>'09:30','end_time'=>'17:30','mode'=>1,'virtual_link'=>'','venue'=>'Room 1'));
+$late['learners']=array($learner);$late['trainers']=array($trainer);
+$late['handover_approval']=array('approved_at'=>gmdate('c'),'approved_by'=>'isolated-operator','first_session_at'=>gmdate('c',strtotime($lateDay.'T09:30:00+08:00')));
+$lateResult=applySnapshot($svc,$late);
+check($lateResult['success'] && (int)$w->fetchOne('SELECT COUNT(*) FROM course_run_enrolments WHERE run_id=?',array($lateResult['run_id']))===1,'After-start first handover did not assign the learner.');
+$late['revision']=2;$late['learners'][]=array('source_id'=>'late-added-learner','email'=>'lateadded@example.com','name'=>'Late Added');
+applySnapshot($svc,$late);
+check((int)$w->fetchOne('SELECT COUNT(*) FROM course_run_enrolments WHERE run_id=?',array($lateResult['run_id']))===2,'After-start learner update did not reach the same class.');
+$older=$late;$older['source_run_key']='calendar:test:before-cutoff';$older['event_occurrences']=array('before-cutoff-event');$older['revision']=1;
+$older['sessions'][0]['source_id']='before-cutoff-event';$older['sessions'][0]['date']=$olderDay;
+$older['handover_approval']['first_session_at']=gmdate('c',strtotime($olderDay.'T09:30:00+08:00'));
+try{applySnapshot($svc,$older);throw new RuntimeException('A course begun before the pilot cutoff was imported.');}catch(InvalidArgumentException $e){$checks++;}
 echo 'PASS: '.$checks." MMS database integration checks\n";

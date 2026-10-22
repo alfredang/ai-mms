@@ -131,16 +131,13 @@ class MMD_Courses_Model_TmsImport
         $approved = strtotime((string) ($approval['approved_at'] ?? ''));
         $reviewed = strtotime((string) ($approval['first_session_at'] ?? ''));
         $minimum = (string) (Mage::getStoreConfig('mmd/tms_handover/pilot_start_date') ?: '2026-10-23');
-        if (!$start || !$approved || !$reviewed || empty($approval['approved_by']) || $reviewed !== $start || $first['date'] < $minimum || $approved >= $start || $approved > time())
-            throw new InvalidArgumentException('An exact full-run approval before its first session is required.');
+        if (!$start || !$approved || !$reviewed || empty($approval['approved_by']) || $reviewed !== $start || $first['date'] < $minimum || $approved > time())
+            throw new InvalidArgumentException('An exact full-run approval for a course starting within the pilot is required.');
         if ($link) {
             $oldStart = strtotime(($link['approved_first_session_at'] ?? '') . ' UTC');
             $reviewedReschedule = $oldStart && $oldStart > time() && $start > time() && $approved > strtotime(($link['approved_at'] ?? '') . ' UTC');
-            if (empty($link['handover_at']) || strtotime($link['handover_at'] . ' UTC') >= $start
-                || ($oldStart !== $start && !$reviewedReschedule))
-                throw new InvalidArgumentException('Existing handover has no valid pre-class approval or its full first session changed.');
-        } elseif (time() >= $start) {
-            throw new InvalidArgumentException('Initial MMS handover cannot migrate a course midway.');
+            if (empty($link['handover_at']) || ($oldStart !== $start && !$reviewedReschedule))
+                throw new InvalidArgumentException('Existing handover has no valid approval or its full first session changed.');
         }
         return array('approved_at' => gmdate('Y-m-d H:i:s', $approved), 'approved_first_session_at' => gmdate('Y-m-d H:i:s', $start));
     }
