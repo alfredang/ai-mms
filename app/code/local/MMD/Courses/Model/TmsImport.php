@@ -16,7 +16,7 @@ class MMD_Courses_Model_TmsImport
         $website = (int) (Mage::getStoreConfig('mmd/tms_handover/website_id') ?: 1);
         $allowlist = array_filter(array_map('trim', explode(',', strtoupper((string) Mage::getStoreConfig('mmd/tms_handover/course_allowlist')))));
         if ($data['source_provider_id'] !== $provider || $data['calendar_id'] !== $calendar || $data['website_id'] !== $website
-            || !in_array($data['course_code'], $allowlist, true)) throw new InvalidArgumentException('Snapshot is outside the configured provider/calendar/store/pilot scope.');
+            || (!in_array($data['course_code'], $allowlist, true) && !in_array('C*', $allowlist, true))) throw new InvalidArgumentException('Snapshot is outside the configured provider/calendar/store/pilot scope.');
         $this->_resource = Mage::getSingleton('core/resource');
         $this->_write = $this->_resource->getConnection('core_write');
         $w = $this->_write;
@@ -34,9 +34,10 @@ class MMD_Courses_Model_TmsImport
         $link=$w->fetchRow('SELECT l.*,r.product_id FROM ' . $this->table('mmd_tms_run_link') . ' l JOIN ' . $this->table('course_runs') . ' r ON r.run_id=l.run_id WHERE l.provider_id=? AND l.source_run_key=?',array($provider,$data['source_run_key']));
         if($link && (int)$link['product_id']!==$productId)throw new InvalidArgumentException('Mapped course identity changed.');
         $first=$data['sessions'][0];$last=$data['sessions'][count($data['sessions'])-1];
-        $rows=$link?array():$w->fetchAll('SELECT run_id,class_id FROM ' . $this->table('course_runs') . ' WHERE product_id=? AND course_start_date=? AND course_end_date=? AND course_start_time=? AND course_end_time=?',array($productId,$first['date'],$last['date'],$first['start_time'],$last['end_time']));
+        $rows=$link?array():$w->fetchAll('SELECT run_id,class_id,gcal_event_id FROM ' . $this->table('course_runs') . ' WHERE product_id=? AND course_start_date=? AND course_end_date=? AND course_start_time=? AND course_end_time=?',array($productId,$first['date'],$last['date'],$first['start_time'],$last['end_time']));
         if(count($rows)>1)throw new InvalidArgumentException('Multiple existing MMS runs match; resolve the duplicate first.');
         if($rows && $w->fetchOne('SELECT link_id FROM ' . $this->table('mmd_tms_run_link') . ' WHERE run_id=?',array($rows[0]['run_id'])))throw new InvalidArgumentException('Existing MMS run belongs to another source mapping.');
+        if($rows)$this->checkExistingCalendar($rows[0],$data);
         return array('success'=>true,'dry_run'=>true,'action'=>$link?'update':($rows?'adopt':'create'),'run_id'=>$link?(int)$link['run_id']:($rows?(int)$rows[0]['run_id']:null),'source_run_key'=>$data['source_run_key'],'learners'=>count($data['learners']),'trainer_confirmation_pending'=>empty($data['trainers'][0]['confirmed']));
     }
 
@@ -157,6 +158,7 @@ class MMD_Courses_Model_TmsImport
         $rows=$w->fetchAll("SELECT * FROM `$table` WHERE product_id=? AND course_start_date=? AND course_end_date=? AND course_start_time=? AND course_end_time=?",array($productId,$first['date'],$last['date'],$first['start_time'],$last['end_time']));
         if(count($rows)>1)throw new InvalidArgumentException('Multiple MMS runs match; operations must resolve the duplicate.');
         if($rows) {
+            $this->checkExistingCalendar($rows[0],$data);
             $claimed=$w->fetchOne('SELECT link_id FROM ' . $this->table('mmd_tms_run_link') . ' WHERE run_id=?',array($rows[0]['run_id']));
             if($claimed)throw new InvalidArgumentException('Existing MMS run is owned by another source mapping.');
             $days=Mage::helper('mmd_attendance')->classDaysForRun($rows[0]);
@@ -170,6 +172,16 @@ class MMD_Courses_Model_TmsImport
             $classId=MMD_RoleManager_Helper_Data::nextClassId($w,$table,MMD_RoleManager_Helper_Data::CLASS_ID_PREFIX);
             $w->insert($table,array('class_id'=>$classId,'product_id'=>$productId,'course_sku'=>$data['course_code'],'course_start_date'=>$first['date'],'course_end_date'=>$last['date'],'course_start_time'=>$first['start_time'],'course_end_time'=>$last['end_time'],'vacancy'=>'A','created_by'=>'TMS handover','created_at'=>gmdate('Y-m-d H:i:s')));
             return (int)$w->lastInsertId();
+    }
+
+    protected function checkExistingCalendar(array $run,array $data)
+    {
+        $existing=trim((string)($run['gcal_event_id']??''));
+        if($existing==='')return;
+        foreach($data['event_occurrences'] as $event) {
+            if($event===$existing || strpos($event,$existing.'_')===0)return;
+        }
+        throw new InvalidArgumentException('Existing MMS class is linked to a different Calendar event. Resolve the duplicate in TMS before handover.');
     }
 
     protected function account(array $person,$role,$provider,$website)

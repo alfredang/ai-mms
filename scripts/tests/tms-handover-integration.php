@@ -35,6 +35,15 @@ $preview=previewSnapshot($svc,$data);
 check($preview['action']==='create' && (int)$w->fetchOne('SELECT COUNT(*) FROM course_runs')===$before && (int)$w->fetchOne('SELECT COUNT(*) FROM admin_user')===$beforeUsers,'Dry run wrote class/account data.');
 $w->insert('course_runs',array('class_id'=>'C990001','product_id'=>$productId,'course_sku'=>'C916','course_start_date'=>'2026-11-10','course_end_date'=>'2026-11-10','course_start_time'=>'09:30','course_end_time'=>'17:30','created_by'=>'Isolated fixture'));
 $nativeRun=(int)$w->lastInsertId();check(previewSnapshot($svc,$data)['action']==='adopt','Existing class was not recognized during dry run.');
+// Broad normal-operations scope is still C-only; funded validation precedes it.
+Mage::app()->getStore()->setConfig('mmd/tms_handover/course_allowlist','C*');
+check(previewSnapshot($svc,$data)['action']==='adopt','C* normal-operations scope did not accept the supported C course.');
+try{previewSnapshot($svc,array_merge($data,array('course_code'=>'TGS-123')));throw new RuntimeException('C* scope accepted a funded course.');}catch(InvalidArgumentException $e){$checks++;}
+$w->update('course_runs',array('gcal_event_id'=>'another-event'),array('run_id = ?'=>$nativeRun));
+try{previewSnapshot($svc,$data);throw new RuntimeException('Preview adopted a conflicting Calendar event.');}catch(InvalidArgumentException $e){$checks++;}
+try{applySnapshot($svc,$data);throw new RuntimeException('Import adopted a conflicting Calendar event.');}catch(InvalidArgumentException $e){$checks++;}
+check((int)$w->fetchOne('SELECT COUNT(*) FROM mmd_tms_run_link')===0 && (int)$w->fetchOne('SELECT COUNT(*) FROM admin_user')===$beforeUsers,'Rejected duplicate changed accounts or source mappings.');
+$w->update('course_runs',array('gcal_event_id'=>'pilot-event'),array('run_id = ?'=>$nativeRun));
 $first=applySnapshot($svc,$data);$runId=$first['run_id'];
 check($runId===$nativeRun && $first['class_id']==='C990001','Existing MMS class identity was not preserved.');
 $nativeService=Mage::getModel('mmd_rolemanager/courseRunEnrolmentService');$findNative=new ReflectionMethod($nativeService,'_findOrCreateRun');$findNative->setAccessible(true);
