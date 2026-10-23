@@ -546,6 +546,11 @@ class MMD_CourseImage_Helper_Data extends Mage_Core_Helper_Abstract
                 'html'  => '<p>We are a <strong>PSI Authorized Testing Center</strong>. '
                     . 'You can register and sit your proctored PSI certification exam at our training center.</p>',
             ],
+            'claude_partner_network' => [
+                'label' => 'Claude Partner Network',
+                'html'  => '<p>We are a member of the <strong>Claude Partner Network</strong>. '
+                    . 'Our Claude certification exam prep courses prepare you for the official Claude certification exams from Anthropic.</p>',
+            ],
         ];
     }
 
