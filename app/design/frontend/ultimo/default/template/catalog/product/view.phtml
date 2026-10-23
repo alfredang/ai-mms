@@ -1345,7 +1345,8 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 			          (C + digit SKU) course, on all stores (SG/MY/GH). Sits after the
 			          Bonus card and ABOVE the funding cards (SG Funding Options, MY
 			          HRD Corp). Copy is store-neutral so partner sites need no
-			          override. */ ?>
+			          override. Optional per-course tiles (cms/block
+			          course_<SKU>_why_take, <li class="why-tile ..."> items) go FIRST. */ ?>
 			<?php if (preg_match('/^C\d/i', $_courseSku)): ?>
 				<section class="course-policy-card course-policy-card--why">
 					<header class="course-policy-card__header">
@@ -1356,6 +1357,7 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 					</header>
 					<div class="course-policy-card__body">
 						<ul class="why-grid">
+							<?php echo $_courseSectionHtml('why_take'); ?>
 							<li class="why-tile why-tile--hands-on">
 								<span class="why-tile__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-4 0v5"/><path d="M14 10V4a2 2 0 0 0-4 0v6"/><path d="M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg></span>
 								<strong class="why-tile__title"><?php echo $this->__('Hands-On Learning'); ?></strong>
