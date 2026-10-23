@@ -610,7 +610,12 @@
 	// The cert-prep/strip gate above still decides WHETHER the card renders at
 	// all: the "free practice exams" claim is only true for courses under the
 	// cert-prep tree, so a block must never be able to surface it on its own.
+	// A "Free Practice Exam" tile in the course's Why Take This Course? card
+	// (cms/block course_<SKU>_why_take) says the same thing -> skip this card.
 	$_practiceExamCardHtml = '';
+	if (strpos($_courseSectionHtml('why_take'), 'why-tile--practice') !== false) {
+		$_hasPracticeExams = false;
+	}
 	if ($_hasPracticeExams) {
 		$_practiceExamBody = $_courseSectionHtml('practice_exams');
 		if ($_practiceExamBody === '') {
