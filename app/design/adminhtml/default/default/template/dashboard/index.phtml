@@ -15614,6 +15614,23 @@ $_mnBlastStats = array();
                         </li>
                     <?php endforeach; ?>
                 </ol>
+                <?php
+                // Design brief (queue special instructions) + every change request
+                // this flow went through — kept in review_decisions _brief/_history
+                // so the trail survives each superseding revision.
+                $_fdec  = json_decode((string) $_flow['review_decisions'], true);
+                $_brief = (is_array($_fdec) && !empty($_fdec['_brief']['instructions'])) ? (string) $_fdec['_brief']['instructions'] : '';
+                $_hist  = (is_array($_fdec) && !empty($_fdec['_history']) && is_array($_fdec['_history'])) ? $_fdec['_history'] : array();
+                if ($_brief !== '' || $_hist): ?>
+                <div class="mn-flow-trail">
+                    <?php if ($_brief !== ''): ?>
+                    <div class="mn-trail-row"><span class="mn-trail-k">Design brief</span><span class="mn-trail-v"><?php echo nl2br(htmlspecialchars($_brief)) ?></span></div>
+                    <?php endif; ?>
+                    <?php foreach ($_hist as $_hi => $_hx): ?>
+                    <div class="mn-trail-row"><span class="mn-trail-k">Change <?php echo $_hi + 1 ?><em><?php echo htmlspecialchars(date('j M · g:ia', strtotime((string) $_hx['at']))) ?><?php echo !empty($_hx['by']) ? ' · ' . htmlspecialchars((string) $_hx['by']) : '' ?></em></span><span class="mn-trail-v"><?php echo nl2br(htmlspecialchars((string) $_hx['feedback'])) ?></span></div>
+                    <?php endforeach; ?>
+                </div>
+                <?php endif; ?>
             </div>
             <?php endforeach; ?>
             <?php if (count($_active) < 2): ?>
@@ -15801,6 +15818,11 @@ $_mnBlastStats = array();
         /* per-flow pipeline card (Flow 1 current, Flow 2 next) */
         .mn-flow{background:#0d1730;border:1px solid #24324a;border-radius:12px;padding:16px 18px 8px;margin-bottom:12px;}
         .mn-flow-ghost{background:transparent;border-style:dashed;opacity:.8;}
+        .mn-flow-trail{border-top:1px solid var(--b1);margin:10px 0 6px;padding-top:10px;}
+        .mn-trail-row{display:flex;gap:14px;padding:4px 0;font-size:12px;line-height:1.5;}
+        .mn-trail-k{flex:0 0 150px;font-weight:700;font-size:10.5px;letter-spacing:.6px;text-transform:uppercase;color:var(--t4);}
+        .mn-trail-k em{display:block;font-style:normal;font-weight:400;letter-spacing:0;text-transform:none;color:var(--t5);font-variant-numeric:tabular-nums;}
+        .mn-trail-v{flex:1;color:var(--t2);white-space:normal;word-break:break-word;}
         .mn-flow-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
         .mn-flow-name{font:700 14px -apple-system,Segoe UI,Arial,sans-serif;color:#f1f5f9;}
         .mn-flow-tag{font:800 10px -apple-system,Segoe UI,Arial,sans-serif;letter-spacing:.8px;text-transform:uppercase;padding:4px 10px;border-radius:999px;border:1px solid;}

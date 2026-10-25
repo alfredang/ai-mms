@@ -152,6 +152,9 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
             'ink_br'    => isset($pitch[$key]['ink_br'])   ? $pitch[$key]['ink_br']   : '#22345c',
             'eyebrow'   => isset($pitch[$key]['eyebrow'])  ? $pitch[$key]['eyebrow']  : '#22d3ee',
             'logo'      => isset($pitch[$key]['logo']) ? $pitch[$key]['logo'] : '',
+            // Social-proof band — switched on per SKU by a brief / change request
+            // (detectSocialProofRequest); the numbers are always live data.
+            'proof'     => !empty($pitch[$key]['social_proof']) ? $this->socialProof($productId) : null,
         );
     }
 
@@ -415,6 +418,83 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         );
     }
 
+    /**
+     * Does a brief / change request ask for social proof (review count, rating,
+     * popularity, learner testimonials)? Those are DATA blocks the AI copy step
+     * cannot produce — it only writes hook/outcomes/journey — so before this
+     * the ask was silently dropped (2026-10-25, TGS-2025052468). A match turns
+     * on the render()-side social-proof band, fed by real review data only.
+     */
+    public function detectSocialProofRequest($text)
+    {
+        return (bool) preg_match(
+            '/\b(reviews?|ratings?|rated|stars?|testimonials?|popular(ity)?|social[\s-]proof|learners?\W+(say|feedback|quotes?))\b/i',
+            (string) $text);
+    }
+
+    /**
+     * Real social proof for one course: the storefront review summary (count +
+     * average), page views (aggregated tables — raw report_event is pruned
+     * daily), learners enrolled (non-cancelled order qty) and up to 2 genuine
+     * 5-star learner quotes. Never invents anything: missing data = omitted.
+     */
+    public function socialProof($productId)
+    {
+        $productId = (int) $productId;
+        $res  = Mage::getSingleton('core/resource');
+        $conn = $res->getConnection('core_read');
+        $out  = array('reviews' => 0, 'rating' => 0.0, 'views' => 0, 'enrolled' => 0, 'quotes' => array());
+        try {
+            $sum = $conn->fetchRow(
+                'SELECT reviews_count, rating_summary FROM ' . $res->getTableName('review/review_aggregate')
+              . ' WHERE entity_pk_value = ? AND entity_type = 1 AND store_id IN (0, 1)'
+              . ' ORDER BY store_id DESC LIMIT 1', array($productId));
+            if ($sum) {
+                $out['reviews'] = (int) $sum['reviews_count'];
+                $out['rating']  = round(((float) $sum['rating_summary']) / 20, 1);   // percent -> /5
+            }
+        } catch (Exception $e) { /* optional */ }
+        try {
+            $out['views'] = (int) $conn->fetchOne(
+                'SELECT SUM(views_num) FROM ' . $res->getTableName('reports/viewed_aggregated_yearly')
+              . ' WHERE product_id = ? AND store_id = 1', array($productId));
+        } catch (Exception $e) { /* optional */ }
+        try {
+            $out['enrolled'] = (int) $conn->fetchOne(
+                'SELECT SUM(i.qty_ordered) FROM ' . $res->getTableName('sales/order_item') . ' i'
+              . ' JOIN ' . $res->getTableName('sales/order') . ' o ON o.entity_id = i.order_id'
+              . " WHERE i.product_id = ? AND i.parent_item_id IS NULL AND o.state NOT IN ('canceled','closed')",
+                array($productId));
+        } catch (Exception $e) { /* optional */ }
+        try {
+            // Latest approved 5-star reviews with real text; longest clean,
+            // unreserved ones first (a "but..." or "should..." is not a pull quote).
+            $rows = $conn->fetchAll(
+                'SELECT d.nickname, d.detail FROM ' . $res->getTableName('review/review') . ' r'
+              . ' JOIN ' . $res->getTableName('review/review_detail') . ' d ON d.review_id = r.review_id'
+              . ' WHERE r.entity_pk_value = ? AND r.status_id = 1 AND CHAR_LENGTH(d.detail) BETWEEN 50 AND 300'
+              . ' AND (SELECT MIN(v.percent) FROM ' . $res->getTableName('rating/rating_option_vote') . ' v'
+              . '      WHERE v.review_id = r.review_id) = 100'
+              . ' ORDER BY r.review_id DESC LIMIT 80', array($productId));
+            $neg = '/\b(but|however|should|could|would|prefer|need to|do not|don\'t|not enough|too (fast|short|long|rushed)|more (details?|time)|improve)\b/i';
+            $ok  = array();
+            foreach ($rows as $r) {
+                $txt = trim(preg_replace('/\s+/u', ' ', (string) $r['detail']));
+                if (!mb_check_encoding($txt, 'UTF-8') || strpos($txt, "\xEF\xBF\xBD") !== false
+                    || strpos($txt, '??') !== false || preg_match($neg, $txt)) { continue; }
+                // "Jian Feng HO" -> "Jian Feng H." — enough to be real, not a full name.
+                $parts = preg_split('/\s+/u', trim(preg_replace('/\(.*?\)/u', '', (string) $r['nickname'])));
+                $last  = count($parts) > 1 ? array_pop($parts) : '';
+                $who   = trim(implode(' ', array_map(function ($p) { return mb_convert_case($p, MB_CASE_TITLE, 'UTF-8'); }, $parts))
+                    . ($last !== '' ? ' ' . mb_strtoupper(mb_substr($last, 0, 1)) . '.' : ''));
+                $ok[] = array('text' => $txt, 'who' => $who);
+            }
+            usort($ok, function ($a, $b) { return mb_strlen($b['text']) <=> mb_strlen($a['text']); });
+            $out['quotes'] = array_slice($ok, 0, 2);
+        } catch (Exception $e) { /* optional */ }
+        return $out;
+    }
+
     protected function _designRefinements()
     {
         try {
@@ -546,7 +626,14 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         // (otherwise the early returns below drop the colour on the floor).
         $palette = $this->detectColorRequest($fb0);
         if ($palette) { $this->_persistRefinement($sku, $palette); }
+        // Same for a social-proof ask: render() builds that band from real review
+        // data, so switch it on up front, independent of the words step.
+        $wantsProof = $this->detectSocialProofRequest($fb0);
+        if ($wantsProof) { $this->_persistRefinement($sku, array('social_proof' => true)); }
 
+        if ($wantsProof) {
+            $prompt .= "\n\nThe flyer shows the course's REAL review count, star rating, popularity and learner quotes in its own block. Do NOT put ratings, review counts or testimonials in your copy, and never invent any.";
+        }
         $out = $this->_callClaude($prompt);
         if ($out === '') { return null; }
 
@@ -962,6 +1049,47 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
                 . '</td></tr>';
         }
 
+        // ---- Social proof (on request): real rating, review count, popularity and
+        // learner quotes — placed straight after the facts strip so trust lands
+        // before the value stack. Every number is live data; a zero is omitted.
+        $proofHtml = '';
+        $heroProof = '';
+        $pf = isset($c['proof']) && is_array($c['proof']) ? $c['proof'] : null;
+        if ($pf) {
+            $tiles = array();
+            if ($pf['reviews'] > 0 && $pf['rating'] > 0) {
+                $tiles[] = array(number_format($pf['rating'], 1) . '<small style="font:700 13px ' . $sans . ';color:#7c8aa3;">/5</small>', '&#9733;&#9733;&#9733;&#9733;&#9733; Learner rating');
+                $tiles[] = array(number_format($pf['reviews']), 'Learner reviews');
+                $heroProof = '<div style="margin-top:14px;font:700 13px ' . $sans . ';color:#fbbf24;">&#9733;&#9733;&#9733;&#9733;&#9733; <span style="color:#ffffff;">' . number_format($pf['rating'], 1) . '/5</span> <span style="color:#b7c4e0;font-weight:600;">from ' . number_format($pf['reviews']) . ' learner reviews</span></div>';
+            }
+            if ($pf['enrolled'] >= 20) { $tiles[] = array(number_format($pf['enrolled']), 'Learners enrolled'); }
+            if ($pf['views'] >= 100)   { $tiles[] = array(number_format($pf['views']), 'Course page views'); }
+            $tHtml = '';
+            $w = $tiles ? floor(100 / count($tiles)) : 25;
+            foreach ($tiles as $t) {
+                $tHtml .= '<td width="' . $w . '%" class="fl-stack" valign="top" style="padding:0 8px 8px 0;">'
+                    . '<table role="presentation" width="100%" style="background:' . $accentBg . ';border:1px solid ' . $accentBr . ';border-radius:12px;"><tr><td style="padding:13px 14px;">'
+                    . '<div style="font:800 22px ' . $sans . ';color:#0a1020;">' . $t[0] . '</div>'
+                    . '<div style="font:700 10.5px ' . $sans . ';letter-spacing:.5px;text-transform:uppercase;color:' . $accent . ';margin-top:4px;">' . $t[1] . '</div>'
+                    . '</td></tr></table></td>';
+            }
+            $qHtml = '';
+            foreach ($pf['quotes'] as $q) {
+                $qHtml .= '<tr><td style="padding:0 0 10px;">'
+                    . '<table role="presentation" width="100%" style="background:#f8fafc;border-left:3px solid ' . $accent . ';border-radius:8px;"><tr><td style="padding:13px 16px;">'
+                    . '<div style="font:400 14px/1.55 ' . $sans . ';color:#0a1020;font-style:italic;">&ldquo;' . $h($q['text']) . '&rdquo;</div>'
+                    . '<div style="font:700 12px ' . $sans . ';color:#42506a;margin-top:7px;"><span style="color:#f59e0b;">&#9733;&#9733;&#9733;&#9733;&#9733;</span> &nbsp;' . $h($q['who']) . ' &middot; verified learner</div>'
+                    . '</td></tr></table></td></tr>';
+            }
+            if ($tHtml !== '' || $qHtml !== '') {
+                $proofHtml = '<tr><td style="padding:24px 30px 6px;">'
+                    . '<div style="font:800 13px ' . $sans . ';text-transform:uppercase;letter-spacing:.8px;color:' . $accent . ';margin-bottom:14px;">Why learners pick this course</div>'
+                    . ($tHtml !== '' ? '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>' . $tHtml . '</tr></table>' : '')
+                    . ($qHtml !== '' ? '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;">' . $qHtml . '</table>' : '')
+                    . '</td></tr>';
+            }
+        }
+
         $badgesHtml = '';
         foreach ($c['badges'] as $b) {
             list($fg,$bg) = array_pad(explode(';', isset($badgeColors[$b]) ? $badgeColors[$b] : '#475569;#eef2f7'), 2, '#eef2f7');
@@ -1079,6 +1207,7 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         .   ($hook ? '<div style="margin:16px 0 0;font:400 14.5px/1.55 ' . $sans . ';color:#b7c4e0;max-width:54ch;">' . $h($hook) . '</div>' : '')
         .   $offerHtml
         .   '<a href="' . $h($c['url']) . '" style="display:inline-block;margin-top:16px;background:' . $accent . ';color:#fff;text-decoration:none;font:700 14px ' . $sans . ';padding:12px 22px;border-radius:10px;">Claim my funded seat &rarr;</a>'
+        .   $heroProof
         .   '<div style="margin-top:18px;font:400 12.5px ' . $mono . ';letter-spacing:1px;color:#9fb3d8;background:' . $inkSoft . ';border:1px solid ' . $inkBr . ';display:inline-block;padding:6px 12px;border-radius:8px;">' . $h($c['sku']) . '</div>'
         . '</td></tr>'
         // facts
@@ -1089,6 +1218,8 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         .     '<td width="34%" class="fl-fact" style="padding:16px 20px;"><div style="font:700 10.5px ' . $sans . ';letter-spacing:.8px;text-transform:uppercase;color:#7c8aa3;">Full Fee</div><div style="font:800 17px ' . $sans . ';color:#0a1020;margin-top:4px;">S$' . $price . '<small style="font:600 11px ' . $sans . ';color:#7c8aa3;margin-left:2px;">+GST</small></div></td>'
         .   '</tr></table>'
         . '</td></tr>'
+        // social proof (only when a brief / change request asked for it)
+        . $proofHtml
         // FUNNEL body: value stack -> learning journey -> urgency -> friction-killer
         . $learnHtml
         // the learning journey (numbered class timeline)

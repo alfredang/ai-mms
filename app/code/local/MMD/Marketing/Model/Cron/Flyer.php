@@ -308,6 +308,26 @@ class MMD_Marketing_Model_Cron_Flyer
         if (!$pid) { $this->_log('regenerate: #' . $old . ' has no product'); return null; }
         $fb       = trim((string) $row['review_feedback']);
         $prevBody = (string) $row['body_html'];
+        // The design brief + every earlier change request travel with the flow
+        // (review_decisions _brief / _history) — a revision must keep honouring
+        // the original instructions, not just the latest note, and the admin
+        // panel shows the full trail.
+        $dec0    = json_decode((string) $row['review_decisions'], true);
+        if (!is_array($dec0)) { $dec0 = array(); }
+        $brief   = (isset($dec0['_brief']) && is_array($dec0['_brief'])) ? $dec0['_brief'] : null;
+        $history = (isset($dec0['_history']) && is_array($dec0['_history'])) ? $dec0['_history'] : array();
+        $by = array();
+        foreach ($dec0 as $k => $d) { if ($d === 'changes' && strpos((string) $k, '_') !== 0) { $by[] = (string) $k; } }
+        $history[] = array('at' => $this->_nowStr(), 'by' => implode(', ', $by), 'feedback' => $fb, 'from' => $old);
+        $aiFb = $fb;
+        $earlier = array();
+        foreach (array_slice($history, 0, -1) as $hx) { if (!empty($hx['feedback'])) { $earlier[] = '- ' . $hx['feedback']; } }
+        if (($brief && trim((string) $brief['instructions']) !== '') || $earlier) {
+            $aiFb = ($brief && trim((string) $brief['instructions']) !== ''
+                    ? "ORIGINAL DESIGN BRIEF (still applies):\n" . trim((string) $brief['instructions']) . "\n\n" : '')
+                . ($earlier ? "EARLIER CHANGE REQUESTS (still apply unless the latest overrides them):\n" . implode("\n", $earlier) . "\n\n" : '')
+                . "LATEST CHANGE REQUEST:\n" . $fb;
+        }
 
         // ============================================================
         // HARD RULE (admin 2026-07-12): the manager's feedback MUST be
@@ -324,7 +344,7 @@ class MMD_Marketing_Model_Cron_Flyer
         $copy = null;
         $revisionError = 'The AI service could not generate valid revised copy. No revised email was sent.';
         for ($attempt = 1; $attempt <= 3 && !$copy; $attempt++) {
-            try { $copy = $this->_flyer()->regenerateCopy($pid, $fb); }
+            try { $copy = $this->_flyer()->regenerateCopy($pid, $aiFb); }
             catch (DomainException $e) {
                 $revisionError = $e->getMessage();
                 $this->_log('regenerate: HELD #' . $old . ' - ' . $revisionError);
@@ -361,7 +381,7 @@ class MMD_Marketing_Model_Cron_Flyer
             $this->_log('regenerate: #' . $old . ' already claimed by a concurrent regenerate — skipping');
             return null;
         }
-        $nid = $this->createProposal($pid);
+        $nid = $this->createProposal($pid, '', ($brief && !empty($brief['run_date'])) ? $brief['run_date'] : null);
         if (!$nid) {
             $this->_write()->update($this->_tbl(), array('review_status' => 'changes_requested'),
                 array('newsletter_id = ?' => $old));
@@ -375,7 +395,7 @@ class MMD_Marketing_Model_Cron_Flyer
         if ($prevBody !== '' && md5($newBody) === md5($prevBody)) {
             $this->_log('regenerate: new #' . $nid . ' body identical to rejected #' . $old . ' — forcing a second regeneration');
             try {
-                if ($this->_flyer()->regenerateCopy($pid, $fb . "\n\n(The previous rewrite was too similar — change the wording and angle more.)")) {
+                if ($this->_flyer()->regenerateCopy($pid, $aiFb . "\n\n(The previous rewrite was too similar — change the wording and angle more.)")) {
                     $rebuilt = $this->_flyer()->render($pid);
                     if ($rebuilt !== '') {
                         $this->_write()->update($this->_tbl(), array('body_html' => $rebuilt),
@@ -385,8 +405,10 @@ class MMD_Marketing_Model_Cron_Flyer
             } catch (Exception $e) { $this->_log('regenerate: second-pass error — ' . $e->getMessage()); }
         }
 
+        $carry = array('_history' => $history);
+        if ($brief) { $carry['_brief'] = $brief; }
         $this->_write()->update($this->_tbl(),
-            array('review_feedback' => (string) $row['review_feedback']),
+            array('review_feedback' => (string) $row['review_feedback'], 'review_decisions' => json_encode($carry)),
             array('newsletter_id = ?' => $nid));
         $sent = $this->sendForReview($nid, null, false, true);
         $this->_log('regenerate: #' . $old . ' -> #' . $nid . ' after change request (feedback applied'
@@ -542,6 +564,16 @@ class MMD_Marketing_Model_Cron_Flyer
         if (!empty($c['ai_tools'])) {
             $preview = 'Includes 6 months of premium AI tools, free (Singaporeans only). ' . $preview;
         }
+        if (!empty($c['proof']['reviews']) && $c['proof']['reviews'] >= 10 && $c['proof']['rating'] > 0) {
+            $preview = 'Rated ' . number_format($c['proof']['rating'], 1) . '/5 by ' . number_format($c['proof']['reviews'])
+                . ' learners. ' . $preview;
+        }
+        // Keep the design brief on the row — the queue row it came from is
+        // already deleted, and the admin panel + every revision need it.
+        $briefTxt = trim((string) $instructions);
+        $decInit  = ($briefTxt !== '' || $runDate)
+            ? json_encode(array('_brief' => array('instructions' => $briefTxt, 'run_date' => $runDate ?: null, 'at' => $this->_nowStr())))
+            : null;
         $conn = $this->_write();
         $conn->insert($this->_tbl(), array(
             'country_code'  => 'SG',
@@ -553,6 +585,7 @@ class MMD_Marketing_Model_Cron_Flyer
             'body_html'     => $flyerHtml,
             'status'        => 'draft',
             'review_status' => 'pending',
+            'review_decisions' => $decInit,
             'is_auto'       => 1,
             'created_at'    => $this->_nowStr(),
         ));
@@ -610,6 +643,30 @@ class MMD_Marketing_Model_Cron_Flyer
             } catch (Exception $e) { $this->_log('sendForReview: SMTPPro transport unavailable: ' . $e->getMessage()); }
         }
 
+        // Brief + change trail, so a reviewer can check the design against what
+        // was actually asked for (not just eyeball the latest render).
+        $trailHtml = '';
+        $rd = json_decode((string) $row['review_decisions'], true);
+        if (is_array($rd)) {
+            $li = '';
+            if (!empty($rd['_brief']['instructions'])) {
+                $li .= '<li style="margin:0 0 6px;"><b>Design brief:</b> ' . nl2br(htmlspecialchars((string) $rd['_brief']['instructions'])) . '</li>';
+            }
+            if (!empty($rd['_history']) && is_array($rd['_history'])) {
+                foreach ($rd['_history'] as $i => $hx) {
+                    $li .= '<li style="margin:0 0 6px;"><b>Change request ' . ($i + 1) . '</b> <span style="color:#7c8aa3;">('
+                        . htmlspecialchars(date('j M, g:ia', strtotime((string) $hx['at'])))
+                        . (!empty($hx['by']) ? ' &middot; ' . htmlspecialchars((string) $hx['by']) : '') . ')</span>: '
+                        . nl2br(htmlspecialchars((string) $hx['feedback'])) . '</li>';
+                }
+            }
+            if ($li !== '') {
+                $trailHtml = '<div style="background:#f8fafc;border:1px solid #e4e9f0;border-radius:10px;padding:12px 16px;margin:0 0 14px;font-size:13px;color:#0a1020;">'
+                    . '<div style="font-weight:800;font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:#2563eb;margin-bottom:8px;">Instructions this design follows</div>'
+                    . '<ul style="margin:0;padding-left:18px;">' . $li . '</ul></div>';
+            }
+        }
+
         $sentAny = false;
         $failed  = array();
         foreach ($g->reviewers() as $email) {
@@ -625,6 +682,7 @@ class MMD_Marketing_Model_Cron_Flyer
                 . '<td><a href="' . htmlspecialchars($reject) . '" style="background:#e2e8f0;color:#0a1020;text-decoration:none;font-weight:700;font-size:14px;padding:11px 22px;border-radius:8px;display:inline-block;">✎ Request changes</a></td>'
                 . '</tr></table>'
                 . '<p style="font-size:12px;color:#7c8aa3;">"Request changes" lets you ask for a new design or a different course; the system will regenerate and re-send for approval.</p>'
+                . $trailHtml
                 . '<hr style="border:0;border-top:1px solid #e4e9f0;margin:18px 0;">'
                 . $row['body_html']
                 . '</div>';
