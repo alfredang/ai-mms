@@ -194,9 +194,20 @@ class MMD_Reschedule_AjaxController extends Mage_Core_Controller_Front_Action
             array($email, $code)
         );
 
+        // Wrong-code cap per email (not per session — a fresh cookie per guess
+        // would reset that). 5 misses burn every outstanding code for the email.
+        $failId = 'MMD_RESCHEDULE_OTP_FAIL_' . md5(strtolower($email));
         if (!$row) {
+            $failures = (int) Mage::app()->getCache()->load($failId) + 1;
+            if ($failures >= 5) {
+                $this->_write()->update($tbl, array('used' => 1), array('email = ?' => $email, 'used = ?' => 0));
+                Mage::app()->getCache()->remove($failId);
+                return $this->_json(429, array('ok' => false, 'message' => 'Too many incorrect codes. Please request a new one.'));
+            }
+            Mage::app()->getCache()->save((string) $failures, $failId, array(), self::OTP_TTL_SECONDS);
             return $this->_json(400, array('ok' => false, 'message' => 'Invalid or expired code. Please try again.'));
         }
+        Mage::app()->getCache()->remove($failId);
 
         $this->_write()->update($tbl, array('used' => 1), array('otp_id = ?' => (int) $row['otp_id']));
         $this->_session()->setData('reschedule_verified_email', $email);

@@ -15,6 +15,20 @@ Deny from env=bad_bot
 </FilesMatch>
 
 ############################################
+## Hide repo internals that ship in the image (security assessment
+## 2026-10-25): the DB seed dump, docs/agent notes, build + compose files,
+## dependency manifests, vendor/ and dot-dirs were all publicly readable.
+## 404 (not 403) so probes can't tell what exists. Runtime is unaffected:
+## these are only read from disk (CLI cron, entrypoint, composer autoload).
+## media/bankpayment/ holds emailed bank-transfer receipts under guessable
+## timestamp names — never meant to be web-served.
+Options -Indexes
+RedirectMatch 404 "(?i)^/(seed|docs|docker|scripts|migrations|output|vendor|tests|security-assessment|media/bankpayment)(/|$)"
+RedirectMatch 404 "(^|/)\.(?!well-known(/|$))"
+RedirectMatch 404 "(?i)\.(md|ya?ml|lock|sh|sql|dist|example|neon|bak|orig|swp|log)$"
+RedirectMatch 404 "(?i)^/(Dockerfile|composer\.json|skills-lock\.json|cron\.php|gsc-detail\.png|screenshot\.png)$"
+
+############################################
 ## SEO: noindex utility URLs that Google has crawled despite being
 ## (previously) disallowed in robots.txt — currency-switcher session
 ## URLs and Magento's HTML seo_sitemap pages. The robots.txt block

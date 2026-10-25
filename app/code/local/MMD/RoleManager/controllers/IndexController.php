@@ -117,10 +117,17 @@ class MMD_RoleManager_IndexController extends Mage_Adminhtml_Controller_Action
             }
 
             if (!$ok) {
+                // A lockout must not be bypassed through the storefront check.
+                if (MMD_EmailLogin_Model_User::isLoginLocked($email)) {
+                    throw new Exception(MMD_EmailLogin_Model_User::LOCK_MESSAGE);
+                }
                 // Legacy learner whose shadow account predates AccountSync (or
                 // was never backfilled): validate the STOREFRONT account and
                 // create/sync the shadow on the fly, then retry once.
                 $ok = $this->_tryCustomerFallback($email, $password, $user);
+                if ($ok) {
+                    MMD_EmailLogin_Model_User::clearLoginFailures($email);
+                }
             }
             if (!$ok || !$user->getId()) {
                 throw new Exception('Your email or password is incorrect.');
@@ -200,6 +207,7 @@ class MMD_RoleManager_IndexController extends Mage_Adminhtml_Controller_Action
             $session->setLearnerOtpCode($otp);
             $session->setLearnerOtpEmail($email);
             $session->setLearnerOtpExpires($now + 600);
+            $session->unsLearnerOtpFailures();
 
             try {
                 $subject  = 'Your Learner Login OTP - Tertiary Infotech Academy';
@@ -262,13 +270,21 @@ class MMD_RoleManager_IndexController extends Mage_Adminhtml_Controller_Action
             $result['message'] = 'OTP has expired. Please request a new one.';
             return $this->_json($result);
         }
-        if ($otp !== $storedCode || strtolower($email) !== strtolower($storedEmail)) {
+        if (!hash_equals((string) $storedCode, $otp) || strtolower($email) !== strtolower($storedEmail)) {
+            // Cap guesses per issued code — 6 digits is brute-forceable otherwise.
+            $failures = (int) $session->getLearnerOtpFailures() + 1;
+            if ($failures >= 5) {
+                $session->unsLearnerOtpCode()->unsLearnerOtpEmail()->unsLearnerOtpExpires()->unsLearnerOtpFailures();
+                $result['message'] = 'Too many incorrect codes. Please request a new one.';
+                return $this->_json($result);
+            }
+            $session->setLearnerOtpFailures($failures);
             $result['message'] = 'Invalid OTP. Please try again.';
             return $this->_json($result);
         }
 
         // OTP valid — clear it
-        $session->unsLearnerOtpCode()->unsLearnerOtpEmail()->unsLearnerOtpExpires();
+        $session->unsLearnerOtpCode()->unsLearnerOtpEmail()->unsLearnerOtpExpires()->unsLearnerOtpFailures();
         $session->unsLearnerOtpAttempts();
 
         try {

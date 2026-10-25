@@ -72,6 +72,7 @@ class MMD_OtpLogin_Adminhtml_OtpController extends Mage_Adminhtml_Controller_Act
             $session->setAdminOtpCode($otp);
             $session->setAdminOtpEmail($email);
             $session->setAdminOtpExpires($now + 600); // 10 minutes
+            $session->unsAdminOtpFailures();
 
             // Send email. Admin OTP is served from the single (SG-team)
             // admin panel, so we route it through Gmail OAuth2 directly
@@ -159,7 +160,19 @@ class MMD_OtpLogin_Adminhtml_OtpController extends Mage_Adminhtml_Controller_Act
             return;
         }
 
-        if ($otp !== $storedCode || strtolower($email) !== strtolower($storedEmail)) {
+        if (!hash_equals((string) $storedCode, $otp) || strtolower($email) !== strtolower($storedEmail)) {
+            // Cap guesses per issued code — 6 digits is brute-forceable otherwise.
+            $failures = (int) $session->getAdminOtpFailures() + 1;
+            if ($failures >= 5) {
+                $session->unsAdminOtpCode();
+                $session->unsAdminOtpEmail();
+                $session->unsAdminOtpExpires();
+                $session->unsAdminOtpFailures();
+                $result['message'] = 'Too many incorrect codes. Please request a new one.';
+                $this->_sendJson($result);
+                return;
+            }
+            $session->setAdminOtpFailures($failures);
             $result['message'] = 'Invalid OTP. Please try again.';
             $this->_sendJson($result);
             return;
@@ -169,6 +182,7 @@ class MMD_OtpLogin_Adminhtml_OtpController extends Mage_Adminhtml_Controller_Act
         $session->unsAdminOtpCode();
         $session->unsAdminOtpEmail();
         $session->unsAdminOtpExpires();
+        $session->unsAdminOtpFailures();
         $session->unsOtpAttempts();
 
         // Load user and log in

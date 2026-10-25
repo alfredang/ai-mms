@@ -178,7 +178,8 @@ ai-mms/
 ├── skin/                   # Ultimo theme + dark admin theme (CSS/JS)
 ├── lib/                    # Varien / Zend / Magento libraries
 ├── migrations/             # Numbered *.sql applied by apply.php on deploy
-├── scripts/                # local-dev fixups + maintenance scripts
+├── scripts/                # local-dev fixups, maintenance, provision, security (report builder + weekly scan)
+├── seed/                   # Scrubbed base DB for new partner instances (no secrets)
 ├── docker/                 # entrypoint.sh, php.ini, Apache config
 ├── docker-compose.yml      # Local dev stack (web + MySQL)
 └── Dockerfile              # Production image
@@ -272,6 +273,12 @@ User-uploaded media (catalog product/category galleries) is served from **Cloudf
 
 > **Note for contributors:** never `git push` until localhost is verified error-free — production redeploys on every push. Lint changed PHP, confirm rewrites instantiate, hit affected routes, and **dry-run new migrations through `migrations/apply.php`** (not the `mysql` client) before pushing.
 
+### Security
+
+- The image ships the repository into the web root, so the root `.htaccess` returns **404 for repo internals** (`seed/`, `docs/`, `docker/`, `scripts/`, `migrations/`, `vendor/`, dot-directories, `*.md` / `*.yml` / `*.lock` / `*.sh` / `*.sql`) and directory listings are disabled. A new top-level file or folder is public unless it matches those rules.
+- This repository is public: **never commit credential values** — not in migrations, seeds, docs or config. `scripts/provision/build-country-seed.sh` strips secret config paths and verifies the dump before writing it.
+- A **weekly security scan** (`security-scanner` agent, scheduled locally) writes a Word assessment report to `security-assessment/`. That folder is gitignored and excluded from the image; reports are never published.
+
 ## Contributing
 
 1. Fork the repository
@@ -288,8 +295,9 @@ setup. Committed and ready to use after a clone:
 
 - **`.claude/skills/`** — domain skills (`openmage-code-reviewer`, `openmage-module-developer`,
   `openmage-frontend-developer`, `backend-design`, `seo-audit`, `marketing-seo-audit`, `lead-magnets`, `add-country-store`,
-  `recommended-courses`, `linkedin-posts`, `malaysia-blog`, `mysql`, `web-accessibility`, …).
-- **`.claude/agents/`** — specialised subagents (security auditor, caching/speed optimiser,
+  `recommended-courses`, `linkedin-posts`, `malaysia-blog`, `mysql`, `web-accessibility`,
+  `cybersecurity-analyst`, …).
+- **`.claude/agents/`** — specialised subagents (security auditor, `security-scanner`, caching/speed optimiser,
   mysql tuner, admin-design-consistency, site-health-checker, `newsletter-designer`, …).
 - **`.claude/hooks/`** — pre/post-tool hooks (PHP lint-on-edit, web-health,
   leads-capture and newsletter-flyer verifiers) wired via `.claude/settings.json`.

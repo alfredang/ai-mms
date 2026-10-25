@@ -195,6 +195,12 @@ $MD --no-create-info --compact --no-tablespaces \
     AND path NOT LIKE '%turnstile%'
     AND path NOT LIKE '%recaptcha%'
     AND path NOT LIKE '%mailerlite%'
+    AND path NOT LIKE '%secret%'
+    AND path NOT LIKE '%token%'
+    AND path NOT LIKE '%apikey%'
+    AND (path NOT LIKE '%password' OR path LIKE '%change\\_user\\_password')
+    AND (path NOT LIKE '%\\_key' OR path LIKE '%use\\_form\\_key')
+    AND path NOT LIKE '%/key'
     AND path NOT IN ('web/unsecure/base_url','web/secure/base_url')" \
   "$DB_NAME" core_config_data \
   2>/dev/null > "$TMP_DIR/7-config.sql"
@@ -442,6 +448,11 @@ check_absent "Anthropic key format"    "sk-ant-"
 check_absent "Stripe API key row"      "stripe/general/stripe_api_key"
 check_absent "R2 secret key row"       "R2_SECRET_ACCESS_KEY"
 check_absent "OAuth client secret row" "client_secret.*value"
+check_absent "Any *secret* config row" "'[a-z_/]*secret[a-z_/]*','[^']"
+check_absent "Any *token* config row"  "'[a-z_/]*token[a-z_/]*','[^']"
+check_absent "Any *apikey* config row" "'[a-z_/]*apikey','[^']"
+# [^m] skips the */use_form_key flags, which are settings, not credentials.
+check_absent "Any *_key config row"    "'[a-z_/]*[^m]_key','[^']"
 
 # Verify seed has essential tables/data
 check_present() {
