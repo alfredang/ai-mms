@@ -21,8 +21,8 @@ $otpVerifyUrl = Mage::helper('adminhtml')->getUrl('adminhtml/otp/verify', array(
           // logo image on the login card below. ?>
     <?php // Root-relative: resolves against the current admin host (SG/MY/GH), not
           // the admin-scope media base URL (stale on SG → 301, breaks the favicon). ?>
-    <link rel="icon" href="/media/favicon/default/favicon_1.png" type="image/png" />
-    <link rel="shortcut icon" href="/media/favicon/default/favicon_1.png" type="image/png" />
+    <link rel="icon" href="<?php echo '/media/favicon/' . (Mage::getStoreConfig('design/head/shortcut_icon') ?: 'default/favicon_1.png') ?>" type="image/png" />
+    <link rel="shortcut icon" href="<?php echo '/media/favicon/' . (Mage::getStoreConfig('design/head/shortcut_icon') ?: 'default/favicon_1.png') ?>" type="image/png" />
     <link type="text/css" rel="stylesheet" href="<?php echo $this->getSkinUrl('reset.css') ?>" media="all" />
     <link type="text/css" rel="stylesheet" href="<?php echo $this->getSkinUrl('boxes.css') ?>" media="all" />
     <script type="text/javascript" src="<?php echo $this->getJsUrl('prototype/prototype.js') ?>"></script>

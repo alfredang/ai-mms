@@ -325,6 +325,13 @@ RewriteRule ^(.*)$ https://www.tertiarycourses.%1/$1 [L,R=301]
         Redirect 301 /media/wysiwyg/Step-by_Step_Guide_for_SkillsFuture_Claim.pdf https://www.tertiarycourses.com.sg/how-to-claim-skillsfuture-credit.html
     </If>
 
+    ## SG-only: /favicon.ico serves the Tertiary Infotech Academy icon (same as
+    ## www.tertiaryinfotech.com; migration 1850 points the <link rel=icon> at it).
+    ## Partner boxes keep the shared root favicon.ico.
+    RewriteCond %{HTTP_HOST} ^(www\.)?tertiarycourses\.com\.sg$ [NC,OR]
+    RewriteCond %{HTTP_HOST} ^(localhost|127\.0\.0\.1)(:[0-9]+)?$ [NC]
+    RewriteRule ^favicon\.ico$ media/favicon/default/favicon_tia.ico [L]
+
     ## MY-only 301s for retired course slugs that 404 on .com.my (host-gated,
     ## same-domain targets verified 200 on www.tertiarycourses.com.my).
     <If "%{HTTP_HOST} =~ /^(www\.)?tertiarycourses\.com\.my$/i">

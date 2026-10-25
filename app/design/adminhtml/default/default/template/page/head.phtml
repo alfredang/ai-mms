@@ -30,8 +30,8 @@
 <?php // Root-relative so it resolves against the current admin host (SG/MY/GH),
       // not the admin-scope media base URL which on SG points at a stale host
       // (ai-mms.tertiaryinfo.tech) that 301-redirects and breaks the favicon. ?>
-<link rel="icon" href="/media/favicon/default/favicon_1.png" type="image/png"/>
-<link rel="shortcut icon" href="/media/favicon/default/favicon_1.png" type="image/png"/>
+<link rel="icon" href="<?php echo '/media/favicon/' . (Mage::getStoreConfig('design/head/shortcut_icon') ?: 'default/favicon_1.png') ?>" type="image/png"/>
+<link rel="shortcut icon" href="<?php echo '/media/favicon/' . (Mage::getStoreConfig('design/head/shortcut_icon') ?: 'default/favicon_1.png') ?>" type="image/png"/>
 
 <script type="text/javascript">
     var BLANK_URL = '<?php echo $this->getJsUrl() ?>blank.html';
