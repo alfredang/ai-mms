@@ -104,6 +104,11 @@
 		return $_cmsBlockHtml($id);
 	};
 
+	// Prerequisite card — non-WSQ (C-prefix) courses only, from the per-course
+	// cms/block `course_<sku>_prerequisite` (Edit Course → Prerequisite).
+	// Empty block = no card.
+	$_prerequisiteHtml = preg_match('/^C\d/i', $_courseSku) ? $_courseSectionHtml('prerequisite') : '';
+
 	// (1) WSQ Funding wrapper — raw inner HTML of the SFC/UTAP/PSEA narrative.
 	// Per-course cms/block is primary; if empty, fall back to regex extract
 	// (the legacy <div style="border-radius:25px"> wrapper, or an
@@ -1146,6 +1151,18 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 									<?php echo $_courseBrochureHtml; ?>
 								<?php endif; ?>
 							</div>
+						</section>
+					<?php endif; ?>
+
+					<?php if ($_prerequisiteHtml !== ''): ?>
+						<section class="course-policy-card course-policy-card--prerequisite">
+							<header class="course-policy-card__header">
+								<span class="course-policy-card__icon" aria-hidden="true">
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+								</span>
+								<h3 class="course-policy-card__title">Prerequisite</h3>
+							</header>
+							<div class="course-policy-card__body std"><?php echo $_prerequisiteHtml; ?></div>
 						</section>
 					<?php endif; ?>
 

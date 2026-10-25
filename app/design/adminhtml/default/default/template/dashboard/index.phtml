@@ -3564,6 +3564,9 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                 ['code' => 'skills_framework', 'label' => 'Skills Framework',
                  'placeholder' => 'e.g. This course follows the guideline of <strong>Title CODE TSC</strong> under … Skills Framework',
                  'hint' => 'TSC Title and TSC Code are auto-derived from this content on the storefront.'],
+                ['code' => 'prerequisite', 'label' => 'Prerequisite',
+                 'placeholder' => 'e.g. You should complete <a href="https://www.tertiarycourses.com.sg/…html">Course Title (C123)</a> before taking this course.',
+                 'hint' => 'Non-WSQ (C-prefix) courses only. Renders as the Prerequisite card directly above the Certification card; leave empty to hide the card.'],
                 ['code' => 'certification', 'label' => 'Certification',
                  'placeholder' => 'Certification details (HTML supported)...',
                  'hint' => 'On the SG store the standardised SKU-based writeup may take precedence (TGS-* → Cert + OpenCerts; others → Cert only); other stores render this content.'],
@@ -3578,6 +3581,8 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                  'hint' => 'Single shared block — renders inside the WSQ Funding card on SG WSQ courses (fee tiles auto-compute from product price; do NOT enter fee tables here), and as the Funding and Grant card on other active country stores.'],
             ];
             foreach ($_cmsPanels as $_pn):
+                // The Prerequisite card is a non-WSQ (C-prefix) course feature.
+                if ($_pn['code'] === 'prerequisite' && !preg_match('/^C\d/i', $_cmsSku)) continue;
                 // WSQ (TGS-) courses: the Funding and Grant section is
                 // checkbox-driven (2026-08) — the six scheme checkboxes
                 // read/write the SAME funding badge tags that drive the

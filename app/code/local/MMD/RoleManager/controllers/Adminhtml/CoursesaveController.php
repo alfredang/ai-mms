@@ -174,6 +174,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 'learning_outcomes'       => 'Learning Outcomes',
                 'brochure'                => 'Brochure',
                 'skills_framework'        => 'Skills Framework',
+                'prerequisite'            => 'Prerequisite',
                 'certification'           => 'Certification',
                 'about_ibf_certification' => 'About IBF Certification',
                 'exam_voucher'            => 'Complimentary Exam Voucher',
