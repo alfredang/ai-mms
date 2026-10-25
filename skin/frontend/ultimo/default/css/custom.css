@@ -2082,8 +2082,11 @@ a.brochure-cta:focus-visible { outline: 2px solid #9a3412; outline-offset: 2px; 
 }
 
 /* "Most Popular" course flag (course_popular attribute, migration 1859):
-   three-flame ribbon pinned top-right on the cover (top-left holds the
-   Tertiary logo) + a matching soft pill beside the Course Code. The product
+   three-flame ribbon straddling the cover's top edge, right-aligned with the
+   cover's 5% margin + a matching soft pill beside the Course Code. It sits ON
+   the edge because the cover PNG itself has no free slot: the Tertiary logo
+   is baked top-left and the "Free AI Subscription" chip top-right (Cover.php
+   drawAiToolsChip, y 96-152 of 900), with the title close below. The product
    page ribbon sits inside .img-box (cloudzoom media.phtml) — the image
    column is display:contents on mobile, so it can't anchor it — and above
    Cloud Zoom's z-index 99/100. */
@@ -2094,8 +2097,8 @@ a.brochure-cta:focus-visible { outline: 2px solid #9a3412; outline-offset: 2px; 
 }
 .course-popular-ribbon {
     position: absolute;
-    top: 14px;
-    right: 14px;
+    top: -12px;
+    right: 5%;
     z-index: 101;
     display: inline-flex;
     align-items: center;
@@ -2118,8 +2121,8 @@ a.brochure-cta:focus-visible { outline: 2px solid #9a3412; outline-offset: 2px; 
     letter-spacing: -2px;
 }
 .course-popular-ribbon--card {
-    top: 8px;
-    right: 8px;
+    top: -9px;
+    right: 5%;
     gap: 4px;
     padding: 3px 9px 3px 6px;
     font-size: 10px;
