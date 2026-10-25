@@ -183,6 +183,24 @@ if [ -d "$SEED_DIR" ]; then
     chmod -R a+r "$TARGET_DIR" 2>/dev/null || true
 fi
 
+# Seed the Tertiary Infotech Academy favicon (favicon_tia.png/.ico) into
+# media/favicon/default/. design/head/shortcut_icon (migrations 1850/1852) and
+# the .htaccess /favicon.ico rewrite point at it, but on volume-mounted sites
+# (MY/GH) the baked media/favicon/ is shadowed and the file 404s. Overwrite
+# every boot — these are our own files, never admin uploads.
+SEED_DIR=/var/www/html/docker/seeds/favicon
+TARGET_DIR=/var/www/html/media/favicon/default
+if [ -d "$SEED_DIR" ]; then
+    mkdir -p "$TARGET_DIR"
+    for f in "$SEED_DIR"/*; do
+        [ -f "$f" ] || continue
+        name=$(basename "$f")
+        cp -f "$f" "$TARGET_DIR/$name" && echo "entrypoint: seeded $TARGET_DIR/$name"
+    done
+    chown -R www-data:www-data "$TARGET_DIR" 2>/dev/null || true
+    chmod -R a+r "$TARGET_DIR" 2>/dev/null || true
+fi
+
 # Seed WYSIWYG assets referenced by CMS / product descriptions (e.g. the
 # HRD Corp Claimable logo on Malaysia course pages). The media/ tree is a
 # Coolify-mounted volume, so the build-time COPY can't reach it. Use a
