@@ -1264,6 +1264,9 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 				<div class="course-code-inline">
 					<span class="course-code-inline__label"><?php echo $this->__('Course Code'); ?>:</span>
 					<span class="course-code-inline__value"><?php echo $this->escapeHtml($sku); ?></span>
+					<?php if (Mage::helper('mmd_courseimage')->isPopularCourse($_product)): ?>
+						<span class="course-popular-pill"><span aria-hidden="true">&#x1F525;&#x1F525;&#x1F525;</span> <?php echo $this->__('Most Popular'); ?></span>
+					<?php endif; ?>
 				</div>
 				<?php if ($useRichSnippets): ?><meta itemprop="productID" content="sku:<?php echo $sku; ?>" /><?php endif; ?>
 			<?php endif; ?>

@@ -2081,6 +2081,70 @@ a.brochure-cta:focus-visible { outline: 2px solid #9a3412; outline-offset: 2px; 
     font-size: 13px;
 }
 
+/* "Most Popular" course flag (course_popular attribute, migration 1859):
+   three-flame ribbon pinned top-right on the cover (top-left holds the
+   Tertiary logo) + a matching soft pill beside the Course Code. The product
+   page ribbon sits inside .img-box (cloudzoom media.phtml) — the image
+   column is display:contents on mobile, so it can't anchor it — and above
+   Cloud Zoom's z-index 99/100. */
+.catalog-product-view .img-box,
+.products-grid .product-image,
+.products-list .product-image {
+    position: relative;
+}
+.course-popular-ribbon {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    z-index: 101;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 11px 5px 8px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #f97316 0%, #dc2626 100%);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    line-height: 1.2;
+    white-space: nowrap;
+    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.35), 0 0 0 2px rgba(255, 255, 255, 0.85);
+    pointer-events: none;
+}
+.course-popular-ribbon__flames {
+    font-size: 12px;
+    letter-spacing: -2px;
+}
+.course-popular-ribbon--card {
+    top: 8px;
+    right: 8px;
+    gap: 4px;
+    padding: 3px 9px 3px 6px;
+    font-size: 10px;
+    letter-spacing: 0.4px;
+    box-shadow: 0 2px 6px rgba(220, 38, 38, 0.3), 0 0 0 1.5px rgba(255, 255, 255, 0.85);
+}
+.course-popular-ribbon--card .course-popular-ribbon__flames {
+    font-size: 11px;
+    letter-spacing: -1.5px;
+}
+.course-popular-pill {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 10px;
+    border: 1px solid #fed7aa;
+    border-radius: 999px;
+    background: #fff7ed;
+    color: #c2410c;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    vertical-align: 1px;
+    white-space: nowrap;
+}
+
 .course-policy-card__body .policy-refund {
     display: inline-block;
     padding: 1px 8px;

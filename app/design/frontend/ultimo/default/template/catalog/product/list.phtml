@@ -256,6 +256,9 @@
 
                     
 
+                    <?php if (Mage::helper('mmd_courseimage')->isPopularCourse($_product)): ?>
+                        <span class="course-popular-ribbon course-popular-ribbon--card"><span class="course-popular-ribbon__flames" aria-hidden="true">&#x1F525;&#x1F525;&#x1F525;</span><?php echo $this->__('Most Popular'); ?></span>
+                    <?php endif; ?>
                     <?php echo $helpLabels->getLabels($_product); //Product labels ?>
 
                 </a>
@@ -530,6 +533,9 @@
 
 
 
+                        <?php if (Mage::helper('mmd_courseimage')->isPopularCourse($_product)): ?>
+                            <span class="course-popular-ribbon course-popular-ribbon--card"><span class="course-popular-ribbon__flames" aria-hidden="true">&#x1F525;&#x1F525;&#x1F525;</span><?php echo $this->__('Most Popular'); ?></span>
+                        <?php endif; ?>
                         <?php echo $helpLabels->getLabels($_product); //Product labels ?>
 
                     </a>

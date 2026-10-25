@@ -51,6 +51,9 @@
 <?php //Main image ?>
 
 <div class="img-box img-box-style1">
+<?php if (Mage::helper('mmd_courseimage')->isPopularCourse($_product)): //"Most Popular" ribbon (migration 1859) ?>
+    <span class="course-popular-ribbon"><span class="course-popular-ribbon__flames" aria-hidden="true">&#x1F525;&#x1F525;&#x1F525;</span><?php echo $this->__('Most Popular'); ?></span>
+<?php endif; ?>
 
 <?php /* Main condition removed to keep normal display even if there's no main image in the product ?>
 <?php if ($_product->getImage() != 'no_selection' && $_product->getImage()): ?>

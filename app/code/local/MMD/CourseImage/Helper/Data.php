@@ -168,6 +168,33 @@ class MMD_CourseImage_Helper_Data extends Mage_Core_Helper_Abstract
         return array_key_exists($websiteCode, $map) ? $map[$websiteCode] : $this->getAllBadges();
     }
 
+    /** @var int[]|null product ids with course_popular = 1, loaded once per request */
+    protected $_popularIds;
+
+    /**
+     * "Most Popular" flag (course_popular yes/no attribute, migration 1859).
+     * Read straight from the EAV int table with one query per request so the
+     * category listing works without the attribute being in the flat table.
+     */
+    public function isPopularCourse(Mage_Catalog_Model_Product $product): bool
+    {
+        if ($this->_popularIds === null) {
+            $this->_popularIds = [];
+            try {
+                $read = Mage::getSingleton('core/resource')->getConnection('core_read');
+                $this->_popularIds = array_map('intval', $read->fetchCol(
+                    "SELECT i.entity_id FROM catalog_product_entity_int i
+                       JOIN eav_attribute a ON a.attribute_id = i.attribute_id
+                      WHERE a.entity_type_id = 4 AND a.attribute_code = 'course_popular'
+                        AND i.store_id = 0 AND i.value = 1"
+                ));
+            } catch (Throwable $e) {
+                Mage::logException($e);
+            }
+        }
+        return in_array((int) $product->getId(), $this->_popularIds, true);
+    }
+
     /**
      * Return the canonical funding badges currently assigned to a product
      * via Magento's tag system, filtered to the controlled vocabulary in
