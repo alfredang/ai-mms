@@ -400,7 +400,7 @@ never repeat.**
 | **openmage-module-developer** | Scaffolding a new MMD module — controllers, models, observers, class rewrites, migrations. |
 | **openmage-frontend-developer** | Customer-facing storefront work — Ultimo theme, layout XML, phtml, Prototype/jQuery, hreflang. |
 | **backend-design** | Styling or reviewing any adminhtml UI — design tokens, buttons, grids, toolbars, badges. Use to keep the dark admin theme visually consistent. |
-| **seo-audit** | Per-site SEO audit (SG / MY / GH — each a standalone site) — indexability, Core Web Vitals, schema for course pages. |
+| **seo-audit** | Per-site SEO audit (SG / MY / GH — each a standalone site) — indexability, Core Web Vitals, schema for course pages. The title / description / keyword standard it audits against is **`.claude/rules/seo-meta.md`** — follow it whenever a course or category is created, renamed or repurposed. |
 | **marketing-seo-audit** | Generic SEO method from coreyhaines31/marketingskills — title-tag patterns, meta description rules (150–160 chars, keyword, CTA), bulk-audit table, AI-writing tells. The project `seo-audit` rules win on conflict. |
 | **lead-magnets** | Planning lead-magnet content for course sales — SkillsFuture/HRDC hooks, course syllabus PDFs, trial classes. |
 | **add-country-store** | Onboarding a new franchise partner — stand up their own server + DB, deploy this codebase, set base_url + currency/locale, Coolify + DNS handoff (one store per site). |

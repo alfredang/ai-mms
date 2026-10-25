@@ -7,12 +7,16 @@
  *      "| Tertiary Courses <Country>", read from general/store_information/name
  *      (SG = Singapore, MY = Malaysia, GH = Ghana — each partner DB carries its
  *      own brand, so one shared code path yields the right postfix per site).
- *   2. Course product pages carry the correct funding PREFIX (always first word "Funded"):
- *        - Malaysia site  -> fixed templates instead, see _malaysiaTitle()
- *        - Singapore site -> IBF-badged course       -> "Funded IBF"
+ *   2. Course product pages carry the correct funding PREFIX (always first word "Funded",
+ *      then the "up to 70%" subsidy cap so it survives SERP truncation):
+ *        - Malaysia site  -> every course            -> "HRD Corp Claimable"
+ *        - Singapore site -> IBF-badged course       -> "Funded up to 70% IBF"
  *                            (IBF wins over WSQ — every IBF course is also TGS-)
- *        - Singapore site -> CASL-badged course      -> "Funded CASL"
- *        - Singapore site -> other TGS- course       -> "Funded WSQ"
+ *        - Singapore site -> CASL-badged course      -> "Funded up to 70% CASL"
+ *        - Singapore site -> other TGS- course       -> "Funded up to 70% WSQ"
+ *        - Ghana / SG non-WSQ                         -> no prefix
+ *   Course AND category pages on every site therefore read
+ *   "[prefix] <stored meta_title> | Tertiary Courses <Country>"; meta_title is stored BARE.
  *
  * Applied at render time (NOT baked into meta_title) so the transform is
  * idempotent — titles that already end with the brand, or already start with
@@ -38,11 +42,6 @@ class MMD_Seotitle_Block_Html_Head extends Mage_Page_Block_Html_Head
         }
 
         try {
-            // Malaysia: fixed per-page-type templates (SEO audit, Batch 2).
-            $myTitle = $this->_malaysiaTitle();
-            if ($myTitle !== null) {
-                return htmlspecialchars($myTitle, ENT_QUOTES, 'UTF-8');
-            }
             // Transform in the decoded space, then re-encode like the parent.
             $decoded = trim(html_entity_decode($title, ENT_QUOTES, 'UTF-8'));
             $decoded = $this->_applyFundingPrefix($decoded);
@@ -52,35 +51,6 @@ class MMD_Seotitle_Block_Html_Head extends Mage_Page_Block_Html_Head
             Mage::logException($e);
             return $title;
         }
-    }
-
-    /**
-     * Malaysia site titles, built from the product / category NAME (stored meta_titles on MY
-     * were copied from SG and carry SG branding):
-     *   Course:   "<Course> Training Malaysia | HRD Corp Claimable"
-     *   Category: "<Topic> Training Courses Malaysia | Tertiary Courses"
-     * Other pages keep their own title; one already ending "| Tertiary Courses" (homepage) gets
-     * no second brand. null = not the Malaysia site, use the standard composer.
-     *
-     * @return string|null
-     */
-    protected function _malaysiaTitle()
-    {
-        if (Mage::app()->getStore()->getCode() !== 'malaysia') {
-            return null;
-        }
-        $product = Mage::registry('current_product');
-        if ($product && $product->getId()) {
-            $name = trim((string) $product->getName());
-            return (preg_match('/\bTraining$/i', $name) ? $name : $name . ' Training') . ' Malaysia | HRD Corp Claimable';
-        }
-        $category = Mage::registry('current_category');
-        if ($category && $category->getId()) {
-            $topic = preg_replace('/\s+(?:Training\s+)?(?:Courses?|Training)$/i', '', trim((string) $category->getName()));
-            return $topic . ' Training Courses Malaysia | Tertiary Courses';
-        }
-        $title = trim(html_entity_decode(parent::getTitle(), ENT_QUOTES, 'UTF-8'));
-        return preg_match('/\|\s*Tertiary Courses$/i', $title) ? $title : null;
     }
 
     /**
@@ -96,6 +66,9 @@ class MMD_Seotitle_Block_Html_Head extends Mage_Page_Block_Html_Head
         if (preg_match('/' . preg_quote($brand, '/') . '\s*$/ui', $title)) {
             return $title;
         }
+        // Drop a stale baked brand ("| Tertiary Courses", "| Tertiary Courses Singapore" on a
+        // partner page) so only this site's own postfix remains.
+        $title = preg_replace('/\s*[|\x{2013}\-]\s*Tertiary Courses(?:\s+[A-Za-z]+)?\s*$/ui', '', $title);
         // Drop any trailing separator/whitespace (incl. NBSP / U+202F from MS
         // paste — see memory feedback_short_description_unicode_whitespace)
         // before appending our own.
@@ -116,8 +89,8 @@ class MMD_Seotitle_Block_Html_Head extends Mage_Page_Block_Html_Head
             return $title;
         }
         // Drop a scheme word baked into the stored meta_title ("WSQ ...", "IBF-STS ...",
-        // "WSQ funded ...") so the prefix never double-prints ("Funded WSQ WSQ ...").
-        $title = preg_replace('/^(?:funded\s+)?(?:WSQ|CASL|IBF(?:-STS)?)(?:\s+funded)?(?:\s*[-:]\s*|\s+)/i', '', ltrim($title));
+        // "WSQ funded ...", "Funded up to 70% WSQ ...") so the prefix never double-prints.
+        $title = preg_replace('/^(?:funded\s+)?(?:up\s+to\s+70%\s+)?(?:WSQ|CASL|IBF(?:-STS)?)(?:\s+funded)?(?:\s*[-:]\s*|\s+)/i', '', ltrim($title));
         return $prefix . ' ' . $title;
     }
 
@@ -137,18 +110,23 @@ class MMD_Seotitle_Block_Html_Head extends Mage_Page_Block_Html_Head
 
         $brand = (string) Mage::getStoreConfig('general/store_information/name');
 
+        // Malaysia: every course is HRD Corp claimable.
+        if (stripos($brand, 'Malaysia') !== false) {
+            return 'HRD Corp Claimable';
+        }
+
         // Singapore: funded titles always START with "Funded". IBF wins over WSQ (every IBF
         // course is also a TGS- WSQ SKU); CASL courses are TGS- but not WSQ-badged.
         if (stripos($brand, 'Singapore') !== false) {
             $badges = Mage::helper('mmd_courseimage')->getProductBadges($product);
             if (in_array('IBF', $badges, true)) {
-                return 'Funded IBF';
+                return 'Funded up to 70% IBF';
             }
             if (in_array('CASL', $badges, true)) {
-                return 'Funded CASL';
+                return 'Funded up to 70% CASL';
             }
             if (stripos((string) $product->getSku(), 'TGS-') === 0) {
-                return 'Funded WSQ';
+                return 'Funded up to 70% WSQ';
             }
         }
 
