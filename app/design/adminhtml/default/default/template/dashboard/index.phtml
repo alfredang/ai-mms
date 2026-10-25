@@ -15629,6 +15629,15 @@ $_mnBlastStats = array();
                     <?php foreach ($_hist as $_hi => $_hx): ?>
                     <div class="mn-trail-row"><span class="mn-trail-k">Change <?php echo $_hi + 1 ?><em><?php echo htmlspecialchars(date('j M · g:ia', strtotime((string) $_hx['at']))) ?><?php echo !empty($_hx['by']) ? ' · ' . htmlspecialchars((string) $_hx['by']) : '' ?></em></span><span class="mn-trail-v"><?php echo nl2br(htmlspecialchars((string) $_hx['feedback'])) ?></span></div>
                     <?php endforeach; ?>
+                    <?php if (!empty($_fdec['_qa'])): $_qa = $_fdec['_qa']; ?>
+                    <div class="mn-trail-row"><span class="mn-trail-k">QA check<em><?php echo htmlspecialchars(date('j M · g:ia', strtotime((string) $_qa['at']))) ?><?php echo !empty($_qa['repaired']) ? ' · after 1 auto-fix' : '' ?></em></span><span class="mn-trail-v">
+                        <?php if ($_qa['pass'] === null): ?>
+                            <span class="mn-qa-bad">&#10007; Held &mdash; QA could not run: <?php echo htmlspecialchars((string) $_qa['error']) ?></span>
+                        <?php else: foreach ((array) $_qa['checks'] as $_ck): ?>
+                            <span class="<?php echo !empty($_ck['done']) ? 'mn-qa-ok' : 'mn-qa-bad' ?>"><?php echo !empty($_ck['done']) ? '&#10003;' : '&#10007;' ?> <?php echo htmlspecialchars((string) $_ck['requirement']) ?><?php if (empty($_ck['done']) && !empty($_ck['evidence'])): ?> &mdash; <i><?php echo htmlspecialchars((string) $_ck['evidence']) ?></i><?php endif; ?></span><br>
+                        <?php endforeach; if ($_qa['pass'] === false): ?><span class="mn-qa-bad">Held &mdash; not emailed to the managers.</span><?php endif; endif; ?>
+                    </span></div>
+                    <?php endif; ?>
                 </div>
                 <?php endif; ?>
             </div>
@@ -15823,6 +15832,8 @@ $_mnBlastStats = array();
         .mn-trail-k{flex:0 0 150px;font-weight:700;font-size:10.5px;letter-spacing:.6px;text-transform:uppercase;color:var(--t4);}
         .mn-trail-k em{display:block;font-style:normal;font-weight:400;letter-spacing:0;text-transform:none;color:var(--t5);font-variant-numeric:tabular-nums;}
         .mn-trail-v{flex:1;color:var(--t2);white-space:normal;word-break:break-word;}
+        .mn-qa-ok{color:var(--green);}
+        .mn-qa-bad{color:var(--yellow);}
         .mn-flow-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
         .mn-flow-name{font:700 14px -apple-system,Segoe UI,Arial,sans-serif;color:#f1f5f9;}
         .mn-flow-tag{font:800 10px -apple-system,Segoe UI,Arial,sans-serif;letter-spacing:.8px;text-transform:uppercase;padding:4px 10px;border-radius:999px;border:1px solid;}

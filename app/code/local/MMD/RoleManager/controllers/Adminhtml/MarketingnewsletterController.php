@@ -381,6 +381,9 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
                 $result['message'] = $newId
                     ? 'Change request recorded — a revised flyer was emailed to the managers for approval.'
                     : 'Change request saved, but no revised email was sent. Check the AI service and retry.';
+                // QA gate held the revision (requested changes not all done).
+                $qaHold = $newId ? Mage::getModel('mmd_marketing/cron_flyer')->qaHoldMessage($newId) : '';
+                if ($qaHold !== '') { $result['message'] = 'Change request recorded. ' . $qaHold; $result['stage'] = 'qa_held'; }
                 if (!$newId) {
                     $latestDecisions = json_decode((string) $this->_db('read')->fetchOne(
                         'SELECT review_decisions FROM ' . $this->_tbl() . ' WHERE newsletter_id = ?', array($newsletterId)), true);

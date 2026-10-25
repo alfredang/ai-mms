@@ -598,6 +598,96 @@ class MMD_Marketing_Model_Cron_Flyer
      * who already responded); $isReminder stamps _reminder_sent_at so the
      * reminder can never repeat (see the HARD RULE in followUp()).
      */
+    /** Brief + change requests of a flow, oldest first, as QA instructions. */
+    protected function _instructionsOf(array $dec)
+    {
+        $ins = array();
+        if (!empty($dec['_brief']['instructions'])) {
+            $ins[] = array('label' => 'Design brief', 'text' => (string) $dec['_brief']['instructions']);
+        }
+        if (!empty($dec['_history']) && is_array($dec['_history'])) {
+            foreach (array_values($dec['_history']) as $i => $hx) {
+                if (!empty($hx['feedback'])) {
+                    $ins[] = array('label' => 'Change request ' . ($i + 1), 'text' => (string) $hx['feedback']);
+                }
+            }
+        }
+        return $ins;
+    }
+
+    /**
+     * QA GATE (admin 2026-10-25: "add a qa step to make sure all the requested
+     * changes are done"). Before a flyer that carries instructions is emailed,
+     * an AI reviewer splits the brief + every change request into atomic
+     * requirements and checks each against the rendered flyer. A miss gets ONE
+     * repair pass (regenerate with the misses, re-render, re-check); still
+     * failing = HELD — never emailed — with the misses on the pipeline card.
+     * The verdict is cached against the body hash, so the hourly followUp does
+     * not re-run (or re-send) a held flyer until its body changes.
+     *
+     * @return bool true = OK to email
+     */
+    public function qaGate($newsletterId)
+    {
+        $row = $this->_read()->fetchRow('SELECT * FROM ' . $this->_tbl() . ' WHERE newsletter_id = ?', array($newsletterId));
+        if (!$row) { return false; }
+        $dec = json_decode((string) $row['review_decisions'], true);
+        if (!is_array($dec)) { $dec = array(); }
+        $ins = $this->_instructionsOf($dec);
+        if (!$ins) { return true; }   // no brief, no change request: nothing to verify
+        $pid  = (int) trim(strtok((string) $row['course_pids'], ','));
+        $body = (string) $row['body_html'];
+        if (!empty($dec['_qa']['body_md5']) && $dec['_qa']['body_md5'] === md5($body)
+            && isset($dec['_qa']['pass']) && $dec['_qa']['pass'] !== null) {
+            return (bool) $dec['_qa']['pass'];
+        }
+        $qa = $this->_flyer()->qaCheck($pid, $body, $ins);
+        $repaired = false;
+        if ($qa['pass'] === false) {
+            $miss = array();
+            foreach ($qa['checks'] as $ck) { if (!$ck['done']) { $miss[] = '- ' . $ck['requirement'] . ' (' . $ck['evidence'] . ')'; } }
+            $all = array();
+            foreach ($ins as $in) { $all[] = $in['label'] . ': ' . $in['text']; }
+            $fix = "ALL INSTRUCTIONS FOR THIS FLYER (later ones override earlier ones):\n" . implode("\n", $all)
+                . "\n\nQA FOUND THESE REQUIREMENTS NOT MET in the current version - fix every one:\n" . implode("\n", $miss);
+            try {
+                if ($this->_flyer()->regenerateCopy($pid, $fix)) {
+                    $runDate = !empty($dec['_brief']['run_date']) ? $dec['_brief']['run_date'] : null;
+                    $body2 = $this->_flyer()->render($pid, $runDate);
+                    if ($body2 !== '') {
+                        $this->_write()->update($this->_tbl(), array('body_html' => $body2), array('newsletter_id = ?' => (int) $newsletterId));
+                        $body = $body2;
+                        $qa = $this->_flyer()->qaCheck($pid, $body, $ins);
+                        $repaired = true;
+                    }
+                }
+            } catch (Exception $e) { $this->_log('qaGate: repair pass failed for #' . (int) $newsletterId . ' - ' . $e->getMessage()); }
+        }
+        // Re-read: sendForReview/regenerate may have stamped other keys meanwhile.
+        $cur = json_decode((string) $this->_read()->fetchOne('SELECT review_decisions FROM ' . $this->_tbl()
+            . ' WHERE newsletter_id = ?', array($newsletterId)), true);
+        if (!is_array($cur)) { $cur = array(); }
+        $cur['_qa'] = array('pass' => $qa['pass'], 'checks' => $qa['checks'], 'error' => $qa['error'],
+            'repaired' => $repaired, 'at' => $this->_nowStr(), 'body_md5' => md5($body));
+        $this->_write()->update($this->_tbl(), array('review_decisions' => json_encode($cur)),
+            array('newsletter_id = ?' => (int) $newsletterId));
+        $this->_log('qaGate: #' . (int) $newsletterId . ' ' . ($qa['pass'] === true ? 'PASSED' : ($qa['pass'] === false ? 'HELD - requirements not met' : 'HELD - QA could not run: ' . $qa['error']))
+            . ($repaired ? ' (after 1 repair pass)' : ''));
+        return $qa['pass'] === true;
+    }
+
+    /** One-line QA verdict for UI messages; '' when QA passed or never ran. */
+    public function qaHoldMessage($newsletterId)
+    {
+        $dec = json_decode((string) $this->_read()->fetchOne('SELECT review_decisions FROM ' . $this->_tbl()
+            . ' WHERE newsletter_id = ?', array($newsletterId)), true);
+        if (!is_array($dec) || empty($dec['_qa']) || $dec['_qa']['pass'] === true) { return ''; }
+        if ($dec['_qa']['pass'] === null) { return 'QA could not run (' . $dec['_qa']['error'] . '), so the revised flyer #' . (int) $newsletterId . ' was NOT emailed.'; }
+        $miss = array();
+        foreach ((array) $dec['_qa']['checks'] as $ck) { if (empty($ck['done'])) { $miss[] = $ck['requirement']; } }
+        return 'Revised flyer #' . (int) $newsletterId . ' failed QA and was NOT emailed. Not done: ' . implode('; ', $miss) . '.';
+    }
+
     public function sendForReview($newsletterId, $onlyEmails = null, $isReminder = false, $isRevision = false)
     {
         $row = $this->_read()->fetchRow('SELECT * FROM ' . $this->_tbl() . ' WHERE newsletter_id = ?', array($newsletterId));
@@ -617,6 +707,16 @@ class MMD_Marketing_Model_Cron_Flyer
             $this->_log('sendForReview: SKIPPED for #' . $newsletterId . ' — non-production base_url (' . ($host ?: 'empty')
                 . '). Set mmd_marketing/newsletter/allow_local_review_email=1 to send from a test env.');
             return false;
+        }
+
+        // QA gate on the ORIGINAL send only (reminders / missed-reviewer resends
+        // re-send a flyer that already passed).
+        if (!$isReminder && $onlyEmails === null) {
+            if (!$this->qaGate($newsletterId)) {
+                $this->_log('sendForReview: #' . (int) $newsletterId . ' HELD by QA - not emailed');
+                return false;
+            }
+            $row = $this->_read()->fetchRow('SELECT * FROM ' . $this->_tbl() . ' WHERE newsletter_id = ?', array($newsletterId));
         }
 
         $slot = $g->nextSendSlot();
@@ -659,6 +759,15 @@ class MMD_Marketing_Model_Cron_Flyer
                         . (!empty($hx['by']) ? ' &middot; ' . htmlspecialchars((string) $hx['by']) : '') . ')</span>: '
                         . nl2br(htmlspecialchars((string) $hx['feedback'])) . '</li>';
                 }
+            }
+            if ($li !== '' && !empty($rd['_qa']['checks']) && $rd['_qa']['pass'] === true) {
+                $ql = '';
+                foreach ($rd['_qa']['checks'] as $ck) {
+                    $ql .= '<li style="margin:0 0 4px;"><span style="color:#059669;font-weight:800;">&#10003;</span> ' . htmlspecialchars((string) $ck['requirement']) . '</li>';
+                }
+                $li .= '<li style="margin:8px 0 0;list-style:none;margin-left:-18px;"><b>QA check passed</b>'
+                    . (!empty($rd['_qa']['repaired']) ? ' <span style="color:#7c8aa3;">(after one automatic fix)</span>' : '')
+                    . ':<ul style="margin:6px 0 0;padding-left:18px;list-style:none;">' . $ql . '</ul></li>';
             }
             if ($li !== '') {
                 $trailHtml = '<div style="background:#f8fafc;border:1px solid #e4e9f0;border-radius:10px;padding:12px 16px;margin:0 0 14px;font-size:13px;color:#0a1020;">'

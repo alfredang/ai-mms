@@ -155,6 +155,7 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
             // Social-proof band — switched on per SKU by a brief / change request
             // (detectSocialProofRequest); the numbers are always live data.
             'proof'     => !empty($pitch[$key]['social_proof']) ? $this->socialProof($productId) : null,
+            'proof_flags' => isset($pitch[$key]['social_proof']) ? $pitch[$key]['social_proof'] : null,
         );
     }
 
@@ -438,12 +439,109 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
      * daily), learners enrolled (non-cancelled order qty) and up to 2 genuine
      * 5-star learner quotes. Never invents anything: missing data = omitted.
      */
+    /**
+     * MySkillsFuture course rating per SKU ({rating, ratings, attended, as_of}),
+     * stored in core_config `mmd_marketing/newsletter/sf_ratings` (JSON keyed by
+     * SKU). Stored, not fetched: courses.myskillsfuture.gov.sg 403s server-side
+     * requests and the public course-detail JSON carries no rating fields.
+     */
+    public function sfRating($sku)
+    {
+        try {
+            $res = Mage::getSingleton('core/resource');
+            $raw = $res->getConnection('core_read')->fetchOne(
+                'SELECT value FROM ' . $res->getTableName('core/config_data')
+              . " WHERE path = 'mmd_marketing/newsletter/sf_ratings' AND scope = 'default' AND scope_id = 0 LIMIT 1");
+            $all = json_decode((string) $raw, true);
+            $r = (is_array($all) && isset($all[trim((string) $sku)])) ? $all[trim((string) $sku)] : null;
+            return (is_array($r) && !empty($r['rating'])) ? $r : null;
+        } catch (Exception $e) {
+            return null;
+        }
+    }
+
+    /**
+     * QA: does the rendered flyer satisfy EVERY instruction it was built from?
+     * $instructions = ordered list of ['label' => 'Design brief'|'Change request N',
+     * 'text' => ...]; later ones override earlier ones. Each is split into atomic,
+     * checkable requirements and verified against the flyer the reader actually
+     * sees (visible text + design facts). Returns
+     *   ['pass' => bool|null, 'checks' => [[requirement, source, done, evidence]], 'error' => string]
+     * pass=null means QA could not run (AI unavailable / unparseable).
+     */
+    public function qaCheck($productId, $html, array $instructions)
+    {
+        $out = array('pass' => null, 'checks' => array(), 'error' => '');
+        if (!$instructions) { $out['pass'] = true; return $out; }
+        $text = preg_replace('#<(style|script)\b.*?</\1>#is', ' ', (string) $html);
+        $text = preg_replace('#<(br|/div|/td|/tr|/li|/h1|/p)\b[^>]*>#i', "\n", $text);
+        $text = html_entity_decode(strip_tags($text), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = trim(preg_replace("/[ \t\x{00a0}]+/u", ' ', preg_replace("/\s*\n\s*/", "\n", $text)));
+        $c = $this->courseData($productId);
+        $facts = 'Accent colour: ' . ($c ? $c['accent'] : '?') . '; dark band colour: ' . ($c ? $c['ink'] : '?') . '.';
+
+        $list = array();
+        foreach (array_values($instructions) as $i => $in) {
+            $list[] = ($i + 1) . '. [' . $in['label'] . '] ' . trim(preg_replace('/\s+/u', ' ', (string) $in['text']));
+        }
+        $prompt = "You are a strict QA reviewer for a course marketing email flyer. Check that the flyer below satisfies EVERY instruction it was built from.\n\n"
+            . "INSTRUCTIONS, in order (a later one overrides an earlier one where they conflict):\n" . implode("\n", $list) . "\n\n"
+            . "Split each instruction into atomic, checkable requirements (e.g. 'shows the number of reviews', 'does NOT show page views', 'shows the MySkillsFuture rating'). Drop any requirement a later instruction overrides. "
+            . "A purely subjective ask (e.g. 'don't just follow the standard template') is done when the flyer visibly carries the other requested changes. "
+            . "Judge ONLY from the flyer content below; quote the flyer text you relied on as evidence, or say what is missing.\n\n"
+            . "DESIGN FACTS: {$facts}\n\nFLYER (visible text, top to bottom):\n" . mb_substr($text, 0, 9000) . "\n\n"
+            . "Return ONLY JSON: {\"checks\":[{\"requirement\":\"...\",\"source\":<instruction number>,\"done\":true|false,\"evidence\":\"...\"}]}";
+        try {
+            $raw = $this->_callClaude($prompt);
+        } catch (Exception $e) {
+            $out['error'] = $e->getMessage();
+            return $out;
+        }
+        $raw = preg_replace('/^\s*```[a-z]*\s*|\s*```\s*$/i', '', trim((string) $raw));
+        if (preg_match('/\{.*\}/s', $raw, $m)) { $raw = $m[0]; }
+        $j = json_decode($raw, true);
+        if (!is_array($j) || empty($j['checks']) || !is_array($j['checks'])) {
+            $out['error'] = 'QA reviewer returned no usable result';
+            return $out;
+        }
+        $pass = true;
+        foreach ($j['checks'] as $ck) {
+            if (!is_array($ck) || empty($ck['requirement'])) { continue; }
+            $done = !empty($ck['done']);
+            $pass = $pass && $done;
+            $out['checks'][] = array(
+                'requirement' => mb_substr(trim((string) $ck['requirement']), 0, 300),
+                'source'      => isset($ck['source']) ? (int) $ck['source'] : 0,
+                'done'        => $done,
+                'evidence'    => mb_substr(trim((string) (isset($ck['evidence']) ? $ck['evidence'] : '')), 0, 300),
+            );
+        }
+        if (!$out['checks']) { $out['error'] = 'QA reviewer returned no checks'; return $out; }
+        $out['pass'] = $pass;
+        return $out;
+    }
+
+    /** Social-proof elements the render can show, in display order. */
+    public function proofElements()
+    {
+        return array(
+            'rating'    => 'average learner rating on our website',
+            'reviews'   => 'number of learner reviews on our website',
+            'sf_rating' => 'the course rating on the MySkillsFuture / SkillsFuture website',
+            'enrolled'  => 'number of learners enrolled',
+            'views'     => 'number of course page views',
+            'quotes'    => 'two real 5-star learner review quotes',
+        );
+    }
+
     public function socialProof($productId)
     {
         $productId = (int) $productId;
         $res  = Mage::getSingleton('core/resource');
         $conn = $res->getConnection('core_read');
-        $out  = array('reviews' => 0, 'rating' => 0.0, 'views' => 0, 'enrolled' => 0, 'quotes' => array());
+        $out  = array('reviews' => 0, 'rating' => 0.0, 'views' => 0, 'enrolled' => 0, 'quotes' => array(),
+            'sf' => $this->sfRating($conn->fetchOne('SELECT sku FROM ' . $res->getTableName('catalog/product')
+                . ' WHERE entity_id = ?', array($productId))));
         try {
             $sum = $conn->fetchRow(
                 'SELECT reviews_count, rating_summary FROM ' . $res->getTableName('review/review_aggregate')
@@ -629,10 +727,23 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         // Same for a social-proof ask: render() builds that band from real review
         // data, so switch it on up front, independent of the words step.
         $wantsProof = $this->detectSocialProofRequest($fb0);
-        if ($wantsProof) { $this->_persistRefinement($sku, array('social_proof' => true)); }
+        $ex1 = $this->_designRefinements();
+        if ($wantsProof && empty($ex1[$sku]['social_proof'])) { $this->_persistRefinement($sku, array('social_proof' => true)); }
 
-        if ($wantsProof) {
-            $prompt .= "\n\nThe flyer shows the course's REAL review count, star rating, popularity and learner quotes in its own block. Do NOT put ratings, review counts or testimonials in your copy, and never invent any.";
+        // The social-proof block is DATA, but WHICH parts show is the instruction's
+        // call ("drop page views, use the SkillsFuture rating") — so the model
+        // returns per-element flags read from the whole instruction trail.
+        $existing0 = $this->_designRefinements();
+        $proofOn = $wantsProof || !empty($existing0[$sku]['social_proof']);
+        if ($proofOn) {
+            $sf = $this->sfRating($sku);
+            $el = array();
+            foreach ($this->proofElements() as $k => $label) {
+                $el[] = '"' . $k . '": ' . $label
+                    . ($k === 'sf_rating' ? ($sf ? ' (available: ' . $sf['rating'] . '/5 from ' . (int) $sf['ratings'] . ' ratings)' : ' (NOT available for this course)') : '');
+            }
+            $prompt .= "\n\nThe flyer has a SOCIAL PROOF block built from REAL data (never put ratings, counts or testimonials in your copy, never invent any). Its elements:\n- " . implode("\n- ", $el)
+                . "\nAlso return a key \"proof\": an object with EVERY element above as true/false, reflecting ALL the instructions above (a later change request overrides an earlier one; an element the instructions never mention stays true unless it is 'enrolled' or 'views'). If the instructions remove the block entirely, set all to false.";
         }
         $out = $this->_callClaude($prompt);
         if ($out === '') { return null; }
@@ -667,6 +778,13 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
             }
         }
         if (count($copy['outcomes']) < 3) { return null; }
+        if ($proofOn) {
+            $flags = array();
+            foreach (array_keys($this->proofElements()) as $k) {
+                $flags[$k] = isset($data['proof'][$k]) ? (bool) $data['proof'][$k] : !in_array($k, array('enrolled', 'views'), true);
+            }
+            $copy['social_proof'] = $flags;
+        }
 
         // COLOUR REQUESTS ride the same channel (bug 2026-08-24: "change to green"
         // used to regenerate only the words and re-send the same black design —
@@ -1056,14 +1174,33 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         $heroProof = '';
         $pf = isset($c['proof']) && is_array($c['proof']) ? $c['proof'] : null;
         if ($pf) {
+            // Which elements show is per-SKU instruction data (social_proof flags);
+            // a legacy `true` means every element.
+            $on = function ($k) use ($c) {
+                $f = isset($c['proof_flags']) ? $c['proof_flags'] : true;
+                return !is_array($f) || !empty($f[$k]);
+            };
             $tiles = array();
+            $heroBits = array();
+            $small = function ($t) use ($sans) { return '<small style="font:700 13px ' . $sans . ';color:#7c8aa3;">' . $t . '</small>'; };
             if ($pf['reviews'] > 0 && $pf['rating'] > 0) {
-                $tiles[] = array(number_format($pf['rating'], 1) . '<small style="font:700 13px ' . $sans . ';color:#7c8aa3;">/5</small>', '&#9733;&#9733;&#9733;&#9733;&#9733; Learner rating');
-                $tiles[] = array(number_format($pf['reviews']), 'Learner reviews');
-                $heroProof = '<div style="margin-top:14px;font:700 13px ' . $sans . ';color:#fbbf24;">&#9733;&#9733;&#9733;&#9733;&#9733; <span style="color:#ffffff;">' . number_format($pf['rating'], 1) . '/5</span> <span style="color:#b7c4e0;font-weight:600;">from ' . number_format($pf['reviews']) . ' learner reviews</span></div>';
+                if ($on('rating')) {
+                    $tiles[] = array(number_format($pf['rating'], 1) . $small('/5'), '&#9733;&#9733;&#9733;&#9733;&#9733; Learner rating');
+                    $heroBits[] = '<span style="color:#ffffff;">' . number_format($pf['rating'], 1) . '/5</span> <span style="color:#b7c4e0;font-weight:600;">from ' . number_format($pf['reviews']) . ' learner reviews</span>';
+                }
+                if ($on('reviews')) { $tiles[] = array(number_format($pf['reviews']), 'Learner reviews'); }
             }
-            if ($pf['enrolled'] >= 20) { $tiles[] = array(number_format($pf['enrolled']), 'Learners enrolled'); }
-            if ($pf['views'] >= 100)   { $tiles[] = array(number_format($pf['views']), 'Course page views'); }
+            if ($on('sf_rating') && !empty($pf['sf'])) {
+                $tiles[] = array(number_format((float) $pf['sf']['rating'], 1) . $small('/5'),
+                    'MySkillsFuture rating' . (!empty($pf['sf']['ratings']) ? ' &middot; ' . number_format((int) $pf['sf']['ratings']) . ' ratings' : ''));
+                $heroBits[] = '<span style="color:#ffffff;">' . number_format((float) $pf['sf']['rating'], 1) . '/5</span> <span style="color:#b7c4e0;font-weight:600;">on MySkillsFuture'
+                    . (!empty($pf['sf']['ratings']) ? ' (' . number_format((int) $pf['sf']['ratings']) . ' ratings)' : '') . '</span>';
+            }
+            if ($heroBits) {
+                $heroProof = '<div style="margin-top:14px;font:700 13px ' . $sans . ';color:#fbbf24;">&#9733;&#9733;&#9733;&#9733;&#9733; ' . implode(' <span style="color:#5b6b8c;">&middot;</span> ', $heroBits) . '</div>';
+            }
+            if ($on('enrolled') && $pf['enrolled'] >= 20) { $tiles[] = array(number_format($pf['enrolled']), 'Learners enrolled'); }
+            if ($on('views') && $pf['views'] >= 100)      { $tiles[] = array(number_format($pf['views']), 'Course page views'); }
             $tHtml = '';
             $w = $tiles ? floor(100 / count($tiles)) : 25;
             foreach ($tiles as $t) {
@@ -1074,7 +1211,7 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
                     . '</td></tr></table></td>';
             }
             $qHtml = '';
-            foreach ($pf['quotes'] as $q) {
+            foreach ($on('quotes') ? $pf['quotes'] : array() as $q) {
                 $qHtml .= '<tr><td style="padding:0 0 10px;">'
                     . '<table role="presentation" width="100%" style="background:#f8fafc;border-left:3px solid ' . $accent . ';border-radius:8px;"><tr><td style="padding:13px 16px;">'
                     . '<div style="font:400 14px/1.55 ' . $sans . ';color:#0a1020;font-style:italic;">&ldquo;' . $h($q['text']) . '&rdquo;</div>'
