@@ -375,6 +375,40 @@ if ($_product && $_product->getId()):
 <?php endif; ?>
 <?php endif; ?>
 
+<?php
+// Category listing pages: CollectionPage + BreadcrumbList (Home > parents > category),
+// from the same stock breadcrumb path the course schema uses, so category results can
+// show the breadcrumb trail in search.
+if ((!$_product || !$_product->getId()) && $_category && $_category->getId() && !$_isNoRoute):
+    $_catUrl = (string) $_category->getUrl();
+    $_catLd = [
+        '@context' => 'https://schema.org',
+        '@type'    => 'CollectionPage',
+        'name'     => trim((string) $_category->getName()),
+        'url'      => $_catUrl,
+        'isPartOf' => ['@type' => 'WebSite', 'name' => $_ogSiteName, 'url' => $_curBase . '/'],
+    ];
+    if (trim($_ogDesc) !== '') {
+        $_catLd['description'] = trim($_ogDesc);
+    }
+    $_catCrumbs = [['@type' => 'ListItem', 'position' => 1, 'name' => 'Home', 'item' => $_curBase . '/']];
+    try {
+        foreach (Mage::helper('catalog')->getBreadcrumbPath() as $_crumb) {
+            $_catCrumbs[] = [
+                '@type'    => 'ListItem',
+                'position' => count($_catCrumbs) + 1,
+                'name'     => trim(strip_tags((string) $_crumb['label'])),
+                'item'     => !empty($_crumb['link']) ? (string) $_crumb['link'] : $_catUrl,
+            ];
+        }
+    } catch (Exception $_e) { /* no-op */ }
+?>
+<script type="application/ld+json"><?php echo json_encode($_catLd, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?></script>
+<?php if (count($_catCrumbs) > 1): ?>
+<script type="application/ld+json"><?php echo json_encode(['@context' => 'https://schema.org', '@type' => 'BreadcrumbList', 'itemListElement' => $_catCrumbs], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?></script>
+<?php endif; ?>
+<?php endif; ?>
+
 <link rel="icon" href="<?php echo $this->getFaviconFile(); ?>" type="image/x-icon" />
 <link rel="shortcut icon" href="<?php echo $this->getFaviconFile(); ?>" type="image/x-icon" />
 <?php
