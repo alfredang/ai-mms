@@ -15,13 +15,14 @@ partner-DB edits. The `seo-audit` skill audits against this file.
 | SG | IBF course (IBF badge, wins over WSQ) | `Funded up to 70% IBF <title> \| Tertiary Courses Singapore` |
 | SG | CASL course (CASL badge) | `Funded up to 70% CASL <title> \| Tertiary Courses Singapore` |
 | SG | non-WSQ course (C-) / category | `<title> \| Tertiary Courses Singapore` |
-| MY | every course | `HRD Corp Claimable <title> \| Tertiary Courses Malaysia` |
+| MY | every course | `HRD Corp Funded <title> \| Tertiary Courses Malaysia` |
 | MY | category | `<title> \| Tertiary Courses Malaysia` |
 | GH | course / category | `<title> \| Tertiary Courses Ghana` |
 
 - The postfix comes from `general/store_information/name` on each site's own DB; a stale baked
   `| Tertiary Courses …` is stripped before the site's own one is added.
-- **Store `meta_title` BARE**: no WSQ / CASL / IBF / "Funded" / "HRD Corp" word, no brand, no `|`.
+- **Store `meta_title` BARE**: no WSQ / CASL / IBF / "Funded" / "HRD Corp" word (the MY title
+  prefix is "HRD Corp Funded"; MY descriptions say "HRD Corp claimable"), no brand, no `|`.
   ≤ 50 chars (hard max 60), primary keyword first, the course name's own wording. The admin field
   therefore never shows the prefix or postfix — that is correct.
 - Never change product `name` or `url_key` for SEO (name is the H1, JSON-LD and order line).

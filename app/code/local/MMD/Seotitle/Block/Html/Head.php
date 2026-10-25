@@ -9,7 +9,7 @@
  *      own brand, so one shared code path yields the right postfix per site).
  *   2. Course product pages carry the correct funding PREFIX (always first word "Funded",
  *      then the "up to 70%" subsidy cap so it survives SERP truncation):
- *        - Malaysia site  -> every course            -> "HRD Corp Claimable"
+ *        - Malaysia site  -> every course            -> "HRD Corp Funded"
  *        - Singapore site -> IBF-badged course       -> "Funded up to 70% IBF"
  *                            (IBF wins over WSQ — every IBF course is also TGS-)
  *        - Singapore site -> CASL-badged course      -> "Funded up to 70% CASL"
@@ -110,9 +110,9 @@ class MMD_Seotitle_Block_Html_Head extends Mage_Page_Block_Html_Head
 
         $brand = (string) Mage::getStoreConfig('general/store_information/name');
 
-        // Malaysia: every course is HRD Corp claimable.
+        // Malaysia: every course is HRD Corp funded (claimable).
         if (stripos($brand, 'Malaysia') !== false) {
-            return 'HRD Corp Claimable';
+            return 'HRD Corp Funded';
         }
 
         // Singapore: funded titles always START with "Funded". IBF wins over WSQ (every IBF
