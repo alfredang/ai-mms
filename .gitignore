@@ -24,6 +24,12 @@ node_modules/
 # Country bootstrap seed is intentionally tracked
 !seed/country-base.sql.gz
 
+# Skill helper scripts are source, not dumps (franchise-site-parity documents its .sql scripts)
+!.claude/skills/*/scripts/*.sql
+
+# Per-push approval marker read by .claude/hooks/git-push-gate.sh — local only, never committed
+.claude/.push-approved
+
 # Site backups
 *.zip
 *.tar.gz

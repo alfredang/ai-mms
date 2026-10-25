@@ -299,8 +299,12 @@ setup. Committed and ready to use after a clone:
   `cybersecurity-analyst`, …).
 - **`.claude/agents/`** — specialised subagents (security auditor, `security-scanner`, caching/speed optimiser,
   mysql tuner, admin-design-consistency, site-health-checker, `newsletter-designer`, …).
+- **`.claude/rules/`** — standing project rules loaded into every session (`seo-meta.md`: the
+  title / description / keyword standard for SG, MY and GH course + category pages).
 - **`.claude/hooks/`** — pre/post-tool hooks (PHP lint-on-edit, web-health,
-  leads-capture and newsletter-flyer verifiers) wired via `.claude/settings.json`.
+  leads-capture and newsletter-flyer verifiers, git-push gate) wired via `.claude/settings.json`.
+  The push gate's approval marker `.claude/.push-approved` is local-only and gitignored.
+- **`.claude/commands/`** + **`.claude/memory/`** — slash commands and shared project memory notes.
 - **`.codex/`** + **`AGENTS.md`** — the Codex-CLI counterparts of the same guidance.
 
 `CLAUDE.md` / `AGENTS.md` are the behavioural guardrails both assistants load automatically.
