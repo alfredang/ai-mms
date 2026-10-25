@@ -7,11 +7,12 @@
  *      "| Tertiary Courses <Country>", read from general/store_information/name
  *      (SG = Singapore, MY = Malaysia, GH = Ghana — each partner DB carries its
  *      own brand, so one shared code path yields the right postfix per site).
- *   2. Course product pages carry the correct funding PREFIX:
+ *   2. Course product pages carry the correct funding PREFIX (always first word "Funded"):
  *        - Malaysia site  -> fixed templates instead, see _malaysiaTitle()
- *        - Singapore site -> IBF-badged course       -> "IBF funded"
+ *        - Singapore site -> IBF-badged course       -> "Funded IBF"
  *                            (IBF wins over WSQ — every IBF course is also TGS-)
- *        - Singapore site -> WSQ course (SKU TGS-)   -> "WSQ funded"
+ *        - Singapore site -> CASL-badged course      -> "Funded CASL"
+ *        - Singapore site -> other TGS- course       -> "Funded WSQ"
  *
  * Applied at render time (NOT baked into meta_title) so the transform is
  * idempotent — titles that already end with the brand, or already start with
@@ -114,7 +115,10 @@ class MMD_Seotitle_Block_Html_Head extends Mage_Page_Block_Html_Head
         if (stripos($title, $prefix) === 0) {
             return $title;
         }
-        return $prefix . ' ' . ltrim($title);
+        // Drop a scheme word baked into the stored meta_title ("WSQ ...", "IBF-STS ...",
+        // "WSQ funded ...") so the prefix never double-prints ("Funded WSQ WSQ ...").
+        $title = preg_replace('/^(?:funded\s+)?(?:WSQ|CASL|IBF(?:-STS)?)(?:\s+funded)?(?:\s*[-:]\s*|\s+)/i', '', ltrim($title));
+        return $prefix . ' ' . $title;
     }
 
     /**
@@ -133,14 +137,18 @@ class MMD_Seotitle_Block_Html_Head extends Mage_Page_Block_Html_Head
 
         $brand = (string) Mage::getStoreConfig('general/store_information/name');
 
-        // Singapore: IBF wins over WSQ (every IBF course is also a TGS- WSQ SKU).
+        // Singapore: funded titles always START with "Funded". IBF wins over WSQ (every IBF
+        // course is also a TGS- WSQ SKU); CASL courses are TGS- but not WSQ-badged.
         if (stripos($brand, 'Singapore') !== false) {
             $badges = Mage::helper('mmd_courseimage')->getProductBadges($product);
             if (in_array('IBF', $badges, true)) {
-                return 'IBF funded';
+                return 'Funded IBF';
+            }
+            if (in_array('CASL', $badges, true)) {
+                return 'Funded CASL';
             }
             if (stripos((string) $product->getSku(), 'TGS-') === 0) {
-                return 'WSQ funded';
+                return 'Funded WSQ';
             }
         }
 

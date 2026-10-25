@@ -99,7 +99,7 @@ Title and meta description format depends on **SKU prefix** + **store code**. Au
 
 | Segment            | SKU prefix | Store(s)            | Meta title format                                                                  | Meta description must mention                                                |
 |--------------------|------------|---------------------|------------------------------------------------------------------------------------|------------------------------------------------------------------------------|
-| SG WSQ             | `TGS-`     | `default` (SG)      | `<Course Name> WSQ \| Tertiary Courses Singapore`                                  | "WSQ" + funding hooks: **SkillsFuture Credit, SFEC, UTAP, Absentee Payroll** (whichever apply) |
+| SG funded (WSQ / CASL / IBF) | `TGS-` | `singapore` (SG) | `Funded WSQ\|CASL\|IBF <Course Name> \| Tertiary Courses Singapore` — prefix + suffix added at RENDER time by `MMD_Seotitle`; stored `meta_title` is BARE | Ends with a badge-derived funding sentence, e.g. "Up to 70% WSQ funding; SkillsFuture Credit claimable." **Never UTAP** (outbound ban) |
 | SG non-WSQ         | `C…`       | `default` (SG)      | `<Course Name> \| Tertiary Courses Singapore`                                      | **No funding mention.** Focus on course value, audience, outcomes.            |
 | MY                 | `M…`       | `malaysia`          | `<Course Name> \| Tertiary Courses Malaysia`                                       | "HRDF claimable" (a.k.a. HRD Corp claimable) — funding hook is mandatory      |
 | GH / NG / BT / IN  | `M…`       | `ghana` / `nigeria` / `bhutan` / `india` | `<Course Name> \| Tertiary Courses <Ghana\|Nigeria\|Bhutan\|India>` | No funding hook (none exist for these markets)                                |
@@ -107,10 +107,10 @@ Title and meta description format depends on **SKU prefix** + **store code**. Au
 **Title rules — non-negotiable:**
 
 - Every title MUST end with the exact brand suffix in the store table above (`| Tertiary Courses <Country>`). No abbreviations, no `TC SG`, no missing country.
-- SG WSQ courses MUST include the literal token `WSQ` in the title before the brand suffix — it's the highest-intent SG search keyword.
+- SG funded courses (TGS-) MUST render starting with `Funded` — `Funded IBF` (IBF badge) > `Funded CASL` (CASL badge) > `Funded WSQ` (other TGS-). `MMD_Seotitle_Block_Html_Head::_fundingPrefix()` does this; NEVER bake WSQ/CASL/IBF/Funded or the brand into the stored `meta_title` (the composer strips a baked scheme word, but keep the data clean). Store `meta_title` bare, ≤ 50 chars, primary keyword first.
 - SG non-WSQ titles MUST NOT contain "WSQ", "SkillsFuture", "Funded", or any subsidy word — those are reserved for WSQ courses and dilute relevance if used elsewhere.
 - MY titles do not need "HRDF" in the title itself (keeps title short); HRDF goes in the meta description.
-- Keep total title length ≤ 60 chars where possible. If `<Course Name> WSQ | Tertiary Courses Singapore` exceeds 60, the course name is too long — flag it; don't strip the suffix.
+- Keep total title length ≤ 60 chars where possible. If `Funded WSQ <Course Name> | Tertiary Courses Singapore` exceeds 60 (it usually will — the prefix + suffix are 42 chars), the course name is too long — flag it; don't strip the suffix.
 
 **Meta description rules:**
 

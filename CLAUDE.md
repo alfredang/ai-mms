@@ -401,6 +401,7 @@ never repeat.**
 | **openmage-frontend-developer** | Customer-facing storefront work — Ultimo theme, layout XML, phtml, Prototype/jQuery, hreflang. |
 | **backend-design** | Styling or reviewing any adminhtml UI — design tokens, buttons, grids, toolbars, badges. Use to keep the dark admin theme visually consistent. |
 | **seo-audit** | Per-site SEO audit (SG / MY / GH — each a standalone site) — indexability, Core Web Vitals, schema for course pages. |
+| **marketing-seo-audit** | Generic SEO method from coreyhaines31/marketingskills — title-tag patterns, meta description rules (150–160 chars, keyword, CTA), bulk-audit table, AI-writing tells. The project `seo-audit` rules win on conflict. |
 | **lead-magnets** | Planning lead-magnet content for course sales — SkillsFuture/HRDC hooks, course syllabus PDFs, trial classes. |
 | **add-country-store** | Onboarding a new franchise partner — stand up their own server + DB, deploy this codebase, set base_url + currency/locale, Coolify + DNS handoff (one store per site). |
 | **course-url-change** | Changing a course's URL slug (`url_key`) — makes the old URL 301 permanently to the new one so nothing 404s. Also the site-wide audit for course URLs / search redirects that 404. |

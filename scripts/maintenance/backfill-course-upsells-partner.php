@@ -68,11 +68,19 @@ echo "min upsell: {$MIN_UPSELL}   store root cat: {$STORE_ROOT_CAT}\n\n";
  * 1. Load all enabled + visible products (status=1, visibility in catalog/search).
  *    On a partner site every product is a course, and all of them are both the
  *    target set AND the fill pool.
+ *    Uses the EFFECTIVE value for the store view (store-scope row overrides the
+ *    store 0 default) — partner DBs carry store-scope status overrides, so a
+ *    store-0-only check miscounts what the storefront actually renders.
  * ------------------------------------------------------------------------- */
+$storeId = (int) Mage::app()->getDefaultStoreView()->getId();
 $sql = "SELECT e.entity_id, e.sku
         FROM {$tProd} e
-        JOIN {$tInt} st ON st.entity_id=e.entity_id AND st.attribute_id={$statusId} AND st.store_id=0 AND st.value=1
-        JOIN {$tInt} vs ON vs.entity_id=e.entity_id AND vs.attribute_id={$visId}    AND vs.store_id=0 AND vs.value IN (3,4)";
+        JOIN {$tInt} st0 ON st0.entity_id=e.entity_id AND st0.attribute_id={$statusId} AND st0.store_id=0
+        LEFT JOIN {$tInt} sts ON sts.entity_id=e.entity_id AND sts.attribute_id={$statusId} AND sts.store_id={$storeId}
+        JOIN {$tInt} vs0 ON vs0.entity_id=e.entity_id AND vs0.attribute_id={$visId} AND vs0.store_id=0
+        LEFT JOIN {$tInt} vss ON vss.entity_id=e.entity_id AND vss.attribute_id={$visId} AND vss.store_id={$storeId}
+        WHERE COALESCE(sts.value, st0.value) = 1
+          AND COALESCE(vss.value, vs0.value) IN (3,4)";
 $visible = array();   // id => sku
 foreach ($read->fetchAll($sql) as $r) {
     $visible[(int) $r['entity_id']] = $r['sku'];
