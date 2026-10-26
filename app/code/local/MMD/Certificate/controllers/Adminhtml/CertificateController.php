@@ -28,6 +28,10 @@ class MMD_Certificate_Adminhtml_CertificateController extends Mage_Adminhtml_Con
             $run = $h->loadRun($runId);
             if (!$run) throw new Exception('Class not found.');
 
+            // Malaysia: say why nothing can be sent yet (no trainer confirmation recorded / class excluded).
+            $conf = $h->confirmationForRun($runId);
+            if ($conf !== null && $conf['status'] !== 'confirmed') throw new Exception($h->confirmationHoldMessage($conf));
+
             $adminId  = Mage::getSingleton('admin/session')->getUser() ? (int)Mage::getSingleton('admin/session')->getUser()->getId() : null;
             $learners = $h->getEligibleLearners($runId);
 
@@ -55,7 +59,8 @@ class MMD_Certificate_Adminhtml_CertificateController extends Mage_Adminhtml_Con
      * POST JSON — manually issue + send certificates to SELECTED learners of a
      * class (trainer multi-select on the Certificate of Achievement panel).
      * Manual send is a deliberate trainer override: no 70% attendance gate and
-     * not affected by the auto_enabled flag. Only roster members are accepted.
+     * not affected by the auto_enabled flag (Malaysia excepted: its 75%-of-
+     * training-time rule and the recorded trainer confirmation still apply). Only roster members are accepted.
      * params: run_id, emails[] (or comma-separated emails)
      */
     public function sendSelectedAction()
@@ -80,10 +85,25 @@ class MMD_Certificate_Adminhtml_CertificateController extends Mage_Adminhtml_Con
             foreach ($roster['learners'] as $l) $byEmail[$l['learner_email']] = $l;
 
             $adminId = Mage::getSingleton('admin/session')->getUser() ? (int)Mage::getSingleton('admin/session')->getUser()->getId() : null;
-            $sent = 0; $skipped = 0; $errors = 0; $msgs = array();
+            // Malaysia: no override — the partner's rule (>= 75% of confirmed training time, never rounded
+            // up, no certificate without a confirmed timetable) applies to manual sends too.
+            $isMy = $roster['timetable_confirmed'] !== null;
+            if ($isMy && !$roster['timetable_confirmed']) {
+                throw new Exception('Confirm the class timetable on the E-Attendance page first. Certificates are on hold until it is confirmed.');
+            }
+            // ...and only after the trainer has confirmed the final attendance.
+            if ($isMy && $roster['confirmation']['status'] !== 'confirmed') {
+                throw new Exception($h->confirmationHoldMessage($roster['confirmation']));
+            }
+            $belowTrainer = $isMy ? array_flip(array_map('strtolower', array_column($roster['confirmation']['below'], 'email'))) : array();
+            $sent = 0; $skipped = 0; $errors = 0; $msgs = array(); $below = array();
             foreach ($emails as $email) {
                 $email = strtolower(trim((string)$email));
                 if ($email === '' || !isset($byEmail[$email])) continue;
+                if ($isMy && (empty($byEmail[$email]['meets_attendance']) || isset($belowTrainer[$email]))) {
+                    $below[] = $email . ' (' . (int)$byEmail[$email]['attendance_pct'] . '%)';
+                    continue;
+                }
                 $r = $h->issueAndSend($run, $byEmail[$email], $adminId);
                 if ($r['status'] === 'sent') $sent++;
                 elseif ($r['status'] === 'skipped') $skipped++;
@@ -91,6 +111,7 @@ class MMD_Certificate_Adminhtml_CertificateController extends Mage_Adminhtml_Con
             }
 
             $message = sprintf('Sent %d, skipped %d, errors %d.', $sent, $skipped, $errors);
+            if ($below) $message .= ' Not sent, below ' . $h->attendanceRuleLabel() . ': ' . implode(', ', array_slice($below, 0, 5)) . '.';
             if ($msgs) $message .= ' ' . implode('; ', array_slice($msgs, 0, 3));
             $this->_json(array('success' => $errors === 0, 'message' => $message,
                 'sent' => $sent, 'skipped' => $skipped, 'errors' => $errors));

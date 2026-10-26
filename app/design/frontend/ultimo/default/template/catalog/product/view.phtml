@@ -363,9 +363,10 @@
 	$_learningOutcomesHtml = $_courseSectionHtml('learning_outcomes');
 	if ($_learningOutcomesHtml === '') { $_learningOutcomesHtml = $_loExtracted; }
 	unset($_loExtracted);
-	// The Learning Outcomes card is shown for SG WSQ (TGS-) courses only;
-	// non-WSQ (C-/M-prefix) courses never render it.
-	if (!$_isSgWsqCourse) { $_learningOutcomesHtml = ''; }
+	// The Learning Outcomes card is shown for SG WSQ (TGS-) courses and, per the
+	// MY partner's sign-off (Oct 2026), on the Malaysia site (partner-approved
+	// per-course blocks). Other non-WSQ courses never render it.
+	if (!$_isSgWsqCourse && !$_isMyStore) { $_learningOutcomesHtml = ''; }
 
 	// (3) Course Brochure — per-course cms/block first, regex fallback.
 	list($_brExtracted, $shortDescription) = $_extractSection('Course' . $_WS . '+Brochure', $shortDescription);
