@@ -7703,7 +7703,7 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
     <?php endif; ?>
 
     <div class="lcd-section" id="certificate">
-        <div class="lcd-section-title">Certificate of Achievement</div>
+        <div class="lcd-section-title"><?php echo htmlspecialchars(Mage::helper('mmd_certificate')->certificateName()) ?></div>
         <?php if ($activeRole === 'trainer'): ?>
         <?php
         // TRAINER: per-learner delivery roster. Every roster member with their
@@ -7711,6 +7711,7 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
         // (select-all supported) for a manual send that bypasses the 70%
         // auto-send gate — the trainer's explicit choice is the override.
         $_certLearners = array(); $_certTotalSessions = 0;
+        $_certTtConfirmed = null; $_certTotalMin = null;   // Malaysia: minutes-based attendance
         if ($_lcdRunId > 0) {
             try {
                 $_certHelper = Mage::helper('mmd_certificate');
@@ -7719,9 +7720,12 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
                     $_certRoster        = $_certHelper->getClassCertRoster($_certRunRow);
                     $_certLearners      = $_certRoster['learners'];
                     $_certTotalSessions = (int)$_certRoster['total_sessions'];
+                    $_certTtConfirmed   = $_certRoster['timetable_confirmed'];
+                    $_certTotalMin      = $_certRoster['total_minutes'];
                 }
             } catch (Exception $e) {}
         }
+        $_certFmtMin = function ($n) { return intdiv((int)$n, 60) . 'h ' . str_pad((int)$n % 60, 2, '0', STR_PAD_LEFT) . 'm'; };
         $_certSentTotal = 0;
         foreach ($_certLearners as $_cl) {
             if (in_array($_cl['cert_status'], array('issued', 'sent'), true)) $_certSentTotal++;
@@ -7732,13 +7736,18 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
         <div class="lcd-cert-box">
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>
             <div class="lcd-cert-title">No Learners To Certify Yet</div>
-            <div class="lcd-cert-sub">Once this class has enrolled learners they appear here with their certificate status. Certificates are emailed automatically at 6:30pm on the day the class completes, to every learner whose overall session attendance is above 70%.</div>
+            <div class="lcd-cert-sub">Once this class has enrolled learners they appear here with their certificate status. Certificates are emailed automatically at 6:30pm on the day the class completes, to every learner whose overall session attendance is <?php echo htmlspecialchars(Mage::helper('mmd_certificate')->attendanceRuleLabel()) ?>.</div>
         </div>
         <?php else: ?>
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:4px 0 12px;">
-            <div style="color:#cbd5e1;font-size:13px;"><strong style="color:#f1f5f9;"><?php echo (int)$_certSentTotal ?></strong> of <strong style="color:#f1f5f9;"><?php echo count($_certLearners) ?></strong> learners have received their certificate. Auto-send runs daily at 6:30pm for learners above 70% overall session attendance; select learners below to send manually.</div>
+            <div style="color:#cbd5e1;font-size:13px;"><strong style="color:#f1f5f9;"><?php echo (int)$_certSentTotal ?></strong> of <strong style="color:#f1f5f9;"><?php echo count($_certLearners) ?></strong> learners have received their certificate. Auto-send runs daily at 6:30pm for learners whose overall session attendance is <?php echo htmlspecialchars(Mage::helper('mmd_certificate')->attendanceRuleLabel()) ?>; select learners below to send manually.</div>
             <button type="button" class="mm-btn mm-btn-primary" id="lcd-cert-send-btn" disabled onclick="lcdCertSendSelected()">Send Certificate</button>
         </div>
+        <?php if ($_certTtConfirmed === false): ?>
+        <div style="color:var(--yellow);font-size:12px;margin:0 0 10px;">⚠ The class timetable is not confirmed, so certificates are on hold. Confirm each session's times and breaks on the E-Attendance page.</div>
+        <?php elseif (!empty($_certRoster['confirmation']) && $_certRoster['confirmation']['status'] !== 'confirmed'): ?>
+        <div style="color:var(--yellow);font-size:12px;margin:0 0 10px;">⚠ <?php echo htmlspecialchars($_certHelper->confirmationHoldMessage($_certRoster['confirmation'])) ?></div>
+        <?php endif; ?>
         <table class="mm-table lcd-cert-table" style="width:100%;">
             <thead>
                 <tr>
@@ -7764,7 +7773,14 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
                     </td>
                     <td class="strong"><?php echo htmlspecialchars($_cl['learner_name'] !== '' ? $_cl['learner_name'] : '—') ?></td>
                     <td class="muted"><?php echo htmlspecialchars($_cl['learner_email']) ?></td>
-                    <td class="center" style="color:<?php echo $_clPct > 70 ? 'var(--green)' : 'var(--yellow)' ?>;"><?php echo (int)$_cl['present_sessions'] ?>/<?php echo (int)$_certTotalSessions ?> · <?php echo $_clPct ?>%</td>
+                    <td class="center" style="color:<?php echo (isset($_cl['meets_attendance']) ? $_cl['meets_attendance'] : $_clPct > 70) ? 'var(--green)' : 'var(--yellow)' ?>;"><?php
+                        if ($_certTtConfirmed === null) {
+                            echo (int)$_cl['present_sessions'] . '/' . (int)$_certTotalSessions . ' · ' . $_clPct . '%';
+                        } elseif ($_certTtConfirmed) {
+                            echo $_certFmtMin($_cl['minutes_attended']) . ' / ' . $_certFmtMin($_certTotalMin) . ' · ' . $_clPct . '%';
+                        } else {
+                            echo 'Timetable not confirmed';
+                        } ?></td>
                     <td class="status">
                         <?php if ($_clSent): ?>
                         <span style="color:var(--green);">Sent<?php if ($_cl['sent_at']): ?> <?php echo htmlspecialchars(date('d M Y', strtotime((string)$_cl['sent_at']))) ?><?php endif; ?></span><?php if ($_cl['cert_no']): ?><span style="color:var(--t4);"> · <?php echo htmlspecialchars($_cl['cert_no']) ?></span><?php endif; ?>
@@ -7794,7 +7810,7 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
         function lcdCertSendSelected() {
             var picked = [].slice.call(document.querySelectorAll('.lcd-cert-pick:checked')).map(function (c) { return c.getAttribute('data-email'); });
             if (!picked.length) return;
-            if (!confirm('Email the Certificate of Achievement to ' + picked.length + ' learner(s) now?')) return;
+            if (!confirm('Email the <?php echo $this->jsQuoteEscape(Mage::helper('mmd_certificate')->certificateName()) ?> to ' + picked.length + ' learner(s) now?')) return;
             var btn = document.getElementById('lcd-cert-send-btn');
             btn.disabled = true; btn.textContent = 'Sending…';
             var body = new URLSearchParams();
@@ -7821,16 +7837,16 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
             <?php if ($_certState === 'issued'): ?>
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#3df5a8" stroke-width="1.5"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>
             <div class="lcd-cert-title">Certificate Issued</div>
-            <div class="lcd-cert-sub">Your Certificate of Achievement<?php if (!empty($_certRow['cert_no'])): ?> (<?php echo htmlspecialchars((string)$_certRow['cert_no']) ?>)<?php endif; ?> was emailed to you<?php if (!empty($_certRow['sent_at'])): ?> on <?php echo htmlspecialchars(date('d M Y', strtotime((string)$_certRow['sent_at']))) ?><?php endif; ?>.</div>
+            <div class="lcd-cert-sub">Your <?php echo htmlspecialchars(Mage::helper('mmd_certificate')->certificateName()) ?><?php if (!empty($_certRow['cert_no'])): ?> (<?php echo htmlspecialchars((string)$_certRow['cert_no']) ?>)<?php endif; ?> was emailed to you<?php if (!empty($_certRow['sent_at'])): ?> on <?php echo htmlspecialchars(date('d M Y', strtotime((string)$_certRow['sent_at']))) ?><?php endif; ?>.</div>
             <a href="<?php echo htmlspecialchars(rtrim(Mage::getBaseUrl(), '/') . '/certificate/download/index?token=' . $_certRow['token'], ENT_QUOTES) ?>" target="_blank" rel="noopener" style="display:inline-block;margin-top:14px;background:#2563eb;color:#fff !important;text-decoration:none !important;padding:10px 22px;border-radius:8px;font-size:13px;font-weight:600;">Download Certificate</a>
             <?php else: ?>
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
             <?php if ($_certState === 'completed'): ?>
             <div class="lcd-cert-title">Course Completed</div>
-            <div class="lcd-cert-sub">This course ended on <?php echo htmlspecialchars(date('d M Y', strtotime((string)$_certEnd))) ?>. Certificates are emailed automatically at 6:30pm to learners whose overall session attendance is above 70%.</div>
+            <div class="lcd-cert-sub">This course ended on <?php echo htmlspecialchars(date('d M Y', strtotime((string)$_certEnd))) ?>. Certificates are emailed automatically at 6:30pm to learners whose overall session attendance is <?php echo htmlspecialchars(Mage::helper('mmd_certificate')->attendanceRuleLabel()) ?>.</div>
             <?php elseif ($_certState === 'in_progress'): ?>
             <div class="lcd-cert-title">In Progress</div>
-            <div class="lcd-cert-sub">You're enrolled in this course<?php if ($_certEnd): ?> (ends <?php echo htmlspecialchars(date('d M Y', strtotime((string)$_certEnd))) ?>)<?php endif; ?>. Your certificate is emailed automatically at 6:30pm on completion, provided your overall session attendance is above 70%.</div>
+            <div class="lcd-cert-sub">You're enrolled in this course<?php if ($_certEnd): ?> (ends <?php echo htmlspecialchars(date('d M Y', strtotime((string)$_certEnd))) ?>)<?php endif; ?>. Your certificate is emailed automatically at 6:30pm on completion, provided your overall session attendance is <?php echo htmlspecialchars(Mage::helper('mmd_certificate')->attendanceRuleLabel()) ?>.</div>
             <?php elseif ($activeRole === 'learner'): ?>
             <div class="lcd-cert-title">Not Enrolled</div>
             <div class="lcd-cert-sub">You don't have an active enrolment for this course. Once you enrol and complete it, your certificate will appear here.</div>

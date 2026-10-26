@@ -47,6 +47,10 @@ $removeUrl = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/removeLearn
 $searchLearnersUrl = Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/searchLearners');
 $activeUrl = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/index', array('bucket' => 'active'));
 $compUrl   = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/index', array('bucket' => 'completed'));
+// Malaysia: class timetable + actual minutes (attendance by training hours).
+$isMy        = $h->isMalaysiaSite();
+$ttSaveUrl   = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/saveTimetable');
+$confUrl     = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/recordConfirmation');
 
 // Certificate controls
 $certSendUrl   = Mage::helper('adminhtml')->getUrl('adminhtml/certificate/sendForClass');
@@ -187,8 +191,10 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
         <div style="display:flex;align-items:center;gap:10px;">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="<?php echo $certAutoOn ? '#22c55e' : '#64748b' ?>" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><circle cx="12" cy="15" r="2"/></svg>
             <div>
-                <div style="font-size:13px;font-weight:600;color:#e2e8f0;">Auto-send Certificate of Achievement after class</div>
-                <div style="font-size:11px;color:#64748b;margin-top:1px;">When ON, a daily sweep emails certificates to learners marked Present once their class has ended. Manual sending below always works.</div>
+                <div style="font-size:13px;font-weight:600;color:#e2e8f0;">Auto-send <?php echo $this->escapeHtml($certHelper->certificateName()) ?> after class</div>
+                <div style="font-size:11px;color:#64748b;margin-top:1px;"><?php echo $isMy
+                    ? 'When ON, certificates are emailed as soon as the trainer confirms the final attendance (with a daily check at 6:30 pm), to learners with at least 75% of the training hours.'
+                    : 'When ON, a daily sweep emails certificates to learners marked Present once their class has ended. Manual sending below always works.' ?></div>
             </div>
         </div>
         <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
@@ -247,6 +253,32 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
 
     <!-- Roster -->
     <div class="att-card" id="att-roster-card" style="display:none;">
+        <?php if ($isMy): ?>
+        <!-- Malaysia: class timetable. Certificates use each session's confirmed
+             training time (start - end - non-training break); nothing is assumed. -->
+        <div id="att-tt" style="margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid #1e293b;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:6px;">
+                <div>
+                    <label class="att-label" style="margin:0;">Class Timetable</label>
+                    <div id="att-tt-status" class="att-status"></div>
+                </div>
+                <?php if (!$readonly): ?>
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <span id="att-tt-save-status" class="att-status"></span>
+                    <button type="button" id="att-tt-btn" class="att-btn att-btn-primary" onclick="attSaveTimetable()">Confirm Timetable</button>
+                </div>
+                <?php endif; ?>
+            </div>
+            <p class="att-sub" style="margin:0 0 10px;font-size:12px;">Standard Malaysia class times are set automatically: daytime 9:30 am–6:00 pm with lunch 12:30–1:30 pm excluded (7.5 training hours), evening 5:30–9:30 pm (4 hours). Short 15-minute breaks stay within the sessions and are not deducted. Only an exception (other daily hours) needs its times and breaks entered here and confirmed. Certificates use this training time.</p>
+            <div style="overflow-x:auto;">
+            <table class="att-table">
+                <thead><tr><th>Session</th><th style="width:130px;">Start</th><th style="width:130px;">End</th><th style="width:120px;">Break (min)</th><th>Training Time</th></tr></thead>
+                <tbody id="att-tt-body"></tbody>
+            </table>
+            </div>
+        </div>
+        <?php endif; ?>
+
         <!-- Session tabs — every class day has an AM and a PM session
              (2-day class = 4 sessions). Attendance is marked per session. -->
         <div id="att-sess-tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;"></div>
@@ -282,6 +314,7 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
                     <th>Learner</th>
                     <th>Email</th>
                     <th style="width:150px;">Attendance</th>
+                    <?php if ($isMy && !$readonly): ?><th style="width:150px;" title="Only for a late arrival or early departure. Leave blank for the full session.">Actual Minutes</th><?php endif; ?>
                     <?php if (!$readonly): ?><th>Reason of Absence</th><th style="width:60px;"></th><?php endif; ?>
                 </tr>
             </thead>
@@ -292,7 +325,36 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
         <?php if (!$readonly): ?>
         <div style="display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-top:16px;padding-top:14px;border-top:1px solid #1e293b;">
             <span id="att-save-status" class="att-status"></span>
+            <?php if ($isMy): ?>
+            <!-- Malaysia: a finished class's attendance can only be corrected with a recorded reason. -->
+            <span id="att-corr-wrap" style="display:none;align-items:center;gap:8px;">
+                <label class="att-label" for="att-corr-reason" style="margin:0;white-space:nowrap;">Reason for correction</label>
+                <input type="text" id="att-corr-reason" class="att-reason" maxlength="500" placeholder="Required for a finished class, e.g. trainer marked the wrong session" style="max-width:360px;width:360px;">
+            </span>
+            <?php endif; ?>
             <button type="button" id="att-save-btn" class="att-btn att-btn-primary" onclick="attSave()">Save Attendance</button>
+        </div>
+        <?php endif; ?>
+
+        <?php if ($isMy): ?>
+        <!-- Malaysia: the trainer confirms the final attendance; certificates are then sent automatically. -->
+        <div id="att-conf" style="margin-top:16px;padding-top:14px;border-top:1px solid #1e293b;">
+            <label class="att-label" style="margin:0;">Final Attendance Confirmation</label>
+            <div id="att-conf-status" class="att-status" style="margin-bottom:6px;"></div>
+            <p class="att-sub" style="margin:0 0 10px;font-size:12px;">When the class has ended, the trainer checks the attendance above and confirms it is final. Certificates are then sent automatically to learners with at least 75% of the training hours (when automatic sending is on). Nothing is sent before this confirmation. A later change to the attendance must have a reason and reopens the confirmation.</p>
+            <div style="overflow-x:auto;">
+            <table class="att-table">
+                <thead><tr><th>Learner</th><th>Email</th><th style="width:140px;">Training Time</th><th style="width:160px;">Certificate</th></tr></thead>
+                <tbody id="att-conf-body"></tbody>
+            </table>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-top:12px;">
+                <span id="att-conf-save-status" class="att-status"></span>
+                <span id="att-conf-form" style="display:none;align-items:center;gap:10px;flex-wrap:wrap;">
+                    <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#cbd5e1;cursor:pointer;"><input type="checkbox" id="att-conf-tick" style="width:15px;height:15px;accent-color:#2563eb;"> I confirm this attendance is final</label>
+                    <button type="button" id="att-conf-btn" class="att-btn att-btn-primary" onclick="attRecordConfirmation()">Confirm Final Attendance</button>
+                </span>
+            </div>
         </div>
         <?php endif; ?>
     </div>
@@ -358,8 +420,13 @@ var ATT_READONLY   = <?php echo $readonly ? 'true' : 'false' ?>;          // alw
 var ATT_SHOW_KPIS  = <?php echo $isCompleted ? 'true' : 'false' ?>;        // Completed tab still shows the attendance-rate summary cards
 var CERT_SEND_URL   = '<?php echo $this->jsQuoteEscape($certSendUrl) ?>';
 var CERT_TOGGLE_URL = '<?php echo $this->jsQuoteEscape($certToggleUrl) ?>';
+var ATT_IS_MY       = <?php echo $isMy ? 'true' : 'false' ?>;           // Malaysia: timetable + actual minutes
+var ATT_TT_SAVE_URL = '<?php echo $this->jsQuoteEscape($ttSaveUrl) ?>';
+var ATT_CONF_URL    = '<?php echo $this->jsQuoteEscape($confUrl) ?>';
+var attConf = null, attCertRoster = [], attCanConfirm = false;   // MY: trainer confirmation panel
+var attTimetable = null;     // MY: {sessions:[{key,label,date,start,end,break_minutes,training_minutes,confirmed}], confirmed, total_minutes}
 var attRunId = 0;
-var attRoster = [];          // [{learner_name, learner_email, is_walkin, att:{d1am:{p,r},…}}]
+var attRoster = [];          // [{learner_name, learner_email, is_walkin, att:{d1am:{p,r,m},…}}]
 var attSessions = [];        // [{key:'d1am', day:1, ampm:'AM', date:'Y-m-d', label}]
 var attActiveSess = '';      // key of the session being marked
 var attSel = {};             // row-index -> true (bulk-selection state)
@@ -390,7 +457,9 @@ document.getElementById('att-qr-modal').addEventListener('click', function(e){ i
 // ── Certificate: manual send for the selected class ──────────────────────────
 function certSendForClass(btn) {
     if (!attRunId) { alert('Select a class first.'); return; }
-    if (!confirm('Generate and email a Certificate of Achievement to every learner marked Present in this class who does not already have one?')) return;
+    if (!confirm(<?php echo json_encode($isMy
+        ? 'Generate and email a ' . $certHelper->certificateName() . ' to every learner in this class who meets the attendance rule (' . $certHelper->attendanceRuleLabel() . ') and does not already have one?'
+        : 'Generate and email a Certificate of Achievement to every learner marked Present in this class who does not already have one?') ?>)) return;
     var st = document.getElementById('cert-send-status');
     var orig = btn.textContent;
     btn.disabled = true; btn.textContent = 'Sending…'; if (st) st.textContent = '';
@@ -416,7 +485,9 @@ function certResult(ok,msg){ var el=document.getElementById('cert-spinner'); if(
 function certToggle(cb) {
     var val = cb.checked ? 1 : 0;
     cb.checked = (val === 0); // hold until server confirms
-    if (val === 1 && !confirm('Enable automatic certificate emails?\n\nA daily sweep will email certificates to learners marked Present once their class has ended.')) return;
+    if (val === 1 && !confirm(ATT_IS_MY
+        ? 'Enable automatic certificate emails?\n\nCertificates will be emailed once the trainer confirms the final attendance, to learners with at least 75% of the training hours.'
+        : 'Enable automatic certificate emails?\n\nA daily sweep will email certificates to learners marked Present once their class has ended.')) return;
     cb.disabled = true; certSpinStart();
     var fd = new FormData(); fd.append('value', val); fd.append('form_key', ATT_FORM_KEY);
     fetch(CERT_TOGGLE_URL, { method:'POST', body:fd, credentials:'same-origin' })
@@ -458,13 +529,169 @@ function attSelectClass(runId) {
             attRoster   = d.roster || [];
             attSessions = d.sessions && d.sessions.length ? d.sessions : [{key:'d1am', day:1, ampm:'AM', date:'', label:'Day 1 · AM'}];
             attSel = {};
+            attTimetable = d.timetable || null;
+            var corr = document.getElementById('att-corr-wrap');
+            if (corr) { corr.style.display = d.finished ? 'inline-flex' : 'none'; document.getElementById('att-corr-reason').value = ''; }
             attActiveSess = attDefaultSession();
+            attConf = d.confirmation || null; attCertRoster = d.cert_roster || []; attCanConfirm = !!d.can_confirm;
+            if (ATT_IS_MY) { attRenderTimetable(); attRenderConfirmation(); }
             attRenderSessTabs();
             attRender();
             card.style.display = '';
         })
         .catch(function(){ alert('Network error loading roster.'); });
 }
+
+// ── Malaysia: class timetable (attendance by training hours) ─────────────────
+function attHm(t) { var m = /^(\d{1,2}):(\d{2})$/.exec(String(t || '')); return m ? (+m[1]) * 60 + (+m[2]) : null; }
+function attFmtMin(n) { return Math.floor(n / 60) + 'h ' + String(n % 60).padStart(2, '0') + 'm'; }
+// Training minutes for a timetable row from its current inputs (null = incomplete / invalid).
+function attTtMinutes(s) {
+    var a = attHm(s.start), b = attHm(s.end);
+    var brk = (s.break_minutes === null || s.break_minutes === '') ? null : parseInt(s.break_minutes, 10);
+    if (a === null || b === null || brk === null || isNaN(brk) || brk < 0) return null;
+    var n = b - a - brk;
+    return n > 0 ? n : null;
+}
+function attRenderTimetable() {
+    var body = document.getElementById('att-tt-body');
+    if (!body) return;
+    var rows = attTimetable && attTimetable.sessions ? attTimetable.sessions : [];
+    var html = '';
+    rows.forEach(function(s, i) {
+        var dis = ATT_READONLY ? ' disabled' : '';
+        html += '<tr><td>' + esc(s.label) + '</td>'
+            + '<td><input type="time" class="att-reason" value="' + esc(s.start) + '" oninput="attTtEdit(' + i + ',\'start\',this.value)"' + dis + '></td>'
+            + '<td><input type="time" class="att-reason" value="' + esc(s.end) + '" oninput="attTtEdit(' + i + ',\'end\',this.value)"' + dis + '></td>'
+            + '<td><input type="number" min="0" step="1" class="att-reason" placeholder="e.g. 60" value="' + (s.break_minutes === null ? '' : esc(s.break_minutes)) + '" oninput="attTtEdit(' + i + ',\'break_minutes\',this.value)"' + dis + '></td>'
+            + '<td id="att-tt-min-' + i + '" style="color:#94a3b8;"></td></tr>';
+    });
+    body.innerHTML = html || '<tr><td colspan="5" class="att-empty">This class has no sessions.</td></tr>';
+    rows.forEach(function(s, i) { attTtRowMinutes(i); });
+    attTtStatus();
+}
+function attTtRowMinutes(i) {
+    var s = attTimetable.sessions[i], el = document.getElementById('att-tt-min-' + i);
+    if (!el) return;
+    var n = attTtMinutes(s);
+    el.textContent = n === null ? '— needs times and break' : attFmtMin(n) + (s.confirmed ? '' : ' (not confirmed)');
+    el.style.color = n === null ? '#f59e0b' : (s.confirmed ? '#22c55e' : '#94a3b8');
+}
+function attTtStatus() {
+    var el = document.getElementById('att-tt-status');
+    if (!el || !attTimetable) return;
+    var ok = attTimetable.confirmed;
+    el.style.color = ok ? '#22c55e' : '#f59e0b';
+    el.textContent = !ok
+        ? '⚠ ' + (attTimetable.exception || 'Changes not confirmed yet') + ' · enter the times and breaks, then confirm; certificates for this class are on hold'
+        : (attTimetable.source === 'standard'
+            ? (attTimetable.kind === 'evening' ? '✓ Standard evening class (5:30–9:30 pm, 4 hours)' : '✓ Standard 7.5-hour day (9:30 am–6:00 pm, lunch excluded)')
+                + ' · total training time ' + attFmtMin(attTimetable.total_minutes)
+            : '✓ Timetable entered and confirmed · total training time ' + attFmtMin(attTimetable.total_minutes));
+}
+function attTtEdit(i, field, val) {
+    var s = attTimetable.sessions[i];
+    s[field] = val;
+    s.confirmed = false;            // any edit needs re-confirming
+    attTimetable.confirmed = false;
+    attTtRowMinutes(i);
+    attTtStatus();
+}
+function attSaveTimetable() {
+    if (!attRunId || !attTimetable) return;
+    var btn = document.getElementById('att-tt-btn');
+    var st = document.getElementById('att-tt-save-status');
+    btn.disabled = true; st.textContent = '';
+    fetch(ATT_TT_SAVE_URL, {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ run_id: attRunId, form_key: ATT_FORM_KEY, sessions: attTimetable.sessions.map(function(s) {
+            return { key: s.key, start: s.start, end: s.end, break_minutes: s.break_minutes === null ? '' : String(s.break_minutes) };
+        }) })
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+        btn.disabled = false;
+        st.style.color = d.success ? '#22c55e' : '#f87171';
+        st.textContent = (d.success ? '✓ ' : '✗ ') + (d.message || '');
+        if (d.success) { attTimetable = d.timetable; attRenderTimetable(); attRender(); attRefreshConfirmation(); }
+        setTimeout(function(){ st.textContent=''; }, d.success ? 3000 : 8000);
+    })
+    .catch(function(){ btn.disabled = false; st.style.color = '#f87171'; st.textContent = '✗ Network error'; });
+}
+// ── Malaysia: trainer attendance confirmation (certificates wait for it) ─────
+function attFmtWhen(utc) {   // recorded_at is stored in UTC -> show Malaysia time
+    var d = new Date(String(utc || '').replace(' ', 'T') + 'Z');
+    return isNaN(d) ? String(utc || '') : d.toLocaleString('en-GB', { timeZone: 'Asia/Kuala_Lumpur', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+function attRenderConfirmation() {
+    var st = document.getElementById('att-conf-status');
+    if (!st) return;
+    var c = attConf || { status: 'none', below: [] };
+    var ttOk = attTimetable && attTimetable.confirmed;
+    if (c.status === 'confirmed') {
+        st.style.color = '#22c55e';
+        st.textContent = '✓ Final attendance confirmed by ' + (c.recorded_by || c.trainer_name || 'the trainer') + ' on ' + attFmtWhen(c.recorded_at)
+            + ' · ' + c.below.length + ' learner(s) below 75% · certificates go to the others automatically';
+    } else if (c.status === 'excluded') {
+        st.style.color = '#94a3b8';
+        st.textContent = '— Excluded from certificates' + (c.note ? ': ' + c.note : '');
+    } else {
+        st.style.color = '#f59e0b';
+        st.textContent = c.status === 'reopened'
+            ? '⚠ Attendance changed after it was confirmed as final · the trainer must confirm again; certificates for this class are on hold'
+            : '⚠ Final attendance not confirmed yet · certificates for this class are on hold' + (ttOk ? '' : ' (set the class timetable first)');
+    }
+    var body = document.getElementById('att-conf-body'), html = '';
+    attCertRoster.forEach(function(l) {
+        var sent = l.cert_status === 'sent' || l.cert_status === 'issued';
+        html += '<tr><td>' + esc(l.name) + '</td><td>' + esc(l.email) + '</td>'
+            + '<td style="color:' + (l.meets ? '#22c55e' : '#f59e0b') + ';">' + (ttOk ? l.pct + '%' : '—') + '</td>'
+            + '<td style="color:' + (sent ? '#22c55e' : (l.meets ? '#cbd5e1' : '#f59e0b')) + ';">'
+            + (sent ? 'Sent' : (!ttOk ? '—' : (l.meets ? 'Qualifies (75% or more)' : 'Below 75%'))) + '</td></tr>';
+    });
+    body.innerHTML = html || '<tr><td colspan="4" class="att-empty">No learners in this class.</td></tr>';
+    var form = document.getElementById('att-conf-form');
+    form.style.display = (attCanConfirm && c.status !== 'confirmed' && c.status !== 'excluded') ? 'inline-flex' : 'none';
+    document.getElementById('att-conf-save-status').textContent = '';
+    document.getElementById('att-conf-tick').checked = false;
+}
+// Re-read the training-time percentages and the confirmation after attendance or the timetable is saved.
+function attRefreshConfirmation(note) {
+    fetch(ATT_LOAD_URL + '?run_id=' + attRunId, { credentials: 'same-origin' }).then(function(r){ return r.json(); }).then(function(x){
+        if (!x.success) return;
+        attConf = x.confirmation || null; attCertRoster = x.cert_roster || []; attRenderConfirmation();
+        if (note) { var st = document.getElementById('att-conf-save-status'); st.style.color = '#22c55e'; st.textContent = '✓ ' + note; }
+    });
+}
+function attRecordConfirmation() {
+    var btn = document.getElementById('att-conf-btn'), st = document.getElementById('att-conf-save-status');
+    btn.disabled = true; st.textContent = '';
+    fetch(ATT_CONF_URL, {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ run_id: attRunId, form_key: ATT_FORM_KEY, confirmed: document.getElementById('att-conf-tick').checked })
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+        btn.disabled = false;
+        if (d.success) {
+            var cs = document.getElementById('cert-send-status'); if (cs) cs.textContent = '';   // an earlier "on hold" reply no longer applies
+            attRefreshConfirmation(d.message);   // re-read the certificate status (sent) of each learner
+            return;
+        }
+        st.style.color = '#f87171';
+        st.textContent = '✗ ' + (d.message || '');
+    })
+    .catch(function(){ btn.disabled = false; st.style.color = '#f87171'; st.textContent = '✗ Network error'; });
+}
+// Confirmed training minutes of a session (null when the timetable isn't confirmed).
+function attSessMax(key) {
+    var n = null;
+    if (attTimetable && attTimetable.sessions) attTimetable.sessions.forEach(function(s){ if (s.key === key && s.confirmed) n = s.training_minutes; });
+    return n;
+}
+function attMinutes(i, val) { attCell(attRoster[i], attActiveSess).m = val; }
 
 // Today's session if the class is running now (AM before 1pm), else the first.
 function attDefaultSession() {
@@ -484,7 +711,7 @@ function attDefaultSession() {
 // edits stick on the roster object and survive session switches until save.
 function attCell(r, sessKey) {
     if (!r.att || Array.isArray(r.att)) r.att = {};
-    if (!r.att[sessKey]) r.att[sessKey] = { p: 0, r: '' };
+    if (!r.att[sessKey]) r.att[sessKey] = { p: 0, r: '', m: '' };
     return r.att[sessKey];
 }
 
@@ -532,7 +759,7 @@ function attRender() {
     var tb = document.getElementById('att-tbody');
     var html = '';
     if (!attRoster.length) {
-        var cols = ATT_READONLY ? 5 : 7;
+        var cols = ATT_READONLY ? 5 : (ATT_IS_MY ? 8 : 7);
         document.getElementById('att-table').style.display = attRoster.length ? '' : 'none';
         document.getElementById('att-roster-card').querySelector('#att-kpis').style.display = 'none';
         tb.innerHTML = '<tr><td colspan="' + cols + '" class="att-empty">No learners enrolled' + (ATT_READONLY ? '' : '. Use “+ Add Learner”.') + '</td></tr>';
@@ -561,6 +788,9 @@ function attRender() {
                 + '<input type="checkbox" ' + (present ? 'checked' : '') + ' onchange="attToggle(' + i + ', this.checked)" style="width:16px;height:16px;accent-color:#22c55e;">'
                 + '<span class="att-present-lbl" id="att-lbl-' + i + '" style="color:' + (present ? '#22c55e' : '#f87171') + '">' + (present ? '✓ Present' : '✗ Absent') + '</span>'
                 + '</label></td>'
+                + (ATT_IS_MY ? '<td><input type="number" min="1" step="1" class="att-reason" id="att-min-' + i + '" style="max-width:130px;' + (present ? '' : 'display:none;') + '"'
+                    + ' placeholder="' + (attSessMax(attActiveSess) ? 'Full: ' + attSessMax(attActiveSess) + ' min' : 'Full session') + '"'
+                    + ' value="' + esc(cell.m || '') + '" oninput="attMinutes(' + i + ', this.value)"></td>' : '')
                 + '<td><input type="text" class="att-reason" id="att-reason-' + i + '" placeholder="Enter reason..." value="' + esc(cell.r) + '" oninput="attReason(' + i + ', this.value)"' + (present ? ' style="display:none;"' : '') + '></td>'
                 + '<td>' + (r.is_walkin ? '<button type="button" class="att-btn att-btn-danger" style="padding:3px 8px;" onclick="attRemove(' + i + ')">Remove</button>' : '') + '</td>';
         }
@@ -577,6 +807,8 @@ function attToggle(i, checked) {
     cell.p = checked ? 1 : 0;
     var lbl = document.getElementById('att-lbl-' + i);
     var reason = document.getElementById('att-reason-' + i);
+    var mins = document.getElementById('att-min-' + i);
+    if (mins) { mins.style.display = checked ? '' : 'none'; if (!checked) { mins.value = ''; cell.m = ''; } }
     if (lbl) { lbl.textContent = checked ? '✓ Present' : '✗ Absent'; lbl.style.color = checked ? '#22c55e' : '#f87171'; }
     if (reason) { reason.style.display = checked ? 'none' : ''; if (checked) { reason.value=''; cell.r=''; } }
     attUpdateCounters();
@@ -658,6 +890,7 @@ function attSave() {
                 learner_name:      r.learner_name,
                 session_key:       s.key,
                 is_present:        r.att[s.key].p ? 1 : 0,
+                minutes_attended:  r.att[s.key].p ? (r.att[s.key].m || '') : '',
                 reason_of_absence: r.att[s.key].r || ''
             });
         });
@@ -665,14 +898,17 @@ function attSave() {
     fetch(ATT_SAVE_URL, {
         method: 'POST', credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ run_id: attRunId, form_key: ATT_FORM_KEY, records: records })
+        body: JSON.stringify({ run_id: attRunId, form_key: ATT_FORM_KEY, records: records,
+            correction_reason: (document.getElementById('att-corr-reason') || {}).value || '' })
     })
     .then(function(r){ return r.json(); })
     .then(function(d){
         btn.disabled = false; btn.textContent = 'Save Attendance';
+        if (d.success && d.corrections) { document.getElementById('att-corr-reason').value = ''; }
         st.style.color = d.success ? '#22c55e' : '#f87171';
         st.textContent = (d.success ? '✓ ' : '✗ ') + (d.message || '');
-        setTimeout(function(){ st.textContent=''; }, 3000);
+        setTimeout(function(){ st.textContent=''; }, d.reopened ? 8000 : 3000);
+        if (d.success && ATT_IS_MY) attRefreshConfirmation();
     })
     .catch(function(){ btn.disabled=false; btn.textContent='Save Attendance'; st.style.color='#f87171'; st.textContent='✗ Network error'; });
 }
