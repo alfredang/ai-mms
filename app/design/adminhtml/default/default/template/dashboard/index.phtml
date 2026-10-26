@@ -1603,6 +1603,8 @@ if ($_editingMode) {
             $_allTrainerEmails   = array(); // user_id => email
             $_allTrainerTels     = array(); // user_id => telephone (often blank)
             $_assignedIds        = array(); // user_ids in this course's pool
+            $_storefrontTrainerIds = array(); // subset shown on the course page
+            $_storefrontTrainersConfigured = false;
             $_trainerNames       = array(); // assigned trainer display names
             $_legacyTrainerNames = array(); // (unused in the account model)
             try {
@@ -1617,6 +1619,10 @@ if ($_editingMode) {
                     $_uid = (int) $_pa['user_id'];
                     $_assignedIds[] = $_uid;
                     if (isset($_allTrainers[$_uid])) $_trainerNames[] = $_allTrainers[$_uid];
+                    if (array_key_exists('show_on_storefront', $_pa) && $_pa['show_on_storefront'] !== null) {
+                        $_storefrontTrainersConfigured = true;
+                        if ((int) $_pa['show_on_storefront'] === 1) $_storefrontTrainerIds[] = $_uid;
+                    }
                 }
             } catch (Exception $e) {}
 
@@ -1647,6 +1653,8 @@ if ($_editingMode) {
                 'all_trainer_emails' => $_allTrainerEmails,
                 'all_trainer_tels' => $_allTrainerTels,
                 'assigned_ids'     => $_assignedIds,
+                'storefront_trainer_ids' => $_storefrontTrainerIds,
+                'storefront_trainers_configured' => $_storefrontTrainersConfigured,
                 'legacy_trainers'  => $_legacyTrainerNames,
                 'learning_outcomes' => $_editProd->getData('description') ?: '',
                 'brochure_url'      => $_brochureUrl,
@@ -4547,8 +4555,11 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                     Approved Trainers
                 </div>
                 <input type="hidden" name="trainer_user_ids" id="trainer-ids" value="<?php echo htmlspecialchars(implode(',', $_editCourseData['assigned_ids'])) ?>" />
+                <input type="hidden" name="storefront_trainer_user_ids" id="storefront-trainer-ids" value="<?php echo htmlspecialchars(implode(',', $_editCourseData['storefront_trainer_ids'])) ?>" />
+                <input type="hidden" name="storefront_trainers_configured" id="storefront-trainers-configured" value="<?php echo $_editCourseData['storefront_trainers_configured'] ? '1' : '0' ?>" />
                 <input type="hidden" name="legacy_trainer_remove" id="legacy-trainer-remove" value="" />
                 <div class="tr-picker-wrap">
+                    <div style="color:#64748b;font-size:11px;margin:0 0 10px;">Use <strong style="color:#94a3b8;">Website</strong> to control which trainer profiles appear on the public course page. <strong style="color:#94a3b8;">Legacy</strong> means the current profile list remains unchanged until you use a Website toggle.</div>
                     <div style="color:#64748b;font-size:11px;margin:0 0 10px;">These are the course's <strong style="color:#94a3b8;">candidate</strong> trainers — they get invited (and confirmed on accept) per class. The order below is the invite precedence: <strong style="color:#94a3b8;">row 1 is the primary trainer</strong>. Drag a row, or use the arrows, to reorder.</div>
 
                     <!-- Assigned roster — numbered table, drag/arrow reorder, remove. -->
@@ -4559,6 +4570,7 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                                 <th>Trainer</th>
                                 <th>Telephone</th>
                                 <th>Email</th>
+                                <th class="tr-col-web">Website</th>
                                 <th class="tr-col-act"></th>
                             </tr>
                         </thead>
@@ -4600,6 +4612,8 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                 <script>
                 (function(){
                     var hidden = document.getElementById('trainer-ids');
+                    var storefrontHidden = document.getElementById('storefront-trainer-ids');
+                    var storefrontConfigured = document.getElementById('storefront-trainers-configured');
                     // Type-to-search: the list is hidden until the query matches,
                     // and already-assigned trainers are filtered out (they're
                     // removed from the roster table above, not from here).
@@ -4622,7 +4636,12 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                     // (see _persistProductTrainerPool) — so reordering rows is
                     // just rewriting this string. Single source of truth.
                     function getIds() { return (hidden.value || '').split(',').filter(Boolean); }
-                    function setIds(ids) { hidden.value = ids.join(','); rebuildTags(); }
+                    function getStorefrontIds() { return (storefrontHidden.value || '').split(',').filter(Boolean); }
+                    function setIds(ids) {
+                        hidden.value = ids.join(',');
+                        storefrontHidden.value = getStorefrontIds().filter(function(id){ return ids.indexOf(id) !== -1; }).join(',');
+                        rebuildTags();
+                    }
 
                     function esc(s) {
                         return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){
@@ -4641,6 +4660,8 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                         var table = document.getElementById('trainer-assigned-table');
                         var empty = document.getElementById('trainer-assigned-empty');
                         var count = document.getElementById('trainer-count');
+                        var storefrontIds = getStorefrontIds();
+                        var websiteManaged = storefrontConfigured.value === '1';
                         var legacyCount = document.querySelectorAll('#trainer-tags .tr-picker-tag[data-legacy]').length;
                         if (!body) return;
 
@@ -4659,6 +4680,9 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                                 '<td class="tr-cell-name">' + esc(nm) + '</td>' +
                                 '<td class="tr-cell-tel">' + esc(tel) + '</td>' +
                                 '<td class="tr-cell-email">' + esc(em) + '</td>' +
+                                '<td class="tr-col-web"><label class="tr-web-toggle" title="Show this trainer on the public course page">' +
+                                  '<input type="checkbox" data-id="' + esc(id) + '"' + (websiteManaged && storefrontIds.indexOf(id) !== -1 ? ' checked' : '') + ' onchange="trToggleWebsite(this)" />' +
+                                  '<span>' + (!websiteManaged ? 'Legacy' : (storefrontIds.indexOf(id) !== -1 ? 'Shown' : 'Hidden')) + '</span></label></td>' +
                                 '<td class="tr-col-act">' +
                                   '<button type="button" class="tr-act" data-act="up" title="Move up" aria-label="Move up"' + (idx === 0 ? ' disabled' : '') + '>' + ICON_UP + '</button>' +
                                   '<button type="button" class="tr-act" data-act="down" title="Move down" aria-label="Move down"' + (idx === ids.length - 1 ? ' disabled' : '') + '>' + ICON_DOWN + '</button>' +
@@ -4755,6 +4779,7 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                         var idx = ids.indexOf(id);
                         if (idx >= 0) {
                             ids.splice(idx, 1);
+                            storefrontHidden.value = getStorefrontIds().filter(function(webId){ return webId !== id; }).join(',');
                             el.classList.remove('selected');
                             var check = el.querySelector('svg');
                             if (check) check.remove();
@@ -4771,6 +4796,16 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                         // panel returns to "roster + empty search box".
                         var box = document.getElementById('trainer-search');
                         if (box) { box.value = ''; trFilterList(''); }
+                    };
+                    window.trToggleWebsite = function(el) {
+                        var id = el.getAttribute('data-id');
+                        var ids = getStorefrontIds();
+                        var idx = ids.indexOf(id);
+                        if (el.checked && idx === -1) ids.push(id);
+                        if (!el.checked && idx !== -1) ids.splice(idx, 1);
+                        storefrontConfigured.value = '1';
+                        storefrontHidden.value = ids.join(',');
+                        rebuildTags();
                     };
                     window.trRemove = function(id) {
                         var el = document.querySelector('#trainer-list .tr-picker-item[data-id="' + id + '"]');

@@ -45,7 +45,7 @@ class MMD_RoleManager_Helper_Trainer extends Mage_Core_Helper_Abstract
         $rows = $read->fetchAll(
             "SELECT pt.user_id,
                     TRIM(CONCAT(COALESCE(u.firstname,''),' ',COALESCE(u.lastname,''))) AS name,
-                    u.email, u.tel, pt.sort_order
+                    u.email, u.tel, pt.sort_order, pt.show_on_storefront
                FROM `$pt` pt
                JOIN `$au` u ON u.user_id = pt.user_id
               WHERE pt.product_id = ?
@@ -56,6 +56,8 @@ class MMD_RoleManager_Helper_Trainer extends Mage_Core_Helper_Abstract
             $r['user_id'] = (int)$r['user_id'];
             $r['name'] = trim($r['name']) ?: $r['email'];
             $r['tel']  = (string)$r['tel'];
+            $r['show_on_storefront'] = $r['show_on_storefront'] === null
+                ? null : (int)$r['show_on_storefront'];
         }
         return $rows;
     }

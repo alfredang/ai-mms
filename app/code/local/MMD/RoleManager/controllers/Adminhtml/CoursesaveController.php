@@ -100,7 +100,11 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             // it stays as a hybrid display/invite fallback only.
             $trainerProfileChanged = false;
             if (($v = $req->getParam('trainer_user_ids')) !== null) {
-                $this->_persistProductTrainerPool($courseId, $v);
+                $storefrontIds = null;
+                if ((int) $req->getParam('storefront_trainers_configured', 0) === 1) {
+                    $storefrontIds = (string) $req->getParam('storefront_trainer_user_ids', '');
+                }
+                $this->_persistProductTrainerPool($courseId, $v, $storefrontIds);
             }
             // Strip legacy trainer names from the trainerprofile HTML when the × was clicked
             $legacyRemove = trim((string)$req->getParam('legacy_trainer_remove', ''));
@@ -1321,7 +1325,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
      * Shared by saveTrainerAccountsAction (Assign Trainer modal) and
      * saveAction (Edit Course → Trainer Details tab).
      */
-    protected function _persistProductTrainerPool($productId, $rawUserIds)
+    protected function _persistProductTrainerPool($productId, $rawUserIds, $rawStorefrontUserIds = null)
     {
         $productId = (int) $productId;
         if (!$productId) return array();
@@ -1330,6 +1334,27 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
         $read     = $resource->getConnection('core_read');
         $write    = $resource->getConnection('core_write');
         $ptTbl    = $resource->getTableName('mmd_product_trainer');
+
+        // Preserve website visibility when the quick Assign Trainer modal
+        // replaces the candidate pool. Edit Course passes an explicit list;
+        // null means this save did not touch website visibility.
+        $existingVisibility = array();
+        foreach ($read->fetchAll(
+            "SELECT user_id, show_on_storefront FROM `$ptTbl` WHERE product_id = ?",
+            array($productId)
+        ) as $row) {
+            $existingVisibility[(int) $row['user_id']] = $row['show_on_storefront'] === null
+                ? null : (int) $row['show_on_storefront'];
+        }
+
+        $requestedStorefront = null;
+        if ($rawStorefrontUserIds !== null) {
+            $requestedStorefront = array();
+            foreach (explode(',', (string) $rawStorefrontUserIds) as $v) {
+                $v = (int) trim($v);
+                if ($v > 0) $requestedStorefront[$v] = true;
+            }
+        }
 
         // Parse + de-dupe the requested user_ids, preserving order so
         // sort_order reflects the admin's intended display sequence.
@@ -1362,10 +1387,14 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
         $write->delete($ptTbl, array('product_id = ?' => $productId));
         $sort = 0;
         foreach ($valid as $uid) {
+            $showOnStorefront = $requestedStorefront !== null
+                ? (isset($requestedStorefront[$uid]) ? 1 : 0)
+                : (array_key_exists($uid, $existingVisibility) ? $existingVisibility[$uid] : null);
             $write->insert($ptTbl, array(
                 'product_id' => $productId,
                 'user_id'    => $uid,
                 'sort_order' => $sort++,
+                'show_on_storefront' => $showOnStorefront,
             ));
         }
 
