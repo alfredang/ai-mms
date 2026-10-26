@@ -41,7 +41,14 @@ class MMD_Certificate_DownloadController extends Mage_Core_Controller_Front_Acti
             }
 
             $fileName = preg_replace('/[^A-Za-z0-9_\- ]/', '', (string)$row['learner_name']);
-            $fileName = (trim($fileName) !== '' ? trim($fileName) : 'Certificate') . '-Certificate-of-Achievement.pdf';
+            // "Certificate-of-Attendance" on Malaysia, "Certificate-of-Achievement" elsewhere (same as the email attachment).
+            // Malaysia certificates issued before the attendance release (migration 1833) keep their original file name.
+            $kind = str_replace(' ', '-', $h->certificateName());
+            if ($kind !== 'Certificate-of-Achievement') {
+                $since = $read->fetchOne("SELECT applied_at FROM schema_migrations WHERE filename = '1833-class-session-timetable.sql'");
+                if (!$since || $row['created_at'] < $since) $kind = 'Certificate-of-Achievement';
+            }
+            $fileName = (trim($fileName) !== '' ? trim($fileName) : 'Certificate') . '-' . $kind . '.pdf';
 
             $this->getResponse()
                  ->clearHeaders()

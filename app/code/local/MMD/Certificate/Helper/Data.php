@@ -10,12 +10,20 @@
  * OVERALL session attendance exceeds 70% — present sessions / total sessions
  * of the run (each class day has an AM + PM session; see
  * MMD_Attendance_Helper_Data::sessionsForRun). No assessment data in MMS.
+ * Malaysia (partner sign-off 21 Oct 2026): a "Certificate of Attendance" at 75% OR MORE of total training
+ * TIME, exact (no rounding up): training minutes attended / the class's confirmed timetable minutes
+ * (MMD_Attendance_Helper_Data::timetableForRun). A present session counts its full training minutes unless
+ * actual minutes were recorded (late arrival / early departure). No certificate while the timetable is
+ * unconfirmed, nor before the trainer confirms the final attendance (partner rule 22 Oct 2026).
+ * See attendedMinutesForRun() / meetsAttendance() / confirmationForRun().
  */
 class MMD_Certificate_Helper_Data extends Mage_Core_Helper_Abstract
 {
     const ENABLED_CONFIG_PATH = 'mmd/certificate/auto_enabled';
     /** Overall attendance required for a certificate: strictly more than 70%. */
     const ATTENDANCE_THRESHOLD = 0.70;
+    /** Malaysia: at least 75% of total training hours, including exactly 75%. */
+    const ATTENDANCE_MIN_PCT_MY = 75;
     const LOG_FILE            = 'certificates.log';
     const SIGNER_NAME         = 'Dr. Alfred Ang';
     const SIGNER_TITLE        = 'Managing Director';
@@ -53,6 +61,18 @@ class MMD_Certificate_Helper_Data extends Mage_Core_Helper_Abstract
         $runs = $res->getTableName('course_runs');
         $att  = $res->getTableName('mmd_course_run_attendance');
         $cert = $res->getTableName('mmd_course_run_certificate');
+
+        if ($this->_isMalaysia()) {
+            // Malaysia: classes whose trainer confirmation was recorded in the window — a confirmation recorded days
+            // after the class ended still gets its certificates sent. getEligibleLearners() applies the 75% rule.
+            $conf = $res->getTableName(self::CONFIRM_TABLE);
+            return $read->fetchCol(
+                "SELECT c.run_id FROM `$conf` c
+                   JOIN (SELECT run_id, MAX(confirmation_id) AS id FROM `$conf` GROUP BY run_id) l ON l.id = c.confirmation_id
+                  WHERE c.status = 'confirmed' AND c.recorded_at >= ?",
+                array(gmdate('Y-m-d H:i:s', strtotime('-' . (int)$daysBack . ' days')))
+            );
+        }
 
         $today  = Mage::getModel('core/date')->date('Y-m-d');
         $cutoff = date('Y-m-d', strtotime('-' . (int)$daysBack . ' days'));
@@ -103,6 +123,22 @@ class MMD_Certificate_Helper_Data extends Mage_Core_Helper_Abstract
             return array();
         }
         $totalSessions = max(1, count(Mage::helper('mmd_attendance')->sessionsForRun($run)));
+        $myAtt = null;
+        if ($this->_isMalaysia()) {
+            // Malaysia: by training minutes; nothing is issued until the timetable is confirmed.
+            $myAtt = $this->attendedMinutesForRun($run);
+            if (!$myAtt['confirmed']) {
+                Mage::log('run ' . (int)$runId . ': class timetable not confirmed - certificates on hold', null, self::LOG_FILE);
+                return array();
+            }
+            // ...and nothing until the trainer has confirmed the final attendance.
+            $conf = $this->confirmationForRun($runId);
+            if ($conf['status'] !== 'confirmed') {
+                Mage::log('run ' . (int)$runId . ': ' . $this->confirmationHoldMessage($conf), null, self::LOG_FILE);
+                return array();
+            }
+            $below = array_flip(array_map('strtolower', array_column($conf['below'], 'email')));
+        }
 
         // Attendance is per session (one row per run+learner+session_key), so
         // collapse to one row per learner and count their present sessions.
@@ -126,7 +162,11 @@ class MMD_Certificate_Helper_Data extends Mage_Core_Helper_Abstract
         foreach ($rows as $row) {
             if (Mage::helper('mmd_rolemanager/handover')->isManaged($runId)
                 && !$read->fetchOne('SELECT enrolment_id FROM ' . $res->getTableName('course_run_enrolments') . ' WHERE run_id=? AND LOWER(learner_email)=?',array((int)$runId,strtolower($row['learner_email'])))) continue;
-            if ((int)$row['present_sessions'] / $totalSessions > self::ATTENDANCE_THRESHOLD) {
+            $ok = $myAtt !== null
+                ? $this->meetsAttendance($this->_minutesOf($myAtt, $row['learner_email']), $myAtt['total_minutes'])
+                    && !isset($below[strtolower($row['learner_email'])])
+                : $this->meetsAttendance((int)$row['present_sessions'], $totalSessions);
+            if ($ok) {
                 unset($row['present_sessions']);
                 $eligible[] = $row;
             }
@@ -183,36 +223,211 @@ class MMD_Certificate_Helper_Data extends Mage_Core_Helper_Abstract
             $certBy[$r['e']] = $r;
         }
 
+        $myAtt = $this->_isMalaysia() ? $this->attendedMinutesForRun($run) : null;
+
         $out = array(); $seen = array();
         foreach ($enrol as $l) {
             $email = strtolower(trim((string)$l['learner_email']));
             if ($email === '' || isset($seen[$email])) continue;
             $seen[$email] = true;
-            $out[] = $this->_rosterRow($email, trim((string)$l['learner_name']), $attBy, $certBy, $total);
+            $out[] = $this->_rosterRow($email, trim((string)$l['learner_name']), $attBy, $certBy, $total, $myAtt);
         }
         foreach ($attBy as $email => $a) { // attendance rows not in the roster (walk-ins)
             if (isset($seen[$email])) continue;
             $seen[$email] = true;
-            $out[] = $this->_rosterRow($email, (string)$a['n'], $attBy, $certBy, $total);
+            $out[] = $this->_rosterRow($email, (string)$a['n'], $attBy, $certBy, $total, $myAtt);
         }
-        return array('total_sessions' => $total, 'learners' => $out);
+        return array('total_sessions' => $total, 'learners' => $out,
+            // Malaysia: minutes-based attendance from the confirmed class timetable.
+            'timetable_confirmed' => $myAtt ? $myAtt['confirmed'] : null,
+            'total_minutes'       => $myAtt ? $myAtt['total_minutes'] : null,
+            // Malaysia: the trainer's final attendance confirmation (null elsewhere).
+            'confirmation'        => $myAtt ? $this->confirmationForRun($runId) : null);
     }
 
-    protected function _rosterRow($email, $name, array $attBy, array $certBy, $total)
+    // ------------------------------------------------------------------ //
+    // Malaysia: final attendance confirmation by the trainer (partner rule, 22 Oct 2026)
+    // ------------------------------------------------------------------ //
+
+    const CONFIRM_TABLE = 'mmd_course_run_cert_confirmation';
+
+    /**
+     * The class's current confirmation state = its latest row: 'confirmed' (certificates may be issued to learners
+     * at 75% or more who are not on the trainer's below-75% list), 'reopened' (attendance changed afterwards — record
+     * it again), 'excluded' (no certificates for this class) or 'none'. Null on other sites.
+     *
+     * @return array|null { status, trainer_name, below: [{email,name,pct}], note, recorded_by, recorded_at }
+     */
+    public function confirmationForRun($runId)
+    {
+        if (!$this->_isMalaysia()) {
+            return null;
+        }
+        $res = Mage::getSingleton('core/resource');
+        $row = $res->getConnection('core_read')->fetchRow(
+            "SELECT c.status, c.trainer_name, c.below_list, c.note, c.recorded_at,
+                    TRIM(CONCAT(COALESCE(u.firstname, ''), ' ', COALESCE(u.lastname, ''))) AS recorded_by
+               FROM `" . $res->getTableName(self::CONFIRM_TABLE) . "` c
+               LEFT JOIN `" . $res->getTableName('admin_user') . "` u ON u.user_id = c.recorded_by_admin_id
+              WHERE c.run_id = ? ORDER BY c.confirmation_id DESC LIMIT 1",
+            array((int)$runId)
+        );
+        if (!$row) {
+            return array('status' => 'none', 'trainer_name' => '', 'below' => array(), 'note' => '', 'recorded_by' => '', 'recorded_at' => '');
+        }
+        $row['below'] = json_decode((string)$row['below_list'], true) ?: array();
+        unset($row['below_list']);
+        return $row;
+    }
+
+    /** Why a Malaysia class's certificates are on hold, for admin messages and the log. */
+    public function confirmationHoldMessage(array $conf)
+    {
+        if ($conf['status'] === 'excluded') {
+            return 'This class is excluded from certificates' . ($conf['note'] !== '' ? ': ' . rtrim($conf['note'], '.') : '') . '.';
+        }
+        if ($conf['status'] === 'reopened') {
+            return 'Attendance changed after it was confirmed as final. The trainer must confirm the final attendance again on the E-Attendance page before certificates are sent.';
+        }
+        return 'Certificates are sent once the trainer confirms the final attendance on the E-Attendance page.';
+    }
+
+    /**
+     * The trainer confirms a finished class's attendance as final (partner rule, 22 Oct 2026); certificates are then
+     * sent automatically to learners with at least 75% of the training time (sendAfterConfirmation). The list of
+     * learners below 75% at this moment is kept with the confirmation. Corrections afterwards are logged with their
+     * reason and reopen the confirmation — there is no bypass.
+     */
+    public function recordTrainerConfirmation(array $run, $adminId)
+    {
+        $runId = (int)$run['run_id'];
+        $cur   = $this->confirmationForRun($runId);
+        if ($cur === null) throw new Exception('Final attendance confirmation is only used on the Malaysia site.');
+        if ($cur['status'] === 'excluded') throw new Exception($this->confirmationHoldMessage($cur));
+        if ($cur['status'] === 'confirmed') throw new Exception('The final attendance of this class is already confirmed.');
+        $today = Mage::getModel('core/date')->date('Y-m-d');
+        if (empty($run['course_end_date']) || $run['course_end_date'] > $today) {
+            throw new Exception('The final attendance can be confirmed once the class has ended (last day '
+                . date('j M Y', strtotime($run['course_end_date'])) . ').');
+        }
+        $user = $adminId ? Mage::getModel('admin/user')->load($adminId) : null;
+        $trainerName = $user && $user->getId() ? trim($user->getFirstname() . ' ' . $user->getLastname()) : '';
+        $roster = $this->getClassCertRoster($run);
+        if (!$roster['timetable_confirmed']) {
+            throw new Exception('The class timetable is not set. Enter it on the E-Attendance page first.');
+        }
+        $below = array();
+        foreach ($roster['learners'] as $l) {
+            if (empty($l['meets_attendance'])) {
+                $below[] = array('email' => $l['learner_email'], 'name' => $l['learner_name'], 'pct' => (int)$l['attendance_pct']);
+            }
+        }
+        Mage::getSingleton('core/resource')->getConnection('core_write')->insert(
+            Mage::getSingleton('core/resource')->getTableName(self::CONFIRM_TABLE),
+            array('run_id' => $runId, 'class_id' => isset($run['class_id']) ? $run['class_id'] : null, 'status' => 'confirmed',
+                  'trainer_name' => $trainerName !== '' ? mb_substr($trainerName, 0, 255) : null, 'below_list' => json_encode($below),
+                  'recorded_by_admin_id' => $adminId ?: null, 'recorded_at' => Varien_Date::now())
+        );
+        return $this->confirmationForRun($runId);
+    }
+
+    /**
+     * Right after the trainer confirms the final attendance: send the certificates of the qualifying learners
+     * (at least 75%, not yet issued) when automatic sending is on. The 6:30 pm sweep picks up anything missed.
+     *
+     * @return array { auto: bool, sent: int, errors: int }
+     */
+    public function sendAfterConfirmation(array $run, $adminId)
+    {
+        if (!$this->isAutoEnabled()) {
+            return array('auto' => false, 'sent' => 0, 'errors' => 0);
+        }
+        $sent = 0; $errors = 0;
+        foreach ($this->getEligibleLearners((int)$run['run_id'], $run) as $l) {
+            try {
+                $r = $this->issueAndSend($run, $l, $adminId);
+                if ($r['status'] === 'sent') $sent++; elseif ($r['status'] === 'error') $errors++;
+            } catch (Exception $e) {
+                $errors++;
+                Mage::log('send after confirmation, run ' . (int)$run['run_id'] . ': ' . $e->getMessage(), Zend_Log::ERR, self::LOG_FILE);
+            }
+        }
+        return array('auto' => true, 'sent' => $sent, 'errors' => $errors);
+    }
+
+    /** Attendance changed after a confirmation: it no longer holds and must be recorded again. */
+    public function reopenConfirmation($runId, $classId, $adminId, $note)
+    {
+        $cur = $this->confirmationForRun($runId);
+        if (!$cur || $cur['status'] !== 'confirmed') return false;
+        Mage::getSingleton('core/resource')->getConnection('core_write')->insert(
+            Mage::getSingleton('core/resource')->getTableName(self::CONFIRM_TABLE),
+            array('run_id' => (int)$runId, 'class_id' => $classId ?: null, 'status' => 'reopened', 'note' => mb_substr($note, 0, 500),
+                  'recorded_by_admin_id' => $adminId ?: null, 'recorded_at' => Varien_Date::now())
+        );
+        return true;
+    }
+
+    protected function _rosterRow($email, $name, array $attBy, array $certBy, $total, $myAtt = null)
     {
         $a = isset($attBy[$email]) ? $attBy[$email] : null;
         $c = isset($certBy[$email]) ? $certBy[$email] : null;
         $present = $a ? (int)$a['p'] : 0;
-        return array(
+        $row = array(
             'learner_email'    => $email,
             'learner_name'     => $name !== '' ? $name : ($a ? (string)$a['n'] : ''),
             'customer_id'      => ($a && !empty($a['cid'])) ? (int)$a['cid'] : null,
             'present_sessions' => $present,
             'attendance_pct'   => (int)round($present * 100 / $total),
+            'meets_attendance' => $this->meetsAttendance($present, $total),
             'cert_status'      => $c ? (string)$c['status'] : '',
             'cert_no'          => $c ? (string)$c['cert_no'] : '',
             'sent_at'          => $c ? (string)$c['sent_at'] : '',
         );
+        if ($myAtt !== null) {
+            $mins = $this->_minutesOf($myAtt, $email);
+            $tot  = (int)$myAtt['total_minutes'];
+            $row['minutes_attended'] = $mins;
+            // Rounded DOWN so a learner just under 75% never shows "75%".
+            $row['attendance_pct']   = ($myAtt['confirmed'] && $tot > 0) ? intdiv($mins * 100, $tot) : 0;
+            $row['meets_attendance'] = $myAtt['confirmed'] && $this->meetsAttendance($mins, $tot);
+        }
+        return $row;
+    }
+
+    /**
+     * Malaysia: training minutes attended per learner, from the class's confirmed timetable. A present
+     * session counts its full training minutes, or the actual minutes recorded for a late arrival /
+     * early departure (never more than the session). Sessions outside the timetable don't count.
+     *
+     * @return array { confirmed: bool, total_minutes: int|null, minutes: [lower-case email => int] }
+     */
+    public function attendedMinutesForRun(array $run)
+    {
+        $tt  = Mage::helper('mmd_attendance')->timetableForRun($run);
+        $len = array();
+        foreach ($tt['sessions'] as $s) {
+            $len[$s['key']] = (int)$s['training_minutes'];
+        }
+        $res  = Mage::getSingleton('core/resource');
+        $mins = array();
+        foreach ($res->getConnection('core_read')->fetchAll(
+            "SELECT LOWER(learner_email) AS e, session_key, minutes_attended
+               FROM `" . $res->getTableName('mmd_course_run_attendance') . "`
+              WHERE run_id = ? AND is_present = 1",
+            array((int)$run['run_id'])
+        ) as $r) {
+            if (!isset($len[$r['session_key']])) continue;
+            $m = $r['minutes_attended'] === null ? $len[$r['session_key']] : min((int)$r['minutes_attended'], $len[$r['session_key']]);
+            $mins[$r['e']] = (isset($mins[$r['e']]) ? $mins[$r['e']] : 0) + $m;
+        }
+        return array('confirmed' => (bool)$tt['confirmed'], 'total_minutes' => $tt['total_minutes'], 'minutes' => $mins);
+    }
+
+    protected function _minutesOf(array $myAtt, $email)
+    {
+        $e = strtolower(trim((string)$email));
+        return isset($myAtt['minutes'][$e]) ? (int)$myAtt['minutes'][$e] : 0;
     }
 
     public function loadRun($runId)
@@ -426,10 +641,10 @@ class MMD_Certificate_Helper_Data extends Mage_Core_Helper_Abstract
             <div class="chev-top">' . $chevTop . '</div>
             <div class="chev-bot">' . $chevBot . '</div>
             <div class="h1">CERTIFICATE</div>
-            <div class="h2">OF ACCOMPLISHMENT</div>
+            <div class="h2">' . ($this->_isMalaysia() ? 'OF ATTENDANCE' : 'OF ACCOMPLISHMENT') . '</div>
             <div class="lead">This Certificate is proudly presented to</div>
             <div class="name">' . ($name !== '' ? $name : '&nbsp;') . '</div>
-            <div class="for">For completing the course</div>
+            <div class="for">' . ($this->_isMalaysia() ? 'For attending the course' : 'For completing the course') . '</div>
             <div class="course">' . ($course !== '' ? $course : '&nbsp;') . '</div>
             <div class="held">Held on <b>' . ($dates !== '' ? $dates : 'N/A') . '</b></div>
             <div class="sig-img"><img src="' . $esc($sigImg) . '" style="width: 45mm; height: 12.9mm;" /></div>
@@ -448,10 +663,12 @@ class MMD_Certificate_Helper_Data extends Mage_Core_Helper_Abstract
     protected function _emailCertificate($toEmail, $toName, array $run, $token, $pdfBytes)
     {
         $info     = $this->companyInfo();
-        $subject  = 'Certificate for Completing ' . $run['course_title'];
+        $my       = $this->_isMalaysia();
+        $subject  = ($my ? 'Certificate of Attendance: ' : 'Certificate for Completing ') . $run['course_title'];
         $body     = $this->buildEmailBody($toName, $run['course_title'], $token, $info);
-        $fileName = preg_replace('/[^A-Za-z0-9_\- ]/', '', $toName) . '-Certificate-of-Achievement.pdf';
-        $fileName = trim($fileName) !== '' ? $fileName : 'Certificate-of-Achievement.pdf';
+        $kind     = $my ? 'Certificate-of-Attendance' : 'Certificate-of-Achievement';
+        $fileName = preg_replace('/[^A-Za-z0-9_\- ]/', '', $toName) . '-' . $kind . '.pdf';
+        $fileName = trim($fileName) !== '' ? $fileName : $kind . '.pdf';
 
         // Prefer Gmail (SG/admin store). Fall back to Zend_Mail with attachment.
         $gmail = Mage::helper('mmd_email/gmail');
@@ -478,12 +695,23 @@ class MMD_Certificate_Helper_Data extends Mage_Core_Helper_Abstract
 
     public function buildEmailBody($name, $course, $token, array $info)
     {
-        $url = rtrim(Mage::getBaseUrl(), '/') . '/certificate/download/index?token=' . $token;
+        // Malaysia: build the link from the site's web address, not the running script — the daily auto-send runs
+        // from cron.php, and getBaseUrl() there yields ".../cron.php/certificate/..." (403). Singapore unchanged
+        // pending its owner's approval.
+        $base = $this->_isMalaysia()
+            ? Mage::app()->getDefaultStoreView()->getBaseUrl(Mage_Core_Model_Store::URL_TYPE_WEB)
+            : Mage::getBaseUrl();
+        $url = rtrim($base, '/') . '/certificate/download/index?token=' . $token;
         $e   = function($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); };
-        return '<p>Hello ' . $e($name) . ',</p>'
-            . '<p>Congratulations on successfully completing the course <i>' . $e($course) . '</i>! '
+        $intro = $this->_isMalaysia()
+            ? '<p>Thank you for attending the course <i>' . $e($course) . '</i>! '
+            . 'We appreciate your participation and commitment throughout the program.</p>'
+            . '<p>Please find attached your Certificate of Attendance.</p>'
+            : '<p>Congratulations on successfully completing the course <i>' . $e($course) . '</i>! '
             . 'We are truly proud of your perseverance, dedication, and motivation throughout the program.</p>'
-            . '<p>Please find attached your Certificate of Achievement in recognition of your accomplishment.</p>'
+            . '<p>Please find attached your Certificate of Achievement in recognition of your accomplishment.</p>';
+        return '<p>Hello ' . $e($name) . ',</p>'
+            . $intro
             . '<p>You can also download your certificate here: <a href="' . $e($url) . '">' . $e($url) . '</a></p>'
             . '<p>Your commitment to learning and professional growth is commendable, and we wish you continued success '
             . 'in applying your new skills.</p>'
@@ -507,6 +735,34 @@ class MMD_Certificate_Helper_Data extends Mage_Core_Helper_Abstract
             'from_email'    => Mage::getStoreConfig('trans_email/ident_general/email') ?: 'noreply@tertiarycourses.com.sg',
             'website'       => $my ? 'https://www.tertiarycourses.com.my' : 'https://www.tertiarycourses.com.sg',
         );
+    }
+
+    /**
+     * The certificate attendance gate. Integer maths so exactly 75% passes and 74.9% never rounds up (Malaysia —
+     * called with attended / total training MINUTES); Singapore keeps "strictly more than 70%" of sessions.
+     */
+    public function meetsAttendance($present, $total)
+    {
+        $present = (int) $present;
+        $total   = max(1, (int) $total);
+        if ($this->_isMalaysia()) {
+            return $present * 100 >= $total * self::ATTENDANCE_MIN_PCT_MY;
+        }
+        return $present / $total > self::ATTENDANCE_THRESHOLD;
+    }
+
+    /** The certificate's name as shown to learners on this site. */
+    public function certificateName()
+    {
+        return $this->_isMalaysia() ? 'Certificate of Attendance' : 'Certificate of Achievement';
+    }
+
+    /** Human wording of the gate, for the admin/learner dashboard copy. */
+    public function attendanceRuleLabel()
+    {
+        return $this->_isMalaysia()
+            ? 'at least ' . self::ATTENDANCE_MIN_PCT_MY . '% of total training hours'
+            : 'above 70%';
     }
 
     /**
