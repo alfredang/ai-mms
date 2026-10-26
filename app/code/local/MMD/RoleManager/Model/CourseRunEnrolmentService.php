@@ -23,6 +23,14 @@ class MMD_RoleManager_Model_CourseRunEnrolmentService
         Mage_Sales_Model_Order $order,
         Mage_Sales_Model_Order_Item $item
     ) {
+        // Kill switch: mmd/class_formation/enabled = 0 stops bookings forming classes (both the checkout
+        // observer and the cron pass through here). Malaysia, partner rule 26 Oct 2026: only confirmed
+        // classes enter the LMS. Absent = on, so other sites are unchanged.
+        $on = Mage::getStoreConfig('mmd/class_formation/enabled');
+        if ($on !== null && $on !== '' && !(int) $on) {
+            return;
+        }
+
         // Skip child items (bundle components, configurable children).
         if ($item->getParentItemId()) {
             return;
