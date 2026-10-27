@@ -24,6 +24,9 @@ Mage::getConfig()->reinit();
 Mage::getConfig()->setNode('global/events/customer_save_before/observers/mmd_email_validate_customer/type','disabled');
 $productId=(int)$w->fetchOne("SELECT entity_id FROM catalog_product_entity WHERE sku='C916'");
 if(!$productId){$w->insert('catalog_product_entity',array('entity_type_id'=>4,'attribute_set_id'=>4,'type_id'=>'simple','sku'=>'C916','has_options'=>0,'required_options'=>0));$productId=(int)$w->lastInsertId();$w->insert('catalog_product_website',array('product_id'=>$productId,'website_id'=>1));}
+$nameAttribute=$w->fetchRow("SELECT a.attribute_id,a.entity_type_id FROM eav_attribute a JOIN eav_entity_type t ON t.entity_type_id=a.entity_type_id WHERE t.entity_type_code='catalog_product' AND a.attribute_code='name'");
+check((bool)$nameAttribute,'Product name attribute is missing.');
+$w->insertOnDuplicate('catalog_product_entity_varchar',array('entity_type_id'=>(int)$nameAttribute['entity_type_id'],'attribute_id'=>(int)$nameAttribute['attribute_id'],'store_id'=>0,'entity_id'=>$productId,'value'=>'Pilot'),array('value'));
 $learner=array('source_id'=>'test-learner','email'=>'pilotlearner@example.com','name'=>'Pilot Learner');
 $trainer=array('source_id'=>'test-trainer','email'=>'pilottrainer@example.com','name'=>'Pilot Trainer','confirmed'=>true);
 $data=array('schema_version'=>1,'source_provider_id'=>'tertiary-sg','source_run_key'=>'calendar:test:pilot','website_id'=>1,'course_code'=>'C916','course_title'=>'Pilot','calendar_id'=>'sales@tertiarycourses.com.sg','event_occurrences'=>array('pilot-event'),'revision'=>1,'request_id'=>'test-request','snapshot_hash'=>hash('sha256','version1'),'roster_complete'=>true,'cancelled'=>false,'sessions'=>array(array('key'=>'s1234567','source_id'=>'pilot-event','date'=>'2026-11-10','start_time'=>'09:30','end_time'=>'17:30','mode'=>1,'virtual_link'=>'','venue'=>'Room 1')),'learners'=>array($learner),'trainers'=>array($trainer),'courseware'=>array('learner_guide_url'=>'https://example.com/guide','trainer_slides_url'=>'https://example.com/slides'),'feedback_url'=>'https://example.com/feedback/pilot');
@@ -31,10 +34,19 @@ $data['handover_approval']=array('approved_at'=>'2026-10-21T00:00:00Z','approved
 $svc=Mage::getModel('courses/tmsImport');
 check($svc instanceof MMD_Courses_Model_TmsImport,'Importer alias did not instantiate.');
 $before=(int)$w->fetchOne('SELECT COUNT(*) FROM course_runs');$beforeUsers=(int)$w->fetchOne('SELECT COUNT(*) FROM admin_user');
+$mismatch=$data;$mismatch['course_title']='A Different Course';
+try{previewSnapshot($svc,$mismatch);throw new RuntimeException('Mismatched TMS/MMS course titles were accepted.');}catch(InvalidArgumentException $e){$checks++;}
+check((int)$w->fetchOne('SELECT COUNT(*) FROM course_runs')===$before && (int)$w->fetchOne('SELECT COUNT(*) FROM admin_user')===$beforeUsers,'Rejected title mismatch wrote class/account data.');
 $preview=previewSnapshot($svc,$data);
 check($preview['action']==='create' && (int)$w->fetchOne('SELECT COUNT(*) FROM course_runs')===$before && (int)$w->fetchOne('SELECT COUNT(*) FROM admin_user')===$beforeUsers,'Dry run wrote class/account data.');
 $w->insert('course_runs',array('class_id'=>'C990001','product_id'=>$productId,'course_sku'=>'C916','course_start_date'=>'2026-11-10','course_end_date'=>'2026-11-10','course_start_time'=>'09:30','course_end_time'=>'17:30','created_by'=>'Isolated fixture'));
-$nativeRun=(int)$w->lastInsertId();check(previewSnapshot($svc,$data)['action']==='adopt','Existing class was not recognized during dry run.');
+$nativeRun=(int)$w->lastInsertId();
+$w->insert('course_run_enrolments',array('product_id'=>$productId,'run_id'=>$nativeRun,'learner_email'=>'outside@example.com','learner_name'=>'Outside Learner'));
+try{previewSnapshot($svc,$data);throw new RuntimeException('Preview adopted a class with learners outside the TMS roster.');}catch(InvalidArgumentException $e){$checks++;}
+try{applySnapshot($svc,$data);throw new RuntimeException('Import adopted a class with learners outside the TMS roster.');}catch(InvalidArgumentException $e){$checks++;}
+check((int)$w->fetchOne('SELECT COUNT(*) FROM mmd_tms_run_link')===0 && (int)$w->fetchOne('SELECT COUNT(*) FROM admin_user')===$beforeUsers,'Rejected roster conflict changed accounts or source mappings.');
+$w->delete('course_run_enrolments',array('run_id = ?'=>$nativeRun,'learner_email = ?'=>'outside@example.com'));
+check(previewSnapshot($svc,$data)['action']==='adopt','Existing class was not recognized during dry run.');
 // Broad normal-operations scope is still C-only; funded validation precedes it.
 Mage::app()->getStore()->setConfig('mmd/tms_handover/course_allowlist','C*');
 check(previewSnapshot($svc,$data)['action']==='adopt','C* normal-operations scope did not accept the supported C course.');

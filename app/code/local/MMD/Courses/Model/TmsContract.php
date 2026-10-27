@@ -18,6 +18,11 @@ class MMD_Courses_Model_TmsContract
     {
         $contentHash = self::contentHash($data);
         $data['course_code'] = self::courseCode(isset($data['course_code']) ? $data['course_code'] : '');
+        if (!isset($data['course_title']) || !is_string($data['course_title'])
+            || trim($data['course_title']) === '' || mb_strlen($data['course_title'], 'UTF-8') > 255) {
+            throw new InvalidArgumentException('A valid course title is required for MMS catalogue verification.');
+        }
+        $data['course_title'] = trim($data['course_title']);
         if (($data['schema_version'] ?? null) !== 1 || ($data['roster_complete'] ?? null) !== true) {
             throw new InvalidArgumentException('Version 1 and a complete operational roster are required.');
         }

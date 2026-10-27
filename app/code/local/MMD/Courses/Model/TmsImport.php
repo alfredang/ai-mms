@@ -24,7 +24,26 @@ class MMD_Courses_Model_TmsImport
         if (count($products) !== 1) throw new InvalidArgumentException('Resolve one existing MMS course in the configured website.');
         $productId = (int) $products[0]['entity_id'];
         MMD_Courses_Model_TmsContract::courseCode($products[0]['sku']);
+        $store = Mage::app()->getWebsite($website)->getDefaultStore();
+        $storeId = $store ? (int) $store->getId() : 0;
+        $productTitle = trim((string) Mage::getModel('catalog/product')->setStoreId($storeId)->load($productId)->getName());
+        if ($productTitle === '' || $this->normalizeCourseTitle($productTitle) !== $this->normalizeCourseTitle($data['course_title'])) {
+            throw new InvalidArgumentException('Course code ' . $data['course_code'] . ' maps to a different MMS course title. Correct the TMS/MMS course catalogue before handover.');
+        }
         return array($data,$provider,$website,$productId);
+    }
+
+    protected function normalizeCourseTitle($value)
+    {
+        $value = html_entity_decode(trim((string) $value), ENT_QUOTES, 'UTF-8');
+        do {
+            $before = $value;
+            $value = preg_replace('/^\s*\[(?:virtual|online|physical)\]\s*/iu', '', $value);
+            $value = preg_replace('/^\s*(?:day\s*\d+|one\s+day)\s*[-\x{2010}-\x{2015}:]\s*/iu', '', $value);
+        } while ($value !== $before);
+        $value = preg_replace('/[\x{2010}-\x{2015}]/u', '-', $value);
+        $value = preg_replace('/\s+/u', ' ', $value);
+        return mb_strtolower(trim($value), 'UTF-8');
     }
 
     public function preview(array $input)
@@ -37,7 +56,7 @@ class MMD_Courses_Model_TmsImport
         $rows=$link?array():$w->fetchAll('SELECT run_id,class_id,gcal_event_id FROM ' . $this->table('course_runs') . ' WHERE product_id=? AND course_start_date=? AND course_end_date=? AND course_start_time=? AND course_end_time=?',array($productId,$first['date'],$last['date'],$first['start_time'],$last['end_time']));
         if(count($rows)>1)throw new InvalidArgumentException('Multiple existing MMS runs match; resolve the duplicate first.');
         if($rows && $w->fetchOne('SELECT link_id FROM ' . $this->table('mmd_tms_run_link') . ' WHERE run_id=?',array($rows[0]['run_id'])))throw new InvalidArgumentException('Existing MMS run belongs to another source mapping.');
-        if($rows)$this->checkExistingCalendar($rows[0],$data);
+        if($rows){$this->checkExistingCalendar($rows[0],$data);$this->assertAdoptableRoster($data,(int)$rows[0]['run_id']);}
         return array('success'=>true,'dry_run'=>true,'action'=>$link?'update':($rows?'adopt':'create'),'run_id'=>$link?(int)$link['run_id']:($rows?(int)$rows[0]['run_id']:null),'source_run_key'=>$data['source_run_key'],'learners'=>count($data['learners']),'trainer_confirmation_pending'=>empty($data['trainers'][0]['confirmed']));
     }
 
@@ -161,6 +180,7 @@ class MMD_Courses_Model_TmsImport
             $days=Mage::helper('mmd_attendance')->classDaysForRun($rows[0]);
             $sourceDays=array_values(array_unique(array_column($data['sessions'],'date')));
             if(count($sourceDays)>1 && $days && $days!==$sourceDays)throw new InvalidArgumentException('Existing order session dates conflict with the TMS schedule.');
+            $this->assertAdoptableRoster($data,(int)$rows[0]['run_id']);
             return (int)$rows[0]['run_id'];
         }
         $idLock='mmd-class-id';
@@ -179,6 +199,19 @@ class MMD_Courses_Model_TmsImport
             if($event===$existing || strpos($event,$existing.'_')===0)return;
         }
         throw new InvalidArgumentException('Existing MMS class is linked to a different Calendar event. Resolve the duplicate in TMS before handover.');
+    }
+
+    protected function assertAdoptableRoster(array $data,$runId)
+    {
+        $sourceEmails=array();
+        if(!$data['cancelled'])foreach($data['learners'] as $learner) {
+            if(($learner['active']??true)===false)continue;
+            $sourceEmails[strtolower(trim($learner['email']))]=true;
+        }
+        $existing=$this->_write->fetchCol('SELECT LOWER(TRIM(learner_email)) FROM ' . $this->table('course_run_enrolments') . ' WHERE run_id=?',array($runId));
+        foreach($existing as $email)if($email==='' || !isset($sourceEmails[$email])) {
+            throw new InvalidArgumentException('Existing MMS class has learner memberships outside the TMS roster. Reconcile them before handover.');
+        }
     }
 
     protected function account(array $person,$role,$provider,$website)

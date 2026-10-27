@@ -33,7 +33,7 @@ $w->query("UPDATE core_config_data SET value='http://localhost:18089/' WHERE pat
 Mage::getConfig()->reinit(); Mage::app()->cleanCache();
 Mage::getConfig()->setNode('global/events/customer_save_before/observers/mmd_email_validate_customer/type','disabled');
 $beforeMail = mailpit('/api/v1/messages')['total'];
-$data = array('schema_version'=>1,'source_provider_id'=>'tertiary-sg','source_run_key'=>'calendar:test:class-access','website_id'=>1,'course_code'=>'C916','course_title'=>'MMS Access Fixture','calendar_id'=>'sales@tertiarycourses.com.sg','event_occurrences'=>array('access-event'),'revision'=>1,'request_id'=>'access-test','roster_complete'=>true,'cancelled'=>false,
+$data = array('schema_version'=>1,'source_provider_id'=>'tertiary-sg','source_run_key'=>'calendar:test:class-access','website_id'=>1,'course_code'=>'C916','course_title'=>'Pilot','calendar_id'=>'sales@tertiarycourses.com.sg','event_occurrences'=>array('access-event'),'revision'=>1,'request_id'=>'access-test','roster_complete'=>true,'cancelled'=>false,
     'sessions'=>array(array('key'=>'sabc1234','source_id'=>'access-event','date'=>'2026-11-20','start_time'=>'09:30','end_time'=>'17:30','mode'=>1,'venue'=>'Fixture Room','virtual_link'=>'')),
     'learners'=>array(array('source_id'=>'entry-learner','email'=>'entrylearner@example.com','name'=>'Entry Learner'),array('source_id'=>'entry-dual','email'=>'entrydual@example.com','name'=>'Entry Dual')),
     'trainers'=>array(array('source_id'=>'entry-trainer','email'=>'entrytrainer@example.com','name'=>'Entry Trainer','confirmed'=>true)),
