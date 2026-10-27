@@ -38,6 +38,7 @@ services:
       MAGE_IS_DEVELOPER_MODE: "1"
     volumes:
       - ../../:/var/www/html:ro
+      - /var/www/html/vendor
       - ./fixtures/tms-handover-local.xml:/var/www/html/app/etc/local.xml:ro
     tmpfs: [/var/www/html/var]
     ports: ["127.0.0.1:18089:8080"]

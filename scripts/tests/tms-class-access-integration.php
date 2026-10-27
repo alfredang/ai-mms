@@ -40,7 +40,12 @@ $data = array('schema_version'=>1,'source_provider_id'=>'tertiary-sg','source_ru
     'courseware'=>array('learner_guide_url'=>'https://example.com/guide','trainer_slides_url'=>'https://example.com/slides'),'feedback_url'=>'https://tms.example.com/feedback/access',
     'handover_approval'=>array('approved_at'=>'2026-10-21T00:00:00Z','approved_by'=>'isolated-operator','first_session_at'=>'2026-11-20T01:30:00Z'));
 $data['snapshot_hash']=MMD_Courses_Model_TmsContract::contentHash($data);
+$productId=(int)$w->fetchOne("SELECT entity_id FROM catalog_product_entity WHERE sku='C916'");
+$w->insert('course_runs',array('class_id'=>'C990000','product_id'=>$productId,'course_sku'=>'C916','course_start_date'=>'2026-11-19','course_end_date'=>'2026-11-19','course_start_time'=>'09:30','course_end_time'=>'17:30','created_by'=>'Exact-run fixture'));
+$decoyRun=(int)$w->lastInsertId();
+$w->insert('course_run_enrolments',array('product_id'=>$productId,'run_id'=>$decoyRun,'learner_email'=>'entrylearner@example.com','learner_name'=>'Entry Learner'));
 $svc=Mage::getModel('courses/tmsImport'); $result=$svc->apply($data); $runId=$result['run_id'];
+$w->update('mmd_tms_run_link',array('feedback_url'=>''),array('run_id = ?'=>$runId));
 accessCheck(isset($result['participant_class_url']) && $result['participant_class_url']==='http://localhost:18089/lmslogin/index/class/?run_id='.$runId,'Participant URL is not canonical/exact.');
 accessCheck($result['snapshot_hash']===$data['snapshot_hash'],'Applied content hash missing.');
 accessCheck(mailpit('/api/v1/messages')['total']===$beforeMail,'Import sent an unsolicited welcome or OTP.');
@@ -80,6 +85,10 @@ foreach (in_array('--otp-only',$argv,true)?array():array('entrylearner@example.c
     accessCheck(strpos($login['location'],'/lmslogin/index/class/')!==false,'Password login lost the exact class. '.substr($login['body'],0,150));
     $landing=visit($client,$login['location']);
     accessCheck(strpos($landing['location'],'run='.$runId)!==false && strpos($landing['location'],'dashboard')!==false,'Authenticated entry lost run or failed authorization.');
+    $detail=visit($client,$landing['location']);
+    accessCheck($detail['code']===200 && strpos($detail['body'],'<span class="lcd-detail-label">Course Run ID</span><span class="lcd-detail-value">'.$result['class_id'].'</span>')!==false,'Class detail did not render the exact requested Course Run ID.');
+    accessCheck(strpos($detail['body'],'The TMS feedback form has not been mapped for this class yet.')!==false,'Missing TMS feedback mapping used the wrong empty-state message.');
+    if ($email==='entrylearner@example.com') accessCheck(strpos($detail['body'],'<div class="lcd-cert-title">In Progress</div>')!==false,'Imported learner roster membership was shown as not enrolled.');
     curl_close($client);
 }
 // OTP request must actually reach Mailpit; a generic endpoint success is insufficient.

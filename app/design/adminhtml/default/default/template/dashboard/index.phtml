@@ -1495,11 +1495,14 @@ $_pageStoreCountry = $_pageStoreToCountry[$_pageStoreId];
 
 // Selected course detail (if course_id param)
 $_selectedCourseId = (int) Mage::app()->getRequest()->getParam('course_id');
+$_selectedRunId = (int) Mage::app()->getRequest()->getParam('run');
 $_selectedCourse = null;
 if ($_selectedCourseId) {
-    // First check learner courses
+    // A course can have several class cards. When the detail URL carries a
+    // numeric run, select that exact class instead of the first product match.
     foreach ($_learnerCourses as $_c) {
-        if ((int)$_c['id'] === $_selectedCourseId) {
+        if ((int)$_c['id'] === $_selectedCourseId
+                && ($_selectedRunId <= 0 || (int)($_c['cr_run_id'] ?? 0) === $_selectedRunId)) {
             $_selectedCourse = $_c;
             break;
         }
@@ -6529,18 +6532,10 @@ function lcdNavTo(link, sectionId){
 <div id="dash-panel-course-detail">
 <?php
 $_lcdCourseId = (int) $_selectedCourse['id'];
-// Course Run ID — the real C###### class_id for this course's next upcoming
-// class, matching the My Classes / dev cards. A course with no scheduled
-// class has no Run ID and shows "—"; the previous synthesised fallbacks
-// (country-prefixed catalog rank, and an entity_id hash) produced ids that
-// were never stored in course_runs.
-if (isset($_lmcRunMap[$_lcdCourseId])) {
-    $_courseRunId = $_lmcRunMap[$_lcdCourseId];
-} elseif (isset($_devRunIdMap[$_lcdCourseId])) {
-    $_courseRunId = $_devRunIdMap[$_lcdCourseId];
-} else {
-    $_courseRunId = '—';
-}
+// Course Run ID is resolved from the exact numeric run below. A course with no
+// scheduled class has no Run ID and shows "—"; never synthesize a run label
+// from a product or catalog position.
+$_courseRunId = '—';
 
 // In developer / course-management mode the Course Details view shows
 // course-LEVEL info only (title, code, duration) - NOT the run-level fields
@@ -6616,6 +6611,27 @@ if ($_lcdRunId <= 0) {
             );
         }
     } catch (Exception $e) {}
+}
+// The human label must come from the exact numeric run selected above. The
+// product-level maps remain fallbacks only for legacy detail URLs without a
+// run parameter.
+if ($_lcdRunId > 0) {
+    try {
+        $_courseRunId = (string) Mage::getSingleton('core/resource')->getConnection('core_read')->fetchOne(
+            "SELECT class_id FROM " . Mage::getSingleton('core/resource')->getTableName('course_runs') . " WHERE run_id = ? AND product_id = ?",
+            array($_lcdRunId, $_lcdCourseId)
+        );
+    } catch (Exception $e) {}
+}
+if ($_courseRunId === '') {
+    $_courseRunId = '—';
+}
+if ($_courseRunId === '—') {
+    if (isset($_lmcRunMap[$_lcdCourseId])) {
+        $_courseRunId = $_lmcRunMap[$_lcdCourseId];
+    } elseif (isset($_devRunIdMap[$_lcdCourseId])) {
+        $_courseRunId = $_devRunIdMap[$_lcdCourseId];
+    }
 }
 // Virtual Training Link card (trainer + learner): the class's own link
 // (course_runs.virtual_link — set on the class, or by the Google Calendar sync)
@@ -7582,14 +7598,34 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
             if ($_certRow) {
                 $_certState = 'issued';
             } else {
-                $_certOrderId = (int) $_certRead->fetchOne(
-                    "SELECT o.entity_id FROM " . $_certResource->getTableName('sales/order') . " o
-                     JOIN " . $_certResource->getTableName('sales/order_item') . " oi ON oi.order_id=o.entity_id
-                     WHERE oi.product_id = ? AND LOWER(o.customer_email) = ? AND o.state NOT IN ('canceled')
-                     ORDER BY o.created_at DESC LIMIT 1",
-                    array((int)$_selectedCourseId, strtolower($_certViewerEmail))
+                // TMS imports intentionally have no Magento order. Their
+                // exact-run roster membership is the enrolment source.
+                $_certEnrolment = $_certRead->fetchRow(
+                    "SELECT r.course_end_date
+                       FROM `" . $_certResource->getTableName('course_run_enrolments') . "` e
+                       JOIN `" . $_certResource->getTableName('course_runs') . "` r ON r.run_id = e.run_id
+                      WHERE e.run_id = ? AND r.product_id = ? AND LOWER(e.learner_email) = ?
+                      LIMIT 1",
+                    array((int)$_lcdRunId, (int)$_selectedCourseId, strtolower($_certViewerEmail))
                 );
-                if ($_certOrderId > 0) {
+                $_certOrderId = 0;
+                if ($_certEnrolment) {
+                    $_certEnd = $_certEnrolment['course_end_date'];
+                    $_certState = ($_certEnd && strtotime($_certEnd) < strtotime(date('Y-m-d')))
+                        ? 'completed'
+                        : 'in_progress';
+                } else {
+                    // Preserve the native registration fallback for courses
+                    // materialised from a storefront order.
+                    $_certOrderId = (int) $_certRead->fetchOne(
+                        "SELECT o.entity_id FROM " . $_certResource->getTableName('sales/order') . " o
+                         JOIN " . $_certResource->getTableName('sales/order_item') . " oi ON oi.order_id=o.entity_id
+                         WHERE oi.product_id = ? AND LOWER(o.customer_email) = ? AND o.state NOT IN ('canceled')
+                         ORDER BY o.created_at DESC LIMIT 1",
+                        array((int)$_selectedCourseId, strtolower($_certViewerEmail))
+                    );
+                }
+                if (!$_certEnrolment && $_certOrderId > 0) {
                     $_certEndProd = isset($_devProd) ? $_devProd : Mage::getModel('catalog/product')->load($_selectedCourseId);
                     $_certEnd     = $_certEndProd->getData('news_to_date');
                     if ($_certEnd && strtotime($_certEnd) < strtotime(date('Y-m-d'))) {
@@ -7631,7 +7667,9 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
     $_fbUrl  = $_lcdRunId > 0
         ? rtrim(Mage::getBaseUrl(), '/') . '/feedback/respond/index?run_id=' . (int)$_lcdRunId
         : '';
-    $_fbUrl = Mage::helper('mmd_rolemanager/handover')->feedbackUrl($_lcdRunId, $_fbUrl);
+    $_fbHandover = Mage::helper('mmd_rolemanager/handover');
+    $_fbManaged = $_lcdRunId > 0 && $_fbHandover->isManaged($_lcdRunId);
+    $_fbUrl = $_fbHandover->feedbackUrl($_lcdRunId, $_fbUrl);
     // Human run label (SG000046-style class_id) for the card footer.
     $_fbClassId = '';
     if ($_lcdRunId > 0) {
@@ -7653,7 +7691,9 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
         <div class="lcd-section-title">Course Feedback</div>
         <div class="lcd-qr-content">
             <?php if ($_fbUrl === ''): ?>
-            <div style="color:#64748b;font-size:13px;font-style:italic;padding:14px 0;">No scheduled class run yet — the feedback QR appears once this class has a run.</div>
+            <div style="color:#64748b;font-size:13px;font-style:italic;padding:14px 0;"><?php echo $_fbManaged
+                ? 'The TMS feedback form has not been mapped for this class yet.'
+                : 'No scheduled class run yet — the feedback QR appears once this class has a run.' ?></div>
             <?php else: ?>
             <div style="margin-top:16px;background:#1e293b;border:1px solid #334155;border-radius:12px;overflow:hidden;width:100%;box-sizing:border-box;">
                 <div style="background:#2563eb;padding:14px 18px;display:flex;align-items:center;gap:10px;">
