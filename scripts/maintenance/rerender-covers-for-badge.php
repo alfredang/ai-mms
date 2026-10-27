@@ -20,13 +20,18 @@
  *   php scripts/maintenance/rerender-covers-for-badge.php --dry-run
  *   php scripts/maintenance/rerender-covers-for-badge.php --apply
  *   php scripts/maintenance/rerender-covers-for-badge.php --apply --badge="Free AI Subscription"
+ *   php scripts/maintenance/rerender-covers-for-badge.php --apply --badge=UTAP --sku=TGS-2025052468,TGS-2024048317
  */
 
-$opts = getopt('', ['apply', 'dry-run', 'badge::']);
+$opts = getopt('', ['apply', 'dry-run', 'badge::', 'sku::']);
 $apply = isset($opts['apply']);
 $badgeName = isset($opts['badge']) && $opts['badge'] !== false
     ? (string) $opts['badge']
     : 'Free AI Subscription';
+// Optional comma-separated SKU list: limit the run to just those courses.
+$skuFilter = isset($opts['sku']) && $opts['sku'] !== false
+    ? array_filter(array_map('trim', explode(',', (string) $opts['sku'])))
+    : [];
 
 require_once dirname(__DIR__, 2) . '/app/Mage.php';
 Mage::app('admin');
@@ -51,6 +56,11 @@ $productIds = $db->fetchCol(
       WHERE t.name = ? AND t.status = 1 AND r.active = 1",
     [$badgeName]
 );
+if ($skuFilter) {
+    $productIds = array_intersect($productIds, $db->fetchCol(
+        $db->quoteInto('SELECT entity_id FROM catalog_product_entity WHERE sku IN (?)', $skuFilter)
+    ));
+}
 
 if (!$productIds) {
     echo "No products carry the badge \"{$badgeName}\" — nothing to do.\n";

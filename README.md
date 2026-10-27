@@ -191,7 +191,7 @@ ai-mms/
 |--------|---------|
 | **RoleManager** | Six-role admin system + class/roster management + class-id generation + role-aware class calendars (trainer/learner **My Calendar**, admin **Training Calendar**) + Google Calendar class-event sync (`Model/Cron/GoogleCalendarSync.php`). |
 | **Proforma** | On-demand Pro Forma Invoice PDF (self-sponsored SFC claims; WSQ funding breakdown). |
-| **CourseImage** | AI cover-image renderer + funding-badge tags (the same tags drive the storefront chips, the cover, the WSQ Funding card, and the Free AI Subscription perk card), plus the "Most Popular" course flag (`isPopularCourse`). |
+| **CourseImage** | AI cover-image renderer + funding-badge tags (the same tags drive the storefront chips, the cover, the WSQ Funding card, and the Free AI Subscription perk card), plus the "Most Popular" course flag (`isPopularCourse`). Covers are pre-rendered PNGs on R2 with the badge chips baked in, so after a badge change re-render the affected courses with `scripts/maintenance/rerender-covers-for-badge.php --apply --badge=<name> [--sku=<SKU,SKU>]`. |
 | **EmailLogin** | Email-only admin login. |
 | **FlatCategoryUrl** | Flat category URLs (`/<url_key>.html`) across all stores. |
 | **CustomOptions** | Enhanced product options with SKU upgrade policies; class-schedule templates (Manage Class Schedule) plus a read-only **Schedule Distribution** report comparing active courses vs schedules per duration series, with rebalancing advice. |
