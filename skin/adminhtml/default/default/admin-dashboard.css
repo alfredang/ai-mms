@@ -1238,9 +1238,18 @@ div.dce-value::-webkit-scrollbar-thumb:hover{background:#64748b}
    opened a slide-out drawer that duplicated the whole card. Both are gone, so
    the column must never hide — it is now the only place these details exist.
    It shrinks toward 320px before the row wraps on a narrow window. */
-.lcd-sidebar-details{display:block;flex:0 1 450px;min-width:320px;background:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px;position:sticky;top:70px}
-.lcd-main-content{flex:1 1 560px;min-width:0}
-.lcd-two-col{flex-wrap:wrap}
+.lcd-sidebar-details{display:block;flex:0 0 clamp(280px,34%,450px);min-width:0;box-sizing:border-box;background:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px;position:sticky;top:70px}
+/* Right column takes ALL remaining width (basis 0), so the pair stays side by
+   side when the admin side panel is expanded instead of wrapping the content
+   under the details card (old 450px + 560px bases needed ~1034px). The row is
+   its own size container: it only stacks when the row itself is narrow
+   (phone, or a tablet with the panel open), not on a viewport guess. */
+.lcd-main-content{flex:1 1 0;min-width:0}
+.lcd-two-col{flex-wrap:wrap;max-width:none;container-type:inline-size}
+@container (max-width:760px){
+    .lcd-two-col>.lcd-sidebar-details,.lcd-two-col>.lcd-main-content{flex:1 1 100%}
+    .lcd-two-col>.lcd-sidebar-details{position:static}
+}
 .lcd-back{display:inline-block;background:#334155;color:#fff !important;text-decoration:none !important;border-radius:10px;padding:12px 24px;font-size:15px;font-weight:600;margin-bottom:20px;border:none}
 .lcd-back:hover{background:#475569;color:#fff !important}
 .lcd-section{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:22px 24px;margin-bottom:16px}
