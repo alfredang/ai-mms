@@ -112,9 +112,9 @@ Title and meta description format depends on **SKU prefix** + **store code**. Au
 **Title rules — non-negotiable:**
 
 - Every title MUST end with the exact brand suffix in the store table above (`| Tertiary Courses <Country>`). No abbreviations, no `TC SG`, no missing country.
-- SG funded courses (TGS-) MUST render starting with `Funded` — `Funded up to 70% IBF` (IBF badge) > `Funded up to 70% CASL` (CASL badge) > `Funded up to 70% WSQ` (other TGS-). `MMD_Seotitle_Block_Html_Head::_fundingPrefix()` does this; NEVER bake WSQ/CASL/IBF/Funded or the brand into the stored `meta_title` (the composer strips a baked scheme word, but keep the data clean). Store `meta_title` bare, ≤ 50 chars, primary keyword first.
+- SG funded courses (TGS-) MUST render starting with `Funded` — `Funded up to 70% IBF` (IBF badge) > `Funded up to 70% CASL` (CASL badge) > `Funded up to 70% WSQ` (other TGS-). `MMD_Seotitle_Block_Html_Head::_fundingPrefix()` does this; Since 2026-10-28 the STORED `meta_title` of SG funded, MY and GH courses holds the full rendered title (prefix + `| Tertiary Courses <Country>`) so the admin field shows it; SG non-WSQ courses and categories stay bare. See `.claude/rules/seo-meta.md`.
 - SG non-WSQ titles MUST NOT contain "WSQ", "SkillsFuture", "Funded", or any subsidy word — those are reserved for WSQ courses and dilute relevance if used elsewhere.
-- MY course titles get the `HRD Corp Funded` prefix at render time — never bake it into the stored meta_title.
+- MY course titles: stored AND rendered as `HRD Corp Funded <title> | Tertiary Courses Malaysia`.
 - Keep total title length ≤ 60 chars where possible. If `Funded up to 70% WSQ <Course Name> | Tertiary Courses Singapore` exceeds 60 (it usually will — the prefix + suffix are 52 chars), the course name is too long — flag it; don't strip the suffix.
 
 **Meta description rules:**

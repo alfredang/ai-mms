@@ -21,10 +21,18 @@ partner-DB edits. The `seo-audit` skill audits against this file.
 
 - The postfix comes from `general/store_information/name` on each site's own DB; a stale baked
   `| Tertiary Courses …` is stripped before the site's own one is added.
-- **Store `meta_title` BARE**: no WSQ / CASL / IBF / "Funded" / "HRD Corp" word (the MY title
-  prefix is "HRD Corp Funded"; MY descriptions say "HRD Corp claimable"), no brand, no `|`.
-  ≤ 50 chars (hard max 60), primary keyword first, the course name's own wording. The admin field
-  therefore never shows the prefix or postfix — that is correct.
+- **What is STORED in `meta_title` (user directive 2026-10-28 — the Edit Course field must show it):**
+  - **SG funded (TGS-), every MY course, every GH course** -> store the full rendered title, prefix and
+    postfix included, e.g. `Funded up to 70% WSQ Python Fundamental Course for Beginners | Tertiary
+    Courses Singapore`, `HRD Corp Funded SQL Masterclass | Tertiary Courses Malaysia`,
+    `SQL Masterclass | Tertiary Courses Ghana`. GH has NO funding prefix. Use
+    `MMD_Seotitle_Block_Html_Head::formatStoredCourseTitle($product, $title, $brand)` — the admin AI
+    SEO generator (`aiSeoAction` / `aiSeoAllStoresAction`) already runs every title through it.
+  - **SG non-WSQ (C-) courses and every category page** -> store BARE (no prefix, no brand); the
+    composer adds the postfix at render time.
+  - The composer is idempotent either way (a title that already starts with the prefix and ends with
+    the brand renders unchanged), so nothing ever doubles.
+  - Course core wording ≤ 50 chars (hard max 60), primary keyword first, the course name's own words.
 - Never change product `name` or `url_key` for SEO (name is the H1, JSON-LD and order line).
 
 ## Meta description — 130–160 chars, `meta_description` is varchar(255)

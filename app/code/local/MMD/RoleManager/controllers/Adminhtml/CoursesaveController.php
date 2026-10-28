@@ -2007,6 +2007,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             // (skip on stubbed output — we don't want to overwrite real
             // editorial content with a deterministic fallback).
             $saveStoreId = (int) $this->getRequest()->getParam('seo_target_store_id', 0);
+            $resp['meta_title'] = $this->_formatStoredCourseTitle($product, $resp['meta_title'], $saveStoreId);
             if ($this->getRequest()->getParam('save') && $saveStoreId > 0 && !$stubbed) {
                 Mage::getModel('mmd_rolemanager/aiSeo')->persistToStore(
                     $productId,
@@ -2058,6 +2059,10 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 (string) $this->getRequest()->getParam('course_highlights')
             );
 
+            foreach ($result['per_store'] as $storeId => $row) {
+                $result['per_store'][$storeId]['meta_title'] =
+                    $this->_formatStoredCourseTitle($product, $row['meta_title'], (int) $storeId);
+            }
             if (!$result['stubbed']) {
                 foreach ($result['per_store'] as $storeId => $row) {
                     $aiSeo->persistToStore(
@@ -2080,6 +2085,29 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             ->setBody(Mage::helper('core')->jsonEncode($resp));
     }
 
+
+    /**
+     * Stored course meta_title in the site's rendered form (funding prefix + "| Tertiary Courses
+     * <Country>"), via the storefront title composer so admin and storefront never disagree.
+     * See .claude/rules/seo-meta.md.
+     */
+    protected function _formatStoredCourseTitle($product, $title, $storeId)
+    {
+        $title = (string) $title;
+        if ($title === '') {
+            return $title;
+        }
+        try {
+            $brand = (string) Mage::getStoreConfig('general/store_information/name', $storeId > 0 ? $storeId : null);
+            $block = Mage::app()->getLayout()->createBlock('page/html_head');
+            if ($block && method_exists($block, 'formatStoredCourseTitle')) {
+                return $block->formatStoredCourseTitle($product, $title, $brand);
+            }
+        } catch (Exception $e) {
+            Mage::logException($e);
+        }
+        return $title;
+    }
 
     /**
      * One-click brochure generator. Mirrors aiSeoAction's plumbing:

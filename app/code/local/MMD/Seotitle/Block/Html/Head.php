@@ -82,16 +82,7 @@ class MMD_Seotitle_Block_Html_Head extends Mage_Page_Block_Html_Head
     protected function _applyFundingPrefix($title)
     {
         $prefix = $this->_fundingPrefix();
-        if ($prefix === '') {
-            return $title;
-        }
-        if (stripos($title, $prefix) === 0) {
-            return $title;
-        }
-        // Drop a scheme word baked into the stored meta_title ("WSQ ...", "IBF-STS ...",
-        // "WSQ funded ...", "Funded up to 70% WSQ ...") so the prefix never double-prints.
-        $title = preg_replace('/^(?:funded\s+)?(?:up\s+to\s+70%\s+)?(?:WSQ|CASL|IBF(?:-STS)?)(?:\s+funded)?(?:\s*[-:]\s*|\s+)/i', '', ltrim($title));
-        return $prefix . ' ' . $title;
+        return $prefix === '' ? $title : $this->_applyFundingPrefixWith($title, $prefix);
     }
 
     /**
@@ -107,9 +98,19 @@ class MMD_Seotitle_Block_Html_Head extends Mage_Page_Block_Html_Head
         if (!$product || !$product->getId()) {
             return '';
         }
+        return $this->getFundingPrefixFor($product, (string) Mage::getStoreConfig('general/store_information/name'));
+    }
 
-        $brand = (string) Mage::getStoreConfig('general/store_information/name');
-
+    /**
+     * Funding prefix for $product on the site whose brand is $brand ('' = none).
+     * Public so the admin AI SEO generator stores the same prefix the storefront renders.
+     *
+     * @param Mage_Catalog_Model_Product $product
+     * @param string                     $brand general/store_information/name of the target store
+     * @return string
+     */
+    public function getFundingPrefixFor($product, $brand)
+    {
         // Malaysia: every course is HRD Corp funded (claimable).
         if (stripos($brand, 'Malaysia') !== false) {
             return 'HRD Corp Funded';
@@ -131,5 +132,46 @@ class MMD_Seotitle_Block_Html_Head extends Mage_Page_Block_Html_Head
         }
 
         return '';
+    }
+
+    /**
+     * Stored course meta_title, identical to what the storefront renders, so the admin field
+     * shows the funding + brand (user directive 2026-10-28):
+     *   SG TGS- -> "Funded up to 70% <WSQ|IBF|CASL> <title> | Tertiary Courses Singapore"
+     *   MY      -> "HRD Corp Funded <title> | Tertiary Courses Malaysia"
+     *   GH      -> "<title> | Tertiary Courses Ghana"
+     * SG non-WSQ titles are returned unchanged (stored bare). A baked brand, "| WSQ Course" and
+     * any leading scheme word are stripped first, so the result never doubles.
+     *
+     * @param Mage_Catalog_Model_Product $product
+     * @param string                     $title
+     * @param string                     $brand general/store_information/name of the target store
+     * @return string
+     */
+    public function formatStoredCourseTitle($product, $title, $brand)
+    {
+        $brand  = trim((string) $brand);
+        $prefix = $this->getFundingPrefixFor($product, $brand);
+        if ($brand === '' || ($prefix === '' && stripos($brand, 'Singapore') !== false)) {
+            return $title;
+        }
+        $title = preg_replace('/\s*[|\x{2013}\-]\s*Tertiary Courses(?:\s+[A-Za-z]+)?\s*$/ui', '', trim((string) $title));
+        $title = trim(preg_replace('/\s*\|\s*WSQ Course\s*/i', ' ', $title));
+        if ($prefix !== '') {
+            $title = $this->_applyFundingPrefixWith($title, $prefix);
+        }
+        return $title . ' | ' . $brand;
+    }
+
+    /**
+     * Prepend $prefix idempotently, dropping a baked scheme word first.
+     */
+    protected function _applyFundingPrefixWith($title, $prefix)
+    {
+        if (stripos($title, $prefix) === 0) {
+            return $title;
+        }
+        $title = preg_replace('/^(?:funded\s+)?(?:up\s+to\s+70%\s+)?(?:WSQ|CASL|IBF(?:-STS)?)(?:\s+funded)?(?:\s*[-:]\s*|\s+)/i', '', ltrim($title));
+        return $prefix . ' ' . $title;
     }
 }
