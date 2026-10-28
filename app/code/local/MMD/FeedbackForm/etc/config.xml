@@ -12,7 +12,23 @@
                 <class>MMD_FeedbackForm_Helper</class>
             </mmd_feedbackform>
         </helpers>
+        <models>
+            <mmd_feedbackform>
+                <class>MMD_FeedbackForm_Model</class>
+            </mmd_feedbackform>
+        </models>
     </global>
+
+    <!-- Consolidated feedback email per class — daily 09:00, the morning after
+         the class's last day. Recipients per site in Model/Cron/Digest.php. -->
+    <crontab>
+        <jobs>
+            <mmd_feedbackform_digest>
+                <schedule><cron_expr>0 9 * * *</cron_expr></schedule>
+                <run><model>mmd_feedbackform/cron_digest::run</model></run>
+            </mmd_feedbackform_digest>
+        </jobs>
+    </crontab>
 
     <!-- Public frontend: /feedback/respond?run_id=X — saves as a Magento product review -->
     <frontend>

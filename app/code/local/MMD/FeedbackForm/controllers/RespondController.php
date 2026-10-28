@@ -135,6 +135,12 @@ class MMD_FeedbackForm_RespondController extends Mage_Core_Controller_Front_Acti
             }
             $review->aggregate();
 
+            // Remember the class so the daily digest can consolidate per class.
+            $resource->getConnection('core_write')->query(
+                'INSERT IGNORE INTO `' . $resource->getTableName('mmd_feedback_review_run') . '` (review_id, run_id) VALUES (?, ?)',
+                array((int)$review->getId(), $runId)
+            );
+
             $this->_renderThanks((string)$run['course_title']);
         } catch (Exception $e) {
             Mage::logException($e);
