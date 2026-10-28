@@ -1324,6 +1324,8 @@ if ($_loggedInEmail && ($activeRole === 'learner' || $activeRole === 'trainer'))
         if ($aSt === 0 && $bSt === 0) return 0;
         if ($aSt === 0) return 1;
         if ($bSt === 0) return -1;
+        // Past classes: latest first, oldest last.
+        if ($aBucket === 2) return $bSt - $aSt;
         return $aSt - $bSt;
     });
 
