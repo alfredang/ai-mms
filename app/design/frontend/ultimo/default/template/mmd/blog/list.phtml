@@ -81,14 +81,12 @@ $allTags = $helper->getPublishedTagNames();
             : 'No articles yet — check back soon.' ?></p>
     <?php else: ?>
     <div class="mmd-blog-grid">
-        <?php // MY: the first row (up to 3 cards) holds the LCP image, so it must not be lazy. SG unchanged.
-        $eagerCards = Mage::app()->getStore()->getCode() === 'malaysia' ? 3 : 0; $cardNo = 0; ?>
         <?php foreach ($posts as $post): ?>
         <?php $url = $helper->getPostUrl($post); $likes = (int) $post->getLikeCount(); $heroImg = $helper->getHeroImage($post); ?>
         <article class="mmd-blog-card">
             <a class="mmd-blog-card-hero" href="<?php echo $url ?>">
                 <?php if ($heroImg): ?>
-                    <img src="<?php echo $this->escapeHtml($heroImg) ?>" alt="<?php echo $this->escapeHtml($post->getTitle()) ?>"<?php echo $cardNo++ < $eagerCards ? '' : ' loading="lazy"' ?>/>
+                    <img src="<?php echo $this->escapeHtml($heroImg) ?>" alt="<?php echo $this->escapeHtml($post->getTitle()) ?>" loading="lazy"/>
                 <?php else: ?>
                     <?php $kickerTags = array_slice($helper->getPostTags($post->getId()), 0, 2); ?>
                     <span class="mmd-blog-hero-fallback"><span class="mmd-blog-hero-kicker">[ <?php echo $this->escapeHtml($kickerTags ? mb_strtoupper(implode(' · ', $kickerTags), 'UTF-8') : 'ARTICLE') ?> ]</span><span class="mmd-blog-hero-title"><?php echo $this->escapeHtml($post->getTitle()) ?></span></span>
