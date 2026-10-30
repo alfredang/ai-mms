@@ -96,6 +96,11 @@
     }
     ?>
 
+    <?php // MY: show slide 1 until Owl starts (the whole slideshow is otherwise hidden until then). SG unchanged.
+    if (Mage::app()->getStore()->getCode() === 'malaysia'): ?>
+        <style>.the-slideshow .slides:not(.owl-carousel){display:block}.the-slideshow .slides:not(.owl-carousel) > .slide:not(:first-child){display:none}</style>
+    <?php endif; ?>
+
     <?php if($this->isPredefined()): ?>
         <div class="the-slideshow-wrapper-outer" <?php echo $this->getMarginStyles(); ?>>
     <?php endif; ?>
