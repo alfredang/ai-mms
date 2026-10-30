@@ -417,6 +417,11 @@ RewriteRule ^(.*)$ https://www.tertiarycourses.%1/$1 [L,R=301]
     RewriteCond %{REQUEST_METHOD} ^(GET|HEAD)$
     RewriteRule ^index\.php/(blog/.+|[^/]+\.html)$ /$1 [R=301,L,NE]
 
+    ## SEO: an external link written as a relative path to an absolute URL
+    ## (/https://www.tertiarycourses.com.sg/<page>) 404'd in GSC. 301 to the
+    ## path on the SAME host (never cross-site); covers each partner domain.
+    RewriteRule ^https?:/+(?:www\.)?tertiarycourses\.com\.(?:sg|my|gh)/(.*)$ /$1 [R=301,L,NE]
+
     RewriteRule ^directory/currency/switch(/|$) - [E=noindex_url:1]
     RewriteRule ^catalog/seo_sitemap(/|$) - [E=noindex_url:1]
     RewriteRule ^customer/account(/|$) - [E=noindex_url:1]
@@ -425,7 +430,7 @@ RewriteRule ^(.*)$ https://www.tertiarycourses.%1/$1 [L,R=301]
     ## thin/duplicate filter & sort variants but keep "follow" so product
     ## links are still crawled. Covers the catalog toolbar params (p, limit,
     ## dir, order, mode) and layered-nav filters (cat, price, manufacturer,
-    ## level, progromming_language) plus session/store-switch params (SID,
+    ## level, progromming_language, software) plus session/store-switch params (SID,
     ## ___store, ___from_store — same page content as the canonical, or a
     ## redirect, so noindex,follow is safe either way). Matches only when one
     ## of these params is actually present, so the canonical flat URL
@@ -433,7 +438,7 @@ RewriteRule ^(.*)$ https://www.tertiarycourses.%1/$1 [L,R=301]
     ## UNBLOCKED in robots.txt so Googlebot can fetch the URL and read this
     ## header (a robots.txt Disallow would keep them stuck in
     ## "Indexed, though blocked by robots.txt").
-    RewriteCond %{QUERY_STRING} (^|&)(p|limit|dir|order|mode|cat|price|manufacturer|level|progromming_language|SID|___store|___from_store)=[^&]* [NC]
+    RewriteCond %{QUERY_STRING} (^|&)(p|limit|dir|order|mode|cat|price|manufacturer|level|progromming_language|software|SID|___store|___from_store)=[^&]* [NC]
     RewriteRule ^ - [E=noindex_follow_url:1]
 
     RewriteCond %{REQUEST_URI} !^/(media|skin|js)/
