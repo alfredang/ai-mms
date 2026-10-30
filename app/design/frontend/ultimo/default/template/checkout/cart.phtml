@@ -268,11 +268,12 @@
             	<div class="block_cart_below_table grid-full alpha omega"><?php echo $tmpHtml; ?></div>
             <?php endif; ?>
             
-			<div class="grid12-6 mobile-grid-half">
-            	<?php if (!$this->getIsVirtual()): echo $this->getChildHtml('shipping'); endif; ?>
-			</div>
-			<div class="grid12-6 mobile-grid-half">
+			<?php /* Courses never ship: no shipping-estimate column, so the coupon box sits flush left. */ ?>
+			<div class="grid-full alpha omega cart-coupon">
             	<?php echo $this->getChildHtml('coupon') ?>
+            	<?php if (Mage::app()->getStore()->getCode() === 'singapore'): /* SG-only: funding wording */ ?>
+            	<p class="cart-coupon__note"><?php echo $this->__('Funded courses are not eligible for discount.') ?></p>
+            	<?php endif; ?>
             </div>
             <div class="grid-full alpha omega">
                 <?php echo $this->getChildHtml('crosssell') ?>
