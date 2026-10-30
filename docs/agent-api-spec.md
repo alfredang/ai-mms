@@ -184,7 +184,7 @@ and re-indexes. (Named `api_classes`, not `api_schedule`, to avoid confusion wit
 WSQ feed at `GET /courses/api_schedule`.)
 
 `op` is one of: `add_class`, `update_class`, `remove_class`, `assign_trainer`, `add_date`,
-`update_date`, `remove_date`.
+`update_date`, `remove_date`, and on the **Malaysia site only** `add_learner`, `remove_learner`.
 
 ## Course and date are required, and must be exact
 
@@ -267,6 +267,11 @@ C-course has no runs and must still route to the class ops, or it would pick up 
     misread.
   Labels are only written when a class is created or its dates change; nothing relabels existing
   classes in bulk, and a template switch does not rewrite any label.
+  - **The class kind follows the start time.** When `start_time` is given (or, on `update_class`, the
+    class's current time), only template classes of the same kind are matched: an **Evening** class
+    for a start of 17:00 or later, a daytime class otherwise. (Before 29 Oct 2026 the match used the
+    dates only, so a daytime class on a day the template also runs evenings could be labelled
+    "… Evening".) Without a time, behaviour is unchanged.
 - **Class identity = (course code, start date).** You never create two classes for the same
   course + start date; `add_class` on an existing date returns `409 conflict`.
 - **`class_id`** is `C######`, assigned by the system. For `add_class` the exact id is assigned
@@ -350,6 +355,30 @@ you the count first). v1 does not notify enrolled learners.
   cannot disagree about whether an account exists.
 - If the assigned trainer's login is disabled, `warnings` says so; the assignment still applies.
 
+### `op: add_learner` / `op: remove_learner` (Malaysia site only)
+Put a learner on, or take them off, ONE class's roster - the same effect as the admin class page's
+Add / Remove Learner. Same C-prefix guard as the other class ops. Any other site -> `404 not_available`.
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `class_id` | string | yes | `C######` |
+| `learner_email` | string | yes | The learner's email (their login) |
+| `learner_name` | string | add_learner, when the email has no account | Ignored for an existing account - the account's own name is used, so roster and account never disagree |
+
+- `add_learner` finds the learner's account by email or creates it (**no email is sent** to the learner; the
+  learner dashboard account follows automatically, as for every new customer), then adds the roster row.
+  Already on the class -> `409 conflict`. New email without `learner_name` -> `400`.
+- `remove_learner` removes the roster row for THIS class only; the account, bookings and other classes are
+  untouched. Not on the class -> `404 not_found`.
+- **Both are refused** with `422 class_closed` once the class's final attendance is confirmed or certificates are
+  issued (Malaysia certificate rule: after-class changes are logged and reconfirmed; certificates are never resent).
+- Commit returns `learners_enrolled` (the class's roster size afterwards).
+
+```json
+{ "op":"add_learner", "dry_run":true, "actor":{...}, "class_id":"C000007",
+  "learner_email":"learner@company.com.my", "learner_name":"Nur Aisyah Binti Ahmad" }
+```
+
 ### Verifying an assignment - `GET /courses/api_trainer_classes` (read-only)
 
 Not part of the write protocol: a plain GET with the same `X-API-Key`, no `actor`, no token.
@@ -361,13 +390,15 @@ Use it to find the `class_id` for a course + date and to confirm a trainer befor
 | `trainer_email` | one of the two | Alone: that trainer's upcoming assigned classes. With `course_sku`: adds `assigned_to_trainer` per class + `trainer.in_course_trainer_pool` |
 | `course_sku` | one of the two | `404 not_found` if unknown |
 | `date` | no | `YYYY-MM-DD`; classes running on that date (any day of a multi-day class). Default: classes ending today or later |
+| `include_learners` | no | `1` adds `learners[]` (`name`, `email`) to each class - the roster. **Agent key only**: with the trainer-reminders key -> `403 forbidden` |
 
 Response: `trainer` (`mms_account`, `user_id`, `name`, `login_active`, `has_trainer_role`,
 `in_course_trainer_pool`) or `null`; `classes[]` with `class_id`, `course_sku`, `course_title`,
 dates/times, `mode`, `virtual_link`, `google_calendar_event`, `learners_enrolled`, `trainer`
 (`name`, `email`, `source` = `account`|`eav`) or `null`, `latest_invitation`,
-`assigned_to_trainer`, `next_step` (set when unassigned). Errors: `400 validation_error` (neither
-param / bad date), `401`, `404`. `Cache-Control: no-store`.
+`assigned_to_trainer`, `next_step` (set when unassigned), and `learners[]` when asked. Errors:
+`400 validation_error` (neither param / bad date), `401`, `403` (include_learners with the trainer key),
+`404`. `Cache-Control: no-store`.
 
 `google_calendar_event: true` means the class already has a Google event; the calendar sync only
 creates events, so a trainer assigned afterwards is **not** added to that invite - tell ops.

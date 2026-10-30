@@ -265,6 +265,11 @@ C-course has no classes yet, and it still belongs to the class ops.
 Fields: `course_sku` (req), `start_date` (req), `end_date?` (defaults to start), `start_time?`,
 `end_time?`, `mode?`, `venue?`, `vacancy?`, `virtual_link?`.
 
+**Send `start_time` whenever you know it.** Some days a course's template runs both a daytime class and
+an evening class; the start time picks which one (17:00 or later = the Evening class), so the label
+learners see says "Evening" only for an evening class. If the length you asked for doesn't fit that
+class, the preview corrects it and warns — relay the warning.
+
 **Use case — "Add a Python class on 15 Aug"**
 > User (Sylvia): "Add a class for C520 on 15 August, physical."
 1. Preview `add_class { course_sku:"C520", start_date:"2026-08-15", mode:"Physical Classroom" }`.
@@ -366,6 +371,34 @@ GET /courses/api_trainer_classes?course_sku=C817&date=2026-10-23&trainer_email=a
 
 `trainer_email` on its own lists that trainer's upcoming assigned classes. Without `date` you get
 every class ending today or later.
+
+---
+
+### op: add_learner / op: remove_learner — Malaysia site only
+
+Put a learner on a class, or take them off. On any other site you get `404 not_available`.
+
+```json
+{ "op":"add_learner", "dry_run":true, "actor":{...}, "class_id":"C000007",
+  "learner_email":"learner@company.com.my", "learner_name":"Nur Aisyah Binti Ahmad" }
+```
+```json
+{ "op":"remove_learner", "dry_run":true, "actor":{...}, "class_id":"C000007",
+  "learner_email":"learner@company.com.my" }
+```
+- `learner_name` is needed only when the email has no account yet. If they already have one, the
+  preview shows the name on their account and that name is used.
+- **No email goes to the learner** either way — the team informs learners (calendar invite).
+- Adding creates the learner's account if needed, so they can sign in at `/lmslogin` with their email
+  (OTP) and see the class in My Classes. Removing only takes them off **this** class; their account,
+  bookings and other classes are untouched.
+- See who is on a class: `GET /courses/api_trainer_classes?course_sku=…&date=…&include_learners=1`.
+
+**Edge cases**
+- `409 conflict` on add: already on the class — nothing to do.
+- `404 not_found` on remove: they are not on that class — check the class id / email with `include_learners`.
+- `422 class_closed`: the trainer has confirmed the final attendance or certificates are issued. Don't
+  retry — tell the team; after-class roster changes go through them.
 
 ---
 
@@ -647,12 +680,12 @@ never-scheduled course). Fields: `template` (req), `course_sku` (req).
 
 | Endpoint | Ops | One-liner |
 |---|---|---|
-| `POST /agent/api_classes` | **C- courses:** add_class, update_class, remove_class, assign_trainer<br>**TGS-/M- courses:** add_date, update_date, remove_date | One course's schedule. The course code picks the family — a date op on a C-course returns `use_class_ops`, a class op on a TGS-course returns `course_not_eligible`. Every WSQ change warns that the SkillsFuture run is still outstanding: relay it and stop. |
+| `POST /agent/api_classes` | **C- courses:** add_class, update_class, remove_class, assign_trainer (+ **Malaysia:** add_learner, remove_learner)<br>**TGS-/M- courses:** add_date, update_date, remove_date | One course's schedule. The course code picks the family — a date op on a C-course returns `use_class_ops`, a class op on a TGS-course returns `course_not_eligible`. Every WSQ change warns that the SkillsFuture run is still outstanding: relay it and stop. |
 | `POST /agent/api_course` | update | Whitelisted course fields (name/sku/GST blocked) |
 | `POST /agent/api_content` | update_copy, set_badges | Copy + funding chips (`set_cms_section` = 501) |
 | `POST /agent/api_ops` | reindex, flush_cache, enable, disable, regenerate_image | Ops + cover render (`run_class_formation` = 501) |
 | `POST /agent/api_template` | generate_and_apply, assign_course | Bulk schedule to ALL products on a template; or add one course to a template |
-| `GET /courses/api_trainer_classes` | (read-only) | Find a class by `course_sku` + `date`, or list a `trainer_email`'s assigned classes; check `assigned_to_trainer` before and after `assign_trainer` |
+| `GET /courses/api_trainer_classes` | (read-only) | Find a class by `course_sku` + `date`, or list a `trainer_email`'s assigned classes; check `assigned_to_trainer` before and after `assign_trainer`; `include_learners=1` lists each class's learners (agent key only) |
 
 Every one: `dry_run:true` to preview, relay `human_summary` + `warnings`, `dry_run:false` +
 `change_token` to commit.
