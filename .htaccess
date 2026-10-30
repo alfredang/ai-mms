@@ -414,13 +414,21 @@ RewriteRule ^(.*)$ https://www.tertiarycourses.%1/$1 [L,R=301]
     ## so GSC reported "Duplicate, Google chose different canonical than user".
     ## 301 storefront pages (course/category .html, blog posts) to the clean URL.
     ## Admin (/index.php/adminlogin/... links in lead emails), APIs and POSTs are untouched.
+    ## Redirect scheme: Apache sits behind the TLS-terminating proxy and sees plain
+    ## http, so a bare "/$1" target 301'd to http:// and then took a second hop
+    ## (proxy 307 -> https). Build absolute targets from the proxy's scheme.
+    RewriteRule ^ - [E=RD_SCHEME:http]
+    RewriteCond %{HTTP:X-Forwarded-Proto} =https [OR]
+    RewriteCond %{HTTPS} =on
+    RewriteRule ^ - [E=RD_SCHEME:https]
+
     RewriteCond %{REQUEST_METHOD} ^(GET|HEAD)$
-    RewriteRule ^index\.php/(blog/.+|[^/]+\.html)$ /$1 [R=301,L,NE]
+    RewriteRule ^index\.php/(blog/.+|[^/]+\.html)$ %{ENV:RD_SCHEME}://%{HTTP_HOST}/$1 [R=301,L,NE]
 
     ## SEO: an external link written as a relative path to an absolute URL
     ## (/https://www.tertiarycourses.com.sg/<page>) 404'd in GSC. 301 to the
     ## path on the SAME host (never cross-site); covers each partner domain.
-    RewriteRule ^https?:/+(?:www\.)?tertiarycourses\.com\.(?:sg|my|gh)/(.*)$ /$1 [R=301,L,NE]
+    RewriteRule ^https?:/+(?:www\.)?tertiarycourses\.com\.(?:sg|my|gh)/(.*)$ %{ENV:RD_SCHEME}://%{HTTP_HOST}/$1 [R=301,L,NE]
 
     RewriteRule ^directory/currency/switch(/|$) - [E=noindex_url:1]
     RewriteRule ^catalog/seo_sitemap(/|$) - [E=noindex_url:1]

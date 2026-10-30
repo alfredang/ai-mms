@@ -445,7 +445,19 @@ if ((!$_product || !$_product->getId()) && $_category && $_category->getId() && 
 		$fontWeight = ':' . $weight;
 	}
 ?>
+<?php
+	/* Mobile LCP: open connections early to the Google font hosts and the R2 image
+	   host (course covers + category banners) so they don't wait behind the
+	   render-blocking CSS/JS. Host comes from R2_PUBLIC_URL (same as the cover code). */
+	$_r2Host = '';
+	try { $_r2Host = (string) parse_url((string) Mage::helper('mmd_courseimage')->env('R2_PUBLIC_URL', ''), PHP_URL_HOST); } catch (Exception $e) {}
+?>
+<?php if ($_r2Host): ?>
+	<link rel="preconnect" href="https://<?php echo $this->escapeHtml($_r2Host) ?>" />
+<?php endif; ?>
 <?php if ($theme->getCfgDesign('font/primary_font_family_group') == 'google'): ?>
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 	<link href='//fonts.googleapis.com/css?family=<?php echo str_replace(' ', '+', $theme->getCfgDesign('font/primary_font_family')); 
 		echo $fontWeight; echo $charSubset; ?>' rel='stylesheet' type='text/css' />
 <?php endif;?><style>.gst_price { display:none;}.catalog-product-view .product-type-data .gst_price { display:inline-block;}
