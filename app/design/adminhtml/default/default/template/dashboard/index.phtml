@@ -12618,28 +12618,6 @@ $_apiCategories = array(
                 'exampleRequest' => "curl -X POST \"__BASE_URL__/agent/api_template\" -H \"X-API-Key: <key>\" -H \"Content-Type: application/json\" \\\n  -d '{ \"op\":\"generate_and_apply\", \"dry_run\":true, \"actor\":{\"id\":\"wa:+65...\",\"name\":\"Sylvia\"},\n        \"template\":\"WSQ B01\", \"start_date\":\"2027-01-01\", \"end_date\":\"2027-03-31\" }'",
                 'exampleResponse' => "{\n  \"success\": true, \"dry_run\": true, \"target\": \"(SG) WSQ-B01 ...\",\n  \"human_summary\": \"Add 6 new class date(s) to template ... and apply to ALL 27 course(s) ...\",\n  \"warnings\": [\"This applies to ALL 27 course(s) ...\", \"Append-only ...\"],\n  \"change_token\": \"sha256:...\"\n}\n// commit -> { applied:true, dates_added:6, already_present:0, products_applied:27 }",
             ),
-            array(
-                'method' => 'POST', 'path' => '/agent/api_claims', 'authKey' => 'wsq',
-                'title' => 'HRD Corp Claim Documents (Malaysia only): t3 / jd14 / zoom_report',
-                'description' => 'Editable Word files for one Malaysia class, behind expiring download links: T3 attendance list per training day per employer, JD14 joint declaration per employer, Zoom attendance report per employer per day. Writes nothing to the database. Any other site -> 404 not_available.',
-                'bodyFields' => array(
-                    array('name' => 'op', 'type' => 'string', 'required' => true, 'description' => 't3 | jd14 | zoom_report'),
-                    array('name' => 'class_id', 'type' => 'string', 'required' => true, 'description' => 'C######'),
-                    array('name' => 'employers', 'type' => 'object', 'required' => false, 'description' => '{ roster email: company } for company-sponsored learners added without a booking'),
-                    array('name' => 'employer', 'type' => 'string', 'required' => false, 'description' => 'Only this employer\'s documents'),
-                    array('name' => 'mode, venue, jd14', 'type' => 'various', 'required' => false, 'description' => 'jd14: mode virtual|physical (required); jd14 { employer: { employer_address, employer_code, approval_no, group_approved, group_claimed, fee_approved, fee_claimed } } - blanks stay blank'),
-                    array('name' => 'date, zoom_csv', 'type' => 'string', 'required' => false, 'description' => 'zoom_report: training day (YYYY-MM-DD) + the Zoom Participants CSV export as text'),
-                ),
-                'notes' => array(
-                    'Only HRD Corp-claimed trainees are listed: roster learners with a company-sponsored booking for the course (or given in employers). Others are left off as self-paying and named in warnings.',
-                    'Fills the partner\'s own Word forms (data/claims/: HRD Corp T3 + JD14 + their Zoom report), format and layout unchanged. 9 trainee rows per form; more -> extra copies (_part2...).',
-                    'T3: citizenship pre-filled "Malaysian"; NRIC, sex and signatures blank. Certified by Saeid Alizadeh, Director.',
-                    'Zoom report: matched by registered email only; times only from the export; minutes = first join to last leave minus lunch 12:30-13:30, rounded down.',
-                    'Commit returns documents[] { file, url, expires_at }. GET /agent/api_claims/download?t=... needs no key, expires after 7 days, is never cached; a redeploy clears the files - run the op again.',
-                ),
-                'exampleRequest' => "curl -X POST \"__BASE_URL__/agent/api_claims\" -H \"X-API-Key: <key>\" -H \"Content-Type: application/json\" \\\n  -d '{ \"op\":\"t3\", \"dry_run\":true, \"actor\":{\"id\":\"wa:+60...\",\"name\":\"Saeid\"}, \"class_id\":\"C000007\" }'",
-                'exampleResponse' => "{\n  \"success\": true, \"dry_run\": true, \"target\": \"C000007\",\n  \"human_summary\": \"Will prepare 1 T3 attendance list(s) for C000007 (...): one per training day per employer. ...\",\n  \"details\": { \"T3 27/10/2026 - ABC SDN. BHD.\": \"2 trainee(s)\" },\n  \"warnings\": [\"Left off as self-paying (...): ...\"],\n  \"change_token\": \"sha256:...\"\n}\n// commit -> { applied:true, documents:[ { file:\"T3_C000007_2026-10-27_ABC-SDN-BHD.docx\", url:\"__BASE_URL__/agent/api_claims/download/?t=...\", expires_at:\"...\" } ] }",
-            ),
         ),
     ),
     array(
