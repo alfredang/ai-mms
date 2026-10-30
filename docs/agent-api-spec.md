@@ -5,10 +5,9 @@ explains the domain (courses, classes, funding, invariants). This document is th
 contract**: how to authenticate, the preview->confirm->commit protocol every write follows, the
 request/response envelopes, and a detailed spec per endpoint.
 
-> Status: five endpoints below are **built and live** - `api_classes`, `api_course`,
+> Status: all five endpoints below are **built and live** - `api_classes`, `api_course`,
 > `api_content`, `api_ops`, `api_template`. A few sub-ops are intentionally not implemented and
 > say so explicitly (`api_content set_cms_section`, `api_ops run_class_formation`).
-> `api_claims` (HRD Corp claim documents, **Malaysia site only**) is new - see the last section.
 
 ---
 
@@ -618,86 +617,4 @@ POST /agent/api_template
 { "success":true, "dry_run":true, "op":"assign_course", "target":"C520",
   "human_summary":"Course '...' (C520) will be added to template '(SG) WSQ-B01 ...' and receive its 34 scheduled class date(s). ...",
   "change_token":"sha256:..." }
-```
-
----
-
-# Endpoint: `POST /agent/api_claims` - HRD Corp claim documents (Malaysia only)
-
-Prepares the HRD Corp SBL-KHAS claim documents for one **Malaysia** class as **editable Word
-files** behind download links. Writes nothing to the database (besides the audit row). On any
-other site every op returns `404 not_available`.
-
-The files are the partner's **own Word forms** (`app/code/local/MMD/AgentApi/data/claims/`: the
-standard HRD Corp T3 and JD14 forms and their Zoom attendance report), with **format and layout
-unchanged** - only the fields are filled in. The forms have **9 trainee rows**; a 10th trainee
-starts another copy of the form (`..._part2.docx`), as the form's own note asks.
-
-**Ops:** `t3`, `jd14`, `zoom_report`. Same preview -> confirm -> commit protocol as every write;
-the commit returns `documents[]` = `{ file, url, expires_at }`.
-
-**Who is listed (partner rule):** only **HRD Corp-claimed trainees** - learners on the class
-roster whose booking for this course is **company-sponsored** (employer = the booking's company
-name), plus any roster learner you give an employer in `employers`. Everyone else is treated as
-self-paying and left off; the preview names them in `warnings`. Documents are split **per
-employer**.
-
-| Common field | Type | Required | Notes |
-|---|---|---|---|
-| `class_id` | string | yes | `C######` |
-| `employers` | object | no | `{ "<roster email>": "<company name>" }` - sets/overrides the employer for learners added without a company booking. An email not on the roster -> `400`. |
-| `employer` | string | no | Only produce documents for this one employer. |
-
-## op: t3
-
-One **PSMB/SBL-KHAS/T3/01 attendance list per training day per employer** (per 9 trainees).
-Pre-filled: course title, date, trainee names (upper case), employer, citizenship "Malaysian".
-Blank: NRIC, sex, signatures (written by hand). Certified by Saeid Alizadeh, Director.
-
-## op: jd14
-
-One **PSMB/SBL-KHAS/JD/14 joint declaration per employer**.
-
-| Field | Type | Required | Notes |
-|---|---|---|---|
-| `mode` | string | yes | `virtual` (venue "Online Training via ZOOM") or `physical` (KL Gateway address) |
-| `venue` | string | no | Overrides the venue text |
-| `jd14` | object | no | `{ "<employer>": { employer_address, employer_code, approval_no, group_approved, group_claimed, fee_approved, fee_claimed } }`. Fees are RM amounts (fee approved and fee claimed are separate). Anything not given is **left blank** for the team; the preview lists what is blank. Unknown employer -> `400`. |
-
-## op: zoom_report
-
-One **Zoom attendance report per employer** for one training day (per 9 trainees), on the
-partner's report form (name, email, login, break out, break in, logout, minutes; provider +
-employer sign-off blocks).
-
-| Field | Type | Required | Notes |
-|---|---|---|---|
-| `date` | string | yes | `YYYY-MM-DD`, must be a training day of the class |
-| `zoom_csv` | string | yes | The Zoom **Participants** export (CSV text) for that day's meeting. The meeting-summary block above the participant header is skipped. |
-
-- Rows are matched to trainees **by registered email only** (learners must join Zoom with it).
-- Times come **only** from the export, never from attendance ticks. Login = first join, logout =
-  last leave, break out / break in are always `N/A` (partner rule),
-  **minutes = (last leave - first join) - overlap with lunch 12:30-13:30, rounded down**.
-- Warnings list: trainees not found in the export (left off), export participants who are not
-  claimed trainees (ignored), rows without an email, rows on another date.
-- No claimed trainee found in the export -> `422 no_matching_attendees`.
-
-**Errors:** `no_claimable_trainees` (422, nobody has a company booking and no `employers` given),
-`validation_error` (400), `not_available` (404, not the Malaysia site), `not_found` (404, class).
-
-**Download links:** `GET /agent/api_claims/download?t=<token>` - no API key needed, unguessable,
-**expire after 7 days**, never cached. A redeploy of the site clears them: just run the op again.
-
-```json
-{ "op":"jd14", "dry_run":true, "actor":{...}, "class_id":"C000007", "mode":"virtual",
-  "employers":{ "learner@company.com":"ABC SDN. BHD." },
-  "jd14":{ "ABC SDN. BHD.":{ "employer_code":"1270698W", "approval_no":"1270698W_26_0015",
-                             "fee_approved":"2200", "fee_claimed":"2200" } } }
-```
-```json
-{ "success":true, "applied":true, "op":"jd14", "target":"C000007", "audit_id":123, "reindexed":[],
-  "documents":[ { "file":"JD14_C000007_ABC-SDN-BHD.docx",
-                  "url":"https://www.tertiarycourses.com.my/agent/api_claims/download/?t=...",
-                  "expires_at":"2026-11-05T04:59:23Z" } ] }
 ```
