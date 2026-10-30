@@ -197,6 +197,7 @@ ai-mms/
 | **CustomOptions** | Enhanced product options with SKU upgrade policies; class-schedule templates (Manage Class Schedule) plus a read-only **Schedule Distribution** report comparing active courses vs schedules per duration series, with rebalancing advice. |
 | **Enhancedsalesgrid** | Admin sales-grid filters & rendering. |
 | **BankPayment** | Bank-transfer payment method. |
+| **RS_Sfec** | "SFEC (Only for company sponsored)" checkout funding option (clone of RS_Citrep; enabled on SG by migration 1874). |
 | **Branchscope** | Legacy per-country store-view switcher — superseded by the one-store-per-site franchise model; retained for backward compatibility. |
 | **Certificate / Attendance** | Certificates of achievement + e-attendance. |
 | **AccountSync** | Unified learner ↔ shadow admin accounts. |
