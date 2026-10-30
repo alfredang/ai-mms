@@ -5,9 +5,10 @@ explains the domain (courses, classes, funding, invariants). This document is th
 contract**: how to authenticate, the preview->confirm->commit protocol every write follows, the
 request/response envelopes, and a detailed spec per endpoint.
 
-> Status: all five endpoints below are **built and live** - `api_classes`, `api_course`,
+> Status: five endpoints below are **built and live** - `api_classes`, `api_course`,
 > `api_content`, `api_ops`, `api_template`. A few sub-ops are intentionally not implemented and
 > say so explicitly (`api_content set_cms_section`, `api_ops run_class_formation`).
+> `api_claims` (HRD Corp claim documents, **Malaysia site only**) is new - see the last section.
 
 ---
 
@@ -184,7 +185,7 @@ and re-indexes. (Named `api_classes`, not `api_schedule`, to avoid confusion wit
 WSQ feed at `GET /courses/api_schedule`.)
 
 `op` is one of: `add_class`, `update_class`, `remove_class`, `assign_trainer`, `add_date`,
-`update_date`, `remove_date`.
+`update_date`, `remove_date`, and on the **Malaysia site only** `add_learner`, `remove_learner`.
 
 ## Course and date are required, and must be exact
 
@@ -267,6 +268,11 @@ C-course has no runs and must still route to the class ops, or it would pick up 
     misread.
   Labels are only written when a class is created or its dates change; nothing relabels existing
   classes in bulk, and a template switch does not rewrite any label.
+  - **The class kind follows the start time.** When `start_time` is given (or, on `update_class`, the
+    class's current time), only template classes of the same kind are matched: an **Evening** class
+    for a start of 17:00 or later, a daytime class otherwise. (Before 29 Oct 2026 the match used the
+    dates only, so a daytime class on a day the template also runs evenings could be labelled
+    "… Evening".) Without a time, behaviour is unchanged.
 - **Class identity = (course code, start date).** You never create two classes for the same
   course + start date; `add_class` on an existing date returns `409 conflict`.
 - **`class_id`** is `C######`, assigned by the system. For `add_class` the exact id is assigned
@@ -350,6 +356,30 @@ you the count first). v1 does not notify enrolled learners.
   cannot disagree about whether an account exists.
 - If the assigned trainer's login is disabled, `warnings` says so; the assignment still applies.
 
+### `op: add_learner` / `op: remove_learner` (Malaysia site only)
+Put a learner on, or take them off, ONE class's roster - the same effect as the admin class page's
+Add / Remove Learner. Same C-prefix guard as the other class ops. Any other site -> `404 not_available`.
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `class_id` | string | yes | `C######` |
+| `learner_email` | string | yes | The learner's email (their login) |
+| `learner_name` | string | add_learner, when the email has no account | Ignored for an existing account - the account's own name is used, so roster and account never disagree |
+
+- `add_learner` finds the learner's account by email or creates it (**no email is sent** to the learner; the
+  learner dashboard account follows automatically, as for every new customer), then adds the roster row.
+  Already on the class -> `409 conflict`. New email without `learner_name` -> `400`.
+- `remove_learner` removes the roster row for THIS class only; the account, bookings and other classes are
+  untouched. Not on the class -> `404 not_found`.
+- **Both are refused** with `422 class_closed` once the class's final attendance is confirmed or certificates are
+  issued (Malaysia certificate rule: after-class changes are logged and reconfirmed; certificates are never resent).
+- Commit returns `learners_enrolled` (the class's roster size afterwards).
+
+```json
+{ "op":"add_learner", "dry_run":true, "actor":{...}, "class_id":"C000007",
+  "learner_email":"learner@company.com.my", "learner_name":"Nur Aisyah Binti Ahmad" }
+```
+
 ### Verifying an assignment - `GET /courses/api_trainer_classes` (read-only)
 
 Not part of the write protocol: a plain GET with the same `X-API-Key`, no `actor`, no token.
@@ -361,13 +391,15 @@ Use it to find the `class_id` for a course + date and to confirm a trainer befor
 | `trainer_email` | one of the two | Alone: that trainer's upcoming assigned classes. With `course_sku`: adds `assigned_to_trainer` per class + `trainer.in_course_trainer_pool` |
 | `course_sku` | one of the two | `404 not_found` if unknown |
 | `date` | no | `YYYY-MM-DD`; classes running on that date (any day of a multi-day class). Default: classes ending today or later |
+| `include_learners` | no | `1` adds `learners[]` (`name`, `email`) to each class - the roster. **Agent key only**: with the trainer-reminders key -> `403 forbidden` |
 
 Response: `trainer` (`mms_account`, `user_id`, `name`, `login_active`, `has_trainer_role`,
 `in_course_trainer_pool`) or `null`; `classes[]` with `class_id`, `course_sku`, `course_title`,
 dates/times, `mode`, `virtual_link`, `google_calendar_event`, `learners_enrolled`, `trainer`
 (`name`, `email`, `source` = `account`|`eav`) or `null`, `latest_invitation`,
-`assigned_to_trainer`, `next_step` (set when unassigned). Errors: `400 validation_error` (neither
-param / bad date), `401`, `404`. `Cache-Control: no-store`.
+`assigned_to_trainer`, `next_step` (set when unassigned), and `learners[]` when asked. Errors:
+`400 validation_error` (neither param / bad date), `401`, `403` (include_learners with the trainer key),
+`404`. `Cache-Control: no-store`.
 
 `google_calendar_event: true` means the class already has a Google event; the calendar sync only
 creates events, so a trainer assigned afterwards is **not** added to that invite - tell ops.
@@ -581,4 +613,86 @@ POST /agent/api_template
 { "success":true, "dry_run":true, "op":"assign_course", "target":"C520",
   "human_summary":"Course '...' (C520) will be added to template '(SG) WSQ-B01 ...' and receive its 34 scheduled class date(s). ...",
   "change_token":"sha256:..." }
+```
+
+---
+
+# Endpoint: `POST /agent/api_claims` - HRD Corp claim documents (Malaysia only)
+
+Prepares the HRD Corp SBL-KHAS claim documents for one **Malaysia** class as **editable Word
+files** behind download links. Writes nothing to the database (besides the audit row). On any
+other site every op returns `404 not_available`.
+
+The files are the partner's **own Word forms** (`app/code/local/MMD/AgentApi/data/claims/`: the
+standard HRD Corp T3 and JD14 forms and their Zoom attendance report), with **format and layout
+unchanged** - only the fields are filled in. The forms have **9 trainee rows**; a 10th trainee
+starts another copy of the form (`..._part2.docx`), as the form's own note asks.
+
+**Ops:** `t3`, `jd14`, `zoom_report`. Same preview -> confirm -> commit protocol as every write;
+the commit returns `documents[]` = `{ file, url, expires_at }`.
+
+**Who is listed (partner rule):** only **HRD Corp-claimed trainees** - learners on the class
+roster whose booking for this course is **company-sponsored** (employer = the booking's company
+name), plus any roster learner you give an employer in `employers`. Everyone else is treated as
+self-paying and left off; the preview names them in `warnings`. Documents are split **per
+employer**.
+
+| Common field | Type | Required | Notes |
+|---|---|---|---|
+| `class_id` | string | yes | `C######` |
+| `employers` | object | no | `{ "<roster email>": "<company name>" }` - sets/overrides the employer for learners added without a company booking. An email not on the roster -> `400`. |
+| `employer` | string | no | Only produce documents for this one employer. |
+
+## op: t3
+
+One **PSMB/SBL-KHAS/T3/01 attendance list per training day per employer** (per 9 trainees).
+Pre-filled: course title, date, trainee names (upper case), employer, citizenship "Malaysian".
+Blank: NRIC, sex, signatures (written by hand). Certified by Saeid Alizadeh, Director.
+
+## op: jd14
+
+One **PSMB/SBL-KHAS/JD/14 joint declaration per employer**.
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `mode` | string | yes | `virtual` (venue "Online Training via ZOOM") or `physical` (KL Gateway address) |
+| `venue` | string | no | Overrides the venue text |
+| `jd14` | object | no | `{ "<employer>": { employer_address, employer_code, approval_no, group_approved, group_claimed, fee_approved, fee_claimed } }`. Fees are RM amounts (fee approved and fee claimed are separate). Anything not given is **left blank** for the team; the preview lists what is blank. Unknown employer -> `400`. |
+
+## op: zoom_report
+
+One **Zoom attendance report per employer** for one training day (per 9 trainees), on the
+partner's report form (name, email, login, break out, break in, logout, minutes; provider +
+employer sign-off blocks).
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `date` | string | yes | `YYYY-MM-DD`, must be a training day of the class |
+| `zoom_csv` | string | yes | The Zoom **Participants** export (CSV text) for that day's meeting. The meeting-summary block above the participant header is skipped. |
+
+- Rows are matched to trainees **by registered email only** (learners must join Zoom with it).
+- Times come **only** from the export, never from attendance ticks. Login = first join, logout =
+  last leave, break out / break in are always `N/A` (partner rule),
+  **minutes = (last leave - first join) - overlap with lunch 12:30-13:30, rounded down**.
+- Warnings list: trainees not found in the export (left off), export participants who are not
+  claimed trainees (ignored), rows without an email, rows on another date.
+- No claimed trainee found in the export -> `422 no_matching_attendees`.
+
+**Errors:** `no_claimable_trainees` (422, nobody has a company booking and no `employers` given),
+`validation_error` (400), `not_available` (404, not the Malaysia site), `not_found` (404, class).
+
+**Download links:** `GET /agent/api_claims/download?t=<token>` - no API key needed, unguessable,
+**expire after 7 days**, never cached. A redeploy of the site clears them: just run the op again.
+
+```json
+{ "op":"jd14", "dry_run":true, "actor":{...}, "class_id":"C000007", "mode":"virtual",
+  "employers":{ "learner@company.com":"ABC SDN. BHD." },
+  "jd14":{ "ABC SDN. BHD.":{ "employer_code":"1270698W", "approval_no":"1270698W_26_0015",
+                             "fee_approved":"2200", "fee_claimed":"2200" } } }
+```
+```json
+{ "success":true, "applied":true, "op":"jd14", "target":"C000007", "audit_id":123, "reindexed":[],
+  "documents":[ { "file":"JD14_C000007_ABC-SDN-BHD.docx",
+                  "url":"https://www.tertiarycourses.com.my/agent/api_claims/download/?t=...",
+                  "expires_at":"2026-11-05T04:59:23Z" } ] }
 ```

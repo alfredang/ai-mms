@@ -265,6 +265,11 @@ C-course has no classes yet, and it still belongs to the class ops.
 Fields: `course_sku` (req), `start_date` (req), `end_date?` (defaults to start), `start_time?`,
 `end_time?`, `mode?`, `venue?`, `vacancy?`, `virtual_link?`.
 
+**Send `start_time` whenever you know it.** Some days a course's template runs both a daytime class and
+an evening class; the start time picks which one (17:00 or later = the Evening class), so the label
+learners see says "Evening" only for an evening class. If the length you asked for doesn't fit that
+class, the preview corrects it and warns — relay the warning.
+
 **Use case — "Add a Python class on 15 Aug"**
 > User (Sylvia): "Add a class for C520 on 15 August, physical."
 1. Preview `add_class { course_sku:"C520", start_date:"2026-08-15", mode:"Physical Classroom" }`.
@@ -366,6 +371,34 @@ GET /courses/api_trainer_classes?course_sku=C817&date=2026-10-23&trainer_email=a
 
 `trainer_email` on its own lists that trainer's upcoming assigned classes. Without `date` you get
 every class ending today or later.
+
+---
+
+### op: add_learner / op: remove_learner — Malaysia site only
+
+Put a learner on a class, or take them off. On any other site you get `404 not_available`.
+
+```json
+{ "op":"add_learner", "dry_run":true, "actor":{...}, "class_id":"C000007",
+  "learner_email":"learner@company.com.my", "learner_name":"Nur Aisyah Binti Ahmad" }
+```
+```json
+{ "op":"remove_learner", "dry_run":true, "actor":{...}, "class_id":"C000007",
+  "learner_email":"learner@company.com.my" }
+```
+- `learner_name` is needed only when the email has no account yet. If they already have one, the
+  preview shows the name on their account and that name is used.
+- **No email goes to the learner** either way — the team informs learners (calendar invite).
+- Adding creates the learner's account if needed, so they can sign in at `/lmslogin` with their email
+  (OTP) and see the class in My Classes. Removing only takes them off **this** class; their account,
+  bookings and other classes are untouched.
+- See who is on a class: `GET /courses/api_trainer_classes?course_sku=…&date=…&include_learners=1`.
+
+**Edge cases**
+- `409 conflict` on add: already on the class — nothing to do.
+- `404 not_found` on remove: they are not on that class — check the class id / email with `include_learners`.
+- `422 class_closed`: the trainer has confirmed the final attendance or certificates are issued. Don't
+  retry — tell the team; after-class roster changes go through them.
 
 ---
 
@@ -587,6 +620,77 @@ never-scheduled course). Fields: `template` (req), `course_sku` (req).
 
 ---
 
+## 5.6 `POST /agent/api_claims` — HRD Corp claim documents (Malaysia only)
+
+Prepares the documents the Malaysia team sends to employers and HRD Corp after a class, as
+**editable Word files** behind download links. Nothing on the website changes. On any site other
+than Malaysia every op returns `404 not_available`.
+
+The files are the team's **own standard forms** (HRD Corp T3 and JD14, and their Zoom report) with
+the format and layout unchanged — only the fields are filled in. Each form has **9 trainee rows**;
+with more trainees you get extra copies named `..._part2`, `..._part3` — send them all.
+
+**Ops:** `t3` (attendance list per training day per employer), `jd14` (joint declaration per
+employer), `zoom_report` (online attendance report per employer for one day).
+
+**Who appears on the documents** — only HRD Corp-claimed trainees: learners on the class roster
+whose booking for this course is **company-sponsored**; the employer is the company name on that
+booking. Learners without a company booking are treated as self-paying and **left off** — the
+preview lists them in `warnings`. If the team tells you someone is company-sponsored but was added
+without a booking, pass `employers: { "<their roster email>": "<COMPANY NAME>" }`. Every document
+is split **per employer**.
+
+### op: t3
+```json
+{ "op":"t3", "dry_run":true, "actor":{...}, "class_id":"C000007" }
+```
+- One file per training day per employer. Pre-filled: course, date, names, employer, citizenship
+  "Malaysian". **Blank on purpose:** NRIC, sex, signatures — trainees write them by hand at a
+  physical class, and the team gets IC details from HRD Corp for online classes. Never ask
+  learners for IC numbers.
+
+### op: jd14
+```json
+{ "op":"jd14", "dry_run":true, "actor":{...}, "class_id":"C000007", "mode":"virtual",
+  "jd14":{ "ABC SDN. BHD.":{ "employer_code":"1270698W", "approval_no":"1270698W_26_0015",
+                             "group_approved":"", "fee_approved":"2200", "fee_claimed":"2200" } } }
+```
+- `mode` is required: `virtual` (Zoom class — the calendar event title has "[VIRTUAL]") or
+  `physical` (KL Gateway).
+- `jd14` is optional, keyed by the employer name **exactly as the preview shows it**. Only fill
+  in what the team actually gave you — **never guess an employer code, approval number or fee**.
+  Anything missing stays blank and the preview says which fields; tell the team they must fill
+  those in before the employer signs. Fee approved and fee claimed are separate (they can differ).
+
+### op: zoom_report
+```json
+{ "op":"zoom_report", "dry_run":true, "actor":{...}, "class_id":"C000007",
+  "date":"2026-10-27", "zoom_csv":"<the Zoom Participants CSV export, as text>" }
+```
+- `zoom_csv` is the **Participants** export the team downloads from Zoom after each training day
+  (Reports → Usage → the meeting → Participants → Export). One call per training day.
+- Trainees are matched **by their registered email** — learners must join Zoom with it. The
+  times come only from the export; the report is never made up from attendance ticks.
+- Minutes = first login to last logout, minus lunch 12:30–1:30, rounded down. Break Out and
+  Break In are always "N/A" (the team's rule), even if a learner dropped out and rejoined.
+
+### Relaying the result
+Relay the `human_summary`, the `details` (one line per document) and **every** `warning` out
+loud — especially who was left off and which JD14 fields are blank. After commit, send the team
+each `documents[].file` with its `url`, and say the links expire after **7 days** (and stop
+working after a site redeploy — then just prepare them again).
+
+**Edge cases**
+- `no_claimable_trainees` (422): nobody on the roster has a company booking. Ask the team which
+  learners are company-sponsored and by which company, then retry with `employers`.
+- `no_matching_attendees` (422): no claimed trainee's email is in the Zoom export — check it is
+  the right meeting/day, and that learners used their registered email.
+- `date … is not a training day` (400): use one of the class's dates listed in the message.
+- The documents are drafts for the team: the trainer/team still checks them, the employer signs
+  and stamps, and Saeid signs for the training provider. You never submit anything to HRD Corp.
+
+---
+
 # 6. Recipes (multi-step scenarios)
 
 **A. Add a class and put a trainer on it**
@@ -621,6 +725,17 @@ never-scheduled course). Fields: `template` (req), `course_sku` (req).
 - **One-off** → `api_classes add_class { course_sku, start_date, start_time, end_time, mode }`
   (bootstraps the course; durable; not on any template).
 
+**F. Prepare the HRD Corp claim documents after a Malaysia class**
+1. `api_claims t3 { class_id }` — preview; relay who is listed per employer and who was left off.
+   If someone is missing, get their company from the team and retry with `employers`. Commit.
+2. Online class: for **each** training day, ask the team for that day's Zoom Participants export,
+   then `api_claims zoom_report { class_id, date, zoom_csv }` → relay warnings → commit.
+3. `api_claims jd14 { class_id, mode, jd14:{...} }` with whatever employer code / approval no. /
+   fees the team gave you → relay the blank fields → commit.
+4. Send the team all download links (valid 7 days) and remind them: T3 is signed by trainees each
+   day (physical classes), the employer certifies the JD14 and the Zoom report, Saeid signs for
+   the training provider.
+
 ---
 
 # 7. Domain reminders (so you reason correctly)
@@ -647,12 +762,13 @@ never-scheduled course). Fields: `template` (req), `course_sku` (req).
 
 | Endpoint | Ops | One-liner |
 |---|---|---|
-| `POST /agent/api_classes` | **C- courses:** add_class, update_class, remove_class, assign_trainer<br>**TGS-/M- courses:** add_date, update_date, remove_date | One course's schedule. The course code picks the family — a date op on a C-course returns `use_class_ops`, a class op on a TGS-course returns `course_not_eligible`. Every WSQ change warns that the SkillsFuture run is still outstanding: relay it and stop. |
+| `POST /agent/api_classes` | **C- courses:** add_class, update_class, remove_class, assign_trainer (+ **Malaysia:** add_learner, remove_learner)<br>**TGS-/M- courses:** add_date, update_date, remove_date | One course's schedule. The course code picks the family — a date op on a C-course returns `use_class_ops`, a class op on a TGS-course returns `course_not_eligible`. Every WSQ change warns that the SkillsFuture run is still outstanding: relay it and stop. |
 | `POST /agent/api_course` | update | Whitelisted course fields (name/sku/GST blocked) |
 | `POST /agent/api_content` | update_copy, set_badges | Copy + funding chips (`set_cms_section` = 501) |
 | `POST /agent/api_ops` | reindex, flush_cache, enable, disable, regenerate_image | Ops + cover render (`run_class_formation` = 501) |
 | `POST /agent/api_template` | generate_and_apply, assign_course | Bulk schedule to ALL products on a template; or add one course to a template |
-| `GET /courses/api_trainer_classes` | (read-only) | Find a class by `course_sku` + `date`, or list a `trainer_email`'s assigned classes; check `assigned_to_trainer` before and after `assign_trainer` |
+| `POST /agent/api_claims` | t3, jd14, zoom_report | **Malaysia only.** HRD Corp claim documents for a class as editable Word files (download links, 7 days). Only company-sponsored trainees, split per employer |
+| `GET /courses/api_trainer_classes` | (read-only) | Find a class by `course_sku` + `date`, or list a `trainer_email`'s assigned classes; check `assigned_to_trainer` before and after `assign_trainer`; `include_learners=1` lists each class's learners (agent key only) |
 
 Every one: `dry_run:true` to preview, relay `human_summary` + `warnings`, `dry_run:false` +
 `change_token` to commit.
