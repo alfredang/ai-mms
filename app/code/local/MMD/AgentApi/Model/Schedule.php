@@ -157,6 +157,14 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
         if ($bootstrap) {
             $details['Class times'] = $startTime . ' - ' . $endTime . ' (being set up now)';
         }
+        if ($startTime !== '') {
+            $details['This class'] = $startTime . ($endTime !== '' ? ' - ' . $endTime : '')
+                                     . ($this->_isEveningTime($startTime) ? ' (evening)' : ' (daytime)');
+        }
+        if (!$bootstrap && stripos((string) $label, 'Evening') !== false && !$this->_eveningTimeTitles($product->getId())) {
+            $warnings[] = 'This course has no evening class time yet. Confirming also adds one to the course page: "'
+                . $this->_eveningTimeLabel($startTime, $endTime) . '".';
+        }
         $details['Trainer']  = 'not set - assign separately once the class exists';
         $details['Class id'] = 'assigned when you confirm';
 
@@ -189,6 +197,9 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
         //    bookable. One-off + admin-managed; not tied to any template.
         if (!empty($p['bootstrap'])) {
             $this->_bootstrapScheduleOptions($p['product_id'], $p['start_time'], $p['end_time']);
+        } elseif (stripos($p['label'], 'Evening') !== false) {
+            // An evening date needs an evening Course Time to link to (most courses only have a daytime one).
+            $this->_ensureEveningTime($p['product_id'], $p['start_time'], $p['end_time']);
         }
 
         // 1. Add the learner-facing Course Date option value (bookable) via direct
@@ -360,7 +371,8 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
             $newStart = isset($p['fields']['course_start_date']) ? $p['fields']['course_start_date'] : $p['old_start'];
             $newEnd   = isset($p['fields']['course_end_date'])   ? $p['fields']['course_end_date']   : $p['old_end'];
             $optionId = $this->_courseDateOptionId($p['product_id']);
-            $synced   = $optionId ? $this->_updateCourseDateTitleSql($optionId, $p['old_start'], $p['old_end'], $this->_shapedDateLabel($p['product_id'], $newStart, $newEnd)) : false;
+            $time     = (string) $write->fetchOne('SELECT course_start_time FROM ' . $table . ' WHERE run_id = ?', array($p['run_id']));
+            $synced   = $optionId ? $this->_updateCourseDateTitleSql($optionId, $p['old_start'], $p['old_end'], $this->_shapedDateLabel($p['product_id'], $newStart, $newEnd, $time)) : false;
             if ($synced) { $this->_resortCourseDateValues($optionId); $this->_touchProduct($p['product_id']); }
             $reindexed[] = $synced ? 'option_value' : 'run_only';
         }
@@ -1357,11 +1369,13 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
         $tv  = $resource->getTableName('catalog/product_option_type_value');
         $opt = $resource->getTableName('catalog/product_option');
         $ot  = $resource->getTableName('catalog/product_option_title');
+        $tt  = $resource->getTableName('catalog/product_option_type_title');
         $rows = $read->fetchAll(
-            "SELECT tv.in_group_id, tv.option_type_id
+            "SELECT tv.in_group_id, tv.option_type_id, tt.title
                FROM `{$tv}` tv
                JOIN `{$opt}` o ON o.option_id = tv.option_id
                JOIN `{$ot}` ot ON ot.option_id = o.option_id AND ot.store_id = 0
+               LEFT JOIN `{$tt}` tt ON tt.option_type_id = tv.option_type_id AND tt.store_id = 0
               WHERE o.product_id = ? AND ot.title = 'Course Time'
               ORDER BY tv.sort_order ASC", array((int) $productId));
         if (!$rows) {
@@ -1370,8 +1384,17 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
         $pick = function ($r) {
             return (string) (($r['in_group_id'] !== null && $r['in_group_id'] !== '') ? $r['in_group_id'] : $r['option_type_id']);
         };
-        if (stripos($label, 'Evening') !== false && count($rows) >= 2) {
-            return $pick($rows[count($rows) - 1]);
+        if (stripos($label, 'Evening') !== false) {
+            // The value that IS an evening time, by its title; else the last one (the template Apply's pick).
+            $evening = $this->_eveningTimeTitles($productId);
+            foreach ($rows as $r) {
+                if (in_array(trim((string) $r['title']), $evening, true)) {
+                    return $pick($r);
+                }
+            }
+            if (count($rows) >= 2) {
+                return $pick($rows[count($rows) - 1]);
+            }
         }
         return $pick($rows[0]);
     }
@@ -2065,20 +2088,111 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
     /** True when a template label is the same kind of class as the requested start time (no time = any). */
     protected function _labelFitsTime($label, $startTime)
     {
-        // Parse the time ("9:30", "09:30:00", "5:30 pm") - a plain string compare would make "9:30" an evening.
-        $startTime = trim((string) $startTime);
-        $ts = $startTime === '' ? false : strtotime('2000-01-01 ' . $startTime);
-        if ($ts === false) {
-            return true;
+        $evening = $this->_isEveningTime($startTime);
+        return $evening === null ? true : (stripos($label, 'Evening') !== false) === $evening;
+    }
+
+    /**
+     * true = evening (starts 17:00 or later), false = daytime, null = no/unreadable time. Parses "9:30", "09:30:00",
+     * "5:30 pm" - a plain string compare would make "9:30" an evening.
+     */
+    protected function _isEveningTime($time)
+    {
+        $time = trim((string) $time);
+        $ts = $time === '' ? false : strtotime('2000-01-01 ' . $time);
+        return $ts === false ? null : date('H:i', $ts) >= '17:00';
+    }
+
+    /**
+     * A one-off evening date gets the same "Evening" label as template evening dates, e.g. "9/10 Dec 2026 Evening
+     * (Wed/Thu)" - on Malaysia "... (Wed/Thu, 2 evenings)". "Evening" in the label is what links the date to the
+     * course's evening Course Time and what learners read.
+     */
+    protected function _withEvening($label, $startTime)
+    {
+        if (!$this->_isEveningTime($startTime) || stripos($label, 'Evening') !== false || ($p = strrpos($label, ' (')) === false) {
+            return $label;
         }
-        return (stripos($label, 'Evening') !== false) === (date('H:i', $ts) >= '17:00');
+        $days = substr($label, $p + 2, -1);
+        if ($this->_isMalaysia() && strpos($days, '/') !== false) {
+            $days .= ', ' . (substr_count($days, '/') + 1) . ' evenings';
+        }
+        return substr($label, 0, $p) . ' Evening (' . $days . ')';
+    }
+
+    /** Titles of the course's Course Time values that are evening times. */
+    protected function _eveningTimeTitles($productId)
+    {
+        $out = array();
+        foreach (array_filter(array_map('trim', explode(', ', $this->_courseTimes($productId)))) as $t) {
+            if (stripos($t, 'evening') !== false || $this->_isEveningTime(preg_split('/\s*[-–]\s*/u', $t)[0])) {
+                $out[] = $t;
+            }
+        }
+        return $out;
+    }
+
+    /** Course Time title for a new evening time, in the site's own style. */
+    protected function _eveningTimeLabel($start, $end)
+    {
+        $f = function ($t, $sep) { $ts = strtotime('2000-01-01 ' . trim((string) $t)); return $ts ? date('g:i' . $sep . 'a', $ts) : trim((string) $t); };
+        return $this->_isMalaysia()
+            ? 'Evening Class — ' . $f($start, ' ') . '–' . $f($end, ' ')
+            : $f($start, '') . ' - ' . $f($end, '');
+    }
+
+    /**
+     * Give the course an evening Course Time value if it has none, by copying its first (daytime) time value - so
+     * every per-value setting (e.g. the participants quantity) carries over - with a new title and in_group_id.
+     */
+    protected function _ensureEveningTime($productId, $startTime, $endTime)
+    {
+        if ($this->_eveningTimeTitles($productId)) {
+            return false;
+        }
+        $resource = Mage::getSingleton('core/resource');
+        $write = $resource->getConnection('core_write');
+        $tv  = $resource->getTableName('catalog/product_option_type_value');
+        $tt  = $resource->getTableName('catalog/product_option_type_title');
+        $tp  = $resource->getTableName('catalog/product_option_type_price');
+        $opt = $resource->getTableName('catalog/product_option');
+        $ot  = $resource->getTableName('catalog/product_option_title');
+        $first = $write->fetchRow(
+            "SELECT tv.* FROM `{$tv}` tv JOIN `{$opt}` o ON o.option_id = tv.option_id
+               JOIN `{$ot}` t ON t.option_id = o.option_id AND t.store_id = 0 AND t.title = ?
+              WHERE o.product_id = ? ORDER BY tv.sort_order ASC LIMIT 1",
+            array(self::COURSE_TIME_OPTION, (int) $productId));
+        if (!$first) {
+            return false;
+        }
+        $maxIgi = (int) $write->fetchOne(
+            "SELECT MAX(tv.in_group_id) FROM `{$tv}` tv JOIN `{$opt}` o ON o.option_id = tv.option_id WHERE o.product_id = ?",
+            array((int) $productId));
+        $maxSort = (int) $write->fetchOne("SELECT MAX(sort_order) FROM `{$tv}` WHERE option_id = ?", array((int) $first['option_id']));
+        $copy = $first;
+        unset($copy['option_type_id']);
+        $copy['sort_order']    = $maxSort + 1;
+        $copy['in_group_id']   = $maxIgi + 1;
+        $copy['default']       = 0;
+        $copy['admin_managed'] = 1;
+        $write->insert($tv, $copy);
+        $newId = (int) $write->lastInsertId();
+        $write->insert($tt, array('option_type_id' => $newId, 'store_id' => 0, 'title' => $this->_eveningTimeLabel($startTime, $endTime)));
+        $write->insert($tp, array('option_type_id' => $newId, 'store_id' => 0, 'price' => 0, 'price_type' => 'fixed'));
+        return true;
+    }
+
+    protected function _isMalaysia()
+    {
+        $store = Mage::app()->getDefaultStoreView();
+        return $store && $store->getCode() === 'malaysia';
     }
 
     protected function _shapedDateLabel($productId, $start, $end, $startTime = '')
     {
         // A single-day class cannot be misread — no template lookup needed.
         if ($start === $end) {
-            return $this->_dateLabel($start, $end);
+            return $this->_withEvening($this->_dateLabel($start, $end), $startTime);
         }
 
         $title = $this->_productScheduleTemplate($productId);
@@ -2102,7 +2216,7 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
         }
 
         if ($this->_fallbackLabelIsSafe($start, $end)) {
-            return $this->_dateLabel($start, $end);
+            return $this->_withEvening($this->_dateLabel($start, $end), $startTime);
         }
 
         $this->_err('ambiguous_date_shape',
