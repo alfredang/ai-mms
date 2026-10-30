@@ -164,6 +164,18 @@ mkdir -p /var/www/html/media/admin/profile
 chown -R www-data:www-data /var/www/html/media/admin
 chmod -R u+rwX,g+rwX /var/www/html/media/admin
 
+# Forgot-password / review CAPTCHA images are written per request to
+# media/captcha/<website>/. On the volume-mounted media/ the dir can be
+# missing or root-owned, so the PNG write fails silently and the <img> 404s.
+# The captcha cleanup cron job (cron.php runs as root below) creates a missing
+# <website> dir as root 0755, so pre-create each site's dir here as www-data
+# (SG = base, MY = malaysia, GH = ghana). Never fatal: set -e must not stop boot.
+for _cap in base malaysia ghana; do
+    mkdir -p "/var/www/html/media/captcha/$_cap" 2>/dev/null || true
+done
+chown -R www-data:www-data /var/www/html/media/captcha 2>/dev/null || true
+chmod -R u+rwX,g+rwX /var/www/html/media/captcha 2>/dev/null || true
+
 # Seed transactional-email logo into media/email/logo/default/.
 # The `media/` directory is Coolify-volume-mounted in production, so baked
 # COPY assets get shadowed — seed at runtime so the unified logo referenced
