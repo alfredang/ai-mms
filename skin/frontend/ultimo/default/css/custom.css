@@ -3495,3 +3495,65 @@ a.brochure-cta:focus-visible { outline: 2px solid #9a3412; outline-offset: 2px; 
 .category-products .product-image img[height] {
     height: auto;
 }
+
+/* ── Checkout: billing step layout (persistent/checkout/onepage/billing.phtml override) ──
+   Rows: First+Last / Tel+Email / Company / Address / City+Country+Zip. Grid instead of the
+   stock 275px floats; collapses to one column on phones. Scoped to #co-billing-form. */
+#co-billing-form li.billing-row,
+#co-billing-form li.billing-row > .customer-name {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 20px;
+}
+#co-billing-form li.billing-row > .customer-name { grid-column: 1 / -1; }
+#co-billing-form li.billing-row-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+#co-billing-form li.billing-row::before,
+#co-billing-form li.billing-row::after { display: none; }
+#co-billing-form li.billing-row .field {
+    float: none;
+    width: auto;
+    margin-right: 0;
+}
+#co-billing-form .input-box input.input-text,
+#co-billing-form .input-box select {
+    width: 100%;
+    max-width: none;
+    box-sizing: border-box;
+}
+#co-billing-form .billing-optional { font-weight: normal; color: #64748b; }
+
+/* Button row: "* Required Fields" on the left, Continue on the right — never touching. */
+#billing-buttons-container {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px 20px;
+}
+#billing-buttons-container::before,
+#billing-buttons-container::after { display: none; }
+#billing-buttons-container p.required { float: none; margin: 0; order: 0; }
+#billing-buttons-container button.button { float: none; margin: 0; order: 1; }
+#billing-buttons-container .please-wait { order: 2; flex-basis: 100%; text-align: right; }
+
+@media only screen and (max-width: 767px) {
+    #co-billing-form li.billing-row-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    #co-billing-form li.billing-row-3 .billing-city { grid-column: 1 / -1; }
+}
+@media only screen and (max-width: 600px) {
+    #co-billing-form li.billing-row,
+    #co-billing-form li.billing-row > .customer-name,
+    #co-billing-form li.billing-row-3 { grid-template-columns: minmax(0, 1fr); }
+    /* 16px stops iOS Safari zooming the page when a field is focused. */
+    #co-billing-form .input-box input.input-text,
+    #co-billing-form .input-box select {
+        font-size: 16px;
+        height: auto;
+        min-height: 44px;
+        line-height: 1.4;
+    }
+    #billing-buttons-container { flex-direction: column-reverse; align-items: stretch; }
+    #billing-buttons-container button.button { width: 100%; }
+    #billing-buttons-container p.required { text-align: center; }
+    #billing-buttons-container .please-wait { text-align: center; }
+}
