@@ -482,37 +482,8 @@ class MMD_Attendance_Adminhtml_AttendanceController extends Mage_Adminhtml_Contr
      */
     protected function _ensureCustomer($name, $email, $productId)
     {
-        try {
-            $websiteId = (int) Mage::helper('mmd_rolemanager')->getActiveWebsiteId();
-            if (!$websiteId) $websiteId = 1;
-
-            $customer = Mage::getModel('customer/customer')->setWebsiteId($websiteId);
-            $customer->loadByEmail($email);
-            if ($customer->getId()) {
-                $existingName = trim($customer->getFirstname() . ' ' . $customer->getLastname());
-                return array('id' => (int) $customer->getId(), 'name' => ($existingName !== '' ? $existingName : $name));
-            }
-
-            // Split name into first/last.
-            $parts = preg_split('/\s+/', trim($name), 2);
-            $first = $parts[0] !== '' ? $parts[0] : 'Learner';
-            $last  = isset($parts[1]) && $parts[1] !== '' ? $parts[1] : '-';
-
-            $store = Mage::app()->getWebsite($websiteId)->getDefaultStore();
-            $customer = Mage::getModel('customer/customer');
-            $customer->setWebsiteId($websiteId)
-                     ->setStoreId($store ? $store->getId() : 0)
-                     ->setFirstname($first)
-                     ->setLastname($last)
-                     ->setEmail($email)
-                     ->setForceConfirmed(true);
-            $customer->setPassword($customer->generatePassword(10));
-            $customer->save();
-            return array('id' => (int) $customer->getId(), 'name' => trim($first . ' ' . $last));
-        } catch (Exception $e) {
-            Mage::log('Attendance walk-in customer create failed: ' . $e->getMessage(), Zend_Log::WARN, 'attendance.log');
-            return array('id' => null, 'name' => $name);
-        }
+        $websiteId = (int) Mage::helper('mmd_rolemanager')->getActiveWebsiteId();
+        return Mage::helper('mmd_attendance')->ensureLearnerAccount($name, $email, $websiteId ?: 1);
     }
 
     protected function _json(array $data)

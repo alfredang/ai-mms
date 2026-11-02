@@ -178,7 +178,7 @@
 
 			<block type="core/template" name="footer.theme.scripts" template="page/html/footer_theme_scripts.phtml" before="-" />
 
-			<block type="core/template" name="mmd.whatsapp.float" template="mmd_whatsapp/float.phtml" />
+			<!-- WhatsApp float: homepage, course + category pages only (see mmd_whatsapp_float handle) -->
 
 		</reference>
 
@@ -2124,6 +2124,16 @@
         </reference>	
 		
     </checkout_onepage_success>-->
+
+	<!-- WhatsApp chat float — only on the homepage, course pages and category pages (never cart/checkout). -->
+	<mmd_whatsapp_float>
+		<reference name="before_body_end">
+			<block type="core/template" name="mmd.whatsapp.float" template="mmd_whatsapp/float.phtml" />
+		</reference>
+	</mmd_whatsapp_float>
+	<cms_index_index><update handle="mmd_whatsapp_float" /></cms_index_index>
+	<catalog_product_view><update handle="mmd_whatsapp_float" /></catalog_product_view>
+	<catalog_category_view><update handle="mmd_whatsapp_float" /></catalog_category_view>
 
 	<!-- Malaysia-only storefront CSS (Magento adds the STORE_<code> handle on every page). Loaded after custom.css. -->
 	<STORE_malaysia>

@@ -6,6 +6,8 @@
  *   op: update_class   { class_id, start_date?, end_date?, start_time?, end_time?, mode?, venue?, vacancy? }
  *   op: remove_class   { class_id, force? }
  *   op: assign_trainer { class_id, trainer }        (name or trainer_option_id)
+ *   op: add_learner    { class_id, learner_email, learner_name }   (Malaysia only; no email is sent)
+ *   op: remove_learner { class_id, learner_email }                 (Malaysia only)
  *
  * ...and, for courses that keep no class records, the date-only ops:
  *
@@ -54,6 +56,8 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
             case 'update_class':   return $this->_previewUpdate($body);
             case 'remove_class':   return $this->_previewRemove($body);
             case 'assign_trainer': return $this->_previewAssignTrainer($body);
+            case 'add_learner':    return $this->_previewAddLearner($body);
+            case 'remove_learner': return $this->_previewRemoveLearner($body);
             case 'add_date':       return $this->_previewAddDate($body);
             case 'update_date':    return $this->_previewUpdateDate($body);
             case 'remove_date':    return $this->_previewRemoveDate($body);
@@ -73,6 +77,8 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
             case 'update_class':   return $this->_commitUpdate($preview);
             case 'remove_class':   return $this->_commitRemove($preview);
             case 'assign_trainer': return $this->_commitAssignTrainer($preview);
+            case 'add_learner':    return $this->_commitAddLearner($preview);
+            case 'remove_learner': return $this->_commitRemoveLearner($preview);
             case 'add_date':       return $this->_commitAddDate($preview);
             case 'update_date':    return $this->_commitUpdateDate($preview);
             case 'remove_date':    return $this->_commitRemoveDate($preview);
@@ -127,7 +133,7 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
         // The template decides how many days the class runs, so resolve the shape
         // BEFORE the duplicate check - an amended end date changes what counts as
         // a clash.
-        $shape    = $this->_resolveShape($product->getId(), $startDate, $endDate);
+        $shape    = $this->_resolveShape($product->getId(), $startDate, $endDate, $startTime);
         $endDate  = $shape['end'];
         $label    = $shape['label'];
         $warnings = $shape['warnings'];
@@ -150,6 +156,14 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
         $details['Places']        = $details['Places'][$vacancy];
         if ($bootstrap) {
             $details['Class times'] = $startTime . ' - ' . $endTime . ' (being set up now)';
+        }
+        if ($startTime !== '') {
+            $details['This class'] = $startTime . ($endTime !== '' ? ' - ' . $endTime : '')
+                                     . ($this->_isEveningTime($startTime) ? ' (evening)' : ' (daytime)');
+        }
+        if (!$bootstrap && stripos((string) $label, 'Evening') !== false && !$this->_eveningTimeTitles($product->getId())) {
+            $warnings[] = 'This course has no evening class time yet. Confirming also adds one to the course page: "'
+                . $this->_eveningTimeLabel($startTime, $endTime) . '".';
         }
         $details['Trainer']  = 'not set - assign separately once the class exists';
         $details['Class id'] = 'assigned when you confirm';
@@ -183,6 +197,9 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
         //    bookable. One-off + admin-managed; not tied to any template.
         if (!empty($p['bootstrap'])) {
             $this->_bootstrapScheduleOptions($p['product_id'], $p['start_time'], $p['end_time']);
+        } elseif (stripos($p['label'], 'Evening') !== false) {
+            // An evening date needs an evening Course Time to link to (most courses only have a daytime one).
+            $this->_ensureEveningTime($p['product_id'], $p['start_time'], $p['end_time']);
         }
 
         // 1. Add the learner-facing Course Date option value (bookable) via direct
@@ -290,7 +307,8 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
             if (isset($fields['course_start_date']) && !isset($fields['course_end_date'])) {
                 $newEnd = $newStart;
             }
-            $shape = $this->_resolveShape((int) $run['product_id'], $newStart, $newEnd);
+            $newTime = isset($fields['course_start_time']) ? $fields['course_start_time'] : (string) $run['course_start_time'];
+            $shape = $this->_resolveShape((int) $run['product_id'], $newStart, $newEnd, $newTime);
             if ($shape['end'] !== $run['course_end_date']) {
                 $fields['course_end_date'] = $shape['end'];
             } else {
@@ -353,7 +371,8 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
             $newStart = isset($p['fields']['course_start_date']) ? $p['fields']['course_start_date'] : $p['old_start'];
             $newEnd   = isset($p['fields']['course_end_date'])   ? $p['fields']['course_end_date']   : $p['old_end'];
             $optionId = $this->_courseDateOptionId($p['product_id']);
-            $synced   = $optionId ? $this->_updateCourseDateTitleSql($optionId, $p['old_start'], $p['old_end'], $this->_shapedDateLabel($p['product_id'], $newStart, $newEnd)) : false;
+            $time     = (string) $write->fetchOne('SELECT course_start_time FROM ' . $table . ' WHERE run_id = ?', array($p['run_id']));
+            $synced   = $optionId ? $this->_updateCourseDateTitleSql($optionId, $p['old_start'], $p['old_end'], $this->_shapedDateLabel($p['product_id'], $newStart, $newEnd, $time)) : false;
             if ($synced) { $this->_resortCourseDateValues($optionId); $this->_touchProduct($p['product_id']); }
             $reindexed[] = $synced ? 'option_value' : 'run_only';
         }
@@ -485,6 +504,140 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
         return array('target' => $p['class_id'], 'reindexed' => array(),
             'after' => array('trainer_user_id' => $userId, 'trainer' => $p['name']),
             'extra' => $extra);
+    }
+
+    /* ------------------------------------------------- add_learner / remove_learner */
+
+    /**
+     * Shared checks for the Malaysia roster ops (Dr Ang, 26 Oct: Kaveh enrols learners; admins never use the backend).
+     * Same effect as the admin class page's Add / Remove Learner. Refused once the class's final attendance is
+     * confirmed or certificates are issued (Mr Saeid's rule: after-class changes are logged and reconfirmed,
+     * certificates are never resent), so a confirmed roster never changes silently.
+     */
+    protected function _learnerContext(array $body)
+    {
+        if (!Mage::helper('mmd_attendance')->isMalaysiaSite()) {
+            $this->_err('not_available', 'Adding or removing learners is only available on the Malaysia site.', 404);
+        }
+        $classId = $this->_classId($body);
+        $email   = strtolower($this->_require($body, 'learner_email'));
+        if (!Zend_Validate::is($email, 'EmailAddress')) {
+            $this->_err('validation_error', 'learner_email "' . $email . '" is not a valid email address.', 400);
+        }
+        $run = $this->_loadRunByClassId($classId);
+        $this->_assertCourseEligible($run);
+
+        $resource = Mage::getSingleton('core/resource');
+        $read     = $resource->getConnection('core_read');
+        $conf  = Mage::helper('mmd_certificate')->confirmationForRun($run['run_id']);
+        $certs = (int) $read->fetchOne('SELECT COUNT(*) FROM ' . $resource->getTableName('mmd_course_run_certificate')
+            . ' WHERE run_id = ?', array((int) $run['run_id']));
+        $confirmed = $conf && $conf['status'] === 'confirmed';
+        if ($confirmed || $certs > 0) {
+            $why = array();
+            if ($confirmed) { $why[] = 'its final attendance is confirmed'; }
+            if ($certs > 0) { $why[] = $certs . ' certificate(s) are issued'; }
+            $this->_err('class_closed', 'Class ' . $classId . ': ' . implode(' and ', $why)
+                . ', so its learners cannot be changed here. Tell the team.', 422);
+        }
+        $onRoster = $read->fetchRow('SELECT learner_name FROM ' . $resource->getTableName('course_run_enrolments')
+            . ' WHERE run_id = ? AND LOWER(TRIM(learner_email)) = ?', array((int) $run['run_id'], $email));
+        $product = $this->_loadAdmin(null, (int) $run['product_id']);
+        $details = $this->_courseFacts($product);
+        $details['Class id'] = $classId;
+        $details['Runs']     = $run['course_start_date'] . ' to ' . $run['course_end_date']
+                               . '  (' . $this->_spanText($run['course_start_date'], $run['course_end_date']) . ')';
+        return array('class_id' => $classId, 'email' => $email, 'run' => $run, 'product' => $product,
+            'on_roster' => $onRoster, 'count' => $this->_enrolmentCount($run['run_id']), 'details' => $details);
+    }
+
+    protected function _previewAddLearner(array $body)
+    {
+        $c = $this->_learnerContext($body);
+        if ($c['on_roster']) {
+            $this->_err('conflict', $c['email'] . ' is already on class ' . $c['class_id'] . '.', 409);
+        }
+        $websiteId = (int) Mage::app()->getDefaultStoreView()->getWebsiteId();
+        $customer  = Mage::getModel('customer/customer')->setWebsiteId($websiteId)->loadByEmail($c['email']);
+        if ($customer->getId()) {
+            $name = trim($customer->getFirstname() . ' ' . $customer->getLastname());
+            $account = 'existing account (its name is used)';
+        } else {
+            $name = trim((string) $this->_opt($body, 'learner_name', ''));
+            if ($name === '') {
+                $this->_err('validation_error', $c['email'] . ' has no account yet, so learner_name is required.', 400);
+            }
+            $account = 'new account will be created (no email is sent)';
+        }
+        $d = $c['details'];
+        $d['Learner']           = $name . ' <' . $c['email'] . '>';
+        $d['Account']           = $account;
+        $d['Learners enrolled'] = $c['count'] . ' now, ' . ($c['count'] + 1) . ' after this';
+        return array(
+            'target'        => $c['class_id'],
+            'diff'          => array(array('field' => 'learner', 'from' => null, 'to' => $c['email'])),
+            'human_summary' => $name . ' (' . $c['email'] . ') will be added to class ' . $c['class_id'] . ' "'
+                                . $c['product']->getName() . '" (' . trim($c['run']['course_sku']) . '), '
+                                . $c['run']['course_start_date'] . '. No email is sent to the learner.',
+            'details'       => $d,
+            'warnings'      => array(),
+            'token_payload' => array('class_id' => $c['class_id'], 'run_id' => (int) $c['run']['run_id'],
+                'product_id' => (int) $c['run']['product_id'], 'email' => $c['email'], 'name' => $name,
+                'website_id' => $websiteId, 'count' => $c['count']),
+        );
+    }
+
+    protected function _commitAddLearner(array $preview)
+    {
+        $p   = $preview['token_payload'];
+        $acc = Mage::helper('mmd_attendance')->ensureLearnerAccount($p['name'], $p['email'], $p['website_id']);
+        $resource = Mage::getSingleton('core/resource');
+        $write    = $resource->getConnection('core_write');
+        $write->query('INSERT IGNORE INTO ' . $resource->getTableName('course_run_enrolments')
+            . ' (product_id, run_id, learner_email, learner_name) VALUES (?, ?, ?, ?)',
+            array($p['product_id'], $p['run_id'], $p['email'], $acc['name']));
+        Mage::helper('mmd_rolemanager/handover')->noteIndependentMembership($p['run_id'], $p['email']);
+        $write->delete($resource->getTableName('course_learner_excludes'),
+            array('product_id = ?' => $p['product_id'], 'learner_email = ?' => $p['email']));
+        return array('target' => $p['class_id'], 'reindexed' => array(),
+            'after' => array('learner' => $p['email']),
+            'extra' => array('learner' => array('name' => $acc['name'], 'email' => $p['email']),
+                'learners_enrolled' => $this->_enrolmentCount($p['run_id'])));
+    }
+
+    protected function _previewRemoveLearner(array $body)
+    {
+        $c = $this->_learnerContext($body);
+        if (!$c['on_roster']) {
+            $this->_err('not_found', $c['email'] . ' is not on class ' . $c['class_id'] . '.', 404);
+        }
+        $name = trim((string) $c['on_roster']['learner_name']) ?: $c['email'];
+        $d = $c['details'];
+        $d['Learner']           = $name . ' <' . $c['email'] . '>';
+        $d['Learners enrolled'] = $c['count'] . ' now, ' . ($c['count'] - 1) . ' after this';
+        $d['Not changed']       = "the learner's account, bookings and other classes";
+        return array(
+            'target'        => $c['class_id'],
+            'diff'          => array(array('field' => 'learner', 'from' => $c['email'], 'to' => null)),
+            'human_summary' => $name . ' (' . $c['email'] . ') will be removed from class ' . $c['class_id'] . ' "'
+                                . $c['product']->getName() . '". No email is sent to the learner.',
+            'details'       => $d,
+            'warnings'      => array(),
+            'token_payload' => array('class_id' => $c['class_id'], 'run_id' => (int) $c['run']['run_id'],
+                'email' => $c['email'], 'count' => $c['count']),
+        );
+    }
+
+    protected function _commitRemoveLearner(array $preview)
+    {
+        $p = $preview['token_payload'];
+        $resource = Mage::getSingleton('core/resource');
+        // Same as the admin class page's run-scoped Remove: drop the roster row for THIS class only.
+        $resource->getConnection('core_write')->delete($resource->getTableName('course_run_enrolments'),
+            array('run_id = ?' => $p['run_id'], 'LOWER(TRIM(learner_email)) = ?' => $p['email']));
+        return array('target' => $p['class_id'], 'reindexed' => array(),
+            'after' => array('removed_learner' => $p['email']),
+            'extra' => array('learners_enrolled' => $this->_enrolmentCount($p['run_id'])));
     }
 
 
@@ -1216,11 +1369,13 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
         $tv  = $resource->getTableName('catalog/product_option_type_value');
         $opt = $resource->getTableName('catalog/product_option');
         $ot  = $resource->getTableName('catalog/product_option_title');
+        $tt  = $resource->getTableName('catalog/product_option_type_title');
         $rows = $read->fetchAll(
-            "SELECT tv.in_group_id, tv.option_type_id
+            "SELECT tv.in_group_id, tv.option_type_id, tt.title
                FROM `{$tv}` tv
                JOIN `{$opt}` o ON o.option_id = tv.option_id
                JOIN `{$ot}` ot ON ot.option_id = o.option_id AND ot.store_id = 0
+               LEFT JOIN `{$tt}` tt ON tt.option_type_id = tv.option_type_id AND tt.store_id = 0
               WHERE o.product_id = ? AND ot.title = 'Course Time'
               ORDER BY tv.sort_order ASC", array((int) $productId));
         if (!$rows) {
@@ -1229,8 +1384,17 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
         $pick = function ($r) {
             return (string) (($r['in_group_id'] !== null && $r['in_group_id'] !== '') ? $r['in_group_id'] : $r['option_type_id']);
         };
-        if (stripos($label, 'Evening') !== false && count($rows) >= 2) {
-            return $pick($rows[count($rows) - 1]);
+        if (stripos($label, 'Evening') !== false) {
+            // The value that IS an evening time, by its title; else the last one (the template Apply's pick).
+            $evening = $this->_eveningTimeTitles($productId);
+            foreach ($rows as $r) {
+                if (in_array(trim((string) $r['title']), $evening, true)) {
+                    return $pick($r);
+                }
+            }
+            if (count($rows) >= 2) {
+                return $pick($rows[count($rows) - 1]);
+            }
         }
         return $pick($rows[0]);
     }
@@ -1824,21 +1988,26 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
      *
      * Returns array(start, end, label, amended, warnings). The end may differ
      * from the one passed in; callers must use the returned value.
+     *
+     * $startTime (optional, HH:MM): when given, only template classes of the same KIND count - an "Evening"
+     * class for an evening start, a daytime class for a daytime start. Without it a daytime class on a day
+     * the template runs evenings took the "… Evening" label (C1382, 29 Oct), and "Evening" in the label
+     * also decides which class time the date links to.
      */
-    protected function _resolveShape($productId, $start, $end)
+    protected function _resolveShape($productId, $start, $end, $startTime = '')
     {
         $out = array('start' => $start, 'end' => $end, 'label' => null,
                      'amended' => false, 'warnings' => array());
 
         $title = $this->_productScheduleTemplate($productId);
         if ($title === null) {
-            $out['label'] = $this->_shapedDateLabel($productId, $start, $end);
+            $out['label'] = $this->_shapedDateLabel($productId, $start, $end, $startTime);
             return $out;
         }
         $generator = Mage::getModel('mmd/schedule_generator');
         $code = $generator->normalizeCode($title);
         if ($code === '' || !$generator->isKnownCode($code)) {
-            $out['label'] = $this->_shapedDateLabel($productId, $start, $end);
+            $out['label'] = $this->_shapedDateLabel($productId, $start, $end, $startTime);
             return $out;
         }
 
@@ -1854,7 +2023,7 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
                 continue;
             }
             list($ls, $le) = $this->_parseLabel($candidate);
-            if ($ls !== $start) {
+            if ($ls !== $start || !$this->_labelFitsTime($candidate, $startTime)) {
                 continue;
             }
             $options[$candidate] = ($le === null ? $ls : $le);
@@ -1878,7 +2047,7 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
                     . ' asked for. It has been set to ' . $len . ' days (' . $start . ' to ' . $end
                     . ') so the class matches the course.';
             }
-            $out['label'] = $this->_shapedDateLabel($productId, $start, $end);
+            $out['label'] = $this->_shapedDateLabel($productId, $start, $end, $startTime);
             $out['warnings'][] = 'This course follows schedule template "' . trim($title) . '", which does '
                 . 'not normally start a class on ' . $start . '. Adding it anyway is fine — it becomes a '
                 . 'one-off date — but check it is what was intended.';
@@ -1916,11 +2085,114 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
         return $out;
     }
 
-    protected function _shapedDateLabel($productId, $start, $end)
+    /** True when a template label is the same kind of class as the requested start time (no time = any). */
+    protected function _labelFitsTime($label, $startTime)
+    {
+        $evening = $this->_isEveningTime($startTime);
+        return $evening === null ? true : (stripos($label, 'Evening') !== false) === $evening;
+    }
+
+    /**
+     * true = evening (starts 17:00 or later), false = daytime, null = no/unreadable time. Parses "9:30", "09:30:00",
+     * "5:30 pm" - a plain string compare would make "9:30" an evening.
+     */
+    protected function _isEveningTime($time)
+    {
+        $time = trim((string) $time);
+        $ts = $time === '' ? false : strtotime('2000-01-01 ' . $time);
+        return $ts === false ? null : date('H:i', $ts) >= '17:00';
+    }
+
+    /**
+     * A one-off evening date gets the same "Evening" label as template evening dates, e.g. "9/10 Dec 2026 Evening
+     * (Wed/Thu)" - on Malaysia "... (Wed/Thu, 2 evenings)". "Evening" in the label is what links the date to the
+     * course's evening Course Time and what learners read.
+     */
+    protected function _withEvening($label, $startTime)
+    {
+        if (!$this->_isEveningTime($startTime) || stripos($label, 'Evening') !== false || ($p = strrpos($label, ' (')) === false) {
+            return $label;
+        }
+        $days = substr($label, $p + 2, -1);
+        if ($this->_isMalaysia() && strpos($days, '/') !== false) {
+            $days .= ', ' . (substr_count($days, '/') + 1) . ' evenings';
+        }
+        return substr($label, 0, $p) . ' Evening (' . $days . ')';
+    }
+
+    /** Titles of the course's Course Time values that are evening times. */
+    protected function _eveningTimeTitles($productId)
+    {
+        $out = array();
+        foreach (array_filter(array_map('trim', explode(', ', $this->_courseTimes($productId)))) as $t) {
+            if (stripos($t, 'evening') !== false || $this->_isEveningTime(preg_split('/\s*[-–]\s*/u', $t)[0])) {
+                $out[] = $t;
+            }
+        }
+        return $out;
+    }
+
+    /** Course Time title for a new evening time, in the site's own style. */
+    protected function _eveningTimeLabel($start, $end)
+    {
+        $f = function ($t, $sep) { $ts = strtotime('2000-01-01 ' . trim((string) $t)); return $ts ? date('g:i' . $sep . 'a', $ts) : trim((string) $t); };
+        return $this->_isMalaysia()
+            ? 'Evening Class — ' . $f($start, ' ') . '–' . $f($end, ' ')
+            : $f($start, '') . ' - ' . $f($end, '');
+    }
+
+    /**
+     * Give the course an evening Course Time value if it has none, by copying its first (daytime) time value - so
+     * every per-value setting (e.g. the participants quantity) carries over - with a new title and in_group_id.
+     */
+    protected function _ensureEveningTime($productId, $startTime, $endTime)
+    {
+        if ($this->_eveningTimeTitles($productId)) {
+            return false;
+        }
+        $resource = Mage::getSingleton('core/resource');
+        $write = $resource->getConnection('core_write');
+        $tv  = $resource->getTableName('catalog/product_option_type_value');
+        $tt  = $resource->getTableName('catalog/product_option_type_title');
+        $tp  = $resource->getTableName('catalog/product_option_type_price');
+        $opt = $resource->getTableName('catalog/product_option');
+        $ot  = $resource->getTableName('catalog/product_option_title');
+        $first = $write->fetchRow(
+            "SELECT tv.* FROM `{$tv}` tv JOIN `{$opt}` o ON o.option_id = tv.option_id
+               JOIN `{$ot}` t ON t.option_id = o.option_id AND t.store_id = 0 AND t.title = ?
+              WHERE o.product_id = ? ORDER BY tv.sort_order ASC LIMIT 1",
+            array(self::COURSE_TIME_OPTION, (int) $productId));
+        if (!$first) {
+            return false;
+        }
+        $maxIgi = (int) $write->fetchOne(
+            "SELECT MAX(tv.in_group_id) FROM `{$tv}` tv JOIN `{$opt}` o ON o.option_id = tv.option_id WHERE o.product_id = ?",
+            array((int) $productId));
+        $maxSort = (int) $write->fetchOne("SELECT MAX(sort_order) FROM `{$tv}` WHERE option_id = ?", array((int) $first['option_id']));
+        $copy = $first;
+        unset($copy['option_type_id']);
+        $copy['sort_order']    = $maxSort + 1;
+        $copy['in_group_id']   = $maxIgi + 1;
+        $copy['default']       = 0;
+        $copy['admin_managed'] = 1;
+        $write->insert($tv, $copy);
+        $newId = (int) $write->lastInsertId();
+        $write->insert($tt, array('option_type_id' => $newId, 'store_id' => 0, 'title' => $this->_eveningTimeLabel($startTime, $endTime)));
+        $write->insert($tp, array('option_type_id' => $newId, 'store_id' => 0, 'price' => 0, 'price_type' => 'fixed'));
+        return true;
+    }
+
+    protected function _isMalaysia()
+    {
+        $store = Mage::app()->getDefaultStoreView();
+        return $store && $store->getCode() === 'malaysia';
+    }
+
+    protected function _shapedDateLabel($productId, $start, $end, $startTime = '')
     {
         // A single-day class cannot be misread — no template lookup needed.
         if ($start === $end) {
-            return $this->_dateLabel($start, $end);
+            return $this->_withEvening($this->_dateLabel($start, $end), $startTime);
         }
 
         $title = $this->_productScheduleTemplate($productId);
@@ -1936,7 +2208,7 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
                     list($labelStart, $labelEnd) = $this->_parseLabel($candidate);
                     // Both ends must agree with the record, or the label
                     // describes a different class than the one being saved.
-                    if ($labelStart === $start && $labelEnd === $end) {
+                    if ($labelStart === $start && $labelEnd === $end && $this->_labelFitsTime($candidate, $startTime)) {
                         return $candidate;
                     }
                 }
@@ -1944,7 +2216,7 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
         }
 
         if ($this->_fallbackLabelIsSafe($start, $end)) {
-            return $this->_dateLabel($start, $end);
+            return $this->_withEvening($this->_dateLabel($start, $end), $startTime);
         }
 
         $this->_err('ambiguous_date_shape',

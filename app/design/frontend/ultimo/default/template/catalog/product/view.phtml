@@ -104,10 +104,10 @@
 		return $_cmsBlockHtml($id);
 	};
 
-	// Prerequisite card — non-WSQ (C-prefix) courses only, from the per-course
-	// cms/block `course_<sku>_prerequisite` (Edit Course → Prerequisite).
+	// Prerequisite card — non-WSQ (C-prefix) and WSQ (TGS-) courses, from the
+	// per-course cms/block `course_<sku>_prerequisite` (Edit Course → Prerequisite).
 	// Empty block = no card.
-	$_prerequisiteHtml = preg_match('/^C\d/i', $_courseSku) ? $_courseSectionHtml('prerequisite') : '';
+	$_prerequisiteHtml = preg_match('/^(C\d|TGS-)/i', $_courseSku) ? $_courseSectionHtml('prerequisite') : '';
 
 	// (1) WSQ Funding wrapper — raw inner HTML of the SFC/UTAP/PSEA narrative.
 	// Per-course cms/block is primary; if empty, fall back to regex extract

@@ -7,6 +7,8 @@
  * GET /courses/api_trainer_classes?course_sku=<sku>&date=...&trainer_email=<email>
  *                                                                     → the course's classes, each flagged
  *                                                                       assigned_to_trainer for that trainer
+ * ...&include_learners=1                                              → each class also lists its learners
+ *                                                                       (name + email; bot key only)
  *
  * Auth: X-API-Key (the bot key or the trainer-reminders key, as /courses/api_trainers).
  *
@@ -34,6 +36,12 @@ class MMD_Courses_Api_Trainer_ClassesController extends Mage_Core_Controller_Fro
             return $this->_json(401, array('success' => false, 'error' => 'unauthorized', 'message' => 'Invalid or missing X-API-Key.'));
         }
 
+        // Learner names/emails go only to the bot key (the admin agent), never to the trainer-reminders key.
+        $withLearners = (bool) $this->getRequest()->getParam('include_learners', false);
+        if ($withLearners && !($keyBot !== '' && hash_equals($keyBot, $provided))) {
+            return $this->_json(403, array('success' => false, 'error' => 'forbidden',
+                'message' => 'include_learners needs the agent API key.'));
+        }
         $email = strtolower(trim((string) $this->getRequest()->getParam('trainer_email', '')));
         $sku   = trim((string) $this->getRequest()->getParam('course_sku', ''));
         $date  = trim((string) $this->getRequest()->getParam('date', ''));
@@ -94,7 +102,14 @@ class MMD_Courses_Api_Trainer_ClassesController extends Mage_Core_Controller_Fro
 
             $classes = array();
             foreach ($runs as $r) {
-                $classes[] = $this->_classRow($read, $r, $trainer);
+                $row = $this->_classRow($read, $r, $trainer);
+                if ($withLearners) {
+                    $row['learners'] = $read->fetchAll(
+                        "SELECT TRIM(COALESCE(learner_name, '')) AS name, LOWER(TRIM(learner_email)) AS email
+                           FROM course_run_enrolments WHERE run_id = ? ORDER BY learner_name, learner_email",
+                        array((int) $r['run_id']));
+                }
+                $classes[] = $row;
             }
             if ($trainer) { unset($trainer['_option_ids']); }
 

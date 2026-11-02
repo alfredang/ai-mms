@@ -25,16 +25,15 @@
  */
 ?>
 <?php /* Cloudflare Turnstile (invisible) — replaces the legacy Magento image
-        captcha for product reviews. The widget renders on page load, fetches
-        a token automatically, and writes it to cf-turnstile-response which
+        captcha for product reviews. api.js is loaded LAZILY on the first
+        interaction with the form (it was ~800 KB on every course page view and
+        competed with the cover image for mobile bandwidth - LCP). The widget
+        then fetches a token automatically and writes it to cf-turnstile-response which
         MMD_MagentoCaptcha_ProductController::postAction verifies. Keys are
         read from TURNSTILE_SITE_KEY/_SECRET_KEY env; when absent, widget is
         skipped and backend fails open (dev mode). */ ?>
 <?php $tsHelper = Mage::helper('magentocaptcha/turnstile'); ?>
 <?php $tsSiteKey = $tsHelper->getSiteKey(); ?>
-<?php if ($tsSiteKey): ?>
-<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
-<?php endif; ?>
 <div class="form-add">
     <h2><?php echo $this->__('Write Your Own Review') ?></h2>
     <?php if ($this->getAllowWriteReviewFlag()): ?>
@@ -116,13 +115,31 @@
     </form>
     <script type="text/javascript">
     //<![CDATA[
-        /* Turnstile gating for review submissions. Invisible widget fetches
-           a token on page load; the onsubmit handler waits for the token
-           before allowing form submission. Falls back to immediate submit
-           when Turnstile env vars aren't set (server fails open). */
+        /* Turnstile gating for review submissions. api.js loads on the first
+           focus/tap inside the form; the invisible widget then fetches a token,
+           and the onsubmit handler waits for it before allowing submission.
+           Falls back to immediate submit when Turnstile env vars aren't set
+           (server fails open) or api.js fails to load (server decides). */
         (function () {
             var TURNSTILE_ENABLED = <?php echo $tsSiteKey ? 'true' : 'false'; ?>;
             var pendingSubmit = false;
+            var tsRequested = false, tsFailed = false;
+
+            function loadTurnstile() {
+                if (!TURNSTILE_ENABLED || tsRequested) { return; }
+                tsRequested = true;
+                var s = document.createElement("script");
+                s.src = "https://challenges.cloudflare.com/turnstile/v0/api.js";
+                s.async = true;
+                s.onerror = function () { tsFailed = true; window.onTurnstileErrorReview(); };
+                document.getElementsByTagName("head")[0].appendChild(s);
+            }
+            var reviewForm = document.getElementById("review-form");
+            if (reviewForm && reviewForm.addEventListener) {
+                reviewForm.addEventListener("focusin", loadTurnstile);
+                reviewForm.addEventListener("pointerdown", loadTurnstile);
+                reviewForm.addEventListener("touchstart", loadTurnstile);
+            }
 
             window.onTurnstileSuccessReview = function (token) {
                 var input = document.getElementById("cf-turnstile-response");
@@ -143,8 +160,14 @@
             };
 
             window.validateTurnstileReview = function () {
-                if (!TURNSTILE_ENABLED || typeof window.turnstile === "undefined") {
+                if (!TURNSTILE_ENABLED || tsFailed) {
                     return true;
+                }
+                if (typeof window.turnstile === "undefined") {
+                    /* not loaded yet: load it and submit from the success callback */
+                    pendingSubmit = true;
+                    loadTurnstile();
+                    return false;
                 }
                 var input = document.getElementById("cf-turnstile-response");
                 if (input && input.value) {

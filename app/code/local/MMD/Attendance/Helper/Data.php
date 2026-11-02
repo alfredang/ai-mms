@@ -187,6 +187,43 @@ class MMD_Attendance_Helper_Data extends Mage_Core_Helper_Abstract
         return 'd' . $day . ($this->isEveningRun($run) ? 'ev' : $ampm);
     }
 
+    /**
+     * Find a learner's storefront account by email, or create one (no email is sent). Used by the attendance page's
+     * walk-in add and by the Agent API's add_learner. For an EXISTING account its own name is authoritative, so the
+     * roster never disagrees with the account. Returns array('id' => int|null, 'name' => string).
+     */
+    public function ensureLearnerAccount($name, $email, $websiteId)
+    {
+        try {
+            $customer = Mage::getModel('customer/customer')->setWebsiteId($websiteId);
+            $customer->loadByEmail($email);
+            if ($customer->getId()) {
+                $existingName = trim($customer->getFirstname() . ' ' . $customer->getLastname());
+                return array('id' => (int) $customer->getId(), 'name' => ($existingName !== '' ? $existingName : $name));
+            }
+
+            // Split name into first/last.
+            $parts = preg_split('/\s+/', trim($name), 2);
+            $first = $parts[0] !== '' ? $parts[0] : 'Learner';
+            $last  = isset($parts[1]) && $parts[1] !== '' ? $parts[1] : '-';
+
+            $store = Mage::app()->getWebsite($websiteId)->getDefaultStore();
+            $customer = Mage::getModel('customer/customer');
+            $customer->setWebsiteId($websiteId)
+                     ->setStoreId($store ? $store->getId() : 0)
+                     ->setFirstname($first)
+                     ->setLastname($last)
+                     ->setEmail($email)
+                     ->setForceConfirmed(true);
+            $customer->setPassword($customer->generatePassword(10));
+            $customer->save();
+            return array('id' => (int) $customer->getId(), 'name' => trim($first . ' ' . $last));
+        } catch (Exception $e) {
+            Mage::log('Attendance walk-in customer create failed: ' . $e->getMessage(), Zend_Log::WARN, 'attendance.log');
+            return array('id' => null, 'name' => $name);
+        }
+    }
+
     // ── Malaysia class timetable (attendance by training hours) ──────────────
 
     /** True on the Malaysia site — the hours-based attendance rule is MY-only. */

@@ -1,0 +1,50 @@
+<?xml version="1.0"?>
+<config>
+    <modules>
+        <RS_Sfec>
+            <version>1.2</version>
+        </RS_Sfec>
+    </modules>
+    <global>
+        <models>
+            <sfec>
+                <class>RS_Sfec_Model</class>
+            </sfec>
+        </models>        
+        <blocks>
+            <sfec>
+                <class>RS_Sfec_Block</class>
+            </sfec>
+        </blocks>
+        <helpers>
+            <sfec>
+                <class>RS_Sfec_Helper</class>
+            </sfec>
+        </helpers>        
+    </global>
+	<default>
+        <payment>
+            <sfec>
+                <active>0</active>
+                <model>sfec/sfec</model>
+                <order_status>1</order_status>
+                <title>Bank Pay</title>
+                <allowspecific>0</allowspecific>
+                <form_block_type>0</form_block_type>
+            </sfec>
+        </payment>
+    </default>
+    
+    <default>
+        <payment>
+            <sfec>
+                <title>SFEC (Only for company sponsored)</title>
+                <active>0</active>
+                <show_bank_accounts_in_pdf>1</show_bank_accounts_in_pdf>
+                <show_customtext_in_pdf>1</show_customtext_in_pdf>
+				<enabledorder>1</enabledorder>
+				<recipient_email>sale@example.com</recipient_email>
+            </sfec>
+        </payment>
+    </default>
+</config>

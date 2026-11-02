@@ -89,6 +89,19 @@
                 <schedule><cron_expr>30 18 * * *</cron_expr></schedule>
                 <run><model>mmd_certificate/cron_autoSend::run</model></run>
             </mmd_certificate_auto_send>
+            <!-- Malaysia only: remind sales@ when a finished class's final attendance is not confirmed (Saeid, 30 Oct). -->
+            <mmd_certificate_attendance_reminder>
+                <schedule><cron_expr>0 9 * * *</cron_expr></schedule>
+                <run><model>mmd_certificate/cron_attendanceReminder::run</model></run>
+            </mmd_certificate_attendance_reminder>
         </jobs>
     </crontab>
+
+    <default>
+        <mmd>
+            <attendance_reminder>
+                <enabled>1</enabled>
+            </attendance_reminder>
+        </mmd>
+    </default>
 </config>

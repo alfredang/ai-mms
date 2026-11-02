@@ -84,6 +84,7 @@
                     src="<?php echo $helpImg->getImg($_product, $imgWidth, $imgHeight); ?>"
                     alt="<?php echo $this->escapeHtml($this->getImageLabel()); ?>"
                     title="<?php echo $this->escapeHtml($this->getImageLabel()); ?>"
+                    fetchpriority="high" <?php /* LCP element on mobile - load it ahead of scripts/fonts */ ?>
                     itemprop="image" />
             </a>
             
