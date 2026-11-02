@@ -53,11 +53,9 @@
 
 
     //Render categories menu HTML
-$categoryId = 3;
-    $html = $this->renderMe(TRUE, $categoryId, $depth);
-
-    // Prepend the "AI Courses" branch (a sibling of All Courses under the store root).
+    // The sidebar shows only the "AI Courses" branch (a child of the store root).
     // Resolved by name: its id differs per site (SG 252, MY/GH 25).
+    $html = '';
     $aiCategory = Mage::getResourceModel('catalog/category_collection')
         ->setStoreId(Mage::app()->getStore()->getId())
         ->addAttributeToSelect('name')
@@ -71,7 +69,7 @@ $categoryId = 3;
         $html = '<li class="nav-item level0 nav-ai' . ($aiChildren ? ' parent' : '') . '">'
             . '<a href="' . $this->getCategoryUrl($aiCategory) . '"><span>' . $this->escapeHtml($aiCategory->getName()) . '</span></a>'
             . ($aiChildren ? '<span class="opener"></span><ul class="level0 nav-submenu">' . $aiChildren . '</ul>' : '')
-            . '</li>' . $html;
+            . '</li>';
     }
 
     if (!$html)
@@ -107,32 +105,15 @@ $categoryId = 3;
 <script type="text/javascript">
 //<![CDATA[
 (function () {
-    // Sidebar Course Categories: auto-expand "AI Courses" and "Infocomm Technology",
-    // and list "Cyber Security" first under Infocomm Technology.
-    function findChild(parent, re) {
-        if (!parent) { return null; }
-        for (var i = 0; i < parent.children.length; i++) {
-            var link = parent.children[i].querySelector('a');
-            if (link && re.test(link.textContent || link.innerText)) { return parent.children[i]; }
-        }
-        return null;
-    }
-    function expand(li) {
+    // Sidebar Course Categories: auto-expand the "AI Courses" branch.
+    function arrangeSidebar() {
+        var li = document.querySelector('.block-vertnav .accordion.vertnav > li.nav-ai');
         if (!li) { return; }
         if (!/\bopen\b/.test(li.className)) { li.className += ' active open'; }
         var opener = li.querySelector('.opener');
         if (opener && !/\bactive\b/.test(opener.className)) { opener.className += ' active'; }
         var sub = li.querySelector('ul');
         if (sub) { sub.style.display = 'block'; }
-    }
-    function arrangeSidebar() {
-        var menu = document.querySelector('.block-vertnav .accordion.vertnav');
-        var infocomm = findChild(menu, /Infocomm Technology/i);
-        var infocommSub = infocomm && infocomm.querySelector('ul');
-        var cyber = findChild(infocommSub, /^\s*Cyber Security\s*$/i);
-        if (cyber && cyber !== infocommSub.firstElementChild) { infocommSub.insertBefore(cyber, infocommSub.firstElementChild); }
-        expand(findChild(menu, /^\s*AI Courses\s*$/i));
-        expand(infocomm);
     }
     arrangeSidebar();
     if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', arrangeSidebar); }
