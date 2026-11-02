@@ -5,7 +5,7 @@
  *
  * Panels:
  *   #dash-panel-admin            → View As: Admin              (course schedule)
- *   #dash-panel-superadmin       → View As: Super Admin        (charts / revenue)
+ *   #dash-panel-superadmin       → View As: Training Provider  (charts / revenue)
  *   #dash-panel-learner          → View As: Learner / Trainer
  */
 
@@ -681,25 +681,33 @@ for ($i = 11; $i >= 0; $i--) {
     $salesByMonth[] = array('label' => $lbl, 'value' => round((float)(isset($_smRows[$ym]) ? $_smRows[$ym] : 0), 2));
 }
 
-$pp = Mage::getResourceModel('reports/product_sold_collection');
-$pp->addOrderedQty(date('Y-m-d 00:00:00', strtotime('-6 months')), date('Y-m-d 23:59:59'));
-$pp->addAttributeToSelect('name')->setOrder('ordered_qty','desc')->setPageSize(10);
-if ($countryFilter) {
-    $orderTable = Mage::getSingleton('core/resource')->getTableName('sales/order');
-    $addrTable  = Mage::getSingleton('core/resource')->getTableName('sales/order_address');
-    $pp->getSelect()
-        ->join(array('so_pc' => $orderTable), 'so_pc.entity_id = order_items.order_id', array())
-        ->join(array('soa_pc' => $addrTable), 'so_pc.entity_id = soa_pc.parent_id AND soa_pc.address_type = "billing"', array())
-        ->where('soa_pc.country_id = ?', $countryFilter);
+// Popular courses — top 30 for each selectable period (3 / 6 / 12 months);
+// the dashboard slider / period select pick from these client-side.
+$popularCoursesByPeriod = array();
+foreach (array(3, 6, 12) as $_pcMonths) {
+    $pp = Mage::getResourceModel('reports/product_sold_collection');
+    $pp->addOrderedQty(date('Y-m-d 00:00:00', strtotime("-{$_pcMonths} months")), date('Y-m-d 23:59:59'));
+    $pp->addAttributeToSelect('name')->setOrder('ordered_qty','desc')->setPageSize(30);
+    if ($countryFilter) {
+        $orderTable = Mage::getSingleton('core/resource')->getTableName('sales/order');
+        $addrTable  = Mage::getSingleton('core/resource')->getTableName('sales/order_address');
+        $pp->getSelect()
+            ->join(array('so_pc' => $orderTable), 'so_pc.entity_id = order_items.order_id', array())
+            ->join(array('soa_pc' => $addrTable), 'so_pc.entity_id = soa_pc.parent_id AND soa_pc.address_type = "billing"', array())
+            ->where('soa_pc.country_id = ?', $countryFilter);
+    }
+    $_pcRows = array();
+    foreach ($pp as $p) {
+        $n = $p->getName() ?: Mage::getModel('catalog/product')->load($p->getId())->getName();
+        $_pcRows[] = array('name' => $n ?: 'Product #'.$p->getId(), 'qty' => (int)$p->getOrderedQty());
+    }
+    $popularCoursesByPeriod[$_pcMonths] = $_pcRows;
 }
-$popularCourses = array();
-foreach ($pp as $p) {
-    $n = $p->getName() ?: Mage::getModel('catalog/product')->load($p->getId())->getName();
-    $popularCourses[] = array('name' => $n ?: 'Product #'.$p->getId(), 'qty' => (int)$p->getOrderedQty());
-}
+$popularCourses = $popularCoursesByPeriod[6];
 
 $_searchStoreFilter = $countryStoreId ?: $storeId;
-$sq = Mage::getModel('catalogsearch/query')->getCollection()->setOrder('popularity','desc')->setPageSize(10);
+$sq = Mage::getModel('catalogsearch/query')->getCollection()->setOrder('popularity','desc')->setPageSize(30);
+$sq->addFieldToFilter('updated_at', array('gteq' => date('Y-m-d 00:00:00', strtotime('-6 months')))); // last 6 months
 if ($_searchStoreFilter) $sq->addFieldToFilter('store_id', $_searchStoreFilter);
 $popularSearches = array();
 foreach ($sq as $t) { $popularSearches[] = array('term' => $t->getQueryText(), 'count' => (int)$t->getPopularity()); }
@@ -717,19 +725,48 @@ foreach ($rq as $t) {
     );
 }
 
-$coc = Mage::getResourceModel('reports/order_collection');
-if ($storeId) $coc->addFieldToFilter('store_id', $storeId);
-$coc->addFieldToFilter('state', array('nin' => array(Mage_Sales_Model_Order::STATE_CANCELED, Mage_Sales_Model_Order::STATE_NEW)));
-$coc->getSelect()->join(array('soa2' => Mage::getSingleton('core/resource')->getTableName('sales/order_address')), 'main_table.entity_id=soa2.parent_id AND soa2.address_type="billing"', array());
-$coc->getSelect()->columns(array('country_code' => 'soa2.country_id', 'order_count' => new Zend_Db_Expr('COUNT(main_table.entity_id)')))->group('soa2.country_id')->order('order_count DESC')->limit(10);
-// Lead ORIGIN countries (where enquiries come from — real visitor data,
-// not stores). Nigeria/India stay here only as visitor geographies.
-$cnames = array('SG'=>'Singapore','GH'=>'Ghana','NG'=>'Nigeria','US'=>'United States','IN'=>'India','AU'=>'Australia','GB'=>'United Kingdom','PH'=>'Philippines');
-$ordersByCountry = array();
-foreach ($coc as $row) {
-    $code = $row->getData('country_code');
-    $ordersByCountry[] = array('country' => isset($cnames[$code]) ? $cnames[$code] : $code, 'count' => (int)$row->getData('order_count'));
-}
+// ---- Training Provider site dashboard (2026-11) — this site's own data,
+// every course type aggregated (WSQ / IBF / CASL / non-WSQ). Daily
+// registration buckets are emitted once; the browser re-groups them by
+// week / month and by course type so the filters never round-trip.
+$tpDaily = array(); $tpRecentSignups = array();
+try {
+    $_tpItemT = $resource->getTableName('sales/order_item');
+    $_tpStart = date('Y-m-d 00:00:00', strtotime('-12 months'));
+    $_tpWhere = "o.created_at >= '{$_tpStart}' AND o.state NOT IN ('canceled','new') AND i.parent_item_id IS NULL";
+    if ($storeId) $_tpWhere .= " AND o.store_id = " . (int) $storeId;
+    $tpDaily = $read->fetchAll(
+        "SELECT DATE(o.created_at) AS d,
+                CASE WHEN i.sku LIKE 'TGS-%' THEN 'funded' ELSE 'nonwsq' END AS t,
+                COUNT(DISTINCT o.entity_id) AS orders, SUM(i.qty_ordered) AS learners
+           FROM {$_smOrderT} o JOIN {$_tpItemT} i ON i.order_id = o.entity_id
+          WHERE {$_tpWhere}
+       GROUP BY DATE(o.created_at), CASE WHEN i.sku LIKE 'TGS-%' THEN 'funded' ELSE 'nonwsq' END
+       ORDER BY d"
+    );
+    foreach ($tpDaily as &$_r) { $_r['orders'] = (int) $_r['orders']; $_r['learners'] = (int) round((float) $_r['learners']); }
+    unset($_r);
+    $_tpRecent = $read->fetchAll(
+        "SELECT o.increment_id, o.created_at, o.status, o.customer_firstname, o.customer_lastname, i.sku, i.name, i.qty_ordered, i.product_options
+           FROM {$_smOrderT} o JOIN {$_tpItemT} i ON i.order_id = o.entity_id
+          WHERE o.state NOT IN ('canceled') AND i.parent_item_id IS NULL" . ($storeId ? " AND o.store_id = " . (int) $storeId : "") . "
+       ORDER BY o.created_at DESC, i.item_id DESC LIMIT 10"
+    );
+    foreach ($_tpRecent as $_r) {
+        $_cd = '';
+        if (preg_match('/s:5:"label";s:11:"Course Date";s:5:"value";s:\d+:"([^"]*)"/', (string) $_r['product_options'], $_m)) $_cd = $_m[1];
+        $tpRecentSignups[] = array(
+            'order'   => $_r['increment_id'],
+            'date'    => Mage::helper('core')->formatDate($_r['created_at'], 'medium', true),
+            'learner' => trim($_r['customer_firstname'] . ' ' . $_r['customer_lastname']),
+            'course'  => $_r['name'], 'sku' => $_r['sku'], 'qty' => (int) round((float) $_r['qty_ordered']),
+            'class'   => $_cd, 'status' => $_r['status'],
+            'url'     => $this->getUrl('adminhtml/sales_order/index', array('_query' => array('increment_id' => $_r['increment_id']))),
+        );
+    }
+} catch (Exception $e) { Mage::logException($e); }
+
+// Orders by Country retired 2026-11: a Training Provider only sees its own site.
 endif; // end if ($activeRole === 'training_provider')
 
 // =====================================================================
@@ -2234,11 +2271,95 @@ document.addEventListener('keydown', function(e){if(e.key==='Escape')dashCloseDe
             <div class="kpi-content"><div class="kpi-value"><?php echo number_format($productCount) ?></div><div class="kpi-label">Total Courses</div><div class="kpi-sub">Active catalog</div></div>
         </div>
     </div>
+    <?php /* Site registrations — interactive (week / month, course type, period); every course type on this site */ ?>
+    <div class="dashboard-charts">
+        <div class="chart-card chart-wide">
+            <div class="chart-header" style="flex-wrap:wrap;gap:10px;">
+                <h4>Learners signed up</h4>
+                <span style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+                    <span class="dev-country-tabs" role="tablist" id="tp-type-tabs" aria-label="Course type">
+                        <button type="button" class="dev-country-btn active" data-v="all">All courses</button>
+                        <button type="button" class="dev-country-btn" data-v="funded">WSQ / IBF / CASL</button>
+                        <button type="button" class="dev-country-btn" data-v="nonwsq">Non-WSQ</button>
+                    </span>
+                    <span class="dev-country-tabs" role="tablist" id="tp-gran-tabs" aria-label="Group by">
+                        <button type="button" class="dev-country-btn" data-v="week">Week</button>
+                        <button type="button" class="dev-country-btn active" data-v="month">Month</button>
+                    </span>
+                    <select id="tp-period" onchange="tpRenderLearners()" style="height:28px;padding:2px 8px;font-size:12px;border-radius:6px;background:transparent;border:1px solid var(--b2);color:var(--t1);">
+                        <option value="3">Last 3 months</option><option value="6">Last 6 months</option><option value="12" selected>Last 12 months</option>
+                    </select>
+                    <span class="chart-subtitle" id="tp-learners-sub"></span>
+                </span>
+            </div>
+            <div class="chart-body"><canvas id="tpLearnersChart" height="260"></canvas></div>
+        </div>
+    </div>
     <div class="dashboard-charts">
         <div class="chart-card chart-wide"><div class="chart-header"><h4>Sales by Month</h4><span class="chart-subtitle">Last 12 months</span></div><div class="chart-body"><canvas id="salesByMonthChart" height="280"></canvas></div></div>
-        <div class="chart-card chart-wide"><div class="chart-header"><h4>Popular Courses</h4><span class="chart-subtitle">Last 6 months — top 10</span></div><div class="chart-body"><canvas id="popularCoursesChart" height="350"></canvas></div></div>
-        <div class="chart-card"><div class="chart-header"><h4>Popular Search Terms</h4><span class="chart-subtitle">Top 10 by popularity</span></div><div class="chart-body"><canvas id="popularSearchesChart" height="320"></canvas></div></div>
-        <div class="chart-card"><div class="chart-header"><h4>Orders by Country</h4><span class="chart-subtitle">Top 10 countries</span></div><div class="chart-body"><canvas id="ordersByCountryChart" height="320"></canvas></div></div>
+        <div class="chart-card chart-wide">
+            <div class="chart-header" style="flex-wrap:wrap;gap:10px;">
+                <h4>Popular Courses</h4>
+                <span style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                    <select id="tp-pc-period" onchange="tpRenderPopular()" style="height:28px;padding:2px 8px;font-size:12px;border-radius:6px;background:transparent;border:1px solid var(--b2);color:var(--t1);">
+                        <option value="3">Last 3 months</option><option value="6" selected>Last 6 months</option><option value="12">Last 12 months</option>
+                    </select>
+                    <label style="display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--t4);">Top <strong id="tp-pc-n" style="color:var(--t1);min-width:18px;text-align:right;">10</strong>
+                        <input type="range" id="tp-pc-slider" min="5" max="30" step="1" value="10" oninput="tpRenderPopular()" style="width:140px;accent-color:#2563eb;" aria-label="Number of courses" /></label>
+                    <span class="chart-subtitle" id="tp-pc-sub"></span>
+                </span>
+            </div>
+            <div class="chart-body" id="tp-pc-body"><canvas id="popularCoursesChart" height="350"></canvas></div>
+        </div>
+        <div class="chart-card chart-wide">
+            <div class="chart-header" style="flex-wrap:wrap;gap:10px;">
+                <h4>Popular Search Terms</h4>
+                <span style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                    <label style="display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--t4);">Top <strong id="tp-ps-n" style="color:var(--t1);min-width:18px;text-align:right;">10</strong>
+                        <input type="range" id="tp-ps-slider" min="5" max="30" step="1" value="10" oninput="tpRenderSearches()" style="width:140px;accent-color:#2563eb;" aria-label="Number of search terms" /></label>
+                    <span class="chart-subtitle">Last 6 months</span>
+                </span>
+            </div>
+            <div class="chart-body" id="tp-ps-body"><canvas id="popularSearchesChart" height="320"></canvas></div>
+        </div>
+        <div class="chart-card"><div class="chart-header"><h4>Last 10 course sign-ups</h4><span class="chart-subtitle">Most recent registrations</span></div>
+            <div style="padding:0 4px 6px;overflow-x:auto;">
+                <table class="mm-table mm-table-tight tp-recent-table">
+                    <thead><tr><th>When</th><th>Learner</th><th>Course</th><th>Class date</th><th class="center">Pax</th><th>Status</th></tr></thead>
+                    <tbody>
+                    <?php if (empty($tpRecentSignups)): ?><tr><td colspan="6" class="mm-table-empty">No registrations yet.</td></tr><?php endif; ?>
+                    <?php foreach ($tpRecentSignups as $_r): ?>
+                    <tr>
+                        <td class="muted"><a href="<?php echo $_r['url'] ?>" style="color:inherit;" title="Order #<?php echo htmlspecialchars($_r['order']) ?>"><?php echo htmlspecialchars($_r['date']) ?></a></td>
+                        <td class="strong"><?php echo htmlspecialchars($_r['learner']) ?></td>
+                        <td title="<?php echo htmlspecialchars($_r['course']) ?>"><?php echo htmlspecialchars($_r['sku']) ?> · <?php echo htmlspecialchars($_r['course']) ?></td>
+                        <td class="muted"><?php echo htmlspecialchars($_r['class']) ?></td>
+                        <td class="center"><?php echo (int) $_r['qty'] ?></td>
+                        <td class="status" style="color:<?php echo in_array($_r['status'], array('complete','processing'), true) ? 'var(--green)' : 'var(--yellow)' ?>"><?php echo htmlspecialchars($_r['status']) ?></td>
+                    </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="chart-card"><div class="chart-header"><h4>Last 10 search terms</h4><span class="chart-subtitle">Most recent on-site searches</span></div>
+            <div style="padding:0 4px 6px;overflow-x:auto;">
+                <table class="mm-table mm-table-tight tp-search-table">
+                    <thead><tr><th>Search term</th><th class="num">Results</th><th class="num">Hits</th><th>Last searched</th></tr></thead>
+                    <tbody>
+                    <?php if (empty($recentSearches)): ?><tr><td colspan="4" class="mm-table-empty">No searches yet.</td></tr><?php endif; ?>
+                    <?php foreach ($recentSearches as $_r): ?>
+                    <tr>
+                        <td class="strong"><a href="<?php echo $_r['edit_url'] ?>" style="color:inherit;"><?php echo htmlspecialchars($_r['term']) ?></a></td>
+                        <td class="num<?php echo (int) $_r['count'] === 0 ? '" style="color:var(--yellow)' : '' ?>"><?php echo (int) $_r['count'] ?></td>
+                        <td class="num"><?php echo (int) $_r['popularity'] ?></td>
+                        <td class="muted"><?php echo htmlspecialchars($_r['date']) ?></td>
+                    </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
 </div>
@@ -12457,7 +12578,7 @@ $_apiCategories = array(
             array(
                 'method' => 'GET', 'path' => '/courses/api_completed_classes', 'authKey' => 'sync',
                 'title' => 'Completed Classes Export',
-                'description' => 'Served by every franchise instance from its OWN DB; SG Super Admin pulls this weekly from MY/GH partner domains for the Franchise Report.',
+                'description' => 'Served by every franchise instance from its OWN DB; SG Franchise Admin pulls this weekly from MY/GH partner domains for the Completed Classes report.',
                 'queryParams' => array(
                     array('name' => 'page', 'type' => 'int', 'required' => false, 'description' => 'Default 1'),
                     array('name' => 'page_size', 'type' => 'int', 'required' => false, 'description' => 'Default 200, max 500'),
@@ -12466,6 +12587,20 @@ $_apiCategories = array(
                 'notes' => array('A class is exported when CONFIRMED (trainer assigned) AND COMPLETED (end date, or start date for one-day runs, before today). Read-only, never mutates.'),
                 'exampleRequest' => "curl -H \"X-API-Key: <key>\" \\\n  \"__BASE_URL__/courses/api_completed_classes?page=1&page_size=200\"",
                 'exampleResponse' => "{\n  \"success\": true, \"page\": 1, \"total\": 84,\n  \"classes\": [{\n    \"class_code\": \"MY000017\", \"course_title\": \"...\", \"course_code\": \"M042\",\n    \"start_date\": \"2026-07-01\", \"end_date\": \"2026-07-02\",\n    \"trainer_name\": \"...\", \"learners_attended\": 8\n  }]\n}",
+            ),
+            array(
+                'method' => 'GET', 'path' => '/courses/api_franchise_stats', 'authKey' => 'sync',
+                'title' => 'Franchise Stats Export',
+                'description' => 'Served by every franchise instance from its OWN DB; the SG Franchise Admin control center pulls it daily (02:30 UTC) from the MY/GH partner domains. Two datasets: classes (run ID, course, dates, trainer, status, enrolled / attended learners, certificates issued) and orders (registration lines: order no, date, status, course, class date, learners, amount, currency). No learner identity or numeric entity IDs are exported.',
+                'queryParams' => array(
+                    array('name' => 'dataset', 'type' => 'string', 'required' => false, 'description' => 'classes (default) or orders'),
+                    array('name' => 'since', 'type' => 'string', 'required' => false, 'description' => 'YYYY-MM-DD — classes ending / orders placed on or after this date (default: 12 months ago)'),
+                    array('name' => 'page', 'type' => 'int', 'required' => false, 'description' => 'Default 1'),
+                    array('name' => 'page_size', 'type' => 'int', 'required' => false, 'description' => 'Default 500, max 1000'),
+                ),
+                'notes' => array('Class status: upcoming (no trainer yet), confirmed (trainer assigned), completed (end date passed). The SG side bills GH per billable learner (present, else enrolled) on confirmed classes whose start date has passed. Read-only, never mutates.'),
+                'exampleRequest' => "curl -H \"X-API-Key: <key>\" \\\n  \"__BASE_URL__/courses/api_franchise_stats?dataset=classes&since=2026-01-01\"",
+                'exampleResponse' => "{\n  \"success\": true, \"dataset\": \"classes\", \"total\": 42, \"total_pages\": 1,\n  \"rows\": [{\n    \"class_code\": \"C000017\", \"course_code\": \"C042\", \"course_title\": \"...\",\n    \"start_date\": \"2026-07-01\", \"end_date\": \"2026-07-02\", \"trainer_name\": \"...\",\n    \"status\": \"completed\", \"enrolled\": 8, \"attended\": 7, \"certs_issued\": 7\n  }]\n}",
             ),
             array(
                 'method' => 'GET', 'path' => '/courses/api_sync_export', 'authKey' => 'sync',
@@ -16789,7 +16924,7 @@ document.addEventListener('keydown', function (ev) {
     function showPanel(role) {
         var panels = {
             'Admin':             COURSE_MANAGER_FOR_ADMIN ? 'dash-panel-developer' : 'dash-panel-admin',
-            'Super Admin':       'dash-panel-superadmin',
+            'Training Provider':       'dash-panel-superadmin',
             'Marketing':         'dash-panel-marketing-newsletter',
             'Learner':           'dash-panel-learner',
             'Trainer':           'dash-panel-learner',
@@ -16885,7 +17020,7 @@ document.addEventListener('keydown', function (ev) {
     // Admin/Super Admin sub-view switcher (Dashboard <-> View Trainers)
     function showAdminSubPanel(name, filter) {
         var r = role;
-        if (r !== 'Admin' && r !== 'Super Admin' && r !== 'Marketing') return;
+        if (r !== 'Admin' && r !== 'Training Provider' && r !== 'Marketing') return;
         var panelMap = { admin: 'dash-panel-admin', trainers: 'dash-panel-trainers', companysetting: 'dash-panel-companysetting', credentials: 'dash-panel-credentials', createclass: 'dash-panel-createclass', assigntrainer: 'dash-panel-assigntrainer', assignlearner: 'dash-panel-assignlearner', enrolllearner: 'dash-panel-enrolllearner', marketingnewsletter: 'dash-panel-marketing-newsletter', dashboard: (r === 'Admin' ? 'dash-panel-admin' : 'dash-panel-superadmin') };
         var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-learner','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-trainers','dash-panel-companysetting','dash-panel-createclass','dash-panel-assigntrainer','dash-panel-assignlearner','dash-panel-enrolllearner','dash-panel-api_summary','dash-panel-credentials'];
         for (var i=0; i<all.length; i++) { var el = document.getElementById(all[i]); if (el) el.style.display = 'none'; }
@@ -16946,12 +17081,12 @@ document.addEventListener('keydown', function (ev) {
         var hash = window.location.hash;
 
         if ((qsPanel === 'companysetting' || hash === '#companysetting')
-            && (role === 'Admin' || role === 'Super Admin' || role === 'Marketing')) {
+            && (role === 'Admin' || role === 'Training Provider' || role === 'Marketing')) {
             showAdminSubPanel('companysetting');
             return;
         }
         if ((qsPanel === 'api_summary' || hash === '#api_summary')
-            && (role === 'Admin' || role === 'Super Admin' || role === 'Marketing')) {
+            && (role === 'Admin' || role === 'Training Provider' || role === 'Marketing')) {
             // Dedicated API Summary panel — read-only directory of all
             // outward-facing HTTP APIs. Key management lives in Credentials.
             var apiPanel = document.getElementById('dash-panel-api_summary');
@@ -16961,37 +17096,37 @@ document.addEventListener('keydown', function (ev) {
             return;
         }
         if ((qsPanel === 'credentials' || hash === '#credentials')
-            && (role === 'Admin' || role === 'Super Admin' || role === 'Marketing')) {
+            && (role === 'Admin' || role === 'Training Provider' || role === 'Marketing')) {
             showAdminSubPanel('credentials');
             return;
         }
         if ((qsPanel === 'trainers' || hash === '#trainers')
-            && (role === 'Admin' || role === 'Super Admin' || role === 'Marketing')) {
+            && (role === 'Admin' || role === 'Training Provider' || role === 'Marketing')) {
             showAdminSubPanel('trainers');
             return;
         }
         if ((qsPanel === 'create_class' || qsPanel === 'createclass' || hash === '#create-class')
-            && (role === 'Admin' || role === 'Super Admin')) {
+            && (role === 'Admin' || role === 'Training Provider')) {
             showAdminSubPanel('createclass');
             return;
         }
         if ((qsPanel === 'assign_trainer' || qsPanel === 'assigntrainer' || hash === '#assign-trainer')
-            && (role === 'Admin' || role === 'Super Admin')) {
+            && (role === 'Admin' || role === 'Training Provider')) {
             showAdminSubPanel('assigntrainer');
             return;
         }
         if ((qsPanel === 'assign_learner' || qsPanel === 'assignlearner' || hash === '#assign-learner')
-            && (role === 'Admin' || role === 'Super Admin')) {
+            && (role === 'Admin' || role === 'Training Provider')) {
             showAdminSubPanel('assignlearner');
             return;
         }
         if ((qsPanel === 'enroll_learner' || qsPanel === 'enrolllearner' || hash === '#enroll-learner')
-            && (role === 'Admin' || role === 'Super Admin')) {
+            && (role === 'Admin' || role === 'Training Provider')) {
             showAdminSubPanel('enrolllearner');
             return;
         }
         if ((qsPanel === 'marketing_newsletter' || qsPanel === 'marketingnewsletter' || hash === '#marketing-newsletter')
-            && (role === 'Marketing' || role === 'Admin' || role === 'Super Admin')) {
+            && (role === 'Marketing' || role === 'Admin' || role === 'Training Provider')) {
             // Marketing newsletter panel — visible to Marketing role and
             // higher. Use the same showAdminSubPanel hide/show machinery.
             var panel = document.getElementById('dash-panel-marketing-newsletter');
@@ -17000,7 +17135,7 @@ document.addEventListener('keydown', function (ev) {
             if (panel) panel.style.display = '';
             return;
         }
-        if (qsFilter && (role === 'Admin' || role === 'Super Admin' || role === 'Marketing')) {
+        if (qsFilter && (role === 'Admin' || role === 'Training Provider' || role === 'Marketing')) {
             showAdminSubPanel('admin', qsFilter);
             return;
         }
@@ -17452,6 +17587,74 @@ window.trnReset = function() {
         window.__dashCharts = [];
     }
 
+    // Training Provider "Learners signed up" chart — re-bucket the daily rows
+    // by the active filters. Registered on window so the filter controls can call it.
+    window.__tpFilters = { type: 'all', gran: 'month' };
+    window.tpRenderLearners = function () {
+        var el = document.getElementById('tpLearnersChart'), rows = window.__tpDaily || [];
+        if (!el || typeof Chart === 'undefined') return;
+        if (window.__tpLearnersChart) { try { window.__tpLearnersChart.destroy(); } catch (e) {} }
+        var cc = window.__tpChartColors || {blue:'#60a5fa',blueDark:'#2563eb',green:'#10b981',grid:'rgba(148,163,184,0.1)',text:'#94a3b8'};
+        var f = window.__tpFilters, months = +((document.getElementById('tp-period') || {}).value || 12);
+        var today = new Date(); today.setHours(0,0,0,0);
+        var start = new Date(today); start.setMonth(start.getMonth() - months + 1); start.setDate(1);
+        function pad(n){ return n < 10 ? '0'+n : ''+n; }
+        function monday(d){ var x = new Date(d); x.setDate(x.getDate() - (x.getDay()+6)%7); x.setHours(0,0,0,0); return x; }
+        function key(d){ return f.gran === 'month' ? d.getFullYear()+'-'+pad(d.getMonth()+1) : (function(m){ return m.getFullYear()+'-'+pad(m.getMonth()+1)+'-'+pad(m.getDate()); })(monday(d)); }
+        var keys = [], labels = [], idx = {};
+        if (f.gran === 'month') { var d = new Date(start); while (d <= today) { idx[key(d)] = keys.length; keys.push(key(d)); labels.push(d.toLocaleString(undefined,{month:'short',year:'2-digit'})); d.setMonth(d.getMonth()+1); } }
+        else { var w = monday(start); while (w <= today) { idx[key(w)] = keys.length; keys.push(key(w)); labels.push(w.getDate()+' '+w.toLocaleString(undefined,{month:'short'})); w.setDate(w.getDate()+7); } }
+        var learners = keys.map(function(){ return 0; }), orders = keys.map(function(){ return 0; }), total = 0, totalOrders = 0;
+        rows.forEach(function(r){
+            if (f.type !== 'all' && r.t !== f.type) return;
+            var p = r.d.split('-'), d = new Date(+p[0], +p[1]-1, +p[2]); if (d < start || d > today) return;
+            var k = key(d); if (!(k in idx)) return;
+            learners[idx[k]] += r.learners; orders[idx[k]] += r.orders; total += r.learners; totalOrders += r.orders;
+        });
+        window.__tpLearnersChart = new Chart(el.getContext('2d'), { type: 'bar',
+            data: { labels: labels, datasets: [
+                { label: 'Learners', data: learners, backgroundColor: cc.blue, borderColor: cc.blueDark, borderWidth: 1, barPercentage: .7 },
+                { label: 'Registrations', data: orders, type: 'line', fill: false, borderColor: cc.green, backgroundColor: cc.green, pointRadius: 2, borderWidth: 2, lineTension: .25 } ] },
+            options: { responsive: true, maintainAspectRatio: false, legend: { display: true, position: 'bottom', labels: { fontColor: cc.text, boxWidth: 10, fontSize: 11 } },
+                tooltips: { mode: 'index', intersect: false },
+                scales: { xAxes: [{ ticks: { fontColor: cc.text, fontSize: 10, maxRotation: 45 }, gridLines: { display: false } }],
+                          yAxes: [{ ticks: { fontColor: cc.text, fontSize: 11, beginAtZero: true, precision: 0, callback: function(v){ return Number(v).toLocaleString(); } }, gridLines: { color: cc.grid } }] } } });
+        var sub = document.getElementById('tp-learners-sub');
+        if (sub) sub.textContent = total.toLocaleString() + ' learners · ' + totalOrders.toLocaleString() + ' registrations · by ' + f.gran;
+    };
+    function tpHorizontalBar(canvasId, bodyId, labels, values, color) {
+        var el = document.getElementById(canvasId); if (!el || typeof Chart === 'undefined') return null;
+        var cc = window.__tpChartColors || {grid:'rgba(148,163,184,0.1)',text:'#94a3b8'};
+        var body = document.getElementById(bodyId); if (body) body.style.height = Math.max(220, labels.length * 26 + 60) + 'px';
+        return new Chart(el.getContext('2d'), { type: 'horizontalBar',
+            data: { labels: labels, datasets: [{ data: values, backgroundColor: color, barPercentage: .7 }] },
+            options: { responsive: true, maintainAspectRatio: false, legend: { display: false },
+                scales: { xAxes: [{ ticks: { fontColor: cc.text, fontSize: 11, beginAtZero: true, callback: function(v){ return Number(v).toLocaleString(); } }, gridLines: { color: cc.grid } }],
+                          yAxes: [{ ticks: { fontColor: cc.text, fontSize: 10 }, gridLines: { display: false } }] } } });
+    }
+    window.tpRenderPopular = function () {
+        var all = window.__tpPopular || {}; var sel = document.getElementById('tp-pc-period'), sl = document.getElementById('tp-pc-slider');
+        if (!sel || !sl) return;
+        var rows = (all[sel.value] || []).slice(0, +sl.value), n = document.getElementById('tp-pc-n'), sub = document.getElementById('tp-pc-sub');
+        if (n) n.textContent = sl.value; if (sub) sub.textContent = rows.length + ' of top ' + (all[sel.value] || []).length + ' by learners';
+        if (window.__tpPopularChart) { try { window.__tpPopularChart.destroy(); } catch (e) {} }
+        window.__tpPopularChart = tpHorizontalBar('popularCoursesChart', 'tp-pc-body', rows.map(function(x){ return x.name.length > 60 ? x.name.substring(0, 57) + '…' : x.name; }), rows.map(function(x){ return x.qty; }), (window.__tpChartColors || {}).green || '#10b981');
+    };
+    window.tpRenderSearches = function () {
+        var sl = document.getElementById('tp-ps-slider'); if (!sl) return;
+        var rows = (window.__tpSearches || []).slice(0, +sl.value), n = document.getElementById('tp-ps-n'); if (n) n.textContent = sl.value;
+        if (window.__tpSearchChart) { try { window.__tpSearchChart.destroy(); } catch (e) {} }
+        window.__tpSearchChart = tpHorizontalBar('popularSearchesChart', 'tp-ps-body', rows.map(function(x){ var t = x.term || ''; return t.length > 35 ? t.substring(0, 32) + '…' : t; }), rows.map(function(x){ return x.count; }), (window.__tpChartColors || {}).purple || '#a78bfa');
+    };
+    ['tp-type-tabs', 'tp-gran-tabs'].forEach(function(id){
+        var box = document.getElementById(id); if (!box) return;
+        box.addEventListener('click', function(e){
+            var b = e.target.closest('button[data-v]'); if (!b) return;
+            box.querySelectorAll('button').forEach(function(x){ x.classList.remove('active'); }); b.classList.add('active');
+            window.__tpFilters[id === 'tp-type-tabs' ? 'type' : 'gran'] = b.getAttribute('data-v'); tpRenderLearners();
+        });
+    });
+
     function initDashCharts() {
         if (typeof Chart === 'undefined') {
             if (chartInitAttempts++ < 40) scheduleDashChartsInit();
@@ -17473,17 +17676,16 @@ window.trnReset = function() {
         var sd=<?php echo json_encode($salesByMonth) ?>;
         window.__dashCharts.push(new Chart(document.getElementById('salesByMonthChart').getContext('2d'),{type:'bar',data:{labels:sd.map(function(x){return x.label;}),datasets:[{data:sd.map(function(x){return x.value;}),backgroundColor:cc.blue,borderColor:cc.blueDark,borderWidth:1,barPercentage:.7}]},options:{responsive:true,maintainAspectRatio:false,scales:{xAxes:[{ticks:{fontColor:cc.text,fontSize:10,maxRotation:45},gridLines:{display:false}}],yAxes:[{ticks:{fontColor:cc.text,fontSize:11,callback:function(v){return'$'+v.toLocaleString();},beginAtZero:true},gridLines:{color:cc.grid}}]}}}));
 
-        var cd=<?php echo json_encode($popularCourses) ?>;
-        var pcEl = document.getElementById('popularCoursesChart');
-        if (pcEl) window.__dashCharts.push(new Chart(pcEl.getContext('2d'),{type:'horizontalBar',data:{labels:cd.map(function(x){return x.name;}),datasets:[{data:cd.map(function(x){return x.qty;}),backgroundColor:cc.green,barPercentage:.7}]},options:{responsive:true,maintainAspectRatio:false,scales:{xAxes:[{ticks:{fontColor:cc.text,fontSize:11,beginAtZero:true},gridLines:{color:cc.grid}}],yAxes:[{ticks:{fontColor:cc.text,fontSize:10},gridLines:{display:false}}]}}}));
+        // Popular courses / search terms — interactive (period select + Top N slider)
+        window.__tpPopular = <?php echo json_encode($popularCoursesByPeriod) ?>;
+        window.__tpSearches = <?php echo json_encode($popularSearches) ?>;
+        window.__tpChartColors = cc;
+        tpRenderPopular(); tpRenderSearches();
 
-        var ps=<?php echo json_encode($popularSearches) ?>;
-        var psEl = document.getElementById('popularSearchesChart');
-        if (psEl) window.__dashCharts.push(new Chart(psEl.getContext('2d'),{type:'horizontalBar',data:{labels:ps.map(function(x){var t=x.term||'';return t.length>35?t.substring(0,32)+'...':t;}),datasets:[{data:ps.map(function(x){return x.count;}),backgroundColor:cc.purple,barPercentage:.7}]},options:{responsive:true,maintainAspectRatio:false,scales:{xAxes:[{ticks:{fontColor:cc.text,fontSize:11,beginAtZero:true},gridLines:{color:cc.grid}}],yAxes:[{ticks:{fontColor:cc.text,fontSize:10},gridLines:{display:false}}]}}}));
+        // Learners signed up — week/month x course type x period (client-side re-bucketing)
+        window.__tpDaily = <?php echo json_encode($tpDaily) ?>;
+        if (document.getElementById('tpLearnersChart')) { window.__tpChartColors = cc; tpRenderLearners(); }
 
-        var oc=<?php echo json_encode($ordersByCountry) ?>;
-        var ocEl = document.getElementById('ordersByCountryChart');
-        if (ocEl) window.__dashCharts.push(new Chart(ocEl.getContext('2d'),{type:'horizontalBar',data:{labels:oc.map(function(x){return x.country;}),datasets:[{data:oc.map(function(x){return x.count;}),backgroundColor:cc.orange,barPercentage:.7}]},options:{responsive:true,maintainAspectRatio:false,scales:{xAxes:[{ticks:{fontColor:cc.text,fontSize:11,beginAtZero:true},gridLines:{color:cc.grid}}],yAxes:[{ticks:{fontColor:cc.text,fontSize:10},gridLines:{display:false}}]}}}));
     }
     window.initDashCharts = initDashCharts;
 

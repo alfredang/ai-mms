@@ -186,6 +186,17 @@ class MMD_RoleManager_Model_Observer
                 return;
             }
 
+            // Franchise Admin has no TP dashboard — its home is the Franchise
+            // Control Center (adminhtml/franchisereport). Redirect the bare
+            // dashboard route so login / View As land on the control center.
+            if ($activeRole === 'franchise_admin' && $key === 'adminhtml_dashboard') {
+                $controller->getResponse()->setRedirect(
+                    Mage::helper('adminhtml')->getUrl('adminhtml/franchisereport/index')
+                );
+                $controller->setFlag('', Mage_Core_Controller_Varien_Action::FLAG_NO_DISPATCH, true);
+                return;
+            }
+
             $result = $this->evaluateAccess(
                 $key,
                 $actionName,
@@ -471,7 +482,9 @@ class MMD_RoleManager_Model_Observer
             'adminhtml_api2_role'                 => $sysDevRoles,
             'adminhtml_api2_attribute'            => $sysDevRoles,
 
-            // Permissions — Super Admin only
+            // Franchise Control Center — Franchise Admin only (SG control site)
+            'adminhtml_franchisereport'           => array('franchise_admin'),
+            // Permissions — Training Provider only
             'adminhtml_permissions_role'          => $superOnly,
             'adminhtml_permissions_user'          => $superOnly,
             'adminhtml_permissions_block'         => $superOnly,

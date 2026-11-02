@@ -7,6 +7,7 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
     const ROLE_ADMIN             = 'admin';
     const ROLE_TRAINING_PROVIDER = 'training_provider';
     const ROLE_DEVELOPER         = 'developer';
+    const ROLE_FRANCHISE_ADMIN   = 'franchise_admin';
 
     protected $_roleLabels = array(
         'learner'           => 'Learner',
@@ -14,7 +15,8 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
         'developer'         => 'Developer',
         'marketing'         => 'Marketing',
         'admin'             => 'Admin',
-        'training_provider' => 'Super Admin',
+        'training_provider' => 'Training Provider',
+        'franchise_admin'   => 'Franchise Admin',
     );
 
     protected $_roleIcons = array(
@@ -24,6 +26,7 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
         'marketing'         => '&#x1F4E3;',  // 📣
         'admin'             => '&#x2699;&#xFE0F;',  // ⚙️
         'training_provider' => '&#x1F6E1;&#xFE0F;',  // 🛡️
+        'franchise_admin'   => '&#x1F310;',  // 🌐
     );
 
     protected $_roleDescriptions = array(
@@ -32,7 +35,8 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
         'developer'         => 'System development and technical configuration',
         'marketing'         => 'Manage campaigns, promotions, and CMS',
         'admin'             => 'Manage users, classes, and system settings',
-        'training_provider' => 'Full system access and configuration',
+        'training_provider' => 'Full access to this site: learners, classes, trainers and configuration',
+        'franchise_admin'   => 'Franchise control center: all franchisee sites, syncs and fee collection',
     );
 
     protected $_rolePriority = array(
@@ -42,6 +46,7 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
         'marketing'         => 4,
         'admin'             => 5,
         'training_provider' => 6,
+        'franchise_admin'   => 7,
     );
 
     // Maps a role code to the admin_role group name (role_type='G') that
@@ -57,7 +62,8 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
         'developer'         => 'Developer',
         'marketing'         => 'Marketing',
         'admin'             => 'Admin',
-        'training_provider' => 'Super Admin',
+        'training_provider' => 'Super Admin',   // group name kept — label is "Training Provider" (2026-11)
+        'franchise_admin'   => 'Franchise Admin',
     );
 
     public function getAllRoles()

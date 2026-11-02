@@ -261,6 +261,14 @@
                 <schedule><cron_expr>0 10 * * 0</cron_expr></schedule>
                 <run><model>mmd_rolemanager/cron_franchiseClassesPull::run</model></run>
             </mmd_rolemanager_franchise_classes_pull>
+            <!-- Daily Franchise Control Center collection — 02:30 UTC.
+                 SG-only (country instances skip). SG reads itself locally,
+                 MY/GH over /courses/api_franchise_stats; refreshes the fee
+                 ledger. -->
+            <mmd_rolemanager_franchise_stats_pull>
+                <schedule><cron_expr>30 2 * * *</cron_expr></schedule>
+                <run><model>mmd_rolemanager/cron_franchiseStatsPull::run</model></run>
+            </mmd_rolemanager_franchise_stats_pull>
         </jobs>
     </crontab>
 </config>

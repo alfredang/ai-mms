@@ -1,396 +1,778 @@
 <?php
 /**
- * Franchise Management — Super Admin sidebar group with four pages, all
- * served by MMD_RoleManager_Adminhtml_FranchisereportController::indexAction()
- * and routed by ?section= (mirrored in the sidebar sub-items):
- *  - '' (Franchise Report) — confirmed + completed classes pulled from the
- *    MY/GH partner sites (mmd_franchise_completed_classes, filled by the
- *    Sunday 10:00 SGT cron / the Pull Now button) + Partner Connection
- *    Settings.
- *  - courses / categories / schedules — one sync page each; triggers the
- *    partner's own pull-from-SG import via its /courses/api_sync_trigger
- *    endpoint. Strictly one-way SG -> franchisee; partners can never write
- *    back to SG.
+ * Franchise Control Center — Franchise Admin role (SG control site only).
+ * Rendered by MMD_RoleManager_Adminhtml_FranchisereportController::indexAction()
+ * and routed by ?section= (mirrored in the Franchise Admin sidebar):
+ *  - ''          Control Center — KPIs, aggregate charts (filter by franchise,
+ *                week / month), per-franchise weekly table, class ledger with
+ *                run ID / pax / certificates / fee + payment status.
+ *                Data: mmd_franchise_classes + mmd_franchise_orders +
+ *                mmd_franchise_class_fee (daily 02:30 UTC cron / Pull Now).
+ *  - completed   Confirmed + completed classes pulled from MY/GH (weekly cron).
+ *  - fees        Fees & Payments ledger + per-partner fee settings.
+ *  - courses / categories / schedules — one-way SG -> franchisee syncs.
+ *  - settings    Partner connection settings (URL + API key) + pull controls.
  * SG-only: country instances render the not-available notice.
  */
 $_frSection = strtolower((string) $this->getSection());
-$_frTitles  = array(
-    ''           => 'Franchise Report',
-    'courses'    => 'Course Sync',
-    'categories' => 'Category Sync',
-    'schedules'  => 'Schedule Sync',
-);
+$_frTitles  = MMD_RoleManager_Adminhtml_FranchisereportController::sectionTitles();
 if (!isset($_frTitles[$_frSection])) $_frSection = '';
+$_frIsSg    = (strtolower((string) getenv('MMS_MODE')) !== 'country');
+$_frRead    = Mage::getSingleton('core/resource')->getConnection('core_read');
+$_frHasTbl  = function ($t) use ($_frRead) { try { return (bool) $_frRead->fetchOne("SHOW TABLES LIKE " . $_frRead->quote($t)); } catch (Exception $e) { return false; } };
+$_frUrl     = function ($action, $q = array()) { return Mage::helper('adminhtml')->getUrl('adminhtml/franchisereport/' . $action, $q ? array('_query' => $q) : array()); };
+$_frFmtDate = function ($d) { return $d ? htmlspecialchars(Mage::helper('core')->formatDate($d, 'medium', true)) : 'never'; };
 
-// Partner connection config — shared by the report and every sync page.
+// Partner connection config — shared by every section.
 $_frMyUrl  = (string) Mage::getStoreConfig('mmd/franchise_report/my_url');
 $_frGhUrl  = (string) Mage::getStoreConfig('mmd/franchise_report/gh_url');
 $_fmPartners = array(
-    'my' => array('label' => 'Malaysia', 'flag' => '🇲🇾',
-        'configured' => (bool) ($_frMyUrl && Mage::getStoreConfig('mmd/franchise_report/my_key'))),
-    'gh' => array('label' => 'Ghana', 'flag' => '🇬🇭',
-        'configured' => (bool) ($_frGhUrl && Mage::getStoreConfig('mmd/franchise_report/gh_key'))),
+    'my' => array('label' => 'Malaysia', 'flag' => '🇲🇾', 'configured' => (bool) ($_frMyUrl && Mage::getStoreConfig('mmd/franchise_report/my_key'))),
+    'gh' => array('label' => 'Ghana',    'flag' => '🇬🇭', 'configured' => (bool) ($_frGhUrl && Mage::getStoreConfig('mmd/franchise_report/gh_key'))),
 );
+$_frSites = array(
+    'SG' => array('label' => 'Singapore', 'flag' => '🇸🇬', 'role' => 'Control site'),
+    'MY' => array('label' => 'Malaysia',  'flag' => '🇲🇾', 'role' => 'Franchisee'),
+    'GH' => array('label' => 'Ghana',     'flag' => '🇬🇭', 'role' => 'Franchisee'),
+);
+$_frFeeCfg = Mage::getModel('mmd_rolemanager/franchiseStatsService')->feeConfig();
+$_frCertModes = Mage::getModel('mmd_rolemanager/franchiseControlService')->modes();
+$_frStatsLastPull = (string) Mage::getStoreConfig('mmd/franchise_stats/last_pull');
+$_frClassesLastPull = (string) Mage::getStoreConfig('mmd/franchise_report/last_pull');
 ?>
-<div class="franchise-report-page" style="padding:4px 0;">
+<style>
+.franchise-report-page .fr-toolbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin:0 0 14px}
+.franchise-report-page .fr-filters{display:flex;align-items:center;flex-wrap:wrap;gap:14px}
+.franchise-report-page .fr-filter-label{font-size:10.5px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--t4);margin-right:6px}
+.franchise-report-page .fr-meta{font-size:12px;color:var(--t4)}
+.franchise-report-page .fr-meta strong{color:var(--t3,#cbd5e1);font-weight:600}
+.franchise-report-page .fr-status{display:none;border:1px solid var(--b1);border-radius:6px;padding:8px 12px;font-size:12px;color:var(--t4);margin:0 0 14px;white-space:pre-line}
+.franchise-report-page .fr-sites{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin:0 0 18px}
+.franchise-report-page .fr-site{border:1px solid var(--b1);border-radius:10px;padding:14px 16px;background:var(--d3);max-width:560px}
+.franchise-report-page .fr-site-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.franchise-report-page .fr-site-name{font-size:13px;font-weight:700;color:var(--t1)}
+.franchise-report-page .fr-site-role{font-size:10.5px;letter-spacing:1px;text-transform:uppercase;color:var(--t4)}
+.franchise-report-page .fr-site-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px}
+.franchise-report-page .fr-site-k{font-size:10.5px;letter-spacing:.8px;text-transform:uppercase;color:var(--t4)}
+.franchise-report-page .fr-site-v{font-size:17px;font-weight:700;color:var(--t1);font-variant-numeric:tabular-nums}
+.franchise-report-page .fr-site-v small{font-size:11px;font-weight:500;color:var(--t4);margin-left:4px}
+.franchise-report-page .fr-pill{display:inline-block;border:1px solid currentColor;border-radius:2px;padding:1px 7px;font-size:10.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;line-height:1.5}
+.franchise-report-page .fr-pill-cc{color:#22d3ee}
+.franchise-report-page .fr-pill-ok{color:var(--green,#3df5a8)}
+.franchise-report-page .fr-pill-warn{color:var(--yellow,#f5c451)}
+.franchise-report-page .fr-pill-mute{color:#8aa1bd}
+.franchise-report-page .fr-pill-violet{color:#b07cff}
+.franchise-report-page .fr-charts{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:0 0 18px}
+.franchise-report-page .fr-charts .chart-card.chart-wide{grid-column:1 / -1}
+.franchise-report-page .fr-search{padding:6px 10px;background:transparent;border:1px solid var(--b2);border-radius:6px;color:var(--t1);font-size:12px;min-width:220px}
+.franchise-report-page select.fr-select,.franchise-report-page input.fr-input{height:28px;padding:2px 8px;font-size:12px;border-radius:6px;background:transparent;border:1px solid var(--b2);color:var(--t1)}
+.franchise-report-page .fr-settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.franchise-report-page .fr-field{margin-bottom:10px}
+.franchise-report-page .fr-field label{display:block;font-size:11px;font-weight:600;color:var(--t4);margin-bottom:4px}
+.franchise-report-page .fr-field input{width:100%;box-sizing:border-box;padding:7px 10px;background:transparent;border:1px solid var(--b2);border-radius:6px;color:var(--t1);font-size:13px}
+.franchise-report-page .mm-table td.fr-num,.franchise-report-page .mm-table th.fr-num{text-align:right;font-variant-numeric:tabular-nums}
+.franchise-report-page .mm-table td.fr-mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px}
+.franchise-report-page .fr-legend{display:flex;gap:14px;font-size:11px;color:var(--t4);margin:6px 0 0}
+.franchise-report-page .fr-certcfg-table,.franchise-report-page .fr-feecfg-table{table-layout:fixed}
+.franchise-report-page .fr-certcfg-table th:nth-child(1){width:200px}.franchise-report-page .fr-certcfg-table th:nth-child(2){width:190px}.franchise-report-page .fr-certcfg-table th:nth-child(4),.franchise-report-page .fr-feecfg-table th:nth-child(5){width:90px}
+.franchise-report-page .fr-feecfg-table th:nth-child(1){width:160px}.franchise-report-page .fr-feecfg-table th:nth-child(2){width:140px}.franchise-report-page .fr-feecfg-table th:nth-child(3){width:100px}
+.franchise-report-page .fr-legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+@media (max-width:1100px){.franchise-report-page .fr-charts{grid-template-columns:1fr}.franchise-report-page .fr-settings-grid{grid-template-columns:1fr}}
+</style>
+<div class="franchise-report-page">
     <h1 class="franchise-report-title"><?php echo htmlspecialchars($_frTitles[$_frSection]) ?></h1>
-<?php if (strtolower((string) getenv('MMS_MODE')) !== 'country'): ?>
-<?php if ($_frSection === ''): ?>
+<?php if (!$_frIsSg): ?>
+    <div class="fr-meta">The Franchise Control Center is only available on the Singapore control site.</div>
+<?php else: ?>
+
+<?php /* ================================================================ */ ?>
+<?php if ($_frSection === ''): // ---------------- CONTROL CENTER ---------- ?>
 <?php
-// ---- Franchisee Completed Classes (SG-only) --------------------------------
-// Local copy pulled weekly (Sun 10:00 SGT cron) / on demand from the MY/GH
-// /courses/api_completed_classes endpoints into mmd_franchise_completed_classes.
-$_frRows = array();
-$_frLastPull = (string) Mage::getStoreConfig('mmd/franchise_report/last_pull');
-$_frPullUrl = Mage::helper('adminhtml')->getUrl('adminhtml/franchisereport/pull');
-$_frCfgUrl  = Mage::helper('adminhtml')->getUrl('adminhtml/franchisereport/saveConfig');
-try {
-    $_frRead = Mage::getSingleton('core/resource')->getConnection('core_read');
-    if ($_frRead->fetchOne("SHOW TABLES LIKE 'mmd_franchise_completed_classes'")) {
-        $_frRows = $_frRead->fetchAll(
-            "SELECT source_country, class_code, course_title, course_code,
-                    start_date, end_date, trainer_name, learners_attended
-               FROM mmd_franchise_completed_classes
-           ORDER BY start_date DESC, class_code DESC
-              LIMIT 2000"
-        );
-    }
-} catch (Exception $e) { /* card renders empty */ }
+$_fcClasses = $_fcOrders = $_fcFeeTotals = array();
+if ($_frHasTbl('mmd_franchise_classes')) {
+    $_fcClasses = $_frRead->fetchAll(
+        "SELECT c.source_country, c.class_code, c.course_code, c.course_title, c.start_date, c.end_date,
+                c.trainer_name, c.status, c.enrolled, c.attended, c.certs_issued,
+                f.id AS fee_id, f.amount AS fee_amount, f.currency AS fee_currency, f.status AS fee_status,
+                f.billable_learners
+           FROM mmd_franchise_classes c
+      LEFT JOIN mmd_franchise_class_fee f ON f.source_country = c.source_country AND f.class_code = c.class_code
+          WHERE c.start_date >= DATE_SUB(CURDATE(), INTERVAL 13 MONTH)
+       ORDER BY c.start_date DESC, c.class_code DESC
+          LIMIT 3000"
+    );
+    $_fcOrders = $_frRead->fetchAll(
+        "SELECT source_country, DATE(ordered_at) AS d, COUNT(*) AS orders, SUM(learners) AS learners,
+                SUM(amount) AS amount, MAX(currency) AS currency
+           FROM mmd_franchise_orders
+          WHERE ordered_at >= DATE_SUB(CURDATE(), INTERVAL 13 MONTH)
+            AND status NOT IN ('canceled','closed','fraud')
+       GROUP BY source_country, DATE(ordered_at)
+       ORDER BY d"
+    );
+}
+foreach ($_fcClasses as &$_c) { foreach (array('enrolled','attended','certs_issued','billable_learners','fee_id') as $_k) $_c[$_k] = (int) $_c[$_k]; $_c['fee_amount'] = (float) $_c['fee_amount']; }
+unset($_c);
+foreach ($_fcOrders as &$_o) { $_o['orders'] = (int) $_o['orders']; $_o['learners'] = (int) $_o['learners']; $_o['amount'] = round((float) $_o['amount'], 2); }
+unset($_o);
+$_fcMarkUrl = $_frUrl('markFee');
 ?>
-<div style="margin-bottom:24px;background:#0f172a;border:1px solid #1e3a5f;border-radius:14px;padding:20px 24px;">
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:14px;">
-        <div>
-            <div style="font-size:15px;font-weight:700;color:#e2e8f0;display:flex;align-items:center;gap:8px;">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-                Franchisee Completed Classes
-            </div>
-            <div style="font-size:12px;color:#64748b;margin-top:3px;">
-                Confirmed &amp; completed classes pulled from the MY / GH partner sites.
-                Auto-pull every Sunday 10:00am<?php if ($_frLastPull): ?> · last pull
-                <strong style="color:#94a3b8;"><?php echo htmlspecialchars(Mage::helper('core')->formatDate($_frLastPull, 'medium', true)) ?></strong><?php endif; ?>
-            </div>
-        </div>
-        <button type="button" id="fr-pull-btn" onclick="frPullNow(this)"
-            style="background:#0e7490;border:none;color:#fff;font-size:13px;font-weight:600;padding:8px 18px;border-radius:8px;cursor:pointer;">
-            Pull Now
-        </button>
-    </div>
-
-    <div id="fr-status" style="display:none;background:#1e293b;border-radius:8px;padding:10px 14px;font-size:13px;color:#94a3b8;margin-bottom:14px;"></div>
-
-    <!-- Filters: date range (start date), course title, free search -->
-    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px;">
-        <div>
-            <div style="font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:4px;">From (start date)</div>
-            <input type="date" id="fr-date-from" onchange="frFilter()"
-                style="padding:8px 12px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:13px;" />
-        </div>
-        <div>
-            <div style="font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:4px;">To (start date)</div>
-            <input type="date" id="fr-date-to" onchange="frFilter()"
-                style="padding:8px 12px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:13px;" />
-        </div>
-        <div style="flex:1;min-width:180px;">
-            <div style="font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:4px;">Course Title</div>
-            <input type="search" id="fr-title" autocomplete="off" placeholder="Filter by course title..." oninput="frFilter()"
-                style="width:100%;padding:8px 12px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:13px;" />
-        </div>
-        <div style="flex:1;min-width:180px;">
-            <div style="font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:4px;">Search</div>
-            <input type="search" id="fr-search" autocomplete="off" placeholder="Class code, course code, trainer..." oninput="frFilter()"
-                style="width:100%;padding:8px 12px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:13px;" />
-        </div>
-        <button type="button" onclick="frReset()"
-            style="background:transparent;border:1px solid #334155;color:#94a3b8;font-size:13px;font-weight:600;padding:8px 14px;border-radius:8px;cursor:pointer;">
-            Reset
-        </button>
-    </div>
-
-    <?php if (empty($_frRows)): ?>
-    <?php $_frConfigured = ($_fmPartners['my']['configured'] || $_fmPartners['gh']['configured']); ?>
-    <div style="text-align:center;color:#64748b;font-size:13px;padding:26px 0;">
-        <?php if ($_frConfigured): ?>
-            No completed classes yet — the partner sites have no confirmed &amp; completed classes with attendance taken.
-            New classes appear here automatically after the next pull.
-        <?php else: ?>
-            Not connected yet — open <strong>Partner Connection Settings</strong> below to add the MY / GH endpoints, then click <strong>Pull Now</strong>.
-        <?php endif; ?>
-    </div>
-    <?php else: ?>
-    <div style="overflow-x:auto;">
-        <table style="width:100%;border-collapse:collapse;font-size:13px;">
-            <thead>
-                <tr style="color:#94a3b8;text-align:left;">
-                    <th style="padding:8px 10px;border-bottom:1px solid #1e3a5f;">Country</th>
-                    <th style="padding:8px 10px;border-bottom:1px solid #1e3a5f;">Class Code</th>
-                    <th style="padding:8px 10px;border-bottom:1px solid #1e3a5f;">Course Title</th>
-                    <th style="padding:8px 10px;border-bottom:1px solid #1e3a5f;">Course Code</th>
-                    <th style="padding:8px 10px;border-bottom:1px solid #1e3a5f;">Start Date</th>
-                    <th style="padding:8px 10px;border-bottom:1px solid #1e3a5f;">End Date</th>
-                    <th style="padding:8px 10px;border-bottom:1px solid #1e3a5f;">Trainer</th>
-                    <th style="padding:8px 10px;border-bottom:1px solid #1e3a5f;text-align:right;">Learners</th>
-                </tr>
-            </thead>
-            <tbody id="fr-tbody">
-                <?php foreach ($_frRows as $_fr): ?>
-                <tr class="fr-row"
-                    data-start="<?php echo htmlspecialchars((string)$_fr['start_date']) ?>"
-                    data-title="<?php echo htmlspecialchars(strtolower((string)$_fr['course_title'])) ?>"
-                    data-search="<?php echo htmlspecialchars(strtolower($_fr['class_code'] . ' ' . $_fr['course_title'] . ' ' . $_fr['course_code'] . ' ' . $_fr['trainer_name'] . ' ' . $_fr['source_country'])) ?>"
-                    style="color:#cbd5e1;">
-                    <td style="padding:8px 10px;border-bottom:1px solid #16233f;">
-                        <span style="background:rgba(34,211,238,.12);border:1px solid rgba(34,211,238,.3);color:#22d3ee;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;"><?php echo htmlspecialchars($_fr['source_country']) ?></span>
-                    </td>
-                    <td style="padding:8px 10px;border-bottom:1px solid #16233f;font-family:monospace;"><?php echo htmlspecialchars($_fr['class_code']) ?></td>
-                    <td style="padding:8px 10px;border-bottom:1px solid #16233f;"><?php echo htmlspecialchars($_fr['course_title']) ?></td>
-                    <td style="padding:8px 10px;border-bottom:1px solid #16233f;font-family:monospace;"><?php echo htmlspecialchars($_fr['course_code']) ?></td>
-                    <td style="padding:8px 10px;border-bottom:1px solid #16233f;white-space:nowrap;"><?php echo htmlspecialchars((string)$_fr['start_date']) ?></td>
-                    <td style="padding:8px 10px;border-bottom:1px solid #16233f;white-space:nowrap;"><?php echo htmlspecialchars((string)$_fr['end_date']) ?></td>
-                    <td style="padding:8px 10px;border-bottom:1px solid #16233f;"><?php echo htmlspecialchars($_fr['trainer_name']) ?></td>
-                    <td style="padding:8px 10px;border-bottom:1px solid #16233f;text-align:right;font-weight:700;color:#22d3ee;"><?php echo (int)$_fr['learners_attended'] ?></td>
-                </tr>
+<div class="fr-toolbar">
+    <div class="fr-filters">
+        <span><span class="fr-filter-label">Franchise</span>
+            <span class="dev-country-tabs" role="tablist" aria-label="Filter by franchise" id="fc-site-tabs">
+                <button type="button" class="dev-country-btn active" data-site="ALL">All sites</button>
+                <?php foreach ($_frSites as $_cc => $_s): ?>
+                <button type="button" class="dev-country-btn" data-site="<?php echo $_cc ?>"><?php echo $_s['flag'] . ' ' . $_s['label'] ?></button>
                 <?php endforeach; ?>
-            </tbody>
-        </table>
-        <div id="fr-empty-filter" style="display:none;text-align:center;color:#64748b;font-size:13px;padding:20px 0;">No classes match the current filters.</div>
+            </span>
+        </span>
+        <span><span class="fr-filter-label">Period</span>
+            <select class="fr-select" id="fc-period" onchange="fcRender()">
+                <option value="3">Last 3 months</option>
+                <option value="6">Last 6 months</option>
+                <option value="12" selected>Last 12 months</option>
+            </select>
+        </span>
+        <span><span class="fr-filter-label">Group by</span>
+            <span class="dev-country-tabs" role="tablist" id="fc-gran-tabs">
+                <button type="button" class="dev-country-btn" data-gran="week">Week</button>
+                <button type="button" class="dev-country-btn active" data-gran="month">Month</button>
+            </span>
+        </span>
     </div>
-    <?php endif; ?>
+    <div style="display:flex;align-items:center;gap:12px;">
+        <span class="fr-meta">Auto-collected daily 02:30 UTC · last collection <strong><?php echo $_frFmtDate($_frStatsLastPull) ?></strong></span>
+        <button type="button" class="mm-btn mm-btn-primary" id="fc-pull-btn" onclick="fcPullNow(this)">Collect Now</button>
+    </div>
+</div>
+<div class="fr-status" id="fc-status"></div>
 
-    <!-- Partner connection settings -->
-    <details style="margin-top:14px;">
-        <summary style="font-size:12px;font-weight:600;color:#64748b;cursor:pointer;user-select:none;">Partner Connection Settings</summary>
-        <div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-            <div>
-                <div style="font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:4px;">🇲🇾 Malaysia Base URL</div>
-                <input type="text" id="fr-my-url" value="<?php echo htmlspecialchars($_frMyUrl) ?>" placeholder="https://www.tertiarycourses.com.my"
-                    style="width:100%;padding:8px 12px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:13px;" />
-                <div style="font-size:11px;font-weight:600;color:#94a3b8;margin:8px 0 4px;">MY API Key</div>
-                <input type="password" id="fr-my-key" value="" placeholder="(unchanged)" autocomplete="new-password"
-                    style="width:100%;padding:8px 12px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:13px;" />
-            </div>
-            <div>
-                <div style="font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:4px;">🇬🇭 Ghana Base URL</div>
-                <input type="text" id="fr-gh-url" value="<?php echo htmlspecialchars($_frGhUrl) ?>" placeholder="https://www.tertiarycourses.com.gh"
-                    style="width:100%;padding:8px 12px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:13px;" />
-                <div style="font-size:11px;font-weight:600;color:#94a3b8;margin:8px 0 4px;">GH API Key</div>
-                <input type="password" id="fr-gh-key" value="" placeholder="(unchanged)" autocomplete="new-password"
-                    style="width:100%;padding:8px 12px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:13px;" />
-            </div>
-        </div>
-        <button type="button" onclick="frSaveConfig()"
-            style="margin-top:12px;background:#1e293b;border:1px solid #334155;color:#e2e8f0;font-size:13px;font-weight:600;padding:8px 16px;border-radius:8px;cursor:pointer;">
-            Save Settings
-        </button>
-    </details>
+<?php if (empty($_fcClasses) && empty($_fcOrders)): ?>
+<div class="fr-meta" style="padding:30px 0;text-align:center;">No data collected yet — click <strong>Collect Now</strong>. Singapore is read locally; Malaysia and Ghana are pulled from their sites once their endpoints are connected under Partner Settings.</div>
+<?php endif; ?>
+
+<div class="kpi-cards">
+    <div class="kpi-card kpi-orders"><div class="kpi-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+        <div class="kpi-content"><div class="kpi-value" id="fc-kpi-learners">0</div><div class="kpi-label">Learners signed up</div><div class="kpi-sub" id="fc-kpi-learners-sub">—</div></div></div>
+    <div class="kpi-card kpi-courses"><div class="kpi-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+        <div class="kpi-content"><div class="kpi-value" id="fc-kpi-classes">0</div><div class="kpi-label">Classes</div><div class="kpi-sub" id="fc-kpi-classes-sub">—</div></div></div>
+    <div class="kpi-card kpi-revenue"><div class="kpi-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+        <div class="kpi-content"><div class="kpi-value" id="fc-kpi-certs">0</div><div class="kpi-label">Certificates issued</div><div class="kpi-sub" id="fc-kpi-certs-sub">—</div></div></div>
+    <div class="kpi-card kpi-revenue"><div class="kpi-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+        <div class="kpi-content"><div class="kpi-value" id="fc-kpi-fees">0</div><div class="kpi-label">Franchise fees pending</div><div class="kpi-sub" id="fc-kpi-fees-sub">—</div></div></div>
 </div>
 
+<div class="fr-sites" id="fc-sites"></div>
+
+<div class="fr-charts">
+    <div class="chart-card chart-wide"><div class="chart-header"><h4>Learners signed up</h4><span class="chart-subtitle" id="fc-ch1-sub"></span></div><div class="chart-body"><canvas id="fc-chart-learners" height="260"></canvas></div><div class="fr-legend" id="fc-legend"></div></div>
+    <div class="chart-card"><div class="chart-header"><h4>Classes run</h4><span class="chart-subtitle" id="fc-ch2-sub"></span></div><div class="chart-body"><canvas id="fc-chart-classes" height="240"></canvas></div></div>
+    <div class="chart-card"><div class="chart-header"><h4>Certificates issued</h4><span class="chart-subtitle" id="fc-ch3-sub"></span></div><div class="chart-body"><canvas id="fc-chart-certs" height="240"></canvas></div></div>
+</div>
+
+<div class="dcf-mag mmd-auto-card">
+    <div class="dcf-mag-bar"><span>Weekly activity by franchise</span><span class="mmd-auto-card-actions fr-meta">Last 8 weeks · Mon–Sun</span></div>
+    <div class="dcf-mag-body" style="padding:0;">
+        <table class="mm-table fr-weekly-table" id="fc-weekly">
+            <thead><tr><th>Week</th><th>Site</th><th class="fr-num">Sign-ups (orders)</th><th class="fr-num">Learners</th><th class="fr-num">Classes run</th><th class="fr-num">Pax in class</th><th class="fr-num">Certificates</th><th class="fr-num">Fees</th></tr></thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</div>
+
+<div class="dcf-mag mmd-auto-card">
+    <div class="dcf-mag-bar"><span>Class ledger</span>
+        <span class="mmd-auto-card-actions" style="display:flex;gap:8px;align-items:center;">
+            <select class="fr-select" id="fc-class-status" onchange="fcRenderLedger()">
+                <option value="">All statuses</option><option value="upcoming">Upcoming</option><option value="confirmed">Confirmed</option><option value="completed">Completed</option>
+            </select>
+            <input type="search" class="fr-search" id="fc-class-q" placeholder="Run ID, course, trainer…" oninput="fcRenderLedger()" autocomplete="off" />
+        </span>
+    </div>
+    <div class="dcf-mag-body" style="padding:0;overflow-x:auto;">
+        <table class="mm-table fr-ledger-table" id="fc-ledger">
+            <thead><tr><th>Site</th><th>Run ID</th><th>Course</th><th>Dates</th><th>Trainer</th><th>Status</th><th class="fr-num">Pax</th><th class="fr-num">Attended</th><th class="fr-num">Certs</th><th class="fr-num">Fee</th><th>Payment</th></tr></thead>
+            <tbody></tbody>
+        </table>
+        <div class="fr-meta" id="fc-ledger-more" style="padding:8px 12px;display:none;"></div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.4/dist/Chart.min.js"></script>
 <script>
-function frFilter() {
-    var from = document.getElementById('fr-date-from').value;
-    var to = document.getElementById('fr-date-to').value;
-    var title = (document.getElementById('fr-title').value || '').toLowerCase();
-    var q = (document.getElementById('fr-search').value || '').toLowerCase();
-    var rows = document.querySelectorAll('.fr-row');
-    var shown = 0;
-    for (var i = 0; i < rows.length; i++) {
-        var r = rows[i];
-        var ok = true;
-        var d = r.getAttribute('data-start') || '';
-        if (from && (!d || d < from)) ok = false;
-        if (ok && to && (!d || d > to)) ok = false;
-        if (ok && title && (r.getAttribute('data-title') || '').indexOf(title) < 0) ok = false;
-        if (ok && q && (r.getAttribute('data-search') || '').indexOf(q) < 0) ok = false;
-        r.style.display = ok ? '' : 'none';
-        if (ok) shown++;
+var FC = {
+    classes: <?php echo json_encode($_fcClasses) ?>,
+    orders:  <?php echo json_encode($_fcOrders) ?>,
+    sites:   <?php echo json_encode(array_map(function ($s) { return $s['flag'] . ' ' . $s['label']; }, $_frSites)) ?>,
+    siteRole:<?php echo json_encode(array_map(function ($s) { return $s['role']; }, $_frSites)) ?>,
+    fee:     <?php echo json_encode($_frFeeCfg) ?>,
+    site: 'ALL', gran: 'month', charts: [], markUrl: '<?php echo $this->jsQuoteEscape($_fcMarkUrl) ?>'
+};
+(function(){
+    var colors = { SG: '#60a5fa', MY: '#3df5a8', GH: '#f5c451' };
+    var today = new Date(); today.setHours(0,0,0,0);
+    function pad(n){ return n < 10 ? '0'+n : ''+n; }
+    function iso(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+    function parse(s){ if (!s) return null; var p = s.split('-'); return new Date(+p[0], +p[1]-1, +p[2]); }
+    function monday(d){ var x = new Date(d); var day = (x.getDay()+6)%7; x.setDate(x.getDate()-day); x.setHours(0,0,0,0); return x; }
+    function monthKey(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1); }
+    function weekKey(d){ return iso(monday(d)); }
+    function fmtMoney(n, cur){ return (cur||'') + ' ' + n.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2}); }
+    function siteOk(cc){ return FC.site === 'ALL' || FC.site === cc; }
+    function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+    function periodStart(){ var m = +document.getElementById('fc-period').value; var d = new Date(today); d.setMonth(d.getMonth()-m+1); d.setDate(1); return d; }
+
+    function buckets(){
+        var start = periodStart(), out = [], labels = [];
+        if (FC.gran === 'month') {
+            var d = new Date(start);
+            while (d <= today) { out.push(monthKey(d)); labels.push(d.toLocaleString(undefined,{month:'short',year:'2-digit'})); d.setMonth(d.getMonth()+1); }
+        } else {
+            var w = monday(start);
+            while (w <= today) { out.push(iso(w)); labels.push(w.getDate()+' '+w.toLocaleString(undefined,{month:'short'})); w.setDate(w.getDate()+7); }
+        }
+        return { keys: out, labels: labels };
     }
-    var empty = document.getElementById('fr-empty-filter');
-    if (empty) empty.style.display = (rows.length && !shown) ? 'block' : 'none';
-}
-function frReset() {
-    document.getElementById('fr-date-from').value = '';
-    document.getElementById('fr-date-to').value = '';
-    document.getElementById('fr-title').value = '';
-    document.getElementById('fr-search').value = '';
-    frFilter();
-}
-function frPullNow(btn) {
-    btn.disabled = true; btn.textContent = 'Pulling…';
-    var st = document.getElementById('fr-status');
-    st.style.display = 'block'; st.style.color = '#94a3b8';
-    st.textContent = 'Pulling completed classes from the partner sites…';
-    var fd = new FormData();
-    fd.append('form_key', window.FORM_KEY || '');
-    fetch('<?php echo $this->jsQuoteEscape($_frPullUrl) ?>', { method:'POST', body:fd })
-        .then(function(r){ return r.json(); })
-        .then(function(d){
-            btn.disabled = false; btn.textContent = 'Pull Now';
-            if (d.success) {
-                st.style.color = '#22c55e';
-                st.textContent = d.fetched > 0
-                    ? ('Pulled ' + d.fetched + ' classes from ' + d.partners + ' partner(s), stored ' + d.upserted + '.')
-                    : ('Done — ' + d.partners + ' partner(s) contacted, no completed classes to pull yet.');
-                if (d.fetched > 0) setTimeout(function(){ location.reload(); }, 2000);
-            } else if (d.needs_config) {
-                // Setup state, not an error — neutral amber + open the settings.
-                st.style.color = '#f59e0b';
-                st.textContent = d.message || 'Add a partner URL and API key in Partner Connection Settings first.';
-                var det = document.querySelector('.franchise-report-page details');
-                if (det) det.open = true;
-            } else {
-                st.style.color = '#ef4444';
-                st.textContent = 'Pull failed: ' + (d.message || (d.error_msgs && d.error_msgs.join('; ')) || 'unknown error');
-            }
-        })
-        .catch(function(e){ btn.disabled = false; btn.textContent = 'Pull Now'; st.style.color = '#ef4444'; st.textContent = 'Network error: ' + e; });
-}
-function frSaveConfig() {
-    var fd = new FormData();
-    fd.append('form_key', window.FORM_KEY || '');
-    fd.append('my_url', document.getElementById('fr-my-url').value.trim());
-    fd.append('my_key', document.getElementById('fr-my-key').value.trim());
-    fd.append('gh_url', document.getElementById('fr-gh-url').value.trim());
-    fd.append('gh_key', document.getElementById('fr-gh-key').value.trim());
-    fetch('<?php echo $this->jsQuoteEscape($_frCfgUrl) ?>', { method:'POST', body:fd })
-        .then(function(r){ return r.json(); })
-        .then(function(d){
-            var st = document.getElementById('fr-status');
-            st.style.display = 'block';
-            st.style.color = d.success ? '#22c55e' : '#ef4444';
-            st.textContent = d.message || (d.success ? 'Saved.' : 'Save failed.');
+    function keyOf(d){ return FC.gran === 'month' ? monthKey(d) : weekKey(d); }
+
+    function series(rows, dateField, valueFn){
+        var b = buckets(), idx = {}, data = {};
+        for (var i = 0; i < b.keys.length; i++) idx[b.keys[i]] = i;
+        ['SG','MY','GH'].forEach(function(cc){ data[cc] = b.keys.map(function(){ return 0; }); });
+        var start = periodStart();
+        rows.forEach(function(r){
+            if (!siteOk(r.source_country)) return;
+            var d = parse(r[dateField]); if (!d || d < start || d > today) return;
+            var k = keyOf(d); if (!(k in idx)) return;
+            if (!data[r.source_country]) return;
+            data[r.source_country][idx[k]] += valueFn(r);
         });
+        return { labels: b.labels, data: data };
+    }
+    // Prototype.js replaces Array.prototype.map with collect(), which passes only
+    // (value, index) — Chart.js' default linear tick formatter expects the ticks
+    // array as a 3rd argument and throws. A custom tick callback sidesteps it.
+    function stacked(id, s, subId, subText){
+        var el = document.getElementById(id); if (!el || typeof Chart === 'undefined') return;
+        var ds = ['SG','MY','GH'].filter(siteOk).map(function(cc){ return { label: FC.sites[cc], data: s.data[cc], backgroundColor: colors[cc], barPercentage: .7 }; });
+        var dark = document.documentElement.getAttribute('data-theme') !== 'light';
+        var text = dark ? '#94a3b8' : '#475569', grid = dark ? 'rgba(148,163,184,.12)' : 'rgba(15,23,42,.08)';
+        FC.charts.push(new Chart(el.getContext('2d'), { type: 'bar',
+            data: { labels: s.labels, datasets: ds },
+            options: { responsive: true, maintainAspectRatio: false, legend: { display: false },
+                tooltips: { mode: 'index', intersect: false, backgroundColor: '#1f2937', titleFontColor: '#f8fafc', bodyFontColor: '#e2e8f0', borderColor: '#374151', borderWidth: 1, cornerRadius: 8 },
+                scales: { xAxes: [{ stacked: true, ticks: { fontColor: text, fontSize: 10, maxRotation: 45 }, gridLines: { display: false } }],
+                          yAxes: [{ stacked: true, ticks: { fontColor: text, fontSize: 11, beginAtZero: true, precision: 0, callback: function(v){ return Number(v).toLocaleString(); } }, gridLines: { color: grid } }] } } }));
+        var sub = document.getElementById(subId); if (sub) sub.textContent = subText;
+    }
+
+    window.fcRender = function(){
+        FC.charts.forEach(function(c){ try { c.destroy(); } catch(e){} }); FC.charts = [];
+        var start = periodStart(), per = document.getElementById('fc-period').options[document.getElementById('fc-period').selectedIndex].text.toLowerCase();
+        var granTxt = FC.gran === 'month' ? 'by month' : 'by week';
+
+        // KPIs
+        var learners = 0, orders = 0, classes = 0, pax = 0, certs = 0, fees = {}, feesN = 0, upcoming = 0;
+        FC.orders.forEach(function(o){ var d = parse(o.d); if (siteOk(o.source_country) && d && d >= start) { learners += o.learners; orders += o.orders; } });
+        FC.classes.forEach(function(c){
+            if (!siteOk(c.source_country)) return;
+            var d = parse(c.start_date); if (!d) return;
+            if (d > today) { upcoming++; return; }
+            if (d < start) return;
+            classes++; pax += (c.attended || c.enrolled); certs += c.certs_issued;
+            if (c.fee_id && c.fee_status === 'pending') { fees[c.fee_currency] = (fees[c.fee_currency]||0) + c.fee_amount; feesN++; }
+        });
+        document.getElementById('fc-kpi-learners').textContent = learners.toLocaleString();
+        document.getElementById('fc-kpi-learners-sub').textContent = orders.toLocaleString() + ' registrations · ' + per;
+        document.getElementById('fc-kpi-classes').textContent = classes.toLocaleString();
+        document.getElementById('fc-kpi-classes-sub').textContent = pax.toLocaleString() + ' pax · ' + upcoming + ' upcoming';
+        document.getElementById('fc-kpi-certs').textContent = certs.toLocaleString();
+        document.getElementById('fc-kpi-certs-sub').textContent = per;
+        var feeTxt = Object.keys(fees).map(function(k){ return fmtMoney(fees[k], k); }).join(' + ') || '0';
+        document.getElementById('fc-kpi-fees').textContent = feeTxt;
+        document.getElementById('fc-kpi-fees-sub').textContent = feesN + ' class' + (feesN === 1 ? '' : 'es') + ' awaiting payment';
+
+        // Per-site cards (this week + period)
+        var wk = monday(today), html = '';
+        ['SG','MY','GH'].forEach(function(cc){
+            if (!siteOk(cc)) return;
+            var wkOrders = 0, wkLearners = 0, wkClasses = 0, pLearners = 0, pClasses = 0, pCerts = 0, pend = {}, paid = {};
+            FC.orders.forEach(function(o){ if (o.source_country !== cc) return; var d = parse(o.d); if (!d) return; if (d >= wk) { wkOrders += o.orders; wkLearners += o.learners; } if (d >= start) pLearners += o.learners; });
+            FC.classes.forEach(function(c){ if (c.source_country !== cc) return; var d = parse(c.start_date); if (!d) return;
+                if (d >= wk && d < new Date(wk.getTime()+7*864e5)) wkClasses++;
+                if (d >= start && d <= today) { pClasses++; pCerts += c.certs_issued; }
+                if (c.fee_id) { var t = c.fee_status === 'completed' ? paid : pend; t[c.fee_currency] = (t[c.fee_currency]||0) + c.fee_amount; } });
+            var feeCfg = FC.fee[cc], feeLine = cc === 'SG' ? 'Control site — no fee' : (feeCfg && feeCfg.per_learner > 0 ? (feeCfg.currency + ' ' + feeCfg.per_learner + ' per learner per class') : 'No franchise fee');
+            var pendTxt = Object.keys(pend).map(function(k){ return fmtMoney(pend[k], k); }).join(' + ') || '—';
+            var paidTxt = Object.keys(paid).map(function(k){ return fmtMoney(paid[k], k); }).join(' + ') || '—';
+            html += '<div class="fr-site"><div class="fr-site-head"><span class="fr-site-name">' + FC.sites[cc] + '</span><span class="fr-site-role">' + FC.siteRole[cc] + '</span></div>'
+                + '<div class="fr-site-grid">'
+                + '<div><div class="fr-site-k">Sign-ups this week</div><div class="fr-site-v">' + wkOrders + '<small>' + wkLearners + ' learners</small></div></div>'
+                + '<div><div class="fr-site-k">Classes this week</div><div class="fr-site-v">' + wkClasses + '</div></div>'
+                + '<div><div class="fr-site-k">Learners · ' + per + '</div><div class="fr-site-v">' + pLearners.toLocaleString() + '</div></div>'
+                + '<div><div class="fr-site-k">Classes · certs</div><div class="fr-site-v">' + pClasses + '<small>' + pCerts + ' certs</small></div></div>'
+                + '<div><div class="fr-site-k">Fees pending</div><div class="fr-site-v" style="font-size:14px;color:' + (pendTxt === '—' ? 'var(--t4)' : 'var(--yellow,#f5c451)') + '">' + pendTxt + '</div></div>'
+                + '<div><div class="fr-site-k">Fees collected</div><div class="fr-site-v" style="font-size:14px;color:' + (paidTxt === '—' ? 'var(--t4)' : 'var(--green,#3df5a8)') + '">' + paidTxt + '</div></div>'
+                + '</div><div class="fr-meta" style="margin-top:8px;">' + feeLine + '</div></div>';
+        });
+        document.getElementById('fc-sites').innerHTML = html;
+
+        // Charts
+        stacked('fc-chart-learners', series(FC.orders, 'd', function(o){ return o.learners; }), 'fc-ch1-sub', per + ' · ' + granTxt);
+        stacked('fc-chart-classes', series(FC.classes.filter(function(c){ var d = parse(c.start_date); return d && d <= today; }), 'start_date', function(){ return 1; }), 'fc-ch2-sub', per + ' · ' + granTxt);
+        stacked('fc-chart-certs', series(FC.classes, 'end_date', function(c){ return c.certs_issued; }), 'fc-ch3-sub', per + ' · ' + granTxt);
+        document.getElementById('fc-legend').innerHTML = ['SG','MY','GH'].filter(siteOk).map(function(cc){ return '<span><i style="background:' + colors[cc] + '"></i>' + FC.sites[cc] + '</span>'; }).join('');
+
+        // Weekly table — last 8 weeks
+        var rows = '';
+        for (var w = 0; w < 8; w++) {
+            var ws = new Date(wk.getTime() - w*7*864e5), we = new Date(ws.getTime() + 7*864e5);
+            var label = ws.getDate() + ' ' + ws.toLocaleString(undefined,{month:'short'}) + ' – ' + new Date(we.getTime()-864e5).getDate() + ' ' + new Date(we.getTime()-864e5).toLocaleString(undefined,{month:'short'});
+            ['SG','MY','GH'].forEach(function(cc){
+                if (!siteOk(cc)) return;
+                var o = 0, l = 0, cl = 0, px = 0, ce = 0, fe = {};
+                FC.orders.forEach(function(r){ if (r.source_country !== cc) return; var d = parse(r.d); if (d && d >= ws && d < we) { o += r.orders; l += r.learners; } });
+                FC.classes.forEach(function(c){ if (c.source_country !== cc) return; var d = parse(c.start_date); if (d && d >= ws && d < we) { cl++; px += (c.attended || c.enrolled); if (c.fee_id) fe[c.fee_currency] = (fe[c.fee_currency]||0) + c.fee_amount; }
+                    var e = parse(c.end_date); if (e && e >= ws && e < we) ce += c.certs_issued; });
+                var feTxt = Object.keys(fe).map(function(k){ return fmtMoney(fe[k], k); }).join(' + ') || '—';
+                rows += '<tr><td class="muted">' + label + '</td><td><span class="fr-pill fr-pill-cc">' + cc + '</span></td><td class="fr-num">' + o + '</td><td class="fr-num strong">' + l + '</td><td class="fr-num">' + cl + '</td><td class="fr-num">' + px + '</td><td class="fr-num">' + ce + '</td><td class="fr-num">' + feTxt + '</td></tr>';
+            });
+        }
+        document.querySelector('#fc-weekly tbody').innerHTML = rows || '<tr><td colspan="8" class="mm-table-empty">No activity yet.</td></tr>';
+        fcRenderLedger();
+    };
+
+    window.fcRenderLedger = function(){
+        var q = (document.getElementById('fc-class-q').value || '').toLowerCase(), st = document.getElementById('fc-class-status').value;
+        var start = periodStart(), shown = 0, html = "", max = 100;
+        FC.classes.forEach(function(c){
+            if (!siteOk(c.source_country) || (st && c.status !== st)) return;
+            var d = parse(c.start_date); if (d && d < start) return;
+            if (q && (c.class_code + ' ' + c.course_code + ' ' + c.course_title + ' ' + c.trainer_name).toLowerCase().indexOf(q) < 0) return;
+            shown++; if (shown > max) return;
+            var stPill = c.status === 'completed' ? 'fr-pill-ok' : (c.status === 'confirmed' ? 'fr-pill-violet' : 'fr-pill-mute');
+            var pay = '—';
+            if (c.fee_id) {
+                pay = (c.fee_status === 'completed' ? '<span class="fr-pill fr-pill-ok">Completed</span>' : '<span class="fr-pill fr-pill-warn">Pending</span>')
+                    + ' <button type="button" class="mm-btn mm-btn-sm" onclick="fcMarkFee(' + c.fee_id + ', \'' + (c.fee_status === 'completed' ? 'pending' : 'completed') + '\', this)">' + (c.fee_status === 'completed' ? 'Undo' : 'Mark paid') + '</button>';
+            }
+            html += '<tr><td><span class="fr-pill fr-pill-cc">' + c.source_country + '</span></td><td class="fr-mono">' + esc(c.class_code) + '</td>'
+                + '<td class="strong" title="' + esc(c.course_title) + '">' + esc(c.course_code) + ' · ' + esc(c.course_title) + '</td>'
+                + '<td class="muted">' + esc(c.start_date) + (c.end_date && c.end_date !== c.start_date ? ' → ' + esc(c.end_date) : '') + '</td>'
+                + '<td>' + esc(c.trainer_name || '—') + '</td><td><span class="fr-pill ' + stPill + '">' + c.status + '</span></td>'
+                + '<td class="fr-num">' + c.enrolled + '</td><td class="fr-num">' + c.attended + '</td><td class="fr-num">' + c.certs_issued + '</td>'
+                + '<td class="fr-num">' + (c.fee_id ? fmtMoney(c.fee_amount, c.fee_currency) : '—') + '</td><td>' + pay + '</td></tr>';
+        });
+        document.querySelector('#fc-ledger tbody').innerHTML = html || '<tr><td colspan="11" class="mm-table-empty">No classes match.</td></tr>';
+        var more = document.getElementById('fc-ledger-more'); more.style.display = shown > max ? 'block' : 'none'; more.textContent = 'Showing ' + max + ' of ' + shown + ' classes — narrow the filters to see the rest.';
+    };
+
+    window.fcMarkFee = function(id, status, btn){
+        btn.disabled = true;
+        var fd = new FormData(); fd.append('form_key', window.FORM_KEY || ''); fd.append('id', id); fd.append('status', status);
+        fetch(FC.markUrl, { method: 'POST', body: fd }).then(function(r){ return r.json(); }).then(function(d){
+            btn.disabled = false;
+            if (!d.success) { alert(d.message || 'Update failed'); return; }
+            FC.classes.forEach(function(c){ if (c.fee_id === id) c.fee_status = d.row.status; });
+            fcRender();
+        }).catch(function(e){ btn.disabled = false; alert('Network error: ' + e); });
+    };
+
+    window.fcPullNow = function(btn){
+        btn.disabled = true; btn.textContent = 'Collecting…';
+        var st = document.getElementById('fc-status'); st.style.display = 'block'; st.style.color = 'var(--t4)';
+        st.textContent = 'Collecting from Singapore (local) and every connected franchisee…';
+        var fd = new FormData(); fd.append('form_key', window.FORM_KEY || '');
+        fetch('<?php echo $this->jsQuoteEscape($_frUrl('pullStats')) ?>', { method: 'POST', body: fd }).then(function(r){ return r.json(); }).then(function(d){
+            btn.disabled = false; btn.textContent = 'Collect Now';
+            var lines = [];
+            Object.keys(d.sites || {}).forEach(function(cc){ lines.push(cc + ': ' + d.sites[cc].classes + ' classes, ' + d.sites[cc].orders + ' registrations'); });
+            (d.error_msgs || []).forEach(function(m){ lines.push('✗ ' + m); });
+            if (d.message) lines.push(d.message);
+            st.style.color = d.success ? 'var(--green,#3df5a8)' : 'var(--yellow,#f5c451)';
+            st.textContent = lines.join('\n') + (d.fees != null ? '\nFee ledger: ' + d.fees + ' billable classes.' : '');
+            if (d.sites && Object.keys(d.sites).length) setTimeout(function(){ location.reload(); }, 2500);
+        }).catch(function(e){ btn.disabled = false; btn.textContent = 'Collect Now'; st.style.color = 'var(--red,#ff3b5c)'; st.textContent = 'Network error: ' + e; });
+    };
+
+    function wireTabs(id, attr, prop){
+        var box = document.getElementById(id); if (!box) return;
+        box.addEventListener('click', function(e){
+            var b = e.target.closest('button[' + attr + ']'); if (!b) return;
+            box.querySelectorAll('button').forEach(function(x){ x.classList.remove('active'); });
+            b.classList.add('active'); FC[prop] = b.getAttribute(attr); fcRender();
+        });
+    }
+    wireTabs('fc-site-tabs', 'data-site', 'site');
+    wireTabs('fc-gran-tabs', 'data-gran', 'gran');
+    var tries = 0;
+    (function boot(){ if (typeof Chart === 'undefined' && tries++ < 40) return setTimeout(boot, 150); fcRender(); })();
+})();
+</script>
+
+<?php /* ================================================================ */ ?>
+<?php elseif ($_frSection === 'fees'): // ---------------- FEES & PAYMENTS ---- ?>
+<?php
+$_feeRows = $_frHasTbl('mmd_franchise_class_fee')
+    ? $_frRead->fetchAll("SELECT * FROM mmd_franchise_class_fee ORDER BY status = 'completed', start_date DESC, class_code DESC LIMIT 2000")
+    : array();
+$_feeSum = array();
+foreach ($_feeRows as $_f) {
+    $_k = $_f['source_country'];
+    if (!isset($_feeSum[$_k])) $_feeSum[$_k] = array('pending' => 0, 'completed' => 0, 'n_pending' => 0, 'n_completed' => 0, 'currency' => $_f['currency']);
+    $_feeSum[$_k][$_f['status']] += (float) $_f['amount'];
+    $_feeSum[$_k]['n_' . $_f['status']]++;
+}
+?>
+<div class="fr-meta" style="margin-bottom:14px;">Fee rule: a franchisee is charged <strong>per billable learner</strong> on every <strong>delivered class</strong> (trainer confirmed, start date passed). Billable learners = learners marked present once attendance is taken, otherwise the enrolled roster. Payment is collected per class — mark each class <strong>Completed</strong> when the franchisee has paid. For a franchisee on <strong>after-payment</strong> certificate mode (Ghana), marking a class paid releases its certificates to every learner immediately.</div>
+<div class="fr-status" id="fee-status"></div>
+
+<div class="fr-sites">
+<?php foreach (array('MY', 'GH') as $_cc): $_s = $_frSites[$_cc]; $_cfg = $_frFeeCfg[$_cc]; $_sum = isset($_feeSum[$_cc]) ? $_feeSum[$_cc] : null; ?>
+    <div class="fr-site">
+        <div class="fr-site-head"><span class="fr-site-name"><?php echo $_s['flag'] . ' ' . $_s['label'] ?></span>
+            <span class="fr-pill <?php echo $_cfg['per_learner'] > 0 ? 'fr-pill-cc' : 'fr-pill-mute' ?>"><?php echo $_cfg['per_learner'] > 0 ? $_cfg['currency'] . ' ' . number_format($_cfg['per_learner'], 2) . ' / learner' : 'No fee' ?></span></div>
+        <div class="fr-site-grid">
+            <div><div class="fr-site-k">Pending</div><div class="fr-site-v" style="color:<?php echo $_sum && $_sum['pending'] > 0 ? 'var(--yellow,#f5c451)' : 'var(--t4)' ?>"><?php echo $_sum ? $_sum['currency'] . ' ' . number_format($_sum['pending'], 2) : '—' ?><small><?php echo $_sum ? $_sum['n_pending'] . ' classes' : '' ?></small></div></div>
+            <div><div class="fr-site-k">Collected</div><div class="fr-site-v" style="color:<?php echo $_sum && $_sum['completed'] > 0 ? 'var(--green,#3df5a8)' : 'var(--t4)' ?>"><?php echo $_sum ? $_sum['currency'] . ' ' . number_format($_sum['completed'], 2) : '—' ?><small><?php echo $_sum ? $_sum['n_completed'] . ' classes' : '' ?></small></div></div>
+        </div>
+        <div class="fr-meta" style="margin-top:10px;">Rate: <strong><?php echo $_cfg['per_learner'] > 0 ? $_cfg['currency'] . ' ' . number_format($_cfg['per_learner'], 2) . ' per billable learner per delivered class' : 'no franchise fee' ?></strong> · change under <a href="<?php echo $_frUrl('index', array('section' => 'settings')) ?>" style="color:#22d3ee;">Partner Settings</a></div>
+    </div>
+<?php endforeach; ?>
+</div>
+
+<div class="dcf-mag mmd-auto-card">
+    <div class="dcf-mag-bar"><span>Fee ledger — per class</span>
+        <span class="mmd-auto-card-actions" style="display:flex;gap:8px;align-items:center;">
+            <select class="fr-select" id="fee-filter-status" onchange="feeFilter()"><option value="">All</option><option value="pending">Pending</option><option value="completed">Completed</option></select>
+            <select class="fr-select" id="fee-filter-site" onchange="feeFilter()"><option value="">All franchisees</option><option value="MY">Malaysia</option><option value="GH">Ghana</option></select>
+            <input type="search" class="fr-search" id="fee-q" placeholder="Run ID, course…" oninput="feeFilter()" autocomplete="off" />
+        </span>
+    </div>
+    <div class="dcf-mag-body" style="padding:0;overflow-x:auto;">
+        <table class="mm-table fr-fee-table">
+            <thead><tr><th>Site</th><th>Run ID</th><th>Course</th><th>Class date</th><th class="fr-num">Billable learners</th><th class="fr-num">Fee / learner</th><th class="fr-num">Amount</th><th>Payment</th><th>Paid</th><th>Certificates</th><th>Note</th><th></th></tr></thead>
+            <tbody>
+            <?php if (empty($_feeRows)): ?><tr><td colspan="12" class="mm-table-empty">No billable classes yet — fees appear after the daily collection once a franchisee with a per-learner fee has delivered a class.</td></tr><?php endif; ?>
+            <?php foreach ($_feeRows as $_f): ?>
+            <tr class="fee-row" data-id="<?php echo (int) $_f['id'] ?>" data-status="<?php echo htmlspecialchars($_f['status']) ?>" data-site="<?php echo htmlspecialchars($_f['source_country']) ?>" data-q="<?php echo htmlspecialchars(strtolower($_f['class_code'] . ' ' . $_f['course_code'] . ' ' . $_f['course_title'])) ?>">
+                <td><span class="fr-pill fr-pill-cc"><?php echo htmlspecialchars($_f['source_country']) ?></span></td>
+                <td class="fr-mono"><?php echo htmlspecialchars($_f['class_code']) ?></td>
+                <td class="strong"><?php echo htmlspecialchars($_f['course_code'] . ' · ' . $_f['course_title']) ?></td>
+                <td class="muted"><?php echo htmlspecialchars((string) $_f['start_date']) ?></td>
+                <td class="fr-num"><?php echo (int) $_f['billable_learners'] ?></td>
+                <td class="fr-num"><?php echo htmlspecialchars($_f['currency']) . ' ' . number_format((float) $_f['unit_fee'], 2) ?></td>
+                <td class="fr-num strong"><?php echo htmlspecialchars($_f['currency']) . ' ' . number_format((float) $_f['amount'], 2) ?></td>
+                <td class="fee-pill"><?php echo $_f['status'] === 'completed' ? '<span class="fr-pill fr-pill-ok">Completed</span>' : '<span class="fr-pill fr-pill-warn">Pending</span>' ?></td>
+                <td class="muted fee-paid"><?php echo $_f['paid_at'] ? htmlspecialchars(Mage::helper('core')->formatDate($_f['paid_at'], 'medium', false)) . ($_f['paid_by'] ? ' · ' . htmlspecialchars($_f['paid_by']) : '') : '—' ?></td>
+                <td class="muted" title="<?php echo htmlspecialchars((string) (isset($_f['certs_note']) ? $_f['certs_note'] : '')) ?>"><?php
+                    $_cm = $_frCertModes[$_f['source_country']] ?? 'auto';
+                    if ($_cm === 'auto') echo '<span class="fr-pill fr-pill-mute">auto 18:30</span>';
+                    elseif (!empty($_f['certs_released_at'])) echo '<span class="fr-pill fr-pill-ok">released</span> ' . htmlspecialchars(Mage::helper('core')->formatDate($_f['certs_released_at'], 'short', false));
+                    elseif ($_f['status'] === 'completed') echo '<span class="fr-pill fr-pill-warn">not released</span> <button type="button" class="mm-btn mm-btn-sm" onclick="feeRelease(this)">Release</button>';
+                    else echo '<span class="fr-pill fr-pill-mute">on payment</span>';
+                ?></td>
+                <td class="muted fee-note"><?php echo htmlspecialchars((string) $_f['note']) ?></td>
+                <td><button type="button" class="mm-btn mm-btn-sm fee-btn" onclick="feeMark(this)"><?php echo $_f['status'] === 'completed' ? 'Undo' : 'Mark paid' ?></button></td>
+            </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+<script>
+function feeFilter(){
+    var st = document.getElementById('fee-filter-status').value, site = document.getElementById('fee-filter-site').value, q = (document.getElementById('fee-q').value||'').toLowerCase();
+    document.querySelectorAll('.fee-row').forEach(function(r){
+        var ok = (!st || r.getAttribute('data-status') === st) && (!site || r.getAttribute('data-site') === site) && (!q || r.getAttribute('data-q').indexOf(q) >= 0);
+        r.style.display = ok ? '' : 'none';
+    });
+}
+function feeRelease(btn){
+    var tr = btn.closest('tr'); btn.disabled = true; btn.textContent = 'Releasing…';
+    var fd = new FormData(); fd.append('form_key', window.FORM_KEY || ''); fd.append('id', tr.getAttribute('data-id'));
+    fetch('<?php echo $this->jsQuoteEscape($_frUrl('releaseCerts')) ?>', { method:'POST', body: fd }).then(function(r){ return r.json(); }).then(function(d){
+        var st = document.getElementById('fee-status'); st.style.display = 'block'; st.style.color = d.success ? 'var(--green,#3df5a8)' : 'var(--red,#ff3b5c)'; st.textContent = d.message || '';
+        setTimeout(function(){ location.reload(); }, 1800);
+    }).catch(function(e){ btn.disabled = false; btn.textContent = 'Release'; alert('Network error: ' + e); });
+}
+function feeMark(btn){
+    var tr = btn.closest('tr'), id = tr.getAttribute('data-id'), status = tr.getAttribute('data-status') === 'completed' ? 'pending' : 'completed';
+    var note = status === 'completed' ? (window.prompt('Payment reference / note (optional):', tr.querySelector('.fee-note').textContent) || '') : '';
+    btn.disabled = true;
+    var fd = new FormData(); fd.append('form_key', window.FORM_KEY || ''); fd.append('id', id); fd.append('status', status); fd.append('note', note);
+    fetch('<?php echo $this->jsQuoteEscape($_frUrl('markFee')) ?>', { method:'POST', body: fd }).then(function(r){ return r.json(); }).then(function(d){
+        btn.disabled = false;
+        if (!d.success) { alert(d.message || 'Update failed'); return; }
+        var st = document.getElementById('fee-status'); st.style.display = 'block'; st.style.color = 'var(--green,#3df5a8)'; st.textContent = d.message || 'Updated.';
+        setTimeout(function(){ location.reload(); }, d.message && d.message.length > 40 ? 2500 : 800);
+    }).catch(function(e){ btn.disabled = false; alert('Network error: ' + e); });
 }
 </script>
 
-<?php else: // ---- Sync page (courses | categories | schedules) -------------
-// Triggers the partner's /courses/api_sync_trigger endpoint, which runs the
-// partner's own pull-from-SG import. SG data is never touched.
-$_fmSyncUrl = Mage::helper('adminhtml')->getUrl('adminhtml/franchisereport/sync');
-$_fmReportUrl = Mage::helper('adminhtml')->getUrl('adminhtml/franchisereport/index');
+<?php /* ================================================================ */ ?>
+<?php elseif ($_frSection === 'settings'): // ---------------- PARTNER SETTINGS ?>
+<div class="fr-status" id="fr-status"></div>
+<div class="dcf-mag mmd-auto-card">
+    <div class="dcf-mag-bar"><span>Partner connections</span><span class="mmd-auto-card-actions fr-meta">Both endpoints use the partner's Course/Class Sync API key</span></div>
+    <div class="dcf-mag-body" style="padding:16px 24px;">
+        <div class="fr-settings-grid">
+            <div>
+                <div class="fr-field"><label>🇲🇾 Malaysia base URL</label><input type="text" id="fr-my-url" value="<?php echo htmlspecialchars($_frMyUrl) ?>" placeholder="https://www.tertiarycourses.com.my" /></div>
+                <div class="fr-field"><label>MY API key <?php echo $_fmPartners['my']['configured'] ? '<span class="fr-pill fr-pill-ok">connected</span>' : '<span class="fr-pill fr-pill-warn">not set</span>' ?></label><input type="password" id="fr-my-key" value="" placeholder="(unchanged)" autocomplete="new-password" /></div>
+            </div>
+            <div>
+                <div class="fr-field"><label>🇬🇭 Ghana base URL</label><input type="text" id="fr-gh-url" value="<?php echo htmlspecialchars($_frGhUrl) ?>" placeholder="https://www.tertiarycourses.com.gh" /></div>
+                <div class="fr-field"><label>GH API key <?php echo $_fmPartners['gh']['configured'] ? '<span class="fr-pill fr-pill-ok">connected</span>' : '<span class="fr-pill fr-pill-warn">not set</span>' ?></label><input type="password" id="fr-gh-key" value="" placeholder="(unchanged)" autocomplete="new-password" /></div>
+            </div>
+        </div>
+        <button type="button" class="mm-btn mm-btn-primary" onclick="frSaveConfig()">Save connections</button>
+    </div>
+</div>
+<div class="dcf-mag mmd-auto-card">
+    <div class="dcf-mag-bar"><span>Franchise fee per learner</span><span class="mmd-auto-card-actions fr-meta">Charged per billable learner on every delivered class · collected per class</span></div>
+    <div class="dcf-mag-body" style="padding:0;">
+        <table class="mm-table fr-feecfg-table">
+            <thead><tr><th>Franchisee</th><th class="fr-num">Fee per learner</th><th>Currency</th><th>Billing basis</th><th></th></tr></thead>
+            <tbody>
+            <?php foreach (array('MY', 'GH') as $_cc): $_s = $_frSites[$_cc]; $_cfg = $_frFeeCfg[$_cc]; $_lc = strtolower($_cc); ?>
+            <tr>
+                <td class="strong"><?php echo $_s['flag'] . ' ' . $_s['label'] ?></td>
+                <td class="fr-num"><input type="number" step="0.01" min="0" class="fr-input" style="width:110px;text-align:right;" id="fee-<?php echo $_lc ?>-per" value="<?php echo htmlspecialchars((string) $_cfg['per_learner']) ?>" /></td>
+                <td><input type="text" maxlength="3" class="fr-input" style="width:70px;text-transform:uppercase;" id="fee-<?php echo $_lc ?>-cur" value="<?php echo htmlspecialchars($_cfg['currency']) ?>" /></td>
+                <td class="muted wrap"><?php echo $_cfg['per_learner'] > 0 ? 'Learners present (or enrolled roster) × ' . $_cfg['currency'] . ' ' . number_format($_cfg['per_learner'], 2) . ' per delivered class' : 'No franchise fee — set a rate above 0 to start billing' ?></td>
+                <td><button type="button" class="mm-btn mm-btn-sm" onclick="feeSave('<?php echo $_lc ?>')">Save</button></td>
+            </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+        <div class="fr-meta" style="padding:10px 12px;">Saving a rate recomputes every <strong>pending</strong> class fee for that franchisee. Classes already marked paid keep the amount they were paid at.</div>
+    </div>
+</div>
+<div class="dcf-mag mmd-auto-card">
+    <div class="dcf-mag-bar"><span>Certificate release</span><span class="mmd-auto-card-actions fr-meta">Pushed to the franchisee site when saved</span></div>
+    <div class="dcf-mag-body" style="padding:0;">
+        <table class="mm-table fr-certcfg-table">
+            <thead><tr><th>Site</th><th>Mode</th><th>What happens</th><th></th></tr></thead>
+            <tbody>
+                <tr>
+                    <td class="strong">🇸🇬 Singapore <span class="fr-pill fr-pill-mute" style="margin-left:6px;">control site</span></td>
+                    <td><span class="fr-pill fr-pill-ok">Auto-send 18:30</span></td>
+                    <td class="muted wrap">Non-WSQ certificates are generated and emailed daily at 18:30 once a confirmed class has completed (managed on this site).</td>
+                    <td></td>
+                </tr>
+            <?php foreach (array('MY', 'GH') as $_cc): $_s = $_frSites[$_cc]; $_lc = strtolower($_cc); $_m = $_frCertModes[$_cc]; ?>
+                <tr>
+                    <td class="strong"><?php echo $_s['flag'] . ' ' . $_s['label'] ?></td>
+                    <td><select class="fr-select" id="cert-<?php echo $_lc ?>-mode">
+                        <option value="auto"<?php echo $_m === 'auto' ? ' selected' : '' ?>>Auto-send 18:30</option>
+                        <option value="on_payment"<?php echo $_m === 'on_payment' ? ' selected' : '' ?>>After class fee is paid</option>
+                    </select></td>
+                    <td class="muted wrap"><?php echo $_m === 'auto' ? 'The franchisee\'s daily 18:30 sweep emails certificates for every completed confirmed class.' : 'Daily sweep is OFF on the franchisee. When you mark a class fee as paid, that class\'s certificates are generated and emailed to each learner immediately.' ?></td>
+                    <td><button type="button" class="mm-btn mm-btn-sm" onclick="certSave('<?php echo $_lc ?>')">Save</button></td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+<div class="dcf-mag mmd-auto-card">
+    <div class="dcf-mag-bar"><span>Collection schedule</span></div>
+    <div class="dcf-mag-body" style="padding:12px 24px;">
+        <table class="mm-table fr-sched-table">
+            <thead><tr><th>Dataset</th><th>Schedule</th><th>Last run</th><th></th></tr></thead>
+            <tbody>
+                <tr><td class="strong">Control Center stats (classes, registrations, certificates, fees)</td><td class="muted">Daily 02:30 UTC</td><td class="muted"><?php echo $_frFmtDate($_frStatsLastPull) ?></td><td><button type="button" class="mm-btn mm-btn-sm" onclick="frPull(this, '<?php echo $this->jsQuoteEscape($_frUrl('pullStats')) ?>')">Collect now</button></td></tr>
+                <tr><td class="strong">Completed classes report (MY / GH)</td><td class="muted">Weekly, Sunday 10:00 SGT</td><td class="muted"><?php echo $_frFmtDate($_frClassesLastPull) ?></td><td><button type="button" class="mm-btn mm-btn-sm" onclick="frPull(this, '<?php echo $this->jsQuoteEscape($_frUrl('pull')) ?>')">Pull now</button></td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+<script>
+function feeSave(cc){
+    var fd = new FormData(); fd.append('form_key', window.FORM_KEY || '');
+    fd.append(cc + '_per_learner', document.getElementById('fee-' + cc + '-per').value); fd.append(cc + '_currency', document.getElementById('fee-' + cc + '-cur').value);
+    var st = document.getElementById('fr-status'); st.style.display = 'block'; st.style.color = 'var(--t4)'; st.textContent = 'Saving fee…';
+    fetch('<?php echo $this->jsQuoteEscape($_frUrl('saveConfig')) ?>', { method:'POST', body: fd }).then(function(r){ return r.json(); }).then(function(d){
+        st.style.color = d.success ? 'var(--green,#3df5a8)' : 'var(--red,#ff3b5c)'; st.textContent = d.message || (d.success ? 'Saved.' : 'Save failed.');
+        if (d.success) setTimeout(function(){ location.reload(); }, 1200);
+    });
+}
+function certSave(cc){
+    var fd = new FormData(); fd.append('form_key', window.FORM_KEY || '');
+    fd.append(cc + '_cert_mode', document.getElementById('cert-' + cc + '-mode').value);
+    var st = document.getElementById('fr-status'); st.style.display = 'block'; st.style.color = 'var(--t4)'; st.textContent = 'Saving and pushing to the franchisee…';
+    fetch('<?php echo $this->jsQuoteEscape($_frUrl('saveConfig')) ?>', { method:'POST', body: fd }).then(function(r){ return r.json(); }).then(function(d){
+        st.style.color = d.success ? 'var(--green,#3df5a8)' : 'var(--red,#ff3b5c)'; st.textContent = d.message || (d.success ? 'Saved.' : 'Save failed.');
+    });
+}
+function frSaveConfig(){
+    var fd = new FormData(); fd.append('form_key', window.FORM_KEY || '');
+    ['my','gh'].forEach(function(cc){ fd.append(cc + '_url', document.getElementById('fr-' + cc + '-url').value.trim()); fd.append(cc + '_key', document.getElementById('fr-' + cc + '-key').value.trim()); });
+    var st = document.getElementById('fr-status'); st.style.display = 'block'; st.textContent = 'Saving…';
+    fetch('<?php echo $this->jsQuoteEscape($_frUrl('saveConfig')) ?>', { method:'POST', body: fd }).then(function(r){ return r.json(); }).then(function(d){
+        st.style.color = d.success ? 'var(--green,#3df5a8)' : 'var(--red,#ff3b5c)'; st.textContent = d.message || (d.success ? 'Saved.' : 'Save failed.');
+        if (d.success) setTimeout(function(){ location.reload(); }, 1000);
+    });
+}
+function frPull(btn, url){
+    btn.disabled = true; var orig = btn.textContent; btn.textContent = 'Running…';
+    var st = document.getElementById('fr-status'); st.style.display = 'block'; st.style.color = 'var(--t4)'; st.textContent = 'Contacting sites…';
+    var fd = new FormData(); fd.append('form_key', window.FORM_KEY || '');
+    fetch(url, { method:'POST', body: fd }).then(function(r){ return r.json(); }).then(function(d){
+        btn.disabled = false; btn.textContent = orig;
+        var lines = [];
+        if (d.sites) Object.keys(d.sites).forEach(function(cc){ lines.push(cc + ': ' + d.sites[cc].classes + ' classes, ' + d.sites[cc].orders + ' registrations'); });
+        if (d.fetched != null) lines.push('Fetched ' + d.fetched + ' completed classes from ' + d.partners + ' partner(s).');
+        (d.error_msgs || []).forEach(function(m){ lines.push('✗ ' + m); });
+        if (d.message) lines.push(d.message);
+        st.style.color = d.success ? 'var(--green,#3df5a8)' : 'var(--yellow,#f5c451)'; st.textContent = lines.join('\n') || 'Done.';
+    }).catch(function(e){ btn.disabled = false; btn.textContent = orig; st.style.color = 'var(--red,#ff3b5c)'; st.textContent = 'Network error: ' + e; });
+}
+</script>
+
+<?php /* ================================================================ */ ?>
+<?php elseif ($_frSection === 'completed'): // ---------------- COMPLETED CLASSES ?>
+<?php
+$_frRows = array();
+try {
+    if ($_frHasTbl('mmd_franchise_completed_classes')) {
+        $_frRows = $_frRead->fetchAll("SELECT source_country, class_code, course_title, course_code, start_date, end_date, trainer_name, learners_attended FROM mmd_franchise_completed_classes ORDER BY start_date DESC, class_code DESC LIMIT 2000");
+    }
+} catch (Exception $e) { /* renders empty */ }
+?>
+<div class="fr-toolbar">
+    <div class="fr-filters">
+        <span><span class="fr-filter-label">From</span><input type="date" class="fr-input" id="fr-date-from" onchange="frFilter()" /></span>
+        <span><span class="fr-filter-label">To</span><input type="date" class="fr-input" id="fr-date-to" onchange="frFilter()" /></span>
+        <input type="search" class="fr-search" id="fr-search" autocomplete="off" placeholder="Class code, course, trainer…" oninput="frFilter()" />
+        <button type="button" class="mm-btn mm-btn-sm" onclick="frReset()">Reset</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;">
+        <span class="fr-meta">Confirmed &amp; completed classes from MY / GH · weekly Sun 10:00 · last pull <strong><?php echo $_frFmtDate($_frClassesLastPull) ?></strong></span>
+        <button type="button" class="mm-btn mm-btn-primary" id="fr-pull-btn" onclick="frPullNow(this)">Pull Now</button>
+    </div>
+</div>
+<div class="fr-status" id="fr-status"></div>
+<div class="dcf-mag mmd-auto-card">
+    <div class="dcf-mag-bar"><span>Franchisee completed classes</span></div>
+    <div class="dcf-mag-body" style="padding:0;overflow-x:auto;">
+        <table class="mm-table fr-completed-table">
+            <thead><tr><th>Country</th><th>Class code</th><th>Course title</th><th>Course code</th><th>Start</th><th>End</th><th>Trainer</th><th class="fr-num">Learners attended</th></tr></thead>
+            <tbody id="fr-tbody">
+            <?php if (empty($_frRows)): ?>
+            <tr><td colspan="8" class="mm-table-empty"><?php echo ($_fmPartners['my']['configured'] || $_fmPartners['gh']['configured']) ? 'No completed classes yet — new classes appear after the next pull.' : 'Not connected yet — add the MY / GH endpoints under Partner Settings, then Pull Now.' ?></td></tr>
+            <?php endif; ?>
+            <?php foreach ($_frRows as $_fr): ?>
+            <tr class="fr-row" data-start="<?php echo htmlspecialchars((string) $_fr['start_date']) ?>" data-search="<?php echo htmlspecialchars(strtolower($_fr['class_code'] . ' ' . $_fr['course_title'] . ' ' . $_fr['course_code'] . ' ' . $_fr['trainer_name'] . ' ' . $_fr['source_country'])) ?>">
+                <td><span class="fr-pill fr-pill-cc"><?php echo htmlspecialchars($_fr['source_country']) ?></span></td>
+                <td class="fr-mono"><?php echo htmlspecialchars($_fr['class_code']) ?></td>
+                <td class="strong"><?php echo htmlspecialchars($_fr['course_title']) ?></td>
+                <td class="fr-mono"><?php echo htmlspecialchars($_fr['course_code']) ?></td>
+                <td class="muted"><?php echo htmlspecialchars((string) $_fr['start_date']) ?></td>
+                <td class="muted"><?php echo htmlspecialchars((string) $_fr['end_date']) ?></td>
+                <td><?php echo htmlspecialchars($_fr['trainer_name']) ?></td>
+                <td class="fr-num strong"><?php echo (int) $_fr['learners_attended'] ?></td>
+            </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+        <div id="fr-empty-filter" class="fr-meta" style="display:none;text-align:center;padding:16px 0;">No classes match the current filters.</div>
+    </div>
+</div>
+<script>
+function frFilter(){
+    var from = document.getElementById('fr-date-from').value, to = document.getElementById('fr-date-to').value, q = (document.getElementById('fr-search').value||'').toLowerCase();
+    var rows = document.querySelectorAll('.fr-row'), shown = 0;
+    rows.forEach(function(r){ var d = r.getAttribute('data-start')||''; var ok = !(from && (!d || d < from)) && !(to && (!d || d > to)) && (!q || (r.getAttribute('data-search')||'').indexOf(q) >= 0); r.style.display = ok ? '' : 'none'; if (ok) shown++; });
+    document.getElementById('fr-empty-filter').style.display = (rows.length && !shown) ? 'block' : 'none';
+}
+function frReset(){ ['fr-date-from','fr-date-to','fr-search'].forEach(function(id){ document.getElementById(id).value = ''; }); frFilter(); }
+function frPullNow(btn){
+    btn.disabled = true; btn.textContent = 'Pulling…';
+    var st = document.getElementById('fr-status'); st.style.display = 'block'; st.style.color = 'var(--t4)'; st.textContent = 'Pulling completed classes from the partner sites…';
+    var fd = new FormData(); fd.append('form_key', window.FORM_KEY || '');
+    fetch('<?php echo $this->jsQuoteEscape($_frUrl('pull')) ?>', { method:'POST', body: fd }).then(function(r){ return r.json(); }).then(function(d){
+        btn.disabled = false; btn.textContent = 'Pull Now';
+        if (d.success) { st.style.color = 'var(--green,#3df5a8)'; st.textContent = d.fetched > 0 ? ('Pulled ' + d.fetched + ' classes from ' + d.partners + ' partner(s), stored ' + d.upserted + '.') : ('Done — ' + d.partners + ' partner(s) contacted, no completed classes to pull yet.'); if (d.fetched > 0) setTimeout(function(){ location.reload(); }, 2000); }
+        else { st.style.color = d.needs_config ? 'var(--yellow,#f5c451)' : 'var(--red,#ff3b5c)'; st.textContent = d.message || (d.error_msgs && d.error_msgs.join('; ')) || 'Pull failed'; }
+    }).catch(function(e){ btn.disabled = false; btn.textContent = 'Pull Now'; st.style.color = 'var(--red,#ff3b5c)'; st.textContent = 'Network error: ' + e; });
+}
+</script>
+
+<?php /* ================================================================ */ ?>
+<?php else: // ---------------- SYNC PAGES (courses | categories | schedules) --
+$_fmSyncUrl   = $_frUrl('sync');
+$_fmSettingsUrl = $_frUrl('index', array('section' => 'settings'));
 $_fmSections = array(
-    'courses' => array(
-        'title' => 'Course Sync',
-        'desc'  => 'Push all SG non-WSQ (C-prefix) courses to the selected franchisee sites — content, categories, images and badges. Partner-owned fields (course fee, trainer info, class schedule) are preserved on existing courses; new courses are created complete with prices converted to the partner currency. Courses retired on SG are disabled on the partner.',
-        'icon'  => '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
-    ),
-    'categories' => array(
-        'title' => 'Category Sync',
-        'desc'  => 'Mirror the SG course category tree to the selected franchisee sites — names, ordering, visibility, descriptions and SEO meta. Only categories carrying non-WSQ (C-prefix) courses are exported; WSQ-only branches and partner-specific categories are left untouched.',
-        'icon'  => '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',
-    ),
-    'schedules' => array(
-        'title' => 'Schedule Sync',
-        'desc'  => 'Push the SG class schedules (Course Date / Course Time options) for all courses to the selected franchisee sites. This replaces the partner\'s own schedule options with SG\'s — courses not yet imported on the partner are skipped (run Course Sync first).',
-        'icon'  => '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
-        'confirm' => 'Schedule Sync replaces each partner\'s own Course Date / Course Time options with SG\'s. Continue?',
-    ),
+    'courses' => array('title' => 'Course Sync', 'desc' => 'Push all SG non-WSQ (C-prefix) courses to the selected franchisee sites — content, categories, images and badges. Partner-owned fields (course fee, trainer info, class schedule) are preserved on existing courses; new courses are created complete with prices converted to the partner currency. Courses retired on SG are disabled on the partner.',
+        'icon' => '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>'),
+    'categories' => array('title' => 'Category Sync', 'desc' => 'Mirror the SG course category tree to the selected franchisee sites — names, ordering, visibility, descriptions and SEO meta. Only categories carrying non-WSQ (C-prefix) courses are exported; WSQ-only branches and partner-specific categories are left untouched.',
+        'icon' => '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>'),
+    'schedules' => array('title' => 'Schedule Sync', 'desc' => 'Push the SG class schedules (Course Date / Course Time options) for all courses to the selected franchisee sites. This replaces the partner\'s own schedule options with SG\'s — courses not yet imported on the partner are skipped (run Course Sync first).',
+        'icon' => '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+        'confirm' => 'Schedule Sync replaces each partner\'s own Course Date / Course Time options with SG\'s. Continue?'),
 );
 $_op  = $_frSection;
 $_sec = $_fmSections[$_op];
 $_fmAnyConfigured = ($_fmPartners['my']['configured'] || $_fmPartners['gh']['configured']);
 ?>
-<div style="display:flex;align-items:center;gap:8px;margin:6px 0 14px;">
-    <span style="background:rgba(34,211,238,.12);border:1px solid rgba(34,211,238,.3);color:#22d3ee;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;">One-way · SG → Franchisee</span>
-    <span style="font-size:12px;color:#64748b;">Franchisee sites can never write back to the SG site.</span>
+<div style="display:flex;align-items:center;gap:8px;margin:0 0 14px;">
+    <span class="fr-pill fr-pill-cc">One-way · SG → Franchisee</span>
+    <span class="fr-meta">Franchisee sites can never write back to the SG site.</span>
 </div>
-
-<div style="margin-bottom:16px;background:#0f172a;border:1px solid #1e3a5f;border-radius:14px;padding:18px 24px;">
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:14px;">
-        <div style="flex:1;min-width:260px;">
-            <div style="font-size:14px;font-weight:700;color:#e2e8f0;display:flex;align-items:center;gap:8px;">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><?php echo $_sec['icon'] ?></svg>
-                <?php echo htmlspecialchars($_sec['title']) ?>
-            </div>
-            <div style="font-size:12px;color:#64748b;margin-top:4px;max-width:720px;"><?php echo htmlspecialchars($_sec['desc']) ?></div>
-        </div>
-        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+<div class="dcf-mag mmd-auto-card">
+    <div class="dcf-mag-bar"><span style="display:inline-flex;align-items:center;gap:8px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><?php echo $_sec['icon'] ?></svg><?php echo htmlspecialchars($_sec['title']) ?></span>
+        <span class="mmd-auto-card-actions" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
             <?php foreach ($_fmPartners as $_cc => $_p): ?>
-            <label style="display:inline-flex;align-items:center;gap:7px;font-size:13px;color:<?php echo $_p['configured'] ? '#cbd5e1' : '#475569' ?>;cursor:<?php echo $_p['configured'] ? 'pointer' : 'not-allowed' ?>;">
-                <input type="checkbox" class="fm-cc-<?php echo $_op ?>" value="<?php echo $_cc ?>"
-                    <?php echo $_p['configured'] ? 'checked' : 'disabled' ?> />
+            <label style="display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:500;color:<?php echo $_p['configured'] ? 'var(--t2,#cbd5e1)' : 'var(--t5,#475569)' ?>;cursor:<?php echo $_p['configured'] ? 'pointer' : 'not-allowed' ?>;">
+                <input type="checkbox" class="fm-cc-<?php echo $_op ?>" value="<?php echo $_cc ?>" <?php echo $_p['configured'] ? 'checked' : 'disabled' ?> />
                 <?php echo $_p['flag'] ?> <?php echo htmlspecialchars($_p['label']) ?><?php if (!$_p['configured']): ?> <span style="font-size:11px;">(not connected)</span><?php endif; ?>
             </label>
             <?php endforeach; ?>
-            <button type="button" class="mm-btn mm-btn-primary" id="fm-btn-<?php echo $_op ?>"
-                onclick="fmSync('<?php echo $_op ?>', this<?php echo isset($_sec['confirm']) ? ", '" . $this->jsQuoteEscape($_sec['confirm']) . "'" : '' ?>)">
-                Sync Now
-            </button>
+            <button type="button" class="mm-btn mm-btn-primary" id="fm-btn-<?php echo $_op ?>" onclick="fmSync('<?php echo $_op ?>', this<?php echo isset($_sec['confirm']) ? ", '" . $this->jsQuoteEscape($_sec['confirm']) . "'" : '' ?>)">Sync Now</button>
+        </span>
+    </div>
+    <div class="dcf-mag-body" style="padding:14px 24px;">
+        <div class="fr-meta" style="max-width:820px;"><?php echo htmlspecialchars($_sec['desc']) ?></div>
+        <div id="fm-status-<?php echo $_op ?>" class="fr-status" style="margin-top:12px;"></div>
+        <div class="fr-meta" style="margin-top:10px;">
+            <?php foreach ($_fmPartners as $_cc => $_p): $_last = (string) Mage::getStoreConfig('mmd/franchise_sync/last_' . $_op . '_' . $_cc); ?>
+            <span style="margin-right:16px;">Last sync <?php echo strtoupper($_cc) ?>: <strong><?php echo $_frFmtDate($_last) ?></strong></span>
+            <?php endforeach; ?>
         </div>
-    </div>
-    <div id="fm-status-<?php echo $_op ?>" style="display:none;background:#1e293b;border-radius:8px;padding:10px 14px;font-size:13px;color:#94a3b8;margin-top:12px;white-space:pre-line;"></div>
-    <div style="font-size:11px;color:#475569;margin-top:10px;">
-        <?php foreach ($_fmPartners as $_cc => $_p):
-            $_last = (string) Mage::getStoreConfig('mmd/franchise_sync/last_' . $_op . '_' . $_cc); ?>
-        <span style="margin-right:16px;">Last sync <?php echo strtoupper($_cc) ?>:
-            <strong style="color:#94a3b8;"><?php echo $_last ? htmlspecialchars(Mage::helper('core')->formatDate($_last, 'medium', true)) : 'never' ?></strong></span>
-        <?php endforeach; ?>
+        <?php if (!$_fmAnyConfigured): ?>
+        <div class="fr-meta" style="margin-top:10px;">No franchisee connected yet — add the partner URLs and API keys under <a href="<?php echo $_fmSettingsUrl ?>" style="color:#22d3ee;">Partner Settings</a> first.</div>
+        <?php endif; ?>
     </div>
 </div>
-
-<?php if (!$_fmAnyConfigured): ?>
-<div style="font-size:12px;color:#64748b;">
-    No franchisee connected yet — add the partner URLs and API keys under
-    <a href="<?php echo $_fmReportUrl ?>" style="color:#22d3ee;">Franchise Report → Partner Connection Settings</a> first.
-</div>
-<?php endif; ?>
-
 <script>
 function fmSync(op, btn, confirmMsg) {
     if (confirmMsg && !window.confirm(confirmMsg)) return;
-    var boxes = document.querySelectorAll('.fm-cc-' + op + ':checked');
-    var partners = [];
+    var boxes = document.querySelectorAll('.fm-cc-' + op + ':checked'), partners = [];
     for (var i = 0; i < boxes.length; i++) partners.push(boxes[i].value);
-    var st = document.getElementById('fm-status-' + op);
-    st.style.display = 'block';
-    if (!partners.length) {
-        st.style.color = '#f59e0b';
-        st.textContent = 'Select at least one franchisee site first.';
-        return;
-    }
-    btn.disabled = true; btn.textContent = 'Syncing…';
-    st.style.color = '#94a3b8';
+    var st = document.getElementById('fm-status-' + op); st.style.display = 'block';
+    if (!partners.length) { st.style.color = 'var(--yellow,#f5c451)'; st.textContent = 'Select at least one franchisee site first.'; return; }
+    btn.disabled = true; btn.textContent = 'Syncing…'; st.style.color = 'var(--t4)';
     st.textContent = 'Starting sync — a full sync can take several minutes per site, keep this page open…';
     var lines = [];
     function runNext(idx) {
-        if (idx >= partners.length) {
-            btn.disabled = false; btn.textContent = 'Sync Now';
-            return;
-        }
-        var cc = partners[idx];
-        lines.push(cc.toUpperCase() + ': syncing…');
-        st.textContent = lines.join('\n');
-        var fd = new FormData();
-        fd.append('form_key', window.FORM_KEY || '');
-        fd.append('partner', cc);
-        fd.append('op', op);
-        fetch('<?php echo $this->jsQuoteEscape($_fmSyncUrl) ?>', { method:'POST', body:fd })
-            .then(function(r){ return r.json(); })
-            .then(function(d){
-                if (d.success) {
-                    var bits = [];
-                    if (d.fetched  != null) bits.push(d.fetched + ' fetched');
-                    if (d.created  != null) bits.push(d.created + ' created');
-                    if (d.updated  != null) bits.push(d.updated + ' updated');
-                    if (d.disabled) bits.push(d.disabled + ' retired');
-                    if (d.skipped  != null) bits.push(d.skipped + ' skipped');
-                    lines[lines.length - 1] = cc.toUpperCase() + ': ✓ done — ' + bits.join(', ') + '.';
-                    st.style.color = '#22c55e';
-                } else {
-                    lines[lines.length - 1] = cc.toUpperCase() + ': ✗ ' + (d.message || d.error || (d.error_msgs && d.error_msgs.join('; ')) || 'sync failed');
-                    st.style.color = '#ef4444';
-                }
-                st.textContent = lines.join('\n');
-                runNext(idx + 1);
-            })
-            .catch(function(e){
-                lines[lines.length - 1] = cc.toUpperCase() + ': ✗ network error — ' + e + ' (the sync may still be running on the partner; check its sync log)';
-                st.style.color = '#ef4444';
-                st.textContent = lines.join('\n');
-                runNext(idx + 1);
-            });
+        if (idx >= partners.length) { btn.disabled = false; btn.textContent = 'Sync Now'; return; }
+        var cc = partners[idx]; lines.push(cc.toUpperCase() + ': syncing…'); st.textContent = lines.join('\n');
+        var fd = new FormData(); fd.append('form_key', window.FORM_KEY || ''); fd.append('partner', cc); fd.append('op', op);
+        fetch('<?php echo $this->jsQuoteEscape($_fmSyncUrl) ?>', { method:'POST', body:fd }).then(function(r){ return r.json(); }).then(function(d){
+            if (d.success) {
+                var bits = [];
+                if (d.fetched != null) bits.push(d.fetched + ' fetched'); if (d.created != null) bits.push(d.created + ' created'); if (d.updated != null) bits.push(d.updated + ' updated'); if (d.disabled) bits.push(d.disabled + ' retired'); if (d.skipped != null) bits.push(d.skipped + ' skipped');
+                lines[lines.length - 1] = cc.toUpperCase() + ': ✓ done — ' + bits.join(', ') + '.'; st.style.color = 'var(--green,#3df5a8)';
+            } else { lines[lines.length - 1] = cc.toUpperCase() + ': ✗ ' + (d.message || d.error || (d.error_msgs && d.error_msgs.join('; ')) || 'sync failed'); st.style.color = 'var(--red,#ff3b5c)'; }
+            st.textContent = lines.join('\n'); runNext(idx + 1);
+        }).catch(function(e){ lines[lines.length - 1] = cc.toUpperCase() + ': ✗ network error — ' + e + ' (the sync may still be running on the partner; check its sync log)'; st.style.color = 'var(--red,#ff3b5c)'; st.textContent = lines.join('\n'); runNext(idx + 1); });
     }
     runNext(0);
 }
 </script>
 <?php endif; // section switch ?>
-<?php endif; // SG-only franchise management pages ?>
+<?php endif; // SG-only ?>
 </div>
