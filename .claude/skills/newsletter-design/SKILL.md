@@ -74,6 +74,30 @@ pitch, change the colour/logo, or run the improvement loop.
 - **Vary the frames.** The topic-reframing frames rotate so lines don't read
   as a template.
 
+## Writing the value stack — pitch, not syllabus (admin rule 2026-11-02)
+
+The "What you'll walk out able to do" list and the learning journey are a **sales
+pitch**. The admin rejected a version whose lines read `Topic 1: compare Meta
+Muse, ...` as boring. The rules (also baked into the `regenerateCopy()` prompt):
+
+- **Promise first, proof second.** Each outcome = a result the reader wants,
+  then the tool that delivers it: "Hand your Monday reports to an agent that
+  writes and sends them while you sleep (Hermes scheduled runs)".
+- **Never label by syllabus.** No line starts with "Topic N", "Module", "Day N",
+  "Learn", "Understand", "Explore", "Overview". The sanitiser strips a leading
+  `Topic N:` anyway, but write it right.
+- **Reader's language**: you/your, active verbs, one vivid picture per line (a
+  task, a document, an hour of the week, a client).
+- **Exact product names** from the course content; never adopt a misspelling
+  from feedback text (#82 shipped "OpenAI Muse" for "OpenAI Dots").
+- **Perks, funding, ratings, prices are not outcomes** — they have their own
+  bands (hero pill, funding strip, social-proof band).
+- **Journey steps are achievements** ("By lunch your first agent answers from
+  your own documents"), not lecture titles.
+
+Fix the PROMPT when the copy style is wrong (`Helper/Flyer.php::regenerateCopy`),
+not the generated text — a hand edit is overwritten by the next regeneration.
+
 ## Copy is AI-GENERATED, not templated (the core mechanism)
 
 `Flyer.php::regenerateCopy($productId, $feedback)` is the generator. It builds a

@@ -716,6 +716,13 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
             . $prev
             . ($fb !== '' ? "MANAGER FEEDBACK you MUST act on (this is why the previous version was rejected — address every point directly, don't just reword):\n{$fb}\n\n" : "")
             . ($learnings !== '' ? "WHAT WORKS (from our past newsletter performance): {$learnings}\n\n" : "")
+            . "HOW TO WRITE THE PITCH (admin rules, 2026-11-02 — the previous copy was rejected as boring):\n"
+            . "- The outcomes are a SALES PITCH, not a syllabus. Each line = a result the reader WANTS, written as a promise: what they can do, how fast, what it saves or earns. Lead with the payoff, then the proof (the tool/concept). Example: 'Hand your Monday reports to an agent that writes and sends them while you sleep' beats 'Topic 2: set schedules for scheduled tasks'.\n"
+            . "- NEVER start a line with 'Topic N', 'Module', 'Day N', 'Learn', 'Understand', 'Explore', 'Overview'. Never label outcomes by topic number. Use the syllabus as raw material only.\n"
+            . "- Use the reader's language: 'you'/'your', active verbs, a vivid picture (a specific task, document, hour of the week, client). One idea per line.\n"
+            . "- Name the real tools/agents by their exact names from the course content (never alter or misspell a product name, even if the feedback does).\n"
+            . "- Bonuses, funding, free perks, ratings and prices are NOT outcomes — never put them in the outcomes list (the flyer shows them in their own bands).\n"
+            . "- Journey steps are what they will have BUILT or DONE by the end of that block, phrased as an achievement ('By lunch your first agent answers from your own documents'), not a lecture title.\n\n"
             . "Return ONLY a JSON object, no markdown, no preamble, with EXACTLY these keys:\n"
             . "{\n"
             . "  \"hook\": \"one punchy sentence (<=200 chars) naming what they'll build/master in this specific course\",\n"
@@ -772,6 +779,8 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         $copy['hook'] = trim(preg_replace('/\s+/u', ' ', (string) $data['hook']));
         $copy['outcomes'] = array();
         foreach (array_slice($data['outcomes'], 0, 6) as $o) {
+            // Belt and braces for the "no syllabus labels" rule above.
+            $o = preg_replace('/^\s*(Topic|Module|Day)\s*\d+\s*[:.\-\x{2013}]\s*/iu', '', (string) $o);
             $o = $enc($o);
             if ($o !== '') { $copy['outcomes'][] = $o; }
         }
