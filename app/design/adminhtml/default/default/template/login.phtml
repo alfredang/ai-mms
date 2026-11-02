@@ -1,7 +1,10 @@
 <?php
 /**
  * Tertiary Infotech Academy - Admin Login
- * Modern design matching ai-lms-tms style
+ * Two-column layout (mirrors /lmslogin): LEFT = welcome to the Training
+ * Provider + Franchise Management System with the key functions, RIGHT =
+ * the OTP-first sign-in card. /lmslogin (rolemanager/learner-login.phtml)
+ * is a separate template — do not merge the two.
  */
 $logoUrl = Mage::getBaseUrl('skin') . 'adminhtml/default/default/images/admin-logo.png';
 $formKey = $this->getFormKey();
@@ -38,21 +41,75 @@ $otpVerifyUrl = Mage::helper('adminhtml')->getUrl('adminhtml/otp/verify', array(
         margin: 0; padding: 0;
         margin: 0; min-height: 100vh;
     }
-    #page-login .login-container { background: transparent; width: 100%; margin: 0; display: flex; justify-content: center; align-items: flex-start; padding: 40px 20px 20px; }
-    .login-card {
-        background: rgba(30, 41, 59, 0.85);
-        backdrop-filter: blur(12px);
-        border: 1px solid #374151;
-        border-radius: 20px;
-        box-shadow: 0 20px 60px rgba(0,0,0,0.4);
-        width: 440px;
-        max-width: 100%;
-        padding: 40px 36px 32px;
+    /* Two-column shell (same split as /lmslogin): LEFT = welcome band with the
+       key Training Provider / Franchise functions, RIGHT = the sign-in card. */
+    #page-login .login-container {
+        background: transparent; width: 100%; margin: 0; padding: 0;
+        display: grid; min-height: 100vh; min-height: 100dvh;
+        grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr);
     }
-    .login-logo { text-align: center; margin-bottom: 20px; }
-    .login-logo img { height: 64px; border-radius: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
-    .login-title { text-align: center; color: #f1f5f9; font-size: 24px; font-weight: 700; margin: 0 0 4px; }
-    .login-subtitle { text-align: center; color: #94a3b8; font-size: 14px; margin: 0 0 28px; }
+    /* boxes.css centres #page-login — the two columns are left-aligned like /lmslogin */
+    #page-login .lp-brand, #page-login .lp-brand * { text-align: left; }
+    #page-login .lp-auth-eyebrow, #page-login .login-title, #page-login .login-subtitle, #page-login .field-label { text-align: left; }
+    .lp-brand {
+        position: relative; overflow: hidden;
+        display: flex; flex-direction: column; gap: clamp(12px, 3vh, 32px);
+        padding: clamp(20px, 4vh, 40px) clamp(24px, 5vw, 72px);
+        background:
+            radial-gradient(900px 520px at -10% 115%, rgba(37, 99, 235, 0.38), transparent 60%),
+            linear-gradient(160deg, #0a1a3a, #12306b);
+    }
+    .lp-brand::before, .lp-brand::after {
+        content: ""; position: absolute; border-radius: 50%;
+        border: 1.5px solid rgba(125, 211, 252, 0.26); pointer-events: none;
+    }
+    .lp-brand::before { width: 680px; height: 680px; right: -300px; top: -380px; }
+    .lp-brand::after  { width: 1080px; height: 1080px; right: -480px; top: -640px; border-color: rgba(125, 211, 252, 0.12); }
+    .lp-brand > * { position: relative; z-index: 1; }
+    .lp-brand-top { display: flex; align-items: center; gap: 16px; font-size: clamp(22px, 2.2vw, 30px); line-height: 1.2; font-weight: 700; color: #f1f5f9; }
+    .lp-brand-top img { width: clamp(48px, 7vh, 64px); height: clamp(48px, 7vh, 64px); flex-shrink: 0; border-radius: 10px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35); }
+    .lp-brand-inner { width: 100%; max-width: 560px; margin: auto 0; }
+    .lp-eyebrow { margin: 0 0 clamp(8px, 1.4vh, 14px); font-size: 12px; font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase; color: #7dd3fc; }
+    .lp-welcome { margin: 0 0 clamp(10px, 1.8vh, 16px); font-size: clamp(24px, 2.4vw, 32px); line-height: 1.2; font-weight: 700; letter-spacing: -0.3px; color: #fff; }
+    .lp-lead { margin: 0 0 clamp(14px, 2.6vh, 28px); font-size: 15px; line-height: 1.6; color: rgba(255, 255, 255, 0.78); max-width: 500px; }
+    .lp-fn-card {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 16px; padding: clamp(16px, 2.6vh, 24px) 26px;
+        backdrop-filter: blur(8px);
+        box-shadow: 0 24px 60px rgba(2, 6, 23, 0.35);
+    }
+    .lp-fn-title { margin: 0 0 clamp(10px, 1.8vh, 16px); font-size: 13px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: rgba(255, 255, 255, 0.7); }
+    .lp-fn-list { list-style: none; margin: 0; padding: 0; display: grid; gap: clamp(8px, 1.5vh, 14px); }
+    .lp-fn-list li { display: flex; gap: 12px; align-items: flex-start; font-size: 14px; line-height: 1.5; color: rgba(255, 255, 255, 0.86); }
+    .lp-fn-list svg { flex-shrink: 0; width: 20px; height: 20px; margin-top: 1px; color: #7dd3fc; }
+    .lp-fn-list strong { color: #fff; font-weight: 600; }
+    .lp-fn-list span { display: block; }
+    .lp-fn-list small { display: block; font-size: 12.5px; color: rgba(255, 255, 255, 0.6); }
+    .lp-powered { margin: 0; padding-top: 4px; font-size: 12px; color: rgba(255, 255, 255, 0.55); }
+    .lp-powered a { color: rgba(255, 255, 255, 0.8); text-decoration: none; }
+    .lp-powered a:hover { text-decoration: underline; }
+
+    .lp-auth {
+        display: flex; align-items: center; justify-content: center;
+        padding: clamp(20px, 4vh, 48px) clamp(20px, 4vw, 56px);
+    }
+    .login-card { width: 100%; max-width: 400px; }
+    .login-logo { display: none; }
+    .lp-auth-eyebrow { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase; color: #60a5fa; }
+    .login-title { color: #f1f5f9; font-size: 28px; font-weight: 700; letter-spacing: -0.4px; margin: 6px 0 6px; }
+    .login-subtitle { color: #94a3b8; font-size: 14px; line-height: 1.55; margin: 0 0 clamp(16px, 3vh, 28px); }
+
+    /* Narrow screens: stack, sign-in first (returning users) */
+    @media (max-width: 960px) {
+        #page-login .login-container { display: flex; flex-direction: column; min-height: 100vh; }
+        .lp-auth { order: 1; padding: 24px 16px 32px; }
+        .lp-brand { order: 2; padding: 28px 16px; }
+        .login-logo { display: block; text-align: center; margin-bottom: 16px; }
+        .login-logo img { height: 56px; border-radius: 12px; }
+        .lp-brand-top { display: none; }
+        .lp-brand-inner { margin: 0; }
+    }
 
     /* Tab switcher */
     .login-tabs { display: flex; gap: 0; margin-bottom: 24px; background: #1f2937; border-radius: 10px; padding: 4px; border: 1px solid #374151; }
@@ -184,12 +241,62 @@ $otpVerifyUrl = Mage::helper('adminhtml')->getUrl('adminhtml/otp/verify', array(
 </head>
 <body id="page-login">
     <div class="login-container">
+
+        <!-- LEFT: welcome band + what the staff portal does -->
+        <section class="lp-brand" aria-labelledby="lp-welcome">
+            <div class="lp-brand-top">
+                <img src="<?php echo $logoUrl ?>" alt="" />
+                <span>Tertiary Infotech Academy</span>
+            </div>
+
+            <div class="lp-brand-inner">
+                <p class="lp-eyebrow">Staff portal</p>
+                <h1 class="lp-welcome" id="lp-welcome">Welcome to the Training Provider and Franchise Management System</h1>
+                <p class="lp-lead">One place to run your training business: courses, class schedules, learner registrations, trainers, certificates and the numbers behind them.</p>
+
+                <div class="lp-fn-card">
+                    <p class="lp-fn-title">What you can do here</p>
+                    <ul class="lp-fn-list">
+                        <li>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                            <span><strong>Courses and schedules</strong><small>Create and edit courses, set fees, class dates and schedule templates.</small></span>
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                            <span><strong>Classes, rosters and attendance</strong><small>Every registration becomes a class roster; mark attendance and assign trainers.</small></span>
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                            <span><strong>Learner registrations</strong><small>Track sign-ups, payments and invoices for your own site.</small></span>
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>
+                            <span><strong>Certificates</strong><small>Auto-issued and emailed when a confirmed class completes.</small></span>
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                            <span><strong>Dashboard and insights</strong><small>Sign-ups by week and month, popular courses and search terms, latest registrations.</small></span>
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                            <span><strong>Franchise Control Center</strong><small>Franchise Admin: classes, registrations, per-learner fees and certificate release across every franchisee.</small></span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <p class="lp-powered">Powered by <a href="https://www.tertiaryinfotech.com/" target="_blank" rel="noopener"><?php $_dsv = Mage::app()->getDefaultStoreView(); echo $_dsv && $_dsv->getCode() === 'malaysia' ? 'Tertiary Infotech Sdn. Bhd.' : 'Tertiary Infotech Academy Pte Ltd'; ?></a></p>
+        </section>
+
+        <!-- RIGHT: sign-in (OTP first, password fallback) -->
+        <section class="lp-auth" aria-labelledby="lp-signin-title">
         <div class="login-card">
             <div class="login-logo">
                 <img src="<?php echo $logoUrl ?>" alt="Tertiary Infotech Academy" />
             </div>
-            <h1 class="login-title">Tertiary Infotech Academy</h1>
-            <p class="login-subtitle">Learning Management System</p>
+            <p class="lp-auth-eyebrow">Welcome back</p>
+            <h2 class="login-title" id="lp-signin-title">Sign in to the staff portal</h2>
+            <p class="login-subtitle">Enter your staff email and we&rsquo;ll send you a one-time code &mdash; no password needed.</p>
 
             <div id="messages">
                 <?php echo $this->getMessagesBlock()->toHtml() ?>
@@ -288,6 +395,7 @@ $otpVerifyUrl = Mage::helper('adminhtml')->getUrl('adminhtml/otp/verify', array(
                 </div>
             </div>
         </div>
+        </section>
     </div>
 
     <script type="text/javascript">
