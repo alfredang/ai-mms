@@ -467,7 +467,7 @@ class MMD_Marketing_Model_Cron_Flyer
         // Sunday -> Monday 08:00, Wednesday -> Thursday 08:00; any other day looks
         // at the next Mon/Thu (manual "run now" from the admin panel).
         $slot = clone $now;
-        $slot->setTime(MMD_Marketing_Helper_Blastguard::SEND_HOUR, 0, 0);
+        $slot->setTime($g->sendHour(), 0, 0);
         for ($i = 1; $i <= 7; $i++) {
             $slot->modify('+1 day');
             $d = (int) $slot->format('N');
@@ -485,11 +485,18 @@ class MMD_Marketing_Model_Cron_Flyer
         if ($g->remainingDesignsThisWeek() < 1) { $this->_log('ensureSlotCovered: ' . $label . ' — weekly design cap reached'); return; }
         if ($g->nextSendSlot() === null)         { $this->_log('ensureSlotCovered: ' . $label . ' — weekly blast cap reached'); return; }
         // The admin-curated queue still wins; the random pick is the fallback.
+        // Partner sites (MY/GH) have no Free AI Subscription perk or WSQ catalogue:
+        // they pick a random course from their AI courses catalogue instead.
+        $partner = $g->isPartnerSite();
         $pid = $this->popFlyerQueue();
-        if (!$pid) { $pid = $this->pickFreeAiSubscriptionCourse(); }
-        if (!$pid) { $this->_log('ensureSlotCovered: ' . $label . ' — queue empty and no Free AI Subscription course available'); return; }
+        if (!$pid) {
+            $pid = $partner
+                ? $this->pickFreeAiSubscriptionCourse('artificial-intelligence-courses', false)
+                : $this->pickFreeAiSubscriptionCourse();
+        }
+        if (!$pid) { $this->_log('ensureSlotCovered: ' . $label . ' — queue empty and no ' . ($partner ? 'AI' : 'Free AI Subscription') . ' course available'); return; }
         $brief = $this->_poppedBrief['instructions'];
-        if ($brief === '') {
+        if ($brief === '' && !$partner) {
             $brief = 'Lead with the 6 months FREE AI subscription included with this course (Singaporeans only) — it must be the first thing the reader sees after the headline. Show the course review score and the MySkillsFuture rating.';
         }
         try {
@@ -509,8 +516,9 @@ class MMD_Marketing_Model_Cron_Flyer
      * Random enabled WSQ (TGS-) course from the storefront "Free AI Subscription"
      * category (url_key free-ai-subscription-courses), preferring courses not
      * blasted in the last 30 days (falls back to the least recently blasted).
+     * Partner sites pass their AI catalogue url_key and $wsqOnly=false.
      */
-    public function pickFreeAiSubscriptionCourse()
+    public function pickFreeAiSubscriptionCourse($urlKey = 'free-ai-subscription-courses', $wsqOnly = true)
     {
         $res  = Mage::getSingleton('core/resource');
         $conn = $this->_read();
@@ -518,13 +526,13 @@ class MMD_Marketing_Model_Cron_Flyer
         $catId = (int) $conn->fetchOne(
             'SELECT v.entity_id FROM ' . $res->getTableName('catalog/category') . '_varchar v'
           . ' JOIN ' . $eav . ' a ON a.attribute_id = v.attribute_id AND a.attribute_code = ? AND a.entity_type_id = 3'
-          . ' WHERE v.value = ? AND v.store_id = 0 LIMIT 1', array('url_key', 'free-ai-subscription-courses'));
+          . ' WHERE v.value = ? AND v.store_id = 0 LIMIT 1', array('url_key', $urlKey));
         if (!$catId) { return null; }
         // enabled (status=1 at store 0) WSQ courses only — plain SQL, a product
         // model load needs the customer session and fatals from cron/CLI.
         $pids = $conn->fetchCol(
             'SELECT p.entity_id FROM ' . $res->getTableName('catalog/category_product') . ' cp'
-          . ' JOIN ' . $res->getTableName('catalog/product') . " p ON p.entity_id = cp.product_id AND p.sku LIKE 'TGS-%'"
+          . ' JOIN ' . $res->getTableName('catalog/product') . ' p ON p.entity_id = cp.product_id' . ($wsqOnly ? " AND p.sku LIKE 'TGS-%'" : '')
           . ' JOIN ' . $res->getTableName('catalog/product') . '_int st ON st.entity_id = p.entity_id AND st.store_id = 0 AND st.value = 1'
           . ' JOIN ' . $eav . " st_a ON st_a.attribute_id = st.attribute_id AND st_a.attribute_code = 'status' AND st_a.entity_type_id = 4"
           . ' WHERE cp.category_id = ?', array($catId));
@@ -625,7 +633,8 @@ class MMD_Marketing_Model_Cron_Flyer
         $sku = (string) $this->_read()->fetchOne(
             'SELECT sku FROM ' . Mage::getSingleton('core/resource')->getTableName('catalog/product')
           . ' WHERE entity_id = ?', array((int) $productId));
-        if (stripos($sku, 'TGS-') !== 0) {
+        // Partner sites (MY/GH) sell C-prefix courses only — the gate is SG's.
+        if (stripos($sku, 'TGS-') !== 0 && !$this->_guard()->isPartnerSite()) {
             $this->_log('createProposal: skipped — ' . ($sku ?: 'product ' . (int) $productId)
                 . ' is not a WSQ (TGS-) course; SG blasts WSQ only');
             return null;
@@ -861,7 +870,7 @@ class MMD_Marketing_Model_Cron_Flyer
         }
 
         $slot = $this->slotOverride($row) ?: $g->nextSendSlot();
-        $slotTxt = $slot ? $slot->format('l, j M Y \a\t g:ia') : 'the next available slot';
+        $slotTxt = $slot ? $g->formatForSite($slot, 'l, j M Y \a\t g:ia') : 'the next available slot';
 
         // PRIMARY transport = Gmail OAuth (same path the admin OTP email uses,
         // Mage::helper('mmd_email/gmail')). It sends via the Gmail API with a
@@ -1098,7 +1107,7 @@ class MMD_Marketing_Model_Cron_Flyer
             $this->autoStartNext();
         } catch (Exception $e) { $this->_log('scheduleApproved: autoStartNext error: ' . $e->getMessage()); }
 
-        return array(true, 'Scheduled for ' . $slot->format('l, j M Y \a\t g:ia'));
+        return array(true, 'Scheduled for ' . $g->formatForSite($slot, 'l, j M Y \a\t g:ia'));
     }
 
     /**

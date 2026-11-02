@@ -61,6 +61,13 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
             // its own band. Same tag that drives the storefront pill + perk card.
             $hasAiTools = in_array('Free AI Subscription', $rows, true);
         } catch (Exception $e) { /* badges are optional */ }
+        // Partner sites (MY/GH) clone SG's catalogue tags but sell none of SG's
+        // funding or the Singaporeans-only AI perk: MY keeps HRD Corp, GH nothing.
+        $cc = Mage::helper('mmd_marketing/blastguard')->siteCountry();
+        if ($cc !== 'SG') {
+            $badges     = $cc === 'MY' ? array_values(array_intersect($badges, array('HRDF'))) : array();
+            $hasAiTools = false;
+        }
 
         // Persuasive "why take this" blurb — real per-course marketing copy, not
         // the factual syllabus. Prefer short_description, fall back to meta_description.
@@ -136,7 +143,7 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
             'badges'    => $badges,
             'ai_tools'  => $hasAiTools,
             'blurb'     => $blurb,
-            'is_wsq'    => (stripos($sku, 'TGS-') === 0) || in_array('WSQ', $badges, true),
+            'is_wsq'    => $cc === 'SG' && ((stripos($sku, 'TGS-') === 0) || in_array('WSQ', $badges, true)),
             'runs'      => $runs,
             'outcomes'  => $outcomes,
             'journey'   => $journey,
@@ -202,7 +209,7 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         $headers = array('anthropic-version: 2023-06-01', 'content-type: application/json');
         $system  = array();
         $headers[] = 'x-api-key: ' . $key;
-        $system[] = array('type' => 'text', 'text' => 'You are a direct-response course-marketing copywriter for Tertiary Courses Singapore. Output ONLY the exact JSON object requested — no markdown fences, no preamble, no commentary.');
+        $system[] = array('type' => 'text', 'text' => 'You are a direct-response course-marketing copywriter for ' . $this->_brandName() . '. Output ONLY the exact JSON object requested — no markdown fences, no preamble, no commentary.');
 
         $body = json_encode(array(
             'model'      => $model,
@@ -711,7 +718,8 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
             }
         }
 
-        $prompt = "You are a direct-response copywriter for Tertiary Courses Singapore, writing a course FLYER that must drive sign-ups. Write copy that is SPECIFIC to THIS course — name the actual tools, concepts and outcomes a learner gains. Never generic (\"learn by doing\", \"start from zero\", \"build something real\" are BANNED — they say nothing). Plain English, benefit-led, each line a concrete result the reader can picture. NEVER mention UTAP or NTUC UTAP funding anywhere — most courses are under UTAP review and outbound marketing must not advertise it.\n\n"
+        $prompt = "You are a direct-response copywriter for " . $this->_brandName() . ", writing a course FLYER that must drive sign-ups. Write copy that is SPECIFIC to THIS course — name the actual tools, concepts and outcomes a learner gains. Never generic (\"learn by doing\", \"start from zero\", \"build something real\" are BANNED — they say nothing). Plain English, benefit-led, each line a concrete result the reader can picture. NEVER mention UTAP or NTUC UTAP funding anywhere — most courses are under UTAP review and outbound marketing must not advertise it.\n\n"
+            . ($this->_partnerAudienceRule() !== '' ? $this->_partnerAudienceRule() . "\n\n" : '')
             . "COURSE\nTitle: {$name}\nCourse code: {$sku}\nWSQ funded: " . ($isWsq ? 'yes' : 'no') . "\nDuration: {$days} day(s)\nWhat it covers: {$desc}\nSyllabus topics: {$topicList}\n\n"
             . $prev
             . ($fb !== '' ? "MANAGER FEEDBACK you MUST act on (this is why the previous version was rejected — address every point directly, don't just reword):\n{$fb}\n\n" : "")
@@ -1052,6 +1060,27 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         $inkBr   = isset($c['ink_br'])   ? $c['ink_br']   : '#22345c';
         $eyebrow = isset($c['eyebrow'])  ? $c['eyebrow']  : '#22d3ee';
 
+        // Brand bar, fee, lead magnet and footer follow THIS site — SG keeps its
+        // original markup; a partner (MY/GH) never shows Singapore branding.
+        $cc      = Mage::helper('mmd_marketing/blastguard')->siteCountry();
+        $partner = $cc !== 'SG';
+        $brandHtml = 'Tertiary Courses <b style="font-weight:800;">Singapore</b>';
+        $pill      = 'WSQ &middot; SkillsFuture Funded';
+        $cur       = 'S$';
+        $taxHtml   = '<small style="font:600 11px ' . $sans . ';color:#7c8aa3;margin-left:2px;">+GST</small>';
+        $footHtml  = 'Tertiary Infotech Academy Pte Ltd &middot; UEN 201200696W<br>+65 6100 0613 &middot; enquiry@tertiaryinfotech.com';
+        if ($partner) {
+            $brand     = $this->_brandName();
+            $brandHtml = preg_replace('/(\S+)$/', '<b style="font-weight:800;">$1</b>', $h($brand));
+            $pill      = $cc === 'MY' ? 'HRD Corp Claimable' : 'Hands-on &middot; Instructor-led';
+            $curCode   = (string) Mage::getStoreConfig('currency/options/base', Mage::app()->getDefaultStoreView());
+            $curMap    = array('MYR' => 'RM', 'GHS' => 'GH&#8373;', 'USD' => 'US$', 'SGD' => 'S$');
+            $cur       = isset($curMap[$curCode]) ? $curMap[$curCode] : $h($curCode) . ' ';
+            $taxHtml   = '';
+            $footHtml  = $h($brand) . '<br>' . $h(Mage::getStoreConfig('general/store_information/phone'))
+                . ' &middot; ' . $h(Mage::getStoreConfig('trans_email/ident_general/email'));
+        }
+
         // Persuasive hook — real per-course marketing copy. Flagship SKUs get a
         // curated angle (kept in one place with the outcomes); everything else uses
         // the first ~2 sentences of the course blurb, NOT the factual syllabus.
@@ -1308,7 +1337,17 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         // (lead-magnets skill: SG's #1 hook is the SkillsFuture/WSQ funding check + syllabus).
         // Links to the course page enquiry form with a tag so the lead source is trackable.
         $leadUrl   = $c['url'] . (strpos($c['url'], '?') === false ? '?' : '&') . 'lead=funding';
-        $fundLabel = $c['is_wsq'] ? 'SkillsFuture / WSQ funding' : 'funding';
+        $fundLabel = $c['is_wsq'] ? 'SkillsFuture / WSQ funding' : ($cc === 'MY' ? 'HRD Corp claim' : 'funding');
+        $leadHead  = 'Not ready to enrol? Check your ' . $fundLabel . ' first';
+        $leadBody  = 'See exactly how much you can claim and get the full course syllabus emailed to you &mdash; free, in under a minute.';
+        $leadBtn   = $cc === 'MY' ? 'Check my HRD Corp claim &amp; get the syllabus' : 'Check my funding &amp; get the syllabus';
+        if ($partner && $cc !== 'MY') {
+            // No funding scheme on this site — the lead magnet is the syllabus alone.
+            $leadUrl  = $c['url'] . (strpos($c['url'], '?') === false ? '?' : '&') . 'lead=syllabus';
+            $leadHead = 'Not ready to enrol? Get the full syllabus first';
+            $leadBody = 'Get the full course syllabus emailed to you &mdash; free, in under a minute.';
+            $leadBtn  = 'Email me the syllabus';
+        }
 
         // NOTE: email-safe by design — solid colors only, no gradient-clip text or CSS
         // masks (they render invisible in Gmail/Outlook), HTML entities for punctuation so
@@ -1337,9 +1376,9 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         .   '<table role="presentation" width="100%"><tr>'
         .     '<td><table role="presentation"><tr>'
         .       '<td style="padding-right:10px;"><span style="display:inline-block;width:30px;height:30px;line-height:30px;text-align:center;border-radius:8px;background:' . $accent . ';color:#fff;font:800 16px ' . $sans . ';">T</span></td>'
-        .       '<td style="font:600 15px ' . $sans . ';color:#0a1020;">Tertiary Courses <b style="font-weight:800;">Singapore</b></td>'
+        .       '<td style="font:600 15px ' . $sans . ';color:#0a1020;">' . $brandHtml . '</td>'
         .     '</tr></table></td>'
-        .     '<td align="right"><span style="font:700 10.5px ' . $sans . ';letter-spacing:.9px;text-transform:uppercase;color:' . $accent . ';background:' . $accentBg . ';border:1px solid ' . $accentBr . ';padding:5px 10px;border-radius:999px;">WSQ &middot; SkillsFuture Funded</span></td>'
+        .     '<td align="right"><span style="font:700 10.5px ' . $sans . ';letter-spacing:.9px;text-transform:uppercase;color:' . $accent . ';background:' . $accentBg . ';border:1px solid ' . $accentBr . ';padding:5px 10px;border-radius:999px;">' . $pill . '</span></td>'
         .   '</tr></table>'
         . '</td></tr>'
         // hero — headline, hook, the OFFER (price drop) and a first CTA: the funnel
@@ -1367,7 +1406,7 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         .   '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>'
         .     '<td width="33%" class="fl-fact" style="padding:16px 20px;border-right:1px solid #e4e9f0;"><div style="font:700 10.5px ' . $sans . ';letter-spacing:.8px;text-transform:uppercase;color:#7c8aa3;">Duration</div><div style="font:800 17px ' . $sans . ';color:#0a1020;margin-top:4px;">' . $duration . '</div></td>'
         .     '<td width="33%" class="fl-fact" style="padding:16px 20px;border-right:1px solid #e4e9f0;"><div style="font:700 10.5px ' . $sans . ';letter-spacing:.8px;text-transform:uppercase;color:#7c8aa3;">Format</div><div style="font:800 17px ' . $sans . ';color:#0a1020;margin-top:4px;">Classroom</div></td>'
-        .     '<td width="34%" class="fl-fact" style="padding:16px 20px;"><div style="font:700 10.5px ' . $sans . ';letter-spacing:.8px;text-transform:uppercase;color:#7c8aa3;">Full Fee</div><div style="font:800 17px ' . $sans . ';color:#0a1020;margin-top:4px;">S$' . $price . '<small style="font:600 11px ' . $sans . ';color:#7c8aa3;margin-left:2px;">+GST</small></div></td>'
+        .     '<td width="34%" class="fl-fact" style="padding:16px 20px;"><div style="font:700 10.5px ' . $sans . ';letter-spacing:.8px;text-transform:uppercase;color:#7c8aa3;">Full Fee</div><div style="font:800 17px ' . $sans . ';color:#0a1020;margin-top:4px;">' . $cur . $price . $taxHtml . '</div></td>'
         .   '</tr></table>'
         . '</td></tr>'
         // social proof (only when a brief / change request asked for it)
@@ -1404,13 +1443,13 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         . '<tr><td style="padding:18px 30px 22px;">'
         .   '<table role="presentation" width="100%" style="background:#eff4ff;border:1px solid ' . $accentBr . ';border-radius:14px;"><tr><td style="padding:20px 22px;">'
         .     '<div style="font:800 10.5px ' . $sans . ';letter-spacing:1.2px;text-transform:uppercase;color:' . $accent . ';">Free &middot; No obligation</div>'
-        .     '<div style="font:800 18px/1.25 ' . $sans . ';color:#0a1020;margin-top:6px;">Not ready to enrol? Check your ' . $fundLabel . ' first</div>'
-        .     '<div style="font:400 13.5px/1.55 ' . $sans . ';color:#42506a;margin-top:8px;max-width:56ch;">See exactly how much you can claim and get the full course syllabus emailed to you &mdash; free, in under a minute.</div>'
-        .     '<a href="' . $h($leadUrl) . '" style="display:inline-block;margin-top:14px;background:#ffffff;color:#1d4ed8;text-decoration:none;font:700 13.5px ' . $sans . ';padding:10px 18px;border-radius:9px;border:1.5px solid ' . $accent . ';">Check my funding &amp; get the syllabus &rarr;</a>'
+        .     '<div style="font:800 18px/1.25 ' . $sans . ';color:#0a1020;margin-top:6px;">' . $leadHead . '</div>'
+        .     '<div style="font:400 13.5px/1.55 ' . $sans . ';color:#42506a;margin-top:8px;max-width:56ch;">' . $leadBody . '</div>'
+        .     '<a href="' . $h($leadUrl) . '" style="display:inline-block;margin-top:14px;background:#ffffff;color:#1d4ed8;text-decoration:none;font:700 13.5px ' . $sans . ';padding:10px 18px;border-radius:9px;border:1.5px solid ' . $accent . ';">' . $leadBtn . ' &rarr;</a>'
         .   '</td></tr></table>'
         . '</td></tr>'
         // footer (two lines, matches approved artifact)
-        . '<tr><td style="background:' . $ink . ';padding:14px 22px;border-top:1px solid ' . $inkBr . ';font:400 11px/1.7 ' . $sans . ';color:#8593ad;">Tertiary Infotech Academy Pte Ltd &middot; UEN 201200696W<br>+65 6100 0613 &middot; enquiry@tertiaryinfotech.com</td></tr>'
+        . '<tr><td style="background:' . $ink . ';padding:14px 22px;border-top:1px solid ' . $inkBr . ';font:400 11px/1.7 ' . $sans . ';color:#8593ad;">' . $footHtml . '</td></tr>'
         // HARD RULE (admin, 2026-07-04): EVERY flyer design carries the standard
         // MailerLite unsubscribe footer with the {$unsubscribe} merge tag, so the
         // preview, the approval email, and the blast all show the real footer.
@@ -1421,5 +1460,20 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         .   '<a href="{$unsubscribe}" style="color:' . $accent . ';">Unsubscribe</a>'
         . '</td></tr>'
         . '</table></div>';
+    }
+
+    /** This site's brand (general/store_information/name), e.g. "Tertiary Courses Malaysia". */
+    protected function _brandName()
+    {
+        return trim((string) Mage::getStoreConfig('general/store_information/name')) ?: 'Tertiary Courses Singapore';
+    }
+
+    /** Copy rule for a partner site's audience; '' on SG. */
+    protected function _partnerAudienceRule()
+    {
+        $cc = Mage::helper('mmd_marketing/blastguard')->siteCountry();
+        if ($cc === 'SG') { return ''; }
+        return 'AUDIENCE: readers in ' . ($cc === 'MY' ? 'Malaysia' : ($cc === 'GH' ? 'Ghana' : $cc)) . '. NEVER mention Singapore, WSQ, SkillsFuture, SFEC, PSEA, IBF or any Singapore funding scheme.'
+            . ($cc === 'MY' ? ' The course is HRD Corp claimable for eligible Malaysian employers.' : ' Do not mention any government funding or subsidy.');
     }
 }

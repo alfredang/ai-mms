@@ -66,6 +66,18 @@ class MMD_Marketing_Helper_Mailerlite extends Mage_Core_Helper_Abstract
         return (int) Mage::app()->getStore()->getId();
     }
 
+    /**
+     * Newsletter blast group for THIS site: mmd_marketing/newsletter/blast_group_id
+     * (set in each partner's own DB). SG keeps its historical default; a partner
+     * gets '' when unset — never a fall-through to the Singapore list.
+     */
+    public function getBlastGroupId()
+    {
+        $id = trim((string) Mage::getStoreConfig('mmd_marketing/newsletter/blast_group_id'));
+        if ($id !== '') { return $id; }
+        return Mage::helper('mmd_marketing/blastguard')->isPartnerSite() ? '' : self::GROUP_ID_SG;
+    }
+
     /** Master on/off for the daily order-email sync cron. Default OFF. */
     public function isSyncEnabled()
     {
@@ -786,7 +798,14 @@ class MMD_Marketing_Helper_Mailerlite extends Mage_Core_Helper_Abstract
      */
     public function createDraft($subject, $html, $groupId = null)
     {
-        $groupId  = $groupId ?: self::GROUP_ID_SG;
+        $groupId  = $groupId ?: $this->getBlastGroupId();
+        if ($groupId === '') {
+            throw new Exception('No MailerLite blast group configured for this site (mmd_marketing/newsletter/blast_group_id).');
+        }
+        // HARD RULE: a partner's newsletter never goes to the Singapore list.
+        if (Mage::helper('mmd_marketing/blastguard')->isPartnerSite() && (string) $groupId === self::GROUP_ID_SG) {
+            throw new Exception('Refusing to send a partner-site newsletter to the Singapore MailerLite group.');
+        }
         $cfg      = Mage::helper('mmd_rolemanager')->getMarketingApiConfig();
         $fromName = $cfg['from_name']  ?: 'Tertiary Courses';
         $fromMail = $cfg['from_email'] ?: 'noreply@tertiaryinfotech.com';

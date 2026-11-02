@@ -171,18 +171,33 @@ class MMD_Blog_Model_Cron_Autoblog
         return !preg_match('/tertiarycourses\.com\.(my|gh|ng|bt|in)$/', $host);
     }
 
-    /** Never email the real managers from a non-production env (same contract as the newsletter). */
+    /**
+     * Never email the real managers from a non-production env (same contract as
+     * the newsletter). Partner hosts may send: Blastguard::reviewers() gives them
+     * only their own configured approver, never the SG managers.
+     */
     private function _mayEmailReviewers()
     {
         $host = strtolower((string) parse_url(
             (string) Mage::getStoreConfig('web/unsecure/base_url'), PHP_URL_HOST
         ));
-        // Blog reviews are an SG-only flow — partner hosts must never mail the
-        // SG managers even though they'd pass the newsletter's wider regex.
-        if (preg_match('/(^|\.)tertiarycourses\.com\.sg$/', $host)) {
+        if (preg_match('/(^|\.)tertiarycourses\.com(\.[a-z]{2,3})?$/', $host)) {
             return true;
         }
         return (bool) Mage::getStoreConfig('mmd_marketing/newsletter/allow_local_review_email');
+    }
+
+    /** Publish hour on the SGT clock — default 09:00; GH sets 17 (= 09:00 GMT). */
+    private function _publishHour()
+    {
+        $h = trim((string) Mage::getStoreConfig('mmd_blog/autoblog/publish_hour'));
+        return ($h !== '' && ctype_digit($h) && (int) $h < 24) ? (int) $h : self::PUBLISH_HOUR;
+    }
+
+    /** This install's franchise country — 'SG', 'MY', 'GH', ... */
+    private function _country()
+    {
+        return Mage::helper('mmd_marketing/blastguard')->siteCountry();
     }
 
     private function _recentAutoPostExists()
@@ -223,7 +238,7 @@ class MMD_Blog_Model_Cron_Autoblog
                 continue;
             }
             $slot = clone $day;
-            $slot->setTime(self::PUBLISH_HOUR, 0, 0);
+            $slot->setTime($this->_publishHour(), 0, 0);
             if ($slot <= $now) {
                 continue;
             }
@@ -268,7 +283,7 @@ class MMD_Blog_Model_Cron_Autoblog
         $guard  = Mage::helper('mmd_marketing/blastguard');   // reviewers list is shared with the newsletter
         $base   = rtrim((string) Mage::getStoreConfig('web/unsecure/base_url'), '/');
         $slot   = $this->nextPublishSlot();
-        $slotTxt = $slot ? $slot->format('l, j M Y \a\t g:ia') : 'the next free Tuesday/Friday 9:00am slot';
+        $slotTxt = $slot ? $guard->formatForSite($slot, 'l, j M Y \a\t g:ia') : 'the next free Tuesday/Friday 9:00am slot';
 
         $gmail = null;
         try {
@@ -384,7 +399,7 @@ class MMD_Blog_Model_Cron_Autoblog
             return array(true, 'Already scheduled.');
         }
         $this->_log('scheduleApproved: post #' . $postId . ' -> publish ' . $slot->format('Y-m-d H:i'));
-        return array(true, 'Publishing on ' . $slot->format('l, j M Y \a\t g:ia'));
+        return array(true, 'Publishing on ' . Mage::helper('mmd_marketing/blastguard')->formatForSite($slot, 'l, j M Y \a\t g:ia'));
     }
 
     /**
@@ -760,6 +775,31 @@ class MMD_Blog_Model_Cron_Autoblog
                 return $course;
             }
         }
+        // Partner sites sell far less than SG, so best-sellers run dry within
+        // weeks: fall back to a random not-yet-blogged AI-catalogue course.
+        if ($this->_country() !== 'SG') {
+            $skus = $read->fetchCol(
+                "SELECT DISTINCT p.sku
+                 FROM {$resource->getTableName('catalog/category_product')} cp
+                 JOIN {$resource->getTableName('catalog/product')} p ON p.entity_id = cp.product_id
+                 JOIN {$resource->getTableName('catalog/category')}_varchar v
+                   ON v.entity_id = cp.category_id AND v.store_id = 0 AND v.value = 'artificial-intelligence-courses'
+                 JOIN {$resource->getTableName('eav/attribute')} a
+                   ON a.attribute_id = v.attribute_id AND a.attribute_code = 'url_key' AND a.entity_type_id = 3
+                 WHERE p.sku NOT IN (
+                     SELECT bp.source_sku FROM {$resource->getTableName('mmd_blog/post')} bp
+                     WHERE bp.source_sku IS NOT NULL
+                 )
+                 ORDER BY RAND()
+                 LIMIT 20"
+            );
+            foreach ($skus as $sku) {
+                $course = $this->_courseBySku($sku);
+                if ($course) {
+                    return $course;
+                }
+            }
+        }
         return null;
     }
 
@@ -859,7 +899,7 @@ class MMD_Blog_Model_Cron_Autoblog
                 . ' ORDER BY post_id DESC LIMIT 8'
             );
 
-            $system = 'You are a technology-trends research agent for a Singapore training academy. '
+            $system = 'You are a technology-trends research agent for a ' . $this->_market()['adj'] . ' training academy. '
                 . 'Use web search to find what is genuinely NEW and newsworthy (last 60 days). '
                 . 'After researching, respond with ONE JSON object only — no markdown fences, no preamble. Keys: '
                 . 'topic (string, the chosen topic), angle (string, the specific fresh angle for a blog post), '
@@ -945,7 +985,7 @@ class MMD_Blog_Model_Cron_Autoblog
 
     private function _writerSystemPrompt()
     {
-        return 'You are the content marketer for a Singapore SkillsFuture-approved training academy. '
+        return 'You are the content marketer for ' . $this->_market()['academy'] . '. '
             . 'You write conversion-focused blog posts that act as lead magnets for instructor-led courses, '
             . 'and every post is aggressively SEO-optimised: one clear target keyphrase used in the title, '
             . 'the first paragraph, at least two h2 headings and the meta fields; scannable h2/h3 structure; '
@@ -1008,12 +1048,47 @@ class MMD_Blog_Model_Cron_Autoblog
                 ? "- Reference the latest developments from the research brief with specifics (product names, versions, dates) and cite at least 2 of the SOURCES as inline links (rel-follow, descriptive anchor text).\n"
                 : '')
             . "- Weave in at least 2 inline links to COURSE_URL with action anchor text (e.g. sign up, register).\n"
-            . ($isWsq
-                ? "- This is a WSQ course: explicitly mention up to 70% WSQ funding for eligible Singaporeans/PRs, that SkillsFuture Credit can be used to offset the fee, and SME subsidy support.\n"
-                : "- Explicitly mention that SkillsFuture Credit can be claimed for this course and highlight WSQ funding availability across our WSQ course catalogue.\n")
+            . $this->_market($isWsq)['funding']
             . "- End with a 'What to do next' section whose final call-to-action links to COURSE_URL.\n"
-            . "- Include a short FAQ (3 questions) with an answer about funding/SkillsFuture claims.\n"
-            . "- Singapore audience, professional but energetic tone.";
+            . $this->_market()['faq']
+            . "- " . $this->_market()['country'] . " audience, professional but energetic tone.";
+    }
+
+    /**
+     * Audience + funding wording for THIS site. SG keeps its original prompt
+     * lines verbatim; a partner (MY/GH) never mentions Singapore schemes.
+     */
+    private function _market($isWsq = false)
+    {
+        switch ($this->_country()) {
+            case 'MY':
+                return array(
+                    'adj'     => 'Malaysian',
+                    'academy' => 'a Malaysian HRD Corp-registered training provider',
+                    'country' => 'Malaysia',
+                    'funding' => "- Mention that this course is HRD Corp claimable for eligible Malaysian employers. Never mention Singapore, WSQ, SkillsFuture or any Singapore funding scheme.\n",
+                    'faq'     => "- Include a short FAQ (3 questions) with an answer about HRD Corp claims.\n",
+                );
+            case 'SG':
+                return array(
+                    'adj'     => 'Singapore',
+                    'academy' => 'a Singapore SkillsFuture-approved training academy',
+                    'country' => 'Singapore',
+                    'funding' => $isWsq
+                        ? "- This is a WSQ course: explicitly mention up to 70% WSQ funding for eligible Singaporeans/PRs, that SkillsFuture Credit can be used to offset the fee, and SME subsidy support.\n"
+                        : "- Explicitly mention that SkillsFuture Credit can be claimed for this course and highlight WSQ funding availability across our WSQ course catalogue.\n",
+                    'faq'     => "- Include a short FAQ (3 questions) with an answer about funding/SkillsFuture claims.\n",
+                );
+            default:
+                $country = $this->_country() === 'GH' ? 'Ghana' : $this->_country();
+                return array(
+                    'adj'     => $country,
+                    'academy' => 'a ' . $country . ' training academy',
+                    'country' => $country,
+                    'funding' => "- Do not mention any government funding, subsidy or Singapore scheme (WSQ, SkillsFuture).\n",
+                    'faq'     => "- Include a short FAQ (3 questions) about who the course is for, the format and what learners walk away with.\n",
+                );
+        }
     }
 
     /**

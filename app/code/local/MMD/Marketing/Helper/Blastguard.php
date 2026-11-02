@@ -59,10 +59,58 @@ class MMD_Marketing_Helper_Blastguard extends Mage_Core_Helper_Abstract
         return is_string($token) && hash_equals($expected, (string) $token);
     }
 
-    /** The two fixed reviewers for the human-in-the-loop approval. */
+    /**
+     * Franchise country of THIS install, by host: 'MY', 'GH', ... for a partner
+     * site, 'SG' otherwise (localhost mirrors the SG DB). Same codebase runs on
+     * every site, so anything SG-specific keys off this.
+     */
+    public function siteCountry()
+    {
+        $host = strtolower((string) parse_url(
+            (string) Mage::getStoreConfig('web/unsecure/base_url'), PHP_URL_HOST));
+        return preg_match('/tertiarycourses\.com\.(my|gh|ng|bt|in)$/', $host, $m) ? strtoupper($m[1]) : 'SG';
+    }
+
+    public function isPartnerSite()
+    {
+        return $this->siteCountry() !== 'SG';
+    }
+
+    /**
+     * Human-in-the-loop approvers. Per-site config mmd_marketing/newsletter/reviewers
+     * (comma-separated, set in each partner's own DB) wins; otherwise the two SG
+     * managers — but ONLY on SG: a partner site must never mail them.
+     */
     public function reviewers()
     {
-        return array('angch@tertiaryinfotech.com', 'tansc@tertiaryinfotech.com');
+        $cfg = trim((string) Mage::getStoreConfig('mmd_marketing/newsletter/reviewers'));
+        if ($cfg !== '') {
+            return array_values(array_filter(array_map('trim', preg_split('/[\s,;]+/', strtolower($cfg)))));
+        }
+        return $this->isPartnerSite() ? array() : array('angch@tertiaryinfotech.com', 'tansc@tertiaryinfotech.com');
+    }
+
+    /**
+     * Blast hour on the pipeline's SGT clock. Default 08:00; a site in another
+     * timezone sets mmd_marketing/newsletter/send_hour so the blast lands at
+     * 08:00 for its readers (Ghana: 16 = 08:00 GMT).
+     */
+    public function sendHour()
+    {
+        $h = trim((string) Mage::getStoreConfig('mmd_marketing/newsletter/send_hour'));
+        return ($h !== '' && ctype_digit($h) && (int) $h < 24) ? (int) $h : self::SEND_HOUR;
+    }
+
+    /**
+     * Format a pipeline (SGT) timestamp in this site's own timezone for
+     * reviewer-facing text — identical on SG/MY, shifted on GH.
+     */
+    public function formatForSite(DateTime $dt, $format)
+    {
+        $tz = (string) Mage::getStoreConfig('general/locale/timezone');
+        $local = clone $dt;
+        try { $local->setTimezone(new DateTimeZone($tz ?: self::TZ_LOCAL)); } catch (Exception $e) { /* keep SGT */ }
+        return $local->format($format);
     }
 
     /** Master switch — SG-only, admin-toggleable. */
@@ -191,7 +239,7 @@ class MMD_Marketing_Helper_Blastguard extends Mage_Core_Helper_Abstract
                 continue;
             }
             $slot = clone $day;
-            $slot->setTime(self::SEND_HOUR, 0, 0);
+            $slot->setTime($this->sendHour(), 0, 0);
             if ($slot <= $now) {
                 continue;                       // slot must be in the future
             }
