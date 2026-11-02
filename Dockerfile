@@ -77,6 +77,9 @@ COPY docker/php.ini /usr/local/etc/php/conf.d/magento.ini
 # Copy Apache vhost config
 COPY docker/apache-vhost.conf /etc/apache2/sites-available/000-default.conf
 
+# Larger prefork idle pool (see file header)
+COPY docker/mpm-prefork.conf /etc/apache2/mods-available/mpm_prefork.conf
+
 # Copy container entrypoint (runs migrations before starting Apache)
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
