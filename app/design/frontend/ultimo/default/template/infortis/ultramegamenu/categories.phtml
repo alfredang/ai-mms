@@ -105,15 +105,24 @@
 <script type="text/javascript">
 //<![CDATA[
 (function () {
-    // Sidebar Course Categories: auto-expand the "AI Courses" branch.
-    function arrangeSidebar() {
-        var li = document.querySelector('.block-vertnav .accordion.vertnav > li.nav-ai');
-        if (!li) { return; }
-        if (!/\bopen\b/.test(li.className)) { li.className += ' active open'; }
+    // Sidebar Course Categories: auto-expand the "AI Courses" branch and,
+    // inside it, "AI Applications Series" (matched by name: its nav-N index differs per site).
+    function expand(li) {
+        if (!/\bopen\b/.test(li.className)) { li.className += ' active open item-active'; }
         var opener = li.querySelector('.opener');
         if (opener && !/\bactive\b/.test(opener.className)) { opener.className += ' active'; }
         var sub = li.querySelector('ul');
         if (sub) { sub.style.display = 'block'; }
+    }
+    function arrangeSidebar() {
+        var li = document.querySelector('.block-vertnav .accordion.vertnav > li.nav-ai');
+        if (!li) { return; }
+        expand(li);
+        var items = li.querySelectorAll('ul.nav-submenu > li.parent');
+        for (var i = 0; i < items.length; i++) {
+            var a = items[i].querySelector('a');
+            if (a && a.textContent.replace(/\s+/g, ' ').trim() === 'AI Applications Series') { expand(items[i]); }
+        }
     }
     arrangeSidebar();
     if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', arrangeSidebar); }
