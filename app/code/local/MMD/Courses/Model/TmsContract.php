@@ -8,7 +8,7 @@ class MMD_Courses_Model_TmsContract
         if ($code === '' || strpos($code, 'TGS') === 0) {
             throw new InvalidArgumentException('Funded TGS courses and missing course codes are excluded from MMS handover.');
         }
-        if (!preg_match('/^C[0-9][A-Z0-9-]*$/D', $code)) {
+        if (!preg_match('/^C[A-Z0-9-]+$/D', $code)) {
             throw new InvalidArgumentException('This non-funded course code needs MMS delivery support before import.');
         }
         return $code;
@@ -16,6 +16,7 @@ class MMD_Courses_Model_TmsContract
 
     public static function validate(array $data)
     {
+        $mirror = ($data['schema_version'] ?? null) === 2;
         $contentHash = self::contentHash($data);
         $data['course_code'] = self::courseCode(isset($data['course_code']) ? $data['course_code'] : '');
         if (!isset($data['course_title']) || !is_string($data['course_title'])
@@ -23,7 +24,7 @@ class MMD_Courses_Model_TmsContract
             throw new InvalidArgumentException('A valid course title is required for MMS catalogue verification.');
         }
         $data['course_title'] = trim($data['course_title']);
-        if (($data['schema_version'] ?? null) !== 1 || ($data['roster_complete'] ?? null) !== true) {
+        if (!$mirror && (($data['schema_version'] ?? null) !== 1 || ($data['roster_complete'] ?? null) !== true)) {
             throw new InvalidArgumentException('Version 1 and a complete operational roster are required.');
         }
         foreach (array('source_provider_id' => 64, 'source_run_key' => 255, 'calendar_id' => 255) as $key => $max) {
@@ -38,7 +39,7 @@ class MMD_Courses_Model_TmsContract
         if (!is_bool($data['cancelled'] ?? null) || !is_int($data['website_id'] ?? null)) {
             throw new InvalidArgumentException('Invalid cancellation state or website scope.');
         }
-        if (empty($data['sessions']) || !is_array($data['sessions']) || count($data['sessions']) > 100) {
+        if (!isset($data['sessions']) || !is_array($data['sessions']) || (!$mirror && !$data['sessions']) || count($data['sessions']) > 100) {
             throw new InvalidArgumentException('Provide the exact class sessions (maximum 100).');
         }
         $keys = array();
@@ -78,11 +79,22 @@ class MMD_Courses_Model_TmsContract
             unset($person);
         }
         // Pilot is deliberately one trainer per class. Never discard extra trainers.
-        if (count($data['trainers']) > 1) throw new InvalidArgumentException('Multiple trainers require delivery support before import.');
+        if (!$mirror && count($data['trainers']) > 1) throw new InvalidArgumentException('Multiple trainers require delivery support before import.');
         self::url((string) ($data['feedback_url'] ?? ''));
         foreach (($data['courseware'] ?? array()) as $url) self::url((string) $url);
-        if (empty($data['event_occurrences']) || !is_array($data['event_occurrences'])) throw new InvalidArgumentException('Calendar event identities are required.');
+        if (!isset($data['event_occurrences']) || !is_array($data['event_occurrences']) || (!$mirror && !$data['event_occurrences'])) throw new InvalidArgumentException('Invalid event identity list.');
         foreach ($data['event_occurrences'] as $event) if (!is_string($event) || $event === '' || strlen($event) > 255) throw new InvalidArgumentException('Invalid Calendar occurrence identity.');
+        if ($mirror) {
+            self::url((string)($data['class_details']['virtual_link']??''));
+            foreach (array('class_start_date','class_end_date') as $field) {
+                $value = $data[$field] ?? null;
+                if ($value !== null) {
+                    $date = is_string($value) ? DateTimeImmutable::createFromFormat('!Y-m-d', $value) : false;
+                    if (!$date || $date->format('Y-m-d') !== $value || $value < '2000-01-01' || $value > '2100-12-31') throw new InvalidArgumentException('Invalid class date.');
+                }
+            }
+            if (!empty($data['class_start_date']) && !empty($data['class_end_date']) && $data['class_end_date'] < $data['class_start_date']) throw new InvalidArgumentException('Class end precedes start.');
+        }
         if (!hash_equals($contentHash,$data['snapshot_hash'])) throw new InvalidArgumentException('Snapshot content does not match its hash.');
         return $data;
     }

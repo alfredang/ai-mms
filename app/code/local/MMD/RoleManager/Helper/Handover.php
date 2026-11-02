@@ -32,7 +32,10 @@ class MMD_RoleManager_Helper_Handover extends Mage_Core_Helper_Abstract
         if(in_array($role,array('trainer','learner'),true) && !$read->fetchOne('SELECT 1 FROM ' . $r->getTableName('mmd_user_role_map') . ' WHERE user_id=? AND role_code=?',array((int)$userId,$role)))return false;
         if(in_array($role,array('admin','super_admin','training_provider','developer'),true))return true;
         if(!(int)$link['active'])return false;
-        if($role==='trainer')return (int)$run['trainer_user_id']===(int)$userId;
+        if($role==='trainer') {
+            $result=json_decode($link['result_json']??'',true)?:array();
+            return (int)$run['trainer_user_id']===(int)$userId || in_array((int)$userId,array_map('intval',$result['trainer_user_ids']??array()),true);
+        }
         if($role==='learner')return (bool)$read->fetchOne('SELECT enrolment_id FROM ' . $r->getTableName('course_run_enrolments') . ' WHERE run_id=? AND LOWER(learner_email)=?',array((int)$runId,strtolower(trim($account['email']))));
         return false;
     }

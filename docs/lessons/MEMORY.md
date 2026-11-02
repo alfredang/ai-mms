@@ -1,5 +1,9 @@
 # Memory index
 
+## Test fixtures
+
+- [MySQL fixture readiness must use TCP](feedback_mysql_fixture_tcp_readiness.md) — a localhost/socket health check can pass during initialization before the API's TCP connection is available.
+
 Grouped by topic. Pointers only — full content lives in the linked files.
 
 ## Admin UI / theme

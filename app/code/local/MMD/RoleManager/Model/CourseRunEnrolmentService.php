@@ -440,6 +440,12 @@ class MMD_RoleManager_Model_CourseRunEnrolmentService
         $table    = $resource->getTableName('course_runs');
 
         // 1. Try to find existing run.
+        // Master List mirroring identifies a class by course + date range, even
+        // while its session times are pending or have since been corrected.
+        if ($write->isTableExists($resource->getTableName('mmd_tms_source_alias'))) {
+            $mirrored = (int)$read->fetchOne("SELECT r.run_id FROM `$table` r JOIN " . $resource->getTableName('mmd_tms_run_link') . ' l ON l.run_id=r.run_id JOIN ' . $resource->getTableName('mmd_tms_source_alias') . ' a ON a.link_id=l.link_id WHERE r.product_id=? AND r.course_start_date=? AND r.course_end_date=? ORDER BY r.run_id LIMIT 1',array($productId,$startDate,$endDate));
+            if ($mirrored) return $mirrored;
+        }
         $runId = (int) $read->fetchOne(
             "SELECT run_id FROM `$table`
              WHERE product_id = ?

@@ -23,4 +23,12 @@ $data=array('schema_version'=>1,'course_code'=>'C916','course_title'=>'Pilot','s
 $data['snapshot_hash']=MMD_Courses_Model_TmsContract::contentHash($data);
 $before=(int)$pdo->query('SELECT COUNT(*) FROM course_runs')->fetchColumn();$result=request(json_encode($data));
 if($result[0]!==200||empty($result[1]['dry_run'])||(int)$pdo->query('SELECT COUNT(*) FROM course_runs')->fetchColumn()!==$before)throw new RuntimeException('HTTP dry run failed: '.json_encode($result));
-echo 'PASS: '.($checks+1)." MMS HTTP route/auth/dry-run checks\n";
+$checks++;
+$data['schema_version']=2;$data['source_run_key']='masterlist:http:pending';$data['calendar_id']='masterlist';$data['event_occurrences']=array();$data['sessions']=array();$data['roster_complete']=false;$data['class_start_date']='2098-01-10';$data['class_end_date']='2098-01-10';$data['dry_run']=false;$data['course_title']='Independent LMS title';
+$data['snapshot_hash']=MMD_Courses_Model_TmsContract::contentHash($data);
+$result=request(json_encode($data));
+if($result[0]!==200||empty($result[1]['success'])||$result[1]['readiness']!=='incomplete'||(int)$pdo->query('SELECT COUNT(*) FROM course_runs')->fetchColumn()!==$before+1)throw new RuntimeException('Pending Master List HTTP import failed: '.json_encode($result));
+$checks++;$runId=$result[1]['run_id'];$result=request(json_encode($data));
+if($result[0]!==200||$result[1]['run_id']!==$runId||(int)$pdo->query('SELECT COUNT(*) FROM course_runs')->fetchColumn()!==$before+1)throw new RuntimeException('Pending Master List HTTP retry duplicated class.');
+$checks++;
+echo 'PASS: '.$checks." MMS HTTP route/auth/dry-run/pending/retry checks\n";
