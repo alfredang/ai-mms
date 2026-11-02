@@ -12,7 +12,7 @@ services:
     volumes:
       - ../../seed/country-base.sql.gz:/docker-entrypoint-initdb.d/seed.sql.gz:ro
     healthcheck:
-      test: [CMD, mysqladmin, ping, -h, localhost, -plocal-test-only]
+      test: [CMD, mysqladmin, ping, -h, 127.0.0.1, -plocal-test-only]
       interval: 3s
       retries: 40
     networks: [fixture]

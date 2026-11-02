@@ -8,6 +8,7 @@ $steps=array(
     array('migrations/apply.php'),
     array('scripts/tests/tms-handover-contract.php'),
     array('scripts/tests/tms-handover-integration.php'),
+    array('scripts/tests/tms-masterlist-integration.php'),
     array('scripts/tests/tms-handover-http.php','--prepare'),
     array('scripts/tests/tms-handover-http.php'),
     array('scripts/tests/tms-class-access-integration.php')

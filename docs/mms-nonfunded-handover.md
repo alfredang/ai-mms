@@ -1,5 +1,17 @@
 # Receiving non-funded classes from TMS
 
+## Current: Master List mirroring — 2 November 2026
+
+Version 2 snapshots mirror existing non-funded `C*` LMS Master List classes, including pending and ongoing classes. They do not discover courses from Calendar or require completed sessions, participants, trainers, approval, the old allowlist/start cutoff, matching title/time/Calendar, or the three-hour monitoring window. Version 1 remains supported for compatibility.
+
+Deploy `9999zzz-masterlist-mirroring.sql` before the updated LMS sender. `courses/tmsImport` routes version 2 to `courses/tmsMirror`, using existing course/account/roster models. Match the product by SKU and class by start/end dates; select the oldest existing match if duplicates exist. Retain course names and historical attendance. Source aliases let multiple Master List entries reuse one MMS class; undated classes keep their mapping as dates arrive.
+
+LMS trainer data replaces MMS assignments, including clearing an assignment. Account problems are recorded per participant without blocking the class. Store partial sessions, participants and class details in the sync result. Native MMS registrations remain and return as `native_registrations` for LMS reconciliation. Backend registration materialization reuses mirrored code/date classes even when times differ or are pending. Storefront checkout is unchanged.
+
+LMS merges reverse registrations into Master List and normal enrolments for exact linked runs. Retries are idempotent. Provider, website and API-key checks remain; funded/other-prefix courses are excluded. Notification readiness remains separate from class synchronization.
+
+Run `scripts/tests/run-tms-handover-suite.php` in the isolated fixture: real `migrations/apply.php` twice, legacy tests, Master List integration, authenticated HTTP pending/retry and participant login/OTP regressions. These instructions supersede the older handover gates below for version 2.
+
 Project branch: `feat/mms-for-non-funded-courses`, based on `main`. The matching TMS branch uses the same project name.
 
 `POST /courses/api_tms_import` is a dedicated, credential-protected API. It applies complete, revisioned TMS snapshots to the existing MMS account, `course_runs`, and `course_run_enrolments` models. Funded `TGS` codes are rejected before business-data writes, including when a mapped course's current catalogue code has changed.

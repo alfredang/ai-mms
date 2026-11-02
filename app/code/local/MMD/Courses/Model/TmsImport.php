@@ -15,8 +15,8 @@ class MMD_Courses_Model_TmsImport
         $calendar = (string) (Mage::getStoreConfig('mmd/tms_handover/calendar_id') ?: 'sales@tertiarycourses.com.sg');
         $website = (int) (Mage::getStoreConfig('mmd/tms_handover/website_id') ?: 1);
         $allowlist = array_filter(array_map('trim', explode(',', strtoupper((string) Mage::getStoreConfig('mmd/tms_handover/course_allowlist')))));
-        if ($data['source_provider_id'] !== $provider || $data['calendar_id'] !== $calendar || $data['website_id'] !== $website
-            || (!in_array($data['course_code'], $allowlist, true) && !in_array('C*', $allowlist, true))) throw new InvalidArgumentException('Snapshot is outside the configured provider/calendar/store/pilot scope.');
+        if ($data['source_provider_id'] !== $provider || ($data['schema_version'] !== 2 && $data['calendar_id'] !== $calendar) || $data['website_id'] !== $website
+            || ($data['schema_version'] !== 2 && !in_array($data['course_code'], $allowlist, true) && !in_array('C*', $allowlist, true))) throw new InvalidArgumentException('Snapshot is outside the configured provider/calendar/store/pilot scope.');
         $this->_resource = Mage::getSingleton('core/resource');
         $this->_write = $this->_resource->getConnection('core_write');
         $w = $this->_write;
@@ -24,10 +24,11 @@ class MMD_Courses_Model_TmsImport
         if (count($products) !== 1) throw new InvalidArgumentException('Resolve one existing MMS course in the configured website.');
         $productId = (int) $products[0]['entity_id'];
         MMD_Courses_Model_TmsContract::courseCode($products[0]['sku']);
+        if ($data['schema_version'] === 2) return array($data,$provider,$website,$productId);
         $store = Mage::app()->getWebsite($website)->getDefaultStore();
         $storeId = $store ? (int) $store->getId() : 0;
         $productTitle = trim((string) Mage::getModel('catalog/product')->setStoreId($storeId)->load($productId)->getName());
-        if ($productTitle === '' || $this->normalizeCourseTitle($productTitle) !== $this->normalizeCourseTitle($data['course_title'])) {
+        if ($data['schema_version'] !== 2 && ($productTitle === '' || $this->normalizeCourseTitle($productTitle) !== $this->normalizeCourseTitle($data['course_title']))) {
             throw new InvalidArgumentException('Course code ' . $data['course_code'] . ' maps to a different MMS course title. Correct the TMS/MMS course catalogue before handover.');
         }
         return array($data,$provider,$website,$productId);
@@ -48,6 +49,7 @@ class MMD_Courses_Model_TmsImport
 
     public function preview(array $input)
     {
+        if (($input['schema_version'] ?? null) === 2) return Mage::getModel('courses/tmsMirror')->preview($input);
         list($data,$provider,$website,$productId)=$this->prepare($input);
         $w=$this->_write;
         $link=$w->fetchRow('SELECT l.*,r.product_id FROM ' . $this->table('mmd_tms_run_link') . ' l JOIN ' . $this->table('course_runs') . ' r ON r.run_id=l.run_id WHERE l.provider_id=? AND l.source_run_key=?',array($provider,$data['source_run_key']));
@@ -62,6 +64,7 @@ class MMD_Courses_Model_TmsImport
 
     public function apply(array $input)
     {
+        if (($input['schema_version'] ?? null) === 2) return Mage::getModel('courses/tmsMirror')->apply($input);
         list($data,$provider,$website,$productId)=$this->prepare($input);
         $calendar=$data['calendar_id'];
         $w=$this->_write;
