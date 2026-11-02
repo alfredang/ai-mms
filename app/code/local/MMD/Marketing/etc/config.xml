@@ -78,6 +78,14 @@
                 <schedule><cron_expr>0 10 * * 1,4</cron_expr></schedule>
                 <run><model>mmd_marketing/cron_flyer::propose</model></run>
             </mmd_marketing_flyer_propose>
+            <!-- Sun &amp; Wed 10:00 — if the coming Mon/Thu 08:00 slot has no
+                 booked flyer and nothing is awaiting review, auto-pick a random
+                 Free-AI-Subscription course and send it for approval so no
+                 slot is missed. Weekly caps still apply. -->
+            <mmd_marketing_flyer_ensureslot>
+                <schedule><cron_expr>0 10 * * 0,3</cron_expr></schedule>
+                <run><model>mmd_marketing/cron_flyer::ensureSlotCovered</model></run>
+            </mmd_marketing_flyer_ensureslot>
             <!-- Hourly — after a manager requests changes, re-issue the freshly
                  regenerated design for review, and expire stale proposals. Cheap
                  no-op when nothing is pending. -->

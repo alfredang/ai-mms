@@ -45,6 +45,38 @@ class MMD_Marketing_Model_Cron_Flyer
     protected function _read()  { return Mage::getSingleton('core/resource')->getConnection('core_read'); }
     protected function _write() { return Mage::getSingleton('core/resource')->getConnection('core_write'); }
 
+    /**
+     * AD-HOC SLOT OVERRIDE (admin 2026-11-02: "still blast only 2 a week unless I
+     * send an ad-hoc request"). An explicit admin request pins the exact send
+     * time on the row (review_decisions._slot_override, SGT wall-clock) and
+     * scheduleApproved() books THAT slot on approval — outside the Mon/Thu
+     * cadence and the weekly cap, which keep governing the autonomous pipeline.
+     * Returns the pinned DateTime (local) or null when none / already past.
+     */
+    public function slotOverride(array $row)
+    {
+        $dec = json_decode((string) (isset($row['review_decisions']) ? $row['review_decisions'] : ''), true);
+        if (!is_array($dec) || empty($dec['_slot_override'])) { return null; }
+        try {
+            $slot = new DateTime((string) $dec['_slot_override'], new DateTimeZone(MMD_Marketing_Helper_Blastguard::TZ_LOCAL));
+        } catch (Exception $e) { return null; }
+        return ($slot > $this->_guard()->nowLocal()) ? $slot : null;
+    }
+
+    /** Pin an ad-hoc send slot on a proposal row (see slotOverride()). */
+    public function setSlotOverride($newsletterId, DateTime $slot, $by = 'admin')
+    {
+        $row = $this->_read()->fetchRow('SELECT review_decisions FROM ' . $this->_tbl() . ' WHERE newsletter_id = ?', array((int) $newsletterId));
+        if (!$row) { return false; }
+        $dec = json_decode((string) $row['review_decisions'], true);
+        if (!is_array($dec)) { $dec = array(); }
+        $dec['_slot_override'] = $slot->format('Y-m-d H:i:s');
+        $dec['_admin_directed'] = array('by' => $by, 'at' => $this->_nowStr());
+        $this->_write()->update($this->_tbl(), array('review_decisions' => json_encode($dec)),
+            array('newsletter_id = ?' => (int) $newsletterId));
+        return true;
+    }
+
     /** Cron entry: propose a new flyer for review (Mon & Thu 10:00). */
     public function propose()
     {
@@ -407,6 +439,7 @@ class MMD_Marketing_Model_Cron_Flyer
 
         $carry = array('_history' => $history);
         if ($brief) { $carry['_brief'] = $brief; }
+        foreach (array('_slot_override', '_admin_directed') as $k) { if (!empty($dec0[$k])) { $carry[$k] = $dec0[$k]; } }
         $this->_write()->update($this->_tbl(),
             array('review_feedback' => (string) $row['review_feedback'], 'review_decisions' => json_encode($carry)),
             array('newsletter_id = ?' => $nid));
@@ -414,6 +447,107 @@ class MMD_Marketing_Model_Cron_Flyer
         $this->_log('regenerate: #' . $old . ' -> #' . $nid . ' after change request (feedback applied'
             . ($sent ? '' : '; review email NOT sent — followUp will retry') . ')');
         return $nid;
+    }
+
+    /**
+     * Cron entry (Sun & Wed 10:00): make sure the NEXT Mon/Thu 08:00 slot has a
+     * flyer. Admin 2026-11-02 ("I missed the newsletter today"): when nothing is
+     * booked for the coming slot, no flow is awaiting review and the queue is
+     * empty, auto-pick a random course from the "Free AI Subscription" category
+     * and send it for approval — Sunday for Monday's blast, Wednesday for
+     * Thursday's — so a slot is never silently missed. The weekly caps still
+     * apply (2 designs / 2 blasts); an admin ad-hoc request is the only override.
+     */
+    public function ensureSlotCovered()
+    {
+        $g = $this->_guard();
+        if (!$g->isEnabled()) { return; }
+        $now  = $g->nowLocal();
+        $dow  = (int) $now->format('N');
+        // Sunday -> Monday 08:00, Wednesday -> Thursday 08:00; any other day looks
+        // at the next Mon/Thu (manual "run now" from the admin panel).
+        $slot = clone $now;
+        $slot->setTime(MMD_Marketing_Helper_Blastguard::SEND_HOUR, 0, 0);
+        for ($i = 1; $i <= 7; $i++) {
+            $slot->modify('+1 day');
+            $d = (int) $slot->format('N');
+            if ($d === MMD_Marketing_Helper_Blastguard::DOW_MON || $d === MMD_Marketing_Helper_Blastguard::DOW_THU) { break; }
+        }
+        $label = $slot->format('D j M H:i');
+        $taken = (int) $this->_read()->fetchOne(
+            'SELECT COUNT(*) FROM ' . $this->_tbl()
+          . " WHERE template_key = 'agentic_flyer' AND status IN ('scheduling','scheduled','sent') AND scheduled_send_at BETWEEN ? AND ?",
+            array($slot->format('Y-m-d 00:00:00'), $slot->format('Y-m-d 23:59:59')));
+        if ($taken > 0) { $this->_log('ensureSlotCovered: ' . $label . ' already booked'); return; }
+        $pending = (int) $this->_read()->fetchOne(
+            'SELECT COUNT(*) FROM ' . $this->_tbl() . " WHERE review_status IN ('pending','changes_requested')");
+        if ($pending > 0) { $this->_log('ensureSlotCovered: ' . $label . ' — a proposal is already awaiting review'); return; }
+        if ($g->remainingDesignsThisWeek() < 1) { $this->_log('ensureSlotCovered: ' . $label . ' — weekly design cap reached'); return; }
+        if ($g->nextSendSlot() === null)         { $this->_log('ensureSlotCovered: ' . $label . ' — weekly blast cap reached'); return; }
+        // The admin-curated queue still wins; the random pick is the fallback.
+        $pid = $this->popFlyerQueue();
+        if (!$pid) { $pid = $this->pickFreeAiSubscriptionCourse(); }
+        if (!$pid) { $this->_log('ensureSlotCovered: ' . $label . ' — queue empty and no Free AI Subscription course available'); return; }
+        $brief = $this->_poppedBrief['instructions'];
+        if ($brief === '') {
+            $brief = 'Lead with the 6 months FREE AI subscription included with this course (Singaporeans only) — it must be the first thing the reader sees after the headline. Show the course review score and the MySkillsFuture rating.';
+        }
+        try {
+            $nid = $this->createProposal($pid, $brief, $this->_poppedBrief['run_date']);
+        } catch (Exception $e) {
+            $this->restoreFlyerQueueRow($pid);
+            $this->_log('ensureSlotCovered: failed for product ' . $pid . ' — ' . $e->getMessage());
+            return;
+        }
+        if ($nid) {
+            $this->sendForReview($nid);
+            $this->_log('ensureSlotCovered: proposal #' . $nid . ' (product ' . $pid . ') sent for review to cover ' . $label);
+        }
+    }
+
+    /**
+     * Random enabled WSQ (TGS-) course from the storefront "Free AI Subscription"
+     * category (url_key free-ai-subscription-courses), preferring courses not
+     * blasted in the last 30 days (falls back to the least recently blasted).
+     */
+    public function pickFreeAiSubscriptionCourse()
+    {
+        $res  = Mage::getSingleton('core/resource');
+        $conn = $this->_read();
+        $eav  = $res->getTableName('eav/attribute');
+        $catId = (int) $conn->fetchOne(
+            'SELECT v.entity_id FROM ' . $res->getTableName('catalog/category') . '_varchar v'
+          . ' JOIN ' . $eav . ' a ON a.attribute_id = v.attribute_id AND a.attribute_code = ? AND a.entity_type_id = 3'
+          . ' WHERE v.value = ? AND v.store_id = 0 LIMIT 1', array('url_key', 'free-ai-subscription-courses'));
+        if (!$catId) { return null; }
+        // enabled (status=1 at store 0) WSQ courses only — plain SQL, a product
+        // model load needs the customer session and fatals from cron/CLI.
+        $pids = $conn->fetchCol(
+            'SELECT p.entity_id FROM ' . $res->getTableName('catalog/category_product') . ' cp'
+          . ' JOIN ' . $res->getTableName('catalog/product') . " p ON p.entity_id = cp.product_id AND p.sku LIKE 'TGS-%'"
+          . ' JOIN ' . $res->getTableName('catalog/product') . '_int st ON st.entity_id = p.entity_id AND st.store_id = 0 AND st.value = 1'
+          . ' JOIN ' . $eav . " st_a ON st_a.attribute_id = st.attribute_id AND st_a.attribute_code = 'status' AND st_a.entity_type_id = 4"
+          . ' WHERE cp.category_id = ?', array($catId));
+        $pids = array_map('intval', $pids);
+        shuffle($pids);
+        // last blast per product (via newsletters.course_pids) for the recency rule
+        $last = array();
+        foreach ($conn->fetchAll(
+            'SELECT n.course_pids, MAX(b.blasted_at) la FROM ' . $res->getTableName('mmd_marketing_blast_log') . ' b'
+          . ' JOIN ' . $this->_tbl() . ' n ON n.newsletter_id = b.newsletter_id GROUP BY n.course_pids') as $r) {
+            foreach (explode(',', (string) $r['course_pids']) as $p) {
+                $p = (int) trim($p);
+                if ($p && (!isset($last[$p]) || $last[$p] < $r['la'])) { $last[$p] = $r['la']; }
+            }
+        }
+        $cutoff = $this->_nowStr('-30 days');
+        $fresh = array(); $stale = array();
+        foreach ($pids as $pid) {
+            if (!isset($last[$pid]) || $last[$pid] < $cutoff) { $fresh[] = $pid; } else { $stale[$pid] = $last[$pid]; }
+        }
+        if ($fresh) { return $fresh[0]; }
+        if ($stale) { asort($stale); return (int) key($stale); }
+        return null;
     }
 
     /**
@@ -719,7 +853,7 @@ class MMD_Marketing_Model_Cron_Flyer
             $row = $this->_read()->fetchRow('SELECT * FROM ' . $this->_tbl() . ' WHERE newsletter_id = ?', array($newsletterId));
         }
 
-        $slot = $g->nextSendSlot();
+        $slot = $this->slotOverride($row) ?: $g->nextSendSlot();
         $slotTxt = $slot ? $slot->format('l, j M Y \a\t g:ia') : 'the next available slot';
 
         // PRIMARY transport = Gmail OAuth (same path the admin OTP email uses,
@@ -863,12 +997,19 @@ class MMD_Marketing_Model_Cron_Flyer
     {
         $g = $this->_guard();
         $reason = '';
-        if (!$g->canScheduleNow($reason)) {
-            return array(false, $reason);
-        }
-        $slot = $g->nextSendSlot();
         $row  = $this->_read()->fetchRow('SELECT * FROM ' . $this->_tbl() . ' WHERE newsletter_id = ?', array($newsletterId));
         if (!$row) { return array(false, 'Proposal not found.'); }
+        // An ad-hoc admin request pins its own slot and overrides the Mon/Thu
+        // cadence + weekly cap (the cap binds the autonomous pipeline only).
+        $slot = $this->slotOverride($row);
+        if ($slot) {
+            if (!$g->isEnabled()) { return array(false, 'Newsletter blasting is turned off for this site.'); }
+        } else {
+            if (!$g->canScheduleNow($reason)) {
+                return array(false, $reason);
+            }
+            $slot = $g->nextSendSlot();
+        }
         // Idempotent: a set mailerlite_id means it's already booked. (Don't rely on
         // status='scheduled' alone — the legacy enum blanked that write; the enum is
         // fixed in migration 307, but mailerlite_id is the reliable guard.)
