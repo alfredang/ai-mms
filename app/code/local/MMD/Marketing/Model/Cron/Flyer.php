@@ -771,11 +771,17 @@ class MMD_Marketing_Model_Cron_Flyer
         if (!$ins) { return true; }   // no brief, no change request: nothing to verify
         $pid  = (int) trim(strtok((string) $row['course_pids'], ','));
         $body = (string) $row['body_html'];
-        if (!empty($dec['_qa']['body_md5']) && $dec['_qa']['body_md5'] === md5($body)
+        // The reviewer must see the inbox line too — a brief that asks for
+        // something "in the subject" was failed as unverifiable when only the
+        // body was checked (#81, 2026-11-02). Subject + preheader join the
+        // input and the cache key.
+        $meta = array('subject' => (string) $row['subject'], 'preheader' => (string) $row['preview_text']);
+        $hash = md5($body . "\n" . $meta['subject'] . "\n" . $meta['preheader']);
+        if (!empty($dec['_qa']['body_md5']) && $dec['_qa']['body_md5'] === $hash
             && isset($dec['_qa']['pass']) && $dec['_qa']['pass'] !== null) {
             return (bool) $dec['_qa']['pass'];
         }
-        $qa = $this->_flyer()->qaCheck($pid, $body, $ins);
+        $qa = $this->_flyer()->qaCheck($pid, $body, $ins, $meta);
         $repaired = false;
         if ($qa['pass'] === false) {
             $miss = array();
@@ -791,7 +797,8 @@ class MMD_Marketing_Model_Cron_Flyer
                     if ($body2 !== '') {
                         $this->_write()->update($this->_tbl(), array('body_html' => $body2), array('newsletter_id = ?' => (int) $newsletterId));
                         $body = $body2;
-                        $qa = $this->_flyer()->qaCheck($pid, $body, $ins);
+                        $qa = $this->_flyer()->qaCheck($pid, $body, $ins, $meta);
+                        $hash = md5($body . "\n" . $meta['subject'] . "\n" . $meta['preheader']);
                         $repaired = true;
                     }
                 }
@@ -802,7 +809,7 @@ class MMD_Marketing_Model_Cron_Flyer
             . ' WHERE newsletter_id = ?', array($newsletterId)), true);
         if (!is_array($cur)) { $cur = array(); }
         $cur['_qa'] = array('pass' => $qa['pass'], 'checks' => $qa['checks'], 'error' => $qa['error'],
-            'repaired' => $repaired, 'at' => $this->_nowStr(), 'body_md5' => md5($body));
+            'repaired' => $repaired, 'at' => $this->_nowStr(), 'body_md5' => $hash);
         $this->_write()->update($this->_tbl(), array('review_decisions' => json_encode($cur)),
             array('newsletter_id = ?' => (int) $newsletterId));
         $this->_log('qaGate: #' . (int) $newsletterId . ' ' . ($qa['pass'] === true ? 'PASSED' : ($qa['pass'] === false ? 'HELD - requirements not met' : 'HELD - QA could not run: ' . $qa['error']))

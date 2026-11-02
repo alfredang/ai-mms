@@ -469,7 +469,7 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
      *   ['pass' => bool|null, 'checks' => [[requirement, source, done, evidence]], 'error' => string]
      * pass=null means QA could not run (AI unavailable / unparseable).
      */
-    public function qaCheck($productId, $html, array $instructions)
+    public function qaCheck($productId, $html, array $instructions, array $meta = array())
     {
         $out = array('pass' => null, 'checks' => array(), 'error' => '');
         if (!$instructions) { $out['pass'] = true; return $out; }
@@ -477,6 +477,12 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         $text = preg_replace('#<(br|/div|/td|/tr|/li|/h1|/p)\b[^>]*>#i', "\n", $text);
         $text = html_entity_decode(strip_tags($text), ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $text = trim(preg_replace("/[ \t\x{00a0}]+/u", ' ', preg_replace("/\s*\n\s*/", "\n", $text)));
+        // $meta: subject / preheader — the inbox line is part of the design the
+        // instructions may target ("...and in the subject").
+        $head = '';
+        if (!empty($meta['subject']))   { $head .= "EMAIL SUBJECT LINE: " . trim((string) $meta['subject']) . "\n"; }
+        if (!empty($meta['preheader'])) { $head .= "PREHEADER (inbox preview text): " . trim((string) $meta['preheader']) . "\n"; }
+        if ($head !== '') { $text = $head . "\n" . $text; }
         $c = $this->courseData($productId);
         $facts = 'Accent colour: ' . ($c ? $c['accent'] : '?') . '; dark band colour: ' . ($c ? $c['ink'] : '?') . '.';
 
@@ -489,7 +495,7 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
             . "Split each instruction into atomic, checkable requirements (e.g. 'shows the number of reviews', 'does NOT show page views', 'shows the MySkillsFuture rating'). Drop any requirement a later instruction overrides. "
             . "A purely subjective ask (e.g. 'don't just follow the standard template') is done when the flyer visibly carries the other requested changes. "
             . "Judge ONLY from the flyer content below; quote the flyer text you relied on as evidence, or say what is missing.\n\n"
-            . "DESIGN FACTS: {$facts}\n\nFLYER (visible text, top to bottom):\n" . mb_substr($text, 0, 9000) . "\n\n"
+            . "DESIGN FACTS: {$facts}\n\nFLYER (subject line, preheader, then the visible text top to bottom):\n" . mb_substr($text, 0, 9000) . "\n\n"
             . "Return ONLY JSON: {\"checks\":[{\"requirement\":\"...\",\"source\":<instruction number>,\"done\":true|false,\"evidence\":\"...\"}]}";
         try {
             $raw = $this->_callClaude($prompt);
