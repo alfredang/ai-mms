@@ -4,17 +4,20 @@
  *
  * GET /courses/api_courses?sku=<sku>
  *   Header:  X-API-Key: <shared secret>
- *   Returns: full details for one SG course — overview, suitability,
+ *   Returns: full details for one course — overview, suitability,
  *            prerequisites, duration, level, assessment, certification,
  *            fee/funding, venue/mode, course code, course page URL,
- *            registration URL. Used by the WhatsApp bot to answer
+ *            registration URL, brochure URL and trainer names. Used by the
+ *            SG WhatsApp bot and the MY agent (Kaveh) to answer
  *            "tell me about course X" style questions.
  *
  * Auth: X-API-Key header compared against
  *       courses/general/wsq_schedule_api_key. Mismatch → 401.
  *       Blank stored key disables the endpoint (503).
  *
- * Scope: SG store (store_id=1) — bot is SG-only.
+ * Scope: the site's own store (one store per site) — SG is store 1, MY is
+ *        store 2. Hard-coding store 1 threw "Invalid store code requested"
+ *        on the MY database, which has no store 1.
  *
  * Pragmatism note: courses in this catalog have inconsistent attribute
  * coverage (some have a structured `duration` attribute, others bury
@@ -24,7 +27,6 @@
  */
 class MMD_Courses_Api_CoursesController extends Mage_Core_Controller_Front_Action
 {
-    const SG_STORE_ID         = 1;
     const CONFIG_PATH_API_KEY = 'courses/general/wsq_schedule_api_key';
 
     public function indexAction()
@@ -50,13 +52,14 @@ class MMD_Courses_Api_CoursesController extends Mage_Core_Controller_Front_Actio
         $id = Mage::getModel('catalog/product')->getIdBySku($sku);
         if (!$id) {
             return $this->_json(404, $this->_errEnvelope('not_found',
-                'No course with sku=' . $sku . ' exists in the SG catalog.'));
+                'No course with sku=' . $sku . ' exists in this catalog.'));
         }
 
         try {
-            // Load against the SG store view so storefront-scoped attributes
+            // Load against this site's store view so storefront-scoped attributes
             // (description, name, url_key) resolve correctly.
-            $product = Mage::getModel('catalog/product')->setStoreId(self::SG_STORE_ID)->load($id);
+            $product = Mage::getModel('catalog/product')
+                ->setStoreId((int) Mage::app()->getStore()->getId())->load($id);
         } catch (Exception $e) {
             Mage::logException($e);
             return $this->_json(500, $this->_errEnvelope('internal_error', $e->getMessage()));
@@ -78,7 +81,7 @@ class MMD_Courses_Api_CoursesController extends Mage_Core_Controller_Front_Actio
         }
 
         return $this->_json(200, $this->_okEnvelope(
-            $data['course_page_url'] ?: 'https://www.tertiarycourses.com.sg/',
+            $data['course_page_url'] ?: Mage::app()->getStore()->getBaseUrl(),
             'high',
             $data
         ));
@@ -108,8 +111,10 @@ class MMD_Courses_Api_CoursesController extends Mage_Core_Controller_Front_Actio
             'fee'              => array(
                 'list_price'   => $this->_formatPrice($product->getPrice()),
                 'list_price_raw' => (float) $product->getPrice(),
-                'currency'     => 'SGD',
-                'note'         => 'Subsidised rates may apply for funded courses — see funding_badges for eligible schemes.',
+                'currency'     => (string) Mage::app()->getStore()->getBaseCurrencyCode(),
+                'note'         => $this->_isMalaysia()
+                    ? 'HRD Corp claimable for eligible employers. Fee is per participant and excludes 8% SST.'
+                    : 'Subsidised rates may apply for funded courses — see funding_badges for eligible schemes.',
             ),
             'venue'            => 'Tertiary Infotech HQ — see course_page_url for the latest venue map.',
             'mode'             => $this->_attr($product, 'training_mode', 'Classroom and/or Live Online'),
@@ -117,7 +122,60 @@ class MMD_Courses_Api_CoursesController extends Mage_Core_Controller_Front_Actio
             'image_url'        => $this->_productImageUrl($product),
             'course_page_url'  => $url,
             'registration_url' => $url . '#schedule',
+            // Same source as the course page's "Download Course Brochure" button.
+            'brochure_url'     => Mage::helper('courses')->getPublishedBrochureUrl($product->getId()),
+            'trainers'         => $this->_trainerNames($product),
         );
+    }
+
+    private function _isMalaysia()
+    {
+        return Mage::app()->getStore()->getCode() === 'malaysia';
+    }
+
+    /**
+     * Trainer names as the course page's Trainers tab shows them (see
+     * catalog/product/view/trainers.phtml): the Website-visible accounts once
+     * a course is managed in Edit Course, else the names in the legacy
+     * `trainerprofile` blob. Names only — bios stay on the course page.
+     */
+    private function _trainerNames($product)
+    {
+        // A partner DB missing a trainer column must not sink the whole course
+        // payload — trainer names are a nicety, so fall back to none.
+        try {
+            $accounts = Mage::helper('mmd_rolemanager/trainer')->getProductTrainerAccounts($product->getId());
+        } catch (Exception $e) {
+            Mage::logException($e);
+            $accounts = array();
+        }
+        $names   = array();
+        $managed = false;
+        foreach ($accounts as $row) {
+            if ($row['show_on_storefront'] === null) {
+                continue;
+            }
+            $managed = true;
+            if ($row['show_on_storefront'] === 1) {
+                $names[] = $row['name'];
+            }
+        }
+        if (!$managed) {
+            $blob  = (string) $product->getData('trainerprofile');
+            // preg_* return false/null on invalid UTF-8 (legacy latin1 bytes) — treat as no names.
+            $parts = preg_split('#(<strong[^>]*>.*?</strong>)#siu', $blob, -1, PREG_SPLIT_DELIM_CAPTURE) ?: array();
+            for ($i = 1; $i < count($parts); $i += 2) {
+                $name = html_entity_decode(strip_tags($parts[$i]), ENT_QUOTES, 'UTF-8');
+                $name = (string) preg_replace('/^\s*ACTA\s+/i', '', $name);
+                $name = trim((string) preg_replace('/[\s:\x{2013}\x{2014}\-\x{00A0}]+$/u', '', trim($name)));
+                if ($name === '' || mb_strlen($name, 'UTF-8') > 60
+                    || preg_match('/(course|training|framework|profile|assessment|topic|http|@|learning outcome)/i', $name)) {
+                    continue;
+                }
+                $names[] = $name;
+            }
+        }
+        return array_slice(array_values(array_unique($names)), 0, 5);
     }
 
     private function _attr($product, $code, $default = '')
@@ -161,10 +219,9 @@ class MMD_Courses_Api_CoursesController extends Mage_Core_Controller_Front_Actio
         } catch (Exception $e) {
             // fall through
         }
+        $base   = Mage::app()->getStore()->getBaseUrl();
         $urlKey = $product->getUrlKey();
-        return $urlKey
-            ? 'https://www.tertiarycourses.com.sg/' . $urlKey . '.html'
-            : 'https://www.tertiarycourses.com.sg/';
+        return $urlKey ? $base . $urlKey . '.html' : $base;
     }
 
     private function _productImageUrl($product)
@@ -188,7 +245,10 @@ class MMD_Courses_Api_CoursesController extends Mage_Core_Controller_Front_Actio
     private function _formatPrice($v)
     {
         $v = (float) $v;
-        return $v > 0 ? 'S$' . number_format($v, 2) : 'Contact for price';
+        $symbols = array('SGD' => 'S$', 'MYR' => 'RM');
+        $code    = (string) Mage::app()->getStore()->getBaseCurrencyCode();
+        $symbol  = isset($symbols[$code]) ? $symbols[$code] : $code . ' ';
+        return $v > 0 ? $symbol . number_format($v, 2) : 'Contact for price';
     }
 
     private function _stripTags($s, $maxLen = 800)
