@@ -780,9 +780,11 @@ class MMD_Attendance_Helper_Data extends Mage_Core_Helper_Abstract
     /**
      * Mark the logged-in learner present for $runId. Guards: must be enrolled in
      * the run AND within the date window. Idempotent upsert. Returns
-     * array(success, message).
+     * array(success, message). $markedByAdminId defaults to the dashboard
+     * session's account; the native learner apps (no admin session) pass the
+     * learner's own shadow admin_user id.
      */
-    public function selfMarkPresent($runId, $email = null)
+    public function selfMarkPresent($runId, $email = null, $markedByAdminId = null)
     {
         $ctx = $this->getSelfMarkContext($runId, $email);
         if (!$ctx) {
@@ -832,7 +834,7 @@ class MMD_Attendance_Helper_Data extends Mage_Core_Helper_Abstract
                 'learner_name'       => $name,
                 'is_present'         => 1,
                 'reason_of_absence'  => null,
-                'marked_by_admin_id' => $this->getCurrentAdminId(),
+                'marked_by_admin_id' => $markedByAdminId !== null ? (int) $markedByAdminId : $this->getCurrentAdminId(),
             ),
             array('is_present', 'learner_name', 'reason_of_absence', 'marked_by_admin_id')
         );
