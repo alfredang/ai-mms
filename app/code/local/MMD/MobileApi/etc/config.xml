@@ -1,0 +1,82 @@
+<?xml version="1.0"?>
+<!--
+    MMD_MobileApi — JSON API for the native learner apps (TC LMS SG / MY / GH).
+
+    Same code on every site: each app talks to its own country's storefront
+    (www.tertiarycourses.com.sg / .com.my / .com.gh), which answers from its
+    own database. Non-WSQ (C-prefix) classes only.
+
+    Routes (frontend, frontName "mobileapi"):
+      GET  /mobileapi/site                     site name, currency, contacts
+      GET  /mobileapi/catalog                  public non-WSQ course catalog
+      POST /mobileapi/auth/password            email + password -> token
+      POST /mobileapi/auth/otpsend             email the learner a login code
+      POST /mobileapi/auth/otpverify           email + code -> token
+      GET  /mobileapi/auth/me                  the signed-in learner
+      POST /mobileapi/auth/logout              revoke this token
+      POST /mobileapi/auth/delete              delete the learner's login account
+      GET  /mobileapi/learner/classes          current / upcoming / past classes
+      GET  /mobileapi/learner/class?run_id=    one class: sessions, materials, survey, certificate
+      POST /mobileapi/learner/attendance       self-mark the current session
+      GET  /mobileapi/learner/survey?run_id=   in-house survey questions
+      POST /mobileapi/learner/survey           submit the survey
+      GET  /mobileapi/learner/certificates     issued certificates
+      GET  /mobileapi/learner/billing          registrations and payment status
+
+    Auth: "Authorization: Bearer <token>" from /auth/password or /auth/otpverify.
+-->
+<config>
+    <modules>
+        <MMD_MobileApi>
+            <version>1.0.0</version>
+        </MMD_MobileApi>
+    </modules>
+
+    <global>
+        <helpers>
+            <mmd_mobileapi>
+                <class>MMD_MobileApi_Helper</class>
+            </mmd_mobileapi>
+        </helpers>
+        <models>
+            <mmd_mobileapi>
+                <class>MMD_MobileApi_Model</class>
+            </mmd_mobileapi>
+        </models>
+    </global>
+
+    <crontab>
+        <jobs>
+            <!-- Catalog cache lives 3 h; rebuild every 2 h so it never goes cold. -->
+            <mmd_mobileapi_warm_catalog>
+                <schedule><cron_expr>20 */2 * * *</cron_expr></schedule>
+                <run><model>mmd_mobileapi/cron::warmCatalog</model></run>
+            </mmd_mobileapi_warm_catalog>
+        </jobs>
+    </crontab>
+
+    <frontend>
+        <routers>
+            <mmd_mobileapi>
+                <use>standard</use>
+                <args>
+                    <module>MMD_MobileApi</module>
+                    <frontName>mobileapi</frontName>
+                </args>
+            </mmd_mobileapi>
+        </routers>
+    </frontend>
+
+    <default>
+        <mmd_mobileapi>
+            <general>
+                <!-- App Review sign-in: a real storefront account whose
+                     email is listed here gets SAMPLE data only — it never
+                     sees or writes rosters, attendance, reviews or orders.
+                     Comma-separated. The password lives only in the
+                     customer account (never in this repo). -->
+                <demo_emails>appreview@tertiarycourses.com.sg</demo_emails>
+            </general>
+        </mmd_mobileapi>
+    </default>
+</config>
