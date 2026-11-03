@@ -1,7 +1,8 @@
 <?php
 /**
- * Malaysia only — daily 09:00 (store time): remind sales@ when a finished class's final attendance is not
- * confirmed yet (Mr Saeid, 23 + 30 Oct 2026: "final attendance not confirmed: 1 day after the class").
+ * Malaysia only — daily 09:00 (store time): remind the class's trainer (To) and sales@ (Cc) when a finished
+ * class's final attendance is not confirmed yet (Mr Saeid, 23 + 30 Oct 2026: "final attendance not confirmed:
+ * 1 day after the class"; 3 Nov: "must be sent to sales and trainer both"). No trainer assigned: sales@ only.
  *
  * A class qualifies when it ended before today (within LOOKBACK_DAYS), has learners, has no certificate yet, and
  * its latest confirmation is not 'confirmed' or 'excluded'. One reminder per class, ever — the run ids already
@@ -33,7 +34,7 @@ class MMD_Certificate_Model_Cron_AttendanceReminder
         Mage::log('Attendance reminder sweep complete — sent:' . $sent, Zend_Log::INFO, self::LOG_FILE);
     }
 
-    /** The reminders due now: array of { run_id, to, subject, body }. Sends nothing. */
+    /** The reminders due now: array of { run_id, to, cc, subject, body }. Sends nothing. */
     public function collect()
     {
         if (!$this->_isMalaysia()) {
@@ -72,7 +73,14 @@ class MMD_Certificate_Model_Cron_AttendanceReminder
             }
             $learners = (int) $read->fetchOne('SELECT COUNT(*) FROM ' . $res->getTableName('course_run_enrolments')
                 . ' WHERE run_id = ?', array($runId));
-            $out[] = array('run_id' => $runId, 'to' => $to) + $this->_message($run, $learners, $conf);
+            // The trainer is the one who confirms, so they get it directly; sales@ is copied.
+            $trainer = Mage::helper('mmd_rolemanager/trainer')->resolveRunTrainer($run);
+            $trainerEmail = $trainer && filter_var((string) $trainer['email'], FILTER_VALIDATE_EMAIL)
+                ? strtolower(trim((string) $trainer['email'])) : '';
+            $recipients = ($trainerEmail !== '' && $trainerEmail !== strtolower($to))
+                ? array('to' => $trainerEmail, 'cc' => array($to))
+                : array('to' => $to, 'cc' => array());
+            $out[] = array('run_id' => $runId) + $recipients + $this->_message($run, $learners, $conf);
         }
         return $out;
     }
@@ -82,10 +90,13 @@ class MMD_Certificate_Model_Cron_AttendanceReminder
         $info  = Mage::helper('mmd_certificate')->companyInfo();
         $gmail = Mage::helper('mmd_email/gmail');
         if ($gmail->isConfigured()) {
-            $gmail->send($r['to'], $r['subject'], $r['body'], $info['short_name']);
+            $gmail->send($r['to'], $r['subject'], $r['body'], $info['short_name'], isset($r['cc']) ? $r['cc'] : array());
             return;
         }
         $mail = new Zend_Mail('UTF-8');
+        foreach (isset($r['cc']) ? $r['cc'] : array() as $cc) {
+            $mail->addCc($cc);
+        }
         $mail->addTo($r['to'])
              ->setFrom($info['from_email'], $info['short_name'])
              ->setSubject($r['subject'])
@@ -127,9 +138,9 @@ class MMD_Certificate_Model_Cron_AttendanceReminder
             . '<tr><td><b>Trainer</b></td><td>' . $esc($run['trainer_name'] !== '' ? $run['trainer_name'] : 'not assigned') . '</td></tr>'
             . '<tr><td><b>Learners</b></td><td>' . (int) $learners . '</td></tr>'
             . '</table>'
-            . '<p>Please ask the trainer to open the class on the E-Attendance page, check the attendance, tick '
-            . '"I confirm this attendance is final" and click "Confirm Final Attendance". Certificates are then sent '
-            . 'automatically to learners with at least 75% of the training hours.</p>'
+            . '<p>To release the certificates, the trainer opens the class on the E-Attendance page, checks the '
+            . 'attendance, ticks "I confirm this attendance is final" and clicks "Confirm Final Attendance". '
+            . 'Certificates are then sent automatically to learners with at least 75% of the training hours.</p>'
             . '<p>This is an automatic reminder, sent once per class.</p>';
         return array('subject' => 'Reminder: final attendance not confirmed - ' . $run['class_id'] . ' ' . $title . ', ' . $dates,
                      'body' => $body);
