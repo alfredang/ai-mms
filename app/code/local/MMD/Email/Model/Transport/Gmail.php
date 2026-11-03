@@ -28,13 +28,14 @@ class MMD_Email_Model_Transport_Gmail extends Zend_Mail_Transport_Abstract
             throw new Exception('Gmail OAuth2 transport selected but not configured');
         }
 
-        // Zend_Mail_Transport_Abstract::_prepareHeaders() strips Bcc
-        // from $this->header so the SMTP envelope alone carries it.
         // The Gmail API has no separate envelope — it reads To/Cc/Bcc
-        // straight off the message headers. Re-attach Bcc here, or BCC
-        // recipients silently never receive the mail.
+        // straight off the message headers, so Bcc must be in them. Only
+        // the Smtp/Sendmail transports strip Bcc; the abstract
+        // _prepareHeaders() used here (zf1-future) keeps it, so re-attach
+        // Bcc only when it is missing. Adding it unconditionally listed
+        // every Bcc address twice (MY booking #200004310, 3 Nov 2026).
         $headersText = (string) $this->header;
-        $bccLine     = $this->_buildBccHeader();
+        $bccLine     = preg_match('/^Bcc:/mi', $headersText) ? '' : $this->_buildBccHeader();
         if ($bccLine !== '') {
             $headersText = $bccLine . "\r\n" . $headersText;
         }
