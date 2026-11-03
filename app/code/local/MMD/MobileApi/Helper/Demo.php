@@ -232,6 +232,7 @@ class MMD_MobileApi_Helper_Demo extends Mage_Core_Helper_Abstract
                 'trainer'      => 'Sample Trainer',
                 'status'       => 'confirmed',
                 'bucket'       => $bucket,
+                'days'         => $this->_days($start, $end),
                 'image_url'    => (string) $c['image_url'],
                 'course_url'   => (string) $c['url'],
                 'price'        => (float) $c['price'],

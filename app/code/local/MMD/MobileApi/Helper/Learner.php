@@ -401,8 +401,35 @@ class MMD_MobileApi_Helper_Learner extends Mage_Core_Helper_Abstract
             'trainer'      => trim((string) $r['trainer_name']),
             'status'       => 'confirmed',
             'bucket'       => $this->_bucket($start, $end, $today),
+            'days'         => $this->_classDays($r, $start, $end),
             'image_url'    => isset($images[(int) $r['product_id']]) ? $images[(int) $r['product_id']] : '',
         );
+    }
+
+    /**
+     * The actual class dates (Y-m-d) for the calendar. Weekend classes such as
+     * "18/19/25/26 Jul" are not a contiguous start..end span, so this uses the
+     * attendance module's session list, which knows the explicit day list.
+     */
+    protected function _classDays(array $run, $start, $end)
+    {
+        $days = array();
+        foreach (Mage::helper('mmd_attendance')->sessionsForRun($run) as $s) {
+            if ((string) $s['date'] !== '') $days[$s['date']] = true;
+        }
+        return $days ? array_keys($days) : $this->_span($start, $end);
+    }
+
+    protected function _span($start, $end)
+    {
+        if ($start === '') return array();
+        $out = array();
+        $ts  = strtotime($start);
+        $last = strtotime($end !== '' ? $end : $start);
+        for ($i = 0; $ts <= $last && $i < 14; $i++, $ts = strtotime('+1 day', $ts)) {
+            $out[] = date('Y-m-d', $ts);
+        }
+        return $out;
     }
 
     protected function _bucket($start, $end, $today)
@@ -463,6 +490,7 @@ class MMD_MobileApi_Helper_Learner extends Mage_Core_Helper_Abstract
                 'status'       => 'pending_payment',
                 'order_no'     => (string) $r['increment_id'],
                 'bucket'       => $this->_bucket($start, $end ?: $start, $today),
+                'days'         => $this->_span($start, $end ?: $start),
                 'certificate'  => null,
                 'survey_submitted' => false,
             );
