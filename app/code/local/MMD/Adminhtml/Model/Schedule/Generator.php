@@ -332,10 +332,11 @@ class MMD_Adminhtml_Model_Schedule_Generator
      *                                                      form above - that would say two days are
      *                                                      taught when four are - so it takes the
      *                                                      both-years range shape instead
-     *   cross-year            "31 Dec 2026 - 1 Jan 2027"   the only shape carrying BOTH years; every
-     *                                                      other form infers the end year from month
-     *                                                      order, which is wrong when the pair
-     *                                                      straddles New Year
+     *   cross-year, "/"       "30 Dec 2026 / 6 Jan 2027"   two named days, a year on BOTH sides. The
+     *                                                      LMS reads a "-" as every day between, so
+     *                                                      the hyphen form below refused a 2-day class
+     *                                                      as 8 days (TGS-2024043856, 30 Oct 2026)
+     *   cross-year, "-"       "31 Dec 2026 - 1 Jan 2027"   a run of days, both years
      *
      * $sep therefore carries meaning, not just punctuation: "/" = these two days,
      * "-" = every day from the first to the last.
@@ -356,6 +357,9 @@ class MMD_Adminhtml_Model_Schedule_Generator
         }
         if ($sep === '/' && $a->format('Y') === $b->format('Y')) {
             return $a->format('j M') . ' / ' . $b->format('j M Y');
+        }
+        if ($sep === '/') {
+            return $a->format('j M Y') . ' / ' . $b->format('j M Y');
         }
         return $a->format('j M Y') . ' - ' . $b->format('j M Y');
     }

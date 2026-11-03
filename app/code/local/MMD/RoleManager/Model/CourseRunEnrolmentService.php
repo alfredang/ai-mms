@@ -159,6 +159,8 @@ class MMD_RoleManager_Model_CourseRunEnrolmentService
      *   21.22 Feb 2019                    dot separator
      *   4 & 11 July 2015                  ampersand separator
      *   30 Nov / 1 Dec 2023               cross-month  DD Mon / DD Mon YYYY
+     *   30 Dec / 6 Jan 2027               cross-year: the year is the END date's
+     *   30 Dec 2026 / 6 Jan 2027          cross-year, a year on both sides
      *   30/1 June/July 2018               cross-month  DD/DD Mon/Mon YYYY
      *   3/4Dec 2016                       no space before month name
      *   08 Nov 2021 (Mon) [Zoom only]     with bracket annotation
@@ -207,14 +209,32 @@ class MMD_RoleManager_Model_CourseRunEnrolmentService
             return $d ? array($d, $d) : null;
         }
 
+        // Slash pair with a year on BOTH sides: DD Mon YYYY / DD Mon YYYY
+        //   "30 Dec 2026 / 6 Jan 2027" — the cross-year form the schedule generator
+        // writes. Years taken verbatim, like the hyphen form below.
+        if (preg_match('/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})\s*\/\s*(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/', $s, $m)) {
+            $ms = $this->_monthNumber($m[2]);
+            $me = $this->_monthNumber($m[5]);
+            if (!$ms || !$me) return null;
+            $start = $this->_makeDate($ms, (int)$m[1], (int)$m[3]);
+            $end   = $this->_makeDate($me, (int)$m[4], (int)$m[6]);
+            return ($start && $end) ? array($start, $end) : null;
+        }
+
+        // A single trailing year belongs to the END date, so a pair that wraps
+        // past December starts the year before: "30 Dec / 6 Jan 2027" is
+        // 30 Dec 2026. Reading it as the start year put the class in 2027-2028,
+        // and a run was nearly submitted to SSG a year late (30 Oct 2026). Same
+        // convention as _parseCrossMonthRange and the LMS's own label parser.
+
         // Cross-month: DD Mon / DD Mon YYYY  — "30 Nov / 1 Dec 2023"
         if (preg_match('/^(\d{1,2})\s+([A-Za-z]+)\s*\/\s*(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/', $s, $m)) {
             $ms = $this->_monthNumber($m[2]);
             $me = $this->_monthNumber($m[4]);
             if (!$ms || !$me) return null;
             $year  = (int) $m[5];
-            $start = $this->_makeDate($ms, (int)$m[1], $year);
-            $end   = $this->_makeDate($me, (int)$m[3], $me < $ms ? $year + 1 : $year);
+            $start = $this->_makeDate($ms, (int)$m[1], $me < $ms ? $year - 1 : $year);
+            $end   = $this->_makeDate($me, (int)$m[3], $year);
             return ($start && $end) ? array($start, $end) : null;
         }
 
@@ -224,8 +244,8 @@ class MMD_RoleManager_Model_CourseRunEnrolmentService
             $me = $this->_monthNumber($m[4]);
             if (!$ms || !$me) return null;
             $year  = (int) $m[5];
-            $start = $this->_makeDate($ms, (int)$m[1], $year);
-            $end   = $this->_makeDate($me, (int)$m[2], $me < $ms ? $year + 1 : $year);
+            $start = $this->_makeDate($ms, (int)$m[1], $me < $ms ? $year - 1 : $year);
+            $end   = $this->_makeDate($me, (int)$m[2], $year);
             return ($start && $end) ? array($start, $end) : null;
         }
 
