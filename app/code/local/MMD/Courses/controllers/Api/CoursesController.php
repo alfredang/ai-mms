@@ -125,7 +125,36 @@ class MMD_Courses_Api_CoursesController extends Mage_Core_Controller_Front_Actio
             // Same source as the course page's "Download Course Brochure" button.
             'brochure_url'     => Mage::helper('courses')->getPublishedBrochureUrl($product->getId()),
             'trainers'         => $this->_trainerNames($product),
+            // The course page's Trainers tab as plain text (the HRD Corp grant application's "trainer profile").
+            'trainer_profile'  => $this->_trainerProfile($product),
         );
+    }
+
+    /**
+     * Plain text of the course page's Trainers tab, rendered from the same template so it always matches the
+     * page (account bios, else the legacy trainerprofile blob). '' when the course shows no trainer.
+     */
+    private function _trainerProfile($product)
+    {
+        try {
+            $html = $this->getLayout()->createBlock('core/template')
+                ->setProduct($product)
+                ->setTemplate('catalog/product/view/trainers.phtml')
+                ->toHtml();
+        } catch (Exception $e) {
+            Mage::logException($e);
+            return '';
+        }
+        $html = preg_replace('#<(script|style)\b[^>]*>.*?</\1>#is', '', (string) $html);
+        $html = preg_replace('#<\s*(br|/p|/div|/li|/h[1-6]|/tr)\s*/?>#i', "\n", $html);
+        $text = html_entity_decode(strip_tags($html), ENT_QUOTES, 'UTF-8');
+        $text = preg_replace("/[ \t\x{00A0}]+/u", ' ', $text);
+        $text = trim(preg_replace("/\s*\n\s*/", "\n", $text));
+        // Drop the tab heading and the avatar initials ("DA") the accordion shows before each name.
+        $lines = array_filter(explode("\n", $text), function ($l) {
+            return $l !== 'Trainers' && $l !== 'Trainer' && !preg_match('/^[A-Z]{1,3}$/', $l);
+        });
+        return mb_substr(implode("\n", $lines), 0, 6000);
     }
 
     private function _isMalaysia()
