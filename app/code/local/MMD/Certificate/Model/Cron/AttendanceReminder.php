@@ -7,11 +7,14 @@
  * A class qualifies when it ended before today (within LOOKBACK_DAYS), has learners, has no certificate yet, and
  * its latest confirmation is not 'confirmed' or 'excluded'. One reminder per class, ever — the run ids already
  * reminded are kept in core_config_data (SENT_PATH). Off switch: mmd/attendance_reminder/enabled = 0.
+ * The email links straight to the class's E-Attendance page (Saeid, 4 Nov: "with proper link").
  */
 class MMD_Certificate_Model_Cron_AttendanceReminder
 {
     const ENABLED_PATH  = 'mmd/attendance_reminder/enabled';
-    const SENT_PATH     = 'mmd/attendance_reminder/sent_run_ids';
+    // v2 (4 Nov): the reminder now carries a direct E-Attendance link (Saeid). A new key lets each class still
+    // waiting get the linked version once; the old list (mmd/attendance_reminder/sent_run_ids) is left as it was.
+    const SENT_PATH     = 'mmd/attendance_reminder/sent_run_ids_v2';
     const LOOKBACK_DAYS = 14;
     const LOG_FILE      = 'certificates.log';
 
@@ -126,6 +129,8 @@ class MMD_Certificate_Model_Cron_AttendanceReminder
         $dates  = $h->formatDates($run['course_start_date'], $run['course_end_date']);
         $title  = $run['course_title'] . ' (' . trim($run['course_sku']) . ')';
         $esc    = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); };
+        // The trainer's E-Attendance page for this class (shows the login form first when logged out).
+        $link   = rtrim($h->companyInfo()['website'], '/') . '/lmslogin/attendance/index/run_id/' . (int) $run['run_id'] . '/bucket/completed';
         $state  = ($conf && $conf['status'] === 'reopened')
             ? 'Attendance was changed after it was confirmed, so it needs to be confirmed again.'
             : 'The final attendance has not been confirmed yet.';
@@ -141,6 +146,10 @@ class MMD_Certificate_Model_Cron_AttendanceReminder
             . '<p>To release the certificates, the trainer opens the class on the E-Attendance page, checks the '
             . 'attendance, ticks "I confirm this attendance is final" and clicks "Confirm Final Attendance". '
             . 'Certificates are then sent automatically to learners with at least 75% of the training hours.</p>'
+            . '<p><a href="' . $esc($link) . '" style="display:inline-block;padding:8px 18px;background:#2563eb;color:#ffffff;'
+            . 'font-weight:600;border-radius:6px;text-decoration:none">Open E-Attendance for ' . $esc($run['class_id']) . '</a></p>'
+            . '<p style="font-size:12px;color:#555">Link: <a href="' . $esc($link) . '">' . $esc($link) . '</a><br>'
+            . 'Log in with your email if asked. If you land on the dashboard after logging in, open the link again.</p>'
             . '<p>This is an automatic reminder, sent once per class.</p>';
         return array('subject' => 'Reminder: final attendance not confirmed - ' . $run['class_id'] . ' ' . $title . ', ' . $dates,
                      'body' => $body);
