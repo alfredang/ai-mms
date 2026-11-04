@@ -784,7 +784,7 @@ working after a site redeploy — then just prepare them again).
 | `POST /agent/api_ops` | reindex, flush_cache, enable, disable, regenerate_image | Ops + cover render (`run_class_formation` = 501) |
 | `POST /agent/api_template` | generate_and_apply, assign_course | Bulk schedule to ALL products on a template; or add one course to a template |
 | `POST /agent/api_claims` | t3, jd14, zoom_report | **Malaysia only.** HRD Corp claim documents for a class as editable Word files (download links, 7 days). Only company-sponsored trainees, split per employer |
-| `GET /courses/api_trainer_classes` | (read-only) | Find a class by `course_sku` + `date`, or list a `trainer_email`'s assigned classes; check `assigned_to_trainer` before and after `assign_trainer`; `include_learners=1` lists each class's learners (agent key only) |
+| `GET /courses/api_trainer_classes` | (read-only) | Find a class by `course_sku` + `date`, look one up by `class_id` (past classes too), or list a `trainer_email`'s assigned classes; check `assigned_to_trainer` before and after `assign_trainer`; `include_learners=1` lists each class's learners (agent key only) |
 
 Every one: `dry_run:true` to preview, relay `human_summary` + `warnings`, `dry_run:false` +
 `change_token` to commit.

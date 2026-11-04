@@ -12537,13 +12537,14 @@ $_apiCategories = array(
                 'title' => 'Trainer Class Assignments API',
                 'description' => 'Who is assigned to which class, using the same rule as the trainer\'s My Assigned Classes panel. Lets the trainer-support agent (Kael) find the class_id for a course + date and verify a trainer before/after POST /agent/api_classes op=assign_trainer.',
                 'queryParams' => array(
+                    array('name' => 'class_id', 'type' => 'string', 'required' => false, 'description' => 'C###### — that one class, past or upcoming (e.g. the dates of a finished class for the MY claim reminders). Unknown id: count 0.'),
                     array('name' => 'trainer_email', 'type' => 'string', 'required' => false, 'description' => 'Alone: that trainer\'s upcoming assigned classes. With course_sku: flags each class assigned_to_trainer and adds in_course_trainer_pool.'),
                     array('name' => 'course_sku', 'type' => 'string', 'required' => false, 'description' => 'Course code, e.g. C817. 404 if unknown.'),
                     array('name' => 'date', 'type' => 'string', 'required' => false, 'description' => 'YYYY-MM-DD — classes running on that date (multi-day classes match on any day). Default: every class ending today or later.'),
                     array('name' => 'include_learners', 'type' => 'int', 'required' => false, 'description' => '1 = add learners[] (name, email) to each class. Agent (bot) key only; the trainer-reminders key gets 403.'),
                 ),
                 'notes' => array(
-                    'At least one of trainer_email / course_sku is required (400 otherwise). Read-only, never cached (Cache-Control: no-store), so a check straight after an assign_trainer commit shows the new trainer.',
+                    'At least one of class_id / trainer_email / course_sku is required (400 otherwise). Read-only, never cached (Cache-Control: no-store), so a check straight after an assign_trainer commit shows the new trainer.',
                     'Only C-prefix (non-WSQ) courses have classes; a TGS- course returns count 0.',
                     'trainer.source is "account" (trainer_user_id) or "eav" (legacy trainer option). next_step is set when a class has no trainer.',
                     'google_calendar_event = the class already has a Google Calendar event. The calendar sync only creates events, so assigning a trainer afterwards does NOT add them to the existing invite.',

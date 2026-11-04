@@ -7,6 +7,8 @@
  * GET /courses/api_trainer_classes?course_sku=<sku>&date=...&trainer_email=<email>
  *                                                                     → the course's classes, each flagged
  *                                                                       assigned_to_trainer for that trainer
+ * GET /courses/api_trainer_classes?class_id=C000012                   → that one class, past or upcoming
+ *                                                                       (dates for the MY claim reminders)
  * ...&include_learners=1                                              → each class also lists its learners
  *                                                                       (name + email; bot key only)
  *
@@ -45,9 +47,14 @@ class MMD_Courses_Api_Trainer_ClassesController extends Mage_Core_Controller_Fro
         $email = strtolower(trim((string) $this->getRequest()->getParam('trainer_email', '')));
         $sku   = trim((string) $this->getRequest()->getParam('course_sku', ''));
         $date  = trim((string) $this->getRequest()->getParam('date', ''));
-        if ($email === '' && $sku === '') {
+        $classId = strtoupper(trim((string) $this->getRequest()->getParam('class_id', '')));
+        if ($classId !== '' && !preg_match('/^[A-Z]{1,3}\d{6}$/', $classId)) {
             return $this->_json(400, array('success' => false, 'error' => 'validation_error',
-                'message' => 'Pass trainer_email, course_sku, or both.'));
+                'message' => 'class_id must look like C000012.'));
+        }
+        if ($email === '' && $sku === '' && $classId === '') {
+            return $this->_json(400, array('success' => false, 'error' => 'validation_error',
+                'message' => 'Pass class_id, trainer_email, course_sku, or a combination.'));
         }
         if ($date !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
             return $this->_json(400, array('success' => false, 'error' => 'validation_error',
@@ -68,9 +75,16 @@ class MMD_Courses_Api_Trainer_ClassesController extends Mage_Core_Controller_Fro
             $trainer = $email !== '' ? $this->_trainer($read, $email, $product) : null;
 
             $where = array(); $binds = array();
+            if ($classId !== '') {
+                // One class by its id, past or upcoming (the other filters still apply if given).
+                $where[] = 'cr.class_id = ?';
+                $binds[] = $classId;
+            }
             if ($product) {
                 $where[] = 'cr.product_id = ?';
                 $binds[] = (int) $product['entity_id'];
+            } elseif ($classId !== '' && !$trainer) {
+                // class_id alone: no course or trainer filter.
             } else {
                 // Trainer-only mode: just the classes assigned to them.
                 $match = array();
@@ -81,7 +95,7 @@ class MMD_Courses_Api_Trainer_ClassesController extends Mage_Core_Controller_Fro
             if ($date !== '') {
                 $where[] = 'cr.course_start_date <= ? AND COALESCE(cr.course_end_date, cr.course_start_date) >= ?';
                 $binds[] = $date; $binds[] = $date;
-            } else {
+            } elseif ($classId === '') {
                 $where[] = 'COALESCE(cr.course_end_date, cr.course_start_date) >= CURDATE()';
             }
 
@@ -116,8 +130,9 @@ class MMD_Courses_Api_Trainer_ClassesController extends Mage_Core_Controller_Fro
             return $this->_json(200, array(
                 'success'      => true,
                 'last_updated' => gmdate('c'),
-                'filters'      => array('trainer_email' => $email ?: null, 'course_sku' => $product ? $product['sku'] : null,
-                                        'date' => $date ?: null, 'window' => $date !== '' ? 'classes running on date' : 'upcoming (ends today or later)'),
+                'filters'      => array('class_id' => $classId ?: null, 'trainer_email' => $email ?: null, 'course_sku' => $product ? $product['sku'] : null,
+                                        'date' => $date ?: null, 'window' => $date !== '' ? 'classes running on date'
+                                            : ($classId !== '' ? 'that class, past or upcoming' : 'upcoming (ends today or later)')),
                 'trainer'      => $trainer,
                 'count'        => count($classes),
                 'classes'      => $classes,

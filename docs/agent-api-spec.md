@@ -393,8 +393,9 @@ Use it to find the `class_id` for a course + date and to confirm a trainer befor
 
 | Param | Required | Notes |
 |---|---|---|
-| `trainer_email` | one of the two | Alone: that trainer's upcoming assigned classes. With `course_sku`: adds `assigned_to_trainer` per class + `trainer.in_course_trainer_pool` |
-| `course_sku` | one of the two | `404 not_found` if unknown |
+| `class_id` | one of the three | `C######`: that one class, **past or upcoming** (e.g. dates of a finished class for the Malaysia claim reminders). Unknown id -> 0 classes; malformed -> `400` |
+| `trainer_email` | one of the three | Alone: that trainer's upcoming assigned classes. With `course_sku`: adds `assigned_to_trainer` per class + `trainer.in_course_trainer_pool` |
+| `course_sku` | one of the three | `404 not_found` if unknown |
 | `date` | no | `YYYY-MM-DD`; classes running on that date (any day of a multi-day class). Default: classes ending today or later |
 | `include_learners` | no | `1` adds `learners[]` (`name`, `email`) to each class - the roster. **Agent key only**: with the trainer-reminders key -> `403 forbidden` |
 
