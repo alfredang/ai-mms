@@ -12762,6 +12762,7 @@ $_apiCategories = array(
                     array('name' => 'op', 'type' => 'string', 'required' => true, 'description' => 't3 | jd14 | zoom_report'),
                     array('name' => 'class_id', 'type' => 'string', 'required' => true, 'description' => 'C######'),
                     array('name' => 'employers', 'type' => 'object', 'required' => false, 'description' => '{ roster email: company } for company-sponsored learners added without a booking'),
+                    array('name' => 'not_claimed', 'type' => 'array', 'required' => false, 'description' => '[ roster email, ... ] learners marked Paid or FOC in the participants sheet: left off all documents, even with a company-sponsored booking'),
                     array('name' => 'employer', 'type' => 'string', 'required' => false, 'description' => 'Only this employer\'s documents'),
                     array('name' => 'course_title', 'type' => 'string', 'required' => false, 'description' => 'All ops: the HRD Corp approved course title (default: website name, with a warning)'),
                     array('name' => 'mode, trainees', 'type' => 'various', 'required' => false, 'description' => 't3: mode virtual|physical (required; virtual = "ROT" in the signature column); trainees { roster email: { nric, sex } } from the participants sheet - NRIC never echoed or stored in the DB'),
@@ -12769,7 +12770,7 @@ $_apiCategories = array(
                     array('name' => 'date, zoom_csv, trainer_name', 'type' => 'string', 'required' => false, 'description' => 'zoom_report: training day (YYYY-MM-DD) + the Zoom Participants CSV export as text; trainer_name = full legal name (default: account name, with a warning)'),
                 ),
                 'notes' => array(
-                    'Only HRD Corp-claimed trainees are listed: roster learners with a company-sponsored booking for the course (or given in employers). Others are left off as self-paying and named in warnings.',
+                    'Only HRD Corp-claimed trainees are listed: roster learners with a company-sponsored booking for the course (or given in employers), minus anyone in not_claimed (Paid / FOC). Others are left off as self-paying and named in warnings.',
                     'Fills the partner\'s own Word forms (data/claims/: HRD Corp T3 + JD14 + their Zoom report), format and layout unchanged. 9 trainee rows per form; more -> extra copies (_part2...).',
                     'T3: citizenship pre-filled "Malaysian"; NRIC and sex from trainees (else blank); signature column "ROT" for virtual classes, blank for physical. Certified by Saeid Alizadeh, Director.',
                     'Zoom report: matched by registered email only; times only from the export; minutes = first join to last leave minus lunch 12:30-13:30, rounded down.',

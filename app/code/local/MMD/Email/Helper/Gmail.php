@@ -261,10 +261,11 @@ class MMD_Email_Helper_Gmail extends Mage_Core_Helper_Abstract
      * @param string $subject  Plain-text subject line.
      * @param string $bodyHtml HTML body.
      * @param string $fromName Optional display name; defaults to the configured user.
+     * @param array  $bcc      Optional blind copies (Gmail delivers them and strips the header).
      * @return string Gmail message id
      * @throws Exception
      */
-    public function send($to, $subject, $bodyHtml, $fromName = '', array $cc = array(), $replyTo = '')
+    public function send($to, $subject, $bodyHtml, $fromName = '', array $cc = array(), $replyTo = '', array $bcc = array())
     {
         $c = $this->getConfig();
         $from = $fromName !== '' ? '"' . str_replace('"', '\"', $fromName) . '" <' . $c['user'] . '>'
@@ -283,6 +284,10 @@ class MMD_Email_Helper_Gmail extends Mage_Core_Helper_Abstract
         $cc = array_values(array_filter(array_map('trim', $cc)));
         if (!empty($cc)) {
             $headers[] = 'Cc: ' . implode(', ', $cc);
+        }
+        $bcc = array_values(array_filter(array_map('trim', $bcc)));
+        if (!empty($bcc)) {
+            $headers[] = 'Bcc: ' . implode(', ', $bcc);
         }
         if ($replyTo !== '') {
             $headers[] = 'Reply-To: ' . $replyTo;

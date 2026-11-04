@@ -647,6 +647,7 @@ employer**.
 |---|---|---|---|
 | `class_id` | string | yes | `C######` |
 | `employers` | object | no | `{ "<roster email>": "<company name>" }` - sets/overrides the employer for learners added without a company booking. An email not on the roster -> `400`. |
+| `not_claimed` | array | no | `[ "<roster email>", ... ]` - learners marked **Paid** or **FOC** (not HRD Corp) in the participants sheet: left off every document even with a company-sponsored booking, and named in `warnings`. Not on the roster, or also in `employers` -> `400`. |
 | `employer` | string | no | Only produce documents for this one employer. |
 | `course_title` | string | no | The **HRD Corp approved** course title printed on every form. Default: the website course name (it can change after the grant is approved) - the preview warns when it is not given. |
 
