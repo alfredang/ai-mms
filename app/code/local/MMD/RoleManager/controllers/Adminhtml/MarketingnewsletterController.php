@@ -1423,7 +1423,9 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
                 return "It's pitched at advanced practitioners and senior professionals. Added a level bullet.";
             }
             if (in_array('add_funding', $intents, true)) {
-                return "Yes — WSQ subsidy and SkillsFuture Credit funding apply. Added a funding bullet.";
+                return (!empty($course['entity_id']) && Mage::helper('mmd_marketing/flyer')->hasUtapTag($course['entity_id']))
+                    ? "Yes — WSQ subsidy, SkillsFuture Credit and UTAP funding apply. Added a funding bullet."
+                    : "Yes — WSQ subsidy and SkillsFuture Credit funding apply. Added a funding bullet.";
             }
             if (in_array('add_prereq', $intents, true)) {
                 return !empty($course['prerequisite'])
@@ -1462,7 +1464,7 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
         if (in_array('add_audience', $intents, true))       return "Pulled the target audience from the catalog and added a 'Designed for' bullet.";
         if (in_array('add_duration', $intents, true))       return "Added the course duration from the catalog as a bullet.";
         if (in_array('add_certification', $intents, true))  return "Added the Certificate of Completion line.";
-        if (in_array('add_funding', $intents, true))        return "Added a WSQ / SkillsFuture funding-eligible bullet.";
+        if (in_array('add_funding', $intents, true))        return (!empty($course['entity_id']) && Mage::helper('mmd_marketing/flyer')->hasUtapTag($course['entity_id'])) ? "Added a WSQ / SkillsFuture / UTAP funding-eligible bullet." : "Added a WSQ / SkillsFuture funding-eligible bullet.";
         if (in_array('add_prereq', $intents, true))         return "Added a prerequisites bullet drawn from the catalog.";
         if (in_array('add_beginner', $intents, true))       return "Added a 'beginner-friendly' bullet so first-timers feel welcome.";
         if (in_array('add_advanced', $intents, true))       return "Pitched the bullets at advanced practitioners.";
@@ -1870,7 +1872,9 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
         $byIntent['add_beginner']      = "Beginner-friendly — no prior experience needed";
         $byIntent['add_advanced']      = "Advanced practitioners and senior professionals";
         $byIntent['add_handson']       = "Hands-on labs and real-world exercises throughout";
-        $byIntent['add_funding']       = "WSQ subsidy + SkillsFuture Credit funding eligible";
+        $byIntent['add_funding']       = (!empty($course['entity_id']) && Mage::helper('mmd_marketing/flyer')->hasUtapTag($course['entity_id']))
+            ? "WSQ subsidy + SkillsFuture Credit + UTAP funding eligible"
+            : "WSQ subsidy + SkillsFuture Credit funding eligible";
         if (!empty($course['start_date'])) {
             $byIntent['add_dates'] = "Next intake: " . date('j M Y', strtotime($course['start_date']));
         }
@@ -2057,7 +2061,7 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
             'from_name'    => $cfg['from_name'],
             'from_email'   => !empty($cfg['from_email']) ? $cfg['from_email'] : 'enquiry@tertiaryinfotech.com',
             'courses'      => $courses,
-            'subsidies'    => $this->_subsidiesForCountry($cc),
+            'subsidies'    => $this->_subsidiesForCountry($cc, $courses),
             'images'       => $images, // [{media_type, data, name}, ...]
             'design'       => $design,
         );
@@ -2125,10 +2129,10 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
      * Subsidy / funding pills shown in the hero. Per-country because
      * SkillsFuture / WSQ only apply to Singapore. Other countries
      * return an empty list and the template hides the pill row.
-     * UTAP deliberately omitted — most courses are under UTAP review
-     * (2026-08), so outbound newsletters must not advertise UTAP.
+     * The UTAP pill shows only when a featured course carries the UTAP tag
+     * (e2i-approved). The Aug 2026 outbound UTAP ban was lifted on 2026-11-04.
      */
-    protected function _subsidiesForCountry($cc)
+    protected function _subsidiesForCountry($cc, array $courses = array())
     {
         $map = array(
             'SG' => array(
@@ -2136,6 +2140,14 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
                 array('label' => 'SkillsFuture Credit Eligible', 'color' => '#e63946'),
             ),
         );
+        if ($cc === 'SG') {
+            foreach ($courses as $c) {
+                if (!empty($c['entity_id']) && Mage::helper('mmd_marketing/flyer')->hasUtapTag($c['entity_id'])) {
+                    array_splice($map['SG'], 1, 0, array(array('label' => 'UTAP Funding', 'color' => '#e63946')));
+                    break;
+                }
+            }
+        }
         return isset($map[$cc]) ? $map[$cc] : array();
     }
 
