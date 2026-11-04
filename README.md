@@ -38,7 +38,7 @@ This system runs as a **franchise model**:
 
 - 📚 **Courseware is supplied and supported by Tertiary Courses Singapore.** Franchisees plug into a ready-made catalogue of WSQ / IBF / SkillsFuture-aligned courses — they don't have to author content from scratch.
 - 🛠️ **Each franchise partner hosts their own server.** The **same codebase** (this repo) is deployed to every partner's own server + database — **one store per website**, fully independent (own domain, currency, language, pricing, funding hooks). No shared multi-store install, no shared catalogue, no cross-site redirects.
-- 🌏 **Live partner sites:** 🇸🇬 `tertiarycourses.com.sg` · 🇲🇾 `tertiarycourses.com.my` · 🇬🇭 `tertiarycourses.com.gh`.
+- 🌏 **Live partner sites:** 🇸🇬 `tertiarycourses.com.sg` · 🇲🇾 `tertiarycourses.com.my` · 🇬🇭 `tertiarycourses.com.gh`. The SG storefront footer lists the franchisees under **Training Franchisee** (migration 1898).
 
 > ### 🤝 Become a franchise partner
 > Want to run an AI-powered future-tech training academy in your country — with a ready-made WSQ / IBF / SkillsFuture-aligned catalogue and this LMS set up on your own server?
