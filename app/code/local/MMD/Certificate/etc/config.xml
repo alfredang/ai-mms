@@ -94,6 +94,11 @@
                 <schedule><cron_expr>0 9 * * *</cron_expr></schedule>
                 <run><model>mmd_certificate/cron_attendanceReminder::run</model></run>
             </mmd_certificate_attendance_reminder>
+            <!-- Malaysia only: 9am on a class's first day, email each learner the class details (Saeid, 4 Nov: sample approved). -->
+            <mmd_certificate_class_day_email>
+                <schedule><cron_expr>0 9 * * *</cron_expr></schedule>
+                <run><model>mmd_certificate/cron_classDayEmail::run</model></run>
+            </mmd_certificate_class_day_email>
         </jobs>
     </crontab>
 
@@ -102,6 +107,9 @@
             <attendance_reminder>
                 <enabled>1</enabled>
             </attendance_reminder>
+            <class_day_email>
+                <enabled>1</enabled>
+            </class_day_email>
         </mmd>
     </default>
 </config>
