@@ -644,6 +644,12 @@ preview lists them in `warnings`. If the team tells you someone is company-spons
 without a booking, pass `employers: { "<their roster email>": "<COMPANY NAME>" }`. Every document
 is split **per employer**.
 
+**Paid / FOC learners** — only learners paid through HRD Corp go on the documents (Mr Saeid, 4 Nov).
+The participants sheet's `payment` column says `HRDcorp`, `Paid` or `FOC`. Pass every `Paid` / `FOC`
+learner in `not_claimed: ["<roster email>", ...]` on all three ops — they are left off even when they
+booked as company-sponsored, and the preview names them in `warnings`. An email that is not on the
+roster, or that is also in `employers`, is refused with `400`.
+
 **Course title (all three ops):** pass `course_title` with the **HRD Corp approved** title
 (from the team / JD14 sheet). The website name can change after the grant is approved, and the
 forms must show the approved one. Without it the preview warns and uses the website name.

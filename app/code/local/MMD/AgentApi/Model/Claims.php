@@ -4,15 +4,17 @@
  * Malaysia site only. Fills the partner's own Word forms (data/claims/: the standard HRD Corp T3 and JD14
  * forms and their Zoom attendance report, layout unchanged); writes nothing to the database.
  *
- *   op: t3           { class_id, mode: virtual|physical, [trainees], [course_title], [employers], [employer] }
+ *   op: t3           { class_id, mode: virtual|physical, [trainees], [course_title], [employers], [not_claimed], [employer] }
  *                    one PSMB/SBL-KHAS/T3/01 attendance list per training day PER EMPLOYER
- *   op: jd14         { class_id, mode: virtual|physical, [venue], [jd14], [course_title], [employers], [employer] }
+ *   op: jd14         { class_id, mode: virtual|physical, [venue], [jd14], [course_title], [employers], [not_claimed], [employer] }
  *                    one PSMB/SBL-KHAS/JD/14 joint declaration per employer
- *   op: zoom_report  { class_id, date, zoom_csv, [course_title], [trainer_name], [employers], [employer] }
+ *   op: zoom_report  { class_id, date, zoom_csv, [course_title], [trainer_name], [employers], [not_claimed], [employer] }
  *                    one Zoom attendance report per employer for that training day
  *
  *   course_title  the HRD Corp approved title (the website name can change after the grant is approved)
  *   trainer_name  the trainer's full legal name for the Zoom report (default: the assigned trainer's account name)
+ *   not_claimed   [email, ...] learners marked Paid or FOC in the participants sheet: left off all three documents
+ *                 (all three ops accept it, like employers)
  *   trainees      {email: {nric, sex}} from the partner's participants sheet, for the T3. NRIC is only written into
  *                 the Word file - never echoed in previews/errors and never stored in the database.
  *
@@ -278,6 +280,10 @@ class MMD_AgentApi_Model_Claims extends MMD_AgentApi_Model_Abstract
             $warnings[] = 'Left off as self-paying (no company-sponsored booking for this course, and no employer given): '
                 . implode('; ', $ctx['left_off']) . '.';
         }
+        if ($ctx['not_claimed_off']) {
+            $warnings[] = 'Left off as not claimed from HRD Corp (Paid or FOC in the participants sheet): '
+                . implode('; ', $ctx['not_claimed_off']) . '.';
+        }
         if ($ctx['trainer'] === '') {
             $warnings[] = 'No trainer is assigned to ' . $ctx['class_id'] . ' (the Zoom report shows the trainer).';
         }
@@ -349,9 +355,27 @@ class MMD_AgentApi_Model_Claims extends MMD_AgentApi_Model_Abstract
             }
         }
 
-        $groups = array(); $leftOff = array();
+        // Saeid (4 Nov): only learners paid by HRD Corp go on the claim documents. The participants sheet marks
+        // the others "Paid" or "FOC"; they are left off even with a company-sponsored booking.
+        $notClaimed = array();
+        foreach ((array) $this->_opt($body, 'not_claimed', array()) as $e) {
+            $e = strtolower(trim((string) $e));
+            if (!in_array($e, $rosterEmails, true)) {
+                $this->_err('validation_error', 'not_claimed: ' . $e . ' is not on the roster of ' . $classId . '.', 400);
+            }
+            if (isset($override[$e])) {
+                $this->_err('validation_error', $e . ' is in both employers and not_claimed.', 400);
+            }
+            $notClaimed[$e] = true;
+        }
+
+        $groups = array(); $leftOff = array(); $notClaimedOff = array();
         foreach ($roster as $r) {
             $name = $r['name'] !== '' ? $r['name'] : $r['email'];
+            if (isset($notClaimed[$r['email']])) {
+                $notClaimedOff[] = $name . ' (' . $r['email'] . ')';
+                continue;
+            }
             $employer = isset($override[$r['email']]) && $override[$r['email']] !== ''
                 ? $override[$r['email']]
                 : $this->_bookingEmployer($r['email'], (int) $run['product_id'], (string) $run['course_start_date']);
@@ -384,7 +408,7 @@ class MMD_AgentApi_Model_Claims extends MMD_AgentApi_Model_Abstract
         return array(
             'class_id' => $classId, 'course' => $title !== '' ? $title : $course, 'course_title_given' => $title !== '',
             'sku' => trim((string) $run['course_sku']),
-            'days' => $days, 'groups' => $groups, 'left_off' => $leftOff,
+            'days' => $days, 'groups' => $groups, 'left_off' => $leftOff, 'not_claimed_off' => $notClaimedOff,
             'trainer' => $trainerName !== '' ? $trainerName : ($trainer ? (string) $trainer['name'] : ''),
             'trainer_name_given' => $trainerName !== '',
             'trainer_email' => $trainer ? (string) $trainer['email'] : '',
