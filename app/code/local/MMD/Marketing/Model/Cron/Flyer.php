@@ -218,8 +218,9 @@ class MMD_Marketing_Model_Cron_Flyer
         $ids = $this->_read()->fetchCol('SELECT newsletter_id FROM ' . $this->_tbl()
             . " WHERE review_status = 'pending' AND (review_token IS NULL OR review_token = '')");
         foreach ($ids as $nid) {
-            $this->sendForReview((int) $nid);
-            $this->_log('followUp: emailed managers for unsent pending proposal #' . (int) $nid);
+            if ($this->sendForReview((int) $nid)) {
+                $this->_log('followUp: emailed managers for unsent pending proposal #' . (int) $nid);
+            }
         }
         // 1c. Partial transport failure: one manager got the email, the other's
         //     send threw (so the row IS stamped and step 1 skips it). Resend to
@@ -835,7 +836,18 @@ class MMD_Marketing_Model_Cron_Flyer
         if ($dec['_qa']['pass'] === null) { return 'QA could not run (' . $dec['_qa']['error'] . '), so the revised flyer #' . (int) $newsletterId . ' was NOT emailed.'; }
         $miss = array();
         foreach ((array) $dec['_qa']['checks'] as $ck) { if (empty($ck['done'])) { $miss[] = $ck['requirement']; } }
+        if (!empty($dec['_qa']['sent_anyway'])) {
+            return 'Revised flyer #' . (int) $newsletterId . ' failed QA but was emailed anyway (nothing is scheduled). Not done: ' . implode('; ', $miss) . '.';
+        }
         return 'Revised flyer #' . (int) $newsletterId . ' failed QA and was NOT emailed. Not done: ' . implode('; ', $miss) . '.';
+    }
+
+    /** Is any agentic flyer already booked for a future send? */
+    protected function _hasScheduledFlyer()
+    {
+        return (int) $this->_read()->fetchOne('SELECT COUNT(*) FROM ' . $this->_tbl()
+            . " WHERE template_key = 'agentic_flyer' AND status IN ('scheduling','scheduled') AND scheduled_send_at > ?",
+            array($this->_nowStr())) > 0;
     }
 
     public function sendForReview($newsletterId, $onlyEmails = null, $isReminder = false, $isRevision = false)
@@ -863,8 +875,21 @@ class MMD_Marketing_Model_Cron_Flyer
         // re-send a flyer that already passed).
         if (!$isReminder && $onlyEmails === null) {
             if (!$this->qaGate($newsletterId)) {
-                $this->_log('sendForReview: #' . (int) $newsletterId . ' HELD by QA - not emailed');
-                return false;
+                // Admin 2026-11-05: a QA hold must never leave the calendar empty
+                // in silence (#85 sat held all night before the Thu slot). With
+                // nothing scheduled, email the managers anyway with the failed
+                // checks flagged and let them decide.
+                if ($this->_hasScheduledFlyer()) {
+                    $this->_log('sendForReview: #' . (int) $newsletterId . ' HELD by QA - not emailed');
+                    return false;
+                }
+                $dec = json_decode((string) $this->_read()->fetchOne('SELECT review_decisions FROM ' . $this->_tbl()
+                    . ' WHERE newsletter_id = ?', array($newsletterId)), true);
+                if (!is_array($dec)) { $dec = array(); }
+                $dec['_qa']['sent_anyway'] = true;
+                $this->_write()->update($this->_tbl(), array('review_decisions' => json_encode($dec)),
+                    array('newsletter_id = ?' => (int) $newsletterId));
+                $this->_log('sendForReview: #' . (int) $newsletterId . ' failed QA but nothing is scheduled - emailing managers with the QA failures flagged');
             }
             $row = $this->_read()->fetchRow('SELECT * FROM ' . $this->_tbl() . ' WHERE newsletter_id = ?', array($newsletterId));
         }
@@ -917,6 +942,20 @@ class MMD_Marketing_Model_Cron_Flyer
                 }
                 $li .= '<li style="margin:8px 0 0;list-style:none;margin-left:-18px;"><b>QA check passed</b>'
                     . (!empty($rd['_qa']['repaired']) ? ' <span style="color:#7c8aa3;">(after one automatic fix)</span>' : '')
+                    . ':<ul style="margin:6px 0 0;padding-left:18px;list-style:none;">' . $ql . '</ul></li>';
+            }
+            if (!empty($rd['_qa']['sent_anyway']) && $rd['_qa']['pass'] !== true) {
+                $ql = '';
+                foreach ((array) $rd['_qa']['checks'] as $ck) {
+                    if (!empty($ck['done'])) { continue; }
+                    $ql .= '<li style="margin:0 0 4px;"><span style="color:#dc2626;font-weight:800;">&#10007;</span> ' . htmlspecialchars((string) $ck['requirement'])
+                        . (!empty($ck['evidence']) ? ' <span style="color:#7c8aa3;">&mdash; ' . htmlspecialchars((string) $ck['evidence']) . '</span>' : '') . '</li>';
+                }
+                if ($rd['_qa']['pass'] === null) {
+                    $ql .= '<li style="margin:0 0 4px;">QA could not run: ' . htmlspecialchars((string) $rd['_qa']['error']) . '</li>';
+                }
+                $li .= '<li style="margin:8px 0 0;list-style:none;margin-left:-18px;"><b style="color:#dc2626;">QA check NOT passed</b>'
+                    . ' <span style="color:#7c8aa3;">(sent anyway because no newsletter is scheduled &mdash; approve as-is or request changes)</span>'
                     . ':<ul style="margin:6px 0 0;padding-left:18px;list-style:none;">' . $ql . '</ul></li>';
             }
             if ($li !== '') {
