@@ -340,7 +340,7 @@ class MMD_Blog_Model_Cron_Autoblog
                 } else {
                     $mail = new Zend_Mail('utf-8');
                     $mail->setBodyHtml($html)
-                         ->setFrom(Mage::getStoreConfig('trans_email/ident_general/email'), 'Tertiary Marketing')
+                         ->setFrom($guard->reviewFrom(), 'Tertiary Marketing')
                          ->addTo($email)
                          ->setSubject($subject);
                     $transport ? $mail->send($transport) : $mail->send();
@@ -859,7 +859,9 @@ class MMD_Blog_Model_Cron_Autoblog
         if (!$id) {
             return null;
         }
-        $product->setStoreId(Mage::app()->getStore()->getId())->load($id);
+        // Cron runs in the admin store: a partner's live name + URL are store-level.
+        $storeId = $this->_country() === 'SG' ? Mage::app()->getStore()->getId() : Mage::app()->getDefaultStoreView()->getId();
+        $product->setStoreId($storeId)->load($id);
         if (!$product->getId()
             || $product->getStatus() != Mage_Catalog_Model_Product_Status::STATUS_ENABLED
             || $product->getVisibility() == Mage_Catalog_Model_Product_Visibility::VISIBILITY_NOT_VISIBLE

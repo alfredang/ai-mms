@@ -1003,7 +1003,7 @@ class MMD_Marketing_Model_Cron_Flyer
                     } else {
                         $mail = new Zend_Mail('utf-8');
                         $mail->setBodyHtml($html)
-                             ->setFrom(Mage::getStoreConfig('trans_email/ident_general/email'), 'Tertiary Marketing')
+                             ->setFrom($g->reviewFrom(), 'Tertiary Marketing')
                              ->addTo($email)
                              ->setSubject($subject);
                         $transport ? $mail->send($transport) : $mail->send();

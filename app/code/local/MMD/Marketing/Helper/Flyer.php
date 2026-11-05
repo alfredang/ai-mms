@@ -28,7 +28,9 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         $productId = (int) $productId;
         $res  = Mage::getResourceModel('catalog/product');
         $raw  = function ($attr) use ($res, $productId) {
-            return (string) $res->getAttributeRawValue($productId, $attr, 0);
+            // The live store view's value, not the global default: a site's real
+            // fee and URL are store-level (MY: 328 of 495 prices differ from store 0).
+            return (string) $res->getAttributeRawValue($productId, $attr, Mage::app()->getDefaultStoreView()->getId());
         };
         $sku = (string) Mage::getSingleton('core/resource')->getConnection('core_read')
             ->fetchOne('SELECT sku FROM ' . Mage::getSingleton('core/resource')->getTableName('catalog/product')
@@ -675,7 +677,9 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         $productId = (int) $productId;
         $res = Mage::getResourceModel('catalog/product');
         $raw = function ($attr) use ($res, $productId) {
-            return (string) $res->getAttributeRawValue($productId, $attr, 0);
+            // The live store view's value, not the global default: a site's real
+            // fee and URL are store-level (MY: 328 of 495 prices differ from store 0).
+            return (string) $res->getAttributeRawValue($productId, $attr, Mage::app()->getDefaultStoreView()->getId());
         };
         $sku = trim((string) Mage::getSingleton('core/resource')->getConnection('core_read')
             ->fetchOne('SELECT sku FROM ' . Mage::getSingleton('core/resource')->getTableName('catalog/product')

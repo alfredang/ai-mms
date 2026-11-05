@@ -91,6 +91,17 @@ class MMD_Marketing_Helper_Blastguard extends Mage_Core_Helper_Abstract
     }
 
     /**
+     * From address for review emails on the SMTP path: per-site config
+     * mmd_marketing/newsletter/review_from, else the store's general identity.
+     * (The Gmail OAuth path always sends as its own mailbox, mmd_email/google/user.)
+     */
+    public function reviewFrom()
+    {
+        return trim((string) Mage::getStoreConfig('mmd_marketing/newsletter/review_from'))
+            ?: Mage::getStoreConfig('trans_email/ident_general/email');
+    }
+
+    /**
      * Blast hour on the pipeline's SGT clock. Default 08:00; a site in another
      * timezone sets mmd_marketing/newsletter/send_hour so the blast lands at
      * 08:00 for its readers (Ghana: 16 = 08:00 GMT).
