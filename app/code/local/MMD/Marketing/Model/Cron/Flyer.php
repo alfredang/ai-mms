@@ -1092,6 +1092,17 @@ class MMD_Marketing_Model_Cron_Flyer
             return array(false, 'This flyer changed while approving. Refresh and review the latest version.');
         }
 
+        // The website's fee is the truth: a price changed after this flyer was
+        // rendered must not blast stale, so re-render when the fee no longer matches.
+        $pid   = (int) trim(strtok((string) $row['course_pids'], ','));
+        $rdec  = json_decode((string) $row['review_decisions'], true);
+        $fresh = $this->_flyer()->render($pid, !empty($rdec['_brief']['run_date']) ? $rdec['_brief']['run_date'] : null);
+        if ($fresh !== '' && $this->_flyerFee($fresh) !== $this->_flyerFee((string) $row['body_html'])) {
+            $this->_log('scheduleApproved: #' . $newsletterId . ' fee updated to ' . $this->_flyerFee($fresh) . ' before blasting');
+            $row['body_html'] = $fresh;
+            $this->_write()->update($this->_tbl(), array('body_html' => $fresh), array('newsletter_id = ?' => $newsletterId));
+        }
+
         // Create + schedule the MailerLite campaign for the chosen Mon/Thu 08:00 slot.
         try {
             $mlId = Mage::helper('mmd_marketing/mailerlite')
@@ -1147,6 +1158,12 @@ class MMD_Marketing_Model_Cron_Flyer
         } catch (Exception $e) { $this->_log('scheduleApproved: autoStartNext error: ' . $e->getMessage()); }
 
         return array(true, 'Scheduled for ' . $g->formatForSite($slot, 'l, j M Y \a\t g:ia'));
+    }
+
+    /** The "Full Fee" figure printed on a rendered flyer. */
+    protected function _flyerFee($html)
+    {
+        return preg_match('/Full Fee<\/div><div[^>]*>(.*?)<\/div>/s', (string) $html, $m) ? strip_tags($m[1]) : '';
     }
 
     /**

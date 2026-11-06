@@ -12391,6 +12391,7 @@ $_apiKeys = array(
     'kael'     => array('label' => 'Reviews (Kael)',      'style' => 'header', 'header' => 'X-Api-Key', 'config' => 'mmd_company/api/kael_review_key',   'mask' => $_apiKeyMask('mmd_company/api/kael_review_key', 'KAEL_REVIEW_API_KEY')),
     'wsq'      => array('label' => 'Course/Trainer Bot',  'style' => 'header', 'header' => 'X-API-Key', 'config' => 'courses/general/wsq_schedule_api_key', 'mask' => $_apiKeyMask('courses/general/wsq_schedule_api_key'), 'rotate' => 'System → Configuration → MMD → Provider Manager → WSQ Schedule API Key'),
     'trainer'  => array('label' => 'Trainer Reminders (alt)', 'style' => 'header', 'header' => 'X-API-Key', 'config' => 'courses/general/trainer_reminders_api_key', 'mask' => $_apiKeyMask('courses/general/trainer_reminders_api_key'), 'rotate' => 'Separate key from the bot key above, for audit / rotation independence — either is accepted.'),
+    'airelay'  => array('label' => 'OpenAI Relay (MY/GH)', 'style' => 'header', 'header' => 'X-API-Key', 'config' => 'mmd_ai/relay/api_keys', 'mask' => $_apiKeyMask('mmd_ai/relay/api_keys')),
     'sync'     => array('label' => 'Course/Class Sync',   'style' => 'header', 'header' => 'X-API-Key', 'config' => 'mmd/course_sync/api_key', 'mask' => $_apiKeyMask('mmd/course_sync/api_key')),
     'reindex'  => array('label' => 'Reindex',             'style' => 'query',  'param'  => 'token',     'config' => 'mmd_reindex/api/token',   'mask' => $_apiKeyMask('mmd_reindex/api/token')),
 );
@@ -12602,6 +12603,20 @@ $_apiCategories = array(
                 'notes' => array('Class status: upcoming (no trainer yet), confirmed (trainer assigned), completed (end date passed). The SG side bills GH per billable learner (present, else enrolled) on confirmed classes whose start date has passed. Read-only, never mutates.'),
                 'exampleRequest' => "curl -H \"X-API-Key: <key>\" \\\n  \"__BASE_URL__/courses/api_franchise_stats?dataset=classes&since=2026-01-01\"",
                 'exampleResponse' => "{\n  \"success\": true, \"dataset\": \"classes\", \"total\": 42, \"total_pages\": 1,\n  \"rows\": [{\n    \"class_code\": \"C000017\", \"course_code\": \"C042\", \"course_title\": \"...\",\n    \"start_date\": \"2026-07-01\", \"end_date\": \"2026-07-02\", \"trainer_name\": \"...\",\n    \"status\": \"completed\", \"enrolled\": 8, \"attended\": 7, \"certs_issued\": 7\n  }]\n}",
+            ),
+            array(
+                'method' => 'POST', 'path' => '/courses/api_ai_generate', 'authKey' => 'airelay',
+                'title' => 'OpenAI Generation Relay',
+                'description' => 'SG-only. MY and GH generate blog posts and flyer copy through SG\'s one OpenAI OAuth login, so that login is never copied onto a partner server. Returns 503 on any site without mmd_ai/relay/api_keys.',
+                'bodyFields' => array(
+                    array('name' => 'prompt', 'type' => 'string', 'required' => true, 'description' => 'The generation prompt'),
+                    array('name' => 'system', 'type' => 'string', 'required' => false, 'description' => 'System instructions'),
+                    array('name' => 'web_search', 'type' => 'bool', 'required' => false, 'description' => 'Allow live web search (blog research agent)'),
+                    array('name' => 'images', 'type' => 'array', 'required' => false, 'description' => 'Reference images as {data: base64}; PNG/JPEG/WebP under 5 MB, max 8'),
+                ),
+                'notes' => array('Keys are comma-separated, one per partner; each partner stores its own as mmd_ai/openai/relay_key with mmd_ai/openai/relay_url. Up to about 2 minutes per call. 502 = OpenAI login or generation failed.'),
+                'exampleRequest' => "curl -X POST -H \"X-API-Key: <key>\" -H \"Content-Type: application/json\" \\\n  -d '{\"prompt\":\"Reply with OK\"}' \\\n  \"__BASE_URL__/courses/api_ai_generate\"",
+                'exampleResponse' => "{\n  \"success\": true,\n  \"text\": \"OK\"\n}",
             ),
             array(
                 'method' => 'GET', 'path' => '/courses/api_sync_export', 'authKey' => 'sync',

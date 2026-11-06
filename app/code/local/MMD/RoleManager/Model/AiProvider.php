@@ -8,6 +8,9 @@ class MMD_RoleManager_Model_AiProvider
     const CLAUDE_MODEL = 'claude-opus-5';
     const CLAUDE_AUTH_PATH = 'mmd_ai/claude/oauth_encrypted';
     const FALLBACK_PATH = 'mmd_ai/openai/fallback_claude';
+    // Partner sites generate through SG's OpenAI login (POST /courses/api_ai_generate).
+    const RELAY_URL_PATH = 'mmd_ai/openai/relay_url';
+    const RELAY_KEY_PATH = 'mmd_ai/openai/relay_key';
 
     protected function readValue($path)
     {
@@ -25,7 +28,7 @@ class MMD_RoleManager_Model_AiProvider
 
     public function hasOpenAiAuth()
     {
-        return $this->readValue(self::AUTH_PATH) !== '';
+        return $this->readValue(self::AUTH_PATH) !== '' || $this->readValue(self::RELAY_URL_PATH) !== '';
     }
 
     public function hasClaudeAuth()
@@ -134,6 +137,12 @@ class MMD_RoleManager_Model_AiProvider
         }
     }
 
+    /** OpenAI regardless of the site's selected provider, with no Claude failover (blog pipeline). */
+    public function invokeOpenAiOnly($prompt, $system = '', $webSearch = false, array $images = array())
+    {
+        return $this->invokeOpenAi($prompt, $system, $images, $webSearch);
+    }
+
     protected function invokeClaude($prompt, $system, array $images, $webSearch)
     {
         $token = Mage::helper('core')->decrypt($this->readValue(self::CLAUDE_AUTH_PATH));
@@ -142,6 +151,10 @@ class MMD_RoleManager_Model_AiProvider
 
     protected function invokeOpenAi($prompt, $system, array $images, $webSearch)
     {
+        $relay = $this->readValue(self::RELAY_URL_PATH);
+        if ($relay !== '') {
+            return $this->invokeRelay($relay, $prompt, $system, $images, $webSearch);
+        }
         $saved = $this->readValue(self::AUTH_PATH);
         if ($saved === '') {
             throw new DomainException('OpenAI OAuth is not connected. Ask an administrator to connect it in Credentials.');
@@ -156,6 +169,28 @@ class MMD_RoleManager_Model_AiProvider
                 array('value' => Mage::helper('core')->encrypt($auth)),
                 array('scope = ?' => 'default', 'scope_id = ?' => 0, 'path = ?' => self::AUTH_PATH, 'value = ?' => $saved));
         }
+    }
+
+    protected function invokeRelay($url, $prompt, $system, array $images, $webSearch)
+    {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, array(
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => json_encode(array('prompt' => $prompt, 'system' => $system, 'web_search' => (bool) $webSearch, 'images' => $images)),
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 150, // SG's client gives up at 118 s
+            CURLOPT_CONNECTTIMEOUT => 15,
+            CURLOPT_USERAGENT      => 'mmd-ai-relay/1.0',
+            CURLOPT_HTTPHEADER     => array('Content-Type: application/json', 'X-API-Key: ' . $this->readValue(self::RELAY_KEY_PATH)),
+        ));
+        $raw  = curl_exec($ch);
+        $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        $rsp = is_string($raw) ? json_decode($raw, true) : null;
+        if ($code !== 200 || empty($rsp['success']) || trim((string) ($rsp['text'] ?? '')) === '') {
+            throw new DomainException('OpenAI relay failed (HTTP ' . $code . '): ' . (is_array($rsp) && !empty($rsp['error']) ? $rsp['error'] : 'no response'));
+        }
+        return (string) $rsp['text'];
     }
 
     protected function runClient($prompt, $system, array $images, $webSearch, &$auth)

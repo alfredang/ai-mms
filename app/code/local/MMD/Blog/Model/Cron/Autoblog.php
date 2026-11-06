@@ -10,12 +10,12 @@
  *        the queue is empty does the auto-pick run: best-selling course
  *        (last 180 days) with no post yet (tracked via source_sku). On the
  *        SG site only WSQ (TGS-) courses qualify for the auto-pick.
- *     2. RESEARCH AGENT — Claude + web search scouts the latest developments
+ *     2. RESEARCH AGENT — OpenAI + web search scouts the latest developments
  *        (AI agents, agentic AI, n8n, new models, AI security, ... — pool in
  *        mmd_blog/autoblog/topics) relevant to the course and returns a
  *        topic/angle/key-points/sources brief. Skipped silently when web
  *        search is unavailable.
- *     3. WRITER AGENT — Claude turns the brief into an in-depth (1200-1800
+ *     3. WRITER AGENT — OpenAI turns the brief into an in-depth (1200-1800
  *        word), up-to-date SEO lead-magnet post as strict JSON, plus a
  *        branded hero image (CourseImage GD cover -> R2).
  *     4. Review flow (SG, auto_publish=0): save as PENDING REVIEW and email
@@ -33,7 +33,7 @@
  * run('manual') (bypasses the weekly pacing guards), and any post an admin
  * flips to Published by hand is shared through the same shareEverywhere().
  *
- * Every step degrades gracefully: disabled -> skip, no Claude credentials ->
+ * Every step degrades gracefully: disabled -> skip, no OpenAI login ->
  * skip, social share failure -> post still publishes, errors -> mmd_blog.log.
  */
 class MMD_Blog_Model_Cron_Autoblog
@@ -91,9 +91,9 @@ class MMD_Blog_Model_Cron_Autoblog
             }
 
             // Agent 2 — the writer.
-            $raw = $this->_invokeClaude($this->_writerSystemPrompt(), $this->_writerInput($course, $research), 10000);
+            $raw = $this->_generate($this->_writerSystemPrompt(), $this->_writerInput($course, $research));
             if ($raw === '') {
-                return $this->_log('skipped: Claude returned nothing (no API key / CLI available?)');
+                return $this->_log('skipped: OpenAI returned nothing');
             }
             $draft = $this->_parseJson($raw);
 
@@ -403,7 +403,7 @@ class MMD_Blog_Model_Cron_Autoblog
     }
 
     /**
-     * Manager requested changes: rewrite the article with Claude using their
+     * Manager requested changes: rewrite the article with OpenAI using their
      * feedback, then re-send for approval. Runs synchronously from the decide
      * endpoint (like the newsletter's regenerateOnChanges) — the caller sets a
      * generous time limit. Returns true when a revised version was re-sent.
@@ -428,9 +428,9 @@ class MMD_Blog_Model_Cron_Autoblog
             . "funding/SkillsFuture hooks, FAQ, 'What to do next' CTA) and keep it strongly SEO-optimised. "
             . "Respond with the SAME single JSON object shape as before.";
 
-        $raw = $this->_invokeClaude($this->_writerSystemPrompt(), $input, 8000);
+        $raw = $this->_generate($this->_writerSystemPrompt(), $input);
         if ($raw === '') {
-            $this->_log('regenerateOnChanges: Claude returned nothing for post #' . $postId);
+            $this->_log('regenerateOnChanges: OpenAI returned nothing for post #' . $postId);
             return false;
         }
         $draft  = $this->_parseJson($raw);
@@ -480,7 +480,7 @@ class MMD_Blog_Model_Cron_Autoblog
         $post = Mage::getModel('mmd_blog/post')->load((int) $id);
 
         if ((int) $post->getStatus() === MMD_Blog_Model_Post::STATUS_CHANGES_REQUESTED) {
-            // The synchronous rewrite at decide-time failed (Claude hiccup) —
+            // The synchronous rewrite at decide-time failed (OpenAI hiccup) —
             // retry once per cron run until it re-enters review.
             $this->regenerateOnChanges($post->getId());
             return true;
@@ -883,7 +883,7 @@ class MMD_Blog_Model_Cron_Autoblog
     // ---------------------------------------------------------------- research agent
 
     /**
-     * Agent 1 — topic scout. Uses Claude's server-side web search to find the
+     * Agent 1 — topic scout. Uses OpenAI with live web search to find the
      * freshest developments (default focus pool in mmd_blog/autoblog/topics)
      * relevant to the course, avoiding angles already covered by recent posts.
      * Returns null when web search / the API key is unavailable or the reply
@@ -929,7 +929,7 @@ class MMD_Blog_Model_Cron_Autoblog
                 . "Search the web for the newest releases, benchmarks, incidents, or industry moves tied to the course topic"
                 . ($adminTopics !== '' ? ' — staying within the admin-specified topics above' : '') . '.';
 
-            $raw = $this->_invokeClaude($system, $input, 3000, true);
+            $raw = $this->_generate($system, $input, true);
             if ($raw === '') {
                 return null;
             }
@@ -983,7 +983,7 @@ class MMD_Blog_Model_Cron_Autoblog
         }
     }
 
-    // ---------------------------------------------------------------- claude
+    // ---------------------------------------------------------------- generation
 
     private function _writerSystemPrompt()
     {
@@ -1094,117 +1094,13 @@ class MMD_Blog_Model_Cron_Autoblog
     }
 
     /**
-     * Same 3-tier strategy as MMD_RoleManager_Model_AiSeo::invokeClaude, with a
-     * custom system prompt + larger max_tokens (a full article doesn't fit the
-     * SEO helper's 2000-token cap): API key -> claude CLI -> ''.
-     *
-     * $webSearch=true enables Claude's server-side web_search tool (research
-     * agent). Only the API-key path supports it; a search response interleaves
-     * tool-use blocks with text blocks, so all text blocks are concatenated.
+     * Blog generation is OpenAI on every site (admin 2026-11-06): SG's OAuth login,
+     * MY/GH through its relay. Never Claude, whatever the site's selected provider.
+     * Throws DomainException when generation fails. $webSearch = research agent.
      */
-    private function _invokeClaude($system, $prompt, $maxTokens, $webSearch = false)
+    private function _generate($system, $prompt, $webSearch = false)
     {
-        $provider = Mage::getModel('mmd_rolemanager/aiProvider');
-        if ($provider->usesManagedClient()) return $provider->invoke($prompt, $system, array(), $webSearch);
-        $cfg    = Mage::helper('mmd_rolemanager')->getMarketingApiConfig();
-        $apiKey = trim((string) ($cfg['anthropic_key'] ?? ''));
-        $model  = trim((string) ($cfg['anthropic_model'] ?? '')) ?: 'claude-sonnet-4-6';
-
-        if (stripos($apiKey, 'sk-ant-api') === 0) {
-            try {
-                $payload = array(
-                    'model'      => $model,
-                    'max_tokens' => (int) $maxTokens,
-                    'system'     => $system,
-                    'messages'   => array(array('role' => 'user', 'content' => $prompt)),
-                );
-                if ($webSearch) {
-                    $payload['tools'] = array(array(
-                        'type'     => 'web_search_20250305',
-                        'name'     => 'web_search',
-                        'max_uses' => 5,
-                    ));
-                }
-                $body = json_encode($payload);
-                $ch = curl_init('https://api.anthropic.com/v1/messages');
-                curl_setopt_array($ch, array(
-                    CURLOPT_POST           => true,
-                    CURLOPT_POSTFIELDS     => $body,
-                    CURLOPT_RETURNTRANSFER => true,
-                    CURLOPT_TIMEOUT        => $webSearch ? 280 : 180,
-                    CURLOPT_CONNECTTIMEOUT => 10,
-                    CURLOPT_HTTPHEADER     => array(
-                        'anthropic-version: 2023-06-01',
-                        'content-type: application/json',
-                        'x-api-key: ' . $apiKey,
-                    ),
-                ));
-                $raw  = curl_exec($ch);
-                $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-                curl_close($ch);
-                $rsp = json_decode($raw, true);
-                if ($code < 400 && isset($rsp['content']) && is_array($rsp['content'])) {
-                    $text = '';
-                    foreach ($rsp['content'] as $block) {
-                        if (isset($block['type'], $block['text']) && $block['type'] === 'text') {
-                            $text .= $block['text'];
-                        }
-                    }
-                    if (trim($text) !== '') {
-                        return $text;
-                    }
-                }
-                if ($webSearch) {
-                    // The org may not have web search enabled — report and let
-                    // the caller degrade to evergreen content (no CLI retry:
-                    // the CLI path can't search either).
-                    $this->_log('web-search call failed (HTTP ' . $code . '): ' . substr((string) $raw, 0, 200));
-                    return '';
-                }
-            } catch (Exception $e) { /* fall through to CLI */ }
-        } elseif ($webSearch) {
-            return '';
-        }
-
-        // claude CLI fallback (same environment dance as AiSeo::invokeClaude).
-        $descriptors = array(0 => array('pipe', 'r'), 1 => array('pipe', 'w'), 2 => array('pipe', 'w'));
-        $env = array();
-        foreach ($_ENV as $k => $v) if ($k !== 'CLAUDECODE') $env[$k] = $v;
-        foreach (array('PATH', 'HOME') as $k) {
-            if (!isset($env[$k]) && getenv($k) !== false) $env[$k] = getenv($k);
-        }
-        if (is_dir('/var/www/.claude'))                          $env['HOME'] = '/var/www';
-        elseif (is_dir('/root/.claude') && is_readable('/root')) $env['HOME'] = '/root';
-        // Subscription OAuth tokens (sk-ant-oat*) skip the direct API path
-        // above but DO authenticate the CLI headlessly — without this export
-        // the CLI answers "Not logged in · Please run /login" and the run dies.
-        if (stripos($apiKey, 'sk-ant-oat') === 0) {
-            $env['CLAUDE_CODE_OAUTH_TOKEN'] = $apiKey;
-        }
-        $env['DISABLE_AUTOUPDATER'] = '1';
-
-        $proc = @proc_open('timeout 280 claude -p --output-format text', $descriptors, $pipes, null, $env);
-        if (!is_resource($proc)) return '';
-        fwrite($pipes[0], $system . "\n\n" . $prompt);
-        fclose($pipes[0]);
-        stream_set_blocking($pipes[1], false);
-        stream_set_blocking($pipes[2], false);
-        $deadline = time() + 285;
-        $out = '';
-        while (time() < $deadline) {
-            $status = proc_get_status($proc);
-            $out .= stream_get_contents($pipes[1]);
-            stream_get_contents($pipes[2]);
-            if (!$status['running']) break;
-            usleep(200000);
-        }
-        $status = proc_get_status($proc);
-        if ($status['running']) { proc_terminate($proc, 9); }
-        $out .= stream_get_contents($pipes[1]);
-        fclose($pipes[1]);
-        fclose($pipes[2]);
-        proc_close($proc);
-        return trim($out);
+        return Mage::getModel('mmd_rolemanager/aiProvider')->invokeOpenAiOnly($prompt, $system, $webSearch);
     }
 
     /** @return array with title/slug/excerpt/contentHtml/seoTitle/seoDescription/seoKeywords/tags */
@@ -1216,7 +1112,7 @@ class MMD_Blog_Model_Cron_Autoblog
             $start = strpos($cleaned, '{');
             $end   = strrpos($cleaned, '}');
             if ($start === false || $end === false || $end <= $start) {
-                Mage::throwException('Autoblog: no JSON object in Claude output (head: ' . substr($cleaned, 0, 120) . ')');
+                Mage::throwException('Autoblog: no JSON object in OpenAI output (head: ' . substr($cleaned, 0, 120) . ')');
             }
             $cleaned = substr($cleaned, $start, $end - $start + 1);
         }
@@ -1231,7 +1127,7 @@ class MMD_Blog_Model_Cron_Autoblog
             $data = json_decode($repaired, true);
         }
         if (!is_array($data) || empty($data['title']) || empty($data['contentHtml'])) {
-            Mage::throwException('Autoblog: invalid JSON from Claude (' . json_last_error_msg()
+            Mage::throwException('Autoblog: invalid JSON from OpenAI (' . json_last_error_msg()
                 . '; head: ' . substr($cleaned, 0, 120) . ' | tail: ' . substr($cleaned, -80) . ')');
         }
         return array(
