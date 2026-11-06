@@ -130,7 +130,7 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
             : array('#2563eb', '#eaf0fe', '#c7d7fe');
 
         // Days = duration / 8h, min 1. Drives the hero eyebrow + Day-labelled journey.
-        $durHrs = (int) preg_replace('/[^0-9]/', '', (string) $raw('duration'));
+        $durHrs = (float) preg_replace('/[^0-9.]/', '', (string) $raw('duration'));
         $days   = $durHrs > 0 ? max(1, (int) round($durHrs / 8)) : 1;
 
         return array(
@@ -700,7 +700,7 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         $desc   = (string) ($raw('short_description') ?: $raw('meta_description'));
         $desc   = trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($desc), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
         $topics = $this->parseTopics((string) $raw('description'));
-        $durHrs = (int) preg_replace('/[^0-9]/', '', (string) $raw('duration'));
+        $durHrs = (float) preg_replace('/[^0-9.]/', '', (string) $raw('duration'));
         $days   = $durHrs > 0 ? max(1, (int) round($durHrs / 8)) : 1;
 
         // What past blasts taught us — the WIN patterns become guidance for this copy.

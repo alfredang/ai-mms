@@ -248,11 +248,16 @@ class MMD_Courses_Api_FaqController extends Mage_Core_Controller_Front_Action
 
     private function _json($status, array $body)
     {
+        $json = json_encode($body, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        // A partner site's bots quote that site's own mailbox, never Singapore's.
+        if (Mage::helper('mmd_marketing/blastguard')->isPartnerSite()) {
+            $json = str_replace('enquiry@tertiaryinfotech.com', (string) Mage::getStoreConfig('trans_email/ident_general/email'), $json);
+        }
         $this->getResponse()
             ->setHttpResponseCode($status)
             ->setHeader('Content-Type', 'application/json; charset=utf-8', true)
             ->setHeader('Cache-Control', 'public, max-age=3600', true)
-            ->setBody(json_encode($body, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            ->setBody($json);
         return $this;
     }
 }
