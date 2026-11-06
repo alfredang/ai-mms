@@ -105,8 +105,8 @@ RUN (HOME=/opt/claude-home bash -c "curl -fsSL https://claude.ai/install.sh | ba
 # Auth is encrypted in the DB, not baked into the image or a home directory.
 RUN set -eu; \
     case "$(uname -m)" in \
-      x86_64) codex_target=x86_64-unknown-linux-musl; codex_sha=7368b2055ed02157fea2695bb9f5af3ee7b0e40c5a3bebc81dfc596704244cfd ;; \
-      aarch64) codex_target=aarch64-unknown-linux-musl; codex_sha=1cc3eb4c2fbab048c8afae0bebb1e54745f88d91e5249a448765d34a2a2ba9bb ;; \
+      x86_64) codex_target=x86_64-unknown-linux-musl; codex_sha=7368b2055ed02157fea2695bb9f5af3ee7b0e40c5a3bebc81dfc596704244cfd; host_sha=3600a45ac2b09fe3c995f4f49860131fea388b46c409c82a0266fc4d0342a04c ;; \
+      aarch64) codex_target=aarch64-unknown-linux-musl; codex_sha=1cc3eb4c2fbab048c8afae0bebb1e54745f88d91e5249a448765d34a2a2ba9bb; host_sha=abf4a9a308d2c42e6fbb04a77704ac509c82cea5aa079848365be3fb65474b22 ;; \
       *) exit 1 ;; \
     esac; \
     curl -fsSL --retry 3 "https://github.com/openai/codex/releases/download/rust-v0.149.0/codex-${codex_target}.tar.gz" -o /tmp/mmd-codex.tar.gz; \
@@ -114,7 +114,13 @@ RUN set -eu; \
     tar -xzf /tmp/mmd-codex.tar.gz -C /usr/local/bin; \
     mv "/usr/local/bin/codex-${codex_target}" /usr/local/bin/codex; \
     chmod 755 /usr/local/bin/codex; \
-    rm /tmp/mmd-codex.tar.gz
+    rm /tmp/mmd-codex.tar.gz; \
+    curl -fsSL --retry 3 "https://github.com/openai/codex/releases/download/rust-v0.149.0/codex-code-mode-host-${codex_target}.tar.gz" -o /tmp/mmd-host.tar.gz; \
+    echo "${host_sha}  /tmp/mmd-host.tar.gz" | sha256sum -c -; \
+    tar -xzf /tmp/mmd-host.tar.gz -C /usr/local/bin; \
+    mv "/usr/local/bin/codex-code-mode-host-${codex_target}" /usr/local/bin/codex-code-mode-host; \
+    chmod 755 /usr/local/bin/codex-code-mode-host; \
+    rm /tmp/mmd-host.tar.gz
 
 # Set working directory
 WORKDIR /var/www/html

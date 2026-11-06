@@ -5,7 +5,10 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 
 // PHP supplies a private working directory and an allowlisted environment.
 // Never inherit the web application's environment into either SDK subprocess.
-export function codexOptions(dir) {
+// gpt-5.6-sol reaches web search only through Code Mode, so it is on for research
+// runs alone; every other run keeps it off. Shell and the sandbox stay locked either way.
+export function codexOptions(dir, webSearch = false) {
+  const researchOnly = ['code_mode', 'code_mode_host'];
   return {
     codexPathOverride: fileURLToPath(new URL('./codex-client', import.meta.url)),
     env: { PATH: '/usr/local/bin:/usr/bin:/bin', CODEX_HOME: dir },
@@ -17,7 +20,7 @@ export function codexOptions(dir) {
         'plugins', 'hooks', 'memories', 'skill_search', 'image_generation',
         'view_image', 'browser_use', 'browser_use_external', 'computer_use',
         'code_mode', 'code_mode_host', 'tool_suggest',
-      ].map(name => [name, false])),
+      ].map(name => [name, webSearch && researchOnly.includes(name)])),
     },
   };
 }
@@ -49,7 +52,7 @@ export function claudeOptions(dir, token, webSearch) {
 export async function runBridge(provider, input, webSearch, emit) {
   const dir = process.cwd();
   if (provider === 'openai') {
-    const client = new Codex(codexOptions(dir));
+    const client = new Codex(codexOptions(dir, webSearch));
     const { events } = await client.startThread(threadOptions(dir, webSearch))
       .runStreamed(input, { signal: AbortSignal.timeout(105000) });
     for await (const event of events) {

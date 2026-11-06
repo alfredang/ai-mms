@@ -20,6 +20,8 @@ test('Codex SDK pins OAuth, model, sandbox, and disables non-research tools', ()
     skipGitRepoCheck: true, approvalPolicy: 'never', webSearchMode: 'disabled',
   });
   assert.equal(threadOptions('/private-session', true).webSearchMode, 'live');
+  const research = codexOptions('/private-session', true).config.features;
+  assert.deepEqual(Object.keys(research).filter(name => research[name]), ['code_mode', 'code_mode_host']);
   const launcher = readFileSync(new URL('./codex-client', import.meta.url), 'utf8');
   assert.match(launcher, /"\$command_name" --ignore-user-config --ignore-rules "\$@" --ephemeral/);
 });

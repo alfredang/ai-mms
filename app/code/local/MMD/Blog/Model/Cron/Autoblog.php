@@ -946,6 +946,12 @@ class MMD_Blog_Model_Cron_Autoblog
             if (!is_array($data) || empty($data['topic'])) {
                 return null;
             }
+            // No sources = the agent could not actually search, and its "topic" is
+            // only an apology; the writer must go evergreen instead of using it.
+            if (empty($data['sources'])) {
+                $this->_log('research agent found no sources (continuing without)');
+                return null;
+            }
             return array(
                 'topic'     => trim((string) $data['topic']),
                 'angle'     => trim((string) ($data['angle'] ?? '')),
