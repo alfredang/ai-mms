@@ -17,7 +17,7 @@ class MMD_FeedbackForm_Model_Cron_Digest
     /** Site => array(to, cc). */
     protected $_recipients = array(
         'SG' => array(array('tansc@tertiaryinfotech.com', 'angch@tertiaryinfotech.com'), array()),
-        'MY' => array(array('sales@tertiarycourses.com.my'), array('saeid@tertiarycourses.com.my')),
+        'MY' => array(array('sales@tertiarycourses.com.my'), array()),
         'GH' => array(array('siraj@tertiarycourses.com.gh'), array()),
     );
 

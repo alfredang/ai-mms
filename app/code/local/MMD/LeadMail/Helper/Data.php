@@ -37,6 +37,12 @@ class MMD_LeadMail_Helper_Data extends Mage_Core_Helper_Abstract
                 return false;
             }
 
+            // The forms' hardcoded extra recipients are SG staff: a partner mails only its own config.
+            if (Mage::helper('mmd_marketing/blastguard')->isPartnerSite()) {
+                $extraTo    = array();
+                $ccOverride = null;
+            }
+
             $toEmail = Mage::getStoreConfig('mmd_leadmail/notify/to_email');
             $toName  = Mage::getStoreConfig('mmd_leadmail/notify/to_name');
             $cc      = ($ccOverride !== null)

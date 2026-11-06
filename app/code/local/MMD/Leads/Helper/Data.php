@@ -191,12 +191,22 @@ class MMD_Leads_Helper_Data extends Mage_Core_Helper_Abstract
             $mail->getMail()->addCc($cc);
         }
 
+        // A partner signs with its own brand, mailbox and phone; empty keeps SG's signature.
+        $partnerSignature = '';
+        if (Mage::helper('mmd_marketing/blastguard')->isPartnerSite()) {
+            $supportEmail = $this->escapeHtml(Mage::getStoreConfig('trans_email/ident_support/email', $storeId));
+            $partnerSignature = 'Support from <strong>' . $this->escapeHtml($this->getStoreBrandName($storeId)) . '</strong><br/>'
+                . 'Email: <a href="mailto:' . $supportEmail . '" style="color:#2563eb;">' . $supportEmail . '</a>'
+                . ' | Tel: ' . $this->escapeHtml(Mage::getStoreConfig('general/store_information/phone', $storeId));
+        }
+
         $mail->sendTransactional(
             'mmd_leads_course_reply',
             $sender,
             $emailTo,
             $lead->getName(),
             array(
+                'partner_signature' => $partnerSignature,
                 'lead_name'       => $lead->getName(),
                 'subject_course'  => $subjectCourse,
                 'reply_body_html' => $replyHtml,
