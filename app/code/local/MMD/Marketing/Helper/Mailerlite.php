@@ -811,8 +811,12 @@ class MMD_Marketing_Helper_Mailerlite extends Mage_Core_Helper_Abstract
         $fromMail = $cfg['from_email'] ?: 'noreply@tertiaryinfotech.com';
         $doc      = $this->_wrapEmailHtml($subject, $html);
         $email    = array('subject' => $subject, 'from_name' => $fromName, 'from' => $fromMail, 'content' => $doc);
+        // Per-site reply-to. Unset = the MailerLite account default (enquiry@tertiaryinfotech.com),
+        // so a partner must set it. MailerLite 422s an unverified address: verify first.
+        $replyTo  = trim((string) Mage::getStoreConfig('mmd_marketing/api/reply_to'));
+        if ($replyTo !== '') { $email['reply_to'] = $replyTo; }
 
-        $create = $this->_send('POST', '/campaigns', array(
+        $create =$this->_send('POST', '/campaigns', array(
             'name'   => $subject,
             'type'   => 'regular',
             'groups' => array((string) $groupId),

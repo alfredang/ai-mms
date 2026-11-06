@@ -1416,9 +1416,9 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
                 : '')
         .   '<div style="font:700 11px ' . $sans . ';letter-spacing:1.6px;text-transform:uppercase;color:' . $eyebrow . ';margin-bottom:14px;">Hands-on Workshop &middot; ' . ((int) (isset($c['days']) ? $c['days'] : 1)) . ' Day' . (((int) (isset($c['days']) ? $c['days'] : 1)) > 1 ? 's' : '') . ($c['is_wsq'] ? ' &middot; Up to 70% Funded' : '') . '</div>'
         .   '<h1 class="fl-h1" style="margin:0;font:800 31px/1.12 ' . $sans . ';color:#ffffff;letter-spacing:-.6px;">' . $h($c['name']) . '</h1>'
-        .   ($hook ? '<div style="margin:16px 0 0;font:400 14.5px/1.55 ' . $sans . ';color:#b7c4e0;max-width:54ch;">' . $h($hook) . '</div>' : '')
+        .   ($hook ? '<div style="margin:16px 0 0;font:400 14.5px/1.55 ' . $sans . ';color:#b7c4e0;max-width:54ch;">' . htmlspecialchars($hook, ENT_QUOTES, 'UTF-8', false) . '</div>' : '') // no double-encode: a cut hook ends in &hellip;
         .   $offerHtml
-        .   '<a href="' . $h($c['url']) . '" style="display:inline-block;margin-top:16px;background:' . $accent . ';color:#fff;text-decoration:none;font:700 14px ' . $sans . ';padding:12px 22px;border-radius:10px;">Claim my funded seat &rarr;</a>'
+        .   '<a href="' . $h($c['url']) . '" style="display:inline-block;margin-top:16px;background:' . $accent . ';color:#fff;text-decoration:none;font:700 14px ' . $sans . ';padding:12px 22px;border-radius:10px;">' . ($partner && $cc !== 'MY' ? 'Reserve my seat' : 'Claim my funded seat') . ' &rarr;</a>'
         .   $heroProof
         .   '<div style="margin-top:18px;font:400 12.5px ' . $mono . ';letter-spacing:1px;color:#9fb3d8;background:' . $inkSoft . ';border:1px solid ' . $inkBr . ';display:inline-block;padding:6px 12px;border-radius:8px;">' . $h($c['sku']) . '</div>'
         . '</td></tr>'
