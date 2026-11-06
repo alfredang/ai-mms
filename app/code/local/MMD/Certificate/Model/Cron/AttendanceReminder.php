@@ -129,8 +129,9 @@ class MMD_Certificate_Model_Cron_AttendanceReminder
         $dates  = $h->formatDates($run['course_start_date'], $run['course_end_date']);
         $title  = $run['course_title'] . ' (' . trim($run['course_sku']) . ')';
         $esc    = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); };
-        // The trainer's E-Attendance page for this class (shows the login form first when logged out).
-        $link   = rtrim($h->companyInfo()['website'], '/') . '/lmslogin/attendance/index/run_id/' . (int) $run['run_id'] . '/bucket/completed';
+        // The trainer's E-Attendance page for this class (shows the login form first when logged out). Must be the
+        // admin frontName: the /lmslogin router only reaches MMD_RoleManager's own controllers, so attendance 404s there.
+        $link   = rtrim($h->companyInfo()['website'], '/') . '/adminlogin/attendance/index/run_id/' . (int) $run['run_id'] . '/bucket/completed';
         $state  = ($conf && $conf['status'] === 'reopened')
             ? 'Attendance was changed after it was confirmed, so it needs to be confirmed again.'
             : 'The final attendance has not been confirmed yet.';
