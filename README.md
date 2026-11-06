@@ -160,7 +160,7 @@ Provider checks: `docker exec ai-mms-web-1 php /var/www/html/scripts/local-dev/t
                                        │
                                        ▼
 ┌──────────────────────────────────────────────────────────────────────────┐
-│  ADMIN  (Training Management System · dark theme · six-role ACL)            │
+│  ADMIN  (Training Management System · dark theme · seven-role ACL)          │
 │  Classes · Rosters · Trainers · Attendance · Certificates · Pro Formas      │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
@@ -192,12 +192,12 @@ ai-mms/
 
 | Module | Purpose |
 |--------|---------|
-| **RoleManager** | Six-role admin system + class/roster management + class-id generation + role-aware class calendars (trainer/learner **My Calendar**, admin **Training Calendar**) + Google Calendar class-event sync (`Model/Cron/GoogleCalendarSync.php`). |
+| **RoleManager** | Seven-role admin system + class/roster management + class-id generation + role-aware class calendars (trainer/learner **My Calendar**, admin **Training Calendar**) + Google Calendar class-event sync (`Model/Cron/GoogleCalendarSync.php`). |
 | **Proforma** | On-demand Pro Forma Invoice PDF (self-sponsored SFC claims; WSQ funding breakdown). |
 | **CourseImage** | AI cover-image renderer + funding-badge tags (the same tags drive the storefront chips, the cover, the WSQ Funding card, and the Free AI Subscription perk card), plus the "Most Popular" course flag (`isPopularCourse`). Covers are pre-rendered PNGs on R2 with the badge chips baked in, so after a badge change re-render the affected courses with `scripts/maintenance/rerender-covers-for-badge.php --apply --badge=<name> [--sku=<SKU,SKU>]`. |
 | **EmailLogin** | Email-only admin login. |
 | **FlatCategoryUrl** | Flat category URLs (`/<url_key>.html`) across all stores. |
-| **CustomOptions** | Enhanced product options with SKU upgrade policies; class-schedule templates (Manage Class Schedule) plus a read-only **Schedule Distribution** report comparing active courses vs schedules per duration series, with rebalancing advice. |
+| **CustomOptions** | Enhanced product options with SKU upgrade policies; class-schedule templates (Manage Class Schedule) plus a read-only **Schedule Distribution** report comparing active courses vs schedules per duration series, with rebalancing advice. A template holds its option values (e.g. the Mode of Training label, "Virtual Class by LiVE Instructor" on SG) and each course keeps its own copy, so a rename changes both. |
 | **Enhancedsalesgrid** | Admin sales-grid filters & rendering. |
 | **BankPayment** | Bank-transfer payment method. |
 | **RS_Sfec** | "SFEC (Only for company sponsored)" checkout funding option (clone of RS_Citrep; enabled on SG by migration 1874). |
