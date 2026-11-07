@@ -189,69 +189,12 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
     }
 
     /**
-     * Real API keys use Messages API; subscription OAuth uses the installed
-     * Claude Code client via the shared invoker. Direct OAuth API calls fail
-     * with oauth_not_allowed_for_organization and strand requested revisions.
-     * Returns the model's text, or '' on any failure (caller falls back gracefully).
+     * Flyer copy and QA generate with OpenAI on every site (admin 2026-11-07), with no
+     * Claude failover. Throws DomainException on failure so a revision is held, not faked.
      */
-    protected function _callClaude($prompt)
+    protected function _generate($prompt)
     {
-        $provider = Mage::getModel('mmd_rolemanager/aiProvider');
-        if ($provider->usesManagedClient()) {
-            return $provider->invoke($prompt, 'You are a course-marketing copywriter. Output ONLY the exact JSON object requested, without markdown fences or commentary.');
-        }
-        $cfg   = Mage::helper('mmd_rolemanager')->getMarketingApiConfig();
-        $key   = trim((string) ($cfg['anthropic_key'] ?? ''));
-        $model = trim((string) ($cfg['anthropic_model'] ?? '')) ?: 'claude-opus-4-6';
-        if ($key === '') { return ''; }
-        if (stripos($key, 'sk-ant-oat') === 0) {
-            return $this->_invokeClaudeClient($prompt);
-        }
-
-        $headers = array('anthropic-version: 2023-06-01', 'content-type: application/json');
-        $system  = array();
-        $headers[] = 'x-api-key: ' . $key;
-        $system[] = array('type' => 'text', 'text' => 'You are a direct-response course-marketing copywriter for ' . $this->_brandName() . '. Output ONLY the exact JSON object requested — no markdown fences, no preamble, no commentary.');
-
-        $body = json_encode(array(
-            'model'      => $model,
-            'max_tokens' => 1500,
-            'system'     => $system,
-            'messages'   => array(array('role' => 'user', 'content' => $prompt)),
-        ));
-        try {
-            $ch = curl_init('https://api.anthropic.com/v1/messages');
-            curl_setopt_array($ch, array(
-                CURLOPT_POST => true, CURLOPT_POSTFIELDS => $body, CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_TIMEOUT => 60, CURLOPT_CONNECTTIMEOUT => 10, CURLOPT_HTTPHEADER => $headers,
-            ));
-            $raw  = curl_exec($ch);
-            $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
-            $j = json_decode((string) $raw, true);
-            if ($code < 400 && isset($j['content'][0]['text'])) {
-                return (string) $j['content'][0]['text'];
-            }
-            if ($code === 401 || $code === 403) {
-                throw new DomainException('Claude access is unavailable. Configure an authorised Anthropic API key in Marketing settings.');
-            }
-            Mage::log('flyer _callClaude HTTP ' . $code . ': ' . substr((string) $raw, 0, 300), null, 'newsletter.log');
-        } catch (DomainException $e) {
-            throw $e;
-        } catch (Exception $e) {
-            Mage::log('flyer _callClaude exception: ' . $e->getMessage(), null, 'newsletter.log');
-        }
-        return '';
-    }
-
-    protected function _invokeClaudeClient($prompt)
-    {
-        $text = (string) Mage::getModel('mmd_rolemanager/aiSeo')->invokeClaude($prompt);
-        if (stripos($text, 'disabled Claude subscription access') !== false
-            || preg_match('/API Error:\s*(401|403)\b/i', $text)) {
-            throw new DomainException('Claude subscription access is disabled or unauthorised. Configure an authorised Anthropic API key in Marketing settings.');
-        }
-        return $text;
+        return Mage::getModel('mmd_rolemanager/aiProvider')->invokeOpenAiOnly($prompt, 'You are a course-marketing copywriter. Output ONLY the exact JSON object requested, without markdown fences or commentary.');
     }
 
     /** Stored per-SKU design refinements (JSON keyed by SKU). Read straight from
@@ -507,7 +450,7 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
             . "DESIGN FACTS: {$facts}\n\nFLYER (subject line, preheader, then the visible text top to bottom):\n" . mb_substr($text, 0, 9000) . "\n\n"
             . "Return ONLY JSON: {\"checks\":[{\"requirement\":\"...\",\"source\":<instruction number>,\"done\":true|false,\"evidence\":\"...\"}]}";
         try {
-            $raw = $this->_callClaude($prompt);
+            $raw = $this->_generate($prompt);
         } catch (Exception $e) {
             $out['error'] = $e->getMessage();
             return $out;
@@ -787,7 +730,7 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
             $prompt .= "\n\nThe flyer has a SOCIAL PROOF block built from REAL data (never put ratings, counts or testimonials in your copy, never invent any). Its elements:\n- " . implode("\n- ", $el)
                 . "\nAlso return a key \"proof\": an object with EVERY element above as true/false, reflecting ALL the instructions above (a later change request overrides an earlier one; an element the instructions never mention stays true unless it is 'enrolled' or 'views'). If the instructions remove the block entirely, set all to false.";
         }
-        $out = $this->_callClaude($prompt);
+        $out = $this->_generate($prompt);
         if ($out === '') { return null; }
 
         // Strip any ```json fence, then take the outermost {...}.

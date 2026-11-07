@@ -884,8 +884,7 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
     protected function _callClaude(array $messages, $templateKey, $cc, array $pids, array $turnImages = array())
     {
         $provider = Mage::getModel('mmd_rolemanager/aiProvider');
-        $cfg = Mage::helper('mmd_rolemanager')->getMarketingApiConfig();
-        if (!$provider->usesManagedClient() && empty($cfg['anthropic_key'])) {
+        if (!$provider->hasOpenAiAuth()) {
             return array(
                 'text'    => $this->_stubClaudeResponse($messages, $templateKey, $cc, $pids, $turnImages),
                 'stubbed' => true,
@@ -948,217 +947,17 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
                 . "when in doubt; the admin can always say 'now write the "
                 . "newsletter' to switch back to drafting.";
 
-        // Convert internal history shape → Anthropic API shape. Each turn
-        // can carry images (initial brief or later attachments). When a
-        // turn has images, we send a content array with image blocks then
-        // the text block; otherwise plain string content.
-        $apiMessages = array();
-        foreach ($messages as $m) {
-            $imgs = isset($m['images']) && is_array($m['images']) ? $m['images'] : array();
-            if (!empty($imgs)) {
-                $blocks = array();
-                foreach ($imgs as $img) {
-                    if (empty($img['data']) || empty($img['media_type'])) continue;
-                    $blocks[] = array(
-                        'type'   => 'image',
-                        'source' => array(
-                            'type'       => 'base64',
-                            'media_type' => $img['media_type'],
-                            'data'       => $img['data'],
-                        ),
-                    );
-                }
-                $blocks[] = array('type' => 'text', 'text' => (string) $m['content']);
-                $apiMessages[] = array('role' => $m['role'], 'content' => $blocks);
-            } else {
-                $apiMessages[] = array('role' => $m['role'], 'content' => $m['content']);
+        // Flatten the history into one transcript; images attached to any turn go alongside it.
+        $transcript = ''; $images = array();
+        foreach ($messages as $message) {
+            $transcript .= "\n\n" . ($message['role'] === 'assistant' ? 'ASSISTANT' : 'USER') . ":\n" . (string) $message['content'];
+            foreach (($message['images'] ?? array()) as $img) {
+                $images[] = $img;
+                $transcript .= "\n[Reference image " . count($images) . " attached to this turn]";
             }
         }
-
-        if ($provider->usesManagedClient()) {
-            $transcript = ''; $images = array();
-            foreach ($messages as $message) {
-                $transcript .= "\n\n" . ($message['role'] === 'assistant' ? 'ASSISTANT' : 'USER') . ":\n" . (string) $message['content'];
-                foreach (($message['images'] ?? array()) as $img) {
-                    $images[] = $img;
-                    $transcript .= "\n[Reference image " . count($images) . " attached to this turn]";
-                }
-            }
-            return array('text' => $provider->invoke($transcript, $system, $images), 'stubbed' => false);
-        }
-
-        $apiKey = trim((string) $cfg['anthropic_key']);
-        $model  = trim((string) $cfg['anthropic_model']);
-        if ($model === '') $model = 'claude-opus-4-7';
-
-        // Route to whichever upstream the saved key belongs to. The user
-        // can paste either a native Anthropic API key or an OpenRouter
-        // key — the controller figures out which.
-        //   sk-ant-api*  → Anthropic Messages API direct.
-        //   sk-or-v*     → OpenRouter chat/completions (proxies Claude).
-        //   sk-ant-oat*  → Claude Code OAuth, can't reach /v1/messages.
-        //
-        // When the upstream call fails (rate limit, billing, network),
-        // fall through to the deterministic stub instead of erroring out.
-        // The stub already pulls real course data from the catalog, so
-        // the admin always gets a usable draft — they just lose the
-        // open-ended creativity Claude would add. UI surfaces this via
-        // `stubbed: true` so a "Demo mode (Claude unavailable: <reason>)"
-        // badge can be shown.
-        try {
-            if (stripos($apiKey, 'sk-or-') === 0) {
-                return $this->_callViaOpenRouter($apiKey, $model, $system, $apiMessages);
-            }
-            return $this->_callViaAnthropic($apiKey, $model, $system, $apiMessages);
-        } catch (Exception $e) {
-            $this->_writeLog('Claude upstream failed, falling back to stub: ' . $e->getMessage());
-            return array(
-                'text'         => $this->_stubClaudeResponse($messages, $templateKey, $cc, $pids, $turnImages),
-                'stubbed'      => true,
-                'stub_reason'  => $e->getMessage(),
-            );
-        }
-    }
-
-    /**
-     * Send a Messages-API request directly to Anthropic. Used when the
-     * saved key starts with `sk-ant-api...` (or for any non-OpenRouter
-     * key as a default).
-     */
-    protected function _callViaAnthropic($apiKey, $model, $system, array $apiMessages)
-    {
-        $body = json_encode(array(
-            'model'      => $model,
-            'max_tokens' => 2000,
-            'system'     => $system,
-            'messages'   => $apiMessages,
-        ));
-        $headers = array(
-            'anthropic-version: 2023-06-01',
-            'content-type: application/json',
-            'x-api-key: ' . $apiKey,
-        );
-        // Claude Code OAuth tokens — pivot to Bearer + claude-code beta.
-        if (stripos($apiKey, 'sk-ant-oat') === 0) {
-            $headers = array(
-                'anthropic-version: 2023-06-01',
-                'content-type: application/json',
-                'Authorization: Bearer ' . $apiKey,
-                'anthropic-beta: claude-code-20250219,oauth-2025-04-20',
-                'User-Agent: claude-cli/1.0.119 (external, cli)',
-            );
-        }
-
-        $ch = curl_init('https://api.anthropic.com/v1/messages');
-        curl_setopt_array($ch, array(
-            CURLOPT_POST           => true,
-            CURLOPT_POSTFIELDS     => $body,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT        => 120,
-            CURLOPT_CONNECTTIMEOUT => 15,
-            CURLOPT_HTTPHEADER     => $headers,
-        ));
-        $raw  = curl_exec($ch);
-        $err  = curl_error($ch);
-        $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-        if ($raw === false || $raw === '') {
-            throw new Exception('Anthropic call failed (cURL): ' . ($err ?: 'no response'));
-        }
-        $rsp = json_decode($raw, true);
-        if ($code >= 400) {
-            $apiErr = '';
-            if (isset($rsp['error']['message']))     $apiErr = (string) $rsp['error']['message'];
-            elseif (isset($rsp['message']))          $apiErr = (string) $rsp['message'];
-            elseif (isset($rsp['error']) && is_string($rsp['error'])) $apiErr = (string) $rsp['error'];
-            if ($apiErr === '' || $apiErr === 'Error') $apiErr = substr($raw, 0, 500);
-            throw new Exception('Anthropic API ' . $code . ': ' . $apiErr);
-        }
-        $text = '';
-        if (isset($rsp['content'][0]['text'])) $text = (string) $rsp['content'][0]['text'];
-        if ($text === '') throw new Exception('Empty Claude response: ' . substr($raw, 0, 200));
-        return array('text' => $text, 'stubbed' => false);
-    }
-
-    /**
-     * Send the same request via OpenRouter, which proxies Claude (and
-     * 100+ other models) through an OpenAI-compatible chat/completions
-     * endpoint. OpenRouter accepts `anthropic/claude-opus-4-7` style
-     * model slugs; if the saved model is the bare Anthropic id
-     * (`claude-opus-4-7`) we prefix it with `anthropic/` for them.
-     */
-    protected function _callViaOpenRouter($apiKey, $model, $system, array $apiMessages)
-    {
-        if (strpos($model, '/') === false && stripos($model, 'claude') === 0) {
-            $orModel = 'anthropic/' . $model;
-        } else {
-            $orModel = $model;
-        }
-
-        // OpenAI / OpenRouter format puts the system prompt as the first
-        // message with role:"system"; rest of the messages are the same
-        // user/assistant pairs Anthropic uses. Drop image blocks since
-        // OpenRouter's text-only chat/completions endpoint can't carry
-        // them — we still describe them in the text body via _callClaude.
-        $messages = array();
-        if ($system !== '') {
-            $messages[] = array('role' => 'system', 'content' => $system);
-        }
-        foreach ($apiMessages as $m) {
-            $content = $m['content'];
-            if (is_array($content)) {
-                $text = '';
-                foreach ($content as $block) {
-                    if (isset($block['type']) && $block['type'] === 'text' && isset($block['text'])) {
-                        $text .= $block['text'];
-                    }
-                }
-                $content = $text;
-            }
-            $messages[] = array('role' => $m['role'], 'content' => (string) $content);
-        }
-
-        $body = json_encode(array(
-            'model'      => $orModel,
-            'max_tokens' => 2000,
-            'messages'   => $messages,
-        ));
-        $headers = array(
-            'Authorization: Bearer ' . $apiKey,
-            'content-type: application/json',
-            'HTTP-Referer: https://ai-mms.tertiaryinfo.tech',
-            'X-Title: AI-MMS Newsletter Builder',
-        );
-
-        $ch = curl_init('https://openrouter.ai/api/v1/chat/completions');
-        curl_setopt_array($ch, array(
-            CURLOPT_POST           => true,
-            CURLOPT_POSTFIELDS     => $body,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT        => 120,
-            CURLOPT_CONNECTTIMEOUT => 15,
-            CURLOPT_HTTPHEADER     => $headers,
-        ));
-        $raw  = curl_exec($ch);
-        $err  = curl_error($ch);
-        $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-        if ($raw === false || $raw === '') {
-            throw new Exception('OpenRouter call failed (cURL): ' . ($err ?: 'no response'));
-        }
-        $rsp = json_decode($raw, true);
-        if ($code >= 400) {
-            $apiErr = isset($rsp['error']['message']) ? (string) $rsp['error']['message']
-                    : (isset($rsp['error']) && is_string($rsp['error']) ? (string) $rsp['error']
-                    : substr($raw, 0, 500));
-            throw new Exception('OpenRouter API ' . $code . ': ' . $apiErr);
-        }
-        $text = '';
-        if (isset($rsp['choices'][0]['message']['content'])) {
-            $text = (string) $rsp['choices'][0]['message']['content'];
-        }
-        if ($text === '') throw new Exception('Empty OpenRouter response: ' . substr($raw, 0, 200));
-        return array('text' => $text, 'stubbed' => false);
+        // Newsletter AI is OpenAI on every site (admin 2026-11-07), with no Claude failover.
+        return array('text' => $provider->invokeOpenAiOnly($transcript, $system, false, $images), 'stubbed' => false);
     }
 
     /**

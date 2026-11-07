@@ -42,7 +42,8 @@ class MMD_RoleManager_Model_AiSeo
             $tpl = str_replace('{' . $k . '}', $v, $tpl);
         }
 
-        $stdout      = $this->invokeClaude($tpl);
+        // AI SEO is OpenAI on every site (admin 2026-11-07), whatever the selected provider.
+        $stdout      = Mage::getModel('mmd_rolemanager/aiProvider')->invokeOpenAiOnly($tpl);
         $stubbed     = false;
         $stub_reason = null;
         if ($stdout === '' || $stdout === null) {

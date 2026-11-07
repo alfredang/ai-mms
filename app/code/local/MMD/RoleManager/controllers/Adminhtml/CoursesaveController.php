@@ -1841,150 +1841,15 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 $tpl = str_replace('{' . $k . '}', $v, $tpl);
             }
 
-            // Two-tier generation strategy:
-            //   1. If a real Anthropic API key (sk-ant-api*) is set,
-            //      call the Messages API directly (3–8s).
-            //   2. Otherwise (or if API fails) fall through to the
-            //      `claude` CLI which uses the host's mounted ~/.claude
-            //      auth — this works even when the OAuth token in
-            //      local.xml is rate-limited (different auth path).
-            //   3. Last resort: deterministic stub keyed off the course
-            //      data so the UI always gets *something* usable.
-            $cfg     = Mage::helper('mmd_rolemanager')->getMarketingApiConfig();
-            $apiKey  = trim((string) ($cfg['anthropic_key']   ?? ''));
-            $model   = trim((string) ($cfg['anthropic_model'] ?? '')) ?: 'claude-sonnet-4-6';
             $stdout  = '';
             $stubbed = false;
             $stubReason = '';
 
+            // OpenAI on every site (admin 2026-11-07), whatever the selected provider.
             $provider = Mage::getModel('mmd_rolemanager/aiProvider');
-            $useOpenAi = $provider->usesManagedClient();
-            if ($useOpenAi) {
-                $stdout = $provider->invoke($tpl, 'You are an SEO copywriter. The meta title brand suffix MUST be exactly "| Tertiary Courses ' . $country . '". Output the labeled sections requested.');
-            }
+            $stdout = $provider->invokeOpenAiOnly($tpl, 'You are an SEO copywriter. The meta title brand suffix MUST be exactly "| Tertiary Courses ' . $country . '". Output the labeled sections requested.');
 
-            // Tier 1 — direct API, only when a real `sk-ant-api*` key is
-            // configured. OAuth tokens (sk-ant-oat*) are skipped here
-            // because they hit aggressive rate limits and consistently
-            // 429; we go straight to the CLI instead.
-            if (!$useOpenAi && stripos($apiKey, 'sk-ant-api') === 0) {
-                try {
-                    $body = json_encode(array(
-                        'model'      => $model,
-                        'max_tokens' => 1500,
-                        'system'     => 'You are an SEO copywriter for Tertiary Courses, a training provider operating in ' . $country . '. The meta title brand suffix MUST be exactly "| Tertiary Courses ' . $country . '" — do not substitute any other country. Output exactly the labeled sections requested, no preamble.',
-                        'messages'   => array(array('role' => 'user', 'content' => $tpl)),
-                    ));
-                    $ch = curl_init('https://api.anthropic.com/v1/messages');
-                    curl_setopt_array($ch, array(
-                        CURLOPT_POST           => true,
-                        CURLOPT_POSTFIELDS     => $body,
-                        CURLOPT_RETURNTRANSFER => true,
-                        CURLOPT_TIMEOUT        => 30,
-                        CURLOPT_CONNECTTIMEOUT => 10,
-                        CURLOPT_HTTPHEADER     => array(
-                            'anthropic-version: 2023-06-01',
-                            'content-type: application/json',
-                            'x-api-key: ' . $apiKey,
-                        ),
-                    ));
-                    $raw  = curl_exec($ch);
-                    $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-                    curl_close($ch);
-                    $rsp = json_decode($raw, true);
-                    if ($code >= 400 || !isset($rsp['content'][0]['text'])) {
-                        $msg = $rsp['error']['message'] ?? substr($raw, 0, 150);
-                        throw new Exception('API HTTP ' . $code . ': ' . $msg);
-                    }
-                    $stdout = (string) $rsp['content'][0]['text'];
-                } catch (Exception $e) {
-                    $stubReason = $e->getMessage();
-                }
-            }
-
-            // Tier 2 — `claude` CLI. This uses the host's mounted
-            // ~/.claude OAuth which is a different auth path from the
-            // API key; bypasses the 429 the API path hits. We bound it
-            // with `timeout 75s` so a hung CLI can never lock up an
-            // Apache worker for minutes again.
-            if (!$useOpenAi && $stdout === '') {
-                $descriptors = array(
-                    0 => array('pipe', 'r'),
-                    1 => array('pipe', 'w'),
-                    2 => array('pipe', 'w'),
-                );
-                $env = array();
-                foreach ($_ENV as $k => $v) {
-                    if ($k !== 'CLAUDECODE') $env[$k] = $v;
-                }
-                foreach (array('PATH', 'HOME') as $k) {
-                    if (!isset($env[$k]) && getenv($k) !== false) {
-                        $env[$k] = getenv($k);
-                    }
-                }
-                // Apache runs as www-data with HOME=/var/www. The
-                // `claude` CLI reads credentials from $HOME/.claude.
-                // The host's ~/.claude is mounted at /root/.claude but
-                // /root is 0700 root-only so www-data can't reach it —
-                // result: CLI sits at the auth prompt until our
-                // timeout fires and we wrongly fall to the stub.
-                // Fix: read creds from /var/www/.claude (copied at
-                // container start, owned by www-data).
-                if (is_dir('/var/www/.claude')) {
-                    $env['HOME'] = '/var/www';
-                } elseif (is_dir('/root/.claude') && is_readable('/root')) {
-                    $env['HOME'] = '/root';
-                }
-                $proc = @proc_open(
-                    'timeout 100 claude -p --output-format text',
-                    $descriptors, $pipes, null, $env
-                );
-                if (is_resource($proc)) {
-                    fwrite($pipes[0], $tpl);
-                    fclose($pipes[0]);
-                    stream_set_blocking($pipes[1], false);
-                    stream_set_blocking($pipes[2], false);
-                    $deadline = time() + 105;
-                    $cliOut = ''; $cliErr = '';
-                    $finalExit = -1;
-                    // Important gotcha: once proc_get_status returns
-                    // running=false, PHP records the exit code and
-                    // proc_close() returns -1 (process already reaped).
-                    // So we MUST capture exitcode from proc_get_status
-                    // — not from proc_close — or the success path is
-                    // unreachable.
-                    while (time() < $deadline) {
-                        $status = proc_get_status($proc);
-                        $cliOut .= stream_get_contents($pipes[1]);
-                        $cliErr .= stream_get_contents($pipes[2]);
-                        if (!$status['running']) {
-                            $finalExit = $status['exitcode'];
-                            break;
-                        }
-                        usleep(200000);
-                    }
-                    // Force-kill if we fell out of the loop without it
-                    // exiting on its own.
-                    $status = proc_get_status($proc);
-                    if ($status['running']) {
-                        proc_terminate($proc, 9);
-                        $finalExit = 137; // 128 + SIGKILL
-                    }
-                    $cliOut .= stream_get_contents($pipes[1]);
-                    $cliErr .= stream_get_contents($pipes[2]);
-                    fclose($pipes[1]);
-                    fclose($pipes[2]);
-                    proc_close($proc);  // reaps the resource; return value ignored
-                    if ($finalExit === 0 && trim($cliOut) !== '') {
-                        $stdout = $cliOut;
-                        $stubReason = '';  // CLI succeeded — clear API-tier error
-                    } elseif ($stubReason === '') {
-                        $stubReason = 'CLI exit ' . $finalExit . ': ' . trim($cliErr);
-                    }
-                }
-            }
-
-            // Tier 3 — deterministic stub. Last resort.
+            // Deterministic stub. Last resort.
             if ($stdout === '') {
                 $stubbed = true;
                 if ($stubReason === '') $stubReason = 'no generator available';
@@ -3023,118 +2888,15 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             $tpl = str_replace('{' . $k . '}', $v, $tpl);
         }
 
-        $cfg     = Mage::helper('mmd_rolemanager')->getMarketingApiConfig();
-        $apiKey  = trim((string) ($cfg['anthropic_key']   ?? ''));
-        $model   = trim((string) ($cfg['anthropic_model'] ?? '')) ?: 'claude-sonnet-4-6';
         $stdout  = '';
         $stubbed = false;
         $stubReason = '';
 
+        // OpenAI on every site (admin 2026-11-07), whatever the selected provider.
         $provider = Mage::getModel('mmd_rolemanager/aiProvider');
-        $useOpenAi = $provider->usesManagedClient();
-        if ($useOpenAi) {
-            $stdout = $provider->invoke($tpl, 'You are a brochure copywriter. Output ONLY the JSON object requested, without markdown fences or commentary.');
-        }
+        $stdout = $provider->invokeOpenAiOnly($tpl, 'You are a brochure copywriter. Output ONLY the JSON object requested, without markdown fences or commentary.');
 
-        // Tier 1 — direct API (sk-ant-api* keys only).
-        if (!$useOpenAi && stripos($apiKey, 'sk-ant-api') === 0) {
-            try {
-                $body = json_encode(array(
-                    'model'      => $model,
-                    'max_tokens' => 1800,
-                    'system'     => 'You are a brochure copywriter. Output ONLY the JSON object requested — no preamble, no markdown fence.',
-                    'messages'   => array(array('role' => 'user', 'content' => $tpl)),
-                ));
-                $ch = curl_init('https://api.anthropic.com/v1/messages');
-                curl_setopt_array($ch, array(
-                    CURLOPT_POST           => true,
-                    CURLOPT_POSTFIELDS     => $body,
-                    CURLOPT_RETURNTRANSFER => true,
-                    CURLOPT_TIMEOUT        => 30,
-                    CURLOPT_CONNECTTIMEOUT => 10,
-                    CURLOPT_HTTPHEADER     => array(
-                        'anthropic-version: 2023-06-01',
-                        'content-type: application/json',
-                        'x-api-key: ' . $apiKey,
-                    ),
-                ));
-                $raw  = curl_exec($ch);
-                $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-                curl_close($ch);
-                $rsp = json_decode($raw, true);
-                if ($code >= 400 || !isset($rsp['content'][0]['text'])) {
-                    $msg = $rsp['error']['message'] ?? substr((string) $raw, 0, 150);
-                    throw new Exception('API HTTP ' . $code . ': ' . $msg);
-                }
-                $stdout = (string) $rsp['content'][0]['text'];
-            } catch (Exception $e) {
-                $stubReason = $e->getMessage();
-            }
-        }
-
-        // Tier 2 — `claude` CLI piped over stdin (host's ~/.claude OAuth).
-        if (!$useOpenAi && $stdout === '') {
-            $descriptors = array(
-                0 => array('pipe', 'r'),
-                1 => array('pipe', 'w'),
-                2 => array('pipe', 'w'),
-            );
-            $env = array();
-            foreach ($_ENV as $k => $v) {
-                if ($k !== 'CLAUDECODE') $env[$k] = $v;
-            }
-            foreach (array('PATH', 'HOME') as $k) {
-                if (!isset($env[$k]) && getenv($k) !== false) {
-                    $env[$k] = getenv($k);
-                }
-            }
-            if (is_dir('/var/www/.claude')) {
-                $env['HOME'] = '/var/www';
-            } elseif (is_dir('/root/.claude') && is_readable('/root')) {
-                $env['HOME'] = '/root';
-            }
-            $proc = @proc_open(
-                'timeout 100 claude -p --output-format text',
-                $descriptors, $pipes, null, $env
-            );
-            if (is_resource($proc)) {
-                fwrite($pipes[0], $tpl);
-                fclose($pipes[0]);
-                stream_set_blocking($pipes[1], false);
-                stream_set_blocking($pipes[2], false);
-                $deadline = time() + 105;
-                $cliOut = ''; $cliErr = '';
-                $finalExit = -1;
-                while (time() < $deadline) {
-                    $status = proc_get_status($proc);
-                    $cliOut .= stream_get_contents($pipes[1]);
-                    $cliErr .= stream_get_contents($pipes[2]);
-                    if (!$status['running']) {
-                        $finalExit = $status['exitcode'];
-                        break;
-                    }
-                    usleep(200000);
-                }
-                $status = proc_get_status($proc);
-                if ($status['running']) {
-                    proc_terminate($proc, 9);
-                    $finalExit = 137;
-                }
-                $cliOut .= stream_get_contents($pipes[1]);
-                $cliErr .= stream_get_contents($pipes[2]);
-                fclose($pipes[1]);
-                fclose($pipes[2]);
-                proc_close($proc);
-                if ($finalExit === 0 && trim($cliOut) !== '') {
-                    $stdout = $cliOut;
-                    $stubReason = '';
-                } elseif ($stubReason === '') {
-                    $stubReason = 'CLI exit ' . $finalExit . ': ' . trim($cliErr);
-                }
-            }
-        }
-
-        // Tier 3 — pass-through: ship the raw fields. Brochure still
+        // Pass-through: ship the raw fields. Brochure still
         // produces, just unpolished.
         if ($stdout === '') {
             $stubbed = true;
