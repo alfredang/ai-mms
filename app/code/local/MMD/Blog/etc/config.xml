@@ -82,6 +82,16 @@
                     </mmd_blog_sitemap>
                 </observers>
             </sitemap_urlset_generating_before>
+
+            <!-- Opt-in per site: sitemap/category/exclude_empty = 1. -->
+            <sitemap_categories_generating_before>
+                <observers>
+                    <mmd_blog_sitemap_empty_categories>
+                        <class>mmd_blog/observer_sitemap</class>
+                        <method>removeEmptyCategories</method>
+                    </mmd_blog_sitemap_empty_categories>
+                </observers>
+            </sitemap_categories_generating_before>
         </events>
     </global>
 

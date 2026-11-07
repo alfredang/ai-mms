@@ -6,7 +6,8 @@
  * pages, so /blog/<url_key> posts were never listed — live, indexable pages
  * invisible to Google. Hooks the core `sitemap_urlset_generating_before`
  * event (fired just before </urlset>) rather than rewriting the sitemap
- * model, so stock generation is untouched.
+ * model, so stock generation is untouched. Also filters empty course listings
+ * out of the category section via `sitemap_categories_generating_before`.
  */
 class MMD_Blog_Model_Observer_Sitemap
 {
@@ -50,5 +51,48 @@ class MMD_Blog_Model_Observer_Sitemap
                 . '</url>'
             );
         }
+    }
+
+    /**
+     * Drops course listing pages with no visible courses from the sitemap; the
+     * pages stay live. Off unless this site's DB sets
+     * sitemap/category/exclude_empty = 1. PAGE-mode categories render CMS
+     * content rather than a course list, so they are kept.
+     */
+    public function removeEmptyCategories(Varien_Event_Observer $observer)
+    {
+        $storeId = (int) $observer->getEvent()->getStoreId();
+        if (!Mage::getStoreConfigFlag('sitemap/category/exclude_empty', $storeId)) {
+            return;
+        }
+
+        $resource = Mage::getSingleton('core/resource');
+        $read     = $resource->getConnection('core_read');
+
+        $withCourses = $read->fetchCol(
+            $read->select()->distinct()
+                ->from($resource->getTableName('catalog/category_product_index'), array('category_id'))
+                ->where('store_id = ?', $storeId)
+                ->where('visibility IN (?)', Mage::getSingleton('catalog/product_visibility')->getVisibleInCatalogIds())
+        );
+        // No rows at all means the index is mid-rebuild, not that every page is empty.
+        if (!$withCourses) {
+            return;
+        }
+
+        $displayMode = Mage::getSingleton('eav/config')->getAttribute('catalog_category', 'display_mode');
+        $pageMode    = $read->fetchCol(
+            $read->select()
+                ->from($displayMode->getBackendTable(), array('entity_id'))
+                ->where('attribute_id = ?', $displayMode->getId())
+                ->where('store_id IN (?)', array(0, $storeId))
+                ->where('value = ?', Mage_Catalog_Model_Category::DM_PAGE)
+        );
+
+        $categories = $observer->getEvent()->getCollection();
+        $categories->setItems(array_intersect_key(
+            $categories->getItems(),
+            array_flip(array_merge($withCourses, $pageMode))
+        ));
     }
 }
