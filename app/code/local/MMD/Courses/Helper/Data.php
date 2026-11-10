@@ -209,4 +209,64 @@ class MMD_Courses_Helper_Data extends Mage_Core_Helper_Abstract
         );
         return array('likes' => $likes, 'liked' => $isNew);
     }
+
+    /** Last availability decision pushed by TMS, or null for legacy/unmanaged rows. */
+    public function getCourseAvailability($productOrId)
+    {
+        static $cache = array();
+        $productId = is_object($productOrId)
+            ? (int) $productOrId->getId()
+            : (int) $productOrId;
+        if ($productId <= 0) {
+            return null;
+        }
+        if (array_key_exists($productId, $cache)) {
+            return $cache[$productId];
+        }
+
+        try {
+            $resource = Mage::getSingleton('core/resource');
+            $row = $resource->getConnection('core_read')->fetchRow(
+                $resource->getConnection('core_read')->select()
+                    ->from($resource->getTableName('mmd_course_availability'))
+                    ->where('product_id = ?', $productId)
+                    ->limit(1)
+            );
+            $cache[$productId] = $row ?: null;
+        } catch (Exception $e) {
+            // Code can briefly deploy before its migration. Preserve the legacy
+            // behavior until the table exists rather than taking the catalogue down.
+            Mage::logException($e);
+            $cache[$productId] = null;
+        }
+        return $cache[$productId];
+    }
+
+    /** Unknown/unmanaged products keep their legacy behavior; synchronized TGS
+     * products open only when TMS says SSG support and a future run are active. */
+    public function isRegistrationOpen($productOrId)
+    {
+        $availability = $this->getCourseAvailability($productOrId);
+        return !$availability || $availability['availability_status'] === 'active';
+    }
+
+    public function getAvailabilityMessage($productOrId)
+    {
+        $availability = $this->getCourseAvailability($productOrId);
+        if (!$availability || $availability['availability_status'] === 'active') {
+            return '';
+        }
+        switch ($availability['availability_status']) {
+            case 'renewal_processing':
+                return 'This course renewal is being processed by SkillsFuture Singapore. Registration will reopen after approval and a new course run is published.';
+            case 'no_public_run':
+                return 'Registration is temporarily unavailable because no future SkillsFuture course run is published.';
+            case 'rejected':
+                return 'This funded course is currently unavailable because its renewal was not approved.';
+            case 'expired':
+                return 'This course funding period has expired. Registration is temporarily unavailable.';
+            default:
+                return 'This funded course is temporarily unavailable for registration.';
+        }
+    }
 }

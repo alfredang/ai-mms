@@ -97,6 +97,9 @@ class MMD_Courses_Helper_Catalogfeed extends Mage_Core_Helper_Abstract
                 if (!$this->skuInTrack($product->getSku(), $wsq)) {
                     continue;
                 }
+                if ($wsq && !Mage::helper('courses')->isRegistrationOpen($product)) {
+                    continue;
+                }
 
                 $rows[] = $full
                     ? $this->buildFullRow($product)

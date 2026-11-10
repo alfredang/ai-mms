@@ -72,6 +72,10 @@ class MMD_Courses_Api_CoursesController extends Mage_Core_Controller_Front_Actio
             return $this->_json(404, $this->_errEnvelope('course_unavailable',
                 'Course ' . $sku . ' is not currently available.'));
         }
+        if (!Mage::helper('courses')->isRegistrationOpen($product)) {
+            return $this->_json(404, $this->_errEnvelope('course_unavailable',
+                Mage::helper('courses')->getAvailabilityMessage($product)));
+        }
 
         try {
             $data = $this->_buildCourseData($product);

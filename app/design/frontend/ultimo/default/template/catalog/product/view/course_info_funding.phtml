@@ -9,6 +9,10 @@
    30 Nov 2026; rewrite that section when the redesigned SFEC publishes its
    rates and claim steps. Each <h2> becomes one accordion tab. */
 $_product = $this->getProduct();
+$_availability = Mage::helper('courses')->getCourseAvailability($_product);
+if ($_availability && !Mage::helper('courses')->isRegistrationOpen($_product)) {
+    return;
+}
 $_sku = (string) $_product->getSku();
 try {
     $_badges = Mage::helper('mmd_courseimage')->getProductBadges($_product);
@@ -16,7 +20,8 @@ try {
     $_badges = array();
 }
 $_has = function ($badge) use ($_badges) { return in_array($badge, $_badges, true); };
-$_msfCourseUrl = 'https://courses.myskillsfuture.gov.sg/courses/' . rawurlencode($_sku);
+$_msfSku = !empty($_availability['ssg_course_code']) ? $_availability['ssg_course_code'] : $_sku;
+$_msfCourseUrl = 'https://courses.myskillsfuture.gov.sg/courses/' . rawurlencode($_msfSku);
 $_ext = ' target="_blank" rel="noopener"';
 ?>
 <h2>Funding Eligibility Criteria</h2>

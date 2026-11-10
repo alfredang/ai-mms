@@ -54,10 +54,24 @@
    
 
 }
+.course-availability-notice {
+    margin: 14px 0 18px;
+    padding: 14px 16px;
+    border: 1px solid #d97706;
+    border-radius: 8px;
+    background: #fffbeb;
+    color: #78350f;
+    line-height: 1.5;
+}
+.course-availability-notice strong { display: block; margin-bottom: 3px; }
 </style>
 <?php
 	$_helper = $this->helper('catalog/output');
 	$_product = $this->getProduct();
+	$_coursesAvailabilityHelper = Mage::helper('courses');
+	$_courseAvailability = $_coursesAvailabilityHelper->getCourseAvailability($_product);
+	$_registrationOpen = $_coursesAvailabilityHelper->isRegistrationOpen($_product);
+	$_availabilityManaged = !empty($_courseAvailability);
     $_storeId = $_product->getStoreId();
 	$productType = $_product->getTypeId(); 
 	$theme = $this->helper('ultimo');
@@ -89,6 +103,9 @@
 	// ---------------------------------------------------------------------
 	$_WS = '(?:\s|&nbsp;|\x{00A0}|\x{2007}|\x{202F})';
 	$_courseSku = (string) $_product->getSku();
+	$_ssgCourseCode = !empty($_courseAvailability['ssg_course_code'])
+		? (string) $_courseAvailability['ssg_course_code']
+		: $_courseSku;
 	$_noFundingCourseSkus = array('TGS-2020504243');
 	$_isNoFundingCourse = in_array($_courseSku, $_noFundingCourseSkus, true);
 	$_cmsBlockHtml = function (string $id): string {
@@ -252,9 +269,9 @@
 				// PSEA is STANDARDISED across every WSQ course: any authored PSEA
 				// section is stripped above so this single canonical copy always
 				// renders (267 courses had drifted into 20 wording variants). The
-				// SkillsFuture eligibility link is course-specific — for WSQ
-				// courses the SKU IS the course reference number, so build it from
-				// getSku(). Fires on every TGS- course (all carry the PSEA badge
+				// SkillsFuture eligibility link is course-specific and uses the
+				// current SSG reference pushed by TMS (falling back to the SKU
+				// before the first sync). Fires on every TGS- course (all carry the PSEA badge
 				// via migration 655).
 				'PSEA' => array(
 					'html' => '<h3>PSEA</h3>'
@@ -263,7 +280,7 @@
 						// .../course-detail.html?courseReferenceNumber= URL
 						// 301s here). Keep in sync with
 						// MMD_CourseImage_Helper_Data::getWsqFundingNarrativeHtml().
-						. '<p><a class="wsq-portal-btn wsq-portal-btn--psea" href="https://courses.myskillsfuture.gov.sg/courses/' . rawurlencode((string) $_courseSku) . '" title="Check PSEA Eligibility (course code: ' . $this->escapeHtml($_courseSku) . ')" target="_blank" '
+						. '<p><a class="wsq-portal-btn wsq-portal-btn--psea" href="https://courses.myskillsfuture.gov.sg/courses/' . rawurlencode((string) $_ssgCourseCode) . '" title="Check PSEA Eligibility (course code: ' . $this->escapeHtml($_ssgCourseCode) . ')" target="_blank" '
 						. 'style="display: inline-block; padding: 8px 18px; background: #16a34a; color: #ffffff; font-weight: 600; border-radius: 6px; text-decoration: none;">'
 						. 'Check PSEA Eligibility</a></p>'
 						. '<ul>'
@@ -333,6 +350,10 @@
 		$_hasWsqFunding = true;
 		$_wsqNarrativeHtml =
 			'<p>' . $this->escapeHtml($this->__('No funding is available for this course.')) . '</p>';
+	}
+	if ($_availabilityManaged && !$_registrationOpen) {
+		$_hasWsqFunding = false;
+		$_wsqNarrativeHtml = '';
 	}
 
 	// Helper: build a "<h[1-6]> Section </h[1-6]>(.*?)" extractor whose
@@ -730,6 +751,9 @@
 			$_fundingAndGrantHtml = '';
 		}
 	}
+	if ($_availabilityManaged && !$_registrationOpen) {
+		$_fundingAndGrantHtml = '';
+	}
 	unset($_fgExtracted);
 
 	// (6b) Funding Validity — renders as its own card right after the funding
@@ -749,6 +773,18 @@
 				. '</strong>. Register and complete the course within this period to qualify for funding support.</p>';
 		}
 		unset($_fvStartTs, $_fvEndTs);
+	}
+	if ($_availabilityManaged && !$_registrationOpen) {
+		$_supportFromTs = !empty($_courseAvailability['support_from']) ? strtotime($_courseAvailability['support_from']) : 0;
+		$_supportToTs = !empty($_courseAvailability['support_to']) ? strtotime($_courseAvailability['support_to']) : 0;
+		if ($_supportFromTs && $_supportToTs) {
+			$_fundingValidityHtml = '<p>The last SSG support period ran from <strong>' . date('j M Y', $_supportFromTs)
+				. '</strong> to <strong>' . date('j M Y', $_supportToTs)
+				. '</strong>. Registration is closed until SSG confirms a current support period and publishes a future course run.</p>';
+		} else {
+			$_fundingValidityHtml = '<p>' . $this->escapeHtml($_coursesAvailabilityHelper->getAvailabilityMessage($_product)) . '</p>';
+		}
+		unset($_supportFromTs, $_supportToTs);
 	}
 
 	//Rich snippets
@@ -1261,7 +1297,8 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 				<h1 itemprop="name"><?php echo $_helper->productAttribute($_product, $_displayProductName, 'name') ?></h1>
 			</div>
 
-			<?php if ($sku = $_product->getSku()): ?>
+			<?php $_displayCourseCode = ($_isSgWsqCourse && $_availabilityManaged && $_registrationOpen) ? $_ssgCourseCode : $_product->getSku(); ?>
+			<?php if ($sku = $_displayCourseCode): ?>
 				<div class="course-code-inline">
 					<span class="course-code-inline__label"><?php echo $this->__('Course Code'); ?>:</span>
 					<span class="course-code-inline__value"><?php echo $this->escapeHtml($sku); ?></span>
@@ -1272,13 +1309,20 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 				<?php if ($useRichSnippets): ?><meta itemprop="productID" content="sku:<?php echo $sku; ?>" /><?php endif; ?>
 			<?php endif; ?>
 
+			<?php if ($_availabilityManaged && !$_registrationOpen): ?>
+				<div class="course-availability-notice" role="status">
+					<strong><?php echo $this->__('Registration temporarily unavailable'); ?></strong>
+					<?php echo $this->escapeHtml($_coursesAvailabilityHelper->getAvailabilityMessage($_product)); ?>
+				</div>
+			<?php endif; ?>
+
 			<?php if ($_seriesBadge = trim((string) $_product->getData('course_series_badge'))): ?>
 				<div class="course-series-badge-wrap">
 					<span class="course-series-badge"><?php echo $this->escapeHtml($_seriesBadge); ?></span>
 				</div>
 			<?php endif; ?>
 
-			<?php $_mmdBadges = $_isNoFundingCourse ? array() : Mage::helper('mmd_courseimage')->getProductBadges($_product); ?>
+			<?php $_mmdBadges = ($_isNoFundingCourse || ($_availabilityManaged && !$_registrationOpen)) ? array() : Mage::helper('mmd_courseimage')->getProductBadges($_product); ?>
 			<?php if (!empty($_mmdBadges)): ?>
 				<ul class="course-badges course-badges--view" aria-label="<?php echo $this->__('Funding eligibility'); ?>">
 					<?php foreach ($_mmdBadges as $_b): ?>

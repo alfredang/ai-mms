@@ -86,6 +86,10 @@ class MMD_Courses_Api_ScheduleController extends Mage_Core_Controller_Front_Acti
             return $this->_json(404, $this->_errEnvelope('course_unavailable',
                 'Course ' . $sku . ' is not currently available.'));
         }
+        if (!Mage::helper('courses')->isRegistrationOpen($product)) {
+            return $this->_json(404, $this->_errEnvelope('course_unavailable',
+                Mage::helper('courses')->getAvailabilityMessage($product)));
+        }
 
         $classes    = $this->_collectClasses($product);
         $sourceUrl  = $this->_productUrl($product);
@@ -317,11 +321,17 @@ class MMD_Courses_Api_ScheduleController extends Mage_Core_Controller_Front_Acti
             ->addStoreFilter(self::SG_STORE_ID)
             ->addAttributeToSelect(array('name', 'sku'))
             ->addAttributeToFilter('sku', array('like' => 'TGS-%'))
-            ->addAttributeToFilter('status', Mage_Catalog_Model_Product_Status::STATUS_ENABLED);
+            ->addAttributeToFilter('status', Mage_Catalog_Model_Product_Status::STATUS_ENABLED)
+            ->addAttributeToFilter('visibility', array(
+                'neq' => Mage_Catalog_Model_Product_Visibility::VISIBILITY_NOT_VISIBLE,
+            ));
 
         $out = array();
         foreach ($collection as $product) {
             $product->setStoreId(self::SG_STORE_ID);
+            if (!Mage::helper('courses')->isRegistrationOpen($product)) {
+                continue;
+            }
             $schedules = $this->_extractSchedules($product, $parser);
             $out[] = array(
                 'course_code'  => $product->getSku(),

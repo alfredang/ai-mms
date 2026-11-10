@@ -446,8 +446,9 @@ class MMD_CourseImage_Helper_Data extends Mage_Core_Helper_Abstract
      *   MCES badge        — gates the MCES/SME fee tile (in view.phtml),
      *                       not a narrative section
      *
-     * Every link is generated from the course's OWN SKU (for WSQ courses the
-     * SKU is the SSG course reference number), which retires the class of bug
+     * Every link is generated from the current SSG course reference pushed by
+     * TMS (falling back to the product SKU before the first availability sync),
+     * which retires the class of bug
      * where a copy-pasted block linked to another course's SkillsFuture page.
      * SFC / PSEA use the current SSG deep-link format
      * https://courses.myskillsfuture.gov.sg/courses/<code> (the legacy
@@ -468,8 +469,12 @@ class MMD_CourseImage_Helper_Data extends Mage_Core_Helper_Abstract
         if (!in_array('WSQ', $badges, true) && !in_array('CASL', $badges, true)) {
             return '';
         }
-        $skuUrl  = rawurlencode($sku);
-        $skuHtml = htmlspecialchars($sku, ENT_COMPAT, 'UTF-8');
+        $availability = Mage::helper('courses')->getCourseAvailability($product);
+        $ssgCourseCode = !empty($availability['ssg_course_code'])
+            ? (string) $availability['ssg_course_code']
+            : $sku;
+        $skuUrl  = rawurlencode($ssgCourseCode);
+        $skuHtml = htmlspecialchars($ssgCourseCode, ENT_COMPAT, 'UTF-8');
         $html    = '';
 
         if (in_array('SFEC', $badges, true)) {
