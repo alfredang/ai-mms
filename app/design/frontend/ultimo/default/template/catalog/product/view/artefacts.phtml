@@ -1,0 +1,14 @@
+<?php
+/**
+ * Artefacts tab: sample work produced in the course (videos, images, links),
+ * stored as HTML in the `artefacts` product attribute (migration 1922).
+ * Outputs nothing when the attribute is empty, so tabs.phtml hides the tab.
+ */
+$artefacts = (string) $this->getProduct()->getArtefacts();
+?>
+<?php if (trim($artefacts) !== ''): ?>
+    <h2><?php echo $this->__('Artefacts') ?></h2>
+    <div class="std course-artefacts">
+        <?php echo $artefacts; ?>
+    </div>
+<?php endif; ?>
