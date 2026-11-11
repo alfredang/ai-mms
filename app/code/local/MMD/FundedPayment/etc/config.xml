@@ -1,0 +1,34 @@
+<?xml version="1.0"?>
+<!--
+  MMD_FundedPayment — SG storefront checkout: the funded-only payment methods
+  (cheque = WSQ/CASL/SFC, citrep = IBF-STS, sfec = SFEC) are offered only when
+  the cart holds a funded TGS- course (a mixed TGS- + C- cart shows all
+  methods). A cart of only non-WSQ (C-) courses hides them. Every other method is untouched. MY/GH (C- catalogues only) are
+  not affected.
+-->
+<config>
+    <modules>
+        <MMD_FundedPayment>
+            <version>1.0.0</version>
+        </MMD_FundedPayment>
+    </modules>
+    <global>
+        <models>
+            <mmd_fundedpayment>
+                <class>MMD_FundedPayment_Model</class>
+            </mmd_fundedpayment>
+        </models>
+    </global>
+    <frontend>
+        <events>
+            <payment_method_is_active>
+                <observers>
+                    <mmd_fundedpayment_filter>
+                        <class>mmd_fundedpayment/observer</class>
+                        <method>filterFundedMethods</method>
+                    </mmd_fundedpayment_filter>
+                </observers>
+            </payment_method_is_active>
+        </events>
+    </frontend>
+</config>

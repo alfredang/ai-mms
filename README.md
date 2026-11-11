@@ -203,6 +203,7 @@ ai-mms/
 | **Enhancedsalesgrid** | Admin sales-grid filters & rendering. |
 | **BankPayment** | Bank-transfer payment method. |
 | **RS_Sfec** | "SFEC (Only for company sponsored)" checkout funding option (clone of RS_Citrep; enabled on SG by migration 1874). |
+| **FundedPayment** | SG checkout only: the funded payment methods (WSQ/CASL/SFC `cheque`, IBF-STS `citrep`, SFEC `sfec`) appear only when the cart holds a TGS- course; a cart of only non-WSQ (C-) courses hides them, a mixed cart shows all. Observer on `payment_method_is_active`; MY/GH untouched. |
 | **Branchscope** | Legacy per-country store-view switcher — superseded by the one-store-per-site franchise model; retained for backward compatibility. |
 | **Certificate / Attendance** | Certificates of achievement + e-attendance. |
 | **AccountSync** | Unified learner ↔ shadow admin accounts. |
