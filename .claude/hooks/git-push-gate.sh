@@ -18,6 +18,13 @@ echo "$CMD" | grep -q -- '--dry-run' && exit 0
 REPO_ROOT="/Users/alfredang/projects/tertiary/ai-mms"
 MARKER="$REPO_ROOT/.claude/.push-approved"
 
+# Hard block, even with approval: code files that exist locally but are
+# git-ignored never ship (RS_Sfec_Block_Info checkout fatal, 2026-11-11).
+if ! "$REPO_ROOT/scripts/audit/check-ignored-code.sh" >&2; then
+  echo "PUSH BLOCKED: ignored code files above would be missing in production." >&2
+  exit 2
+fi
+
 if [ -f "$MARKER" ]; then
   rm -f "$MARKER"
   echo "push-gate: admin approval marker found and consumed — push allowed." >&2

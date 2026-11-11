@@ -162,6 +162,12 @@ Before `git push`:
    A common failure: editing config.xml to register a rewrite, creating the
    class file alongside it, but never running `git add` on the new file. The
    rewrite ships without its implementation and production fatals.
+   `^??` does NOT show **ignored** files — also run
+   `scripts/audit/check-ignored-code.sh` (the push gate runs it too). On the
+   case-insensitive macOS checkout a lowercase ignore rule hides Magento classes:
+   `info.php*` swallowed `RS/Sfec/Block/Info.php` and SG checkout fataled with
+   `Class "RS_Sfec_Block_Info" not found` (2026-11-11). Anchor ignore rules
+   (`/info.php*`) and never ignore by a bare filename that a Magento class could share.
 
 5. **For ANY new/changed migration — dry-run the REAL `apply.php`, never the
    `mysql` client.** Production runs `apply.php`, whose PDO DSN is
