@@ -5,6 +5,18 @@
             <version>1.0.0</version>
         </MMD_SearchFallback>
     </modules>
+    <default>
+        <mmd_searchfallback>
+            <auto_redirect>
+                <!-- A search term with no redirect gets one automatically (funded course,
+                     category page, course, else the catalog fallback page). 0 = stock behaviour. -->
+                <enabled>1</enabled>
+                <!-- Category path used when nothing matches. Empty = wsq-funded-courses.html
+                     where it lists courses (SG), otherwise adult-training-courses.html. -->
+                <fallback_path></fallback_path>
+            </auto_redirect>
+        </mmd_searchfallback>
+    </default>
     <frontend>
         <routers>
             <catalogsearch>

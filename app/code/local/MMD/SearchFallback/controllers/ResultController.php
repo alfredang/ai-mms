@@ -17,6 +17,9 @@ require_once 'Mage/CatalogSearch/controllers/ResultController.php';
  */
 class MMD_SearchFallback_ResultController extends Mage_CatalogSearch_ResultController
 {
+    /** @var MMD_SearchFallback_Model_Matcher|null */
+    protected $_matcher = null;
+
     public function indexAction()
     {
         /** @var Mage_CatalogSearch_Model_Query $query */
@@ -48,19 +51,17 @@ class MMD_SearchFallback_ResultController extends Mage_CatalogSearch_ResultContr
                 }
 
                 $redirectUrl = (string) $query->getRedirect();
-                if ($redirectUrl !== '' && $this->_redirectTargetResolves($redirectUrl)) {
+                // Stale redirect (course disabled, category removed) — drop it
+                // so the auto-redirect below can pick a live target instead.
+                if ($redirectUrl !== '' && !$this->_redirectTargetResolves($redirectUrl)) {
+                    $query->setRedirect(null);
+                    $redirectUrl = '';
+                }
+                $redirectUrl = $this->_autoRedirect($query, $redirectUrl);
+                if ($redirectUrl !== '') {
                     $query->save();
                     $this->getResponse()->setRedirect($redirectUrl);
                     return;
-                }
-                // Stale redirect — clear it so future hits don't repeat
-                // the lookup, then fall through to the search results.
-                if ($redirectUrl !== '') {
-                    try {
-                        $query->setRedirect(null);
-                    } catch (Exception $e) {
-                        Mage::logException($e);
-                    }
                 }
                 $query->prepare();
             }
@@ -145,102 +146,54 @@ class MMD_SearchFallback_ResultController extends Mage_CatalogSearch_ResultContr
     }
 
     /**
-     * Does the redirect target actually resolve on the current store?
-     *
-     * Accepts:
-     *   - absolute URLs on the current store base (host match required)
-     *   - relative paths like "/foo.html" or "foo.html"
-     *
-     * Returns true if the target maps to a known core_url_rewrite row
-     * (product / category / custom rewrite) OR a published cms_page
-     * with identifier == the path's slug, OR an http(s) URL whose host
-     * isn't ours (external — let it through, not our problem). Returns
-     * false for stale .html slugs that don't resolve to anything.
+     * Does the redirect target actually render on the current store?
+     * Logic lives in the matcher so the backfill script validates identically.
      */
     protected function _redirectTargetResolves($url)
     {
-        $url = trim($url);
-        if ($url === '') return false;
+        return $this->_matcher()->targetResolves($url, Mage::app()->getStore()->getId());
+    }
 
-        // External URL — trust it; user explicitly typed a non-local
-        // redirect into the search-query admin.
-        if (preg_match('#^https?://#i', $url)) {
-            $host = parse_url($url, PHP_URL_HOST);
-            $storeHost = parse_url(Mage::app()->getStore()->getBaseUrl(), PHP_URL_HOST);
-            if ($host && $storeHost && strcasecmp($host, $storeHost) !== 0) {
-                return true;
-            }
-            // Same host — fall through to path-resolution below.
-            $url = (string) parse_url($url, PHP_URL_PATH);
+    /**
+     * Instantiated by class name, not Mage::getSingleton(): the model alias
+     * lives in config.xml, and a deploy serves the OLD cached config until the
+     * config cache is flushed — an alias lookup would fatal every search.
+     */
+    protected function _matcher()
+    {
+        if ($this->_matcher === null) {
+            $this->_matcher = new MMD_SearchFallback_Model_Matcher();
         }
+        return $this->_matcher;
+    }
 
-        $path = ltrim((string) $url, '/');
-        if ($path === '') return false;
-
-        // Strip leading "index.php/" if present (URL rewrite key).
-        if (strpos($path, 'index.php/') === 0) {
-            $path = substr($path, strlen('index.php/'));
-        }
-
-        $storeId = (int) Mage::app()->getStore()->getId();
-
-        // Blog post — /blog/<url_key> is served by MMD_Blog_Controller_Router,
-        // which mints no core_url_rewrite row and is not a cms_page, so both
-        // lookups below miss and an otherwise-live post would be treated as a
-        // stale target (redirect silently cleared on the first search). Mirror
-        // the router's own contract: one path segment under blog/, published.
-        if (preg_match('#^blog/([^/]+)$#', $path, $m)) {
-            $post = Mage::getModel('mmd_blog/post')->loadByUrlKey($m[1]);
-            return (bool) ($post->getId() && $post->isPublished());
-        }
-
-        // core_url_rewrite covers product, category, and arbitrary
-        // request_path → target_path rows. Validate that the row's
-        // target_path itself isn't also a missing-page (chase one hop
-        // for the common case where redirect points at a 301 alias).
-        $rewrite = Mage::getModel('core/url_rewrite');
-        $rewrite->setStoreId($storeId)->loadByRequestPath($path);
-        if ($rewrite->getId()) {
-            $target = (string) $rewrite->getTargetPath();
-            if ($target === '' || strcasecmp($target, $path) === 0) {
-                return true;
+    /**
+     * No redirect on this term (or only the generic catalog fallback, which a
+     * newer course may now beat): ask the matcher for one and store it on the
+     * row, so the term never ends on a zero-result page. Returns '' when the
+     * feature is off, the text is junk, or matching fails — the caller then
+     * serves the normal results page.
+     */
+    protected function _autoRedirect(Mage_CatalogSearch_Model_Query $query, $current)
+    {
+        try {
+            $storeId = Mage::app()->getStore()->getId();
+            $matcher = $this->_matcher();
+            if (!$matcher->isEnabled($storeId)) {
+                return $current;
             }
-            // Don't recurse forever — just verify the immediate target
-            // is also rewriteable OR is a built-in front controller
-            // route (contains a "/" but isn't a leftover slug).
-            $hop = Mage::getModel('core/url_rewrite');
-            $hop->setStoreId($storeId)->loadByRequestPath($target);
-            if ($hop->getId()) return true;
-            // Built-in route (catalog/category/view/id/N, cms/page/view, etc.)
-            if (strpos($target, '/') !== false && !preg_match('#\.html$#i', $target)) {
-                return true;
+            if ($current !== '' && $current !== $matcher->fallbackUrl($storeId)) {
+                return $current;
             }
-            return false;
+            $match = $matcher->match($query->getQueryText(), $storeId);
+            if ($match === null || $match['url'] === $current) {
+                return $current;
+            }
+            $query->setRedirect($match['url'])->setNumResults(1)->setIsProcessed(1);
+            return $match['url'];
+        } catch (Throwable $e) {
+            Mage::log('search auto-redirect failed: ' . $e->getMessage(), Zend_Log::ERR);
+            return $current;
         }
-
-        // CMS page fallback — the slug might be a CMS page identifier.
-        // This site's CMS identifiers usually INCLUDE the .html suffix
-        // (sfec.html, utap.html), so try the raw path first, then the
-        // suffix-stripped variant.
-        $candidates = array_unique(array($path, preg_replace('#\.html$#i', '', $path)));
-        foreach ($candidates as $cmsId) {
-            if ($cmsId === '') {
-                continue;
-            }
-            $cms = Mage::getModel('cms/page')->load($cmsId, 'identifier');
-            if ($cms->getId() && (int) $cms->getIsActive() === 1) {
-                // _afterLoad puts the store list in 'store_id' (array),
-                // not 'stores' — read both to be safe.
-                $stores = array_map('intval', array_merge(
-                    (array) $cms->getData('store_id'),
-                    (array) $cms->getData('stores')
-                ));
-                if (in_array(0, $stores, true) || in_array($storeId, $stores, true)) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
     }
 }
