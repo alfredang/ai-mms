@@ -586,8 +586,8 @@ class MMD_SearchFallback_Model_Matcher
      * Does a redirect target actually render on this store?
      *
      * External hosts are trusted. Own-host paths must map to a published blog
-     * post, a core_url_rewrite row whose course is enabled / category active
-     * (one 301 hop is followed), or an active CMS page.
+     * post, a core_url_rewrite chain ending on an enabled course / active
+     * category, or an active CMS page.
      */
     public function targetResolves($url, $storeId)
     {
@@ -620,23 +620,36 @@ class MMD_SearchFallback_Model_Matcher
             return (bool) ($post->getId() && $post->isPublished());
         }
 
-        $rewrite = Mage::getModel('core/url_rewrite');
-        $rewrite->setStoreId($storeId)->loadByRequestPath($path);
-        if ($rewrite->getId()) {
-            if (!$this->_rewriteEntityLive($rewrite, $storeId)) {
+        // Follow the rewrite chain (an old slug 301s to its successor, sometimes
+        // twice) and judge the row that finally serves the page: only there does
+        // the course / category status decide. Judging the first row would call a
+        // retired slug dead although it 301s to a live course.
+        $seen = array();
+        for ($hop = 0; $hop < 6; $hop++) {
+            $rewrite = Mage::getModel('core/url_rewrite');
+            $rewrite->setStoreId($storeId)->loadByRequestPath($path);
+            if (!$rewrite->getId()) {
+                if ($hop === 0) {
+                    break; // not a rewrite at all -> CMS lookup below
+                }
                 return false;
             }
-            $target = (string) $rewrite->getTargetPath();
+            $target = ltrim((string) $rewrite->getTargetPath(), '/');
             if ($target === '' || strcasecmp($target, $path) === 0) {
-                return true;
+                return $this->_rewriteEntityLive($rewrite, $storeId);
             }
-            $hop = Mage::getModel('core/url_rewrite');
-            $hop->setStoreId($storeId)->loadByRequestPath($target);
-            if ($hop->getId()) {
-                return $this->_rewriteEntityLive($hop, $storeId);
+            if (!preg_match('#\.html$#i', $target) && strpos($target, '/') !== false) {
+                // built-in route (catalog/product/view/id/N, catalog/category/view/id/N, ...)
+                return $this->_rewriteEntityLive($rewrite, $storeId);
             }
-            // Built-in route (catalog/product/view/id/N, cms/page/view, ...)
-            return strpos($target, '/') !== false && !preg_match('#\.html$#i', $target);
+            if (preg_match('#^https?://#i', $target) || isset($seen[$target])) {
+                return !isset($seen[$target]);
+            }
+            $seen[$path] = true;
+            $path = $target;
+        }
+        if ($hop > 0) {
+            return false;
         }
 
         // CMS identifiers on this site usually INCLUDE the .html suffix (sfec.html, utap.html).

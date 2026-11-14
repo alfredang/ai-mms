@@ -43,6 +43,33 @@ no fixed exact-term `IN()` list could ever have matched it.
 **Lessons encoded below: dump prod state first; overwrite for corrections;
 match by LIKE pattern, not a frozen exact-term list.**
 
+## Automatic redirects (2026-11-14) - every site, own domain
+
+A term with **no** redirect is now given one automatically; hand-written redirects are only
+needed to **correct** a pick.
+
+- **Runtime:** `MMD_SearchFallback_ResultController` asks `MMD_SearchFallback_Model_Matcher`
+  on the first search of a term, stores the pick on the row (`num_results = 1`) and 302s.
+  Order: funded course (`TGS-`) -> category page -> course -> the catalog fallback page
+  (`wsq-funded-courses.html` on SG, `adult-training-courses.html` on MY/GH; override with
+  config `mmd_searchfallback/auto_redirect/fallback_path`). Off switch:
+  `mmd_searchfallback/auto_redirect/enabled = 0`.
+- A row holding the **fallback** URL is re-matched on every search, so it upgrades by itself
+  when a matching course is added. A redirect whose course is disabled / category inactive
+  is dropped and re-matched (rewrite row present is no longer enough).
+- Junk (injection probes, URLs, >120 chars) never gets a redirect.
+- **Backfill / 404 repair, per site:** run inside that site's web container
+  `php scripts/maintenance/backfill-search-redirects.php --dry-run` then `--apply`.
+  It re-matches every own-domain redirect that is dead (DB check + live HTTP 404/410),
+  fills every empty row, HTTP-verifies each new target, and saves old values to
+  `var/search-redirect-backfill-<store>-<time>.tsv`. It never overwrites a working redirect.
+- The matcher is strict on purpose (whole query inside the course name; typo and
+  run-together repair; partial only with two distinctive words). Do not loosen it into the
+  old fuzzy scorer. The index is cached 1 h (cache tag `MMD_SEARCHFALLBACK`).
+- The matcher is built with `new MMD_SearchFallback_Model_Matcher()`, not a model alias:
+  a deploy serves the old cached config until flushed, and an alias would fatal every search.
+  After a deploy that changes `config.xml` defaults, clean the config cache on each site.
+
 ## Procedure
 
 ### 1. Identify the target and confirm it is reachable
@@ -135,6 +162,11 @@ done
 
 Every one must be **302 → target**. Test the user's literal query verbatim,
 including odd punctuation — that is the case most likely to be missing.
+A variant your verify curl searches for the first time is **created by that
+curl** with an empty redirect (first hit = 200): re-run the step-3 UPDATE after
+verifying, then re-curl until every variant 302s (2026-11-08 `ai for e-commerce`).
+Match variants with `REPLACE(REPLACE(LOWER(TRIM(query_text)),'-',''),' ','') IN (...)`
+so the migration covers them too.
 
 ### 5. Ship the matching migration
 
@@ -179,11 +211,26 @@ Dry-run with the real runner (never the `mysql` client):
 docker exec ai-mms-web-1 php /var/www/html/migrations/apply.php   # must print "applying: NNN ... OK"
 ```
 
+Local Docker down? Dry-run on SG prod instead: a PHP script piped into the web
+container (`ssh … docker exec -i <CONTAINER> php < dry.php`) that opens PDO with
+`charset=utf8` from `app/etc/local.xml`, splits the file with apply.php's
+`preg_split('/;\s*$/m')`, runs each statement inside `beginTransaction()`, then
+`rollBack()` (2026-11-08, 2026-11-10).
+
+**Generic term moving between WSQ/CASL and non-WSQ twins** (e.g. `power pivot`
+C1097 → TGS-): overwrite ONLY the user's exact term (`LOWER(TRIM(query_text)) = …`
++ `NOT (redirect <=> @tgt)`), and fill the other keyword rows **empty-only**, so
+rows that point on purpose at the twin (its own title) are left alone. Worked example:
+`migrations/1923-search-redirect-power-pivot.sql`.
+
 An **edited** migration never re-runs on prod — if a shipped one was wrong,
 ship a NEW numbered file rather than editing it.
 
 ## Choosing which terms to redirect
 
+- **Default target (SG, user rule, re-confirmed 2026-11-14):** the WSQ (`TGS-`) course first, then a
+  category (catalog) page, and a non-WSQ `C` course only when neither fits. Zero-result spam or
+  off-catalog noise (`fashion`): DELETE the row instead of redirecting it (migration 1927).
 - **Exact / branded terms** (course code, full title) — always safe.
 - **Generic terms** (e.g. `yellow belt`) — these also match sibling courses. If
   both courses stay live, redirecting the generic term hides one of them from
