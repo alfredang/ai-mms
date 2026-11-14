@@ -18,7 +18,7 @@
  */
 class MMD_SearchFallback_Model_Matcher
 {
-    const CACHE_KEY_PREFIX = 'mmd_searchfallback_index_v4_';
+    const CACHE_KEY_PREFIX = 'mmd_searchfallback_index_v5_';
     const CACHE_TAG        = 'MMD_SEARCHFALLBACK';
     const CACHE_LIFETIME   = 3600;
 
@@ -67,6 +67,7 @@ class MMD_SearchFallback_Model_Matcher
         '/\binternet\s+of\s+things\b/'                => 'iot',
         '/\brobotic\s+process\s+automation\b/'        => 'rpa',
         '/isation\b/'                                 => 'ization',
+        '/\b([a-z]{3,})[\s.]?js\b/'                    => '$1',
     );
 
     protected $_vendors = array('microsoft', 'adobe', 'autodesk', 'google', 'aws', 'amazon', 'apple', 'cisco', 'comptia');
@@ -127,6 +128,13 @@ class MMD_SearchFallback_Model_Matcher
                 }
                 if ($known && count($known) < count($q)) {
                     $result = $this->_pick($known, $qSoft, $index, $base, $exclude);
+                    // With part of the query thrown away, only a category or a
+                    // title-like course is safe ("fusion 360" must not land on
+                    // the one course that happens to contain "360").
+                    if ($result !== null && strpos($result['tier'], 'category') !== 0
+                        && strpos($result['tier'], 'title') === false) {
+                        $result = null;
+                    }
                 }
             }
         } else {
@@ -325,7 +333,11 @@ class MMD_SearchFallback_Model_Matcher
     /** Injection probes / URLs / oversized text never get a redirect. */
     protected function _isJunk($text)
     {
-        if (strlen($text) > 120) {
+        if (strlen($text) > 120 || !preg_match('/[a-z]/i', $text)) {
+            return true;
+        }
+        // scanner payloads: function calls, arithmetic probes, file paths, callback hosts
+        if (preg_match('~\w\.\w+\(|\(\s*select\b|\w\(.*\)|\d\s*\*\s*\d|\){3,}|/etc/|\.ini\b|\.php\b|file:|bxss|\.acx\b|\'\s*[+.]|[+.]\s*\'~i', $text)) {
             return true;
         }
         return (bool) preg_match('~[<>=;{}\\\\"`$|]|%[0-9a-f]{2}|https?:|www\.|\.\./|--|/\*|\bunion\s+(all\s+)?select\b|\b(sleep|benchmark)\s*\(|\bwaitfor\s+delay\b|\bonerror\b|gethostbyname~i', $text);
