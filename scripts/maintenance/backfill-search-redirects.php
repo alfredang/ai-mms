@@ -42,19 +42,24 @@ if ($apply === $dryRun) {
 function mmdHttpStatus(array $urls)
 {
     $out = array();
+    $body = array();
     foreach (array_chunk(array_values(array_unique($urls)), 10) as $batch) {
         $mh = curl_multi_init();
         $handles = array();
         foreach ($batch as $u) {
             $ch = curl_init($u);
+            $body[$u] = '';
             curl_setopt_array($ch, array(
-                CURLOPT_NOBODY         => true,
                 CURLOPT_FOLLOWLOCATION => true,
                 CURLOPT_MAXREDIRS      => 5,
                 CURLOPT_TIMEOUT        => 25,
                 CURLOPT_CONNECTTIMEOUT => 8,
-                CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_USERAGENT      => 'Mozilla/5.0 (compatible; mmd-search-redirect-check/1.0)',
+                // the <title> is all we need; stop reading after the head
+                CURLOPT_WRITEFUNCTION  => function ($ch, $chunk) use (&$body, $u) {
+                    $body[$u] .= $chunk;
+                    return strlen($body[$u]) > 6000 ? -1 : strlen($chunk);
+                },
             ));
             curl_multi_add_handle($mh, $ch);
             $handles[] = array($ch, $u);
@@ -64,7 +69,12 @@ function mmdHttpStatus(array $urls)
             curl_multi_select($mh, 1.0);
         } while ($running > 0);
         foreach ($handles as $h) {
-            $out[$h[1]] = (int) curl_getinfo($h[0], CURLINFO_HTTP_CODE);
+            $code = (int) curl_getinfo($h[0], CURLINFO_HTTP_CODE);
+            // a page cache can replay the 404 page with status 200 (seen on MY)
+            if ($code === 200 && stripos($body[$h[1]], '<title>404 Not Found') !== false) {
+                $code = 404;
+            }
+            $out[$h[1]] = $code;
             curl_multi_remove_handle($mh, $h[0]);
             curl_close($h[0]);
         }

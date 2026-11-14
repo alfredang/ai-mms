@@ -607,11 +607,19 @@ class MMD_SearchFallback_Model_Matcher
         }
 
         $path = ltrim((string) $url, '/');
-        if ($path === '') {
-            return false;
-        }
         if (strpos($path, 'index.php/') === 0) {
             $path = substr($path, strlen('index.php/'));
+        }
+        if ($path === '') {
+            return true; // the site's own homepage
+        }
+        // Module route (contacts, review/product/list/id/N, ...): no rewrite row, not a CMS page.
+        if (!preg_match('#\.html$#i', $path)) {
+            $segments = explode('/', $path);
+            $router = Mage::app()->getFrontController()->getRouter('standard');
+            if ($router && $router->getModuleByFrontName($segments[0])) {
+                return true;
+            }
         }
 
         // /blog/<url_key> is served by MMD_Blog_Controller_Router: no rewrite row, not a cms_page.
