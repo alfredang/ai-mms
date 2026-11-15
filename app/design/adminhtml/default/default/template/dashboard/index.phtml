@@ -587,7 +587,7 @@ $revenue30 = $orders30 = $newCustomers30 = 0;
 $totalOrders = $monthOrders = $productCount = 0;
 $totalRevenue = 0.0;
 $salesByMonth = $popularCourses = $popularSearches = $popularSearchesByPeriod = $popularSearchesNote = array();
-$tpDaily = $tpRecentSignups = $popularCoursesByPeriod = array();
+$tpDaily = $tpRecentSignups = $popularCoursesByPeriod = $popularAiCoursesByPeriod = array();
 
 // _dashFmt is referenced by dash-panel-superadmin markup for every
 // role, so the declaration must always exist. _dashCountry is only
@@ -648,7 +648,8 @@ $monthOrders = (int)$mc->getSize();
 //   2. The fetch is wrapped in try/catch so any future query/permission
 //      issue can't blank the chart again — we always emit 12 month
 //      buckets with whatever data the query returned (or all zeros).
-$_smStart  = date('Y-m-01 00:00:00', strtotime('-11 months'));
+// 24 months so the dashboard's period select (6 / 12 / 24) slices client-side.
+$_smStart  = date('Y-m-01 00:00:00', strtotime('-23 months'));
 $_smOrderT = $resource->getTableName('sales/order');
 $_smWhere  = "o.created_at >= '{$_smStart}' AND o.state NOT IN ('canceled','new')";
 if ($storeId) {
@@ -676,7 +677,7 @@ try {
     Mage::logException($e);
 }
 $salesByMonth = array();
-for ($i = 11; $i >= 0; $i--) {
+for ($i = 23; $i >= 0; $i--) {
     $ym  = date('Y-m', strtotime("-$i months"));
     $lbl = date('M Y', strtotime("-$i months"));
     $salesByMonth[] = array('label' => $lbl, 'value' => round((float)(isset($_smRows[$ym]) ? $_smRows[$ym] : 0), 2));
@@ -706,6 +707,36 @@ foreach (array(3, 6, 12) as $_pcMonths) {
 }
 $popularCourses = $popularCoursesByPeriod[6];
 
+// Popular AI courses — same periods / top 30, but only courses whose CURRENT catalog name
+// (order-item name as fallback: repurposed SKUs keep the old snapshot name) reads as an AI
+// course. Matched by name, not by AI-series category, because category ids differ on every
+// partner site. Filtered in PHP: MySQL 5.7 and 8 disagree on REGEXP word boundaries.
+$_aiNameRe = '/\bA\.?I\b|artificial intelligence|\bgen ?ai\b|generative|agentic|chatgpt|openai|\bclaude\b|copilot|gemini|\bllms?\b|codex|prompt engineering|machine learning|deep learning/i';
+try {
+    $_aiItemT = $resource->getTableName('sales/order_item');
+    $_aiVarT  = $resource->getTableName('catalog_product_entity_varchar');
+    $_aiNameA = (int) Mage::getSingleton('eav/config')->getAttribute('catalog_product', 'name')->getId();
+    foreach (array(3, 6, 12) as $_aiMonths) {
+        $_aiRows = $read->fetchAll(
+            "SELECT i.product_id, COALESCE(MAX(n.value), MAX(i.name)) AS name, SUM(i.qty_ordered) AS qty
+               FROM {$_smOrderT} o JOIN {$_aiItemT} i ON i.order_id = o.entity_id
+          LEFT JOIN {$_aiVarT} n ON n.entity_id = i.product_id AND n.attribute_id = {$_aiNameA} AND n.store_id = 0
+              WHERE o.created_at >= " . $read->quote(date('Y-m-d 00:00:00', strtotime("-{$_aiMonths} months"))) . "
+                AND o.state <> 'canceled' AND i.parent_item_id IS NULL" . ($storeId ? " AND o.store_id = " . (int) $storeId : "") . "
+           GROUP BY i.product_id ORDER BY qty DESC LIMIT 500"
+        );
+        $_aiOut = array();
+        foreach ($_aiRows as $_r) {
+            if (!preg_match($_aiNameRe, (string) $_r['name'])) continue;
+            $_aiOut[] = array('name' => $_r['name'], 'qty' => (int) round((float) $_r['qty']));
+            if (count($_aiOut) >= 30) break;
+        }
+        $popularAiCoursesByPeriod[$_aiMonths] = $_aiOut;
+    }
+} catch (Exception $e) {
+    Mage::logException($e);
+}
+
 $_searchStoreFilter = $countryStoreId ?: $storeId;
 // Period filter (3 / 6 / 12 months / All time). catalogsearch_query keeps ONE row per term
 // with a cumulative popularity, and its updated_at is re-stamped by every bulk UPDATE, so
@@ -717,7 +748,7 @@ $popularSearchesByPeriod = array('3' => array(), '6' => array(), '12' => array()
 $popularSearchesNote = array('3' => '', '6' => '', '12' => '', 'all' => '');
 $sq = Mage::getModel('catalogsearch/query')->getCollection()->setOrder('popularity','desc')->setPageSize(30);
 if ($_searchStoreFilter) $sq->addFieldToFilter('store_id', $_searchStoreFilter);
-foreach ($sq as $t) { $popularSearchesByPeriod['all'][] = array('term' => $t->getQueryText(), 'count' => (int)$t->getPopularity()); }
+foreach ($sq as $t) { $popularSearchesByPeriod['all'][] = array('term' => $t->getQueryText(), 'count' => (int)$t->getPopularity(), 'url' => $this->getUrl('adminhtml/catalog_search/edit', array('id' => $t->getId()))); }
 try {
     $_psLogT = $resource->getTableName('mmd_search_term_daily');
     $_psQueryT = $resource->getTableName('catalogsearch/search_query');
@@ -725,12 +756,12 @@ try {
     foreach (array(3, 6, 12) as $_psMonths) {
         $_psFrom = date('Y-m-d', strtotime("-{$_psMonths} months"));
         $_psRows = $read->fetchAll(
-            "SELECT q.query_text AS term, SUM(d.hits) AS hits
+            "SELECT d.query_id, q.query_text AS term, SUM(d.hits) AS hits
                FROM {$_psLogT} d JOIN {$_psQueryT} q ON q.query_id = d.query_id
               WHERE d.day >= " . $read->quote($_psFrom) . ($_searchStoreFilter ? " AND q.store_id = " . (int) $_searchStoreFilter : "") . "
            GROUP BY d.query_id, q.query_text ORDER BY hits DESC LIMIT 30"
         );
-        foreach ($_psRows as $_r) { $popularSearchesByPeriod[(string) $_psMonths][] = array('term' => $_r['term'], 'count' => (int) $_r['hits']); }
+        foreach ($_psRows as $_r) { $popularSearchesByPeriod[(string) $_psMonths][] = array('term' => $_r['term'], 'count' => (int) $_r['hits'], 'url' => $this->getUrl('adminhtml/catalog_search/edit', array('id' => $_r['query_id']))); }
         if (!$_psLogStart) $popularSearchesNote[(string) $_psMonths] = 'no searches logged yet';
         elseif ($_psLogStart > $_psFrom) $popularSearchesNote[(string) $_psMonths] = 'counted since ' . date('j M Y', strtotime($_psLogStart));
     }
@@ -2315,43 +2346,49 @@ document.addEventListener('keydown', function(e){if(e.key==='Escape')dashCloseDe
         </div>
     </div>
     <div class="dashboard-charts">
-        <div class="chart-card chart-wide"><div class="chart-header"><h4>Sales by Month</h4><span class="chart-subtitle">Last 12 months</span></div><div class="chart-body"><canvas id="salesByMonthChart" height="280"></canvas></div></div>
         <div class="chart-card chart-wide">
             <div class="chart-header" style="flex-wrap:wrap;gap:10px;">
-                <h4>Popular Courses</h4>
+                <h4>Sales by Month</h4>
                 <span style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-                    <select id="tp-pc-period" class="mm-select-sm" onchange="tpRenderPopular()">
+                    <select id="tp-sm-period" class="mm-select-sm" onchange="tpRenderSales()" aria-label="Sales period">
+                        <option value="6">Last 6 months</option><option value="12" selected>Last 12 months</option><option value="24">Last 24 months</option>
+                    </select>
+                    <span class="chart-subtitle" id="tp-sm-sub"></span>
+                </span>
+            </div>
+            <div class="chart-body"><canvas id="salesByMonthChart" height="280"></canvas></div>
+        </div>
+<?php foreach (array(
+        array('pc', 'Popular Courses', 'popularCoursesChart', 'tpRenderPopular', 'Number of courses'),
+        array('ai', 'Popular AI Courses', 'popularAiCoursesChart', 'tpRenderPopularAi', 'Number of AI courses'),
+    ) as $_pcCard): list($_k, $_title, $_canvas, $_fn, $_aria) = $_pcCard; ?>
+        <div class="chart-card chart-wide">
+            <div class="chart-header" style="flex-wrap:wrap;gap:10px;">
+                <h4><?php echo $_title ?></h4>
+                <span style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                    <select id="tp-<?php echo $_k ?>-period" class="mm-select-sm" onchange="<?php echo $_fn ?>()" aria-label="<?php echo $_title ?> period">
                         <option value="3">Last 3 months</option><option value="6" selected>Last 6 months</option><option value="12">Last 12 months</option>
                     </select>
-                    <label style="display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--t4);">Top <strong id="tp-pc-n" style="color:var(--t1);min-width:18px;text-align:right;">10</strong>
-                        <input type="range" id="tp-pc-slider" min="5" max="30" step="1" value="10" oninput="tpRenderPopular()" style="width:140px;accent-color:#2563eb;" aria-label="Number of courses" /></label>
-                    <span class="chart-subtitle" id="tp-pc-sub"></span>
+                    <label style="display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--t4);">Top <strong id="tp-<?php echo $_k ?>-n" style="color:var(--t1);min-width:18px;text-align:right;">10</strong>
+                        <input type="range" id="tp-<?php echo $_k ?>-slider" min="5" max="30" step="1" value="10" oninput="<?php echo $_fn ?>()" style="width:140px;accent-color:#2563eb;" aria-label="<?php echo $_aria ?>" /></label>
+                    <span class="chart-subtitle" id="tp-<?php echo $_k ?>-sub"></span>
                 </span>
             </div>
-            <div class="chart-body" id="tp-pc-body"><canvas id="popularCoursesChart" height="350"></canvas></div>
+            <div class="chart-body" id="tp-<?php echo $_k ?>-body"><canvas id="<?php echo $_canvas ?>" height="350"></canvas></div>
         </div>
-        <div class="chart-card chart-wide">
-            <div class="chart-header" style="flex-wrap:wrap;gap:10px;">
-                <h4>Popular Search Terms</h4>
-                <span style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-                    <select id="tp-ps-period" class="mm-select-sm" onchange="tpRenderSearches()" aria-label="Search period">
-                        <option value="3" selected>Last 3 months</option><option value="6">Last 6 months</option><option value="12">Last 12 months</option><option value="all">All time</option>
-                    </select>
-                    <label style="display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--t4);">Top <strong id="tp-ps-n" style="color:var(--t1);min-width:18px;text-align:right;">10</strong>
-                        <input type="range" id="tp-ps-slider" min="5" max="30" step="1" value="10" oninput="tpRenderSearches()" style="width:140px;accent-color:#2563eb;" aria-label="Number of search terms" /></label>
-                    <span class="chart-subtitle" id="tp-ps-sub"></span>
-                </span>
-            </div>
-            <div class="chart-body" id="tp-ps-body"><canvas id="popularSearchesChart" height="320"></canvas></div>
-        </div>
-        <div class="chart-card"><div class="chart-header" style="flex-wrap:wrap;gap:10px;"><h4>Last <span id="tp-rs-n"><?php echo min(10, count($tpRecentSignups)) ?: 10 ?></span> course sign-ups</h4><span style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;"><label style="display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--t4);">Show<input type="range" id="tp-rs-slider" min="5" max="50" step="5" value="10" oninput="tpRecentRows('rs')" style="width:140px;accent-color:#2563eb;" aria-label="Number of sign-ups to show" /></label><span class="chart-subtitle">Most recent registrations</span></span></div>
+<?php endforeach; ?>
+        <?php /* Last N tables: up to 50 rows rendered; slider = N, select = filter (tpRecentRows) */ ?>
+        <div class="chart-card chart-wide"><div class="chart-header" style="flex-wrap:wrap;gap:10px;"><h4>Last <span id="tp-rs-n">10</span> course sign-ups</h4><span style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                <select id="tp-rs-filter" class="mm-select-sm" onchange="tpRecentRows('rs')" aria-label="Course type"><option value="">All courses</option><option value="funded">WSQ / IBF / CASL</option><option value="nonwsq">Non-WSQ</option></select>
+                <label style="display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--t4);">Show<input type="range" id="tp-rs-slider" min="5" max="50" step="5" value="10" oninput="tpRecentRows('rs')" style="width:140px;accent-color:#2563eb;" aria-label="Number of sign-ups to show" /></label><span class="chart-subtitle" id="tp-rs-sub">Most recent registrations</span></span></div>
             <div style="padding:0 4px 6px;overflow-x:auto;">
                 <table class="mm-table mm-table-tight tp-recent-table" id="tp-rs-table">
                     <thead><tr><th>When</th><th>Learner</th><th>Course</th><th>Class date</th><th class="center">Pax</th><th>Status</th></tr></thead>
                     <tbody>
                     <?php if (empty($tpRecentSignups)): ?><tr><td colspan="6" class="mm-table-empty">No registrations yet.</td></tr><?php endif; ?>
+                    <tr data-empty style="display:none"><td colspan="6" class="mm-table-empty">No sign-ups match this filter.</td></tr>
                     <?php foreach ($tpRecentSignups as $_i => $_r): ?>
-                    <tr data-r<?php echo $_i >= 10 ? ' style="display:none"' : '' ?>>
+                    <tr data-r data-f="<?php echo strpos((string) $_r['sku'], 'TGS-') === 0 ? 'funded' : 'nonwsq' ?>"<?php echo $_i >= 10 ? ' style="display:none"' : '' ?>>
                         <td class="muted"><a href="<?php echo $_r['url'] ?>" style="color:inherit;" title="Order #<?php echo htmlspecialchars($_r['order']) ?>"><?php echo htmlspecialchars($_r['date']) ?></a></td>
                         <td class="strong"><?php echo htmlspecialchars($_r['learner']) ?></td>
                         <td title="<?php echo htmlspecialchars($_r['course']) ?>"><?php echo htmlspecialchars($_r['sku']) ?> · <?php echo htmlspecialchars($_r['course']) ?></td>
@@ -2364,14 +2401,27 @@ document.addEventListener('keydown', function(e){if(e.key==='Escape')dashCloseDe
                 </table>
             </div>
         </div>
-        <div class="chart-card"><div class="chart-header" style="flex-wrap:wrap;gap:10px;"><h4>Last <span id="tp-rq-n"><?php echo min(10, count($recentSearches)) ?: 10 ?></span> search terms</h4><span style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;"><label style="display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--t4);">Show<input type="range" id="tp-rq-slider" min="5" max="50" step="5" value="10" oninput="tpRecentRows('rq')" style="width:140px;accent-color:#2563eb;" aria-label="Number of search terms to show" /></label><span class="chart-subtitle">Most recent on-site searches</span></span></div>
+        <div class="chart-card"><div class="chart-header" style="flex-wrap:wrap;gap:10px;"><h4>Popular search terms</h4><span style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                <select id="tp-ps-period" class="mm-select-sm" onchange="tpRenderSearches()" aria-label="Search period"><option value="3" selected>Last 3 months</option><option value="6">Last 6 months</option><option value="12">Last 12 months</option><option value="all">All time</option></select>
+                <label style="display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--t4);">Top <strong id="tp-ps-n" style="color:var(--t1);min-width:18px;text-align:right;">10</strong><input type="range" id="tp-ps-slider" min="5" max="30" step="1" value="10" oninput="tpRenderSearches()" style="width:140px;accent-color:#2563eb;" aria-label="Number of search terms" /></label><span class="chart-subtitle" id="tp-ps-sub"></span></span></div>
+            <div style="padding:0 4px 6px;overflow-x:auto;">
+                <table class="mm-table mm-table-tight tp-search-table" id="tp-ps-table">
+                    <thead><tr><th class="num" style="width:34px;">#</th><th>Search term</th><th class="num">Hits</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+        <div class="chart-card"><div class="chart-header" style="flex-wrap:wrap;gap:10px;"><h4>Last <span id="tp-rq-n">10</span> search terms</h4><span style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                <select id="tp-rq-filter" class="mm-select-sm" onchange="tpRecentRows('rq')" aria-label="Search results"><option value="">All searches</option><option value="hit">With results</option><option value="zero">No results</option></select>
+                <label style="display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--t4);">Show<input type="range" id="tp-rq-slider" min="5" max="50" step="5" value="10" oninput="tpRecentRows('rq')" style="width:140px;accent-color:#2563eb;" aria-label="Number of search terms to show" /></label><span class="chart-subtitle" id="tp-rq-sub">Most recent on-site searches</span></span></div>
             <div style="padding:0 4px 6px;overflow-x:auto;">
                 <table class="mm-table mm-table-tight tp-search-table" id="tp-rq-table">
                     <thead><tr><th>Search term</th><th class="num">Results</th><th class="num">Hits</th><th>Last searched</th></tr></thead>
                     <tbody>
                     <?php if (empty($recentSearches)): ?><tr><td colspan="4" class="mm-table-empty">No searches yet.</td></tr><?php endif; ?>
+                    <tr data-empty style="display:none"><td colspan="4" class="mm-table-empty">No searches match this filter.</td></tr>
                     <?php foreach ($recentSearches as $_i => $_r): ?>
-                    <tr data-r<?php echo $_i >= 10 ? ' style="display:none"' : '' ?>>
+                    <tr data-r data-f="<?php echo (int) $_r['count'] === 0 ? 'zero' : 'hit' ?>"<?php echo $_i >= 10 ? ' style="display:none"' : '' ?>>
                         <td class="strong"><a href="<?php echo $_r['edit_url'] ?>" style="color:inherit;"><?php echo htmlspecialchars($_r['term']) ?></a></td>
                         <td class="num<?php echo (int) $_r['count'] === 0 ? '" style="color:var(--yellow)' : '' ?>"><?php echo (int) $_r['count'] ?></td>
                         <td class="num"><?php echo (int) $_r['popularity'] ?></td>
@@ -17933,29 +17983,56 @@ window.trnReset = function() {
                 scales: { xAxes: [{ ticks: { fontColor: cc.text, fontSize: 11, beginAtZero: true, callback: function(v){ return Number(v).toLocaleString(); } }, gridLines: { color: cc.grid } }],
                           yAxes: [{ ticks: { fontColor: cc.text, fontSize: 10 }, gridLines: { display: false } }] } } });
     }
-    window.tpRenderPopular = function () {
-        var all = window.__tpPopular || {}; var sel = document.getElementById('tp-pc-period'), sl = document.getElementById('tp-pc-slider');
+    // Popular Courses ('pc') / Popular AI Courses ('ai') — period select + Top N slider.
+    function tpRenderTop(key, data, chartVar, canvasId, color) {
+        var all = data || {}, sel = document.getElementById('tp-' + key + '-period'), sl = document.getElementById('tp-' + key + '-slider');
         if (!sel || !sl) return;
-        var rows = (all[sel.value] || []).slice(0, +sl.value), n = document.getElementById('tp-pc-n'), sub = document.getElementById('tp-pc-sub');
+        var rows = (all[sel.value] || []).slice(0, +sl.value), n = document.getElementById('tp-' + key + '-n'), sub = document.getElementById('tp-' + key + '-sub');
         if (n) n.textContent = sl.value; if (sub) sub.textContent = rows.length + ' of top ' + (all[sel.value] || []).length + ' by learners';
-        if (window.__tpPopularChart) { try { window.__tpPopularChart.destroy(); } catch (e) {} }
-        window.__tpPopularChart = tpHorizontalBar('popularCoursesChart', 'tp-pc-body', rows.map(function(x){ return x.name.length > 60 ? x.name.substring(0, 57) + '…' : x.name; }), rows.map(function(x){ return x.qty; }), (window.__tpChartColors || {}).green || '#10b981');
+        if (window[chartVar]) { try { window[chartVar].destroy(); } catch (e) {} }
+        window[chartVar] = tpHorizontalBar(canvasId, 'tp-' + key + '-body', rows.map(function(x){ return x.name.length > 60 ? x.name.substring(0, 57) + '…' : x.name; }), rows.map(function(x){ return x.qty; }), color);
+    }
+    window.tpRenderPopular = function () { tpRenderTop('pc', window.__tpPopular, '__tpPopularChart', 'popularCoursesChart', (window.__tpChartColors || {}).green || '#10b981'); };
+    window.tpRenderPopularAi = function () { tpRenderTop('ai', window.__tpPopularAi, '__tpPopularAiChart', 'popularAiCoursesChart', (window.__tpChartColors || {}).orange || '#f97316'); };
+    // Sales by Month — period select slices the 24 monthly buckets.
+    window.tpRenderSales = function () {
+        var el = document.getElementById('salesByMonthChart'); if (!el || typeof Chart === 'undefined') return;
+        var cc = window.__tpChartColors || {blue:'#60a5fa',blueDark:'#2563eb',grid:'rgba(148,163,184,0.1)',text:'#94a3b8'};
+        var m = +((document.getElementById('tp-sm-period') || {}).value || 12), sd = (window.__tpSales || []).slice(-m), total = 0;
+        sd.forEach(function(x){ total += +x.value || 0; });
+        if (window.__tpSalesChart) { try { window.__tpSalesChart.destroy(); } catch (e) {} }
+        window.__tpSalesChart = new Chart(el.getContext('2d'), { type: 'bar',
+            data: { labels: sd.map(function(x){ return x.label; }), datasets: [{ data: sd.map(function(x){ return x.value; }), backgroundColor: cc.blue, borderColor: cc.blueDark, borderWidth: 1, barPercentage: .7 }] },
+            options: { responsive: true, maintainAspectRatio: false, legend: { display: false },
+                scales: { xAxes: [{ ticks: { fontColor: cc.text, fontSize: 10, maxRotation: 45 }, gridLines: { display: false } }],
+                          yAxes: [{ ticks: { fontColor: cc.text, fontSize: 11, beginAtZero: true, callback: function(v){ return '$' + Number(v).toLocaleString(); } }, gridLines: { color: cc.grid } }] } } });
+        var sub = document.getElementById('tp-sm-sub'); if (sub) sub.textContent = '$' + Math.round(total).toLocaleString() + ' over ' + m + ' months';
     };
+    // Popular search terms — table (same format as Last N search terms), period + Top N.
     window.tpRenderSearches = function () {
-        var sl = document.getElementById('tp-ps-slider'); if (!sl) return;
+        var sl = document.getElementById('tp-ps-slider'), body = document.querySelector('#tp-ps-table tbody'); if (!sl || !body) return;
         var sel = document.getElementById('tp-ps-period'), per = sel ? sel.value : '3', all = (window.__tpSearches || {})[per] || [], note = (window.__tpSearchNote || {})[per];
         var rows = all.slice(0, +sl.value), n = document.getElementById('tp-ps-n'), sub = document.getElementById('tp-ps-sub'); if (n) n.textContent = sl.value;
         if (sub) sub.textContent = rows.length + ' of top ' + all.length + ' by hits' + (note ? ' · ' + note : '');
-        if (window.__tpSearchChart) { try { window.__tpSearchChart.destroy(); } catch (e) {} }
-        window.__tpSearchChart = tpHorizontalBar('popularSearchesChart', 'tp-ps-body', rows.map(function(x){ var t = x.term || ''; return t.length > 35 ? t.substring(0, 32) + '…' : t; }), rows.map(function(x){ return x.count; }), (window.__tpChartColors || {}).purple || '#a78bfa');
+        function esc(t){ return String(t == null ? '' : t).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+        body.innerHTML = rows.length ? rows.map(function(x, i){
+            return '<tr><td class="num muted">' + (i + 1) + '</td><td class="strong">' + (x.url ? '<a href="' + esc(x.url) + '" style="color:inherit;">' + esc(x.term) + '</a>' : esc(x.term)) + '</td><td class="num">' + (+x.count).toLocaleString() + '</td></tr>';
+        }).join('') : '<tr><td colspan="3" class="mm-table-empty">No searches in this period.</td></tr>';
     };
-    // "Last N" slicer for the recent sign-ups ('rs') / recent search terms ('rq') tables —
-    // up to 50 rows are rendered; the slider only toggles row visibility.
+    // "Last N" tables — recent sign-ups ('rs') / recent search terms ('rq'). Up to 50 rows are
+    // rendered; the select keeps rows whose data-f matches, the slider shows the first N of those.
     window.tpRecentRows = function (key) {
         var sl = document.getElementById('tp-' + key + '-slider'); if (!sl) return;
-        var rows = document.querySelectorAll('#tp-' + key + '-table tr[data-r]'), n = +sl.value;
-        for (var i = 0; i < rows.length; i++) rows[i].style.display = i < n ? '' : 'none';
-        var el = document.getElementById('tp-' + key + '-n'); if (el) el.textContent = rows.length ? Math.min(n, rows.length) : n;
+        var f = (document.getElementById('tp-' + key + '-filter') || {}).value || '';
+        var rows = document.querySelectorAll('#tp-' + key + '-table tr[data-r]'), n = +sl.value, shown = 0, matched = 0;
+        for (var i = 0; i < rows.length; i++) {
+            var ok = !f || rows[i].getAttribute('data-f') === f; if (ok) matched++;
+            var show = ok && shown < n; if (show) shown++;
+            rows[i].style.display = show ? '' : 'none';
+        }
+        var empty = document.querySelector('#tp-' + key + '-table tr[data-empty]'); if (empty) empty.style.display = rows.length && !shown ? '' : 'none';
+        var el = document.getElementById('tp-' + key + '-n'); if (el) el.textContent = rows.length ? shown : n;
+        var sub = document.getElementById('tp-' + key + '-sub'); if (sub && rows.length) sub.textContent = shown + ' of ' + matched + (f ? ' matching' : '') + ' (latest ' + rows.length + ')';
     };
     ['tp-type-tabs', 'tp-gran-tabs'].forEach(function(id){
         var box = document.getElementById(id); if (!box) return;
@@ -17984,15 +18061,17 @@ window.trnReset = function() {
         Chart.defaults.global.legend.display=false;
         Object.assign(Chart.defaults.global.tooltips,{backgroundColor:'#1f2937',titleFontColor:'#f8fafc',bodyFontColor:'#e2e8f0',borderColor:'#374151',borderWidth:1,cornerRadius:8});
 
-        var sd=<?php echo json_encode($salesByMonth) ?>;
-        window.__dashCharts.push(new Chart(document.getElementById('salesByMonthChart').getContext('2d'),{type:'bar',data:{labels:sd.map(function(x){return x.label;}),datasets:[{data:sd.map(function(x){return x.value;}),backgroundColor:cc.blue,borderColor:cc.blueDark,borderWidth:1,barPercentage:.7}]},options:{responsive:true,maintainAspectRatio:false,scales:{xAxes:[{ticks:{fontColor:cc.text,fontSize:10,maxRotation:45},gridLines:{display:false}}],yAxes:[{ticks:{fontColor:cc.text,fontSize:11,callback:function(v){return'$'+v.toLocaleString();},beginAtZero:true},gridLines:{color:cc.grid}}]}}}));
+        window.__tpChartColors = cc;
+        window.__tpSales = <?php echo json_encode($salesByMonth) ?>;
+        tpRenderSales();
 
         // Popular courses / search terms — interactive (period select + Top N slider)
         window.__tpPopular = <?php echo json_encode($popularCoursesByPeriod) ?>;
+        window.__tpPopularAi = <?php echo json_encode($popularAiCoursesByPeriod) ?>;
         window.__tpSearches = <?php echo json_encode($popularSearchesByPeriod) ?>;
         window.__tpSearchNote = <?php echo json_encode($popularSearchesNote) ?>;
         window.__tpChartColors = cc;
-        tpRenderPopular(); tpRenderSearches();
+        tpRenderPopular(); tpRenderPopularAi(); tpRenderSearches(); tpRecentRows('rs'); tpRecentRows('rq');
 
         // Learners signed up — week/month x course type x period (client-side re-bucketing)
         window.__tpDaily = <?php echo json_encode($tpDaily) ?>;
