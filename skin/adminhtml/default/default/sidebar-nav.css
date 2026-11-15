@@ -1913,6 +1913,41 @@ body .admin-main [id$="_massaction"] button span span span {
     outline: none !important;
 }
 
+/* === 20b. Compact select (.mm-select-sm) ===
+   The in-card / toolbar dropdown: 28px tall so it sits on the same baseline
+   as .mm-btn-sm and the Top-N sliders, with our own chevron instead of the
+   native widget arrow. Needed as a CLASS because the §20 rule above is
+   !important — an inline style="height:28px" silently loses and the select
+   renders at the 38px form size (Popular Courses period filter, 2026-11). */
+.admin-main select.mm-select-sm {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    height: 28px !important;
+    min-height: 28px !important;
+    width: auto !important;
+    padding: 0 28px 0 10px !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    line-height: 26px !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+    background-color: transparent !important;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='%2394a3b8' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'><polyline points='3 4.5 6 7.5 9 4.5'/></svg>") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 9px center !important;
+    background-size: 12px 12px !important;
+}
+.admin-main select.mm-select-sm:hover {
+    border-color: var(--b3) !important;
+}
+.admin-main select.mm-select-sm:focus {
+    border-color: var(--blue) !important;
+    box-shadow: none !important;
+}
+.admin-main select.mm-select-sm:focus-visible {
+    box-shadow: 0 0 0 2px var(--ring) !important;
+}
+
 /* Legacy boxes.css `.field-100` wraps every grid filter-row input in a
    white pill with a light-gray border (`background:#fff; border:1px
    solid #aaa #c8c8c8 ...`). On the dark theme those white rectangles

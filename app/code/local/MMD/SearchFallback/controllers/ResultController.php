@@ -60,6 +60,7 @@ class MMD_SearchFallback_ResultController extends Mage_CatalogSearch_ResultContr
                 $redirectUrl = $this->_autoRedirect($query, $redirectUrl);
                 if ($redirectUrl !== '') {
                     $query->save();
+                    $this->_logDailyHit($query);
                     $this->getResponse()->setRedirect($redirectUrl);
                     return;
                 }
@@ -75,9 +76,32 @@ class MMD_SearchFallback_ResultController extends Mage_CatalogSearch_ResultContr
 
             if (!Mage::helper('catalogsearch')->isMinQueryLength()) {
                 $query->save();
+                $this->_logDailyHit($query);
             }
         } else {
             $this->_redirectReferer();
+        }
+    }
+
+    /**
+     * Per-day hit log (mmd_search_term_daily, migration 1931) behind the dashboard's
+     * Popular Search Terms period filter — catalogsearch_query only keeps a cumulative
+     * popularity. A logging failure must never break a storefront search.
+     */
+    protected function _logDailyHit(Mage_CatalogSearch_Model_Query $query)
+    {
+        if (!$query->getId()) {
+            return;
+        }
+        try {
+            $res = Mage::getSingleton('core/resource');
+            $res->getConnection('core_write')->query(
+                'INSERT INTO ' . $res->getTableName('mmd_search_term_daily')
+                . ' (query_id, day, hits) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE hits = hits + 1',
+                array((int) $query->getId(), Mage::getSingleton('core/date')->date('Y-m-d'))
+            );
+        } catch (Exception $e) {
+            Mage::logException($e);
         }
     }
 
