@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<config>
+    <modules>
+        <MMD_PracticeExam>
+            <version>1.0.0</version>
+        </MMD_PracticeExam>
+    </modules>
+
+    <global>
+        <helpers>
+            <mmd_practiceexam>
+                <class>MMD_PracticeExam_Helper</class>
+            </mmd_practiceexam>
+        </helpers>
+    </global>
+
+    <admin>
+        <routers>
+            <adminhtml>
+                <args>
+                    <modules>
+                        <MMD_PracticeExam before="Mage_Adminhtml">MMD_PracticeExam_Adminhtml</MMD_PracticeExam>
+                    </modules>
+                </args>
+            </adminhtml>
+        </routers>
+    </admin>
+
+    <!-- Public self-register page: /practiceexam/register/index/run/<id>/k/<sig> -->
+    <frontend>
+        <routers>
+            <practiceexam>
+                <use>standard</use>
+                <args>
+                    <module>MMD_PracticeExam</module>
+                    <frontName>practiceexam</frontName>
+                </args>
+            </practiceexam>
+        </routers>
+    </frontend>
+</config>

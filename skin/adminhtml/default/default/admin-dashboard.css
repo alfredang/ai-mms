@@ -1267,17 +1267,17 @@ div.dce-value::-webkit-scrollbar-thumb:hover{background:#64748b}
 .admin-main .lcd-fb-zoom-btn:hover{opacity:1;transform:scale(1.1);background:transparent !important}
 .admin-main .lcd-fb-zoom-btn:focus-visible{outline:2px solid rgba(255,255,255,.6);outline-offset:2px;border-radius:4px !important}
 .admin-main .lcd-fb-zoom-btn > svg{width:18px !important;height:18px !important;display:block !important;flex:0 0 auto !important;pointer-events:none}
-#lcd-fb-qr-overlay{position:fixed;inset:0;z-index:100000;display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:16px;box-sizing:border-box;background:rgba(2,6,23,.94);overflow:auto;cursor:zoom-out}
-#lcd-fb-qr-overlay .lcd-fb-qr-big{width:min(560px,94vw,calc(100vh - 150px));aspect-ratio:1/1;flex:0 0 auto;background:#fff;border-radius:12px;padding:3%;box-sizing:border-box;cursor:default}
-#lcd-fb-qr-overlay .lcd-fb-qr-big canvas,#lcd-fb-qr-overlay .lcd-fb-qr-big img{width:100% !important;height:100% !important;image-rendering:pixelated}
-#lcd-fb-qr-overlay .lcd-fb-qr-title{color:#f1f5f9;font:700 22px/1.2 var(--font-sans,-apple-system,"Segoe UI",Arial,sans-serif);text-align:center}
-#lcd-fb-qr-overlay .lcd-fb-qr-meta{color:#94a3b8;font:400 13px/1.6 var(--font-sans,-apple-system,"Segoe UI",Arial,sans-serif);text-align:center;word-break:break-all;max-width:94vw}
-#lcd-fb-qr-overlay .lcd-fb-qr-meta strong{color:#f1f5f9}
-#lcd-fb-qr-overlay .lcd-fb-qr-close{position:fixed;top:14px;right:18px;width:40px !important;height:40px !important;min-width:0 !important;min-height:0 !important;padding:0 !important;border:0 !important;border-radius:8px !important;background:transparent !important;background-image:none !important;box-shadow:none !important;color:#cbd5e1 !important;font:300 34px/1 Arial,sans-serif !important;cursor:pointer !important}
-#lcd-fb-qr-overlay .lcd-fb-qr-close:hover{color:#fff !important;background:rgba(255,255,255,.08) !important}
+:is(#lcd-fb-qr-overlay,#lcd-pe-qr-overlay){position:fixed;inset:0;z-index:100000;display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:16px;box-sizing:border-box;background:rgba(2,6,23,.94);overflow:auto;cursor:zoom-out}
+:is(#lcd-fb-qr-overlay,#lcd-pe-qr-overlay) .lcd-fb-qr-big{width:min(560px,94vw,calc(100vh - 150px));aspect-ratio:1/1;flex:0 0 auto;background:#fff;border-radius:12px;padding:3%;box-sizing:border-box;cursor:default}
+:is(#lcd-fb-qr-overlay,#lcd-pe-qr-overlay) .lcd-fb-qr-big canvas,:is(#lcd-fb-qr-overlay,#lcd-pe-qr-overlay) .lcd-fb-qr-big img{width:100% !important;height:100% !important;image-rendering:pixelated}
+:is(#lcd-fb-qr-overlay,#lcd-pe-qr-overlay) .lcd-fb-qr-title{color:#f1f5f9;font:700 22px/1.2 var(--font-sans,-apple-system,"Segoe UI",Arial,sans-serif);text-align:center}
+:is(#lcd-fb-qr-overlay,#lcd-pe-qr-overlay) .lcd-fb-qr-meta{color:#94a3b8;font:400 13px/1.6 var(--font-sans,-apple-system,"Segoe UI",Arial,sans-serif);text-align:center;word-break:break-all;max-width:94vw}
+:is(#lcd-fb-qr-overlay,#lcd-pe-qr-overlay) .lcd-fb-qr-meta strong{color:#f1f5f9}
+:is(#lcd-fb-qr-overlay,#lcd-pe-qr-overlay) .lcd-fb-qr-close{position:fixed;top:14px;right:18px;width:40px !important;height:40px !important;min-width:0 !important;min-height:0 !important;padding:0 !important;border:0 !important;border-radius:8px !important;background:transparent !important;background-image:none !important;box-shadow:none !important;color:#cbd5e1 !important;font:300 34px/1 Arial,sans-serif !important;cursor:pointer !important}
+:is(#lcd-fb-qr-overlay,#lcd-pe-qr-overlay) .lcd-fb-qr-close:hover{color:#fff !important;background:rgba(255,255,255,.08) !important}
 /* Ctrl/Cmd + shrinks the CSS viewport; once it is short, drop the caption so
    the QR alone fills the window height instead of shrinking under the text. */
-@media (max-height:600px){#lcd-fb-qr-overlay .lcd-fb-qr-title,#lcd-fb-qr-overlay .lcd-fb-qr-meta{display:none}#lcd-fb-qr-overlay .lcd-fb-qr-big{width:min(94vw,92vh)}}
+@media (max-height:600px){:is(#lcd-fb-qr-overlay,#lcd-pe-qr-overlay) .lcd-fb-qr-title,:is(#lcd-fb-qr-overlay,#lcd-pe-qr-overlay) .lcd-fb-qr-meta{display:none}:is(#lcd-fb-qr-overlay,#lcd-pe-qr-overlay) .lcd-fb-qr-big{width:min(94vw,92vh)}}
 .lcd-section-title{font-size:18px;font-weight:700;color:#fff;margin:0 0 14px;display:flex;align-items:center;justify-content:space-between}
 .lcd-section-title .lcd-caret{color:#60a5fa;cursor:pointer;transition:transform .2s}
 .lcd-tile{display:flex;align-items:center;gap:14px;background:#334155;border:1px solid #475569;border-radius:10px;padding:14px 16px;text-decoration:none !important;color:#e5e7eb;margin-bottom:8px;transition:background .15s;cursor:pointer}
@@ -4349,3 +4349,27 @@ body.adminhtml-urlrewrite-index select[name$="_page_limit"] option[value="200"] 
 @keyframes mmd-ui-failsafe-reveal { to { visibility: visible; } }
 html:not(.mmd-ui-ready) body[class*="adminhtml-"] .admin-main .middle { visibility: hidden; }
 body[class*="adminhtml-"] .admin-main .middle { animation: mmd-ui-failsafe-reveal 0s linear 0.5s forwards; }
+
+/* Practice Exam section on the class page (MMD_PracticeExam). The Self-Register QR overlay
+   reuses the Course Feedback overlay rules above via :is(#lcd-fb-qr-overlay,#lcd-pe-qr-overlay). */
+.lcd-pe-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:14px 0 10px}
+.lcd-pe-count{font-size:12px;color:var(--t4);font-variant-numeric:tabular-nums}
+.lcd-pe-actions{margin-left:auto;display:inline-flex;gap:6px;flex-wrap:wrap}
+.lcd-pe-note{font-size:12px;color:var(--t4);margin:0 0 10px;line-height:1.5}
+.lcd-pe-note strong{color:var(--t2);font-variant-numeric:tabular-nums}
+.lcd-pe-msg{font-size:12px;margin:0 0 10px}
+.lcd-pe-msg.is-ok{color:var(--green)}
+.lcd-pe-msg.is-err{color:var(--red)}
+.lcd-pe-code,.lcd-pe-pill{display:inline-block;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:600;line-height:1.5;border:1px solid currentColor;white-space:nowrap}
+.lcd-pe-code{color:var(--blue)}
+.lcd-pe-pill.is-ok{color:var(--green)}
+.lcd-pe-pill.is-wait{color:var(--yellow)}
+.lcd-pe-pill.is-err{color:var(--red);white-space:normal}
+.lcd-pe-pill.is-role{color:#b07cff;margin-left:6px;font-size:10px;padding:1px 7px}
+.lcd-pe-table{table-layout:fixed}
+.lcd-pe-table th:nth-child(1){width:30%}
+.lcd-pe-table th:nth-child(2){width:32%}
+.lcd-pe-table th:nth-child(3){width:14%}
+.lcd-pe-table td{max-width:none}
+.lcd-pe-table .tr-cell-name,.lcd-pe-table .tr-cell-email,.lcd-pe-table .tr-cell-tel{width:auto}
+.lcd-pe-table td.lcd-pe-empty{color:var(--t4);font-style:italic;max-width:none;white-space:normal}

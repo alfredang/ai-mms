@@ -4694,6 +4694,85 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                         <span class="dcf-toggle-slider"></span>
                     </label>
                 </div>
+                <?php /* Practice Exam (MMD_PracticeExam): saves straight away over AJAX — the inputs
+                         carry no name, so they are not part of the Save Course POST. Hidden
+                         until the Tertiary Exams integration is configured. */ ?>
+                <div id="dcf-pe" hidden style="margin-top:14px;padding-top:14px;border-top:1px solid var(--b1);"
+                     data-load="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/practiceexam/course', array('product_id' => (int) $_selectedCourse['id'])) ?>"
+                     data-save="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/practiceexam/saveCourse') ?>"
+                     data-pid="<?php echo (int) $_selectedCourse['id'] ?>">
+                    <div class="dcf-toggle-row">
+                        <div>
+                            <div class="dcf-toggle-label">Practice Exam</div>
+                            <div class="dcf-toggle-sub">This course has a practice exam on Tertiary Exams. Trainers register the class's learners from the class page.</div>
+                        </div>
+                        <label class="dcf-toggle-sw">
+                            <input type="checkbox" id="dcf-pe-on" aria-label="Practice exam for this course" />
+                            <span class="dcf-toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div id="dcf-pe-pick" style="margin-top:10px;display:none;align-items:center;gap:8px;flex-wrap:wrap;">
+                        <label for="dcf-pe-exam" style="font-size:12px;color:var(--t4);">Practice exam</label>
+                        <select id="dcf-pe-exam" class="mm-select-sm" style="flex:0 1 420px;min-width:0;width:auto;"></select>
+                        <button type="button" class="mm-btn mm-btn-sm mm-btn-primary" id="dcf-pe-save">Save</button>
+                    </div>
+                    <div id="dcf-pe-note" role="status" style="margin-top:8px;font-size:12px;" hidden></div>
+                </div>
+                <script type="text/javascript">
+                (function () {
+                    var box = document.getElementById('dcf-pe');
+                    if (!box || box.getAttribute('data-init')) return;
+                    box.setAttribute('data-init', '1');
+                    var on = document.getElementById('dcf-pe-on'), pick = document.getElementById('dcf-pe-pick'),
+                        sel = document.getElementById('dcf-pe-exam'), btn = document.getElementById('dcf-pe-save'),
+                        note = document.getElementById('dcf-pe-note'), saved = '';
+                    function say(text, ok) { note.hidden = !text; note.textContent = text || ''; note.style.color = ok ? 'var(--green)' : 'var(--red)'; }
+                    function showPick(v) { pick.style.display = v ? 'flex' : 'none'; }
+                    function sync() { btn.disabled = !sel.value || sel.value === saved; btn.textContent = sel.value && sel.value === saved ? 'Saved' : 'Save'; }
+                    function save(slug) {
+                        var fd = new FormData();
+                        fd.append('form_key', window.FORM_KEY || <?php echo json_encode(Mage::getSingleton('core/session')->getFormKey()) ?>);
+                        fd.append('product_id', box.getAttribute('data-pid'));
+                        fd.append('exam_slug', slug);
+                        btn.disabled = true; on.disabled = true; say('');
+                        return fetch(box.getAttribute('data-save'), { method: 'POST', body: fd, credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                            .then(function (r) { return r.json(); })
+                            .then(function (d) {
+                                if (!d.success) throw new Error(d.error || 'Could not save.');
+                                saved = d.examSlug || '';
+                                say(saved ? 'Saved. Trainers now see the Practice Exam section on the class page.' : 'Practice exam turned off for this course.', true);
+                                return true;
+                            })
+                            .catch(function (e) { say(e.message || 'Could not save.', false); return false; })
+                            .then(function (ok) { on.disabled = false; sync(); return ok; });
+                    }
+                    fetch(box.getAttribute('data-load'), { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                        .then(function (r) { return r.json(); })
+                        .then(function (d) {
+                            if (!d.success || !d.configured) return;
+                            var list = d.catalog || [], i, known = false;
+                            sel.options.length = 0;
+                            sel.add(new Option('— Select an exam —', ''));
+                            for (i = 0; i < list.length; i++) {
+                                sel.add(new Option(list[i].code + ' — ' + list[i].title, list[i].slug));
+                                if (list[i].slug === d.examSlug) known = true;
+                            }
+                            if (d.examSlug && !known) sel.add(new Option(d.examCode + ' (saved)', d.examSlug));
+                            saved = d.examSlug || '';
+                            sel.value = saved; on.checked = !!saved; showPick(!!saved); sync();
+                            box.hidden = false;
+                            if (d.warning) say(d.warning, false);
+                        })
+                        .catch(function () { /* leave the row hidden */ });
+                    sel.onchange = sync;
+                    btn.onclick = function () { if (sel.value) save(sel.value); };
+                    on.onchange = function () {
+                        if (on.checked) { showPick(true); say(''); sync(); return; }
+                        if (!saved) { showPick(false); return; }
+                        save('').then(function (ok) { if (ok) { sel.value = ''; showPick(false); } else { on.checked = true; } });
+                    };
+                })();
+                </script>
             </div>
 
         </div><!-- /.lcd-main-content -->
@@ -6993,6 +7072,140 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
     }
     ?>
 
+    <?php
+    /* Practice Exam (MMD_PracticeExam) — for courses linked to a practice exam on
+       exams.tertiaryinfotech.com (Edit Course → Lesson Details → Course Settings).
+       The trainer registers the class's learners + trainer in one click, or opens the
+       Self-Register QR. Built once and echoed after Lesson in each role branch, like
+       $_lcdTrainerCardHtml. Plain .lcd-section markup: lcd-collapsible-sections.js adds
+       the collapse. Empty for learners, unlinked courses and courses with no class. */
+    $_lcdPracticeExamHtml = '';
+    try {
+        $_peH = Mage::helper('mmd_practiceexam');
+        $_peExam = ($_lcdRunId > 0 && in_array($activeRole, $_peH->classRoles(), true) && $_peH->isConfigured())
+            ? $_peH->getCourseExam($_lcdCourseId) : null;
+        $_peRun = $_peExam ? $_peH->loadRun($_lcdRunId) : null;
+        if ($_peRun && (int) $_peRun['product_id'] === (int) $_lcdCourseId && $_peH->canAccessRun($_peRun)) {
+            ob_start(); ?>
+    <div class="lcd-section" id="practice-exam">
+        <div class="lcd-section-title">Practice Exam</div>
+        <div class="lcd-pe" id="lcd-pe"
+             data-status="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/practiceexam/status', array('run_id' => (int) $_lcdRunId)) ?>"
+             data-register="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/practiceexam/register') ?>"
+             data-run="<?php echo (int) $_lcdRunId ?>">
+            <div class="lcd-pe-bar">
+                <span class="lcd-pe-code"><?php echo htmlspecialchars($_peExam['exam_code']) ?></span>
+                <span class="lcd-pe-count" id="lcd-pe-count" aria-live="polite">Loading…</span>
+                <span class="lcd-pe-actions">
+                    <button type="button" class="mm-btn mm-btn-sm" id="lcd-pe-refresh">Refresh</button>
+                    <button type="button" class="mm-btn mm-btn-sm" id="lcd-pe-qr" disabled>Self-Register</button>
+                    <button type="button" class="mm-btn mm-btn-sm mm-btn-primary" id="lcd-pe-register" disabled>Register all</button>
+                </span>
+            </div>
+            <p class="lcd-pe-note"><?php echo htmlspecialchars($_peExam['exam_code']) ?> practice exam on <?php echo htmlspecialchars(preg_replace('#^https?://#', '', $_peH->baseUrl())) ?> · Class ID <strong><?php echo htmlspecialchars((string) $_peRun['class_id']) ?></strong>. The class's trainer is registered too. Each person is emailed the exam link once; they sign in with Google or an email code.</p>
+            <p class="lcd-pe-msg" id="lcd-pe-msg" role="status" hidden></p>
+            <table class="tr-assigned-table lcd-pe-table">
+                <thead><tr><th>Name</th><th>Email</th><th>Register Date</th><th>Status</th></tr></thead>
+                <tbody id="lcd-pe-rows"><tr><td colspan="4" class="lcd-pe-empty">Loading…</td></tr></tbody>
+            </table>
+        </div>
+        <script type="text/javascript">
+        (function () {
+            var root = document.getElementById('lcd-pe');
+            if (!root || root.getAttribute('data-init')) return;
+            root.setAttribute('data-init', '1');
+            var rows = document.getElementById('lcd-pe-rows'), count = document.getElementById('lcd-pe-count'),
+                msg = document.getElementById('lcd-pe-msg'), btnReg = document.getElementById('lcd-pe-register'),
+                btnQr = document.getElementById('lcd-pe-qr'), btnRef = document.getElementById('lcd-pe-refresh'),
+                selfUrl = '', classId = '', examCode = <?php echo json_encode($_peExam['exam_code']) ?>;
+            function esc(v) { var d = document.createElement('div'); d.appendChild(document.createTextNode(v == null ? '' : String(v))); return d.innerHTML; }
+            function say(text, ok) { msg.hidden = !text; msg.textContent = text || ''; msg.className = 'lcd-pe-msg ' + (ok ? 'is-ok' : 'is-err'); }
+            function fmt(iso) {
+                if (!iso) return '—';
+                var d = new Date(iso);
+                return isNaN(d) ? '—' : d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+            }
+            function render(d, failed) {
+                var people = d.people || [], done = 0, html = '', i, p, st;
+                for (i = 0; i < people.length; i++) {
+                    p = people[i];
+                    if (p.registeredAt) done++;
+                    if (failed && failed[p.email]) st = '<span class="lcd-pe-pill is-err">Failed: ' + esc(failed[p.email]) + '</span>';
+                    else if (p.registeredAt) st = '<span class="lcd-pe-pill is-ok">' + (p.signedIn ? 'Registered · signed in' : 'Registered') + '</span>';
+                    else st = '<span class="lcd-pe-pill is-wait">Not registered</span>';
+                    html += '<tr><td class="tr-cell-name">' + esc(p.name || '—') + (p.isTrainer ? ' <span class="lcd-pe-pill is-role">Trainer</span>' : '')
+                         + '</td><td class="tr-cell-email">' + esc(p.email) + '</td><td class="tr-cell-tel">' + fmt(p.registeredAt) + '</td><td>' + st + '</td></tr>';
+                }
+                rows.innerHTML = html || '<tr><td colspan="4" class="lcd-pe-empty">No learners or trainer on this class yet. Learners can still use Self-Register.</td></tr>';
+                count.textContent = done + '/' + people.length + ' registered' + (d.selfRegistered ? ' · ' + d.selfRegistered + ' more self-registered' : '');
+                var pending = people.length - done;
+                btnReg.textContent = !people.length ? 'Register all' : (pending ? 'Register ' + pending + (pending === 1 ? ' person' : ' people') : 'Re-register all');
+                btnReg.disabled = !people.length;
+                selfUrl = d.selfRegisterUrl || ''; classId = d.classId || '';
+                btnQr.disabled = !selfUrl;
+            }
+            function load(failed) {
+                btnRef.disabled = true;
+                return fetch(root.getAttribute('data-status'), { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                    .then(function (r) { return r.json(); })
+                    .then(function (d) {
+                        if (!d.success) throw new Error(d.error || 'Could not load the practice exam.');
+                        render(d, failed);
+                        if (d.warning) say(d.warning, false);
+                    })
+                    .catch(function (e) { count.textContent = ''; rows.innerHTML = '<tr><td colspan="4" class="lcd-pe-empty">—</td></tr>'; say(e.message || 'Could not load the practice exam.', false); })
+                    .then(function () { btnRef.disabled = false; });
+            }
+            btnRef.onclick = function () { say(''); load(); };
+            btnReg.onclick = function () {
+                if (!window.confirm('Register everyone on this class for the ' + examCode + ' practice exam? New registrations are emailed the exam link.')) return;
+                var label = btnReg.textContent, fd = new FormData();
+                fd.append('form_key', window.FORM_KEY || <?php echo json_encode(Mage::getSingleton('core/session')->getFormKey()) ?>);
+                fd.append('run_id', root.getAttribute('data-run'));
+                btnReg.disabled = true; btnReg.textContent = 'Registering…'; say('');
+                fetch(root.getAttribute('data-register'), { method: 'POST', body: fd, credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                    .then(function (r) { return r.json(); })
+                    .then(function (d) {
+                        var failed = d.failed || {}, n = 0, k;
+                        for (k in failed) if (Object.prototype.hasOwnProperty.call(failed, k)) n++;
+                        if (d.registered == null) { btnReg.textContent = label; btnReg.disabled = false; return say(d.error || 'Registration failed.', false); }
+                        return load(failed).then(function () {
+                            say(d.registered + ' registered' + (d.emailed ? ' (' + d.emailed + ' emailed the exam link)' : '') + (n ? ', ' + n + ' failed' : '') + '.', !n && d.registered > 0);
+                        });
+                    })
+                    .catch(function () { btnReg.textContent = label; btnReg.disabled = false; say('Request failed. Please try again.', false); });
+            };
+            btnQr.onclick = function () {
+                if (!selfUrl) return;
+                var ov = document.getElementById('lcd-pe-qr-overlay');
+                if (!ov) {
+                    ov = document.createElement('div');
+                    ov.id = 'lcd-pe-qr-overlay';
+                    ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true');
+                    ov.setAttribute('aria-label', 'Practice Exam self-register QR code');
+                    ov.innerHTML = '<button type="button" class="lcd-fb-qr-close" title="Close (Esc)" aria-label="Close">&times;</button>'
+                        + '<div class="lcd-fb-qr-title">Scan to register for the ' + esc(examCode) + ' practice exam</div>'
+                        + '<div class="lcd-fb-qr-big"></div>'
+                        + '<div class="lcd-fb-qr-meta">' + esc(selfUrl) + '<br>Class ID: <strong>' + esc(classId) + '</strong></div>';
+                    document.body.appendChild(ov);
+                    var big = ov.querySelector('.lcd-fb-qr-big');
+                    if (window.QRCode) new QRCode(big, { text: selfUrl, width: 1024, height: 1024, correctLevel: QRCode.CorrectLevel.M });
+                    else big.innerHTML = '<img src="https://api.qrserver.com/v1/create-qr-code/?size=1024x1024&data=' + encodeURIComponent(selfUrl) + '" alt="Practice Exam self-register QR" />';
+                    ov.addEventListener('click', function (e) { if (e.target === ov || e.target.className === 'lcd-fb-qr-close') ov.style.display = 'none'; });
+                    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') ov.style.display = 'none'; });
+                }
+                ov.style.display = 'flex';
+                ov.querySelector('.lcd-fb-qr-close').focus();
+            };
+            load();
+        })();
+        </script>
+    </div>
+<?php       $_lcdPracticeExamHtml = ob_get_clean();
+        }
+    } catch (Throwable $e) { $_lcdPracticeExamHtml = ''; }
+    ?>
+
     <?php if ($_courseManagerActive): ?>
     <?php /* DEVELOPER: Google Meet section removed per request — it is
             only meaningful for trainers/learners (who join the call), so
@@ -7203,6 +7416,7 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
         </div>
     </div>
 
+    <?php echo $_lcdPracticeExamHtml; /* DEVELOPER: Practice Exam — after Lesson */ ?>
     <?php echo $_lcdTrainerCardHtml; /* DEVELOPER: Approved Trainers — after Lesson */ ?>
 
     <!-- DEVELOPER: Course Sessions -->
@@ -7710,6 +7924,7 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
         <?php endif; ?>
     </div>
 
+    <?php echo $_lcdPracticeExamHtml; /* TRAINER: Practice Exam — after Lesson (empty for learners) */ ?>
     <?php echo $_lcdTrainerCardHtml; /* TRAINER + LEARNER: Approved Trainers — after Lesson */ ?>
 
     <?php endif; ?>
