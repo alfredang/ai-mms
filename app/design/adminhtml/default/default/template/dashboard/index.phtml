@@ -587,6 +587,7 @@ $revenue30 = $orders30 = $newCustomers30 = 0;
 $totalOrders = $monthOrders = $productCount = 0;
 $totalRevenue = 0.0;
 $salesByMonth = $popularCourses = $popularSearches = $popularSearchesByPeriod = $popularSearchesNote = array();
+$tpDaily = $tpRecentSignups = $popularCoursesByPeriod = array();
 
 // _dashFmt is referenced by dash-panel-superadmin markup for every
 // role, so the declaration must always exist. _dashCountry is only
@@ -6736,15 +6737,15 @@ function lcdToggleCard(cardId){
 }
 document.addEventListener('DOMContentLoaded', function(){
     try {
-        var id = 'lcd-course-details';
-        if (sessionStorage.getItem('lcdCard:' + id) === '1') {
+        ['lcd-course-details', 'lcd-class-details'].forEach(function(id){
+            if (sessionStorage.getItem('lcdCard:' + id) !== '1') return;
             var c = document.getElementById(id);
             if (c) {
                 c.classList.add('collapsed');
                 var h = c.querySelector('.lcd-card-head');
                 if (h) h.setAttribute('aria-expanded', 'false');
             }
-        }
+        });
     } catch(e){}
 });
 function lcdNavTo(link, sectionId){
@@ -6780,8 +6781,17 @@ $_courseRunId = '—';
 // editor does at ~1536 and fall back to the display src.
 $_lcdImgSrc = isset($_selectedCourse['image']) ? trim((string)$_selectedCourse['image']) : '';
 $_lcdImgUrl = $_lcdImgSrc;
+// Course Type row: IBF / CASL come from the funding badge on a TGS- course
+// (IBF wins, same precedence as MMD_Seotitle_Block_Html_Head), any other
+// TGS- course is WSQ, everything else is Non-WSQ.
+$_lcdCourseType = (stripos(ltrim((string) $_selectedCourse['sku']), 'TGS-') === 0) ? 'WSQ' : 'Non-WSQ';
 try {
     $_lcdProd = Mage::getModel('catalog/product')->load($_lcdCourseId);
+    if ($_lcdProd->getId() && $_lcdCourseType === 'WSQ') {
+        $_lcdBadges = Mage::helper('mmd_courseimage')->getProductBadges($_lcdProd);
+        if (in_array('IBF', $_lcdBadges, true))      $_lcdCourseType = 'IBF';
+        elseif (in_array('CASL', $_lcdBadges, true)) $_lcdCourseType = 'CASL';
+    }
     if ($_lcdProd->getId()) {
         $_lcdRaw = trim((string)$_lcdProd->getData('course_image_url'));
         if ($_lcdRaw === '') {
@@ -6882,6 +6892,21 @@ if ($_lcdRunId > 0) {
         }
     } catch (Exception $e) { /* virtual_link column may not exist yet (pre-1829) */ }
 }
+// Trainer row of the Class Details card: the trainer assigned to THIS class
+// (account pointer, else the legacy per-run option); a class with nobody
+// assigned yet lists the course's approved trainers instead.
+$_lcdClassTrainers = array();
+if ($_lcdRunId > 0) {
+    try {
+        $_lcdRunTr = Mage::getSingleton('core/resource')->getConnection('core_read')->fetchRow(
+            "SELECT trainer_user_id, trainer_option_id FROM " . Mage::getSingleton('core/resource')->getTableName('course_runs') . " WHERE run_id = ?",
+            array($_lcdRunId)
+        );
+        $_lcdRunTr = $_lcdRunTr ? Mage::helper('mmd_rolemanager/trainer')->resolveRunTrainer($_lcdRunTr) : null;
+        if ($_lcdRunTr && trim((string) $_lcdRunTr['name']) !== '') $_lcdClassTrainers[] = trim((string) $_lcdRunTr['name']);
+    } catch (Exception $e) {}
+}
+if (empty($_lcdClassTrainers)) $_lcdClassTrainers = $_lcdTrainerNames;
 $_eAttendanceNavHtml = '';
 $_eaCardHref = ''; // destination of the E-Attendance content card (set per role below)
 if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) {
@@ -6896,6 +6921,19 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
     // card itself carries the link to the attendance page / self-mark.
     $_eAttendanceNavHtml = '<a href="#eattendance" class="lcd-nav-item" onclick="return lcdNavTo(this,\'eattendance\')">'
         . $_eaIcon . '<span>E-Attendance</span></a>';
+}
+// Announcements card (trainer + learner): rendered once here, echoed after the
+// E-Attendance card in both role branches. Empty when this user may not read
+// the class's posts (not its trainer / not enrolled), so the nav item follows it.
+$_claHtml = '';
+if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) {
+    $_claHtml = $this->getLayout()->createBlock('core/template')
+        ->setTemplate('attendance/announcements.phtml')->setRunId($_lcdRunId)->toHtml();
+    if ($_claHtml !== '') {
+        $_eAttendanceNavHtml .= '<a href="#announcements" class="lcd-nav-item" onclick="return lcdNavTo(this,\'announcements\')">'
+            . '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>'
+            . '<span>Announcements</span></a>';
+    }
 }
 ?>
 <?php
@@ -6973,7 +7011,8 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
 
 <div class="lcd-wrap lcd-two-col">
     <!-- Left sidebar: Course Details + Nav (visible on wide screens) -->
-    <div class="lcd-sidebar-details lcd-card" id="lcd-course-details">
+    <div class="lcd-sidebar-details">
+      <div class="lcd-card" id="lcd-course-details">
         <button type="button" class="lcd-card-head" onclick="lcdToggleCard('lcd-course-details')" aria-expanded="true" aria-controls="lcd-course-details-body">
             Course Details
             <svg class="lcd-card-head-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
@@ -6985,7 +7024,7 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
             <img src="<?php echo htmlspecialchars($_lcdImgSrc) ?>" alt="" onerror="this.parentNode.style.display='none'" />
         </div>
         <?php endif; ?>
-        <?php if ($_lcdImgUrl !== ''): ?>
+        <?php if ($_courseManagerActive && $_lcdImgUrl !== ''): /* raw image URL is a developer tool - not shown on the trainer / learner class page */ ?>
         <div class="lcd-detail-img">
             <div class="lcd-detail-label" style="margin-bottom:6px;">Image URL Link</div>
             <a class="lcd-detail-url" href="<?php echo htmlspecialchars($_lcdImgUrl) ?>" target="_blank" rel="noopener"><?php echo htmlspecialchars($_lcdImgUrl) ?></a>
@@ -6993,15 +7032,9 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
         <?php endif; ?>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Course Title</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['name']) ?></span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Course Code</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['sku'] ?: '—') ?></span></div>
+        <div class="lcd-detail-row"><span class="lcd-detail-label">Course Type</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_lcdCourseType) ?></span></div>
         <?php $_lcdSched = isset($_devScheduleMap[(int) $_selectedCourse['id']]) ? $_devScheduleMap[(int) $_selectedCourse['id']] : ''; ?>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Course Schedule</span><span class="lcd-detail-value"><?php echo $_lcdSched !== '' ? htmlspecialchars($_lcdSched) : '—' ?></span></div>
-        <?php if (!$_courseManagerActive): /* learner/trainer viewing a real class: run-level fields are legitimate. Developer/course view is course-level only (no run fields, no trainer row). */ ?>
-        <div class="lcd-detail-row"><span class="lcd-detail-label">Course Run ID</span><span class="lcd-detail-value"><?php echo $_courseRunId ?></span></div>
-        <div class="lcd-detail-row"><span class="lcd-detail-label">Start Date</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['start_date']) ?></span></div>
-        <div class="lcd-detail-row"><span class="lcd-detail-label">End Date</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['end_date']) ?></span></div>
-        <div class="lcd-detail-row"><span class="lcd-detail-label">Class Type</span><span class="lcd-badge <?php echo $_modeBadgeCls ?>"><?php echo htmlspecialchars($_modeLabel) ?></span></div>
-        <div class="lcd-detail-row"><span class="lcd-detail-label">Class Status</span><span class="lcd-badge lcd-badge-<?php echo strtolower($_selectedCourse['status']) ?>"><?php echo htmlspecialchars($_selectedCourse['status']) ?></span></div>
-        <?php endif; ?>
         <div style="padding:10px 0 0;margin:6px 0 0;">
             <div style="font-size:14px;font-weight:700;color:#fff;margin:0 0 6px;">Course Duration</div>
             <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;color:#cbd5e1;"><span>Training Hours:</span><strong style="color:#fff"><?php echo $_dDur ?></strong></div>
@@ -7009,10 +7042,24 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
             <div style="height:1px;background:#1e293b;margin:4px 0;"></div>
             <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:13px;color:#fff;font-weight:700;"><span>Total Duration:</span><strong><?php echo $_totalDur ?></strong></div>
         </div>
-        <?php /* Approved Trainers moved out of this sidebar card into a
-                 full-width card in the right column (see "Approved Trainers"
-                 below) so it can show Telephone + Email like AI-LMS-TMS,
-                 instead of a cramped name-only list under Total Duration. */ ?>
+        </div><!-- /.lcd-card-body -->
+      </div>
+      <?php if (!$_courseManagerActive): /* learner/trainer viewing a real class: the run-level fields live in their own card. The developer course view is course-level only, so it has no Class Details. */ ?>
+      <div class="lcd-card lcd-card-sep" id="lcd-class-details">
+        <button type="button" class="lcd-card-head" onclick="lcdToggleCard('lcd-class-details')" aria-expanded="true" aria-controls="lcd-class-details-body">
+            Class Details
+            <svg class="lcd-card-head-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="lcd-card-body" id="lcd-class-details-body">
+        <div class="lcd-detail-row"><span class="lcd-detail-label">Course Run ID</span><span class="lcd-detail-value"><?php echo $_courseRunId ?></span></div>
+        <div class="lcd-detail-row"><span class="lcd-detail-label">Class Start Date</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['start_date']) ?></span></div>
+        <div class="lcd-detail-row"><span class="lcd-detail-label">Class End Date</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['end_date']) ?></span></div>
+        <div class="lcd-detail-row"><span class="lcd-detail-label">Class Type</span><span class="lcd-badge <?php echo $_modeBadgeCls ?>"><?php echo htmlspecialchars($_modeLabel) ?></span></div>
+        <div class="lcd-detail-row"><span class="lcd-detail-label">Class Status</span><span class="lcd-badge lcd-badge-<?php echo strtolower($_selectedCourse['status']) ?>"><?php echo htmlspecialchars($_selectedCourse['status']) ?></span></div>
+        <div class="lcd-detail-row"><span class="lcd-detail-label">Trainer</span><span class="lcd-detail-value"><?php echo !empty($_lcdClassTrainers) ? htmlspecialchars(implode(', ', $_lcdClassTrainers)) : '—' ?></span></div>
+        </div><!-- /.lcd-card-body -->
+      </div>
+      <?php endif; ?>
         <nav style="margin-top:14px;padding-top:14px;border-top:1px solid #1e293b;display:flex;flex-direction:column;gap:2px;">
             <?php echo $_eAttendanceNavHtml; ?>
             <?php if ($_courseManagerActive): /* Google Meet nav link removed — not shown in developer view */ ?>
@@ -7026,14 +7073,10 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
             <?php else: ?>
             <a href="#learner-slides" class="lcd-nav-item" onclick="return lcdNavTo(this,'learner-slides')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/></svg><span>Learner Slides</span></a>
             <a href="#lesson" class="lcd-nav-item" onclick="return lcdNavTo(this,'lesson')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>Lesson</span></a>
-            <?php if (!empty($_lcdTrainerRows)): ?>
-            <a href="#approved-trainers" class="lcd-nav-item" onclick="return lcdNavTo(this,'approved-trainers')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Approved Trainers</span></a>
-            <?php endif; ?>
             <a href="#additional-documents" class="lcd-nav-item" onclick="return lcdNavTo(this,'additional-documents')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Additional Documents</span></a>
             <a href="#certificate" class="lcd-nav-item" onclick="return lcdNavTo(this,'certificate')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><circle cx="12" cy="15" r="2"/></svg><span>Certificate</span></a>
             <?php endif; ?>
         </nav>
-        </div><!-- /.lcd-card-body -->
     </div>
 
     <!-- Right column: Course content -->
@@ -7591,6 +7634,8 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
     </div>
     <?php endif; ?>
 
+    <?php echo $_claHtml ?>
+
     <!-- TRAINER: Virtual Training Link — N/A for Physical, real link for Virtual/Hybrid. -->
     <?php
     $_meetUrl = $_vtLink;
@@ -7705,6 +7750,8 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
         </a>
     </div>
     <?php endif; ?>
+
+    <?php echo $_claHtml ?>
 
     <!-- LEARNER: Virtual Training Link — same N/A vs link logic as trainer. -->
     <?php
@@ -7925,7 +7972,7 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
     </div>
 
     <?php echo $_lcdPracticeExamHtml; /* TRAINER: Practice Exam — after Lesson (empty for learners) */ ?>
-    <?php echo $_lcdTrainerCardHtml; /* TRAINER + LEARNER: Approved Trainers — after Lesson */ ?>
+    <?php /* TRAINER + LEARNER: no Approved Trainers card - the class's trainer is the Trainer row of the Class Details card. */ ?>
 
     <?php endif; ?>
 
