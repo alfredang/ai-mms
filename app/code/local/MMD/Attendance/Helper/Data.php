@@ -668,6 +668,13 @@ class MMD_Attendance_Helper_Data extends Mage_Core_Helper_Abstract
         return $out;
     }
 
+    /** Is the logged-in user the trainer assigned to this class? */
+    public function isRunTrainer($runId)
+    {
+        $row = $this->getClassRow($runId);
+        return $row && count($this->_filterToTrainer(array($row))) === 1;
+    }
+
     // ── Learner self-mark (dashboard, login-based) ───────────────────────────
 
     /** Email of the logged-in dashboard user (the self-marking learner). */

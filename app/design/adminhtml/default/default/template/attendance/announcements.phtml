@@ -1,0 +1,220 @@
+<?php
+/**
+ * Class Announcements card on the class page (dashboard "View Course",
+ * trainer + learner). Rendered by dashboard/index.phtml with setRunId().
+ *
+ * Plain .lcd-section markup — lcd-collapsible-sections.js adds the caret and
+ * the collapse, so no inline toggle here. Posts are drawn by the script below
+ * from JSON, with text nodes only (a post is never injected as HTML).
+ */
+$_claH     = Mage::helper('mmd_attendance/announcement');
+$_claRunId = (int) $this->getRunId();
+if ($_claRunId <= 0 || !$_claH->canView($_claRunId)) {
+    return;
+}
+$_claCanPost = $_claH->canPost($_claRunId);
+$_claCfg = array(
+    'runId'     => $_claRunId,
+    'canPost'   => $_claCanPost,
+    'items'     => $_claH->listForRun($_claRunId),
+    'postUrl'   => $_claCanPost ? Mage::helper('adminhtml')->getUrl('adminhtml/announcement/post') : '',
+    'deleteUrl' => $_claCanPost ? Mage::helper('adminhtml')->getUrl('adminhtml/announcement/delete') : '',
+    'formKey'   => Mage::getSingleton('core/session')->getFormKey(),
+    'maxBytes'  => MMD_Attendance_Helper_Announcement::MAX_FILE_BYTES,
+);
+?>
+<div class="lcd-section" id="announcements">
+    <div class="lcd-section-title"><span>Announcements<span id="cla-count"></span></span></div>
+    <?php if ($_claCanPost): ?>
+    <div class="cla-composer" id="cla-composer">
+        <p class="cla-lead">Post to this class. Every learner sees it on their class page.</p>
+        <textarea id="cla-message" rows="3" maxlength="<?php echo MMD_Attendance_Helper_Announcement::MAX_MESSAGE_CHARS ?>" aria-label="Announcement" placeholder="Type an announcement, instructions or a list of references…"></textarea>
+        <input type="file" id="cla-file" style="display:none;">
+        <div class="cla-actions">
+            <div class="cla-attach">
+                <button type="button" class="mm-btn-ghost" id="cla-attach-btn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    <span id="cla-attach-label">Attach document</span>
+                </button>
+                <span class="cla-hint" id="cla-file-hint">or drag a file here (max 50 MB)</span>
+                <a href="#" class="cla-file-clear" id="cla-file-clear" style="display:none;">Remove</a>
+            </div>
+            <button type="button" class="mm-btn-primary" id="cla-post-btn">Post</button>
+        </div>
+        <div class="cla-error" id="cla-error" role="alert"></div>
+    </div>
+    <?php endif; ?>
+    <div id="cla-list"></div>
+</div>
+<script>
+(function () {
+    var cfg = <?php echo json_encode($_claCfg, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+    var items = cfg.items || [];
+    var newestFirst = false; // oldest first, so the class reads Day 1 to Day N
+    var pendingFile = null;
+    var listEl  = document.getElementById('cla-list');
+    var countEl = document.getElementById('cla-count');
+    if (!listEl) return;
+
+    function el(tag, cls, text) {
+        var n = document.createElement(tag);
+        if (cls) n.className = cls;
+        if (text != null) n.appendChild(document.createTextNode(text));
+        return n;
+    }
+
+    // http(s) URLs in a message become links; everything else stays text.
+    function linkify(parent, text) {
+        var re = /(https?:\/\/[^\s<>"')\]]+)/g, last = 0, m;
+        while ((m = re.exec(text)) !== null) {
+            if (m.index > last) parent.appendChild(document.createTextNode(text.slice(last, m.index)));
+            var a = el('a', '', m[0]);
+            a.href = m[0]; a.target = '_blank'; a.rel = 'noopener noreferrer';
+            parent.appendChild(a);
+            last = m.index + m[0].length;
+        }
+        if (last < text.length) parent.appendChild(document.createTextNode(text.slice(last)));
+    }
+
+    function render() {
+        countEl.textContent = items.length ? ' (' + items.length + ')' : '';
+        while (listEl.firstChild) listEl.removeChild(listEl.firstChild);
+        if (!items.length) {
+            listEl.appendChild(el('div', 'cla-empty', cfg.canPost
+                ? 'No posts yet. Use the box above to share a message, a link or a document with the class.'
+                : 'No posts yet.'));
+            return;
+        }
+        var bar = el('div', 'cla-bar');
+        bar.appendChild(el('span', '', items.length + (items.length === 1 ? ' post' : ' posts')));
+        var sort = el('a', 'cla-sort', newestFirst ? 'Newest first. Show oldest first' : 'Oldest first. Show newest first');
+        sort.href = '#';
+        sort.onclick = function () { newestFirst = !newestFirst; render(); return false; };
+        bar.appendChild(sort);
+        listEl.appendChild(bar);
+
+        for (var i = 0; i < items.length; i++) {
+            listEl.appendChild(renderPost(items[newestFirst ? items.length - 1 - i : i]));
+        }
+    }
+
+    function renderPost(a) {
+        var card = el('div', 'cla-post');
+        var head = el('div', 'cla-post-head');
+        head.appendChild(el('span', 'cla-meta', a.posted_at + ' · ' + a.posted_by));
+        if (cfg.canPost) {
+            var del = el('a', 'mmd-iconbtn mmd-tip mmd-tip-left');
+            del.href = '#';
+            del.setAttribute('data-tip', 'Delete');
+            del.setAttribute('aria-label', 'Delete post');
+            del.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>';
+            del.onclick = function () { removePost(a.id); return false; };
+            head.appendChild(del);
+        }
+        card.appendChild(head);
+        if (a.message) {
+            var msg = el('div', 'cla-msg');
+            linkify(msg, a.message);
+            card.appendChild(msg);
+        }
+        if (a.file_url) {
+            var f = el('a', 'cla-file');
+            f.href = a.file_url; f.target = '_blank'; f.rel = 'noopener noreferrer';
+            f.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+            f.appendChild(el('span', '', a.file_name || 'Attachment'));
+            card.appendChild(f);
+        }
+        return card;
+    }
+
+    // POST a form; a non-JSON reply means the admin session or form key expired.
+    function send(url, fd, done) {
+        fd.append('form_key', cfg.formKey);
+        fetch(url, { method: 'POST', body: fd, credentials: 'same-origin' })
+            .then(function (r) { return r.text(); })
+            .then(function (t) {
+                var d;
+                try { d = JSON.parse(t); } catch (e) { d = { success: false, message: 'Your session has expired. Reload the page and try again.' }; }
+                done(d);
+            })
+            .catch(function () { done({ success: false, message: 'Network error. Please try again.' }); });
+    }
+
+    function removePost(id) {
+        if (!confirm('Delete this post?')) return;
+        var fd = new FormData();
+        fd.append('id', id);
+        send(cfg.deleteUrl, fd, function (d) {
+            if (!d.success) { alert(d.message || 'Failed to delete the post.'); return; }
+            var kept = [];
+            for (var i = 0; i < items.length; i++) if (items[i].id !== id) kept.push(items[i]);
+            items = kept;
+            render();
+        });
+    }
+
+    render();
+    if (!cfg.canPost) return;
+
+    var composer = document.getElementById('cla-composer');
+    var msgEl    = document.getElementById('cla-message');
+    var fileEl   = document.getElementById('cla-file');
+    var hintEl   = document.getElementById('cla-file-hint');
+    var labelEl  = document.getElementById('cla-attach-label');
+    var clearEl  = document.getElementById('cla-file-clear');
+    var postBtn  = document.getElementById('cla-post-btn');
+    var errEl    = document.getElementById('cla-error');
+
+    function showError(text) {
+        errEl.textContent = text || '';
+        errEl.style.display = text ? 'block' : 'none';
+    }
+    function setFile(file) {
+        if (file && file.size > cfg.maxBytes) {
+            showError('That file is larger than 50 MB. Upload a smaller file, or paste a link to it in the message.');
+            file = null;
+        } else {
+            showError('');
+        }
+        pendingFile = file || null;
+        if (!pendingFile) fileEl.value = '';
+        hintEl.textContent = pendingFile ? pendingFile.name : 'or drag a file here (max 50 MB)';
+        hintEl.title = pendingFile ? pendingFile.name : '';
+        labelEl.textContent = pendingFile ? 'Change document' : 'Attach document';
+        clearEl.style.display = pendingFile ? '' : 'none';
+    }
+    function submit() {
+        var text = msgEl.value.replace(/^\s+|\s+$/g, '');
+        if (!text && !pendingFile) { showError('Type a message or attach a document before posting.'); return; }
+        showError('');
+        postBtn.disabled = true; postBtn.textContent = 'Posting…';
+        var fd = new FormData();
+        fd.append('run_id', cfg.runId);
+        fd.append('message', text);
+        if (pendingFile) fd.append('file', pendingFile);
+        send(cfg.postUrl, fd, function (d) {
+            postBtn.disabled = false; postBtn.textContent = 'Post';
+            if (!d.success) { showError(d.message || 'Failed to post.'); return; }
+            items.push(d.announcement);
+            msgEl.value = '';
+            setFile(null);
+            render();
+        });
+    }
+
+    document.getElementById('cla-attach-btn').onclick = function () { fileEl.click(); };
+    fileEl.onchange = function () { setFile(fileEl.files && fileEl.files[0]); };
+    clearEl.onclick = function () { setFile(null); return false; };
+    postBtn.onclick = submit;
+    msgEl.onkeydown = function (e) {
+        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submit(); }
+    };
+    composer.ondragover  = function (e) { e.preventDefault(); composer.classList.add('is-drag'); };
+    composer.ondragleave = function () { composer.classList.remove('is-drag'); };
+    composer.ondrop = function (e) {
+        e.preventDefault();
+        composer.classList.remove('is-drag');
+        setFile(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]);
+    };
+})();
+</script>
