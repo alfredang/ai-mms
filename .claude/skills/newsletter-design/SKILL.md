@@ -61,6 +61,13 @@ pitch, change the colour/logo, or run the improvement loop.
 8. **Max 2 blasts/week, Mon/Thu 08:00 SGT** — Blastguard enforces it. All time
    math uses `Blastguard::nowLocal()` (Magento forces PHP to UTC — see
    [[feedback_mysql_utc_php_sgt_time_mismatch]]).
+9. **Admin day-by-day plan ("Monday: course X + bullets, Tuesday: …")** — on the SG
+   prod web container run `createProposal($pid, $brief)` → `setSlotOverride($nid,
+   <day 08:00 SGT>)` → `sendForReview($nid)` per day (pin EVERY day, not just the
+   off-cadence one). Brief: free perks / audience lines go in the HOOK (outcomes
+   exclude perks), and quote each bullet's phrase EXACTLY — `qaGate` splits briefs
+   atomically and fails a merged phrase ("social media and video marketing" ≠
+   "social media marketing", #89 2026-11-14).
 
 ## Copy philosophy — make the pitch appealing
 

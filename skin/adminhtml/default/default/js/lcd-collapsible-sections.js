@@ -110,6 +110,14 @@
                 .observe(host, { childList: true, subtree: true });
         }
         document.addEventListener('instant-nav:after-swap', run);
+        // A side-menu item (href="#<section id>") expands its section if collapsed.
+        document.addEventListener('click', function (e) {
+            var a = e.target.closest && e.target.closest('a.lcd-nav-item[href^="#"]');
+            var sec = a && document.getElementById(a.getAttribute('href').slice(1));
+            if (!sec || !sec.classList.contains('lcd-collapsed')) return;
+            var t = sec.querySelector('.lcd-section-title');
+            if (t) t.click();
+        });
         var ticks = 0;
         var iv = window.setInterval(function () {
             run();

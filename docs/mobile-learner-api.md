@@ -46,7 +46,9 @@ Authenticated calls send `Authorization: Bearer <token>`.
 - **Survey** opens on the first day of class; saved through
   `MMD_FeedbackForm_Helper_Data::saveSubmission` exactly like the web form,
   plus a `mmd_mobile_feedback` row so it can't be answered twice.
-- **App Review account** (`appreview@tertiarycourses.com.sg`): password checked
+- **App Review account** (SG `appreview@tertiarycourses.com.sg`, MY
+  `appreview@tertiarycourses.com.my`, GH `appreview@tertiarycourses.com.gh`, set
+  in `mmd_mobileapi/general/demo_emails` on each site's own DB): password checked
   against `mmd_mobileapi/general/demo_password_hash`; every endpoint answers
   from `MMD_MobileApi_Helper_Demo` (sample classes dated around today) and no
   write is stored. The password lives only in the app repos' gitignored `.env`
