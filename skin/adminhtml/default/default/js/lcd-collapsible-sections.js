@@ -71,6 +71,14 @@
         }
         title.style.cursor = 'pointer';
 
+        // A section marked data-lcd-start-collapsed opens collapsed.
+        if (sec.hasAttribute('data-lcd-start-collapsed')) {
+            sec.classList.add('lcd-collapsed');
+            body.style.display = 'none';
+            var c0 = title.querySelector('.lcd-auto-caret') || title.querySelector('.lcd-caret');
+            if (c0) c0.style.transform = 'rotate(180deg)';
+        }
+
         // If the section already toggles itself via an inline onclick,
         // don't add a second handler — the body wrapper above keeps its
         // `this.nextElementSibling` toggle working.

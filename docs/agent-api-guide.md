@@ -297,7 +297,7 @@ the team says yes. Check `details` → "This class" for the time you sent ("Clas
 - `add_class` does **not** set a trainer — follow with `assign_trainer`.
 - **Online class link → `virtual_link`.** When the user gives a Zoom / Meet / Teams link for a
   virtual class, pass it as `virtual_link` (a full `http(s)://` URL, else `400 validation_error`).
-  It belongs to that ONE class and shows on the trainer's and learners' "Virtual Training Link"
+  It belongs to that ONE class and shows on the trainer's and learners' "Virtual Class Link"
   card. Don't put a class's link anywhere course-level. If a virtual class has no link, the
   backend's Google Calendar sync (every 15 min) creates the calendar event with a Google Meet
   link and saves it to the class automatically.

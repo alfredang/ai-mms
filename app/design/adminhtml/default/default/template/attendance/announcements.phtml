@@ -23,7 +23,7 @@ $_claCfg = array(
     'maxBytes'  => MMD_Attendance_Helper_Announcement::MAX_FILE_BYTES,
 );
 ?>
-<div class="lcd-section" id="announcements">
+<div class="lcd-section" id="announcements" data-lcd-start-collapsed="1">
     <div class="lcd-section-title"><span>Announcements<span id="cla-count"></span></span></div>
     <?php if ($_claCanPost): ?>
     <div class="cla-composer" id="cla-composer">
@@ -154,6 +154,15 @@ $_claCfg = array(
     }
 
     render();
+
+    // The card opens collapsed; its side-menu item expands it.
+    var navs = document.querySelectorAll('a[href="#announcements"]');
+    for (var n = 0; n < navs.length; n++) {
+        navs[n].addEventListener('click', function () {
+            var sec = document.getElementById('announcements');
+            if (sec && sec.classList.contains('lcd-collapsed')) sec.querySelector('.lcd-section-title').click();
+        });
+    }
     if (!cfg.canPost) return;
 
     var composer = document.getElementById('cla-composer');
