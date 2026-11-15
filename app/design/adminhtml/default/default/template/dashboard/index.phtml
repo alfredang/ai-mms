@@ -7185,7 +7185,7 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
                 btnReg.textContent = !people.length ? 'Register all' : (pending ? 'Register ' + pending + (pending === 1 ? ' person' : ' people') : 'Re-register all');
                 btnReg.disabled = !people.length;
                 selfUrl = d.selfRegisterUrl || ''; classId = d.classId || '';
-                if (d.examTitle) document.getElementById('lcd-pe-exam').textContent = d.examTitle + ' (' + examCode + ')';
+                if (d.examTitle) document.getElementById('lcd-pe-exam').textContent = d.examTitle + (d.examTitle.indexOf(examCode) < 0 ? ' (' + examCode + ')' : '');
                 btnQr.disabled = !selfUrl;
             }
             function load(failed) {
