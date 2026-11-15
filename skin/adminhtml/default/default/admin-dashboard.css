@@ -4378,8 +4378,10 @@ body[class*="adminhtml-"] .admin-main .middle { animation: mmd-ui-failsafe-revea
 
 /* Practice Exam section on the class page (MMD_PracticeExam). The Self-Register QR overlay
    reuses the Course Feedback overlay rules above via :is(#lcd-fb-qr-overlay,#lcd-pe-qr-overlay). */
-.lcd-pe-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:14px 0 10px}
-.lcd-pe-count{font-size:12px;color:var(--t4);font-variant-numeric:tabular-nums}
+.lcd-pe-head{gap:10px;flex-wrap:wrap}
+#practice-exam.lcd-collapsed > :not(.lcd-section-title){display:none}
+#practice-exam.lcd-collapsed .lcd-auto-caret{transform:rotate(180deg)}
+.lcd-pe-count{font-size:12px;font-weight:400;color:var(--t4);font-variant-numeric:tabular-nums}
 .lcd-pe-actions{margin-left:auto;display:inline-flex;gap:6px;flex-wrap:wrap}
 .lcd-pe-note{font-size:12px;color:var(--t4);margin:0 0 10px;line-height:1.5}
 .lcd-pe-note strong{color:var(--t2);font-variant-numeric:tabular-nums}
@@ -4393,9 +4395,10 @@ body[class*="adminhtml-"] .admin-main .middle { animation: mmd-ui-failsafe-revea
 .lcd-pe-pill.is-err{color:var(--red);white-space:normal}
 .lcd-pe-pill.is-role{color:#b07cff;margin-left:6px;font-size:10px;padding:1px 7px}
 .lcd-pe-table{table-layout:fixed}
-.lcd-pe-table th:nth-child(1){width:30%}
-.lcd-pe-table th:nth-child(2){width:32%}
-.lcd-pe-table th:nth-child(3){width:14%}
+.lcd-pe-table th:nth-child(1){width:auto}
+.lcd-pe-table th:nth-child(2){width:auto}
+.lcd-pe-table th:nth-child(3){width:116px}
+.lcd-pe-table th:nth-child(4){width:184px}
 .lcd-pe-table td{max-width:none}
 .lcd-pe-table .tr-cell-name,.lcd-pe-table .tr-cell-email,.lcd-pe-table .tr-cell-tel{width:auto}
 .lcd-pe-table td.lcd-pe-empty{color:var(--t4);font-style:italic;max-width:none;white-space:normal}

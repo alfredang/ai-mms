@@ -7121,7 +7121,7 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
        The trainer registers the class's learners + trainer in one click, or opens the
        Self-Register QR. Built once and echoed after Lesson in each role branch, like
        $_lcdTrainerCardHtml. Plain .lcd-section markup: lcd-collapsible-sections.js adds
-       the collapse. Empty for learners, unlinked courses and courses with no class. */
+       the collapse (it starts collapsed: class lcd-collapsed). Empty for learners, unlinked courses and courses with no class. */
     $_lcdPracticeExamHtml = '';
     try {
         $_peH = Mage::helper('mmd_practiceexam');
@@ -7130,22 +7130,22 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
         $_peRun = $_peExam ? $_peH->loadRun($_lcdRunId) : null;
         if ($_peRun && (int) $_peRun['product_id'] === (int) $_lcdCourseId && $_peH->canAccessRun($_peRun)) {
             ob_start(); ?>
-    <div class="lcd-section" id="practice-exam">
-        <div class="lcd-section-title">Practice Exam</div>
+    <div class="lcd-section lcd-collapsed" id="practice-exam">
+        <div class="lcd-section-title lcd-pe-head">
+            <span>Practice Exam</span>
+            <span class="lcd-pe-code"><?php echo htmlspecialchars($_peExam['exam_code']) ?></span>
+            <span class="lcd-pe-count" id="lcd-pe-count" aria-live="polite">Loading…</span>
+            <span class="lcd-pe-actions">
+                <button type="button" class="mm-btn mm-btn-sm" id="lcd-pe-refresh">Refresh</button>
+                <button type="button" class="mm-btn mm-btn-sm" id="lcd-pe-qr" disabled>Self-Register</button>
+                <button type="button" class="mm-btn-primary mm-btn-sm" id="lcd-pe-register" disabled>Register all</button>
+            </span>
+        </div>
         <div class="lcd-pe" id="lcd-pe"
              data-status="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/practiceexam/status', array('run_id' => (int) $_lcdRunId)) ?>"
              data-register="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/practiceexam/register') ?>"
              data-run="<?php echo (int) $_lcdRunId ?>">
-            <div class="lcd-pe-bar">
-                <span class="lcd-pe-code"><?php echo htmlspecialchars($_peExam['exam_code']) ?></span>
-                <span class="lcd-pe-count" id="lcd-pe-count" aria-live="polite">Loading…</span>
-                <span class="lcd-pe-actions">
-                    <button type="button" class="mm-btn mm-btn-sm" id="lcd-pe-refresh">Refresh</button>
-                    <button type="button" class="mm-btn mm-btn-sm" id="lcd-pe-qr" disabled>Self-Register</button>
-                    <button type="button" class="mm-btn mm-btn-sm mm-btn-primary" id="lcd-pe-register" disabled>Register all</button>
-                </span>
-            </div>
-            <p class="lcd-pe-note"><?php echo htmlspecialchars($_peExam['exam_code']) ?> practice exam on <?php echo htmlspecialchars(preg_replace('#^https?://#', '', $_peH->baseUrl())) ?> · Class ID <strong><?php echo htmlspecialchars((string) $_peRun['class_id']) ?></strong>. The class's trainer is registered too. Each person is emailed the exam link once; they sign in with Google or an email code.</p>
+            <p class="lcd-pe-note"><span id="lcd-pe-exam"><?php echo htmlspecialchars($_peExam['exam_code']) ?> practice exam</span> on <?php echo htmlspecialchars(preg_replace('#^https?://#', '', $_peH->baseUrl())) ?> · Class ID <strong><?php echo htmlspecialchars((string) $_peRun['class_id']) ?></strong>. The class's trainer is registered too. New accounts get a welcome email; they sign in with Google or an email code.</p>
             <p class="lcd-pe-msg" id="lcd-pe-msg" role="status" hidden></p>
             <table class="tr-assigned-table lcd-pe-table">
                 <thead><tr><th>Name</th><th>Email</th><th>Register Date</th><th>Status</th></tr></thead>
@@ -7185,6 +7185,7 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
                 btnReg.textContent = !people.length ? 'Register all' : (pending ? 'Register ' + pending + (pending === 1 ? ' person' : ' people') : 'Re-register all');
                 btnReg.disabled = !people.length;
                 selfUrl = d.selfRegisterUrl || ''; classId = d.classId || '';
+                if (d.examTitle) document.getElementById('lcd-pe-exam').textContent = d.examTitle + ' (' + examCode + ')';
                 btnQr.disabled = !selfUrl;
             }
             function load(failed) {

@@ -70,10 +70,19 @@ class MMD_PracticeExam_Adminhtml_PracticeexamController extends Mage_Adminhtml_C
         foreach ($regs as $email => $r) {
             if (!isset($seen[$email])) $extra++;
         }
+        $title = '';
+        try {
+            foreach ($h->listExams() as $e) {
+                if ($e['slug'] === $exam['exam_slug']) { $title = $e['title']; break; }
+            }
+        } catch (Exception $e) {
+            // the code alone is shown
+        }
         $this->_json(array(
             'success'      => true,
             'classId'      => $run['class_id'],
             'examCode'     => $exam['exam_code'],
+            'examTitle'    => $title,
             'people'       => $people,
             'selfRegistered' => $extra,
             'selfRegisterUrl' => $h->selfRegisterUrl($run['run_id']),
