@@ -53,7 +53,6 @@ $ttSaveUrl   = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/saveTimet
 $confUrl     = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/recordConfirmation');
 
 // Certificate controls
-$certSendUrl   = Mage::helper('adminhtml')->getUrl('adminhtml/certificate/sendForClass');
 $certToggleUrl = Mage::helper('adminhtml')->getUrl('adminhtml/certificate/setAutoEnabled');
 $certHelper    = Mage::helper('mmd_certificate');
 $certAutoOn    = $certHelper->isAutoEnabled();
@@ -309,8 +308,6 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
                 <?php if (!$preRunRow): ?>
                 <button type="button" class="att-btn att-btn-ghost" style="border-color:rgba(34,211,238,.4);color:#22d3ee;" onclick="attShowQr()">Take Attendance QR</button>
                 <?php endif; ?>
-                <button type="button" id="cert-send-btn" class="att-btn att-btn-ghost" style="border-color:rgba(34,211,238,.4);color:#22d3ee;" onclick="certSendForClass(this)">Send Certificates</button>
-                <span id="cert-send-status" style="font-size:11px;color:#64748b;"></span>
             </div>
         </div>
 
@@ -335,7 +332,18 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
         </div>
 
         <?php if (!$readonly): ?>
-        <div style="display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-top:16px;padding-top:14px;border-top:1px solid #1e293b;">
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid #1e293b;">
+            <!-- .xlsx download of the SAVED attendance (save first). -->
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-right:auto;">
+                <button type="button" class="att-btn att-btn-ghost" onclick="attDownload(false)" title="Download the selected session's saved attendance (.xlsx). Save first to include recent changes." style="display:inline-flex;align-items:center;gap:6px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Download Session (.xlsx)
+                </button>
+                <button type="button" class="att-btn att-btn-ghost" onclick="attDownload(true)" title="Download every session's saved attendance (.xlsx): a summary sheet plus one sheet per session. Save first to include recent changes." style="display:inline-flex;align-items:center;gap:6px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Download All Sessions (.xlsx)
+                </button>
+            </div>
             <span id="att-save-status" class="att-status"></span>
             <?php if ($isMy): ?>
             <!-- Malaysia: a finished class's attendance can only be corrected with a recorded reason. -->
@@ -420,6 +428,7 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
 <script>
 var ATT_LOAD_URL   = '<?php echo $this->jsQuoteEscape($loadUrl) ?>';
 var attCheckinUrl  = '';    // signed public check-in link of the loaded class (QR target)
+var ATT_EXPORT_URL = '<?php echo $this->jsQuoteEscape(Mage::helper('adminhtml')->getUrl('adminhtml/attendance/export')) ?>';
 var ATT_SAVE_URL   = '<?php echo $this->jsQuoteEscape($saveUrl) ?>';
 var ATT_ADD_URL    = '<?php echo $this->jsQuoteEscape($addUrl) ?>';
 var ATT_REMOVE_URL = '<?php echo $this->jsQuoteEscape($removeUrl) ?>';
@@ -430,7 +439,6 @@ var _attEmailKnown  = { email: '', exists: false };// last email-field existence
 var ATT_FORM_KEY   = window.FORM_KEY || '';
 var ATT_READONLY   = <?php echo $readonly ? 'true' : 'false' ?>;          // always false now — completed classes stay editable
 var ATT_SHOW_KPIS  = <?php echo $isCompleted ? 'true' : 'false' ?>;        // Completed tab still shows the attendance-rate summary cards
-var CERT_SEND_URL   = '<?php echo $this->jsQuoteEscape($certSendUrl) ?>';
 var CERT_TOGGLE_URL = '<?php echo $this->jsQuoteEscape($certToggleUrl) ?>';
 var ATT_IS_MY       = <?php echo $isMy ? 'true' : 'false' ?>;           // Malaysia: timetable + actual minutes
 var ATT_TT_SAVE_URL = '<?php echo $this->jsQuoteEscape($ttSaveUrl) ?>';
@@ -464,26 +472,14 @@ function attCopyQrUrl(btn) {
 }
 document.getElementById('att-qr-modal').addEventListener('click', function(e){ if (e.target === this) this.style.display = 'none'; });
 
-// ── Certificate: manual send for the selected class ──────────────────────────
-function certSendForClass(btn) {
+// ── .xlsx download (saved attendance) ───────────────────────────────────────
+function attDownload(all) {
     if (!attRunId) { alert('Select a class first.'); return; }
-    if (!confirm(<?php echo json_encode($isMy
-        ? 'Generate and email a ' . $certHelper->certificateName() . ' to every learner in this class who meets the attendance rule (' . $certHelper->attendanceRuleLabel() . ') and does not already have one?'
-        : 'Generate and email a Certificate of Achievement to every learner marked Present in this class who does not already have one?') ?>)) return;
-    var st = document.getElementById('cert-send-status');
-    var orig = btn.textContent;
-    btn.disabled = true; btn.textContent = 'Sending…'; if (st) st.textContent = '';
-    fetch(CERT_SEND_URL, {
-        method: 'POST', credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'run_id=' + attRunId + '&form_key=' + encodeURIComponent(ATT_FORM_KEY)
-    })
-    .then(function(r){ return r.json(); })
-    .then(function(d){
-        btn.disabled = false; btn.textContent = orig;
-        if (st) { st.style.color = d.success ? '#22c55e' : '#f87171'; st.textContent = (d.success ? '✓ ' : '✗ ') + (d.message || ''); }
-    })
-    .catch(function(){ btn.disabled=false; btn.textContent=orig; if(st){st.style.color='#f87171';st.textContent='✗ Network error';} });
+    var sess = all ? 'all' : attActiveSess;
+    if (!sess) { alert('Pick a session first.'); return; }
+    var base = ATT_EXPORT_URL;
+    if (base.charAt(base.length - 1) !== '/') { base += '/'; }
+    window.location.href = base + 'run_id/' + attRunId + '/session/' + encodeURIComponent(sess) + '/';
 }
 
 // ── Certificate: auto-send fail-safe toggle (braille spinner + tick/cross) ────
@@ -688,7 +684,6 @@ function attRecordConfirmation() {
     .then(function(d){
         btn.disabled = false;
         if (d.success) {
-            var cs = document.getElementById('cert-send-status'); if (cs) cs.textContent = '';   // an earlier "on hold" reply no longer applies
             attRefreshConfirmation(d.message);   // re-read the certificate status (sent) of each learner
             return;
         }
@@ -799,7 +794,7 @@ function attRender() {
             html += '<td>'
                 + '<label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;">'
                 + '<input type="checkbox" ' + (present ? 'checked' : '') + ' onchange="attToggle(' + i + ', this.checked)" style="width:16px;height:16px;accent-color:#22c55e;">'
-                + '<span class="att-present-lbl" id="att-lbl-' + i + '" style="color:' + (present ? '#22c55e' : '#f87171') + '">' + (present ? '✓ Present' : '✗ Absent') + '</span>'
+                + '<span class="att-present-lbl" id="att-lbl-' + i + '" style="color:' + (present ? '#22c55e' : '#f87171') + '">' + (present ? 'Present' : 'Absent') + '</span>'
                 + '</label></td>'
                 + (ATT_IS_MY ? '<td><input type="number" min="1" step="1" class="att-reason" id="att-min-' + i + '" style="max-width:130px;' + (present ? '' : 'display:none;') + '"'
                     + ' placeholder="' + (attSessMax(attActiveSess) ? 'Full: ' + attSessMax(attActiveSess) + ' min' : 'Full session') + '"'
@@ -822,7 +817,7 @@ function attToggle(i, checked) {
     var reason = document.getElementById('att-reason-' + i);
     var mins = document.getElementById('att-min-' + i);
     if (mins) { mins.style.display = checked ? '' : 'none'; if (!checked) { mins.value = ''; cell.m = ''; } }
-    if (lbl) { lbl.textContent = checked ? '✓ Present' : '✗ Absent'; lbl.style.color = checked ? '#22c55e' : '#f87171'; }
+    if (lbl) { lbl.textContent = checked ? 'Present' : 'Absent'; lbl.style.color = checked ? '#22c55e' : '#f87171'; }
     if (reason) { reason.style.display = checked ? 'none' : ''; if (checked) { reason.value=''; cell.r=''; } }
     attUpdateCounters();
     attRenderSessTabs();

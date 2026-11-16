@@ -43,10 +43,15 @@
     <?php echo $this->getChildHtml('head') ?>
 </head>
 
+<?php
+// Learners and trainers never see Magento's system alerts (cache invalidated, base URL,
+// security, admin inbox popup): only staff can act on them.
+$_hideSysAlerts = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('learner', 'trainer'));
+?>
 <body id="html-body"<?php echo $this->getBodyClass() ? ' class="' . $this->getBodyClass() . '"' : ''; ?>>
-<?php echo $this->getChildHtml('notification_window'); ?>
+<?php if (!$_hideSysAlerts) echo $this->getChildHtml('notification_window'); ?>
 <div class="wrapper admin-sidebar-layout">
-    <?php echo $this->getChildHtml('global_notices') ?>
+    <?php if (!$_hideSysAlerts) echo $this->getChildHtml('global_notices') ?>
     <aside class="admin-sidebar" id="admin-sidebar">
         <div class="sidebar-collapse-top">
             <button class="sidebar-toggle" id="sidebar-toggle" type="button" title="Toggle sidebar">
@@ -68,7 +73,7 @@
         <div class="admin-topbar">
             <?php echo $this->getChildHtml('header') ?>
         </div>
-        <?php echo $this->getChildHtml('notifications'); ?>
+        <?php if (!$_hideSysAlerts) echo $this->getChildHtml('notifications'); ?>
         <div class="middle" id="anchor-content">
             <div id="page:main-container">
             <?php if($this->getChildHtml('left')): ?>

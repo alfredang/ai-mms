@@ -5,7 +5,8 @@
  * Mirrors LMS auto_create_certificates: scans completed classes within a
  * lookback window (including classes ending today — the 18:30 run fires after
  * the final PM session), and for every learner whose OVERALL session
- * attendance exceeds 70% and who has no certificate yet, generates + emails
+ * attendance exceeds the threshold (Helper::attendanceThresholdPct(), default 60%;
+ * Malaysia: 75% of training time) and who has no certificate yet, generates + emails
  * one. Idempotent via the certificate table's unique (run_id, learner_email)
  * key.
  *

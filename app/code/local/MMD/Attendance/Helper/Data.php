@@ -848,6 +848,203 @@ class MMD_Attendance_Helper_Data extends Mage_Core_Helper_Abstract
         return array('success' => true, 'message' => 'You have been marked present. Thank you!');
     }
 
+    /**
+     * Class roster + saved attendance: enrolments (order history for classes
+     * without enrolments) UNION walk-ins recorded only in attendance. Shared by
+     * the E-Attendance screen (load) and the .xlsx download (export).
+     * @return array rows: learner_name, learner_email, learner_phone, is_walkin,
+     *               att => [session_key => [p (0|1), r (reason), m (minutes), t (updated_at)]]
+     */
+    public function rosterForRun($run)
+    {
+        $runId    = (int) $run['run_id'];
+        $helper   = $this;
+        $resource = Mage::getSingleton('core/resource');
+        $read     = $resource->getConnection('core_read');
+        $enrolTbl = $resource->getTableName('course_run_enrolments');
+        $attTbl   = $resource->getTableName('mmd_course_run_attendance');
+
+        // Roster = enrolments UNION walk-in attendance rows not in enrolments.
+        // WSQ (TGS-) classes have no materialised enrolments (the class-
+        // formation cron skips TGS SKUs) — fall back to the order history,
+        // which IS the registration record.
+        $enrol = $read->fetchAll(
+            "SELECT learner_name, learner_email, learner_phone FROM `$enrolTbl`
+              WHERE run_id = ? ORDER BY learner_name",
+            array($runId)
+        );
+        if (empty($enrol)) {
+            $enrol = $helper->orderRosterForRun($run);
+        }
+        $att = $read->fetchAll(
+            "SELECT learner_email, session_key, learner_name, is_present, minutes_attended, reason_of_absence, is_walkin, updated_at
+               FROM `$attTbl` WHERE run_id = ?",
+            array($runId)
+        );
+        // attByEmail[email] = ['name'=>…, 'is_walkin'=>…, 'att'=>[session_key=>['p'=>…,'r'=>…]]]
+        $attByEmail = array();
+        foreach ($att as $a) {
+            $key = strtolower((string)$a['learner_email']);
+            if ($key === '') continue;
+            if (!isset($attByEmail[$key])) {
+                $attByEmail[$key] = array(
+                    'name'      => (string)$a['learner_name'],
+                    'is_walkin' => 0,
+                    'att'       => array(),
+                );
+            }
+            if ((int)$a['is_walkin'] === 1) $attByEmail[$key]['is_walkin'] = 1;
+            $attByEmail[$key]['att'][(string)$a['session_key']] = array(
+                'p' => (int)$a['is_present'],
+                'r' => (string)$a['reason_of_absence'],
+                'm' => $a['minutes_attended'] === null ? '' : (string)(int)$a['minutes_attended'],
+                't' => (string)$a['updated_at'],
+            );
+        }
+
+        $roster = array();
+        $seen   = array();
+        foreach ($enrol as $e) {
+            $key = strtolower((string)$e['learner_email']);
+            if ($key === '' || isset($seen[$key])) continue;
+            $seen[$key] = true;
+            $a = isset($attByEmail[$key]) ? $attByEmail[$key] : null;
+            $roster[] = array(
+                'learner_name'  => $e['learner_name'],
+                'learner_email' => $e['learner_email'],
+                'learner_phone' => isset($e['learner_phone']) ? (string) $e['learner_phone'] : '',
+                'is_walkin'     => 0,
+                'att'           => $a ? $a['att'] : new stdClass(),
+            );
+        }
+        // Walk-ins recorded in attendance but absent from enrolments.
+        foreach ($attByEmail as $key => $a) {
+            if (isset($seen[$key])) continue;
+            if (Mage::helper('mmd_rolemanager/handover')->isManaged($runId) && !(int)$a['is_walkin']) continue;
+            $seen[$key] = true;
+            $roster[] = array(
+                'learner_name'  => $a['name'],
+                'learner_email' => $key,
+                'is_walkin'     => (int)$a['is_walkin'],
+                'att'           => $a['att'],
+            );
+        }
+        return $roster;
+    }
+
+    // ── .xlsx download ───────────────────────────────────────────────────────
+
+    /**
+     * Attendance workbook for a class: one session ($sessionKey), or every
+     * session (null) = a Summary sheet (one column per session, sessions
+     * present, attendance %) followed by one detail sheet per session.
+     * Unmarked counts as Absent, the same as the E-Attendance screen.
+     * @return array(filename, bytes)
+     */
+    public function attendanceWorkbook($runId, $sessionKey = null)
+    {
+        $run = $this->getClassRow($runId);
+        if (!$run) {
+            throw new Exception('Class not found.');
+        }
+        $sessions = $this->sessionsForRun($run);
+        if ($sessionKey !== null) {
+            $sessions = array_values(array_filter($sessions, function ($s) use ($sessionKey) { return $s['key'] === $sessionKey; }));
+            if (!$sessions) {
+                throw new Exception('Session not found.');
+            }
+        }
+        $roster = $this->rosterForRun($run);
+        usort($roster, function ($a, $b) { return strcasecmp((string) $a['learner_name'], (string) $b['learner_name']); });
+        $isMy = $this->isMalaysiaSite();
+        $date = Mage::getModel('core/date');
+        $fmtD = function ($d) { return ($d && $d !== '0000-00-00') ? date('d M Y', strtotime($d)) : ''; };
+        $cell = function ($r, $key) {
+            $att = (array) $r['att'];
+            return isset($att[$key]) ? (array) $att[$key] : array('p' => 0, 'r' => '', 'm' => '', 't' => '');
+        };
+        $B = MMD_Attendance_Model_Xlsx::S_BOLD;
+        $H = MMD_Attendance_Model_Xlsx::S_HEAD;
+        $C = MMD_Attendance_Model_Xlsx::S_CELL;
+        $info = function ($extra) use ($run, $fmtD, $B, $date) {
+            $rows = array(
+                array(array('v' => 'E-Attendance', 's' => $B)),
+                array(array('v' => 'Class', 's' => $B), $run['class_id'] . ' - ' . $run['course_title']),
+                array(array('v' => 'Course code', 's' => $B), (string) $run['course_sku']),
+                array(array('v' => 'Dates', 's' => $B), trim($fmtD($run['course_start_date']) . ' to ' . $fmtD($run['course_end_date']), ' to')),
+                array(array('v' => 'Trainer', 's' => $B), (string) $run['trainer_name']),
+            );
+            foreach ($extra as $k => $v) {
+                $rows[] = array(array('v' => $k, 's' => $B), $v);
+            }
+            $rows[] = array(array('v' => 'Downloaded', 's' => $B), $date->date('d M Y g:i A'));
+            $rows[] = array();
+            return $rows;
+        };
+
+        $xlsx  = new MMD_Attendance_Model_Xlsx();
+        $total = count($roster);
+        if ($sessionKey === null) {
+            $head = array('#', 'Learner', 'Email', 'Phone');
+            foreach ($sessions as $s) $head[] = $s['label'];
+            $head[] = 'Sessions Present';
+            $head[] = 'Attendance %';
+            $rows = $info(array('Sessions' => count($sessions), 'Learners' => $total));
+            $freeze = count($rows) + 2;
+            $rows[] = array_map(function ($h) use ($H) { return array('v' => $h, 's' => $H); }, $head);
+            foreach ($roster as $i => $r) {
+                $row = array(array('v' => $i + 1, 's' => $C), array('v' => (string) $r['learner_name'], 's' => $C),
+                    array('v' => (string) $r['learner_email'], 's' => $C), array('v' => isset($r['learner_phone']) ? (string) $r['learner_phone'] : '', 's' => $C));
+                $present = 0;
+                foreach ($sessions as $s) {
+                    $p = (int) $cell($r, $s['key'])['p'] === 1;
+                    $present += $p ? 1 : 0;
+                    $row[] = array('v' => $p ? 'Present' : 'Absent', 's' => $C);
+                }
+                $row[] = array('v' => $present, 's' => $C);
+                $row[] = array('v' => count($sessions) ? (int) round(100 * $present / count($sessions)) : 0, 's' => $C);
+                $rows[] = $row;
+            }
+            $widths = array(5, 28, 34, 16);
+            foreach ($sessions as $s) $widths[] = max(12, min(26, mb_strlen($s['label']) + 2));
+            $widths[] = 16;
+            $widths[] = 14;
+            $xlsx->addSheet('Summary', $rows, $widths, $freeze);
+        }
+
+        foreach ($sessions as $s) {
+            $present = 0;
+            foreach ($roster as $r) $present += (int) $cell($r, $s['key'])['p'] === 1 ? 1 : 0;
+            $head = array('#', 'Learner', 'Email', 'Phone', 'Attendance', 'Reason of Absence');
+            if ($isMy) $head[] = 'Actual Minutes';
+            $head[] = 'Walk-in';
+            $head[] = 'Last Updated';
+            $rows = $info(array('Session' => $s['label'], 'Present' => $present . ' of ' . $total));
+            $freeze = count($rows) + 2;
+            $rows[] = array_map(function ($h) use ($H) { return array('v' => $h, 's' => $H); }, $head);
+            foreach ($roster as $i => $r) {
+                $a = $cell($r, $s['key']);
+                $p = (int) $a['p'] === 1;
+                $row = array(array('v' => $i + 1, 's' => $C), array('v' => (string) $r['learner_name'], 's' => $C),
+                    array('v' => (string) $r['learner_email'], 's' => $C), array('v' => isset($r['learner_phone']) ? (string) $r['learner_phone'] : '', 's' => $C),
+                    array('v' => $p ? 'Present' : 'Absent', 's' => $C), array('v' => $p ? '' : (string) $a['r'], 's' => $C));
+                if ($isMy) $row[] = array('v' => $a['m'] === '' ? '' : (int) $a['m'], 's' => $C);
+                $row[] = array('v' => !empty($r['is_walkin']) ? 'Yes' : '', 's' => $C);
+                $row[] = array('v' => !empty($a['t']) ? $date->date('d M Y g:i A', $a['t']) : '', 's' => $C);
+                $rows[] = $row;
+            }
+            $widths = array(5, 28, 34, 16, 12, 34);
+            if ($isMy) $widths[] = 15;
+            $widths[] = 9;
+            $widths[] = 20;
+            $xlsx->addSheet(str_replace(' · ', ' ', $s['label']), $rows, $widths, $freeze);
+        }
+
+        $name = 'Attendance_' . preg_replace('/[^A-Za-z0-9_-]+/', '', (string) $run['class_id'])
+            . '_' . ($sessionKey === null ? 'all-sessions' : preg_replace('/[^A-Za-z0-9]+/', '-', str_replace(' · ', ' ', $sessions[0]['label']))) . '.xlsx';
+        return array($name, $xlsx->toString());
+    }
+
     // ── Public QR check-in (no login) ────────────────────────────────────────
 
     public function checkinSig($runId)

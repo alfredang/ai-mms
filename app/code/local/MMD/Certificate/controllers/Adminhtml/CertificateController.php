@@ -11,6 +11,73 @@ class MMD_Certificate_Adminhtml_CertificateController extends Mage_Adminhtml_Con
     }
 
     /**
+     * GET — the class Certificate page (opened from the class page's certificate card):
+     * every registered learner with name, email, contact and attendance, Send to All / Send Selected.
+     * params: run
+     */
+    public function classAction()
+    {
+        $h   = Mage::helper('mmd_certificate');
+        $run = $h->loadRun((int) $this->getRequest()->getParam('run'));
+        if (!$run || !$h->canAccessRun($run)) {
+            Mage::getSingleton('adminhtml/session')->addError($run ? 'You are not the trainer of this class.' : 'Class not found.');
+            return $this->_redirect('adminhtml/dashboard');
+        }
+        Mage::register('mmd_certificate_run', $run);
+        $this->loadLayout()->_title($h->certificateName())->_title((string) $run['class_id']);
+        // Block added here, not in layout XML: SG's Redis layout cache survives deploys.
+        $this->getLayout()->getBlock('content')->append(
+            $this->getLayout()->createBlock('core/template', 'mmd.certificate.class')->setTemplate('certificate/class.phtml')
+        );
+        $this->renderLayout();
+    }
+
+    /** POST JSON — the trainer ticks / unticks "learner has completed the feedback". params: run_id, email, done */
+    public function setFeedbackAction()
+    {
+        try {
+            if (!$this->getRequest()->isPost()) throw new Exception('POST required');
+            $this->_validateFormKey();
+            $h   = Mage::helper('mmd_certificate');
+            $run = $h->loadRun((int) $this->getRequest()->getParam('run_id'));
+            if (!$run) throw new Exception('Class not found.');
+            if (!$h->canAccessRun($run)) throw new Exception('You are not the trainer of this class.');
+            $email = strtolower(trim((string) $this->getRequest()->getParam('email')));
+            $onRoster = false;
+            foreach ($h->getClassCertRoster($run)['learners'] as $l) {
+                if ($l['learner_email'] === $email) { $onRoster = true; break; }
+            }
+            if (!$onRoster) throw new Exception('Learner is not on this class roster.');
+            $user = Mage::getSingleton('admin/session')->getUser();
+            $done = (int) $this->getRequest()->getParam('done') ? 1 : 0;
+            $h->setFeedbackDone((int) $run['run_id'], $email, $done, $user ? (int) $user->getId() : null);
+            $this->_json(array('success' => true, 'done' => $done));
+        } catch (Exception $e) {
+            $this->_json(array('success' => false, 'message' => $e->getMessage()));
+        }
+    }
+
+    /** POST JSON — set the auto-send attendance threshold (percent). Admin-level only. params: value */
+    public function setThresholdAction()
+    {
+        try {
+            if (!$this->getRequest()->isPost()) throw new Exception('POST required');
+            $this->_validateFormKey();
+            $h = Mage::helper('mmd_certificate');
+            if (!$h->canChangeSettings()) throw new Exception('Not authorized to change this setting.');
+            $v = (int) $this->getRequest()->getParam('value');
+            if ($v < 1 || $v > 100) throw new Exception('Enter a percentage from 1 to 100.');
+            Mage::getConfig()->saveConfig(MMD_Certificate_Helper_Data::THRESHOLD_CONFIG_PATH, $v, 'default', 0);
+            Mage::getConfig()->reinit();
+            Mage::app()->reinitStores();
+            $this->_json(array('success' => true, 'value' => $v,
+                'message' => 'Certificates now auto-send to learners with attendance above ' . $v . '%.'));
+        } catch (Exception $e) {
+            $this->_json(array('success' => false, 'message' => $e->getMessage()));
+        }
+    }
+
+    /**
      * POST JSON — issue + send certificates to all present learners of a class
      * who don't already have one. body: { run_id }
      */
@@ -27,6 +94,7 @@ class MMD_Certificate_Adminhtml_CertificateController extends Mage_Adminhtml_Con
             $h   = Mage::helper('mmd_certificate');
             $run = $h->loadRun($runId);
             if (!$run) throw new Exception('Class not found.');
+            if (!$h->canAccessRun($run)) throw new Exception('You are not the trainer of this class.');
 
             // Malaysia: say why nothing can be sent yet (no trainer confirmation recorded / class excluded).
             $conf = $h->confirmationForRun($runId);
@@ -58,7 +126,7 @@ class MMD_Certificate_Adminhtml_CertificateController extends Mage_Adminhtml_Con
     /**
      * POST JSON — manually issue + send certificates to SELECTED learners of a
      * class (trainer multi-select on the Certificate of Achievement panel).
-     * Manual send is a deliberate trainer override: no 70% attendance gate and
+     * Manual send is a deliberate trainer override: no attendance threshold and
      * not affected by the auto_enabled flag (Malaysia excepted: its 75%-of-
      * training-time rule and the recorded trainer confirmation still apply). Only roster members are accepted.
      * params: run_id, emails[] (or comma-separated emails)
@@ -79,6 +147,7 @@ class MMD_Certificate_Adminhtml_CertificateController extends Mage_Adminhtml_Con
             $h   = Mage::helper('mmd_certificate');
             $run = $h->loadRun($runId);
             if (!$run) throw new Exception('Class not found.');
+            if (!$h->canAccessRun($run)) throw new Exception('You are not the trainer of this class.');
 
             $roster  = $h->getClassCertRoster($run);
             $byEmail = array();

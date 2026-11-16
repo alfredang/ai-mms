@@ -1249,12 +1249,8 @@ div.dce-value::-webkit-scrollbar-thumb:hover{background:#64748b}
 .lcd-back{display:inline-block;background:#334155;color:#fff !important;text-decoration:none !important;border-radius:10px;padding:12px 24px;font-size:15px;font-weight:600;margin-bottom:20px;border:none}
 .lcd-back:hover{background:#475569;color:#fff !important}
 .lcd-section{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:22px 24px;margin-bottom:16px}
-/* Course detail: Course Feedback + Certificate of Achievement side by side */
-/* (flex-wrap: stacks on its own when the content area is narrower than ~920px) */
-.lcd-feedback-cert-row{display:flex;flex-wrap:wrap;gap:16px;margin-bottom:16px;align-items:flex-start}
-.lcd-feedback-cert-row>.lcd-section{margin-bottom:0;min-width:0;box-sizing:border-box}
-.lcd-feedback-cert-row>#course-feedback{flex:2 1 360px}
-.lcd-feedback-cert-row>#certificate{flex:3 1 540px}
+/* Course detail: Course Feedback and Certificate of Achievement each take their own full-width
+   row (owner request 2026-11-16, reverting the side-by-side row of 2026-10-12). */
 .lcd-feedback-cert-row .lcd-cert-table{display:block;overflow-x:auto}
 /* Course Feedback QR — zoom icon in the blue card head + full-window overlay.
    The big QR is 560px but capped by the viewport, so Ctrl/Cmd + grows it

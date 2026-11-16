@@ -35,6 +35,31 @@ class MMD_Attendance_Adminhtml_AttendanceController extends Mage_Adminhtml_Contr
     }
 
     /**
+     * GET .xlsx download of a class's SAVED attendance.
+     * params: run_id, session (a session key, or 'all' = Summary + one sheet per session)
+     */
+    public function exportAction()
+    {
+        try {
+            $session = (string) $this->getRequest()->getParam('session', 'all');
+            list($name, $bytes) = Mage::helper('mmd_attendance')->attendanceWorkbook(
+                (int) $this->getRequest()->getParam('run_id'),
+                $session === 'all' ? null : $session
+            );
+            $this->getResponse()->setHttpResponseCode(200)
+                ->setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', true)
+                ->setHeader('Content-Disposition', 'attachment; filename="' . $name . '"', true)
+                ->setHeader('Content-Length', (string) strlen($bytes), true)
+                ->setHeader('Cache-Control', 'no-store', true)
+                ->setBody($bytes);
+        } catch (Exception $e) {
+            $this->getResponse()->setHttpResponseCode(400)
+                ->setHeader('Content-Type', 'text/plain; charset=UTF-8', true)
+                ->setBody('Download failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * GET JSON — roster + saved attendance for a run.
      * params: run_id
      */
@@ -65,70 +90,7 @@ class MMD_Attendance_Adminhtml_AttendanceController extends Mage_Adminhtml_Contr
             $helper   = Mage::helper('mmd_attendance');
             $sessions = $helper->sessionsForRun($run);
 
-            // Roster = enrolments UNION walk-in attendance rows not in enrolments.
-            // WSQ (TGS-) classes have no materialised enrolments (the class-
-            // formation cron skips TGS SKUs) — fall back to the order history,
-            // which IS the registration record.
-            $enrol = $read->fetchAll(
-                "SELECT learner_name, learner_email, learner_phone FROM `$enrolTbl`
-                  WHERE run_id = ? ORDER BY learner_name",
-                array($runId)
-            );
-            if (empty($enrol)) {
-                $enrol = $helper->orderRosterForRun($run);
-            }
-            $att = $read->fetchAll(
-                "SELECT learner_email, session_key, learner_name, is_present, minutes_attended, reason_of_absence, is_walkin
-                   FROM `$attTbl` WHERE run_id = ?",
-                array($runId)
-            );
-            // attByEmail[email] = ['name'=>…, 'is_walkin'=>…, 'att'=>[session_key=>['p'=>…,'r'=>…]]]
-            $attByEmail = array();
-            foreach ($att as $a) {
-                $key = strtolower((string)$a['learner_email']);
-                if ($key === '') continue;
-                if (!isset($attByEmail[$key])) {
-                    $attByEmail[$key] = array(
-                        'name'      => (string)$a['learner_name'],
-                        'is_walkin' => 0,
-                        'att'       => array(),
-                    );
-                }
-                if ((int)$a['is_walkin'] === 1) $attByEmail[$key]['is_walkin'] = 1;
-                $attByEmail[$key]['att'][(string)$a['session_key']] = array(
-                    'p' => (int)$a['is_present'],
-                    'r' => (string)$a['reason_of_absence'],
-                    'm' => $a['minutes_attended'] === null ? '' : (string)(int)$a['minutes_attended'],
-                );
-            }
-
-            $roster = array();
-            $seen   = array();
-            foreach ($enrol as $e) {
-                $key = strtolower((string)$e['learner_email']);
-                if ($key === '' || isset($seen[$key])) continue;
-                $seen[$key] = true;
-                $a = isset($attByEmail[$key]) ? $attByEmail[$key] : null;
-                $roster[] = array(
-                    'learner_name'  => $e['learner_name'],
-                    'learner_email' => $e['learner_email'],
-                    'learner_phone' => isset($e['learner_phone']) ? (string) $e['learner_phone'] : '',
-                    'is_walkin'     => 0,
-                    'att'           => $a ? $a['att'] : new stdClass(),
-                );
-            }
-            // Walk-ins recorded in attendance but absent from enrolments.
-            foreach ($attByEmail as $key => $a) {
-                if (isset($seen[$key])) continue;
-                if (Mage::helper('mmd_rolemanager/handover')->isManaged($runId) && !(int)$a['is_walkin']) continue;
-                $seen[$key] = true;
-                $roster[] = array(
-                    'learner_name'  => $a['name'],
-                    'learner_email' => $key,
-                    'is_walkin'     => (int)$a['is_walkin'],
-                    'att'           => $a['att'],
-                );
-            }
+            $roster = $helper->rosterForRun($run);
 
             // Malaysia: each learner's share of the training time and the final attendance confirmation, for the
             // "Final Attendance Confirmation" panel.

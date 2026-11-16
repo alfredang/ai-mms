@@ -7,7 +7,7 @@
  * header, blue chevron geometry, left-aligned body, signature block, seal.
  *
  * Gate: a learner gets a certificate only for a COMPLETED class where their
- * OVERALL session attendance exceeds 70% — present sessions / total sessions
+ * OVERALL session attendance exceeds the threshold (attendanceThresholdPct(), default 60%) — present sessions / total sessions
  * of the run (each class day has an AM + PM session; see
  * MMD_Attendance_Helper_Data::sessionsForRun). No assessment data in MMS.
  * Malaysia (partner sign-off 21 Oct 2026): a "Certificate of Attendance" at 75% OR MORE of total training
@@ -20,8 +20,10 @@
 class MMD_Certificate_Helper_Data extends Mage_Core_Helper_Abstract
 {
     const ENABLED_CONFIG_PATH = 'mmd/certificate/auto_enabled';
-    /** Overall attendance required for a certificate: strictly more than 70%. */
-    const ATTENDANCE_THRESHOLD = 0.70;
+    /** Overall session attendance a learner must EXCEED for a certificate (percent). Admin-editable on the
+     *  class Certificate page; config.xml default 60 (user rule 16 Nov 2026, was a fixed 70%). Not Malaysia. */
+    const THRESHOLD_CONFIG_PATH = 'mmd/certificate/attendance_threshold_pct';
+    const ATTENDANCE_THRESHOLD_DEFAULT_PCT = 60;
     /** Malaysia: at least 75% of total training hours, including exactly 75%. */
     const ATTENDANCE_MIN_PCT_MY = 75;
     const LOG_FILE            = 'certificates.log';
@@ -42,6 +44,40 @@ class MMD_Certificate_Helper_Data extends Mage_Core_Helper_Abstract
     {
         return Mage::getStoreConfigFlag(self::ENABLED_CONFIG_PATH);
     }
+    /** Percent of sessions a learner must exceed (non-Malaysia sites). */
+    public function attendanceThresholdPct()
+    {
+        $v = Mage::getStoreConfig(self::THRESHOLD_CONFIG_PATH);
+        $v = ($v === null || $v === '') ? self::ATTENDANCE_THRESHOLD_DEFAULT_PCT : (int) $v;
+        return max(1, min(100, $v));
+    }
+    /** Admin / training provider / developer may change the threshold and the auto-send flag. */
+    public function canChangeSettings()
+    {
+        return Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', 'training_provider', 'developer'));
+    }
+    /** A trainer only reaches classes assigned to them; staff reach every class (same rule as MMD_PracticeExam). */
+    public function canAccessRun(array $run)
+    {
+        $rm = Mage::helper('mmd_rolemanager');
+        if ($rm->isRoleAllowed(array('developer', 'admin', 'training_provider', 'franchise_admin'))) return true;
+        if (!$rm->isRoleAllowed(array('trainer'))) return false;
+        $user = Mage::getSingleton('admin/session')->getUser();
+        if (!$user) return false;
+        if ((int) $run['trainer_user_id'] === (int) $user->getId()) return true;
+        $email = strtolower(trim((string) $user->getEmail()));
+        if ((int) $run['trainer_option_id'] > 0 && $email !== '') {
+            $res = Mage::getSingleton('core/resource');
+            try {
+                $t = (string) $res->getConnection('core_read')->fetchOne(
+                    'SELECT email FROM `' . $res->getTableName('courses_trainers') . '` WHERE relation_id = ? LIMIT 1',
+                    array((int) $run['trainer_option_id'])
+                );
+                if (strtolower(trim($t)) === $email) return true;
+            } catch (Exception $e) { /* legacy table shape differs */ }
+        }
+        return false;
+    }
 
     // ------------------------------------------------------------------ //
     // Gating
@@ -51,7 +87,7 @@ class MMD_Certificate_Helper_Data extends Mage_Core_Helper_Abstract
      * Completed runs (end_date <= today — the 18:30 sweep fires AFTER the last
      * session of the final day, so a class counts as completed the same
      * evening) within $daysBack that have at least one present learner who has
-     * not yet been issued a certificate. The per-learner 70% attendance gate
+     * not yet been issued a certificate. The per-learner attendance threshold
      * is applied afterwards by getEligibleLearners().
      */
     public function getEligibleRuns($daysBack = 7)
@@ -100,7 +136,7 @@ class MMD_Certificate_Helper_Data extends Mage_Core_Helper_Abstract
     }
 
     /**
-     * Learners for a run whose OVERALL attendance exceeds the 70% threshold
+     * Learners for a run whose OVERALL attendance exceeds the threshold
      * (distinct present sessions / total sessions of the run) and who do NOT
      * already have an issued/sent cert.
      *
@@ -178,11 +214,11 @@ class MMD_Certificate_Helper_Data extends Mage_Core_Helper_Abstract
      * Full class roster with per-learner attendance + certificate status —
      * drives the trainer's Certificate of Achievement panel. Roster =
      * course_run_enrolments, else the order history (WSQ classes have no
-     * materialised enrolments), plus attendance-only walk-ins. No 70% filter
+     * materialised enrolments), plus attendance-only walk-ins. No threshold filter
      * here — the trainer sees everyone and decides who to send to manually.
      *
      * @return array { total_sessions, learners: [ { learner_email,
-     *                 learner_name, customer_id, present_sessions,
+     *                 learner_name, learner_phone, customer_id, present_sessions,
      *                 attendance_pct, cert_status, cert_no, sent_at } ] }
      */
     public function getClassCertRoster(array $run)
@@ -225,17 +261,23 @@ class MMD_Certificate_Helper_Data extends Mage_Core_Helper_Abstract
 
         $myAtt = $this->_isMalaysia() ? $this->attendedMinutesForRun($run) : null;
 
+        $emails = array();
+        foreach ($enrol as $l) $emails[] = (string) $l['learner_email'];
+        $phones = $this->phonesForRun($run, array_merge($emails, array_keys($attBy)));
+
         $out = array(); $seen = array();
         foreach ($enrol as $l) {
             $email = strtolower(trim((string)$l['learner_email']));
             if ($email === '' || isset($seen[$email])) continue;
             $seen[$email] = true;
-            $out[] = $this->_rosterRow($email, trim((string)$l['learner_name']), $attBy, $certBy, $total, $myAtt);
+            $out[] = $this->_rosterRow($email, trim((string)$l['learner_name']), $attBy, $certBy, $total, $myAtt)
+                + array('learner_phone' => isset($phones[$email]) ? $phones[$email] : '');
         }
         foreach ($attBy as $email => $a) { // attendance rows not in the roster (walk-ins)
             if (isset($seen[$email])) continue;
             $seen[$email] = true;
-            $out[] = $this->_rosterRow($email, (string)$a['n'], $attBy, $certBy, $total, $myAtt);
+            $out[] = $this->_rosterRow($email, (string)$a['n'], $attBy, $certBy, $total, $myAtt)
+                + array('learner_phone' => isset($phones[$email]) ? $phones[$email] : '');
         }
         return array('total_sessions' => $total, 'learners' => $out,
             // Malaysia: minutes-based attendance from the confirmed class timetable.
@@ -243,6 +285,72 @@ class MMD_Certificate_Helper_Data extends Mage_Core_Helper_Abstract
             'total_minutes'       => $myAtt ? $myAtt['total_minutes'] : null,
             // Malaysia: the trainer's final attendance confirmation (null elsewhere).
             'confirmation'        => $myAtt ? $this->confirmationForRun($runId) : null);
+    }
+
+    /**
+     * Contact number per learner (lower-case email => phone): the class enrolment's phone (QR check-in, 1938),
+     * else the billing telephone of the learner's latest order — this course's order first, then any order.
+     */
+    public function phonesForRun(array $run, array $emails)
+    {
+        $emails = array_values(array_unique(array_filter(array_map(function ($e) { return strtolower(trim((string) $e)); }, $emails))));
+        if (!$emails) return array();
+        $res  = Mage::getSingleton('core/resource');
+        $read = $res->getConnection('core_read');
+        $out  = array();
+        foreach ($read->fetchAll(
+            "SELECT LOWER(learner_email) AS e, learner_phone AS p FROM `" . $res->getTableName('course_run_enrolments') . "`
+              WHERE run_id = ? AND learner_phone IS NOT NULL AND learner_phone <> ''",
+            array((int) $run['run_id'])
+        ) as $r) {
+            $out[$r['e']] = trim((string) $r['p']);
+        }
+        $missing = array_values(array_diff($emails, array_keys($out)));
+        if (!$missing) return $out;
+        $oTbl = $res->getTableName('sales/order');
+        $rows = $read->fetchAll(
+            "SELECT LOWER(o.customer_email) AS e, a.telephone AS p,
+                    EXISTS (SELECT 1 FROM `" . $res->getTableName('sales/order_item') . "` oi
+                             WHERE oi.order_id = o.entity_id AND oi.product_id = ?) AS same_course
+               FROM `$oTbl` o
+               JOIN `" . $res->getTableName('sales/order_address') . "` a
+                 ON a.parent_id = o.entity_id AND a.address_type = 'billing'
+              WHERE LOWER(o.customer_email) IN (" . implode(',', array_fill(0, count($missing), '?')) . ")
+                AND a.telephone IS NOT NULL AND TRIM(a.telephone) <> ''
+              ORDER BY same_course DESC, o.entity_id DESC",
+            array_merge(array((int) $run['product_id']), $missing)
+        );
+        foreach ($rows as $r) {
+            if (!isset($out[$r['e']])) $out[$r['e']] = trim((string) $r['p']);
+        }
+        return $out;
+    }
+
+    const CHECKLIST_TABLE = 'mmd_course_run_cert_checklist';
+
+    /** Learners the trainer ticked as "feedback completed" for a class: [lower-case email => true]. */
+    public function feedbackDoneForRun($runId)
+    {
+        $res = Mage::getSingleton('core/resource');
+        $out = array();
+        foreach ($res->getConnection('core_read')->fetchCol(
+            'SELECT LOWER(learner_email) FROM `' . $res->getTableName(self::CHECKLIST_TABLE) . '` WHERE run_id = ? AND feedback_done = 1',
+            array((int) $runId)
+        ) as $e) {
+            $out[$e] = true;
+        }
+        return $out;
+    }
+
+    public function setFeedbackDone($runId, $email, $done, $adminId)
+    {
+        $res = Mage::getSingleton('core/resource');
+        $res->getConnection('core_write')->insertOnDuplicate(
+            $res->getTableName(self::CHECKLIST_TABLE),
+            array('run_id' => (int) $runId, 'learner_email' => strtolower(trim((string) $email)), 'feedback_done' => $done ? 1 : 0,
+                  'updated_by_admin_id' => $adminId ?: null, 'updated_at' => Varien_Date::now()),
+            array('feedback_done', 'updated_by_admin_id', 'updated_at')
+        );
     }
 
     // ------------------------------------------------------------------ //
@@ -739,7 +847,7 @@ class MMD_Certificate_Helper_Data extends Mage_Core_Helper_Abstract
 
     /**
      * The certificate attendance gate. Integer maths so exactly 75% passes and 74.9% never rounds up (Malaysia —
-     * called with attended / total training MINUTES); Singapore keeps "strictly more than 70%" of sessions.
+     * called with attended / total training MINUTES); other sites need strictly more than attendanceThresholdPct() of sessions.
      */
     public function meetsAttendance($present, $total)
     {
@@ -748,7 +856,7 @@ class MMD_Certificate_Helper_Data extends Mage_Core_Helper_Abstract
         if ($this->_isMalaysia()) {
             return $present * 100 >= $total * self::ATTENDANCE_MIN_PCT_MY;
         }
-        return $present / $total > self::ATTENDANCE_THRESHOLD;
+        return $present * 100 > $total * $this->attendanceThresholdPct();
     }
 
     /** The certificate's name as shown to learners on this site. */
@@ -762,7 +870,7 @@ class MMD_Certificate_Helper_Data extends Mage_Core_Helper_Abstract
     {
         return $this->_isMalaysia()
             ? 'at least ' . self::ATTENDANCE_MIN_PCT_MY . '% of total training hours'
-            : 'above 70%';
+            : 'above ' . $this->attendanceThresholdPct() . '%';
     }
 
     /**

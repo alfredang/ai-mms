@@ -1,0 +1,225 @@
+<?php
+/**
+ * Class Certificate page — opened from the class page's certificate card.
+ * Every registered learner with name, email, contact and attendance; the trainer ticks who has
+ * completed the feedback and sends certificates to everyone or to the learners selected.
+ * A manual send is emailed straight away. The 6:30pm sweep sends the rest automatically once a
+ * learner's attendance is above the threshold.
+ *
+ * @var Mage_Core_Block_Template $this
+ */
+/** @var MMD_Certificate_Helper_Data $h */
+$h      = Mage::helper('mmd_certificate');
+$run    = Mage::registry('mmd_certificate_run');
+$runId  = (int) $run['run_id'];
+$roster = $h->getClassCertRoster($run);
+$learners      = $roster['learners'];
+$totalSessions = (int) $roster['total_sessions'];
+$ttConfirmed   = $roster['timetable_confirmed'];   // null except Malaysia (minutes-based attendance)
+$totalMin      = $roster['total_minutes'];
+$isMy          = $ttConfirmed !== null;
+$feedback      = $h->feedbackDoneForRun($runId);
+$fmtMin = function ($n) { return intdiv((int) $n, 60) . 'h ' . str_pad((int) $n % 60, 2, '0', STR_PAD_LEFT) . 'm'; };
+
+$sentTotal = 0; $qualify = 0;
+foreach ($learners as $l) {
+    if (in_array($l['cert_status'], array('issued', 'sent'), true)) $sentTotal++;
+    if (!empty($l['meets_attendance'])) $qualify++;
+}
+$unsent   = count($learners) - $sentTotal;
+$certName = $h->certificateName();
+$adminUrl = Mage::helper('adminhtml');
+$sendUrl      = $adminUrl->getUrl('adminhtml/certificate/sendSelected');
+$feedbackUrl  = $adminUrl->getUrl('adminhtml/certificate/setFeedback');
+$thresholdUrl = $adminUrl->getUrl('adminhtml/certificate/setThreshold');
+$backUrl      = $adminUrl->getUrl('adminhtml/dashboard', array(
+    'course_id' => (int) $run['product_id'], '_query' => array('run' => $runId),
+));
+$dates = $run['course_start_date']
+    ? date('j M Y', strtotime($run['course_start_date']))
+      . ($run['course_end_date'] && $run['course_end_date'] !== $run['course_start_date'] ? ' – ' . date('j M Y', strtotime($run['course_end_date'])) : '')
+    : '';
+?>
+<style>
+.cert-card{background:#1e2132;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:16px;}
+.cert-title{font-size:22px;font-weight:700;color:#e2e8f0;margin:0 0 4px;}
+.cert-sub{font-size:13px;color:#94a3b8;margin:0;}
+.cert-pill{display:inline-flex;align-items:center;gap:6px;background:#0f172a;border:1px solid #334155;border-radius:999px;padding:5px 12px;font-size:12px;color:#94a3b8;margin:10px 8px 0 0;}
+.cert-pill b{color:#e2e8f0;font-weight:600;}
+.cert-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 14px;}
+.cert-note{color:#cbd5e1;font-size:13px;line-height:1.5;max-width:760px;}
+.cert-note strong{color:#f1f5f9;}
+.cert-warn{color:var(--yellow);font-size:12px;margin:0 0 10px;}
+.cert-threshold{width:64px;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:6px 8px;color:#e2e8f0;font-size:13px;}
+.admin-main .cert-table td.cert-contact{white-space:nowrap;}
+.cert-table input[type=checkbox]{width:16px;height:16px;cursor:pointer;}
+</style>
+
+<div class="cert-card">
+    <div class="cert-bar" style="margin-bottom:0;">
+        <div>
+            <h1 class="cert-title"><?php echo htmlspecialchars($certName) ?></h1>
+            <p class="cert-sub"><?php echo htmlspecialchars((string) $run['course_title']) ?></p>
+            <span class="cert-pill">Class <b><?php echo htmlspecialchars((string) $run['class_id']) ?></b></span>
+            <?php if ($dates): ?><span class="cert-pill">Dates <b><?php echo htmlspecialchars($dates) ?></b></span><?php endif; ?>
+            <?php if (!empty($run['trainer_name'])): ?><span class="cert-pill">Trainer <b><?php echo htmlspecialchars((string) $run['trainer_name']) ?></b></span><?php endif; ?>
+            <span class="cert-pill">Sent <b><?php echo (int) $sentTotal ?> of <?php echo count($learners) ?></b></span>
+        </div>
+        <a class="mm-btn mm-btn-ghost" href="<?php echo $backUrl ?>" style="text-decoration:none;">&larr; Back to Class</a>
+    </div>
+</div>
+
+<div class="cert-card">
+    <div class="cert-bar">
+        <div class="cert-note">
+            <?php if ($h->isAutoEnabled()): ?>
+            Certificates are emailed automatically at <strong>6:30pm</strong> on the day the class ends to every learner whose attendance is <strong><?php echo htmlspecialchars($h->attendanceRuleLabel()) ?></strong><?php if (!$isMy): ?> (<?php echo (int) $qualify ?> of <?php echo count($learners) ?> qualify now)<?php endif; ?>.
+            <?php else: ?>
+            Automatic sending at 6:30pm is switched off on this site, so certificates are sent from this page only.
+            <?php endif; ?>
+            A certificate you send here is emailed to the learner straight away<?php if (!$isMy): ?>, whatever their attendance<?php endif; ?>.
+        </div>
+        <?php if (!$isMy && $h->canChangeSettings()): ?>
+        <div style="display:flex;align-items:center;gap:8px;color:#94a3b8;font-size:12px;">
+            <label for="cert-threshold">Auto-send above</label>
+            <input type="number" id="cert-threshold" class="cert-threshold" min="1" max="100" value="<?php echo (int) $h->attendanceThresholdPct() ?>" /> %
+            <button type="button" class="mm-btn mm-btn-ghost" onclick="certSaveThreshold(this)">Save</button>
+        </div>
+        <?php endif; ?>
+    </div>
+
+    <?php if ($ttConfirmed === false): ?>
+    <div class="cert-warn">⚠ The class timetable is not confirmed, so certificates are on hold. Confirm each session's times and breaks on the E-Attendance page.</div>
+    <?php elseif (!empty($roster['confirmation']) && $roster['confirmation']['status'] !== 'confirmed'): ?>
+    <div class="cert-warn">⚠ <?php echo htmlspecialchars($h->confirmationHoldMessage($roster['confirmation'])) ?></div>
+    <?php endif; ?>
+
+    <?php if (empty($learners)): ?>
+    <p class="cert-sub">No learners are registered for this class yet. They appear here once they enrol or check in.</p>
+    <?php else: ?>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin:0 0 14px;">
+        <button type="button" class="mm-btn-primary" id="cert-send-all" <?php echo $unsent ? '' : 'disabled' ?> onclick="certSend(true)">Send to All<?php echo $unsent ? ' (' . (int) $unsent . ')' : '' ?></button>
+        <button type="button" class="mm-btn mm-btn-ghost" id="cert-send-selected" disabled onclick="certSend(false)">Send Selected</button>
+    </div>
+    <table class="mm-table cert-table" style="width:100%;">
+        <thead>
+            <tr>
+                <th class="center" style="width:36px;"><?php if ($unsent): ?><input type="checkbox" onchange="certToggleAll(this)" aria-label="Select all learners without a certificate" /><?php endif; ?></th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Contact</th>
+                <th class="center">Attendance</th>
+                <th class="center">Feedback Done</th>
+                <th>Certificate</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach ($learners as $l):
+                $isSent = in_array($l['cert_status'], array('issued', 'sent'), true);
+                $pct    = (int) $l['attendance_pct'];
+                $email  = $l['learner_email'];
+            ?>
+            <tr>
+                <td class="center">
+                    <?php if ($isSent): ?>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" aria-label="Sent"><polyline points="20 6 9 17 4 12"/></svg>
+                    <?php else: ?>
+                    <input type="checkbox" class="cert-pick" data-email="<?php echo htmlspecialchars($email, ENT_QUOTES) ?>" onchange="certCount()" aria-label="Select <?php echo htmlspecialchars($email, ENT_QUOTES) ?>" />
+                    <?php endif; ?>
+                </td>
+                <td class="strong"><?php echo htmlspecialchars($l['learner_name'] !== '' ? $l['learner_name'] : '—') ?></td>
+                <td class="muted"><?php echo htmlspecialchars($email) ?></td>
+                <td class="muted cert-contact"><?php echo htmlspecialchars($l['learner_phone'] !== '' ? $l['learner_phone'] : '—') ?></td>
+                <td class="center" style="color:<?php echo !empty($l['meets_attendance']) ? 'var(--green)' : 'var(--yellow)' ?>;"><?php
+                    if ($ttConfirmed === null) {
+                        echo (int) $l['present_sessions'] . '/' . $totalSessions . ' · ' . $pct . '%';
+                    } elseif ($ttConfirmed) {
+                        echo $fmtMin($l['minutes_attended']) . ' / ' . $fmtMin($totalMin) . ' · ' . $pct . '%';
+                    } else {
+                        echo 'Timetable not confirmed';
+                    } ?></td>
+                <td class="center"><input type="checkbox" <?php echo isset($feedback[$email]) ? 'checked' : '' ?> data-email="<?php echo htmlspecialchars($email, ENT_QUOTES) ?>" onchange="certFeedback(this)" aria-label="Feedback completed by <?php echo htmlspecialchars($email, ENT_QUOTES) ?>" /></td>
+                <td class="status">
+                    <?php if ($isSent): ?>
+                    <span style="color:var(--green);">Sent<?php if ($l['sent_at']): ?> <?php echo htmlspecialchars(date('d M Y', strtotime((string) $l['sent_at']))) ?><?php endif; ?></span><?php if ($l['cert_no']): ?><span style="color:var(--t4);"> · <?php echo htmlspecialchars($l['cert_no']) ?></span><?php endif; ?>
+                    <?php elseif ($l['cert_status'] === 'error'): ?>
+                    <span style="color:var(--red);">Send failed, select to retry</span>
+                    <?php else: ?>
+                    <span style="color:var(--t4);">Not sent</span>
+                    <?php endif; ?>
+                </td>
+            </tr>
+            <?php endforeach; ?>
+        </tbody>
+    </table>
+    <?php endif; ?>
+</div>
+
+<script type="text/javascript">
+(function () {
+    var RUN_ID = '<?php echo $runId ?>';
+    var CERT   = '<?php echo $this->jsQuoteEscape($certName) ?>';
+
+    function post(url, params) {
+        var body = new URLSearchParams();
+        body.append('form_key', typeof FORM_KEY !== 'undefined' ? FORM_KEY : '');
+        for (var i = 0; i < params.length; i++) body.append(params[i][0], params[i][1]);
+        return fetch(url, {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: body.toString()
+        }).then(function (r) { return r.json(); });
+    }
+    function picks(checkedOnly) {
+        var nodes = document.querySelectorAll('.cert-pick' + (checkedOnly ? ':checked' : '')), out = [];
+        for (var i = 0; i < nodes.length; i++) out.push(nodes[i].getAttribute('data-email'));
+        return out;
+    }
+
+    window.certToggleAll = function (cb) {
+        var boxes = document.querySelectorAll('.cert-pick');
+        for (var i = 0; i < boxes.length; i++) boxes[i].checked = cb.checked;
+        window.certCount();
+    };
+    window.certCount = function () {
+        var n = picks(true).length, btn = document.getElementById('cert-send-selected');
+        btn.disabled = n === 0;
+        btn.textContent = n > 0 ? 'Send Selected (' + n + ')' : 'Send Selected';
+    };
+    window.certSend = function (all) {
+        var emails = picks(!all);
+        if (!emails.length) return;
+        if (!confirm('Email the ' + CERT + ' to ' + (all ? 'all ' : '') + emails.length + ' learner(s) now?')) return;
+        var allBtn = document.getElementById('cert-send-all'), selBtn = document.getElementById('cert-send-selected');
+        allBtn.disabled = true; selBtn.disabled = true;
+        (all ? allBtn : selBtn).textContent = 'Sending…';
+        var params = [['run_id', RUN_ID]];
+        for (var i = 0; i < emails.length; i++) params.push(['emails[]', emails[i]]);
+        post('<?php echo $sendUrl ?>', params).then(function (d) {
+            alert(d.message || (d.success ? 'Certificates sent.' : 'Send failed.'));
+            location.reload();
+        }).catch(function () {
+            alert('Network error. Please try again.');
+            location.reload();
+        });
+    };
+    window.certFeedback = function (cb) {
+        cb.disabled = true;
+        post('<?php echo $feedbackUrl ?>', [['run_id', RUN_ID], ['email', cb.getAttribute('data-email')], ['done', cb.checked ? '1' : '0']])
+            .then(function (d) {
+                if (!d.success) { cb.checked = !cb.checked; alert(d.message || 'Could not save.'); }
+                cb.disabled = false;
+            }).catch(function () {
+                cb.checked = !cb.checked; cb.disabled = false;
+                alert('Network error. Please try again.');
+            });
+    };
+    window.certSaveThreshold = function (btn) {
+        btn.disabled = true;
+        post('<?php echo $thresholdUrl ?>', [['value', document.getElementById('cert-threshold').value]]).then(function (d) {
+            alert(d.message || 'Could not save.');
+            if (d.success) location.reload(); else btn.disabled = false;
+        }).catch(function () { alert('Network error. Please try again.'); btn.disabled = false; });
+    };
+})();
+</script>

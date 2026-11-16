@@ -3,8 +3,10 @@
  * Public Practice Exam self-register page, opened from the QR code the trainer shows in class:
  *   /practiceexam/register/index/run/<run_id>/k/<signature>
  * The learner enters name + email; the exams site creates the account, grants the practice
- * exam for this class and emails the sign-in link. The signature (HMAC of the run id) stops
- * link guessing, and the link only works around the class dates.
+ * exam for this class (courseRunId = the class's C###### id) and emails the sign-in link. The
+ * learner is also added to the class roster, with a learner account if they have none (same as
+ * registering with the class code at /lmslogin). The signature (HMAC of the run id) stops link
+ * guessing, and the link only works around the class dates.
  */
 class MMD_PracticeExam_RegisterController extends Mage_Core_Controller_Front_Action
 {
@@ -34,27 +36,40 @@ class MMD_PracticeExam_RegisterController extends Mage_Core_Controller_Front_Act
             } elseif (mb_strlen($name) < 2 || mb_strlen($name) > 200 || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
                 $msg = '<p class="msg err">Please enter your full name and a valid email address.</p>';
             } else {
-                $r = $h->registerPerson($name, $email, $exam['exam_slug'], $run['class_id'], 'Self-registered from MMS');
+                $r = $h->registerPerson($name, $email, $exam['exam_slug'], $run['class_id'],
+                    'Self-registered from MMS, course run ' . $run['class_id']);
                 Mage::log(sprintf('self-register class %s -> %s: %s %s', $run['class_id'], $exam['exam_code'], $email, $r['ok'] ? 'ok' : 'FAILED ' . $r['error']), null, 'mmd_practiceexam.log', true);
                 if ($r['ok']) {
+                    // Also join the class roster; a failure here never undoes the exam registration.
+                    $inClass = false;
+                    try {
+                        Mage::helper('mmd_rolemanager/enrol')->enrolLearner($name, $email, $run);
+                        $inClass = true;
+                    } catch (Exception $ex) {
+                        Mage::log(sprintf('self-register class %s roster add FAILED for %s: %s', $run['class_id'], $email, $ex->getMessage()), null, 'mmd_practiceexam.log', true);
+                    }
                     $e = htmlspecialchars($email);
+                    $cls = htmlspecialchars((string) $run['class_id']);
                     return $this->_page($title, '<p class="msg ok">You are registered for the ' . htmlspecialchars($exam['exam_code'])
-                        . ' practice exam.</p><p>' . ($r['emailSent'] ? 'We emailed the exam link to <strong>' . $e . '</strong>. ' : '')
+                        . ' practice exam (Course Run ID ' . $cls . ').</p><p>' . ($r['emailSent'] ? 'We emailed the exam link to <strong>' . $e . '</strong>. ' : '')
                         . 'Sign in with <strong>' . $e . '</strong> using Google or an email code.</p>'
-                        . '<p><a class="btn" href="' . htmlspecialchars($h->baseUrl()) . '/login">Open Tertiary Exams</a></p>');
+                        . ($inClass ? '<p>You are also in class <strong>' . $cls . '</strong>. Sign in to the learning portal with <strong>' . $e
+                            . '</strong> and an email code to get the course material.</p>' : '')
+                        . '<p><a class="btn" href="' . htmlspecialchars($h->baseUrl()) . '/login">Open Tertiary Exams</a></p>'
+                        . ($inClass ? '<p><a class="btn btn2" href="' . htmlspecialchars(Mage::getUrl('lmslogin', array('_nosid' => true))) . '">Open the learning portal</a></p>' : ''));
                 }
                 $msg = '<p class="msg err">Registration failed. Please try again or ask your trainer.</p>';
             }
         }
 
         $sku = htmlspecialchars((string) $run['course_sku']);
-        $this->_page($title, '<p class="sub">Class ' . htmlspecialchars((string) $run['class_id']) . ' &middot; ' . $sku . '</p>' . $msg
+        $this->_page($title, '<p class="sub">Course Run ID ' . htmlspecialchars((string) $run['class_id']) . ' &middot; ' . $sku . '</p>' . $msg
             . '<form method="post" action="">'
             . '<label for="pe-name">Full name</label><input id="pe-name" name="name" type="text" required maxlength="200" autocomplete="name" value="' . htmlspecialchars($name) . '">'
             . '<label for="pe-email">Email</label><input id="pe-email" name="email" type="email" required maxlength="320" autocomplete="email" value="' . htmlspecialchars($email) . '">'
             . '<input name="website" type="text" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px">'
             . '<button class="btn" type="submit">Register</button></form>'
-            . '<p class="note">We create your Tertiary Exams account with this email and send you the exam link.</p>');
+            . '<p class="note">We create your Tertiary Exams account with this email, send you the exam link and add you to this class.</p>');
     }
 
     protected function _page($title, $body, $code = 200)
@@ -74,6 +89,7 @@ class MMD_PracticeExam_RegisterController extends Mage_Core_Controller_Front_Act
                 . 'input:focus-visible,.btn:focus-visible{outline:3px solid #93c5fd;outline-offset:2px}'
                 . '.btn{display:inline-block;width:100%;box-sizing:border-box;margin-top:20px;padding:13px;font-size:16px;font-weight:600;color:#fff;background:#1d4ed8;border:0;border-radius:8px;text-align:center;text-decoration:none;cursor:pointer}'
                 . '.msg{padding:12px;border-radius:8px;font-size:15px}.ok{background:#dcfce7;color:#14532d}.err{background:#fee2e2;color:#7f1d1d}'
+                . '.btn2{margin-top:0;background:#fff;color:#1d4ed8;border:1px solid #1d4ed8}'
                 . '.note{color:#475569;font-size:13px;margin:16px 0 0}'
                 . '</style></head><body><main class="card"><h1>' . $t . '</h1>' . $body . '</main></body></html>');
     }
