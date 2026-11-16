@@ -8217,53 +8217,25 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
     </div>
     <?php endif; ?>
 
+    <?php if ($activeRole === 'trainer' && $_lcdRunId > 0): ?>
+    <?php /* TRAINER: the whole card is a link to the class Certificate page (adminhtml/certificate/class),
+             which lists every learner, the hold warnings and the send buttons (owner request 2026-11-16).
+             data-lcd-link keeps lcd-collapsible-sections.js from turning it into a collapsible. */ ?>
+    <a class="lcd-section lcd-section-link" id="certificate" data-lcd-link="1" href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/certificate/class', array('run' => (int)$_lcdRunId)) ?>">
+        <div class="lcd-section-title">
+            <span><?php echo htmlspecialchars(Mage::helper('mmd_certificate')->certificateName()) ?></span>
+            <svg class="lcd-link-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg>
+        </div>
+    </a>
+    <?php else: ?>
     <div class="lcd-section" id="certificate" data-lcd-start-collapsed="1">
         <div class="lcd-section-title"><?php echo htmlspecialchars(Mage::helper('mmd_certificate')->certificateName()) ?></div>
         <?php if ($activeRole === 'trainer'): ?>
-        <?php
-        // TRAINER: sent / total summary and the link to the class Certificate page
-        // (adminhtml/certificate/class), where the trainer sees every learner and sends.
-        $_certLearners = array(); $_certTotalSessions = 0;
-        $_certTtConfirmed = null; $_certTotalMin = null;   // Malaysia: minutes-based attendance
-        if ($_lcdRunId > 0) {
-            try {
-                $_certHelper = Mage::helper('mmd_certificate');
-                $_certRunRow = $_certHelper->loadRun($_lcdRunId);
-                if ($_certRunRow) {
-                    $_certRoster        = $_certHelper->getClassCertRoster($_certRunRow);
-                    $_certLearners      = $_certRoster['learners'];
-                    $_certTotalSessions = (int)$_certRoster['total_sessions'];
-                    $_certTtConfirmed   = $_certRoster['timetable_confirmed'];
-                    $_certTotalMin      = $_certRoster['total_minutes'];
-                }
-            } catch (Exception $e) {}
-        }
-        $_certFmtMin = function ($n) { return intdiv((int)$n, 60) . 'h ' . str_pad((int)$n % 60, 2, '0', STR_PAD_LEFT) . 'm'; };
-        $_certSentTotal = 0;
-        foreach ($_certLearners as $_cl) {
-            if (in_array($_cl['cert_status'], array('issued', 'sent'), true)) $_certSentTotal++;
-        }
-        $_certSendUrl = Mage::helper('adminhtml')->getUrl('adminhtml/certificate/sendSelected');
-        ?>
-        <?php if (empty($_certLearners)): ?>
         <div class="lcd-cert-box">
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>
             <div class="lcd-cert-title">No Learners To Certify Yet</div>
-            <div class="lcd-cert-sub">Once this class has enrolled learners they appear here with their certificate status. Certificates are emailed automatically at 6:30pm on the day the class completes, to every learner whose overall session attendance is <?php echo htmlspecialchars(Mage::helper('mmd_certificate')->attendanceRuleLabel()) ?>.</div>
+            <div class="lcd-cert-sub">Once this class has a scheduled run and enrolled learners, open this card to see their certificate status. Certificates are emailed automatically at 6:30pm on the day the class completes, to every learner whose overall session attendance is <?php echo htmlspecialchars(Mage::helper('mmd_certificate')->attendanceRuleLabel()) ?>.</div>
         </div>
-        <?php else: ?>
-        <?php /* The learner list (name, email, contact, attendance, feedback) and the send buttons live on the
-                 class Certificate page; this card is the way in. */ ?>
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:4px 0 4px;">
-            <div style="color:#cbd5e1;font-size:13px;max-width:720px;"><strong style="color:#f1f5f9;"><?php echo (int)$_certSentTotal ?></strong> of <strong style="color:#f1f5f9;"><?php echo count($_certLearners) ?></strong> learners have received their certificate. Auto-send runs daily at 6:30pm for learners whose overall session attendance is <?php echo htmlspecialchars(Mage::helper('mmd_certificate')->attendanceRuleLabel()) ?>. Open the certificate page to see every learner and send certificates yourself.</div>
-            <a class="mm-btn-primary" href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/certificate/class', array('run' => (int)$_lcdRunId)) ?>" style="text-decoration:none;">Manage Certificates</a>
-        </div>
-        <?php if ($_certTtConfirmed === false): ?>
-        <div style="color:var(--yellow);font-size:12px;margin:8px 0 0;">⚠ The class timetable is not confirmed, so certificates are on hold. Confirm each session's times and breaks on the E-Attendance page.</div>
-        <?php elseif (!empty($_certRoster['confirmation']) && $_certRoster['confirmation']['status'] !== 'confirmed'): ?>
-        <div style="color:var(--yellow);font-size:12px;margin:8px 0 0;">⚠ <?php echo htmlspecialchars($_certHelper->confirmationHoldMessage($_certRoster['confirmation'])) ?></div>
-        <?php endif; ?>
-        <?php endif; ?>
         <?php else: ?>
         <div class="lcd-cert-box">
             <?php if ($_certState === 'issued'): ?>
@@ -8290,6 +8262,7 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
         </div>
         <?php endif; ?>
     </div>
+    <?php endif; ?>
     </div>
 
     <div class="lcd-section" id="additional-documents">

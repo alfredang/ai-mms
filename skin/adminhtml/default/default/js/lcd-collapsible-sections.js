@@ -42,6 +42,8 @@
 
     function enhance(sec) {
         if (sec.getAttribute('data-lcd-collapsible')) return;
+        // A link card (data-lcd-link, e.g. the trainer's Certificate card) navigates, never collapses.
+        if (sec.hasAttribute('data-lcd-link')) return;
         var title = null, c = sec.firstElementChild;
         // first direct child with class lcd-section-title
         while (c) {
