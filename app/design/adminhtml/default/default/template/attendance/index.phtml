@@ -158,11 +158,15 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
                 : 'Select a class, pick a session (each day has AM and PM), mark each learner present or absent, then save.';
         } ?></p>
 
-    <!-- Active / Completed switch -->
+    <!-- Active / Completed switch — standalone page only; a class opened from
+         its class page goes straight to that class (Take Attendance sits in
+         the class card instead). -->
+    <?php if (!$preRunRow): ?>
     <div class="att-tabs">
         <a class="att-tab <?php echo $isCompleted ? '' : 'active' ?>" href="<?php echo $activeUrl ?>">Take Attendance</a>
         <a class="att-tab <?php echo $isCompleted ? 'active' : '' ?>" href="<?php echo $compUrl ?>">Past Attendance</a>
     </div>
+    <?php endif; ?>
     <script>
     // Force the .att-tab colors as inline styles — the upstream
     // dark-theme.css §190 has a blanket `a { color: var(--blue)
@@ -220,9 +224,15 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
                     <?php echo htmlspecialchars($preRunRow['class_id'] . ' · ' . $preRunRow['course_title']) ?>
                 </div>
             </div>
-            <?php if ($backUrl): ?>
-            <a class="att-btn att-btn-ghost" href="<?php echo $backUrl ?>" style="text-decoration:none;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;">&larr; Back to Class</a>
-            <?php endif; ?>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;flex-shrink:0;">
+                <button type="button" class="att-btn att-btn-primary" onclick="attShowQr()" style="display:inline-flex !important;align-items:center;gap:8px;padding:12px 24px !important;font-size:15px !important;font-weight:700 !important;border-radius:10px !important;background:#2563eb !important;border:1px solid #2563eb !important;color:#fff !important;box-shadow:0 4px 14px rgba(37,99,235,.35);" title="Show the check-in QR for learners to scan">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></svg>
+                    Take Attendance
+                </button>
+                <?php if ($backUrl): ?>
+                <a class="att-btn att-btn-ghost" href="<?php echo $backUrl ?>" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;">&larr; Back to Class</a>
+                <?php endif; ?>
+            </div>
         </div>
         <?php endif; ?>
         <label class="att-label" for="att-class"<?php echo $preRunRow ? ' style="display:none;"' : '' ?>>Class</label>
@@ -296,7 +306,9 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
                 <button type="button" class="att-btn att-btn-green" onclick="attAllPresent()">All Present</button>
                 <button type="button" class="att-btn att-btn-ghost" onclick="attOpenAdd()">+ Add Learner</button>
                 <?php endif; ?>
-                <button type="button" class="att-btn att-btn-ghost" style="border-color:rgba(34,211,238,.4);color:#22d3ee;" onclick="attShowQr()">Check-in QR</button>
+                <?php if (!$preRunRow): ?>
+                <button type="button" class="att-btn att-btn-ghost" style="border-color:rgba(34,211,238,.4);color:#22d3ee;" onclick="attShowQr()">Take Attendance QR</button>
+                <?php endif; ?>
                 <button type="button" id="cert-send-btn" class="att-btn att-btn-ghost" style="border-color:rgba(34,211,238,.4);color:#22d3ee;" onclick="certSendForClass(this)">Send Certificates</button>
                 <span id="cert-send-status" style="font-size:11px;color:#64748b;"></span>
             </div>
@@ -385,13 +397,13 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
     </div>
 </div>
 
-<!-- Check-in QR modal — trainer displays it; a logged-in learner scans it and
-     lands on their dashboard self-mark confirmation (no token; their login is
-     the identity). Admin URLs need no secret key in this install. -->
+<!-- Take Attendance QR modal — trainer displays it; learners scan it and land
+     on the public signed check-in form (/checkin/…, no login). The signed URL
+     comes from the load action (checkin_url). -->
 <div id="att-qr-modal" class="att-modal-bd">
     <div class="att-modal" style="max-width:360px;text-align:center;">
-        <h3>Class Check-in QR</h3>
-        <p class="note">Learners scan this to mark themselves <b>present</b>. They confirm on their own dashboard — they must be logged in (it&rsquo;s their account identity, no code to type).</p>
+        <h3>Take Attendance</h3>
+        <p class="note">Learners scan this and check in with their name and email (phone optional) &mdash; no login. A learner not yet in this class is registered automatically on their first check-in. Their phone remembers the details for later sessions.</p>
         <div style="background:#fff;border-radius:12px;padding:14px;display:inline-block;">
             <img id="att-qr-img" width="220" height="220" alt="Check-in QR" style="display:block;" />
         </div>
@@ -407,7 +419,7 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
 
 <script>
 var ATT_LOAD_URL   = '<?php echo $this->jsQuoteEscape($loadUrl) ?>';
-var SELFMARK_BASE  = '<?php echo $this->jsQuoteEscape(Mage::helper('adminhtml')->getUrl('adminhtml/selfmark/index')) ?>'; // learner self-mark confirm (QR target)
+var attCheckinUrl  = '';    // signed public check-in link of the loaded class (QR target)
 var ATT_SAVE_URL   = '<?php echo $this->jsQuoteEscape($saveUrl) ?>';
 var ATT_ADD_URL    = '<?php echo $this->jsQuoteEscape($addUrl) ?>';
 var ATT_REMOVE_URL = '<?php echo $this->jsQuoteEscape($removeUrl) ?>';
@@ -433,12 +445,10 @@ var attSel = {};             // row-index -> true (bulk-selection state)
 
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
-// ── Check-in QR — learner scans -> their dashboard self-mark confirmation ────
+// ── Take Attendance QR — learner scans -> public check-in form ──────────────
 function attShowQr() {
-    if (!attRunId) { alert('Select a class first.'); return; }
-    var base = SELFMARK_BASE;
-    if (base.charAt(base.length - 1) !== '/') { base += '/'; }
-    var url = base + 'run_id/' + attRunId;
+    if (!attRunId || !attCheckinUrl) { alert('Select a class first.'); return; }
+    var url = attCheckinUrl;
     document.getElementById('att-qr-img').src =
         'https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=0&data=' + encodeURIComponent(url);
     document.getElementById('att-qr-url').value = url;
@@ -506,6 +516,7 @@ function certToggle(cb) {
 
 function attSelectClass(runId) {
     attRunId = parseInt(runId, 10) || 0;
+    attCheckinUrl = '';
     var card = document.getElementById('att-roster-card');
     var pills = document.getElementById('att-pills');
     if (!attRunId) { card.style.display = 'none'; pills.innerHTML = ''; return; }
@@ -527,6 +538,7 @@ function attSelectClass(runId) {
         .then(function(d){
             if (!d.success) { alert('Error: ' + (d.message || 'load failed')); return; }
             attRoster   = d.roster || [];
+            attCheckinUrl = d.checkin_url || '';
             attSessions = d.sessions && d.sessions.length ? d.sessions : [{key:'d1am', day:1, ampm:'AM', date:'', label:'Day 1 · AM'}];
             attSel = {};
             attTimetable = d.timetable || null;
@@ -777,7 +789,8 @@ function attRender() {
         }
         html += '<td style="color:#64748b">' + (i + 1) + '</td>'
             + '<td>' + esc(r.learner_name || '—') + (r.is_walkin ? '<span class="att-badge-walkin">Walk-in</span>' : '') + '</td>'
-            + '<td style="color:#94a3b8;font-size:12px;">' + esc(r.learner_email) + '</td>';
+            + '<td style="color:#94a3b8;font-size:12px;">' + esc(r.learner_email)
+            + (r.learner_phone ? '<div style="color:#64748b;font-size:11px;margin-top:2px;">' + esc(r.learner_phone) + '</div>' : '') + '</td>';
         if (ATT_READONLY) {
             html += '<td>' + (present
                 ? '<span class="att-present-lbl" style="color:#22c55e">✓ Present</span>'

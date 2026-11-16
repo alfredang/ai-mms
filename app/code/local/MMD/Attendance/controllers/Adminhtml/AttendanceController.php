@@ -70,7 +70,7 @@ class MMD_Attendance_Adminhtml_AttendanceController extends Mage_Adminhtml_Contr
             // formation cron skips TGS SKUs) — fall back to the order history,
             // which IS the registration record.
             $enrol = $read->fetchAll(
-                "SELECT learner_name, learner_email FROM `$enrolTbl`
+                "SELECT learner_name, learner_email, learner_phone FROM `$enrolTbl`
                   WHERE run_id = ? ORDER BY learner_name",
                 array($runId)
             );
@@ -112,6 +112,7 @@ class MMD_Attendance_Adminhtml_AttendanceController extends Mage_Adminhtml_Contr
                 $roster[] = array(
                     'learner_name'  => $e['learner_name'],
                     'learner_email' => $e['learner_email'],
+                    'learner_phone' => isset($e['learner_phone']) ? (string) $e['learner_phone'] : '',
                     'is_walkin'     => 0,
                     'att'           => $a ? $a['att'] : new stdClass(),
                 );
@@ -143,6 +144,7 @@ class MMD_Attendance_Adminhtml_AttendanceController extends Mage_Adminhtml_Contr
             }
 
             $this->_json(array('success' => true, 'run' => $run, 'sessions' => $sessions, 'roster' => $roster,
+                'checkin_url' => $helper->checkinUrl($runId),   // Take Attendance QR target (public, signed)
                 // Malaysia: per-session timetable for attendance by training hours, and whether changes are corrections.
                 'timetable' => $helper->isMalaysiaSite() ? $helper->timetableForRun($run) : null,
                 'finished'  => $helper->isFinishedRun($run),

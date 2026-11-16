@@ -847,4 +847,101 @@ class MMD_Attendance_Helper_Data extends Mage_Core_Helper_Abstract
         );
         return array('success' => true, 'message' => 'You have been marked present. Thank you!');
     }
+
+    // ── Public QR check-in (no login) ────────────────────────────────────────
+
+    public function checkinSig($runId)
+    {
+        $key = (string) Mage::getConfig()->getNode('global/crypt/key');
+        return substr(hash_hmac('sha256', 'attendance-checkin:' . (int) $runId, $key), 0, 24);
+    }
+
+    /** Signed link the trainer's Check-in QR encodes. */
+    public function checkinUrl($runId)
+    {
+        $base = Mage::app()->getDefaultStoreView()->getBaseUrl(Mage_Core_Model_Store::URL_TYPE_LINK, true);
+        return $base . 'checkin/index/index/run/' . (int) $runId . '/k/' . $this->checkinSig($runId) . '/';
+    }
+
+    /** "Day 1 AM"-style label of a session key for this run. */
+    public function sessionLabel($run, $key)
+    {
+        foreach ($this->sessionsForRun($run) as $s) {
+            if ($s['key'] === $key) return $s['label'];
+        }
+        return '';
+    }
+
+    /**
+     * Check-in from the public QR form. A learner not yet on the class roster is
+     * registered first (learner account if they have none + roster row, flagged
+     * walk-in), then marked present for the current session.
+     * @return array success, message, name, session_label, registered, already
+     */
+    public function publicCheckIn($runId, $name, $email, $phone = '')
+    {
+        $ctx = $this->getSelfMarkContext($runId, $email);
+        if (!$ctx) {
+            return array('success' => false, 'message' => 'Class not found.');
+        }
+        if (!$ctx['within_window']) {
+            return array('success' => false, 'message' => 'Check-in is not open for this class right now.');
+        }
+        $run      = $ctx['run'];
+        $email    = $ctx['learner_email'];
+        $resource = Mage::getSingleton('core/resource');
+        $read     = $resource->getConnection('core_read');
+        $write    = $resource->getConnection('core_write');
+        $enrolTbl = $resource->getTableName('course_run_enrolments');
+        $attTbl   = $resource->getTableName('mmd_course_run_attendance');
+
+        $registered = false;
+        $customerId = null;
+        if (!$ctx['enrolled']) {
+            $acct = $this->ensureLearnerAccount($name, $email, (int) Mage::app()->getDefaultStoreView()->getWebsiteId());
+            if (!$acct['id']) {
+                return array('success' => false, 'message' => 'We could not register you right now. Please ask your trainer.');
+            }
+            $customerId = $acct['id'];
+            $name       = $acct['name'];
+            $write->query(
+                "INSERT IGNORE INTO `$enrolTbl` (product_id, run_id, learner_email, learner_name) VALUES (?, ?, ?, ?)",
+                array((int) $run['product_id'], (int) $run['run_id'], $email, $name)
+            );
+            Mage::helper('mmd_rolemanager/handover')->noteIndependentMembership($run['run_id'], $email);
+            $registered = true;
+        }
+        if ($phone !== '') {
+            $write->query(
+                "UPDATE `$enrolTbl` SET learner_phone = ? WHERE run_id = ? AND LOWER(learner_email) = ?",
+                array($phone, (int) $run['run_id'], $email)
+            );
+        }
+
+        // The learner's own dashboard account (if any) is recorded as the marker.
+        $adminId = (int) $read->fetchOne(
+            "SELECT user_id FROM `" . $resource->getTableName('admin_user') . "` WHERE LOWER(email) = ? LIMIT 1",
+            array($email)
+        );
+        $res = $this->selfMarkPresent($runId, $email, $adminId ?: null);
+        if (empty($res['success'])) {
+            return $res;
+        }
+        if ($registered) {
+            $write->update($attTbl, array('is_walkin' => 1, 'customer_id' => $customerId),
+                array('run_id = ?' => (int) $run['run_id'], 'learner_email = ?' => $email, 'session_key = ?' => $ctx['session_key']));
+        }
+        $rosterName = (string) $read->fetchOne(
+            "SELECT learner_name FROM `$enrolTbl` WHERE run_id = ? AND LOWER(learner_email) = ? LIMIT 1",
+            array((int) $run['run_id'], $email)
+        );
+        return array(
+            'success'       => true,
+            'message'       => $ctx['already_present'] ? 'You were already checked in for this session.' : 'You are checked in. Thank you!',
+            'name'          => $rosterName !== '' ? $rosterName : $name,
+            'session_label' => $this->sessionLabel($run, $ctx['session_key']),
+            'registered'    => $registered,
+            'already'       => (bool) $ctx['already_present'],
+        );
+    }
 }

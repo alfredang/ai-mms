@@ -77,4 +77,17 @@
             </updates>
         </layout>
     </adminhtml>
+
+    <!-- Public class check-in page (trainer's QR): /checkin/index/index/run/<id>/k/<sig> -->
+    <frontend>
+        <routers>
+            <mmd_checkin>
+                <use>standard</use>
+                <args>
+                    <module>MMD_Attendance</module>
+                    <frontName>checkin</frontName>
+                </args>
+            </mmd_checkin>
+        </routers>
+    </frontend>
 </config>
