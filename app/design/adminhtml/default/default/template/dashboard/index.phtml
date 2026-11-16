@@ -1762,6 +1762,7 @@ $_courseware = array(
     'learner_slides_url'     => '',
     'trainer_slides_url'     => '',
     'lab_url'                => '',
+    'lab_simulator_url'      => '',
     'courseware_link'        => '',
     'brochure_link'          => '',
     'google_meet_url'        => '',
@@ -4257,6 +4258,7 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                     'lesson_plan_url'        => 'Lesson Plan URL',
                     'trainer_slides_url'     => 'Trainer Slides URL',
                     'lab_url'                => 'Activities/Labs URL',
+                    'lab_simulator_url'      => 'Lab Simulator URL',
                     'courseware_link'        => 'Courseware Link',
                     'brochure_link'          => 'Brochure Link',
                 );
@@ -7304,6 +7306,7 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
         'lesson_plan_url'        => 'Lesson Plan',
         'trainer_slides_url'     => 'Trainer Slides',
         'lab_url'                => 'Activities/Labs',
+        'lab_simulator_url'      => 'Lab Simulator',
         'courseware_link'        => 'Courseware Link',
         'brochure_link'          => 'Brochure Link',
     );
@@ -7709,6 +7712,7 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
         'learner_guide_url'      => 'Learner Guide',
         'lesson_plan_url'        => 'Lesson Plan',
         'lab_url'                => 'Activities/Labs',
+        'lab_simulator_url'      => 'Lab Simulator',
         'courseware_link'        => 'Courseware Link',
     );
     if (strtoupper((string) getenv('MMS_COUNTRY_CODE')) === 'MY'
@@ -7819,6 +7823,7 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
         'learner_guide_url'      => 'Learner Guide',
         'lesson_plan_url'        => 'Lesson Plan',
         'lab_url'                => 'Activities/Labs',
+        'lab_simulator_url'      => 'Lab Simulator',
     );
     $_lnCwSaved = array();
     foreach ($_lnCwLabels as $_k => $_lbl) {
