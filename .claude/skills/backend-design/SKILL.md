@@ -998,6 +998,46 @@ add a JS opt-out in `sidebar-nav-v2.js` if the enhancement actively breaks it.
 Keep overrides in a clearly commented, numbered section at the end of
 `sidebar-nav.css`. Reuse tokens — overrides change *layout*, not the palette.
 
+## Light theme (data-theme="light") — tertiary-hrms palette, MANDATORY pair
+
+The admin has a light theme (header sun/moon toggle, per-browser
+`localStorage['admin-theme']`; dark stays the default). Since 2026-11-17 it
+uses the **tertiary-hrms "premium blue"** palette, defined ONCE as the light
+values of the same tokens in `dark-theme.css` `:root[data-theme="light"]`
+(mirrored in `admin-tokens.css`):
+
+| Token | Light value | Role |
+|---|---|---|
+| `--d1` | `#e8eefa` | page canvas (blue tint, so white cards stand out) |
+| `--d3` / `--d4` / `--d5` | `#fff` / `#f3f6fd` / `#e3eafb` | card / raised / hover |
+| `--b1` / `--b2` | `#d3dcee` / `#8494b5` | card + row hairline / input outline (3:1) |
+| `--t1` / `--t2` / `--t4` / `--t5` | `#0f1d47` / `#1e2a52` / `#43507f` / `#5a6788` | navy ink → faint (all ≥ 4.5:1 on white) |
+| `--blue` / `--green` / `--yellow` / `--red` | `#2f5be6` / `#047857` / `#92400e` / `#b91c1c` | accents (the dark values are 2-2.5:1 on white) |
+| `--lt-card-shadow` | soft 2-layer shadow | every light card |
+
+The structural light rules (canvas, white cards + `--b1` + shadow, solid
+royal-blue sidebar active item, inline `style="color:#…"` remap) live in ONE
+block at the end of `admin-dashboard.css` ("LIGHT THEME v2").
+
+Rules for every admin change:
+1. **Prefer tokens.** A rule that uses `var(--t1)`, `var(--b1)`, `var(--blue)`…
+   is correct in both themes with zero extra CSS.
+2. **A hard-coded colour needs its light pair in the same change** —
+   `:root[data-theme="light"] body .your-class { color: var(--t1) !important }`.
+   White/near-white text (`#fff`, `#f1f5f9`, `#e2e8f0`) and sky blue `#60a5fa`
+   are the usual offenders: they render invisible or ~2.5:1 on white.
+   Incident: the class page's course title (`#f1f5f9`) and "Course Details"
+   card head (`#fff`) were invisible in light mode until 2026-11-17.
+3. **Never `color: … !important` in an inline `style=""` or `style.setProperty(…,'important')`** —
+   nothing in a stylesheet can override it. If a template must, use a variable
+   with the dark value as fallback: `color:var(--lt-muted, #94a3b8) !important`
+   (`--lt-muted` / `--lt-danger` are defined only in light mode, so dark is unchanged).
+4. **Light rules change colour, border-colour and shadow only** — never size,
+   spacing or display, so behaviour is identical in both themes.
+5. **Verify** with the gate (exit 0 required):
+   `ADMIN_SID=<adminhtml cookie> node scripts/audit/admin-light-contrast.mjs`
+   (renders the pages in headless Chrome in light mode, WCAG AA 4.5:1, disabled controls exempt).
+
 ## Checklist before finishing any admin UI change
 
 1. No raw hex/px-padding that a token or §18/§14 rule already covers.
@@ -1007,7 +1047,7 @@ Keep overrides in a clearly commented, numbered section at the end of
 5. Interactive elements have a `--ring` `:focus-visible` state.
 6. New override is body-class/id scoped and won't leak to other grids.
 7. **No gray backgrounds** on `<input>`, `<textarea>`, or `<td>` — transparent + border only. (See "Hard rule" section above.)
-8. Verified in the dark theme at the actual page. CSS/JS merging is on in admin — after editing `sidebar-nav.css`, flush **System → Cache Management → JavaScript/CSS Cache** before hard-refresh, or the bundled `media/css/HASH.css` will still serve the old rules.
+8. Verified in the dark theme at the actual page AND in light mode (`scripts/audit/admin-light-contrast.mjs` exits 0; see "Light theme" above). CSS/JS merging is on in admin — after editing `sidebar-nav.css`, flush **System → Cache Management → JavaScript/CSS Cache** before hard-refresh, or the bundled `media/css/HASH.css` will still serve the old rules.
 9. **Store View bar** on every store-scoped admin page uses the canonical `.dcf-store-switcher` markup (see "Store View bar" section below) — never re-implement inline. The global `MMD_Branchscope_Block_Store_Switcher` injects it into `<content>` automatically; per-page templates only render the inline version when they pre-existed the global bar (Edit Course) AND need to preserve extra URL state across switches (e.g. `course_id`, `mode`, `dev_back`). On those routes add a suppression branch in `Switcher.php`. Legacy `.dev-country-tabs` / `.dev-country-btn` is retained only for the in-panel Manage Courses filter (which doubles as a list filter), not for the universal switcher.
 10. **Page-level action buttons** are registered via `_addButton()` on the container block — no raw `<a class="button">` or `<button>` markup in templates for toolbar actions.
 11. Typography inherits from `dark-theme.css` — no per-page `font-family` or base `font-size` overrides; new headings/labels reuse the density-preference scale at the top of this doc.

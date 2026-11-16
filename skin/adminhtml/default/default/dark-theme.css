@@ -75,25 +75,44 @@
 :root[data-theme="light"] {
     color-scheme: light;
 
+    /* Light palette v2 (2026-11-17) — the tertiary-hrms "premium blue":
+       a blue-tinted page so white cards stand out, soft card hairlines,
+       navy ink, and accents darkened so text on white is >= 4.5:1.
+       Contrast on white: t1 16.3, t4 7.8, t5 5.6, blue 5.6, b2 3.05. */
     --d0: #ffffff;
-    --d1: #f8fafc;   /* page background */
+    --d1: #e8eefa;   /* page background (HRMS canvas) */
     --d2: #ffffff;   /* header chrome */
     --d3: #ffffff;   /* cards */
-    --d4: #f1f5f9;   /* raised surfaces (grid thead, hover bands) */
-    --d5: #e2e8f0;   /* hover */
-    --d6: #cbd5e1;
+    --d4: #f3f6fd;   /* raised surfaces (grid thead, hover bands) */
+    --d5: #e3eafb;   /* hover */
+    --d6: #c5d0e6;
 
-    --b1: #94a3b8;   /* hairline (was #e2e8f0 — too pale against page bg) */
-    --b2: #64748b;   /* default border (was #cbd5e1) */
-    --b3: #334155;   /* strong (was #94a3b8) */
+    --b1: #d3dcee;   /* card / row hairline */
+    --b2: #8494b5;   /* input + control outline (3:1 non-text contrast) */
+    --b3: #43507f;   /* strong */
 
-    --t1: #0f172a;   /* headings */
-    --t2: #1e293b;   /* body text */
-    --t3: #334155;
-    --t4: #64748b;   /* muted / labels */
-    --t5: #94a3b8;   /* faint */
+    --t1: #0f1d47;   /* headings — navy ink */
+    --t2: #1e2a52;   /* body text */
+    --t3: #2b3a66;
+    --t4: #43507f;   /* muted / labels */
+    --t5: #5a6788;   /* faint — still passes 4.5:1 */
 
-    --ring: rgba(37, 99, 235, 0.35);
+    /* Accents: the dark-theme values (#60a5fa, #10b981, #fbbf24 …) are
+       2-2.5:1 on white, so light mode carries its own. */
+    --blue: #2f5be6;
+    --blue2: #1d4ed8;
+    --blue3: #1e40af;
+    --brand: #2f5be6;
+    --green: #047857;
+    --green2: #065f46;
+    --red: #b91c1c;
+    --red2: #991b1b;
+    --yellow: #92400e;
+    --orange: #c2410c;
+
+    --lt-card-shadow: 0 1px 2px rgba(15, 29, 71, 0.05), 0 1px 3px rgba(15, 29, 71, 0.04);
+
+    --ring: rgba(47, 91, 230, 0.35);
 }
 
 /* Theme toggle button (lives in .header-right, left of the role
@@ -155,35 +174,35 @@
    hex/rgba colors (instead of design tokens) don't auto-flip. Patch
    the most visible globally-shared ones here; per-page overrides
    (profile.phtml etc.) live in their respective inline <style>. */
-:root[data-theme="light"] .lms-header .header-brand-text { color: #0f172a !important; }
-:root[data-theme="light"] .lms-header .header-brand-img { background: #f1f5f9 !important; }
+:root[data-theme="light"] .lms-header .header-brand-text { color: #0f1d47 !important; }
+:root[data-theme="light"] .lms-header .header-brand-img { background: #f0f4fc !important; }
 /* Order/Invoice/Transaction view header — boxes.css:332 paints
    `.entry-edit .entry-edit-head strong` and `a` as color:#fff. White
    text on the light page background makes "(confirmation email sent)"
    etc. invisible. Lift strong to near-black; the <a> still picks up
    blue link color globally. */
-:root[data-theme="light"] .entry-edit .entry-edit-head strong { color: #0f172a !important; }
-:root[data-theme="light"] .entry-edit .entry-edit-head h4 { color: #0f172a !important; }
+:root[data-theme="light"] .entry-edit .entry-edit-head strong { color: #0f1d47 !important; }
+:root[data-theme="light"] .entry-edit .entry-edit-head h4 { color: #0f1d47 !important; }
 /* User-avatar button on dark uses #4b5563 / #60a5fa; flip the surface
    so it doesn't look like a dark medallion punched out of a light bar. */
 :root[data-theme="light"] .header-top button.user-avatar-btn,
 :root[data-theme="light"] button.user-avatar-btn {
-    background: #f1f5f9 !important;
-    background-color: #f1f5f9 !important;
-    border-color: #2563eb !important;
-    color: #0f172a !important;
+    background: #f0f4fc !important;
+    background-color: #f0f4fc !important;
+    border-color: #2f5be6 !important;
+    color: #0f1d47 !important;
 }
 :root[data-theme="light"] .header-top button.user-avatar-btn:hover,
 :root[data-theme="light"] button.user-avatar-btn:hover {
-    background: #e2e8f0 !important;
-    background-color: #e2e8f0 !important;
+    background: #e6ecf9 !important;
+    background-color: #e6ecf9 !important;
     border-color: #1d4ed8 !important;
 }
 /* Footer / version line */
 :root[data-theme="light"] .admin-page-footer,
 :root[data-theme="light"] .admin-page-footer *,
 :root[data-theme="light"] .footer-copyright,
-:root[data-theme="light"] .footer-copyright * { color: #0f172a !important; }
+:root[data-theme="light"] .footer-copyright * { color: #0f1d47 !important; }
 
 /* === 2. Global Reset for Dark === */
 * { border-color: var(--b1) !important; }
@@ -1504,12 +1523,12 @@ select option[selected] {
 }
 :root[data-theme="light"] select option {
     background: #ffffff !important;
-    color: #0f172a !important;
+    color: #0f1d47 !important;
 }
 :root[data-theme="light"] select option:checked,
 :root[data-theme="light"] select option[selected] {
     background: #dbeafe !important;
-    color: #0f172a !important;
+    color: #0f1d47 !important;
 }
 
 input[type="text"]:focus, input[type="password"]:focus,
@@ -1535,12 +1554,12 @@ select optgroup option {
     font-weight: normal !important;
 }
 :root[data-theme="light"] select optgroup {
-    background: #f1f5f9 !important;
-    color: #475569 !important;
+    background: #f0f4fc !important;
+    color: #3a4670 !important;
 }
 :root[data-theme="light"] select optgroup option {
     background: #ffffff !important;
-    color: #0f172a !important;
+    color: #0f1d47 !important;
 }
 /* Fieldset legends — the section titles inside System > Configuration and
    anywhere else Magento groups fields. Browser default is black, which
@@ -6009,7 +6028,7 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
 :root[data-theme="light"] body,
 :root[data-theme="light"] .middle,
 :root[data-theme="light"] .admin-main {
-    color: #1e293b !important;            /* slate-800 body text */
+    color: #1e2a52 !important;            /* slate-800 body text */
 }
 
 /* (Removed the broad *:not(...) safety-net: it was overriding
@@ -6029,13 +6048,13 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
 :root[data-theme="light"] .admin-main h4,
 :root[data-theme="light"] .admin-main h5,
 :root[data-theme="light"] .admin-main h6 {
-    color: #0f172a !important;            /* slate-900 */
+    color: #0f1d47 !important;            /* slate-900 */
 }
 
 /* Links keep the link-blue identity (otherwise they'd disappear
    into the body text). Excludes button-styled anchors. */
 :root[data-theme="light"] .admin-main a:not([class*="btn"]):not(.button):not([class*="badge"]):not([class*="pill"]) {
-    color: #2563eb !important;
+    color: #2f5be6 !important;
 }
 :root[data-theme="light"] .admin-main a:not([class*="btn"]):not(.button):not([class*="badge"]):not([class*="pill"]):hover {
     color: #1d4ed8 !important;
@@ -6049,7 +6068,7 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
 :root[data-theme="light"] .admin-main [class*="-sub"],
 :root[data-theme="light"] .admin-main [class*="-help"],
 :root[data-theme="light"] .admin-main [class*="-lbl"] {
-    color: #475569 !important;            /* slate-600 */
+    color: #3a4670 !important;            /* slate-600 */
 }
 
 /* Light mode — sidebar nav text dark. The sidebar container is
@@ -6078,7 +6097,7 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
 :root[data-theme="light"] .tools-sub-item:hover,
 :root[data-theme="light"] .tools-sub-item.active,
 :root[data-theme="light"] .tools-sub-item.active:hover {
-    color: #0f172a !important;            /* slate-900 */
+    color: #0f1d47 !important;            /* slate-900 */
 }
 
 /* Horizontal tabs (catalog_category edit, etc.) — base rule paints them
@@ -6089,19 +6108,19 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
    still pops against the gray row. */
 :root[data-theme="light"] ul.tabs-horiz li a,
 :root[data-theme="light"] body ul.tabs-horiz li a {
-    background: #e2e8f0 !important;
-    border-color: #64748b !important;
-    color: #334155 !important;
+    background: #e6ecf9 !important;
+    border-color: #8494b5 !important;
+    color: #2b3a66 !important;
 }
 :root[data-theme="light"] ul.tabs-horiz li a:hover,
 :root[data-theme="light"] body ul.tabs-horiz li a:hover {
-    background: #cbd5e1 !important;
+    background: #d3dcee !important;
     color: #1e3a8a !important;
 }
 :root[data-theme="light"] ul.tabs-horiz li a.active,
 :root[data-theme="light"] body ul.tabs-horiz li a.active {
     background: #ffffff !important;
-    color: #2563eb !important;
+    color: #2f5be6 !important;
     border-bottom-color: #ffffff !important;
 }
 
@@ -6111,11 +6130,11 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
    slate-200 + slate-300 border as the tabs/cards. */
 :root[data-theme="light"] dl.accordion dt,
 :root[data-theme="light"] .accordion-head {
-    background: #e2e8f0 !important;
-    border-color: #64748b !important;
+    background: #e6ecf9 !important;
+    border-color: #8494b5 !important;
 }
 :root[data-theme="light"] dl.accordion dt:hover {
-    background: #cbd5e1 !important;
+    background: #d3dcee !important;
 }
 
 /* Aschroder SMTPPro — the vendor module injects a hardcoded inline
@@ -6139,8 +6158,8 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
    elsewhere. */
 :root[data-theme="light"] body.adminhtml-sales-transactions-view .entry-edit fieldset,
 :root[data-theme="light"] body.adminhtml-sales-transactions-view .entry-edit .fieldset {
-    background: #e2e8f0 !important;
-    border: 1px solid #64748b !important;
+    background: #e6ecf9 !important;
+    border: 1px solid #8494b5 !important;
     border-radius: 10px !important;
 }
 
@@ -6353,12 +6372,12 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
 :root[data-theme="light"] .audit-bell-dropdown {
     background: #ffffff;
     border-color: rgba(15,23,42,0.10);
-    color: #0f172a;
+    color: #0f1d47;
 }
-:root[data-theme="light"] .audit-bell-heading-title { color: #0f172a; }
-:root[data-theme="light"] .audit-bell-summary { color: #334155; }
-:root[data-theme="light"] .audit-bell-meta { color: #64748b; }
-:root[data-theme="light"] .audit-bell-link { color: #0f172a; border-color: rgba(15,23,42,0.18); }
+:root[data-theme="light"] .audit-bell-heading-title { color: #0f1d47; }
+:root[data-theme="light"] .audit-bell-summary { color: #2b3a66; }
+:root[data-theme="light"] .audit-bell-meta { color: #43507f; }
+:root[data-theme="light"] .audit-bell-link { color: #0f1d47; border-color: rgba(15,23,42,0.18); }
 :root[data-theme="light"] .audit-bell-link:hover { background: rgba(15,23,42,0.04); }
 
 .audit-pill {
