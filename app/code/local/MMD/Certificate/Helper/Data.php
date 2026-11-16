@@ -62,21 +62,10 @@ class MMD_Certificate_Helper_Data extends Mage_Core_Helper_Abstract
         $rm = Mage::helper('mmd_rolemanager');
         if ($rm->isRoleAllowed(array('developer', 'admin', 'training_provider', 'franchise_admin'))) return true;
         if (!$rm->isRoleAllowed(array('trainer'))) return false;
-        $user = Mage::getSingleton('admin/session')->getUser();
-        if (!$user) return false;
-        if ((int) $run['trainer_user_id'] === (int) $user->getId()) return true;
-        $email = strtolower(trim((string) $user->getEmail()));
-        if ((int) $run['trainer_option_id'] > 0 && $email !== '') {
-            $res = Mage::getSingleton('core/resource');
-            try {
-                $t = (string) $res->getConnection('core_read')->fetchOne(
-                    'SELECT email FROM `' . $res->getTableName('courses_trainers') . '` WHERE relation_id = ? LIMIT 1',
-                    array((int) $run['trainer_option_id'])
-                );
-                if (strtolower(trim($t)) === $email) return true;
-            } catch (Exception $e) { /* legacy table shape differs */ }
-        }
-        return false;
+        // A class with no trainer assigned yet is open to any trainer, as the class page itself is.
+        if ((int) $run['trainer_user_id'] <= 0 && (int) $run['trainer_option_id'] <= 0) return true;
+        // Same match as the E-Attendance page: account, courses_trainers email, or full name.
+        return Mage::helper('mmd_attendance')->isRunTrainer((int) $run['run_id']);
     }
 
     // ------------------------------------------------------------------ //
