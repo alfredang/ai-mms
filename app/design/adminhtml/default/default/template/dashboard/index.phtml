@@ -8094,8 +8094,8 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
     </div>
     <?php endif; ?>
     <div class="lcd-feedback-cert-row">
-    <?php if ($activeRole === 'trainer' || $activeRole === 'learner'): ?>
-    <!-- TRAINER + LEARNER: Course Feedback — renamed from "Certificate
+    <?php if ($activeRole === 'learner' || in_array($activeRole, Mage::helper('mmd_feedbackform')->reviewRoles(), true)): ?>
+    <!-- TRAINER + LEARNER + STAFF: Course Feedback — renamed from "Certificate
          Delivery" and moved after Lesson (owner request 2026-07-29); opened
          to the learner view as well (owner request 2026-07-29 — both roles
          see it for every class). The QR points at the public per-class
@@ -8119,6 +8119,19 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
                 "SELECT class_id FROM `" . $_fbRes->getTableName('course_runs') . "` WHERE run_id = ?",
                 array((int)$_lcdRunId)
             );
+        } catch (Exception $e) {}
+    }
+    // Reviews page link: the class's trainer and staff, never learners. Classes whose
+    // feedback form lives on the TMS have no responses here, so no link.
+    $_fbReviewsUrl = ''; $_fbReviewCount = 0;
+    if ($_lcdRunId > 0 && !$_fbManaged && $activeRole !== 'learner') {
+        try {
+            $_fbHelper = Mage::helper('mmd_feedbackform');
+            $_fbRun    = $_fbHelper->loadRun($_lcdRunId);
+            if ($_fbRun && $_fbHelper->canViewResponses($_fbRun)) {
+                $_fbReviewsUrl  = Mage::helper('adminhtml')->getUrl('adminhtml/feedbackresponses/class', array('run' => (int)$_lcdRunId));
+                $_fbReviewCount = count($_fbHelper->responsesForRun($_lcdRunId));
+            }
         } catch (Exception $e) {}
     }
     ?>
@@ -8206,6 +8219,11 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
                         <a href="<?php echo htmlspecialchars($_fbUrl, ENT_QUOTES) ?>" target="_blank" rel="noopener" style="flex:1;display:block;background:#2563eb;color:#fff !important;text-decoration:none !important;padding:12px 18px;border-radius:8px;font-size:13px;font-weight:600;text-align:center;">Open Link</a>
                         <button type="button" onclick="navigator.clipboard.writeText('<?php echo htmlspecialchars($_fbUrl, ENT_QUOTES) ?>')" style="background:#334155 !important;background-image:none !important;color:#e2e8f0 !important;border:1px solid #475569 !important;border-radius:8px !important;padding:12px 24px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;">Copy</button>
                     </div>
+                    <?php if ($_fbReviewsUrl !== ''): ?>
+                    <div style="margin-bottom:16px;">
+                        <a class="mm-btn mm-btn-ghost" href="<?php echo $_fbReviewsUrl ?>" style="display:flex;justify-content:center;text-decoration:none;">View All Reviews (<?php echo (int)$_fbReviewCount ?>)</a>
+                    </div>
+                    <?php endif; ?>
                     <div style="display:flex;justify-content:center;gap:24px;flex-wrap:wrap;color:#cbd5e1;font-size:13px;">
                         <span><span style="color:#94a3b8;">Course Code:</span> <strong style="color:#f1f5f9;letter-spacing:.3px;"><?php echo htmlspecialchars($_fbSku ?: '—') ?></strong></span>
                         <span><span style="color:#94a3b8;">Course Run ID:</span> <strong style="color:#f1f5f9;letter-spacing:.3px;"><?php echo htmlspecialchars($_fbClassId ?: '—') ?></strong></span>

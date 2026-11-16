@@ -1,0 +1,102 @@
+<?php
+/**
+ * Class reviews page — opened from the class page's Course Feedback card.
+ * Average per question, then every response submitted through the class's feedback QR.
+ * A trainer sees learners as "Learner 1, 2, …" (same as the 6:30pm email); staff see the names.
+ *
+ * @var Mage_Core_Block_Template $this
+ */
+/** @var MMD_FeedbackForm_Helper_Data $h */
+$h         = Mage::helper('mmd_feedbackform');
+$run       = Mage::registry('mmd_feedback_run');
+$runId     = (int) $run['run_id'];
+$responses = $h->responsesForRun($runId);
+$q         = $h->questions();
+$showNames = !Mage::helper('mmd_rolemanager')->isRoleAllowed(array('trainer'));
+$backUrl   = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array(
+    'course_id' => (int) $run['product_id'], '_query' => array('run' => $runId),
+));
+$start = $run['course_start_date'] ? substr((string) $run['course_start_date'], 0, 10) : '';
+$end   = $run['course_end_date'] ? substr((string) $run['course_end_date'], 0, 10) : '';
+$dates = $start !== ''
+    ? date('j M Y', strtotime($start)) . ($end !== '' && $end !== $start ? ' – ' . date('j M Y', strtotime($end)) : '')
+    : '';
+
+$avg = array(); $all = array();
+foreach ($q['ratings'] as $ratingId => $label) {
+    $vals = array();
+    foreach ($responses as $r) {
+        if (isset($r['stars'][$ratingId])) $vals[] = $r['stars'][$ratingId];
+    }
+    $avg[$ratingId] = $vals ? number_format(array_sum($vals) / count($vals), 1) : '—';
+    $all = array_merge($all, $vals);
+}
+$overall = $all ? number_format(array_sum($all) / count($all), 1) : '—';
+?>
+<style>
+.fbr-card{background:var(--d3);border:1px solid var(--b2);border-radius:12px;padding:20px;margin-bottom:16px;}
+.fbr-sub{font-size:13px;color:var(--t4);margin:0;}
+.fbr-pill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--b2);border-radius:999px;padding:5px 12px;font-size:12px;color:var(--t4);margin:10px 8px 0 0;}
+.fbr-pill b{color:var(--t1);font-weight:600;}
+.fbr-bar{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+.fbr-q{display:flex;justify-content:space-between;gap:16px;padding:8px 0;font-size:13px;color:var(--t2);}
+.fbr-q + .fbr-q{border-top:1px solid var(--b1);}
+.fbr-q b{color:var(--t1);font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums;}
+</style>
+
+<div class="fbr-card">
+    <div class="fbr-bar">
+        <div>
+            <h1 class="fbr-title">Course Feedback</h1>
+            <p class="fbr-sub"><?php echo htmlspecialchars((string) $run['course_title']) ?></p>
+            <span class="fbr-pill">Class <b><?php echo htmlspecialchars((string) $run['class_id']) ?></b></span>
+            <span class="fbr-pill">Course Code <b><?php echo htmlspecialchars((string) $run['course_sku']) ?></b></span>
+            <?php if ($dates): ?><span class="fbr-pill">Dates <b><?php echo htmlspecialchars($dates) ?></b></span><?php endif; ?>
+            <?php if (!empty($run['trainer_name'])): ?><span class="fbr-pill">Trainer <b><?php echo htmlspecialchars((string) $run['trainer_name']) ?></b></span><?php endif; ?>
+            <span class="fbr-pill">Responses <b><?php echo count($responses) ?></b></span>
+        </div>
+        <a class="mm-btn mm-btn-ghost" href="<?php echo $backUrl ?>" style="text-decoration:none;">&larr; Back to Class</a>
+    </div>
+</div>
+
+<?php if (!$responses): ?>
+<div class="fbr-card">
+    <p class="fbr-sub">No feedback has been submitted for this class yet. Responses appear here as soon as a learner submits the form from the class's feedback QR or link.</p>
+</div>
+<?php else: ?>
+<div class="fbr-card">
+    <?php $n = 0; foreach ($q['ratings'] as $ratingId => $label): ?>
+    <div class="fbr-q"><span><?php echo ++$n ?>. <?php echo htmlspecialchars($label) ?></span><b><?php echo $avg[$ratingId] ?> / 5</b></div>
+    <?php endforeach; ?>
+    <div class="fbr-q"><span>Overall average</span><b><?php echo $overall ?> / 5</b></div>
+</div>
+
+<div class="fbr-card">
+    <table class="mm-table fbr-table" style="width:100%;">
+        <thead>
+            <tr>
+                <th>Learner</th>
+                <?php $n = 0; foreach ($q['ratings'] as $label): ?>
+                <th class="center" title="<?php echo htmlspecialchars($label, ENT_QUOTES) ?>">Q<?php echo ++$n ?></th>
+                <?php endforeach; ?>
+                <th><?php echo htmlspecialchars($q['comment']) ?></th>
+                <th>Submitted</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach ($responses as $i => $r):
+                $who = $showNames && trim((string) $r['nickname']) !== '' ? (string) $r['nickname'] : 'Learner ' . ($i + 1);
+            ?>
+            <tr>
+                <td class="strong"><?php echo htmlspecialchars($who) ?></td>
+                <?php foreach ($q['ratings'] as $ratingId => $label): ?>
+                <td class="center"><?php echo isset($r['stars'][$ratingId]) ? (int) $r['stars'][$ratingId] . '/5' : '—' ?></td>
+                <?php endforeach; ?>
+                <td class="wrap"><?php echo $r['detail'] !== '' ? nl2br(htmlspecialchars($r['detail'])) : '—' ?></td>
+                <td class="muted"><?php echo htmlspecialchars(Mage::getModel('core/date')->date('j M Y, g:ia', $r['created_at'])) ?></td>
+            </tr>
+            <?php endforeach; ?>
+        </tbody>
+    </table>
+</div>
+<?php endif; ?>

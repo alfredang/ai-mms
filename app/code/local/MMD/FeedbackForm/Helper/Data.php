@@ -170,6 +170,83 @@ class MMD_FeedbackForm_Helper_Data extends Mage_Core_Helper_Abstract
         ) ?: null;
     }
 
+    /**
+     * The survey questions as the class reviews page and the 6:30pm trainer
+     * email show them: rating_id => question label (same positional mapping
+     * as saveSubmission) and the comment field's label.
+     *
+     * @return array { ratings: array<int,string>, comment: string }
+     */
+    public function questions()
+    {
+        $template  = $this->getOrCreateTemplate();
+        $ratingIds = array(1, 2, 5);
+        $out       = array('ratings' => array(), 'comment' => '');
+        foreach ($template['sections'] as $section) {
+            foreach ((array) (isset($section['fields']) ? $section['fields'] : array()) as $field) {
+                if (!empty($field['autofill']) || !empty($field['readonly'])) continue;
+                if ($field['type'] === 'rating1to5' && $ratingIds) {
+                    $out['ratings'][array_shift($ratingIds)] = rtrim(trim((string) $field['label']), ':');
+                } elseif ($field['type'] === 'textarea' && $out['comment'] === '') {
+                    $out['comment'] = rtrim(trim((string) $field['label']), ':');
+                }
+            }
+        }
+        if ($out['comment'] === '') $out['comment'] = 'Additional comments';
+        return $out;
+    }
+
+    /**
+     * Every response submitted for a class, oldest first. One row per review:
+     * review_id, created_at, nickname, detail ('' when the learner left no
+     * comment), stars (rating_id => 1..5).
+     */
+    public function responsesForRun($runId)
+    {
+        $resource = Mage::getSingleton('core/resource');
+        $read     = $resource->getConnection('core_read');
+
+        $rows = $read->fetchAll(
+            "SELECT r.review_id, r.created_at, rd.nickname, rd.detail
+               FROM `" . $resource->getTableName('mmd_feedback_review_run') . "` l
+               JOIN `" . $resource->getTableName('review') . "` r ON r.review_id = l.review_id
+               JOIN `" . $resource->getTableName('review_detail') . "` rd ON rd.review_id = r.review_id
+              WHERE l.run_id = ?
+              ORDER BY r.created_at, r.review_id",
+            array((int) $runId)
+        );
+        if (!$rows) return array();
+
+        $byId = array();
+        foreach ($rows as $row) {
+            $detail        = trim((string) $row['detail']);
+            $row['detail'] = $detail === 'N/A' ? '' : $detail;   // saveSubmission stores N/A for "no comment"
+            $row['stars']  = array();
+            $byId[(int) $row['review_id']] = $row;
+        }
+        $votes = $read->fetchAll(
+            "SELECT review_id, rating_id, value FROM `" . $resource->getTableName('rating_option_vote') . "`
+              WHERE review_id IN (" . implode(',', array_keys($byId)) . ")"
+        );
+        foreach ($votes as $v) {
+            $byId[(int) $v['review_id']]['stars'][(int) $v['rating_id']] = (int) $v['value'];
+        }
+        return array_values($byId);
+    }
+
+    /** Roles that may open a class's reviews page; a trainer is further limited to their own classes. */
+    public function reviewRoles()
+    {
+        return array('trainer', 'admin', 'training_provider', 'franchise_admin', 'developer');
+    }
+
+    /** @param array $run row from loadRun() */
+    public function canViewResponses(array $run)
+    {
+        return Mage::helper('mmd_rolemanager')->isRoleAllowed($this->reviewRoles())
+            && Mage::helper('mmd_certificate')->canAccessRun($run);
+    }
+
     /** Values the template's autofill fields take for a run (see loadRun). */
     public function contextForRun(array $run)
     {

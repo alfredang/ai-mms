@@ -19,12 +19,12 @@
         </models>
     </global>
 
-    <!-- Consolidated feedback email per class — daily 09:00, the morning after
-         the class's last day. Recipients per site in Model/Cron/Digest.php. -->
+    <!-- Class evaluation email to the trainer — daily 18:30, on the class's
+         last day. Cc list per site in Model/Cron/Digest.php. -->
     <crontab>
         <jobs>
             <mmd_feedbackform_digest>
-                <schedule><cron_expr>0 9 * * *</cron_expr></schedule>
+                <schedule><cron_expr>30 18 * * *</cron_expr></schedule>
                 <run><model>mmd_feedbackform/cron_digest::run</model></run>
             </mmd_feedbackform_digest>
         </jobs>
