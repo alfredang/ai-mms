@@ -224,10 +224,6 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
                 </div>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;flex-shrink:0;">
-                <button type="button" class="att-btn att-btn-primary" onclick="attShowQr()" style="display:inline-flex !important;align-items:center;gap:8px;padding:12px 24px !important;font-size:15px !important;font-weight:700 !important;border-radius:10px !important;background:#2563eb !important;border:1px solid #2563eb !important;color:#fff !important;box-shadow:0 4px 14px rgba(37,99,235,.35);" title="Show the check-in QR for learners to scan">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></svg>
-                    Take Attendance
-                </button>
                 <?php if ($backUrl): ?>
                 <a class="att-btn att-btn-ghost" href="<?php echo $backUrl ?>" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;">&larr; Back to Class</a>
                 <?php endif; ?>
@@ -290,7 +286,15 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
 
         <!-- Session tabs — every class day has an AM and a PM session
              (2-day class = 4 sessions). Attendance is marked per session. -->
-        <div id="att-sess-tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;"></div>
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px;">
+            <div id="att-sess-tabs" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+            <div style="flex-shrink:0;">
+                <button type="button" class="att-btn att-btn-primary" onclick="attShowQr()" style="display:inline-flex !important;align-items:center;gap:8px;padding:9px 18px !important;font-size:13px !important;font-weight:700 !important;border-radius:10px !important;background:#2563eb !important;border:1px solid #2563eb !important;color:#fff !important;box-shadow:0 4px 14px rgba(37,99,235,.35);" title="Show the check-in QR of the selected session for learners to scan">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></svg>
+                    Take Attendance
+                </button>
+            </div>
+        </div>
 
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -304,9 +308,6 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
                 <button type="button" id="att-bulk-absent" class="att-btn att-btn-danger" onclick="attBulkMark(0)" disabled>Mark Absent</button>
                 <button type="button" class="att-btn att-btn-green" onclick="attAllPresent()">All Present</button>
                 <button type="button" class="att-btn att-btn-ghost" onclick="attOpenAdd()">+ Add Learner</button>
-                <?php endif; ?>
-                <?php if (!$preRunRow): ?>
-                <button type="button" class="att-btn att-btn-ghost" style="border-color:rgba(34,211,238,.4);color:#22d3ee;" onclick="attShowQr()">Take Attendance QR</button>
                 <?php endif; ?>
             </div>
         </div>
@@ -407,11 +408,13 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
 
 <!-- Take Attendance QR modal — trainer displays it; learners scan it and land
      on the public signed check-in form (/checkin/…, no login). The signed URL
-     comes from the load action (checkin_url). -->
+     comes from the load action (checkin_urls, one per session): the QR is for the
+     session tab that is selected, and a scan marks that session only. -->
 <div id="att-qr-modal" class="att-modal-bd">
     <div class="att-modal" style="max-width:360px;text-align:center;">
         <h3>Take Attendance</h3>
-        <p class="note">Learners scan this and check in with their name and email (phone optional) &mdash; no login. A learner not yet in this class is registered automatically on their first check-in. Their phone remembers the details for later sessions.</p>
+        <div id="att-qr-sess" style="font-size:15px;font-weight:700;color:#60a5fa;margin:-4px 0 10px;"></div>
+        <p class="note">Learners scan this to check in for this session &mdash; no login. A learner not yet in this class is registered automatically on their first check-in. From the next session their phone number alone fills in their details.</p>
         <div style="background:#fff;border-radius:12px;padding:14px;display:inline-block;">
             <img id="att-qr-img" width="220" height="220" alt="Check-in QR" style="display:block;" />
         </div>
@@ -427,7 +430,7 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
 
 <script>
 var ATT_LOAD_URL   = '<?php echo $this->jsQuoteEscape($loadUrl) ?>';
-var attCheckinUrl  = '';    // signed public check-in link of the loaded class (QR target)
+var attCheckinUrls = {};    // session key -> signed public check-in link (QR target)
 var ATT_EXPORT_URL = '<?php echo $this->jsQuoteEscape(Mage::helper('adminhtml')->getUrl('adminhtml/attendance/export')) ?>';
 var ATT_SAVE_URL   = '<?php echo $this->jsQuoteEscape($saveUrl) ?>';
 var ATT_ADD_URL    = '<?php echo $this->jsQuoteEscape($addUrl) ?>';
@@ -455,8 +458,10 @@ function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,
 
 // ── Take Attendance QR — learner scans -> public check-in form ──────────────
 function attShowQr() {
-    if (!attRunId || !attCheckinUrl) { alert('Select a class first.'); return; }
-    var url = attCheckinUrl;
+    var url = attCheckinUrls[attActiveSess];
+    if (!attRunId || !url) { alert('Select a class first.'); return; }
+    var sess = attSessions.filter(function(s){ return s.key === attActiveSess; })[0];
+    document.getElementById('att-qr-sess').textContent = sess ? sess.label : '';
     document.getElementById('att-qr-img').src =
         'https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=0&data=' + encodeURIComponent(url);
     document.getElementById('att-qr-url').value = url;
@@ -512,7 +517,7 @@ function certToggle(cb) {
 
 function attSelectClass(runId) {
     attRunId = parseInt(runId, 10) || 0;
-    attCheckinUrl = '';
+    attCheckinUrls = {};
     var card = document.getElementById('att-roster-card');
     var pills = document.getElementById('att-pills');
     if (!attRunId) { card.style.display = 'none'; pills.innerHTML = ''; return; }
@@ -534,7 +539,7 @@ function attSelectClass(runId) {
         .then(function(d){
             if (!d.success) { alert('Error: ' + (d.message || 'load failed')); return; }
             attRoster   = d.roster || [];
-            attCheckinUrl = d.checkin_url || '';
+            attCheckinUrls = d.checkin_urls || {};
             attSessions = d.sessions && d.sessions.length ? d.sessions : [{key:'d1am', day:1, ampm:'AM', date:'', label:'Day 1 · AM'}];
             attSel = {};
             attTimetable = d.timetable || null;

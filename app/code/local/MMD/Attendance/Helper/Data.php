@@ -742,9 +742,10 @@ class MMD_Attendance_Helper_Data extends Mage_Core_Helper_Abstract
     /**
      * Self-mark context for the confirm page: the run + this learner's status.
      * Returns array(run, learner_email, enrolled, within_window, already_present)
-     * or null if the run doesn't exist.
+     * or null if the run doesn't exist. $sessionKey = a specific session (the
+     * per-session check-in QR); null = the session running right now.
      */
-    public function getSelfMarkContext($runId, $email = null)
+    public function getSelfMarkContext($runId, $email = null, $sessionKey = null)
     {
         $run = $this->loadRunForSelfMark($runId);
         if (!$run) {
@@ -755,7 +756,7 @@ class MMD_Attendance_Helper_Data extends Mage_Core_Helper_Abstract
         $read     = $resource->getConnection('core_read');
         $enrolTbl = $resource->getTableName('course_run_enrolments');
         $attTbl   = $resource->getTableName('mmd_course_run_attendance');
-        $sessionKey = $this->currentSessionKey($run);
+        $sessionKey = $sessionKey !== null ? (string) $sessionKey : $this->currentSessionKey($run);
 
         $enrolled = $email !== '' && (int) $read->fetchOne(
             "SELECT enrolment_id FROM `$enrolTbl` WHERE run_id = ? AND LOWER(learner_email) = ? LIMIT 1",
@@ -791,9 +792,9 @@ class MMD_Attendance_Helper_Data extends Mage_Core_Helper_Abstract
      * session's account; the native learner apps (no admin session) pass the
      * learner's own shadow admin_user id.
      */
-    public function selfMarkPresent($runId, $email = null, $markedByAdminId = null)
+    public function selfMarkPresent($runId, $email = null, $markedByAdminId = null, $sessionKey = null)
     {
-        $ctx = $this->getSelfMarkContext($runId, $email);
+        $ctx = $this->getSelfMarkContext($runId, $email, $sessionKey);
         if (!$ctx) {
             return array('success' => false, 'message' => 'Class not found.');
         }
@@ -830,7 +831,7 @@ class MMD_Attendance_Helper_Data extends Mage_Core_Helper_Abstract
         // (AttendanceController::saveAction): is_present=1, reason cleared,
         // marked_by_admin_id = the account that did the marking (here the
         // learner's own dashboard account). is_walkin stays 0 (enrolled learner).
-        // Marks the CURRENT session only (today's day index, AM/PM by time).
+        // Marks ONE session: the given one, else the current (today's day index, AM/PM by time).
         $write->insertOnDuplicate(
             $attTbl,
             array(
@@ -1047,17 +1048,65 @@ class MMD_Attendance_Helper_Data extends Mage_Core_Helper_Abstract
 
     // ── Public QR check-in (no login) ────────────────────────────────────────
 
-    public function checkinSig($runId)
+    /** Signature of a check-in link: per session ('d1am'); '' = the old class-wide link. */
+    public function checkinSig($runId, $sessionKey = '')
     {
         $key = (string) Mage::getConfig()->getNode('global/crypt/key');
-        return substr(hash_hmac('sha256', 'attendance-checkin:' . (int) $runId, $key), 0, 24);
+        return substr(hash_hmac('sha256', 'attendance-checkin:' . (int) $runId . ($sessionKey !== '' ? ':' . $sessionKey : ''), $key), 0, 24);
     }
 
-    /** Signed link the trainer's Check-in QR encodes. */
-    public function checkinUrl($runId)
+    /** Signed link the trainer's Take Attendance QR encodes, one per session. */
+    public function checkinUrl($runId, $sessionKey = '')
     {
         $base = Mage::app()->getDefaultStoreView()->getBaseUrl(Mage_Core_Model_Store::URL_TYPE_LINK, true);
-        return $base . 'checkin/index/index/run/' . (int) $runId . '/k/' . $this->checkinSig($runId) . '/';
+        return $base . 'checkin/index/index/run/' . (int) $runId . ($sessionKey !== '' ? '/s/' . $sessionKey : '')
+            . '/k/' . $this->checkinSig($runId, $sessionKey) . '/';
+    }
+
+    /** The session row ('key','day','ampm','date','label') of a run, or null. */
+    public function sessionForRun($run, $key)
+    {
+        foreach ($this->sessionsForRun($run) as $s) {
+            if ($s['key'] === (string) $key) return $s;
+        }
+        return null;
+    }
+
+    /** "Day 1 AM"-style name of a session for the check-in form. */
+    public function sessionShortLabel(array $s)
+    {
+        return preg_match('/^d\d+(am|pm|ev)$/', (string) $s['key'])
+            ? 'Day ' . (int) $s['day'] . ' ' . $s['ampm'] . (!empty($s['date']) ? ' · ' . date('D j M', strtotime($s['date'])) : '')
+            : (string) $s['label'];
+    }
+
+    /**
+     * The learner of THIS class whose saved phone number matches $phone (digits
+     * only, so "+65 9780 3795" finds "97803795"). Null when nobody or more than
+     * one learner matches. Scoped to the class roster on purpose.
+     * @return array|null learner_name, learner_email
+     */
+    public function checkinLearnerByPhone($runId, $phone)
+    {
+        $digits = preg_replace('/\D+/', '', (string) $phone);
+        if (strlen($digits) < 8) {
+            return null;
+        }
+        $resource = Mage::getSingleton('core/resource');
+        $rows = $resource->getConnection('core_read')->fetchAll(
+            "SELECT learner_name, learner_email, learner_phone FROM `" . $resource->getTableName('course_run_enrolments') . "`
+              WHERE run_id = ? AND learner_phone IS NOT NULL AND learner_phone <> ''",
+            array((int) $runId)
+        );
+        $hits = array();
+        foreach ($rows as $r) {
+            $d = preg_replace('/\D+/', '', (string) $r['learner_phone']);
+            if (strlen($d) < 8) continue;
+            if ($d === $digits || substr($d, -strlen($digits)) === $digits || substr($digits, -strlen($d)) === $d) {
+                $hits[strtolower((string) $r['learner_email'])] = $r;
+            }
+        }
+        return count($hits) === 1 ? reset($hits) : null;
     }
 
     /** "Day 1 AM"-style label of a session key for this run. */
@@ -1072,17 +1121,27 @@ class MMD_Attendance_Helper_Data extends Mage_Core_Helper_Abstract
     /**
      * Check-in from the public QR form. A learner not yet on the class roster is
      * registered first (learner account if they have none + roster row, flagged
-     * walk-in), then marked present for the current session.
+     * walk-in), then marked present for $sessionKey (the session of the QR they
+     * scanned; null = the session running right now, for the old class-wide link).
      * @return array success, message, name, session_label, registered, already
      */
-    public function publicCheckIn($runId, $name, $email, $phone = '')
+    public function publicCheckIn($runId, $name, $email, $phone = '', $sessionKey = null)
     {
-        $ctx = $this->getSelfMarkContext($runId, $email);
+        $ctx = $this->getSelfMarkContext($runId, $email, $sessionKey);
         if (!$ctx) {
             return array('success' => false, 'message' => 'Class not found.');
         }
         if (!$ctx['within_window']) {
             return array('success' => false, 'message' => 'Check-in is not open for this class right now.');
+        }
+        if ($sessionKey !== null) {
+            $sess = $this->sessionForRun($ctx['run'], $sessionKey);
+            if (!$sess) {
+                return array('success' => false, 'message' => 'This session is not part of the class.');
+            }
+            if (!empty($sess['date']) && $sess['date'] > Mage::getModel('core/date')->date('Y-m-d')) {
+                return array('success' => false, 'message' => 'Check-in for this session is not open yet.');
+            }
         }
         $run      = $ctx['run'];
         $email    = $ctx['learner_email'];
@@ -1120,7 +1179,7 @@ class MMD_Attendance_Helper_Data extends Mage_Core_Helper_Abstract
             "SELECT user_id FROM `" . $resource->getTableName('admin_user') . "` WHERE LOWER(email) = ? LIMIT 1",
             array($email)
         );
-        $res = $this->selfMarkPresent($runId, $email, $adminId ?: null);
+        $res = $this->selfMarkPresent($runId, $email, $adminId ?: null, $sessionKey);
         if (empty($res['success'])) {
             return $res;
         }
