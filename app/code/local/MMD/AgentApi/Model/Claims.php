@@ -162,7 +162,7 @@ class MMD_AgentApi_Model_Claims extends MMD_AgentApi_Model_Abstract
             'Will prepare ' . $n . ' T3 attendance list(s) for ' . $ctx['class_id'] . ' (' . $ctx['course'] . '): one per training day per employer. '
             . 'Citizenship is pre-filled "Malaysian"; signature column '
             . ($mode === 'virtual' ? '"ROT" (Remote Online Training).' : 'left blank for trainees to sign.'),
-            $warnings, array('mode'));
+            $warnings, array('mode'), $n);
     }
 
     protected function _previewJd14(array $body)
@@ -274,7 +274,7 @@ class MMD_AgentApi_Model_Claims extends MMD_AgentApi_Model_Abstract
     }
 
     /** Shared preview envelope. The token payload carries everything commit renders from. */
-    protected function _out(array $ctx, $op, array $details, $summary, array $warnings, array $keys = array())
+    protected function _out(array $ctx, $op, array $details, $summary, array $warnings, array $keys = array(), $docCount = null)
     {
         if ($ctx['left_off']) {
             $warnings[] = 'Left off as self-paying (no company-sponsored booking for this course, and no employer given): '
@@ -298,7 +298,7 @@ class MMD_AgentApi_Model_Claims extends MMD_AgentApi_Model_Abstract
         return array(
             'target'        => $ctx['class_id'],
             'diff'          => array(array('field' => $op, 'from' => null,
-                'to' => count($details) . ' document(s)')),
+                'to' => ($docCount === null ? count($details) : $docCount) . ' document(s)')),
             'human_summary' => $summary,
             'details'       => $details,
             'warnings'      => $warnings,
