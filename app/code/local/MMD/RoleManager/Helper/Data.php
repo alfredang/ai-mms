@@ -19,14 +19,17 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
         'franchise_admin'   => 'Franchise Admin',
     );
 
+    // Minimalist 24x24 stroke icons in the sidebar's icon language (currentColor,
+    // stroke-width 2) — replaced the emoji set 2026-11-17. Used by the header
+    // "View As" dropdown, the role-select page and the legacy role switcher.
     protected $_roleIcons = array(
-        'learner'           => '&#x1F4DA;',  // 📚
-        'trainer'           => '&#x1F468;&#x200D;&#x1F3EB;', // 👨‍🏫
-        'developer'         => '&#x1F4BB;',  // 💻
-        'marketing'         => '&#x1F4E3;',  // 📣
-        'admin'             => '&#x2699;&#xFE0F;',  // ⚙️
-        'training_provider' => '&#x1F6E1;&#xFE0F;',  // 🛡️
-        'franchise_admin'   => '&#x1F310;',  // 🌐
+        'learner'           => '<svg class="mmd-role-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1.66 2.69 3 6 3s6-1.34 6-3v-5"/><path d="M22 10v6"/></svg>', // graduation cap
+        'trainer'           => '<svg class="mmd-role-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h20"/><path d="M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3"/><path d="M7 21l5-5 5 5"/></svg>', // presentation board
+        'developer'         => '<svg class="mmd-role-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>', // code brackets
+        'marketing'         => '<svg class="mmd-role-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>', // megaphone
+        'admin'             => '<svg class="mmd-role-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>', // settings sliders
+        'training_provider' => '<svg class="mmd-role-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01M12 6h.01M16 6h.01M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01"/></svg>', // building
+        'franchise_admin'   => '<svg class="mmd-role-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>', // globe
     );
 
     protected $_roleDescriptions = array(

@@ -81,14 +81,14 @@
     function applyBtnStyle(b, active) {
         b.style.cssText =
             'background:transparent !important;background-image:none !important;' +
-            'border:1px solid ' + (active ? '#60a5fa' : '#475569') + ' !important;' +
+            'border:1px solid ' + (active ? 'var(--lt-icon-active, #60a5fa)' : 'var(--lt-icon-line, #475569)') + ' !important;' +
             'border-radius:5px !important;' +
             'width:28px !important;min-width:28px !important;max-width:28px !important;' +
             'height:28px !important;min-height:28px !important;max-height:28px !important;' +
             'box-sizing:border-box !important;line-height:1 !important;' +
             'padding:0 !important;margin:0 !important;display:inline-flex !important;flex:0 0 28px !important;' +
             'align-items:center !important;justify-content:center !important;' +
-            'color:' + (active ? '#60a5fa' : '#cbd5e1') + ' !important;' +
+            'color:' + (active ? 'var(--lt-icon-active, #60a5fa)' : 'var(--lt-icon, #cbd5e1)') + ' !important;' +
             'box-shadow:none !important;text-shadow:none !important;cursor:pointer;' +
             'transform:none !important;font-size:0 !important;';
     }

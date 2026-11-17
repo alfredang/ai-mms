@@ -2760,7 +2760,7 @@ document.observe('dom:loaded', function() {
                 return u.toString();
             })();
             reset.textContent = 'Reset';
-            reset.style.cssText = 'color:#94a3b8;font-size:12px;text-decoration:none;'
+            reset.style.cssText = 'color:var(--lt-muted, #94a3b8);font-size:12px;text-decoration:none;'
                 + 'white-space:nowrap;padding:0 4px;';
             wrap.appendChild(reset);
         }
@@ -3173,7 +3173,7 @@ document.observe('dom:loaded', function() {
             tdLabel.style.cssText = 'padding:4px 10px 4px 0;color:#22d3ee;font-weight:600;white-space:nowrap;vertical-align:top;font-size:11.5px;';
             tdLabel.textContent = p.label;
             var tdValue = document.createElement('td');
-            tdValue.style.cssText = 'padding:4px 0;color:#cbd5e1;font-size:12px;';
+            tdValue.style.cssText = 'padding:4px 0;color:var(--lt-text, #cbd5e1);font-size:12px;';
             tdValue.textContent = p.value;
             tr.appendChild(tdLabel);
             tr.appendChild(tdValue);
@@ -3205,7 +3205,7 @@ document.observe('dom:loaded', function() {
             tdLabel.style.cssText = 'padding:4px 10px 4px 0;color:#22d3ee;font-weight:600;white-space:nowrap;vertical-align:top;font-size:11.5px;';
             tdLabel.textContent = p.label;
             var tdValue = document.createElement('td');
-            tdValue.style.cssText = 'padding:4px 0;color:#cbd5e1;font-size:12px;';
+            tdValue.style.cssText = 'padding:4px 0;color:var(--lt-text, #cbd5e1);font-size:12px;';
             tdValue.textContent = p.value;
             tr.appendChild(tdLabel);
             tr.appendChild(tdValue);
@@ -3399,7 +3399,7 @@ document.addEventListener('DOMContentLoaded', function injectCmsPagesSearch() {
             var btn = document.createElement('button');
             btn.type = 'button';
             btn.id = 'mmd-config-expand-all';
-            btn.style.cssText = 'background:#334155;border:1px solid #475569;color:#cbd5e1;'
+            btn.style.cssText = 'background:var(--lt-btn-bg, #334155);border:1px solid var(--lt-icon-line, #475569);color:var(--lt-text, #cbd5e1);'
                 + 'font-size:12px;font-weight:600;padding:6px 12px;border-radius:6px;'
                 + 'cursor:pointer;display:inline-flex;align-items:center;gap:6px;'
                 + 'text-transform:none;letter-spacing:normal;line-height:normal;'

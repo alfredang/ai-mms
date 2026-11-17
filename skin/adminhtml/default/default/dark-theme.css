@@ -6737,40 +6737,41 @@ html body[class*="adminhtml-catalog-product"] [id^="option_"] tfoot button {
 }
 #mmd-wa-root .mmd-wa-launcher {
     display: flex !important; align-items: center; justify-content: center;
-    width: 54px !important; height: 54px !important; padding: 0 !important;
+    width: 58px !important; height: 58px !important; padding: 2px !important;
     border: 0 !important; border-radius: 50% !important; cursor: pointer;
-    background: var(--wa-deep) !important; color: #fff !important;
-    box-shadow: 0 0 0 1px rgba(37, 211, 102, 0.35), 0 0 14px rgba(37, 211, 102, 0.35) !important;
-    transition: box-shadow 0.15s ease, background 0.15s ease;
+    background: #ffffff !important; color: #fff !important;
+    box-shadow: 0 12px 28px -12px rgba(23, 71, 196, 0.45), 0 3px 8px rgba(15, 29, 71, 0.14), 0 0 0 1px rgba(15, 29, 71, 0.08) !important;
+    transition: transform 0.15s ease;
+    animation: mmd-wa-bob 3.2s ease-in-out infinite;
     float: right;
     position: relative;
 }
-/* Pulsing halo, mirroring the lms-tms .chat-launcher (chat-ring keyframes in
-   its globals.css). The launcher's own box-shadow is !important (chrome-button
-   reset trap), so the pulse rides on an expanding ::before instead. */
-#mmd-wa-root .mmd-wa-launcher::before {
-    content: ""; position: absolute; inset: 0; z-index: -1;
-    border-radius: 50%; background: var(--wa);
-    animation: mmd-wa-ring 2s ease-out infinite;
+/* Support avatar (same per-site avatar as the storefront launcher) + a small
+   WhatsApp badge; replaced the green WhatsApp disc + pulse ring 2026-11-17. */
+#mmd-wa-root .mmd-wa-launcher-avatar { display: block; width: 100%; height: 100%; border-radius: 50%; pointer-events: none; }
+#mmd-wa-root .mmd-wa-launcher-badge {
+    position: absolute; right: -2px; bottom: -2px;
+    width: 22px; height: 22px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--wa) !important; color: #fff !important;   /* !important: the global `button span { background:none }` reset strips it */
+    box-shadow: 0 0 0 2px #ffffff, 0 1px 3px rgba(0, 0, 0, 0.2);
+    pointer-events: none;
 }
-#mmd-wa-root .mmd-wa-launcher:hover {
-    background: #0d8a62 !important;
-    box-shadow: 0 0 0 1px rgba(37, 211, 102, 0.6), 0 0 20px rgba(37, 211, 102, 0.5) !important;
+#mmd-wa-root .mmd-wa-launcher:hover,
+#mmd-wa-root .mmd-wa-launcher[aria-expanded="true"] {
+    animation: none; transform: scale(1.05);
+    background: #ffffff !important;
 }
-#mmd-wa-root .mmd-wa-launcher:hover::before,
-#mmd-wa-root .mmd-wa-launcher:focus-visible::before,
-#mmd-wa-root .mmd-wa-launcher[aria-expanded="true"]::before {
-    opacity: 0; animation: none;
-}
-@keyframes mmd-wa-ring {
-    0%   { opacity: 0.6; transform: scale(1); }
-    100% { opacity: 0;   transform: scale(1.9); }
+@keyframes mmd-wa-bob {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50%      { transform: translateY(-4px) rotate(-3deg); }
 }
 @media (prefers-reduced-motion: reduce) {
-    #mmd-wa-root .mmd-wa-launcher::before { animation: none; opacity: 0; }
+    #mmd-wa-root .mmd-wa-launcher { animation: none; }
 }
 #mmd-wa-root .mmd-wa-launcher:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 #mmd-wa-root .mmd-wa-launcher svg { display: block; pointer-events: none; }
+.mmd-wa-head-avatar { display: block; width: 32px; height: 32px; border-radius: 50%; background: #ffffff; }
 
 .mmd-wa-panel {
     position: absolute; right: 0; bottom: 66px;
@@ -6897,13 +6898,7 @@ html body[class*="adminhtml-catalog-product"] [id^="option_"] tfoot button {
    green ops launcher. Custom-prop override recolors every var(--wa*)
    rule; the remaining hardcoded green shadows/hovers are restated. ── */
 #mmd-wa-root.mmd-wa--trainer { --wa: #2aabee; --wa-deep: #1b5e8c; }
-#mmd-wa-root.mmd-wa--trainer .mmd-wa-launcher {
-    box-shadow: 0 0 0 1px rgba(42, 171, 238, 0.35), 0 0 14px rgba(42, 171, 238, 0.35) !important;
-}
-#mmd-wa-root.mmd-wa--trainer .mmd-wa-launcher:hover {
-    background: #22699f !important;
-    box-shadow: 0 0 0 1px rgba(42, 171, 238, 0.6), 0 0 20px rgba(42, 171, 238, 0.5) !important;
-}
+/* Trainer launcher = same avatar; its badge takes the blue --wa above. */
 #mmd-wa-root.mmd-wa--trainer .mmd-wa-panel {
     box-shadow: 0 0 6px rgba(42, 171, 238, 0.25), 0 12px 32px rgba(0, 0, 0, 0.5);
 }

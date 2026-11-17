@@ -1001,7 +1001,11 @@ Keep overrides in a clearly commented, numbered section at the end of
 ## Light theme (data-theme="light") — tertiary-hrms palette, MANDATORY pair
 
 The admin has a light theme (header sun/moon toggle, per-browser
-`localStorage['admin-theme']`; dark stays the default). Since 2026-11-17 it
+`localStorage['admin-theme']`). **Light is the DEFAULT on every site since
+2026-11-17** (`page/header.phtml` init script; `admin-theme-v` = one-time reset
+so every browser started on light once, then the toggle choice sticks). Test
+dark-mode in headless Chrome by seeding BOTH `admin-theme=dark` and
+`admin-theme-v=2`, or the reset flips it back to light. Since 2026-11-17 it
 uses the **tertiary-hrms "premium blue"** palette, defined ONCE as the light
 values of the same tokens in `dark-theme.css` `:root[data-theme="light"]`
 (mirrored in `admin-tokens.css`):
@@ -1028,15 +1032,25 @@ Rules for every admin change:
    are the usual offenders: they render invisible or ~2.5:1 on white.
    Incident: the class page's course title (`#f1f5f9`) and "Course Details"
    card head (`#fff`) were invisible in light mode until 2026-11-17.
-3. **Never `color: … !important` in an inline `style=""` or `style.setProperty(…,'important')`** —
+3. **JS `el.style.cssText = 'color:#cbd5e1'` is invisible to `[style*="color:#…"]` selectors** (the
+   browser stores it as `rgb(…)`), so JS-written colours must also use `var(--lt-*, #darkhex)`
+   (`--lt-text`, `--lt-muted`, `--lt-icon`, `--lt-icon-line`, `--lt-icon-active`, `--lt-btn-bg`).
+   Pale `stroke="#60a5fa"` SVG attributes are remapped in light by the §11 block.
+4. **Never `color: … !important` in an inline `style=""` or `style.setProperty(…,'important')`** —
    nothing in a stylesheet can override it. If a template must, use a variable
    with the dark value as fallback: `color:var(--lt-muted, #94a3b8) !important`
    (`--lt-muted` / `--lt-danger` are defined only in light mode, so dark is unchanged).
-4. **Light rules change colour, border-colour and shadow only** — never size,
+5. **Light rules change colour, border-colour and shadow only** — never size,
    spacing or display, so behaviour is identical in both themes.
-5. **Verify** with the gate (exit 0 required):
+6. **Verify** with the gate (exit 0 required):
    `ADMIN_SID=<adminhtml cookie> node scripts/audit/admin-light-contrast.mjs`
    (renders the pages in headless Chrome in light mode, WCAG AA 4.5:1, disabled controls exempt).
+
+### Role icons
+Role icons (`MMD_RoleManager_Helper_Data::$_roleIcons`) are 24x24 stroke SVGs in the
+sidebar icon language (`currentColor`, stroke-width 2) — never emoji. The header "View As"
+dropdown, the role-select page and the legacy switcher all read the helper; don't add a
+second icon map.
 
 ## Checklist before finishing any admin UI change
 
