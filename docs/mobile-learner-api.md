@@ -41,7 +41,8 @@ Authenticated calls send `Authorization: Bearer <token>`.
   learner's email; another class's `run_id` returns 404. (The web dashboard
   will render any course's courseware; the API will not.)
 - **Learner courseware only:** `learner_slides_url`, `learner_guide_url`,
-  `lesson_plan_url`, `lab_url`. Trainer columns are never selected.
+  `lesson_plan_url`, `lab_url`, `lab_simulator_url`; a blank link is not
+  returned. Trainer columns are never selected.
 - **Store-local "today"** (`core/date`) for buckets, attendance and survey.
 - **Survey** opens on the first day of class; saved through
   `MMD_FeedbackForm_Helper_Data::saveSubmission` exactly like the web form,

@@ -25,6 +25,7 @@ class MMD_MobileApi_Helper_Learner extends Mage_Core_Helper_Abstract
         'learner_guide_url'  => 'Learner Guide',
         'lesson_plan_url'    => 'Lesson Plan',
         'lab_url'            => 'Activities / Labs',
+        'lab_simulator_url'  => 'Lab Simulator',
     );
 
     protected $_modes = array(1 => 'Classroom', 2 => 'Live Online', 3 => 'Hybrid');
