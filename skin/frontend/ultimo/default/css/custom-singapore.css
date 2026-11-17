@@ -1,0 +1,79 @@
+/* =============================================================================================================
+   SINGAPORE-ONLY storefront CSS — loaded only on the 'singapore' store (layout handle STORE_singapore in local.xml),
+   after custom.css, so these rules override it there. Malaysia and other partner sites never load this file.
+   Site speed / page stability fixes (16 Oct 2026). Needs the Singapore site owner's approval before deploying.
+   ============================================================================================================= */
+
+/* 1. Menu font fallback sized like Oswald (stops the 50px desktop jump).
+   Until the Oswald web font arrives, the top menu drew in Georgia, ~28% wider, so the Singapore menu (more top-level
+   items than Malaysia) wrapped to 2 rows (100px) and the whole page jumped up 50px when Oswald loaded, on every
+   1100-1440px desktop. Arial at 72% has Oswald's menu width (within 0.5%) and the same row count at every width
+   960-1920, so nothing moves when Oswald swaps in. */
+@font-face {
+    font-family: "Oswald Fallback";
+    src: local("Arial"), local("ArialMT"), local("Helvetica"), local("Liberation Sans");
+    size-adjust: 72%;
+}
+.nav-regular .nav-item.level0 > a {
+    font-family: "Oswald", "Oswald Fallback", georgia, serif;
+}
+
+/* 2. Featured-course carousels before the carousel script starts (stops the homepage collapsing by 1,000s of px).
+   Until Owl runs, every course in each slider was shown stacked (1,500-3,000px per slider); Owl then collapsed it to
+   one row. Show the single row Owl will show — same counts as the template's itemsCustom
+   [[0,1],[320,2],[480,3],[768,4]] — until Owl adds .owl-wrapper-outer. */
+.itemslider[id^="itemslider-featured"]:not(:has(> .owl-wrapper-outer)) {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow: hidden;
+}
+.itemslider[id^="itemslider-featured"]:not(:has(> .owl-wrapper-outer)) > .item {
+    flex: 0 0 100%;
+    max-width: 100%;
+}
+@media (min-width: 320px) {
+    .itemslider[id^="itemslider-featured"]:not(:has(> .owl-wrapper-outer)) > .item { flex-basis: 50%; max-width: 50%; }
+}
+@media (min-width: 480px) {
+    .itemslider[id^="itemslider-featured"]:not(:has(> .owl-wrapper-outer)) > .item { flex-basis: 33.3333%; max-width: 33.3333%; }
+}
+@media (min-width: 768px) {
+    .itemslider[id^="itemslider-featured"]:not(:has(> .owl-wrapper-outer)) > .item { flex-basis: 25%; max-width: 25%; }
+    /* Owl adds its 26px pagination row below the slides from 768px up */
+    .itemslider[id^="itemslider-featured"]:not(:has(> .owl-wrapper-outer)) { padding-bottom: 26px; }
+}
+/* A lazyOwl <img> has no src until Owl loads it, and browsers reserve no box for an image without a source, even
+   with width/height attributes — so give the cover its 16:9 shape explicitly until Owl takes over. */
+.itemslider[id^="itemslider-featured"]:not(:has(> .owl-wrapper-outer)) img.lazyOwl {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+}
+
+/* 3. Homepage banners not cropped on tablets / small laptops (same fix as custom-malaysia.css).
+   custom.css fixes the slider at 404px tall from 768px up and crops the banner to fill it, which cut up to ~384px off
+   EACH side on tablets. Height now follows the banners' own shape, capped at 404px (wider screens as before).
+   width:100% is required — with an auto width, aspect-ratio + max-height would shrink the slider's width. */
+@media (min-width: 768px) {
+    .the-slideshow .owl-wrapper-outer,
+    .the-slideshow .owl-wrapper-outer.autoHeight {
+        width: 100% !important;
+        height: auto !important;
+        aspect-ratio: 1440 / 508;
+        min-height: 0 !important;
+        max-height: 404px !important;
+    }
+    .the-slideshow .owl-wrapper, .the-slideshow .owl-item, .the-slideshow .owl-item > div {
+        height: 100% !important;
+    }
+    .the-slideshow .owl-item img, .the-slideshow .slides img {
+        height: 100% !important;
+        max-height: 404px !important;
+    }
+    .cms-index-index .the-slideshow:not(.hide-below-768) {
+        width: 100%;
+        aspect-ratio: 1440 / 508;
+        min-height: 0;
+        max-height: 404px;
+    }
+}

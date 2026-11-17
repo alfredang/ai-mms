@@ -502,7 +502,7 @@ li.level2 > a > span > .cat-label,
     font-family: inherit;
     text-align: left;
 }
-.mmd-wa__row { display: flex; align-items: flex-end; gap: 12px; }
+.mmd-wa__row { position: relative; display: flex; align-items: flex-end; gap: 12px; }
 
 /* --- Launcher: bobbing avatar + WhatsApp badge --- */
 .mmd-wa__launcher {
@@ -546,14 +546,19 @@ li.level2 > a > span > .cat-label,
     50%      { transform: translateY(-4px) rotate(-3deg); }
 }
 
-/* --- Greeting bubble --- */
+/* --- Greeting bubble ---
+   Absolutely positioned beside the launcher so showing/hiding it never resizes
+   #mmd-wa (that resize counted as a layout shift, ~0.07 CLS each way on mobile). */
 .mmd-wa__greet {
-    position: relative;
+    position: absolute;
+    right: 76px; /* launcher 64px + 12px gap */
+    bottom: 8px;
     display: flex;
     align-items: flex-start;
     gap: 8px;
-    max-width: 240px;
-    margin-bottom: 8px;
+    box-sizing: border-box;
+    width: max-content;
+    max-width: min(270px, calc(100vw - 108px)); /* 240px text + padding/border, as before */
     padding: 10px 14px;
     background: #fff;
     border: 1px solid #e2e8f0;
