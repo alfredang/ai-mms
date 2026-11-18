@@ -29,17 +29,17 @@ body #header-search-trigger:focus {
 }
 body #header-search-trigger:hover,
 body #header-search-trigger:focus { border-color: #ffffff !important; opacity: .85; }
-body #header-search-trigger::placeholder { color: #cbd5e1 !important; opacity: .85 !important; }
+body #header-search-trigger::placeholder { color: var(--t2, #cbd5e1) !important; opacity: .85 !important; }
 
-.header-search-icon { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); color: #cbd5e1; pointer-events: none; z-index: 1; }
+.header-search-icon { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); color: var(--t2, #cbd5e1); pointer-events: none; z-index: 1; }
 .header-search-kbd {
     position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
     background: transparent !important;
-    border: 1px solid #475569 !important;
+    border: 1px solid var(--b2, #475569) !important;
     border-radius: 6px !important;
     padding: 3px 9px !important;
     font-size: 11px !important;
-    color: #cbd5e1 !important;
+    color: var(--t2, #cbd5e1) !important;
     font-family: var(--font-mono) !important;
     pointer-events: none;
     line-height: 1 !important;
@@ -62,25 +62,25 @@ body #header-search-q:focus {
     min-height: 0 !important;
     line-height: normal !important;
 }
-body #header-search-q::placeholder { color: #64748b !important; opacity: 1 !important; }
+body #header-search-q::placeholder { color: var(--t5, #64748b) !important; opacity: 1 !important; }
 
 .header-search-overlay { display: none; position: fixed; inset: 0; background: rgba(2,6,23,.55); z-index: 9998; align-items: flex-start; justify-content: center; padding-top: 96px; }
 .header-search-overlay.open { display: flex; }
-.header-search-modal { width: min(680px, 92vw); background: #0f172a; border: 1px solid #334155; border-radius: 14px; box-shadow: 0 24px 64px rgba(0,0,0,.45); overflow: hidden; }
-.header-search-modal-input-wrap { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid #1e293b; }
+.header-search-modal { width: min(680px, 92vw); background: var(--d1, #0f172a); border: 1px solid var(--b1, #334155); border-radius: 14px; box-shadow: 0 24px 64px rgba(0,0,0,.45); overflow: hidden; }
+.header-search-modal-input-wrap { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--b1, #1e293b); }
 .header-search-modal-input { flex: 1; background: transparent; border: none; color: #fff; font-size: 15px; outline: none; }
-.header-search-modal-input::placeholder { color: #64748b; }
-.header-search-esc { background: #1e293b; border: 1px solid #334155; border-radius: 5px; padding: 2px 8px; font-size: 11px; color: #94a3b8; font-family: var(--font-mono); }
+.header-search-modal-input::placeholder { color: var(--t5, #64748b); }
+.header-search-esc { background: var(--d3, #1e293b); border: 1px solid var(--b1, #334155); border-radius: 5px; padding: 2px 8px; font-size: 11px; color: var(--t4, #94a3b8); font-family: var(--font-mono); }
 .header-search-list { max-height: 340px; overflow-y: auto; padding: 6px 0; }
 a.header-search-item,
 a.header-search-item:hover,
-a.header-search-item:focus { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; color: #cbd5e1; font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none; }
+a.header-search-item:focus { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; color: var(--t2, #cbd5e1); font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none; }
 a.header-search-item:hover,
-a.header-search-item.active { background: #1e293b !important; color: #258bb6 !important; }
-.header-search-group { font-size: 11px; color: #64748b; font-weight: 500; }
-.header-search-empty { padding: 24px; text-align: center; color: #64748b; font-size: 13px; }
-.header-search-foot { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-top: 1px solid #1e293b; font-size: 11px; color: #64748b; }
-.header-search-foot kbd { background: #1e293b; border: 1px solid #334155; border-radius: 4px; padding: 1px 6px; font-family: var(--font-mono); color: #94a3b8; margin: 0 4px; }
+a.header-search-item.active { background: var(--d3, #1e293b) !important; color: #258bb6 !important; }
+.header-search-group { font-size: 11px; color: var(--t5, #64748b); font-weight: 500; }
+.header-search-empty { padding: 24px; text-align: center; color: var(--t5, #64748b); font-size: 13px; }
+.header-search-foot { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-top: 1px solid var(--b1, #1e293b); font-size: 11px; color: var(--t5, #64748b); }
+.header-search-foot kbd { background: var(--d3, #1e293b); border: 1px solid var(--b1, #334155); border-radius: 4px; padding: 1px 6px; font-family: var(--font-mono); color: var(--t4, #94a3b8); margin: 0 4px; }
 
 /* --- Role-tab strips (learner + trainer) — identical styling, one rule. --- */
 .header-lnr-tabs,
@@ -126,10 +126,10 @@ a.header-trn-tab svg { width: 15px; height: 15px; flex-shrink: 0; }
 :root[data-theme="light"] a.header-lnr-tab:active,
 :root[data-theme="light"] a.header-trn-tab,
 :root[data-theme="light"] a.header-trn-tab:focus,
-:root[data-theme="light"] a.header-trn-tab:active { color: #2b3a66 !important; }
+:root[data-theme="light"] a.header-trn-tab:active { color: var(--t3) !important; }
 :root[data-theme="light"] a.header-lnr-tab:hover,
-:root[data-theme="light"] a.header-trn-tab:hover { color: #0f1d47 !important; background: rgba(15,23,42,0.05) !important; }
+:root[data-theme="light"] a.header-trn-tab:hover { color: var(--t1) !important; background: rgba(15,23,42,0.05) !important; }
 :root[data-theme="light"] a.header-lnr-tab.active,
 :root[data-theme="light"] a.header-lnr-tab.active:hover,
 :root[data-theme="light"] a.header-trn-tab.active,
-:root[data-theme="light"] a.header-trn-tab.active:hover { color: #2f5be6 !important; background: rgba(37,99,235,0.10) !important; border-bottom-color: #2f5be6 !important; }
+:root[data-theme="light"] a.header-trn-tab.active:hover { color: var(--blue) !important; background: rgba(37,99,235,0.10) !important; border-bottom-color: var(--blue) !important; }

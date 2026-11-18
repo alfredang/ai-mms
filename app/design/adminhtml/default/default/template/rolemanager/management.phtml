@@ -269,18 +269,18 @@ try {
 
     <?php if ($_tiCanManage): ?>
     <!-- ===== Sync Trainers from LMS ===== -->
-    <div id="ti-card" style="background:#1e2132;border:1px solid #334155;border-radius:12px;padding:18px 20px;margin-bottom:20px;">
+    <div id="ti-card" style="background:var(--d3, #1e2132);border:1px solid var(--b1, #334155);border-radius:12px;padding:18px 20px;margin-bottom:20px;">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;">
             <div style="flex:1;min-width:260px;">
                 <div style="display:flex;align-items:center;gap:8px;">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
-                    <span style="font-size:14px;font-weight:600;color:#e2e8f0;">Sync Trainers from LMS</span>
+                    <span style="font-size:14px;font-weight:600;color:var(--t2, #e2e8f0);">Sync Trainers from LMS</span>
                 </div>
-                <p style="font-size:12px;color:#64748b;margin:4px 0 0;">Pulls trainer accounts + roles from AI-LMS-TMS. New emails create accounts (with their LMS roles); existing emails gain the Trainer role. Going forward, assign trainers using these accounts.</p>
+                <p style="font-size:12px;color:var(--t5, #64748b);margin:4px 0 0;">Pulls trainer accounts + roles from AI-LMS-TMS. New emails create accounts (with their LMS roles); existing emails gain the Trainer role. Going forward, assign trainers using these accounts.</p>
             </div>
             <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
-                <span style="font-size:11px;color:#94a3b8;">Daily auto-pull</span>
-                <span id="ti-spinner" style="font-family:monospace;font-size:16px;line-height:1;color:#60a5fa;width:12px;display:inline-block;text-align:center;"></span>
+                <span style="font-size:11px;color:var(--t4, #94a3b8);">Daily auto-pull</span>
+                <span id="ti-spinner" style="font-family:monospace;font-size:16px;line-height:1;color:var(--blue, #60a5fa);width:12px;display:inline-block;text-align:center;"></span>
                 <label class="dcf-toggle-sw" title="<?php echo $_tiAutoOn ? 'Auto-pull ON' : 'Auto-pull OFF' ?>" style="flex-shrink:0;">
                     <input type="checkbox" id="ti-cb" <?php echo $_tiAutoOn ? 'checked' : '' ?> onchange="tiToggle(this)">
                     <span class="dcf-toggle-slider"></span>
@@ -289,22 +289,22 @@ try {
         </div>
 
         <!-- connection settings -->
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:14px;padding-top:14px;border-top:1px solid #1e293b;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:14px;padding-top:14px;border-top:1px solid var(--b1, #1e293b);">
             <div style="flex:2;min-width:240px;">
-                <label style="display:block;font-size:11px;color:#64748b;margin-bottom:4px;">LMS Base URL</label>
-                <input type="text" id="ti-url" value="<?php echo htmlspecialchars($_tiLmsUrl, ENT_QUOTES) ?>" placeholder="https://ai-lms-tms.tertiaryinfo.tech" style="width:100%;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:8px 12px;color:#e2e8f0;font-size:13px;box-sizing:border-box;">
+                <label style="display:block;font-size:11px;color:var(--t5, #64748b);margin-bottom:4px;">LMS Base URL</label>
+                <input type="text" id="ti-url" value="<?php echo htmlspecialchars($_tiLmsUrl, ENT_QUOTES) ?>" placeholder="https://ai-lms-tms.tertiaryinfo.tech" style="width:100%;background:var(--d1, #0f172a);border:1px solid var(--b1, #334155);border-radius:8px;padding:8px 12px;color:var(--t2, #e2e8f0);font-size:13px;box-sizing:border-box;">
             </div>
             <div style="flex:1;min-width:180px;">
-                <label style="display:block;font-size:11px;color:#64748b;margin-bottom:4px;">API Key <?php echo $_tiHasKey ? '<span style="color:#22c55e;">(set)</span>' : '' ?></label>
-                <input type="password" id="ti-key" value="" placeholder="<?php echo $_tiHasKey ? '•••••••• (leave blank to keep)' : 'x-api-key value' ?>" style="width:100%;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:8px 12px;color:#e2e8f0;font-size:13px;box-sizing:border-box;">
+                <label style="display:block;font-size:11px;color:var(--t5, #64748b);margin-bottom:4px;">API Key <?php echo $_tiHasKey ? '<span style="color:var(--green, #22c55e);">(set)</span>' : '' ?></label>
+                <input type="password" id="ti-key" value="" placeholder="<?php echo $_tiHasKey ? '•••••••• (leave blank to keep)' : 'x-api-key value' ?>" style="width:100%;background:var(--d1, #0f172a);border:1px solid var(--b1, #334155);border-radius:8px;padding:8px 12px;color:var(--t2, #e2e8f0);font-size:13px;box-sizing:border-box;">
             </div>
-            <button type="button" class="rm-btn-ghost" onclick="tiSaveConfig(this)" style="padding:8px 14px;background:transparent;border:1px solid #334155;color:#94a3b8;border-radius:8px;font-size:13px;cursor:pointer;">Save</button>
+            <button type="button" class="rm-btn-ghost" onclick="tiSaveConfig(this)" style="padding:8px 14px;background:transparent;border:1px solid var(--b1, #334155);color:var(--t4, #94a3b8);border-radius:8px;font-size:13px;cursor:pointer;">Save</button>
             <button type="button" id="ti-pull-btn" onclick="tiPull(this)" style="padding:8px 16px;background:#2563eb !important;color:#fff !important;border:1px solid #2563eb !important;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">Pull from LMS now</button>
         </div>
         <div style="display:flex;align-items:center;gap:10px;margin-top:10px;">
-            <span id="ti-status" style="font-size:12px;color:#64748b;"></span>
+            <span id="ti-status" style="font-size:12px;color:var(--t5, #64748b);"></span>
             <?php if ($_tiLast): ?>
-            <span id="ti-last" style="font-size:11px;color:#475569;">Last sync: <?php echo htmlspecialchars($_tiLast['run_at']) ?> — created <?php echo (int)$_tiLast['accounts_created'] ?>, roles+ <?php echo (int)$_tiLast['roles_added'] ?>, emails <?php echo (int)$_tiLast['emails_backfilled'] ?>, errors <?php echo (int)$_tiLast['errors'] ?></span>
+            <span id="ti-last" style="font-size:11px;color:var(--t5, #475569);">Last sync: <?php echo htmlspecialchars($_tiLast['run_at']) ?> — created <?php echo (int)$_tiLast['accounts_created'] ?>, roles+ <?php echo (int)$_tiLast['roles_added'] ?>, emails <?php echo (int)$_tiLast['emails_backfilled'] ?>, errors <?php echo (int)$_tiLast['errors'] ?></span>
             <?php endif; ?>
         </div>
     </div>
@@ -378,9 +378,9 @@ try {
 
     <?php if ($isLearnerView): ?>
     <!-- MailerLite bulk bar — flat toolbar, single hairline separator (backend-design §16). -->
-    <div id="ml-bar" style="display:flex;align-items:center;gap:12px;padding:6px 0;border-bottom:1px solid #1e293b;margin-bottom:6px;">
-        <span id="ml-count" style="font-size:12px;color:#64748b;">0 selected</span>
-        <span id="ml-status" style="font-size:12px;color:#64748b;flex:1;"></span>
+    <div id="ml-bar" style="display:flex;align-items:center;gap:12px;padding:6px 0;border-bottom:1px solid var(--b1, #1e293b);margin-bottom:6px;">
+        <span id="ml-count" style="font-size:12px;color:var(--t5, #64748b);">0 selected</span>
+        <span id="ml-status" style="font-size:12px;color:var(--t5, #64748b);flex:1;"></span>
         <button type="button" id="ml-submit" class="mm-btn-primary mm-btn-sm" onclick="mlSubmit(this)" disabled>Submit to MailerLite</button>
     </div>
     <?php endif; ?>
@@ -422,7 +422,7 @@ try {
             // Server-side branch filter: skip rows that don't match the active
             // branch on the Users page. Admin Users page always shows all.
             if ($rmApplyBranchFilter && $storeCode !== $_activeBranch) continue;
-            $telDisplay = trim((string)$r['tel']) !== '' ? htmlspecialchars($r['tel']) : '<span style="color:#475569">—</span>';
+            $telDisplay = trim((string)$r['tel']) !== '' ? htmlspecialchars($r['tel']) : '<span style="color:var(--t5, #475569)">—</span>';
         ?>
             <tr class="rm-row" data-uid="<?php echo $r['user_id'] ?>"
                 data-name="<?php echo strtolower($fullName) ?>"
@@ -520,7 +520,7 @@ try {
                 <?php endif; ?>
                 <td><span class="rm-name"><?php echo $fullName ?></span></td>
                 <td><span class="rm-email"><?php echo htmlspecialchars((string)$cust['email']) ?></span></td>
-                <td><span style="color:#475569">—</span></td>
+                <td><span style="color:var(--t5, #475569)">—</span></td>
                 <td><span class="rm-email" style="font-variant-numeric:tabular-nums"><?php echo $createdDate ?></span></td>
                 <td>
                     <div class="rm-roles">
@@ -537,11 +537,11 @@ try {
                         <input type="checkbox" disabled checked="checked" onclick="return false;"
                                title="Submitted to MailerLite <?php echo htmlspecialchars(date('d M Y', strtotime($mlRec['submitted_at']))) ?>" />
                     <?php elseif ($mlStatus === 'unsubscribed'): ?>
-                        <span class="rm-badge" style="background:rgba(245,158,11,.12);color:#f59e0b;" title="Unsubscribed at MailerLite — will not be re-added">Unsubscribed</span>
+                        <span class="rm-badge" style="background:rgba(245,158,11,.12);color:var(--yellow, #f59e0b);" title="Unsubscribed at MailerLite — will not be re-added">Unsubscribed</span>
                     <?php elseif ($mlStatus === 'blocked'): ?>
-                        <span class="rm-badge" style="background:rgba(239,68,68,.12);color:#ef4444;" title="Bounced / marked as junk at MailerLite — cannot be added">Blocked</span>
+                        <span class="rm-badge" style="background:rgba(239,68,68,.12);color:var(--red, #ef4444);" title="Bounced / marked as junk at MailerLite — cannot be added">Blocked</span>
                     <?php elseif ($mlStatus === 'excluded'): ?>
-                        <span class="rm-badge" style="background:rgba(100,116,139,.12);color:#94a3b8;" title="Learner's store has no MailerLite subscriber group">Excluded</span>
+                        <span class="rm-badge" style="background:rgba(100,116,139,.12);color:var(--t4, #94a3b8);" title="Learner's store has no MailerLite subscriber group">Excluded</span>
                     <?php else: ?>
                         <input type="checkbox" disabled onclick="return false;" title="Not submitted to MailerLite" />
                     <?php endif; ?>
@@ -572,7 +572,7 @@ try {
     <div class="rm-modal">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
             <h3 style="margin:0" id="rm-modal-title">Edit Admin</h3>
-            <button onclick="rmCloseModal()" style="background:none;border:none;color:#94a3b8;font-size:22px;cursor:pointer;padding:4px 8px;line-height:1;">&times;</button>
+            <button onclick="rmCloseModal()" style="background:none;border:none;color:var(--t4, #94a3b8);font-size:22px;cursor:pointer;padding:4px 8px;line-height:1;">&times;</button>
         </div>
         <input type="hidden" id="rm-edit-uid" />
         <label>Full Name</label>
@@ -582,7 +582,7 @@ try {
         </div>
         <label>Email</label>
         <input type="email" id="rm-edit-email" placeholder="user@example.com" />
-        <label id="rm-pwd-label">New Password <span style="color:#64748b;font-weight:400;font-size:12px;">(leave blank to keep current)</span></label>
+        <label id="rm-pwd-label">New Password <span style="color:var(--t5, #64748b);font-weight:400;font-size:12px;">(leave blank to keep current)</span></label>
         <div class="rm-pwd-wrap">
             <input type="password" id="rm-edit-password" placeholder="Minimum 7 characters" autocomplete="new-password" />
             <button type="button" class="rm-eye" onclick="rmEyeToggle('rm-edit-password', this)" aria-label="Show password">
@@ -723,8 +723,8 @@ function rmRenderPagination(total, pages) {
 function rmOpenModal(mode) {
     document.getElementById('rm-modal-title').textContent = mode === 'new' ? 'Add New Admin' : 'Edit Admin';
     document.getElementById('rm-pwd-label').innerHTML = mode === 'new'
-        ? 'Password <span style="color:#ef4444">*</span>'
-        : 'New Password <span style="color:#64748b;font-weight:400;font-size:12px;">(leave blank to keep current)</span>';
+        ? 'Password <span style="color:var(--red, #ef4444)">*</span>'
+        : 'New Password <span style="color:var(--t5, #64748b);font-weight:400;font-size:12px;">(leave blank to keep current)</span>';
     document.getElementById('rm-modal').classList.add('active');
 }
 

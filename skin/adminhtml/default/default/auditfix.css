@@ -5,7 +5,7 @@
    ============================================================ */
 .auditfix-page {
     font-family: var(--font-sans);
-    color: #e5e7eb;
+    color: var(--t2, #e5e7eb);
     padding: 18px 22px 40px;
     background: transparent;
 }
@@ -28,7 +28,7 @@
     font-size: 10.5px;
     text-transform: uppercase;
     letter-spacing: 1.4px;
-    color: #6b7280;
+    color: var(--t5, #6b7280);
     margin-bottom: 4px;
 }
 .auditfix-page .afx-meta {
@@ -38,12 +38,12 @@
 }
 .auditfix-page .afx-stat {
     font-size: 11.5px;
-    color: #6b7280;
+    color: var(--t5, #6b7280);
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.3px;
 }
 .auditfix-page .afx-stat b {
-    color: #e5e7eb;
+    color: var(--t2, #e5e7eb);
     font-weight: 500;
     font-size: 14px;
     margin-right: 4px;
@@ -60,7 +60,7 @@
     gap: 14px;
 }
 .auditfix-page .afx-sched-card {
-    background: #0b0f17;
+    background: var(--d0, #0b0f17);
     border: 1px solid rgba(255,255,255,0.08);
     border-radius: 2px;
     padding: 14px 16px;
@@ -74,9 +74,9 @@
     box-shadow: 0 0 8px currentColor;
     transition: opacity 0.15s ease;
 }
-.auditfix-page .afx-tone-red    { color: #ff3b5c; }
-.auditfix-page .afx-tone-amber  { color: #f5c451; }
-.auditfix-page .afx-tone-violet { color: #b07cff; }
+.auditfix-page .afx-tone-red    { color: var(--red-soft, #ff3b5c); }
+.auditfix-page .afx-tone-amber  { color: var(--yellow, #f5c451); }
+.auditfix-page .afx-tone-violet { color: var(--violet, #b07cff); }
 .auditfix-page .afx-sched-card:hover { border-color: currentColor; }
 .auditfix-page .afx-sched-card:hover::after { opacity: 0.9; }
 
@@ -96,7 +96,7 @@
 }
 .auditfix-page .afx-sched-cron {
     font-size: 10.5px;
-    color: #6b7280;
+    color: var(--t5, #6b7280);
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.3px;
 }
@@ -104,15 +104,15 @@
     display: flex;
     justify-content: space-between;
     font-size: 11px;
-    color: #6b7280;
+    color: var(--t5, #6b7280);
     margin: 4px 0;
 }
-.auditfix-page .afx-sched-meta b { color: #cbd5e1; font-weight: 500; font-variant-numeric: tabular-nums; }
+.auditfix-page .afx-sched-meta b { color: var(--t2, #cbd5e1); font-weight: 500; font-variant-numeric: tabular-nums; }
 .auditfix-page .afx-sched-actions { margin-top: 10px; }
 
 .auditfix-page .afx-btn {
     background: transparent;
-    color: #e5e7eb;
+    color: var(--t2, #e5e7eb);
     border: 1px solid rgba(255,255,255,0.18);
     border-radius: 2px;
     padding: 5px 12px;
@@ -124,8 +124,8 @@
     transition: border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
 }
 .auditfix-page .afx-btn:hover {
-    border-color: #3df5a8;
-    color: #3df5a8;
+    border-color: var(--green-soft, #3df5a8);
+    color: var(--green-soft, #3df5a8);
     box-shadow: 0 0 8px rgba(61,245,168,0.35);
 }
 
@@ -141,16 +141,16 @@
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 1px;
-    color: #6b7280;
+    color: var(--t5, #6b7280);
     text-decoration: none;
     border-bottom: 1px solid transparent;
     margin-bottom: -1px;
     transition: color 0.15s ease, border-color 0.15s ease;
 }
-.auditfix-page .afx-tab:hover { color: #cbd5e1; }
+.auditfix-page .afx-tab:hover { color: var(--t2, #cbd5e1); }
 .auditfix-page .afx-tab.is-active {
-    color: #3df5a8;
-    border-bottom-color: #3df5a8;
+    color: var(--green-soft, #3df5a8);
+    border-bottom-color: var(--green-soft, #3df5a8);
     box-shadow: 0 1px 0 #3df5a8, 0 0 8px rgba(61,245,168,0.3);
 }
 .auditfix-page .afx-tab-count {
@@ -165,15 +165,15 @@
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
-    background: #0b0f17;
+    background: var(--d0, #0b0f17);
     border: 1px solid rgba(255,255,255,0.06);
     border-radius: 2px;
     overflow: hidden;
     font-size: 11.5px;
 }
 .auditfix-page .afx-table thead th {
-    background: #0f172a;
-    color: #94a3b8;
+    background: var(--d1, #0f172a);
+    color: var(--t4, #94a3b8);
     text-align: left;
     padding: 9px 12px;
     font-size: 10.5px;
@@ -185,22 +185,22 @@
 .auditfix-page .afx-table tbody td {
     padding: 11px 12px;
     border-bottom: 1px solid rgba(255,255,255,0.04);
-    color: #cbd5e1;
+    color: var(--t2, #cbd5e1);
     vertical-align: top;
 }
 .auditfix-page .afx-table tbody tr:last-child td { border-bottom: 0; }
 .auditfix-page .afx-table tbody tr:hover td { background: rgba(255,255,255,0.02); }
-.auditfix-page .afx-id { color: #6b7280; font-variant-numeric: tabular-nums; }
-.auditfix-page .afx-source { font-size: 10.5px; color: #6b7280; letter-spacing: 0.3px; }
-.auditfix-page .afx-time   { font-size: 10.5px; color: #6b7280; font-variant-numeric: tabular-nums; }
-.auditfix-page .afx-cat    { font-size: 10.5px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.6px; }
-.auditfix-page .afx-title-row { color: #e5e7eb; font-weight: 500; }
-.auditfix-page .afx-detail { color: #6b7280; font-size: 11px; margin-top: 4px; line-height: 1.55; }
-.auditfix-page .afx-fix-summary { color: #3df5a8; font-size: 11px; margin-top: 4px; font-family: var(--font-mono); }
-.auditfix-page .afx-entity-type { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.6px; color: #94a3b8; }
-.auditfix-page .afx-entity-id   { color: #6b7280; font-variant-numeric: tabular-nums; margin-left: 4px; }
-.auditfix-page .afx-muted       { color: #475569; }
-.auditfix-page .afx-empty       { color: #6b7280; text-align: center; padding: 40px 20px; }
+.auditfix-page .afx-id { color: var(--t5, #6b7280); font-variant-numeric: tabular-nums; }
+.auditfix-page .afx-source { font-size: 10.5px; color: var(--t5, #6b7280); letter-spacing: 0.3px; }
+.auditfix-page .afx-time   { font-size: 10.5px; color: var(--t5, #6b7280); font-variant-numeric: tabular-nums; }
+.auditfix-page .afx-cat    { font-size: 10.5px; color: var(--t4, #94a3b8); text-transform: uppercase; letter-spacing: 0.6px; }
+.auditfix-page .afx-title-row { color: var(--t2, #e5e7eb); font-weight: 500; }
+.auditfix-page .afx-detail { color: var(--t5, #6b7280); font-size: 11px; margin-top: 4px; line-height: 1.55; }
+.auditfix-page .afx-fix-summary { color: var(--green-soft, #3df5a8); font-size: 11px; margin-top: 4px; font-family: var(--font-mono); }
+.auditfix-page .afx-entity-type { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--t4, #94a3b8); }
+.auditfix-page .afx-entity-id   { color: var(--t5, #6b7280); font-variant-numeric: tabular-nums; margin-left: 4px; }
+.auditfix-page .afx-muted       { color: var(--t5, #475569); }
+.auditfix-page .afx-empty       { color: var(--t5, #6b7280); text-align: center; padding: 40px 20px; }
 
 /* ---- Severity pills (mirrors banner) ----------------------- */
 .auditfix-page .afx-pill {
@@ -214,11 +214,11 @@
     background: transparent;
     border: 1px solid currentColor;
 }
-.auditfix-page .afx-pill-high      { color: #ff3b5c; box-shadow: 0 0 6px rgba(255, 59, 92, 0.4),  inset 0 0 6px rgba(255, 59, 92, 0.1); }
-.auditfix-page .afx-pill-medium    { color: #f5c451; box-shadow: 0 0 6px rgba(245, 196, 81, 0.4), inset 0 0 6px rgba(245, 196, 81, 0.1); }
-.auditfix-page .afx-pill-quick_win { color: #3df5a8; box-shadow: 0 0 6px rgba(61, 245, 168, 0.4), inset 0 0 6px rgba(61, 245, 168, 0.1); }
-.auditfix-page .afx-pill-big_bet   { color: #b07cff; box-shadow: 0 0 6px rgba(176, 124, 255, 0.4),inset 0 0 6px rgba(176, 124, 255, 0.1); }
-.auditfix-page .afx-pill-low       { color: #8aa1bd; box-shadow: 0 0 4px rgba(138, 161, 189, 0.25); }
+.auditfix-page .afx-pill-high      { color: var(--red-soft, #ff3b5c); box-shadow: 0 0 6px rgba(255, 59, 92, 0.4),  inset 0 0 6px rgba(255, 59, 92, 0.1); }
+.auditfix-page .afx-pill-medium    { color: var(--yellow, #f5c451); box-shadow: 0 0 6px rgba(245, 196, 81, 0.4), inset 0 0 6px rgba(245, 196, 81, 0.1); }
+.auditfix-page .afx-pill-quick_win { color: var(--green-soft, #3df5a8); box-shadow: 0 0 6px rgba(61, 245, 168, 0.4), inset 0 0 6px rgba(61, 245, 168, 0.1); }
+.auditfix-page .afx-pill-big_bet   { color: var(--violet, #b07cff); box-shadow: 0 0 6px rgba(176, 124, 255, 0.4),inset 0 0 6px rgba(176, 124, 255, 0.1); }
+.auditfix-page .afx-pill-low       { color: var(--t4, #8aa1bd); box-shadow: 0 0 4px rgba(138, 161, 189, 0.25); }
 
 /* ---- Status pill (pending / resolved / dismissed) ----------
    Distinct from severity pill: status uses a softer filled style so
@@ -235,10 +235,10 @@
     border: 1px solid transparent;
     white-space: nowrap;
 }
-.auditfix-page .afx-status-open      { color: #f5c451; background: rgba(245,196,81,0.10); border-color: rgba(245,196,81,0.40); }
-.auditfix-page .afx-status-fixed     { color: #3df5a8; background: rgba(61,245,168,0.10); border-color: rgba(61,245,168,0.45); }
-.auditfix-page .afx-status-dismissed { color: #8aa1bd; background: rgba(138,161,189,0.08); border-color: rgba(138,161,189,0.30); }
-.auditfix-page .afx-status-wont_fix  { color: #8aa1bd; background: rgba(138,161,189,0.08); border-color: rgba(138,161,189,0.30); }
+.auditfix-page .afx-status-open      { color: var(--yellow, #f5c451); background: rgba(245,196,81,0.10); border-color: rgba(245,196,81,0.40); }
+.auditfix-page .afx-status-fixed     { color: var(--green-soft, #3df5a8); background: rgba(61,245,168,0.10); border-color: rgba(61,245,168,0.45); }
+.auditfix-page .afx-status-dismissed { color: var(--t4, #8aa1bd); background: rgba(138,161,189,0.08); border-color: rgba(138,161,189,0.30); }
+.auditfix-page .afx-status-wont_fix  { color: var(--t4, #8aa1bd); background: rgba(138,161,189,0.08); border-color: rgba(138,161,189,0.30); }
 
 /* ---- Row actions ------------------------------------------ */
 .auditfix-page .afx-actions {
@@ -253,7 +253,7 @@
     height: 26px;
     padding: 0;
     background: transparent;
-    color: #94a3b8;
+    color: var(--t4, #94a3b8);
     border: 1px solid rgba(255,255,255,0.14);
     border-radius: 5px;
     cursor: pointer;
@@ -263,28 +263,28 @@
 }
 .auditfix-page .afx-icon-btn svg { width: 14px; height: 14px; }
 .auditfix-page .afx-icon-btn:hover {
-    color: #e5e7eb;
+    color: var(--t2, #e5e7eb);
     border-color: rgba(255,255,255,0.3);
 }
 .auditfix-page .afx-icon-fix {
-    color: #3df5a8;
-    border-color: #3df5a8;
+    color: var(--green-soft, #3df5a8);
+    border-color: var(--green-soft, #3df5a8);
     box-shadow: 0 0 6px rgba(61,245,168,0.30), inset 0 0 6px rgba(61,245,168,0.06);
 }
 .auditfix-page .afx-icon-fix:hover {
-    color: #3df5a8;
+    color: var(--green-soft, #3df5a8);
     background: rgba(61,245,168,0.06);
     box-shadow: 0 0 10px rgba(61,245,168,0.55), inset 0 0 8px rgba(61,245,168,0.1);
 }
 .auditfix-page .afx-icon-dismiss:hover {
-    color: #ff3b5c;
-    border-color: #ff3b5c;
+    color: var(--red-soft, #ff3b5c);
+    border-color: var(--red-soft, #ff3b5c);
     background: rgba(255,59,92,0.05);
     box-shadow: 0 0 8px rgba(255,59,92,0.45), inset 0 0 6px rgba(255,59,92,0.08);
 }
 .auditfix-page .afx-icon-reopen:hover {
-    color: #f5c451;
-    border-color: #f5c451;
+    color: var(--yellow, #f5c451);
+    border-color: var(--yellow, #f5c451);
     background: rgba(245,196,81,0.05);
     box-shadow: 0 0 8px rgba(245,196,81,0.4), inset 0 0 6px rgba(245,196,81,0.08);
 }
@@ -296,10 +296,10 @@
     right: 22px;
     z-index: 9999;
     padding: 10px 16px;
-    background: #0b0f17;
+    background: var(--d0, #0b0f17);
     border: 1px solid rgba(255,255,255,0.14);
     border-radius: 2px;
-    color: #e5e7eb;
+    color: var(--t2, #e5e7eb);
     font-size: 11.5px;
     letter-spacing: 0.3px;
     opacity: 0;
@@ -308,9 +308,9 @@
     font-family: var(--font-sans);
 }
 .afx-flash.is-visible { opacity: 1; transform: translateY(0); }
-.afx-flash-ok  { color: #3df5a8; border-color: #3df5a8; box-shadow: 0 0 12px rgba(61,245,168,0.3); }
-.afx-flash-err { color: #ff3b5c; border-color: #ff3b5c; box-shadow: 0 0 12px rgba(255,59,92,0.3); }
-.afx-flash-info{ color: #f5c451; border-color: #f5c451; box-shadow: 0 0 12px rgba(245,196,81,0.3); }
+.afx-flash-ok  { color: var(--green-soft, #3df5a8); border-color: var(--green-soft, #3df5a8); box-shadow: 0 0 12px rgba(61,245,168,0.3); }
+.afx-flash-err { color: var(--red-soft, #ff3b5c); border-color: var(--red-soft, #ff3b5c); box-shadow: 0 0 12px rgba(255,59,92,0.3); }
+.afx-flash-info{ color: var(--yellow, #f5c451); border-color: var(--yellow, #f5c451); box-shadow: 0 0 12px rgba(245,196,81,0.3); }
 
 /* ───────────────────────────────────────────────────────────────
    Light theme — every dark token above gets a slate counterpart.
@@ -325,12 +325,12 @@
 :root[data-theme="light"] .auditfix-page .afx-id,
 :root[data-theme="light"] .auditfix-page .afx-source,
 :root[data-theme="light"] .auditfix-page .afx-time {
-    color: #3a4670;
+    color: var(--t3);
 }
 :root[data-theme="light"] .auditfix-page .afx-section-head h3 {
-    color: #0f1d47;
+    color: var(--t1);
 }
-:root[data-theme="light"] .auditfix-page .afx-stat b { color: #0f1d47; }
+:root[data-theme="light"] .auditfix-page .afx-stat b { color: var(--t1); }
 
 /* Cron schedule cards — light surfaces with the existing tone
    colors as the accent (currentColor still propagates from
@@ -340,29 +340,29 @@
     border-color: rgba(15,23,42,0.10);
 }
 :root[data-theme="light"] .auditfix-page .afx-sched-cron,
-:root[data-theme="light"] .auditfix-page .afx-sched-meta { color: #43507f; }
-:root[data-theme="light"] .auditfix-page .afx-sched-meta b { color: #1e2a52; }
+:root[data-theme="light"] .auditfix-page .afx-sched-meta { color: var(--t4); }
+:root[data-theme="light"] .auditfix-page .afx-sched-meta b { color: var(--t2); }
 
 /* Buttons — keep accent color from currentColor, just flip the
    transparent background's frame so it reads on white. */
 :root[data-theme="light"] .auditfix-page .afx-btn {
-    color: #1e2a52;
+    color: var(--t2);
     border-color: rgba(15,23,42,0.18);
 }
 :root[data-theme="light"] .auditfix-page .afx-btn:hover {
-    color: #2f5be6;
-    border-color: #2f5be6;
+    color: var(--blue);
+    border-color: var(--blue);
 }
 
 /* Tab strip */
 :root[data-theme="light"] .auditfix-page .afx-tabs {
     border-bottom-color: rgba(15,23,42,0.10);
 }
-:root[data-theme="light"] .auditfix-page .afx-tab { color: #43507f; }
-:root[data-theme="light"] .auditfix-page .afx-tab:hover { color: #0f1d47; }
+:root[data-theme="light"] .auditfix-page .afx-tab { color: var(--t4); }
+:root[data-theme="light"] .auditfix-page .afx-tab:hover { color: var(--t1); }
 :root[data-theme="light"] .auditfix-page .afx-tab.is-active {
-    color: #2f5be6;
-    border-bottom-color: #2f5be6;
+    color: var(--blue);
+    border-bottom-color: var(--blue);
 }
 
 /* Issues table — slate-100 card with white rows, slate-900 cells. */
@@ -371,12 +371,12 @@
     border-color: rgba(15,23,42,0.08);
 }
 :root[data-theme="light"] .auditfix-page .afx-table thead th {
-    background: #f0f4fc;
-    color: #3a4670;
+    background: var(--d4);
+    color: var(--t3);
     border-bottom-color: rgba(15,23,42,0.10);
 }
 :root[data-theme="light"] .auditfix-page .afx-table tbody td {
-    color: #0f1d47;
+    color: var(--t1);
     border-bottom-color: rgba(15,23,42,0.06);
 }
 :root[data-theme="light"] .auditfix-page .afx-table tbody tr:hover td {
@@ -387,8 +387,8 @@
 :root[data-theme="light"] .auditfix-page .afx-fix-summary,
 :root[data-theme="light"] .auditfix-page .afx-entity-type,
 :root[data-theme="light"] .auditfix-page .afx-entity-id {
-    color: #3a4670;
+    color: var(--t3);
 }
-:root[data-theme="light"] .auditfix-page .afx-title-row { color: #0f1d47; }
-:root[data-theme="light"] .auditfix-page .afx-muted { color: #5a6788; }
-:root[data-theme="light"] .auditfix-page .afx-empty { color: #43507f; }
+:root[data-theme="light"] .auditfix-page .afx-title-row { color: var(--t1); }
+:root[data-theme="light"] .auditfix-page .afx-muted { color: var(--t5); }
+:root[data-theme="light"] .auditfix-page .afx-empty { color: var(--t4); }

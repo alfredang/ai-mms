@@ -9,13 +9,13 @@ $total   = $this->getTotalRows();
     <h3 class="icon-head head-search-terms">
         <?php echo $this->__('Clean Spam Search Terms'); ?>
     </h3>
-    <p style="margin:6px 2px 0;color:#9aa4b2;">
+    <p style="margin:6px 2px 0;color:var(--t4, #9aa4b2);">
         <?php echo $this->__('Identify and bulk-delete junk rows from the Search Terms table.'); ?>
         <strong><?php echo $this->__('Curated rows (with a Synonym For or Redirect set) are never deletable.'); ?></strong>
     </p>
 </div>
 
-<p style="margin:14px 2px;color:#cbd5e1;">
+<p style="margin:14px 2px;color:var(--t2, #cbd5e1);">
     <?php echo $this->__('Total rows in scope: <strong>%s</strong>', number_format($total)); ?>
 </p>
 
@@ -81,7 +81,7 @@ $total   = $this->getTotalRows();
         <div class="mmd-spam-footer__summary">
             <span><?php echo $this->__('Spam candidates across all buckets:'); ?></span>
             <strong><?php echo number_format($totalSpam); ?></strong>
-            <span id="mmd-spam-selected-count" style="margin-left:14px;color:#9aa4b2;">
+            <span id="mmd-spam-selected-count" style="margin-left:14px;color:var(--t4, #9aa4b2);">
                 <?php echo $this->__('0 selected'); ?>
             </span>
         </div>
@@ -110,15 +110,15 @@ $total   = $this->getTotalRows();
     margin: 18px 0;
 }
 .mmd-spam-card {
-    background: #1c2532;
-    border: 1px solid #2c3849;
+    background: var(--d3, #1c2532);
+    border: 1px solid var(--b1, #2c3849);
     border-radius: 10px;
     padding: 14px 16px;
     transition: border-color 0.15s, background 0.15s;
 }
 .mmd-spam-card:has(input:checked) {
-    border-color: #ef4444;
-    background: #2a1c20;
+    border-color: var(--red, #ef4444);
+    background: var(--red-tint, #2a1c20);
 }
 .mmd-spam-card__head {
     display: flex;
@@ -131,7 +131,7 @@ $total   = $this->getTotalRows();
 .mmd-spam-card__title {
     flex: 1;
     font-weight: 600;
-    color: #e2e8f0;
+    color: var(--t2, #e2e8f0);
 }
 .mmd-spam-card__count {
     background: #ef4444;
@@ -143,9 +143,9 @@ $total   = $this->getTotalRows();
     min-width: 36px;
     text-align: center;
 }
-.mmd-spam-card__count.is-empty { background: #334155; color: #94a3b8; }
+.mmd-spam-card__count.is-empty { background: var(--d4, #334155); color: var(--t4, #94a3b8); }
 .mmd-spam-card__desc {
-    color: #94a3b8;
+    color: var(--t4, #94a3b8);
     font-size: 12px;
     line-height: 1.4;
     margin: 0 0 10px;
@@ -154,20 +154,20 @@ $total   = $this->getTotalRows();
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: #64748b;
+    color: var(--t5, #64748b);
     margin-bottom: 4px;
 }
 .mmd-spam-card__samples ul { list-style: none; padding: 0; margin: 0; }
 .mmd-spam-card__samples li {
     font-size: 12px;
-    color: #cbd5e1;
+    color: var(--t2, #cbd5e1);
     padding: 2px 0;
     display: flex;
     justify-content: space-between;
     gap: 8px;
 }
 .mmd-spam-card__samples code {
-    background: #0f172a;
+    background: var(--d1, #0f172a);
     padding: 1px 6px;
     border-radius: 4px;
     font-family: ui-monospace, Menlo, Consolas, monospace;
@@ -177,7 +177,7 @@ $total   = $this->getTotalRows();
     white-space: nowrap;
 }
 .mmd-spam-card__meta {
-    color: #64748b;
+    color: var(--t5, #64748b);
     font-size: 11px;
     flex-shrink: 0;
 }
@@ -186,15 +186,15 @@ $total   = $this->getTotalRows();
     justify-content: space-between;
     align-items: center;
     gap: 14px;
-    background: #1c2532;
-    border: 1px solid #2c3849;
+    background: var(--d3, #1c2532);
+    border: 1px solid var(--b1, #2c3849);
     border-radius: 10px;
     padding: 14px 18px;
     position: sticky;
     bottom: 0;
 }
-.mmd-spam-footer__summary { color: #e2e8f0; font-size: 13px; }
-.mmd-spam-footer__summary strong { color: #ef4444; font-size: 16px; margin: 0 4px; }
+.mmd-spam-footer__summary { color: var(--t2, #e2e8f0); font-size: 13px; }
+.mmd-spam-footer__summary strong { color: var(--red, #ef4444); font-size: 16px; margin: 0 4px; }
 .mmd-spam-footer__actions { display: flex; gap: 8px; }
 </style>
 

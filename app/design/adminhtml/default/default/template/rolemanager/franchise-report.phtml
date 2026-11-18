@@ -57,11 +57,11 @@ $_frClassesLastPull = (string) Mage::getStoreConfig('mmd/franchise_report/last_p
 .franchise-report-page .fr-site-v{font-size:17px;font-weight:700;color:var(--t1);font-variant-numeric:tabular-nums}
 .franchise-report-page .fr-site-v small{font-size:11px;font-weight:500;color:var(--t4);margin-left:4px}
 .franchise-report-page .fr-pill{display:inline-block;border:1px solid currentColor;border-radius:2px;padding:1px 7px;font-size:10.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;line-height:1.5}
-.franchise-report-page .fr-pill-cc{color:#22d3ee}
+.franchise-report-page .fr-pill-cc{color:var(--cyan, #22d3ee)}
 .franchise-report-page .fr-pill-ok{color:var(--green,#3df5a8)}
 .franchise-report-page .fr-pill-warn{color:var(--yellow,#f5c451)}
-.franchise-report-page .fr-pill-mute{color:#8aa1bd}
-.franchise-report-page .fr-pill-violet{color:#b07cff}
+.franchise-report-page .fr-pill-mute{color:var(--t4, #8aa1bd)}
+.franchise-report-page .fr-pill-violet{color:var(--violet, #b07cff)}
 .franchise-report-page .fr-charts{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:0 0 18px}
 .franchise-report-page .fr-charts .chart-card.chart-wide{grid-column:1 / -1}
 .franchise-report-page .fr-search{padding:6px 10px;background:transparent;border:1px solid var(--b2);border-radius:6px;color:var(--t1);font-size:12px;min-width:220px}
@@ -437,7 +437,7 @@ foreach ($_feeRows as $_f) {
             <div><div class="fr-site-k">Pending</div><div class="fr-site-v" style="color:<?php echo $_sum && $_sum['pending'] > 0 ? 'var(--yellow,#f5c451)' : 'var(--t4)' ?>"><?php echo $_sum ? $_sum['currency'] . ' ' . number_format($_sum['pending'], 2) : '—' ?><small><?php echo $_sum ? $_sum['n_pending'] . ' classes' : '' ?></small></div></div>
             <div><div class="fr-site-k">Collected</div><div class="fr-site-v" style="color:<?php echo $_sum && $_sum['completed'] > 0 ? 'var(--green,#3df5a8)' : 'var(--t4)' ?>"><?php echo $_sum ? $_sum['currency'] . ' ' . number_format($_sum['completed'], 2) : '—' ?><small><?php echo $_sum ? $_sum['n_completed'] . ' classes' : '' ?></small></div></div>
         </div>
-        <div class="fr-meta" style="margin-top:10px;">Rate: <strong><?php echo $_cfg['per_learner'] > 0 ? $_cfg['currency'] . ' ' . number_format($_cfg['per_learner'], 2) . ' per billable learner per delivered class' : 'no franchise fee' ?></strong> · change under <a href="<?php echo $_frUrl('index', array('section' => 'settings')) ?>" style="color:#22d3ee;">Partner Settings</a></div>
+        <div class="fr-meta" style="margin-top:10px;">Rate: <strong><?php echo $_cfg['per_learner'] > 0 ? $_cfg['currency'] . ' ' . number_format($_cfg['per_learner'], 2) . ' per billable learner per delivered class' : 'no franchise fee' ?></strong> · change under <a href="<?php echo $_frUrl('index', array('section' => 'settings')) ?>" style="color:var(--cyan, #22d3ee);">Partner Settings</a></div>
     </div>
 <?php endforeach; ?>
 </div>
@@ -743,7 +743,7 @@ $_fmAnyConfigured = ($_fmPartners['my']['configured'] || $_fmPartners['gh']['con
             <?php endforeach; ?>
         </div>
         <?php if (!$_fmAnyConfigured): ?>
-        <div class="fr-meta" style="margin-top:10px;">No franchisee connected yet — add the partner URLs and API keys under <a href="<?php echo $_fmSettingsUrl ?>" style="color:#22d3ee;">Partner Settings</a> first.</div>
+        <div class="fr-meta" style="margin-top:10px;">No franchisee connected yet — add the partner URLs and API keys under <a href="<?php echo $_fmSettingsUrl ?>" style="color:var(--cyan, #22d3ee);">Partner Settings</a> first.</div>
         <?php endif; ?>
     </div>
 </div>

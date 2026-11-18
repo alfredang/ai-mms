@@ -3,55 +3,55 @@
 
 <style>
 .mmd-lead-view{max-width:1100px;}
-.mmd-lead-view .mmd-card{background:#1f2937;border:1px solid #374151;border-radius:8px;padding:18px 22px;margin-bottom:14px;color:#e5e7eb;}
-.mmd-lead-view h3{margin:0 0 10px;color:#f3f4f6;font-size:14px;text-transform:uppercase;letter-spacing:.4px;}
+.mmd-lead-view .mmd-card{background:var(--d3, #1f2937);border:1px solid var(--b1, #374151);border-radius:8px;padding:18px 22px;margin-bottom:14px;color:var(--t2, #e5e7eb);}
+.mmd-lead-view h3{margin:0 0 10px;color:var(--t1, #f3f4f6);font-size:14px;text-transform:uppercase;letter-spacing:.4px;}
 .mmd-lead-view dl{margin:0;display:grid;grid-template-columns:160px 1fr;gap:6px 14px;font-size:13px;}
-.mmd-lead-view dt{color:#94a3b8;font-weight:600;}
-.mmd-lead-view dd{margin:0;color:#e5e7eb;word-break:break-word;}
-.mmd-lead-view .mmd-message{white-space:pre-wrap;background:#0f172a;border:1px solid #334155;border-radius:6px;padding:12px 14px;margin-top:8px;}
-.mmd-lead-view input[type=text], .mmd-lead-view textarea{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #475569;border-radius:6px;background:#0f172a;color:#e5e7eb;font:14px/1.5 monospace;}
+.mmd-lead-view dt{color:var(--t4, #94a3b8);font-weight:600;}
+.mmd-lead-view dd{margin:0;color:var(--t2, #e5e7eb);word-break:break-word;}
+.mmd-lead-view .mmd-message{white-space:pre-wrap;background:var(--d1, #0f172a);border:1px solid var(--b1, #334155);border-radius:6px;padding:12px 14px;margin-top:8px;}
+.mmd-lead-view input[type=text], .mmd-lead-view textarea{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--b2, #475569);border-radius:6px;background:var(--d1, #0f172a);color:var(--t2, #e5e7eb);font:14px/1.5 monospace;}
 .mmd-lead-view textarea{min-height:520px;resize:vertical;}
-.mmd-lead-view .mmd-ai-status{display:flex;align-items:center;gap:8px;margin:0 0 12px;font-size:12px;color:#94a3b8;}
-.mmd-lead-view .mmd-ai-status.is-error{color:#f87171;}
-.mmd-lead-view .mmd-ai-status.is-done{color:#34d399;}
-.mmd-lead-view .mmd-ai-spinner{width:12px;height:12px;border:2px solid #334155;border-top-color:#60a5fa;border-radius:50%;animation:mmdSpin .8s linear infinite;flex:none;}
+.mmd-lead-view .mmd-ai-status{display:flex;align-items:center;gap:8px;margin:0 0 12px;font-size:12px;color:var(--t4, #94a3b8);}
+.mmd-lead-view .mmd-ai-status.is-error{color:var(--red-soft, #f87171);}
+.mmd-lead-view .mmd-ai-status.is-done{color:var(--green-soft, #34d399);}
+.mmd-lead-view .mmd-ai-spinner{width:12px;height:12px;border:2px solid var(--b1, #334155);border-top-color:var(--blue, #60a5fa);border-radius:50%;animation:mmdSpin .8s linear infinite;flex:none;}
 @keyframes mmdSpin{to{transform:rotate(360deg);}}
 
 /* Reply-pipeline timeline — lv- scoped copy of the newsletter/blog stepper
    (.mn-pipe / .bp-pipe, backend-design neon-on-dark). Keep visually in sync. */
-.lv-pipe{background:#0f172a;border:1px solid #24324a;border-radius:14px;padding:16px 20px 10px;margin-bottom:14px;}
+.lv-pipe{background:var(--d1, #0f172a);border:1px solid var(--b1, #24324a);border-radius:14px;padding:16px 20px 10px;margin-bottom:14px;}
 .lv-pipe-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
-.lv-pipe-title{font:800 13px var(--font-sans,-apple-system,'Segoe UI',Arial,sans-serif);color:#f1f5f9;text-transform:uppercase;letter-spacing:.6px;}
+.lv-pipe-title{font:800 13px var(--font-sans,-apple-system,'Segoe UI',Arial,sans-serif);color:var(--t1, #f1f5f9);text-transform:uppercase;letter-spacing:.6px;}
 .lv-badge{font:700 11px var(--font-sans,sans-serif);padding:4px 10px;border-radius:999px;border:1px solid;white-space:nowrap;}
-.lv-badge.s-done{color:#34d399;border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.09);}
-.lv-badge.s-pending{color:#f59e0b;border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.1);}
-.lv-badge.s-changes{color:#fb7185;border-color:rgba(251,113,133,.4);background:rgba(251,113,133,.1);}
-.lv-badge.s-muted{color:#94a3b8;border-color:#334155;background:transparent;}
+.lv-badge.s-done{color:var(--green-soft, #34d399);border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.09);}
+.lv-badge.s-pending{color:var(--yellow, #f59e0b);border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.1);}
+.lv-badge.s-changes{color:var(--red-soft, #fb7185);border-color:rgba(251,113,133,.4);background:rgba(251,113,133,.1);}
+.lv-badge.s-muted{color:var(--t4, #94a3b8);border-color:var(--b1, #334155);background:transparent;}
 .lv-steps{list-style:none;display:grid;grid-template-columns:repeat(5,1fr);margin:0 0 6px;padding:0;}
-.lv-step{position:relative;text-align:center;padding-top:36px;font:700 11px var(--font-sans,sans-serif);color:#64748b;}
-.lv-step::before{content:"";position:absolute;top:15px;left:-50%;width:100%;height:2px;background:#334155;}
+.lv-step{position:relative;text-align:center;padding-top:36px;font:700 11px var(--font-sans,sans-serif);color:var(--t5, #64748b);}
+.lv-step::before{content:"";position:absolute;top:15px;left:-50%;width:100%;height:2px;background:var(--d4, #334155);}
 .lv-step:first-child::before{display:none;}
 .lv-step.done::before,.lv-step.current::before{background:linear-gradient(90deg,#2563eb,#22d3ee);}
-.lv-dot{position:absolute;top:0;left:50%;transform:translateX(-50%);width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:#1e293b;border:2px solid #334155;color:#64748b;font-size:12px;}
-.lv-step.done .lv-dot{background:#34d399;border-color:#34d399;color:#052e1a;}
-.lv-step.current .lv-dot{background:#22d3ee;border-color:#22d3ee;color:#04212a;box-shadow:0 0 0 5px rgba(34,211,238,.16);}
-.lv-step.done .lv-slabel,.lv-step.current .lv-slabel{color:#f1f5f9;}
-.lv-step.current .lv-slabel{color:#22d3ee;}
+.lv-dot{position:absolute;top:0;left:50%;transform:translateX(-50%);width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--d3, #1e293b);border:2px solid var(--b1, #334155);color:var(--t5, #64748b);font-size:12px;}
+.lv-step.done .lv-dot{background:#34d399;border-color:var(--green-soft, #34d399);color:#052e1a;}
+.lv-step.current .lv-dot{background:#22d3ee;border-color:var(--cyan, #22d3ee);color:#04212a;box-shadow:0 0 0 5px rgba(34,211,238,.16);}
+.lv-step.done .lv-slabel,.lv-step.current .lv-slabel{color:var(--t1, #f1f5f9);}
+.lv-step.current .lv-slabel{color:var(--cyan, #22d3ee);}
 .lv-refresh{margin-left:auto;}
 .lv-refresh.is-busy svg{animation:mmdSpin .8s linear infinite;}
-.lv-log{list-style:none;margin:10px 0 4px;padding:10px 0 0;border-top:1px solid #24324a;}
-.lv-log li{font:400 11.5px var(--font-sans,sans-serif);color:#94a3b8;padding:2px 0;}
-.lv-log-t{color:#64748b;font-variant-numeric:tabular-nums;margin-right:8px;}
-:root[data-theme="light"] .lv-pipe{background:#e2e8f0;border-color:#cbd5e1;}
-:root[data-theme="light"] .lv-pipe-title{color:#0f172a;}
-:root[data-theme="light"] .lv-step.done .lv-slabel,:root[data-theme="light"] .lv-step.current .lv-slabel{color:#0f172a;}
-:root[data-theme="light"] .lv-dot{background:#f1f5f9;}
-:root[data-theme="light"] .lv-log{border-top-color:#cbd5e1;}
+.lv-log{list-style:none;margin:10px 0 4px;padding:10px 0 0;border-top:1px solid var(--b1, #24324a);}
+.lv-log li{font:400 11.5px var(--font-sans,sans-serif);color:var(--t4, #94a3b8);padding:2px 0;}
+.lv-log-t{color:var(--t5, #64748b);font-variant-numeric:tabular-nums;margin-right:8px;}
+:root[data-theme="light"] .lv-pipe{background:var(--d5);border-color:var(--b1);}
+:root[data-theme="light"] .lv-pipe-title{color:var(--t1);}
+:root[data-theme="light"] .lv-step.done .lv-slabel,:root[data-theme="light"] .lv-step.current .lv-slabel{color:var(--t1);}
+:root[data-theme="light"] .lv-dot{background:var(--d4);}
+:root[data-theme="light"] .lv-log{border-top-color:var(--b1);}
 .mmd-lead-view .mmd-actions{margin-top:14px;display:flex;gap:10px;}
 .mmd-lead-view .mmd-actions button{padding:10px 22px;border:0;border-radius:6px;font-weight:600;cursor:pointer;}
 .mmd-lead-view .mmd-primary{background:#2563eb;color:#fff;}
 .mmd-lead-view .mmd-primary:hover{background:#1d4ed8;}
-.mmd-lead-view .mmd-secondary{background:#374151;color:#e5e7eb;}
+.mmd-lead-view .mmd-secondary{background:var(--d4, #374151);color:var(--t2, #e5e7eb);}
 .mmd-lead-view .mmd-danger{background:#7f1d1d;color:#fee2e2;margin-left:auto;}
 .mmd-lead-view .mmd-status{display:inline-block;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:700;text-transform:uppercase;}
 .mmd-lead-view .mmd-status-new{background:#fbbf24;color:#78350f;}
@@ -62,15 +62,15 @@
 /* Light mode — slate-200 cards with slate-900 text, matching the rest
    of the admin palette (KPI cards, cnc-card, SEO Audit). Status pills
    and semantic action buttons (primary/danger) keep their tints. */
-:root[data-theme="light"] .mmd-lead-view .mmd-card{background:#e2e8f0;border-color:#cbd5e1;color:#0f172a;}
-:root[data-theme="light"] .mmd-lead-view h3{color:#0f172a;}
-:root[data-theme="light"] .mmd-lead-view dt{color:#475569;}
-:root[data-theme="light"] .mmd-lead-view dd{color:#0f172a;}
-:root[data-theme="light"] .mmd-lead-view .mmd-message{background:#ffffff;border-color:#cbd5e1;color:#0f172a;}
+:root[data-theme="light"] .mmd-lead-view .mmd-card{background:var(--d5);border-color:var(--b1);color:var(--t1);}
+:root[data-theme="light"] .mmd-lead-view h3{color:var(--t1);}
+:root[data-theme="light"] .mmd-lead-view dt{color:var(--t3);}
+:root[data-theme="light"] .mmd-lead-view dd{color:var(--t1);}
+:root[data-theme="light"] .mmd-lead-view .mmd-message{background:#ffffff;border-color:var(--b1);color:var(--t1);}
 :root[data-theme="light"] .mmd-lead-view input[type=text],
-:root[data-theme="light"] .mmd-lead-view textarea{background:#ffffff;border-color:#cbd5e1;color:#0f172a;}
-:root[data-theme="light"] .mmd-lead-view .mmd-secondary{background:#e2e8f0;color:#0f172a;border:1px solid #cbd5e1;}
-:root[data-theme="light"] .mmd-lead-view .mmd-secondary:hover{background:#cbd5e1;}
+:root[data-theme="light"] .mmd-lead-view textarea{background:#ffffff;border-color:var(--b1);color:var(--t1);}
+:root[data-theme="light"] .mmd-lead-view .mmd-secondary{background:var(--d5);color:var(--t1);border:1px solid var(--b1);}
+:root[data-theme="light"] .mmd-lead-view .mmd-secondary:hover{background:var(--d6);}
 </style>
 
 <div class="mmd-lead-view">
@@ -147,7 +147,7 @@
                 <dd><?php echo $this->escapeHtml($lead->getName()) ?></dd>
 
                 <dt><?php echo $this->__('Email') ?></dt>
-                <dd><a href="mailto:<?php echo $this->escapeHtml($lead->getEmail()) ?>" style="color:#60a5fa;"><?php echo $this->escapeHtml($lead->getEmail()) ?></a></dd>
+                <dd><a href="mailto:<?php echo $this->escapeHtml($lead->getEmail()) ?>" style="color:var(--blue, #60a5fa);"><?php echo $this->escapeHtml($lead->getEmail()) ?></a></dd>
 
                 <dt><?php echo $this->__('Telephone') ?></dt>
                 <dd><?php echo $this->escapeHtml($lead->getTelephone()) ?></dd>
@@ -207,7 +207,7 @@
                 // real typing changes the field.
                 $af = 'autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other" readonly onfocus="this.removeAttribute(\'readonly\')"';
                 ?>
-                <label style="font-size:12px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:6px;"><?php echo $this->__('Email To') ?></label>
+                <label style="font-size:12px;color:var(--t4, #94a3b8);font-weight:600;text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:6px;"><?php echo $this->__('Email To') ?></label>
                 <?php
                 // Single-line TEXTAREA on purpose: password managers autofill
                 // saved usernames into the first text <input> of a form no
@@ -216,7 +216,7 @@
                 ?>
                 <textarea name="rcpt_addr" id="rcpt_addr" rows="1" wrap="off" <?php echo $af ?> style="margin-bottom:14px;min-height:0;height:42px;resize:none;overflow:hidden;white-space:nowrap;"><?php echo $this->escapeHtml($this->getInitialTo()) ?></textarea>
 
-                <label style="font-size:12px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:6px;"><?php echo $this->__('CC (comma-separated)') ?></label>
+                <label style="font-size:12px;color:var(--t4, #94a3b8);font-weight:600;text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:6px;"><?php echo $this->__('CC (comma-separated)') ?></label>
                 <?php
                 // Same single-line TEXTAREA trick as To: once To stopped being
                 // an <input>, CC became the form's FIRST text input and the
@@ -224,7 +224,7 @@
                 ?>
                 <textarea name="rcpt_cc" id="rcpt_cc" rows="1" wrap="off" <?php echo $af ?> style="margin-bottom:14px;min-height:0;height:42px;resize:none;overflow:hidden;white-space:nowrap;"><?php echo $this->escapeHtml($this->getInitialCc()) ?></textarea>
 
-                <label style="font-size:12px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:6px;"><?php echo $this->__('Subject — Course Name (sent as “Enquiry on …”)') ?></label>
+                <label style="font-size:12px;color:var(--t4, #94a3b8);font-weight:600;text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:6px;"><?php echo $this->__('Subject — Course Name (sent as “Enquiry on …”)') ?></label>
                 <?php
                 // Single-line TEXTAREA like To/CC: with those two hardened,
                 // Subject became the form's first text <input> and the
@@ -232,10 +232,10 @@
                 ?>
                 <textarea name="subject_course" id="subject_course" rows="1" wrap="off" <?php echo $af ?> style="margin-bottom:14px;min-height:0;height:42px;resize:none;overflow:hidden;white-space:nowrap;"><?php echo $this->escapeHtml($this->getInitialSubjectCourse()) ?></textarea>
 
-                <label style="font-size:12px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:6px;"><?php echo $this->__('Reply Body (HTML allowed)') ?></label>
+                <label style="font-size:12px;color:var(--t4, #94a3b8);font-weight:600;text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:6px;"><?php echo $this->__('Reply Body (HTML allowed)') ?></label>
                 <textarea name="reply_body_html" id="reply_body_html"><?php echo $this->escapeHtml($this->getInitialReplyHtml()) ?></textarea>
 
-                <p style="margin:8px 0 0;font-size:12px;color:#94a3b8;">
+                <p style="margin:8px 0 0;font-size:12px;color:var(--t4, #94a3b8);">
                     <?php echo $this->__('AI-drafted from the lead\'s message plus catalog + schedule-API data. Edit freely; sent via the store\'s sender identity, with Reply-To set to your country sales mailbox.') ?>
                 </p>
 

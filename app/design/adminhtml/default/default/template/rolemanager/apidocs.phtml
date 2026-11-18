@@ -13,7 +13,7 @@ $apiKeyMasked = $apiKey !== '' ? substr($apiKey, 0, 6) . str_repeat('•', 12) .
 ?>
 <style>
 #api-docs {
-    color: #e8eaed;
+    color: var(--t2, #e8eaed);
     font-size: 13px;
     line-height: 1.55;
     padding: 0 4px 40px;
@@ -26,12 +26,12 @@ $apiKeyMasked = $apiKey !== '' ? substr($apiKey, 0, 6) . str_repeat('•', 12) .
     margin: 0 0 4px;
 }
 #api-docs .page-lede {
-    color: #9aa0a6;
+    color: var(--t4, #9aa0a6);
     margin: 0 0 24px;
 }
 #api-docs .api-section {
-    background: #1f2227;
-    border: 1px solid #2d3138;
+    background: var(--d3, #1f2227);
+    border: 1px solid var(--b1, #2d3138);
     border-radius: 8px;
     padding: 22px 26px;
     margin-bottom: 22px;
@@ -40,7 +40,7 @@ $apiKeyMasked = $apiKey !== '' ? substr($apiKey, 0, 6) . str_repeat('•', 12) .
     display: flex;
     align-items: center;
     gap: 10px;
-    border-bottom: 1px solid #2d3138;
+    border-bottom: 1px solid var(--b1, #2d3138);
     padding-bottom: 14px;
     margin-bottom: 18px;
 }
@@ -60,14 +60,14 @@ $apiKeyMasked = $apiKey !== '' ? substr($apiKey, 0, 6) . str_repeat('•', 12) .
     text-transform: uppercase;
     letter-spacing: 0.04em;
 }
-#api-docs .api-pill.method-get   { background: #1b3a2d; color: #6ee7a7; border: 1px solid #2c5b46; }
-#api-docs .api-pill.scope-public { background: #2a2f3c; color: #8ab4f8; border: 1px solid #3a4256; }
-#api-docs .api-pill.scope-internal { background: #3a2a2a; color: #f6a5a5; border: 1px solid #5b3a3a; }
+#api-docs .api-pill.method-get   { background: var(--green-tint, #1b3a2d); color: var(--green-soft, #6ee7a7); border: 1px solid #2c5b46; }
+#api-docs .api-pill.scope-public { background: var(--d4, #2a2f3c); color: var(--blue-soft, #8ab4f8); border: 1px solid var(--b1, #3a4256); }
+#api-docs .api-pill.scope-internal { background: var(--red-tint, #3a2a2a); color: var(--red-soft, #f6a5a5); border: 1px solid #5b3a3a; }
 #api-docs h3 {
     font-size: 13px;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: #9aa0a6;
+    color: var(--t4, #9aa0a6);
     margin: 22px 0 10px;
     font-weight: 600;
 }
@@ -80,31 +80,31 @@ $apiKeyMasked = $apiKey !== '' ? substr($apiKey, 0, 6) . str_repeat('•', 12) .
     font-family: 'SFMono-Regular', 'Menlo', 'Consolas', monospace;
 }
 #api-docs code {
-    background: #2a2e35;
-    color: #f3c97a;
+    background: var(--d4, #2a2e35);
+    color: var(--yellow-soft, #f3c97a);
     padding: 2px 6px;
     border-radius: 4px;
     font-size: 12px;
-    border: 1px solid #353a43;
+    border: 1px solid var(--b1, #353a43);
 }
 #api-docs pre {
-    background: #15171b;
-    border: 1px solid #2d3138;
+    background: var(--d1, #15171b);
+    border: 1px solid var(--b1, #2d3138);
     border-radius: 6px;
     padding: 14px 16px;
     font-size: 12px;
     line-height: 1.5;
     overflow-x: auto;
-    color: #cfd2d6;
+    color: var(--t2, #cfd2d6);
     margin: 0 0 16px;
 }
-#api-docs pre.url-block { color: #8ab4f8; }
+#api-docs pre.url-block { color: var(--blue-soft, #8ab4f8); }
 #api-docs table.api-table {
     width: 100%;
     border-collapse: collapse;
     margin: 0 0 18px;
-    background: #15171b;
-    border: 1px solid #2d3138;
+    background: var(--d1, #15171b);
+    border: 1px solid var(--b1, #2d3138);
     border-radius: 6px;
     overflow: hidden;
 }
@@ -112,12 +112,12 @@ $apiKeyMasked = $apiKey !== '' ? substr($apiKey, 0, 6) . str_repeat('•', 12) .
 #api-docs table.api-table td {
     text-align: left;
     padding: 9px 14px;
-    border-bottom: 1px solid #2d3138;
+    border-bottom: 1px solid var(--b1, #2d3138);
     vertical-align: top;
 }
 #api-docs table.api-table thead th {
-    background: #1f2227;
-    color: #9aa0a6;
+    background: var(--d3, #1f2227);
+    color: var(--t4, #9aa0a6);
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -125,13 +125,13 @@ $apiKeyMasked = $apiKey !== '' ? substr($apiKey, 0, 6) . str_repeat('•', 12) .
 }
 #api-docs table.api-table tbody tr:last-child td { border-bottom: 0; }
 #api-docs table.api-table td code { white-space: nowrap; }
-#api-docs .status-row td:first-child code { color: #6ee7a7; }
+#api-docs .status-row td:first-child code { color: var(--green-soft, #6ee7a7); }
 #api-docs .key-box {
     display: flex;
     align-items: center;
     gap: 10px;
-    background: #15171b;
-    border: 1px solid #2d3138;
+    background: var(--d1, #15171b);
+    border: 1px solid var(--b1, #2d3138);
     border-radius: 6px;
     padding: 10px 14px;
     margin: 0 0 16px;
@@ -140,47 +140,47 @@ $apiKeyMasked = $apiKey !== '' ? substr($apiKey, 0, 6) . str_repeat('•', 12) .
     flex: 1;
     background: transparent;
     border: 0;
-    color: #f3c97a;
+    color: var(--yellow-soft, #f3c97a);
     padding: 0;
     font-size: 13px;
     user-select: all;
 }
 #api-docs .key-box button {
-    background: #2a2f3c;
-    color: #8ab4f8;
-    border: 1px solid #3a4256;
+    background: var(--d4, #2a2f3c);
+    color: var(--blue-soft, #8ab4f8);
+    border: 1px solid var(--b1, #3a4256);
     padding: 5px 12px;
     border-radius: 4px;
     font-size: 12px;
     cursor: pointer;
 }
-#api-docs .key-box button:hover { background: #34394a; }
+#api-docs .key-box button:hover { background: var(--d4, #34394a); }
 #api-docs .key-box .reveal-toggle {
     background: transparent;
     border: 0;
-    color: #9aa0a6;
+    color: var(--t4, #9aa0a6);
     cursor: pointer;
     font-size: 12px;
     padding: 0 4px;
 }
 #api-docs .note {
-    background: #1a2330;
+    background: var(--d3, #1a2330);
     border-left: 3px solid #4285f4;
     border-radius: 4px;
     padding: 10px 14px;
     margin: 0 0 14px;
-    color: #cfd2d6;
+    color: var(--t2, #cfd2d6);
 }
-#api-docs .note strong { color: #8ab4f8; }
+#api-docs .note strong { color: var(--blue-soft, #8ab4f8); }
 #api-docs .warn {
-    background: #2a1f1f;
+    background: var(--red-tint, #2a1f1f);
     border-left: 3px solid #ef6e6e;
     border-radius: 4px;
     padding: 10px 14px;
     margin: 0 0 14px;
     color: #f0d6d6;
 }
-#api-docs .warn strong { color: #f6a5a5; }
+#api-docs .warn strong { color: var(--red-soft, #f6a5a5); }
 </style>
 
 <div id="api-docs">
@@ -201,13 +201,13 @@ $apiKeyMasked = $apiKey !== '' ? substr($apiKey, 0, 6) . str_repeat('•', 12) .
 
         <h3>Endpoint</h3>
         <pre class="url-block">GET <?php echo $this->htmlEscape($prodBaseUrl); ?>/courses/api_schedule</pre>
-        <p style="color:#9aa0a6;font-size:12px;margin-top:-8px;">Localhost equivalent: <code><?php echo $this->htmlEscape($localBaseUrl); ?>/courses/api_schedule</code></p>
+        <p style="color:var(--t4, #9aa0a6);font-size:12px;margin-top:-8px;">Localhost equivalent: <code><?php echo $this->htmlEscape($localBaseUrl); ?>/courses/api_schedule</code></p>
 
         <h3>Authentication</h3>
         <p>Send the shared secret on every request as an HTTP header:</p>
         <pre>X-API-Key: &lt;your key&gt;</pre>
 
-        <p><strong>Current key</strong> <span style="color:#9aa0a6;">— rotate via System → Configuration → MMD → Provider Manager → WSQ Schedule API Key. Setting it blank disables the endpoint (503).</span></p>
+        <p><strong>Current key</strong> <span style="color:var(--t4, #9aa0a6);">— rotate via System → Configuration → MMD → Provider Manager → WSQ Schedule API Key. Setting it blank disables the endpoint (503).</span></p>
         <div class="key-box">
             <code id="apikey-value" data-revealed="0" data-full="<?php echo $this->htmlEscape($apiKey); ?>"><?php echo $this->htmlEscape($apiKeyMasked); ?></code>
             <button type="button" class="reveal-toggle" onclick="apiDocsToggleKey()">Reveal</button>
@@ -319,7 +319,7 @@ $apiKeyMasked = $apiKey !== '' ? substr($apiKey, 0, 6) . str_repeat('•', 12) .
 
         <h3>Smoke test</h3>
         <pre>curl -sS \
-  -H "X-API-Key: <span style="color:#f3c97a;">&lt;your key&gt;</span>" \
+  -H "X-API-Key: <span style="color:var(--yellow-soft, #f3c97a);">&lt;your key&gt;</span>" \
   <?php echo $this->htmlEscape($prodBaseUrl); ?>/courses/api_schedule \
   | jq '{count, sample: .courses[0]}'</pre>
 

@@ -59,91 +59,91 @@ $certAutoOn    = $certHelper->isAutoEnabled();
 $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', 'training_provider', 'developer'));
 ?>
 <style>
-.att-card{background:#1e2132;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:16px;}
-.att-title{font-size:22px;font-weight:700;color:#e2e8f0;margin:0 0 4px;}
-.att-sub{font-size:13px;color:#64748b;margin:0 0 18px;}
-.att-label{display:block;font-size:11px;color:#64748b;font-weight:600;margin-bottom:5px;}
-.att-select{width:100%;max-width:560px;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:9px 12px;color:#e2e8f0;font-size:13px;box-sizing:border-box;}
-.att-select:focus{outline:none;border-color:#3b82f6;}
-.att-pill{display:inline-flex;align-items:center;gap:6px;background:#0f172a;border:1px solid #334155;border-radius:999px;padding:5px 12px;font-size:12px;color:#94a3b8;margin:8px 8px 0 0;}
-.att-pill b{color:#e2e8f0;font-weight:600;}
-.att-tabs{display:inline-flex;border:1px solid #334155;border-radius:999px;padding:2px;margin-bottom:16px;}
-.att-tab{padding:5px 16px;border-radius:999px;font-size:12px;font-weight:600;color:#94a3b8 !important;text-decoration:none;}
+.att-card{background:var(--d3, #1e2132);border:1px solid var(--b1, #334155);border-radius:12px;padding:20px;margin-bottom:16px;}
+.att-title{font-size:22px;font-weight:700;color:var(--t2, #e2e8f0);margin:0 0 4px;}
+.att-sub{font-size:13px;color:var(--t5, #64748b);margin:0 0 18px;}
+.att-label{display:block;font-size:11px;color:var(--t5, #64748b);font-weight:600;margin-bottom:5px;}
+.att-select{width:100%;max-width:560px;background:var(--d1, #0f172a);border:1px solid var(--b1, #334155);border-radius:8px;padding:9px 12px;color:var(--t2, #e2e8f0);font-size:13px;box-sizing:border-box;}
+.att-select:focus{outline:none;border-color:var(--blue2, #3b82f6);}
+.att-pill{display:inline-flex;align-items:center;gap:6px;background:var(--d1, #0f172a);border:1px solid var(--b1, #334155);border-radius:999px;padding:5px 12px;font-size:12px;color:var(--t4, #94a3b8);margin:8px 8px 0 0;}
+.att-pill b{color:var(--t2, #e2e8f0);font-weight:600;}
+.att-tabs{display:inline-flex;border:1px solid var(--b1, #334155);border-radius:999px;padding:2px;margin-bottom:16px;}
+.att-tab{padding:5px 16px;border-radius:999px;font-size:12px;font-weight:600;color:var(--t4, #94a3b8) !important;text-decoration:none;}
 .att-tab.active{background:#2563eb;color:#fff !important;}
 .att-counter{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:999px;font-size:12px;font-weight:600;}
-.att-c-present{background:rgba(34,197,94,.15);color:#22c55e;}
-.att-c-absent{background:rgba(239,68,68,.15);color:#f87171;}
-.att-c-total{background:rgba(100,116,139,.15);color:#94a3b8;}
+.att-c-present{background:rgba(34,197,94,.15);color:var(--green, #22c55e);}
+.att-c-absent{background:rgba(239,68,68,.15);color:var(--red-soft, #f87171);}
+.att-c-total{background:rgba(100,116,139,.15);color:var(--t4, #94a3b8);}
 .att-btn{padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid transparent;}
 .att-btn-primary{background:#2563eb;color:#fff;border:none;}
 .att-btn-primary:hover{background:#1d4ed8;}
 .att-btn-primary:disabled{opacity:.5;cursor:default;}
-.att-btn-ghost{background:transparent;border:1px solid #334155;color:#94a3b8;}
-.att-btn-ghost:hover{border-color:#60a5fa;color:#e2e8f0;}
-.att-btn-green{background:rgba(34,197,94,.15);color:#22c55e;border:1px solid rgba(34,197,94,.3);}
-.att-btn-danger{background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.3);}
+.att-btn-ghost{background:transparent;border:1px solid var(--b1, #334155);color:var(--t4, #94a3b8);}
+.att-btn-ghost:hover{border-color:var(--blue, #60a5fa);color:var(--t2, #e2e8f0);}
+.att-btn-green{background:rgba(34,197,94,.15);color:var(--green, #22c55e);border:1px solid rgba(34,197,94,.3);}
+.att-btn-danger{background:rgba(239,68,68,.12);color:var(--red-soft, #f87171);border:1px solid rgba(239,68,68,.3);}
 .att-table{width:100%;font-size:13px;border-collapse:collapse;}
-.att-table thead th{background:#0f172a;padding:8px 12px;text-align:left;color:#64748b;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap;}
-.att-table tbody tr{border-top:1px solid #1e293b;}
+.att-table thead th{background:var(--d1, #0f172a);padding:8px 12px;text-align:left;color:var(--t5, #64748b);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap;}
+.att-table tbody tr{border-top:1px solid var(--b1, #1e293b);}
 .att-table tbody tr.walkin{background:rgba(37,99,235,.06);}
-.att-table tbody td{padding:9px 12px;color:#e2e8f0;vertical-align:middle;}
-.att-badge-walkin{font-size:10px;font-weight:600;color:#60a5fa;background:rgba(59,130,246,.15);border-radius:6px;padding:1px 6px;margin-left:6px;}
+.att-table tbody td{padding:9px 12px;color:var(--t2, #e2e8f0);vertical-align:middle;}
+.att-badge-walkin{font-size:10px;font-weight:600;color:var(--blue, #60a5fa);background:rgba(59,130,246,.15);border-radius:6px;padding:1px 6px;margin-left:6px;}
 .att-present-lbl{font-size:12px;font-weight:600;}
-.att-reason{width:100%;max-width:260px;background:#0f172a;border:1px solid #334155;border-radius:6px;padding:5px 8px;color:#e2e8f0;font-size:12px;box-sizing:border-box;}
+.att-reason{width:100%;max-width:260px;background:var(--d1, #0f172a);border:1px solid var(--b1, #334155);border-radius:6px;padding:5px 8px;color:var(--t2, #e2e8f0);font-size:12px;box-sizing:border-box;}
 .att-status{font-size:12px;}
 .att-modal-bd{display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);align-items:center;justify-content:center;padding:16px;}
-.att-modal{background:#1e2132;border:1px solid #334155;border-radius:14px;width:100%;max-width:440px;padding:24px;}
-.att-modal h3{font-size:16px;font-weight:700;color:#e2e8f0;margin:0 0 4px;}
-.att-modal p.note{font-size:12px;color:#64748b;margin:0 0 16px;}
-.att-modal label{display:block;font-size:11px;color:#64748b;font-weight:600;margin:10px 0 4px;}
-.att-modal input{width:100%;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:8px 12px;color:#e2e8f0;font-size:13px;box-sizing:border-box;}
-.att-empty{padding:36px 12px;text-align:center;color:#64748b;font-size:13px;}
+.att-modal{background:var(--d3, #1e2132);border:1px solid var(--b1, #334155);border-radius:14px;width:100%;max-width:440px;padding:24px;}
+.att-modal h3{font-size:16px;font-weight:700;color:var(--t2, #e2e8f0);margin:0 0 4px;}
+.att-modal p.note{font-size:12px;color:var(--t5, #64748b);margin:0 0 16px;}
+.att-modal label{display:block;font-size:11px;color:var(--t5, #64748b);font-weight:600;margin:10px 0 4px;}
+.att-modal input{width:100%;background:var(--d1, #0f172a);border:1px solid var(--b1, #334155);border-radius:8px;padding:8px 12px;color:var(--t2, #e2e8f0);font-size:13px;box-sizing:border-box;}
+.att-empty{padding:36px 12px;text-align:center;color:var(--t5, #64748b);font-size:13px;}
 .att-kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px;}
-.att-kpi{background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:18px 20px;text-align:center;}
+.att-kpi{background:var(--d1, #0f172a);border:1px solid var(--b1, #1e293b);border-radius:12px;padding:18px 20px;text-align:center;}
 .att-kpi-num{font-size:28px;font-weight:700;line-height:1.1;margin-bottom:4px;}
-.att-kpi-lbl{font-size:12px;color:#64748b;}
+.att-kpi-lbl{font-size:12px;color:var(--t5, #64748b);}
 
 /* ── Light theme — flip every .att-* dark token to a slate
    counterpart. Cards slate-100 / white, inputs white +
    slate-300 border, body text slate-900, muted labels slate-600.
    Brand-blue accents (primary buttons, focus, active tab) keep
    their hue. */
-:root[data-theme="light"] .att-card{background:#f1f5f9;border-color:#cbd5e1;}
-:root[data-theme="light"] .att-title{color:#0f172a;}
-:root[data-theme="light"] .att-sub{color:#64748b;}
-:root[data-theme="light"] .att-label{color:#475569;}
+:root[data-theme="light"] .att-card{background:var(--d4);border-color:var(--b1);}
+:root[data-theme="light"] .att-title{color:var(--t1);}
+:root[data-theme="light"] .att-sub{color:var(--t4);}
+:root[data-theme="light"] .att-label{color:var(--t3);}
 :root[data-theme="light"] .att-select,
 :root[data-theme="light"] .att-reason,
-:root[data-theme="light"] .att-modal input{background:#ffffff;border-color:#cbd5e1;color:#0f172a;}
+:root[data-theme="light"] .att-modal input{background:#ffffff;border-color:var(--b1);color:var(--t1);}
 :root[data-theme="light"] .att-select:focus,
 :root[data-theme="light"] .att-reason:focus,
-:root[data-theme="light"] .att-modal input:focus{border-color:#2563eb;}
-:root[data-theme="light"] .att-pill{background:#ffffff;border-color:#cbd5e1;color:#475569;}
-:root[data-theme="light"] .att-pill b{color:#0f172a;}
-:root[data-theme="light"] .att-tabs{border-color:#cbd5e1;}
+:root[data-theme="light"] .att-modal input:focus{border-color:var(--blue);}
+:root[data-theme="light"] .att-pill{background:#ffffff;border-color:var(--b1);color:var(--t3);}
+:root[data-theme="light"] .att-pill b{color:var(--t1);}
+:root[data-theme="light"] .att-tabs{border-color:var(--b1);}
 /* The tabs are <a> elements, and dark-theme.css §190 has a blanket
    `a { color: var(--blue) !important }` that beats every non-!important
    override here — both tabs ended up brand-blue text, invisible
    against the active blue pill and link-coloured against the bare
    background. !important needed to win the cascade. */
-:root[data-theme="light"] .att-tab{color:#475569 !important;}
-:root[data-theme="light"] .att-tab.active{background:#2563eb !important;color:#0f172a !important;}
-:root[data-theme="light"] .att-c-total{background:rgba(100,116,139,.15);color:#475569;}
-:root[data-theme="light"] .att-btn-ghost{border-color:#cbd5e1;color:#475569;}
-:root[data-theme="light"] .att-btn-ghost:hover{border-color:#2563eb;color:#0f172a;background:#e2e8f0;}
-:root[data-theme="light"] .att-table thead th{background:#e2e8f0;color:#475569;}
-:root[data-theme="light"] .att-table tbody tr{border-top-color:#e2e8f0;}
+:root[data-theme="light"] .att-tab{color:var(--t3) !important;}
+:root[data-theme="light"] .att-tab.active{background:var(--blue) !important;color:var(--t1) !important;}
+:root[data-theme="light"] .att-c-total{background:rgba(100,116,139,.15);color:var(--t3);}
+:root[data-theme="light"] .att-btn-ghost{border-color:var(--b1);color:var(--t3);}
+:root[data-theme="light"] .att-btn-ghost:hover{border-color:var(--blue);color:var(--t1);background:var(--d5);}
+:root[data-theme="light"] .att-table thead th{background:var(--d5);color:var(--t3);}
+:root[data-theme="light"] .att-table tbody tr{border-top-color:var(--b1);}
 :root[data-theme="light"] .att-table tbody tr.walkin{background:rgba(37,99,235,.06);}
-:root[data-theme="light"] .att-table tbody td{color:#0f172a;}
-:root[data-theme="light"] .att-status{color:#64748b;}
+:root[data-theme="light"] .att-table tbody td{color:var(--t1);}
+:root[data-theme="light"] .att-status{color:var(--t4);}
 :root[data-theme="light"] .att-modal-bd{background:rgba(15,23,42,.45);}
-:root[data-theme="light"] .att-modal{background:#ffffff;border-color:#cbd5e1;}
-:root[data-theme="light"] .att-modal h3{color:#0f172a;}
-:root[data-theme="light"] .att-modal p.note{color:#64748b;}
-:root[data-theme="light"] .att-modal label{color:#475569;}
-:root[data-theme="light"] .att-empty{color:#64748b;}
-:root[data-theme="light"] .att-kpi{background:#ffffff;border-color:#e2e8f0;}
-:root[data-theme="light"] .att-kpi-lbl{color:#64748b;}
+:root[data-theme="light"] .att-modal{background:#ffffff;border-color:var(--b1);}
+:root[data-theme="light"] .att-modal h3{color:var(--t1);}
+:root[data-theme="light"] .att-modal p.note{color:var(--t4);}
+:root[data-theme="light"] .att-modal label{color:var(--t3);}
+:root[data-theme="light"] .att-empty{color:var(--t4);}
+:root[data-theme="light"] .att-kpi{background:#ffffff;border-color:var(--b1);}
+:root[data-theme="light"] .att-kpi-lbl{color:var(--t4);}
 </style>
 
 <div class="rm-wrap">
@@ -194,14 +194,14 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
         <div style="display:flex;align-items:center;gap:10px;">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="<?php echo $certAutoOn ? '#22c55e' : '#64748b' ?>" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><circle cx="12" cy="15" r="2"/></svg>
             <div>
-                <div style="font-size:13px;font-weight:600;color:#e2e8f0;">Auto-send <?php echo $this->escapeHtml($certHelper->certificateName()) ?> after class</div>
-                <div style="font-size:11px;color:#64748b;margin-top:1px;"><?php echo $isMy
+                <div style="font-size:13px;font-weight:600;color:var(--t2, #e2e8f0);">Auto-send <?php echo $this->escapeHtml($certHelper->certificateName()) ?> after class</div>
+                <div style="font-size:11px;color:var(--t5, #64748b);margin-top:1px;"><?php echo $isMy
                     ? 'When ON, certificates are emailed as soon as the trainer confirms the final attendance (with a daily check at 6:30 pm), to learners with at least 75% of the training hours.'
                     : 'When ON, a daily sweep emails certificates to learners marked Present once their class has ended. Manual sending below always works.' ?></div>
             </div>
         </div>
         <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
-            <span id="cert-spinner" style="font-family:monospace;font-size:16px;line-height:1;color:#60a5fa;width:12px;display:inline-block;text-align:center;"></span>
+            <span id="cert-spinner" style="font-family:monospace;font-size:16px;line-height:1;color:var(--blue, #60a5fa);width:12px;display:inline-block;text-align:center;"></span>
             <label class="dcf-toggle-sw" title="<?php echo $certAutoOn ? 'Auto-send ON' : 'Auto-send OFF' ?>" style="flex-shrink:0;">
                 <input type="checkbox" id="cert-cb" <?php echo $certAutoOn ? 'checked' : '' ?> onchange="certToggle(this)">
                 <span class="dcf-toggle-slider"></span>
@@ -219,7 +219,7 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
             <div>
                 <label class="att-label">Class</label>
-                <div style="font-size:14px;font-weight:600;color:#e2e8f0;">
+                <div style="font-size:14px;font-weight:600;color:var(--t2, #e2e8f0);">
                     <?php echo htmlspecialchars($preRunRow['class_id'] . ' · ' . $preRunRow['course_title']) ?>
                 </div>
             </div>
@@ -251,7 +251,7 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
             <?php endforeach; ?>
         </select>
         <?php if (empty($classes)): ?>
-        <p style="font-size:12px;color:#64748b;margin-top:10px;">No <?php echo $isCompleted ? 'completed' : 'active' ?> classes for the current store view.</p>
+        <p style="font-size:12px;color:var(--t5, #64748b);margin-top:10px;">No <?php echo $isCompleted ? 'completed' : 'active' ?> classes for the current store view.</p>
         <?php endif; ?>
         <div id="att-pills"></div>
     </div>
@@ -261,7 +261,7 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
         <?php if ($isMy): ?>
         <!-- Malaysia: class timetable. Certificates use each session's confirmed
              training time (start - end - non-training break); nothing is assumed. -->
-        <div id="att-tt" style="margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid #1e293b;">
+        <div id="att-tt" style="margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--b1, #1e293b);">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:6px;">
                 <div>
                     <label class="att-label" style="margin:0;">Class Timetable</label>
@@ -333,7 +333,7 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
         </div>
 
         <?php if (!$readonly): ?>
-        <div style="display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid #1e293b;">
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid var(--b1, #1e293b);">
             <!-- .xlsx download of the SAVED attendance (save first). -->
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-right:auto;">
                 <button type="button" class="att-btn att-btn-ghost" onclick="attDownload(false)" title="Download the selected session's saved attendance (.xlsx). Save first to include recent changes." style="display:inline-flex;align-items:center;gap:6px;">
@@ -359,7 +359,7 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
 
         <?php if ($isMy): ?>
         <!-- Malaysia: the trainer confirms the final attendance; certificates are then sent automatically. -->
-        <div id="att-conf" style="margin-top:16px;padding-top:14px;border-top:1px solid #1e293b;">
+        <div id="att-conf" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--b1, #1e293b);">
             <label class="att-label" style="margin:0;">Final Attendance Confirmation</label>
             <div id="att-conf-status" class="att-status" style="margin-bottom:6px;"></div>
             <p class="att-sub" style="margin:0 0 10px;font-size:12px;">When the class has ended, the trainer checks the attendance above and confirms it is final. Certificates are then sent automatically to learners with at least 75% of the training hours (when automatic sending is on). Nothing is sent before this confirmation. A later change to the attendance must have a reason and reopens the confirmation.</p>
@@ -372,7 +372,7 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
             <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-top:12px;">
                 <span id="att-conf-save-status" class="att-status"></span>
                 <span id="att-conf-form" style="display:none;align-items:center;gap:10px;flex-wrap:wrap;">
-                    <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#cbd5e1;cursor:pointer;"><input type="checkbox" id="att-conf-tick" style="width:15px;height:15px;accent-color:#2563eb;"> I confirm this attendance is final</label>
+                    <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--t2, #cbd5e1);cursor:pointer;"><input type="checkbox" id="att-conf-tick" style="width:15px;height:15px;accent-color:#2563eb;"> I confirm this attendance is final</label>
                     <button type="button" id="att-conf-btn" class="att-btn att-btn-primary" onclick="attRecordConfirmation()">Confirm Final Attendance</button>
                 </span>
             </div>
@@ -386,19 +386,19 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
     <div class="att-modal">
         <h3>Add Learner</h3>
         <p class="note" id="att-add-note">Type a name or email. If the learner already exists, pick them from the list; otherwise a new learner account will be created and added to this class.</p>
-        <label>Full Name <span style="color:#f87171">*</span></label>
+        <label>Full Name <span style="color:var(--red-soft, #f87171)">*</span></label>
         <div class="att-ac-wrap" style="position:relative;">
             <input type="text" id="att-add-name" placeholder="Start typing a name…" autocomplete="off" oninput="attAddSearch(this)" onfocus="attAddSearch(this)">
         </div>
-        <label>Email Address <span style="color:#f87171">*</span></label>
+        <label>Email Address <span style="color:var(--red-soft, #f87171)">*</span></label>
         <div class="att-ac-wrap" style="position:relative;">
             <input type="email" id="att-add-email" placeholder="Start typing an email…" autocomplete="off" oninput="attAddSearch(this)" onfocus="attAddSearch(this)">
         </div>
         <!-- Shared autocomplete dropdown + search spinner; JS moves both under whichever field is active. -->
-        <div id="att-add-results" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:50;max-height:210px;overflow:auto;background:#0f172a;border:1px solid #334155;border-radius:6px;box-shadow:0 10px 28px rgba(0,0,0,.45);"></div>
-        <span id="att-search-spin" style="display:none;position:absolute;right:10px;top:9px;font-family:monospace;font-size:14px;line-height:1;color:#60a5fa;"></span>
+        <div id="att-add-results" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:50;max-height:210px;overflow:auto;background:var(--d1, #0f172a);border:1px solid var(--b1, #334155);border-radius:6px;box-shadow:0 10px 28px rgba(0,0,0,.45);"></div>
+        <span id="att-search-spin" style="display:none;position:absolute;right:10px;top:9px;font-family:monospace;font-size:14px;line-height:1;color:var(--blue, #60a5fa);"></span>
         <div id="att-add-status" style="font-size:12px;margin-top:12px;display:none;"></div>
-        <div id="att-add-err" style="color:#f87171;font-size:12px;margin-top:10px;display:none;"></div>
+        <div id="att-add-err" style="color:var(--red-soft, #f87171);font-size:12px;margin-top:10px;display:none;"></div>
         <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px;">
             <button type="button" class="att-btn att-btn-ghost" onclick="document.getElementById('att-add-modal').style.display='none'">Cancel</button>
             <button type="button" id="att-add-btn" class="att-btn att-btn-primary" onclick="attAddLearner()">Add Learner</button>
@@ -413,7 +413,7 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
 <div id="att-qr-modal" class="att-modal-bd">
     <div class="att-modal" style="max-width:360px;text-align:center;">
         <h3>Take Attendance</h3>
-        <div id="att-qr-sess" style="font-size:15px;font-weight:700;color:#60a5fa;margin:-4px 0 10px;"></div>
+        <div id="att-qr-sess" style="font-size:15px;font-weight:700;color:var(--blue, #60a5fa);margin:-4px 0 10px;"></div>
         <p class="note">Learners scan this to check in for this session &mdash; no login. A learner not yet in this class is registered automatically on their first check-in. From the next session their phone number alone fills in their details.</p>
         <div style="background:#fff;border-radius:12px;padding:14px;display:inline-block;">
             <img id="att-qr-img" width="220" height="220" alt="Check-in QR" style="display:block;" />
@@ -577,7 +577,7 @@ function attRenderTimetable() {
             + '<td><input type="time" class="att-reason" value="' + esc(s.start) + '" oninput="attTtEdit(' + i + ',\'start\',this.value)"' + dis + '></td>'
             + '<td><input type="time" class="att-reason" value="' + esc(s.end) + '" oninput="attTtEdit(' + i + ',\'end\',this.value)"' + dis + '></td>'
             + '<td><input type="number" min="0" step="1" class="att-reason" placeholder="e.g. 60" value="' + (s.break_minutes === null ? '' : esc(s.break_minutes)) + '" oninput="attTtEdit(' + i + ',\'break_minutes\',this.value)"' + dis + '></td>'
-            + '<td id="att-tt-min-' + i + '" style="color:#94a3b8;"></td></tr>';
+            + '<td id="att-tt-min-' + i + '" style="color:var(--t4, #94a3b8);"></td></tr>';
     });
     body.innerHTML = html || '<tr><td colspan="5" class="att-empty">This class has no sessions.</td></tr>';
     rows.forEach(function(s, i) { attTtRowMinutes(i); });
@@ -787,14 +787,14 @@ function attRender() {
         if (!ATT_READONLY) {
             html += '<td><input type="checkbox" ' + (attSel[i] ? 'checked' : '') + ' onchange="attSelToggle(' + i + ', this.checked)" style="width:15px;height:15px;accent-color:#2563eb;cursor:pointer;"></td>';
         }
-        html += '<td style="color:#64748b">' + (i + 1) + '</td>'
+        html += '<td style="color:var(--t5, #64748b)">' + (i + 1) + '</td>'
             + '<td>' + esc(r.learner_name || '—') + (r.is_walkin ? '<span class="att-badge-walkin">Walk-in</span>' : '') + '</td>'
-            + '<td style="color:#94a3b8;font-size:12px;">' + esc(r.learner_email)
-            + (r.learner_phone ? '<div style="color:#64748b;font-size:11px;margin-top:2px;">' + esc(r.learner_phone) + '</div>' : '') + '</td>';
+            + '<td style="color:var(--t4, #94a3b8);font-size:12px;">' + esc(r.learner_email)
+            + (r.learner_phone ? '<div style="color:var(--t5, #64748b);font-size:11px;margin-top:2px;">' + esc(r.learner_phone) + '</div>' : '') + '</td>';
         if (ATT_READONLY) {
             html += '<td>' + (present
-                ? '<span class="att-present-lbl" style="color:#22c55e">✓ Present</span>'
-                : '<span class="att-present-lbl" style="color:#f87171">✗ Absent</span>') + '</td>';
+                ? '<span class="att-present-lbl" style="color:var(--green, #22c55e)">✓ Present</span>'
+                : '<span class="att-present-lbl" style="color:var(--red-soft, #f87171)">✗ Absent</span>') + '</td>';
         } else {
             html += '<td>'
                 + '<label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;">'
@@ -882,8 +882,8 @@ function attRenderKpis() {
     var sess = null;
     attSessions.forEach(function(s){ if (s.key === attActiveSess) sess = s; });
     kp.innerHTML =
-        '<div class="att-kpi"><div class="att-kpi-num" style="color:#e2e8f0">' + total + '</div><div class="att-kpi-lbl">No. of Learners</div></div>' +
-        '<div class="att-kpi"><div class="att-kpi-num" style="color:#22c55e">' + present + '</div><div class="att-kpi-lbl">Present' + (sess ? ' — ' + esc(sess.label) : '') + '</div></div>' +
+        '<div class="att-kpi"><div class="att-kpi-num" style="color:var(--t2, #e2e8f0)">' + total + '</div><div class="att-kpi-lbl">No. of Learners</div></div>' +
+        '<div class="att-kpi"><div class="att-kpi-num" style="color:var(--green, #22c55e)">' + present + '</div><div class="att-kpi-lbl">Present' + (sess ? ' — ' + esc(sess.label) : '') + '</div></div>' +
         '<div class="att-kpi"><div class="att-kpi-num" style="color:' + col + '">' + pct + '%</div><div class="att-kpi-lbl">Attendance Rate</div></div>';
     kp.style.display = '';
 }
@@ -1003,7 +1003,7 @@ function attAddSearch(input) {
                   d.style.cssText = 'padding:8px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid #1e293b;';
                   d.onmouseover = function(){ d.style.background = '#1e293b'; };
                   d.onmouseout  = function(){ d.style.background = 'transparent'; };
-                  d.innerHTML = '<span style="color:#e2e8f0;">' + esc(l.name) + '</span> <span style="color:#64748b;">' + esc(l.email) + '</span>';
+                  d.innerHTML = '<span style="color:var(--t2, #e2e8f0);">' + esc(l.name) + '</span> <span style="color:var(--t5, #64748b);">' + esc(l.email) + '</span>';
                   d.onmousedown = function(e){ e.preventDefault(); attPickLearner(l.email, l.name); };
                   box.appendChild(d);
               });

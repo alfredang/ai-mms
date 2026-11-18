@@ -75,72 +75,72 @@ $roleColors = array(
 );
 ?>
 <style>
-.profile-card{background:rgba(30,41,59,0.85);border:1px solid #374151;border-radius:16px;padding:20px 32px;margin-bottom:24px}
+.profile-card{background:rgba(30,41,59,0.85);border:1px solid var(--b1, #374151);border-radius:16px;padding:20px 32px;margin-bottom:24px}
 .profile-header{display:flex;align-items:center;gap:24px}
-.profile-avatar{width:90px;height:90px;border-radius:50%;background:#1e3a5f;border:3px solid #06b6d4;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;color:#93c5fd;flex-shrink:0;overflow:hidden}
+.profile-avatar{width:90px;height:90px;border-radius:50%;background:#1e3a5f;border:3px solid var(--cyan, #06b6d4);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;color:#93c5fd;flex-shrink:0;overflow:hidden}
 .profile-avatar img{width:100%;height:100%;object-fit:cover}
 .profile-info{flex:1}
-.profile-name{font-size:22px;font-weight:700;color:#f1f5f9;margin:0 0 4px}
-.profile-subtitle{color:#94a3b8;font-size:14px;margin:0 0 10px}
+.profile-name{font-size:22px;font-weight:700;color:var(--t1, #f1f5f9);margin:0 0 4px}
+.profile-subtitle{color:var(--t4, #94a3b8);font-size:14px;margin:0 0 10px}
 .profile-roles{display:flex;flex-wrap:wrap;gap:8px}
 .role-badge{padding:4px 14px;border-radius:20px;font-size:12px;font-weight:600;border:1.5px solid;background:transparent}
 .profile-edit-btn{padding:10px 28px;background:#06b6d4;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0}
 .profile-edit-btn:hover{background:#0891b2}
-.profile-divider{border:none;border-top:2px solid #06b6d4;margin:20px 0 0}
+.profile-divider{border:none;border-top:2px solid var(--cyan, #06b6d4);margin:20px 0 0}
 
-.bio-section{background:rgba(30,41,59,0.85);border:1px solid #374151;border-radius:16px;padding:32px;margin-bottom:24px}
-.bio-title{font-size:18px;font-weight:700;color:#f1f5f9;margin:0 0 24px}
+.bio-section{background:rgba(30,41,59,0.85);border:1px solid var(--b1, #374151);border-radius:16px;padding:32px;margin-bottom:24px}
+.bio-title{font-size:18px;font-weight:700;color:var(--t1, #f1f5f9);margin:0 0 24px}
 .bio-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px 40px}
-.bio-item .bio-label{color:#94a3b8;font-size:12px;margin:0 0 4px}
-.bio-item .bio-value{color:#f1f5f9;font-size:15px;font-weight:500;margin:0}
-.bio-item .bio-value a{color:#06b6d4;text-decoration:none}
+.bio-item .bio-label{color:var(--t4, #94a3b8);font-size:12px;margin:0 0 4px}
+.bio-item .bio-value{color:var(--t1, #f1f5f9);font-size:15px;font-weight:500;margin:0}
+.bio-item .bio-value a{color:var(--cyan, #06b6d4);text-decoration:none}
 .bio-item .bio-value a:hover{text-decoration:underline}
 
-.login-section{background:rgba(30,41,59,0.85);border:1px solid #374151;border-radius:16px;padding:32px;margin-bottom:24px}
+.login-section{background:rgba(30,41,59,0.85);border:1px solid var(--b1, #374151);border-radius:16px;padding:32px;margin-bottom:24px}
 .login-grid{display:flex;align-items:center;gap:40px}
-.login-item .bio-label{color:#94a3b8;font-size:12px;margin:0 0 4px}
-.login-item .bio-value{color:#f1f5f9;font-size:15px;font-weight:500;margin:0}
+.login-item .bio-label{color:var(--t4, #94a3b8);font-size:12px;margin:0 0 4px}
+.login-item .bio-value{color:var(--t1, #f1f5f9);font-size:15px;font-weight:500;margin:0}
 .login-dots{letter-spacing:3px;font-size:18px}
-.btn-reset-pw{padding:8px 24px;background:transparent;color:#f1f5f9;border:1px solid #4b5563;border-radius:8px;font-size:13px;cursor:pointer;white-space:nowrap}
+.btn-reset-pw{padding:8px 24px;background:transparent;color:var(--t1, #f1f5f9);border:1px solid var(--b2, #4b5563);border-radius:8px;font-size:13px;cursor:pointer;white-space:nowrap}
 .btn-reset-pw:hover{border-color:#94a3b8}
 
-.edit-section{background:rgba(30,41,59,0.85);border:1px solid #374151;border-radius:16px;padding:32px;display:none}
+.edit-section{background:rgba(30,41,59,0.85);border:1px solid var(--b1, #374151);border-radius:16px;padding:32px;display:none}
 .edit-section.active{display:block}
-.edit-title{font-size:18px;font-weight:700;color:#f1f5f9;margin:0 0 24px}
+.edit-title{font-size:18px;font-weight:700;color:var(--t1, #f1f5f9);margin:0 0 24px}
 .edit-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px 24px}
-.edit-field label{display:block;color:#94a3b8;font-size:13px;font-weight:500;margin:0 0 6px}
-.edit-field input,.edit-field select{width:100%;padding:10px 14px;background:transparent;border:1px solid #4b5563;border-radius:8px;color:#f1f5f9;font-size:14px;outline:none;box-sizing:border-box}
-.edit-field input:focus,.edit-field select:focus{border-color:#60a5fa;box-shadow:0 0 0 3px rgba(96,165,250,0.15)}
+.edit-field label{display:block;color:var(--t4, #94a3b8);font-size:13px;font-weight:500;margin:0 0 6px}
+.edit-field input,.edit-field select{width:100%;padding:10px 14px;background:transparent;border:1px solid var(--b2, #4b5563);border-radius:8px;color:var(--t1, #f1f5f9);font-size:14px;outline:none;box-sizing:border-box}
+.edit-field input:focus,.edit-field select:focus{border-color:var(--blue, #60a5fa);box-shadow:0 0 0 3px rgba(96,165,250,0.15)}
 .edit-field select{appearance:auto}
 .edit-field.full-width{grid-column:1/-1}
 .edit-field.span2{grid-column:span 2}
-.edit-note{color:#64748b;font-size:12px;margin:4px 0 0}
-.edit-section-divider{grid-column:1/-1;border:none;border-top:1px solid #374151;margin:8px 0}
+.edit-note{color:var(--t5, #64748b);font-size:12px;margin:4px 0 0}
+.edit-section-divider{grid-column:1/-1;border:none;border-top:1px solid var(--b1, #374151);margin:8px 0}
 .edit-actions{display:flex;gap:12px;margin-top:24px}
 .btn-save{padding:10px 32px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}
 .btn-save:hover{background:#3b82f6}
-.btn-cancel{padding:10px 32px;background:transparent;color:#94a3b8;border:1px solid #4b5563;border-radius:8px;font-size:14px;cursor:pointer}
-.btn-cancel:hover{color:#f1f5f9;border-color:#64748b}
+.btn-cancel{padding:10px 32px;background:transparent;color:var(--t4, #94a3b8);border:1px solid var(--b2, #4b5563);border-radius:8px;font-size:14px;cursor:pointer}
+.btn-cancel:hover{color:var(--t1, #f1f5f9);border-color:var(--b3, #64748b)}
 .avatar-upload{position:relative;cursor:pointer}
 .avatar-upload input[type=file]{display:none}
-.avatar-upload-label{display:block;text-align:center;color:#06b6d4;font-size:11px;margin-top:6px;cursor:pointer}
+.avatar-upload-label{display:block;text-align:center;color:var(--cyan, #06b6d4);font-size:11px;margin-top:6px;cursor:pointer}
 
 /* Appearance section — theme toggle */
-.appearance-section{background:rgba(30,41,59,0.85);border:1px solid #374151;border-radius:16px;padding:32px;margin-bottom:24px}
-.appearance-row{display:flex;align-items:center;gap:16px;padding:16px 20px;background:rgba(15,23,42,0.5);border:1px solid #374151;border-radius:12px}
-.appearance-icon{width:44px;height:44px;border-radius:10px;background:#374151;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.appearance-section{background:rgba(30,41,59,0.85);border:1px solid var(--b1, #374151);border-radius:16px;padding:32px;margin-bottom:24px}
+.appearance-row{display:flex;align-items:center;gap:16px;padding:16px 20px;background:rgba(15,23,42,0.5);border:1px solid var(--b1, #374151);border-radius:12px}
+.appearance-icon{width:44px;height:44px;border-radius:10px;background:var(--d4, #374151);display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .appearance-icon svg{display:none}
 :root:not([data-theme="light"]) .appearance-icon .appearance-icon-moon{display:block}
 :root[data-theme="light"] .appearance-icon .appearance-icon-sun{display:block}
 .appearance-text{flex:1;min-width:0}
-.appearance-title{color:#f1f5f9;font-size:15px;font-weight:600;margin:0 0 2px}
-.appearance-sub{color:#94a3b8;font-size:13px;margin:0}
+.appearance-title{color:var(--t1, #f1f5f9);font-size:15px;font-weight:600;margin:0 0 2px}
+.appearance-sub{color:var(--t4, #94a3b8);font-size:13px;margin:0}
 /* §18 in sidebar-nav.css has `.admin-main button` rule (specificity
    0,0,1,1) with !important padding/min-height/border/etc. To win,
    our selector must be MORE specific — we prefix every rule with
    `.admin-main` so the selector becomes `.admin-main .theme-mode-switch`
    (0,0,2,0) which beats `.admin-main button` on the class count. */
-.admin-main .theme-mode-switch{width:64px !important;height:32px !important;min-height:32px !important;min-width:64px !important;max-width:64px !important;border-radius:999px !important;background:#4b5563 !important;background-image:none !important;border:0 !important;border-width:0 !important;position:relative !important;cursor:pointer !important;padding:0 !important;margin:0 !important;transition:background 0.2s ease;flex-shrink:0;display:inline-block !important;box-shadow:none !important;color:transparent !important;font-size:0 !important;line-height:1 !important;vertical-align:middle !important;overflow:visible !important}
+.admin-main .theme-mode-switch{width:64px !important;height:32px !important;min-height:32px !important;min-width:64px !important;max-width:64px !important;border-radius:999px !important;background:var(--d5, #4b5563) !important;background-image:none !important;border:0 !important;border-width:0 !important;position:relative !important;cursor:pointer !important;padding:0 !important;margin:0 !important;transition:background 0.2s ease;flex-shrink:0;display:inline-block !important;box-shadow:none !important;color:transparent !important;font-size:0 !important;line-height:1 !important;vertical-align:middle !important;overflow:visible !important}
 .admin-main .theme-mode-switch.on{background:#2563eb !important;background-image:none !important}
 .admin-main .theme-mode-switch:hover{background:#525f70 !important;border:0 !important}
 .admin-main .theme-mode-switch.on:hover{background:#1d4ed8 !important}
@@ -156,35 +156,35 @@ $roleColors = array(
 :root[data-theme="light"] .bio-section,
 :root[data-theme="light"] .login-section,
 :root[data-theme="light"] .appearance-section,
-:root[data-theme="light"] .edit-section { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .edit-section { background:#ffffff !important; border-color:var(--b1) !important }
 :root[data-theme="light"] .profile-name,
 :root[data-theme="light"] .bio-title,
 :root[data-theme="light"] .bio-item .bio-value,
 :root[data-theme="light"] .login-item .bio-value,
 :root[data-theme="light"] .appearance-title,
 :root[data-theme="light"] .edit-title,
-:root[data-theme="light"] .trainer-profile-text { color:#0f172a !important }
+:root[data-theme="light"] .trainer-profile-text { color:var(--t1) !important }
 :root[data-theme="light"] .profile-subtitle,
 :root[data-theme="light"] .bio-item .bio-label,
 :root[data-theme="light"] .login-item .bio-label,
 :root[data-theme="light"] .appearance-sub,
 :root[data-theme="light"] .edit-field label,
-:root[data-theme="light"] .edit-note { color:#64748b !important }
-:root[data-theme="light"] .appearance-row { background:#f8fafc !important; border-color:#e2e8f0 !important }
-:root[data-theme="light"] .appearance-icon { background:#e2e8f0 !important }
-:root[data-theme="light"] .admin-main .theme-mode-switch { background:#cbd5e1 !important }
-:root[data-theme="light"] .admin-main .theme-mode-switch.on { background:#2563eb !important }
+:root[data-theme="light"] .edit-note { color:var(--t4) !important }
+:root[data-theme="light"] .appearance-row { background:var(--d4) !important; border-color:var(--b1) !important }
+:root[data-theme="light"] .appearance-icon { background:var(--d5) !important }
+:root[data-theme="light"] .admin-main .theme-mode-switch { background:var(--d6) !important }
+:root[data-theme="light"] .admin-main .theme-mode-switch.on { background:var(--blue) !important }
 :root[data-theme="light"] .admin-main .theme-mode-switch:hover { background:#94a3b8 !important }
 :root[data-theme="light"] .admin-main .theme-mode-switch.on:hover { background:#1d4ed8 !important }
-:root[data-theme="light"] .btn-reset-pw { color:#0f172a !important; border-color:#cbd5e1 !important }
-:root[data-theme="light"] .btn-reset-pw:hover { border-color:#64748b !important }
-:root[data-theme="light"] .edit-section-divider { border-top-color:#e2e8f0 !important }
+:root[data-theme="light"] .btn-reset-pw { color:var(--t1) !important; border-color:var(--b1) !important }
+:root[data-theme="light"] .btn-reset-pw:hover { border-color:var(--b2) !important }
+:root[data-theme="light"] .edit-section-divider { border-top-color:var(--b1) !important }
 :root[data-theme="light"] .edit-field input,
-:root[data-theme="light"] .edit-field select { background:#ffffff !important; color:#0f172a !important; border-color:#cbd5e1 !important }
-:root[data-theme="light"] .btn-cancel { color:#64748b !important; border-color:#cbd5e1 !important }
-:root[data-theme="light"] .btn-cancel:hover { color:#0f172a !important; border-color:#64748b !important }
-:root[data-theme="light"] .avatar-upload-label { color:#2563eb !important }
-:root[data-theme="light"] .login-dots { color:#0f172a !important }
+:root[data-theme="light"] .edit-field select { background:#ffffff !important; color:var(--t1) !important; border-color:var(--b1) !important }
+:root[data-theme="light"] .btn-cancel { color:var(--t4) !important; border-color:var(--b1) !important }
+:root[data-theme="light"] .btn-cancel:hover { color:var(--t1) !important; border-color:var(--b2) !important }
+:root[data-theme="light"] .avatar-upload-label { color:var(--blue) !important }
+:root[data-theme="light"] .login-dots { color:var(--t1) !important }
 </style>
 
 <?php echo $this->getMessagesBlock()->toHtml() ?>
@@ -242,12 +242,12 @@ $roleColors = array(
 <!-- TRAINER PROFILE DESCRIPTION (read-only, trainer role only) -->
 <div class="bio-section" id="trainer-profile-section">
     <h3 class="bio-title">Trainer Profile</h3>
-    <p class="trainer-profile-text"><?php echo $trainerDescription !== '' ? nl2br($this->escapeHtml(preg_replace("/\n{3,}/", "\n\n", preg_replace("/\r\n?/", "\n", trim($trainerDescription))))) : '<span style="color:#94a3b8;">No profile description yet — click <strong>Edit Profile</strong> to add one.</span>'; ?></p>
+    <p class="trainer-profile-text"><?php echo $trainerDescription !== '' ? nl2br($this->escapeHtml(preg_replace("/\n{3,}/", "\n\n", preg_replace("/\r\n?/", "\n", trim($trainerDescription))))) : '<span style="color:var(--t4, #94a3b8);">No profile description yet — click <strong>Edit Profile</strong> to add one.</span>'; ?></p>
 </div>
 <style>
-.trainer-profile-text{color:#f1f5f9;font-size:14px;line-height:1.55;margin:0}
-.edit-field textarea{width:100%;padding:10px 14px;background:transparent;border:1px solid #4b5563;border-radius:8px;color:#f1f5f9;font-size:14px;outline:none;box-sizing:border-box;font-family:inherit;resize:vertical;min-height:120px}
-.edit-field textarea:focus{border-color:#60a5fa;box-shadow:0 0 0 3px rgba(96,165,250,0.15)}
+.trainer-profile-text{color:var(--t1, #f1f5f9);font-size:14px;line-height:1.55;margin:0}
+.edit-field textarea{width:100%;padding:10px 14px;background:transparent;border:1px solid var(--b2, #4b5563);border-radius:8px;color:var(--t1, #f1f5f9);font-size:14px;outline:none;box-sizing:border-box;font-family:inherit;resize:vertical;min-height:120px}
+.edit-field textarea:focus{border-color:var(--blue, #60a5fa);box-shadow:0 0 0 3px rgba(96,165,250,0.15)}
 </style>
 <?php endif; ?>
 

@@ -53,8 +53,8 @@ if ($helper->isInventoryEnabled()) $width += 50;
         appearance: none !important;
         width: 22px !important;
         height: 22px !important;
-        background: #0f172a !important;
-        border: 1px solid #334155 !important;
+        background: var(--d1, #0f172a) !important;
+        border: 1px solid var(--b1, #334155) !important;
         border-radius: 8px !important;
         cursor: pointer;
         vertical-align: middle;
@@ -66,11 +66,11 @@ if ($helper->isInventoryEnabled()) $width += 50;
     }
     input.row-select-cb:hover,
     input.row-select-all:hover {
-        border-color: #64748b !important;
+        border-color: var(--b3, #64748b) !important;
     }
     input.row-select-cb:checked,
     input.row-select-all:checked {
-        border-color: #60a5fa !important;
+        border-color: var(--blue, #60a5fa) !important;
     }
     input.row-select-cb:checked::after,
     input.row-select-all:checked::after {
@@ -80,7 +80,7 @@ if ($helper->isInventoryEnabled()) $width += 50;
         top: 2px;
         width: 6px;
         height: 11px;
-        border: solid #60a5fa;
+        border: solid var(--blue, #60a5fa);
         border-width: 0 2px 2px 0;
         transform: rotate(45deg);
     }
@@ -224,7 +224,7 @@ if ($helper->isInventoryEnabled()) $width += 50;
                         '</span>'+
                         '<span style="display:none;"><?php echo $helper->__js('Gallery') ?>: <input class="input-text" type="text" name="product[options][{{id}}][values][{{select_id}}][upload_gallery][{{count}}]" id="product_option_{{id}}_select_{{select_id}}_upload_{{count}}_gallery" value="" disabled /></span>'+
                     '</td>'+
-                    '<td style="border:none;"><button type="button" onclick="selectOptionType.removeFileRow(this)" class="delete icon-btn" title="<?php echo $helper->__js('Hide') ?>" style="display:inline-flex;align-items:center;justify-content:center;background:transparent;border:1px solid #ef4444;color:#ef4444;border-radius:8px;padding:6px 10px;cursor:pointer;min-width:auto;width:auto;height:auto;"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button></td>'+
+                    '<td style="border:none;"><button type="button" onclick="selectOptionType.removeFileRow(this)" class="delete icon-btn" title="<?php echo $helper->__js('Hide') ?>" style="display:inline-flex;align-items:center;justify-content:center;background:transparent;border:1px solid var(--red, #ef4444);color:var(--red, #ef4444);border-radius:8px;padding:6px 10px;cursor:pointer;min-width:auto;width:auto;height:auto;"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button></td>'+
                 '</tr>'+
             '</table></td>'+
             <?php if ($helper->isTierPriceEnabled()) { ?>'<td>&nbsp;</td>'+<?php } ?>

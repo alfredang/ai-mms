@@ -71,6 +71,7 @@ sources = {}
 for n in CSS: sources['css/' + n] = open(ROOT + 'skin/adminhtml/default/default/' + n + '.css', encoding='utf-8').read()
 for f in glob.glob(ROOT + 'app/design/adminhtml/default/default/template/**/*.phtml', recursive=True):
     t = open(f, encoding='utf-8', errors='ignore').read()
+    t = re.sub(r'<\?(?:php|=).*?\?>', '', t, flags=re.S)   # PHP first: a '<style>' inside a PHP string is not a style block
     st = ''.join(m.group(1) for m in re.finditer(r'<style[^>]*>(.*?)</style>', t, re.S))
     rel = f.split('/template/')[1]
     if rel in ('login.phtml','forgotpassword.phtml','resetforgottenpassword.phtml','rolemanager/role-select.phtml','rolemanager/learner-login.phtml','page/menu.phtml') or 'preview' in rel or 'marketing/templates/' in rel: continue
@@ -101,6 +102,7 @@ for src, sel, body, in_media in rules:
     for part in [p.strip() for p in sel.split(',') if p.strip()]:
         if LIGHT in part: continue
         if SKIP_SEL.search(part): stats['skip-sel'] += 1; continue
+        if not re.fullmatch(r'[\w\s.#:>+~*\-\[\]="\'^$|(),]+', part) or re.search(r'[$;<{}]|\?>', part) or part.count('(') != part.count(')'): stats['not-css'] += 1; continue
         if last_compound(part) in paired: stats['paired'] += 1; continue
         pre = ':root[data-theme="light"] ' if part.startswith('body') else ':root[data-theme="light"] body '
         gen[target(h)].append((pre + part, src, h))

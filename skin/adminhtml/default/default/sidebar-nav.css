@@ -407,14 +407,14 @@ body button.sidebar-toggle:hover {
     box-sizing: border-box;
     text-align: center;
     font-size: 13px;
-    color: #94a3b8;
+    color: var(--t4, #94a3b8);
     border-top: 1px solid rgba(148,163,184,0.12);
     background: transparent;
     margin-top: auto;
     flex-shrink: 0;
 }
 .admin-page-footer strong {
-    color: #cbd5e1;
+    color: var(--t2, #cbd5e1);
     font-weight: 600;
 }
 
@@ -1117,10 +1117,10 @@ body table.data tr.selected td a {
     overflow: visible !important;
 }
 .row-action-item {
-    display: block; padding: 7px 12px; color: #cbd5e1; font-size: 12px;
+    display: block; padding: 7px 12px; color: var(--t2, #cbd5e1); font-size: 12px;
     text-decoration: none; border-radius: 5px; cursor: pointer; white-space: nowrap;
 }
-.row-action-item:hover { background: #334155; color: #fff; }
+.row-action-item:hover { background: var(--d4, #334155); color: #fff; }
 
 /* Grid wrappers — transparent, flat on the page surface. This net
    matters because many grids nest an OUTER container div whose id ends
@@ -1157,10 +1157,10 @@ body table.data tr.selected td a {
 
 /* Select Visible / Unselect links + items selected text */
 .admin-main .massaction a {
-    color: #60a5fa !important;
+    color: var(--blue, #60a5fa) !important;
 }
 .admin-main .massaction span {
-    color: #cbd5e1 !important;
+    color: var(--t2, #cbd5e1) !important;
 }
 
 /* File input — futuristic styled */
@@ -1192,7 +1192,7 @@ body table.data tr.selected td a {
 }
 .admin-main input[type="file"]::after {
     content: '' !important;
-    color: #64748b !important;
+    color: var(--t5, #64748b) !important;
     font-size: 12px !important;
 }
 
@@ -1200,18 +1200,18 @@ body table.data tr.selected td a {
    becomes a navy black blob on a white form. Flip to a quiet light
    gray pill matching every other secondary control in light mode. */
 :root[data-theme="light"] .admin-main input[type="file"]::file-selector-button {
-    background: #f0f4fc !important;
+    background: var(--d4) !important;
     background-image: none !important;
-    border: 1px solid #8494b5 !important;
-    color: #1e2a52 !important;
+    border: 1px solid var(--b2) !important;
+    color: var(--t2) !important;
     box-shadow: none !important;
     text-shadow: none !important;
 }
 :root[data-theme="light"] .admin-main input[type="file"]::file-selector-button:hover {
-    background: #e6ecf9 !important;
+    background: var(--d5) !important;
     background-image: none !important;
-    border-color: #c5d0e6 !important;
-    color: #0f1d47 !important;
+    border-color: var(--b1) !important;
+    color: var(--t1) !important;
     box-shadow: none !important;
 }
 
@@ -1222,7 +1222,7 @@ body table.data tr.selected td a {
     font-weight: 600 !important;
 }
 .admin-main .order-tables dl.item-options dd {
-    color: #cbd5e1 !important;
+    color: var(--t2, #cbd5e1) !important;
     font-size: 12px !important;
     margin-bottom: 6px !important;
 }
@@ -1245,9 +1245,9 @@ body table.data tr.selected td a {
     border-radius: 6px !important;
     width: 100% !important;
     box-sizing: border-box !important;
-    background: #0a0f1a !important;
+    background: var(--d0, #0a0f1a) !important;
     border: 1px solid rgba(37,139,182,0.12) !important;
-    color: #cbd5e1 !important;
+    color: var(--t2, #cbd5e1) !important;
     transition: border-color 0.2s !important;
 }
 .admin-main .grid tr.filter input:focus,
@@ -1263,7 +1263,7 @@ body table.data tr.selected td a {
 .admin-main .grid tr.filter .range .label {
     font-size: 9px !important;
     margin-bottom: 2px !important;
-    color: #64748b !important;
+    color: var(--t5, #64748b) !important;
 }
 
 /* Page title spans inside .content-header — the legacy boxes.css
@@ -1276,7 +1276,7 @@ body table.data tr.selected td a {
 .admin-main .content-header .head-customer {
     font-size: 28px !important;
     font-weight: 700 !important;
-    color: #f1f5f9 !important;
+    color: var(--t1, #f1f5f9) !important;
     text-shadow: none !important;
 }
 
@@ -1335,12 +1335,12 @@ img[src*="rss"],
 }
 
 .pagination-info {
-    color: #64748b !important;
+    color: var(--t5, #64748b) !important;
     font-size: 12px;
     white-space: nowrap;
 }
 .pagination-info strong {
-    color: #cbd5e1 !important;
+    color: var(--t2, #cbd5e1) !important;
     font-weight: 600;
 }
 
@@ -1354,7 +1354,7 @@ img[src*="rss"],
    See admin-dashboard.css → "Minimalist admin pagination (global)" for
    the single source of truth that styles every paged table. */
 .pagination-ellipsis {
-    color: #64748b;
+    color: var(--t5, #64748b);
     font-size: 12px;
     padding: 0 4px;
     user-select: none;
@@ -1534,8 +1534,8 @@ img[src*="rss"],
 :root[data-theme="light"] .admin-main select.scalable,
 :root[data-theme="light"] .admin-main .pager select {
     background: #ffffff !important;
-    color: #0f1d47 !important;
-    border: 1px solid #d3dcee !important;
+    color: var(--t1) !important;
+    border: 1px solid var(--b1) !important;
 }
 /* Mass-action Submit — ONE canonical rule for every grid, every page.
    Specificity is bumped with `body` qualifier and an attribute selector
@@ -2063,7 +2063,7 @@ body .admin-main [id$="_massaction"] button span span span {
 }
 .kpi-courses .kpi-icon {
     background: rgba(167,139,250,0.12);
-    color: #a78bfa;
+    color: var(--violet, #a78bfa);
 }
 .kpi-icon svg {
     width: 26px;
@@ -2220,7 +2220,7 @@ body .admin-main [id$="_massaction"] button span span span {
     gap: 12px !important;
     padding: 9px 16px !important;
     margin: 0 !important;
-    color: #94a3b8 !important;
+    color: var(--t4, #94a3b8) !important;
     text-decoration: none !important;
     font-size: 13.5px !important;
     font-weight: 500 !important;
@@ -2230,7 +2230,7 @@ body .admin-main [id$="_massaction"] button span span span {
 }
 .lms-nav-item:hover {
     background: transparent !important;
-    color: #94a3b8 !important;
+    color: var(--t4, #94a3b8) !important;
 }
 .lms-nav-item.active,
 .lms-nav-item.active:hover {
@@ -2252,12 +2252,12 @@ body .admin-main [id$="_massaction"] button span span span {
 .tools-group-toggle {
     display: flex !important; align-items: center !important; gap: 12px !important;
     width: 100% !important; padding: 9px 16px !important; border: none !important;
-    background: transparent !important; color: #94a3b8 !important; font-size: 13.5px !important;
+    background: transparent !important; color: var(--t4, #94a3b8) !important; font-size: 13.5px !important;
     font-weight: 500 !important; cursor: pointer !important; text-align: left !important;
     border-left: none !important; transition: background 0.15s ease, color 0.15s ease !important;
     margin: 0 !important; box-sizing: border-box !important; line-height: 1.3 !important;
 }
-.tools-group-toggle:hover { background: transparent !important; color: #cbd5e1 !important; }
+.tools-group-toggle:hover { background: transparent !important; color: var(--t2, #cbd5e1) !important; }
 .tools-group-toggle.active,
 .tools-group-toggle.active:hover {
     background: rgba(37,139,182,0.12) !important;
@@ -2278,14 +2278,14 @@ body .admin-main [id$="_massaction"] button span span span {
 .tools-group.open > .tools-group-items { display: block; }
 .tools-sub-item {
     display: flex !important; align-items: center !important; gap: 12px !important;
-    padding: 9px 16px 9px 32px !important; color: #94a3b8 !important; font-size: 13px !important;
+    padding: 9px 16px 9px 32px !important; color: var(--t4, #94a3b8) !important; font-size: 13px !important;
     font-weight: 500 !important;
     text-decoration: none !important; transition: color 0.15s ease, background 0.15s ease !important;
     cursor: pointer !important; line-height: 1.3 !important;
     border-radius: 0 !important;
     border-left: 3px solid transparent !important;
 }
-.tools-sub-item:hover { color: #cbd5e1 !important; background: transparent !important; }
+.tools-sub-item:hover { color: var(--t2, #cbd5e1) !important; background: transparent !important; }
 .tools-sub-item.active,
 .tools-sub-item.active:hover {
     color: #258bb6 !important;
@@ -2318,7 +2318,7 @@ body .admin-main [id$="_massaction"] button span span span {
 }
 
 .tools-sub-label {
-    padding: 10px 16px 4px !important; color: #475569 !important;
+    padding: 10px 16px 4px !important; color: var(--t5, #475569) !important;
     font-size: 11px !important; font-weight: 600 !important;
     text-transform: uppercase !important; letter-spacing: 0.6px !important;
 }
@@ -2366,9 +2366,9 @@ body.sidebar-collapsed .tools-group-toggle {
     font-weight: 500;
     color: var(--t3);
 }
-.lms-current .lms-kpi-value { color: #10b981; }
-.lms-upcoming .lms-kpi-value { color: #60a5fa; }
-.lms-past .lms-kpi-value { color: #9ca3af; }
+.lms-current .lms-kpi-value { color: var(--green, #10b981); }
+.lms-upcoming .lms-kpi-value { color: var(--blue, #60a5fa); }
+.lms-past .lms-kpi-value { color: var(--t4, #9ca3af); }
 
 /* LMS Tabs */
 .lms-tabs {
@@ -2435,7 +2435,7 @@ button.lms-tab.active {
 .lms-search-input::placeholder { color: var(--t5); }
 .lms-search-input:focus {
     outline: none;
-    border-color: #3b82f6 !important;
+    border-color: var(--blue2, #3b82f6) !important;
 }
 
 /* LMS Empty State */
@@ -2539,7 +2539,7 @@ button.lms-tab.active {
     font-size: 20px;
     font-weight: 700;
     white-space: nowrap;
-    color: #f1f5f9;
+    color: var(--t1, #f1f5f9);
     letter-spacing: -0.2px;
 }
 /* Hide the sidebar's own logo so we don't duplicate it */
@@ -2562,7 +2562,7 @@ button.lms-tab.active {
     padding: 10px 24px;
     font-size: 15px;
     font-weight: 500;
-    color: #94a3b8 !important;
+    color: var(--t4, #94a3b8) !important;
     text-decoration: none !important;
     border-radius: 8px;
     transition: all 0.15s ease;
@@ -2570,10 +2570,10 @@ button.lms-tab.active {
 }
 .header-nav-item:hover {
     background: rgba(255,255,255,0.05) !important;
-    color: #f1f5f9 !important;
+    color: var(--t1, #f1f5f9) !important;
 }
 .header-nav-item.active {
-    color: #f1f5f9 !important;
+    color: var(--t1, #f1f5f9) !important;
 }
 .header-nav-item svg {
     flex-shrink: 0;
@@ -2698,7 +2698,7 @@ button.view-as-option:hover {
 }
 button.view-as-option.active {
     background: rgba(59,130,246,0.12) !important;
-    color: #60a5fa !important;
+    color: var(--blue, #60a5fa) !important;
 }
 .view-as-emoji {
     display: inline-flex;
@@ -2719,7 +2719,7 @@ button.view-as-option.active .view-as-option-title {
     font-weight: 600;
 }
 .view-as-check {
-    color: #60a5fa;
+    color: var(--blue, #60a5fa);
     flex-shrink: 0;
     opacity: 0;
     transition: opacity 0.15s ease;
@@ -2753,15 +2753,15 @@ button.user-avatar-btn:focus-visible,
     max-height: 40px !important;
     padding: 0 !important;
     margin: 0 !important;
-    background: #4b5563 !important;
+    background: var(--d5, #4b5563) !important;
     background-image: none !important;
-    background-color: #4b5563 !important;
-    border: 2px solid #60a5fa !important;
+    background-color: var(--d5, #4b5563) !important;
+    border: 2px solid var(--blue, #60a5fa) !important;
     border-radius: 50% !important;
     -webkit-border-radius: 50% !important;
     -moz-border-radius: 50% !important;
     cursor: pointer !important;
-    color: #e2e8f0 !important;
+    color: var(--t2, #e2e8f0) !important;
     box-shadow: none !important;
     text-shadow: none !important;
     outline: none !important;
@@ -2779,7 +2779,7 @@ button.user-avatar-btn:hover,
 .header-top button.user-avatar-btn:hover {
     background: #52606f !important;
     background-color: #52606f !important;
-    border-color: #93c5fd !important;
+    border-color: var(--blue-soft, #93c5fd) !important;
 }
 .user-avatar-btn svg {
     display: block !important;
@@ -2835,8 +2835,8 @@ button.user-avatar-btn.has-photo,
     width: 36px;
     height: 36px;
     border-radius: 50%;
-    background: #4b5563;
-    color: #e2e8f0;
+    background: var(--d5, #4b5563);
+    color: var(--t2, #e2e8f0);
     flex-shrink: 0;
     overflow: hidden;
 }
@@ -2912,7 +2912,7 @@ button.user-avatar-btn.has-photo,
     color: var(--t1) !important;
 }
 .user-menu-item-logout {
-    color: #f87171 !important;
+    color: var(--red-soft, #f87171) !important;
 }
 .user-menu-item-logout:hover {
     background: rgba(248,113,113,0.1) !important;
@@ -3195,7 +3195,7 @@ body.adminhtml-cache-index .admin-main .grid th,
 body.adminhtml-cache-index .admin-main .grid tr.headings th {
     padding: 7px 12px !important;
     font-size: 11px !important;
-    color: #7dd3fc !important;
+    color: var(--cyan, #7dd3fc) !important;
     text-shadow: none !important;
 }
 body.adminhtml-cache-index .admin-main .grid td,
@@ -3206,7 +3206,7 @@ body.adminhtml-cache-index .admin-main .grid tbody tr:nth-child(odd) td {
     font-size: 12.5px !important;
     line-height: 1.4 !important;
     white-space: nowrap !important;
-    color: #cbd5e1 !important;
+    color: var(--t2, #cbd5e1) !important;
 }
 body.adminhtml-cache-index .admin-main .grid td:nth-child(2) {
     white-space: normal !important;
@@ -3232,7 +3232,7 @@ body.adminhtml-cache-index .admin-main #cache_grid_table input[type="checkbox"] 
     cursor: pointer !important;
     -webkit-appearance: auto !important;
     appearance: auto !important;
-    border: 1px solid #475569 !important;
+    border: 1px solid var(--b2, #475569) !important;
 }
 
 /* Bring back the native mass-action bar (Select All / Actions / Submit).
@@ -3250,11 +3250,11 @@ body.adminhtml-cache-index .admin-main #cache_grid_massaction {
     padding: 6px 4px 6px 12px !important;
 }
 body.adminhtml-cache-index .admin-main .massaction a {
-    color: #7dd3fc !important;
+    color: var(--cyan, #7dd3fc) !important;
 }
 body.adminhtml-cache-index .admin-main .massaction label,
 body.adminhtml-cache-index .admin-main .massaction .nowrap {
-    color: #cbd5e1 !important;
+    color: var(--t2, #cbd5e1) !important;
 }
 
 /* Flat toolbar — one slim row sitting directly on the page surface,
@@ -3303,20 +3303,20 @@ body.adminhtml-cache-index .admin-main table.massaction td:last-child {
 body.adminhtml-cache-index .admin-main .massaction a {
     font-size: 12px !important;
     font-weight: 500 !important;
-    color: #7dd3fc !important;
+    color: var(--cyan, #7dd3fc) !important;
     text-decoration: none !important;
 }
 body.adminhtml-cache-index .admin-main .massaction a:hover {
-    color: #bae6fd !important;
+    color: var(--blue-soft, #bae6fd) !important;
     text-decoration: underline !important;
 }
 body.adminhtml-cache-index .admin-main .massaction .separator {
-    color: #475569 !important;
+    color: var(--t5, #475569) !important;
     margin: 0 4px !important;
 }
 body.adminhtml-cache-index .admin-main .massaction #cache_grid_massaction-count,
 body.adminhtml-cache-index .admin-main .massaction strong {
-    color: #e2e8f0 !important;
+    color: var(--t2, #e2e8f0) !important;
     font-weight: 700 !important;
 }
 /* Flatten the inner Actions/Submit panel completely */
@@ -3337,7 +3337,7 @@ body.adminhtml-cache-index .admin-main .massaction .field-row {
 body.adminhtml-cache-index .admin-main .massaction label {
     font-size: 12px !important;
     font-weight: 600 !important;
-    color: #94a3b8 !important;
+    color: var(--t4, #94a3b8) !important;
     text-transform: uppercase !important;
     letter-spacing: 0.4px !important;
     margin: 0 !important;
@@ -3351,7 +3351,7 @@ body.adminhtml-cache-index .admin-main .massaction select {
     background: transparent !important;
     border: 1px solid var(--b2) !important;
     border-radius: 7px !important;
-    color: #e2e8f0 !important;
+    color: var(--t2, #e2e8f0) !important;
 }
 /* Status badges — flatten the doubled pill/rectangle into one clean
    pill (the native cell-status span + our pill were stacking). */
@@ -3377,11 +3377,11 @@ body.adminhtml-cache-index .admin-main .grid td span[class*="grid-severity"] {
 }
 body.adminhtml-cache-index .admin-main .grid td .grid-severity-notice {
     background: rgba(34,197,94,0.15) !important;
-    color: #4ade80 !important;
+    color: var(--green-soft, #4ade80) !important;
 }
 body.adminhtml-cache-index .admin-main .grid td .grid-severity-major {
     background: rgba(245,158,11,0.15) !important;
-    color: #fbbf24 !important;
+    color: var(--yellow, #fbbf24) !important;
 }
 
 /* === Additional Cache Management — compact section header + tight rows.
@@ -3478,13 +3478,13 @@ body.adminhtml-cache-index .admin-main table.form-list td button.scalable:hover 
 :root[data-theme="light"] body.adminhtml-cache-index .admin-main .grid tbody tr td,
 :root[data-theme="light"] body.adminhtml-cache-index .admin-main .grid tbody tr:nth-child(even) td,
 :root[data-theme="light"] body.adminhtml-cache-index .admin-main .grid tbody tr:nth-child(odd) td {
-    color: #0f1d47 !important;
+    color: var(--t1) !important;
 }
 :root[data-theme="light"] body.adminhtml-cache-index .admin-main h3,
 :root[data-theme="light"] body.adminhtml-cache-index .admin-main .content-header h3,
 :root[data-theme="light"] body.adminhtml-cache-index .admin-main table.form-list td,
 :root[data-theme="light"] body.adminhtml-cache-index .admin-main table.form-list label {
-    color: #0f1d47 !important;
+    color: var(--t1) !important;
 }
 
 /* Index Management — light-mode contrast. Same problem as Cache —
@@ -3498,7 +3498,7 @@ body.adminhtml-cache-index .admin-main table.form-list td button.scalable:hover 
 :root[data-theme="light"] body.adminhtml-process-list .admin-main .grid tbody tr td,
 :root[data-theme="light"] body.adminhtml-process-list .admin-main .grid tbody tr:nth-child(even) td,
 :root[data-theme="light"] body.adminhtml-process-list .admin-main .grid tbody tr:nth-child(odd) td {
-    color: #0f1d47 !important;
+    color: var(--t1) !important;
 }
 
 /* === 25. Index Management — same compact treatment as Cache === */
@@ -3538,7 +3538,7 @@ body.adminhtml-process-list .admin-main .grid th,
 body.adminhtml-process-list .admin-main .grid tr.headings th {
     padding: 7px 12px !important;
     font-size: 11px !important;
-    color: #7dd3fc !important;
+    color: var(--cyan, #7dd3fc) !important;
     text-shadow: none !important;
 }
 body.adminhtml-process-list .admin-main .grid td,
@@ -3549,7 +3549,7 @@ body.adminhtml-process-list .admin-main .grid tbody tr:nth-child(odd) td {
     font-size: 12.5px !important;
     line-height: 1.4 !important;
     white-space: nowrap !important;
-    color: #cbd5e1 !important;
+    color: var(--t2, #cbd5e1) !important;
 }
 body.adminhtml-process-list .admin-main .grid td:nth-child(3) {
     white-space: normal !important;
@@ -3575,7 +3575,7 @@ body.adminhtml-process-list .admin-main #indexer_processes_grid_table input[type
     cursor: pointer !important;
     -webkit-appearance: auto !important;
     appearance: auto !important;
-    border: 1px solid #475569 !important;
+    border: 1px solid var(--b2, #475569) !important;
 }
 
 /* Mass-action toolbar — FLAT slim row (no grey card), Submit hugs right.
@@ -3622,24 +3622,24 @@ body.adminhtml-process-list .admin-main table.massaction td:last-child {
 body.adminhtml-process-list .admin-main .massaction a {
     font-size: 12px !important;
     font-weight: 500 !important;
-    color: #7dd3fc !important;
+    color: var(--cyan, #7dd3fc) !important;
     text-decoration: none !important;
 }
 body.adminhtml-process-list .admin-main .massaction a:hover {
-    color: #bae6fd !important;
+    color: var(--blue-soft, #bae6fd) !important;
     text-decoration: underline !important;
 }
 body.adminhtml-process-list .admin-main .massaction .separator {
-    color: #475569 !important;
+    color: var(--t5, #475569) !important;
     margin: 0 4px !important;
 }
 body.adminhtml-process-list .admin-main .massaction strong {
-    color: #e2e8f0 !important;
+    color: var(--t2, #e2e8f0) !important;
     font-weight: 700 !important;
 }
 body.adminhtml-process-list .admin-main .massaction label,
 body.adminhtml-process-list .admin-main .massaction .nowrap {
-    color: #cbd5e1 !important;
+    color: var(--t2, #cbd5e1) !important;
 }
 body.adminhtml-process-list .admin-main .massaction .entry-edit,
 body.adminhtml-process-list .admin-main .massaction .right,
@@ -3658,7 +3658,7 @@ body.adminhtml-process-list .admin-main .massaction .field-row {
 body.adminhtml-process-list .admin-main .massaction label {
     font-size: 12px !important;
     font-weight: 600 !important;
-    color: #94a3b8 !important;
+    color: var(--t4, #94a3b8) !important;
     text-transform: uppercase !important;
     letter-spacing: 0.4px !important;
     margin: 0 !important;
@@ -3682,7 +3682,7 @@ body.adminhtml-process-list .admin-main .grid td select.action-select {
     -moz-appearance: none !important;
 }
 body.adminhtml-process-list .admin-main .grid td .action-select:hover {
-    color: #93c5fd !important;
+    color: var(--blue-soft, #93c5fd) !important;
     text-decoration: underline !important;
 }
 /* Hide the empty placeholder option that ships as the first <option>. */
@@ -3699,7 +3699,7 @@ body.adminhtml-process-list .admin-main .massaction select {
     background: transparent !important;
     border: 1px solid var(--b2) !important;
     border-radius: 7px !important;
-    color: #e2e8f0 !important;
+    color: var(--t2, #e2e8f0) !important;
 }
 
 /* Status badges — one clean pill */
@@ -3726,15 +3726,15 @@ body.adminhtml-process-list .admin-main .grid td span[class*="grid-severity"] {
 }
 body.adminhtml-process-list .admin-main .grid td .grid-severity-notice {
     background: rgba(34,197,94,0.15) !important;
-    color: #4ade80 !important;
+    color: var(--green-soft, #4ade80) !important;
 }
 body.adminhtml-process-list .admin-main .grid td .grid-severity-major {
     background: rgba(245,158,11,0.15) !important;
-    color: #fbbf24 !important;
+    color: var(--yellow, #fbbf24) !important;
 }
 body.adminhtml-process-list .admin-main .grid td .grid-severity-critical {
     background: rgba(239,68,68,0.15) !important;
-    color: #f87171 !important;
+    color: var(--red-soft, #f87171) !important;
 }
 
 /* Compact section header, kill the empty content-header card and stray <br> */
@@ -3784,7 +3784,7 @@ body.adminhtml-process-list .admin-main br {
     animation: mmd-spin 0.8s linear infinite;
 }
 .mmd-processing-overlay .mmd-spinner-label {
-    color: #e2e8f0;
+    color: var(--t2, #e2e8f0);
     font: 600 13px/1.4 ui-sans-serif, system-ui, sans-serif;
     letter-spacing: 0.3px;
     margin-top: 14px;
@@ -3810,7 +3810,7 @@ body.adminhtml-process-list .admin-main br {
     gap: 10px;
     padding: 10px 16px;
     background: rgba(15, 23, 42, 0.96);
-    color: #e2e8f0;
+    color: var(--t2, #e2e8f0);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 999px;
     font: 600 13px/1.2 ui-sans-serif, system-ui, sans-serif;
@@ -3892,11 +3892,11 @@ body[class*="adminhtml-sales_order_index"] #sales_order_grid,
 body[class*="adminhtml-sales-order-index"] #sales_order_grid,
 body[class*="adminhtml-sales_order_index"] .admin-main .grid,
 body[class*="adminhtml-sales-order-index"] .admin-main .grid {
-    background: #2a3548 !important;
+    background: var(--d4, #2a3548) !important;
 }
 body[class*="adminhtml-sales_order_index"] #sales_order_grid,
 body[class*="adminhtml-sales-order-index"] #sales_order_grid {
-    border: 1px solid #475569 !important;
+    border: 1px solid var(--b2, #475569) !important;
     border-radius: 10px !important;
     overflow: hidden !important;
     box-shadow: 0 1px 3px rgba(0,0,0,0.35) !important;
@@ -3949,11 +3949,11 @@ body[class*="adminhtml-sales-order-index"] #sales_order_grid {
 /* Store View bar — was dark in light mode because admin-dashboard.css
    §12 hardcodes var(--b0, #0b1220) without a light-mode flip. */
 :root[data-theme="light"] .dcf-store-switcher {
-    background: #f0f4fc !important;
-    border-color: #d3dcee !important;
+    background: var(--d4) !important;
+    border-color: var(--b1) !important;
 }
 :root[data-theme="light"] .dcf-store-switcher * {
-    color: #0f1d47 !important;
+    color: var(--t1) !important;
 }
 
 /* Brute-force light surface on every layer of the auto-wrapped grid
@@ -3990,7 +3990,7 @@ body[class*="adminhtml-sales-order-index"] #sales_order_grid {
 :root[data-theme="light"] .admin-main table.actions td {
     background: transparent !important;
     background-color: transparent !important;
-    color: #3a4670 !important;
+    color: var(--t3) !important;
 }
 /* Pagination row — every variant. The pager wrapper class differs
    per panel (`.modern-pagination` on grids, `.dev-pagination` /
@@ -4008,10 +4008,10 @@ body[class*="adminhtml-sales-order-index"] #sales_order_grid {
 :root[data-theme="light"] .pagination-pages,
 :root[data-theme="light"] .pagination-ellipsis {
     background: transparent !important;
-    color: #3a4670 !important;
+    color: var(--t3) !important;
 }
 :root[data-theme="light"] [class*="pager-info"] strong,
-:root[data-theme="light"] .pagination-info strong { color: #0f1d47 !important; }
+:root[data-theme="light"] .pagination-info strong { color: var(--t1) !important; }
 /* Page buttons / links — default tone */
 :root[data-theme="light"] [class*="pagination"] a,
 :root[data-theme="light"] [class*="pagination"] button,
@@ -4022,7 +4022,7 @@ body[class*="adminhtml-sales-order-index"] #sales_order_grid {
 :root[data-theme="light"] button[class*="-page-btn"],
 :root[data-theme="light"] a[class*="-page-btn"],
 :root[data-theme="light"] button.pagination-btn,
-:root[data-theme="light"] a.pagination-btn { color: #3a4670 !important; }
+:root[data-theme="light"] a.pagination-btn { color: var(--t3) !important; }
 /* Active page — brand blue, bold */
 :root[data-theme="light"] [class*="pagination"] a.active,
 :root[data-theme="light"] [class*="pagination"] button.active,
@@ -4033,7 +4033,7 @@ body[class*="adminhtml-sales-order-index"] #sales_order_grid {
 :root[data-theme="light"] button[class*="-page-btn"].active,
 :root[data-theme="light"] a[class*="-page-btn"].active,
 :root[data-theme="light"] button.pagination-btn.active,
-:root[data-theme="light"] a.pagination-btn.active { color: #2f5be6 !important; font-weight: 700 !important; }
+:root[data-theme="light"] a.pagination-btn.active { color: var(--blue) !important; font-weight: 700 !important; }
 /* Hover — darker slate */
 :root[data-theme="light"] [class*="pagination"] a:hover:not(.disabled),
 :root[data-theme="light"] [class*="pagination"] button:hover:not(.disabled),
@@ -4044,15 +4044,15 @@ body[class*="adminhtml-sales-order-index"] #sales_order_grid {
 :root[data-theme="light"] button[class*="-page-btn"]:hover:not(.disabled),
 :root[data-theme="light"] a[class*="-page-btn"]:hover:not(.disabled),
 :root[data-theme="light"] button.pagination-btn:hover:not(.disabled),
-:root[data-theme="light"] a.pagination-btn:hover:not(.disabled) { color: #0f1d47 !important; }
+:root[data-theme="light"] a.pagination-btn:hover:not(.disabled) { color: var(--t1) !important; }
 /* Per-page selector — ensure light fill regardless of which pager
    wrapper it sits in. */
 :root[data-theme="light"] [class*="pagination"] select,
 :root[data-theme="light"] [class*="-pager"] select,
 :root[data-theme="light"] .pagination-perpage select {
     background: #ffffff !important;
-    border: 1px solid #d3dcee !important;
-    color: #0f1d47 !important;
+    border: 1px solid var(--b1) !important;
+    color: var(--t1) !important;
 }
 :root[data-theme="light"] body.adminhtml-dashboard-index .admin-main .grid,
 :root[data-theme="light"] body.adminhtml-dashboard-edit .admin-main .grid {
@@ -4499,7 +4499,7 @@ body.adminhtml-catalog_search-index #catalogSearchGrid_table td:last-child {
     height: 16px !important;
     min-width: 16px !important;
     border-radius: 50% !important;
-    border: 1.5px solid #475569 !important;
+    border: 1.5px solid var(--b2, #475569) !important;
     background: transparent !important;
     box-shadow: none !important;
     cursor: pointer !important;
@@ -4508,7 +4508,7 @@ body.adminhtml-catalog_search-index #catalogSearchGrid_table td:last-child {
     padding: 0 !important;
 }
 .admin-main #product-review-table input[type="radio"]:hover {
-    border-color: #64748b !important;
+    border-color: var(--b3, #64748b) !important;
 }
 .admin-main #product-review-table input[type="radio"]:checked {
     border-color: #2563eb !important;
@@ -4686,7 +4686,7 @@ body button.delete-select-row.icon-btn:active,
     height: 36px !important;
     min-height: 36px !important;
     padding: 0 !important;
-    border: 1px solid #ef4444 !important;
+    border: 1px solid var(--red, #ef4444) !important;
     border-radius: 8px !important;
     background-color: transparent !important;
     background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23ef4444' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='3 6 5 6 21 6'/><path d='M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2'/><line x1='10' y1='11' x2='10' y2='17'/><line x1='14' y1='11' x2='14' y2='17'/></svg>") !important;
@@ -4896,16 +4896,16 @@ body .admin-main #anchor-content { padding-left: 0 !important; }
 :root[data-theme="light"] .admin-main .address-list li,
 :root[data-theme="light"] .admin-main .address-list li.on,
 :root[data-theme="light"] .admin-main .address-list li.over {
-    background: #e6ecf9 !important;
+    background: var(--d5) !important;
     background-image: none !important;
-    border-color: #d3dcee !important;
-    color: #0f1d47 !important;
+    border-color: var(--b1) !important;
+    color: var(--t1) !important;
 }
 :root[data-theme="light"] .admin-main .address-list li.on {
     background: rgba(37, 99, 235, .12) !important;
 }
 :root[data-theme="light"] .admin-main .address-list address {
-    color: #0f1d47 !important;
+    color: var(--t1) !important;
 }
 
 /* ===========================================================
@@ -5318,7 +5318,7 @@ body.adminhtml-workflowguides-index .wfg-step-action {
     border-left-color: var(--blue2, #67e8f9);
 }
 body.adminhtml-workflowguides-index .wfg-step-logic {
-    border-left-color: #b07cff;
+    border-left-color: var(--violet, #b07cff);
 }
 body.adminhtml-workflowguides-index .wfg-step-num {
     flex: 0 0 26px;
@@ -5349,7 +5349,7 @@ body.adminhtml-workflowguides-index .wfg-step-action .wfg-step-emoji {
     color: var(--blue2, #67e8f9);
 }
 body.adminhtml-workflowguides-index .wfg-step-logic .wfg-step-emoji {
-    color: #b07cff;
+    color: var(--violet, #b07cff);
 }
 body.adminhtml-workflowguides-index .wfg-step-title {
     font: 600 14.5px/1.4 'Inter', sans-serif;
@@ -5374,14 +5374,14 @@ body.adminhtml-workflowguides-index .wfg-badge-action {
     color: var(--blue2, #67e8f9);
 }
 body.adminhtml-workflowguides-index .wfg-badge-logic {
-    color: #b07cff;
+    color: var(--violet, #b07cff);
 }
 
 /* Light-mode override: in light mode --d3 resolves to #ffffff (pure white
    for cards), which made the step containers blend into the page surface.
    Give them a light slate-gray so each step reads as a distinct card. */
 :root[data-theme="light"] body.adminhtml-workflowguides-index .wfg-step {
-    background: #f0f4fc !important;
+    background: var(--d4) !important;
     border-color: #000000 !important;
 }
 
@@ -5638,7 +5638,7 @@ body.adminhtml-workflowguides-index .wfg-badge-logic {
    brand blue for a strong, readable figure. Net covers every *-kpi-num. */
 :root[data-theme="light"] .admin-main [class*="kpi-num"],
 :root[data-theme="light"] .admin-main .dash-kpi-num {
-    color: #1d4ed8 !important;
+    color: var(--blue2) !important;
 }
 
 /* 28b. KPI cards — flat slate (#e2e8f0) reads heavy. Clean white card with a
@@ -5650,7 +5650,7 @@ body.adminhtml-workflowguides-index .wfg-badge-logic {
 :root[data-theme="light"] .admin-main .al-kpi,
 :root[data-theme="light"] .admin-main .at-kpi {
     background: #ffffff !important;
-    border: 1px solid #e1e7f4 !important;
+    border: 1px solid var(--b1) !important;
     box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04) !important;
 }
 
@@ -5666,12 +5666,12 @@ body.adminhtml-workflowguides-index .wfg-badge-logic {
 :root[data-theme="light"] .admin-main .grid th a:not([class*="btn"]):not(.button):not([class*="badge"]):not([class*="pill"]),
 :root[data-theme="light"] .admin-main .grid tr.headings th a:not([class*="btn"]):not(.button):not([class*="badge"]):not([class*="pill"]),
 :root[data-theme="light"] .admin-main table[class*="-table"] thead th a:not([class*="btn"]):not(.button):not([class*="badge"]):not([class*="pill"]) {
-    color: #3a4670 !important;
+    color: var(--t3) !important;
 }
 :root[data-theme="light"] .admin-main .grid th a:not([class*="btn"]):not(.button):not([class*="badge"]):not([class*="pill"]):hover,
 :root[data-theme="light"] .admin-main .grid tr.headings th a:not([class*="btn"]):not(.button):not([class*="badge"]):not([class*="pill"]):hover,
 :root[data-theme="light"] .admin-main table[class*="-table"] thead th a:not([class*="btn"]):not(.button):not([class*="badge"]):not([class*="pill"]):hover {
-    color: #2f5be6 !important;
+    color: var(--blue) !important;
 }
 
 /* 29. Funding Tags grid — match the flat Transactions list.

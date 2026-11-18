@@ -41,16 +41,16 @@ $dates = $run['course_start_date']
     : '';
 ?>
 <style>
-.cert-card{background:#1e2132;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:16px;}
-.cert-title{font-size:22px;font-weight:700;color:#e2e8f0;margin:0 0 4px;}
-.cert-sub{font-size:13px;color:#94a3b8;margin:0;}
-.cert-pill{display:inline-flex;align-items:center;gap:6px;background:#0f172a;border:1px solid #334155;border-radius:999px;padding:5px 12px;font-size:12px;color:#94a3b8;margin:10px 8px 0 0;}
-.cert-pill b{color:#e2e8f0;font-weight:600;}
+.cert-card{background:var(--d3, #1e2132);border:1px solid var(--b1, #334155);border-radius:12px;padding:20px;margin-bottom:16px;}
+.cert-title{font-size:22px;font-weight:700;color:var(--t2, #e2e8f0);margin:0 0 4px;}
+.cert-sub{font-size:13px;color:var(--t4, #94a3b8);margin:0;}
+.cert-pill{display:inline-flex;align-items:center;gap:6px;background:var(--d1, #0f172a);border:1px solid var(--b1, #334155);border-radius:999px;padding:5px 12px;font-size:12px;color:var(--t4, #94a3b8);margin:10px 8px 0 0;}
+.cert-pill b{color:var(--t2, #e2e8f0);font-weight:600;}
 .cert-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 14px;}
-.cert-note{color:#cbd5e1;font-size:13px;line-height:1.5;max-width:760px;}
-.cert-note strong{color:#f1f5f9;}
+.cert-note{color:var(--t2, #cbd5e1);font-size:13px;line-height:1.5;max-width:760px;}
+.cert-note strong{color:var(--t1, #f1f5f9);}
 .cert-warn{color:var(--yellow);font-size:12px;margin:0 0 10px;}
-.cert-threshold{width:64px;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:6px 8px;color:#e2e8f0;font-size:13px;}
+.cert-threshold{width:64px;background:var(--d1, #0f172a);border:1px solid var(--b1, #334155);border-radius:8px;padding:6px 8px;color:var(--t2, #e2e8f0);font-size:13px;}
 .admin-main .cert-table td.cert-contact{white-space:nowrap;}
 .cert-table input[type=checkbox]{width:16px;height:16px;cursor:pointer;}
 </style>
@@ -80,7 +80,7 @@ $dates = $run['course_start_date']
             A certificate you send here is emailed to the learner straight away<?php if (!$isMy): ?>, whatever their attendance<?php endif; ?>.
         </div>
         <?php if (!$isMy && $h->canChangeSettings()): ?>
-        <div style="display:flex;align-items:center;gap:8px;color:#94a3b8;font-size:12px;">
+        <div style="display:flex;align-items:center;gap:8px;color:var(--t4, #94a3b8);font-size:12px;">
             <label for="cert-threshold">Auto-send above</label>
             <input type="number" id="cert-threshold" class="cert-threshold" min="1" max="100" value="<?php echo (int) $h->attendanceThresholdPct() ?>" /> %
             <button type="button" class="mm-btn mm-btn-ghost" onclick="certSaveThreshold(this)">Save</button>

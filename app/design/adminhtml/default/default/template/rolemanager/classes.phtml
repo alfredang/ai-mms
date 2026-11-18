@@ -237,15 +237,15 @@ $assignBase = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_q
                 <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
             </svg>
             <div>
-                <div style="font-size:13px;font-weight:600;color:#e2e8f0;">Automated trainer invitations</div>
-                <div style="font-size:11px;color:#64748b;margin-top:1px;">When ON, the twice-weekly cron sweep emails the next eligible trainer for upcoming classes. Manual "Invite" still works regardless.</div>
+                <div style="font-size:13px;font-weight:600;color:var(--t2, #e2e8f0);">Automated trainer invitations</div>
+                <div style="font-size:11px;color:var(--t5, #64748b);margin-top:1px;">When ON, the twice-weekly cron sweep emails the next eligible trainer for upcoming classes. Manual "Invite" still works regardless.</div>
             </div>
         </div>
         <div style="display:flex;align-items:center;gap:12px;flex-shrink:0;">
-            <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#94a3b8;white-space:nowrap;">Window
-                <input type="number" id="auto-inv-window" min="1" max="365" value="<?php echo (int)$_autoWindow ?>" onchange="autoInvWindowSet(this)" style="width:60px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:6px;padding:5px 8px;font-size:12px;"> days
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--t4, #94a3b8);white-space:nowrap;">Window
+                <input type="number" id="auto-inv-window" min="1" max="365" value="<?php echo (int)$_autoWindow ?>" onchange="autoInvWindowSet(this)" style="width:60px;background:var(--d1, #0f172a);color:var(--t2, #e2e8f0);border:1px solid var(--b1, #334155);border-radius:6px;padding:5px 8px;font-size:12px;"> days
             </label>
-            <span id="auto-inv-spinner" style="font-family:monospace;font-size:16px;line-height:1;color:#60a5fa;width:12px;display:inline-block;text-align:center;"></span>
+            <span id="auto-inv-spinner" style="font-family:monospace;font-size:16px;line-height:1;color:var(--blue, #60a5fa);width:12px;display:inline-block;text-align:center;"></span>
             <label class="dcf-toggle-sw" title="<?php echo $_autoInviteEnabled ? 'Automated invitations ON' : 'Automated invitations OFF' ?>" style="flex-shrink:0;">
                 <input type="checkbox" id="auto-inv-cb" <?php echo $_autoInviteEnabled ? 'checked' : '' ?> onchange="autoInvSet(this)">
                 <span class="dcf-toggle-slider"></span>
@@ -255,7 +255,7 @@ $assignBase = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_q
     <?php endif; ?>
 
     <!-- Bucket tabs -->
-    <div style="display:flex;gap:0;margin-bottom:20px;border-bottom:1px solid #1e293b;">
+    <div style="display:flex;gap:0;margin-bottom:20px;border-bottom:1px solid var(--b1, #1e293b);">
         <?php
         $tabs = array(
             'all'       => 'All Classes',
@@ -346,7 +346,7 @@ $assignBase = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_q
                 <td><span class="rm-email" style="font-variant-numeric:tabular-nums"><?php echo $startStr ?></span></td>
                 <td><span class="rm-email" style="font-variant-numeric:tabular-nums"><?php echo $endStr ?></span></td>
                 <td><span class="rm-email" style="font-variant-numeric:tabular-nums"><?php echo $timeStr ?: '—' ?></span></td>
-                <td><span class="rm-email"><?php echo $trainerName !== '' ? htmlspecialchars($trainerName) : '<span style="color:#475569">—</span>' ?></span></td>
+                <td><span class="rm-email"><?php echo $trainerName !== '' ? htmlspecialchars($trainerName) : '<span style="color:var(--t5, #475569)">—</span>' ?></span></td>
                 <td><?php
                     $invStatus = isset($r['inv_status']) ? $r['inv_status'] : null;
                     $invTrainer = isset($r['inv_trainer_name']) ? $r['inv_trainer_name'] : '';
@@ -364,38 +364,38 @@ $assignBase = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_q
                     ?>
                     <span class="rm-badge" style="background:<?php echo $ic['bg'] ?>;color:<?php echo $ic['color'] ?>;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:middle;" title="<?php echo htmlspecialchars($invLabel) ?>"><?php echo $invLabel ?></span>
                     <?php else: ?>
-                    <span style="color:#475569">—</span>
+                    <span style="color:var(--t5, #475569)">—</span>
                     <?php endif; ?>
                 </td>
                 <td><span class="rm-name" style="font-variant-numeric:tabular-nums"><?php echo (int)$r['enrolled'] ?></span></td>
                 <td><span class="rm-badge" style="background:<?php echo $sc['bg'] ?>;color:<?php echo $sc['color'] ?>;"><?php echo ucfirst($state) ?></span></td>
-                <td><span class="rm-email" style="font-size:11px;"><?php echo !empty($r['created_by']) ? htmlspecialchars($r['created_by']) : '<span style="color:#475569">—</span>' ?></span></td>
+                <td><span class="rm-email" style="font-size:11px;"><?php echo !empty($r['created_by']) ? htmlspecialchars($r['created_by']) : '<span style="color:var(--t5, #475569)">—</span>' ?></span></td>
                 <td>
                     <div class="rm-actions">
                         <a href="<?php echo htmlspecialchars($editUrl) ?>" class="rm-icon rm-icon-edit" title="View roster" aria-label="View roster">
                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                         </a>
-                        <a href="<?php echo htmlspecialchars($_attendanceBaseUrl . '?run_id=' . (int)$r['run_id']) ?>" class="rm-icon" title="Take attendance" aria-label="Take attendance" style="color:#64748b;vertical-align:middle;">
+                        <a href="<?php echo htmlspecialchars($_attendanceBaseUrl . '?run_id=' . (int)$r['run_id']) ?>" class="rm-icon" title="Take attendance" aria-label="Take attendance" style="color:var(--t5, #64748b);vertical-align:middle;">
                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
                         </a>
                         <button type="button" onclick="clsToggleExpand(<?php echo (int)$r['run_id'] ?>)"
                                 class="rm-icon" title="Send invitation / toggle controls" aria-label="Invite controls"
-                                style="background:none;border:none;cursor:pointer;padding:2px;color:#64748b;vertical-align:middle;">
+                                style="background:none;border:none;cursor:pointer;padding:2px;color:var(--t5, #64748b);vertical-align:middle;">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
                         </button>
                     </div>
                 </td>
             </tr>
             <!-- Expansion row: invite controls for run_id=<?php echo (int)$r['run_id'] ?> -->
-            <tr id="cls-expand-<?php echo (int)$r['run_id'] ?>" data-expand-for="<?php echo (int)$r['run_id'] ?>" style="display:none;background:#131929;">
+            <tr id="cls-expand-<?php echo (int)$r['run_id'] ?>" data-expand-for="<?php echo (int)$r['run_id'] ?>" style="display:none;background:var(--d1, #131929);">
                 <td colspan="12" style="padding:0;border-top:none;">
-                    <div style="padding:14px 20px;display:flex;gap:20px;align-items:center;flex-wrap:wrap;border-top:1px solid #1e293b;">
+                    <div style="padding:14px 20px;display:flex;gap:20px;align-items:center;flex-wrap:wrap;border-top:1px solid var(--b1, #1e293b);">
                         <!-- Trainer dropdown + invite -->
                         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                            <span style="color:#64748b;font-size:12px;font-weight:600;white-space:nowrap;">Send invitation:</span>
+                            <span style="color:var(--t5, #64748b);font-size:12px;font-weight:600;white-space:nowrap;">Send invitation:</span>
                             <select id="cls-sel-<?php echo (int)$r['run_id'] ?>"
                                     onchange="clsUpdateInviteBtn(<?php echo (int)$r['run_id'] ?>)"
-                                    style="background:#0f172a;color:#cbd5e1;border:1px solid #334155;border-radius:6px;padding:5px 8px;font-size:12px;max-width:190px;">
+                                    style="background:var(--d1, #0f172a);color:var(--t2, #cbd5e1);border:1px solid var(--b1, #334155);border-radius:6px;padding:5px 8px;font-size:12px;max-width:190px;">
                                 <option value="">— Next in queue —</option>
                                 <?php foreach ($approvedTrainers as $_at): ?>
                                 <option value="<?php echo htmlspecialchars($_at['name'], ENT_QUOTES) ?>"><?php echo htmlspecialchars($_at['name']) ?></option>
@@ -404,10 +404,10 @@ $assignBase = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_q
                             <button id="cls-invite-btn-<?php echo (int)$r['run_id'] ?>"
                                     type="button"
                                     onclick="clsSendInvitation(<?php echo (int)$r['run_id'] ?>, this)"
-                                    style="padding:5px 12px;background:rgba(16,185,129,.15);color:#10b981;border:1px solid rgba(16,185,129,.3);border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">
+                                    style="padding:5px 12px;background:rgba(16,185,129,.15);color:var(--green, #10b981);border:1px solid rgba(16,185,129,.3);border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">
                                 Invite Next
                             </button>
-                            <span id="cls-inv-status-<?php echo (int)$r['run_id'] ?>" style="font-size:11px;color:#64748b;"></span>
+                            <span id="cls-inv-status-<?php echo (int)$r['run_id'] ?>" style="font-size:11px;color:var(--t5, #64748b);"></span>
                         </div>
                         <!-- Flag toggles -->
                         <div style="display:flex;align-items:center;gap:8px;">
@@ -431,7 +431,7 @@ $assignBase = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_q
             </tr>
         <?php endforeach; ?>
         <?php if (empty($rows)): ?>
-            <tr><td colspan="12" style="padding:48px 12px;text-align:center;color:#64748b">
+            <tr><td colspan="12" style="padding:48px 12px;text-align:center;color:var(--t5, #64748b)">
                 <?php echo htmlspecialchars($_emptyMsg) ?>
             </td></tr>
         <?php endif; ?>

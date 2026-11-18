@@ -76,12 +76,12 @@ $_pageTitle     = 'Featured Reviews';
            style="padding:8px 18px;background:#2563eb;color:#fff !important;border:none;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none !important;white-space:nowrap;">+ Add from All Reviews</a>
     </div>
 
-    <p style="color:#64748b;font-size:12.5px;margin:0 0 20px;max-width:760px;line-height:1.6;">
+    <p style="color:var(--t5, #64748b);font-size:12.5px;margin:0 0 20px;max-width:760px;line-height:1.6;">
         These reviews appear on the storefront &mdash; 4 at random in the
-        <strong style="color:#94a3b8;">What our learners say</strong> band on the homepage, and all of
+        <strong style="color:var(--t4, #94a3b8);">What our learners say</strong> band on the homepage, and all of
         them on the
-        <a href="<?php echo Mage::getUrl('testimonials') ?>" target="_blank" style="color:#60a5fa;">Testimonials page</a>.
-        To feature a review, open <a href="<?php echo $_allReviewsUrl ?>" style="color:#60a5fa;">All Reviews</a>,
+        <a href="<?php echo Mage::getUrl('testimonials') ?>" target="_blank" style="color:var(--blue, #60a5fa);">Testimonials page</a>.
+        To feature a review, open <a href="<?php echo $_allReviewsUrl ?>" style="color:var(--blue, #60a5fa);">All Reviews</a>,
         select it, and use the <em>Mark as Featured</em> action.
     </p>
 
@@ -97,7 +97,7 @@ $_pageTitle     = 'Featured Reviews';
         </div>
         <div class="rm-kpi-card">
             <div class="rm-kpi-num<?php echo $_hiddenFeatured > 0 ? '' : ' purple' ?>"
-                 <?php echo $_hiddenFeatured > 0 ? 'style="color:#f59e0b"' : '' ?>><?php echo number_format($_hiddenFeatured) ?></div>
+                 <?php echo $_hiddenFeatured > 0 ? 'style="color:var(--yellow, #f59e0b)"' : '' ?>><?php echo number_format($_hiddenFeatured) ?></div>
             <div class="rm-kpi-lbl"><?php echo $this->__('Hidden (Not Approved)') ?></div>
         </div>
     </div>
@@ -131,7 +131,7 @@ $_pageTitle     = 'Featured Reviews';
         </thead>
         <tbody>
         <?php if (!$rows): ?>
-            <tr><td colspan="8" style="padding:28px 10px;text-align:center;color:#64748b;white-space:normal;height:auto;">
+            <tr><td colspan="8" style="padding:28px 10px;text-align:center;color:var(--t5, #64748b);white-space:normal;height:auto;">
                 <?php echo $this->__('No featured reviews yet. Open All Reviews, select the ones worth showing, and choose "Mark as Featured".') ?>
             </td></tr>
         <?php endif; ?>
@@ -151,24 +151,24 @@ $_pageTitle     = 'Featured Reviews';
             $_haystack  = strtolower($r['nickname'] . ' ' . $r['course_name'] . ' ' . $r['sku'] . ' ' . $_quote);
         ?>
             <tr class="fr-row" data-search="<?php echo htmlspecialchars($_haystack, ENT_QUOTES) ?>">
-                <td style="color:#94a3b8;font-size:12px;"><?php echo date('d M Y', strtotime($r['created_at'])) ?></td>
+                <td style="color:var(--t4, #94a3b8);font-size:12px;"><?php echo date('d M Y', strtotime($r['created_at'])) ?></td>
                 <td style="overflow:hidden;text-overflow:ellipsis;"><span class="rm-name" title="<?php echo $this->escapeHtml($r['nickname']) ?>"><?php echo $this->escapeHtml($r['nickname']) ?></span></td>
                 <td style="overflow:hidden;text-overflow:ellipsis;">
                     <?php if ($r['course_name']): ?>
-                        <span style="color:#cbd5e1;font-size:12.5px;" title="<?php echo $this->escapeHtml($r['course_name']) ?>"><?php echo $this->escapeHtml($r['course_name']) ?></span>
+                        <span style="color:var(--t2, #cbd5e1);font-size:12.5px;" title="<?php echo $this->escapeHtml($r['course_name']) ?>"><?php echo $this->escapeHtml($r['course_name']) ?></span>
                     <?php else: ?>
-                        <span style="color:#64748b;">&mdash;</span>
+                        <span style="color:var(--t5, #64748b);">&mdash;</span>
                     <?php endif; ?>
                 </td>
-                <td style="color:#94a3b8;font-size:12px;"><?php echo $this->escapeHtml($r['sku'] ? $r['sku'] : '—') ?></td>
+                <td style="color:var(--t4, #94a3b8);font-size:12px;"><?php echo $this->escapeHtml($r['sku'] ? $r['sku'] : '—') ?></td>
                 <td style="white-space:nowrap;">
-                    <span style="color:#f59e0b;letter-spacing:1px;"><?php echo str_repeat('&#9733;', $_full) . str_repeat('<span style="color:#475569">&#9733;</span>', 5 - $_full) ?></span>
-                    <span style="color:#64748b;font-size:11px;margin-left:4px;"><?php echo number_format($_score, 1) ?></span>
+                    <span style="color:var(--yellow, #f59e0b);letter-spacing:1px;"><?php echo str_repeat('&#9733;', $_full) . str_repeat('<span style="color:var(--t5, #475569)">&#9733;</span>', 5 - $_full) ?></span>
+                    <span style="color:var(--t5, #64748b);font-size:11px;margin-left:4px;"><?php echo number_format($_score, 1) ?></span>
                 </td>
                 <?php /* Opt out of .rm-table's global nowrap for this column
                          only — a review quote must wrap or it blows the row
                          out to several thousand pixels wide. */ ?>
-                <td style="white-space:normal;line-height:1.45;height:auto;padding:8px 10px;color:#94a3b8;font-size:12px;">
+                <td style="white-space:normal;line-height:1.45;height:auto;padding:8px 10px;color:var(--t4, #94a3b8);font-size:12px;">
                     <span title="<?php echo $this->escapeHtml($_quote) ?>"
                           style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;"><?php echo $this->escapeHtml($_quote) ?></span>
                 </td>
@@ -176,7 +176,7 @@ $_pageTitle     = 'Featured Reviews';
                     <?php if ($_approved): ?>
                         <span class="rm-status rm-status-active"><?php echo $this->__('Live') ?></span>
                     <?php else: ?>
-                        <span class="rm-status" style="background:rgba(245,158,11,.15);color:#f59e0b;"><?php echo $this->__('Not Approved') ?></span>
+                        <span class="rm-status" style="background:rgba(245,158,11,.15);color:var(--yellow, #f59e0b);"><?php echo $this->__('Not Approved') ?></span>
                     <?php endif; ?>
                 </td>
                 <td style="white-space:nowrap;">

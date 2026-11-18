@@ -26,72 +26,72 @@ $pillFail = '<span class="seo-pill seo-pill-fail">Fail</span>';
 <style>
 .seo-audit-wrap{padding:18px 22px 36px}
 .seo-audit-head{display:flex;align-items:baseline;gap:12px;margin-bottom:14px}
-.seo-audit-head h1{font-size:20px;color:#e2e8f0;margin:0;font-weight:600}
-.seo-audit-head .seo-scope{color:#94a3b8;font-size:13px}
-.seo-audit-head .seo-scope strong{color:#22d3ee}
+.seo-audit-head h1{font-size:20px;color:var(--t2, #e2e8f0);margin:0;font-weight:600}
+.seo-audit-head .seo-scope{color:var(--t4, #94a3b8);font-size:13px}
+.seo-audit-head .seo-scope strong{color:var(--cyan, #22d3ee)}
 .seo-kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:18px}
-.seo-kpi-card{background:#1f2937;border:1px solid var(--b1,#384a60);border-radius:10px;padding:14px 16px}
-.seo-kpi-num{font-size:24px;font-weight:600;color:#e2e8f0;line-height:1.1}
-.seo-kpi-num.is-bad{color:#f87171}
-.seo-kpi-num.is-warn{color:#fbbf24}
-.seo-kpi-num.is-ok{color:#34d399}
-.seo-kpi-lbl{font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-top:4px}
-.seo-section{background:#1f2937;border:1px solid var(--b1,#384a60);border-radius:10px;margin-bottom:14px;overflow:hidden}
-.seo-section-head{padding:11px 16px;border-bottom:1px solid var(--b1,#384a60);font-size:12px;font-weight:600;color:#cbd5e1;text-transform:uppercase;letter-spacing:.06em;display:flex;justify-content:space-between;align-items:center;gap:8px}
-.seo-section-head .seo-sub{font-size:10.5px;color:#64748b;font-weight:500;text-transform:none;letter-spacing:0}
+.seo-kpi-card{background:var(--d3, #1f2937);border:1px solid var(--b1,#384a60);border-radius:10px;padding:14px 16px}
+.seo-kpi-num{font-size:24px;font-weight:600;color:var(--t2, #e2e8f0);line-height:1.1}
+.seo-kpi-num.is-bad{color:var(--red-soft, #f87171)}
+.seo-kpi-num.is-warn{color:var(--yellow, #fbbf24)}
+.seo-kpi-num.is-ok{color:var(--green-soft, #34d399)}
+.seo-kpi-lbl{font-size:11px;color:var(--t4, #94a3b8);text-transform:uppercase;letter-spacing:.06em;margin-top:4px}
+.seo-section{background:var(--d3, #1f2937);border:1px solid var(--b1,#384a60);border-radius:10px;margin-bottom:14px;overflow:hidden}
+.seo-section-head{padding:11px 16px;border-bottom:1px solid var(--b1,#384a60);font-size:12px;font-weight:600;color:var(--t2, #cbd5e1);text-transform:uppercase;letter-spacing:.06em;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.seo-section-head .seo-sub{font-size:10.5px;color:var(--t5, #64748b);font-weight:500;text-transform:none;letter-spacing:0}
 .seo-section-body{padding:12px 16px}
 .seo-rule-table{width:100%;border-collapse:collapse;font-size:12.5px}
-.seo-rule-table th{text-align:left;padding:7px 10px;color:#94a3b8;font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--b1,#384a60);white-space:nowrap}
-.seo-rule-table td{padding:7px 10px;color:#e2e8f0;border-bottom:1px solid rgba(56,74,96,.4);vertical-align:top}
+.seo-rule-table th{text-align:left;padding:7px 10px;color:var(--t4, #94a3b8);font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--b1,#384a60);white-space:nowrap}
+.seo-rule-table td{padding:7px 10px;color:var(--t2, #e2e8f0);border-bottom:1px solid rgba(56,74,96,.4);vertical-align:top}
 .seo-rule-table tr:last-child td{border-bottom:0}
 .seo-rule-table td.seo-count{text-align:right;width:80px;font-variant-numeric:tabular-nums}
-.seo-rule-table td.seo-count.is-bad{color:#f87171;font-weight:600}
-.seo-rule-table td.seo-count.is-ok{color:#34d399}
+.seo-rule-table td.seo-count.is-bad{color:var(--red-soft, #f87171);font-weight:600}
+.seo-rule-table td.seo-count.is-ok{color:var(--green-soft, #34d399)}
 .seo-pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
-.seo-pill-ok{background:rgba(52,211,153,.12);color:#34d399;border:1px solid rgba(52,211,153,.3)}
-.seo-pill-warn{background:rgba(251,191,36,.12);color:#fbbf24;border:1px solid rgba(251,191,36,.3)}
-.seo-pill-fail{background:rgba(248,113,113,.12);color:#f87171;border:1px solid rgba(248,113,113,.3)}
-.seo-examples{margin-top:6px;font-size:11.5px;color:#64748b}
+.seo-pill-ok{background:rgba(52,211,153,.12);color:var(--green-soft, #34d399);border:1px solid rgba(52,211,153,.3)}
+.seo-pill-warn{background:rgba(251,191,36,.12);color:var(--yellow, #fbbf24);border:1px solid rgba(251,191,36,.3)}
+.seo-pill-fail{background:rgba(248,113,113,.12);color:var(--red-soft, #f87171);border:1px solid rgba(248,113,113,.3)}
+.seo-examples{margin-top:6px;font-size:11.5px;color:var(--t5, #64748b)}
 .seo-examples ul{margin:4px 0 0 16px;padding:0}
 .seo-examples li{margin:2px 0}
-.seo-examples .sku{color:#22d3ee;font-family:"SF Mono",ui-monospace,monospace;font-size:11px}
-.seo-kv{display:grid;grid-template-columns:max-content 1fr;gap:6px 14px;font-size:12.5px;color:#e2e8f0}
-.seo-kv .k{color:#94a3b8}
-.seo-kv .v code{background:#0f172a;border:1px solid #334155;padding:1px 6px;border-radius:4px;color:#22d3ee;font-size:11.5px}
-.seo-snippet{background:#0f172a;border:1px solid #334155;border-radius:6px;padding:10px 12px;font-family:"SF Mono",ui-monospace,monospace;font-size:11.5px;color:#cbd5e1;white-space:pre-wrap;max-height:180px;overflow:auto;margin-top:6px}
+.seo-examples .sku{color:var(--cyan, #22d3ee);font-family:"SF Mono",ui-monospace,monospace;font-size:11px}
+.seo-kv{display:grid;grid-template-columns:max-content 1fr;gap:6px 14px;font-size:12.5px;color:var(--t2, #e2e8f0)}
+.seo-kv .k{color:var(--t4, #94a3b8)}
+.seo-kv .v code{background:var(--d1, #0f172a);border:1px solid var(--b1, #334155);padding:1px 6px;border-radius:4px;color:var(--cyan, #22d3ee);font-size:11.5px}
+.seo-snippet{background:var(--d1, #0f172a);border:1px solid var(--b1, #334155);border-radius:6px;padding:10px 12px;font-family:"SF Mono",ui-monospace,monospace;font-size:11.5px;color:var(--t2, #cbd5e1);white-space:pre-wrap;max-height:180px;overflow:auto;margin-top:6px}
 .seo-inpage-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 @media (max-width:900px){.seo-inpage-grid{grid-template-columns:1fr}}
-.seo-inpage-card{background:#0f172a;border:1px solid #334155;border-radius:8px;padding:12px 14px}
-.seo-inpage-card h4{margin:0 0 6px;font-size:12px;color:#22d3ee;text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+.seo-inpage-card{background:var(--d1, #0f172a);border:1px solid var(--b1, #334155);border-radius:8px;padding:12px 14px}
+.seo-inpage-card h4{margin:0 0 6px;font-size:12px;color:var(--cyan, #22d3ee);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
 .seo-inpage-card .seo-kv{font-size:12px}
-.seo-meta-rules{margin:0 0 10px;padding:10px 12px;background:rgba(34,211,238,.05);border:1px solid rgba(34,211,238,.2);border-radius:6px;color:#cbd5e1;font-size:12px;line-height:1.5}
-.seo-meta-rules strong{color:#22d3ee}
+.seo-meta-rules{margin:0 0 10px;padding:10px 12px;background:rgba(34,211,238,.05);border:1px solid rgba(34,211,238,.2);border-radius:6px;color:var(--t2, #cbd5e1);font-size:12px;line-height:1.5}
+.seo-meta-rules strong{color:var(--cyan, #22d3ee)}
 
 /* Light mode — slate-200 cards with dark text. Semantic state colors
    (is-bad red, is-warn amber, is-ok green) stay; they're meaningful
    indicators. Background-tinted "ok/warn/fail" pills also keep their
    tints. */
-:root[data-theme="light"] .seo-audit-head h1{color:#0f172a}
-:root[data-theme="light"] .seo-audit-head .seo-scope{color:#475569}
-:root[data-theme="light"] .seo-audit-head .seo-scope strong{color:#0891b2}
+:root[data-theme="light"] .seo-audit-head h1{color:var(--t1)}
+:root[data-theme="light"] .seo-audit-head .seo-scope{color:var(--t3)}
+:root[data-theme="light"] .seo-audit-head .seo-scope strong{color:var(--cyan)}
 :root[data-theme="light"] .seo-kpi-card,
-:root[data-theme="light"] .seo-section{background:#e2e8f0;border-color:#cbd5e1}
-:root[data-theme="light"] .seo-kpi-num{color:#0f172a}
-:root[data-theme="light"] .seo-kpi-lbl{color:#475569}
-:root[data-theme="light"] .seo-section-head{color:#0f172a;border-bottom-color:#cbd5e1}
-:root[data-theme="light"] .seo-section-head .seo-sub{color:#64748b}
-:root[data-theme="light"] .seo-rule-table th{color:#475569;border-bottom-color:#cbd5e1}
-:root[data-theme="light"] .seo-rule-table td{color:#0f172a;border-bottom-color:rgba(148,163,184,.4)}
-:root[data-theme="light"] .seo-examples{color:#64748b}
-:root[data-theme="light"] .seo-examples .sku{color:#0891b2}
-:root[data-theme="light"] .seo-kv{color:#0f172a}
-:root[data-theme="light"] .seo-kv .k{color:#475569}
-:root[data-theme="light"] .seo-kv .v code{background:#ffffff;border-color:#cbd5e1;color:#0891b2}
-:root[data-theme="light"] .seo-snippet{background:#ffffff;border-color:#cbd5e1;color:#0f172a}
-:root[data-theme="light"] .seo-inpage-card{background:#ffffff;border-color:#cbd5e1}
-:root[data-theme="light"] .seo-inpage-card h4{color:#0891b2}
-:root[data-theme="light"] .seo-meta-rules{background:rgba(8,145,178,.06);border-color:rgba(8,145,178,.25);color:#334155}
-:root[data-theme="light"] .seo-meta-rules strong{color:#0891b2}
+:root[data-theme="light"] .seo-section{background:var(--d5);border-color:var(--b1)}
+:root[data-theme="light"] .seo-kpi-num{color:var(--t1)}
+:root[data-theme="light"] .seo-kpi-lbl{color:var(--t3)}
+:root[data-theme="light"] .seo-section-head{color:var(--t1);border-bottom-color:var(--b1)}
+:root[data-theme="light"] .seo-section-head .seo-sub{color:var(--t4)}
+:root[data-theme="light"] .seo-rule-table th{color:var(--t3);border-bottom-color:var(--b1)}
+:root[data-theme="light"] .seo-rule-table td{color:var(--t1);border-bottom-color:rgba(148,163,184,.4)}
+:root[data-theme="light"] .seo-examples{color:var(--t4)}
+:root[data-theme="light"] .seo-examples .sku{color:var(--cyan)}
+:root[data-theme="light"] .seo-kv{color:var(--t1)}
+:root[data-theme="light"] .seo-kv .k{color:var(--t3)}
+:root[data-theme="light"] .seo-kv .v code{background:#ffffff;border-color:var(--b1);color:var(--cyan)}
+:root[data-theme="light"] .seo-snippet{background:#ffffff;border-color:var(--b1);color:var(--t1)}
+:root[data-theme="light"] .seo-inpage-card{background:#ffffff;border-color:var(--b1)}
+:root[data-theme="light"] .seo-inpage-card h4{color:var(--cyan)}
+:root[data-theme="light"] .seo-meta-rules{background:rgba(8,145,178,.06);border-color:rgba(8,145,178,.25);color:var(--t3)}
+:root[data-theme="light"] .seo-meta-rules strong{color:var(--cyan)}
 </style>
 
 <div class="seo-audit-wrap">

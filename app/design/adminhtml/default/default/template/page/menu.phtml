@@ -1227,47 +1227,47 @@ foreach (Mage::app()->getStores() as $_s) {
 <style>
 .qr-backdrop { position: fixed; inset: 0; background: rgba(7,12,22,0.78); z-index: 9998; display: none; align-items: flex-start; justify-content: center; overflow-y: auto; padding: 40px 20px; }
 .qr-backdrop.open { display: flex; }
-.qr-modal { background: #1e293b; border: 1px solid #334155; border-radius: 14px; width: 100%; max-width: 720px; color: #f1f5f9; box-shadow: 0 30px 80px rgba(0,0,0,0.5); }
-.qr-head { display: flex; justify-content: space-between; align-items: center; padding: 18px 22px; border-bottom: 1px solid #334155; }
+.qr-modal { background: var(--d3, #1e293b); border: 1px solid var(--b1, #334155); border-radius: 14px; width: 100%; max-width: 720px; color: var(--t1, #f1f5f9); box-shadow: 0 30px 80px rgba(0,0,0,0.5); }
+.qr-head { display: flex; justify-content: space-between; align-items: center; padding: 18px 22px; border-bottom: 1px solid var(--b1, #334155); }
 .qr-head h2 { margin: 0; font-size: 17px; font-weight: 600; }
-.qr-close { background: transparent; border: 0; color: #94a3b8; font-size: 22px; cursor: pointer; padding: 4px 8px; line-height: 1; border-radius: 6px; }
-.qr-close:hover { color: #f1f5f9; background: rgba(255,255,255,0.06); }
+.qr-close { background: transparent; border: 0; color: var(--t4, #94a3b8); font-size: 22px; cursor: pointer; padding: 4px 8px; line-height: 1; border-radius: 6px; }
+.qr-close:hover { color: var(--t1, #f1f5f9); background: rgba(255,255,255,0.06); }
 .qr-body { padding: 18px 22px 4px; }
 .qr-section { margin-bottom: 22px; }
-.qr-section h3 { margin: 0 0 12px; font-size: 12px; color: #94a3b8; font-weight: 600; letter-spacing: 0.6px; text-transform: uppercase; }
+.qr-section h3 { margin: 0 0 12px; font-size: 12px; color: var(--t4, #94a3b8); font-weight: 600; letter-spacing: 0.6px; text-transform: uppercase; }
 .qr-grid { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; }
 .qr-grid .qr-full { grid-column: 1 / -1; }
 .qr-row { display: flex; flex-direction: column; gap: 4px; }
-.qr-row label { font-size: 12px; color: #94a3b8; font-weight: 500; }
-.qr-row label .req { color: #f87171; }
-.qr-input, .qr-select, .qr-textarea { width: 100%; padding: 9px 12px; background: transparent; border: 1px solid #475569; border-radius: 7px; color: #f1f5f9; font-size: 13px; outline: none; box-sizing: border-box; }
-.qr-input:focus, .qr-select:focus, .qr-textarea:focus { border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(96,165,250,0.15); }
-.qr-input::placeholder { color: #64748b; }
+.qr-row label { font-size: 12px; color: var(--t4, #94a3b8); font-weight: 500; }
+.qr-row label .req { color: var(--red-soft, #f87171); }
+.qr-input, .qr-select, .qr-textarea { width: 100%; padding: 9px 12px; background: transparent; border: 1px solid var(--b2, #475569); border-radius: 7px; color: var(--t1, #f1f5f9); font-size: 13px; outline: none; box-sizing: border-box; }
+.qr-input:focus, .qr-select:focus, .qr-textarea:focus { border-color: var(--blue, #60a5fa); box-shadow: 0 0 0 3px rgba(96,165,250,0.15); }
+.qr-input::placeholder { color: var(--t5, #64748b); }
 .qr-textarea { resize: vertical; min-height: 56px; font-family: inherit; }
 .qr-course-results { position: relative; }
-.qr-course-list { position: absolute; top: 100%; left: 0; right: 0; background: #0f172a; border: 1px solid #334155; border-radius: 7px; max-height: 220px; overflow-y: auto; margin-top: 4px; z-index: 5; display: none; box-shadow: 0 6px 18px rgba(0,0,0,0.4); }
+.qr-course-list { position: absolute; top: 100%; left: 0; right: 0; background: var(--d1, #0f172a); border: 1px solid var(--b1, #334155); border-radius: 7px; max-height: 220px; overflow-y: auto; margin-top: 4px; z-index: 5; display: none; box-shadow: 0 6px 18px rgba(0,0,0,0.4); }
 .qr-course-list.open { display: block; }
-.qr-course-item { padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #1e293b; font-size: 13px; }
-.qr-course-item:hover, .qr-course-item.hover { background: rgba(96,165,250,0.12); color: #60a5fa; }
-.qr-course-item .qr-sku { font-family: ui-monospace, monospace; color: #94a3b8; font-size: 11px; }
-.qr-picked { padding: 10px 12px; border: 1px solid #475569; border-radius: 7px; background: rgba(96,165,250,0.06); font-size: 13px; display: none; }
+.qr-course-item { padding: 8px 12px; cursor: pointer; border-bottom: 1px solid var(--b1, #1e293b); font-size: 13px; }
+.qr-course-item:hover, .qr-course-item.hover { background: rgba(96,165,250,0.12); color: var(--blue, #60a5fa); }
+.qr-course-item .qr-sku { font-family: ui-monospace, monospace; color: var(--t4, #94a3b8); font-size: 11px; }
+.qr-picked { padding: 10px 12px; border: 1px solid var(--b2, #475569); border-radius: 7px; background: rgba(96,165,250,0.06); font-size: 13px; display: none; }
 .qr-picked.shown { display: block; }
-.qr-picked .qr-pick-meta { color: #94a3b8; font-size: 11px; margin-top: 2px; }
-.qr-picked .qr-pick-clear { float: right; background: transparent; border: 0; color: #94a3b8; cursor: pointer; font-size: 13px; }
+.qr-picked .qr-pick-meta { color: var(--t4, #94a3b8); font-size: 11px; margin-top: 2px; }
+.qr-picked .qr-pick-clear { float: right; background: transparent; border: 0; color: var(--t4, #94a3b8); cursor: pointer; font-size: 13px; }
 .qr-opt-area { display: none; flex-direction: column; gap: 12px; padding-top: 6px; }
 .qr-opt-area.shown { display: flex; }
-.qr-foot { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 14px 22px; border-top: 1px solid #334155; }
-.qr-err { color: #f87171; font-size: 12px; flex: 1; }
+.qr-foot { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 14px 22px; border-top: 1px solid var(--b1, #334155); }
+.qr-err { color: var(--red-soft, #f87171); font-size: 12px; flex: 1; }
 .qr-btn { padding: 9px 18px; border: 0; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
 .qr-btn-primary { background: #2563eb; color: #fff; }
 .qr-btn-primary:hover { background: #3b82f6; }
 .qr-btn-primary[disabled] { opacity: 0.5; cursor: wait; }
-.qr-btn-ghost { background: transparent; color: #94a3b8; border: 1px solid #475569; }
-.qr-btn-ghost:hover { color: #f1f5f9; border-color: #64748b; }
+.qr-btn-ghost { background: transparent; color: var(--t4, #94a3b8); border: 1px solid var(--b2, #475569); }
+.qr-btn-ghost:hover { color: var(--t1, #f1f5f9); border-color: var(--b3, #64748b); }
 .qr-spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: qr-spin 0.6s linear infinite; vertical-align: middle; margin-right: 6px; }
 @keyframes qr-spin { to { transform: rotate(360deg); } }
-.qr-toast { position: fixed; bottom: 22px; right: 22px; background: #1e293b; border: 1px solid #334155; border-left: 3px solid #34d399; color: #f1f5f9; padding: 12px 18px; border-radius: 8px; font-size: 13px; box-shadow: 0 10px 30px rgba(0,0,0,0.4); display: none; z-index: 99999; }
-.qr-toast.err { border-left-color: #f87171; color: #fecaca; }
+.qr-toast { position: fixed; bottom: 22px; right: 22px; background: var(--d3, #1e293b); border: 1px solid var(--b1, #334155); border-left: 3px solid var(--green-soft, #34d399); color: var(--t1, #f1f5f9); padding: 12px 18px; border-radius: 8px; font-size: 13px; box-shadow: 0 10px 30px rgba(0,0,0,0.4); display: none; z-index: 99999; }
+.qr-toast.err { border-left-color: var(--red-soft, #f87171); color: var(--red-soft, #fecaca); }
 </style>
 
 <div class="qr-backdrop" id="qr-backdrop" onclick="if(event.target===this) qrClose()">
@@ -1333,7 +1333,7 @@ foreach (Mage::app()->getStores() as $_s) {
       </div>
 
       <div class="qr-section">
-        <h3>Payment <span style="color:#64748b; font-weight: 400; text-transform: none; letter-spacing: 0; font-size: 11px;">(optional)</span></h3>
+        <h3>Payment <span style="color:var(--t5, #64748b); font-weight: 400; text-transform: none; letter-spacing: 0; font-size: 11px;">(optional)</span></h3>
         <div class="qr-grid">
           <div class="qr-row">
             <label>Method</label>
@@ -1415,7 +1415,7 @@ foreach (Mage::app()->getStores() as $_s) {
                 var list = $('qr-course-list');
                 list.innerHTML = '';
                 if (!j.results || !j.results.length) {
-                    list.innerHTML = '<div class="qr-course-item" style="color:#94a3b8;">No matches.</div>';
+                    list.innerHTML = '<div class="qr-course-item" style="color:var(--t4, #94a3b8);">No matches.</div>';
                     list.classList.add('open');
                     return;
                 }

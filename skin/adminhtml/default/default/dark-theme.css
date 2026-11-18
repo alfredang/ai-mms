@@ -43,6 +43,16 @@
     --red2: #dc2626;
     --yellow: #fbbf24;
     --orange: #f97316;
+    /* Soft accents (badge / status text on a tint) + cyan / violet — shared by every
+       page; hard-coded pastel hexes in page CSS were converted to these 2026-11-19. */
+    --blue-soft: #93c5fd;
+    --green-soft: #6ee7b7;
+    --red-soft: #f87171;
+    --yellow-soft: #fcd34d;
+    --cyan: #22d3ee;
+    --violet: #c084fc;
+    --red-tint: #2a1f1f;     /* solid error / success panel fills */
+    --green-tint: #1b3a2d;
     --wa: #25d366;       /* WhatsApp brand green (Kael ops launcher only) */
     --wa-deep: #0b6e4f;  /* WhatsApp deep green — launcher/panel header    */
 
@@ -108,7 +118,15 @@
     --red: #b91c1c;
     --red2: #991b1b;
     --yellow: #92400e;
-    --orange: #c2410c;
+    --orange: #9a3412;
+    --blue-soft: #1e40af;
+    --green-soft: #065f46;
+    --red-soft: #991b1b;
+    --yellow-soft: #78350f;
+    --cyan: #155e75;
+    --violet: #6d28d9;
+    --red-tint: #fdecec;
+    --green-tint: #e3f6ec;
 
     --lt-card-shadow: 0 1px 2px rgba(15, 29, 71, 0.05), 0 1px 3px rgba(15, 29, 71, 0.04);
 
@@ -174,35 +192,35 @@
    hex/rgba colors (instead of design tokens) don't auto-flip. Patch
    the most visible globally-shared ones here; per-page overrides
    (profile.phtml etc.) live in their respective inline <style>. */
-:root[data-theme="light"] .lms-header .header-brand-text { color: #0f1d47 !important; }
-:root[data-theme="light"] .lms-header .header-brand-img { background: #f0f4fc !important; }
+:root[data-theme="light"] .lms-header .header-brand-text { color: var(--t1) !important; }
+:root[data-theme="light"] .lms-header .header-brand-img { background: var(--d4) !important; }
 /* Order/Invoice/Transaction view header — boxes.css:332 paints
    `.entry-edit .entry-edit-head strong` and `a` as color:#fff. White
    text on the light page background makes "(confirmation email sent)"
    etc. invisible. Lift strong to near-black; the <a> still picks up
    blue link color globally. */
-:root[data-theme="light"] .entry-edit .entry-edit-head strong { color: #0f1d47 !important; }
-:root[data-theme="light"] .entry-edit .entry-edit-head h4 { color: #0f1d47 !important; }
+:root[data-theme="light"] .entry-edit .entry-edit-head strong { color: var(--t1) !important; }
+:root[data-theme="light"] .entry-edit .entry-edit-head h4 { color: var(--t1) !important; }
 /* User-avatar button on dark uses #4b5563 / #60a5fa; flip the surface
    so it doesn't look like a dark medallion punched out of a light bar. */
 :root[data-theme="light"] .header-top button.user-avatar-btn,
 :root[data-theme="light"] button.user-avatar-btn {
-    background: #f0f4fc !important;
-    background-color: #f0f4fc !important;
-    border-color: #2f5be6 !important;
-    color: #0f1d47 !important;
+    background: var(--d4) !important;
+    background-color: var(--d4) !important;
+    border-color: var(--blue) !important;
+    color: var(--t1) !important;
 }
 :root[data-theme="light"] .header-top button.user-avatar-btn:hover,
 :root[data-theme="light"] button.user-avatar-btn:hover {
-    background: #e6ecf9 !important;
-    background-color: #e6ecf9 !important;
+    background: var(--d5) !important;
+    background-color: var(--d5) !important;
     border-color: #1d4ed8 !important;
 }
 /* Footer / version line */
 :root[data-theme="light"] .admin-page-footer,
 :root[data-theme="light"] .admin-page-footer *,
 :root[data-theme="light"] .footer-copyright,
-:root[data-theme="light"] .footer-copyright * { color: #0f1d47 !important; }
+:root[data-theme="light"] .footer-copyright * { color: var(--t1) !important; }
 
 /* === 2. Global Reset for Dark === */
 * { border-color: var(--b1) !important; }
@@ -541,7 +559,7 @@ body.catalog-categories .tree-actions--inline .categories-add-buttons button {
     min-height: 0 !important;
     height: auto !important;
     line-height: 1.4 !important;
-    color: #60a5fa !important;
+    color: var(--blue, #60a5fa) !important;
     font-size: 11px !important;
     font-weight: 500 !important;
     text-decoration: underline !important;
@@ -551,7 +569,7 @@ body.catalog-categories .tree-actions--inline .categories-add-buttons button {
 body.adminhtml-catalog-category-edit .tree-actions--inline .categories-add-buttons button:hover,
 body.adminhtml-catalog-category-index .tree-actions--inline .categories-add-buttons button:hover,
 body.catalog-categories .tree-actions--inline .categories-add-buttons button:hover {
-    color: #93c5fd !important;
+    color: var(--blue-soft, #93c5fd) !important;
 }
 /* Strip the nested <span><span><span> chrome the widget renders inside the button. */
 body.adminhtml-catalog-category-edit .tree-actions--inline .categories-add-buttons button span,
@@ -1110,7 +1128,7 @@ div.collapseable > a {
     font-weight: 600 !important;
     letter-spacing: 0.6px !important;
     text-transform: uppercase !important;
-    color: #6aa9c8 !important;
+    color: var(--cyan, #6aa9c8) !important;
     padding: 4px 8px !important;
 }
 .grid table.data tbody td, .grid td {
@@ -1523,12 +1541,12 @@ select option[selected] {
 }
 :root[data-theme="light"] select option {
     background: #ffffff !important;
-    color: #0f1d47 !important;
+    color: var(--t1) !important;
 }
 :root[data-theme="light"] select option:checked,
 :root[data-theme="light"] select option[selected] {
     background: #dbeafe !important;
-    color: #0f1d47 !important;
+    color: var(--t1) !important;
 }
 
 input[type="text"]:focus, input[type="password"]:focus,
@@ -1554,12 +1572,12 @@ select optgroup option {
     font-weight: normal !important;
 }
 :root[data-theme="light"] select optgroup {
-    background: #f0f4fc !important;
-    color: #3a4670 !important;
+    background: var(--d4) !important;
+    color: var(--t3) !important;
 }
 :root[data-theme="light"] select optgroup option {
     background: #ffffff !important;
-    color: #0f1d47 !important;
+    color: var(--t1) !important;
 }
 /* Fieldset legends — the section titles inside System > Configuration and
    anywhere else Magento groups fields. Browser default is black, which
@@ -1633,7 +1651,7 @@ input[type="checkbox"] {
     min-height: 16px !important;
     background: transparent !important;
     background-image: none !important;
-    border: 1.5px solid #475569 !important;
+    border: 1.5px solid var(--b2, #475569) !important;
     border-radius: 4px !important;
     cursor: pointer !important;
     vertical-align: middle !important;
@@ -1645,7 +1663,7 @@ input[type="checkbox"] {
     position: relative !important;
 }
 input[type="checkbox"]:hover {
-    border-color: #64748b !important;
+    border-color: var(--b3, #64748b) !important;
 }
 input[type="checkbox"]:checked {
     background: #2563eb !important;
@@ -1656,7 +1674,7 @@ input[type="checkbox"]:checked {
     background-repeat: no-repeat !important;
 }
 input[type="checkbox"]:focus-visible {
-    outline: 2px solid #60a5fa !important;
+    outline: 2px solid var(--blue, #60a5fa) !important;
     outline-offset: 2px !important;
 }
 input[type="checkbox"]:disabled {
@@ -2152,7 +2170,7 @@ body.cat-tree-docked .side-col.cat-tree-panel .x-tree-node-el.x-tree-node-over {
 body.cat-tree-docked .side-col.cat-tree-panel .x-tree-selected a.x-tree-node-anchor span,
 body.cat-tree-docked .side-col.cat-tree-panel .x-tree-node-el.x-tree-selected span {
     background: transparent !important;
-    color: #60a5fa !important;
+    color: var(--blue, #60a5fa) !important;
     font-weight: 700 !important;
 }
 /* Subtle row hover — a faint blue wash, matching the grid hover, not tan. */
@@ -2212,7 +2230,7 @@ body.cat-tree-docked .cat-rail-folder {
     border: 0 !important; border-radius: 8px !important;
     background: transparent !important; background-image: none !important;
     box-shadow: none !important; text-shadow: none !important;
-    color: #cbd5e1 !important;
+    color: var(--t2, #cbd5e1) !important;
     cursor: pointer;
     display: inline-flex !important;
     align-items: center; justify-content: center;
@@ -2261,7 +2279,7 @@ body.cat-tree-docked .cat-tree-toggle {
     background-image: none !important;
     box-shadow: none !important;
     text-shadow: none !important;
-    color: #cbd5e1 !important;
+    color: var(--t2, #cbd5e1) !important;
     cursor: pointer;
     display: inline-flex !important;
     align-items: center; justify-content: center;
@@ -2360,7 +2378,7 @@ body.cat-tree-docked.cat-tree-open .cat-tree-toggle svg { transform: rotate(180d
 #category-edit-container .cat-actions-menu .cat-actions-menu-item:hover,
 #category-edit-container .cat-actions-menu .cat-actions-menu-item:hover * {
     background: rgba(96,165,250,0.12) !important;
-    color: #60a5fa !important;
+    color: var(--blue, #60a5fa) !important;
 }
 /* Primary icon variant — filled blue, for the one primary action (Save) */
 .admin-main .mmd-iconbtn.mmd-iconbtn-primary {
@@ -3079,7 +3097,7 @@ body.is-order-view .order-tables dl.item-options dd,
 html.is-order-view .order-tables dl.item-options dd {
     margin: 0 !important;
     padding: 0 0 4px 0 !important;
-    color: #cbd5e1 !important;
+    color: var(--t2, #cbd5e1) !important;
 }
 /* Course cell: wrap at WORD boundaries, not mid-word. word-break:
    break-word let the column's min-content collapse to ~1 char so the
@@ -3425,7 +3443,7 @@ ul.tabs-horiz li a.active {
     background: rgba(16,185,129,0.12) !important;
     background-image: none !important;
     border: 1px solid rgba(52,211,153,0.4) !important;
-    color: #34d399 !important;
+    color: var(--green-soft, #34d399) !important;
     border-radius: 8px !important;
     padding: 12px 18px !important;
 }
@@ -3433,7 +3451,7 @@ ul.tabs-horiz li a.active {
     background: rgba(239,68,68,0.12) !important;
     background-image: none !important;
     border: 1px solid rgba(248,113,113,0.4) !important;
-    color: #f87171 !important;
+    color: var(--red-soft, #f87171) !important;
     border-radius: 8px !important;
     padding: 12px 18px !important;
 }
@@ -3781,11 +3799,11 @@ dl.accordion dd, .accordion-body { background: var(--d3) !important; border: 1px
 /* Iframe area — fill width, dark inside via wysiwyg-dark.css content_css. */
 .admin-main .defaultSkin td.mceIframeContainer,
 .admin-main .defaultSkin .mceIframeContainer {
-    background: #1e293b !important;
+    background: var(--d3, #1e293b) !important;
 }
 .admin-main .defaultSkin .mceIframeContainer iframe {
     width: 100% !important;
-    background: #1e293b;
+    background: var(--d3, #1e293b);
 }
 /* Status bar at bottom — dark and small */
 .admin-main .defaultSkin .mceStatusbar,
@@ -4611,19 +4629,19 @@ ul.config-accordion li dt.accordion-toggle:focus {
 .mmd-reg-reset {
     background: transparent !important;
     border: none !important;
-    color: #94a3b8 !important;
+    color: var(--t4, #94a3b8) !important;
     font-size: 13px !important;
     font-weight: 500 !important;
     padding: 4px 8px !important;
     text-decoration: none !important;
     cursor: pointer !important;
 }
-.mmd-reg-reset:hover { color: #e2e8f0 !important; }
+.mmd-reg-reset:hover { color: var(--t2, #e2e8f0) !important; }
 .mmd-reg-filter-toggle {
     background: transparent !important;
     background-image: none !important;
-    border: 1px solid #475569 !important;
-    color: #e2e8f0 !important;
+    border: 1px solid var(--b2, #475569) !important;
+    color: var(--t2, #e2e8f0) !important;
     font-size: 13px !important;
     font-weight: 600 !important;
     padding: 6px 16px !important;
@@ -4636,11 +4654,11 @@ ul.config-accordion li dt.accordion-toggle:focus {
     height: auto !important;
 }
 .mmd-reg-filter-toggle:hover {
-    border-color: #60a5fa !important;
+    border-color: var(--blue, #60a5fa) !important;
     color: #fff !important;
 }
 .mmd-reg-filter-toggle.active {
-    border-color: #60a5fa !important;
+    border-color: var(--blue, #60a5fa) !important;
     color: #fff !important;
 }
 
@@ -4702,7 +4720,7 @@ body.adminhtml-sales_order-index .dcf-mag-bar > span:first-child:not(.mmd-auto-c
 .mmd-reg-toolbar .mmd-reg-search-input-wrap svg {
     position: absolute;
     left: 10px;
-    color: #94a3b8;
+    color: var(--t4, #94a3b8);
     pointer-events: none;
 }
 .mmd-reg-toolbar .mmd-reg-search-input {
@@ -4719,12 +4737,12 @@ body.adminhtml-sales_order-index .dcf-mag-bar > span:first-child:not(.mmd-auto-c
     outline: none !important;
 }
 .mmd-reg-toolbar .mmd-reg-search-input:focus {
-    border-color: #60a5fa !important;
+    border-color: var(--blue, #60a5fa) !important;
 }
 .mmd-reg-toolbar .mmd-reg-reset {
     background: transparent !important;
     border: none !important;
-    color: #94a3b8 !important;
+    color: var(--t4, #94a3b8) !important;
     font-size: 13px !important;
     font-weight: 500 !important;
     padding: 4px 8px !important;
@@ -4732,7 +4750,7 @@ body.adminhtml-sales_order-index .dcf-mag-bar > span:first-child:not(.mmd-auto-c
     cursor: pointer !important;
     white-space: nowrap !important;
 }
-.mmd-reg-toolbar .mmd-reg-reset:hover { color: #e2e8f0 !important; }
+.mmd-reg-toolbar .mmd-reg-reset:hover { color: var(--t2, #e2e8f0) !important; }
 .mmd-reg-toolbar .mmd-reg-filter-slot {
     display: inline-flex;
     align-items: center;
@@ -4759,7 +4777,7 @@ body[class*="customoptions-options-index"] #customoptionsOptionsGrid table.massa
     white-space: nowrap !important;
 }
 body[class*="customoptions-options-index"] #mmd-schedule-search-input:focus {
-    border-color: #60a5fa !important;
+    border-color: var(--blue, #60a5fa) !important;
     outline: none !important;
 }
 /* Tighten gap between page header buttons and the massaction toolbar. */
@@ -4822,14 +4840,14 @@ body[class*="customoptions-options-index"] #customoptionsOptionsGrid table.massa
     white-space: nowrap !important;
 }
 .mmd-grid-action:hover { background: rgba(96, 165, 250, 0.12) !important; }
-.mmd-grid-action--view:hover   { color: #60a5fa !important; border-color: #60a5fa !important; }
-.mmd-grid-action--edit:hover   { color: #60a5fa !important; border-color: #60a5fa !important; }
-.mmd-grid-action--delete:hover { color: #f87171 !important; border-color: #f87171 !important; }
-.mmd-grid-action--cancel:hover { color: #f87171 !important; border-color: #f87171 !important; }
-.mmd-grid-action--print:hover  { color: #60a5fa !important; border-color: #60a5fa !important; }
-.mmd-grid-action--send:hover   { color: #60a5fa !important; border-color: #60a5fa !important; }
-.mmd-grid-action--check:hover  { color: #34d399 !important; border-color: #34d399 !important; }
-.mmd-grid-action--more:hover   { color: #60a5fa !important; border-color: #60a5fa !important; }
+.mmd-grid-action--view:hover   { color: var(--blue, #60a5fa) !important; border-color: var(--blue, #60a5fa) !important; }
+.mmd-grid-action--edit:hover   { color: var(--blue, #60a5fa) !important; border-color: var(--blue, #60a5fa) !important; }
+.mmd-grid-action--delete:hover { color: var(--red-soft, #f87171) !important; border-color: var(--red-soft, #f87171) !important; }
+.mmd-grid-action--cancel:hover { color: var(--red-soft, #f87171) !important; border-color: var(--red-soft, #f87171) !important; }
+.mmd-grid-action--print:hover  { color: var(--blue, #60a5fa) !important; border-color: var(--blue, #60a5fa) !important; }
+.mmd-grid-action--send:hover   { color: var(--blue, #60a5fa) !important; border-color: var(--blue, #60a5fa) !important; }
+.mmd-grid-action--check:hover  { color: var(--green-soft, #34d399) !important; border-color: var(--green-soft, #34d399) !important; }
+.mmd-grid-action--more:hover   { color: var(--blue, #60a5fa) !important; border-color: var(--blue, #60a5fa) !important; }
 /* Hide the legacy " | " separators emitted by some custom Actionlinks renderers
    when they fall inside an .mmd-grid-actions wrapper (icons handle separation). */
 .mmd-grid-actions { line-height: 1 !important; }
@@ -4901,11 +4919,11 @@ body[class*="customoptions-options-index"] #customoptionsOptionsGrid table.massa
 .admin-main .cs-eye-btn > svg { width: 14px !important; height: 14px !important; display: block !important; flex: 0 0 auto !important; }
 /* Hover tints: blue by default, green for approve/ok, red for delete/cancel. */
 .admin-main .mmd-iconbtn:hover,
-.admin-main .mn-fq-act:hover { background: rgba(96, 165, 250, 0.12) !important; color: #60a5fa !important; border-color: #60a5fa !important; }
+.admin-main .mn-fq-act:hover { background: rgba(96, 165, 250, 0.12) !important; color: var(--blue, #60a5fa) !important; border-color: var(--blue, #60a5fa) !important; }
 .admin-main .mmd-iconbtn.is-ok:hover,
-.admin-main .mn-fq-act.mn-fq-ok:hover { background: rgba(52, 211, 153, 0.10) !important; color: #34d399 !important; border-color: #34d399 !important; }
+.admin-main .mn-fq-act.mn-fq-ok:hover { background: rgba(52, 211, 153, 0.10) !important; color: var(--green-soft, #34d399) !important; border-color: var(--green-soft, #34d399) !important; }
 .admin-main .mmd-iconbtn.is-danger:hover,
-.admin-main .mn-fq-act.mn-fq-del:hover { background: rgba(248, 113, 113, 0.10) !important; color: #f87171 !important; border-color: #f87171 !important; }
+.admin-main .mn-fq-act.mn-fq-del:hover { background: rgba(248, 113, 113, 0.10) !important; color: var(--red-soft, #f87171) !important; border-color: var(--red-soft, #f87171) !important; }
 .admin-main .mmd-iconbtn:focus-visible,
 .admin-main .mn-fq-act:focus-visible { outline: 2px solid var(--ring, #60a5fa) !important; outline-offset: 2px !important; }
 
@@ -4931,7 +4949,7 @@ body[class*="customoptions-options-index"] #customoptionsOptionsGrid table.massa
     top: calc(100% + 6px);
     left: 50%;
     transform: translateX(-50%);
-    background: #0b0f17;
+    background: var(--d0, #0b0f17);
     color: var(--t2, #e5e7eb);
     border: 1px solid var(--b2, #2a3447);
     padding: 4px 9px;
@@ -5095,7 +5113,7 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table tfoot td.a-
     justify-content: center !important;
     background: transparent !important;
     background-image: none !important;
-    border: 1px solid #60a5fa !important;
+    border: 1px solid var(--blue, #60a5fa) !important;
     border-radius: 6px !important;
     overflow: hidden !important;
     box-shadow: none !important;
@@ -5165,7 +5183,7 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table button.scal
     justify-content: center !important;
     background: transparent !important;
     background-image: none !important;
-    border: 1px solid #60a5fa !important;
+    border: 1px solid var(--blue, #60a5fa) !important;
     border-radius: 6px !important;
     overflow: hidden !important;
     box-shadow: none !important;
@@ -5864,14 +5882,14 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
 
 .admin-main button.dcf-btn-save-cont {
     background: transparent !important;
-    color: #cbd5e1 !important;
-    border-color: #475569 !important;
+    color: var(--t2, #cbd5e1) !important;
+    border-color: var(--b2, #475569) !important;
     box-shadow: none !important;
 }
 .admin-main button.dcf-btn-save-cont:hover {
-    background: #334155 !important;
-    border-color: #64748b !important;
-    color: #f1f5f9 !important;
+    background: var(--d4, #334155) !important;
+    border-color: var(--b3, #64748b) !important;
+    color: var(--t1, #f1f5f9) !important;
     box-shadow: none !important;
 }
 
@@ -5883,8 +5901,8 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
 .admin-main button.mm-btn-ghost,
 .admin-main button.mm-btn {
     background: transparent !important;
-    color: #cbd5e1 !important;
-    border-color: #334155 !important;
+    color: var(--t2, #cbd5e1) !important;
+    border-color: var(--b1, #334155) !important;
     box-shadow: none !important;
 }
 .admin-main button.dcf-btn-cancel:hover,
@@ -5894,9 +5912,9 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
 .admin-main button[class*="-btn-ghost"]:hover,
 .admin-main button.mm-btn-ghost:hover,
 .admin-main button.mm-btn:hover {
-    background: #1e293b !important;
-    border-color: #475569 !important;
-    color: #f1f5f9 !important;
+    background: var(--d3, #1e293b) !important;
+    border-color: var(--b2, #475569) !important;
+    color: var(--t1, #f1f5f9) !important;
     box-shadow: none !important;
 }
 
@@ -6028,7 +6046,7 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
 :root[data-theme="light"] body,
 :root[data-theme="light"] .middle,
 :root[data-theme="light"] .admin-main {
-    color: #1e2a52 !important;            /* slate-800 body text */
+    color: var(--t2) !important;            /* slate-800 body text */
 }
 
 /* (Removed the broad *:not(...) safety-net: it was overriding
@@ -6048,16 +6066,16 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
 :root[data-theme="light"] .admin-main h4,
 :root[data-theme="light"] .admin-main h5,
 :root[data-theme="light"] .admin-main h6 {
-    color: #0f1d47 !important;            /* slate-900 */
+    color: var(--t1) !important;            /* slate-900 */
 }
 
 /* Links keep the link-blue identity (otherwise they'd disappear
    into the body text). Excludes button-styled anchors. */
 :root[data-theme="light"] .admin-main a:not([class*="btn"]):not(.button):not([class*="badge"]):not([class*="pill"]) {
-    color: #2f5be6 !important;
+    color: var(--blue) !important;
 }
 :root[data-theme="light"] .admin-main a:not([class*="btn"]):not(.button):not([class*="badge"]):not([class*="pill"]):hover {
-    color: #1d4ed8 !important;
+    color: var(--blue2) !important;
 }
 
 /* Muted/secondary text (sub-labels, helper text, counters) stays
@@ -6068,7 +6086,7 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
 :root[data-theme="light"] .admin-main [class*="-sub"],
 :root[data-theme="light"] .admin-main [class*="-help"],
 :root[data-theme="light"] .admin-main [class*="-lbl"] {
-    color: #3a4670 !important;            /* slate-600 */
+    color: var(--t3) !important;            /* slate-600 */
 }
 
 /* Light mode — sidebar nav text dark. The sidebar container is
@@ -6097,7 +6115,7 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
 :root[data-theme="light"] .tools-sub-item:hover,
 :root[data-theme="light"] .tools-sub-item.active,
 :root[data-theme="light"] .tools-sub-item.active:hover {
-    color: #0f1d47 !important;            /* slate-900 */
+    color: var(--t1) !important;            /* slate-900 */
 }
 
 /* Horizontal tabs (catalog_category edit, etc.) — base rule paints them
@@ -6108,19 +6126,19 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
    still pops against the gray row. */
 :root[data-theme="light"] ul.tabs-horiz li a,
 :root[data-theme="light"] body ul.tabs-horiz li a {
-    background: #e6ecf9 !important;
-    border-color: #8494b5 !important;
-    color: #2b3a66 !important;
+    background: var(--d5) !important;
+    border-color: var(--b2) !important;
+    color: var(--t3) !important;
 }
 :root[data-theme="light"] ul.tabs-horiz li a:hover,
 :root[data-theme="light"] body ul.tabs-horiz li a:hover {
-    background: #d3dcee !important;
-    color: #1e3a8a !important;
+    background: var(--d6) !important;
+    color: var(--blue3) !important;
 }
 :root[data-theme="light"] ul.tabs-horiz li a.active,
 :root[data-theme="light"] body ul.tabs-horiz li a.active {
     background: #ffffff !important;
-    color: #2f5be6 !important;
+    color: var(--blue) !important;
     border-bottom-color: #ffffff !important;
 }
 
@@ -6130,11 +6148,11 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
    slate-200 + slate-300 border as the tabs/cards. */
 :root[data-theme="light"] dl.accordion dt,
 :root[data-theme="light"] .accordion-head {
-    background: #e6ecf9 !important;
-    border-color: #8494b5 !important;
+    background: var(--d5) !important;
+    border-color: var(--b2) !important;
 }
 :root[data-theme="light"] dl.accordion dt:hover {
-    background: #d3dcee !important;
+    background: var(--d6) !important;
 }
 
 /* Aschroder SMTPPro — the vendor module injects a hardcoded inline
@@ -6158,8 +6176,8 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
    elsewhere. */
 :root[data-theme="light"] body.adminhtml-sales-transactions-view .entry-edit fieldset,
 :root[data-theme="light"] body.adminhtml-sales-transactions-view .entry-edit .fieldset {
-    background: #e6ecf9 !important;
-    border: 1px solid #8494b5 !important;
+    background: var(--d5) !important;
+    border: 1px solid var(--b2) !important;
     border-radius: 10px !important;
 }
 
@@ -6193,7 +6211,7 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
     background: transparent !important;
     background-image: none !important;
     box-shadow: none !important;
-    color: #cbd5e1 !important;
+    color: var(--t2, #cbd5e1) !important;
     cursor: pointer;
     display: inline-flex !important;
     align-items: center;
@@ -6230,10 +6248,10 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
     flex-shrink: 0 !important;
     pointer-events: none;
 }
-#audit-bell .audit-bell-btn.audit-bell-critical { color: #ff3b5c !important; filter: drop-shadow(0 0 6px rgba(255,59,92,0.55)); }
-#audit-bell .audit-bell-btn.audit-bell-warning  { color: #f5c451 !important; filter: drop-shadow(0 0 5px rgba(245,196,81,0.45)); }
-#audit-bell .audit-bell-btn.audit-bell-info     { color: #8aa1bd !important; }
-#audit-bell .audit-bell-btn.audit-bell-critical:hover { color: #ff5b78 !important; filter: drop-shadow(0 0 9px rgba(255,59,92,0.75)); }
+#audit-bell .audit-bell-btn.audit-bell-critical { color: var(--red-soft, #ff3b5c) !important; filter: drop-shadow(0 0 6px rgba(255,59,92,0.55)); }
+#audit-bell .audit-bell-btn.audit-bell-warning  { color: var(--yellow, #f5c451) !important; filter: drop-shadow(0 0 5px rgba(245,196,81,0.45)); }
+#audit-bell .audit-bell-btn.audit-bell-info     { color: var(--t4, #8aa1bd) !important; }
+#audit-bell .audit-bell-btn.audit-bell-critical:hover { color: var(--red-soft, #ff5b78) !important; filter: drop-shadow(0 0 9px rgba(255,59,92,0.75)); }
 #audit-bell .audit-bell-btn.audit-bell-warning:hover  { color: #facc55 !important; filter: drop-shadow(0 0 8px rgba(245,196,81,0.65)); }
 
 /* Soft swing so a critical bell catches the eye without screaming. */
@@ -6261,7 +6279,7 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
     font-weight: 700;
     line-height: 15px;
     text-align: center;
-    background: #ff3b5c !important;
+    background: #e11d48 !important;   /* white count needs 4.5:1 (was #ff3b5c, 3.5:1) */
     color: #fff !important;
     box-shadow: 0 0 0 2px var(--d2, #111827);
     font-variant-numeric: tabular-nums;
@@ -6285,7 +6303,7 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
     z-index: 1500;
     display: none;
     font-family: var(--font-sans);
-    color: #e5e7eb;
+    color: var(--t2, #e5e7eb);
 }
 .audit-bell-wrap.open .audit-bell-dropdown { display: block; }
 
@@ -6305,7 +6323,7 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
 }
 .audit-bell-heading-source {
     font-size: 10.5px;
-    color: #94a3b8;
+    color: var(--t4, #94a3b8);
     letter-spacing: 0.3px;
 }
 .audit-bell-pills {
@@ -6317,7 +6335,7 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
 .audit-bell-summary {
     font-size: 12px;
     line-height: 1.5;
-    color: #cbd5e1;
+    color: var(--t2, #cbd5e1);
     margin-bottom: 10px;
     word-wrap: break-word;
 }
@@ -6326,7 +6344,7 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
     flex-wrap: wrap;
     gap: 10px;
     font-size: 10.5px;
-    color: #6b7280;
+    color: var(--t5, #6b7280);
     letter-spacing: 0.3px;
     margin-bottom: 12px;
     font-variant-numeric: tabular-nums;
@@ -6340,7 +6358,7 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
 .audit-bell-link {
     flex: 1;
     text-align: center;
-    color: #e5e7eb;
+    color: var(--t2, #e5e7eb);
     text-decoration: none;
     font-weight: 500;
     font-size: 11px;
@@ -6360,11 +6378,11 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
 .audit-bell-link-primary {
     background: rgba(255,59,92,0.10);
     border-color: rgba(255,59,92,0.55);
-    color: #ff8094;
+    color: var(--red-soft, #ff8094);
 }
 .audit-bell-link-primary:hover {
     background: rgba(255,59,92,0.18);
-    border-color: #ff3b5c;
+    border-color: var(--red-soft, #ff3b5c);
     color: #fff;
 }
 
@@ -6372,12 +6390,12 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
 :root[data-theme="light"] .audit-bell-dropdown {
     background: #ffffff;
     border-color: rgba(15,23,42,0.10);
-    color: #0f1d47;
+    color: var(--t1);
 }
-:root[data-theme="light"] .audit-bell-heading-title { color: #0f1d47; }
-:root[data-theme="light"] .audit-bell-summary { color: #2b3a66; }
-:root[data-theme="light"] .audit-bell-meta { color: #43507f; }
-:root[data-theme="light"] .audit-bell-link { color: #0f1d47; border-color: rgba(15,23,42,0.18); }
+:root[data-theme="light"] .audit-bell-heading-title { color: var(--t1); }
+:root[data-theme="light"] .audit-bell-summary { color: var(--t3); }
+:root[data-theme="light"] .audit-bell-meta { color: var(--t4); }
+:root[data-theme="light"] .audit-bell-link { color: var(--t1); border-color: rgba(15,23,42,0.18); }
 :root[data-theme="light"] .audit-bell-link:hover { background: rgba(15,23,42,0.04); }
 
 .audit-pill {
@@ -6393,11 +6411,11 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
     border: 1px solid currentColor;
     color: #fff;
 }
-.audit-pill-high  { color: #ff3b5c; border-color: #ff3b5c; box-shadow: 0 0 6px rgba(255, 59, 92, 0.45), inset 0 0 6px rgba(255, 59, 92, 0.12); }
-.audit-pill-med   { color: #f5c451; border-color: #f5c451; box-shadow: 0 0 6px rgba(245, 196, 81, 0.40), inset 0 0 6px rgba(245, 196, 81, 0.10); }
-.audit-pill-quick { color: #3df5a8; border-color: #3df5a8; box-shadow: 0 0 6px rgba(61, 245, 168, 0.40), inset 0 0 6px rgba(61, 245, 168, 0.10); }
-.audit-pill-big   { color: #b07cff; border-color: #b07cff; box-shadow: 0 0 6px rgba(176, 124, 255, 0.40), inset 0 0 6px rgba(176, 124, 255, 0.10); }
-.audit-pill-low   { color: #8aa1bd; border-color: #8aa1bd; box-shadow: 0 0 4px rgba(138, 161, 189, 0.25); }
+.audit-pill-high  { color: var(--red-soft, #ff3b5c); border-color: var(--red-soft, #ff3b5c); box-shadow: 0 0 6px rgba(255, 59, 92, 0.45), inset 0 0 6px rgba(255, 59, 92, 0.12); }
+.audit-pill-med   { color: var(--yellow, #f5c451); border-color: var(--yellow, #f5c451); box-shadow: 0 0 6px rgba(245, 196, 81, 0.40), inset 0 0 6px rgba(245, 196, 81, 0.10); }
+.audit-pill-quick { color: var(--green-soft, #3df5a8); border-color: var(--green-soft, #3df5a8); box-shadow: 0 0 6px rgba(61, 245, 168, 0.40), inset 0 0 6px rgba(61, 245, 168, 0.10); }
+.audit-pill-big   { color: var(--violet, #b07cff); border-color: var(--violet, #b07cff); box-shadow: 0 0 6px rgba(176, 124, 255, 0.40), inset 0 0 6px rgba(176, 124, 255, 0.10); }
+.audit-pill-low   { color: var(--t4, #8aa1bd); border-color: #8aa1bd; box-shadow: 0 0 4px rgba(138, 161, 189, 0.25); }
 
 /* Sidebar nav-item count badge (e.g. Audit Issues open count).
    Neon-minimalist: outlined pill, no fill, glow only on the parent's
@@ -6413,8 +6431,8 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
     font-size: 10px;
     font-weight: 600;
     letter-spacing: 0.3px;
-    color: #ff3b5c;
-    border: 1px solid #ff3b5c;
+    color: var(--red-soft, #ff3b5c);
+    border: 1px solid var(--red-soft, #ff3b5c);
     border-radius: 2px;
     background: transparent;
     box-shadow: 0 0 5px rgba(255, 59, 92, 0.4), inset 0 0 4px rgba(255, 59, 92, 0.1);
@@ -6553,14 +6571,14 @@ body[class*="adminhtml-catalog-product"] #product_option_box .template-title {
 :root[data-theme="light"] body[class*="adminhtml-catalog-product"] [id^="option_"] .option-header,
 :root[data-theme="light"] body[class*="adminhtml-catalog-product"] [id^="option_"] > div:first-child {
     background: #ffffff !important;
-    border-color: #e5e7eb !important;
-    color: #111827 !important;
+    border-color: var(--b1) !important;
+    color: var(--t1) !important;
 }
 :root[data-theme="light"] body[class*="adminhtml-catalog-product"] [id^="option_"] table th,
 :root[data-theme="light"] body[class*="adminhtml-catalog-product"] [id^="option_"] table td,
 :root[data-theme="light"] body[class*="adminhtml-catalog-product"] [id^="option_"] .option-header th,
 :root[data-theme="light"] body[class*="adminhtml-catalog-product"] [id^="option_"] .option-header label {
-    color: #374151 !important;
+    color: var(--t3) !important;
 }
 :root[data-theme="light"] body[class*="adminhtml-catalog-product"] #product_option_box input[type="text"],
 :root[data-theme="light"] body[class*="adminhtml-catalog-product"] #product_option_box input[type="number"],
@@ -6573,8 +6591,8 @@ body[class*="adminhtml-catalog-product"] #product_option_box .template-title {
 :root[data-theme="light"] body[class*="adminhtml-catalog-product"] [id^="option_"] textarea,
 :root[data-theme="light"] body[class*="adminhtml-catalog-product"] [id^="option_"] select {
     background: #ffffff !important;
-    border-color: #d1d5db !important;
-    color: #111827 !important;
+    border-color: var(--b1) !important;
+    color: var(--t1) !important;
 }
 
 /* --- "Select Children" popup (#popup_children_show) ---
@@ -6654,17 +6672,17 @@ body[class*="adminhtml-catalog-product"] #product_option_box .template-title {
 /* Light-mode mirror — back to a clean white card. */
 :root[data-theme="light"] #popup_children_show {
     background: #ffffff !important;
-    border-color: #e5e7eb !important;
-    color: #111827 !important;
+    border-color: var(--b1) !important;
+    color: var(--t1) !important;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18) !important;
 }
 :root[data-theme="light"] #popup_children_show div,
 :root[data-theme="light"] #popup_children_show label,
 :root[data-theme="light"] #popup_children_show > div:first-child {
-    color: #111827 !important;
+    color: var(--t1) !important;
 }
 :root[data-theme="light"] #popup_children_show > div:nth-child(2) {
-    color: #6b7280 !important;
+    color: var(--t4) !important;
 }
 :root[data-theme="light"] #popup_children_show button {
     color: #ffffff !important;
@@ -6718,7 +6736,7 @@ html body[class*="adminhtml-catalog-product"] [id^="option_"] tfoot button {
 :root[data-theme="light"] html body[class*="adminhtml-catalog-product"] [id^="option_"] tfoot tr,
 :root[data-theme="light"] html body[class*="adminhtml-catalog-product"] [id^="option_"] tfoot td {
     background: transparent !important;
-    border-top: 1px solid #e5e7eb !important;
+    border-top: 1px solid var(--b1) !important;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -6890,8 +6908,8 @@ html body[class*="adminhtml-catalog-product"] [id^="option_"] tfoot button {
 #mmd-wa-root .mmd-wa-send:hover { background: #0d8a62 !important; }
 
 /* Light theme: keep the green chrome, lift the panel surfaces. */
-:root[data-theme="light"] .mmd-wa-panel { background: #fff; border-color: #e5e7eb; }
-:root[data-theme="light"] .mmd-wa-greet { background: #f3f4f6; border-color: #e5e7eb; color: #374151; }
+:root[data-theme="light"] .mmd-wa-panel { background: #fff; border-color: var(--b1); }
+:root[data-theme="light"] .mmd-wa-greet { background: var(--d4); border-color: var(--b1); color: var(--t3); }
 
 /* ── Trainer skin (.mmd-wa--trainer) — blue, mirroring the lms-tms
    WHATSAPP_TRAINER palette so trainer support reads distinctly from the

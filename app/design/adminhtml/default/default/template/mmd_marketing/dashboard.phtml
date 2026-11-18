@@ -154,21 +154,21 @@ try {
    Leads 30d / Blogs 30d), rendered ABOVE the Marketing Performance
    tiles. Collapses to 2 then 1 column on narrow screens. */
 .mmd-mkt-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px;}
-.mmd-mkt-kpi{background:#1f2937;border:1px solid var(--b1,#384a60);border-radius:10px;padding:22px 20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;min-height:140px;}
-.mmd-mkt-kpi-label{font-size:14px;font-weight:700;color:#cbd5e1;text-transform:uppercase;letter-spacing:.04em;line-height:1.25;}
-.mmd-mkt-kpi-value{font-size:32px;font-weight:700;color:#22d3ee;line-height:1.1;}
-.mmd-mkt-kpi-value.mmd-mkt-kpi-pending{color:#64748b;font-size:28px;}
-.mmd-mkt-kpi-sub{font-size:11px;color:#64748b;font-style:italic;}
+.mmd-mkt-kpi{background:var(--d3, #1f2937);border:1px solid var(--b1,#384a60);border-radius:10px;padding:22px 20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;min-height:140px;}
+.mmd-mkt-kpi-label{font-size:14px;font-weight:700;color:var(--t2, #cbd5e1);text-transform:uppercase;letter-spacing:.04em;line-height:1.25;}
+.mmd-mkt-kpi-value{font-size:32px;font-weight:700;color:var(--cyan, #22d3ee);line-height:1.1;}
+.mmd-mkt-kpi-value.mmd-mkt-kpi-pending{color:var(--t5, #64748b);font-size:28px;}
+.mmd-mkt-kpi-sub{font-size:11px;color:var(--t5, #64748b);font-style:italic;}
 /* Marketing Performance tile values — amber on dark (blue #1d4ed8 was illegible
    on the dark #1e293b card), reverting to blue on the light theme where it reads fine. */
-.mmd-mkt-perf-value{color:#f5c451;}
-:root[data-theme="light"] .mmd-mkt-perf-value{color:#1d4ed8;}
+.mmd-mkt-perf-value{color:var(--yellow, #f5c451);}
+:root[data-theme="light"] .mmd-mkt-perf-value{color:var(--blue2);}
 @media (max-width:1100px){.mmd-mkt-kpis{grid-template-columns:repeat(2,1fr);}}
 @media (max-width:680px){.mmd-mkt-kpis{grid-template-columns:1fr;}}
 
 /* Subscriber growth chart placeholder */
-.mmd-mkt-chart-card{background:#1f2937;border:1px solid var(--b1,#384a60);border-radius:10px;padding:18px 20px;margin-bottom:18px;}
-.mmd-mkt-chart-head{font-size:12px;font-weight:600;color:#cbd5e1;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;}
+.mmd-mkt-chart-card{background:var(--d3, #1f2937);border:1px solid var(--b1,#384a60);border-radius:10px;padding:18px 20px;margin-bottom:18px;}
+.mmd-mkt-chart-head{font-size:12px;font-weight:600;color:var(--t2, #cbd5e1);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;}
 .mmd-mkt-chart-body{position:relative;height:160px;display:flex;align-items:stretch;gap:6px;padding:8px 0 0;border-bottom:1px solid rgba(56,74,96,.5);}
 .mmd-mkt-chart-bar{flex:1;background:linear-gradient(180deg,#475569 0%,#334155 100%);border-radius:3px 3px 0 0;opacity:.35;min-height:8px;}
 /* Growth bars — one column per MONTH (closing count), baselined below the
@@ -178,21 +178,21 @@ try {
 .mmd-mkt-growth-col:hover .mmd-mkt-growth-bar{background:#22d3ee;}
 .mmd-mkt-growth-bar.is-est{background:rgba(34,211,238,.22);}
 .mmd-mkt-growth-col:hover .mmd-mkt-growth-bar.is-est{background:rgba(34,211,238,.6);}
-.mmd-mkt-growth-xlabel{font-size:10px;color:#94a3b8;white-space:nowrap;flex:0 0 auto;}
-.mmd-mkt-chart-note{font-size:11px;color:#64748b;margin:-4px 0 10px;line-height:1.45;}
-.mmd-mkt-growth-tip i{color:#94a3b8;font-style:normal;}
+.mmd-mkt-growth-xlabel{font-size:10px;color:var(--t4, #94a3b8);white-space:nowrap;flex:0 0 auto;}
+.mmd-mkt-chart-note{font-size:11px;color:var(--t5, #64748b);margin:-4px 0 10px;line-height:1.45;}
+.mmd-mkt-growth-tip i{color:var(--t4, #94a3b8);font-style:normal;}
 :root[data-theme="light"] .mmd-mkt-growth-bar{background:rgba(8,145,178,.5);}
 :root[data-theme="light"] .mmd-mkt-growth-bar.is-est{background:rgba(8,145,178,.22);}
 :root[data-theme="light"] .mmd-mkt-growth-col:hover .mmd-mkt-growth-bar{background:#0891b2;}
 :root[data-theme="light"] .mmd-mkt-growth-col:hover .mmd-mkt-growth-bar.is-est{background:rgba(8,145,178,.6);}
-:root[data-theme="light"] .mmd-mkt-growth-xlabel{color:#64748b;}
-.mmd-mkt-growth-tip{position:absolute;display:none;pointer-events:none;background:#0b0f17;border:1px solid #334155;border-radius:6px;padding:5px 10px;font-size:11px;color:#e2e8f0;white-space:nowrap;z-index:5;transform:translateX(-50%);box-shadow:0 4px 12px rgba(0,0,0,.4);}
-.mmd-mkt-growth-tip b{color:#22d3ee;font-size:12px;}
-.mmd-mkt-chart-empty{color:#64748b;font-size:12px;font-style:italic;text-align:center;margin-top:10px;}
-.mmd-mkt-chart-foot{display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:11px;color:#64748b;}
-.mmd-mkt-chart-foot b{color:#22d3ee;font-size:13px;}
-:root[data-theme="light"] .mmd-mkt-chart-foot{color:#64748b;}
-:root[data-theme="light"] .mmd-mkt-chart-foot b{color:#0891b2;}
+:root[data-theme="light"] .mmd-mkt-growth-xlabel{color:var(--t4);}
+.mmd-mkt-growth-tip{position:absolute;display:none;pointer-events:none;background:var(--d0, #0b0f17);border:1px solid var(--b1, #334155);border-radius:6px;padding:5px 10px;font-size:11px;color:var(--t2, #e2e8f0);white-space:nowrap;z-index:5;transform:translateX(-50%);box-shadow:0 4px 12px rgba(0,0,0,.4);}
+.mmd-mkt-growth-tip b{color:var(--cyan, #22d3ee);font-size:12px;}
+.mmd-mkt-chart-empty{color:var(--t5, #64748b);font-size:12px;font-style:italic;text-align:center;margin-top:10px;}
+.mmd-mkt-chart-foot{display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:11px;color:var(--t5, #64748b);}
+.mmd-mkt-chart-foot b{color:var(--cyan, #22d3ee);font-size:13px;}
+:root[data-theme="light"] .mmd-mkt-chart-foot{color:var(--t4);}
+:root[data-theme="light"] .mmd-mkt-chart-foot b{color:var(--cyan);}
 
 /* Campaign open/click-rate bar charts — last 10 sent campaigns, oldest→newest,
    zero-baseline (bar height ∝ rate). Two cards side by side. */
@@ -201,36 +201,36 @@ try {
 .mmd-mkt-rate-grid .mmd-mkt-chart-card{margin-bottom:0;}
 .mmd-mkt-rate-body{position:relative;height:150px;display:flex;align-items:stretch;gap:6px;padding:8px 0 0;border-bottom:1px solid rgba(56,74,96,.5);}
 .mmd-mkt-rate-col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px;min-width:0;cursor:pointer;}
-.mmd-mkt-rate-val{font-size:10px;color:#94a3b8;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.mmd-mkt-rate-val{font-size:10px;color:var(--t4, #94a3b8);font-variant-numeric:tabular-nums;white-space:nowrap;}
 .mmd-mkt-rate-bar{width:70%;max-width:46px;background:rgba(34,211,238,.5);border-radius:4px 4px 0 0;transition:background .15s ease;}
 .mmd-mkt-rate-col:hover .mmd-mkt-rate-bar{background:#22d3ee;}
 :root[data-theme="light"] .mmd-mkt-rate-bar{background:rgba(8,145,178,.5);}
 :root[data-theme="light"] .mmd-mkt-rate-col:hover .mmd-mkt-rate-bar{background:#0891b2;}
-:root[data-theme="light"] .mmd-mkt-rate-val{color:#64748b;}
+:root[data-theme="light"] .mmd-mkt-rate-val{color:var(--t4);}
 
 /* Leads-by-store mini list */
 .mmd-mkt-leads-by-store{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
-.mmd-mkt-leads-chip{background:#0f172a;border:1px solid #334155;border-radius:999px;padding:4px 12px;font-size:12px;color:#e2e8f0;}
-.mmd-mkt-leads-chip strong{color:#22d3ee;margin-left:6px;}
+.mmd-mkt-leads-chip{background:var(--d1, #0f172a);border:1px solid var(--b1, #334155);border-radius:999px;padding:4px 12px;font-size:12px;color:var(--t2, #e2e8f0);}
+.mmd-mkt-leads-chip strong{color:var(--cyan, #22d3ee);margin-left:6px;}
 
 /* Light mode — slate-200 cards with dark text, matching the rest of the
    admin KPI palette (see admin-dashboard.css .dash-kpi-card overrides). */
 :root[data-theme="light"] .mmd-mkt-kpi,
-:root[data-theme="light"] .mmd-mkt-chart-card{background:#e2e8f0;border-color:#cbd5e1;}
+:root[data-theme="light"] .mmd-mkt-chart-card{background:var(--d5);border-color:var(--b1);}
 :root[data-theme="light"] .mmd-mkt-kpi-label,
-:root[data-theme="light"] .mmd-mkt-chart-head{color:#475569;}
-:root[data-theme="light"] .mmd-mkt-kpi-value{color:#0891b2 !important;}
-:root[data-theme="light"] .mmd-mkt-kpi-value.mmd-mkt-kpi-pending{color:#94a3b8;}
+:root[data-theme="light"] .mmd-mkt-chart-head{color:var(--t3);}
+:root[data-theme="light"] .mmd-mkt-kpi-value{color:var(--cyan) !important;}
+:root[data-theme="light"] .mmd-mkt-kpi-value.mmd-mkt-kpi-pending{color:var(--t5);}
 :root[data-theme="light"] .mmd-mkt-kpi-sub,
-:root[data-theme="light"] .mmd-mkt-chart-empty{color:#64748b;}
+:root[data-theme="light"] .mmd-mkt-chart-empty{color:var(--t4);}
 :root[data-theme="light"] .mmd-mkt-chart-body{border-bottom-color:rgba(100,116,139,.35);}
 :root[data-theme="light"] .mmd-mkt-chart-bar{background:linear-gradient(180deg,#94a3b8 0%,#64748b 100%);opacity:.45;}
 :root[data-theme="light"] .mmd-mkt-growth-bar{background:rgba(8,145,178,.5);}
 :root[data-theme="light"] .mmd-mkt-growth-bar:hover{background:#0891b2;}
-:root[data-theme="light"] .mmd-mkt-growth-tip{background:#fff;border-color:#cbd5e1;color:#1e293b;box-shadow:0 4px 12px rgba(15,23,42,.15);}
-:root[data-theme="light"] .mmd-mkt-growth-tip b{color:#0891b2;}
-:root[data-theme="light"] .mmd-mkt-leads-chip{background:#f1f5f9;border-color:#cbd5e1;color:#1e293b;}
-:root[data-theme="light"] .mmd-mkt-leads-chip strong{color:#0891b2;}
+:root[data-theme="light"] .mmd-mkt-growth-tip{background:#fff;border-color:var(--b1);color:var(--t2);box-shadow:0 4px 12px rgba(15,23,42,.15);}
+:root[data-theme="light"] .mmd-mkt-growth-tip b{color:var(--cyan);}
+:root[data-theme="light"] .mmd-mkt-leads-chip{background:var(--d4);border-color:var(--b1);color:var(--t2);}
+:root[data-theme="light"] .mmd-mkt-leads-chip strong{color:var(--cyan);}
 </style>
 
 <div class="mmd-marketing-dashboard">

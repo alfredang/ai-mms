@@ -1023,6 +1023,20 @@ The structural light rules (canvas, white cards + `--b1` + shadow, solid
 royal-blue sidebar active item, inline `style="color:#…"` remap) live in ONE
 block at the end of `admin-dashboard.css` ("LIGHT THEME v2").
 
+**One common colour set (2026-11-19, user rule: no isolated per-page CSS).** Every admin
+colour — in the shared CSS, in a template `<style>` block and in a `style=""` attribute — is a
+shared token, written `var(--token, #fallback)`: surfaces `--d0…--d6`, borders `--b1…--b3`, text
+`--t1…--t5`, accents `--blue/-soft`, `--green/-soft`, `--red/-soft`, `--yellow/-soft`, `--orange`,
+`--cyan`, `--violet`, panel fills `--red-tint` / `--green-tint`. Both themes come from the token
+values in `dark-theme.css`; a page never carries its own palette or its own light-mode overrides.
+A dark **surface** and the **text** on it are always tokenised together — darkening text for light
+mode while its card stays dark made the Newsletters pipeline unreadable.
+
+Gate (must pass before a push that touches admin UI), all 7 roles, every reachable view:
+`node scripts/audit/admin-theme-crawl.mjs collect pages.json <role>=<adminhtml cookie> …` then
+`… scan pages.json out.json` — 0 text under WCAG AA, 0 unexpected dark surfaces in light mode, and
+the `.mmd-css-eof` sentinel present (a malformed rule silently drops the rest of `admin-dashboard.css`).
+
 Rules for every admin change:
 1. **Prefer tokens.** A rule that uses `var(--t1)`, `var(--b1)`, `var(--blue)`…
    is correct in both themes with zero extra CSS.

@@ -41,69 +41,69 @@ foreach ($_stores as $_st) {
 $_defaultChecked = $_ciHelper->getDefaultBadgesForWebsite('base');
 ?>
 <style>
-.bac-wrap { padding: 24px; color: #cbd5e1; font-size: 13px; }
-.bac-card { background: #0f172a; border: 1px solid #1e293b; border-radius: 10px; padding: 20px; margin-bottom: 18px; }
-.bac-card h2 { color: #f1f5f9; font-size: 18px; margin: 0 0 14px; font-weight: 600; }
+.bac-wrap { padding: 24px; color: var(--t2, #cbd5e1); font-size: 13px; }
+.bac-card { background: var(--d1, #0f172a); border: 1px solid var(--b1, #1e293b); border-radius: 10px; padding: 20px; margin-bottom: 18px; }
+.bac-card h2 { color: var(--t1, #f1f5f9); font-size: 18px; margin: 0 0 14px; font-weight: 600; }
 .bac-row { display: flex; flex-wrap: wrap; gap: 18px 28px; align-items: center; margin-bottom: 12px; }
 .bac-field { display: flex; flex-direction: column; gap: 6px; }
-.bac-field label { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: .05em; }
+.bac-field label { font-size: 11px; color: var(--t4, #94a3b8); text-transform: uppercase; letter-spacing: .05em; }
 .bac-field select, .bac-field input[type=text] {
-    background: #1e293b; border: 1px solid #334155; color: #f1f5f9;
+    background: var(--d3, #1e293b); border: 1px solid var(--b1, #334155); color: var(--t1, #f1f5f9);
     border-radius: 6px; padding: 8px 10px; font-size: 13px; min-width: 220px;
 }
 .bac-check { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; }
 .bac-check input { accent-color: #60a5fa; }
 .bac-btn {
     background: rgba(96,165,250,.14); border: 1px solid rgba(96,165,250,.45);
-    color: #bfdbfe; border-radius: 6px; padding: 8px 16px; font-size: 13px;
+    color: var(--blue-soft, #bfdbfe); border-radius: 6px; padding: 8px 16px; font-size: 13px;
     font-weight: 600; cursor: pointer;
 }
 .bac-btn:hover { background: rgba(96,165,250,.22); }
-.bac-btn-primary { background: #22d3ee; border-color: #22d3ee; color: #0f172a; }
+.bac-btn-primary { background: #22d3ee; border-color: var(--cyan, #22d3ee); color: #0f172a; }
 .bac-btn-primary:hover { background: #06b6d4; }
-.bac-btn-danger { background: rgba(251,113,133,.14); border-color: rgba(251,113,133,.45); color: #fda4af; }
+.bac-btn-danger { background: rgba(251,113,133,.14); border-color: rgba(251,113,133,.45); color: var(--red-soft, #fda4af); }
 .bac-btn[disabled] { opacity: .5; cursor: not-allowed; }
 .bac-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
-.bac-table th, .bac-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid #1e293b; }
-.bac-table th { color: #64748b; font-weight: 500; text-transform: uppercase; font-size: 11px; letter-spacing: .05em; }
+.bac-table th, .bac-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--b1, #1e293b); }
+.bac-table th { color: var(--t5, #64748b); font-weight: 500; text-transform: uppercase; font-size: 11px; letter-spacing: .05em; }
 .bac-table tr.done { background: rgba(34,211,238,.05); }
 .bac-table tr.fail { background: rgba(251,113,133,.05); }
 .bac-status { font-size: 11px; }
-.bac-status.pending { color: #94a3b8; }
-.bac-status.running { color: #fbbf24; }
-.bac-status.done    { color: #34d399; }
-.bac-status.fail    { color: #fb7185; }
-.bac-summary { font-size: 12px; color: #94a3b8; margin: 8px 0; }
+.bac-status.pending { color: var(--t4, #94a3b8); }
+.bac-status.running { color: var(--yellow, #fbbf24); }
+.bac-status.done    { color: var(--green-soft, #34d399); }
+.bac-status.fail    { color: var(--red-soft, #fb7185); }
+.bac-summary { font-size: 12px; color: var(--t4, #94a3b8); margin: 8px 0; }
 
 /* Light theme — the .bac-* family hardcodes dark slate colors so the
    theme toggle doesn't reach it. Re-paint the surfaces (cards, inputs,
    table rows) and the muted text in slate-light tones that match the
    rest of the admin in light mode. Also rescue the inline-styled info
    paragraphs that hardcode color:#94a3b8 via attribute selectors. */
-:root[data-theme="light"] .bac-wrap { color: #334155; }
-:root[data-theme="light"] .bac-card { background: #ffffff; border-color: #e2e8f0; }
-:root[data-theme="light"] .bac-card h2 { color: #0f172a; }
-:root[data-theme="light"] .bac-field label { color: #64748b; }
+:root[data-theme="light"] .bac-wrap { color: var(--t3); }
+:root[data-theme="light"] .bac-card { background: #ffffff; border-color: var(--b1); }
+:root[data-theme="light"] .bac-card h2 { color: var(--t1); }
+:root[data-theme="light"] .bac-field label { color: var(--t4); }
 :root[data-theme="light"] .bac-field select,
 :root[data-theme="light"] .bac-field input[type=text] {
-    background: #ffffff; border-color: #cbd5e1; color: #0f172a;
+    background: #ffffff; border-color: var(--b1); color: var(--t1);
 }
-:root[data-theme="light"] .bac-btn { color: #1d4ed8; }
+:root[data-theme="light"] .bac-btn { color: var(--blue2); }
 :root[data-theme="light"] .bac-btn-primary { color: #ffffff; }
-:root[data-theme="light"] .bac-table th { color: #64748b; }
+:root[data-theme="light"] .bac-table th { color: var(--t4); }
 :root[data-theme="light"] .bac-table th,
-:root[data-theme="light"] .bac-table td { border-bottom-color: #e2e8f0; }
-:root[data-theme="light"] .bac-summary { color: #64748b; }
-:root[data-theme="light"] .bac-status.pending { color: #64748b; }
+:root[data-theme="light"] .bac-table td { border-bottom-color: var(--b1); }
+:root[data-theme="light"] .bac-summary { color: var(--t4); }
+:root[data-theme="light"] .bac-status.pending { color: var(--t4); }
 /* Inline-styled info paragraphs (color:#94a3b8 hardcoded on <div>s) */
-:root[data-theme="light"] .bac-wrap [style*="#94a3b8"] { color: #64748b !important; }
+:root[data-theme="light"] .bac-wrap [style*="#94a3b8"] { color: var(--t4) !important; }
 </style>
 
 <div class="bac-wrap">
 
     <div class="bac-card">
         <h2>Bulk AI Cover Generator</h2>
-        <div style="font-size:12px;color:#94a3b8;margin-bottom:14px;">
+        <div style="font-size:12px;color:var(--t4, #94a3b8);margin-bottom:14px;">
             Regenerate course cover PNGs in bulk for a single store. Each product is
             re-rendered with the badges you tick below, uploaded to Cloudflare R2,
             and the new URL is written to <code>course_image_url</code>. Nothing
@@ -166,7 +166,7 @@ $_defaultChecked = $_ciHelper->getDefaultBadgesForWebsite('base');
 
     <div class="bac-card">
         <h2>Refresh storefront</h2>
-        <div style="font-size:12px;color:#94a3b8;margin-bottom:14px;">
+        <div style="font-size:12px;color:var(--t4, #94a3b8);margin-bottom:14px;">
             After bulk-saving covers, the public storefront keeps showing the old
             images until the <strong>catalog_product_flat</strong> index is rebuilt
             and the <strong>block_html</strong> / FPC caches are flushed. This
@@ -180,7 +180,7 @@ $_defaultChecked = $_ciHelper->getDefaultBadgesForWebsite('base');
 
     <div class="bac-card" id="bac-results-card" style="display:none;">
         <h2>Candidates</h2>
-        <div style="font-size:12px;color:#94a3b8;margin-bottom:10px;">
+        <div style="font-size:12px;color:var(--t4, #94a3b8);margin-bottom:10px;">
             Tick the rows you want to regenerate. Use the header checkbox to toggle all,
             then click <strong>Run on selected</strong>. Unticked rows are skipped.
         </div>
