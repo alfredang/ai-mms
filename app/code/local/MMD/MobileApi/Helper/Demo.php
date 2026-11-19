@@ -16,9 +16,111 @@ class MMD_MobileApi_Helper_Demo extends Mage_Core_Helper_Abstract
     const RUN_PAST     = 900003;
     const RUN_PAST_CERT = 900004;
 
+    const RUN_TEACHING = 900005;
+
     public function profile($email)
     {
-        return array('email' => $email, 'first_name' => 'Sample', 'last_name' => 'Learner', 'full_name' => 'Sample Learner');
+        return array(
+            'email' => $email, 'first_name' => 'Sample', 'last_name' => 'Learner', 'full_name' => 'Sample Learner',
+            'phone' => '', 'theme' => 'system', 'roles' => array('learner', 'trainer'),
+        );
+    }
+
+    /** Echo the reviewer's change back so the screens update; nothing is stored. */
+    public function saveProfile($email, array $in)
+    {
+        $p = $this->profile($email);
+        foreach (array('first_name', 'last_name', 'phone') as $k) {
+            if (isset($in[$k]) && trim((string) $in[$k]) !== '') $p[$k] = mb_substr(trim(strip_tags((string) $in[$k])), 0, 32);
+        }
+        if (isset($in['theme']) && in_array($in['theme'], array('system', 'light', 'dark'), true)) {
+            $p['theme'] = $in['theme'];
+        }
+        $p['full_name'] = trim($p['first_name'] . ' ' . $p['last_name']);
+        return $p;
+    }
+
+    // ── Sample class the reviewer teaches ────────────────────────────────────
+
+    public function trainerClasses()
+    {
+        $run = $this->_teachingRun();
+        unset($run['course_url'], $run['price']);
+        return array('current' => array($run), 'upcoming' => array(), 'past' => array());
+    }
+
+    public function trainerClassDetail($runId)
+    {
+        if ((int) $runId !== self::RUN_TEACHING) {
+            return null;
+        }
+        $run   = $this->_teachingRun();
+        $today = $this->_today();
+        $days  = $this->_days($run['start_date'], $run['end_date']);
+        $sessions = array();
+        foreach ($days as $i => $d) {
+            foreach (array('am' => 'AM', 'pm' => 'PM') as $k => $lbl) {
+                $sessions[] = array(
+                    'key' => 'd' . ($i + 1) . $k, 'day' => $i + 1, 'part' => $lbl, 'date' => $d,
+                    'label' => 'Day ' . ($i + 1) . ' · ' . date('D j M', strtotime($d)) . ' · ' . $lbl,
+                );
+            }
+        }
+        $dayIdx  = array_search($today, $days, true);
+        $current = 'd' . (($dayIdx === false ? 0 : $dayIdx) + 1) . ($this->_hour() < 13 ? 'am' : 'pm');
+        $label   = '';
+        foreach ($sessions as $s) {
+            if ($s['key'] === $current) $label = $s['label'];
+        }
+        $roster = array();
+        foreach (array('Aisha Rahman', 'Daniel Lim', 'Mei Ling Tan', 'Priya Nair', 'Wei Jie Ong') as $i => $name) {
+            $roster[] = array(
+                'name' => $name, 'email' => 'learner' . ($i + 1) . '@example.com', 'phone' => '', 'walkin' => false,
+                'present' => $i < 3 ? array($current) : array(),
+            );
+        }
+        $courseUrl = $run['course_url'];
+        unset($run['course_url'], $run['price'], $run['days'], $run['status'], $run['order_no'], $run['certificate'],
+            $run['survey_submitted'], $run['role'], $run['product_id'], $run['learner_count']);
+        return $run + array(
+            'sessions'              => $sessions,
+            'current_session'       => $current,
+            'current_session_label' => $label,
+            'attendance_open'       => true,
+            'checkin_url'           => $courseUrl,
+            'roster'                => $roster,
+            'materials'             => array(array('key' => 'course_page', 'title' => 'Course Outline', 'url' => $courseUrl)),
+            'documents'             => array(),
+            'survey_responses'      => 3,
+        );
+    }
+
+    public function saveTrainerAttendance($runId)
+    {
+        if ((int) $runId !== self::RUN_TEACHING) {
+            return array('success' => false, 'message' => 'This class is not on your account.');
+        }
+        return array('success' => true, 'message' => 'Attendance saved. (Sample account: nothing was recorded.)');
+    }
+
+    protected function _teachingRun()
+    {
+        $runs = $this->_runs();
+        $run  = $runs[self::RUN_PAST];   // a different course from the class the reviewer attends today
+        $t    = $this->_today();
+        $run['run_id']     = self::RUN_TEACHING;
+        $run['class_id']   = 'SAMPLE05';
+        $run['start_date'] = $t;
+        $run['end_date']   = date('Y-m-d', strtotime($t . ' +1 day'));
+        $run['days']       = $this->_days($run['start_date'], $run['end_date']);
+        $run['bucket']     = 'current';
+        $run['trainer']    = 'Sample Learner';
+        $run['order_no']   = null;
+        $run['certificate'] = null;
+        $run['survey_submitted'] = null;
+        $run['role']       = 'trainer';
+        $run['learner_count'] = 5;
+        return $run;
     }
 
     public function classes()
@@ -237,6 +339,7 @@ class MMD_MobileApi_Helper_Demo extends Mage_Core_Helper_Abstract
                 'course_url'   => (string) $c['url'],
                 'price'        => (float) $c['price'],
                 'survey_submitted' => $runId === self::RUN_PAST_CERT,
+                'role'         => 'learner',
                 'certificate'  => null,
             );
         }

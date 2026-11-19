@@ -46,10 +46,12 @@ class MMD_MobileApi_Helper_Learner extends Mage_Core_Helper_Abstract
             $row = $this->_classRow($run, $today, $images);
             $row['certificate']      = isset($certs[(int) $run['run_id']]) ? $certs[(int) $run['run_id']] : null;
             $row['survey_submitted'] = isset($surveys[(int) $run['run_id']]);
+            $row['role']             = 'learner';
             $out[$row['bucket']][] = $row;
         }
         foreach ($this->_pendingRegistrations($email, $runs) as $row) {
             $row['image_url'] = isset($images[$row['product_id']]) ? $images[$row['product_id']] : '';
+            $row['role']      = 'learner';
             $out[$row['bucket']][] = $row;
         }
 

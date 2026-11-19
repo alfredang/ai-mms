@@ -125,18 +125,145 @@ class MMD_MobileApi_Helper_Data extends Mage_Core_Helper_Abstract
         return $user && (int) $user->getIsActive() === 1 && in_array('learner', $this->adminRoles($user->getId()), true);
     }
 
+    /**
+     * How this email is matched to the classes it teaches — the same three
+     * rules as the web LMS (MMD_Attendance_Helper_Data::_filterToTrainer):
+     * the run's trainer account, the legacy trainer option whose
+     * courses_trainers email is this one, or the trainer's full name.
+     * Null when the email is not a trainer on this site.
+     *
+     * @return array{user_id:int, option_ids:int[], name:string}|null
+     */
+    public function trainerIdentity($email)
+    {
+        static $cache = array();
+        if (array_key_exists($email, $cache)) {
+            return $cache[$email];
+        }
+        $user   = $this->loadAdminUser($email);
+        $active = $user && (int) $user->getIsActive() === 1;
+        $optionIds = array();
+        try {
+            $optionIds = array_values(array_unique(array_filter(array_map('intval', $this->_read()->fetchCol(
+                'SELECT relation_id FROM ' . $this->_table('courses_trainers') . ' WHERE LOWER(TRIM(email)) = ? AND status = 1',
+                array($email)
+            )))));
+        } catch (Exception $e) {
+            $optionIds = array();
+        }
+        $hasRole = $active && in_array('trainer', $this->adminRoles($user->getId()), true);
+        if (!$hasRole && !$optionIds) {
+            return $cache[$email] = null;
+        }
+        return $cache[$email] = array(
+            'user_id'    => $active ? (int) $user->getId() : 0,
+            'option_ids' => $optionIds,
+            'name'       => $active ? strtolower(trim($user->getFirstname() . ' ' . $user->getLastname())) : '',
+        );
+    }
+
+    public function isTrainer($email)
+    {
+        return $this->trainerIdentity($email) !== null;
+    }
+
+    /** Learners and trainers may sign in to the app. */
+    public function canUseApp($email)
+    {
+        return $this->isLearner($email) || $this->isTrainer($email);
+    }
+
     public function learnerProfile($email)
     {
         $customer = $this->loadCustomer($email);
         $user     = $this->loadAdminUser($email);
         $first = $customer ? (string) $customer->getFirstname() : ($user ? (string) $user->getFirstname() : '');
         $last  = $customer ? (string) $customer->getLastname()  : ($user ? (string) $user->getLastname()  : '');
+        $pref  = $this->_profileRow($email);
+        $phone = $user ? trim((string) $user->getTel()) : '';
+        if ($phone === '' && $pref) {
+            $phone = (string) $pref['phone'];
+        }
         return array(
             'email'      => $email,
             'first_name' => $first,
             'last_name'  => $last,
             'full_name'  => trim($first . ' ' . $last),
+            'phone'      => $phone,
+            'theme'      => $pref && in_array($pref['theme'], $this->_themes, true) ? $pref['theme'] : 'system',
+            'roles'      => $this->isTrainer($email) ? array('learner', 'trainer') : array('learner'),
         );
+    }
+
+    protected $_themes = array('system', 'light', 'dark');
+
+    /**
+     * Update the signed-in person's own name, phone and appearance. Only the
+     * keys present in $in change. Throws with a user-facing message.
+     */
+    public function saveProfile($email, array $in)
+    {
+        $clean = function ($v, $max) {
+            return mb_substr(trim(preg_replace('/\s+/u', ' ', strip_tags((string) $v))), 0, $max);
+        };
+        $names = array();
+        foreach (array('first_name' => 'firstname', 'last_name' => 'lastname') as $key => $col) {
+            if (!array_key_exists($key, $in)) continue;
+            $v = $clean($in[$key], 32);
+            if ($v === '') {
+                throw new Exception($key === 'first_name' ? 'Please enter your first name.' : 'Please enter your last name.');
+            }
+            $names[$col] = $v;
+        }
+        $phone = null;
+        if (array_key_exists('phone', $in)) {
+            $phone = trim((string) $in['phone']);
+            if ($phone !== '' && !preg_match('/^\+?[0-9 ()\-]{6,20}$/', $phone)) {
+                throw new Exception('Please enter a valid phone number.');
+            }
+        }
+        $theme = null;
+        if (array_key_exists('theme', $in)) {
+            $theme = strtolower(trim((string) $in['theme']));
+            if (!in_array($theme, $this->_themes, true)) {
+                throw new Exception('Please choose System, Light or Dark.');
+            }
+        }
+
+        $user = $this->loadAdminUser($email);
+        if ($names) {
+            $customer = $this->loadCustomer($email);
+            if ($customer) {
+                if (isset($names['firstname'])) $customer->setFirstname($names['firstname']);
+                if (isset($names['lastname']))  $customer->setLastname($names['lastname']);
+                $customer->save();
+            }
+            if ($user) {
+                $this->_write()->update($this->_table('admin/user'), $names, array('user_id = ?' => (int) $user->getId()));
+            }
+        }
+        if ($phone !== null && $user) {
+            $this->_write()->update($this->_table('admin/user'), array('tel' => $phone), array('user_id = ?' => (int) $user->getId()));
+        }
+        if ($theme !== null || $phone !== null) {
+            $row = array('email' => $email, 'updated_at' => $this->utcNow());
+            $upd = array('updated_at');
+            if ($theme !== null) { $row['theme'] = $theme; $upd[] = 'theme'; }
+            if ($phone !== null) { $row['phone'] = $phone; $upd[] = 'phone'; }
+            $this->_write()->insertOnDuplicate($this->_table('mmd_mobile_profile'), $row, $upd);
+        }
+        return $this->learnerProfile($email);
+    }
+
+    protected function _profileRow($email)
+    {
+        try {
+            return $this->_read()->fetchRow(
+                'SELECT theme, phone FROM ' . $this->_table('mmd_mobile_profile') . ' WHERE email = ? LIMIT 1', array($email)
+            ) ?: null;
+        } catch (Exception $e) {
+            return null;   // table not migrated yet
+        }
     }
 
     public function isDemoEmail($email)
@@ -186,7 +313,7 @@ class MMD_MobileApi_Helper_Data extends Mage_Core_Helper_Abstract
         if (!$ok) {
             $user = $this->loadAdminUser($email);
             if ($user && (int) $user->getIsActive() === 1
-                && in_array('learner', $this->adminRoles($user->getId()), true)
+                && array_intersect(array('learner', 'trainer'), $this->adminRoles($user->getId()))
                 && Mage::helper('core')->validateHash($password, (string) $user->getPassword())) {
                 $ok = true;
             }
@@ -232,7 +359,7 @@ class MMD_MobileApi_Helper_Data extends Mage_Core_Helper_Abstract
         }
 
         // The App Review account signs in with its password; never mail it codes.
-        if ($this->isDemoEmail($email) || !$this->isLearner($email)) {
+        if ($this->isDemoEmail($email) || !$this->canUseApp($email)) {
             return;
         }
 
@@ -340,7 +467,7 @@ class MMD_MobileApi_Helper_Data extends Mage_Core_Helper_Abstract
             return null;
         }
         // A learner removed from the site since sign-in loses access at once.
-        if (!(int) $row['is_demo'] && !$this->isLearner($row['email'])) {
+        if (!(int) $row['is_demo'] && !$this->canUseApp($row['email'])) {
             $this->revokeAll($row['email']);
             return null;
         }

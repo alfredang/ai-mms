@@ -60,6 +60,19 @@ abstract class MMD_MobileApi_Controller_Base extends Mage_Core_Controller_Front_
         return true;
     }
 
+    /** Signed in AND a trainer on this site, or answer 401 / 403. */
+    protected function _requireTrainer()
+    {
+        if (!$this->_requireLearner()) {
+            return false;
+        }
+        if (!$this->_isDemo() && !$this->_helper()->isTrainer($this->_email())) {
+            $this->_error(403, 'This account does not teach any classes.', 'not_trainer');
+            return false;
+        }
+        return true;
+    }
+
     protected function _email()
     {
         return $this->_session ? (string) $this->_session['email'] : '';
