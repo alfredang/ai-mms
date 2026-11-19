@@ -433,6 +433,8 @@ RewriteRule ^(.*)$ https://www.tertiarycourses.%1/$1 [L,R=301]
     RewriteRule ^directory/currency/switch(/|$) - [E=noindex_url:1]
     RewriteRule ^catalog/seo_sitemap(/|$) - [E=noindex_url:1]
     RewriteRule ^customer/account(/|$) - [E=noindex_url:1]
+    ## Single-review pages: GSC "Indexed, though blocked by robots.txt" (2026-11-19).
+    RewriteRule ^review/product/view(/|$) - [E=noindex_url:1]
 
     ## Faceted-nav / sort / limit / paginated listing URLs — noindex the
     ## thin/duplicate filter & sort variants but keep "follow" so product
