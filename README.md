@@ -306,7 +306,7 @@ This repo ships its **AI coding tooling in-repo** so every team member uses the 
 setup. Committed and ready to use after a clone:
 
 - **`.claude/skills/`** — domain skills (`openmage-code-reviewer`, `openmage-module-developer`,
-  `openmage-frontend-developer`, `backend-design`, `seo-audit`, `marketing-seo-audit`, `lead-magnets`, `add-country-store`,
+  `openmage-frontend-developer`, `backend-design`, `seo-audit`, `marketing-seo-audit`, `lead-magnets`, `add-country-store`, `trainer-profile`,
   `recommended-courses`, `linkedin-posts`, `malaysia-blog`, `mysql`, `web-accessibility`,
   `cybersecurity-analyst`, …).
 - **`.claude/agents/`** — specialised subagents (security auditor, `security-scanner`, caching/speed optimiser,
