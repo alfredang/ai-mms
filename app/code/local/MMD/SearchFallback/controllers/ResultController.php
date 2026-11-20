@@ -32,9 +32,13 @@ class MMD_SearchFallback_ResultController extends Mage_CatalogSearch_ResultContr
             // enabled, visible course goes straight to the course page
             // (e.g. "TGS-2026061583" → /wsq-information-security-....html).
             // Checked before the min-length branch so short codes like "C6"
-            // work too.
+            // work too. HARD RULE (2026-11-20): a course-code search always lands
+            // on the course page, and the term's row in Search Terms carries that
+            // URL (it used to keep whatever the matcher had stored, e.g. the
+            // generic funded-courses page).
             $skuUrl = $this->_courseCodeUrl($query->getQueryText());
             if ($skuUrl !== null) {
+                $this->_recordCourseCodeSearch($query, $skuUrl);
                 $this->getResponse()->setRedirect($skuUrl);
                 return;
             }
@@ -80,6 +84,29 @@ class MMD_SearchFallback_ResultController extends Mage_CatalogSearch_ResultContr
             }
         } else {
             $this->_redirectReferer();
+        }
+    }
+
+    /**
+     * Store the course page as the redirect of a course-code search term and
+     * count the hit. Terms under the minimum query length are not stored, as in
+     * stock Magento. A failure here must never break the redirect itself.
+     */
+    protected function _recordCourseCodeSearch(Mage_CatalogSearch_Model_Query $query, $url)
+    {
+        try {
+            if (Mage::helper('catalogsearch')->isMinQueryLength()) {
+                return;
+            }
+            $query->setPopularity($query->getId() ? $query->getPopularity() + 1 : 1)
+                ->setRedirect($url)
+                ->setNumResults(1)
+                ->setIsActive(1)
+                ->setIsProcessed(1)
+                ->save();
+            $this->_logDailyHit($query);
+        } catch (Throwable $e) {
+            Mage::logException($e instanceof Exception ? $e : new Exception($e->getMessage()));
         }
     }
 
