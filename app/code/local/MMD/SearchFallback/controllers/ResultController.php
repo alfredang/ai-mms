@@ -136,10 +136,11 @@ class MMD_SearchFallback_ResultController extends Mage_CatalogSearch_ResultContr
      * If the search text is exactly a course code (product SKU), return the
      * course page URL for the current store; null otherwise.
      *
-     * Only redirects when the course would actually render: enabled, visible
-     * as a standalone page, and assigned to this store's website — a disabled
-     * course falls through to normal search results instead of bouncing the
-     * learner to a 404.
+     * Only redirects when the course page would actually render (canShow():
+     * enabled and visible, or a TGS- course the TMS availability sync hid from
+     * listings but keeps reachable) and is assigned to this store's website — a
+     * disabled course falls through to normal search results instead of
+     * bouncing the learner to a 404.
      */
     protected function _courseCodeUrl($queryText)
     {
@@ -159,8 +160,7 @@ class MMD_SearchFallback_ResultController extends Mage_CatalogSearch_ResultContr
             ->setStoreId($store->getId())
             ->load($productId);
         if (!$product->getId()
-            || (int) $product->getStatus() !== Mage_Catalog_Model_Product_Status::STATUS_ENABLED
-            || !$product->isVisibleInSiteVisibility()
+            || !Mage::helper('catalog/product')->canShow($product)
             || !in_array($store->getWebsiteId(), array_map('intval', (array) $product->getWebsiteIds()), true)
         ) {
             return null;

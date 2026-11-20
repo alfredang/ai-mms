@@ -3,8 +3,10 @@
 /**
  * Keeps a TMS-hidden WSQ course reachable at its direct URL.
  *
- * /courses/api_availability hides a non-active TGS- course from listings by setting
- * visibility = "Not Visible Individually" (migration 1922). Stock canShow() then
+ * Until 2026-11-20 /courses/api_availability hid a non-active TGS- course by setting
+ * visibility = "Not Visible Individually" (migration 1922); it no longer hides
+ * anything (hard rule: every enabled course is visible), so this is now only a
+ * safety net for a course that is hidden some other way. Stock canShow() then
  * 404s the product page, so old links, search engines and the renewal notice in
  * catalog/product/view.phtml all hit "Not found" (GSC 404 bucket, 2026-11-12).
  * An enabled TGS- course with a non-active availability row is still shown;

@@ -70,16 +70,15 @@ class MMD_Courses_Api_AvailabilityController extends Mage_Core_Controller_Front_
                 ? (int) $existing['original_visibility']
                 : null;
 
+            // HARD RULE (2026-11-20): an enabled course is always visible. This sync
+            // never hides a course; the status only closes registration and shows a
+            // notice (MMD_Courses_Model_Observer, Helper_Data::getAvailabilityMessage).
+            // A course hidden by the pre-rule sync gets its visibility back here.
             $targetVisibility = null;
-            if ($status !== 'active' && $currentVisibility !== Mage_Catalog_Model_Product_Visibility::VISIBILITY_NOT_VISIBLE) {
-                if ($originalVisibility === null) {
-                    $originalVisibility = $currentVisibility;
+            if ($originalVisibility !== null) {
+                if ($currentVisibility === Mage_Catalog_Model_Product_Visibility::VISIBILITY_NOT_VISIBLE) {
+                    $targetVisibility = $originalVisibility;
                 }
-                $targetVisibility = Mage_Catalog_Model_Product_Visibility::VISIBILITY_NOT_VISIBLE;
-            } elseif ($status === 'active'
-                && $originalVisibility !== null
-                && $currentVisibility === Mage_Catalog_Model_Product_Visibility::VISIBILITY_NOT_VISIBLE) {
-                $targetVisibility = $originalVisibility;
                 $originalVisibility = null;
             }
 

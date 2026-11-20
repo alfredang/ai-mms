@@ -12737,6 +12737,14 @@ $_apiCategories = array(
                 'exampleResponse' => "{\n  \"source_url\": \"...\", \"last_updated\": \"...\", \"confidence\": \"high\",\n  \"data\": {\n    \"course_code\": \"C138\", \"course_title\": \"Python 3 Essential Training\",\n    \"classes_count\": 2,\n    \"classes\": [{\n      \"class_id\": \"C004267\", \"raw\": \"11/12 Jun 2026 (Thu/Fri)\",\n      \"start_date\": \"2026-06-11\", \"end_date\": \"2026-06-12\",\n      \"time\": \"09:30-17:30\", \"trainer\": \"Sanjiv Venkatram\", \"status\": \"Confirmed\",\n      \"mode\": \"Classroom\", \"venue\": \"Springleaf Tower\", \"seats_available\": \"Available\"\n    }]\n  }\n}",
             ),
             array(
+                'method' => 'POST', 'path' => '/courses/api_availability', 'authKey' => 'wsq',
+                'title' => 'Course Availability Sync (TMS → storefront)',
+                'description' => 'The TMS pushes the SSG availability status of each TGS- course (active, renewal_processing, expired, no_public_run, rejected, no_support, unknown). A non-active status closes registration and shows a notice on the course page. It never hides a course: every enabled course stays visible in listings and search (hard rule 2026-11-20). To take a course off the site, disable it.',
+                'notes' => array('Body: {"courses":[{"course_code","ssg_course_code","status","reason","support_from","support_to","has_future_run","checked_at"}]}. Non-TGS codes and unknown statuses are skipped.', 'A course hidden by the pre-2026-11-20 sync gets its visibility back on its next push.'),
+                'exampleRequest' => "curl -X POST -H \"X-API-Key: <key>\" -H \"Content-Type: application/json\" \\\n  -d '{\"courses\":[{\"course_code\":\"TGS-2026066894\",\"status\":\"no_public_run\"}]}' \\\n  \"__BASE_URL__/courses/api_availability\"",
+                'exampleResponse' => "{ \"success\": true, \"matched\": 1, \"visibility_changed\": 0, \"unmatched\": [] }",
+            ),
+            array(
                 'method' => 'GET', 'path' => '/courses/api_search', 'authKey' => 'wsq',
                 'title' => 'Course Search API',
                 'description' => 'Keyword search across SG storefront courses (any course-code prefix). Used to answer "do you have a Python course?" style questions.',
