@@ -1648,7 +1648,7 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
         $au = $resource->getTableName('admin_user');
         $row = $read->fetchRow(
             "SELECT user_id, TRIM(CONCAT(COALESCE(firstname,''), ' ', COALESCE(lastname,''))) AS name, email"
-            . " FROM `{$au}` WHERE LOWER(TRIM(email)) = ? LIMIT 1",
+            . " FROM `{$au}` WHERE email = ? LIMIT 1",
             array(strtolower(trim($email)))
         );
         if (!$row) { return null; }
@@ -1700,7 +1700,7 @@ class MMD_AgentApi_Model_Schedule extends MMD_AgentApi_Model_Abstract
         // reintroduce the behaviour by accident. Normalised identically to
         // _findAdminUserByEmail (LOWER(TRIM(...)) both sides) so the two never disagree.
         $userId = (int) $read->fetchOne(
-            "SELECT user_id FROM `{$auTbl}` WHERE LOWER(TRIM(email)) = ? LIMIT 1",
+            "SELECT user_id FROM `{$auTbl}` WHERE email = ? LIMIT 1",
             array(strtolower(trim($email)))
         );
         if ($userId) {

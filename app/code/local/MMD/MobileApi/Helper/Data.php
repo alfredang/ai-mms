@@ -102,7 +102,7 @@ class MMD_MobileApi_Helper_Data extends Mage_Core_Helper_Abstract
         $user = Mage::getModel('admin/user')->loadByUsername($email);
         if (!$user->getId()) {
             $id = (int) $this->_read()->fetchOne(
-                'SELECT user_id FROM ' . $this->_table('admin/user') . ' WHERE LOWER(email) = ? LIMIT 1',
+                'SELECT user_id FROM ' . $this->_table('admin/user') . ' WHERE email = ? LIMIT 1',
                 array($email)
             );
             if ($id) $user = Mage::getModel('admin/user')->load($id);

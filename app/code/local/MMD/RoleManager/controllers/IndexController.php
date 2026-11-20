@@ -511,7 +511,7 @@ class MMD_RoleManager_IndexController extends Mage_Adminhtml_Controller_Action
         $read    = $res->getConnection('core_read');
         $write   = $res->getConnection('core_write');
         $auTbl   = $res->getTableName('admin_user');
-        $adminId = (int) $read->fetchOne("SELECT user_id FROM `$auTbl` WHERE LOWER(email) = ? LIMIT 1", array($email));
+        $adminId = (int) $read->fetchOne("SELECT user_id FROM `$auTbl` WHERE email = ? LIMIT 1", array($email));
         $status  = 'Existing account #' . $adminId . ' — roles NOT changed; add the trainer role in Users if appropriate.';
 
         if (!$adminId) {

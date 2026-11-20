@@ -38,7 +38,7 @@ class MMD_AccountSync_Helper_Data extends Mage_Core_Helper_Abstract
         $auTbl = $res->getTableName('admin_user');
 
         $adminId = (int) $read->fetchOne(
-            "SELECT user_id FROM `$auTbl` WHERE LOWER(email) = ? LIMIT 1",
+            "SELECT user_id FROM `$auTbl` WHERE email = ? LIMIT 1",
             array($email)
         );
         $hash = (string) $customer->getPasswordHash();
@@ -179,7 +179,7 @@ class MMD_AccountSync_Helper_Data extends Mage_Core_Helper_Abstract
             Mage::log('AccountSync create failed for ' . $email . ': ' . $e->getMessage(),
                 Zend_Log::WARN, 'accountsync.log');
             return (int) $read->fetchOne(
-                "SELECT user_id FROM `$auTbl` WHERE LOWER(email) = ? LIMIT 1",
+                "SELECT user_id FROM `$auTbl` WHERE email = ? LIMIT 1",
                 array($email)
             );
         }

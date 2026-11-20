@@ -613,6 +613,23 @@ if (!function_exists('_dashFmt')) {
 if ($activeRole === 'training_provider'):
 $countryStoreMap = array('SG' => 1, 'MY' => 2, 'GH' => 3);
 $countryStoreId = isset($countryStoreMap[$countryFilter]) ? $countryStoreMap[$countryFilter] : 0;
+$_searchStoreFilter = $countryStoreId ?: $storeId;
+
+// The figures below (KPI tiles, charts, popular courses / searches, latest sign-ups) cost
+// about 3 s of SQL on SG, so they are cached for 5 minutes per store. Admin URLs carry a
+// per-session secret key and are therefore added AFTER the cache, never stored in it.
+$_tpCacheKey  = 'mmd_dash_tp_v1_' . (int) $storeId . '_' . $countryFilter;
+$_tpCacheVars = array('totalOrders', 'totalRevenue', 'productCount', 'monthOrders', 'salesByMonth',
+    'popularCoursesByPeriod', 'popularCourses', 'popularAiCoursesByPeriod', 'tpScheduleDist',
+    'popularSearchesByPeriod', 'popularSearchesNote', 'recentSearches', 'tpDaily', 'tpRecentSignups');
+$_tpCached = null;
+try {
+    $_tpRaw = Mage::app()->loadCache($_tpCacheKey);
+    $_tpCached = $_tpRaw ? @unserialize($_tpRaw, array('allowed_classes' => false)) : null;
+} catch (Exception $e) { $_tpCached = null; }
+if (is_array($_tpCached) && count(array_diff($_tpCacheVars, array_keys($_tpCached))) === 0) {
+    foreach ($_tpCacheVars as $_tpVar) { $$_tpVar = $_tpCached[$_tpVar]; }
+} else {
 
 $oc = Mage::getResourceModel('reports/order_collection');
 if ($storeId) $oc->addFieldToFilter('store_id', $storeId);
@@ -782,7 +799,6 @@ try {
     Mage::logException($e);
 }
 
-$_searchStoreFilter = $countryStoreId ?: $storeId;
 // Period filter (3 / 6 / 12 months / All time). catalogsearch_query keeps ONE row per term
 // with a cumulative popularity, and its updated_at is re-stamped by every bulk UPDATE, so
 // the month periods are summed from the per-day hit log mmd_search_term_daily (written by
@@ -793,7 +809,7 @@ $popularSearchesByPeriod = array('3' => array(), '6' => array(), '12' => array()
 $popularSearchesNote = array('3' => '', '6' => '', '12' => '', 'all' => '');
 $sq = Mage::getModel('catalogsearch/query')->getCollection()->setOrder('popularity','desc')->setPageSize(30);
 if ($_searchStoreFilter) $sq->addFieldToFilter('store_id', $_searchStoreFilter);
-foreach ($sq as $t) { $popularSearchesByPeriod['all'][] = array('term' => $t->getQueryText(), 'count' => (int)$t->getPopularity(), 'url' => $this->getUrl('adminhtml/catalog_search/edit', array('id' => $t->getId()))); }
+foreach ($sq as $t) { $popularSearchesByPeriod['all'][] = array('term' => $t->getQueryText(), 'count' => (int)$t->getPopularity(), 'id' => (int)$t->getId()); }
 try {
     $_psLogT = $resource->getTableName('mmd_search_term_daily');
     $_psQueryT = $resource->getTableName('catalogsearch/search_query');
@@ -806,15 +822,13 @@ try {
               WHERE d.day >= " . $read->quote($_psFrom) . ($_searchStoreFilter ? " AND q.store_id = " . (int) $_searchStoreFilter : "") . "
            GROUP BY d.query_id, q.query_text ORDER BY hits DESC LIMIT 30"
         );
-        foreach ($_psRows as $_r) { $popularSearchesByPeriod[(string) $_psMonths][] = array('term' => $_r['term'], 'count' => (int) $_r['hits'], 'url' => $this->getUrl('adminhtml/catalog_search/edit', array('id' => $_r['query_id']))); }
+        foreach ($_psRows as $_r) { $popularSearchesByPeriod[(string) $_psMonths][] = array('term' => $_r['term'], 'count' => (int) $_r['hits'], 'id' => (int) $_r['query_id']); }
         if (!$_psLogStart) $popularSearchesNote[(string) $_psMonths] = 'no searches logged yet';
         elseif ($_psLogStart > $_psFrom) $popularSearchesNote[(string) $_psMonths] = 'counted since ' . date('j M Y', strtotime($_psLogStart));
     }
 } catch (Exception $e) {
     Mage::logException($e);
 }
-$popularSearches = $popularSearchesByPeriod['all'];
-
 $rq = Mage::getModel('catalogsearch/query')->getCollection()->setOrder('query_id','desc')->setPageSize(50); // slider shows 5-50
 if ($_searchStoreFilter) $rq->addFieldToFilter('store_id', $_searchStoreFilter);
 $recentSearches = array();
@@ -824,7 +838,7 @@ foreach ($rq as $t) {
         'count'      => (int)$t->getNumResults(),
         'popularity' => (int)$t->getPopularity(),
         'date'       => Mage::helper('core')->formatDate($t->getUpdatedAt(),'short',true),
-        'edit_url'   => $this->getUrl('adminhtml/catalog_search/edit', array('id' => $t->getId()))
+        'id'         => (int)$t->getId()
     );
 }
 
@@ -851,9 +865,13 @@ try {
     unset($_r);
     $_tpRecent = $read->fetchAll(
         "SELECT o.increment_id, o.created_at, o.status, o.customer_firstname, o.customer_lastname, i.sku, i.name, i.qty_ordered, i.product_options
-           FROM {$_smOrderT} o JOIN {$_tpItemT} i ON i.order_id = o.entity_id
-          WHERE o.state NOT IN ('canceled') AND i.parent_item_id IS NULL" . ($storeId ? " AND o.store_id = " . (int) $storeId : "") . "
-       ORDER BY o.created_at DESC, i.item_id DESC LIMIT 50"
+           FROM (SELECT i2.item_id
+                   FROM {$_smOrderT} o2 JOIN {$_tpItemT} i2 ON i2.order_id = o2.entity_id
+                  WHERE o2.state NOT IN ('canceled') AND i2.parent_item_id IS NULL" . ($storeId ? " AND o2.store_id = " . (int) $storeId : "") . "
+               ORDER BY o2.created_at DESC, i2.item_id DESC LIMIT 50) x
+           JOIN {$_tpItemT} i ON i.item_id = x.item_id
+           JOIN {$_smOrderT} o ON o.entity_id = i.order_id
+       ORDER BY o.created_at DESC, i.item_id DESC"
     );
     foreach ($_tpRecent as $_r) {
         $_cd = '';
@@ -864,10 +882,27 @@ try {
             'learner' => trim($_r['customer_firstname'] . ' ' . $_r['customer_lastname']),
             'course'  => $_r['name'], 'sku' => $_r['sku'], 'qty' => (int) round((float) $_r['qty_ordered']),
             'class'   => $_cd, 'status' => $_r['status'],
-            'url'     => $this->getUrl('adminhtml/sales_order/index', array('_query' => array('increment_id' => $_r['increment_id']))),
         );
     }
 } catch (Exception $e) { Mage::logException($e); }
+
+    try {
+        Mage::app()->saveCache(serialize(compact($_tpCacheVars)), $_tpCacheKey, array('MMD_DASH_TP'), 300);
+    } catch (Exception $e) { Mage::logException($e); }
+} // end of the cached figures
+
+foreach ($popularSearchesByPeriod as $_tpK => $_tpList) {
+    foreach ($_tpList as $_tpI => $_tpRow) {
+        $popularSearchesByPeriod[$_tpK][$_tpI]['url'] = $this->getUrl('adminhtml/catalog_search/edit', array('id' => $_tpRow['id']));
+    }
+}
+$popularSearches = $popularSearchesByPeriod['all'];
+foreach ($recentSearches as $_tpI => $_tpRow) {
+    $recentSearches[$_tpI]['edit_url'] = $this->getUrl('adminhtml/catalog_search/edit', array('id' => $_tpRow['id']));
+}
+foreach ($tpRecentSignups as $_tpI => $_tpRow) {
+    $tpRecentSignups[$_tpI]['url'] = $this->getUrl('adminhtml/sales_order/index', array('_query' => array('increment_id' => $_tpRow['order'])));
+}
 
 // Orders by Country retired 2026-11: a Training Provider only sees its own site.
 endif; // end if ($activeRole === 'training_provider')

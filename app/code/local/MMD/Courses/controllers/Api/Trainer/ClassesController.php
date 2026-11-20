@@ -148,7 +148,7 @@ class MMD_Courses_Api_Trainer_ClassesController extends Mage_Core_Controller_Fro
     {
         $u = $read->fetchRow(
             "SELECT user_id, email, is_active, TRIM(CONCAT(COALESCE(firstname,''),' ',COALESCE(lastname,''))) AS name
-               FROM admin_user WHERE LOWER(TRIM(email)) = ? LIMIT 1", array($email));
+               FROM admin_user WHERE email = ? LIMIT 1", array($email));
         $uid = $u ? (int) $u['user_id'] : 0;
         $optIds = array_values(array_filter(array_map('intval', $read->fetchCol(
             "SELECT relation_id FROM courses_trainers WHERE LOWER(TRIM(email)) = ? AND relation_id > 0", array($email)))));

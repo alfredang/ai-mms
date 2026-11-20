@@ -1176,7 +1176,7 @@ class MMD_Attendance_Helper_Data extends Mage_Core_Helper_Abstract
 
         // The learner's own dashboard account (if any) is recorded as the marker.
         $adminId = (int) $read->fetchOne(
-            "SELECT user_id FROM `" . $resource->getTableName('admin_user') . "` WHERE LOWER(email) = ? LIMIT 1",
+            "SELECT user_id FROM `" . $resource->getTableName('admin_user') . "` WHERE email = ? LIMIT 1",
             array($email)
         );
         $res = $this->selfMarkPresent($runId, $email, $adminId ?: null, $sessionKey);

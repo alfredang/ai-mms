@@ -221,7 +221,7 @@ class MMD_Courses_Model_TmsImport
     {
         $w=$this->_write; $users=$this->table('admin_user'); $links=$this->table('mmd_tms_person_link');
         $linked=$w->fetchRow("SELECT * FROM `$links` WHERE provider_id=? AND source_id=?",array($provider,$person['source_id']));
-        $byEmail=$w->fetchAll("SELECT * FROM `$users` WHERE LOWER(TRIM(email))=?",array($person['email']));
+        $byEmail=$w->fetchAll("SELECT * FROM `$users` WHERE email=?",array($person['email']));
         if(count($byEmail)>1)throw new InvalidArgumentException('Multiple MMS accounts share this email.');
         if($linked && $byEmail && (int)$linked['user_id']!==(int)$byEmail[0]['user_id'])throw new InvalidArgumentException('Changed email belongs to another MMS account.');
         $user=$linked?$w->fetchRow("SELECT * FROM `$users` WHERE user_id=?",array($linked['user_id'])):($byEmail?$byEmail[0]:null);
@@ -247,7 +247,7 @@ class MMD_Courses_Model_TmsImport
             } else { $customer->setFirstname($first)->setLastname($last)->save(); }
             Mage::helper('mmd_accountsync')->onCustomerSaved($customer);
         }
-        if(!$user) $user=$w->fetchRow("SELECT * FROM `$users` WHERE LOWER(email)=?",array($person['email']));
+        if(!$user) $user=$w->fetchRow("SELECT * FROM `$users` WHERE email=?",array($person['email']));
         if(!$user) {
             if(strlen($person['email'])>40)throw new InvalidArgumentException('New trainer email exceeds current dashboard username storage.');
             $model=Mage::getModel('admin/user')->setData(array('email'=>$person['email'],'username'=>$person['email'],'firstname'=>$first,'lastname'=>$last,'password'=>bin2hex(random_bytes(24)),'is_active'=>1));

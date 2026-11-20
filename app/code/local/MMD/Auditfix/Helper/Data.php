@@ -48,6 +48,26 @@ class MMD_Auditfix_Helper_Data extends Mage_Core_Helper_Abstract
         $table = Mage::getSingleton('core/resource')->getTableName(self::TABLE);
 
         try {
+            // The nightly scanners report the same finding every night. An OPEN finding
+            // that is already on file is refreshed (found_at, detail) instead of being
+            // inserted again: SG reached 1.5M open rows for 11k distinct findings, which
+            // made the admin header bell query take seconds on every cold cache.
+            if ($row['status'] === self::STATUS_OPEN) {
+                $existingId = (int)$write->fetchOne(
+                    "SELECT issue_id FROM {$table}
+                      WHERE status = ? AND severity = ? AND title = ? AND source = ? AND category = ?
+                        AND entity_type <=> ? AND entity_id <=> ? AND store_id <=> ?
+                      ORDER BY issue_id DESC LIMIT 1",
+                    array($row['status'], $row['severity'], $row['title'], $row['source'], $row['category'],
+                          $row['entity_type'], $row['entity_id'], $row['store_id'])
+                );
+                if ($existingId > 0) {
+                    $write->update($table,
+                        array('found_at' => $row['found_at'], 'detail' => $row['detail']),
+                        $write->quoteInto('issue_id = ?', $existingId));
+                    return $existingId;
+                }
+            }
             $write->insert($table, $row);
             return (int)$write->lastInsertId();
         } catch (Exception $e) {

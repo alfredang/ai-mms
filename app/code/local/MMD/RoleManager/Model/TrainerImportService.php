@@ -117,7 +117,7 @@ class MMD_RoleManager_Model_TrainerImportService
 
             try {
                 $userId = (int) $read->fetchOne(
-                    "SELECT user_id FROM `$auTbl` WHERE LOWER(email) = ? LIMIT 1",
+                    "SELECT user_id FROM `$auTbl` WHERE email = ? LIMIT 1",
                     array($email)
                 );
 

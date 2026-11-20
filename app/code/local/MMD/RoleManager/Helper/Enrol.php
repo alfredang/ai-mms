@@ -17,7 +17,7 @@ class MMD_RoleManager_Helper_Enrol extends Mage_Core_Helper_Abstract
         $read    = $res->getConnection('core_read');
         $write   = $res->getConnection('core_write');
         $adminId = (int) $read->fetchOne(
-            "SELECT user_id FROM `" . $res->getTableName('admin_user') . "` WHERE LOWER(email) = ? LIMIT 1",
+            "SELECT user_id FROM `" . $res->getTableName('admin_user') . "` WHERE email = ? LIMIT 1",
             array($email)
         );
         $customer = $this->loadCustomerByEmail($email);

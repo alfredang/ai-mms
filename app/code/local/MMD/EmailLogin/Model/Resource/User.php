@@ -16,7 +16,7 @@ class MMD_EmailLogin_Model_Resource_User extends Mage_Admin_Model_Resource_User
         if (strpos($identifier, '@') !== false) {
             $select = $adapter->select()
                 ->from($this->getMainTable())
-                ->where('LOWER(email) = :id')
+                ->where('email = :id')
                 ->limit(1);
             $row = $adapter->fetchRow($select, ['id' => $lower]);
             if ($row) {
