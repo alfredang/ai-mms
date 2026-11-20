@@ -834,187 +834,6 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                 .dcf-assess-url input{width:100%}
                 .dcf-assess-box.dcf-assess-checked .dcf-assess-url{display:block}
 
-/* --- Block 7 (template line 2794) --- */
-                .lsn-topic{background:var(--d4, #283548);border:1px solid var(--b1, #384a60);border-radius:12px;margin-bottom:14px;overflow:hidden}
-                .lsn-topic.lsn-topic-dragging{opacity:.4}
-                .lsn-topic.lsn-topic-drop-target{outline:2px dashed var(--blue, #60a5fa);outline-offset:2px}
-                .lsn-topic-head{display:flex;align-items:center;gap:12px;background:var(--d4, #334155);padding:14px 16px}
-                .lsn-topic-drag{color:var(--t4, #94a3b8);cursor:grab;padding:4px;display:flex;flex-direction:column;gap:3px;user-select:none}
-                .lsn-topic-drag:active{cursor:grabbing}
-                .lsn-topic-drag:hover{color:var(--t2, #cbd5e1)}
-                .lsn-topic-drag span{display:block;width:14px;height:2px;background:currentColor;border-radius:1px;pointer-events:none}
-                .lsn-topic-title{flex:1;background:transparent;border:none;color:var(--t1, #f1f5f9);font-size:15px;font-weight:700;outline:none;padding:4px 0;font-family:inherit}
-                .lsn-topic-btn,
-                .lsn-topic-btn:hover,
-                .lsn-topic-btn:focus,
-                .lsn-topic-btn:active{
-                    background:transparent !important;
-                    background-image:none !important;
-                    border:1px solid var(--b2, #475569) !important;
-                    border-radius:5px !important;
-                    cursor:pointer;
-                    padding:0 !important;
-                    width:26px !important;
-                    height:26px !important;
-                    display:inline-flex !important;
-                    align-items:center !important;
-                    justify-content:center !important;
-                    color:var(--t2, #cbd5e1) !important;
-                    box-shadow:none !important;
-                    text-shadow:none !important;
-                    transform:none !important;
-                    font-size:0 !important;
-                }
-                .lsn-topic-btn:hover{background:rgba(96,165,250,.12) !important;border-color:var(--blue, #60a5fa) !important;color:var(--blue, #60a5fa) !important}
-                /* Delete topic button — fully static. Every state (rest,
-                   hover, focus, focus-visible, active) renders the same
-                   red border + red icon, with no box-shadow ring (the
-                   global .admin-main button:focus-visible in
-                   sidebar-nav.css ships a 3px blue ring; that was the
-                   "blue box" the user saw on click) and no transitions
-                   (any color animation would visibly flicker on
-                   mouse-cross). .admin-main prefix lifts specificity
-                   above the global button rules. */
-                .admin-main .lsn-topic-btn.lsn-del,
-                .admin-main .lsn-topic-btn.lsn-del:hover,
-                .admin-main .lsn-topic-btn.lsn-del:focus,
-                .admin-main .lsn-topic-btn.lsn-del:focus-visible,
-                .admin-main .lsn-topic-btn.lsn-del:active{
-                    background:transparent !important;
-                    background-image:none !important;
-                    border:1px solid var(--red-soft, #f87171) !important;
-                    color:var(--red-soft, #f87171) !important;
-                    box-shadow:none !important;
-                    outline:none !important;
-                    transform:none !important;
-                    transition:none !important;
-                }
-                .lsn-topic-btn svg{width:14px !important;height:14px !important;stroke:currentColor !important;fill:none !important;display:block !important}
-                .lsn-topic-body{padding:14px 16px;display:none}
-                .lsn-topic.open .lsn-topic-body{display:block}
-                .lsn-topic.open .lsn-caret-svg{transform:rotate(180deg)}
-                .lsn-caret-svg{transition:transform .2s}
-                .lsn-subsec{display:flex;align-items:center;gap:10px;margin-bottom:10px}
-                .lsn-subsec-icon{color:var(--green, #22c55e);flex-shrink:0}
-                .lsn-subsec-title{flex:1;background:transparent;border:none;color:var(--t1, #f1f5f9);font-size:15px;font-weight:700;outline:none;padding:4px 6px;border-radius:4px;font-family:inherit}
-                .lsn-subsec-title:focus{background:rgba(96,165,250,.1)}
-                .lsn-link{display:flex;align-items:center;gap:10px;background:var(--d3, #1f2a3a);border:1px solid var(--b1, #384a60);border-radius:8px;padding:8px 10px;margin-bottom:8px}
-                .lsn-link-drag{color:var(--t5, #64748b);cursor:grab;display:flex;flex-direction:column;gap:2px;padding:2px}
-                .lsn-link-drag span{display:block;width:12px;height:2px;background:currentColor;border-radius:1px}
-                .lsn-tag{flex-shrink:0;padding:3px 8px;border-radius:5px;font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#fff;width:40px;text-align:center}
-                /* Match the colored action-button labels under each
-                   subsection (+ Web / + Document / + YouTube / + Activity
-                   / + Quiz), so saved-link tag pills read consistently. */
-                .lsn-tag-web{background:#60a5fa}   /* blue   */
-                .lsn-tag-doc{background:#fb923c}   /* orange */
-                .lsn-tag-yt {background:#f87171}   /* red    */
-                .lsn-tag-act{background:#c084fc}   /* purple */
-                .lsn-tag-qz {background:#22c55e}   /* green  */
-                .lsn-subsec-del,
-                .lsn-subsec-del:hover,
-                .lsn-subsec-del:focus,
-                .lsn-subsec-del:active{background:transparent !important;background-image:none !important;border:1px solid var(--red-soft, #f87171) !important;cursor:pointer;color:var(--red-soft, #f87171) !important;padding:0 !important;width:24px !important;height:24px !important;border-radius:5px !important;display:inline-flex !important;align-items:center !important;justify-content:center !important;flex-shrink:0;box-shadow:none !important;text-shadow:none !important;transform:none !important;font-size:0 !important}
-                .lsn-subsec-del:hover{background:rgba(248,113,113,.10) !important}
-                .lsn-add-subsec{background:transparent;border:1px dashed var(--b2, #475569);border-radius:8px;color:var(--t4, #94a3b8);font-size:13px;font-weight:600;cursor:pointer;padding:8px 12px;display:inline-flex;align-items:center;gap:6px;margin-bottom:14px}
-                .lsn-add-subsec:hover{border-color:var(--green, #22c55e);color:var(--green, #22c55e)}
-                .lsn-link-title{flex:1;min-width:0;background:transparent;border:none;color:var(--t1, #f1f5f9);font-size:14px;font-weight:600;outline:none;padding:4px 6px;border-radius:4px;font-family:inherit}
-                .lsn-link-title:focus{background:rgba(96,165,250,.1)}
-                .lsn-link-url{flex:1;min-width:0;background:transparent;border:none;color:var(--t2, #cbd5e1);font-size:13px;outline:none;padding:4px 6px;border-radius:4px;font-family:monospace;overflow:hidden;text-overflow:ellipsis}
-                .lsn-link-url:focus{background:rgba(96,165,250,.1);color:var(--t1, #f1f5f9)}
-                .lsn-link-del,
-                .lsn-link-del:hover,
-                .lsn-link-del:focus,
-                .lsn-link-del:active{background:transparent !important;background-image:none !important;border:1px solid var(--red-soft, #f87171) !important;cursor:pointer;color:var(--red-soft, #f87171) !important;padding:0 !important;width:24px !important;height:24px !important;border-radius:5px !important;display:inline-flex !important;align-items:center !important;justify-content:center !important;box-shadow:none !important;text-shadow:none !important;transform:none !important;font-size:0 !important}
-                .lsn-link-del:hover{background:rgba(248,113,113,.10) !important}
-                /* Compact action row — five buttons inline, one line. The
-                   higher-specificity `button.lsn-add-btn` + !important wins
-                   over admin's default blue button block. */
-                .lsn-add-row{display:flex !important;flex-wrap:nowrap !important;gap:4px;padding:0;margin-top:0;border-top:none;white-space:nowrap}
-                .lsn-add-row button,.lsn-add-row button:hover,.lsn-add-row button:focus,.lsn-add-row button:active{
-                    background:transparent !important;
-                    background-image:none !important;
-                    border:none !important;
-                    font-size:11px !important;
-                    font-weight:600 !important;
-                    cursor:pointer !important;
-                    padding:2px 4px !important;
-                    display:inline-flex !important;
-                    align-items:center !important;
-                    gap:2px !important;
-                    opacity:.85;
-                    line-height:1 !important;
-                    height:auto !important;
-                    min-width:0 !important;
-                    box-shadow:none !important;
-                    text-shadow:none !important;
-                    text-transform:none !important;
-                    flex:0 0 auto;
-                    border-radius:0 !important;
-                }
-                .lsn-add-row button:hover{opacity:1}
-                .lsn-add-row button svg{width:11px !important;height:11px !important;flex-shrink:0}
-                /* Per-type colors. Order is fixed in the template:
-                   1 Web, 2 Document, 3 YouTube, 4 Activity, 5 Quiz. */
-                .lsn-add-row button:nth-child(1){color:var(--blue, #60a5fa) !important}   /* Web    — blue   */
-                .lsn-add-row button:nth-child(2){color:var(--orange, #fb923c) !important}   /* Doc    — orange */
-                .lsn-add-row button:nth-child(3){color:var(--red-soft, #f87171) !important}   /* YT     — red    */
-                .lsn-add-row button:nth-child(4){color:var(--violet, #c084fc) !important}   /* Act    — purple */
-                .lsn-add-row button:nth-child(5){color:var(--green, #22c55e) !important}   /* Quiz   — green  */
-                .lsn-add-topic{display:flex;align-items:center;justify-content:center;gap:8px;padding:16px;border:1px dashed var(--b2, #475569);border-radius:10px;color:var(--t4, #94a3b8);font-size:14px;font-weight:700;cursor:pointer;background:transparent;width:100%;margin-top:4px}
-                .lsn-add-topic:hover{border-color:var(--blue, #60a5fa);color:var(--blue, #60a5fa)}
-                /* Subsection block — wraps the section name row plus its
-                   own links and add-resource button row. Padding-left
-                   gives a hanging indent so resources read as belonging
-                   to the section above them. */
-                .lsn-subsec-block{padding:6px 0 8px 0;margin-bottom:4px;border-bottom:1px dashed rgba(255,255,255,.06)}
-                .lsn-subsec-block:last-of-type{border-bottom:none;margin-bottom:0}
-                .lsn-subsec-block .lsn-add-row{padding-left:30px;margin-top:2px;border-top:none}
-                .lsn-subsec-block .lsn-link{margin-left:30px}
-                .lsn-subsec-block .lsn-subsec{margin-bottom:2px}
-                /* Add-resource buttons stay visible at all times. Previous
-                   hover-to-reveal (opacity:0 → opacity:1 with .12s fade)
-                   produced a flicker loop when the cursor sat right on
-                   the delete-section icon — sub-pixel hover boundary
-                   plus the fade transition oscillated between the two
-                   states. Five compact buttons on one line are mild
-                   clutter compared to a spastically flickering row. */
-                .lsn-subsec-block .lsn-add-row{opacity:1;pointer-events:auto}
-
-                /* Light-mode palette for the lesson editor. The .lsn-*
-                   family hardcodes slate-700/800 backgrounds and
-                   near-white text — those wash out / look like dark
-                   patches on the light page surface. Flip the outer
-                   topic card to slate-100, the head strip to slate-200,
-                   the saved-link rows to white, and all input/title
-                   text to slate-900. */
-                :root[data-theme="light"] .lsn-topic{background:var(--d4);border-color:var(--b1)}
-                :root[data-theme="light"] .lsn-topic-head{background:var(--d5)}
-                :root[data-theme="light"] .lsn-topic-drag{color:var(--t4)}
-                :root[data-theme="light"] .lsn-topic-drag:hover{color:var(--t3)}
-                :root[data-theme="light"] .lsn-topic-title{color:var(--t1)}
-                :root[data-theme="light"] .lsn-subsec-title{color:var(--t1)}
-                :root[data-theme="light"] .lsn-subsec-block{border-bottom-color:rgba(15,23,42,.08)}
-                :root[data-theme="light"] .lsn-link{background:#ffffff;border-color:var(--b1)}
-                :root[data-theme="light"] .lsn-link-drag{color:var(--t5)}
-                :root[data-theme="light"] .lsn-link-title{color:var(--t1)}
-                :root[data-theme="light"] .lsn-link-url{color:var(--t3)}
-                /* Caret/expand button — was a near-white chevron on white
-                   in light mode (inline color removed in the topic-row
-                   JS, so the class color rule wins). Force slate-900 +
-                   slate-300 border for visibility. Carve the .lsn-del
-                   variant out of the resting + hover rules — that
-                   button must stay red in both states, otherwise the
-                   generic hover (specificity 0,3,1 > delete-specific
-                   0,3,0) repaints it blue and the icon flickers
-                   red↔blue under the cursor. */
-                :root[data-theme="light"] .lsn-topic-btn:not(.lsn-del),
-                :root[data-theme="light"] .lsn-topic-btn:not(.lsn-del):focus,
-                :root[data-theme="light"] .lsn-topic-btn:not(.lsn-del):active{color:var(--t1) !important;border-color:var(--b1) !important}
-                :root[data-theme="light"] .lsn-topic-btn:not(.lsn-del):hover{background:rgba(37,99,235,.08) !important;border-color:var(--blue) !important;color:var(--blue) !important}
-                /* (Removed light-mode .lsn-del override — the
-                   .admin-main .lsn-topic-btn.lsn-del rule above now
-                   pins red in both themes via higher specificity.) */
-
 /* --- Block 8 (template line 3270) --- */
                 .dcf-toggle-row{display:flex;align-items:center;justify-content:space-between;gap:16px}
                 .dcf-toggle-label{font-size:14px;font-weight:600;color:#fff}
@@ -4728,6 +4547,161 @@ body[class*="adminhtml-"] .admin-main .middle { animation: mmd-ui-failsafe-revea
 /* Text on the solid blue Edit pill is white in both themes (the global `a { color }` rule was painting it blue-on-blue). */
 a.cs-edit-btn, a.cs-edit-btn:hover, a.cs-edit-btn:focus,
 :root[data-theme="light"] body a.cs-edit-btn { color: #ffffff !important; }
+
+/* ============================================================
+   Lesson (MMD_LessonQuiz): the builder in the course editor (.lsb-*), the
+   Edit Quiz dialog (.lsq-*), the read view on the course / class page (.lsv-*)
+   and the full-screen layers (.lsx-*). Markup: js/lesson-builder.js and
+   template/lessonquiz/lesson-view.phtml. Tokens only, so light and dark both
+   come from dark-theme.css; the two black full-screen layers (video, QR code
+   for the classroom screen) are black in both themes on purpose.
+   ============================================================ */
+
+/* ---- shared: asset tag ---- */
+.lsv-tag { flex: 0 0 auto; min-width: 46px; padding: 3px 8px; border: 1px solid currentColor; border-radius: 4px; font-size: 10.5px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; text-align: center; line-height: 1.3; }
+.lsv-tag-quiz { color: var(--green); }
+.lsv-tag-video { color: var(--red); }
+.lsv-tag-link { color: var(--blue); }
+
+/* ---- builder ---- */
+.admin-main .lsb-head { align-items: center; gap: 8px; flex-wrap: wrap; }
+.lsb-head > svg { color: var(--blue); }
+.lsb-head-name { flex: 1 1 auto; }
+.lsb-note { margin: 0 0 12px; padding: 8px 12px; border: 1px solid var(--green); border-radius: 6px; background: var(--green-tint); color: var(--t1); font-size: 12px; }
+.lsb-topic { margin: 0 0 12px; border: 1px solid var(--b1); border-radius: 12px; background: var(--d4); overflow: hidden; }
+.lsb-topic.lsb-dragging, .lsb-sub.lsb-dragging, .lsb-asset.lsb-dragging { opacity: .45; }
+.lsb-topic.lsb-drop, .lsb-sub.lsb-drop, .lsb-asset.lsb-drop { outline: 2px dashed var(--blue); outline-offset: 2px; }
+.lsb-topic-head { display: flex; align-items: center; gap: 10px; padding: 12px 14px; }
+.lsb-topic-body { display: none; padding: 14px 16px 16px; border-top: 1px solid var(--b1); background: var(--d3); }
+.lsb-topic.open .lsb-topic-body { display: block; }
+.lsb-grip { flex: 0 0 auto; display: inline-flex; padding: 4px; color: var(--t4); cursor: grab; }
+.lsb-grip:hover { color: var(--t1); }
+.lsb-grip:active { cursor: grabbing; }
+.admin-main .lsb-caret > svg { transition: transform .15s ease; }
+.admin-main .lsb-topic.open .lsb-caret > svg { transform: rotate(180deg); }
+.admin-main .mmd-iconbtn.lsb-del { color: var(--red) !important; border-color: var(--red) !important; }
+.admin-main .mmd-iconbtn.lsb-del:hover { background: var(--red-tint) !important; color: var(--red) !important; border-color: var(--red) !important; }
+
+/* Lesson fields read as text until hovered or focused. */
+.admin-main input.lsb-input.lsb-input { flex: 1 1 0; min-width: 0; width: 100%; min-height: 32px !important; padding: 5px 8px !important; border: 1px solid transparent !important; border-radius: 6px !important; background: transparent !important; color: var(--t1) !important; font-size: 13px !important; }
+.admin-main input.lsb-input.lsb-input:hover { border-color: var(--b2) !important; }
+.admin-main input.lsb-input.lsb-input:focus { border-color: var(--blue) !important; box-shadow: 0 0 0 3px var(--ring) !important; outline: none !important; }
+.admin-main input.lsb-input.lsb-input::placeholder { color: var(--t5); opacity: 1; }
+.admin-main input.lsb-input.lsb-topic-title { font-size: 15px !important; font-weight: 700 !important; }
+.admin-main input.lsb-input.lsb-sub-title { font-size: 14px !important; font-weight: 600 !important; }
+.admin-main input.lsb-input.lsb-asset-title { flex: 0 1 34%; font-weight: 600 !important; }
+
+.lsb-sub { margin: 0 0 16px; }
+.lsb-sub-head { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; }
+.lsb-sub-icon { flex: 0 0 auto; display: inline-flex; color: var(--green); }
+.lsb-asset { display: flex; align-items: center; gap: 8px; margin: 0 0 6px 34px; padding: 6px 8px; border: 1px solid var(--b1); border-radius: 8px; background: var(--d4); }
+.lsb-asset-quiz { background: var(--green-tint); }
+.lsb-asset-video { background: var(--red-tint); }
+.lsb-add-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 0 34px; }
+.lsb-add-icon { display: inline-flex; }
+.admin-main button.lsb-add-web .lsb-add-icon { color: var(--blue); }
+.admin-main button.lsb-add-yt .lsb-add-icon { color: var(--red); }
+.admin-main button.lsb-add-qz .lsb-add-icon { color: var(--green); }
+
+/* Bespoke buttons: clear the generic admin button chrome first. */
+.admin-main .lsb-add-topic,
+.admin-main .lsb-quiz-edit,
+.admin-main .lsq-ai-toggle,
+.admin-main .lsq-link,
+.admin-main .lsx-close { background: transparent !important; background-image: none !important; box-shadow: none !important; text-shadow: none !important; min-height: 0 !important; height: auto !important; text-transform: none !important; letter-spacing: 0 !important; cursor: pointer !important; }
+.admin-main .lsb-add-topic { display: block !important; width: 100% !important; padding: 14px !important; border: 2px dashed var(--b2) !important; border-radius: 12px !important; color: var(--t4) !important; font-size: 14px !important; font-weight: 600 !important; }
+.admin-main .lsb-add-topic:hover { border-color: var(--blue) !important; color: var(--blue) !important; }
+.admin-main .lsb-quiz-edit { flex: 1 1 0; min-width: 0; display: flex !important; align-items: center !important; justify-content: space-between !important; gap: 12px; padding: 6px 12px !important; border: 1px solid var(--green) !important; border-radius: 6px !important; color: var(--t1) !important; font-size: 13px !important; font-weight: 500 !important; text-align: left; }
+.admin-main .lsb-quiz-edit:hover { background: var(--d3) !important; }
+.admin-main .lsb-quiz-edit-go { flex: 0 0 auto; color: var(--green); font-size: 12px; font-weight: 600; }
+.admin-main .lsb-add-topic:focus-visible,
+.admin-main .lsb-quiz-edit:focus-visible,
+.admin-main .lsq-ai-toggle:focus-visible,
+.admin-main .lsq-link:focus-visible,
+.admin-main .lsx-close:focus-visible,
+.lsv-topic-head:focus-visible,
+.lsv-video-play:focus-visible,
+.lsv-asset.lsv-link:focus-visible { outline: 2px solid var(--blue) !important; outline-offset: 2px !important; box-shadow: 0 0 0 4px var(--ring) !important; }
+
+/* ---- read view ---- */
+.lsv-bar { display: flex; justify-content: flex-end; margin: 0 0 10px; }
+.lsv-empty { margin: 0; padding: 4px 0; color: var(--t4); font-size: 13px; font-style: italic; }
+.lsv-topic { margin: 0 0 10px; border: 1px solid var(--b1); border-radius: 10px; background: var(--d4); overflow: hidden; }
+.lsv-topic-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; cursor: pointer; }
+.lsv-topic-title { color: var(--t1); font-size: 15px; font-weight: 700; }
+.lsv-caret { flex: 0 0 auto; color: var(--t4); transition: transform .15s ease; }
+.lsv-topic.open .lsv-caret { transform: rotate(180deg); }
+.lsv-topic-body { display: none; padding: 14px 16px; border-top: 1px solid var(--b1); background: var(--d3); }
+.lsv-topic.open .lsv-topic-body { display: block; }
+.lsv-sub { margin: 0 0 14px; }
+.lsv-sub:last-child { margin-bottom: 0; }
+.lsv-sub-title { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; color: var(--t1); font-size: 14px; font-weight: 600; }
+.lsv-sub-title svg { flex: 0 0 auto; color: var(--green); }
+.lsv-asset { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 0 0 6px 24px; padding: 8px 12px; border: 1px solid var(--b1); border-radius: 8px; background: var(--d4); color: var(--t1); font-size: 13px; text-decoration: none; }
+.admin-main a.lsv-asset.lsv-link { color: var(--t1); text-decoration: none; }
+.admin-main a.lsv-asset.lsv-link:hover { border-color: var(--blue); }
+.lsv-asset-title { flex: 1 1 160px; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+.lsv-meta { color: var(--t4); font-size: 12px; }
+.lsv-ext { flex: 0 0 auto; color: var(--t4); }
+.lsv-quiz { background: var(--green-tint); }
+.admin-main a.lsv-take { height: 28px !important; min-height: 28px !important; padding: 5px 11px !important; font-size: 12px !important; }
+.lsv-video { max-width: 560px; margin: 0 0 10px 24px; }
+.lsv-video-bar { display: flex; align-items: center; gap: 10px; margin: 0 0 6px; color: var(--t1); font-size: 13px; }
+.lsv-video-frame { position: relative; aspect-ratio: 16 / 9; border: 1px solid var(--b1); border-radius: 8px; background: #000; overflow: hidden; }
+.lsv-video-frame iframe, .lsv-video-play, .lsv-video-play img { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.lsv-video-play { cursor: pointer; }
+.lsv-video-play img { object-fit: cover; }
+.lsv-video-badge { position: absolute; top: 50%; left: 50%; display: flex; align-items: center; justify-content: center; width: 64px; height: 44px; margin: -22px 0 0 -32px; border-radius: 12px; background: #dc2626; color: #fff; }
+
+/* ---- full-screen layers and dialogs ---- */
+.admin-main.lsx-layer { position: fixed !important; inset: 0; z-index: 3000; display: flex !important; align-items: center; justify-content: center; width: 100vw !important; max-width: none !important; min-height: 0 !important; margin: 0 !important; padding: 20px !important; box-sizing: border-box; }
+.lsx-dark { background: rgba(0, 0, 0, .93); }
+.lsx-dim { background: rgba(15, 23, 42, .6); }
+.admin-main .lsx-close { position: absolute; top: 14px; right: 14px; z-index: 1; display: inline-flex !important; align-items: center; justify-content: center; width: 40px !important; min-width: 40px !important; height: 40px !important; padding: 0 !important; border: 1px solid rgba(255, 255, 255, .6) !important; border-radius: 50% !important; background: rgba(0, 0, 0, .55) !important; color: #fff !important; }
+.admin-main .lsx-close > svg { width: 18px; height: 18px; flex: 0 0 auto; }
+.lsx-video { position: relative; width: min(94vw, calc(86vh * 16 / 9)); aspect-ratio: 16 / 9; border-radius: 12px; background: #000; overflow: hidden; }
+.lsx-video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.lsx-qr { display: flex; flex-direction: column; align-items: center; min-width: 0; color: #fff; text-align: center; }
+.admin-main .lsx-qr h2.lsx-qr-name { margin: 0 0 4px !important; color: #86efac !important; font-size: clamp(20px, 3.2vw, 36px) !important; line-height: 1.2 !important; }
+:root body .admin-main.lsx-dark .lsx-qr p { color: #fff !important; }
+:root body .admin-main.lsx-dark .lsx-qr p.lsx-qr-link { color: #cbd5e1 !important; }
+.lsx-qr-sub { margin: 0 0 14px; font-size: clamp(14px, 1.8vw, 20px); }
+.lsx-qr-img { padding: 14px; border-radius: 16px; background: #fff; }
+.lsx-qr-img img { display: block; width: min(60vh, 82vw); height: min(60vh, 82vw); image-rendering: pixelated; }
+.lsx-qr-tally { min-height: 1.4em; margin: 14px 0 0; color: #fff; font-size: clamp(15px, 2vw, 24px); font-weight: 500; }
+.lsx-qr-link { max-width: min(60vh, 82vw); margin: 4px 0 0; color: #cbd5e1; font-size: 12px; overflow-wrap: anywhere; }
+
+.lsx-modal { position: relative; display: flex; flex-direction: column; width: min(820px, 100%); max-height: 100%; border: 1px solid var(--b1); border-radius: 12px; background: var(--d3); color: var(--t1); box-shadow: 0 20px 50px rgba(0, 0, 0, .35); overflow: hidden; }
+.lsx-modal-head { padding: 18px 64px 14px 22px; border-bottom: 1px solid var(--b1); }
+.admin-main .lsx-modal h2.lsx-modal-name { margin: 0 0 4px !important; color: var(--t1) !important; font-size: 18px !important; line-height: 1.3 !important; }
+.lsx-modal-body { flex: 1 1 auto; padding: 18px 22px; overflow-y: auto; }
+.lsx-modal-foot { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 14px 22px; border-top: 1px solid var(--b1); }
+.lsx-modal-foot .lsx-error { flex: 1 1 auto; margin: 0; }
+.lsx-note { margin: 0 0 10px; color: var(--t4); font-size: 12px; }
+.lsx-error { margin: 0 0 10px; color: var(--red); font-size: 13px; font-weight: 600; }
+.admin-main .lsx-modal .lsx-close { top: 12px; right: 14px; width: 32px !important; min-width: 32px !important; height: 32px !important; border-color: var(--b2) !important; background: transparent !important; color: var(--t1) !important; }
+
+/* ---- Edit Quiz ---- */
+.lsq-field { display: block; margin: 0 0 14px; }
+.lsq-label { display: block; margin: 0 0 6px; color: var(--t1); font-size: 13px; font-weight: 600; }
+.admin-main .lsq-modal input.lsb-input.lsb-input { border-color: var(--b2) !important; min-height: 38px !important; padding: 8px 12px !important; }
+.admin-main .lsq-modal input.lsb-input.lsb-input:focus { border-color: var(--blue) !important; }
+.lsq-ai { margin: 0 0 16px; border: 1px solid var(--violet); border-radius: 8px; }
+.admin-main .lsq-ai-toggle { display: flex !important; align-items: center !important; justify-content: space-between !important; width: 100% !important; padding: 12px 14px !important; border: 0 !important; color: var(--violet) !important; font-size: 14px !important; font-weight: 600 !important; }
+.lsq-ai-show { font-size: 12px; font-weight: 500; }
+.lsq-ai-body { padding: 4px 14px 14px; }
+.lsq-ai-row { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 10px; }
+.lsq-ai-row .lsq-field { margin: 0; }
+.admin-main .lsq-modal input.lsb-input.lsq-ai-count { width: 80px; flex: 0 0 auto; }
+.lsq-q { margin: 0 0 14px; padding: 14px; border: 1px solid var(--b1); border-radius: 8px; background: var(--d4); }
+.lsq-q-head { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; }
+.lsq-q-num { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: 1px solid var(--blue); border-radius: 50%; color: var(--blue); font-size: 12px; font-weight: 700; }
+.lsq-opt { display: flex; align-items: center; gap: 10px; margin: 0 0 8px 38px; }
+.lsq-opt input[type="radio"] { flex: 0 0 auto; width: 18px; height: 18px; margin: 0; accent-color: var(--blue); }
+.admin-main .lsq-modal .lsq-opt.is-correct input.lsb-input.lsb-input { border-color: var(--green) !important; }
+.admin-main .lsq-link { margin: 0 0 0 38px !important; padding: 2px 0 !important; border: 0 !important; color: var(--blue) !important; font-size: 13px !important; font-weight: 500 !important; }
+.admin-main .lsq-link:hover { text-decoration: underline; }
+.admin-main table.lsx-results-table { width: 100%; }
 
 /* EOF sentinel — scripts/audit/admin-theme-crawl.mjs fails a page when this rule is missing from the
    parsed stylesheet, i.e. when a malformed rule above made the browser drop the rest of the file. */

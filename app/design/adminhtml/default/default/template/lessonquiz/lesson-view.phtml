@@ -1,0 +1,118 @@
+<?php
+/**
+ * Lesson card body (read view): expandable topics > sub topics > assets.
+ * Used by the developer course page and the trainer / learner class page.
+ *
+ *   setTopics(array)  MMD_LessonQuiz_Helper_Data::lessonTopics() result
+ *   setRole(string)   active role code
+ *   setRunId(int)     the class (course_runs.run_id), 0 when there is none
+ *   setEmail(string)  the signed-in person (a learner sees their own score)
+ *
+ * Staff (trainer, developer, admin...) get Show QR + Results on a quiz; a
+ * learner gets Take Quiz and their latest score. Behaviour: js/lesson-builder.js.
+ */
+$_lq      = Mage::helper('mmd_lessonquiz');
+$_topics  = (array) $this->getTopics();
+$_role    = (string) $this->getRole();
+$_runId   = (int) $this->getRunId();
+$_email   = (string) $this->getEmail();
+$_staff   = in_array($_role, $_lq->classRoles(), true);
+$_counts  = $_lq->questionCounts($_lq->quizIds($_topics));
+$_adm     = Mage::helper('adminhtml');
+$_linkLabels = array('web' => 'Link', 'doc' => 'Document', 'act' => 'Activity');
+?>
+<?php if (!$_topics): ?>
+<p class="lsv-empty">No lesson topics available for this course yet.</p>
+<?php else: ?>
+<div class="lsv" data-lsv
+     data-results-url="<?php echo $this->escapeHtml($_adm->getUrl('adminhtml/lessonquiz/results', array('run_id' => $_runId))) ?>"
+     data-qr-url="<?php echo $this->escapeHtml($_adm->getUrl('adminhtml/lessonquiz/qr', array('run_id' => $_runId))) ?>">
+    <div class="lsv-bar">
+        <button type="button" class="mm-btn mm-btn-sm" data-lsv-toggle-all aria-expanded="false">Expand all topics</button>
+    </div>
+    <?php foreach ($_topics as $_ti => $_t):
+        $_bodyId = 'lsv-topic-' . $_ti;
+        $_any = false;
+        foreach ($_t['subsecs'] as $_s) { if ($_s['title'] !== '' || $_s['links']) { $_any = true; break; } }
+    ?>
+    <div class="lsv-topic">
+        <div class="lsv-topic-head" role="button" tabindex="0" aria-expanded="false" aria-controls="<?php echo $_bodyId ?>" data-lsv-topic>
+            <span class="lsv-topic-title"><?php echo $this->escapeHtml($_t['title']) ?></span>
+            <svg class="lsv-caret" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="lsv-topic-body" id="<?php echo $_bodyId ?>">
+            <?php if (!$_any): ?>
+            <p class="lsv-empty">No content for this topic yet.</p>
+            <?php endif; ?>
+            <?php foreach ($_t['subsecs'] as $_s): if ($_s['title'] === '' && !$_s['links']) continue; ?>
+            <div class="lsv-sub">
+                <?php if ($_s['title'] !== ''): ?>
+                <div class="lsv-sub-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    <span><?php echo $this->escapeHtml($_s['title']) ?></span>
+                </div>
+                <?php endif; ?>
+                <?php foreach ($_s['links'] as $_l):
+                    $_title = $_l['title'] !== '' ? $_l['title'] : $_l['url'];
+                    $_ytId  = $_l['type'] === 'yt' ? $_lq->youtubeId($_l['url']) : '';
+                ?>
+                <?php if ($_l['type'] === 'qz'):
+                    $_n = isset($_counts[$_l['qid']]) ? (int) $_counts[$_l['qid']] : 0;
+                    $_qTitle = $_l['title'] !== '' ? $_l['title'] : 'Quiz';
+                    $_prev = (!$_staff && $_n > 0 && $_email !== '') ? $_lq->lastAttempt($_l['qid'], $_email) : null;
+                ?>
+                <div class="lsv-asset lsv-quiz">
+                    <span class="lsv-tag lsv-tag-quiz">Quiz</span>
+                    <span class="lsv-asset-title"><?php echo $this->escapeHtml($_qTitle) ?></span>
+                    <?php if ($_n === 0): ?>
+                    <span class="lsv-meta">No questions yet</span>
+                    <?php else: ?>
+                    <span class="lsv-meta"><?php echo $_n ?> question<?php echo $_n === 1 ? '' : 's' ?><?php if ($_prev): ?> &middot; your score <?php echo (int) $_prev['score'] ?> / <?php echo (int) $_prev['total'] ?><?php endif; ?></span>
+                    <?php if ($_staff): ?>
+                    <button type="button" class="mm-btn mm-btn-sm" data-lsv-results="<?php echo (int) $_l['qid'] ?>" data-title="<?php echo $this->escapeHtml($_qTitle) ?>">Results</button>
+                    <button type="button" class="mm-btn-primary mm-btn-sm" data-lsv-qr="<?php echo (int) $_l['qid'] ?>" data-title="<?php echo $this->escapeHtml($_qTitle) ?>" data-count="<?php echo $_n ?>" data-link="<?php echo $this->escapeHtml($_lq->quizUrl($_l['qid'], $_runId)) ?>">Show QR</button>
+                    <?php else: ?>
+                    <a class="mm-btn-primary mm-btn-sm lsv-take" href="<?php echo $this->escapeHtml($_lq->quizUrl($_l['qid'], $_runId)) ?>" target="_blank" rel="noopener"><?php echo $_prev ? 'Retake Quiz' : 'Take Quiz' ?></a>
+                    <?php endif; ?>
+                    <?php endif; ?>
+                </div>
+                <?php elseif ($_ytId !== ''):
+                    $_start = $_lq->youtubeStart($_l['url']);
+                    $_embed = 'https://www.youtube-nocookie.com/embed/' . $_ytId . '?rel=0&modestbranding=1&autoplay=1' . ($_start > 0 ? '&start=' . $_start : '');
+                    $_vTitle = $_title !== '' ? $_title : 'Video';
+                ?>
+                <div class="lsv-video" data-lsv-video data-embed="<?php echo $this->escapeHtml($_embed) ?>" data-title="<?php echo $this->escapeHtml($_vTitle) ?>">
+                    <div class="lsv-video-bar">
+                        <span class="lsv-tag lsv-tag-video">Video</span>
+                        <span class="lsv-asset-title"><?php echo $this->escapeHtml($_vTitle) ?></span>
+                        <button type="button" class="mmd-iconbtn mmd-tip mmd-tip-left" data-lsv-zoom data-tip="Show video full screen" aria-label="Show <?php echo $this->escapeHtml($_vTitle) ?> full screen">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+                        </button>
+                    </div>
+                    <div class="lsv-video-frame">
+                        <div class="lsv-video-play" role="button" tabindex="0" data-lsv-play aria-label="Play <?php echo $this->escapeHtml($_vTitle) ?>">
+                            <img src="https://i.ytimg.com/vi/<?php echo $_ytId ?>/hqdefault.jpg" alt="" loading="lazy" />
+                            <span class="lsv-video-badge" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span>
+                        </div>
+                    </div>
+                </div>
+                <?php elseif ($_l['url'] !== ''): ?>
+                <a class="lsv-asset lsv-link" href="<?php echo $this->escapeHtml($_l['url']) ?>" target="_blank" rel="noopener">
+                    <span class="lsv-tag lsv-tag-<?php echo $_l['type'] === 'yt' ? 'video' : 'link' ?>"><?php echo $_l['type'] === 'yt' ? 'Video' : (isset($_linkLabels[$_l['type']]) ? $_linkLabels[$_l['type']] : 'Link') ?></span>
+                    <span class="lsv-asset-title"><?php echo $this->escapeHtml($_title) ?></span>
+                    <svg class="lsv-ext" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                </a>
+                <?php elseif ($_title !== ''): ?>
+                <div class="lsv-asset">
+                    <span class="lsv-tag lsv-tag-link"><?php echo isset($_linkLabels[$_l['type']]) ? $_linkLabels[$_l['type']] : 'Link' ?></span>
+                    <span class="lsv-asset-title"><?php echo $this->escapeHtml($_title) ?></span>
+                </div>
+                <?php endif; ?>
+                <?php endforeach; ?>
+            </div>
+            <?php endforeach; ?>
+        </div>
+    </div>
+    <?php endforeach; ?>
+</div>
+<?php endif; ?>

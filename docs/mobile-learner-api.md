@@ -32,6 +32,8 @@ Authenticated calls send `Authorization: Bearer <token>`.
 | POST | `/mobileapi/learner/attendance` | ✓ | `{run_id}` — self-mark the current session (same rules as the web self-mark) |
 | GET | `/mobileapi/learner/survey?run_id=` | ✓ | the active in-house survey template, class fields prefilled |
 | POST | `/mobileapi/learner/survey` | ✓ | `{run_id, answers:{field_id:value}}` — once per learner per class |
+| GET | `/mobileapi/learner/quiz?quiz_id=&run_id=` | ✓ | a lesson quiz: `{quiz:{quiz_id,title,questions:[{id,question,options[]}]}, previous}`; correct answers are never sent |
+| POST | `/mobileapi/learner/quiz` | ✓ | `{quiz_id, run_id, answers:{question id: option index}}` → `{score, total, breakdown[]}`; scored on the server, one row per attempt |
 | GET | `/mobileapi/learner/certificates` | ✓ | issued/sent certificates with the token download link |
 | GET | `/mobileapi/learner/billing` | ✓ | orders with C-prefix items: status, totals, currency, invoices |
 | GET | `/mobileapi/profile` | ✓ | `{learner}`: name, `phone`, `theme` (`system`/`light`/`dark`), `roles` (`learner`, plus `trainer` when the account teaches) |
@@ -43,6 +45,16 @@ Authenticated calls send `Authorization: Bearer <token>`.
 
 ## Rules worth knowing
 
+- **Lesson quizzes (`MMD_LessonQuiz`).** `learner/class` lists the class's
+  quizzes in `quizzes[]` (`quiz_id`, `title`, `questions` count, `url`,
+  `previous` = the learner's latest `{score,total,completed_at}`). A quiz is
+  open to a learner enrolled in the class whose course Lesson holds it, or to
+  any signed-in account that sends `k`, the signature in the trainer's quiz QR
+  link (`/lessonquiz/index/index/q/<quiz id>/run/<run id>/k/<sig>/`, also in
+  `url`). The public quiz page behind the QR code is a web client of these two
+  endpoints (it sends `platform:"web"`). Every submit is a new attempt; the
+  trainer's results show each learner's latest. The App Review account can
+  open a signed quiz but its attempts are not recorded.
 - **Roles (1.4).** Learners (storefront customers, learner-role accounts) and
   trainers sign in to the same app. A trainer is an active account with the
   `trainer` role, or an email on an active `courses_trainers` record. The

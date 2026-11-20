@@ -1,0 +1,51 @@
+<?xml version="1.0"?>
+<!--
+    MMD_LessonQuiz: the course Lesson (topics, sub topics, URL links, embedded
+    videos, quizzes) and its quizzes.
+
+    The Lesson is stored in the course description's LSN_DATA marker; a Quiz
+    asset there holds only its quiz id. Questions and answers live in
+    mmd_lesson_quiz, attempts in mmd_lesson_quiz_attempt (migration 1949).
+
+    Admin (JSON):  adminhtml/lessonquiz/load | save | generate | results | qr
+    Public page:   /lessonquiz/index/index/q/<quiz id>/run/<run id>/k/<signature>
+                   (the trainer's quiz QR code; the learner signs in and takes the quiz)
+    Learner API:   GET / POST /mobileapi/learner/quiz (MMD_MobileApi), used by the
+                   public page and by the mobile apps.
+-->
+<config>
+    <modules>
+        <MMD_LessonQuiz>
+            <version>1.0.0</version>
+        </MMD_LessonQuiz>
+    </modules>
+    <global>
+        <helpers>
+            <mmd_lessonquiz>
+                <class>MMD_LessonQuiz_Helper</class>
+            </mmd_lessonquiz>
+        </helpers>
+    </global>
+    <admin>
+        <routers>
+            <adminhtml>
+                <args>
+                    <modules>
+                        <MMD_LessonQuiz before="Mage_Adminhtml">MMD_LessonQuiz_Adminhtml</MMD_LessonQuiz>
+                    </modules>
+                </args>
+            </adminhtml>
+        </routers>
+    </admin>
+    <frontend>
+        <routers>
+            <lessonquiz>
+                <use>standard</use>
+                <args>
+                    <module>MMD_LessonQuiz</module>
+                    <frontName>lessonquiz</frontName>
+                </args>
+            </lessonquiz>
+        </routers>
+    </frontend>
+</config>

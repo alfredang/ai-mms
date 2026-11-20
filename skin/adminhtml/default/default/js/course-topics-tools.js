@@ -312,15 +312,11 @@
             } else {
                 quill.root.innerHTML = cleaned;
             }
-            // Only this field's Lesson cards matter — but the lsn-topics
-            // serializer is a single shared one, so clearing it on Clean
-            // Up of any rich field protects the same shared learning_outcomes
-            // textarea from being overwritten on save.
-            if (ta.name === 'learning_outcomes' && typeof window.lsnDeleteTopic === 'function') {
-                var guard = 0;
-                while (document.querySelector('#lsn-topics .lsn-topic') && guard++ < 200) {
-                    try { window.lsnDeleteTopic(0); } catch (e) { break; }
-                }
+            // The Lesson builder (js/lesson-builder.js) writes its topics into
+            // this same learning_outcomes textarea on save; empty it so the
+            // cleaned HTML is what gets saved.
+            if (ta.name === 'learning_outcomes' && typeof window.lsbClearLesson === 'function') {
+                window.lsbClearLesson();
             }
             setMode(false);
         });

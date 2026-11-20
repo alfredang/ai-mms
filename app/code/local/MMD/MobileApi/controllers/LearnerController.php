@@ -71,6 +71,43 @@ class MMD_MobileApi_LearnerController extends MMD_MobileApi_Controller_Base
         });
     }
 
+    /**
+     * A lesson quiz (MMD_LessonQuiz). GET ?quiz_id=&run_id=[&k=] → questions
+     * (no answers) + the learner's latest score; POST {quiz_id, run_id, k,
+     * answers:{question id: option index}} → scored on the server and recorded.
+     * Allowed with the signature of the trainer's quiz link (k), or when the
+     * learner is enrolled in the class and the quiz is in its course's Lesson.
+     */
+    public function quizAction()
+    {
+        if (!$this->_requireLearner()) return;
+        return $this->_guard(function () {
+            $lq     = Mage::helper('mmd_lessonquiz');
+            $quizId = (int) $this->_input('quiz_id');
+            $runId  = max(0, (int) $this->_input('run_id'));
+            $signed = hash_equals($lq->sig($quizId, $runId), (string) $this->_input('k', ''));
+            $quiz   = $quizId > 0 ? $lq->getQuiz($quizId) : null;
+            if (!$quiz || !$quiz['questions']
+                || !($signed || (!$this->_isDemo() && $this->_learner()->hasQuiz($this->_email(), $runId, $quizId)))) {
+                return $this->_error(404, 'This quiz is not available.', 'not_found');
+            }
+            if (!$this->getRequest()->isPost()) {
+                return $this->_ok(array(
+                    'quiz'     => $lq->learnerQuiz($quiz),
+                    'previous' => $this->_isDemo() ? null : $lq->lastAttempt($quizId, $this->_email()),
+                ));
+            }
+            $answers = $this->_input('answers', array());
+            $graded  = $lq->grade($quiz, is_array($answers) ? $answers : array());
+            if (!$this->_isDemo()) {
+                $profile = $this->_helper()->learnerProfile($this->_email());
+                $lq->recordAttempt($quizId, $runId, $this->_email(), $profile['full_name'], $graded,
+                    $this->_input('platform', '') === 'web' ? 'web' : 'app');
+            }
+            return $this->_ok(array('score' => $graded['score'], 'total' => $graded['total'], 'breakdown' => $graded['breakdown']));
+        });
+    }
+
     public function certificatesAction()
     {
         if (!$this->_requireLearner()) return;

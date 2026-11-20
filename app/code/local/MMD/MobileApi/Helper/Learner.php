@@ -117,7 +117,19 @@ class MMD_MobileApi_Helper_Learner extends Mage_Core_Helper_Abstract
         $row['survey']      = $this->_surveyState($email, $run, $today);
         $row['certificate'] = isset($certs[(int) $runId]) ? $certs[(int) $runId] : null;
         $row['certificate_rule'] = Mage::helper('mmd_certificate')->attendanceRuleLabel();
+        $row['quizzes']     = Mage::helper('mmd_lessonquiz')->quizzesForRun((int) $run['product_id'], (int) $runId, $email);
         return $row;
+    }
+
+    /** Is this quiz in the Lesson of a class the learner is enrolled in? */
+    public function hasQuiz($email, $runId, $quizId)
+    {
+        $run = $this->_enrolledRun($email, $runId);
+        if (!$run) {
+            return false;
+        }
+        $lq = Mage::helper('mmd_lessonquiz');
+        return in_array((int) $quizId, $lq->quizIds($lq->productLesson((int) $run['product_id'])), true);
     }
 
     /** Self-mark the current session. Returns array(success, message). */

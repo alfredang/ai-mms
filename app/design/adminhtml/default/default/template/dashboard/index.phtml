@@ -1992,7 +1992,7 @@ function dcfShowSaveDialog(kind, message){
     document.body.appendChild(backdrop);
     document.body.appendChild(modal);
 }
-function dcfAjaxSaveCourse(btn){
+function dcfAjaxSaveCourse(btn, onSaved){
     var form = document.getElementById('dcf-form');
     if (!form || !form.action) {
         dcfShowSaveDialog('error', 'Could not find the course edit form.');
@@ -2028,6 +2028,7 @@ function dcfAjaxSaveCourse(btn){
             dcfShowSaveDialog('error', (data && data.message) || 'Could not save course changes.');
             return;
         }
+        if (typeof onSaved === 'function') { onSaved(data); return; }
         dcfShowSaveDialog('success', data.message || 'Course changes saved successfully.');
     }).catch(function(err){
         dcfShowSaveDialog('error', 'Could not save course changes: ' + (err && err.message ? err.message : err));
@@ -4371,456 +4372,37 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                 <?php endforeach; ?>
             </div>
 
-            <!-- Lesson section with rich topic/link cards -->
-            <div class="dcf-section">
-                <div class="dcf-section-title" style="display:flex;align-items:center;gap:10px;">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-                    <span style="flex:1;">Lesson</span>
-                    <button type="button" id="lsn-collapse-all" onclick="lsnToggleAll()" style="background:var(--d4, #334155);border:1px solid var(--b2, #475569);color:var(--t2, #cbd5e1);font-size:12px;font-weight:600;padding:6px 12px;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;text-transform:none;letter-spacing:normal;line-height:normal;">
-                        <svg id="lsn-collapse-all-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition:transform .15s"><polyline points="6 9 12 15 18 9"/></svg>
-                        <span id="lsn-collapse-all-lbl">Expand all topics</span>
-                    </button>
+            <!-- Lesson builder (MMD_LessonQuiz): topics > sub topics > URL links,
+                 embedded videos and quizzes. Markup + behaviour: js/lesson-builder.js;
+                 styles: admin-dashboard.css "Lesson builder". The Lesson is written
+                 into the learning_outcomes (description) field on save. -->
+            <?php
+            $_lsbHelper = Mage::helper('mmd_lessonquiz');
+            $_lsbTopics = $_lsbHelper->lessonTopics((string) $_editCourseData['learning_outcomes']);
+            $_lsbAdm    = Mage::helper('adminhtml');
+            $_lsbSeed   = array(
+                'topics'      => $_lsbTopics,
+                'counts'      => (object) $_lsbHelper->questionCounts($_lsbHelper->quizIds($_lsbTopics)),
+                'productId'   => (int) $_selectedCourse['id'],
+                'loadUrl'     => $_lsbAdm->getUrl('adminhtml/lessonquiz/load'),
+                'saveUrl'     => $_lsbAdm->getUrl('adminhtml/lessonquiz/save'),
+                'generateUrl' => $_lsbAdm->getUrl('adminhtml/lessonquiz/generate'),
+            );
+            $_lsbExitUrl = $_lsbAdm->getUrl('adminhtml/dashboard', array('course_id' => $_selectedCourse['id'])) . $_devBackSuffix;
+            ?>
+            <div class="dcf-section" id="lsb">
+                <div class="dcf-section-title lsb-head">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                    <span class="lsb-head-name">Lesson</span>
+                    <button type="button" class="mm-btn mm-btn-sm" data-a="toggle-all" data-lsb-toggle-all aria-expanded="false">Expand All Topics</button>
+                    <button type="button" class="mm-btn mm-btn-sm" onclick="dcfAjaxSaveCourse(this)">Save &amp; Continue Editing</button>
+                    <button type="button" class="mm-btn-primary mm-btn-sm" onclick="dcfAjaxSaveCourse(this, function(){ window.location.href = <?php echo htmlspecialchars(json_encode($_lsbExitUrl)) ?>; })">Save Changes</button>
                 </div>
-                <script>
-                /* Collapse / expand every topic card in one click. The button
-                   reflects the next action it would take — when everything is
-                   already collapsed it offers to expand (down chevron), and
-                   when at least one is open it offers to collapse (up chevron). */
-                function lsnUpdateCollapseBtn() {
-                    var topics = document.querySelectorAll('#lsn-topics .lsn-topic');
-                    var anyOpen = false;
-                    for (var i = 0; i < topics.length; i++) {
-                        if (topics[i].classList.contains('open')) { anyOpen = true; break; }
-                    }
-                    var lbl  = document.getElementById('lsn-collapse-all-lbl');
-                    var icon = document.getElementById('lsn-collapse-all-icon');
-                    if (lbl)  lbl.textContent  = anyOpen ? 'Collapse all topics' : 'Expand all topics';
-                    if (icon) icon.style.transform = anyOpen ? 'rotate(180deg)' : '';
-                }
-                window.lsnToggleAll = function () {
-                    var topicEls = document.querySelectorAll('#lsn-topics .lsn-topic');
-                    if (!topicEls.length) return;
-                    var anyOpen = false;
-                    for (var i = 0; i < topicEls.length; i++) {
-                        if (topicEls[i].classList.contains('open')) { anyOpen = true; break; }
-                    }
-                    // Write the desired state into the canonical topics[] array
-                    // (via the IIFE-exposed helper) so render() preserves it on
-                    // every subsequent edit / add / delete. Falls back to direct
-                    // class toggling if the helper isn't ready yet.
-                    if (typeof window.lsnSetAllOpen === 'function') {
-                        window.lsnSetAllOpen(!anyOpen);
-                    } else {
-                        for (var j = 0; j < topicEls.length; j++) {
-                            if (anyOpen) topicEls[j].classList.remove('open');
-                            else         topicEls[j].classList.add('open');
-                        }
-                    }
-                    lsnUpdateCollapseBtn();
-                };
-                // Sync the button label/arrow on first paint so they match
-                // whatever state the topics happened to load in.
-                if (document.readyState === 'loading') {
-                    document.addEventListener('DOMContentLoaded', lsnUpdateCollapseBtn);
-                } else {
-                    setTimeout(lsnUpdateCollapseBtn, 0);
-                }
-                </script>
-                <div id="lsn-topics"></div>
-                <input type="hidden" name="lesson_topics" id="lsn-topics-json" value="" />
-                <button type="button" class="lsn-add-topic" onclick="lsnAddTopic()">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                    Add Topic
-                </button>
-                <script>
-                (function(){
-                    // Seed topics. Prefer the canonical JSON marker we wrote on
-                    // the previous save (lossless round-trip of subsec / text /
-                    // typed links), falling back to the legacy <strong> parser
-                    // for courses last edited before the visual editor learned
-                    // to persist itself.
-                    var topics = <?php
-                        $_loRaw = (string)$_editCourseData['learning_outcomes'];
-                        $_seed = array();
-                        if (preg_match('/<!--\s*LSN_DATA:\s*(\[.*?\])\s*-->/s', $_loRaw, $_lj)) {
-                            $_decoded = json_decode($_lj[1], true);
-                            if (is_array($_decoded)) {
-                                $_seed = $_decoded;
-                            }
-                        }
-                        if (empty($_seed) && $_loRaw !== ''
-                            && preg_match('#<strong>\s*(?:LU|Lesson|Topic|Module)\s*\d+#i', $_loRaw)) {
-                            // Split on each LU heading so the T#: … lines
-                            // listed under it (legacy Course-Topics HTML)
-                            // seed as Section rows, not just the LU title.
-                            $_sdParts = preg_split(
-                                '#<strong>\s*((?:LU|Lesson|Topic|Module)\s*\d+[^<]*?)\s*</strong>#i',
-                                $_loRaw, -1, PREG_SPLIT_DELIM_CAPTURE
-                            );
-                            for ($_sdPi = 1; $_sdPi < count($_sdParts); $_sdPi += 2) {
-                                $_sdT = trim(html_entity_decode($_sdParts[$_sdPi]), " :\t\n\r\0\x0B");
-                                if ($_sdT === '') continue;
-                                $_sdBody = isset($_sdParts[$_sdPi + 1]) ? $_sdParts[$_sdPi + 1] : '';
-                                $_sdSubs = array();
-                                if (preg_match_all('#<em>(.*?)</em>#is', $_sdBody, $_sdEm)) {
-                                    foreach ($_sdEm[1] as $_st) {
-                                        $_st = trim(html_entity_decode(strip_tags($_st)), " :\t\n\r\0\x0B");
-                                        if ($_st !== '') $_sdSubs[] = $_st;
-                                    }
-                                } else {
-                                    foreach (preg_split('#</?(?:p|li|br|div)[^>]*>#i', $_sdBody) as $_ln) {
-                                        $_ln = trim(html_entity_decode(strip_tags($_ln)), " :\t\n\r\0\x0B");
-                                        if ($_ln !== '') $_sdSubs[] = $_ln;
-                                    }
-                                }
-                                $_seed[] = array(
-                                    'title'   => $_sdT,
-                                    'subsecs' => $_sdSubs,
-                                    'links'   => array(),
-                                );
-                            }
-                        }
-                        if (empty($_seed) && $_loRaw !== '' && preg_match('#<h3[^>]*>#i', $_loRaw)) {
-                            // Modern Course-Topics HTML (the storefront "What
-                            // You'll Learn" card): <h3>Topic N ...</h3> headings
-                            // each followed by a <ul><li> outline. Split on the
-                            // h3s and collect each one's list items.
-                            $_sdParts = preg_split('#<h3[^>]*>(.*?)</h3>#is', $_loRaw, -1, PREG_SPLIT_DELIM_CAPTURE);
-                            for ($_sdPi = 1; $_sdPi < count($_sdParts); $_sdPi += 2) {
-                                $_sdT = trim(html_entity_decode(strip_tags($_sdParts[$_sdPi])), " :\t\n\r\0\x0B");
-                                if ($_sdT === '') continue;
-                                $_sdBody = isset($_sdParts[$_sdPi + 1]) ? $_sdParts[$_sdPi + 1] : '';
-                                $_sdSubs = array();
-                                if (preg_match_all('#<li[^>]*>(.*?)</li>#is', $_sdBody, $_sdLi)) {
-                                    foreach ($_sdLi[1] as $_st) {
-                                        $_st = trim(html_entity_decode(strip_tags($_st)), " :\t\n\r\0\x0B");
-                                        if ($_st !== '') $_sdSubs[] = $_st;
-                                    }
-                                }
-                                $_seed[] = array(
-                                    'title'   => $_sdT,
-                                    'subsecs' => $_sdSubs,
-                                    'links'   => array(),
-                                );
-                            }
-                        }
-                        echo json_encode($_seed);
-                    ?>;
-
-                    function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-                    function syncJson(){ document.getElementById('lsn-topics-json').value = JSON.stringify(topics); }
-
-                    // Normalize seed before rendering. The data model evolved
-                    // in three stages:
-                    //   v1: { title, subsec: '<string>', links: [...] }
-                    //   v2: { title, subsecs: ['<string>', ...], links: [...] }
-                    //   v3: { title, subsecs: [{title, links: []}, ...] }
-                    // Migrate v1/v2 into v3 so render() only deals with one
-                    // shape. Old topic-level `links` get attached to the
-                    // first subsec so the user doesn't lose them.
-                    topics.forEach(function(t){
-                        if (!Array.isArray(t.subsecs)) {
-                            t.subsecs = (t.subsec && String(t.subsec).trim() !== '') ? [t.subsec] : [''];
-                        }
-                        delete t.subsec;
-                        t.subsecs = t.subsecs.map(function(s){
-                            if (s && typeof s === 'object' && !Array.isArray(s)) {
-                                return {
-                                    title: String(s.title || ''),
-                                    links: Array.isArray(s.links) ? s.links : [],
-                                };
-                            }
-                            return { title: String(s || ''), links: [] };
-                        });
-                        if (t.subsecs.length === 0) t.subsecs.push({ title: '', links: [] });
-                        // Migrate any pre-existing topic-level links into the
-                        // first subsec, then drop the field.
-                        if (Array.isArray(t.links) && t.links.length) {
-                            t.subsecs[0].links = (t.subsecs[0].links || []).concat(t.links);
-                        }
-                        delete t.links;
-                    });
-
-                    function render(){
-                        var wrap = document.getElementById('lsn-topics');
-                        wrap.innerHTML = '';
-                        topics.forEach(function(t, ti){
-                            var box = document.createElement('div');
-                            box.className = 'lsn-topic' + (t._open ? ' open' : '');
-                            var subsecsHtml = (t.subsecs || []).map(function(s, si){
-                                var linksHtml = (s.links || []).map(function(l, li){
-                                    var cls = 'lsn-tag-' + (l.type || 'web').toLowerCase();
-                                    var tag = (l.type || 'web').toUpperCase();
-                                    return '<div class="lsn-link">' +
-                                        '<div class="lsn-link-drag"><span></span><span></span><span></span></div>' +
-                                        '<span class="lsn-tag ' + cls + '">' + tag + '</span>' +
-                                        '<input type="text" class="lsn-link-title" value="' + esc(l.title) + '" placeholder="Title" onchange="lsnEditLink(' + ti + ',' + si + ',' + li + ',\'title\',this.value)" />' +
-                                        '<input type="text" class="lsn-link-url" value="' + esc(l.url) + '" placeholder="URL" onchange="lsnEditLink(' + ti + ',' + si + ',' + li + ',\'url\',this.value)" />' +
-                                        '<button type="button" class="lsn-link-del" onclick="lsnDeleteLink(' + ti + ',' + si + ',' + li + ')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>' +
-                                    '</div>';
-                                }).join('');
-                                return '<div class="lsn-subsec-block">' +
-                                    '<div class="lsn-subsec">' +
-                                        '<div class="lsn-subsec-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>' +
-                                        '<input type="text" class="lsn-subsec-title" value="' + esc(s.title) + '" placeholder="Section name" onchange="lsnEditSubsec(' + ti + ',' + si + ',this.value)" />' +
-                                        ((t.subsecs || []).length > 1
-                                            ? '<button type="button" class="lsn-subsec-del" onclick="lsnDeleteSubsec(' + ti + ',' + si + ')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>'
-                                            : '') +
-                                    '</div>' +
-                                    linksHtml +
-                                    '<div class="lsn-add-row">' +
-                                        '<button type="button" onclick="lsnAddLink(' + ti + ',' + si + ',\'web\')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Web</button>' +
-                                        '<button type="button" onclick="lsnAddLink(' + ti + ',' + si + ',\'doc\')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Document</button>' +
-                                        '<button type="button" onclick="lsnAddLink(' + ti + ',' + si + ',\'yt\')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> YouTube</button>' +
-                                        '<button type="button" onclick="lsnAddLink(' + ti + ',' + si + ',\'act\')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Activity</button>' +
-                                        '<button type="button" onclick="lsnAddLink(' + ti + ',' + si + ',\'qz\')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Quiz</button>' +
-                                    '</div>' +
-                                '</div>';
-                            }).join('');
-                            box.innerHTML =
-                                '<div class="lsn-topic-head">' +
-                                    '<div class="lsn-topic-drag"><span></span><span></span><span></span></div>' +
-                                    '<input type="text" class="lsn-topic-title" value="' + esc(t.title) + '" onchange="lsnEditTopic(' + ti + ',\'title\',this.value)" />' +
-                                    '<button type="button" class="lsn-topic-btn" onclick="lsnToggleTopic(' + ti + ')" style="background:transparent !important;background-image:none !important;border:1px solid var(--b2, #475569) !important;border-radius:5px !important;width:28px !important;height:28px !important;padding:0 !important;display:inline-flex !important;align-items:center !important;justify-content:center !important;box-shadow:none !important;text-shadow:none !important;cursor:pointer;"><svg class="lsn-caret-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="display:block"><polyline points="6 9 12 15 18 9"/></svg></button>' +
-                                    '<button type="button" class="lsn-topic-btn lsn-del" onclick="lsnDeleteTopic(' + ti + ')" style="background:transparent !important;background-image:none !important;border:1px solid var(--red-soft, #f87171) !important;border-radius:5px !important;width:28px !important;height:28px !important;padding:0 !important;display:inline-flex !important;align-items:center !important;justify-content:center !important;color:var(--red-soft, #f87171) !important;box-shadow:none !important;text-shadow:none !important;cursor:pointer;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:block"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6M14 11v6"/></svg></button>' +
-                                '</div>' +
-                                '<div class="lsn-topic-body">' +
-                                    subsecsHtml +
-                                    '<button type="button" class="lsn-add-subsec" onclick="lsnAddSubsec(' + ti + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Section name</button>' +
-                                '</div>';
-                            wrap.appendChild(box);
-                        });
-                        syncJson();
-                    }
-
-                    window.lsnAddTopic = function(){
-                        topics.push({ title: 'Topic ' + (topics.length + 1) + ': New Topic', subsecs: [{ title: '', links: [] }], _open: true });
-                        render();
-                    };
-
-                    /* Drag-and-drop reordering of topic cards.
-                       Event-delegated on the #lsn-topics container so we
-                       wire it up exactly once and don't re-attach handlers
-                       on every render. Only the hamburger handle starts a
-                       drag — clicks inside text inputs / buttons don't. */
-                    (function attachTopicDragDrop(){
-                        var wrap = document.getElementById('lsn-topics');
-                        if (!wrap || wrap._dragWired) return;
-                        wrap._dragWired = true;
-
-                        wrap.addEventListener('mousedown', function (e) {
-                            var handle = e.target.closest && e.target.closest('.lsn-topic-drag');
-                            if (!handle) return;
-                            var topic = handle.closest('.lsn-topic');
-                            if (topic) topic.setAttribute('draggable', 'true');
-                        });
-                        wrap.addEventListener('mouseup', function () {
-                            wrap.querySelectorAll('.lsn-topic[draggable="true"]').forEach(function (t) {
-                                t.removeAttribute('draggable');
-                            });
-                        });
-
-                        function indexOfTopic(el) {
-                            var children = Array.prototype.slice.call(wrap.children);
-                            return children.indexOf(el);
-                        }
-
-                        wrap.addEventListener('dragstart', function (e) {
-                            var topic = e.target.closest && e.target.closest('.lsn-topic');
-                            if (!topic || topic.getAttribute('draggable') !== 'true') return;
-                            var fromIdx = indexOfTopic(topic);
-                            if (fromIdx < 0) return;
-                            e.dataTransfer.setData('text/plain', String(fromIdx));
-                            e.dataTransfer.effectAllowed = 'move';
-                            topic.classList.add('lsn-topic-dragging');
-                        });
-                        wrap.addEventListener('dragend', function (e) {
-                            var topic = e.target.closest && e.target.closest('.lsn-topic');
-                            if (topic) topic.classList.remove('lsn-topic-dragging');
-                            wrap.querySelectorAll('.lsn-topic-drop-target').forEach(function (t) {
-                                t.classList.remove('lsn-topic-drop-target');
-                            });
-                            wrap.querySelectorAll('.lsn-topic[draggable="true"]').forEach(function (t) {
-                                t.removeAttribute('draggable');
-                            });
-                        });
-                        wrap.addEventListener('dragover', function (e) {
-                            e.preventDefault();
-                            e.dataTransfer.dropEffect = 'move';
-                            var topic = e.target.closest && e.target.closest('.lsn-topic');
-                            wrap.querySelectorAll('.lsn-topic-drop-target').forEach(function (t) {
-                                if (t !== topic) t.classList.remove('lsn-topic-drop-target');
-                            });
-                            if (topic && !topic.classList.contains('lsn-topic-dragging')) {
-                                topic.classList.add('lsn-topic-drop-target');
-                            }
-                        });
-                        wrap.addEventListener('drop', function (e) {
-                            e.preventDefault();
-                            var target = e.target.closest && e.target.closest('.lsn-topic');
-                            if (!target) return;
-                            var fromIdx = parseInt(e.dataTransfer.getData('text/plain'), 10);
-                            var toIdx = indexOfTopic(target);
-                            wrap.querySelectorAll('.lsn-topic-drop-target').forEach(function (t) {
-                                t.classList.remove('lsn-topic-drop-target');
-                            });
-                            if (isNaN(fromIdx) || fromIdx === toIdx || fromIdx < 0 || toIdx < 0) return;
-                            var moved = topics.splice(fromIdx, 1)[0];
-                            topics.splice(toIdx, 0, moved);
-                            render();
-                        });
-                    })();
-                    window.lsnAddSubsec = function(ti){
-                        topics[ti].subsecs = topics[ti].subsecs || [];
-                        topics[ti].subsecs.push({ title: '', links: [] });
-                        render();
-                    };
-                    window.lsnDeleteSubsec = function(ti, si){
-                        topics[ti].subsecs.splice(si, 1);
-                        if (topics[ti].subsecs.length === 0) topics[ti].subsecs = [{ title: '', links: [] }];
-                        render();
-                    };
-                    window.lsnEditSubsec = function(ti, si, val){
-                        topics[ti].subsecs[si].title = val;
-                        syncJson();
-                    };
-                    window.lsnDeleteTopic = function(ti){
-                        topics.splice(ti, 1);
-                        render();
-                    };
-                    window.lsnToggleTopic = function(ti){
-                        topics[ti]._open = !topics[ti]._open;
-                        render();
-                    };
-                    // Bulk open/close. Writes the flag into the canonical
-                    // topics[] state (not just DOM classes) so subsequent
-                    // edits / adds / deletes don't lose the expanded state
-                    // when render() rebuilds the cards from the array.
-                    window.lsnSetAllOpen = function(open){
-                        for (var i = 0; i < topics.length; i++) topics[i]._open = !!open;
-                        render();
-                    };
-                    window.lsnEditTopic = function(ti, field, val){
-                        topics[ti][field] = val;
-                        syncJson();
-                    };
-                    window.lsnAddLink = function(ti, si, type){
-                        var s = topics[ti].subsecs[si];
-                        s.links = s.links || [];
-                        s.links.push({ type: type, title: '', url: '' });
-                        render();
-                    };
-                    window.lsnDeleteLink = function(ti, si, li){
-                        topics[ti].subsecs[si].links.splice(li, 1);
-                        render();
-                    };
-                    window.lsnEditLink = function(ti, si, li, field, val){
-                        topics[ti].subsecs[si].links[li][field] = val;
-                        syncJson();
-                    };
-
-                    // Persistence: serialise topics into the description field
-                    // before the form submits. The HTML body stays human-readable
-                    // (so anyone editing description directly still sees the
-                    // structure), and a hidden JSON comment lets us round-trip
-                    // exactly on next load.
-                    function serializeTopicsToHtml() {
-                        var typeLabels = { web:'Web', doc:'Document', yt:'YouTube', act:'Activity', qz:'Quiz' };
-                        // Strip transient fields (_open) before persisting.
-                        // Each subsection now carries its own links.
-                        var clean = topics.map(function(t){
-                            return {
-                                title:   t.title || '',
-                                subsecs: (t.subsecs || []).map(function(s){
-                                    return {
-                                        title: String((s && s.title) || ''),
-                                        links: ((s && s.links) || []).map(function(l){
-                                            return { type: l.type || 'web', title: l.title || '', url: l.url || '' };
-                                        }),
-                                    };
-                                }).filter(function(s){
-                                    // Drop fully-empty subsecs to keep the saved
-                                    // doc tidy, but keep ones that have either a
-                                    // title or any link.
-                                    return s.title !== '' || s.links.length > 0;
-                                }),
-                            };
-                        });
-                        var marker = '<!-- LSN_DATA: ' + JSON.stringify(clean).replace(/-->/g, '--&gt;') + ' -->';
-                        var html = marker + '\n';
-                        clean.forEach(function(t){
-                            html += '<p><strong>' + esc(t.title || 'Topic') + '</strong></p>\n';
-                            t.subsecs.forEach(function(s){
-                                if (s.title) html += '<p><em>' + esc(s.title) + '</em></p>\n';
-                                if (s.links.length) {
-                                    html += '<ul>\n';
-                                    s.links.forEach(function(l){
-                                        var lbl = typeLabels[l.type] || (l.type || '').toUpperCase();
-                                        var titleText = l.title || l.url || '';
-                                        if (l.url) {
-                                            html += '  <li><a href="' + esc(l.url) + '" target="_blank" rel="noopener">'
-                                                  + esc(titleText) + '</a> <em>[' + lbl + ']</em></li>\n';
-                                        } else {
-                                            html += '  <li>' + esc(titleText) + ' <em>[' + lbl + ']</em></li>\n';
-                                        }
-                                    });
-                                    html += '</ul>\n';
-                                }
-                            });
-                        });
-                        return html;
-                    }
-
-                    var dcfForm = document.getElementById('dcf-form');
-                    if (dcfForm) {
-                        // Empty topics list means the user cleared the editor;
-                        // leave whatever they typed in the description textarea
-                        // alone instead of blanking it.
-                        function flushTopicsToTextarea(){
-                            if (!topics.length) return;
-                            var ta = dcfForm.querySelector('textarea[name="learning_outcomes"]');
-                            if (!ta) return;
-                            // If the user has typed inside the Quill / contenteditable
-                            // surface for this field (course-topics-tools.js sets
-                            // data-ct-edited on user input), their edits win — leave
-                            // whatever they wrote alone instead of serialising the
-                            // legacy topic cards on top of it.
-                            if (ta.getAttribute('data-ct-edited') === '1') return;
-                            ta.value = serializeTopicsToHtml();
-                        }
-
-                        // Three paths cover every way this form can submit:
-                        //
-                        // 1. Native submit event — fires for the type=submit
-                        //    "Save Changes" button and for Enter-in-a-field.
-                        dcfForm.addEventListener('submit', flushTopicsToTextarea, false);
-                        // 2. Programmatic form.submit() — used by the
-                        //    "Save & Continue" button. By HTML spec this does
-                        //    NOT dispatch the submit event, so we shadow the
-                        //    prototype method on this instance.
-                        try {
-                            var nativeSubmit = HTMLFormElement.prototype.submit.bind(dcfForm);
-                            dcfForm.submit = function(){
-                                flushTopicsToTextarea();
-                                return nativeSubmit();
-                            };
-                        } catch (e) { /* some browsers refuse the override */ }
-                        // 3. Belt-and-suspenders — attach capture-phase click
-                        //    listeners directly on every save button so even
-                        //    if the prototype shadow above silently fails,
-                        //    serialization still runs before the click's own
-                        //    inline-onclick handler fires.
-                        var saveBtns = document.querySelectorAll(
-                            '.dcf-btn-save, .dcf-btn-save-cont, button[type="submit"].dcf-btn'
-                        );
-                        saveBtns.forEach(function(btn){
-                            btn.addEventListener('click', flushTopicsToTextarea, true);
-                        });
-                    }
-
-                    render();
-                })();
-                </script>
+                <p class="lsb-note" data-lsb-note role="status" hidden>The quiz is saved. Save the course to keep it in the Lesson.</p>
+                <div class="lsb-list" data-lsb-list></div>
+                <button type="button" class="lsb-add-topic" data-a="add-topic">+ Add Topic</button>
+                <script type="application/json" id="lsb-seed"><?php echo json_encode($_lsbSeed, JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
+                <script src="<?php echo $this->getSkinUrl('js/lesson-builder.js') ?>?v=<?php echo (int) @filemtime(Mage::getBaseDir('skin') . '/adminhtml/default/default/js/lesson-builder.js') ?>"></script>
             </div>
 
             <!-- Course Settings -->
@@ -7436,101 +7018,7 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
         <?php endif; ?>
     </div>
 
-    <!-- DEVELOPER: Lesson (collapsible topic cards driven by the LSN_DATA
-         JSON marker the editor writes; falls back to <strong>-only parse
-         for courses last edited before that marker existed) -->
-    <?php
-    $_devLessonTopics = array();
-    try {
-        $_devProd = Mage::getModel('catalog/product')->load($_selectedCourse['id']);
-        $_descRaw = (string)$_devProd->getData('description');
-        if ($_descRaw !== '' && preg_match('/<!--\s*LSN_DATA:\s*(\[.*?\])\s*-->/s', $_descRaw, $_lj)) {
-            $_decoded = json_decode($_lj[1], true);
-            if (is_array($_decoded)) {
-                foreach ($_decoded as $_t) {
-                    // Normalise v1/v2/v3 subsec shapes (see comment in the
-                    // EDIT-mode block — same data model). Flatten any
-                    // per-subsec links onto the topic so the simple
-                    // view-mode template only sees one list.
-                    $_subsecsRaw = isset($_t['subsecs']) && is_array($_t['subsecs']) ? $_t['subsecs']
-                                 : (isset($_t['subsec']) && is_string($_t['subsec']) && $_t['subsec'] !== '' ? array($_t['subsec']) : array());
-                    $_subTitles = array();
-                    $_subLinks  = array();
-                    foreach ($_subsecsRaw as $_ss) {
-                        if (is_array($_ss)) {
-                            $_sst = (string)(isset($_ss['title']) ? $_ss['title'] : '');
-                            if ($_sst !== '') $_subTitles[] = $_sst;
-                            if (isset($_ss['links']) && is_array($_ss['links'])) {
-                                foreach ($_ss['links'] as $_sl) {
-                                    if (is_array($_sl)) $_subLinks[] = $_sl;
-                                }
-                            }
-                        } else {
-                            $_sst = (string)$_ss;
-                            if ($_sst !== '') $_subTitles[] = $_sst;
-                        }
-                    }
-                    $_topicLinks = isset($_t['links']) && is_array($_t['links']) ? $_t['links'] : array();
-                    $_devLessonTopics[] = array(
-                        'title'   => (string)(isset($_t['title'])   ? $_t['title']   : ''),
-                        'subsecs' => $_subTitles,
-                        'links'   => array_merge($_topicLinks, $_subLinks),
-                    );
-                }
-            }
-        }
-        if (empty($_devLessonTopics) && $_descRaw !== ''
-            && preg_match('#<strong>\s*(?:LU|Lesson|Topic|Module)\s*\d+#i', $_descRaw)) {
-            // Split on each LU heading so we also collect the
-            // <em>T#: …</em> sub-topic lines that follow it (legacy
-            // Course-Topics HTML lists the T#s under each LU).
-            $_dvParts = preg_split(
-                '#<strong>\s*((?:LU|Lesson|Topic|Module)\s*\d+[^<]*?)\s*</strong>#i',
-                $_descRaw, -1, PREG_SPLIT_DELIM_CAPTURE
-            );
-            for ($_dvPi = 1; $_dvPi < count($_dvParts); $_dvPi += 2) {
-                $_lt = trim(html_entity_decode($_dvParts[$_dvPi]), " :\t\n\r\0\x0B");
-                if ($_lt === '') continue;
-                $_dvBody = isset($_dvParts[$_dvPi + 1]) ? $_dvParts[$_dvPi + 1] : '';
-                $_dvSubs = array();
-                if (preg_match_all('#<em>(.*?)</em>#is', $_dvBody, $_dvEm)) {
-                    foreach ($_dvEm[1] as $_st) {
-                        $_st = trim(html_entity_decode(strip_tags($_st)), " :\t\n\r\0\x0B");
-                        if ($_st !== '') $_dvSubs[] = $_st;
-                    }
-                } else {
-                    foreach (preg_split('#</?(?:p|li|br|div)[^>]*>#i', $_dvBody) as $_ln) {
-                        $_ln = trim(html_entity_decode(strip_tags($_ln)), " :\t\n\r\0\x0B");
-                        if ($_ln !== '') $_dvSubs[] = $_ln;
-                    }
-                }
-                $_devLessonTopics[] = array('title' => $_lt, 'subsecs' => $_dvSubs, 'links' => array());
-            }
-        }
-        if (empty($_devLessonTopics) && $_descRaw !== '' && preg_match('#<h3[^>]*>#i', $_descRaw)) {
-            // Modern Course-Topics HTML (the storefront "What You'll Learn"
-            // card): <h3>Topic N ...</h3> headings each followed by a
-            // <ul><li> outline. Split on the h3s and collect each one's
-            // list items as its sub-topics.
-            $_dvParts = preg_split('#<h3[^>]*>(.*?)</h3>#is', $_descRaw, -1, PREG_SPLIT_DELIM_CAPTURE);
-            for ($_dvPi = 1; $_dvPi < count($_dvParts); $_dvPi += 2) {
-                $_lt = trim(html_entity_decode(strip_tags($_dvParts[$_dvPi])), " :\t\n\r\0\x0B");
-                if ($_lt === '') continue;
-                $_dvBody = isset($_dvParts[$_dvPi + 1]) ? $_dvParts[$_dvPi + 1] : '';
-                $_dvSubs = array();
-                if (preg_match_all('#<li[^>]*>(.*?)</li>#is', $_dvBody, $_dvLi)) {
-                    foreach ($_dvLi[1] as $_st) {
-                        $_st = trim(html_entity_decode(strip_tags($_st)), " :\t\n\r\0\x0B");
-                        if ($_st !== '') $_dvSubs[] = $_st;
-                    }
-                }
-                $_devLessonTopics[] = array('title' => $_lt, 'subsecs' => $_dvSubs, 'links' => array());
-            }
-        }
-    } catch (Exception $e) {}
-    $_lessonTypeLabels = array('web'=>'Web','doc'=>'Document','yt'=>'YouTube','act'=>'Activity','qz'=>'Quiz');
-    $_lessonTypeColors = array('web'=>'#2563eb','doc'=>'#16a34a','yt'=>'#dc2626','act'=>'#f59e0b','qz'=>'#a855f7');
-    ?>
+    <!-- DEVELOPER: Lesson -->
     <div class="lcd-section" id="lesson">
         <div class="lcd-section-title" style="cursor:pointer;margin-bottom:0;" onclick="var c=this.nextElementSibling;c.style.display=c.style.display==='none'?'':'none';this.querySelector('.lcd-caret').style.transform=c.style.display==='none'?'rotate(180deg)':''">
             <span>Lesson</span>
@@ -7538,46 +7026,22 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
         </div>
         <div>
             <div style="border-top:1px solid var(--b1, #334155);margin-top:14px;padding-top:14px;">
-                <?php if (!empty($_devLessonTopics)): ?>
-                <?php foreach ($_devLessonTopics as $_idx => $_tp):
-                    $_hasBody = !empty($_tp['subsecs']) || !empty($_tp['links']);
+                <?php
+                // Lesson card body: expandable topics > sub topics > links, embedded videos
+                // and quizzes (MMD_LessonQuiz; template lessonquiz/lesson-view.phtml).
+                try {
+                    echo Mage::app()->getLayout()->createBlock('adminhtml/template')
+                        ->setTemplate('lessonquiz/lesson-view.phtml')
+                        ->setTopics(Mage::helper('mmd_lessonquiz')->productLesson($_selectedCourse['id']))
+                        ->setRole($activeRole)
+                        ->setRunId(isset($_lcdRunId) ? (int) $_lcdRunId : 0)
+                        ->setEmail(isset($_loggedInEmail) ? (string) $_loggedInEmail : '')
+                        ->toHtml();
+                } catch (Exception $_lsvEx) {
+                    Mage::logException($_lsvEx);
+                }
                 ?>
-                <div class="lcd-topic-card" data-lesson-card>
-                    <div class="lcd-topic-card-head" onclick="this.parentNode.classList.toggle('open')">
-                        <div class="lcd-topic-card-title"><?php echo htmlspecialchars($_tp['title']) ?></div>
-                        <svg class="lcd-topic-card-caret" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-                    </div>
-                    <div class="lcd-topic-card-body">
-                        <?php if (!empty($_tp['subsecs'])): foreach ($_tp['subsecs'] as $_ss): ?>
-                        <div class="lcd-topic-subsec">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                            <span><?php echo htmlspecialchars($_ss) ?></span>
-                        </div>
-                        <?php endforeach; endif; ?>
-                        <?php if (!empty($_tp['links'])): foreach ($_tp['links'] as $_lnk):
-                            $_lt = isset($_lnk['type'])  ? strtolower((string)$_lnk['type']) : 'web';
-                            $_lh = isset($_lnk['url'])   ? (string)$_lnk['url']   : '';
-                            $_lTitle = isset($_lnk['title']) ? (string)$_lnk['title'] : '';
-                            if ($_lTitle === '') $_lTitle = $_lh;
-                            $_lLabel = isset($_lessonTypeLabels[$_lt]) ? $_lessonTypeLabels[$_lt] : strtoupper($_lt);
-                            $_lColor = isset($_lessonTypeColors[$_lt]) ? $_lessonTypeColors[$_lt] : '#475569';
-                            $_isLink = $_lh !== '';
-                        ?>
-                        <<?php echo $_isLink ? 'a' : 'div' ?> class="lcd-topic-link"<?php if ($_isLink): ?> href="<?php echo htmlspecialchars($_lh) ?>" target="_blank" rel="noopener"<?php endif; ?>>
-                            <span class="lcd-topic-link-tag" style="background:<?php echo $_lColor ?>;"><?php echo strtoupper($_lLabel) ?></span>
-                            <span class="lcd-topic-link-title"><?php echo htmlspecialchars($_lTitle) ?></span>
-                            <?php if ($_isLink): ?><span class="lcd-topic-link-url"><?php echo htmlspecialchars($_lh) ?></span><?php endif; ?>
-                        </<?php echo $_isLink ? 'a' : 'div' ?>>
-                        <?php endforeach; endif; ?>
-                        <?php if (!$_hasBody): ?>
-                        <div class="lcd-topic-empty">No content for this topic yet.</div>
-                        <?php endif; ?>
-                    </div>
-                </div>
-                <?php endforeach; ?>
-                <?php else: ?>
-                <div style="color:var(--t5, #64748b);font-size:13px;font-style:italic;padding:8px 0;">No lesson topics available.</div>
-                <?php endif; ?>
+                <script src="<?php echo $this->getSkinUrl('js/lesson-builder.js') ?>?v=<?php echo (int) @filemtime(Mage::getBaseDir('skin') . '/adminhtml/default/default/js/lesson-builder.js') ?>"></script>
             </div>
         </div>
     </div>
@@ -7955,147 +7419,25 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
     <?php endif; ?>
 
     <?php if ($activeRole === 'trainer' || $activeRole === 'learner'): ?>
-    <!-- Lesson (visible to trainer + learner). Topics extracted from the
-         course's description field (the same source the Developer view
-         uses) — looking for <strong>Topic N: ...</strong> markup that
-         the dev course editor's Lesson editor saves into the description.
-         Previously hardcoded 7 AutoCAD topics, which made trainer/learner
-         views show stale data unrelated to the actual course (fixed
-         2026-05-07). -->
-    <?php
-    // Same parser the developer view uses: prefer the LSN_DATA JSON marker
-    // for full structure (subsecs + typed links), fall back to flat
-    // <strong>...LU N: title...</strong> parse for legacy courses.
-    $_sharedLessonTopics = array();
-    try {
-        $_sharedProd = Mage::getModel('catalog/product')->load($_selectedCourse['id']);
-        $_sharedDescRaw = (string)$_sharedProd->getData('description');
-        if ($_sharedDescRaw !== '' && preg_match('/<!--\s*LSN_DATA:\s*(\[.*?\])\s*-->/s', $_sharedDescRaw, $_slj)) {
-            $_sDecoded = json_decode($_slj[1], true);
-            if (is_array($_sDecoded)) {
-                foreach ($_sDecoded as $_t) {
-                    // Same v1/v2/v3 normaliser as the other two blocks.
-                    $_subsecsRaw = isset($_t['subsecs']) && is_array($_t['subsecs']) ? $_t['subsecs']
-                                 : (isset($_t['subsec']) && is_string($_t['subsec']) && $_t['subsec'] !== '' ? array($_t['subsec']) : array());
-                    $_subTitles = array();
-                    $_subLinks  = array();
-                    foreach ($_subsecsRaw as $_ss) {
-                        if (is_array($_ss)) {
-                            $_sst = (string)(isset($_ss['title']) ? $_ss['title'] : '');
-                            if ($_sst !== '') $_subTitles[] = $_sst;
-                            if (isset($_ss['links']) && is_array($_ss['links'])) {
-                                foreach ($_ss['links'] as $_sl) {
-                                    if (is_array($_sl)) $_subLinks[] = $_sl;
-                                }
-                            }
-                        } else {
-                            $_sst = (string)$_ss;
-                            if ($_sst !== '') $_subTitles[] = $_sst;
-                        }
-                    }
-                    $_topicLinks = isset($_t['links']) && is_array($_t['links']) ? $_t['links'] : array();
-                    $_sharedLessonTopics[] = array(
-                        'title'   => (string)(isset($_t['title']) ? $_t['title'] : ''),
-                        'subsecs' => $_subTitles,
-                        'links'   => array_merge($_topicLinks, $_subLinks),
-                    );
-                }
-            }
-        }
-        if (empty($_sharedLessonTopics) && $_sharedDescRaw !== ''
-            && preg_match('#<strong>\s*(?:LU|Lesson|Topic|Module)\s*\d+#i', $_sharedDescRaw)) {
-            // Split on each LU/Lesson/Topic/Module heading so we also
-            // collect the <em>T#: …</em> sub-topic lines that follow it
-            // (legacy Course-Topics HTML lists the T#s under each LU).
-            // Earlier code only kept the <strong> titles and dropped them.
-            $_shParts = preg_split(
-                '#<strong>\s*((?:LU|Lesson|Topic|Module)\s*\d+[^<]*?)\s*</strong>#i',
-                $_sharedDescRaw, -1, PREG_SPLIT_DELIM_CAPTURE
-            );
-            for ($_shPi = 1; $_shPi < count($_shParts); $_shPi += 2) {
-                $_lt = trim(html_entity_decode($_shParts[$_shPi]), " :\t\n\r\0\x0B");
-                if ($_lt === '') continue;
-                $_shBody = isset($_shParts[$_shPi + 1]) ? $_shParts[$_shPi + 1] : '';
-                $_shSubs = array();
-                if (preg_match_all('#<em>(.*?)</em>#is', $_shBody, $_shEm)) {
-                    foreach ($_shEm[1] as $_st) {
-                        $_st = trim(html_entity_decode(strip_tags($_st)), " :\t\n\r\0\x0B");
-                        if ($_st !== '') $_shSubs[] = $_st;
-                    }
-                } else {
-                    foreach (preg_split('#</?(?:p|li|br|div)[^>]*>#i', $_shBody) as $_ln) {
-                        $_ln = trim(html_entity_decode(strip_tags($_ln)), " :\t\n\r\0\x0B");
-                        if ($_ln !== '') $_shSubs[] = $_ln;
-                    }
-                }
-                $_sharedLessonTopics[] = array('title' => $_lt, 'subsecs' => $_shSubs, 'links' => array());
-            }
-        }
-        if (empty($_sharedLessonTopics) && $_sharedDescRaw !== '' && preg_match('#<h3[^>]*>#i', $_sharedDescRaw)) {
-            // Modern Course-Topics HTML (the storefront "What You'll Learn"
-            // card): <h3>Topic N ...</h3> headings each followed by a
-            // <ul><li> outline. Split on the h3s and collect each one's
-            // list items as its sub-topics.
-            $_shParts = preg_split('#<h3[^>]*>(.*?)</h3>#is', $_sharedDescRaw, -1, PREG_SPLIT_DELIM_CAPTURE);
-            for ($_shPi = 1; $_shPi < count($_shParts); $_shPi += 2) {
-                $_lt = trim(html_entity_decode(strip_tags($_shParts[$_shPi])), " :\t\n\r\0\x0B");
-                if ($_lt === '') continue;
-                $_shBody = isset($_shParts[$_shPi + 1]) ? $_shParts[$_shPi + 1] : '';
-                $_shSubs = array();
-                if (preg_match_all('#<li[^>]*>(.*?)</li>#is', $_shBody, $_shLi)) {
-                    foreach ($_shLi[1] as $_st) {
-                        $_st = trim(html_entity_decode(strip_tags($_st)), " :\t\n\r\0\x0B");
-                        if ($_st !== '') $_shSubs[] = $_st;
-                    }
-                }
-                $_sharedLessonTopics[] = array('title' => $_lt, 'subsecs' => $_shSubs, 'links' => array());
-            }
-        }
-    } catch (Exception $e) {}
-    $_sharedTypeLabels = array('web'=>'Web','doc'=>'Document','yt'=>'YouTube','act'=>'Activity','qz'=>'Quiz');
-    $_sharedTypeColors = array('web'=>'#2563eb','doc'=>'#16a34a','yt'=>'#dc2626','act'=>'#f59e0b','qz'=>'#a855f7');
-    ?>
+    <!-- Lesson (visible to trainer + learner) -->
     <div class="lcd-section" id="lesson">
         <div class="lcd-section-title" style="padding-bottom:14px;border-bottom:2px solid var(--cyan, #22d3ee);margin-bottom:4px;">Lesson</div>
-        <?php if (!empty($_sharedLessonTopics)): ?>
-        <?php foreach ($_sharedLessonTopics as $_tp):
-            $_hasBody = !empty($_tp['subsecs']) || !empty($_tp['links']);
+        <?php
+        // Lesson card body: expandable topics > sub topics > links, embedded videos
+        // and quizzes (MMD_LessonQuiz; template lessonquiz/lesson-view.phtml).
+        try {
+            echo Mage::app()->getLayout()->createBlock('adminhtml/template')
+                ->setTemplate('lessonquiz/lesson-view.phtml')
+                ->setTopics(Mage::helper('mmd_lessonquiz')->productLesson($_selectedCourse['id']))
+                ->setRole($activeRole)
+                ->setRunId(isset($_lcdRunId) ? (int) $_lcdRunId : 0)
+                ->setEmail(isset($_loggedInEmail) ? (string) $_loggedInEmail : '')
+                ->toHtml();
+        } catch (Exception $_lsvEx) {
+            Mage::logException($_lsvEx);
+        }
         ?>
-        <div class="lcd-shared-topic">
-            <div class="lcd-shared-topic-head" onclick="this.parentNode.classList.toggle('open')">
-                <div class="lcd-shared-topic-title"><?php echo htmlspecialchars($_tp['title']) ?></div>
-                <svg class="lcd-shared-topic-caret" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-            </div>
-            <div class="lcd-shared-topic-body">
-                <?php if (!empty($_tp['subsecs'])): foreach ($_tp['subsecs'] as $_ss): ?>
-                <div class="lcd-shared-subsec">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                    <span><?php echo htmlspecialchars($_ss) ?></span>
-                </div>
-                <?php endforeach; endif; ?>
-                <?php if (!empty($_tp['links'])): foreach ($_tp['links'] as $_lnk):
-                    $_lt = isset($_lnk['type'])  ? strtolower((string)$_lnk['type']) : 'web';
-                    $_lh = isset($_lnk['url'])   ? (string)$_lnk['url']   : '';
-                    $_lTitle = isset($_lnk['title']) ? (string)$_lnk['title'] : '';
-                    if ($_lTitle === '') $_lTitle = $_lh;
-                    $_lLabel = isset($_sharedTypeLabels[$_lt]) ? $_sharedTypeLabels[$_lt] : strtoupper($_lt);
-                    $_lColor = isset($_sharedTypeColors[$_lt]) ? $_sharedTypeColors[$_lt] : '#475569';
-                    $_isLink = $_lh !== '';
-                ?>
-                <<?php echo $_isLink ? 'a' : 'div' ?> class="lcd-shared-link"<?php if ($_isLink): ?> href="<?php echo htmlspecialchars($_lh) ?>" target="_blank" rel="noopener"<?php endif; ?>>
-                    <span class="lcd-shared-link-tag" style="background:<?php echo $_lColor ?>;"><?php echo strtoupper($_lLabel) ?></span>
-                    <span class="lcd-shared-link-title"><?php echo htmlspecialchars($_lTitle) ?></span>
-                </<?php echo $_isLink ? 'a' : 'div' ?>>
-                <?php endforeach; endif; ?>
-                <?php if (!$_hasBody): ?>
-                <div class="lcd-shared-empty">No content for this topic yet.</div>
-                <?php endif; ?>
-            </div>
-        </div>
-        <?php endforeach; ?>
-        <?php else: ?>
-        <div style="color:var(--t5, #64748b);font-size:13px;font-style:italic;padding:14px 0;">No lesson topics available for this course yet.</div>
-        <?php endif; ?>
+        <script src="<?php echo $this->getSkinUrl('js/lesson-builder.js') ?>?v=<?php echo (int) @filemtime(Mage::getBaseDir('skin') . '/adminhtml/default/default/js/lesson-builder.js') ?>"></script>
     </div>
 
     <?php echo $_lcdPracticeExamHtml; /* TRAINER: Practice Exam — after Lesson (empty for learners) */ ?>
