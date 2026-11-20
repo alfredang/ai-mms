@@ -86,10 +86,6 @@ class MMD_Courses_Api_ScheduleController extends Mage_Core_Controller_Front_Acti
             return $this->_json(404, $this->_errEnvelope('course_unavailable',
                 'Course ' . $sku . ' is not currently available.'));
         }
-        if (!Mage::helper('courses')->isRegistrationOpen($product)) {
-            return $this->_json(404, $this->_errEnvelope('course_unavailable',
-                Mage::helper('courses')->getAvailabilityMessage($product)));
-        }
 
         $classes    = $this->_collectClasses($product);
         $sourceUrl  = $this->_productUrl($product);
@@ -329,9 +325,6 @@ class MMD_Courses_Api_ScheduleController extends Mage_Core_Controller_Front_Acti
         $out = array();
         foreach ($collection as $product) {
             $product->setStoreId(self::SG_STORE_ID);
-            if (!Mage::helper('courses')->isRegistrationOpen($product)) {
-                continue;
-            }
             $schedules = $this->_extractSchedules($product, $parser);
             $out[] = array(
                 'course_code'  => $product->getSku(),

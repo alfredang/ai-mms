@@ -4,6 +4,11 @@
  * TMS -> Magento availability sink.
  *
  * POST /courses/api_availability
+ *
+ * Stores what TMS read from SSG (information only: it never hides a course or
+ * closes its registration) and answers with `runs_needed`: every enabled course
+ * SSG has no future run for. TMS then publishes those courses' website schedule
+ * (/courses/api_schedule) to TPGateway, so SSG tallies with the storefront.
  * Header: X-API-Key (same integration key as /courses/api_schedule)
  */
 class MMD_Courses_Api_AvailabilityController extends Mage_Core_Controller_Front_Action
@@ -39,8 +44,12 @@ class MMD_Courses_Api_AvailabilityController extends Mage_Core_Controller_Front_
         $write = $resource->getConnection('core_write');
         $table = $resource->getTableName('mmd_course_availability');
         $matched = 0;
-        $visibilityChanged = 0;
+        $visibilityChanged = 0; // always 0: kept in the response for the TMS client
+        $changes = array();
         $unmatched = array();
+        // Enabled courses SSG has no future run for. Registration stays open; TMS is
+        // asked (in the response) to publish their website schedule to TPGateway.
+        $runsNeeded = array();
 
         foreach ($payload['courses'] as $course) {
             $courseCode = trim((string) (isset($course['course_code']) ? $course['course_code'] : ''));
@@ -64,22 +73,24 @@ class MMD_Courses_Api_AvailabilityController extends Mage_Core_Controller_Front_
             $existing = $write->fetchRow(
                 $write->select()->from($table)->where('product_id = ?', $productId)->limit(1)
             );
+            // Read-only load (title + status for the response).
             $product = Mage::getModel('catalog/product')->setStoreId(0)->load($productId);
-            $currentVisibility = (int) $product->getVisibility();
-            $originalVisibility = $existing && $existing['original_visibility'] !== null
-                ? (int) $existing['original_visibility']
-                : null;
 
-            // HARD RULE (2026-11-20): an enabled course is always visible. This sync
-            // never hides a course; the status only closes registration and shows a
-            // notice (MMD_Courses_Model_Observer, Helper_Data::getAvailabilityMessage).
-            // A course hidden by the pre-rule sync gets its visibility back here.
-            $targetVisibility = null;
-            if ($originalVisibility !== null) {
-                if ($currentVisibility === Mage_Catalog_Model_Product_Visibility::VISIBILITY_NOT_VISIBLE) {
-                    $targetVisibility = $originalVisibility;
-                }
-                $originalVisibility = null;
+            // HARD RULE (2026-11-20): this sync cannot edit, hide or disable a course.
+            // It has no write to the catalogue at all: the SSG status is stored for
+            // information only, and a status change is emailed to the approver
+            // (MMD_Courses_Helper_Changenotice). Any change to a course is made by a
+            // person. Guardrail: .claude/hooks/course-change-guard.py.
+            $oldStatus = $existing ? (string) $existing['availability_status'] : '';
+            if ($oldStatus !== $status && !($oldStatus === '' && $status === 'active')) {
+                $changes[] = array(
+                    'product_id' => $productId,
+                    'sku' => $matchedCourseCode,
+                    'old' => $oldStatus,
+                    'new' => $status,
+                    'reason' => trim((string) (isset($course['reason']) ? $course['reason'] : '')),
+                    'support_to' => (string) $this->_dateOrNull(isset($course['support_to']) ? $course['support_to'] : null),
+                );
             }
 
             $checkedAt = !empty($course['checked_at']) && strtotime($course['checked_at'])
@@ -95,7 +106,7 @@ class MMD_Courses_Api_AvailabilityController extends Mage_Core_Controller_Front_
                 'support_to' => $this->_dateOrNull(isset($course['support_to']) ? $course['support_to'] : null),
                 'has_future_run' => !empty($course['has_future_run']) ? 1 : 0,
                 'checked_at' => $checkedAt,
-                'original_visibility' => $originalVisibility,
+                'original_visibility' => null,
             );
             $write->insertOnDuplicate($table, $data, array(
                 'course_code', 'ssg_course_code', 'availability_status',
@@ -103,24 +114,64 @@ class MMD_Courses_Api_AvailabilityController extends Mage_Core_Controller_Front_
                 'has_future_run', 'checked_at', 'original_visibility',
             ));
 
-            if ($targetVisibility !== null && $targetVisibility !== $currentVisibility) {
-                Mage::getSingleton('catalog/product_action')->updateAttributes(
-                    array($productId),
-                    array('visibility' => $targetVisibility),
-                    0
-                );
-                $visibilityChanged++;
-            }
             Mage::app()->cleanCache(array(Mage_Catalog_Model_Product::CACHE_TAG . '_' . $productId));
             $matched++;
+
+            if ($status === 'no_public_run'
+                && empty($course['has_future_run'])
+                && (int) $product->getStatus() === Mage_Catalog_Model_Product_Status::STATUS_ENABLED
+            ) {
+                $runsNeeded[] = array(
+                    'course_code' => $matchedCourseCode,
+                    'ssg_course_code' => $ssgCourseCode,
+                    'course_title' => (string) $product->getName(),
+                );
+            }
         }
+
+        $notified = $this->_notifyApprover($changes);
 
         return $this->_json(200, array(
             'success' => true,
             'matched' => $matched,
             'visibility_changed' => $visibilityChanged,
+            'status_changes' => count($changes),
+            'approver_notified' => $notified,
             'unmatched' => array_slice($unmatched, 0, 50),
+            'runs_needed' => $runsNeeded,
         ));
+    }
+
+    /** Email the approver about status changes. A mail failure never fails the sync. */
+    private function _notifyApprover(array $changes)
+    {
+        if (!$changes) {
+            return false;
+        }
+        try {
+            $res = Mage::getSingleton('core/resource');
+            $read = $res->getConnection('core_read');
+            $store = Mage::app()->getDefaultStoreView();
+            $nameAttr = (int) Mage::getSingleton('eav/config')->getAttribute('catalog_product', 'name')->getId();
+            foreach ($changes as &$c) {
+                $c['name'] = (string) $read->fetchOne(
+                    'SELECT value FROM ' . $res->getTableName('catalog/product') . '_varchar'
+                    . ' WHERE entity_id = ? AND attribute_id = ? AND store_id = 0',
+                    array($c['product_id'], $nameAttr)
+                );
+                $path = (string) $read->fetchOne(
+                    'SELECT request_path FROM ' . $res->getTableName('core/url_rewrite')
+                    . ' WHERE product_id = ? AND store_id = ? AND is_system = 1 AND category_id IS NULL',
+                    array($c['product_id'], (int) $store->getId())
+                );
+                $c['url'] = $store->getBaseUrl(Mage_Core_Model_Store::URL_TYPE_WEB) . $path;
+            }
+            unset($c);
+            return (bool) Mage::helper('courses/changenotice')->notify($changes);
+        } catch (Throwable $e) {
+            Mage::log('availability change notice failed: ' . $e->getMessage(), Zend_Log::ERR);
+            return false;
+        }
     }
 
     private function _dateOrNull($value)

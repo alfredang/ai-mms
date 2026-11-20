@@ -316,6 +316,16 @@ setup. Committed and ready to use after a clone:
 - **`.claude/hooks/`** — pre/post-tool hooks (PHP lint-on-edit, web-health,
   leads-capture and newsletter-flyer verifiers, git-push gate) wired via `.claude/settings.json`.
   The push gate's approval marker `.claude/.push-approved` is local-only and gitignored.
+  Course guardrails (2026-11-20): `course-change-guard.py` asks the admin to approve any edit,
+  migration or command that disables or hides a course or gives the TMS availability sync a
+  write to the catalogue; `registration-gate-on-edit.sh` rejects code that closes registration
+  on an enabled course.
+- **`scripts/audit/`** — catalogue rule checks run inside the web container:
+  `check-active-courses-visible.php` (every enabled course is visible),
+  `check-active-courses-registrable.php` (every enabled course allows registration; both take
+  `--fix`) and the static `check-registration-open.sh`. The TMS availability sync
+  (`/courses/api_availability`) is information-only: it cannot change a course, and emails the
+  approver when an SSG status changes.
 - **`.claude/commands/`** + **`.claude/memory/`** — slash commands and shared project memory notes.
 - **`.codex/`** + **`AGENTS.md`** — the Codex-CLI counterparts of the same guidance.
 

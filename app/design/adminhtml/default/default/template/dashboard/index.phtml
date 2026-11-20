@@ -12739,10 +12739,10 @@ $_apiCategories = array(
             array(
                 'method' => 'POST', 'path' => '/courses/api_availability', 'authKey' => 'wsq',
                 'title' => 'Course Availability Sync (TMS → storefront)',
-                'description' => 'The TMS pushes the SSG availability status of each TGS- course (active, renewal_processing, expired, no_public_run, rejected, no_support, unknown). A non-active status closes registration and shows a notice on the course page. It never hides a course: every enabled course stays visible in listings and search (hard rule 2026-11-20). To take a course off the site, disable it.',
-                'notes' => array('Body: {"courses":[{"course_code","ssg_course_code","status","reason","support_from","support_to","has_future_run","checked_at"}]}. Non-TGS codes and unknown statuses are skipped.', 'A course hidden by the pre-2026-11-20 sync gets its visibility back on its next push.'),
+                'description' => 'The TMS pushes the SSG availability status of each TGS- course (active, renewal_processing, expired, no_public_run, rejected, no_support, unknown). The status is stored for information only. This endpoint has no write to the catalogue: it cannot edit, hide or disable a course (hard rule 2026-11-20). When a course status changes, the approver (config courses/availability/approver_email, default angch@tertiaryinfotech.com) gets one email listing the changes; any change to a course is then made by a person.',
+                'notes' => array('Body: {"courses":[{"course_code","ssg_course_code","status","reason","support_from","support_to","has_future_run","checked_at"}]}. Non-TGS codes and unknown statuses are skipped.', 'Response: status_changes = courses whose status differs from the stored one; approver_notified = whether the email went out; visibility_changed is always 0 (kept for older clients); runs_needed = enabled courses SSG has no future run for.'),
                 'exampleRequest' => "curl -X POST -H \"X-API-Key: <key>\" -H \"Content-Type: application/json\" \\\n  -d '{\"courses\":[{\"course_code\":\"TGS-2026066894\",\"status\":\"no_public_run\"}]}' \\\n  \"__BASE_URL__/courses/api_availability\"",
-                'exampleResponse' => "{ \"success\": true, \"matched\": 1, \"visibility_changed\": 0, \"unmatched\": [] }",
+                'exampleResponse' => "{ \"success\": true, \"matched\": 1, \"visibility_changed\": 0, \"status_changes\": 1, \"approver_notified\": true, \"unmatched\": [], \"runs_needed\": [] }",
             ),
             array(
                 'method' => 'GET', 'path' => '/courses/api_search', 'authKey' => 'wsq',

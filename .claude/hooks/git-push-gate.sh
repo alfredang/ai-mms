@@ -25,6 +25,13 @@ if ! "$REPO_ROOT/scripts/audit/check-ignored-code.sh" >&2; then
   exit 2
 fi
 
+# Hard block, even with approval: an enabled course must always allow
+# registration (user rule 2026-11-20) - no code may close it.
+if ! "$REPO_ROOT/scripts/audit/check-registration-open.sh" >&2; then
+  echo "PUSH BLOCKED: the code above closes registration for enabled courses." >&2
+  exit 2
+fi
+
 if [ -f "$MARKER" ]; then
   rm -f "$MARKER"
   echo "push-gate: admin approval marker found and consumed — push allowed." >&2

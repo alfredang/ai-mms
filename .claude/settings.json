@@ -9,6 +9,15 @@
             "command": ".claude/hooks/linkedin-share-gate.sh"
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/bin/python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/course-change-guard.py\""
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -26,6 +35,10 @@
           {
             "type": "command",
             "command": "f=\"$(jq -r '.tool_input.file_path // empty')\"; .claude/hooks/lint-php-on-edit.sh \"$f\""
+          },
+          {
+            "type": "command",
+            "command": "f=\"$(jq -r '.tool_input.file_path // empty')\"; .claude/hooks/registration-gate-on-edit.sh \"$f\""
           },
           {
             "type": "command",

@@ -10,9 +10,6 @@
    rates and claim steps. Each <h2> becomes one accordion tab. */
 $_product = $this->getProduct();
 $_availability = Mage::helper('courses')->getCourseAvailability($_product);
-if ($_availability && !Mage::helper('courses')->isRegistrationOpen($_product)) {
-    return;
-}
 $_sku = (string) $_product->getSku();
 try {
     $_badges = Mage::helper('mmd_courseimage')->getProductBadges($_product);
