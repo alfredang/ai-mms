@@ -419,7 +419,7 @@ never repeat.**
 | **lead-magnets** | Planning lead-magnet content for course sales — SkillsFuture/HRDC hooks, course syllabus PDFs, trial classes. |
 | **add-country-store** | Onboarding a new franchise partner — stand up their own server + DB, deploy this codebase, set base_url + currency/locale, Coolify + DNS handoff (one store per site). |
 | **course-url-change** | Changing a course's URL slug (`url_key`) — makes the old URL 301 permanently to the new one so nothing 404s. Also the site-wide audit for course URLs / search redirects that 404. |
-| **trainer-profile** | Writing or fixing a trainer profile on a course page's Trainers tab. **Hard rule: exactly two paragraphs, about 500 characters in total (450–550)**; `trainer_bio.py` checks it and emits the stored HTML. Data-only, applied live with a backup. |
+| **trainer-profile** | Writing or fixing a trainer profile on a course page's Trainers tab. **Hard rule: exactly two paragraphs, at least 2000 characters, contextualised to the course, the course's SEO keywords embedded, the trainer's LinkedIn link last** (model: Dr. Alfred Ang on `wsq-agentic-ai-applications-with-claude-code`); `trainer_bio.py` checks it and emits the stored HTML. Data-only, applied live with a backup. |
 | **mysql** | Schema design, indexing, query tuning, migrations, transactions. |
 | **web-accessibility** | Building / reviewing UI for a11y — WCAG 2.1, ARIA, contrast, keyboard nav. |
 | **find-skills** | Discovering and installing new skills via `npx skills find [query]`. |
