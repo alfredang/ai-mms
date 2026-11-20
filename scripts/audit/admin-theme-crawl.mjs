@@ -29,7 +29,7 @@ async function open(sid) {
   const browser = await puppeteer.launch({ executablePath: CHROME, headless: true, userDataDir: profile, args: ['--no-sandbox'] });
   const page = await browser.newPage(); await page.setViewport({ width: 1440, height: 900 });
   await page.setCookie({ name: 'adminhtml', value: sid, domain: new URL(BASE).hostname, path: '/' });
-  await page.evaluateOnNewDocument(t => { try { localStorage.setItem('admin-theme', t); localStorage.setItem('admin-theme-v', '2'); } catch (e) {} }, THEME);
+  await page.evaluateOnNewDocument(t => { try { localStorage.setItem('admin-theme', t); localStorage.setItem('admin-theme-v', '3'); } catch (e) {} }, THEME);
   return { browser, page, profile };
 }
 

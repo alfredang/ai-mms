@@ -58,7 +58,7 @@ const browser = await puppeteer.launch({ executablePath: CHROME, headless: true,
 const page = await browser.newPage();
 await page.setViewport({ width: 1440, height: 900 });
 await page.setCookie({ name: 'adminhtml', value: SID, domain: new URL(BASE).hostname, path: '/' });
-await page.evaluateOnNewDocument(t => { try { localStorage.setItem('admin-theme', t); } catch (e) {} }, THEME);
+await page.evaluateOnNewDocument(t => { try { localStorage.setItem('admin-theme', t); localStorage.setItem('admin-theme-v', '3'); } catch (e) {} }, THEME);
 
 let total = 0;
 for (const [name, url] of pages) {

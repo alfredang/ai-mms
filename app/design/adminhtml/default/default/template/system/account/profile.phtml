@@ -140,13 +140,13 @@ $roleColors = array(
    our selector must be MORE specific — we prefix every rule with
    `.admin-main` so the selector becomes `.admin-main .theme-mode-switch`
    (0,0,2,0) which beats `.admin-main button` on the class count. */
-.admin-main .theme-mode-switch{width:64px !important;height:32px !important;min-height:32px !important;min-width:64px !important;max-width:64px !important;border-radius:999px !important;background:var(--d5, #4b5563) !important;background-image:none !important;border:0 !important;border-width:0 !important;position:relative !important;cursor:pointer !important;padding:0 !important;margin:0 !important;transition:background 0.2s ease;flex-shrink:0;display:inline-block !important;box-shadow:none !important;color:transparent !important;font-size:0 !important;line-height:1 !important;vertical-align:middle !important;overflow:visible !important}
-.admin-main .theme-mode-switch.on{background:#2563eb !important;background-image:none !important}
-.admin-main .theme-mode-switch:hover{background:#525f70 !important;border:0 !important}
-.admin-main .theme-mode-switch.on:hover{background:#1d4ed8 !important}
-.admin-main .theme-mode-switch:focus-visible{outline:none !important;box-shadow:0 0 0 3px rgba(96,165,250,0.35) !important}
-.admin-main .theme-mode-switch-thumb{position:absolute !important;top:3px !important;left:3px !important;width:26px !important;height:26px !important;background:#fff !important;border-radius:999px !important;transition:transform 0.22s ease;box-shadow:0 1px 3px rgba(0,0,0,0.3) !important;display:block !important}
-.admin-main .theme-mode-switch.on .theme-mode-switch-thumb{transform:translateX(32px)}
+.admin-main .theme-mode-seg{display:inline-flex !important;gap:4px;padding:4px;border-radius:10px;background:var(--d4, #374151);border:1px solid var(--b1, #374151);flex-shrink:0}
+.admin-main .theme-mode-opt{display:inline-flex !important;align-items:center;gap:6px;height:32px !important;min-height:32px !important;min-width:0 !important;padding:0 14px !important;margin:0 !important;border:0 !important;border-radius:7px !important;background:transparent !important;background-image:none !important;box-shadow:none !important;color:var(--t3, #d1d5db) !important;font-size:13px !important;font-weight:600 !important;line-height:1 !important;cursor:pointer !important}
+.admin-main .theme-mode-opt svg{width:15px;height:15px;flex-shrink:0}
+.admin-main .theme-mode-opt:hover{color:var(--t1, #f1f5f9) !important}
+.admin-main .theme-mode-opt.on{background:var(--blue3, #2563eb) !important;color:#fff !important}
+.admin-main .theme-mode-opt:focus-visible{outline:none !important;box-shadow:0 0 0 3px rgba(96,165,250,0.35) !important}
+@media (max-width:640px){.appearance-row{flex-wrap:wrap}}
 
 /* Light theme overrides — every card on this page hardcodes its
    colors (rgba(30,41,59,0.85), #374151, #f1f5f9, #94a3b8) instead of
@@ -172,10 +172,8 @@ $roleColors = array(
 :root[data-theme="light"] .edit-note { color:var(--t4) !important }
 :root[data-theme="light"] .appearance-row { background:var(--d4) !important; border-color:var(--b1) !important }
 :root[data-theme="light"] .appearance-icon { background:var(--d5) !important }
-:root[data-theme="light"] .admin-main .theme-mode-switch { background:var(--d6) !important }
-:root[data-theme="light"] .admin-main .theme-mode-switch.on { background:var(--blue) !important }
-:root[data-theme="light"] .admin-main .theme-mode-switch:hover { background:#94a3b8 !important }
-:root[data-theme="light"] .admin-main .theme-mode-switch.on:hover { background:#1d4ed8 !important }
+:root[data-theme="light"] .admin-main .theme-mode-seg { background:#ffffff !important; border-color:var(--b1) !important }
+:root[data-theme="light"] .admin-main .theme-mode-opt.on { background:var(--blue) !important }
 :root[data-theme="light"] .btn-reset-pw { color:var(--t1) !important; border-color:var(--b1) !important }
 :root[data-theme="light"] .btn-reset-pw:hover { border-color:var(--b2) !important }
 :root[data-theme="light"] .edit-section-divider { border-top-color:var(--b1) !important }
@@ -271,11 +269,19 @@ $roleColors = array(
         </div>
         <div class="appearance-text">
             <p class="appearance-title">Theme Mode</p>
-            <p class="appearance-sub" id="appearance-sub">Dark theme active</p>
+            <p class="appearance-sub" id="appearance-sub">Follows your device setting</p>
         </div>
-        <button type="button" class="theme-mode-switch" id="theme-mode-switch" onclick="adminToggleTheme(); refreshAppearanceUI();" role="switch" aria-label="Toggle theme">
-            <span class="theme-mode-switch-thumb"></span>
-        </button>
+        <div class="theme-mode-seg" role="radiogroup" aria-label="Theme mode">
+            <button type="button" class="theme-mode-opt" data-theme-pref="system" role="radio" aria-checked="false" onclick="adminSetTheme('system')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>System
+            </button>
+            <button type="button" class="theme-mode-opt" data-theme-pref="light" role="radio" aria-checked="false" onclick="adminSetTheme('light')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>Light
+            </button>
+            <button type="button" class="theme-mode-opt" data-theme-pref="dark" role="radio" aria-checked="false" onclick="adminSetTheme('dark')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>Dark
+            </button>
+        </div>
     </div>
 </div>
 
@@ -433,11 +439,16 @@ function previewImage(input) {
     }
 }
 function refreshAppearanceUI() {
-    var t = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
-    var sub = document.getElementById('appearance-sub');
-    var sw  = document.getElementById('theme-mode-switch');
-    if (sub) sub.textContent = (t === 'light') ? 'Light theme active' : 'Dark theme active';
-    if (sw)  sw.classList.toggle('on', t === 'dark');
+    var pref = (typeof adminThemePref === 'function') ? adminThemePref() : 'system';
+    var now  = document.documentElement.getAttribute('data-theme') === 'light' ? 'Light' : 'Dark';
+    var sub  = document.getElementById('appearance-sub');
+    if (sub) sub.textContent = (pref === 'system') ? 'Follows your device setting (' + now + ' now)' : now + ' theme active';
+    var opts = document.querySelectorAll('.theme-mode-opt');
+    for (var i = 0; i < opts.length; i++) {
+        var on = opts[i].getAttribute('data-theme-pref') === pref;
+        opts[i].classList.toggle('on', on);
+        opts[i].setAttribute('aria-checked', on ? 'true' : 'false');
+    }
 }
 refreshAppearanceUI();
 </script>

@@ -1053,6 +1053,43 @@ function setTrainerActiveNav(which) {
         if (best) { best.classList.add('active'); }
     }
 
+    // Top-level items: mark the item whose link is the page being viewed, in
+    // every role sidebar that has no active item yet. Without this only the
+    // Trainer / Learner sidebars (mirror tabs) ever showed where you are.
+    // The per-action `/key/<hash>/` segment and `/index` defaults are dropped
+    // so /blog/edit/id/5 still lights up the Blog item; a link carrying
+    // ?panel=X only matches that panel.
+    function navPath(u) {
+        return u.pathname.replace(/\/key\/[^\/]+/, '').replace(/^\/index\.php/, '')
+                .replace(/\/+$/, '').replace(/(\/index)+$/, '').toLowerCase();
+    }
+    function applyActiveNavItemFromUrl() {
+        var herePath = navPath(window.location);
+        var hereQuery = new URLSearchParams(window.location.search);
+        var navs = document.querySelectorAll('.sidebar-nav');
+        for (var n = 0; n < navs.length; n++) {
+            if (navs[n].querySelector('.lms-nav-item.active, .tools-group-toggle.active, .tools-sub-item.active')) continue;
+            var items = navs[n].querySelectorAll('a.lms-nav-item[href]');
+            var best = null, bestScore = 0;
+            for (var i = 0; i < items.length; i++) {
+                var h;
+                try { h = new URL(items[i].href, window.location.origin); } catch (e) { continue; }
+                var p = navPath(h);
+                if (p.split('/').length < 3) continue;                      // needs a controller segment
+                if (herePath !== p && herePath.indexOf(p + '/') !== 0) continue;
+                // Every query parameter on the link (?panel=, ?role=) must match the page.
+                var params = 0, ok = true;
+                h.searchParams.forEach(function (v, k) { params++; if (hereQuery.get(k) !== v) ok = false; });
+                if (!ok) continue;
+                // A link without ?panel= is the plain page, not one of its panels.
+                if (hereQuery.get('panel') && !h.searchParams.get('panel')) continue;
+                var score = p.length * 4 + params + 1;
+                if (score > bestScore) { best = items[i]; bestScore = score; }
+            }
+            if (best) best.classList.add('active');
+        }
+    }
+
     function applyByMirrorTab(mt) {
         if (!mt) return false;
         // Highlight every match — the shared TOOLS groups appear in both the
@@ -1145,6 +1182,7 @@ function setTrainerActiveNav(which) {
         }
         // Also highlight the matching sub-item (Configuration, Users, etc.).
         applyActiveSubItemFromUrl();
+        applyActiveNavItemFromUrl();
     }
 
     // Public entry point. The dashboard's top-bar Billing / Certificate /
@@ -1185,6 +1223,8 @@ function setTrainerActiveNav(which) {
         clearAll();
         applyByMirrorTab(urlMt);
         mirrorTopTab(urlMt);
+        applyActiveSubItemFromUrl();
+        applyActiveNavItemFromUrl();
     }
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attach);

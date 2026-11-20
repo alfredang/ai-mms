@@ -124,21 +124,44 @@ foreach (array_keys($helper->getAllRoles()) as $_rc) {
 ?>
 <script type="text/javascript">
 /* Apply persisted admin theme as early as possible to minimise FOUC.
-   Default is LIGHT (2026-11-17, every site); data-theme="light" lifts the
-   token flip in dark-theme.css. Persists per-browser via localStorage.
-   'admin-theme-v' = one-time reset: every browser starts on light once,
-   after that the sun/moon toggle choice sticks. (login + role-select are
-   standalone pages with their own fixed design and no theme.) */
+   localStorage['admin-theme'] = 'system' | 'light' | 'dark' (per browser).
+   Default is SYSTEM (2026-11-19, every site): follow the device's
+   prefers-color-scheme. <html data-theme> always holds the RESOLVED
+   'light' / 'dark', so every stylesheet rule keeps working unchanged.
+   'admin-theme-v' = one-time reset to System (a browser already set to
+   dark keeps dark). (login + role-select are standalone pages with their
+   own fixed design and no theme.) */
 (function(){
-    var t = 'light';
-    try {
-        if (localStorage.getItem('admin-theme-v') !== '2') {
-            localStorage.setItem('admin-theme', 'light');
-            localStorage.setItem('admin-theme-v', '2');
+    var mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+    window.adminThemePref = function() {
+        var p = 'system';
+        try { p = localStorage.getItem('admin-theme'); } catch(e) {}
+        return (p === 'light' || p === 'dark') ? p : 'system';
+    };
+    window.adminApplyTheme = function() {
+        var p = window.adminThemePref();
+        if (p === 'system') p = (mq && mq.matches) ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', p);
+        if (typeof window.refreshAppearanceUI === 'function') {
+            try { window.refreshAppearanceUI(); } catch(e) {}
         }
-        t = localStorage.getItem('admin-theme') === 'dark' ? 'dark' : 'light';
+    };
+    window.adminSetTheme = function(pref) {
+        try { localStorage.setItem('admin-theme', pref); } catch(e) {}
+        window.adminApplyTheme();
+    };
+    try {
+        if (localStorage.getItem('admin-theme-v') !== '3') {
+            if (localStorage.getItem('admin-theme') !== 'dark') localStorage.setItem('admin-theme', 'system');
+            localStorage.setItem('admin-theme-v', '3');
+        }
     } catch(e) {}
-    document.documentElement.setAttribute('data-theme', t);
+    window.adminApplyTheme();
+    /* System mode follows the device live (e.g. macOS auto dark at sunset). */
+    if (mq) {
+        if (mq.addEventListener) mq.addEventListener('change', window.adminApplyTheme);
+        else if (mq.addListener) mq.addListener(window.adminApplyTheme);
+    }
 })();
 </script>
 <div class="header-top lms-header">
@@ -203,13 +226,19 @@ foreach (array_keys($helper->getAllRoles()) as $_rc) {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
             <span>My Classes</span>
         </a>
-        <a href="<?php echo $_dashUrl ?>#edtools" class="header-trn-tab" data-trn-tab="edtools" onclick="if(document.getElementById('dash-panel-edtools') && window.trnTopbarSwitch && !document.getElementById('dash-panel-course-detail')){event.preventDefault();trnTopbarSwitch('edtools');}">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-            <span>Ed Tools</span>
+        <?php /* External classroom tools — open in a new tab (2026-11-20;
+                replaced the Ed Tools / GenAI Tools tabs, which stay in the sidebar). */ ?>
+        <a href="https://alfredang.github.io/musical-timer-countdown/" target="_blank" rel="noopener" class="header-trn-tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span>Break Timer</span>
         </a>
-        <a href="<?php echo $_dashUrl ?>#genai" class="header-trn-tab" data-trn-tab="genai" onclick="if(document.getElementById('dash-panel-genai') && window.trnTopbarSwitch && !document.getElementById('dash-panel-course-detail')){event.preventDefault();trnTopbarSwitch('genai');}">
+        <a href="https://alfredang.github.io/whiteboard/" target="_blank" rel="noopener" class="header-trn-tab">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-            <span>GenAI Tools</span>
+            <span>Digital Whitebook</span>
+        </a>
+        <a href="https://alfredang.github.io/padlet/" target="_blank" rel="noopener" class="header-trn-tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+            <span>Padlet</span>
         </a>
     </div>
     <?php endif; ?>
@@ -295,6 +324,7 @@ foreach (array_keys($helper->getAllRoles()) as $_rc) {
                 <?php endif; ?>
             </button>
             <div class="user-menu-dropdown">
+                <div class="view-as-heading">Account</div>
                 <a href="<?php echo $this->getUrl('adminhtml/system_account/') ?>" class="user-menu-item">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                     My Profile
@@ -326,17 +356,10 @@ foreach (array_keys($helper->getAllRoles()) as $_rc) {
     </div>
 </div>
 <script type="text/javascript">
+/* Header sun/moon button: flips what is on screen and stores that as an
+   explicit Light / Dark choice (System is chosen on the profile page). */
 function adminToggleTheme() {
-    var cur = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
-    var next = cur === 'light' ? 'dark' : 'light';
-    document.documentElement.setAttribute('data-theme', next);
-    try { localStorage.setItem('admin-theme', next); } catch(e) {}
-    /* Notify any on-page consumers (e.g. the profile page's
-       Appearance card) so their visible state matches. The card
-       defines refreshAppearanceUI(); call it only if present. */
-    if (typeof window.refreshAppearanceUI === 'function') {
-        try { window.refreshAppearanceUI(); } catch(e) {}
-    }
+    adminSetTheme(document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light');
 }
 function switchRole(btn) {
     var roleCode = btn.getAttribute('data-role');

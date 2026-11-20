@@ -2337,6 +2337,25 @@ body.sidebar-collapsed .tools-group-toggle {
     justify-content: center !important; padding: 14px 0 !important;
 }
 
+/* === Sidebar item = inset rounded pill (2026-11-19, follows ai-lms-tms) ===
+   Every role sidebar row sits 8px in from the sidebar edges with a 10px
+   radius, so the active / hover fill reads as a pill, not a full-width bar.
+   Paddings are reduced by the same 8px (and the old 3px sub-item stripe is
+   folded into the padding) so icons and labels stay where they were. */
+.sidebar-nav .lms-nav-item,
+.sidebar-nav .tools-group-toggle,
+.sidebar-nav .tools-sub-item {
+    margin: 1px 8px !important;
+    border-radius: 10px !important;
+    border-left: 0 !important;
+}
+.sidebar-nav .tools-group-toggle { width: calc(100% - 16px) !important; }
+body:not(.sidebar-collapsed) .sidebar-nav .lms-nav-item,
+body:not(.sidebar-collapsed) .sidebar-nav .tools-group-toggle { padding: 9px 8px !important; }
+body:not(.sidebar-collapsed) .sidebar-nav .tools-sub-item { padding: 9px 8px 9px 27px !important; }
+body:not(.sidebar-collapsed) .sidebar-nav .tools-subgroup > .tools-group-toggle { padding: 9px 8px 9px 24px !important; }
+body:not(.sidebar-collapsed) .sidebar-nav .tools-subgroup > .tools-group-items .tools-sub-item { padding-left: 43px !important; }
+
 /* === Learner / Trainer Dashboard View === */
 .dashboard-learner-view {
     padding: 0;
@@ -2864,7 +2883,7 @@ button.user-avatar-btn.has-photo,
     position: absolute;
     top: calc(100% + 8px);
     right: 0;
-    min-width: 220px;
+    min-width: 240px;
     background: var(--d3);
     border: 1px solid var(--b1);
     border-radius: 10px;
@@ -2896,26 +2915,42 @@ button.user-avatar-btn.has-photo,
     color: var(--t4);
     margin-top: 2px;
 }
-.user-menu-item {
+/* Avatar menu rows match the View As role list (same size, slate icon + text).
+   The selector is deliberately heavy: the light theme's link colour otherwise
+   turns these rows blue. */
+body .user-menu .user-menu-dropdown a.user-menu-item,
+body .user-menu .user-menu-dropdown a.user-menu-item:visited {
     display: flex !important;
     align-items: center;
-    gap: 10px;
-    padding: 9px 12px !important;
-    font-size: 13px !important;
+    gap: 12px;
+    padding: 12px 14px !important;
+    margin-bottom: 2px;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    line-height: 1.3 !important;
+    letter-spacing: 0;
     color: var(--t2) !important;
-    border-radius: 6px;
+    border-radius: 8px;
     text-decoration: none !important;
     transition: background 0.15s ease;
 }
-.user-menu-item:hover {
+body .user-menu .user-menu-dropdown a.user-menu-item > svg {
+    width: 18px;
+    height: 18px;
+    margin: 0 3px;
+    flex: 0 0 auto;
+    color: var(--t4);
+}
+body .user-menu .user-menu-dropdown a.user-menu-item:hover {
     background: var(--d4) !important;
     color: var(--t1) !important;
 }
-.user-menu-item-logout {
-    color: var(--red-soft, #f87171) !important;
+body .user-menu .user-menu-dropdown a.user-menu-item-logout:hover {
+    background: var(--red-tint, rgba(248,113,113,0.1)) !important;
+    color: var(--red) !important;
 }
-.user-menu-item-logout:hover {
-    background: rgba(248,113,113,0.1) !important;
+body .user-menu .user-menu-dropdown a.user-menu-item-logout:hover > svg {
+    color: var(--red);
 }
 .header-search {
     flex: 0 0 220px;

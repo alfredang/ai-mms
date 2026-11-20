@@ -590,6 +590,7 @@ $totalOrders = $monthOrders = $productCount = 0;
 $totalRevenue = 0.0;
 $salesByMonth = $popularCourses = $popularSearches = $popularSearchesByPeriod = $popularSearchesNote = array();
 $tpDaily = $tpRecentSignups = $popularCoursesByPeriod = $popularAiCoursesByPeriod = array();
+$tpScheduleDist = array();
 
 // _dashFmt is referenced by dash-panel-superadmin markup for every
 // role, so the declaration must always exist. _dashCountry is only
@@ -734,6 +735,48 @@ try {
             if (count($_aiOut) >= 30) break;
         }
         $popularAiCoursesByPeriod[$_aiMonths] = $_aiOut;
+    }
+} catch (Exception $e) {
+    Mage::logException($e);
+}
+
+// Schedule template distribution — ENABLED courses per Course Schedule template code (A01, B19 …),
+// split WSQ (TGS-) vs non-WSQ (C + digit) and grouped by series letter (A = 1 day … E = 5 days).
+// The code is read from custom_options_group.title in PHP ("(SG) WSQ-B19 …" and "B19 …" are
+// both B19; MySQL 5.7 has no REGEXP_SUBSTR). Each series is sorted highest count first.
+try {
+    $_sdStatusA = (int) Mage::getSingleton('eav/config')->getAttribute('catalog_product', 'status')->getId();
+    $_sdRows = $read->fetchAll(
+        "SELECT TRIM(e.sku) AS sku, MIN(g.title) AS title
+           FROM " . $resource->getTableName('catalog/product') . " e
+           JOIN " . $resource->getTableName('catalog_product_entity_int') . " s
+             ON s.entity_id = e.entity_id AND s.attribute_id = {$_sdStatusA} AND s.store_id = 0 AND s.value = 1
+           JOIN " . $read->getTableName('custom_options_relation') . " x ON x.product_id = e.entity_id
+           JOIN " . $read->getTableName('custom_options_group') . " g ON g.group_id = x.group_id
+          GROUP BY e.entity_id, e.sku"
+    );
+    foreach ($_sdRows as $_r) {
+        $_sdSeg = strpos($_r['sku'], 'TGS-') === 0 ? 'wsq' : (preg_match('/^C\d/', $_r['sku']) ? 'nonwsq' : '');
+        if ($_sdSeg === '') continue;
+        if (!isset($tpScheduleDist[$_sdSeg])) $tpScheduleDist[$_sdSeg] = array('total' => 0, 'uncoded' => 0, 'letters' => array());
+        $tpScheduleDist[$_sdSeg]['total']++;
+        $_sdTitle = trim(preg_replace('/^\([A-Z]{2}\)\s*/', '', (string) $_r['title']));
+        $_sdTitle = trim(preg_replace('/^WSQ-/', '', $_sdTitle));
+        if (!preg_match('/^([A-Z])(\d{2})\b/', $_sdTitle, $_sdM)) { $tpScheduleDist[$_sdSeg]['uncoded']++; continue; }
+        $_sdCode = $_sdM[1] . $_sdM[2];
+        if (!isset($tpScheduleDist[$_sdSeg]['letters'][$_sdM[1]][$_sdCode])) {
+            $tpScheduleDist[$_sdSeg]['letters'][$_sdM[1]][$_sdCode] = array('code' => $_sdCode, 'title' => $_sdTitle, 'n' => 0);
+        }
+        $tpScheduleDist[$_sdSeg]['letters'][$_sdM[1]][$_sdCode]['n']++;
+    }
+    foreach ($tpScheduleDist as $_sdSeg => $_sdData) {
+        ksort($_sdData['letters']);
+        foreach ($_sdData['letters'] as $_sdL => $_sdCodes) {
+            $_sdCodes = array_values($_sdCodes);
+            usort($_sdCodes, function ($a, $b) { return $b['n'] - $a['n'] ?: strcmp($a['code'], $b['code']); });
+            $_sdData['letters'][$_sdL] = $_sdCodes;
+        }
+        $tpScheduleDist[$_sdSeg] = $_sdData;
     }
 } catch (Exception $e) {
     Mage::logException($e);
@@ -1765,6 +1808,7 @@ $_courseware = array(
     'trainer_slides_url'     => '',
     'lab_url'                => '',
     'lab_simulator_url'      => '',
+    'practice_exam_url'      => '',
     'courseware_link'        => '',
     'brochure_link'          => '',
     'google_meet_url'        => '',
@@ -2378,6 +2422,24 @@ document.addEventListener('keydown', function(e){if(e.key==='Escape')dashCloseDe
                 </span>
             </div>
             <div class="chart-body" id="tp-<?php echo $_k ?>-body"><canvas id="<?php echo $_canvas ?>" height="350"></canvas></div>
+        </div>
+<?php endforeach; ?>
+<?php /* Schedule template distribution: one card per segment, a tab per series letter (tpRenderSchedule) */ ?>
+<?php foreach (array('wsq' => 'WSQ courses by schedule', 'nonwsq' => 'Non-WSQ courses by schedule') as $_k => $_title):
+        if (empty($tpScheduleDist[$_k]['letters'])) continue; $_sdFirst = true; ?>
+        <div class="chart-card">
+            <div class="chart-header" style="flex-wrap:wrap;gap:10px;">
+                <h4><?php echo $_title ?></h4>
+                <span style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                    <span class="dev-country-tabs" role="tablist" id="tp-sd-<?php echo $_k ?>-tabs" data-seg="<?php echo $_k ?>" aria-label="<?php echo $_title ?>: schedule series">
+                    <?php foreach ($tpScheduleDist[$_k]['letters'] as $_sdL => $_sdCodes): ?>
+                        <button type="button" role="tab" class="dev-country-btn<?php echo $_sdFirst ? ' active' : '' ?>" data-v="<?php echo $_sdL ?>"><?php echo $_sdL ?></button>
+                    <?php $_sdFirst = false; endforeach; ?>
+                    </span>
+                    <span class="chart-subtitle" id="tp-sd-<?php echo $_k ?>-sub"></span>
+                </span>
+            </div>
+            <div class="chart-body" id="tp-sd-<?php echo $_k ?>-body"><canvas id="tpSchedule_<?php echo $_k ?>" height="300"></canvas></div>
         </div>
 <?php endforeach; ?>
         <?php /* Last N tables: up to 50 rows rendered; slider = N, select = filter (tpRecentRows) */ ?>
@@ -4261,6 +4323,7 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                     'trainer_slides_url'     => 'Trainer Slides URL',
                     'lab_url'                => 'Activities/Labs URL',
                     'lab_simulator_url'      => 'Lab Simulator URL',
+                    'practice_exam_url'      => 'Practice Exam URL',
                     'courseware_link'        => 'Courseware Link',
                     'brochure_link'          => 'Brochure Link',
                 );
@@ -7309,6 +7372,7 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
         'trainer_slides_url'     => 'Trainer Slides',
         'lab_url'                => 'Activities/Labs',
         'lab_simulator_url'      => 'Lab Simulator',
+        'practice_exam_url'      => 'Practice Exam',
         'courseware_link'        => 'Courseware Link',
         'brochure_link'          => 'Brochure Link',
     );
@@ -7715,6 +7779,7 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
         'lesson_plan_url'        => 'Lesson Plan',
         'lab_url'                => 'Activities/Labs',
         'lab_simulator_url'      => 'Lab Simulator',
+        'practice_exam_url'      => 'Practice Exam',
         'courseware_link'        => 'Courseware Link',
     );
     if (strtoupper((string) getenv('MMS_COUNTRY_CODE')) === 'MY'
@@ -7826,6 +7891,7 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
         'lesson_plan_url'        => 'Lesson Plan',
         'lab_url'                => 'Activities/Labs',
         'lab_simulator_url'      => 'Lab Simulator',
+        'practice_exam_url'      => 'Practice Exam',
     );
     $_lnCwSaved = array();
     foreach ($_lnCwLabels as $_k => $_lbl) {
@@ -17909,6 +17975,33 @@ window.trnReset = function() {
     }
     window.tpRenderPopular = function () { tpRenderTop('pc', window.__tpPopular, '__tpPopularChart', 'popularCoursesChart', (window.__tpChartColors || {}).green || '#10b981'); };
     window.tpRenderPopularAi = function () { tpRenderTop('ai', window.__tpPopularAi, '__tpPopularAiChart', 'popularAiCoursesChart', (window.__tpChartColors || {}).orange || '#f97316'); };
+    // Courses by schedule template ('wsq' / 'nonwsq') — one tab per series letter, bars sorted
+    // highest first (sorted in PHP). The letter is the day count for A–E.
+    window.tpRenderSchedule = function (seg) {
+        var box = document.getElementById('tp-sd-' + seg + '-tabs'); if (!box) return;
+        var d = (window.__tpSchedule || {})[seg] || {}, act = box.querySelector('button.active'), L = act ? act.getAttribute('data-v') : '';
+        var rows = (d.letters || {})[L] || [], total = 0, days = 'ABCDE'.indexOf(L) + 1;
+        rows.forEach(function(x){ total += x.n; });
+        var sub = document.getElementById('tp-sd-' + seg + '-sub');
+        if (sub) sub.textContent = (days ? days + '-day · ' : '') + total + ' of ' + d.total + ' courses · ' + rows.length + ' schedule' + (rows.length === 1 ? '' : 's');
+        var cc = window.__tpChartColors || {}, v = '__tpSchedule_' + seg;
+        if (window[v]) { try { window[v].destroy(); } catch (e) {} }
+        var chart = window[v] = tpHorizontalBar('tpSchedule_' + seg, 'tp-sd-' + seg + '-body', rows.map(function(x){ return x.code; }), rows.map(function(x){ return x.n; }), seg === 'wsq' ? (cc.blue || '#60a5fa') : (cc.purple || '#a78bfa'));
+        if (!chart) return;
+        chart.options.scales.xAxes[0].ticks.precision = 0;
+        var cb = chart.options.tooltips.callbacks; // extend, never replace: Chart calls every default callback
+        cb.title = function (items) { return (rows[items[0].index] || {}).title || ''; };
+        cb.label = function (item) { return item.xLabel + (item.xLabel === 1 ? ' course' : ' courses'); };
+        chart.update();
+    };
+    ['wsq', 'nonwsq'].forEach(function(seg){
+        var box = document.getElementById('tp-sd-' + seg + '-tabs'); if (!box) return;
+        box.addEventListener('click', function(e){
+            var b = e.target.closest('button[data-v]'); if (!b) return;
+            box.querySelectorAll('button').forEach(function(x){ x.classList.remove('active'); }); b.classList.add('active');
+            tpRenderSchedule(seg);
+        });
+    });
     // Sales by Month — period select slices the 24 monthly buckets.
     window.tpRenderSales = function () {
         var el = document.getElementById('salesByMonthChart'); if (!el || typeof Chart === 'undefined') return;
@@ -17987,6 +18080,8 @@ window.trnReset = function() {
         window.__tpSearchNote = <?php echo json_encode($popularSearchesNote) ?>;
         window.__tpChartColors = cc;
         tpRenderPopular(); tpRenderPopularAi(); tpRenderSearches(); tpRecentRows('rs'); tpRecentRows('rq');
+        window.__tpSchedule = <?php echo json_encode($tpScheduleDist) ?>;
+        tpRenderSchedule('wsq'); tpRenderSchedule('nonwsq');
 
         // Learners signed up — week/month x course type x period (client-side re-bucketing)
         window.__tpDaily = <?php echo json_encode($tpDaily) ?>;

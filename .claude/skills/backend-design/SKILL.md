@@ -1000,12 +1000,19 @@ Keep overrides in a clearly commented, numbered section at the end of
 
 ## Light theme (data-theme="light") — tertiary-hrms palette, MANDATORY pair
 
-The admin has a light theme (header sun/moon toggle, per-browser
-`localStorage['admin-theme']`). **Light is the DEFAULT on every site since
-2026-11-17** (`page/header.phtml` init script; `admin-theme-v` = one-time reset
-so every browser started on light once, then the toggle choice sticks). Test
-dark-mode in headless Chrome by seeding BOTH `admin-theme=dark` and
-`admin-theme-v=2`, or the reset flips it back to light. Since 2026-11-17 it
+The admin has a light and a dark theme. The user picks **System / Light / Dark**
+on My Profile -> Appearance (per-browser `localStorage['admin-theme']` =
+`system` | `light` | `dark`); the header sun/moon button flips the theme on
+screen and stores that as an explicit Light / Dark choice. **System is the
+DEFAULT on every site since 2026-11-19** (follows the device's
+`prefers-color-scheme`, live). `<html data-theme>` always holds the RESOLVED
+`light` / `dark`, so write CSS against `data-theme` only, never against
+`prefers-color-scheme` and never read `localStorage` yourself: use
+`adminThemePref()` / `adminSetTheme()` from the `page/header.phtml` init script.
+`admin-theme-v` = one-time reset (now `3`: every browser moved to System once,
+an explicit dark choice kept). Test a fixed theme in headless Chrome by seeding
+BOTH `admin-theme=<light|dark>` and `admin-theme-v=3`, or the reset switches it
+to System and the result depends on the machine. Since 2026-11-17 it
 uses the **tertiary-hrms "premium blue"** palette, defined ONCE as the light
 values of the same tokens in `dark-theme.css` `:root[data-theme="light"]`
 (mirrored in `admin-tokens.css`):
@@ -1022,6 +1029,8 @@ values of the same tokens in `dark-theme.css` `:root[data-theme="light"]`
 The structural light rules (canvas, white cards + `--b1` + shadow, solid
 royal-blue sidebar active item, inline `style="color:#…"` remap) live in ONE
 block at the end of `admin-dashboard.css` ("LIGHT THEME v2").
+
+**Sidebar rows are inset rounded pills** (`sidebar-nav.css`, "Sidebar item = inset rounded pill"): 8px side margin, 10px radius, on `.lms-nav-item`, `.tools-group-toggle`, `.tools-sub-item`. Active = solid `--blue` with white label in light, teal tint in dark. The current page is marked from the URL by `applyActiveNavItemFromUrl()` in `page/menu.phtml`; a new sidebar link needs no `active` PHP.
 
 **One common colour set (2026-11-19, user rule: no isolated per-page CSS).** Every admin
 colour — in the shared CSS, in a template `<style>` block and in a `style=""` attribute — is a
