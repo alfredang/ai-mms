@@ -513,4 +513,51 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
         $map = self::$websiteToCountryCode;
         return isset($map[$websiteId]) ? $map[$websiteId] : 'SG';
     }
+
+    /**
+     * Admin theme choice ('system' | 'light' | 'dark') saved on the account
+     * (admin_user.extra['admin_theme']) so it follows the user to every
+     * browser. '' = never chosen (the browser's own saved value applies).
+     */
+    public function getUserThemePref($userId)
+    {
+        $extra = $this->_readUserExtra($userId);
+        $pref  = isset($extra['admin_theme']) ? $extra['admin_theme'] : '';
+        return in_array($pref, array('system', 'light', 'dark'), true) ? $pref : '';
+    }
+
+    public function saveUserThemePref($userId, $pref)
+    {
+        if (!in_array($pref, array('system', 'light', 'dark'), true)) {
+            return false;
+        }
+        $extra = $this->_readUserExtra($userId);
+        $extra['admin_theme'] = $pref;
+        $res = Mage::getSingleton('core/resource');
+        /* created is ON UPDATE CURRENT_TIMESTAMP: keep it. */
+        $res->getConnection('core_write')->update(
+            $res->getTableName('admin/user'),
+            array('extra' => serialize($extra), 'created' => new Zend_Db_Expr('created')),
+            array('user_id = ?' => (int) $userId)
+        );
+        return true;
+    }
+
+    protected function _readUserExtra($userId)
+    {
+        $res = Mage::getSingleton('core/resource');
+        $raw = $res->getConnection('core_read')->fetchOne(
+            'SELECT extra FROM ' . $res->getTableName('admin/user') . ' WHERE user_id = ?',
+            array((int) $userId)
+        );
+        if (!$raw) {
+            return array();
+        }
+        try {
+            $extra = Mage::helper('core/unserializeArray')->unserialize($raw);
+        } catch (Exception $e) {
+            $extra = array();
+        }
+        return is_array($extra) ? $extra : array();
+    }
 }

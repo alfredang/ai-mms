@@ -51,6 +51,27 @@ class MMD_RoleManager_Adminhtml_RoleswitchController extends Mage_Adminhtml_Cont
     }
 
     /**
+     * AJAX: save the theme choice (system / light / dark) on the account.
+     */
+    public function themeAction()
+    {
+        $result = array('success' => false);
+        $user   = Mage::getSingleton('admin/session')->getUser();
+        $pref   = (string) $this->getRequest()->getPost('theme');
+        if ($user && $this->_validateFormKey()
+            && Mage::helper('mmd_rolemanager')->saveUserThemePref($user->getId(), $pref)) {
+            /* Keep the session copy current so a later core saveExtra()
+               (System Config fieldset state) does not drop the key. */
+            $extra = $user->getExtra();
+            $extra = is_array($extra) ? $extra : array();
+            $extra['admin_theme'] = $pref;
+            $user->setExtra($extra);
+            $result['success'] = true;
+        }
+        $this->_sendJson($result);
+    }
+
+    /**
      * Send JSON response
      */
     protected function _sendJson($data)

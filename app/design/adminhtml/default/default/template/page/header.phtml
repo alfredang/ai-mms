@@ -52,6 +52,9 @@ $activeRole = $helper->getActiveRoleCode();
 $activeRoleLabel = $helper->getRoleLabel($activeRole);
 $userRoles = $helper->getUserRoles();
 $switchUrl = Mage::helper('adminhtml')->getUrl('adminhtml/roleswitch/switch');
+$themeSaveUrl = Mage::helper('adminhtml')->getUrl('adminhtml/roleswitch/theme');
+$_themeUser = Mage::getSingleton('admin/session')->getUser();
+$accountTheme = $_themeUser ? $helper->getUserThemePref($_themeUser->getId()) : '';
 
 /* Audit findings — surfaced as a bell icon in the topbar.
    Primary source: mmd_audit_issues (MMD_Auditfix nightly scanners), counted
@@ -124,7 +127,10 @@ foreach (array_keys($helper->getAllRoles()) as $_rc) {
 ?>
 <script type="text/javascript">
 /* Apply persisted admin theme as early as possible to minimise FOUC.
-   localStorage['admin-theme'] = 'system' | 'light' | 'dark' (per browser).
+   The choice is saved on the ACCOUNT (admin_user.extra, via
+   roleswitch/theme) and wins on every browser; localStorage['admin-theme']
+   = 'system' | 'light' | 'dark' is its per-browser copy, and the only
+   source for an account that has never chosen.
    Default is SYSTEM (2026-11-19, every site): follow the device's
    prefers-color-scheme. <html data-theme> always holds the RESOLVED
    'light' / 'dark', so every stylesheet rule keeps working unchanged.
@@ -146,15 +152,30 @@ foreach (array_keys($helper->getAllRoles()) as $_rc) {
             try { window.refreshAppearanceUI(); } catch(e) {}
         }
     };
+    window.adminSaveThemeToAccount = function(pref) {
+        try {
+            var x = new XMLHttpRequest();
+            x.open('POST', '<?php echo $themeSaveUrl ?>');
+            x.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            x.send('theme=' + encodeURIComponent(pref) + '&form_key=<?php echo Mage::getSingleton('core/session')->getFormKey() ?>');
+        } catch(e) {}
+    };
     window.adminSetTheme = function(pref) {
         try { localStorage.setItem('admin-theme', pref); } catch(e) {}
         window.adminApplyTheme();
+        window.adminSaveThemeToAccount(pref);
     };
     try {
         if (localStorage.getItem('admin-theme-v') !== '3') {
             if (localStorage.getItem('admin-theme') !== 'dark') localStorage.setItem('admin-theme', 'system');
             localStorage.setItem('admin-theme-v', '3');
         }
+        var acct = '<?php echo $accountTheme ?>';
+        if (acct) localStorage.setItem('admin-theme', acct);
+        /* Account has no saved choice yet but this browser holds an explicit
+           Light / Dark: store it on the account so no later release or
+           browser reset can change it. */
+        else if (window.adminThemePref() !== 'system') window.adminSaveThemeToAccount(window.adminThemePref());
     } catch(e) {}
     window.adminApplyTheme();
     /* System mode follows the device live (e.g. macOS auto dark at sunset). */
