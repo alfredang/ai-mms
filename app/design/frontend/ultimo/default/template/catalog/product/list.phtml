@@ -280,7 +280,11 @@
                     <h2 class="product-name"><a href="<?php echo $_product->getProductUrl() ?>" title="<?php echo $_productNameStripped; ?>"><?php echo $_helper->productAttribute($_product, $_product->getName() , 'name'); ?></a></h2>
 
                     <?php $_mmdBadges = Mage::helper('mmd_courseimage')->getProductBadges($_product); ?>
-                    <?php if (!empty($_mmdBadges)): ?>
+                    <?php if (Mage::helper('courses')->isFundingExpired($_product)): // past SSG funding validity ?>
+                        <ul class="course-badges" aria-label="<?php echo $this->__('Funding eligibility'); ?>">
+                            <li class="course-badge course-badge--funding-expired"><?php echo $this->__('Funding Expired, Renewal Pending'); ?></li>
+                        </ul>
+                    <?php elseif (!empty($_mmdBadges)): ?>
                         <ul class="course-badges" aria-label="<?php echo $this->__('Funding eligibility'); ?>">
                             <?php foreach ($_mmdBadges as $_b): ?>
                                 <li class="course-badge course-badge--<?php echo Mage::helper('mmd_courseimage')->getBadgeCssClass($_b); ?>" title="<?php echo $this->escapeHtml($_b); ?>"><?php echo $this->escapeHtml(Mage::helper('mmd_courseimage')->getBadgeDisplayLabel($_b)); ?></li>
@@ -571,7 +575,11 @@
                     <h2 class="product-name<?php echo $productNameClasses; ?>"><a href="<?php echo $_product->getProductUrl() ?>" title="<?php echo $this->stripTags($_product->getName(), null, true) ?>"><?php echo $_helper->productAttribute($_product, $_product->getName(), 'name') ?></a></h2>
 
                     <?php $_mmdBadges = Mage::helper('mmd_courseimage')->getProductBadges($_product); ?>
-                    <?php if (!empty($_mmdBadges)): ?>
+                    <?php if (Mage::helper('courses')->isFundingExpired($_product)): // past SSG funding validity ?>
+                        <ul class="course-badges" aria-label="<?php echo $this->__('Funding eligibility'); ?>">
+                            <li class="course-badge course-badge--funding-expired"><?php echo $this->__('Funding Expired, Renewal Pending'); ?></li>
+                        </ul>
+                    <?php elseif (!empty($_mmdBadges)): ?>
                         <ul class="course-badges" aria-label="<?php echo $this->__('Funding eligibility'); ?>">
                             <?php foreach ($_mmdBadges as $_b): ?>
                                 <li class="course-badge course-badge--<?php echo Mage::helper('mmd_courseimage')->getBadgeCssClass($_b); ?>" title="<?php echo $this->escapeHtml($_b); ?>"><?php echo $this->escapeHtml(Mage::helper('mmd_courseimage')->getBadgeDisplayLabel($_b)); ?></li>

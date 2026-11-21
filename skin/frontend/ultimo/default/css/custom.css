@@ -487,6 +487,23 @@ li.level2 > a > span > .cat-label,
     background: #dcfce7;
     color: #166534;
 }
+/* Past SSG funding validity (MMD_Courses isFundingExpired): the funding badges
+   become one red pill, and the Course Fee pill blinks. */
+.course-badge--funding-expired { background: #b91c1c; }
+.course-fee-heading .funding-tag--ended,
+.funding-tag--ended {
+    background: #fee2e2;
+    color: #991b1b;
+    border-color: #fecaca;
+    animation: funding-ended-blink 1.2s ease-in-out infinite;
+}
+@keyframes funding-ended-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .25; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .funding-tag--ended { animation: none; }
+}
 
 /* MMD_Whatsapp — floating support-avatar launcher + suggested-question popup
    (mirrors exams.tertiaryinfotech.com). Avatar per site: images/chat-avatar-{sg,my,gh}.svg */

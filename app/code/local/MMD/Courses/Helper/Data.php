@@ -246,4 +246,55 @@ class MMD_Courses_Helper_Data extends Mage_Core_Helper_Abstract
         }
         return $cache[$productId];
     }
+
+    /**
+     * True when a funded (TGS-) course is past its SSG funding validity: the TMS
+     * support period end (mmd_course_availability.support_to), or, when TMS holds
+     * none, the course's own Funding Validity End Date (news_to_date).
+     * Display + schedule only (user rule 2026-11-21): the storefront swaps the
+     * funding badges for "Funding Expired, Renewal Pending" and the daily 11:00
+     * job (MMD_Courses_Model_Cron_FundingExpiry) moves the course to the non-WSQ
+     * schedule template. It never hides the course and never stops registration.
+     */
+    public function isFundingExpired($product)
+    {
+        static $cache = array();
+        $productId = is_object($product) ? (int) $product->getId() : 0;
+        if ($productId <= 0) {
+            return false;
+        }
+        if (isset($cache[$productId])) {
+            return $cache[$productId];
+        }
+        // Category and search listings load products without the SKU.
+        $sku = (string) $product->getSku();
+        if ($sku === '') {
+            try {
+                $resource = Mage::getSingleton('core/resource');
+                $sku = (string) $resource->getConnection('core_read')->fetchOne(
+                    'SELECT sku FROM ' . $resource->getTableName('catalog/product') . ' WHERE entity_id = ?',
+                    array($productId)
+                );
+            } catch (Exception $e) {
+                $sku = '';
+            }
+        }
+        if (stripos($sku, 'TGS-') !== 0) {
+            return $cache[$productId] = false;
+        }
+        $availability = $this->getCourseAvailability($productId);
+        $end = !empty($availability['support_to']) ? (string) $availability['support_to'] : '';
+        if ($end === '') {
+            try {
+                $end = (string) Mage::getResourceSingleton('catalog/product')
+                    ->getAttributeRawValue($productId, 'news_to_date', 0);
+            } catch (Exception $e) {
+                $end = '';
+            }
+        }
+        $end = substr($end, 0, 10);
+        // Store-local date: PHP "today" is UTC here, so date('Y-m-d') lags until 08:00 SGT.
+        $today = Mage::getModel('core/date')->date('Y-m-d');
+        return $cache[$productId] = ($end !== '' && $end !== '0000-00-00' && $end < $today);
+    }
 }

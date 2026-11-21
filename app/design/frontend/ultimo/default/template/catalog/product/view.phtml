@@ -1286,7 +1286,12 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 			<?php endif; ?>
 
 			<?php $_mmdBadges = $_isNoFundingCourse ? array() : Mage::helper('mmd_courseimage')->getProductBadges($_product); ?>
-			<?php if (!empty($_mmdBadges)): ?>
+			<?php $_fundingExpired = !$_isNoFundingCourse && $_coursesAvailabilityHelper->isFundingExpired($_product); ?>
+			<?php if ($_fundingExpired): // past SSG funding validity: one pill replaces the funding badges ?>
+				<ul class="course-badges course-badges--view" aria-label="<?php echo $this->__('Funding eligibility'); ?>">
+					<li class="course-badge course-badge--funding-expired"><?php echo $this->__('Funding Expired, Renewal Pending'); ?></li>
+				</ul>
+			<?php elseif (!empty($_mmdBadges)): ?>
 				<ul class="course-badges course-badges--view" aria-label="<?php echo $this->__('Funding eligibility'); ?>">
 					<?php foreach ($_mmdBadges as $_b): ?>
 						<li class="course-badge course-badge--<?php echo Mage::helper('mmd_courseimage')->getBadgeCssClass($_b); ?>" title="<?php echo $this->escapeHtml($_b); ?>"><?php echo $this->escapeHtml(Mage::helper('mmd_courseimage')->getBadgeDisplayLabel($_b)); ?></li>
@@ -1608,7 +1613,11 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 					echo '<h2>Price</h2>';
 				} elseif ($productType == 'virtual') {
 					echo '<h2 class="course-fee-heading">Course Fee';
-					if ($_fundingOptId) {
+					if ($_fundingExpired) {
+						// Past SSG funding validity: fixed blinking pill, no Before/After toggle.
+						$_fundingOptId = null;
+						echo '<span class="funding-tag funding-tag--ended">Funding Ended, Renewal Pending</span>';
+					} elseif ($_fundingOptId) {
 						echo '<span class="funding-tag" id="funding-tag" data-funding-opt="' . (int) $_fundingOptId . '">Before Funding</span>';
 					}
 					echo '</h2>';

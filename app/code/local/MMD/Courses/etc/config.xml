@@ -134,4 +134,15 @@
             </catalog>
         </helpers>
     </global>
+    <!-- Daily 11:00 (store time) funding-expiry check, Singapore only: a funded
+         course past its SSG validity moves to the non-WSQ schedule template, and
+         back when renewed. Never changes status or visibility. -->
+    <crontab>
+        <jobs>
+            <mmd_courses_funding_expiry>
+                <schedule><cron_expr>0 11 * * *</cron_expr></schedule>
+                <run><model>courses/cron_fundingExpiry::run</model></run>
+            </mmd_courses_funding_expiry>
+        </jobs>
+    </crontab>
 </config>
