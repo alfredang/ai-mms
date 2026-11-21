@@ -19,7 +19,8 @@
 $p = $this->getProduct();
 $productTypeD = $p->getTypeId();
 $txt = ($productTypeD == "virtual") ? "Course Details" : "Book Description";
-$_description = $p->getDescription();
+// The Lesson's links, videos and quizzes are for the class, not the public page.
+$_description = Mage::helper('mmd_lessonquiz')->publicOutline($p->getDescription());
 
 // WSQ courses are identified by TGS- SKU prefix.
 $_sku   = (string) $p->getSku();

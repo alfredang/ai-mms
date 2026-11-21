@@ -98,6 +98,19 @@ class MMD_LessonQuiz_Helper_Data extends Mage_Core_Helper_Abstract
         return $this->lessonTopics(is_string($raw) ? $raw : '');
     }
 
+    /**
+     * The course description as the public course page prints it: the Lesson
+     * outline (topics and sub topics) without the LSN_DATA marker and without
+     * the Lesson's links, videos and quizzes, which are for the class only.
+     */
+    public function publicOutline($html)
+    {
+        $html = preg_replace('/<!--\s*LSN_DATA:.*?-->\s*/s', '', (string) $html);
+        // Asset lines the Lesson builder used to write: <li>… <em>[Web]</em></li>
+        $html = preg_replace('#\s*<li>(?:(?!</li>).)*?<em>\[(?:Web|Document|YouTube|Activity|Quiz)\]</em>\s*</li>#is', '', $html);
+        return preg_replace('#<ul>\s*</ul>\s*#i', '', $html);
+    }
+
     /** Quiz ids used by a Lesson, in order. */
     public function quizIds(array $topics)
     {

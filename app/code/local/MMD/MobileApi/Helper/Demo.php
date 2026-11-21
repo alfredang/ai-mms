@@ -178,7 +178,38 @@ class MMD_MobileApi_Helper_Demo extends Mage_Core_Helper_Abstract
         $run['documents'] = array();
         $run['survey'] = $this->_surveyState($run);
         $run['certificate_rule'] = Mage::helper('mmd_certificate')->attendanceRuleLabel();
+        $sample = $this->quiz(self::SAMPLE_QUIZ_ID);
+        $run['quizzes'] = array(array(
+            'quiz_id'   => self::SAMPLE_QUIZ_ID,
+            'title'     => $sample['title'],
+            'questions' => count($sample['questions']),
+            'url'       => '',
+            'previous'  => null,
+        ));
         return $run;
+    }
+
+    const SAMPLE_QUIZ_ID = 900101;
+
+    /** The sample lesson quiz of the sample classes (same shape as MMD_LessonQuiz_Helper_Data::getQuiz). */
+    public function quiz($quizId)
+    {
+        if ((int) $quizId !== self::SAMPLE_QUIZ_ID) {
+            return null;
+        }
+        return array(
+            'quiz_id'    => self::SAMPLE_QUIZ_ID,
+            'product_id' => 0,
+            'title'      => 'Sample quiz: getting started',
+            'questions'  => array(
+                array('id' => 's1', 'question' => 'Where do you check in to a class session?', 'correct' => 1,
+                    'options' => array('On the Billing tab', 'On the class page, under Digital attendance', 'In the course catalog')),
+                array('id' => 's2', 'question' => 'When can you give course feedback?', 'correct' => 0,
+                    'options' => array('From the class page, once the class has started', 'Only by email', 'Before you register')),
+                array('id' => 's3', 'question' => 'Where do you find your certificate after a class?', 'correct' => 2,
+                    'options' => array('In the Calendar tab', 'In the Courses tab', 'In the Certificates tab')),
+            ),
+        );
     }
 
     public function markAttendance($runId)

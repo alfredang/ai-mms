@@ -86,9 +86,10 @@ class MMD_MobileApi_LearnerController extends MMD_MobileApi_Controller_Base
             $quizId = (int) $this->_input('quiz_id');
             $runId  = max(0, (int) $this->_input('run_id'));
             $signed = hash_equals($lq->sig($quizId, $runId), (string) $this->_input('k', ''));
-            $quiz   = $quizId > 0 ? $lq->getQuiz($quizId) : null;
+            // The App Review account gets the sample quiz of its sample classes; nothing is recorded.
+            $quiz   = ($this->_isDemo() && !$signed) ? $this->_demo()->quiz($quizId) : ($quizId > 0 ? $lq->getQuiz($quizId) : null);
             if (!$quiz || !$quiz['questions']
-                || !($signed || (!$this->_isDemo() && $this->_learner()->hasQuiz($this->_email(), $runId, $quizId)))) {
+                || !($signed || $this->_isDemo() || $this->_learner()->hasQuiz($this->_email(), $runId, $quizId))) {
                 return $this->_error(404, 'This quiz is not available.', 'not_found');
             }
             if (!$this->getRequest()->isPost()) {

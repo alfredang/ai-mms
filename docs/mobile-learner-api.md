@@ -53,8 +53,9 @@ Authenticated calls send `Authorization: Bearer <token>`.
   link (`/lessonquiz/index/index/q/<quiz id>/run/<run id>/k/<sig>/`, also in
   `url`). The public quiz page behind the QR code is a web client of these two
   endpoints (it sends `platform:"web"`). Every submit is a new attempt; the
-  trainer's results show each learner's latest. The App Review account can
-  open a signed quiz but its attempts are not recorded.
+  trainer's results show each learner's latest. The App Review account's
+  sample classes carry one sample quiz (`quiz_id` 900101); its answers are
+  scored but never recorded.
 - **Roles (1.4).** Learners (storefront customers, learner-role accounts) and
   trainers sign in to the same app. A trainer is an active account with the
   `trainer` role, or an email on an active `courses_trainers` record. The

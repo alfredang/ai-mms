@@ -723,9 +723,11 @@
             return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         }
 
-        /** The course description: the LSN_DATA marker, then a readable outline. */
+        /**
+         * The course description: the LSN_DATA marker, then the outline the public course
+         * page shows (topics and sub topics only; links, videos and quizzes are for the class).
+         */
         function serialize() {
-            var labels = { web: 'Web', doc: 'Document', yt: 'YouTube', act: 'Activity', qz: 'Quiz' };
             var clean = [];
             for (var ti = 0; ti < topics.length; ti++) {
                 var subs = [];
@@ -744,18 +746,7 @@
             for (ti = 0; ti < clean.length; ti++) {
                 html += '<p><strong>' + esc(clean[ti].title || 'Topic') + '</strong></p>\n';
                 for (si = 0; si < clean[ti].subsecs.length; si++) {
-                    s = clean[ti].subsecs[si];
-                    if (s.title) html += '<p><em>' + esc(s.title) + '</em></p>\n';
-                    if (!s.links.length) continue;
-                    html += '<ul>\n';
-                    for (li = 0; li < s.links.length; li++) {
-                        l = s.links[li];
-                        var text = esc(l.title || l.url), label = ' <em>[' + (labels[l.type] || 'Web') + ']</em></li>\n';
-                        html += l.url
-                            ? '  <li><a href="' + esc(l.url) + '" target="_blank" rel="noopener">' + text + '</a>' + label
-                            : '  <li>' + text + label;
-                    }
-                    html += '</ul>\n';
+                    if (clean[ti].subsecs[si].title) html += '<p><em>' + esc(clean[ti].subsecs[si].title) + '</em></p>\n';
                 }
             }
             return html;
