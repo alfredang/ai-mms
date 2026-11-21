@@ -4,9 +4,12 @@
  *
  * Enforces the hard storefront listing rule in EVERY category, on every
  * instance (SG + franchise partners):
- *   1. WSQ courses first          — SKU TGS-%, existing relative order kept
- *   2. non-WSQ courses next       — SKU C%, ALPHABETICAL by product name
- *   3. everything else last       — partner M-prefix / other
+ *   1. funded courses with a free AI subscription first — SKU TGS-% carrying
+ *      the approved "Free AI Subscription" badge tag (WSQ / CASL), existing
+ *      relative order kept (user rule 2026-11-21)
+ *   2. other funded courses next  — SKU TGS-%, existing relative order kept
+ *   3. non-WSQ courses next       — SKU C%, ALPHABETICAL by product name
+ *   4. everything else last       — partner M-prefix / other
  *
  * Why a cron and not just a migration: the order is DATA-DERIVED. Adding,
  * renaming, disabling or re-categorising a course does not reorder its
@@ -17,9 +20,9 @@
  * self-healing within a day instead of needing a fresh reorder migration
  * every time the catalog changes.
  *
- * The SQL is intentionally identical to migrations/601 (itself a copy of the
- * canonical 545) — one rule, one expression, two delivery mechanisms. If the
- * rule ever changes, change BOTH.
+ * The SQL is intentionally identical to migrations/1951 (the canonical 545 /
+ * 1201 renumber plus the free-AI-subscription tier) — one rule, one
+ * expression, two delivery mechanisms. If the rule ever changes, change BOTH.
  *
  * Writes catalog_category_product_index.position (what the storefront listing
  * actually reads, per store) and catalog_category_product.position (the
@@ -46,6 +49,14 @@ class MMD_RoleManager_Model_Cron_CategoryOrdering
      * deploy; seeded by migrations/1199.
      */
     const CONFIG_CURATED = 'mmd/category_ordering/curated_url_keys';
+
+    /**
+     * Badge tag that lifts a funded (TGS-) course to the top of every
+     * category. Same tag the course page and cover read
+     * (MMD_CourseImage_Helper_Data::getAllBadges). Partner sites have no
+     * TGS- courses, so the tier is inert there.
+     */
+    const FREE_AI_TAG = 'Free AI Subscription';
 
     /**
      * Cron entry point.
@@ -160,6 +171,22 @@ class MMD_RoleManager_Model_Cron_CategoryOrdering
     }
 
     /**
+     * LEFT JOIN that marks products carrying the approved free-AI badge tag
+     * (alias fa; fa.product_id IS NOT NULL = tagged).
+     *
+     * @return string
+     */
+    protected function _freeAiJoin()
+    {
+        return "    LEFT JOIN (
+      SELECT DISTINCT tr.product_id
+      FROM tag_relation tr
+      JOIN tag t ON t.tag_id = tr.tag_id
+      WHERE t.status = 1 AND t.name = '" . self::FREE_AI_TAG . "'
+    ) fa ON fa.product_id = e.entity_id";
+    }
+
+    /**
      * Renumber the storefront-facing index, per (category_id, store_id).
      *
      * @param  int[] $curated
@@ -168,6 +195,7 @@ class MMD_RoleManager_Model_Cron_CategoryOrdering
     protected function _indexSql(array $curated = array())
     {
         $curatedExpr = $this->_curatedOrderExpr($curated, 'i.position');
+        $freeAiJoin  = $this->_freeAiJoin();
 
         return "
 UPDATE catalog_category_product_index idx
@@ -181,11 +209,13 @@ JOIN (
     JOIN catalog_product_entity e ON e.entity_id = i.product_id
     LEFT JOIN catalog_product_entity_varchar nv
       ON nv.entity_id = e.entity_id AND nv.attribute_id = @a_pname AND nv.store_id = 0
+{$freeAiJoin}
     CROSS JOIN (SELECT @rn := 0, @grp := NULL) init
     ORDER BY
       i.category_id ASC,
       i.store_id ASC,
-      CASE WHEN e.sku LIKE 'TGS-%' THEN 0 WHEN e.sku LIKE 'C%' THEN 1 ELSE 2 END ASC,
+      CASE WHEN e.sku LIKE 'TGS-%' AND fa.product_id IS NOT NULL THEN 0
+           WHEN e.sku LIKE 'TGS-%' THEN 1 WHEN e.sku LIKE 'C%' THEN 2 ELSE 3 END ASC,
       CASE WHEN e.sku LIKE 'TGS-%' THEN i.position END ASC,
 {$curatedExpr}      CASE WHEN e.sku LIKE 'TGS-%' THEN NULL ELSE nv.value END ASC,
       i.product_id ASC
@@ -205,6 +235,7 @@ SET idx.position = ranked.new_pos";
     protected function _baseSql(array $curated = array())
     {
         $curatedExpr = $this->_curatedOrderExpr($curated, 'p.position');
+        $freeAiJoin  = $this->_freeAiJoin();
 
         return "
 UPDATE catalog_category_product cp
@@ -218,10 +249,12 @@ JOIN (
     JOIN catalog_product_entity e ON e.entity_id = p.product_id
     LEFT JOIN catalog_product_entity_varchar nv
       ON nv.entity_id = e.entity_id AND nv.attribute_id = @a_pname AND nv.store_id = 0
+{$freeAiJoin}
     CROSS JOIN (SELECT @rn2 := 0, @cat2 := NULL) init
     ORDER BY
       p.category_id ASC,
-      CASE WHEN e.sku LIKE 'TGS-%' THEN 0 WHEN e.sku LIKE 'C%' THEN 1 ELSE 2 END ASC,
+      CASE WHEN e.sku LIKE 'TGS-%' AND fa.product_id IS NOT NULL THEN 0
+           WHEN e.sku LIKE 'TGS-%' THEN 1 WHEN e.sku LIKE 'C%' THEN 2 ELSE 3 END ASC,
       CASE WHEN e.sku LIKE 'TGS-%' THEN p.position END ASC,
 {$curatedExpr}      CASE WHEN e.sku LIKE 'TGS-%' THEN NULL ELSE nv.value END ASC,
       p.product_id ASC

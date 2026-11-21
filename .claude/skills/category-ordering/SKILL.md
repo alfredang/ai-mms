@@ -1,12 +1,19 @@
 ---
 name: category-ordering
-description: Enforce the storefront category listing order — funded courses (ANY TGS- SKU, i.e. WSQ + CASL + IBF) ALWAYS before non-WSQ (C- SKU) courses, which are ALPHABETICAL by course name, then partner (M-prefix / other) last — in EVERY category. Also covers DISABLING an empty category (no products on the storefront). Use when asked to "sort courses in a category", "WSQ first", "list WSQ courses before non-WSQ", "order the category alphabetically", "fix the course order on a category page", "disable this empty category", "hide the empty category", or after adding/renaming a course that must slot into the right place in its category listing. Delivered as an idempotent migrations/NNN-*.sql that renumbers catalog_category_product.position AND mirrors it into catalog_category_product_index. Partner-safe (no SKU list; prefix convention holds on every site).
+description: Enforce the storefront category listing order — funded courses with the Free AI Subscription badge at the very top, then funded courses (ANY TGS- SKU, i.e. WSQ + CASL + IBF) ALWAYS before non-WSQ (C- SKU) courses, which are ALPHABETICAL by course name, then partner (M-prefix / other) last — in EVERY category. Also covers DISABLING an empty category (no products on the storefront). Use when asked to "sort courses in a category", "WSQ first", "list WSQ courses before non-WSQ", "order the category alphabetically", "fix the course order on a category page", "disable this empty category", "hide the empty category", or after adding/renaming a course that must slot into the right place in its category listing. Delivered as an idempotent migrations/NNN-*.sql that renumbers catalog_category_product.position AND mirrors it into catalog_category_product_index. Partner-safe (no SKU list; prefix convention holds on every site).
 ---
 
 # Category ordering (funded-first, non-WSQ alphabetical)
 
 The **hard rule** for every category listing on every storefront (SG/MY/GH):
 
+0. **Funded courses with a free AI subscription at the very top** (user rule
+   2026-11-21): a `TGS-%` SKU carrying the approved `Free AI Subscription` badge
+   tag (WSQ / CASL). Existing relative order preserved. The tag is the only
+   test, so ticking or unticking the badge in Edit Course moves the course at
+   the next sweep. Canonical SQL: `migrations/1951-category-order-free-ai-subscription-first.sql`
+   (copy **1951**, not 545 or 1201, for any future reorder) and the same
+   expression in `MMD_RoleManager_Model_Cron_CategoryOrdering`.
 1. **Funded courses first — ANY `TGS-%` SKU.** Existing relative order preserved.
 2. **Non-WSQ** courses next — SKU `C%`. Ordered **alphabetically by course name**.
 3. **Everything else** last — partner `M`-prefix / other. Existing order preserved.
