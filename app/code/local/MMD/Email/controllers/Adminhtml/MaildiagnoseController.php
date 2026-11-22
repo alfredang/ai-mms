@@ -989,7 +989,7 @@ class MMD_Email_Adminhtml_MaildiagnoseController extends Mage_Adminhtml_Controll
             // prompt=consent forces Google to issue a NEW refresh token even
             // when the account previously consented (default re-auth returns
             // no refresh_token at all).
-            'prompt'        => 'consent',
+            'prompt'        => 'select_account consent',
             'state'         => $state,
         );
         $loginHint = trim((string) Mage::getStoreConfig('mmd_email/google/user'));
