@@ -3,7 +3,8 @@
  * Numbers behind the staff dashboards in the native apps. Each role gets a few
  * cards (one number each) and a few short lists. Every figure is computed on
  * its own and a failure leaves that one out, so a missing table on one site
- * never breaks the screen. Read-only.
+ * never breaks the screen. Read-only. Class, registration and course figures
+ * count non-WSQ (C-prefix) courses only, like the rest of these apps.
  */
 class MMD_MobileApi_Helper_Staff extends Mage_Core_Helper_Abstract
 {
@@ -34,24 +35,25 @@ class MMD_MobileApi_Helper_Staff extends Mage_Core_Helper_Abstract
         $today = Mage::helper('mmd_mobileapi')->today();
         $week  = date('Y-m-d', strtotime($today . ' +7 days'));
         $runs  = $this->_t('course_runs');
-        $this->_card($out, 'Classes today', 'calendar', function () use ($runs, $today) {
+        $nonWsq = "TRIM(course_sku) REGEXP '" . MMD_MobileApi_Helper_Learner::RUN_SKU_SQL . "'";
+        $this->_card($out, 'Classes today', 'calendar', function () use ($runs, $today, $nonWsq) {
             return (int) $this->_r()->fetchOne(
-                "SELECT COUNT(*) FROM {$runs} WHERE course_start_date <= ? AND COALESCE(course_end_date, course_start_date) >= ?",
+                "SELECT COUNT(*) FROM {$runs} WHERE {$nonWsq} AND course_start_date <= ? AND COALESCE(course_end_date, course_start_date) >= ?",
                 array($today, $today));
         });
-        $this->_card($out, 'Starting in 7 days', 'calendar.badge.clock', function () use ($runs, $today, $week) {
+        $this->_card($out, 'Starting in 7 days', 'calendar.badge.clock', function () use ($runs, $today, $week, $nonWsq) {
             return (int) $this->_r()->fetchOne(
-                "SELECT COUNT(*) FROM {$runs} WHERE course_start_date > ? AND course_start_date <= ?", array($today, $week));
+                "SELECT COUNT(*) FROM {$runs} WHERE {$nonWsq} AND course_start_date > ? AND course_start_date <= ?", array($today, $week));
         });
-        $this->_card($out, 'No trainer (next 14 days)', 'person.fill.questionmark', function () use ($runs, $today) {
+        $this->_card($out, 'No trainer (next 14 days)', 'person.fill.questionmark', function () use ($runs, $today, $nonWsq) {
             return (int) $this->_r()->fetchOne(
-                "SELECT COUNT(*) FROM {$runs} WHERE course_start_date >= ? AND course_start_date <= ?
+                "SELECT COUNT(*) FROM {$runs} WHERE {$nonWsq} AND course_start_date >= ? AND course_start_date <= ?
                    AND COALESCE(trainer_user_id, 0) = 0 AND COALESCE(trainer_option_id, 0) = 0",
                 array($today, date('Y-m-d', strtotime($today . ' +14 days'))));
         }, 'warning');
         $this->_card($out, 'Registrations (7 days)', 'cart.fill', function () {
             return (int) $this->_r()->fetchOne(
-                'SELECT COUNT(*) FROM ' . $this->_t('sales/order') . ' WHERE created_at >= ?',
+                'SELECT COUNT(*) FROM ' . $this->_t('sales/order') . ' o WHERE o.created_at >= ? AND ' . $this->_nonWsqOrder(),
                 array(gmdate('Y-m-d H:i:s', time() - 7 * 86400)));
         });
         $this->_card($out, 'Trainer sign-ups to approve', 'person.badge.plus', function () {
@@ -61,12 +63,13 @@ class MMD_MobileApi_Helper_Staff extends Mage_Core_Helper_Abstract
         }, 'warning');
 
         $this->_list($out, 'Classes today and next', function () use ($runs, $today) {
+            $nonWsq = "TRIM(cr.course_sku) REGEXP '" . MMD_MobileApi_Helper_Learner::RUN_SKU_SQL . "'";
             $rows = $this->_r()->fetchAll(
                 "SELECT cr.run_id, cr.product_id, cr.course_sku, cr.course_start_date, COALESCE(cr.course_end_date, cr.course_start_date) AS end_date,
                         COALESCE(cr.trainer_user_id, 0) AS tu, COALESCE(cr.trainer_option_id, 0) AS topt,
                         (SELECT COUNT(*) FROM " . $this->_t('course_run_enrolments') . " e WHERE e.run_id = cr.run_id) AS n
                    FROM {$runs} cr
-                  WHERE COALESCE(cr.course_end_date, cr.course_start_date) >= ? AND cr.course_start_date <= ?
+                  WHERE {$nonWsq} AND COALESCE(cr.course_end_date, cr.course_start_date) >= ? AND cr.course_start_date <= ?
                   ORDER BY cr.course_start_date, cr.run_id LIMIT 12",
                 array($today, date('Y-m-d', strtotime($today . ' +30 days'))));
             $out = array();
@@ -82,8 +85,8 @@ class MMD_MobileApi_Helper_Staff extends Mage_Core_Helper_Abstract
         });
         $this->_list($out, 'Latest registrations', function () {
             $rows = $this->_r()->fetchAll(
-                'SELECT increment_id, customer_firstname, customer_lastname, grand_total, order_currency_code, status, created_at
-                   FROM ' . $this->_t('sales/order') . ' ORDER BY entity_id DESC LIMIT 10');
+                'SELECT o.increment_id, o.customer_firstname, o.customer_lastname, o.grand_total, o.order_currency_code, o.status, o.created_at
+                   FROM ' . $this->_t('sales/order') . ' o WHERE ' . $this->_nonWsqOrder() . ' ORDER BY o.entity_id DESC LIMIT 10');
             $out = array();
             foreach ($rows as $r) {
                 $out[] = array(
@@ -155,10 +158,12 @@ class MMD_MobileApi_Helper_Staff extends Mage_Core_Helper_Abstract
         $issues = $this->_t('mmd_audit_issues');
         $this->_card($out, 'Courses enabled', 'books.vertical.fill', function () {
             return (int) Mage::getModel('catalog/product')->getCollection()
+                ->addAttributeToFilter('sku', array('regexp' => MMD_MobileApi_Helper_Learner::RUN_SKU_SQL))
                 ->addAttributeToFilter('status', Mage_Catalog_Model_Product_Status::STATUS_ENABLED)->getSize();
         });
         $this->_card($out, 'Courses disabled', 'eye.slash.fill', function () {
             return (int) Mage::getModel('catalog/product')->getCollection()
+                ->addAttributeToFilter('sku', array('regexp' => MMD_MobileApi_Helper_Learner::RUN_SKU_SQL))
                 ->addAttributeToFilter('status', Mage_Catalog_Model_Product_Status::STATUS_DISABLED)->getSize();
         });
         $this->_card($out, 'High audit issues open', 'exclamationmark.triangle.fill', function () use ($issues) {
@@ -255,6 +260,13 @@ class MMD_MobileApi_Helper_Staff extends Mage_Core_Helper_Abstract
     }
 
     // ---- plumbing -----------------------------------------------------------------
+
+    /** SQL condition: order `o` holds at least one non-WSQ (C-prefix) course. */
+    protected function _nonWsqOrder()
+    {
+        return 'EXISTS (SELECT 1 FROM ' . $this->_t('sales/order_item') . " oi WHERE oi.order_id = o.entity_id AND TRIM(oi.sku) REGEXP '"
+            . MMD_MobileApi_Helper_Learner::RUN_SKU_SQL . "')";
+    }
 
     protected function _card(array &$out, $title, $icon, $fn, $tone = 'normal')
     {

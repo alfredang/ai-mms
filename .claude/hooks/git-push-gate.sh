@@ -32,6 +32,13 @@ if ! "$REPO_ROOT/scripts/audit/check-registration-open.sh" >&2; then
   exit 2
 fi
 
+# Hard block, even with approval: the TC LMS mobile API serves non-WSQ
+# (C-prefix) courses only (user rule 2026-11-22).
+if ! "$REPO_ROOT/scripts/audit/check-mobileapi-nonwsq.sh" >&2; then
+  echo "PUSH BLOCKED: the mobile API above is no longer non-WSQ only." >&2
+  exit 2
+fi
+
 if [ -f "$MARKER" ]; then
   rm -f "$MARKER"
   echo "push-gate: admin approval marker found and consumed — push allowed." >&2

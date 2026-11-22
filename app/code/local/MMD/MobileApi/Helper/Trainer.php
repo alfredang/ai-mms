@@ -8,8 +8,10 @@
  * (MMD_Attendance_Helper_Data::_filterToTrainer) so the app and the website
  * always list the same classes: the run's trainer account, the legacy trainer
  * option whose courses_trainers email is the trainer's, or the full name.
- * Every SKU is included (WSQ and non-WSQ). Every read and write is limited to
- * the trainer's own classes.
+ * Non-WSQ (C-prefix) classes only, like the learner side: these apps are the
+ * non-WSQ apps (WSQ classes belong to the TIA app). The filter lives in
+ * _runSelect, which every read and write goes through, and every read and
+ * write is limited to the trainer's own classes.
  */
 class MMD_MobileApi_Helper_Trainer extends Mage_Core_Helper_Abstract
 {
@@ -44,7 +46,7 @@ class MMD_MobileApi_Helper_Trainer extends Mage_Core_Helper_Abstract
         foreach ($runs as $run) {
             $row = $this->_classRow($run, $today, $images);
             $n   = isset($counts[(int) $run['run_id']]) ? $counts[(int) $run['run_id']] : 0;
-            // WSQ classes keep no enrolment rows; their roster comes from the orders.
+            // A class with no enrolment rows takes its roster from the orders.
             if ($n === 0 && $row['bucket'] !== 'past') {
                 try {
                     $n = count($att->rosterForRun($run));
@@ -116,19 +118,6 @@ class MMD_MobileApi_Helper_Trainer extends Mage_Core_Helper_Abstract
         return array('total_hours' => round($total, 1), 'months' => $byMonth, 'classes' => $classes);
     }
 
-    /**
-     * SSG's TRAQOM survey: Singapore only, and only for an SSG-funded class
-     * (a TGS- course code). Empty everywhere else, so the apps show nothing.
-     */
-    protected function _traqomUrl($sku)
-    {
-        if ($this->_h()->countryCode() !== 'SG' || stripos(trim($sku), 'TGS-') !== 0) {
-            return '';
-        }
-        $url = trim((string) Mage::getStoreConfig('mmd_mobileapi/general/traqom_url'));
-        return $url !== '' ? $url : 'https://ssgtraqom.qualtrics.com/jfe/form/SV_3K9i7rTJ9OLsauW?Q_CHL=qr';
-    }
-
     protected function _dayHours($start, $end)
     {
         $a = strtotime('1970-01-01 ' . (string) $start . ' UTC');
@@ -141,7 +130,7 @@ class MMD_MobileApi_Helper_Trainer extends Mage_Core_Helper_Abstract
     }
 
     /**
-     * The trainer's completed payouts, read from the LMS/TMS (where Payroll
+     * The trainer's completed non-WSQ payouts, read from the LMS/TMS (where Payroll
      * records them) over a server-to-server call. `available` is false on a site
      * with no bridge configured (env LMSTMS_BRIDGE_URL + MOBILE_BRIDGE_SECRET),
      * or when the LMS/TMS cannot be reached; the app then says so instead of
@@ -173,6 +162,12 @@ class MMD_MobileApi_Helper_Trainer extends Mage_Core_Helper_Abstract
         }
         $rows = array(); $total = 0.0;
         foreach ($json['data'] as $r) {
+            // Non-WSQ only: a hand-entered (non-WSQ) class, or a C-prefix course code.
+            $code = trim((string) (isset($r['course_code']) ? $r['course_code'] : ''));
+            $src  = (string) (isset($r['source']) ? $r['source'] : '');
+            if ($src !== 'manual' && !preg_match('/' . MMD_MobileApi_Helper_Learner::RUN_SKU_SQL . '/i', $code)) {
+                continue;
+            }
             $amount = isset($r['actual_payout']) ? (float) $r['actual_payout'] : 0.0;
             $total += $amount;
             $rows[] = array(
@@ -249,10 +244,9 @@ class MMD_MobileApi_Helper_Trainer extends Mage_Core_Helper_Abstract
         $row['materials']             = $this->_materialsFor((int) $run['product_id']);
         $row['documents']             = $this->_documents((int) $run['product_id']);
         $row['survey_responses']      = $this->_surveyResponses((int) $run['run_id']);
-        // Links the trainer shows the class (as a QR code or shared link).
+        // The course survey link the trainer shows the class (as a QR code or shared link).
         $native = rtrim(Mage::getBaseUrl(Mage_Core_Model_Store::URL_TYPE_WEB), '/') . '/feedback/respond/index?run_id=' . (int) $run['run_id'];
         $row['feedback_url'] = (string) Mage::helper('mmd_rolemanager/handover')->feedbackUrl((int) $run['run_id'], $native);
-        $row['traqom_url']   = $this->_traqomUrl((string) $run['course_sku']);
         return $row;
     }
 
@@ -391,7 +385,8 @@ class MMD_MobileApi_Helper_Trainer extends Mage_Core_Helper_Abstract
              LEFT JOIN " . $this->_table('admin/user') . " au ON au.user_id = cr.trainer_user_id
              LEFT JOIN " . $this->_table('eav_attribute_option_value') . " tov
                        ON tov.option_id = cr.trainer_option_id AND tov.store_id = 0
-                 WHERE (" . implode(' OR ', $match) . ")";
+                 WHERE (" . implode(' OR ', $match) . ")
+                   AND TRIM(cr.course_sku) REGEXP '" . MMD_MobileApi_Helper_Learner::RUN_SKU_SQL . "'";
     }
 
     /** Runs whose TMS handover names this account as one of the trainers. */
