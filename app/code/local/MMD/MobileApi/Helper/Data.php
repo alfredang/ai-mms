@@ -220,7 +220,12 @@ class MMD_MobileApi_Helper_Data extends Mage_Core_Helper_Abstract
             $have = $this->_read()->fetchCol(
                 'SELECT role_code FROM ' . $this->_table('mmd_user_role_map') . ' WHERE user_id = ?', array((int) $user->getId())
             );
-            return array_values(array_intersect($this->_staffRoles, $have));
+            $roles = array_values(array_intersect($this->_staffRoles, $have));
+            // The franchise control centre exists on the Singapore site only.
+            if ($this->countryCode() !== 'SG') {
+                $roles = array_values(array_diff($roles, array('franchise_admin')));
+            }
+            return $roles;
         } catch (Exception $e) {
             return array();
         }

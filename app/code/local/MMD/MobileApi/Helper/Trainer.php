@@ -116,6 +116,19 @@ class MMD_MobileApi_Helper_Trainer extends Mage_Core_Helper_Abstract
         return array('total_hours' => round($total, 1), 'months' => $byMonth, 'classes' => $classes);
     }
 
+    /**
+     * SSG's TRAQOM survey: Singapore only, and only for an SSG-funded class
+     * (a TGS- course code). Empty everywhere else, so the apps show nothing.
+     */
+    protected function _traqomUrl($sku)
+    {
+        if ($this->_h()->countryCode() !== 'SG' || stripos(trim($sku), 'TGS-') !== 0) {
+            return '';
+        }
+        $url = trim((string) Mage::getStoreConfig('mmd_mobileapi/general/traqom_url'));
+        return $url !== '' ? $url : 'https://ssgtraqom.qualtrics.com/jfe/form/SV_3K9i7rTJ9OLsauW?Q_CHL=qr';
+    }
+
     protected function _dayHours($start, $end)
     {
         $a = strtotime('1970-01-01 ' . (string) $start . ' UTC');
@@ -236,6 +249,10 @@ class MMD_MobileApi_Helper_Trainer extends Mage_Core_Helper_Abstract
         $row['materials']             = $this->_materialsFor((int) $run['product_id']);
         $row['documents']             = $this->_documents((int) $run['product_id']);
         $row['survey_responses']      = $this->_surveyResponses((int) $run['run_id']);
+        // Links the trainer shows the class (as a QR code or shared link).
+        $native = rtrim(Mage::getBaseUrl(Mage_Core_Model_Store::URL_TYPE_WEB), '/') . '/feedback/respond/index?run_id=' . (int) $run['run_id'];
+        $row['feedback_url'] = (string) Mage::helper('mmd_rolemanager/handover')->feedbackUrl((int) $run['run_id'], $native);
+        $row['traqom_url']   = $this->_traqomUrl((string) $run['course_sku']);
         return $row;
     }
 
