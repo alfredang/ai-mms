@@ -81,4 +81,28 @@ class MMD_MobileApi_TrainerController extends MMD_MobileApi_Controller_Base
             return $this->_ok(array('certifications' => $list, 'message' => 'Certifications saved.'));
         });
     }
+
+    /** The trainer's completed payouts (read from the LMS/TMS). */
+    public function payoutsAction()
+    {
+        if (!$this->_requireTrainer()) return;
+        return $this->_guard(function () {
+            if ($this->_isDemo()) {
+                return $this->_ok(Mage::helper('mmd_mobileapi/demo')->payouts());
+            }
+            return $this->_ok(Mage::helper('mmd_mobileapi/trainer')->payouts($this->_email()));
+        });
+    }
+
+    /** Training hours delivered: per class and per month. */
+    public function hoursAction()
+    {
+        if (!$this->_requireTrainer()) return;
+        return $this->_guard(function () {
+            if ($this->_isDemo()) {
+                return $this->_ok(Mage::helper('mmd_mobileapi/demo')->trainingHours());
+            }
+            return $this->_ok(Mage::helper('mmd_mobileapi/trainer')->trainingHours($this->_email()));
+        });
+    }
 }

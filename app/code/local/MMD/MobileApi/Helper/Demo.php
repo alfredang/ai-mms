@@ -415,4 +415,33 @@ class MMD_MobileApi_Helper_Demo extends Mage_Core_Helper_Abstract
     {
         return (int) Mage::getModel('core/date')->date('H');
     }
+
+    /** Sample payouts for the App Review account; nothing real. */
+    public function payouts()
+    {
+        $m = gmdate('Y-m', strtotime('-1 month'));
+        $rows = array(
+            array('id' => 'demo-1', 'title' => 'Sample Course: Introduction to AI', 'course_code' => 'SAMPLE-01', 'learners' => 12,
+                  'amount' => 800.00, 'payment_date' => $m . '-28', 'start_date' => $m . '-10', 'end_date' => $m . '-11'),
+            array('id' => 'demo-2', 'title' => 'Sample Course: Data Analytics Basics', 'course_code' => 'SAMPLE-02', 'learners' => 9,
+                  'amount' => 400.00, 'payment_date' => $m . '-14', 'start_date' => $m . '-03', 'end_date' => $m . '-03'),
+        );
+        return array('available' => true, 'payouts' => $rows, 'total' => 1200.00, 'currency' => 'SGD');
+    }
+
+    /** Sample training hours for the App Review account. */
+    public function trainingHours()
+    {
+        $m = gmdate('Y-m', strtotime('-1 month'));
+        return array(
+            'total_hours' => 24.0,
+            'months'  => array(array('month' => $m, 'hours' => 24.0)),
+            'classes' => array(
+                array('run_id' => self::RUN_TEACHING, 'title' => 'Sample Course: Introduction to AI', 'sku' => 'SAMPLE-01',
+                      'start_date' => $m . '-10', 'end_date' => $m . '-11', 'days' => 2, 'hours' => 16.0),
+                array('run_id' => self::RUN_TEACHING + 1, 'title' => 'Sample Course: Data Analytics Basics', 'sku' => 'SAMPLE-02',
+                      'start_date' => $m . '-03', 'end_date' => $m . '-03', 'days' => 1, 'hours' => 8.0),
+            ),
+        );
+    }
 }

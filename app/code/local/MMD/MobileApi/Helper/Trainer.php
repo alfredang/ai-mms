@@ -63,6 +63,119 @@ class MMD_MobileApi_Helper_Trainer extends Mage_Core_Helper_Abstract
         return $out;
     }
 
+    const HOURS_PAST_DAYS = 1095;   // training hours history: three years
+
+    /**
+     * Training hours the trainer has delivered: one row per class with the days
+     * taught so far, plus totals per month. A day counts its class time
+     * (start to end) less a one-hour lunch when the day runs longer than five
+     * hours. Only days up to today count, so a running class grows day by day.
+     */
+    public function trainingHours($email)
+    {
+        $today = $this->_h()->today();
+        $att   = Mage::helper('mmd_attendance');
+        $classes = array(); $months = array(); $total = 0.0;
+        foreach ($this->_runs($email, self::HOURS_PAST_DAYS) as $run) {
+            $perDay = $this->_dayHours($run['course_start_time'], $run['course_end_time']);
+            if ($perDay <= 0) {
+                continue;
+            }
+            $days = array();
+            foreach ($att->sessionsForRun($run) as $s) {
+                $d = (string) $s['date'];
+                if ($d !== '' && $d <= $today) $days[$d] = true;
+            }
+            if (!$days) {
+                continue;
+            }
+            foreach (array_keys($days) as $d) {
+                $m = substr($d, 0, 7);
+                $months[$m] = (isset($months[$m]) ? $months[$m] : 0) + $perDay;
+            }
+            $hours  = $perDay * count($days);
+            $total += $hours;
+            $dates  = array_keys($days);
+            sort($dates);
+            $classes[] = array(
+                'run_id'     => (int) $run['run_id'],
+                'title'      => trim((string) $run['course_title']),
+                'sku'        => (string) $run['course_sku'],
+                'start_date' => $dates[0],
+                'end_date'   => $dates[count($dates) - 1],
+                'days'       => count($days),
+                'hours'      => round($hours, 1),
+            );
+        }
+        usort($classes, function ($a, $b) { return strcmp($b['end_date'], $a['end_date']); });
+        krsort($months);
+        $byMonth = array();
+        foreach ($months as $m => $h) {
+            $byMonth[] = array('month' => $m, 'hours' => round($h, 1));
+        }
+        return array('total_hours' => round($total, 1), 'months' => $byMonth, 'classes' => $classes);
+    }
+
+    protected function _dayHours($start, $end)
+    {
+        $a = strtotime('1970-01-01 ' . (string) $start . ' UTC');
+        $b = strtotime('1970-01-01 ' . (string) $end . ' UTC');
+        if (!$a || !$b || $b <= $a) {
+            return 0;
+        }
+        $h = ($b - $a) / 3600;
+        return $h > 5 ? $h - 1 : $h;
+    }
+
+    /**
+     * The trainer's completed payouts, read from the LMS/TMS (where Payroll
+     * records them) over a server-to-server call. `available` is false on a site
+     * with no bridge configured (env LMSTMS_BRIDGE_URL + MOBILE_BRIDGE_SECRET),
+     * or when the LMS/TMS cannot be reached; the app then says so instead of
+     * showing an empty history.
+     */
+    public function payouts($email)
+    {
+        $url    = rtrim((string) getenv('LMSTMS_BRIDGE_URL'), '/');
+        $secret = (string) getenv('MOBILE_BRIDGE_SECRET');
+        if ($url === '' || $secret === '' || stripos($url, 'https://') !== 0) {
+            return array('available' => false, 'payouts' => array(), 'total' => 0, 'currency' => 'SGD');
+        }
+        $ch = curl_init($url . '/api/internal/trainer-payouts');
+        curl_setopt_array($ch, array(
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => json_encode(array('email' => strtolower($email))),
+            CURLOPT_HTTPHEADER     => array('Content-Type: application/json', 'Authorization: Bearer ' . $secret),
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_TIMEOUT        => 12,
+        ));
+        $body = curl_exec($ch);
+        $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        $json = is_string($body) ? json_decode($body, true) : null;
+        if ($code !== 200 || !is_array($json) || empty($json['success']) || !isset($json['data']) || !is_array($json['data'])) {
+            Mage::log('mobile payouts bridge: HTTP ' . $code, null, 'mmd_mobileapi.log');
+            return array('available' => false, 'payouts' => array(), 'total' => 0, 'currency' => 'SGD');
+        }
+        $rows = array(); $total = 0.0;
+        foreach ($json['data'] as $r) {
+            $amount = isset($r['actual_payout']) ? (float) $r['actual_payout'] : 0.0;
+            $total += $amount;
+            $rows[] = array(
+                'id'           => (string) (isset($r['source']) ? $r['source'] : '') . '-' . (string) (isset($r['id']) ? $r['id'] : ''),
+                'title'        => trim((string) (isset($r['course_title']) ? $r['course_title'] : '')),
+                'course_code'  => (string) (isset($r['course_code']) ? $r['course_code'] : ''),
+                'learners'     => isset($r['num_learners']) ? (int) $r['num_learners'] : null,
+                'amount'       => round($amount, 2),
+                'payment_date' => $this->_ymd(isset($r['payment_date']) ? $r['payment_date'] : ''),
+                'start_date'   => $this->_ymd(isset($r['start_date']) ? $r['start_date'] : ''),
+                'end_date'     => $this->_ymd(isset($r['end_date']) ? $r['end_date'] : ''),
+            );
+        }
+        return array('available' => true, 'payouts' => $rows, 'total' => round($total, 2), 'currency' => 'SGD');
+    }
+
     /** Full detail of one of the trainer's classes, or null if not theirs. */
     public function classDetail($email, $runId)
     {
@@ -284,7 +397,7 @@ class MMD_MobileApi_Helper_Trainer extends Mage_Core_Helper_Abstract
         return $out;
     }
 
-    protected function _runs($email)
+    protected function _runs($email, $pastDays = self::PAST_DAYS)
     {
         $identity = $this->_h()->trainerIdentity($email);
         if (!$identity) {
@@ -292,7 +405,7 @@ class MMD_MobileApi_Helper_Trainer extends Mage_Core_Helper_Abstract
         }
         $bind   = array();
         $sql    = $this->_runSelect($identity, $bind);
-        $bind[] = date('Y-m-d', strtotime($this->_h()->today() . ' -' . self::PAST_DAYS . ' days'));
+        $bind[] = date('Y-m-d', strtotime($this->_h()->today() . ' -' . (int) $pastDays . ' days'));
         $handover = Mage::helper('mmd_rolemanager/handover');
         $rows = array();
         foreach ($this->_read()->fetchAll(
