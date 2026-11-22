@@ -191,11 +191,77 @@ class MMD_MobileApi_Helper_Data extends Mage_Core_Helper_Abstract
             'full_name'  => trim($first . ' ' . $last),
             'phone'      => $phone,
             'theme'      => $pref && in_array($pref['theme'], $this->_themes, true) ? $pref['theme'] : 'system',
+            'avatar_version' => $this->avatarVersion($email),
             'roles'      => $this->isTrainer($email) ? array('learner', 'trainer') : array('learner'),
         );
     }
 
     protected $_themes = array('system', 'light', 'dark');
+
+    /** Unix time the picture was last set, or null when the account has none. */
+    public function avatarVersion($email)
+    {
+        try {
+            $at = $this->_read()->fetchOne(
+                'SELECT avatar_at FROM ' . $this->_table('mmd_mobile_profile') . ' WHERE email = ? AND avatar IS NOT NULL LIMIT 1', array($email)
+            );
+            return $at ? (int) strtotime($at . ' UTC') : null;
+        } catch (Exception $e) {
+            return null;   // column not migrated yet
+        }
+    }
+
+    public function avatarBytes($email)
+    {
+        try {
+            $b = $this->_read()->fetchOne(
+                'SELECT avatar FROM ' . $this->_table('mmd_mobile_profile') . ' WHERE email = ? LIMIT 1', array($email)
+            );
+            return $b ? (string) $b : null;
+        } catch (Exception $e) {
+            return null;
+        }
+    }
+
+    /** Re-encodes an uploaded picture to a 512px JPEG (drops metadata and anything that is not an image) and stores it. */
+    public function saveAvatar($email, $raw)
+    {
+        if (strlen($raw) > 6 * 1024 * 1024 || !function_exists('imagecreatefromstring')) {
+            throw new Exception('That picture is too large. Please choose a smaller one.');
+        }
+        $info = @getimagesizefromstring($raw);
+        if (!$info || !in_array($info[2], array(IMAGETYPE_JPEG, IMAGETYPE_PNG, IMAGETYPE_GIF, IMAGETYPE_WEBP), true)
+            || $info[0] * $info[1] > 40000000) {
+            throw new Exception('Please choose a JPEG or PNG picture.');
+        }
+        $src = @imagecreatefromstring($raw);
+        if (!$src) {
+            throw new Exception('Please choose a JPEG or PNG picture.');
+        }
+        $w = imagesx($src); $h = imagesy($src);
+        $side = min($w, $h);                       // centre square crop
+        $dst = imagecreatetruecolor(512, 512);
+        imagefill($dst, 0, 0, imagecolorallocate($dst, 255, 255, 255));
+        imagecopyresampled($dst, $src, 0, 0, (int) (($w - $side) / 2), (int) (($h - $side) / 2), 512, 512, $side, $side);
+        ob_start();
+        imagejpeg($dst, null, 85);
+        $jpeg = ob_get_clean();
+        imagedestroy($src); imagedestroy($dst);
+        $this->_write()->insertOnDuplicate(
+            $this->_table('mmd_mobile_profile'),
+            array('email' => $email, 'avatar' => $jpeg, 'avatar_at' => $this->utcNow(), 'updated_at' => $this->utcNow()),
+            array('avatar', 'avatar_at', 'updated_at')
+        );
+    }
+
+    public function clearAvatar($email)
+    {
+        try {
+            $this->_write()->update($this->_table('mmd_mobile_profile'),
+                array('avatar' => null, 'avatar_at' => null), array('email = ?' => $email));
+        } catch (Exception $e) {
+        }
+    }
 
     /**
      * Update the signed-in person's own name, phone and appearance. Only the

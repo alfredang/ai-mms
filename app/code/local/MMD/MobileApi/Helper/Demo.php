@@ -22,7 +22,7 @@ class MMD_MobileApi_Helper_Demo extends Mage_Core_Helper_Abstract
     {
         return array(
             'email' => $email, 'first_name' => 'Sample', 'last_name' => 'Learner', 'full_name' => 'Sample Learner',
-            'phone' => '', 'theme' => 'system', 'roles' => array('learner', 'trainer'),
+            'phone' => '', 'theme' => 'system', 'avatar_version' => Mage::helper('mmd_mobileapi')->avatarVersion($email), 'roles' => array('learner', 'trainer'),
         );
     }
 
