@@ -16,7 +16,7 @@ class MMD_MobileApi_ProfileController extends MMD_MobileApi_Controller_Base
                     : $this->_helper()->learnerProfile($this->_email())));
             }
             $in = array();
-            foreach (array('first_name', 'last_name', 'phone', 'theme') as $key) {
+            foreach (array('first_name', 'last_name', 'phone', 'theme', 'linkedin_url') as $key) {
                 $v = $this->_input($key);
                 if ($v !== null) $in[$key] = $v;
             }

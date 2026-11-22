@@ -192,11 +192,39 @@ class MMD_MobileApi_Helper_Data extends Mage_Core_Helper_Abstract
             'phone'      => $phone,
             'theme'      => $pref && in_array($pref['theme'], $this->_themes, true) ? $pref['theme'] : 'system',
             'avatar_version' => $this->avatarVersion($email),
-            'roles'      => $this->isTrainer($email) ? array('learner', 'trainer') : array('learner'),
+            'linkedin_url' => $user ? trim((string) $user->getData('linkedin_url')) : '',
+            'roles'      => array_merge(
+                $this->isTrainer($email) ? array('learner', 'trainer') : array('learner'),
+                $this->staffRoles($email)
+            ),
         );
     }
 
     protected $_themes = array('system', 'light', 'dark');
+
+    /** Staff roles the apps have a dashboard for, in the order they are offered. */
+    protected $_staffRoles = array('admin', 'marketing', 'developer', 'franchise_admin');
+
+    /**
+     * The staff roles this email holds on the website: read straight from
+     * mmd_user_role_map for an ACTIVE admin account. (getUserRolesFromDb is not
+     * used: it answers "admin" for an account with no rows.)
+     */
+    public function staffRoles($email)
+    {
+        try {
+            $user = $this->loadAdminUser($email);
+            if (!$user || !$user->getId() || !(int) $user->getIsActive()) {
+                return array();
+            }
+            $have = $this->_read()->fetchCol(
+                'SELECT role_code FROM ' . $this->_table('mmd_user_role_map') . ' WHERE user_id = ?', array((int) $user->getId())
+            );
+            return array_values(array_intersect($this->_staffRoles, $have));
+        } catch (Exception $e) {
+            return array();
+        }
+    }
 
     const MAX_CERTIFICATIONS = 30;
 
@@ -387,6 +415,16 @@ class MMD_MobileApi_Helper_Data extends Mage_Core_Helper_Abstract
         }
         if ($phone !== null && $user) {
             $this->_write()->update($this->_table('admin/user'), array('tel' => $phone), array('user_id = ?' => (int) $user->getId()));
+        }
+        if (array_key_exists('linkedin_url', $in) && $user) {
+            $link = trim((string) $in['linkedin_url']);
+            if ($link !== '' && !preg_match('#^https://([a-z]{2,3}\.)?linkedin\.com/[A-Za-z0-9\-_/%.]+$#', $link)) {
+                throw new Exception('Please enter your LinkedIn profile link, starting with https://www.linkedin.com/');
+            }
+            $link = $link === '' ? null : mb_substr($link, 0, 255);
+            $this->_write()->update($this->_table('admin/user'), array('linkedin_url' => $link), array('user_id = ?' => (int) $user->getId()));
+            // The trainer card on the storefront reads courses_trainers; keep it the same.
+            $this->_write()->update($this->_table('courses_trainers'), array('linkedin_url' => $link), array('email = ?' => $email));
         }
         if ($theme !== null || $phone !== null) {
             $row = array('email' => $email, 'updated_at' => $this->utcNow());
