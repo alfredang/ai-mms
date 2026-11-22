@@ -198,6 +198,83 @@ class MMD_MobileApi_Helper_Data extends Mage_Core_Helper_Abstract
 
     protected $_themes = array('system', 'light', 'dark');
 
+    const MAX_CERTIFICATIONS = 30;
+
+    /** A trainer's certifications, in the order they chose: [{name, issuer, year}]. */
+    public function trainerCertifications($email)
+    {
+        try {
+            $rows = $this->_read()->fetchAll(
+                'SELECT name, issuer, year FROM ' . $this->_table('mmd_trainer_certification')
+                . ' WHERE email = ? ORDER BY sort_order, id', array(strtolower($email))
+            );
+        } catch (Exception $e) {
+            return array();   // table not migrated yet
+        }
+        foreach ($rows as &$r) {
+            $r['year'] = $r['year'] ? (int) $r['year'] : null;
+        }
+        return $rows;
+    }
+
+    /** Replaces the whole list. Returns the cleaned list; throws a readable Exception on bad input. */
+    public function saveTrainerCertifications($email, array $items)
+    {
+        $email = strtolower(trim($email));
+        $clean = array();
+        $maxYear = (int) gmdate('Y') + 1;
+        foreach ($items as $it) {
+            $name   = trim(preg_replace('/\s+/', ' ', strip_tags((string) (isset($it['name']) ? $it['name'] : ''))));
+            $issuer = trim(preg_replace('/\s+/', ' ', strip_tags((string) (isset($it['issuer']) ? $it['issuer'] : ''))));
+            $year   = trim((string) (isset($it['year']) ? $it['year'] : ''));
+            if ($name === '' && $issuer === '' && $year === '') {
+                continue;
+            }
+            if ($name === '') {
+                throw new Exception('Each certification needs a name.');
+            }
+            if (mb_strlen($name) > 160 || mb_strlen($issuer) > 120) {
+                throw new Exception('A certification name or issuer is too long.');
+            }
+            if ($year !== '' && (!ctype_digit($year) || (int) $year < 1950 || (int) $year > $maxYear)) {
+                throw new Exception('"' . $name . '": the year must be between 1950 and ' . $maxYear . ', or left blank.');
+            }
+            $clean[] = array('name' => $name, 'issuer' => $issuer, 'year' => $year === '' ? null : (int) $year);
+        }
+        if (count($clean) > self::MAX_CERTIFICATIONS) {
+            throw new Exception('You can list up to ' . self::MAX_CERTIFICATIONS . ' certifications.');
+        }
+        $w = $this->_write();
+        $tbl = $this->_table('mmd_trainer_certification');
+        $w->beginTransaction();
+        try {
+            $w->delete($tbl, array('email = ?' => $email));
+            foreach ($clean as $i => $c) {
+                $w->insert($tbl, array(
+                    'email' => $email, 'name' => $c['name'], 'issuer' => $c['issuer'],
+                    'year' => $c['year'], 'sort_order' => $i, 'updated_at' => $this->utcNow(),
+                ));
+            }
+            $w->commit();
+        } catch (Exception $e) {
+            $w->rollBack();
+            throw $e;
+        }
+        return $clean;
+    }
+
+    /** Web form text -> items. One per line: "Name | Issuer | Year" (issuer and year optional). */
+    public function parseCertificationLines($text)
+    {
+        $items = array();
+        foreach (preg_split('/\r\n|\r|\n/', (string) $text) as $line) {
+            if (trim($line) === '') continue;
+            $parts = array_map('trim', explode('|', $line));
+            $items[] = array('name' => $parts[0], 'issuer' => isset($parts[1]) ? $parts[1] : '', 'year' => isset($parts[2]) ? $parts[2] : '');
+        }
+        return $items;
+    }
+
     /** Unix time the picture was last set, or null when the account has none. */
     public function avatarVersion($email)
     {

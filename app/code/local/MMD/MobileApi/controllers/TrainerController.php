@@ -59,4 +59,26 @@ class MMD_MobileApi_TrainerController extends MMD_MobileApi_Controller_Base
     {
         return Mage::helper('mmd_mobileapi/demo');
     }
+
+    /** GET: the trainer's certifications. POST {items: [{name, issuer, year}]} replaces the list (the same list the web My Profile edits). */
+    public function certificationsAction()
+    {
+        if (!$this->_requireTrainer()) return;
+        return $this->_guard(function () {
+            $h = $this->_helper();
+            if (!$this->getRequest()->isPost()) {
+                return $this->_ok(array('certifications' => $h->trainerCertifications($this->_email())));
+            }
+            $items = $this->_input('items');
+            if (!is_array($items)) {
+                return $this->_error(422, 'Please send your certifications.', 'invalid_certifications');
+            }
+            try {
+                $list = $h->saveTrainerCertifications($this->_email(), $items);
+            } catch (Exception $e) {
+                return $this->_error(422, $e->getMessage(), 'invalid_certifications');
+            }
+            return $this->_ok(array('certifications' => $list, 'message' => 'Certifications saved.'));
+        });
+    }
 }

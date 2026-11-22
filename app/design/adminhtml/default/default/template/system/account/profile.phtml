@@ -47,6 +47,14 @@ if ($isTrainer) {
         $trainerDescription = (string) $user->getData('trainer_description');
     }
 }
+$trainerCerts = array();
+if ($isTrainer) {
+    $trainerCerts = Mage::helper('mmd_mobileapi')->trainerCertifications((string) $user->getEmail());
+}
+$trainerCertText = '';
+foreach ($trainerCerts as $_c) {
+    $trainerCertText .= $_c['name'] . ' | ' . $_c['issuer'] . ' | ' . ($_c['year'] ?: '') . "\n";
+}
 // profile_image is an absolute R2 URL for new uploads, a bare
 // filename for legacy pre-R2 rows. Branch on the http(s) prefix.
 $profileImage = (string) $user->getData('profile_image');
@@ -242,6 +250,18 @@ $roleColors = array(
     <h3 class="bio-title">Trainer Profile</h3>
     <p class="trainer-profile-text"><?php echo $trainerDescription !== '' ? nl2br($this->escapeHtml(preg_replace("/\n{3,}/", "\n\n", preg_replace("/\r\n?/", "\n", trim($trainerDescription))))) : '<span style="color:var(--t4, #94a3b8);">No profile description yet — click <strong>Edit Profile</strong> to add one.</span>'; ?></p>
 </div>
+<div class="bio-section" id="trainer-certs-section">
+    <h3 class="bio-title">Certifications</h3>
+    <?php if ($trainerCerts): ?>
+    <ul class="trainer-profile-text">
+        <?php foreach ($trainerCerts as $_c): ?>
+        <li><?php echo $this->escapeHtml($_c['name']) ?><?php echo $_c['issuer'] !== '' ? ' &mdash; ' . $this->escapeHtml($_c['issuer']) : '' ?><?php echo $_c['year'] ? ' (' . (int) $_c['year'] . ')' : '' ?></li>
+        <?php endforeach; ?>
+    </ul>
+    <?php else: ?>
+    <p class="trainer-profile-text"><span style="color:var(--t4, #94a3b8);">No certifications yet &mdash; click <strong>Edit Profile</strong> to add them, or add them in the mobile app.</span></p>
+    <?php endif; ?>
+</div>
 <style>
 .trainer-profile-text{color:var(--t1, #f1f5f9);font-size:14px;line-height:1.55;margin:0}
 .edit-field textarea{width:100%;padding:10px 14px;background:transparent;border:1px solid var(--b2, #4b5563);border-radius:8px;color:var(--t1, #f1f5f9);font-size:14px;outline:none;box-sizing:border-box;font-family:inherit;resize:vertical;min-height:120px}
@@ -367,6 +387,11 @@ $roleColors = array(
                 <label for="pf-trainer-description">Trainer Profile</label>
                 <textarea id="pf-trainer-description" name="trainer_description" rows="6" placeholder="Tell learners about your background, teaching style, and the courses you specialise in."><?php echo $this->escapeHtml($trainerDescription); ?></textarea>
                 <p class="edit-note">Shown on your trainer card to learners.</p>
+            </div>
+            <div class="edit-field full-width">
+                <label for="pf-trainer-certs">Certifications</label>
+                <textarea id="pf-trainer-certs" name="trainer_certifications" rows="5" placeholder="One per line: Name | Issuer | Year&#10;Claude Certified Architect | Anthropic | 2026"><?php echo $this->escapeHtml(rtrim($trainerCertText)); ?></textarea>
+                <p class="edit-note">One per line as <em>Name | Issuer | Year</em> (issuer and year are optional). The same list is edited in the mobile app.</p>
             </div>
             <?php endif; ?>
 

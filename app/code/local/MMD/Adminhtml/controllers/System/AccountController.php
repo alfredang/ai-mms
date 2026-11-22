@@ -137,6 +137,22 @@ class MMD_Adminhtml_System_AccountController extends Mage_Adminhtml_System_Accou
                 'user_id = ' . (int)$userId
             );
 
+            // Trainer certifications (one per line: Name | Issuer | Year). The textarea
+            // only exists for trainers; keyed by email, so follow an email change first.
+            try {
+                $mobile = Mage::helper('mmd_mobileapi');
+                $newEmailC = strtolower((string) $user->getEmail());
+                if ($oldEmail !== '' && $newEmailC !== '' && $oldEmail !== $newEmailC) {
+                    $write->update($resource->getTableName('mmd_trainer_certification'), ['email' => $newEmailC], ['email = ?' => $oldEmail]);
+                }
+                $certText = $this->getRequest()->getParam('trainer_certifications', null);
+                if ($certText !== null) {
+                    $mobile->saveTrainerCertifications($newEmailC !== '' ? $newEmailC : $oldEmail, $mobile->parseCertificationLines($certText));
+                }
+            } catch (Exception $_certEx) {
+                Mage::getSingleton('adminhtml/session')->addError('Certifications were not saved: ' . $_certEx->getMessage());
+            }
+
             // Mirror My Profile fields into the courses_trainers row
             // that shares this user's email, so the View Trainers grid
             // stays in sync with what the trainer just saved. Silent
