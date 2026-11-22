@@ -15,6 +15,8 @@
 class MMD_GoogleLogin_Adminhtml_GoogleloginController extends Mage_Adminhtml_Controller_Action
 {
     const SESSION_STATE_KEY = 'mmd_gl_state';
+    /** Set when the sign-in was started by a native app (holds the app's challenge); see _finishMobile. */
+    const SESSION_MOBILE_KEY = 'mmd_gl_mobile';
 
     /**
      * Bypass the admin auth gate — by definition this controller IS the
@@ -56,6 +58,13 @@ class MMD_GoogleLogin_Adminhtml_GoogleloginController extends Mage_Adminhtml_Con
         $state = bin2hex(random_bytes(16));
         Mage::getSingleton('core/session')->setData(self::SESSION_STATE_KEY, $state);
 
+        // A native app (TC LMS) started this: remember its challenge so the callback
+        // answers the app instead of opening an admin session in this browser.
+        $mobile = (string) $this->getRequest()->getParam('mobile');
+        Mage::getSingleton('core/session')->setData(
+            self::SESSION_MOBILE_KEY, preg_match('/^[a-f0-9]{64}$/', $mobile) ? $mobile : null
+        );
+
         $params = array(
             'client_id'     => $helper->getClientId(),
             'redirect_uri'  => $helper->getRedirectUri(),
@@ -83,6 +92,11 @@ class MMD_GoogleLogin_Adminhtml_GoogleloginController extends Mage_Adminhtml_Con
         // State must match the value we generated in startAction.
         $expectedState = (string) $session->getData(self::SESSION_STATE_KEY);
         $session->unsetData(self::SESSION_STATE_KEY);
+        $mobile = (string) $session->getData(self::SESSION_MOBILE_KEY);
+        $session->unsetData(self::SESSION_MOBILE_KEY);
+        if ($mobile !== '') {
+            return $this->_finishMobile($mobile, $expectedState);
+        }
         $receivedState = (string) $req->getParam('state');
         if ($expectedState === '' || !hash_equals($expectedState, $receivedState)) {
             $adminSession->addError('Google sign-in failed: state mismatch. Try again.');
@@ -157,6 +171,50 @@ class MMD_GoogleLogin_Adminhtml_GoogleloginController extends Mage_Adminhtml_Con
         ));
 
         $this->_redirect('adminhtml');
+    }
+
+    /**
+     * The callback for a sign-in started by a native app. Never opens an admin
+     * session in this browser: it sends the app a single-use code (for an allowed
+     * admin) or an error, at the app's own URL scheme.
+     */
+    protected function _finishMobile($challenge, $expectedState)
+    {
+        $req    = $this->getRequest();
+        $helper = Mage::helper('mmd_googlelogin');
+        $mobile = Mage::helper('mmd_mobileapi');
+        $back   = $mobile->appScheme() . '://auth?';
+        $fail   = function ($message) use ($back) {
+            return Mage::app()->getResponse()->setRedirect($back . 'error=' . rawurlencode($message));
+        };
+
+        if ($expectedState === '' || !hash_equals($expectedState, (string) $req->getParam('state'))) {
+            return $fail('Google sign-in failed. Please try again.');
+        }
+        $code = (string) $req->getParam('code');
+        if ($code === '') {
+            return $fail('Google sign-in was cancelled.');
+        }
+        $tokenResp = $this->_postForm('https://oauth2.googleapis.com/token', array(
+            'code'          => $code,
+            'client_id'     => $helper->getClientId(),
+            'client_secret' => $helper->getClientSecret(),
+            'redirect_uri'  => $helper->getRedirectUri(),
+            'grant_type'    => 'authorization_code',
+        ));
+        if (!$tokenResp || !isset($tokenResp['access_token'])) {
+            return $fail('Google sign-in failed. Please try again.');
+        }
+        $userInfo = $this->_getJson('https://www.googleapis.com/oauth2/v3/userinfo', $tokenResp['access_token']);
+        if (!$userInfo || empty($userInfo['email']) || empty($userInfo['email_verified'])) {
+            return $fail('Google could not verify your email.');
+        }
+        if (!$mobile->mayUseGoogleAdminLogin((string) $userInfo['email'])) {
+            return $fail('This Google account is not allowed to sign in as an admin.');
+        }
+        return Mage::app()->getResponse()->setRedirect(
+            $back . 'code=' . $mobile->saveGoogleCode((string) $userInfo['email'], $challenge)
+        );
     }
 
     /**

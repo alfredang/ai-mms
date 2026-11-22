@@ -12,6 +12,8 @@
       POST /mobileapi/auth/password            email + password -> token
       POST /mobileapi/auth/otpsend             email the learner a login code
       POST /mobileapi/auth/otpverify           email + code -> token
+      GET  /mobileapi/auth/googlestart         admin sign-in with Google (one allowed account); returns to the app's URL scheme
+      POST /mobileapi/auth/googleexchange      single-use code + verifier -> token
       GET  /mobileapi/auth/me                  the signed-in learner
       POST /mobileapi/auth/logout              revoke this token
       POST /mobileapi/auth/delete              delete the learner's login account

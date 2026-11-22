@@ -202,6 +202,60 @@ class MMD_MobileApi_Helper_Data extends Mage_Core_Helper_Abstract
 
     protected $_themes = array('system', 'light', 'dark');
 
+    // ---- Admin sign-in with Google (native apps) ------------------------------
+
+    /** The only accounts that may sign in to the apps with Google. Each must also be an active admin user. */
+    protected $_googleAdmins = array('angch@tertiaryinfotech.com');
+
+    public function mayUseGoogleAdminLogin($email)
+    {
+        $email = $this->normalizeEmail($email);
+        if ($email === '' || !in_array($email, $this->_googleAdmins, true)) {
+            return false;
+        }
+        $user = $this->loadAdminUser($email);
+        return $user && $user->getId() && (int) $user->getIsActive() === 1;
+    }
+
+    /** This site's app URL scheme: tclmssg / tclmsmy / tclmsgh. Decided here, never taken from the request. */
+    public function appScheme()
+    {
+        return 'tclms' . strtolower($this->countryCode());
+    }
+
+    /**
+     * After Google has verified an allowed admin: a single-use code, valid two
+     * minutes, that the app swaps for a session. It is tied to the challenge the
+     * app sent when it started, so a code seen by anything else is useless.
+     */
+    public function saveGoogleCode($email, $challenge)
+    {
+        $code = bin2hex(random_bytes(32));
+        Mage::app()->getCache()->save(
+            json_encode(array('email' => $this->normalizeEmail($email), 'challenge' => (string) $challenge)),
+            'mmd_mobile_gcode_' . hash('sha256', $code), array(), 120
+        );
+        return $code;
+    }
+
+    /** The email behind a code, once. Null when the code is unknown, used, expired, or the verifier does not match. */
+    public function takeGoogleCode($code, $verifier)
+    {
+        $code = (string) $code; $verifier = (string) $verifier;
+        if (!preg_match('/^[a-f0-9]{64}$/', $code) || strlen($verifier) < 32 || strlen($verifier) > 128) {
+            return null;
+        }
+        $id  = 'mmd_mobile_gcode_' . hash('sha256', $code);
+        $raw = Mage::app()->getCache()->load($id);
+        Mage::app()->getCache()->remove($id);
+        $row = $raw ? json_decode($raw, true) : null;
+        if (!is_array($row) || empty($row['email']) || empty($row['challenge'])
+            || !hash_equals((string) $row['challenge'], hash('sha256', $verifier))) {
+            return null;
+        }
+        return $this->mayUseGoogleAdminLogin($row['email']) ? (string) $row['email'] : null;
+    }
+
     /** Staff roles the apps have a dashboard for, in the order they are offered. */
     protected $_staffRoles = array('admin', 'marketing', 'developer', 'franchise_admin');
 

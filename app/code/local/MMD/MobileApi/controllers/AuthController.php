@@ -59,6 +59,36 @@ class MMD_MobileApi_AuthController extends MMD_MobileApi_Controller_Base
         });
     }
 
+    /**
+     * GET ?challenge=<sha256 hex of the app's verifier> — admin sign-in with Google,
+     * opened by the app in its sign-in browser. Hands over to the website's own
+     * Google sign-in (MMD_GoogleLogin), which returns to the app at
+     * <scheme>://auth?code=... for an allowed admin, or <scheme>://auth?error=...
+     */
+    public function googlestartAction()
+    {
+        $scheme    = $this->_helper()->appScheme();
+        $challenge = (string) $this->getRequest()->getParam('challenge');
+        $google    = Mage::helper('mmd_googlelogin');
+        if (!preg_match('/^[a-f0-9]{64}$/', $challenge) || !$google->isConfigured()) {
+            return $this->getResponse()->setRedirect($scheme . '://auth?error=' . rawurlencode('Google sign-in is not available right now.'));
+        }
+        return $this->getResponse()->setRedirect($google->getStartUrl() . '?' . http_build_query(array('mobile' => $challenge)));
+    }
+
+    /** POST {code, verifier, platform?, app_version?} — swap the single-use code from Google sign-in for a session. */
+    public function googleexchangeAction()
+    {
+        if (!$this->_requirePost()) return;
+        return $this->_guard(function () {
+            $email = $this->_helper()->takeGoogleCode($this->_input('code'), $this->_input('verifier'));
+            if ($email === null) {
+                return $this->_error(401, 'Google sign-in did not complete. Please try again.', 'invalid_code');
+            }
+            return $this->_signedIn($email);
+        });
+    }
+
     /** POST — revoke this device's token. */
     public function logoutAction()
     {
