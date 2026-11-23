@@ -151,25 +151,43 @@ class MMD_GoogleLogin_Adminhtml_GoogleloginController extends Mage_Adminhtml_Con
             return;
         }
 
-        // All checks passed — log the admin in.
-        $adminSession->setUser($user);
-        $adminSession->setUpdatedAt(time());
-        $adminSession->renewSession();
+        if (!$user->hasAssigned2Role($user->getId())) {
+            $adminSession->addError('This account has no role assigned. Ask a Super Admin to assign one in Users.');
+            $this->_redirect('adminhtml');
+            return;
+        }
+
+        // All checks passed: sign in exactly as the email-code login does
+        // (MMD_OtpLogin). The signed-in admin lives in admin/session; the
+        // adminhtml/session used before only holds page messages, so Google
+        // sign-in returned to the login page without signing anyone in.
+        $session = Mage::getSingleton('admin/session');
+        $session->renewSession();
+        $session->setIsFirstPageAfterLogin(true);
+        $session->setUser($user);
+        $session->setAcl(Mage::getResourceModel('admin/acl')->loadAcl());
+        $session->setMmdForcePasswordChange((bool) $user->getMmdForcePasswordChange());
 
         // Touch the user's logdate so the Users grid shows the activity.
         try {
             $user->getResource()->recordLogin($user);
         } catch (Exception $e) { /* non-fatal */ }
 
-        // RoleManager.applyRoleAcl handles single-role users; multi-role users
-        // hit the role-select page via the existing onAdminLogin observer.
+        // The event Magento's password login fires: RoleManager applies the roles
+        // and sets needsRoleSelect; Branchscope seeds the store scope.
+        Mage::dispatchEvent('admin_session_user_login_success', array('user' => $user));
         Mage::dispatchEvent('admin_user_authenticate_after', array(
             'username' => $user->getUsername(),
             'password' => '',
             'user'     => $user,
             'result'   => true,
         ));
+        $session->setAcl(Mage::getResourceModel('admin/acl')->loadAcl());
 
+        if ($session->getNeedsRoleSelect()) {
+            $this->_redirect('adminhtml/roleselect/index');
+            return;
+        }
         $this->_redirect('adminhtml');
     }
 
