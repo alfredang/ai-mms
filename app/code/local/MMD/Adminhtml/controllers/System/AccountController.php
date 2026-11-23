@@ -137,6 +137,22 @@ class MMD_Adminhtml_System_AccountController extends Mage_Adminhtml_System_Accou
                 'user_id = ' . (int)$userId
             );
 
+            // Employment status: the same field the apps edit (mmd_mobile_profile). Only touched
+            // when the form sends it, so a form without it never wipes the value.
+            try {
+                $employment = $this->getRequest()->getParam('employment_status', null);
+                if ($employment !== null) {
+                    $emailE = strtolower((string) $user->getEmail());
+                    $oldRow = Mage::helper('mmd_mobileapi');
+                    if ($oldEmail !== '' && $emailE !== '' && $oldEmail !== $emailE) {
+                        $write->update($resource->getTableName('mmd_mobile_profile'), array('email' => $emailE), array('email = ?' => $oldEmail));
+                    }
+                    $oldRow->saveEmploymentStatus($emailE !== '' ? $emailE : $oldEmail, $employment);
+                }
+            } catch (Exception $_empEx) {
+                Mage::getSingleton('adminhtml/session')->addError('Employment status was not saved: ' . $_empEx->getMessage());
+            }
+
             // Trainer certifications (one per line: Name | Issuer | Year). The textarea
             // only exists for trainers; keyed by email, so follow an email change first.
             try {

@@ -572,7 +572,7 @@ SVG;
         $employment = null;
         if (array_key_exists('employment_status', $in)) {
             $employment = trim((string) $in['employment_status']);
-            if ($employment !== '' && !in_array($employment, array('Employed', 'Unemployed', 'Looking for Job'), true)) {
+            if ($employment !== '' && !in_array($employment, $this->employmentOptions(), true)) {
                 throw new Exception('Please choose Employed, Unemployed or Looking for Job.');
             }
         }
@@ -611,6 +611,32 @@ SVG;
             $this->_write()->insertOnDuplicate($this->_table('mmd_mobile_profile'), $row, $upd);
         }
         return $this->learnerProfile($email);
+    }
+
+    /** The choices for Employment status ('' = not set); one list for the web My Profile and the apps. */
+    public function employmentOptions()
+    {
+        return array('Employed', 'Unemployed', 'Looking for Job');
+    }
+
+    public function employmentStatus($email)
+    {
+        $row = $this->_profileRow(strtolower(trim((string) $email)));
+        return $row && isset($row['employment_status']) ? (string) $row['employment_status'] : '';
+    }
+
+    public function saveEmploymentStatus($email, $value)
+    {
+        $email = strtolower(trim((string) $email));
+        $value = trim((string) $value);
+        if ($email === '' || ($value !== '' && !in_array($value, $this->employmentOptions(), true))) {
+            throw new Exception('Please choose Employed, Unemployed or Looking for Job.');
+        }
+        $this->_write()->insertOnDuplicate(
+            $this->_table('mmd_mobile_profile'),
+            array('email' => $email, 'employment_status' => $value === '' ? null : $value, 'updated_at' => $this->utcNow()),
+            array('updated_at', 'employment_status')
+        );
     }
 
     protected function _profileRow($email)

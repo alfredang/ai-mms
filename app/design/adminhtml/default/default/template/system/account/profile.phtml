@@ -23,6 +23,8 @@ $dobInput = $dob ? date('Y-m-d', strtotime($dob)) : '';
 $nricFin = $this->escapeHtml($user->getData('nric_fin'));
 $linkedinUrl = $this->escapeHtml($user->getData('linkedin_url'));
 $isTrainer = in_array('trainer', (array) $roles, true);
+$employmentHelper = Mage::helper('mmd_mobileapi');
+$employment = (string) $employmentHelper->employmentStatus($user->getEmail());
 
 // Trainer description — courses_trainers.description (matched by email)
 // is the source of truth. The admin_user.trainer_description column is a
@@ -233,6 +235,7 @@ $roleColors = array(
 
         <div class="bio-item"><p class="bio-label">Nationality</p><p class="bio-value"><?php echo $nationality ?: '—' ?></p></div>
         <div class="bio-item"><p class="bio-label">NRIC/FIN</p><p class="bio-value"><?php echo $nricDisplay ?: '—' ?></p></div>
+        <div class="bio-item"><p class="bio-label">Employment Status</p><p class="bio-value"><?php echo $employment !== '' ? $this->escapeHtml($employment) : '—' ?></p></div>
         <div class="bio-item">
             <p class="bio-label">LinkedIn Profile</p>
             <p class="bio-value">
@@ -375,6 +378,16 @@ $roleColors = array(
             <div class="edit-field">
                 <label for="pf-nric">NRIC/FIN</label>
                 <input type="text" id="pf-nric" name="nric_fin" value="<?php echo $nricFin ?>" placeholder="e.g. S1234567A" />
+            </div>
+
+            <div class="edit-field">
+                <label for="pf-employment">Employment Status</label>
+                <select id="pf-employment" name="employment_status">
+                    <option value="">Not set</option>
+                    <?php foreach ($employmentHelper->employmentOptions() as $opt): ?>
+                    <option value="<?php echo $this->escapeHtml($opt) ?>"<?php echo $employment === $opt ? ' selected' : '' ?>><?php echo $this->escapeHtml($opt) ?></option>
+                    <?php endforeach; ?>
+                </select>
             </div>
 
             <div class="edit-field full-width">
