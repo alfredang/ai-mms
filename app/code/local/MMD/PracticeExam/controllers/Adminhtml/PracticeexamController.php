@@ -56,6 +56,9 @@ class MMD_PracticeExam_Adminhtml_PracticeexamController extends Mage_Adminhtml_C
         } catch (Exception $e) {
             $warning = 'Could not load registrations from Tertiary Exams: ' . $e->getMessage();
         }
+        if ($warning === null) {
+            $regs = $h->ensureTrainersRegistered($run, $exam, $regs);
+        }
         $people = $h->getPeople($run);
         $seen   = array();
         foreach ($people as &$p) {

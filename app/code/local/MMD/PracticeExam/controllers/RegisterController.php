@@ -27,8 +27,13 @@ class MMD_PracticeExam_RegisterController extends Mage_Core_Controller_Front_Act
             return $this->_page($title, '<p class="msg err">Registration for this class is closed.</p>');
         }
 
-        $name = trim((string) $req->getPost('name'));
-        $email = strtolower(trim((string) $req->getPost('email')));
+        // The apps open this form with the person's name and email filled in (?name=&email=).
+        $name = trim((string) ($req->isPost() ? $req->getPost('name') : $req->getQuery('name')));
+        $email = strtolower(trim((string) ($req->isPost() ? $req->getPost('email') : $req->getQuery('email'))));
+        if (!$req->isPost()) {
+            $name  = mb_substr($name, 0, 200);
+            $email = filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : '';
+        }
         $msg = '';
         if ($req->isPost()) {
             if (trim((string) $req->getPost('website')) !== '') {           // honeypot

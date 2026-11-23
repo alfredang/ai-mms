@@ -176,10 +176,17 @@ class MMD_MobileApi_Helper_ClassPage extends Mage_Core_Helper_Abstract
         return $out;
     }
 
-    // ── Practice Exam (trainer) ──────────────────────────────────────────────
+    // ── Practice Exam ────────────────────────────────────────────────────────
 
-    /** The course's linked practice exam and the class's self-register link, or null. */
-    public function practiceExam(array $run)
+    /**
+     * The course's linked practice exam for this class, or null. The apps show no QR code
+     * (that stays on the web class page): they open the self-register form instead.
+     *  - trainer: the trainer is registered automatically; `registered` says whether that
+     *    worked, and `self_register_url` is the blank form (e.g. for a learner without the app).
+     *  - learner: `self_register_url` opens the form with their name and email filled in;
+     *    `registered` is true once the exams site has them for this class.
+     */
+    public function practiceExam(array $run, $email = '', $trainer = true)
     {
         try {
             $pe = Mage::helper('mmd_practiceexam');
@@ -187,15 +194,57 @@ class MMD_MobileApi_Helper_ClassPage extends Mage_Core_Helper_Abstract
             $exam = $pe->getCourseExam((int) $run['product_id']);
             if (!$exam) return null;
             $full = $pe->loadRun((int) $run['run_id']);
+            if (!$full) return null;
+            $email = strtolower(trim((string) $email));
+
+            $registered = null;
+            try {
+                $regs = $this->_registrations($pe, $full, $exam);
+                if ($trainer && $email !== '' && $pe->isClassTrainer($full, $email) && !isset($regs[$email])) {
+                    $regs = $pe->ensureTrainersRegistered($full, $exam, $regs);
+                    Mage::app()->getCache()->remove($this->_regsKey($full, $exam));
+                }
+                $registered = $email !== '' && isset($regs[$email]);
+            } catch (Exception $e) {
+                $registered = null; // exams site unreachable: the app just offers the form
+            }
+
+            $name = '';
+            if (!$trainer && $email !== '') {
+                $profile = Mage::helper('mmd_mobileapi')->learnerProfile($email);
+                $name = isset($profile['full_name']) ? (string) $profile['full_name'] : '';
+            }
             return array(
                 'exam_code'         => (string) $exam['exam_code'],
                 'exam_url'          => $pe->baseUrl(),
-                'self_register_url' => $pe->selfRegisterUrl((int) $run['run_id']),
-                'open'              => $full ? (bool) $pe->selfRegisterOpen($full) : true,
+                'self_register_url' => $trainer ? $pe->selfRegisterUrl((int) $run['run_id'])
+                                                : $pe->selfRegisterUrl((int) $run['run_id'], $name, $email),
+                'open'              => (bool) $pe->selfRegisterOpen($full),
+                'registered'        => $registered,
             );
         } catch (Exception $e) {
             return null;
         }
+    }
+
+    protected function _regsKey(array $run, array $exam)
+    {
+        return 'mmd_mobileapi_pe_regs_' . md5($run['class_id'] . '|' . $exam['exam_slug']);
+    }
+
+    /** The class's exam registrations (email => row), cached a minute so the class page stays quick. */
+    protected function _registrations($pe, array $run, array $exam)
+    {
+        $cache = Mage::app()->getCache();
+        $key   = $this->_regsKey($run, $exam);
+        $hit   = $cache->load($key);
+        if ($hit !== false) {
+            $rows = json_decode($hit, true);
+            if (is_array($rows)) return $rows;
+        }
+        $rows = $pe->listRegistrations($run['class_id'], $exam['exam_slug']);
+        $cache->save(json_encode($rows), $key, array(), 60);
+        return $rows;
     }
 
     // ── Course Feedback summary (trainer) ────────────────────────────────────
@@ -203,8 +252,9 @@ class MMD_MobileApi_Helper_ClassPage extends Mage_Core_Helper_Abstract
     /** Average per rating question, overall average and the comments of a class's feedback. */
     public function feedbackSummary($runId)
     {
-        if (Mage::helper('mmd_rolemanager/handover')->isManaged((int) $runId)) {
-            return null; // feedback lives on the TMS for these classes
+        $link = Mage::helper('mmd_rolemanager/handover')->link((int) $runId);
+        if ($link) {
+            return $this->_tmsFeedbackSummary((string) $link['source_run_key']); // collected on the TMS
         }
         $fb        = Mage::helper('mmd_feedbackform');
         $responses = $fb->responsesForRun((int) $runId);
@@ -232,6 +282,51 @@ class MMD_MobileApi_Helper_ClassPage extends Mage_Core_Helper_Abstract
             'overall'   => $count ? round($total / $count, 1) : null,
             'questions' => $questions,
             'comments'  => array_reverse($comments), // newest first
+        );
+    }
+
+    /**
+     * The Course Feedback summary of a class handed over from the LMS/TMS, read from the
+     * TMS over the server-to-server bridge (env LMSTMS_BRIDGE_URL + MOBILE_BRIDGE_SECRET,
+     * the same one as trainer payouts). Null when the bridge is off or unreachable.
+     */
+    protected function _tmsFeedbackSummary($sourceRunKey)
+    {
+        $url    = rtrim((string) getenv('LMSTMS_BRIDGE_URL'), '/');
+        $secret = (string) getenv('MOBILE_BRIDGE_SECRET');
+        if ($sourceRunKey === '' || $url === '' || $secret === '' || stripos($url, 'https://') !== 0) {
+            return null;
+        }
+        $ch = curl_init($url . '/api/internal/class-feedback');
+        curl_setopt_array($ch, array(
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => json_encode(array('source_run_key' => $sourceRunKey)),
+            CURLOPT_HTTPHEADER     => array('Content-Type: application/json', 'Authorization: Bearer ' . $secret),
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_TIMEOUT        => 12,
+        ));
+        $body = curl_exec($ch);
+        $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        $json = is_string($body) ? json_decode($body, true) : null;
+        if ($code !== 200 || !is_array($json) || empty($json['success']) || !isset($json['data']) || !is_array($json['data'])) {
+            Mage::log('mobile class-feedback bridge: HTTP ' . $code, null, 'mmd_mobileapi.log');
+            return null;
+        }
+        $d = $json['data'];
+        $questions = array();
+        foreach ((array) (isset($d['questions']) ? $d['questions'] : array()) as $q) {
+            $questions[] = array(
+                'label'   => (string) (isset($q['label']) ? $q['label'] : ''),
+                'average' => isset($q['average']) && $q['average'] !== null ? (float) $q['average'] : null,
+            );
+        }
+        return array(
+            'count'     => isset($d['count']) ? (int) $d['count'] : 0,
+            'overall'   => isset($d['overall']) && $d['overall'] !== null ? (float) $d['overall'] : null,
+            'questions' => $questions,
+            'comments'  => array_values(array_map('strval', (array) (isset($d['comments']) ? $d['comments'] : array()))),
         );
     }
 

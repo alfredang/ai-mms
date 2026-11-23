@@ -55,10 +55,15 @@ Authenticated calls send `Authorization: Bearer <token>`.
   posted_by, posted_at`, oldest first, from `mmd_class_announcement`) and
   `lesson[]` (`title, subtopics[{title, links[{type: web|document|activity|video|quiz,
   title, url, quiz_id?, questions?, previous?}]}]`; a trainer's quiz `url` is the
-  QR link, a learner's is empty). `trainer/class` adds `practice_exam`
-  (`exam_code, exam_url, self_register_url, open`, or null) and `feedback_summary`
-  (`count, overall, questions[{label, average}], comments[]`, or null for a
-  TMS-managed class). Every class item's `venue` is the run's own venue, else
+  QR link, a learner's is empty). Both add `practice_exam` (`exam_code, exam_url,
+  self_register_url, open, registered`, or null). The apps show NO QR code (that
+  stays on the web class page): they open `self_register_url`, the self-register
+  form, which for a learner comes pre-filled (`?name=&email=`). A trainer of the
+  class is registered on the exams site automatically (`registered` true once
+  done), as on the web Practice Exam panel. `trainer/class` adds `feedback_summary`
+  (`count, overall, questions[{label, average}], comments[]`, or null); for a class
+  handed over from the LMS/TMS it is read from the TMS over the bridge
+  (`/api/internal/class-feedback`, env LMSTMS_BRIDGE_URL + MOBILE_BRIDGE_SECRET). Every class item's `venue` is the run's own venue, else
   the academy's address (`general/store_information/address`, SG falls back to
   12 Woodlands Square); Live Online classes have none.
 

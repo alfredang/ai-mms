@@ -4,8 +4,9 @@
  *
  * A course is linked to one practice exam in mmd_course_practice_exam (migration 1933),
  * switched on from Edit Course -> Lesson Details -> Course Settings. The class page then
- * shows a Practice Exam section where the trainer registers the class's learners (and the
- * trainer) on the exams site, or shows a Self-Register QR for learners to do it themselves.
+ * shows a Practice Exam section where the trainer registers the class's learners on the exams
+ * site, or shows a Self-Register QR for learners to do it themselves. The class's trainers are
+ * registered automatically (ensureTrainersRegistered) when the section or the app loads.
  *
  * Exams API (bearer token, scope assign:practice-exams):
  *   GET  /api/v1/practice-exams
@@ -137,6 +138,36 @@ class MMD_PracticeExam_Helper_Data extends Mage_Core_Helper_Abstract
         return array('ok' => true, 'error' => '', 'emailSent' => !empty($res[2]['registrationEmailSent']));
     }
 
+    /**
+     * Register the class's trainers on the exams site if they are not yet, so a trainer can
+     * always open the practice exam without anyone pressing Register. Pass the registrations
+     * already loaded (email => row); the returned list includes the trainers just registered.
+     * A failure is logged and left for the Register button; it never breaks the caller.
+     */
+    public function ensureTrainersRegistered(array $run, array $exam, array $regs)
+    {
+        foreach ($this->_trainers($run) as $t) {
+            if (isset($regs[$t['email']])) continue;
+            $r = $this->registerPerson($t['name'] !== '' ? $t['name'] : $t['email'], $t['email'], $exam['exam_slug'],
+                $run['class_id'], 'Trainer, registered automatically from MMS');
+            Mage::log(sprintf('auto-register trainer class %s -> %s: %s %s', $run['class_id'], $exam['exam_code'], $t['email'], $r['ok'] ? 'ok' : 'FAILED ' . $r['error']), null, 'mmd_practiceexam.log', true);
+            if ($r['ok']) {
+                $regs[$t['email']] = array('registeredAt' => gmdate('c'), 'signedIn' => false);
+            }
+        }
+        return $regs;
+    }
+
+    /** Whether an email is one of the class's trainers. */
+    public function isClassTrainer(array $run, $email)
+    {
+        $email = strtolower(trim((string) $email));
+        foreach ($this->_trainers($run) as $t) {
+            if ($t['email'] === $email) return true;
+        }
+        return false;
+    }
+
     // ── Course <-> exam link ─────────────────────────────────────────────────
 
     /** @return array|null [exam_code, exam_slug] */
@@ -266,10 +297,13 @@ class MMD_PracticeExam_Helper_Data extends Mage_Core_Helper_Abstract
         return substr(hash_hmac('sha256', 'practice-exam-self-register:' . (int) $runId, $key), 0, 24);
     }
 
-    public function selfRegisterUrl($runId)
+    /** The self-register form; name and email, when given, are filled in for the person (the apps). */
+    public function selfRegisterUrl($runId, $name = '', $email = '')
     {
         $base = Mage::app()->getDefaultStoreView()->getBaseUrl(Mage_Core_Model_Store::URL_TYPE_LINK, true);
-        return $base . 'practiceexam/register/index/run/' . (int) $runId . '/k/' . $this->selfRegisterSig($runId) . '/';
+        $url  = $base . 'practiceexam/register/index/run/' . (int) $runId . '/k/' . $this->selfRegisterSig($runId) . '/';
+        $q    = array_filter(array('name' => trim((string) $name), 'email' => trim((string) $email)), 'strlen');
+        return $q ? $url . '?' . http_build_query($q) : $url;
     }
 
     /** The link works from the day before the class until 7 days after it ends. */

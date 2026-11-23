@@ -124,6 +124,7 @@ class MMD_MobileApi_Helper_Learner extends Mage_Core_Helper_Abstract
         $row['lesson']        = $page->safe(function () use ($page, $run, $runId, $email) {
             return $page->lesson((int) $run['product_id'], (int) $runId, $email, false);
         }, array());
+        $row['practice_exam'] = $page->safe(function () use ($page, $run, $email) { return $page->practiceExam($run, $email, false); }, null);
         return $row;
     }
 
