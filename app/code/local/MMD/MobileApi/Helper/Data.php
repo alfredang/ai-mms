@@ -57,14 +57,16 @@ class MMD_MobileApi_Helper_Data extends Mage_Core_Helper_Abstract
      * (learner login, admin login, top bar, storefront footer). A store is listed
      * only once the app is LIVE there, so a badge never leads to a missing listing:
      * leave a store's link '' until it is approved, then fill it in.
-     * GH App Store: set 'ios' to https://apps.apple.com/app/id6830591693 once Apple approves it.
+     * App Store links carry the country code (/sg/, /my/): each app is listed in its own
+     * country's store only, and a link without one opens the US store, which 404s.
+     * GH App Store: set 'ios' to https://apps.apple.com/gh/app/id6830591693 once Apple approves it.
      */
     public function storeApp()
     {
         $apps = array(
-            'SG' => array('name' => 'TC LMS SG', 'ios' => 'https://apps.apple.com/app/id6787036413',
+            'SG' => array('name' => 'TC LMS SG', 'ios' => 'https://apps.apple.com/sg/app/tc-lms-sg-tertiary-courses/id6787036413',
                           'android' => 'https://play.google.com/store/apps/details?id=com.tertiaryinfotech.tertiarycoursesapp'),
-            'MY' => array('name' => 'TC LMS MY', 'ios' => 'https://apps.apple.com/app/id6830591957',
+            'MY' => array('name' => 'TC LMS MY', 'ios' => 'https://apps.apple.com/my/app/tc-lms-my-tertiary-courses/id6830591957',
                           'android' => 'https://play.google.com/store/apps/details?id=sg.com.tertiarycourses.tertiarycoursesmyapp'),
             'GH' => array('name' => 'TC LMS GH', 'ios' => '',
                           'android' => 'https://play.google.com/store/apps/details?id=sg.com.tertiarycourses.tertiarycoursesghapp'),
