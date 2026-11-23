@@ -46,6 +46,22 @@ class MMD_MobileApi_StaffController extends MMD_MobileApi_Controller_Base
         });
     }
 
+    /** GET ?role=developer&id= — one course as the admin Edit Course page holds it (read-only). */
+    public function courseAction()
+    {
+        if (!$this->_requireLearner()) return;
+        return $this->_guard(function () {
+            if (!$this->_holds(array('developer', 'admin'))) {
+                return $this->_error(403, 'This account does not have that role.', 'not_staff');
+            }
+            $course = Mage::helper('mmd_mobileapi/staff')->developerCourse((int) $this->_input('id'));
+            if ($course === null) {
+                return $this->_error(404, 'Course not found.', 'no_course');
+            }
+            return $this->_ok($course);
+        });
+    }
+
     /** The requested role is one of $allowed and one this account holds on the website. */
     protected function _holds(array $allowed)
     {

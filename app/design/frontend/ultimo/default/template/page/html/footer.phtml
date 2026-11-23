@@ -215,6 +215,7 @@
                 <div class="section clearer">
                 
                 	<div class="item item-left">
+                    	<?php /* Native app badges for this site's country (live stores only). */ try { echo Mage::helper('mmd_mobileapi')->appBadgesHtml('footer'); } catch (Exception $e) {} ?>
                     	<p class="footer-copyright"><?php echo str_replace('{{year}}', date('Y'), $this->getCopyright()); ?></p>
                     	<?php /* Malaysia shows its own legal entity (MY partner sign-off); SG unchanged. */ ?>
                     	<p class="powered-by">Powered by <a href="https://www.tertiaryinfotech.com/" target="_blank" rel="noopener"><?php echo Mage::app()->getStore()->getCode() === 'malaysia' ? 'Tertiary Infotech Sdn. Bhd.' : 'Tertiary Infotech Academy Pte Ltd'; ?></a></p>

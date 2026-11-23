@@ -52,6 +52,73 @@ class MMD_MobileApi_Helper_Data extends Mage_Core_Helper_Abstract
         return in_array($env, array('MY', 'GH', 'NG'), true) ? $env : 'SG';
     }
 
+    /**
+     * The native TC LMS app for THIS site's country, for the store badges on the web
+     * (learner login, admin login, top bar, storefront footer). A store is listed
+     * only once the app is LIVE there, so a badge never leads to a missing listing:
+     * leave a store's link '' until it is approved, then fill it in.
+     * GH App Store: set 'ios' to https://apps.apple.com/app/id6830591693 once Apple approves it.
+     */
+    public function storeApp()
+    {
+        $apps = array(
+            'SG' => array('name' => 'TC LMS SG', 'ios' => 'https://apps.apple.com/app/id6787036413',
+                          'android' => 'https://play.google.com/store/apps/details?id=com.tertiaryinfotech.tertiarycoursesapp'),
+            'MY' => array('name' => 'TC LMS MY', 'ios' => 'https://apps.apple.com/app/id6830591957',
+                          'android' => 'https://play.google.com/store/apps/details?id=sg.com.tertiarycourses.tertiarycoursesmyapp'),
+            'GH' => array('name' => 'TC LMS GH', 'ios' => '',
+                          'android' => 'https://play.google.com/store/apps/details?id=sg.com.tertiarycourses.tertiarycoursesghapp'),
+        );
+        $cc = $this->countryCode();
+        return isset($apps[$cc]) ? $apps[$cc] : null;
+    }
+
+    /**
+     * App Store + Google Play badges for this site's app, as HTML ('' when the app has
+     * no live store). $variant: 'nav' (compact, top bar), 'footer' (storefront footer)
+     * or 'login' (under a sign-in form). Self-contained: its own scoped CSS.
+     */
+    public function appBadgesHtml($variant = 'nav')
+    {
+        $app = $this->storeApp();
+        if (!$app || ($app['ios'] === '' && $app['android'] === '')) return '';
+        $apple = <<<'SVG'
+<svg viewBox="0 0 384 512" fill="currentColor" aria-hidden="true"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C71.5 141.1 0 184.6 0 273.5c0 26.2 4.8 53.3 14.4 81.2 12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zM255.6 88.3c30.4-36.1 27.6-68.9 26.7-80.7-26.8 1.6-57.8 18.3-75.5 38.9-19.5 22.1-31 49.4-28.5 79.9 28.9 2.2 55.3-12.7 77.3-38.1z"/></svg>
+SVG;
+        $play = <<<'SVG'
+<svg viewBox="0 0 512 512" aria-hidden="true"><path fill="#00D9FF" d="M47.6 24.6C41.2 31.3 37.5 41.7 37.5 55.2v401.6c0 13.5 3.7 23.9 10.1 30.6l1.3 1.3 225-225v-5.3l-225-225-1.3 1.2z"/><path fill="#FFD400" d="M348.2 336.9l-75-75v-5.3l75.1-75.1 1.7 1 88.9 50.5c25.4 14.4 25.4 38 0 52.5l-88.9 50.5-1.8.9z"/><path fill="#FF3A44" d="M349.9 335.9l-76.7-76.7L47.6 484.8c8.4 8.9 22.2 10 37.8 1.1l264.5-150z"/><path fill="#00C244" d="M349.9 176.1L85.4 26.1C69.8 17.2 56 18.3 47.6 27.2l225.6 225.6 76.7-76.7z"/></svg>
+SVG;
+        static $css = false;
+        $style = '';
+        if (!$css) {
+            $css = true;
+            $style = '<style>'
+                . '.mmd-appb{display:inline-flex;flex-wrap:wrap;align-items:center;gap:8px;vertical-align:middle}'
+                . '.mmd-appb-title{font-size:12px;opacity:.75;margin-right:2px;white-space:nowrap}'
+                . '.mmd-appb a{display:inline-flex;align-items:center;gap:7px;min-height:34px;padding:4px 11px;border-radius:9px;background:#000;color:#fff!important;text-decoration:none!important;border:1px solid #3a3a3a;line-height:1.1}'
+                . '.mmd-appb a:hover,.mmd-appb a:focus-visible{background:#1a1a1a}'
+                . '.mmd-appb svg{width:18px;height:18px;flex:none}'
+                . '.mmd-appb span{display:flex;flex-direction:column;text-align:left}'
+                . '.mmd-appb small{font-size:8px;letter-spacing:.06em;text-transform:uppercase;opacity:.8;white-space:nowrap}'
+                . '.mmd-appb strong{font-size:13px;font-weight:600;white-space:nowrap}'
+                . '.mmd-appb-footer{margin:8px 0}.mmd-appb-footer a{min-height:40px}'
+                . '.mmd-appb-login{margin-top:18px;justify-content:center;width:100%}'
+                . '@media (max-width:1100px){.mmd-appb-nav .mmd-appb-title,.mmd-appb-nav small{display:none}}'
+                . '</style>';
+        }
+        $h = $style . '<div class="mmd-appb mmd-appb-' . htmlspecialchars($variant) . '" aria-label="Get the mobile app">';
+        $h .= '<span class="mmd-appb-title">Get the ' . htmlspecialchars($app['name']) . ' app</span>';
+        if ($app['ios'] !== '') {
+            $h .= '<a href="' . htmlspecialchars($app['ios']) . '" target="_blank" rel="noopener noreferrer" aria-label="Download on the App Store">'
+                . $apple . '<span><small>Download on the</small><strong>App Store</strong></span></a>';
+        }
+        if ($app['android'] !== '') {
+            $h .= '<a href="' . htmlspecialchars($app['android']) . '" target="_blank" rel="noopener noreferrer" aria-label="Get it on Google Play">'
+                . $play . '<span><small>Get it on</small><strong>Google Play</strong></span></a>';
+        }
+        return $h . '</div>';
+    }
+
     public function currencyCode()
     {
         $store = Mage::app()->getDefaultStoreView();
@@ -193,6 +260,7 @@ class MMD_MobileApi_Helper_Data extends Mage_Core_Helper_Abstract
             'theme'      => $pref && in_array($pref['theme'], $this->_themes, true) ? $pref['theme'] : 'system',
             'avatar_version' => $this->avatarVersion($email),
             'linkedin_url' => $user ? trim((string) $user->getData('linkedin_url')) : '',
+            'employment_status' => $pref && isset($pref['employment_status']) ? (string) $pref['employment_status'] : '',
             'roles'      => array_merge(
                 $this->isTrainer($email) ? array('learner', 'trainer') : array('learner'),
                 $this->staffRoles($email)
@@ -369,10 +437,40 @@ class MMD_MobileApi_Helper_Data extends Mage_Core_Helper_Abstract
             $at = $this->_read()->fetchOne(
                 'SELECT avatar_at FROM ' . $this->_table('mmd_mobile_profile') . ' WHERE email = ? AND avatar IS NOT NULL LIMIT 1', array($email)
             );
-            return $at ? (int) strtotime($at . ' UTC') : null;
+            if ($at) return (int) strtotime($at . ' UTC');
         } catch (Exception $e) {
-            return null;   // column not migrated yet
+            // column not migrated yet
         }
+        $def = $this->defaultAvatarFile($email);
+        return $def ? (int) filemtime($def) : null;
+    }
+
+    /**
+     * The picture a trainer or staff account already has on the website (the LinkedIn
+     * image the TIA TMS sync stores), used until the person sets their own: the
+     * dashboard profile picture, else the trainer record's. Null when there is none.
+     */
+    public function defaultAvatarFile($email)
+    {
+        $media = Mage::getBaseDir('media');
+        $names = array();
+        try {
+            $names[] = array('admin/profile', (string) $this->_read()->fetchOne(
+                'SELECT profile_image FROM ' . $this->_table('admin/user') . ' WHERE email = ? LIMIT 1', array($email)));
+            $img = (string) $this->_read()->fetchOne(
+                'SELECT profile_image FROM ' . $this->_table('courses_trainers') . ' WHERE email = ? LIMIT 1', array($email));
+            $names[] = array('trainers', $img);
+            $names[] = array('providers', $img);
+        } catch (Exception $e) {
+            return null;
+        }
+        foreach ($names as $n) {
+            $file = basename(trim($n[1]));          // a stored value may be a path or a full URL: the file name is enough
+            if ($file === '' || $file === '.' || $file === '..' || !preg_match('/\.(jpe?g|png|webp|gif)$/i', $file)) continue;
+            $path = $media . '/' . $n[0] . '/' . $file;
+            if (is_file($path) && filesize($path) > 0) return $path;
+        }
+        return null;
     }
 
     public function avatarBytes($email)
@@ -381,10 +479,21 @@ class MMD_MobileApi_Helper_Data extends Mage_Core_Helper_Abstract
             $b = $this->_read()->fetchOne(
                 'SELECT avatar FROM ' . $this->_table('mmd_mobile_profile') . ' WHERE email = ? LIMIT 1', array($email)
             );
-            return $b ? (string) $b : null;
+            if ($b) return (string) $b;
         } catch (Exception $e) {
-            return null;
+            // column not migrated yet
         }
+        $def = $this->defaultAvatarFile($email);
+        if (!$def) return null;
+        $raw = @file_get_contents($def);
+        if ($raw === false || !function_exists('imagecreatefromstring') || !($src = @imagecreatefromstring($raw))) return null;
+        $w = imagesx($src); $h = imagesy($src); $side = min($w, $h);
+        $dst = imagecreatetruecolor(512, 512);
+        imagefill($dst, 0, 0, imagecolorallocate($dst, 255, 255, 255));
+        imagecopyresampled($dst, $src, 0, 0, (int) (($w - $side) / 2), (int) (($h - $side) / 2), 512, 512, $side, $side);
+        ob_start(); imagejpeg($dst, null, 85); $jpeg = ob_get_clean();
+        imagedestroy($src); imagedestroy($dst);
+        return $jpeg ?: null;
     }
 
     /** Re-encodes an uploaded picture to a 512px JPEG (drops metadata and anything that is not an image) and stores it. */
@@ -460,6 +569,14 @@ class MMD_MobileApi_Helper_Data extends Mage_Core_Helper_Abstract
             }
         }
 
+        $employment = null;
+        if (array_key_exists('employment_status', $in)) {
+            $employment = trim((string) $in['employment_status']);
+            if ($employment !== '' && !in_array($employment, array('Employed', 'Unemployed', 'Looking for Job'), true)) {
+                throw new Exception('Please choose Employed, Unemployed or Looking for Job.');
+            }
+        }
+
         $user = $this->loadAdminUser($email);
         if ($names) {
             $customer = $this->loadCustomer($email);
@@ -485,9 +602,10 @@ class MMD_MobileApi_Helper_Data extends Mage_Core_Helper_Abstract
             // The trainer card on the storefront reads courses_trainers; keep it the same.
             $this->_write()->update($this->_table('courses_trainers'), array('linkedin_url' => $link), array('email = ?' => $email));
         }
-        if ($theme !== null || $phone !== null) {
+        if ($theme !== null || $phone !== null || $employment !== null) {
             $row = array('email' => $email, 'updated_at' => $this->utcNow());
             $upd = array('updated_at');
+            if ($employment !== null) { $row['employment_status'] = $employment === '' ? null : $employment; $upd[] = 'employment_status'; }
             if ($theme !== null) { $row['theme'] = $theme; $upd[] = 'theme'; }
             if ($phone !== null) { $row['phone'] = $phone; $upd[] = 'phone'; }
             $this->_write()->insertOnDuplicate($this->_table('mmd_mobile_profile'), $row, $upd);
@@ -499,7 +617,7 @@ class MMD_MobileApi_Helper_Data extends Mage_Core_Helper_Abstract
     {
         try {
             return $this->_read()->fetchRow(
-                'SELECT theme, phone FROM ' . $this->_table('mmd_mobile_profile') . ' WHERE email = ? LIMIT 1', array($email)
+                'SELECT * FROM ' . $this->_table('mmd_mobile_profile') . ' WHERE email = ? LIMIT 1', array($email)
             ) ?: null;
         } catch (Exception $e) {
             return null;   // table not migrated yet

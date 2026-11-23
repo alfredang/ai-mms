@@ -342,6 +342,94 @@ class MMD_MobileApi_Helper_Staff extends Mage_Core_Helper_Abstract
      * Every non-WSQ (C-prefix) course: enabled or disabled, its upcoming class
      * count and next class date.
      */
+    /** Plain text from catalogue HTML: paragraphs and list items become lines. */
+    protected function _plain($html)
+    {
+        $t = preg_replace('#<!--.*?-->#s', '', (string) $html);
+        $t = preg_replace('#</(p|div|h[1-6]|li|tr)>|<br\s*/?>#i', "\n", $t);
+        $t = html_entity_decode(strip_tags($t), ENT_QUOTES, 'UTF-8');
+        $t = preg_replace("/[ \t\xC2\xA0]+/u", ' ', $t);
+        return trim(preg_replace("/\n\s*\n+/", "\n", $t));
+    }
+
+    /**
+     * One non-WSQ course, read-only, as the admin Edit Course page holds it:
+     * status, price, duration, level, software, outline topics, prerequisites,
+     * notes, trainer profile, SEO fields, and its upcoming classes.
+     */
+    public function developerCourse($id)
+    {
+        $id = (int) $id;
+        $r  = $this->_r();
+        $nonWsq = "TRIM(p.sku) REGEXP '" . MMD_MobileApi_Helper_Learner::RUN_SKU_SQL . "'";
+        $ok = (int) $r->fetchOne("SELECT COUNT(*) FROM " . $this->_t('catalog/product') . " p WHERE p.entity_id = ? AND {$nonWsq}", array($id));
+        if (!$ok) return null;
+        $p = Mage::getModel('catalog/product')->setStoreId(0)->load($id);
+        if (!$p->getId()) return null;
+
+        $text = function ($code) use ($p) { return $this->_plain($p->getData($code)); };
+        $opt = function ($code) use ($p) {
+            try { $v = $p->getAttributeText($code); return is_array($v) ? implode(', ', $v) : trim((string) $v); }
+            catch (Exception $e) { return ''; }
+        };
+
+        $topics = array();
+        if (preg_match('/<!--\s*LSN_DATA:\s*(\[.*?\])\s*-->/s', (string) $p->getData('description'), $m)) {
+            $data = json_decode($m[1], true);
+            foreach ((is_array($data) ? $data : array()) as $t) {
+                $subs = array();
+                foreach ((isset($t['subsecs']) && is_array($t['subsecs']) ? $t['subsecs'] : array()) as $sub) {
+                    $title = is_array($sub) ? (isset($sub['title']) ? $sub['title'] : '') : $sub;
+                    if (trim((string) $title) !== '') $subs[] = trim((string) $title);
+                }
+                $topics[] = array('title' => trim((string) (isset($t['title']) ? $t['title'] : '')), 'sub_topics' => $subs);
+            }
+        }
+
+        $today = Mage::helper('mmd_mobileapi')->today();
+        $classes = array();
+        foreach ($r->fetchAll(
+            "SELECT class_id, course_start_date, course_end_date, course_start_time, course_end_time, vacancy, mode_of_training
+               FROM " . $this->_t('course_runs') . " WHERE product_id = ? AND course_start_date >= ? ORDER BY course_start_date LIMIT 20",
+            array($id, $today)) as $c) {
+            $classes[] = array(
+                'class_id'   => (string) $c['class_id'],
+                'start_date' => substr((string) $c['course_start_date'], 0, 10),
+                'end_date'   => substr((string) $c['course_end_date'], 0, 10),
+                'start_time' => substr((string) $c['course_start_time'], 0, 5),
+                'end_time'   => substr((string) $c['course_end_time'], 0, 5),
+                'vacancy'    => (string) $c['vacancy'],
+                'mode'       => (string) $c['mode_of_training'],
+            );
+        }
+        $path = trim((string) $p->getData('url_path'));
+        return array('course' => array(
+            'id'                => $id,
+            'sku'               => trim((string) $p->getSku()),
+            'title'             => trim((string) $p->getName()),
+            'enabled'           => (int) $p->getStatus() === 1,
+            'visibility'        => (int) $p->getVisibility(),
+            'price'             => (float) $p->getPrice(),
+            'currency'          => Mage::helper('mmd_mobileapi')->currencyCode(),
+            'duration_hours'    => (string) $p->getData('duration'),
+            'sessions'          => (string) $p->getData('sessions'),
+            'level'             => $opt('level'),
+            'software'          => $opt('software'),
+            'programming_language' => $opt('progromming_language'),
+            'short_description' => $text('short_description'),
+            'topics'            => $topics,
+            'prerequisite'      => $text('prerequisite'),
+            'additional_note'   => $text('additional_note'),
+            'trainer_profile'   => $text('trainerprofile'),
+            'meta_title'        => trim((string) $p->getData('meta_title')),
+            'meta_description'  => trim((string) $p->getData('meta_description')),
+            'meta_keywords'     => trim((string) $p->getData('meta_keyword')),
+            'url'               => $path !== '' ? rtrim(Mage::app()->getDefaultStoreView()->getBaseUrl(Mage_Core_Model_Store::URL_TYPE_WEB), '/') . '/' . $path : '',
+            'image_url'         => trim((string) $p->getData('course_image_url')),
+            'upcoming_classes'  => $classes,
+        ));
+    }
+
     public function developerCourses()
     {
         $today  = Mage::helper('mmd_mobileapi')->today();
