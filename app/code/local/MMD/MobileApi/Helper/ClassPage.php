@@ -47,9 +47,12 @@ class MMD_MobileApi_Helper_ClassPage extends Mage_Core_Helper_Abstract
         if ((int) $mode === 2) {
             return '';
         }
+        // Floor and unit are stored either bare ("07", "85") or already marked ("#07", "-85").
+        $floor = ltrim(trim((string) $r['venue_floor']), '#');
+        $unit  = ltrim(trim((string) $r['venue_unit']), '-');
         $parts = array_filter(array_map('trim', array(
             (string) $r['venue_block'], (string) $r['venue_street'],
-            trim(($r['venue_floor'] ? '#' . $r['venue_floor'] : '') . ($r['venue_unit'] ? '-' . $r['venue_unit'] : '')),
+            trim(($floor !== '' ? '#' . $floor : '') . ($unit !== '' ? '-' . $unit : '')),
             (string) $r['venue_building'], (string) $r['postal_code'],
         )));
         if ($parts) {
