@@ -102,7 +102,13 @@ SVG;
                 . '.mmd-appb small{font-size:8px;letter-spacing:.06em;text-transform:uppercase;opacity:.8;white-space:nowrap}'
                 . '.mmd-appb strong{font-size:13px;font-weight:600;white-space:nowrap}'
                 . '.mmd-appb-footer{margin:8px 0}.mmd-appb-footer a{min-height:40px}'
-                . '.mmd-appb-login{margin-top:18px;justify-content:center;width:100%}'
+                // Login pages (staff and learner, both dark): the caption on its own line, then
+                // two badges of the same size side by side, centred; they stack on a narrow phone.
+                . '.mmd-appb-login{display:flex;margin-top:18px;justify-content:center;width:100%;gap:10px}'
+                . '.mmd-appb-login .mmd-appb-title{flex:0 0 100%;text-align:center;margin:0 0 2px;font-size:13px;color:#94a3b8;opacity:1}'
+                . '.mmd-appb-login a{box-sizing:border-box;width:156px;min-height:46px;padding:6px 14px;gap:9px;border-color:#4b5563}'
+                . '.mmd-appb-login svg{width:22px;height:22px}'
+                . '.mmd-appb-login small{font-size:9px}.mmd-appb-login strong{font-size:15px}'
                 . '@media (max-width:1100px){.mmd-appb-nav .mmd-appb-title,.mmd-appb-nav small{display:none}}'
                 . '</style>';
         }
