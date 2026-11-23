@@ -4335,12 +4335,13 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                 <div class="lcd-detail-row"><span class="lcd-detail-label">Course Code</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_editCourseData['sku'] ?: '—') ?></span></div>
                 <?php $_cdSched = isset($_devScheduleMap[(int) $_selectedCourseId]) ? $_devScheduleMap[(int) $_selectedCourseId] : ''; ?>
                 <div class="lcd-detail-row"><span class="lcd-detail-label">Course Schedule</span><span class="lcd-detail-value"><?php echo $_cdSched !== '' ? htmlspecialchars($_cdSched) : '—' ?></span></div>
-                <div style="padding:10px 0 0;margin:6px 0 0;">
-                    <div style="font-size:14px;font-weight:700;color:#fff;margin:0 0 6px;">Course Duration</div>
-                    <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;color:var(--t2, #cbd5e1);"><span>Training Hours:</span><strong style="color:#fff"><?php echo $_cdDur ?></strong></div>
-                    <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;color:var(--t2, #cbd5e1);"><span>Assessment Hours:</span><strong style="color:#fff"><?php echo htmlspecialchars($_cdAssessLabel) ?></strong></div>
-                    <div style="height:1px;background:var(--d3, #1e293b);margin:4px 0;"></div>
-                    <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:13px;color:#fff;font-weight:700;"><span>Total Duration:</span><strong><?php echo $_cdTotal ?></strong></div>
+                <?php /* Course Duration: theme-token rows (the old inline #fff text was invisible in the light theme); layout follows ai-lms-tms CourseDetail. Days = total hours / 8, rounded up (7.5 h and 8 h days both give the right count). */ ?>
+                <?php $_cdDays = $_cdTotalNum > 0 ? (int) ceil($_cdTotalNum / 8) : 0; ?>
+                <div style="padding:10px 0 0;margin:6px 0 0;border-top:1px solid var(--b1, #1e293b);">
+                    <div class="lcd-detail-row"><span class="lcd-detail-value">Course Duration</span><span class="lcd-detail-value"><?php echo $_cdDays > 0 ? $_cdDays . ($_cdDays === 1 ? ' day' : ' days') : '—' ?></span></div>
+                    <div class="lcd-detail-row"><span class="lcd-detail-label">Training Hours:</span><span class="lcd-detail-value"><?php echo $_cdDur ?><?php echo $_cdDur !== '—' ? ' hrs' : '' ?></span></div>
+                    <div class="lcd-detail-row"><span class="lcd-detail-label">Assessment Hours:</span><span class="lcd-detail-value"><?php echo is_numeric($_cdAssessLabel) ? htmlspecialchars($_cdAssessLabel) . ' hrs' : '0 hrs' ?></span></div>
+                    <div class="lcd-detail-row"><span class="lcd-detail-value">Total Hours:</span><span class="lcd-detail-value"><?php echo $_cdTotal ?><?php echo $_cdTotal !== '—' ? ' hrs' : '' ?></span></div>
                 </div>
             </div><!-- /.lcd-sidebar-details -->
 
@@ -4405,26 +4406,16 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                 <script src="<?php echo $this->getSkinUrl('js/lesson-builder.js') ?>?v=<?php echo (int) @filemtime(Mage::getBaseDir('skin') . '/adminhtml/default/default/js/lesson-builder.js') ?>"></script>
             </div>
 
-            <!-- Course Settings -->
-            <div class="dcf-section">
+            <!-- Course Settings: holds the Practice Exam setting only, so the whole card stays
+                 hidden until the Tertiary Exams integration is configured (script below). -->
+            <div class="dcf-section" id="dcf-course-settings" hidden>
                 <div class="dcf-section-title">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                     Course Settings
                 </div>
-                <div class="dcf-toggle-row">
-                    <div>
-                        <div class="dcf-toggle-label">Enable Gaming Leaderboard</div>
-                        <div class="dcf-toggle-sub">Allow learners to see a competitive leaderboard for this course.</div>
-                    </div>
-                    <label class="dcf-toggle-sw">
-                        <input type="checkbox" name="enable_leaderboard" value="1" />
-                        <span class="dcf-toggle-slider"></span>
-                    </label>
-                </div>
                 <?php /* Practice Exam (MMD_PracticeExam): saves straight away over AJAX — the inputs
-                         carry no name, so they are not part of the Save Course POST. Hidden
-                         until the Tertiary Exams integration is configured. */ ?>
-                <div id="dcf-pe" hidden style="margin-top:14px;padding-top:14px;border-top:1px solid var(--b1);"
+                         carry no name, so they are not part of the Save Course POST. */ ?>
+                <div id="dcf-pe"
                      data-load="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/practiceexam/course', array('product_id' => (int) $_selectedCourse['id'])) ?>"
                      data-save="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/practiceexam/saveCourse') ?>"
                      data-pid="<?php echo (int) $_selectedCourse['id'] ?>">
@@ -4487,10 +4478,10 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                             if (d.examSlug && !known) sel.add(new Option(d.examCode + ' (saved)', d.examSlug));
                             saved = d.examSlug || '';
                             sel.value = saved; on.checked = !!saved; showPick(!!saved); sync();
-                            box.hidden = false;
+                            document.getElementById('dcf-course-settings').hidden = false;
                             if (d.warning) say(d.warning, false);
                         })
-                        .catch(function () { /* leave the row hidden */ });
+                        .catch(function () { /* leave the card hidden */ });
                     sel.onchange = sync;
                     btn.onclick = function () { if (sel.value) save(sel.value); };
                     on.onchange = function () {
@@ -6737,12 +6728,13 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
         <div class="lcd-detail-row"><span class="lcd-detail-label">Course Type</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_lcdCourseType) ?></span></div>
         <?php $_lcdSched = isset($_devScheduleMap[(int) $_selectedCourse['id']]) ? $_devScheduleMap[(int) $_selectedCourse['id']] : ''; ?>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Course Schedule</span><span class="lcd-detail-value"><?php echo $_lcdSched !== '' ? htmlspecialchars($_lcdSched) : '—' ?></span></div>
-        <div style="padding:10px 0 0;margin:6px 0 0;">
-            <div style="font-size:14px;font-weight:700;color:#fff;margin:0 0 6px;">Course Duration</div>
-            <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;color:var(--t2, #cbd5e1);"><span>Training Hours:</span><strong style="color:#fff"><?php echo $_dDur ?></strong></div>
-            <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;color:var(--t2, #cbd5e1);"><span>Assessment Hours:</span><strong style="color:#fff"><?php echo htmlspecialchars($_assessLabel) ?></strong></div>
-            <div style="height:1px;background:var(--d3, #1e293b);margin:4px 0;"></div>
-            <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:13px;color:#fff;font-weight:700;"><span>Total Duration:</span><strong><?php echo $_totalDur ?></strong></div>
+        <?php /* Course Duration: theme-token rows (the old inline #fff text was invisible in the light theme); layout follows ai-lms-tms CourseDetail. Days = total hours / 8, rounded up (7.5 h and 8 h days both give the right count). */ ?>
+        <?php $_cdDays = $_totalDurNum > 0 ? (int) ceil($_totalDurNum / 8) : 0; ?>
+        <div style="padding:10px 0 0;margin:6px 0 0;border-top:1px solid var(--b1, #1e293b);">
+            <div class="lcd-detail-row"><span class="lcd-detail-value">Course Duration</span><span class="lcd-detail-value"><?php echo $_cdDays > 0 ? $_cdDays . ($_cdDays === 1 ? ' day' : ' days') : '—' ?></span></div>
+            <div class="lcd-detail-row"><span class="lcd-detail-label">Training Hours:</span><span class="lcd-detail-value"><?php echo $_dDur ?><?php echo $_dDur !== '—' ? ' hrs' : '' ?></span></div>
+            <div class="lcd-detail-row"><span class="lcd-detail-label">Assessment Hours:</span><span class="lcd-detail-value"><?php echo is_numeric($_assessLabel) ? htmlspecialchars($_assessLabel) . ' hrs' : '0 hrs' ?></span></div>
+            <div class="lcd-detail-row"><span class="lcd-detail-value">Total Hours:</span><span class="lcd-detail-value"><?php echo $_totalDur ?><?php echo $_totalDur !== '—' ? ' hrs' : '' ?></span></div>
         </div>
         </div><!-- /.lcd-card-body -->
       </div>
@@ -10658,10 +10650,6 @@ $_csv = function ($path, $default = '') use ($_cs) {
             </button>
         </div>
         <div class="cs-section-body" id="cs-body-gamification">
-            <div class="cs-toggle-row">
-                <span>Enable Leaderboard</span>
-                <span class="cs-status disabled" style="margin-left:auto">Disabled</span>
-            </div>
             <div class="cs-toggle-row">
                 <span>Enable Points System</span>
                 <span class="cs-status disabled" style="margin-left:auto">Disabled</span>

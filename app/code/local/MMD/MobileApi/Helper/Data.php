@@ -94,34 +94,43 @@ SVG;
         $style = '';
         if (!$css) {
             $css = true;
+            // Same look as the tertiary-hrms store badges: the official black badge, white
+            // text and logo, a 75% white caption and a 25% white outline. The admin themes
+            // and the storefront colour every link and <small> with !important
+            // (`:root[data-theme="light"] .admin-main a:not(...)`, `.admin-main small`), so
+            // every rule here is anchored on `:root .mmd-appb.mmd-appb a.mmd-appb-badge`
+            // (0,4,1) and carries !important; the `badge` in the class also exempts the
+            // links from the light theme's catch-all link rule.
+            $b = ':root .mmd-appb.mmd-appb a.mmd-appb-badge';
             $style = '<style>'
                 . '.mmd-appb{display:inline-flex;flex-wrap:wrap;align-items:center;gap:8px;vertical-align:middle}'
                 . '.mmd-appb-title{font-size:12px;opacity:.75;margin-right:2px;white-space:nowrap}'
-                . '.mmd-appb a{display:inline-flex;align-items:center;gap:7px;min-height:34px;padding:4px 11px;border-radius:9px;background:#000;color:#fff!important;text-decoration:none!important;border:1px solid #3a3a3a;line-height:1.1}'
-                . '.mmd-appb a:hover,.mmd-appb a:focus-visible{background:#1a1a1a}'
-                . '.mmd-appb svg{width:18px;height:18px;flex:none}'
-                . '.mmd-appb span{display:flex;flex-direction:column;text-align:left}'
-                . '.mmd-appb small{font-size:8px;letter-spacing:.06em;text-transform:uppercase;opacity:.8;white-space:nowrap}'
-                . '.mmd-appb strong{font-size:13px;font-weight:600;white-space:nowrap}'
-                . '.mmd-appb-footer{margin:8px 0}.mmd-appb-footer a{min-height:40px}'
+                . $b . '{display:inline-flex;align-items:center;gap:7px;min-height:34px;padding:4px 11px;border-radius:9px;background:#000!important;color:#fff!important;text-decoration:none!important;border:1px solid rgba(255,255,255,.25)!important;box-shadow:none!important;line-height:1.1}'
+                . $b . ':hover,' . $b . ':focus-visible{background:#1a1a1a!important;color:#fff!important}'
+                . $b . ' *{color:#fff!important}'
+                . $b . ' svg{width:18px;height:18px;flex:none}'
+                . $b . ' span{display:flex;flex-direction:column;text-align:left}'
+                . $b . ' small{font-size:8px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.75)!important;opacity:1!important;white-space:nowrap}'
+                . $b . ' strong{font-size:13px;font-weight:600;letter-spacing:-.01em;white-space:nowrap}'
+                . '.mmd-appb-footer{margin:8px 0}.mmd-appb-footer a.mmd-appb-badge{min-height:40px}'
                 // Login pages (staff and learner, both dark): the caption on its own line, then
                 // two badges of the same size side by side, centred; they stack on a narrow phone.
                 . '.mmd-appb-login{display:flex;margin-top:18px;justify-content:center;width:100%;gap:10px}'
                 . '.mmd-appb-login .mmd-appb-title{flex:0 0 100%;text-align:center;margin:0 0 2px;font-size:13px;color:#94a3b8;opacity:1}'
-                . '.mmd-appb-login a{box-sizing:border-box;width:156px;min-height:46px;padding:6px 14px;gap:9px;border-color:#4b5563}'
-                . '.mmd-appb-login svg{width:22px;height:22px}'
-                . '.mmd-appb-login small{font-size:9px}.mmd-appb-login strong{font-size:15px}'
-                . '@media (max-width:1100px){.mmd-appb-nav .mmd-appb-title,.mmd-appb-nav small{display:none}}'
+                . ':root .mmd-appb.mmd-appb-login a.mmd-appb-badge{box-sizing:border-box;width:156px;min-height:46px;padding:6px 14px;gap:9px}'
+                . ':root .mmd-appb.mmd-appb-login a.mmd-appb-badge svg{width:22px;height:22px}'
+                . ':root .mmd-appb.mmd-appb-login a.mmd-appb-badge small{font-size:9px}:root .mmd-appb.mmd-appb-login a.mmd-appb-badge strong{font-size:15px}'
+                . '@media (max-width:1100px){.mmd-appb-nav .mmd-appb-title,:root .mmd-appb.mmd-appb-nav a.mmd-appb-badge small{display:none}}'
                 . '</style>';
         }
         $h = $style . '<div class="mmd-appb mmd-appb-' . htmlspecialchars($variant) . '" aria-label="Get the mobile app">';
         $h .= '<span class="mmd-appb-title">Get the ' . htmlspecialchars($app['name']) . ' app</span>';
         if ($app['ios'] !== '') {
-            $h .= '<a href="' . htmlspecialchars($app['ios']) . '" target="_blank" rel="noopener noreferrer" aria-label="Download on the App Store">'
+            $h .= '<a class="mmd-appb-badge" href="' . htmlspecialchars($app['ios']) . '" target="_blank" rel="noopener noreferrer" aria-label="Download on the App Store">'
                 . $apple . '<span><small>Download on the</small><strong>App Store</strong></span></a>';
         }
         if ($app['android'] !== '') {
-            $h .= '<a href="' . htmlspecialchars($app['android']) . '" target="_blank" rel="noopener noreferrer" aria-label="Get it on Google Play">'
+            $h .= '<a class="mmd-appb-badge" href="' . htmlspecialchars($app['android']) . '" target="_blank" rel="noopener noreferrer" aria-label="Get it on Google Play">'
                 . $play . '<span><small>Get it on</small><strong>Google Play</strong></span></a>';
         }
         return $h . '</div>';

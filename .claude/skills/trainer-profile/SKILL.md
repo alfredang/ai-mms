@@ -71,6 +71,24 @@ python3 ~/.claude/skills/trainer-profile/trainer_bio.py html bio.txt "Dr. Alfred
 - `data-course-bio` makes this course's bio win over the trainer's shared profile. Use it on SG. On MY / GH use plain `<strong>` (add `--shared-profile`), because those sites have no matching shared profile row.
 - Second paragraph must not contain `<strong>`: the template starts a new trainer at every `<strong>`.
 
+## Catalogue rule: every WSQ course that lists Dr. Alfred Ang (user rule 2026-11-20)
+
+On every enabled TGS- course (WSQ, CASL, IBF) where he is a trainer, his profile meets the standard above and ends with
+his LinkedIn link. Audit: export the `trainerprofile` rows that contain "Alfred Ang", split each blob the way
+`trainers.phtml` does (on `<strong>`), and flag his chunk when it is under 2000 characters, not two paragraphs, or does
+not end with the LinkedIn link. Rewrite only the failures; leave a passing profile alone.
+
+What hides or breaks a profile on the live page (check each after a rewrite):
+
+- **Five-trainer cap.** Only the first five `<strong>` names render. A bolded phrase inside another trainer's bio (for
+  example `<strong>A+, Network+, and Server+</strong>`) counts as a trainer and pushes real ones off the tab: unwrap it.
+- **Leftover tail.** An old bio with a `<strong>` in the middle leaves its second half behind as a fake trainer after the
+  swap. Delete the tail.
+- **Store row override.** A store-1 row with a different trainer set shadows the store-0 row; a profile written to store
+  0 then never shows. Read every store row before writing.
+- When swapping one chunk, confirm by parsing the new blob: same other trainers, same order, their text unchanged, the
+  rewritten trainer present once.
+
 ## Where it is stored
 
 - Product attribute `trainerprofile` (id 153 on SG), table `catalog_product_entity_text`. One chunk per trainer, in display order, at most 5 trainers.
