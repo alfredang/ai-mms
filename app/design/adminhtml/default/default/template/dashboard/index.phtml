@@ -10235,6 +10235,27 @@ $_csv = function ($path, $default = '') use ($_cs) {
                     </div>
                 </div>
 
+                <!-- Admin sign-in with Google: the admin login page and the TC LMS apps' Admin sign-in (MMD_GoogleLogin) -->
+                <div class="cs-card">
+                    <div class="cs-card-title">Admin Sign-in with Google</div>
+                    <div style="font-size:12px;color:var(--t4, #94a3b8);margin-bottom:8px;">
+                        For the admin login page and the TC LMS apps' Admin sign-in. Use an OAuth client of type "Web application"
+                        whose authorised redirect URI is
+                        <code style="word-break:break-all"><?php echo htmlspecialchars(Mage::helper('mmd_googlelogin')->getRedirectUri(), ENT_QUOTES) ?></code>.
+                        Only active admin users can sign in.
+                    </div>
+                    <div class="cs-field" data-path="mmd_company/google/signin_client_id" style="margin-bottom:8px">
+                        <label>Client ID</label>
+                        <div class="cs-val" style="word-break:break-all;font-size:12px;color:var(--t4, #94a3b8)"><?php echo $_csv('mmd_company/google/signin_client_id', '') !== '' ? $_csv('mmd_company/google/signin_client_id', '') : '(not set)' ?></div>
+                        <input type="text" value="<?php echo $_csv('mmd_company/google/signin_client_id', '') ?>"/>
+                    </div>
+                    <div class="cs-field" data-path="mmd_company/google/signin_client_secret">
+                        <label>Client Secret</label>
+                        <div class="cs-val"><span class="cs-masked"><?php echo $_csv('mmd_company/google/signin_client_secret', '') !== '' ? '••••••••' : '(not set)' ?></span></div>
+                        <input type="password" value=""/>
+                    </div>
+                </div>
+
                 <!-- Service Account -->
                 <div class="cs-card">
                     <div class="cs-card-title">Service Account</div>
