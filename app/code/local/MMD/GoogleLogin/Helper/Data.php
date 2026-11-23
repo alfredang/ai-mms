@@ -66,9 +66,20 @@ class MMD_GoogleLogin_Helper_Data extends Mage_Core_Helper_Abstract
         if ($email === '') {
             return null;
         }
+        // Mage_Admin_Model_User has no loadByEmail(): calling it threw "Invalid method"
+        // and every Google sign-in on the staff login ended on the error page.
+        $resource = Mage::getSingleton('core/resource');
+        $id = (int) $resource->getConnection('core_read')->fetchOne(
+            'SELECT user_id FROM ' . $resource->getTableName('admin/user')
+            . ' WHERE LOWER(email) = LOWER(?) ORDER BY is_active DESC, user_id ASC LIMIT 1',
+            array($email)
+        );
+        if (!$id) {
+            return null;
+        }
         /** @var Mage_Admin_Model_User $user */
-        $user = Mage::getModel('admin/user')->loadByEmail($email);
-        if (!$user || !$user->getId()) {
+        $user = Mage::getModel('admin/user')->load($id);
+        if (!$user->getId()) {
             return null;
         }
         if (!$user->getIsActive()) {
