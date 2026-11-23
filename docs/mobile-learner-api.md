@@ -42,8 +42,25 @@ Authenticated calls send `Authorization: Bearer <token>`.
 | GET | `/mobileapi/trainer/class?run_id=` | ✓ trainer | sessions, `roster[]` (`present` = session keys), `attendance_open`, `current_session`, `checkin_url` (learner QR), trainer + learner courseware, `survey_responses` |
 | POST | `/mobileapi/trainer/attendance` | ✓ trainer | `{run_id, session_key, records:[{email, present}]}`: roster members only, while the class is running |
 | GET | `/mobileapi/site/samplecertificate` | – | the App Review account's sample certificate PDF |
+| POST | `/mobileapi/trainer/announcement` | ✓ trainer | `{run_id, message}` posts a text announcement to the class; `{run_id, delete_id}` deletes one → `{announcements[]}` |
+| GET | `/mobileapi/staff/classes?role=admin[&from=&to=]` | ✓ admin | `{today, kpis:{running_today, next_30_days, learners_today}, current[], upcoming[]}`; with `from`/`to` (≤ 62 days) `{classes[]}` for the calendar. Every SKU. |
+| GET | `/mobileapi/staff/courses?role=developer` | ✓ developer / admin | `{today, kpis:{courses, expiring, expired}, courses[{id, sku, title, wsq, enabled, funding_start, funding_end, state: active|expiring|expired|disabled, upcoming_classes, next_class}]}` |
+| GET | `/mobileapi/support` | ✓ | `{support:{email, phone, whatsapp, address, feedback}}` for the Support tab |
+| POST | `/mobileapi/support` | ✓ | `{subject, message, app_version?}` emailed to the academy with the sender's name and email; 5 per account per hour |
 
 ## Rules worth knowing
+
+- **Class page sections (app 1.6).** `learner/class` and `trainer/class` follow the
+  website's class page: `announcements[]` (`id, message, file_name, file_url,
+  posted_by, posted_at`, oldest first, from `mmd_class_announcement`) and
+  `lesson[]` (`title, subtopics[{title, links[{type: web|document|activity|video|quiz,
+  title, url, quiz_id?, questions?, previous?}]}]`; a trainer's quiz `url` is the
+  QR link, a learner's is empty). `trainer/class` adds `practice_exam`
+  (`exam_code, exam_url, self_register_url, open`, or null) and `feedback_summary`
+  (`count, overall, questions[{label, average}], comments[]`, or null for a
+  TMS-managed class). Every class item's `venue` is the run's own venue, else
+  the academy's address (`general/store_information/address`, SG falls back to
+  12 Woodlands Square); Live Online classes have none.
 
 - **Lesson quizzes (`MMD_LessonQuiz`).** `learner/class` lists the class's
   quizzes in `quizzes[]` (`quiz_id`, `title`, `questions` count, `url`,

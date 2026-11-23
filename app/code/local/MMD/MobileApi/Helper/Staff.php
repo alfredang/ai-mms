@@ -259,6 +259,150 @@ class MMD_MobileApi_Helper_Staff extends Mage_Core_Helper_Abstract
         });
     }
 
+    // ---- Admin home and calendar: every class, as the ai-lms-tms admin view ------
+
+    /**
+     * Admin class lists. Without a range: KPIs (running today, starting in the
+     * next 30 days, learners in today's classes) plus `current` (running today)
+     * and `upcoming` (next 30 days). With from/to (Y-m-d): `classes` overlapping
+     * that range, for the calendar. Every SKU (WSQ and non-WSQ).
+     */
+    public function adminClasses($from = '', $to = '')
+    {
+        $today = Mage::helper('mmd_mobileapi')->today();
+        $in30  = date('Y-m-d', strtotime($today . ' +30 days'));
+        $valid = function ($d) { return (bool) preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $d); };
+        if ($valid($from) && $valid($to)) {
+            if ($to < $from || (strtotime($to) - strtotime($from)) > 62 * 86400) {
+                $to = date('Y-m-d', strtotime($from . ' +62 days'));
+            }
+            return array('classes' => $this->_classRows($from, $to, false));
+        }
+        $current  = $this->_classRows($today, $today, false);
+        $upcoming = $this->_classRows(date('Y-m-d', strtotime($today . ' +1 day')), $in30, true);
+        $learners = 0;
+        foreach ($current as $c) $learners += $c['learner_count'];
+        return array(
+            'today'    => $today,
+            'kpis'     => array('running_today' => count($current), 'next_30_days' => count($upcoming), 'learners_today' => $learners),
+            'current'  => $current,
+            'upcoming' => $upcoming,
+        );
+    }
+
+    /** Classes overlapping [from, to]; with $startsInRange only those starting in it. */
+    protected function _classRows($from, $to, $startsInRange)
+    {
+        $runs  = $this->_t('course_runs');
+        $where = $startsInRange
+            ? 'cr.course_start_date >= ? AND cr.course_start_date <= ?'
+            : 'cr.course_start_date <= ? AND COALESCE(cr.course_end_date, cr.course_start_date) >= ?';
+        $bind  = $startsInRange ? array($from, $to) : array($to, $from);
+        $rows  = $this->_r()->fetchAll(
+            "SELECT cr.run_id, cr.class_id, cr.product_id, TRIM(cr.course_sku) AS sku, cr.course_start_date,
+                    COALESCE(cr.course_end_date, cr.course_start_date) AS end_date, cr.course_start_time, cr.course_end_time,
+                    cr.mode_of_training, cr.venue_block, cr.venue_street, cr.venue_building, cr.venue_floor, cr.venue_unit,
+                    cr.postal_code, cr.trainer_user_id, cr.trainer_option_id,
+                    COALESCE(NULLIF(TRIM(CONCAT(COALESCE(au.firstname,''),' ',COALESCE(au.lastname,''))),''), tov.value, '') AS trainer_name,
+                    (SELECT COUNT(*) FROM " . $this->_t('course_run_enrolments') . " e WHERE e.run_id = cr.run_id) AS n
+               FROM {$runs} cr
+          LEFT JOIN " . $this->_t('admin/user') . " au ON au.user_id = cr.trainer_user_id
+          LEFT JOIN " . $this->_t('eav_attribute_option_value') . " tov ON tov.option_id = cr.trainer_option_id AND tov.store_id = 0
+              WHERE cr.course_start_date IS NOT NULL AND {$where}
+              ORDER BY cr.course_start_date, cr.course_start_time, cr.run_id LIMIT 600",
+            $bind
+        );
+        $modes = array(1 => 'Classroom', 2 => 'Live Online', 3 => 'Hybrid');
+        $page  = Mage::helper('mmd_mobileapi/classPage');
+        $out   = array();
+        foreach ($rows as $r) {
+            $mode = (int) $r['mode_of_training'];
+            $out[] = array(
+                'run_id'        => (int) $r['run_id'],
+                'class_id'      => (string) $r['class_id'],
+                'sku'           => (string) $r['sku'],
+                'title'         => $this->_productName((int) $r['product_id'], (string) $r['sku']),
+                'start_date'    => substr((string) $r['course_start_date'], 0, 10),
+                'end_date'      => substr((string) $r['end_date'], 0, 10),
+                'start_time'    => $r['course_start_time'] ? substr((string) $r['course_start_time'], 0, 5) : '',
+                'end_time'      => $r['course_end_time'] ? substr((string) $r['course_end_time'], 0, 5) : '',
+                'mode'          => isset($modes[$mode]) ? $modes[$mode] : 'Classroom',
+                'venue'         => $page->venue($r, $mode),
+                'trainer'       => trim((string) $r['trainer_name']),
+                'learner_count' => (int) $r['n'],
+                'wsq'           => stripos((string) $r['sku'], 'TGS-') === 0,
+            );
+        }
+        return $out;
+    }
+
+    // ---- Developer home: the course list, as the ai-lms-tms developer view ----------
+
+    /**
+     * Every WSQ (TGS-) and non-WSQ (C-prefix) course: enabled or not, funding
+     * validity (WSQ: news_from_date / news_to_date) with Active / Expiring
+     * (3 months or less) / Expired, and the upcoming class count.
+     */
+    public function developerCourses()
+    {
+        $today  = Mage::helper('mmd_mobileapi')->today();
+        $soon   = date('Y-m-d', strtotime($today . ' +3 months'));
+        $r      = $this->_r();
+        $attr   = function ($code) use ($r) {
+            return (int) $r->fetchOne(
+                "SELECT a.attribute_id FROM " . $this->_t('eav_attribute') . " a JOIN " . $this->_t('eav_entity_type')
+                . " t ON t.entity_type_id = a.entity_type_id WHERE t.entity_type_code = 'catalog_product' AND a.attribute_code = ?",
+                array($code));
+        };
+        $name = $attr('name'); $status = $attr('status'); $from = $attr('news_from_date'); $to = $attr('news_to_date');
+        $rows = $r->fetchAll(
+            "SELECT p.entity_id, TRIM(p.sku) AS sku, nm.value AS name, st.value AS status,
+                    fr.value AS fund_from, tt.value AS fund_to,
+                    (SELECT COUNT(*) FROM " . $this->_t('course_runs') . " cr WHERE cr.product_id = p.entity_id AND cr.course_start_date >= ?) AS upcoming,
+                    (SELECT MIN(cr.course_start_date) FROM " . $this->_t('course_runs') . " cr WHERE cr.product_id = p.entity_id AND cr.course_start_date >= ?) AS next_class
+               FROM " . $this->_t('catalog/product') . " p
+          LEFT JOIN " . $this->_t('catalog_product_entity_varchar') . " nm ON nm.entity_id = p.entity_id AND nm.store_id = 0 AND nm.attribute_id = {$name}
+          LEFT JOIN " . $this->_t('catalog_product_entity_int') . " st ON st.entity_id = p.entity_id AND st.store_id = 0 AND st.attribute_id = {$status}
+          LEFT JOIN " . $this->_t('catalog_product_entity_datetime') . " fr ON fr.entity_id = p.entity_id AND fr.store_id = 0 AND fr.attribute_id = {$from}
+          LEFT JOIN " . $this->_t('catalog_product_entity_datetime') . " tt ON tt.entity_id = p.entity_id AND tt.store_id = 0 AND tt.attribute_id = {$to}
+              WHERE (TRIM(p.sku) LIKE 'TGS-%' OR TRIM(p.sku) REGEXP '^C[0-9]')
+              ORDER BY nm.value",
+            array($today, $today)
+        );
+        $out = array(); $expiring = 0; $expired = 0;
+        foreach ($rows as $row) {
+            $wsq  = stripos($row['sku'], 'TGS-') === 0;
+            $end  = $wsq ? substr((string) $row['fund_to'], 0, 10) : '';
+            $end  = ($end === '0000-00-00') ? '' : $end;
+            $state = 'active';
+            if ((int) $row['status'] !== 1) {
+                $state = 'disabled';
+            } elseif ($end !== '' && $end < $today) {
+                $state = 'expired'; $expired++;
+            } elseif ($end !== '' && $end <= $soon) {
+                $state = 'expiring'; $expiring++;
+            }
+            $start = $wsq ? substr((string) $row['fund_from'], 0, 10) : '';
+            $out[] = array(
+                'id'               => (int) $row['entity_id'],
+                'sku'              => (string) $row['sku'],
+                'title'            => trim((string) $row['name']) !== '' ? trim((string) $row['name']) : (string) $row['sku'],
+                'wsq'              => $wsq,
+                'enabled'          => (int) $row['status'] === 1,
+                'funding_start'    => $start === '0000-00-00' ? '' : $start,
+                'funding_end'      => $end,
+                'state'            => $state,
+                'upcoming_classes' => (int) $row['upcoming'],
+                'next_class'       => $row['next_class'] ? substr((string) $row['next_class'], 0, 10) : '',
+            );
+        }
+        return array(
+            'today'   => $today,
+            'kpis'    => array('courses' => count($out), 'expiring' => $expiring, 'expired' => $expired),
+            'courses' => $out,
+        );
+    }
+
     // ---- plumbing -----------------------------------------------------------------
 
     /** SQL condition: order `o` holds at least one non-WSQ (C-prefix) course. */

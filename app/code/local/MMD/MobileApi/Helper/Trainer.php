@@ -247,7 +247,22 @@ class MMD_MobileApi_Helper_Trainer extends Mage_Core_Helper_Abstract
         // The course survey link the trainer shows the class (as a QR code or shared link).
         $native = rtrim(Mage::getBaseUrl(Mage_Core_Model_Store::URL_TYPE_WEB), '/') . '/feedback/respond/index?run_id=' . (int) $run['run_id'];
         $row['feedback_url'] = (string) Mage::helper('mmd_rolemanager/handover')->feedbackUrl((int) $run['run_id'], $native);
+        // The website's class page sections (app 1.6).
+        $page = Mage::helper('mmd_mobileapi/classPage');
+        $rid = (int) $run['run_id'];
+        $row['announcements']    = $page->safe(function () use ($page, $rid) { return $page->announcements($rid); }, array());
+        $row['lesson']           = $page->safe(function () use ($page, $run, $rid, $email) {
+            return $page->lesson((int) $run['product_id'], $rid, $email, true);
+        }, array());
+        $row['practice_exam']    = $page->safe(function () use ($page, $run) { return $page->practiceExam($run); }, null);
+        $row['feedback_summary'] = $page->safe(function () use ($page, $rid) { return $page->feedbackSummary($rid); }, null);
         return $row;
+    }
+
+    /** Is this one of the trainer's classes? */
+    public function teaches($email, $runId)
+    {
+        return (bool) $this->_run($email, $runId);
     }
 
     /**
@@ -466,11 +481,6 @@ class MMD_MobileApi_Helper_Trainer extends Mage_Core_Helper_Abstract
         $start = $this->_ymd($r['course_start_date']);
         $end   = $this->_ymd($r['course_end_date']) ?: $start;
         $mode  = (int) $r['mode_of_training'];
-        $venue = array_filter(array_map('trim', array(
-            (string) $r['venue_block'], (string) $r['venue_street'],
-            trim(($r['venue_floor'] ? '#' . $r['venue_floor'] : '') . ($r['venue_unit'] ? '-' . $r['venue_unit'] : '')),
-            (string) $r['venue_building'], (string) $r['postal_code'],
-        )));
         $link = trim((string) $r['virtual_link']);
         if ($link === '') {
             $link = (string) $this->_read()->fetchOne(
@@ -500,7 +510,8 @@ class MMD_MobileApi_Helper_Trainer extends Mage_Core_Helper_Abstract
             'start_time'   => $this->_hm($r['course_start_time']),
             'end_time'     => $this->_hm($r['course_end_time']),
             'mode'         => isset($this->_modes[$mode]) ? $this->_modes[$mode] : 'Classroom',
-            'venue'        => $mode === 2 ? '' : implode(', ', $venue),
+            // The run's venue, else the academy's address (never just "Classroom").
+            'venue'        => Mage::helper('mmd_mobileapi/classPage')->venue($r, $mode),
             'room'         => (string) $r['room'],
             'virtual_link' => $mode === 1 ? '' : $link,
             'trainer'      => trim((string) $r['trainer_name']),

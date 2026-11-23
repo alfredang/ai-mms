@@ -118,6 +118,12 @@ class MMD_MobileApi_Helper_Learner extends Mage_Core_Helper_Abstract
         $row['certificate'] = isset($certs[(int) $runId]) ? $certs[(int) $runId] : null;
         $row['certificate_rule'] = Mage::helper('mmd_certificate')->attendanceRuleLabel();
         $row['quizzes']     = Mage::helper('mmd_lessonquiz')->quizzesForRun((int) $run['product_id'], (int) $runId, $email);
+        // The website's class page sections (1.6).
+        $page = Mage::helper('mmd_mobileapi/classPage');
+        $row['announcements'] = $page->safe(function () use ($page, $runId) { return $page->announcements((int) $runId); }, array());
+        $row['lesson']        = $page->safe(function () use ($page, $run, $runId, $email) {
+            return $page->lesson((int) $run['product_id'], (int) $runId, $email, false);
+        }, array());
         return $row;
     }
 
@@ -388,11 +394,6 @@ class MMD_MobileApi_Helper_Learner extends Mage_Core_Helper_Abstract
         $start = $this->_ymd($r['course_start_date']);
         $end   = $this->_ymd($r['course_end_date']) ?: $start;
         $mode  = (int) $r['mode_of_training'];
-        $venue = array_filter(array_map('trim', array(
-            (string) $r['venue_block'], (string) $r['venue_street'],
-            trim(($r['venue_floor'] ? '#' . $r['venue_floor'] : '') . ($r['venue_unit'] ? '-' . $r['venue_unit'] : '')),
-            (string) $r['venue_building'], (string) $r['postal_code'],
-        )));
         $link = trim((string) $r['virtual_link']);
         if ($link === '') {
             $link = (string) $this->_read()->fetchOne(
@@ -411,7 +412,8 @@ class MMD_MobileApi_Helper_Learner extends Mage_Core_Helper_Abstract
             'start_time'   => $this->_hm($r['course_start_time']),
             'end_time'     => $this->_hm($r['course_end_time']),
             'mode'         => isset($this->_modes[$mode]) ? $this->_modes[$mode] : 'Classroom',
-            'venue'        => $mode === 2 ? '' : implode(', ', $venue),
+            // The run's venue, else the academy's address (never just "Classroom").
+            'venue'        => Mage::helper('mmd_mobileapi/classPage')->venue($r, $mode),
             'room'         => (string) $r['room'],
             'virtual_link' => $mode === 1 ? '' : $link,
             'trainer'      => trim((string) $r['trainer_name']),

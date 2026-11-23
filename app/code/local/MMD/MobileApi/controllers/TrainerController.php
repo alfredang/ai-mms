@@ -48,6 +48,34 @@ class MMD_MobileApi_TrainerController extends MMD_MobileApi_Controller_Base
         });
     }
 
+    /**
+     * POST {run_id, message} posts a text announcement to the class;
+     * POST {run_id, delete_id} deletes one. Answers the class's posts.
+     */
+    public function announcementAction()
+    {
+        if (!$this->_requirePost() || !$this->_requireTrainer()) return;
+        return $this->_guard(function () {
+            $runId = (int) $this->_input('run_id');
+            if ($this->_isDemo()) {
+                return $this->_ok(array('announcements' => $this->_demo()->announcements(), 'message' => 'Sample class: nothing was posted.'));
+            }
+            if (!$this->_trainer()->teaches($this->_email(), $runId)) {
+                return $this->_error(404, 'This class is not on your account.', 'not_found');
+            }
+            $page = Mage::helper('mmd_mobileapi/classPage');
+            try {
+                $deleteId = (int) $this->_input('delete_id', 0);
+                $items = $deleteId > 0
+                    ? $page->deleteAnnouncement($runId, $deleteId)
+                    : $page->postAnnouncement($this->_email(), $runId, (string) $this->_input('message', ''));
+            } catch (Exception $e) {
+                return $this->_error(422, $e->getMessage(), 'invalid');
+            }
+            return $this->_ok(array('announcements' => $items, 'message' => $deleteId > 0 ? 'Announcement deleted.' : 'Posted to the class.'));
+        });
+    }
+
     /** @return MMD_MobileApi_Helper_Trainer */
     protected function _trainer()
     {

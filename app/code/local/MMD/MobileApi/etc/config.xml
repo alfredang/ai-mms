@@ -31,6 +31,9 @@
       GET  /mobileapi/trainer/classes          classes the trainer teaches (non-WSQ only)
       GET  /mobileapi/trainer/class?run_id=    one class: sessions, roster, courseware, check-in link
       POST /mobileapi/trainer/attendance       mark a session's attendance
+      POST /mobileapi/trainer/announcement     post ({run_id, message}) or delete ({run_id, delete_id}) a class announcement
+      GET  /mobileapi/support                  the academy's contacts for the Support tab
+      POST /mobileapi/support                  email {subject, message} to the academy
       GET  /mobileapi/trainer/payouts          completed payouts (read from the LMS/TMS bridge)
       GET  /mobileapi/trainer/hours            training hours delivered, per class and month
       GET  /mobileapi/trainer/certifications   the trainer's certifications (shared with the web My Profile)
@@ -39,6 +42,8 @@
       POST /mobileapi/profile/avatar           set or remove the picture
       GET  /mobileapi/staff/dashboard?role=    cards and lists for a staff role the account holds
                                                (admin, marketing, developer, franchise_admin)
+      GET  /mobileapi/staff/classes?role=admin[&from=&to=]  admin home (KPIs, current, upcoming) or a calendar range
+      GET  /mobileapi/staff/courses?role=developer          every WSQ / non-WSQ course with funding validity
 
     Auth: "Authorization: Bearer <token>" from /auth/password or /auth/otpverify.
 -->

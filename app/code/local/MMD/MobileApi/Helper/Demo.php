@@ -92,6 +92,18 @@ class MMD_MobileApi_Helper_Demo extends Mage_Core_Helper_Abstract
             'materials'             => array(array('key' => 'course_page', 'title' => 'Course Outline', 'url' => $courseUrl)),
             'documents'             => array(),
             'survey_responses'      => 3,
+            'announcements'         => $this->announcements(),
+            'lesson'                => $this->_lesson(true),
+            'practice_exam'         => null,
+            'feedback_summary'      => array(
+                'count' => 3, 'overall' => 4.6,
+                'questions' => array(
+                    array('label' => 'The trainer explained the topics clearly', 'average' => 4.7),
+                    array('label' => 'The course content met my needs', 'average' => 4.3),
+                    array('label' => 'I would recommend this course', 'average' => 4.7),
+                ),
+                'comments' => array('Very practical, thank you!', 'Great hands-on labs.'),
+            ),
         );
     }
 
@@ -186,10 +198,41 @@ class MMD_MobileApi_Helper_Demo extends Mage_Core_Helper_Abstract
             'url'       => '',
             'previous'  => null,
         ));
+        $run['announcements'] = $this->announcements();
+        $run['lesson']        = $this->_lesson(false);
         return $run;
     }
 
     const SAMPLE_QUIZ_ID = 900101;
+
+    /** The sample class's announcement (nothing is stored for the sample account). */
+    public function announcements()
+    {
+        return array(array(
+            'id' => 1, 'message' => "Welcome to the class! Please bring your laptop. Slides: https://www.tertiarycourses.com.sg",
+            'file_name' => '', 'file_url' => '', 'posted_by' => 'Sample Trainer',
+            'posted_at' => date('D, j M Y', strtotime($this->_today())) . ', 09:00',
+        ));
+    }
+
+    protected function _lesson($trainer)
+    {
+        $sample = $this->quiz(self::SAMPLE_QUIZ_ID);
+        return array(
+            array('title' => 'Topic 1: Getting started', 'subtopics' => array(
+                array('title' => 'Overview of the course', 'links' => array(
+                    array('type' => 'web', 'title' => 'Course page', 'url' => 'https://www.tertiarycourses.com.sg'),
+                )),
+                array('title' => 'Check your understanding', 'links' => array(
+                    array('type' => 'quiz', 'title' => $sample['title'], 'url' => '', 'quiz_id' => self::SAMPLE_QUIZ_ID,
+                          'questions' => count($sample['questions']), 'previous' => null),
+                )),
+            )),
+            array('title' => 'Topic 2: Hands-on practice', 'subtopics' => array(
+                array('title' => 'Guided lab', 'links' => array()),
+            )),
+        );
+    }
 
     /** The sample lesson quiz of the sample classes (same shape as MMD_LessonQuiz_Helper_Data::getQuiz). */
     public function quiz($quizId)
