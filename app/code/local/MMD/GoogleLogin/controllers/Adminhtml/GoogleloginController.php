@@ -84,6 +84,21 @@ class MMD_GoogleLogin_Adminhtml_GoogleloginController extends Mage_Adminhtml_Con
      */
     public function callbackAction()
     {
+        // Never the bare error page: log the cause and return to the login page.
+        try {
+            return $this->_callback();
+        } catch (Exception $e) {
+            Mage::logException($e);
+            Mage::log('GoogleLogin callback failed: ' . get_class($e) . ': ' . $e->getMessage(), null, 'mmd-google.log');
+            Mage::getSingleton('adminhtml/session')->addError(
+                'Google sign-in could not be completed. Please try again, or sign in with your email code.'
+            );
+            $this->_redirect('adminhtml');
+        }
+    }
+
+    protected function _callback()
+    {
         $req = $this->getRequest();
         $session = Mage::getSingleton('core/session');
         $adminSession = Mage::getSingleton('adminhtml/session');
