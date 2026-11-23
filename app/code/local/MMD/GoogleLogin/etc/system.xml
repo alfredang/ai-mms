@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<!--
+  Admin sign-in with Google (MMD_GoogleLogin), also used by the TC LMS apps' Admin sign-in.
+  System > Configuration > Advanced > Admin > Google Sign-in. The secret is stored
+  encrypted in core_config_data. The env vars GOOGLE_OAUTH_CLIENT_ID / _SECRET, when set,
+  take precedence (see MMD_GoogleLogin_Helper_Data).
+-->
+<config>
+    <sections>
+        <admin>
+            <groups>
+                <mmd_googlelogin translate="label comment" module="mmd_googlelogin">
+                    <label>Google Sign-in</label>
+                    <comment><![CDATA[OAuth client (type "Web application") from Google Cloud Console. Its authorised redirect URI must be <code>https://&lt;this site&gt;/adminlogin/googlelogin/callback/</code>. Only active admin users can sign in.]]></comment>
+                    <sort_order>90</sort_order>
+                    <show_in_default>1</show_in_default>
+                    <show_in_website>0</show_in_website>
+                    <show_in_store>0</show_in_store>
+                    <fields>
+                        <client_id translate="label">
+                            <label>Client ID</label>
+                            <frontend_type>text</frontend_type>
+                            <sort_order>10</sort_order>
+                            <show_in_default>1</show_in_default>
+                        </client_id>
+                        <client_secret translate="label">
+                            <label>Client Secret</label>
+                            <frontend_type>obscure</frontend_type>
+                            <backend_model>adminhtml/system_config_backend_encrypted</backend_model>
+                            <sort_order>20</sort_order>
+                            <show_in_default>1</show_in_default>
+                        </client_secret>
+                    </fields>
+                </mmd_googlelogin>
+            </groups>
+        </admin>
+    </sections>
+</config>

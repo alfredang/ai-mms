@@ -1,22 +1,33 @@
 <?php
 /**
- * Read Google OAuth2 credentials from environment variables (.env injected
- * into Apache via docker-compose). Never hard-code secrets. Returns empty
- * string when unset so the login template can hide the button gracefully.
+ * Google OAuth2 credentials: the environment variables (.env injected into Apache
+ * via docker-compose) when set, otherwise the database (System > Configuration >
+ * Advanced > Admin > Google Sign-in; the secret stored encrypted). Never hard-code
+ * secrets. Returns empty string when unset so the login template can hide the
+ * button gracefully.
  */
 class MMD_GoogleLogin_Helper_Data extends Mage_Core_Helper_Abstract
 {
     const ENV_CLIENT_ID     = 'GOOGLE_OAUTH_CLIENT_ID';
     const ENV_CLIENT_SECRET = 'GOOGLE_OAUTH_CLIENT_SECRET';
 
+    const XML_CLIENT_ID     = 'admin/mmd_googlelogin/client_id';
+    const XML_CLIENT_SECRET = 'admin/mmd_googlelogin/client_secret';
+
     public function getClientId()
     {
-        return (string) getenv(self::ENV_CLIENT_ID);
+        $env = trim((string) getenv(self::ENV_CLIENT_ID));
+        return $env !== '' ? $env : trim((string) Mage::getStoreConfig(self::XML_CLIENT_ID, 0));
     }
 
     public function getClientSecret()
     {
-        return (string) getenv(self::ENV_CLIENT_SECRET);
+        $env = trim((string) getenv(self::ENV_CLIENT_SECRET));
+        if ($env !== '') {
+            return $env;
+        }
+        $stored = (string) Mage::getStoreConfig(self::XML_CLIENT_SECRET, 0);
+        return $stored === '' ? '' : trim((string) Mage::helper('core')->decrypt($stored));
     }
 
     public function isConfigured()
