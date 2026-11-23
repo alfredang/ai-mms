@@ -34,7 +34,7 @@ class MMD_MobileApi_StaffController extends MMD_MobileApi_Controller_Base
         });
     }
 
-    /** GET ?role=developer — every WSQ and non-WSQ course with funding validity. */
+    /** GET ?role=developer — every non-WSQ course with its upcoming classes. */
     public function coursesAction()
     {
         if (!$this->_requireLearner()) return;

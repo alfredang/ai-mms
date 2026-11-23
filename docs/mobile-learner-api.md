@@ -43,8 +43,8 @@ Authenticated calls send `Authorization: Bearer <token>`.
 | POST | `/mobileapi/trainer/attendance` | ✓ trainer | `{run_id, session_key, records:[{email, present}]}`: roster members only, while the class is running |
 | GET | `/mobileapi/site/samplecertificate` | – | the App Review account's sample certificate PDF |
 | POST | `/mobileapi/trainer/announcement` | ✓ trainer | `{run_id, message}` posts a text announcement to the class; `{run_id, delete_id}` deletes one → `{announcements[]}` |
-| GET | `/mobileapi/staff/classes?role=admin[&from=&to=]` | ✓ admin | `{today, kpis:{running_today, next_30_days, learners_today}, current[], upcoming[]}`; with `from`/`to` (≤ 62 days) `{classes[]}` for the calendar. Every SKU. |
-| GET | `/mobileapi/staff/courses?role=developer` | ✓ developer / admin | `{today, kpis:{courses, expiring, expired}, courses[{id, sku, title, wsq, enabled, funding_start, funding_end, state: active|expiring|expired|disabled, upcoming_classes, next_class}]}` |
+| GET | `/mobileapi/staff/classes?role=admin[&from=&to=]` | ✓ admin | `{today, kpis:{running_today, next_30_days, learners_today}, current[], upcoming[]}`; with `from`/`to` (≤ 62 days) `{classes[]}` for the calendar. Non-WSQ (C-prefix) only. |
+| GET | `/mobileapi/staff/courses?role=developer` | ✓ developer / admin | `{today, kpis:{courses, with_classes, disabled}, courses[{id, sku, title, enabled, upcoming_classes, next_class}]}`; non-WSQ (C-prefix) only |
 | GET | `/mobileapi/support` | ✓ | `{support:{email, phone, whatsapp, address, feedback}}` for the Support tab |
 | POST | `/mobileapi/support` | ✓ | `{subject, message, app_version?}` emailed to the academy with the sender's name and email; 5 per account per hour |
 
