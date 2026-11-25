@@ -50,16 +50,22 @@ class MMD_Adminhtml_Customoptions_OptionsController extends Mage_Adminhtml_Contr
         $this->_title($this->__('APO'))->_title($this->__('Manage Templates'));
         $this->loadLayout()
             ->_setActiveMenu('catalog/customoptions')
-            ->_addBreadcrumb($this->__('APO'), $this->__('Manage Templates'))
-            ->renderLayout();
+            ->_addBreadcrumb($this->__('APO'), $this->__('Manage Templates'));
+        $this->_addContent($this->getLayout()
+            ->createBlock('mmd/customoptions_options', 'customoptions_options')
+            ->setTemplate('customoptions/options.phtml'));
+        $this->renderLayout();
     }
 
     /** Read-only report: active courses vs schedules per duration series + rebalancing advice. */
     public function distributionAction() {
         $this->_title($this->__('Manage Class Schedule'))->_title($this->__('Schedule Distribution'));
         $this->loadLayout()
-            ->_setActiveMenu('catalog/customoptions')
-            ->renderLayout();
+            ->_setActiveMenu('catalog/customoptions');
+        $this->_addContent($this->getLayout()
+            ->createBlock('mmd/customoptions_distribution', 'customoptions_distribution')
+            ->setTemplate('customoptions/distribution.phtml'));
+        $this->renderLayout();
     }
 
     public function newAction() {
