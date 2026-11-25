@@ -42,6 +42,16 @@ $request = Mage::app()->getRequest();
 $request->setRouteName('mmd')->setModuleName('mmd')->setControllerName('customoptions_options')
     ->setActionName($action)->setControllerModule('MMD_Adminhtml');
 $controller = new SchedulePageRenderingController($request, Mage::app()->getResponse());
+if ($action === 'index') {
+    $sql = MMD_Adminhtml_Block_Customoptions_Options_Grid::durationCodeSql('sample.title');
+    $db = Mage::getSingleton('core/resource')->getConnection('core_read');
+    foreach (array('(SG) WSQ-A01 Weekday' => 'A', 'B19 Weekend' => 'B', 'WSQ-C02' => 'C',
+        'D04' => 'D', 'E01' => 'E', 'a01 lowercase' => 'X', 'xA01 embedded' => 'X',
+        'A1 short code' => 'X', 'Other' => 'X', 'WSQ — C01' => 'C') as $title => $expected) {
+        $actual = $db->fetchOne('SELECT ' . $sql . ' FROM (SELECT ? AS title) sample', array($title));
+        schedulePageCheck($actual === $expected, 'Incorrect duration classification for ' . $title);
+    }
+}
 $session = Mage::getSingleton('admin/session');
 $session->setUser(Mage::getModel('admin/user')->setId(900001));
 foreach (array('admin', 'training_provider', 'developer', 'marketing', 'trainer', 'learner') as $role) {

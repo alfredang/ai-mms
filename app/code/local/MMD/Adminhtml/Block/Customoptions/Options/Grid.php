@@ -74,10 +74,13 @@ class MMD_Adminhtml_Block_Customoptions_Options_Grid extends Mage_Adminhtml_Bloc
 
     /** Series letter of the template code (A=1 day … E=5 days); 'X' when the title has no A–E code. */
     public static function durationCodeSql($titleExpr) {
+      // MySQL 8 rejects binary-string REGEXP operands. Keep case sensitivity
+      // with a text collation that is also supported by MySQL 5.7.
+      $titleExpr = "CONVERT({$titleExpr} USING utf8mb4) COLLATE utf8mb4_bin";
       $sql = 'CASE';
       foreach (array_keys(self::getDurationOptions()) as $letter) {
         if ($letter === 'X') continue;
-        $sql .= " WHEN {$titleExpr} REGEXP BINARY '(^|[^A-Za-z]){$letter}[0-9]{2}' THEN '{$letter}'";
+        $sql .= " WHEN {$titleExpr} REGEXP '(^|[^A-Za-z]){$letter}[0-9]{2}' THEN '{$letter}'";
       }
       return $sql . " ELSE 'X' END";
     }
