@@ -144,6 +144,20 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
 :root[data-theme="light"] .att-empty{color:var(--t4);}
 :root[data-theme="light"] .att-kpi{background:#ffffff;border-color:var(--b1);}
 :root[data-theme="light"] .att-kpi-lbl{color:var(--t4);}
+/* Take Attendance QR zoom: plain magnifier in the modal's top-right corner, same look as the
+   class page's Course Feedback zoom (.lcd-fb-zoom-btn); theme colours from the tokens. */
+.att-modal.att-qr-card{position:relative;}
+.att-qr-zoom{position:absolute;top:14px;right:14px;display:inline-flex !important;align-items:center;justify-content:center;width:34px !important;height:34px !important;min-width:0 !important;min-height:0 !important;padding:0 !important;border:0 !important;border-radius:8px !important;background:transparent !important;background-image:none !important;box-shadow:none !important;color:var(--t4, #94a3b8) !important;cursor:zoom-in !important;opacity:.9;transition:transform .15s ease,color .15s ease,opacity .15s ease;}
+.att-qr-zoom:hover{opacity:1;transform:scale(1.1);color:var(--blue, #60a5fa) !important;}
+.att-qr-zoom:focus-visible{outline:2px solid var(--blue, #60a5fa);outline-offset:2px;}
+.att-qr-zoom > svg{width:22px;height:22px;display:block;pointer-events:none;}
+/* Full-screen QR (shared .lsx-layer, dark by default) turns light in the light theme. */
+:root[data-theme="light"] body .admin-main.lsx-layer.att-qr-fs{background:rgba(241,245,252,.97);}
+:root[data-theme="light"] body .admin-main.lsx-layer.att-qr-fs .lsx-qr h2.lsx-qr-name{color:var(--blue) !important;}
+:root[data-theme="light"] body .admin-main.lsx-layer.att-qr-fs .lsx-qr p{color:var(--t2) !important;}
+:root[data-theme="light"] body .admin-main.lsx-layer.att-qr-fs .lsx-qr p.lsx-qr-link{color:var(--t4) !important;}
+:root[data-theme="light"] body .admin-main.lsx-layer.att-qr-fs .lsx-qr-img{border:1px solid var(--b1);box-shadow:0 8px 30px rgba(15,29,71,.12);}
+:root[data-theme="light"] body .admin-main.lsx-layer.att-qr-fs .lsx-close{background:#ffffff !important;border-color:var(--b2, #cbd5e1) !important;color:var(--t2) !important;}
 </style>
 
 <div class="rm-wrap">
@@ -411,16 +425,15 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
      comes from the load action (checkin_urls, one per session): the QR is for the
      session tab that is selected, and a scan marks that session only. -->
 <div id="att-qr-modal" class="att-modal-bd">
-    <div class="att-modal" style="max-width:360px;text-align:center;">
+    <div class="att-modal att-qr-card" style="max-width:360px;text-align:center;">
+        <button type="button" class="att-qr-zoom" onclick="attZoomQr()" title="Show the QR full screen" aria-label="Show the check-in QR full screen">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/><path d="M11 8v6M8 11h6"/></svg>
+        </button>
         <h3>Take Attendance</h3>
         <div id="att-qr-sess" style="font-size:15px;font-weight:700;color:var(--blue, #60a5fa);margin:-4px 0 10px;"></div>
         <p class="note">Learners scan this to check in for this session &mdash; no login. A learner not yet in this class is registered automatically on their first check-in. From the next session their phone number alone fills in their details.</p>
-        <div style="position:relative;background:#fff;border-radius:12px;padding:14px;display:inline-block;">
+        <div style="background:#fff;border-radius:12px;padding:14px;display:inline-block;">
             <img id="att-qr-img" width="220" height="220" alt="Check-in QR" style="display:block;" />
-            <button type="button" id="att-qr-zoom" onclick="attZoomQr()" title="Show the QR full screen" aria-label="Show the check-in QR full screen"
-                    style="position:absolute;top:-12px;right:-12px;display:inline-flex !important;align-items:center;justify-content:center;width:34px !important;min-width:34px !important;height:34px !important;padding:0 !important;border-radius:50% !important;background:#2563eb !important;border:2px solid #fff !important;color:#fff !important;cursor:pointer;box-shadow:0 2px 8px rgba(15,23,42,.35);">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-            </button>
         </div>
         <div style="margin-top:14px;">
             <input id="att-qr-url" class="att-reason" style="max-width:100%;width:100%;text-align:center;" readonly />
@@ -488,7 +501,7 @@ function attZoomQr() {
     if (!url) return;
     var opener = document.activeElement, overflow = document.body.style.overflow;
     var layer = document.createElement('div');
-    layer.className = 'admin-main lsx-layer lsx-dark';
+    layer.className = 'admin-main lsx-layer lsx-dark att-qr-fs';
     layer.setAttribute('role', 'dialog');
     layer.setAttribute('aria-modal', 'true');
     layer.setAttribute('aria-label', 'Check-in QR code full screen');
