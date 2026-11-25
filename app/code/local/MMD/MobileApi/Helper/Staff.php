@@ -403,9 +403,23 @@ class MMD_MobileApi_Helper_Staff extends Mage_Core_Helper_Abstract
             );
         }
         $path = trim((string) $p->getData('url_path'));
+        $sku  = trim((string) $p->getSku());
+        list($fundFrom, $fundTo) = $this->_fundingValidity($p);
+        $training = (float) $p->getData('duration');
+        $assess   = $this->_assessmentHours($id);
         return array('course' => array(
             'id'                => $id,
-            'sku'               => trim((string) $p->getSku()),
+            // App 1.8 Developer page: identity, funding, hours, courseware, practice exam.
+            'course_type'       => $this->_courseType($p),
+            'funding_validity_start' => $fundFrom,
+            'funding_validity_end'   => $fundTo,
+            'training_hours'    => $training,
+            'assessment_hours'  => $assess,
+            'duration_days'     => ($training + $assess) > 0 ? (int) ceil(($training + $assess) / 8) : 0,
+            'courseware'        => $this->_courseware($id),
+            'practice_exam_setting' => $this->_practiceExamSetting($id),
+            // Fields shown by app 1.7 and earlier.
+            'sku'               => $sku,
             'title'             => trim((string) $p->getName()),
             'enabled'           => (int) $p->getStatus() === 1,
             'visibility'        => (int) $p->getVisibility(),
@@ -441,14 +455,19 @@ class MMD_MobileApi_Helper_Staff extends Mage_Core_Helper_Abstract
                 array($code));
         };
         $name = $attr('name'); $status = $attr('status');
+        $dur = $attr('duration'); $assess = $attr('assessment_duration');
         $nonWsq = "TRIM(p.sku) REGEXP '" . MMD_MobileApi_Helper_Learner::RUN_SKU_SQL . "'";
         $rows = $r->fetchAll(
             "SELECT p.entity_id, TRIM(p.sku) AS sku, nm.value AS name, st.value AS status,
+                    du.value AS training_hours, aov.value AS assessment_hours,
                     (SELECT COUNT(*) FROM " . $this->_t('course_runs') . " cr WHERE cr.product_id = p.entity_id AND cr.course_start_date >= ?) AS upcoming,
                     (SELECT MIN(cr.course_start_date) FROM " . $this->_t('course_runs') . " cr WHERE cr.product_id = p.entity_id AND cr.course_start_date >= ?) AS next_class
                FROM " . $this->_t('catalog/product') . " p
           LEFT JOIN " . $this->_t('catalog_product_entity_varchar') . " nm ON nm.entity_id = p.entity_id AND nm.store_id = 0 AND nm.attribute_id = {$name}
           LEFT JOIN " . $this->_t('catalog_product_entity_int') . " st ON st.entity_id = p.entity_id AND st.store_id = 0 AND st.attribute_id = {$status}
+          LEFT JOIN " . $this->_t('catalog_product_entity_varchar') . " du ON du.entity_id = p.entity_id AND du.store_id = 0 AND du.attribute_id = {$dur}
+          LEFT JOIN " . $this->_t('catalog_product_entity_int') . " ad ON ad.entity_id = p.entity_id AND ad.store_id = 0 AND ad.attribute_id = {$assess}
+          LEFT JOIN " . $this->_t('eav_attribute_option_value') . " aov ON aov.option_id = ad.value AND aov.store_id = 0
               WHERE {$nonWsq}
               ORDER BY nm.value",
             array($today, $today)
@@ -463,6 +482,9 @@ class MMD_MobileApi_Helper_Staff extends Mage_Core_Helper_Abstract
                 'sku'              => (string) $row['sku'],
                 'title'            => trim((string) $row['name']) !== '' ? trim((string) $row['name']) : (string) $row['sku'],
                 'enabled'          => $enabled,
+                'course_type'      => stripos((string) $row['sku'], 'TGS-') === 0 ? 'WSQ' : 'Non-WSQ',
+                'training_hours'   => (float) $row['training_hours'],
+                'assessment_hours' => is_numeric($row['assessment_hours']) ? (float) $row['assessment_hours'] : 0.0,
                 'upcoming_classes' => (int) $row['upcoming'],
                 'next_class'       => $row['next_class'] ? substr((string) $row['next_class'], 0, 10) : '',
             );
@@ -472,6 +494,133 @@ class MMD_MobileApi_Helper_Staff extends Mage_Core_Helper_Abstract
             'kpis'    => array('courses' => count($out), 'with_classes' => $withClasses, 'disabled' => $disabled),
             'courses' => $out,
         );
+    }
+
+    /** Courseware links, in the web course page's order (empty links left out). */
+    protected $_coursewareLabels = array(
+        'trainer_slides_url'    => 'Trainer Slides',
+        'learner_slides_url'    => 'Learner Slides',
+        'lesson_plan_url'       => 'Lesson Plan',
+        'learner_guide_url'     => 'Learner Guide',
+        'facilitator_guide_url' => 'Facilitator Guide',
+        'assessment_plan_url'   => 'Assessment Plan',
+        'lab_url'               => 'Activities / Labs',
+        'lab_simulator_url'     => 'Lab Simulator',
+        'practice_exam_url'     => 'Practice Exam',
+        'courseware_link'       => 'Courseware Folder',
+        'brochure_link'         => 'Brochure',
+    );
+
+    protected function _courseware($productId)
+    {
+        try {
+            $table = $this->_t('course_courseware');
+            $cols  = array_values(array_intersect(array_keys($this->_coursewareLabels), array_keys($this->_r()->describeTable($table))));
+            $row   = $cols ? $this->_r()->fetchRow('SELECT `' . implode('`, `', $cols) . "` FROM {$table} WHERE product_id = ?", array((int) $productId)) : null;
+        } catch (Exception $e) {
+            return array();
+        }
+        $out = array();
+        foreach ($this->_coursewareLabels as $key => $label) {
+            $url = $row && isset($row[$key]) ? trim((string) $row[$key]) : '';
+            if ($url !== '') $out[] = array('key' => $key, 'label' => $label, 'url' => $url);
+        }
+        return $out;
+    }
+
+    /** WSQ / IBF / CASL for a TGS- course (from its funding badge, IBF first), else Non-WSQ: as the web course page. */
+    protected function _courseType($product)
+    {
+        if (stripos(trim((string) $product->getSku()), 'TGS-') !== 0) return 'Non-WSQ';
+        try {
+            $badges = Mage::helper('mmd_courseimage')->getProductBadges($product);
+            if (in_array('IBF', $badges, true)) return 'IBF';
+            if (in_array('CASL', $badges, true)) return 'CASL';
+        } catch (Exception $e) {}
+        return 'WSQ';
+    }
+
+    /**
+     * SSG funding validity [start, end] (yyyy-mm-dd or null): WSQ (TGS-) courses only, from
+     * the TMS support period, else the course's Funding Validity dates. On a C- course those
+     * dates are a legacy class-date mirror, so a non-WSQ course has none (the web shows NA).
+     */
+    protected function _fundingValidity($product)
+    {
+        if (stripos(trim((string) $product->getSku()), 'TGS-') !== 0) return array(null, null);
+        $a = Mage::helper('courses')->getCourseAvailability((int) $product->getId());
+        $from = !empty($a['support_from']) ? $a['support_from'] : $product->getData('news_from_date');
+        $to   = !empty($a['support_to']) ? $a['support_to'] : $product->getData('news_to_date');
+        $day  = function ($v) { $v = substr((string) $v, 0, 10); return ($v === '' || $v === '0000-00-00') ? null : $v; };
+        return array($day($from), $day($to));
+    }
+
+    /** Assessment hours: the assessment_duration option's label (NA or none counts as 0). */
+    protected function _assessmentHours($productId)
+    {
+        try {
+            $r = $this->_r();
+            $attr = (int) $r->fetchOne("SELECT attribute_id FROM " . $this->_t('eav_attribute') . " WHERE entity_type_id = 4 AND attribute_code = 'assessment_duration'");
+            if (!$attr) return 0.0;
+            $label = (string) $r->fetchOne(
+                "SELECT ov.value FROM " . $this->_t('catalog_product_entity_int') . " v
+                   JOIN " . $this->_t('eav_attribute_option_value') . " ov ON ov.option_id = v.value AND ov.store_id = 0
+                  WHERE v.entity_id = ? AND v.attribute_id = ? ORDER BY v.store_id LIMIT 1",
+                array((int) $productId, $attr));
+            return is_numeric($label) ? (float) $label : 0.0;
+        } catch (Exception $e) {
+            return 0.0;
+        }
+    }
+
+    /**
+     * The course's Practice Exam switch, as Edit Course -> Course Settings holds it: whether
+     * the integration is set up, the linked exam (slug '' = off) and the exams to choose from.
+     */
+    protected function _practiceExamSetting($productId)
+    {
+        $pe = Mage::helper('mmd_practiceexam');
+        if (!$pe->isConfigured()) {
+            return array('configured' => false, 'enabled' => false, 'exam_slug' => '', 'exam_code' => '', 'exams' => array(), 'warning' => null);
+        }
+        $exam = $pe->getCourseExam((int) $productId);
+        $exams = array(); $warning = null;
+        try {
+            foreach ($pe->listExams() as $x) {
+                $exams[] = array('slug' => $x['slug'], 'code' => $x['code'], 'title' => $x['title'], 'vendor' => $x['vendor']);
+            }
+        } catch (Exception $e) {
+            $warning = 'Could not reach Tertiary Exams. Try again later.';
+        }
+        return array(
+            'configured' => true,
+            'enabled'    => (bool) $exam,
+            'exam_slug'  => $exam ? (string) $exam['exam_slug'] : '',
+            'exam_code'  => $exam ? (string) $exam['exam_code'] : '',
+            'exams'      => $exams,
+            'warning'    => $warning,
+        );
+    }
+
+    /** Turn a non-WSQ course's practice exam on (link it to $slug) or off (''). Returns the new setting. */
+    public function setPracticeExam($productId, $slug, $by)
+    {
+        $productId = (int) $productId;
+        $nonWsq = "TRIM(p.sku) REGEXP '" . MMD_MobileApi_Helper_Learner::RUN_SKU_SQL . "'";
+        $ok = (int) $this->_r()->fetchOne("SELECT COUNT(*) FROM " . $this->_t('catalog/product') . " p WHERE p.entity_id = ? AND {$nonWsq}", array($productId));
+        if (!$ok) return null;
+        $pe = Mage::helper('mmd_practiceexam');
+        if (!$pe->isConfigured()) throw new Mage_Core_Exception('Practice exams are not set up on this site.');
+        try {
+            $pe->setCourseExam($productId, (string) $slug);
+        } catch (Exception $e) {
+            // Turning one on reads the live exam catalogue: an unknown exam or an unreachable site.
+            throw new Mage_Core_Exception(strpos($e->getMessage(), 'No practice exam matches') === 0
+                ? 'That practice exam is no longer offered. Pick another.'
+                : 'Could not reach Tertiary Exams. Try again later.');
+        }
+        Mage::log(sprintf('app: course %d practice exam -> %s (by %s)', $productId, $slug === '' ? 'off' : $slug, $by), null, 'mmd_practiceexam.log', true);
+        return $this->_practiceExamSetting($productId);
     }
 
     // ---- plumbing -----------------------------------------------------------------

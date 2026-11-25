@@ -62,6 +62,32 @@ class MMD_MobileApi_StaffController extends MMD_MobileApi_Controller_Base
         });
     }
 
+    /**
+     * POST {role: developer|admin, id, exam_slug} — turn a course's Practice Exam on (link it
+     * to that exam) or off (exam_slug ''), as Edit Course -> Course Settings does on the web.
+     * Returns {setting} with the saved state.
+     */
+    public function practiceexamAction()
+    {
+        if (!$this->_requireLearner()) return;
+        if (!$this->_requirePost()) return;
+        return $this->_guard(function () {
+            if (!$this->_holds(array('developer', 'admin'))) {
+                return $this->_error(403, 'This account does not have that role.', 'not_staff');
+            }
+            try {
+                $setting = Mage::helper('mmd_mobileapi/staff')->setPracticeExam(
+                    (int) $this->_input('id'), trim((string) $this->_input('exam_slug', '')), $this->_email());
+            } catch (Mage_Core_Exception $e) {
+                return $this->_error(400, $e->getMessage(), 'practice_exam');
+            }
+            if ($setting === null) {
+                return $this->_error(404, 'Course not found.', 'no_course');
+            }
+            return $this->_ok(array('setting' => $setting));
+        });
+    }
+
     /** The requested role is one of $allowed and one this account holds on the website. */
     protected function _holds(array $allowed)
     {
