@@ -2,6 +2,8 @@
 
 ## Test fixtures
 
+- [MySQL 8 rejects REGEXP BINARY](feedback_mysql8_regexp_binary.md) — use a binary text collation for case-sensitive schedule codes and verify both MySQL 5.7 and the live server dialect.
+
 - [MySQL fixture readiness must use TCP](feedback_mysql_fixture_tcp_readiness.md) — a localhost/socket health check can pass during initialization before the API's TCP connection is available.
 
 Grouped by topic. Pointers only — full content lives in the linked files.
