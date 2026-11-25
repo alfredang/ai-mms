@@ -165,6 +165,7 @@ class MMD_Attendance_IndexController extends Mage_Core_Controller_Front_Action
             . (!empty($r['registered']) ? '<p>You are now registered for this class. Sign in to the learning portal with <strong>'
                 . htmlspecialchars($email) . '</strong> and an email code to get the course material.</p>'
                 . '<p><a class="btn" href="' . htmlspecialchars(Mage::getUrl('lmslogin', array('_nosid' => true))) . '">Open the learning portal</a></p>' : '')
+            . $this->_practiceExamHtml($run, (string) $r['name'], $byPhone ? '' : $email)
             . '<p class="note"><a href="' . htmlspecialchars($again) . '">Check in someone else on this phone</a></p>'
             // Found by phone number alone: the email was never typed here, so it is not sent to the page.
             . ($byPhone ? '' : '<script>' . $this->_profilesJs() . '
@@ -175,6 +176,30 @@ class MMD_Attendance_IndexController extends Mage_Core_Controller_Front_Action
 })();
 </script>');
         $this->_page($title, $body);
+    }
+
+    /**
+     * After check-in: when the course has a practice exam (MMD_PracticeExam), offer the learner
+     * the class's Self-Register form with their name and email filled in. Found by phone only?
+     * Then the email was never typed here and is not put in the link; they enter it on the form.
+     * Nothing shows when the exams token is not set (partner sites) or registration is closed.
+     */
+    protected function _practiceExamHtml(array $run, $name, $email)
+    {
+        try {
+            $pe   = Mage::helper('mmd_practiceexam');
+            $prun = $pe->loadRun((int) $run['run_id']);
+            $exam = $prun ? $pe->getCourseExam($prun['product_id']) : null;
+            if (!$exam || !$pe->isConfigured() || !$pe->selfRegisterOpen($prun)) return '';
+            $url = $pe->selfRegisterUrl($prun['run_id'], $name, $email);
+        } catch (Exception $e) {
+            Mage::logException($e);
+            return '';
+        }
+        $code = htmlspecialchars((string) $exam['exam_code']);
+        return '<div class="pe"><h2>' . $code . ' Practice Exam</h2>'
+            . '<p>This course includes the ' . $code . ' practice exam. Register and we email you the exam link.</p>'
+            . '<a class="btn" href="' . htmlspecialchars($url) . '">Register for the Practice Exam</a></div>';
     }
 
     /** Saved check-in profiles on this device, most recent first. */
@@ -205,6 +230,8 @@ class MMD_Attendance_IndexController extends Mage_Core_Controller_Front_Action
                 . '.msg{padding:12px;border-radius:8px;font-size:15px}.ok{background:#dcfce7;color:#14532d}.err{background:#fee2e2;color:#7f1d1d}'
                 . 'dl{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:15px;margin:16px 0}dt{color:#475569}dd{margin:0;font-weight:600}'
                 . '.note{color:#475569;font-size:13px;margin:16px 0 0}.note a{color:#1d4ed8}'
+                . '.pe{margin:20px 0 0;padding:16px;border:1px solid #bfdbfe;border-radius:10px;background:#eff6ff}'
+                . '.pe h2{font-size:17px;margin:0 0 6px}.pe p{font-size:14px;color:#334155;margin:0}.pe .btn{margin-top:14px}'
                 . '</style></head><body><main class="card"><h1>' . $t . '</h1>' . $body . '</main></body></html>');
     }
 }

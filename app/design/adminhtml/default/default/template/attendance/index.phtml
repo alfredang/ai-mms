@@ -415,8 +415,12 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
         <h3>Take Attendance</h3>
         <div id="att-qr-sess" style="font-size:15px;font-weight:700;color:var(--blue, #60a5fa);margin:-4px 0 10px;"></div>
         <p class="note">Learners scan this to check in for this session &mdash; no login. A learner not yet in this class is registered automatically on their first check-in. From the next session their phone number alone fills in their details.</p>
-        <div style="background:#fff;border-radius:12px;padding:14px;display:inline-block;">
+        <div style="position:relative;background:#fff;border-radius:12px;padding:14px;display:inline-block;">
             <img id="att-qr-img" width="220" height="220" alt="Check-in QR" style="display:block;" />
+            <button type="button" id="att-qr-zoom" onclick="attZoomQr()" title="Show the QR full screen" aria-label="Show the check-in QR full screen"
+                    style="position:absolute;top:-12px;right:-12px;display:inline-flex !important;align-items:center;justify-content:center;width:34px !important;min-width:34px !important;height:34px !important;padding:0 !important;border-radius:50% !important;background:#2563eb !important;border:2px solid #fff !important;color:#fff !important;cursor:pointer;box-shadow:0 2px 8px rgba(15,23,42,.35);">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+            </button>
         </div>
         <div style="margin-top:14px;">
             <input id="att-qr-url" class="att-reason" style="max-width:100%;width:100%;text-align:center;" readonly />
@@ -476,6 +480,41 @@ function attCopyQrUrl(btn) {
     setTimeout(function(){ btn.textContent = orig; }, 1500);
 }
 document.getElementById('att-qr-modal').addEventListener('click', function(e){ if (e.target === this) this.style.display = 'none'; });
+
+// Zoom: the same QR full screen, for a projector or the back of the room. Same full-screen
+// layer as the Lesson quiz QR (.lsx-* in admin-dashboard.css). Esc, X or a click outside closes.
+function attZoomQr() {
+    var url = document.getElementById('att-qr-url').value;
+    if (!url) return;
+    var opener = document.activeElement, overflow = document.body.style.overflow;
+    var layer = document.createElement('div');
+    layer.className = 'admin-main lsx-layer lsx-dark';
+    layer.setAttribute('role', 'dialog');
+    layer.setAttribute('aria-modal', 'true');
+    layer.setAttribute('aria-label', 'Check-in QR code full screen');
+    layer.style.zIndex = '10000';   // above the Take Attendance modal (.att-modal-bd is 9999)
+    layer.innerHTML =
+        '<button type="button" class="lsx-close" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>'
+        + '<div class="lsx-qr">'
+        +   '<h2 class="lsx-qr-name">' + esc(document.getElementById('att-qr-sess').textContent) + '</h2>'
+        +   '<p class="lsx-qr-sub">Scan to check in &middot; no login needed</p>'
+        +   '<div class="lsx-qr-img"><img alt="Check-in QR code" src="https://api.qrserver.com/v1/create-qr-code/?size=800x800&margin=0&data=' + encodeURIComponent(url) + '"></div>'
+        +   '<p class="lsx-qr-link">' + esc(url) + '</p>'
+        + '</div>';
+    function close() {
+        document.removeEventListener('keydown', onKey);
+        document.body.style.overflow = overflow;
+        if (layer.parentNode) layer.parentNode.removeChild(layer);
+        if (opener && opener.focus) opener.focus();
+    }
+    function onKey(e) { if (e.key === 'Escape') { e.stopPropagation(); close(); } }
+    layer.querySelector('.lsx-close').addEventListener('click', close);
+    layer.addEventListener('mousedown', function(e){ if (e.target === layer) close(); });
+    document.addEventListener('keydown', onKey);
+    document.body.style.overflow = 'hidden';
+    document.body.appendChild(layer);
+    layer.querySelector('.lsx-close').focus();
+}
 
 // ── .xlsx download (saved attendance) ───────────────────────────────────────
 function attDownload(all) {
