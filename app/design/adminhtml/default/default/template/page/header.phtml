@@ -253,7 +253,7 @@ foreach (array_keys($helper->getAllRoles()) as $_rc) {
     <?php endif; ?>
 
     <div class="header-right">
-        <?php if (in_array($activeRole, array('learner', 'trainer', 'developer'), true)) { echo Mage::helper('mmd_mobileapi')->appBadgesHtml('nav'); } ?>
+        <?php /* App store pills (ai-lms-tms header): learners, trainers, developers and the admin roles. */ if (in_array($activeRole, array('learner', 'trainer', 'developer', 'admin', 'training_provider', 'franchise_admin'), true)) { echo Mage::helper('mmd_mobileapi')->appBadgesHtml('nav'); } ?>
         <?php /* Audit bell is a Super Admin (training_provider) tool only. */ ?>
         <?php if ($_auditTotal > 0 && $activeRole === MMD_RoleManager_Helper_Data::ROLE_TRAINING_PROVIDER): ?>
         <div class="audit-bell-wrap" id="audit-bell">

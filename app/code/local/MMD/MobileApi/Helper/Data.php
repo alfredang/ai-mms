@@ -77,7 +77,8 @@ class MMD_MobileApi_Helper_Data extends Mage_Core_Helper_Abstract
 
     /**
      * App Store + Google Play badges for this site's app, as HTML ('' when the app has
-     * no live store). $variant: 'nav' (compact, top bar), 'footer' (storefront footer)
+     * no live store). $variant: 'nav' (top bar: the ai-lms-tms outlined pill, store name
+     * only, theme colours), 'footer' (storefront footer)
      * or 'login' (under a sign-in form). Self-contained: its own scoped CSS.
      */
     public function appBadgesHtml($variant = 'nav')
@@ -120,18 +121,31 @@ SVG;
                 . ':root .mmd-appb.mmd-appb-login a.mmd-appb-badge{box-sizing:border-box;width:156px;min-height:46px;padding:6px 14px;gap:9px}'
                 . ':root .mmd-appb.mmd-appb-login a.mmd-appb-badge svg{width:22px;height:22px}'
                 . ':root .mmd-appb.mmd-appb-login a.mmd-appb-badge small{font-size:9px}:root .mmd-appb.mmd-appb-login a.mmd-appb-badge strong{font-size:15px}'
-                . '@media (max-width:1100px){.mmd-appb-nav .mmd-appb-title,:root .mmd-appb.mmd-appb-nav a.mmd-appb-badge small{display:none}}'
+                // Top bar ('nav'): the ai-lms-tms header pill (AppStoreBadges size="outline"):
+                // logo + one-line store name, theme surface, strong border, no caption line.
+                // Dark is the default; <html data-theme="light"> holds the resolved light choice.
+                . '.mmd-appb-nav.mmd-appb{flex-wrap:nowrap;gap:6px}'
+                . ':root .mmd-appb.mmd-appb-nav a.mmd-appb-badge{box-sizing:border-box;min-height:36px;gap:8px;padding:6px 12px;border-radius:12px;background:#1e293b!important;border:1px solid #64748b!important;color:#f1f5f9!important;font-size:14px;font-weight:500;line-height:1.2;white-space:nowrap;transition:background-color .15s}'
+                . ':root .mmd-appb.mmd-appb-nav a.mmd-appb-badge:hover,:root .mmd-appb.mmd-appb-nav a.mmd-appb-badge:focus-visible{background:#334155!important;color:#f1f5f9!important}'
+                . ':root .mmd-appb.mmd-appb-nav a.mmd-appb-badge *{color:inherit!important}'
+                . ':root .mmd-appb.mmd-appb-nav a.mmd-appb-badge svg{width:16px;height:16px}'
+                . ':root[data-theme="light"] .mmd-appb.mmd-appb-nav a.mmd-appb-badge{background:#fff!important;border-color:#8494b5!important;color:#0f1d47!important}'
+                . ':root[data-theme="light"] .mmd-appb.mmd-appb-nav a.mmd-appb-badge:hover,:root[data-theme="light"] .mmd-appb.mmd-appb-nav a.mmd-appb-badge:focus-visible{background:#e6ecf8!important;color:#0f1d47!important}'
+                . '@media (max-width:900px){.mmd-appb-nav{display:none!important}}'
                 . '</style>';
         }
         $h = $style . '<div class="mmd-appb mmd-appb-' . htmlspecialchars($variant) . '" aria-label="Get the mobile app">';
-        $h .= '<span class="mmd-appb-title">Get the ' . htmlspecialchars($app['name']) . ' app</span>';
+        $pill = ($variant === 'nav');
+        if (!$pill) {
+            $h .= '<span class="mmd-appb-title">Get the ' . htmlspecialchars($app['name']) . ' app</span>';
+        }
         if ($app['ios'] !== '') {
-            $h .= '<a class="mmd-appb-badge" href="' . htmlspecialchars($app['ios']) . '" target="_blank" rel="noopener noreferrer" aria-label="Download on the App Store">'
-                . $apple . '<span><small>Download on the</small><strong>App Store</strong></span></a>';
+            $h .= '<a class="mmd-appb-badge" href="' . htmlspecialchars($app['ios']) . '" target="_blank" rel="noopener noreferrer" aria-label="Download on the App Store" title="Download on the App Store">'
+                . $apple . ($pill ? '<span>App Store</span>' : '<span><small>Download on the</small><strong>App Store</strong></span>') . '</a>';
         }
         if ($app['android'] !== '') {
-            $h .= '<a class="mmd-appb-badge" href="' . htmlspecialchars($app['android']) . '" target="_blank" rel="noopener noreferrer" aria-label="Get it on Google Play">'
-                . $play . '<span><small>Get it on</small><strong>Google Play</strong></span></a>';
+            $h .= '<a class="mmd-appb-badge" href="' . htmlspecialchars($app['android']) . '" target="_blank" rel="noopener noreferrer" aria-label="Get it on Google Play" title="Get it on Google Play">'
+                . $play . ($pill ? '<span>Google Play</span>' : '<span><small>Get it on</small><strong>Google Play</strong></span>') . '</a>';
         }
         return $h . '</div>';
     }
