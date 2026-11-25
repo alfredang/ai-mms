@@ -49,6 +49,31 @@ class MMD_MobileApi_TrainerController extends MMD_MobileApi_Controller_Base
     }
 
     /**
+     * POST {run_id, session_key, signer, signature}: a finger signature on the trainer's phone.
+     * signer 'trainer' = the trainer's own signature for the session; a roster learner's
+     * email = that learner signs and is marked present. signature = base64 PNG.
+     */
+    public function signAction()
+    {
+        if (!$this->_requirePost() || !$this->_requireTrainer()) return;
+        return $this->_guard(function () {
+            $runId = (int) $this->_input('run_id');
+            $png   = Mage::helper('mmd_mobileapi/signature')->decode((string) $this->_input('signature', ''));
+            if ($png === null) {
+                return $this->_error(422, 'The signature could not be read. Please sign again.', 'invalid_signature');
+            }
+            $res = $this->_isDemo()
+                ? $this->_demo()->signAttendance($runId)
+                : $this->_trainer()->sign($this->_email(), $runId, (string) $this->_input('session_key', ''),
+                    (string) $this->_input('signer', ''), $png);
+            if (!$res['success']) {
+                return $this->_error(409, $res['message'], 'attendance_rejected');
+            }
+            return $this->_ok(array('message' => $res['message']));
+        });
+    }
+
+    /**
      * POST {run_id, message} posts a text announcement to the class;
      * POST {run_id, delete_id} deletes one. Answers the class's posts.
      */

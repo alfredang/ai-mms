@@ -219,18 +219,21 @@ class MMD_MobileApi_Helper_Trainer extends Mage_Core_Helper_Abstract
             if ($s['key'] === $currentKey) { $currentLbl = $s['label']; break; }
         }
 
+        $signed = Mage::helper('mmd_mobileapi/signature')->signedSessions((int) $run['run_id']);
         $roster = array();
         foreach ($att->rosterForRun($run) as $r) {
             $present = array();
             foreach ((array) $r['att'] as $key => $a) {
                 if (is_array($a) && (int) $a['p'] === 1) $present[] = (string) $key;
             }
+            $lEmail = strtolower(trim((string) $r['learner_email']));
             $roster[] = array(
                 'name'    => trim((string) $r['learner_name']) !== '' ? trim((string) $r['learner_name']) : (string) $r['learner_email'],
-                'email'   => strtolower(trim((string) $r['learner_email'])),
+                'email'   => $lEmail,
                 'phone'   => isset($r['learner_phone']) ? (string) $r['learner_phone'] : '',
                 'walkin'  => !empty($r['is_walkin']),
                 'present' => $present,
+                'signed'  => isset($signed['learner'][$lEmail]) ? $signed['learner'][$lEmail] : array(),
             );
         }
         usort($roster, function ($a, $b) { return strcasecmp($a['name'], $b['name']); });
@@ -241,6 +244,7 @@ class MMD_MobileApi_Helper_Trainer extends Mage_Core_Helper_Abstract
         $row['attendance_open']       = $open;
         $row['checkin_url']           = ($open && $currentKey !== '') ? $att->checkinUrl((int) $run['run_id'], $currentKey) : '';
         $row['roster']                = $roster;
+        $row['trainer_signed']        = isset($signed['trainer'][$email]) ? $signed['trainer'][$email] : array();
         $row['materials']             = $this->_materialsFor((int) $run['product_id']);
         $row['documents']             = $this->_documents((int) $run['product_id']);
         $row['survey_responses']      = $this->_surveyResponses((int) $run['run_id']);
@@ -335,6 +339,74 @@ class MMD_MobileApi_Helper_Trainer extends Mage_Core_Helper_Abstract
             throw $e;
         }
         return array('success' => true, 'message' => 'Attendance saved.');
+    }
+
+    /**
+     * A finger signature taken on the trainer's phone for one session (app 1.5+).
+     * $signer 'trainer' = the trainer signs for the session they teach; otherwise a
+     * roster learner's email = the learner signs on the trainer's phone and is marked present.
+     */
+    public function sign($email, $runId, $sessionKey, $signer, $png)
+    {
+        $run = $this->_run($email, $runId);
+        if (!$run) {
+            return array('success' => false, 'message' => 'This class is not on your account.');
+        }
+        $att        = Mage::helper('mmd_attendance');
+        $sessionKey = strtolower(trim((string) $sessionKey));
+        if (!preg_match('/^[a-z0-9]{2,16}$/', $sessionKey) || !$att->sessionForRun($run, $sessionKey)) {
+            return array('success' => false, 'message' => 'Please choose a session of this class.');
+        }
+        $closed = $this->_attendanceOpen($run);
+        if ($closed !== '') {
+            return array('success' => false, 'message' => $closed);
+        }
+        if (Mage::helper('mmd_rolemanager/handover')->isManaged((int) $run['run_id'])
+            && $sessionKey !== (string) $att->currentSessionKey($run)) {
+            return array('success' => false, 'message' => 'Only the session in progress can be signed for this class.');
+        }
+        $sig    = Mage::helper('mmd_mobileapi/signature');
+        $signer = strtolower(trim((string) $signer));
+
+        if ($signer === 'trainer') {
+            $profile = $this->_h()->learnerProfile($email);
+            $name    = isset($profile['full_name']) && trim($profile['full_name']) !== '' ? $profile['full_name'] : $email;
+            $sig->save($run, $sessionKey, $email, $name, 'trainer', $png, $email);
+            return array('success' => true, 'message' => 'Your signature is saved for this session.');
+        }
+
+        $name = null;
+        foreach ($att->rosterForRun($run) as $r) {
+            if (strtolower(trim((string) $r['learner_email'])) === $signer) {
+                $name = trim((string) $r['learner_name']);
+                break;
+            }
+        }
+        if ($name === null) {
+            return array('success' => false, 'message' => 'This learner is not on the class roster.');
+        }
+        $identity = $this->_h()->trainerIdentity($email);
+        $classId  = (string) $run['class_id'];
+        $write    = $this->_write();
+        $write->beginTransaction();
+        try {
+            $write->insertOnDuplicate($this->_table('mmd_course_run_attendance'), array(
+                'run_id'             => (int) $run['run_id'],
+                'class_id'           => $classId !== '' ? $classId : null,
+                'learner_email'      => $signer,
+                'session_key'        => $sessionKey,
+                'learner_name'       => $name,
+                'is_present'         => 1,
+                'reason_of_absence'  => null,
+                'marked_by_admin_id' => $identity && $identity['user_id'] ? (int) $identity['user_id'] : null,
+            ), array('learner_name', 'is_present', 'reason_of_absence', 'marked_by_admin_id', 'class_id'));
+            $sig->save($run, $sessionKey, $signer, $name, 'learner', $png, $email);
+            $write->commit();
+        } catch (Exception $e) {
+            $write->rollBack();
+            throw $e;
+        }
+        return array('success' => true, 'message' => ($name !== '' ? $name : $signer) . ' signed and is marked present.');
     }
 
     // ── Internals ────────────────────────────────────────────────────────────

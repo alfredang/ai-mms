@@ -29,7 +29,7 @@ Authenticated calls send `Authorization: Bearer <token>`.
 | POST | `/mobileapi/auth/delete` | ✓ | `{confirm:"DELETE"}` — deletes the login account (customer + learner-only shadow admin); staff accounts refused |
 | GET | `/mobileapi/learner/classes` | ✓ | `{today, current[], upcoming[], past[]}` — enrolled runs + unpaid registrations |
 | GET | `/mobileapi/learner/class?run_id=` | ✓ | sessions (+ own attendance), attendance window, learner materials, documents, survey state, certificate |
-| POST | `/mobileapi/learner/attendance` | ✓ | `{run_id}` — self-mark the current session (same rules as the web self-mark) |
+| POST | `/mobileapi/learner/attendance` | ✓ | `{run_id, signature?}` — self-mark the current session (same rules as the web self-mark). `signature` = base64 PNG of the learner's finger signature (app 1.5+), kept in `mmd_attendance_signature`; `learner/class` → `attendance.signed` |
 | GET | `/mobileapi/learner/survey?run_id=` | ✓ | the active in-house survey template, class fields prefilled |
 | POST | `/mobileapi/learner/survey` | ✓ | `{run_id, answers:{field_id:value}}` — once per learner per class |
 | GET | `/mobileapi/learner/quiz?quiz_id=&run_id=` | ✓ | a lesson quiz: `{quiz:{quiz_id,title,questions:[{id,question,options[]}]}, previous}`; correct answers are never sent |
@@ -41,6 +41,7 @@ Authenticated calls send `Authorization: Bearer <token>`.
 | GET | `/mobileapi/trainer/classes` | ✓ trainer | `{today, current[], upcoming[], past[]}`: the classes the trainer teaches, every SKU (WSQ and non-WSQ); items carry `role:"trainer"` and `learner_count` |
 | GET | `/mobileapi/trainer/class?run_id=` | ✓ trainer | sessions, `roster[]` (`present` = session keys), `attendance_open`, `current_session`, `checkin_url` (learner QR), trainer + learner courseware, `survey_responses` |
 | POST | `/mobileapi/trainer/attendance` | ✓ trainer | `{run_id, session_key, records:[{email, present}]}`: roster members only, while the class is running |
+| POST | `/mobileapi/trainer/sign` | ✓ trainer | `{run_id, session_key, signer, signature}`: a finger signature on the trainer's phone (app 1.5+). `signer` = `trainer` (the trainer's own signature for the session) or a roster learner's email (the learner signs and is marked present). Same open-window rules as `trainer/attendance`. `trainer/class` → `roster[].signed`, `trainer_signed` (session keys) |
 | GET | `/mobileapi/site/samplecertificate` | – | the App Review account's sample certificate PDF |
 | POST | `/mobileapi/trainer/announcement` | ✓ trainer | `{run_id, message}` posts a text announcement to the class; `{run_id, delete_id}` deletes one → `{announcements[]}` |
 | GET | `/mobileapi/staff/classes?role=admin[&from=&to=]` | ✓ admin | `{today, kpis:{running_today, next_30_days, learners_today}, current[], upcoming[]}`; with `from`/`to` (≤ 62 days) `{classes[]}` for the calendar. Non-WSQ (C-prefix) only. |

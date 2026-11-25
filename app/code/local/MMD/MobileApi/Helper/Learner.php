@@ -109,6 +109,7 @@ class MMD_MobileApi_Helper_Learner extends Mage_Core_Helper_Abstract
             'current_session'       => $currentKey,
             'current_session_label' => $currentLbl,
             'marked_present'        => $ctx ? (bool) $ctx['already_present'] : false,
+            'signed'                => $currentKey !== '' && in_array($currentKey, $this->_signedKeys((int) $runId, $email), true),
             'sessions_present'      => count(array_filter($marks)),
             'sessions_total'        => count($sessions),
         );
@@ -140,13 +141,26 @@ class MMD_MobileApi_Helper_Learner extends Mage_Core_Helper_Abstract
     }
 
     /** Self-mark the current session. Returns array(success, message). */
-    public function markAttendance($email, $runId)
+    public function markAttendance($email, $runId, $signaturePng = null)
     {
-        if (!$this->_enrolledRun($email, $runId)) {
+        $run = $this->_enrolledRun($email, $runId);
+        if (!$run) {
             return array('success' => false, 'message' => 'You are not on this class roster. Please contact your trainer.');
         }
+        $att  = Mage::helper('mmd_attendance');
         $user = $this->_h()->loadAdminUser($email);
-        return Mage::helper('mmd_attendance')->selfMarkPresent((int) $runId, $email, $user ? (int) $user->getId() : null);
+        $res  = $att->selfMarkPresent((int) $runId, $email, $user ? (int) $user->getId() : null);
+        // App 1.5+: the learner signs with a finger to check in; keep the signature for the session.
+        if ($res['success'] && $signaturePng !== null) {
+            $ctx = $att->getSelfMarkContext((int) $runId, $email);
+            if ($ctx && (string) $ctx['session_key'] !== '') {
+                $profile = $this->_h()->learnerProfile($email);
+                Mage::helper('mmd_mobileapi/signature')->save($run, $ctx['session_key'], $email,
+                    isset($profile['full_name']) ? $profile['full_name'] : '', 'learner', $signaturePng, $email);
+                $res['message'] = 'Signed and marked present. Thank you!';
+            }
+        }
+        return $res;
     }
 
     // ── In-house survey ──────────────────────────────────────────────────────
@@ -675,6 +689,13 @@ class MMD_MobileApi_Helper_Learner extends Mage_Core_Helper_Abstract
     }
 
     /** @return MMD_MobileApi_Helper_Data */
+    /** Session keys this learner has signed in the class (finger signature, app 1.5+). */
+    protected function _signedKeys($runId, $email)
+    {
+        $all = Mage::helper('mmd_mobileapi/signature')->signedSessions($runId);
+        return isset($all['learner'][$email]) ? $all['learner'][$email] : array();
+    }
+
     protected function _h()
     {
         return Mage::helper('mmd_mobileapi');

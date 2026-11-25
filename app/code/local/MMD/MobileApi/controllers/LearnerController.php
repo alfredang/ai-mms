@@ -30,15 +30,26 @@ class MMD_MobileApi_LearnerController extends MMD_MobileApi_Controller_Base
         });
     }
 
-    /** POST {run_id} — mark the learner present for the current session. */
+    /**
+     * POST {run_id, signature?} — mark the learner present for the current session.
+     * signature: base64 PNG of the learner's finger signature (app 1.5+; older builds send none).
+     */
     public function attendanceAction()
     {
         if (!$this->_requirePost() || !$this->_requireLearner()) return;
         return $this->_guard(function () {
             $runId = (int) $this->_input('run_id');
+            $raw   = (string) $this->_input('signature', '');
+            $png   = null;
+            if ($raw !== '') {
+                $png = Mage::helper('mmd_mobileapi/signature')->decode($raw);
+                if ($png === null) {
+                    return $this->_error(422, 'Your signature could not be read. Please sign again.', 'invalid_signature');
+                }
+            }
             $res = $this->_isDemo()
                 ? $this->_demo()->markAttendance($runId)
-                : $this->_learner()->markAttendance($this->_email(), $runId);
+                : $this->_learner()->markAttendance($this->_email(), $runId, $png);
             if (!$res['success']) {
                 return $this->_error(409, $res['message'], 'attendance_rejected');
             }

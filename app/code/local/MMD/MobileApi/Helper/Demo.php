@@ -77,6 +77,7 @@ class MMD_MobileApi_Helper_Demo extends Mage_Core_Helper_Abstract
             $roster[] = array(
                 'name' => $name, 'email' => 'learner' . ($i + 1) . '@example.com', 'phone' => '', 'walkin' => false,
                 'present' => $i < 3 ? array($current) : array(),
+                'signed'  => $i < 2 ? array($current) : array(),
             );
         }
         $courseUrl = $run['course_url'];
@@ -89,6 +90,7 @@ class MMD_MobileApi_Helper_Demo extends Mage_Core_Helper_Abstract
             'attendance_open'       => true,
             'checkin_url'           => $courseUrl,
             'roster'                => $roster,
+            'trainer_signed'        => array(),
             'materials'             => array(array('key' => 'course_page', 'title' => 'Course Outline', 'url' => $courseUrl)),
             'documents'             => array(),
             'survey_responses'      => 3,
@@ -113,6 +115,14 @@ class MMD_MobileApi_Helper_Demo extends Mage_Core_Helper_Abstract
             return array('success' => false, 'message' => 'This class is not on your account.');
         }
         return array('success' => true, 'message' => 'Attendance saved. (Sample account: nothing was recorded.)');
+    }
+
+    public function signAttendance($runId)
+    {
+        if ((int) $runId !== self::RUN_TEACHING) {
+            return array('success' => false, 'message' => 'This class is not on your account.');
+        }
+        return array('success' => true, 'message' => 'Signature received. (Sample account: nothing was recorded.)');
     }
 
     protected function _teachingRun()
