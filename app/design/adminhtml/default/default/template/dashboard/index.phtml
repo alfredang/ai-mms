@@ -6929,8 +6929,26 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
                     var big = ov.querySelector('.lcd-fb-qr-big');
                     if (window.QRCode) new QRCode(big, { text: selfUrl, width: 1024, height: 1024, correctLevel: QRCode.CorrectLevel.M });
                     else big.innerHTML = '<img src="https://api.qrserver.com/v1/create-qr-code/?size=1024x1024&data=' + encodeURIComponent(selfUrl) + '" alt="Practice Exam self-register QR" />';
-                    ov.addEventListener('click', function (e) { if (e.target === ov || e.target.className === 'lcd-fb-qr-close') ov.style.display = 'none'; });
-                    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') ov.style.display = 'none'; });
+                    // Zoom icon (same as the Take Attendance QR): the QR fills the window, caption hidden.
+                    var zb = document.createElement('button');
+                    zb.type = 'button'; zb.className = 'lcd-pe-zoom';
+                    big.appendChild(zb);
+                    var setZoom = function (on) {
+                        ov.classList.toggle('is-zoomed', on);
+                        zb.title = on ? 'Back to normal size' : 'Show the QR full screen';
+                        zb.setAttribute('aria-label', on ? 'Back to normal size' : 'Show the practice exam QR full screen');
+                        zb.innerHTML = on
+                            ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>'
+                            : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>';
+                    };
+                    setZoom(false);
+                    zb.addEventListener('click', function () { setZoom(!ov.classList.contains('is-zoomed')); });
+                    ov._peHide = function () { setZoom(false); ov.style.display = 'none'; };
+                    ov.addEventListener('click', function (e) { if (e.target === ov || e.target.className === 'lcd-fb-qr-close') ov._peHide(); });
+                    document.addEventListener('keydown', function (e) {
+                        if (e.key !== 'Escape' || ov.style.display === 'none') return;
+                        if (ov.classList.contains('is-zoomed')) setZoom(false); else ov._peHide();   // Esc: shrink first, then close
+                    });
                 }
                 ov.style.display = 'flex';
                 ov.querySelector('.lcd-fb-qr-close').focus();

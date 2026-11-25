@@ -4198,6 +4198,16 @@ body[class*="adminhtml-"] .admin-main .middle { animation: mmd-ui-failsafe-revea
 .lcd-pe-count{font-size:12px;font-weight:400;color:var(--t4);font-variant-numeric:tabular-nums}
 .lcd-pe-actions{margin-left:auto;display:inline-flex;gap:6px;flex-wrap:wrap}
 .lcd-pe-note{font-size:12px;color:var(--t4);margin:0 0 10px;line-height:1.5}
+/* Zoom icon on the Self-Register QR (same blue corner icon as the E-Attendance Take Attendance
+   QR): it grows the QR to fill the window and hides the caption; again (or Esc) shrinks it back.
+   The overlay sits on <body>, outside .admin-main, so the button pins its own look. */
+#lcd-pe-qr-overlay .lcd-fb-qr-big{position:relative}
+#lcd-pe-qr-overlay .lcd-pe-zoom{position:absolute;top:-14px;right:-14px;z-index:1;display:inline-flex !important;align-items:center;justify-content:center;width:38px !important;height:38px !important;min-width:0 !important;min-height:0 !important;padding:0 !important;border:2px solid #fff !important;border-radius:50% !important;background:#2563eb !important;background-image:none !important;color:#fff !important;cursor:pointer;box-shadow:0 2px 8px rgba(15,23,42,.35) !important}
+#lcd-pe-qr-overlay .lcd-pe-zoom > svg{width:18px;height:18px;display:block;flex:0 0 auto;pointer-events:none}
+#lcd-pe-qr-overlay .lcd-pe-zoom:focus-visible{outline:3px solid #93c5fd;outline-offset:2px}
+#lcd-pe-qr-overlay.is-zoomed .lcd-fb-qr-title,#lcd-pe-qr-overlay.is-zoomed .lcd-fb-qr-meta{display:none}
+#lcd-pe-qr-overlay.is-zoomed .lcd-fb-qr-big{width:min(calc(100vw - 32px),calc(100vh - 32px))}
+#lcd-pe-qr-overlay.is-zoomed .lcd-pe-zoom{top:8px;right:8px}
 .lcd-pe-note strong{color:var(--t2);font-variant-numeric:tabular-nums}
 .lcd-pe-msg{font-size:12px;margin:0 0 10px}
 .lcd-pe-msg.is-ok{color:var(--green)}
