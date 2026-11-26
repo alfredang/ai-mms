@@ -10,6 +10,13 @@ class MMD_MobileApi_Helper_Signature extends Mage_Core_Helper_Abstract
     const MAX_BYTES = 300000;
 
     /**
+     * Roll-out day of signatures on the QR check-in form (26 Nov 2026): learners marked present
+     * that morning had no way to sign. For a morning session dated up to this day, the
+     * learner's afternoon signature of the same day is copied to it (see _fillMorning).
+     */
+    const MORNING_FILL_UNTIL = '2026-11-26';
+
+    /**
      * Decode and check an app signature (base64 PNG, optional data: prefix).
      * @return string|null PNG bytes, or null if it is not a usable PNG
      */
@@ -87,6 +94,52 @@ class MMD_MobileApi_Helper_Signature extends Mage_Core_Helper_Abstract
             ),
             array('signer_name', 'image_png', 'captured_by_email', 'signed_at', 'class_id')
         );
+        if ($role !== 'trainer' && preg_match('/^d(\d+)pm$/', (string) $sessionKey, $m)) {
+            $this->_fillMorning((int) $run['run_id'], 'd' . $m[1] . 'am', $email, $name, $png, $capturedBy);
+        }
+    }
+
+    /**
+     * Copy an afternoon signature to the same day's morning session when the learner was
+     * marked present that morning but has no morning signature, for morning sessions dated
+     * up to MORNING_FILL_UNTIL. An absent morning is never filled.
+     */
+    protected function _fillMorning($runId, $amKey, $email, $name, $png, $capturedBy)
+    {
+        try {
+            $email = strtolower(trim((string) $email));
+            $res   = Mage::getSingleton('core/resource');
+            $read  = $res->getConnection('core_read');
+            $sigT  = $res->getTableName('mmd_attendance_signature');
+            if ($read->fetchOne("SELECT 1 FROM $sigT WHERE run_id = ? AND session_key = ? AND signer_email = ? AND signer_role = 'learner'",
+                    array($runId, $amKey, $email))) {
+                return;                                         // already signed that morning
+            }
+            if ((int) $read->fetchOne('SELECT is_present FROM ' . $res->getTableName('mmd_course_run_attendance')
+                    . ' WHERE run_id = ? AND LOWER(learner_email) = ? AND session_key = ? LIMIT 1', array($runId, $email, $amKey)) !== 1) {
+                return;                                         // not marked present that morning
+            }
+            $h   = Mage::helper('mmd_attendance');
+            $run = $h->getClassRow($runId);
+            $am  = $run ? $h->sessionForRun($run, $amKey) : null;
+            if (!$am || empty($am['date']) || $am['date'] > self::MORNING_FILL_UNTIL) {
+                return;
+            }
+            $res->getConnection('core_write')->insertIgnore($sigT, array(
+                'run_id'            => $runId,
+                'class_id'          => !empty($run['class_id']) ? (string) $run['class_id'] : null,
+                'session_key'       => $amKey,
+                'signer_email'      => $email,
+                'signer_name'       => (string) $name,
+                'signer_role'       => 'learner',
+                'image_png'         => $png,
+                'captured_by_email' => strtolower(trim((string) $capturedBy)),
+                'signed_at'         => Varien_Date::now(),
+            ));
+            Mage::log(sprintf('signature run %d: %s afternoon signature copied to %s', $runId, $email, $amKey), null, 'attendance.log', true);
+        } catch (Exception $e) {
+            Mage::logException($e);                         // never fail the afternoon signature itself
+        }
     }
 
     /**
