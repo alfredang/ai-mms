@@ -246,7 +246,7 @@ class MMD_Attendance_Helper_Data extends Mage_Core_Helper_Abstract
             return array('id' => (int) $customer->getId(), 'name' => trim($first . ' ' . $last));
         } catch (Exception $e) {
             Mage::log('Attendance walk-in customer create failed: ' . $e->getMessage(), Zend_Log::WARN, 'attendance.log');
-            return array('id' => null, 'name' => $name);
+            return array('id' => null, 'name' => $name, 'error' => $e->getMessage());
         }
     }
 
@@ -1317,7 +1317,11 @@ class MMD_Attendance_Helper_Data extends Mage_Core_Helper_Abstract
         if (!$ctx['enrolled']) {
             $acct = $this->ensureLearnerAccount($name, $email, (int) Mage::app()->getDefaultStoreView()->getWebsiteId());
             if (!$acct['id']) {
-                return array('success' => false, 'message' => 'We could not register you right now. Please ask your trainer.');
+                // A mistyped email (bad domain, no mail server) is the learner's to fix: say so.
+                $err = isset($acct['error']) ? (string) $acct['error'] : '';
+                return array('success' => false, 'message' => stripos($err, 'email') !== false
+                    ? 'Please check your email address. ' . $err
+                    : 'We could not register you right now. Please ask your trainer.');
             }
             $customerId = $acct['id'];
             $name       = $acct['name'];

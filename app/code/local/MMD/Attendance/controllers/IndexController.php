@@ -14,7 +14,8 @@
  * saved name fills the rest. A 30-day HttpOnly cookie (tc_checkin, /checkin only) also carries the last
  * check-in on the phone, so the PM form is filled even without localStorage; after a phone-only
  * check-in it holds the name and phone, never the email. Checking in also registers the learner for the course's practice
- * exam, if it has one (no second form). The learner signs with a finger in the signature box
+ * exam, if it has one (no second form). A Learner / Trainer toggle (Learner by default): Trainer saves the
+ * class trainer's signature for the session (teaches() check; no roster row). The learner signs with a finger in the signature box
  * (required); the signature is saved for the session and shows on E-Attendance and on the
  * signed attendance sheet (PDF). The link's k (HMAC of the run id) stops link guessing; the
  * attendance window (class start to end + 1 day) gates the check-in itself.
@@ -35,7 +36,9 @@ class MMD_Attendance_IndexController extends Mage_Core_Controller_Front_Action
         }
         $title    = 'Class Check-in';
         $classId  = (string) $run['class_id'];
-        $head     = '<p class="course">' . htmlspecialchars((string) $run['course_title']) . '</p>';
+        $head     = '<p class="course">' . htmlspecialchars((string) $run['course_title']) . '</p>'
+            . (!empty($run['course_sku']) ? '<p class="ccode">Course Code: ' . htmlspecialchars((string) $run['course_sku']) . '</p>' : '')
+            . '<div class="runid"><span>Course Run ID</span><b>' . htmlspecialchars($classId) . '</b></div>';
         if (!$h->isWithinAttendanceWindow($run)) {
             return $this->_page($title, $head . '<p class="msg err">Check-in is not open for this class right now.</p>');
         }
@@ -52,10 +55,11 @@ class MMD_Attendance_IndexController extends Mage_Core_Controller_Front_Action
         $name  = trim(preg_replace('/\s+/', ' ', (string) $req->getPost('name')));
         $email = strtolower(trim((string) $req->getPost('email')));
         $phone = trim((string) $req->getPost('phone'));
+        $role  = $req->getPost('role') === 'trainer' ? 'trainer' : 'learner';   // Learner (default) / Trainer toggle
         $msg   = '';
         $sig   = Mage::helper('mmd_mobileapi/signature');
         $byPhone = false;
-        if ($req->isPost() && $email === '' && $phone !== '' && ($known = $h->checkinLearnerByPhone($runId, $phone))) {
+        if ($req->isPost() && $role === 'learner' && $email === '' && $phone !== '' && ($known = $h->checkinLearnerByPhone($runId, $phone))) {
             $email = strtolower((string) $known['learner_email']);     // returning learner: phone number is enough
             $name  = (string) $known['learner_name'];
             $byPhone = true;
@@ -69,6 +73,22 @@ class MMD_Attendance_IndexController extends Mage_Core_Controller_Front_Action
                 $msg = '<p class="msg err">Please enter a valid phone number, or leave it blank.</p>';
             } elseif (!($png = $sig->decode((string) $req->getPost('signature'))) || !$sig->hasInk($png)) {
                 $msg = '<p class="msg err">Please sign in the signature box with your finger, then tap Check In.</p>';
+            } elseif ($role === 'trainer') {
+                // Trainer: signs this session as the class's trainer (same record as E-Attendance
+                // "Sign as Trainer"); only the trainer assigned to this class, never added to the roster.
+                if (!Mage::helper('mmd_mobileapi/trainer')->teaches($email, $runId)) {
+                    $msg = '<p class="msg err">This email is not the trainer of this class. Please use the email of your trainer account, or choose Learner.</p>';
+                    Mage::log(sprintf('QR trainer check-in class %s %s: %s REFUSED not the trainer', $classId, $markKey, $email), null, 'attendance.log', true);
+                } else {
+                    $sig->save(array('run_id' => $runId, 'class_id' => $classId), $markKey, $email, $name, 'trainer', $png, $email);
+                    Mage::log(sprintf('QR trainer check-in class %s %s: %s signed ok', $classId, $markKey, $email), null, 'attendance.log', true);
+                    $this->_saveProfile($name, $email, '', 'trainer');
+                    return $this->_page($title, $head
+                        . '<p class="msg ok">You are checked in as the trainer. Your signature is saved for this session.</p>'
+                        . '<dl><dt>Name</dt><dd>' . htmlspecialchars($name) . '</dd><dt>Class</dt><dd>' . htmlspecialchars($classId) . '</dd>'
+                        . '<dt>Session</dt><dd>' . htmlspecialchars($sessLabel) . '</dd>'
+                        . '<dt>Time</dt><dd>' . htmlspecialchars(Mage::getModel('core/date')->date('d M Y, g:i A')) . '</dd></dl>');
+                }
             } else {
                 try {
                     $r = $h->publicCheckIn($runId, $name, $email, $phone, $markKey, $png);
@@ -87,7 +107,7 @@ class MMD_Attendance_IndexController extends Mage_Core_Controller_Front_Action
         // The last check-in on this phone (cookie set by _success) fills the form for the next
         // session, even when the browser kept no localStorage. Not over typed input or "someone else".
         if (!$req->isPost() && !$req->getParam('new') && ($saved = $this->_savedProfile())) {
-            $name = $saved['name']; $email = $saved['email']; $phone = $saved['phone'];
+            $name = $saved['name']; $email = $saved['email']; $phone = $saved['phone']; $role = $saved['role'];
         }
         $date = Mage::getModel('core/date')->date('d M Y');
         $time = Mage::getModel('core/date')->date('g:i A');
@@ -95,12 +115,14 @@ class MMD_Attendance_IndexController extends Mage_Core_Controller_Front_Action
         $fresh = $req->isPost() || $req->getParam('new') ? '1' : '0';   // don't pre-fill over typed / "someone else"
         $this->_page($title, $head . $msg
             . '<form method="post" action="" autocomplete="on">'
-            . '<label for="ci-phone">Phone</label><input id="ci-phone" name="phone" type="tel" maxlength="40" autocomplete="tel" value="' . htmlspecialchars($phone) . '">'
-            . '<p class="hint" id="ci-hint" role="status">Checked in before? Enter your phone number and we fill in the rest.</p>'
+            . '<div class="seg" role="radiogroup" aria-label="I am checking in as">'
+            . '<label><input type="radio" name="role" value="learner"' . ($role === 'learner' ? ' checked' : '') . '><span>Learner</span></label>'
+            . '<label><input type="radio" name="role" value="trainer"' . ($role === 'trainer' ? ' checked' : '') . '><span>Trainer</span></label></div>'
             . '<label for="ci-name">Name</label><input id="ci-name" name="name" type="text" required maxlength="200" autocomplete="name" list="ci-saved" value="' . htmlspecialchars($name) . '"><datalist id="ci-saved"></datalist>'
             . '<label for="ci-email">Email</label><input id="ci-email" name="email" type="email" required maxlength="255" autocomplete="email" value="' . htmlspecialchars($email) . '">'
-            . '<div class="row"><div><label for="ci-class">Class Code</label><input id="ci-class" type="text" readonly value="' . htmlspecialchars($classId) . '"></div>'
-            . '<div><label for="ci-sess">Session</label><input id="ci-sess" type="text" readonly value="' . htmlspecialchars($sessLabel) . '"></div></div>'
+            . '<div id="ci-phone-wrap"' . ($role === 'trainer' ? ' hidden' : '') . '><label for="ci-phone">Phone <span class="opt">(optional)</span></label><input id="ci-phone" name="phone" type="tel" maxlength="40" autocomplete="tel" value="' . htmlspecialchars($phone) . '"></div>'
+            . '<p class="hint" id="ci-hint" role="status"></p>'
+            . '<label for="ci-sess">Session</label><input id="ci-sess" type="text" readonly value="' . htmlspecialchars($sessLabel) . '">'
             . '<div class="row"><div><label for="ci-date">Date</label><input id="ci-date" type="text" readonly value="' . htmlspecialchars($date) . '"></div>'
             . '<div><label for="ci-time">Time</label><input id="ci-time" type="text" readonly value="' . htmlspecialchars($time) . '"></div></div>'
             . '<div class="sig-head"><span class="lbl" id="ci-sig-label">Signature</span>'
@@ -110,7 +132,6 @@ class MMD_Attendance_IndexController extends Mage_Core_Controller_Front_Action
             . '<input type="hidden" name="signature" id="ci-sig-data">'
             . '<input name="website" type="text" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px">'
             . '<button class="btn" type="submit">Check In</button></form>'
-            . '<p class="note">First time? You are registered for this class when you check in. Next session, your phone number and signature are enough.</p>'
             . '<script>' . $this->_profilesJs() . '
 (function(){
   var P = ciLoad(), n = document.getElementById("ci-name"), e = document.getElementById("ci-email"),
@@ -127,6 +148,26 @@ class MMD_Attendance_IndexController extends Mage_Core_Controller_Front_Action
       hint.textContent = "Welcome back, " + d.name + ". Sign below, then tap Check In.";
     } else { e.required = true; e.placeholder = ""; hint.textContent = hint0; }
   }
+  // Email already on this class roster (checked in before): fill the name if empty.
+  var lastEm = "";
+  var pw = document.getElementById("ci-phone-wrap");
+  function isTrainer(){ var r = document.querySelector("input[name=role]:checked"); return r && r.value === "trainer"; }
+  Array.prototype.forEach.call(document.querySelectorAll("input[name=role]"), function(r){
+    r.addEventListener("change", function(){ pw.hidden = isTrainer(); if (isTrainer()) { e.required = true; e.placeholder = ""; } hint.textContent = ""; });
+  });
+  function lookupEmail(){
+    if (isTrainer()) return;
+    var v = e.value.trim().toLowerCase();
+    if (v === lastEm || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return; lastEm = v;
+    var x = new XMLHttpRequest();
+    x.open("POST", ' . json_encode($lookupUrl) . ');
+    x.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+    x.onload = function(){ try { var d = JSON.parse(x.responseText);
+      if (d && d.found) { if (!n.value.trim()) n.value = d.name; hint.textContent = "Welcome back, " + d.name + ". Sign below, then tap Check In."; }
+    } catch (err) {} };
+    x.send("email=" + encodeURIComponent(v));
+  }
+  e.addEventListener("change", lookupEmail); e.addEventListener("blur", lookupEmail);
   function lookup(){
     var v = ph.value.replace(/\D+/g, "");
     if (v === lastPh) return; lastPh = v;
@@ -189,8 +230,19 @@ class MMD_Attendance_IndexController extends Mage_Core_Controller_Front_Action
         $req   = $this->getRequest();
         $runId = (int) $req->getParam('run');
         $out   = array('found' => false);
-        if ($req->isPost() && $runId > 0 && hash_equals($h->checkinSig($runId, (string) $req->getParam('s')), (string) $req->getParam('k'))
-            && ($known = $h->checkinLearnerByPhone($runId, (string) $req->getPost('phone')))) {
+        $signed = $req->isPost() && $runId > 0 && hash_equals($h->checkinSig($runId, (string) $req->getParam('s')), (string) $req->getParam('k'));
+        $byEmail = strtolower(trim((string) $req->getPost('email')));
+        if ($signed && $byEmail !== '' && filter_var($byEmail, FILTER_VALIDATE_EMAIL)) {
+            $nm = (string) Mage::getSingleton('core/resource')->getConnection('core_read')->fetchOne(
+                'SELECT learner_name FROM ' . Mage::getSingleton('core/resource')->getTableName('course_run_enrolments')
+                . ' WHERE run_id = ? AND LOWER(learner_email) = ? LIMIT 1', array($runId, $byEmail));
+            if ($nm === '' || strpos($nm, '@') !== false) {       // legacy rows hold the email as the name
+                $nm = '';
+                $c = Mage::getModel('customer/customer')->setWebsiteId((int) Mage::app()->getDefaultStoreView()->getWebsiteId())->loadByEmail($byEmail);
+                $nm = $c->getId() ? trim($c->getFirstname() . ' ' . ($c->getLastname() !== '-' ? $c->getLastname() : '')) : '';
+            }
+            if ($nm !== '') $out = array('found' => true, 'name' => $nm);
+        } elseif ($signed && ($known = $h->checkinLearnerByPhone($runId, (string) $req->getPost('phone')))) {
             list($local, $domain) = array_pad(explode('@', (string) $known['learner_email'], 2), 2, '');
             $out = array('found' => true, 'name' => (string) $known['learner_name'],
                 'email' => substr($local, 0, 2) . str_repeat('*', max(3, strlen($local) - 2)) . '@' . $domain);
@@ -288,9 +340,10 @@ class MMD_Attendance_IndexController extends Mage_Core_Controller_Front_Action
     const PROFILE_COOKIE = 'tc_checkin';
 
     /** Remember this phone's check-in (name, email, phone) for 30 days: HttpOnly, this site's /checkin pages only. */
-    protected function _saveProfile($name, $email, $phone)
+    protected function _saveProfile($name, $email, $phone, $role = 'learner')
     {
-        $value = base64_encode(json_encode(array('n' => mb_substr($name, 0, 200), 'e' => mb_substr($email, 0, 255), 'p' => mb_substr($phone, 0, 40))));
+        $value = base64_encode(json_encode(array('n' => mb_substr($name, 0, 200), 'e' => mb_substr($email, 0, 255), 'p' => mb_substr($phone, 0, 40),
+            'r' => $role === 'trainer' ? 'trainer' : 'learner')));
         setcookie(self::PROFILE_COOKIE, $value, array(
             'expires' => time() + 30 * 86400, 'path' => '/checkin', 'secure' => Mage::app()->getStore()->isCurrentlySecure(),
             'httponly' => true, 'samesite' => 'Lax',
@@ -307,7 +360,7 @@ class MMD_Attendance_IndexController extends Mage_Core_Controller_Front_Action
         $email = strtolower(trim((string) (isset($d['e']) ? $d['e'] : '')));
         $phone = trim((string) (isset($d['p']) ? $d['p'] : ''));
         if (mb_strlen($name) < 2 || ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) || ($phone !== '' && !preg_match('/^[0-9+()\-\s]{6,40}$/', $phone))) return null;
-        return array('name' => $name, 'email' => $email, 'phone' => $phone);
+        return array('name' => $name, 'email' => $email, 'phone' => $phone, 'role' => (isset($d['r']) && $d['r'] === 'trainer') ? 'trainer' : 'learner');
     }
 
     /** Saved check-in profiles on this device, most recent first. */
@@ -328,8 +381,19 @@ class MMD_Attendance_IndexController extends Mage_Core_Controller_Front_Action
                 . '<meta name="robots" content="noindex,nofollow"><title>' . $t . '</title><style>'
                 . 'body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f1f5f9;color:#0f172a}'
                 . '.card{max-width:420px;margin:24px auto;padding:26px 22px;background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(15,23,42,.12)}'
-                . 'h1{font-size:22px;margin:0 0 4px}.course{color:#475569;font-size:14px;margin:0 0 16px}'
+                . 'h1{font-size:22px;margin:0 0 4px}.course{color:#0f172a;font-size:16px;font-weight:600;margin:0 0 2px}'
+                . '.ccode{color:#475569;font-size:14px;margin:0 0 10px}'
+                . '.runid{display:flex;flex-direction:column;align-items:center;margin:0 0 16px;padding:8px 12px;border:2px solid #1d4ed8;border-radius:10px;background:#eff6ff}'
+                . '.runid span{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#1e3a8a}'
+                . '.runid b{font-size:30px;font-weight:800;letter-spacing:.04em;color:#0f172a;line-height:1.2}'
                 . 'label{display:block;font-size:14px;font-weight:600;margin:14px 0 6px}.opt{font-weight:400;color:#64748b}'
+                . '.seg{display:flex;gap:0;margin:0 0 6px;border:1px solid #94a3b8;border-radius:10px;overflow:hidden}'
+                . '.seg label{flex:1;margin:0;font-weight:600;font-size:15px;text-align:center;cursor:pointer}'
+                . '.seg input{position:absolute;opacity:0;pointer-events:none}'
+                . '.seg span{display:block;padding:11px 8px;color:#334155;background:#fff}'
+                . '.seg input:checked+span{background:#1d4ed8;color:#fff}'
+                . '.seg input:focus-visible+span{outline:3px solid #93c5fd;outline-offset:-3px}'
+                . '[hidden]{display:none !important}'
                 . 'input[type=text],input[type=email],input[type=tel]{width:100%;box-sizing:border-box;padding:12px;font-size:16px;border:1px solid #94a3b8;border-radius:8px}'
                 . 'input[readonly]{background:#f1f5f9;color:#334155;border-color:#cbd5e1}.hint{color:#475569;font-size:13px;margin:6px 0 0}'
                 . '.row{display:flex;gap:12px}.row>div{flex:1;min-width:0}'
