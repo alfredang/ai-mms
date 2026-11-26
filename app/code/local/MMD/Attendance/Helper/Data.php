@@ -1003,10 +1003,29 @@ class MMD_Attendance_Helper_Data extends Mage_Core_Helper_Abstract
         $img  = function ($var) { return '<img src="var:' . $var . '" style="max-height:11mm;max-width:24mm;" />'; };
         $dates = trim($fmtD($run['course_start_date']) . ' to ' . $fmtD($run['course_end_date']), ' to');
         $org   = (string) Mage::getStoreConfig('general/store_information/name');
+        // Letterhead: company name + UEN from Company Settings (mmd_company/details/*). SG falls back to
+        // Tertiary Infotech Academy; a partner site shows its own store name and a UEN only if it set one.
+        $isSg    = Mage::app()->getDefaultStoreView()->getCode() === 'singapore';
+        $company = trim((string) Mage::getStoreConfig('mmd_company/details/name'));
+        $uen     = trim((string) Mage::getStoreConfig('mmd_company/details/uen'));
+        if ($company === '') $company = $isSg ? 'Tertiary Infotech Academy Pte. Ltd.' : $org;
+        if ($uen === '' && $isSg) $uen = '201200696W';
+        $logo = Mage::getModuleDir('', 'MMD_CourseImage') . DS . 'assets' . DS . 'tertiary-mark.png';
+        $logoTag = is_readable($logo) ? '<img src="var:tia_logo" style="width:14mm;height:14mm;" />' : '';
+        if ($logoTag !== '') $images['tia_logo'] = (string) file_get_contents($logo);
+        $letterhead = '<table class="lh"><tr>'
+            . ($logoTag !== '' ? '<td style="width:17mm;">' . $logoTag . '</td>' : '')
+            . '<td><div class="co">' . $esc($company) . '</div>' . ($uen !== '' ? '<div class="uen">UEN: ' . $esc($uen) . '</div>' : '') . '</td>'
+            . '<td class="ttl">Attendance Sheet</td></tr></table>';
 
         $css = '<style>
             body{font-family:sans-serif;font-size:9pt;color:#0f172a;}
             h1{font-size:15pt;margin:0 0 2mm;}
+            table.lh{width:100%;border-collapse:collapse;margin:0 0 3mm;border-bottom:0.5mm solid #1e3a8a;}
+            table.lh td{vertical-align:middle;padding:0 0 2mm;}
+            .co{font-size:13pt;font-weight:bold;color:#1e3a8a;}
+            .uen{font-size:9pt;color:#475569;margin-top:0.5mm;}
+            td.ttl{text-align:right;font-size:15pt;font-weight:bold;color:#0f172a;}
             .meta td{padding:0.6mm 4mm 0.6mm 0;font-size:9pt;}
             .meta td.k{color:#475569;font-weight:bold;}
             table.sheet{border-collapse:collapse;width:100%;margin-top:4mm;}
@@ -1025,10 +1044,11 @@ class MMD_Attendance_Helper_Data extends Mage_Core_Helper_Abstract
             if ($ci > 0) {
                 $html .= '<pagebreak />';
             }
-            $html .= '<h1>Attendance Sheet</h1><table class="meta">'
-                . '<tr><td class="k">Course</td><td>' . $esc($run['course_title']) . '</td><td class="k">Course code</td><td>' . $esc($run['course_sku']) . '</td></tr>'
-                . '<tr><td class="k">Class ID</td><td>' . $esc($run['class_id']) . '</td><td class="k">Dates</td><td>' . $esc($dates) . '</td></tr>'
-                . '<tr><td class="k">Trainer</td><td>' . $esc($run['trainer_name']) . '</td><td class="k">Learners</td><td>' . count($roster)
+            // Course info in the same order as the check-in QR: title, code, Course Run ID.
+            $html .= $letterhead . '<table class="meta">'
+                . '<tr><td class="k">Course Title</td><td>' . $esc($run['course_title']) . '</td><td class="k">Trainer</td><td>' . $esc($run['trainer_name']) . '</td></tr>'
+                . '<tr><td class="k">Course Code</td><td>' . $esc($run['course_sku']) . '</td><td class="k">Dates</td><td>' . $esc($dates) . '</td></tr>'
+                . '<tr><td class="k">Course Run ID</td><td>' . $esc($run['class_id']) . '</td><td class="k">Learners</td><td>' . count($roster)
                 . (count($chunks) > 1 ? ' &nbsp; <span class="muted">(sessions ' . ($ci * 6 + 1) . '-' . ($ci * 6 + count($chunk)) . ' of ' . count($sessions) . ')</span>' : '') . '</td></tr>'
                 . '</table>';
             $html .= '<table class="sheet"><thead><tr><th style="width:7mm;">#</th><th style="width:38mm;">Name</th><th style="width:50mm;">Email</th><th style="width:26mm;">Tel</th>';
@@ -1087,7 +1107,7 @@ class MMD_Attendance_Helper_Data extends Mage_Core_Helper_Abstract
             $mpdf->imageVars[$var] = $bytes;
         }
         $mpdf->SetHTMLFooter('<table width="100%" style="font-size:7pt;color:#64748b;"><tr><td>'
-            . $esc(trim($org . ' · Signatures captured at check-in (QR form or TC LMS app)')) . ' · Downloaded '
+            . $esc(trim($company . ' · Signatures captured at check-in (QR form or TC LMS app)')) . ' · Downloaded '
             . $esc(Mage::getModel('core/date')->date('d M Y g:i A')) . '</td><td align="right">Page {PAGENO} of {nbpg}</td></tr></table>');
         $mpdf->WriteHTML($html);
         $name = 'Attendance-Sheet-' . preg_replace('/[^A-Za-z0-9._-]+/', '-', (string) ($run['class_id'] ?: $run['run_id'])) . '.pdf';
