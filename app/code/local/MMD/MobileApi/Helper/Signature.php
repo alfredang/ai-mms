@@ -49,7 +49,7 @@ class MMD_MobileApi_Helper_Signature extends Mage_Core_Helper_Abstract
                 'signer_role'       => $role === 'trainer' ? 'trainer' : 'learner',
                 'image_png'         => $png,
                 'captured_by_email' => strtolower(trim((string) $capturedBy)),
-                'signed_at'         => new Zend_Db_Expr('CURRENT_TIMESTAMP'),
+                'signed_at'         => Varien_Date::now(),   // UTC, like the other attendance timestamps
             ),
             array('signer_name', 'image_png', 'captured_by_email', 'signed_at', 'class_id')
         );
@@ -75,5 +75,46 @@ class MMD_MobileApi_Helper_Signature extends Mage_Core_Helper_Abstract
             // Table not migrated yet on this site: nobody has signed.
         }
         return $out;
+    }
+
+    /**
+     * Every signature of one class run, for the website E-Attendance page (no image bytes).
+     * @return array learner => email => session_key => {id, at, by}; trainer => session_key => [{id, email, name, at}]
+     */
+    public function forRun($runId)
+    {
+        $out = array('learner' => array(), 'trainer' => array());
+        try {
+            $res = Mage::getSingleton('core/resource');
+            foreach ($res->getConnection('core_read')->fetchAll(
+                'SELECT signature_id, signer_role, signer_email, signer_name, session_key, captured_by_email, signed_at FROM '
+                . $res->getTableName('mmd_attendance_signature') . ' WHERE run_id = ? ORDER BY signed_at',
+                array((int) $runId)
+            ) as $r) {
+                $email = strtolower((string) $r['signer_email']);
+                $key   = (string) $r['session_key'];
+                if ($r['signer_role'] === 'trainer') {
+                    $out['trainer'][$key][] = array('id' => (int) $r['signature_id'], 'email' => $email,
+                        'name' => (string) $r['signer_name'], 'at' => (string) $r['signed_at']);
+                } else {
+                    $out['learner'][$email][$key] = array('id' => (int) $r['signature_id'], 'at' => (string) $r['signed_at'],
+                        'by' => strtolower((string) $r['captured_by_email']) === $email ? '' : (string) $r['captured_by_email']);
+                }
+            }
+        } catch (Exception $e) {
+            // Table not migrated yet on this site: nobody has signed.
+        }
+        return (object) array('learner' => (object) $out['learner'], 'trainer' => (object) $out['trainer']);
+    }
+
+    /** PNG bytes of one signature of a run, or null. */
+    public function image($runId, $signatureId)
+    {
+        $res = Mage::getSingleton('core/resource');
+        $png = $res->getConnection('core_read')->fetchOne(
+            'SELECT image_png FROM ' . $res->getTableName('mmd_attendance_signature') . ' WHERE signature_id = ? AND run_id = ?',
+            array((int) $signatureId, (int) $runId)
+        );
+        return $png === false || $png === null || $png === '' ? null : $png;
     }
 }

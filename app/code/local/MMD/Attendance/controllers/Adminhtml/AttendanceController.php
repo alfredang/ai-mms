@@ -111,12 +111,55 @@ class MMD_Attendance_Adminhtml_AttendanceController extends Mage_Adminhtml_Contr
                 // Malaysia: per-session timetable for attendance by training hours, and whether changes are corrections.
                 'timetable' => $helper->isMalaysiaSite() ? $helper->timetableForRun($run) : null,
                 'finished'  => $helper->isFinishedRun($run),
+                // Finger signatures from the TC LMS apps (learner check-in, trainer sign-off), without the images.
+                'signatures' => Mage::helper('mmd_mobileapi/signature')->forRun($runId),
                 'cert_roster'  => $certRoster,
                 'confirmation' => $confirmation,
                 'can_confirm'  => $helper->isMalaysiaSite()));
         } catch (Exception $e) {
             $this->_json(array('success' => false, 'message' => $e->getMessage()));
         }
+    }
+
+    /**
+     * GET .pdf — signed attendance sheet: Name, Email, Tel, each session's finger signature,
+     * and the trainer's name and signature per session.
+     * params: run_id
+     */
+    public function exportSignedAction()
+    {
+        try {
+            list($name, $bytes) = Mage::helper('mmd_attendance')->signedAttendancePdf((int) $this->getRequest()->getParam('run_id'));
+            $this->getResponse()->setHttpResponseCode(200)
+                ->setHeader('Content-Type', 'application/pdf', true)
+                ->setHeader('Content-Disposition', 'attachment; filename="' . $name . '"', true)
+                ->setHeader('Content-Length', (string) strlen($bytes), true)
+                ->setHeader('Cache-Control', 'no-store', true)
+                ->setBody($bytes);
+        } catch (Exception $e) {
+            $this->getResponse()->setHttpResponseCode(400)
+                ->setHeader('Content-Type', 'text/plain; charset=UTF-8', true)
+                ->setBody('Download failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * GET image/png — one finger signature of a class (E-Attendance page).
+     * params: run_id, id
+     */
+    public function signatureAction()
+    {
+        $png = Mage::helper('mmd_mobileapi/signature')->image(
+            (int) $this->getRequest()->getParam('run_id'), (int) $this->getRequest()->getParam('id'));
+        if ($png === null) {
+            $this->getResponse()->setHttpResponseCode(404)->setHeader('Content-Type', 'text/plain', true)->setBody('Not found');
+            return;
+        }
+        $this->getResponse()->setHttpResponseCode(200)
+            ->setHeader('Content-Type', 'image/png', true)
+            ->setHeader('Cache-Control', 'private, max-age=86400', true)
+            ->setHeader('X-Content-Type-Options', 'nosniff', true)
+            ->setBody($png);
     }
 
     /**

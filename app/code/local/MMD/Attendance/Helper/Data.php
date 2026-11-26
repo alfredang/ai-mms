@@ -936,6 +936,139 @@ class MMD_Attendance_Helper_Data extends Mage_Core_Helper_Abstract
     // ── .xlsx download ───────────────────────────────────────────────────────
 
     /**
+     * Signed attendance sheet (PDF, A4 landscape): Name, Email, Tel, then each session's finger signature
+     * from the TC LMS app (Day 1 AM, Day 1 PM, ...), with a closing row for the trainer's name and signature
+     * per session. A learner marked present without a signature shows "Present"; unmarked shows "Absent".
+     * @return array(filename, bytes)
+     */
+    public function signedAttendancePdf($runId)
+    {
+        $run = $this->getClassRow($runId);
+        if (!$run) {
+            throw new Exception('Class not found.');
+        }
+        $sessions = $this->sessionsForRun($run);
+        $roster   = $this->rosterForRun($run);
+        usort($roster, function ($a, $b) { return strcasecmp((string) $a['learner_name'], (string) $b['learner_name']); });
+
+        // Every signature of the class, with its image.
+        $learnerSig = array(); $trainerSig = array(); $images = array();
+        try {
+            $res = Mage::getSingleton('core/resource');
+            foreach ($res->getConnection('core_read')->fetchAll(
+                'SELECT signature_id, signer_role, signer_email, signer_name, session_key, image_png FROM '
+                . $res->getTableName('mmd_attendance_signature') . ' WHERE run_id = ? ORDER BY signed_at',
+                array((int) $runId)
+            ) as $r) {
+                $var = 'sig' . (int) $r['signature_id'];
+                $images[$var] = $r['image_png'];
+                if ($r['signer_role'] === 'trainer') {
+                    $trainerSig[$r['session_key']] = array('var' => $var, 'name' => (string) $r['signer_name']);
+                } else {
+                    $learnerSig[strtolower((string) $r['signer_email'])][$r['session_key']] = $var;
+                }
+            }
+        } catch (Exception $e) {
+            // Table not migrated yet on this site: no signatures.
+        }
+
+        $esc  = function ($v) { return htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8'); };
+        $fmtD = function ($d) { return ($d && $d !== '0000-00-00') ? date('d M Y', strtotime($d)) : ''; };
+        $img  = function ($var) { return '<img src="var:' . $var . '" style="max-height:11mm;max-width:24mm;" />'; };
+        $dates = trim($fmtD($run['course_start_date']) . ' to ' . $fmtD($run['course_end_date']), ' to');
+        $org   = (string) Mage::getStoreConfig('general/store_information/name');
+
+        $css = '<style>
+            body{font-family:sans-serif;font-size:9pt;color:#0f172a;}
+            h1{font-size:15pt;margin:0 0 2mm;}
+            .meta td{padding:0.6mm 4mm 0.6mm 0;font-size:9pt;}
+            .meta td.k{color:#475569;font-weight:bold;}
+            table.sheet{border-collapse:collapse;width:100%;margin-top:4mm;}
+            table.sheet th{background:#1e3a8a;color:#fff;font-size:8pt;padding:1.5mm;border:0.2mm solid #1e3a8a;text-align:left;}
+            table.sheet th.s{text-align:center;}
+            table.sheet td{border:0.2mm solid #94a3b8;padding:1.2mm;font-size:8pt;vertical-align:middle;}
+            table.sheet td.s{text-align:center;height:13mm;}
+            .muted{color:#64748b;font-size:7.5pt;}
+            .absent{color:#b91c1c;font-size:7.5pt;}
+            tr.trainer td{border-top:0.5mm solid #1e3a8a;}
+        </style>';
+
+        $html = $css;
+        $chunks = array_chunk($sessions, 6);   // at most 6 session columns per page
+        foreach ($chunks as $ci => $chunk) {
+            if ($ci > 0) {
+                $html .= '<pagebreak />';
+            }
+            $html .= '<h1>Attendance Sheet</h1><table class="meta">'
+                . '<tr><td class="k">Course</td><td>' . $esc($run['course_title']) . '</td><td class="k">Course code</td><td>' . $esc($run['course_sku']) . '</td></tr>'
+                . '<tr><td class="k">Class ID</td><td>' . $esc($run['class_id']) . '</td><td class="k">Dates</td><td>' . $esc($dates) . '</td></tr>'
+                . '<tr><td class="k">Trainer</td><td>' . $esc($run['trainer_name']) . '</td><td class="k">Learners</td><td>' . count($roster)
+                . (count($chunks) > 1 ? ' &nbsp; <span class="muted">(sessions ' . ($ci * 6 + 1) . '-' . ($ci * 6 + count($chunk)) . ' of ' . count($sessions) . ')</span>' : '') . '</td></tr>'
+                . '</table>';
+            $html .= '<table class="sheet"><thead><tr><th style="width:7mm;">#</th><th style="width:38mm;">Name</th><th style="width:50mm;">Email</th><th style="width:26mm;">Tel</th>';
+            foreach ($chunk as $sx) {
+                $html .= '<th class="s">' . $esc('Day ' . $sx['day'] . ' ' . $sx['ampm'])
+                    . (!empty($sx['date']) ? '<br /><span style="font-weight:normal;">' . $esc(date('D j M', strtotime($sx['date']))) . '</span>' : '') . '</th>';
+            }
+            $html .= '</tr></thead><tbody>';
+            if (!$roster) {
+                $html .= '<tr><td colspan="' . (4 + count($chunk)) . '" class="muted">No learners on this class roster.</td></tr>';
+            }
+            foreach ($roster as $i => $r) {
+                $email = strtolower((string) $r['learner_email']);
+                $att   = (array) $r['att'];
+                $html .= '<tr><td>' . ($i + 1) . '</td><td>' . $esc($r['learner_name']) . '</td><td>' . $esc($r['learner_email'])
+                    . '</td><td>' . $esc(isset($r['learner_phone']) ? $r['learner_phone'] : '') . '</td>';
+                foreach ($chunk as $sx) {
+                    $k = $sx['key'];
+                    if (isset($learnerSig[$email][$k])) {
+                        $cell = $img($learnerSig[$email][$k]);
+                    } elseif (!empty($att[$k]) && !empty($att[$k]['p'])) {
+                        $cell = '<span class="muted">Present<br />(no signature)</span>';
+                    } else {
+                        $cell = '<span class="absent">Absent</span>';
+                    }
+                    $html .= '<td class="s">' . $cell . '</td>';
+                }
+                $html .= '</tr>';
+            }
+            $html .= '<tr class="trainer"><td colspan="4"><b>Trainer Name &amp; Signature</b></td>';
+            foreach ($chunk as $sx) {
+                $t = isset($trainerSig[$sx['key']]) ? $trainerSig[$sx['key']] : null;
+                $html .= '<td class="s">' . ($t
+                    ? $img($t['var']) . '<br /><span style="font-size:7pt;">' . $esc($t['name'] ?: $run['trainer_name']) . '</span>'
+                    : '<span class="muted">' . $esc($run['trainer_name']) . '<br />(not signed)</span>') . '</td>';
+            }
+            $html .= '</tr></tbody></table>';
+        }
+
+        if (!class_exists('\\Mpdf\\Mpdf')) {
+            $autoload = Mage::getBaseDir() . '/vendor/autoload.php';
+            if (is_file($autoload)) require_once $autoload;
+        }
+        if (!class_exists('\\Mpdf\\Mpdf')) {
+            throw new Exception('mPDF is not available.');
+        }
+        $tmp = Mage::getBaseDir('var') . DS . 'tmp' . DS . 'mpdf';
+        if (!is_dir($tmp)) @mkdir($tmp, 0777, true);
+        $mpdf = new \Mpdf\Mpdf(array(
+            'mode' => 'utf-8', 'format' => 'A4-L', 'tempDir' => $tmp,
+            'margin_left' => 10, 'margin_right' => 10, 'margin_top' => 10, 'margin_bottom' => 14, 'margin_footer' => 6,
+        ));
+        $mpdf->SetTitle('Attendance Sheet - ' . $run['class_id']);
+        $mpdf->showImageErrors = false;
+        foreach ($images as $var => $bytes) {
+            $mpdf->imageVars[$var] = $bytes;
+        }
+        $mpdf->SetHTMLFooter('<table width="100%" style="font-size:7pt;color:#64748b;"><tr><td>'
+            . $esc(trim($org . ' · Signatures captured in the TC LMS app')) . ' · Downloaded '
+            . $esc(Mage::getModel('core/date')->date('d M Y g:i A')) . '</td><td align="right">Page {PAGENO} of {nbpg}</td></tr></table>');
+        $mpdf->WriteHTML($html);
+        $name = 'Attendance-Sheet-' . preg_replace('/[^A-Za-z0-9._-]+/', '-', (string) ($run['class_id'] ?: $run['run_id'])) . '.pdf';
+        return array($name, $mpdf->Output('', \Mpdf\Output\Destination::STRING_RETURN));
+    }
+
+    /**
      * Attendance workbook for a class: one session ($sessionKey), or every
      * session (null) = a Summary sheet (one column per session, sessions
      * present, attendance %) followed by one detail sheet per session.

@@ -51,6 +51,9 @@ $compUrl   = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/index', arr
 $isMy        = $h->isMalaysiaSite();
 $ttSaveUrl   = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/saveTimetable');
 $confUrl     = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/recordConfirmation');
+// Finger signatures from the TC LMS apps (image endpoint + the site's timezone for "signed at").
+$sigUrl      = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/signature');
+$siteTz      = (string) Mage::getStoreConfig('general/locale/timezone') ?: 'Asia/Singapore';
 
 // Certificate controls
 $certToggleUrl = Mage::helper('adminhtml')->getUrl('adminhtml/certificate/setAutoEnabled');
@@ -158,6 +161,16 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
 :root[data-theme="light"] body .admin-main.lsx-layer.att-qr-fs .lsx-qr p.lsx-qr-link{color:var(--t4) !important;}
 :root[data-theme="light"] body .admin-main.lsx-layer.att-qr-fs .lsx-qr-img{border:1px solid var(--b1);box-shadow:0 8px 30px rgba(15,29,71,.12);}
 :root[data-theme="light"] body .admin-main.lsx-layer.att-qr-fs .lsx-close{background:#ffffff !important;border-color:var(--b2, #cbd5e1) !important;color:var(--t2) !important;}
+/* Finger signatures (TC LMS apps): ink on a white tile so it reads in both themes */
+.att-sig{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;margin-left:10px;padding:2px 6px;height:30px;min-width:64px;background:#fff !important;border:1px solid #cbd5e1 !important;border-radius:6px;cursor:zoom-in;box-sizing:border-box;}
+.att-sig img{max-height:24px;max-width:90px;display:block;}
+.att-sig-none{margin-left:10px;font-size:11px;color:var(--t5, #64748b);}
+#att-trainer-sig{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--t4, #94a3b8);margin:-4px 0 14px;}
+.att-sig-layer{position:fixed;inset:0;z-index:10000;background:rgba(2,6,23,.78);display:flex;align-items:center;justify-content:center;padding:24px;}
+.att-sig-box{background:#fff;border-radius:14px;padding:18px 20px;max-width:min(720px,94vw);box-shadow:0 20px 60px rgba(0,0,0,.45);color:#0f172a;}
+.att-sig-box img{display:block;max-width:100%;max-height:60vh;margin:6px auto 12px;}
+.att-sig-box .att-sig-cap{font-size:13px;color:#334155;text-align:center;}
+.att-sig-box .att-sig-cap b{color:#0f172a;}
 </style>
 
 <div class="rm-wrap">
@@ -310,6 +323,9 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
             </div>
         </div>
 
+        <!-- Trainer's finger signature for the selected session (TC LMS app) -->
+        <div id="att-trainer-sig"></div>
+
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
                 <span class="att-counter att-c-present">Present: <span id="att-cnt-present">0</span></span>
@@ -357,6 +373,10 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
                 <button type="button" class="att-btn att-btn-ghost" onclick="attDownload(true)" title="Download every session's saved attendance (.xlsx): a summary sheet plus one sheet per session. Save first to include recent changes." style="display:inline-flex;align-items:center;gap:6px;">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                     Download All Sessions (.xlsx)
+                </button>
+                <button type="button" class="att-btn att-btn-ghost" onclick="attDownloadSigned()" title="Download the attendance sheet with each learner's and the trainer's finger signature from the TC LMS app, per session (PDF)." style="display:inline-flex;align-items:center;gap:6px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17c3-4 5-6 7-6s1 4 3 4 3-3 5-3 3 2 3 2"/><path d="M3 21h18"/></svg>
+                    Download Signed Sheet (PDF)
                 </button>
             </div>
             <span id="att-save-status" class="att-status"></span>
@@ -448,6 +468,9 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
 <script>
 var ATT_LOAD_URL   = '<?php echo $this->jsQuoteEscape($loadUrl) ?>';
 var attCheckinUrls = {};    // session key -> signed public check-in link (QR target)
+var ATT_SIG_URL = '<?php echo $this->jsQuoteEscape($sigUrl) ?>';
+var ATT_TZ      = '<?php echo $this->jsQuoteEscape($siteTz) ?>';
+var attSigs     = { learner: {}, trainer: {} };   // finger signatures from the apps (see loadAction)
 var ATT_EXPORT_URL = '<?php echo $this->jsQuoteEscape(Mage::helper('adminhtml')->getUrl('adminhtml/attendance/export')) ?>';
 var ATT_SAVE_URL   = '<?php echo $this->jsQuoteEscape($saveUrl) ?>';
 var ATT_ADD_URL    = '<?php echo $this->jsQuoteEscape($addUrl) ?>';
@@ -530,6 +553,13 @@ function attZoomQr() {
 }
 
 // ── .xlsx download (saved attendance) ───────────────────────────────────────
+var ATT_EXPORT_SIGNED_URL = '<?php echo $this->jsQuoteEscape(Mage::helper('adminhtml')->getUrl('adminhtml/attendance/exportSigned')) ?>';
+function attDownloadSigned() {
+    if (!attRunId) { alert('Select a class first.'); return; }
+    var base = ATT_EXPORT_SIGNED_URL;
+    if (base.charAt(base.length - 1) !== '/') { base += '/'; }
+    window.location.href = base + 'run_id/' + attRunId + '/';
+}
 function attDownload(all) {
     if (!attRunId) { alert('Select a class first.'); return; }
     var sess = all ? 'all' : attActiveSess;
@@ -592,6 +622,7 @@ function attSelectClass(runId) {
             if (!d.success) { alert('Error: ' + (d.message || 'load failed')); return; }
             attRoster   = d.roster || [];
             attCheckinUrls = d.checkin_urls || {};
+            attSigs = d.signatures || { learner: {}, trainer: {} };
             attSessions = d.sessions && d.sessions.length ? d.sessions : [{key:'d1am', day:1, ampm:'AM', date:'', label:'Day 1 · AM'}];
             attSel = {};
             attTimetable = d.timetable || null;
@@ -819,7 +850,59 @@ function attSetSession(key) {
     attRender();
 }
 
+// ── Finger signatures from the TC LMS apps ───────────────────────────────────
+function attSigWhen(utc) {   // signed_at is stored in UTC -> show the site's local time
+    var d = new Date(String(utc || '').replace(' ', 'T') + 'Z');
+    if (isNaN(d)) return String(utc || '');
+    try { return d.toLocaleString('en-GB', { timeZone: ATT_TZ, day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+    catch (e) { return d.toLocaleString('en-GB'); }
+}
+function attSigSrc(id) { return ATT_SIG_URL + '?run_id=' + attRunId + '&id=' + encodeURIComponent(id); }
+function attSigTile(id, who, at, by) {
+    var cap = 'Signed by ' + who + ' on ' + attSigWhen(at) + (by ? ' (on ' + by + '\'s phone)' : '');
+    return '<span class="att-sig" role="button" tabindex="0" title="' + esc(cap) + '"'
+        + ' data-sig="' + esc(id) + '" data-cap="' + esc(cap) + '" onclick="attSigZoom(this)" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();attSigZoom(this);}">'
+        + '<img src="' + esc(attSigSrc(id)) + '" alt="Signature of ' + esc(who) + '" loading="lazy"></span>';
+}
+function attSigHtml(r) {
+    var mine = (attSigs.learner || {})[String(r.learner_email || '').toLowerCase()] || {};
+    var s = mine[attActiveSess];
+    return s ? attSigTile(s.id, r.learner_name || r.learner_email, s.at, s.by) : '';
+}
+function attRenderTrainerSig() {
+    var el = document.getElementById('att-trainer-sig');
+    if (!el) return;
+    var list = (attSigs.trainer || {})[attActiveSess] || [];
+    var anyLearner = false;
+    Object.keys(attSigs.learner || {}).forEach(function (e) { if ((attSigs.learner[e] || {})[attActiveSess]) anyLearner = true; });
+    if (!list.length && !anyLearner) { el.innerHTML = ''; el.style.display = 'none'; return; }
+    el.style.display = '';
+    el.innerHTML = list.length
+        ? '<span>Trainer signature:</span>' + list.map(function (t) {
+              return '<span style="display:inline-flex;align-items:center;">' + esc(t.name || t.email) + attSigTile(t.id, t.name || t.email, t.at, '') + '</span>';
+          }).join('')
+        : '<span>The trainer has not signed this session in the app yet.</span>';
+}
+function attSigZoom(tile) {
+    var opener = tile;
+    var layer = document.createElement('div');
+    layer.className = 'att-sig-layer';
+    layer.setAttribute('role', 'dialog');
+    layer.setAttribute('aria-modal', 'true');
+    layer.setAttribute('aria-label', 'Signature');
+    layer.innerHTML = '<div class="att-sig-box"><img src="' + esc(attSigSrc(tile.getAttribute('data-sig'))) + '" alt="Signature">'
+        + '<div class="att-sig-cap">' + esc(tile.getAttribute('data-cap')) + '</div>'
+        + '<div style="text-align:center;margin-top:12px;"><button type="button" class="att-btn att-btn-ghost" style="color:#0f172a !important;border-color:#cbd5e1 !important;">Close</button></div></div>';
+    function close() { document.removeEventListener('keydown', onKey, true); layer.remove(); if (opener && opener.focus) opener.focus(); }
+    function onKey(e) { if (e.key === 'Escape') { e.stopPropagation(); close(); } }
+    layer.addEventListener('click', function (e) { if (e.target === layer || e.target.tagName === 'BUTTON') close(); });
+    document.addEventListener('keydown', onKey, true);
+    document.body.appendChild(layer);
+    layer.querySelector('button').focus();
+}
+
 function attRender() {
+    attRenderTrainerSig();
     var tb = document.getElementById('att-tbody');
     var html = '';
     if (!attRoster.length) {
@@ -846,13 +929,13 @@ function attRender() {
         if (ATT_READONLY) {
             html += '<td>' + (present
                 ? '<span class="att-present-lbl" style="color:var(--green, #22c55e)">✓ Present</span>'
-                : '<span class="att-present-lbl" style="color:var(--red-soft, #f87171)">✗ Absent</span>') + '</td>';
+                : '<span class="att-present-lbl" style="color:var(--red-soft, #f87171)">✗ Absent</span>') + attSigHtml(r) + '</td>';
         } else {
             html += '<td>'
                 + '<label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;">'
                 + '<input type="checkbox" ' + (present ? 'checked' : '') + ' onchange="attToggle(' + i + ', this.checked)" style="width:16px;height:16px;accent-color:#22c55e;">'
                 + '<span class="att-present-lbl" id="att-lbl-' + i + '" style="color:' + (present ? '#22c55e' : '#f87171') + '">' + (present ? 'Present' : 'Absent') + '</span>'
-                + '</label></td>'
+                + '</label>' + attSigHtml(r) + '</td>'
                 + (ATT_IS_MY ? '<td><input type="number" min="1" step="1" class="att-reason" id="att-min-' + i + '" style="max-width:130px;' + (present ? '' : 'display:none;') + '"'
                     + ' placeholder="' + (attSessMax(attActiveSess) ? 'Full: ' + attSessMax(attActiveSess) + ' min' : 'Full session') + '"'
                     + ' value="' + esc(cell.m || '') + '" oninput="attMinutes(' + i + ', this.value)"></td>' : '')
