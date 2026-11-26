@@ -161,18 +161,20 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
 .att-qr-zoom > svg{width:22px;height:22px;display:block;pointer-events:none;}
 /* QR header: course title + code, the Course Run ID large, then the session. */
 .att-qr-card .att-qr-title{margin:0 40px 2px;font-size:16px;font-weight:700;line-height:1.3;color:var(--t1, #f1f5f9);}
-.att-qr-card .att-qr-code{font-size:13px;color:var(--t3, #cbd5e1);}
-.att-qr-run{display:inline-flex;flex-direction:column;align-items:center;margin:10px 0 8px;padding:6px 18px;border:2px solid var(--blue, #60a5fa) !important;border-radius:10px;background:rgba(96,165,250,.10) !important;}
+.att-qr-card .att-qr-code{margin:0 0 8px;font-size:13px;color:var(--t3, #cbd5e1);text-align:center;}
+.att-qr-card .att-qr-title,.att-qr-card .att-qr-sess{text-align:center;}
+.att-qr-run{display:inline-flex;flex-direction:column;align-items:center;margin:12px 0 4px;padding:4px 16px;border:2px solid var(--blue, #60a5fa) !important;border-radius:10px;background:rgba(96,165,250,.10) !important;}
 .att-qr-run-lbl{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--t3, #cbd5e1);}
-.att-qr-run-id{font-size:30px;font-weight:800;letter-spacing:.04em;line-height:1.15;color:var(--t1, #f1f5f9);}
+.att-qr-run-id{font-size:22px;font-weight:800;letter-spacing:.04em;line-height:1.15;color:var(--t1, #f1f5f9);}
 .att-qr-sess{margin:0 0 12px;font-size:15px;font-weight:700;color:var(--blue, #60a5fa);}
-.admin-main.att-qr-fs .att-fs-title{margin:0 56px 2px;font-size:clamp(18px,2.6vw,30px);font-weight:700;line-height:1.25;color:#fff;}
-.admin-main.att-qr-fs .att-fs-code{font-size:clamp(14px,1.6vw,20px);color:#cbd5e1;}
-.admin-main.att-qr-fs .att-qr-run{margin:10px 0 6px;padding:6px 26px;border-color:#86efac !important;background:rgba(134,239,172,.10) !important;}
+.admin-main.att-qr-fs .lsx-qr,.admin-main.att-qr-fs .lsx-qr > *{text-align:center !important;}
+.admin-main.att-qr-fs .att-fs-title{align-self:stretch;margin:0 56px 2px;font-size:clamp(18px,2.6vw,30px);font-weight:700;line-height:1.25;color:#fff;}
+.admin-main.att-qr-fs .att-fs-code{margin:0 0 6px;font-size:clamp(14px,1.6vw,20px);color:#cbd5e1;}
+.admin-main.att-qr-fs .att-qr-run{margin:12px 0 4px;padding:4px 22px;border-color:#86efac !important;background:rgba(134,239,172,.10) !important;}
 .admin-main.att-qr-fs .att-qr-run-lbl{font-size:clamp(12px,1.3vw,16px);color:#cbd5e1;}
-.admin-main.att-qr-fs .att-qr-run-id{font-size:clamp(34px,5vw,64px);color:#fff;}
+.admin-main.att-qr-fs .att-qr-run-id{font-size:clamp(24px,3vw,40px);color:#fff;}
 .admin-main.att-qr-fs .lsx-qr h2.lsx-qr-name{margin:0 0 10px !important;}
-.admin-main.att-qr-fs .lsx-qr-img img{width:min(48vh,82vw);height:min(48vh,82vw);}
+.admin-main.att-qr-fs .lsx-qr-img img{width:min(52vh,82vw);height:min(52vh,82vw);}
 :root[data-theme="light"] body .admin-main.lsx-layer.att-qr-fs .att-fs-title,
 :root[data-theme="light"] body .admin-main.lsx-layer.att-qr-fs .att-qr-run-id{color:var(--t1);}
 :root[data-theme="light"] body .admin-main.lsx-layer.att-qr-fs .att-fs-code,
@@ -487,11 +489,11 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
         </button>
         <div id="att-qr-title" class="att-qr-title"></div>
         <div id="att-qr-code" class="att-qr-code"></div>
-        <div class="att-qr-run"><span class="att-qr-run-lbl">Course Run ID</span><span id="att-qr-run" class="att-qr-run-id"></span></div>
         <div id="att-qr-sess" class="att-qr-sess"></div>
         <div style="background:#fff;border-radius:12px;padding:14px;display:inline-block;">
             <img id="att-qr-img" width="220" height="220" alt="Check-in QR" style="display:block;" />
         </div>
+        <div class="att-qr-run"><span class="att-qr-run-lbl">Course Run ID</span><span id="att-qr-run" class="att-qr-run-id"></span></div>
         <div style="margin-top:14px;">
             <input id="att-qr-url" class="att-reason" style="max-width:100%;width:100%;text-align:center;" readonly />
         </div>
@@ -607,9 +609,9 @@ function attZoomQr() {
         + '<div class="lsx-qr">'
         +   '<div class="att-fs-title">' + esc(m.title) + '</div>'
         +   (m.code ? '<div class="att-fs-code">Course Code: ' + esc(m.code) + '</div>' : '')
-        +   '<div class="att-qr-run"><span class="att-qr-run-lbl">Course Run ID</span><span class="att-qr-run-id">' + esc(m.run) + '</span></div>'
         +   '<h2 class="lsx-qr-name">' + esc(document.getElementById('att-qr-sess').textContent) + '</h2>'
         +   '<div class="lsx-qr-img"><img alt="Check-in QR code" src="https://api.qrserver.com/v1/create-qr-code/?size=800x800&margin=0&data=' + encodeURIComponent(url) + '"></div>'
+        +   '<div class="att-qr-run"><span class="att-qr-run-lbl">Course Run ID</span><span class="att-qr-run-id">' + esc(m.run) + '</span></div>'
         +   '<p class="lsx-qr-link">' + esc(url) + '</p>'
         + '</div>';
     function close() {
