@@ -125,6 +125,58 @@ class MMD_MobileApi_Helper_Demo extends Mage_Core_Helper_Abstract
         return array('success' => true, 'message' => 'Signature received. (Sample account: nothing was recorded.)');
     }
 
+    /**
+     * The sample class's attendance as an Excel workbook, shaped like the real
+     * download: a Summary sheet for all sessions, then one sheet per session.
+     * @return array|null array(filename, bytes)
+     */
+    public function attendanceWorkbook($runId, $sessionKey = null)
+    {
+        $d = $this->trainerClassDetail($runId);
+        if (!$d) {
+            return null;
+        }
+        $sessions = $d['sessions'];
+        if ($sessionKey !== null) {
+            $sessions = array_values(array_filter($sessions, function ($s) use ($sessionKey) { return $s['key'] === $sessionKey; }));
+            if (!$sessions) {
+                return null;
+            }
+        }
+        $B = MMD_Attendance_Model_Xlsx::S_BOLD;
+        $H = MMD_Attendance_Model_Xlsx::S_HEAD;
+        $C = MMD_Attendance_Model_Xlsx::S_CELL;
+        $info = array(
+            array(array('v' => 'E-Attendance (sample account)', 's' => $B)),
+            array(array('v' => 'Class', 's' => $B), $d['class_id'] . ' - ' . $d['title']),
+            array(),
+        );
+        $xlsx = new MMD_Attendance_Model_Xlsx();
+        if ($sessionKey === null) {
+            $rows = $info;
+            $head = array('#', 'Learner', 'Email');
+            foreach ($sessions as $s) $head[] = $s['label'];
+            $rows[] = array_map(function ($h) use ($H) { return array('v' => $h, 's' => $H); }, $head);
+            foreach ($d['roster'] as $i => $r) {
+                $row = array(array('v' => $i + 1, 's' => $C), array('v' => $r['name'], 's' => $C), array('v' => $r['email'], 's' => $C));
+                foreach ($sessions as $s) $row[] = array('v' => in_array($s['key'], $r['present'], true) ? 'Present' : 'Absent', 's' => $C);
+                $rows[] = $row;
+            }
+            $xlsx->addSheet('Summary', $rows, array(5, 24, 30), count($info) + 2);
+        }
+        foreach ($sessions as $s) {
+            $rows = $info;
+            $rows[] = array_map(function ($h) use ($H) { return array('v' => $h, 's' => $H); }, array('#', 'Learner', 'Email', 'Attendance'));
+            foreach ($d['roster'] as $i => $r) {
+                $rows[] = array(array('v' => $i + 1, 's' => $C), array('v' => $r['name'], 's' => $C), array('v' => $r['email'], 's' => $C),
+                    array('v' => in_array($s['key'], $r['present'], true) ? 'Present' : 'Absent', 's' => $C));
+            }
+            $xlsx->addSheet(str_replace(' · ', ' ', $s['label']), $rows, array(5, 24, 30, 12), count($info) + 2);
+        }
+        $name = 'Attendance_SAMPLE05_' . ($sessionKey === null ? 'all-sessions' : $sessionKey) . '.xlsx';
+        return array($name, $xlsx->toString());
+    }
+
     protected function _teachingRun()
     {
         $runs = $this->_runs();

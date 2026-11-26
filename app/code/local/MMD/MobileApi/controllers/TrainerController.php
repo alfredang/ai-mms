@@ -49,6 +49,46 @@ class MMD_MobileApi_TrainerController extends MMD_MobileApi_Controller_Base
     }
 
     /**
+     * GET ?run_id=&session=all|<session key>: the class's SAVED attendance as an
+     * Excel workbook (the E-Attendance Download Session / Download All Sessions file).
+     * Answers the .xlsx bytes; errors are the usual JSON envelope.
+     */
+    public function exportAction()
+    {
+        if (!$this->_requireTrainer()) return;
+        return $this->_guard(function () {
+            $runId   = (int) $this->_input('run_id');
+            $session = strtolower(trim((string) $this->_input('session', 'all')));
+            if ($session !== 'all' && !preg_match('/^[a-z0-9]{2,16}$/', $session)) {
+                return $this->_error(422, 'Please choose a session of this class.', 'invalid_session');
+            }
+            $key = $session === 'all' ? null : $session;
+            if ($this->_isDemo()) {
+                $file = $this->_demo()->attendanceWorkbook($runId, $key);
+            } elseif (!$this->_trainer()->teaches($this->_email(), $runId)) {
+                $file = null;
+            } else {
+                try {
+                    $file = Mage::helper('mmd_attendance')->attendanceWorkbook($runId, $key);
+                } catch (Exception $e) {
+                    return $this->_error(404, $e->getMessage(), 'not_found');
+                }
+            }
+            if (!$file) {
+                return $this->_error(404, 'This class is not on your account.', 'not_found');
+            }
+            list($name, $bytes) = $file;
+            $this->getResponse()->setHttpResponseCode(200)
+                ->setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', true)
+                ->setHeader('Content-Disposition', 'attachment; filename="' . $name . '"', true)
+                ->setHeader('Content-Length', (string) strlen($bytes), true)
+                ->setHeader('Cache-Control', 'no-store', true)
+                ->setBody($bytes);
+            return $this;
+        });
+    }
+
+    /**
      * POST {run_id, session_key, signer, signature}: a finger signature on the trainer's phone.
      * signer 'trainer' = the trainer's own signature for the session; a roster learner's
      * email = that learner signs and is marked present. signature = base64 PNG.

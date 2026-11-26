@@ -11,7 +11,9 @@
  * found again by it (this class's roster only; the email is shown masked and never sent
  * to the page), so a later session needs the phone number alone. The phone's browser also remembers the details
  * (localStorage, never sent anywhere else), so later sessions are pre-filled and typing a
- * saved name fills the rest. Checking in also registers the learner for the course's practice
+ * saved name fills the rest. A 30-day HttpOnly cookie (tc_checkin, /checkin only) also carries the last
+ * check-in on the phone, so the PM form is filled even without localStorage; after a phone-only
+ * check-in it holds the name and phone, never the email. Checking in also registers the learner for the course's practice
  * exam, if it has one (no second form). The learner signs with a finger in the signature box
  * (required); the signature is saved for the session and shows on E-Attendance and on the
  * signed attendance sheet (PDF). The link's k (HMAC of the run id) stops link guessing; the
@@ -82,6 +84,11 @@ class MMD_Attendance_IndexController extends Mage_Core_Controller_Front_Action
             }
         }
 
+        // The last check-in on this phone (cookie set by _success) fills the form for the next
+        // session, even when the browser kept no localStorage. Not over typed input or "someone else".
+        if (!$req->isPost() && !$req->getParam('new') && ($saved = $this->_savedProfile())) {
+            $name = $saved['name']; $email = $saved['email']; $phone = $saved['phone'];
+        }
         $date = Mage::getModel('core/date')->date('d M Y');
         $time = Mage::getModel('core/date')->date('g:i A');
         $lookupUrl = Mage::getUrl('checkin/index/lookup', array('_nosid' => true, 'run' => $runId, 'k' => (string) $req->getParam('k')) + ($sKey !== '' ? array('s' => $sKey) : array()));
@@ -194,6 +201,8 @@ class MMD_Attendance_IndexController extends Mage_Core_Controller_Front_Action
 
     protected function _success($title, $head, array $run, array $r, $email, $phone, $sKey = '', $byPhone = false)
     {
+        // Found by phone alone: remember the name and phone only, so the email stays off the page.
+        $this->_saveProfile((string) $r['name'], $byPhone ? '' : $email, $phone);
         $profile = json_encode(array('name' => (string) $r['name'], 'email' => $email, 'phone' => $phone), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         $when    = Mage::getModel('core/date')->date('d M Y, g:i A');
         $again   = Mage::helper('mmd_attendance')->checkinUrl($run['run_id'], $sKey) . '?new=1';
@@ -274,6 +283,31 @@ class MMD_Attendance_IndexController extends Mage_Core_Controller_Front_Action
         return '<div class="pe"><h2>' . $code . ' Practice Exam</h2>'
             . '<p>This course includes the ' . $code . ' practice exam. Register and we email you the exam link.</p>'
             . '<a class="btn" href="' . htmlspecialchars($url) . '">Register for the Practice Exam</a></div>';
+    }
+
+    const PROFILE_COOKIE = 'tc_checkin';
+
+    /** Remember this phone's check-in (name, email, phone) for 30 days: HttpOnly, this site's /checkin pages only. */
+    protected function _saveProfile($name, $email, $phone)
+    {
+        $value = base64_encode(json_encode(array('n' => mb_substr($name, 0, 200), 'e' => mb_substr($email, 0, 255), 'p' => mb_substr($phone, 0, 40))));
+        setcookie(self::PROFILE_COOKIE, $value, array(
+            'expires' => time() + 30 * 86400, 'path' => '/checkin', 'secure' => Mage::app()->getStore()->isCurrentlySecure(),
+            'httponly' => true, 'samesite' => 'Lax',
+        ));
+    }
+
+    /** The profile _saveProfile left on this phone, or null. */
+    protected function _savedProfile()
+    {
+        $raw = isset($_COOKIE[self::PROFILE_COOKIE]) ? (string) $_COOKIE[self::PROFILE_COOKIE] : '';
+        $d   = $raw !== '' ? json_decode((string) base64_decode($raw, true), true) : null;
+        if (!is_array($d) || !isset($d['n'])) return null;
+        $name  = trim(preg_replace('/\s+/', ' ', (string) $d['n']));
+        $email = strtolower(trim((string) (isset($d['e']) ? $d['e'] : '')));
+        $phone = trim((string) (isset($d['p']) ? $d['p'] : ''));
+        if (mb_strlen($name) < 2 || ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) || ($phone !== '' && !preg_match('/^[0-9+()\-\s]{6,40}$/', $phone))) return null;
+        return array('name' => $name, 'email' => $email, 'phone' => $phone);
     }
 
     /** Saved check-in profiles on this device, most recent first. */

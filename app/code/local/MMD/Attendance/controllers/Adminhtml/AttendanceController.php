@@ -107,6 +107,8 @@ class MMD_Attendance_Adminhtml_AttendanceController extends Mage_Adminhtml_Contr
 
             $this->_json(array('success' => true, 'run' => $run, 'sessions' => $sessions, 'roster' => $roster,
                 'checkin_url'  => $helper->checkinUrl($runId),                          // Take Attendance QR: class-wide, session picked by the clock
+                // The session that QR marks right now (same clock rule as the check-in page), for the QR title.
+                'auto_session' => ($as = $helper->sessionForRun($run, $helper->autoSessionKey($run))) ? $helper->sessionShortLabel($as) : '',
                 // Malaysia: per-session timetable for attendance by training hours, and whether changes are corrections.
                 'timetable' => $helper->isMalaysiaSite() ? $helper->timetableForRun($run) : null,
                 'finished'  => $helper->isFinishedRun($run),
