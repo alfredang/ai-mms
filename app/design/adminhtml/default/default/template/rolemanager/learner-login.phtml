@@ -21,7 +21,8 @@
  * $this is the CONTROLLER (not a block), so asset URLs use Mage::getBaseUrl
  * and the JS below is vanilla (prototype.js isn't loaded here).
  * Variables in scope: $logoUrl, $postUrl, $sendUrl, $verifyUrl, $registerUrl,
- * $formKey, $siteName, $siteUrl, $error, $prevEmail, $forgotUrl.
+ * $formKey, $siteName, $siteUrl, $error, $prevEmail, $forgotUrl,
+ * $linkClass / $linkEmail (from ?class=&email= on a check-in link: pre-fill registration).
  */
 ?>
 <!DOCTYPE html>
@@ -122,6 +123,7 @@
     }
     .lp-input::placeholder { color: rgba(255, 255, 255, 0.4); }
     .lp-input:focus { border-color: var(--lp-link); box-shadow: 0 0 0 3px var(--lp-ring); }
+    .lp-input[readonly] { background: rgba(255, 255, 255, 0.06); color: rgba(255, 255, 255, 0.85); cursor: default; }
     .lp-input-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: 1.5px; text-transform: uppercase; }
     .lp-seg { display: flex; height: clamp(38px, 5vh, 44px); padding: 3px; gap: 3px; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 10px; background: rgba(2, 6, 23, 0.35); }
     .lp-seg label { flex: 1; position: relative; }
@@ -289,12 +291,12 @@
                     </div>
                     <div class="lp-field">
                         <label class="lp-label" for="lp-reg-email">Email</label>
-                        <input type="email" id="lp-reg-email" name="email" class="lp-input" autocomplete="email" maxlength="128" placeholder="you@example.com" required />
+                        <input type="email" id="lp-reg-email" name="email" class="lp-input" autocomplete="email" maxlength="128" placeholder="you@example.com" required value="<?php echo htmlspecialchars($linkEmail) ?>" />
                     </div>
                     <div class="lp-row">
                         <div class="lp-field">
                             <label class="lp-label" for="lp-reg-class">Course Run ID</label>
-                            <input type="text" id="lp-reg-class" name="class_code" class="lp-input lp-input-code" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="7" placeholder="C000000" required />
+                            <input type="text" id="lp-reg-class" name="class_code" class="lp-input lp-input-code" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="7" placeholder="C000000" required<?php if ($linkClass !== ''): ?> value="<?php echo htmlspecialchars($linkClass) ?>" readonly<?php endif; ?> />
                         </div>
                         <div class="lp-field">
                             <span class="lp-label" id="lp-reg-role-label">Role</span>
@@ -304,7 +306,7 @@
                             </div>
                         </div>
                     </div>
-                    <p class="lp-hint" id="lp-reg-hint">Your Course Run ID is provided by your course administrator.</p>
+                    <p class="lp-hint" id="lp-reg-hint"><?php echo $linkClass !== '' ? 'Your Course Run ID is filled in from your class link.' : 'Your Course Run ID is provided by your course administrator.' ?></p>
 
                     <!-- Honeypot: hidden from people, filled by bots -->
                     <div class="lp-hp" aria-hidden="true">

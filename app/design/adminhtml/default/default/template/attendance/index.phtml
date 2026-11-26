@@ -442,8 +442,8 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
 
 <!-- Take Attendance QR modal — trainer displays it; learners scan it and land
      on the public signed check-in form (/checkin/…, no login). The signed URL
-     comes from the load action (checkin_urls, one per session): the QR is for the
-     session tab that is selected, and a scan marks that session only. -->
+     comes from the load action (checkin_url): one QR for the whole class, and the
+     check-in page picks the session by the clock (AM 8am-12pm, PM 12pm-6pm). -->
 <div id="att-qr-modal" class="att-modal-bd">
     <div class="att-modal att-qr-card" style="max-width:360px;text-align:center;">
         <button type="button" class="att-qr-zoom" onclick="attZoomQr()" title="Show the QR full screen" aria-label="Show the check-in QR full screen">
@@ -451,7 +451,7 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
         </button>
         <h3>Take Attendance</h3>
         <div id="att-qr-sess" style="font-size:15px;font-weight:700;color:var(--blue, #60a5fa);margin:-4px 0 10px;"></div>
-        <p class="note">Learners scan this to check in for this session &mdash; no login. A learner not yet in this class is registered automatically on their first check-in. From the next session their phone number alone fills in their details.</p>
+        <p class="note">Learners scan this to check in &mdash; no login. They enter their name and email (mobile optional); the session is set automatically by the time of the scan. A learner not yet in this class is registered for the class and the learning portal, and for the course's practice exam if it has one. From the next session their phone number alone fills in their details.</p>
         <div style="background:#fff;border-radius:12px;padding:14px;display:inline-block;">
             <img id="att-qr-img" width="220" height="220" alt="Check-in QR" style="display:block;" />
         </div>
@@ -467,7 +467,7 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
 
 <script>
 var ATT_LOAD_URL   = '<?php echo $this->jsQuoteEscape($loadUrl) ?>';
-var attCheckinUrls = {};    // session key -> signed public check-in link (QR target)
+var attCheckinUrl  = '';    // signed public check-in link for the class (QR target; session picked by the clock)
 var ATT_SIG_URL = '<?php echo $this->jsQuoteEscape($sigUrl) ?>';
 var ATT_TZ      = '<?php echo $this->jsQuoteEscape($siteTz) ?>';
 var attSigs     = { learner: {}, trainer: {} };   // finger signatures from the apps (see loadAction)
@@ -498,10 +498,10 @@ function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,
 
 // ── Take Attendance QR — learner scans -> public check-in form ──────────────
 function attShowQr() {
-    var url = attCheckinUrls[attActiveSess];
+    var url = attCheckinUrl;
     if (!attRunId || !url) { alert('Select a class first.'); return; }
-    var sess = attSessions.filter(function(s){ return s.key === attActiveSess; })[0];
-    document.getElementById('att-qr-sess').textContent = sess ? sess.label : '';
+    var ev = attSessions.some(function(s){ return /ev$/.test(s.key); });
+    document.getElementById('att-qr-sess').textContent = ev ? 'Session: automatic (Evening)' : 'Session: automatic \u00b7 AM 8am\u201312pm \u00b7 PM 12pm\u20136pm';
     document.getElementById('att-qr-img').src =
         'https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=0&data=' + encodeURIComponent(url);
     document.getElementById('att-qr-url').value = url;
@@ -599,7 +599,7 @@ function certToggle(cb) {
 
 function attSelectClass(runId) {
     attRunId = parseInt(runId, 10) || 0;
-    attCheckinUrls = {};
+    attCheckinUrl = '';
     var card = document.getElementById('att-roster-card');
     var pills = document.getElementById('att-pills');
     if (!attRunId) { card.style.display = 'none'; pills.innerHTML = ''; return; }
@@ -621,7 +621,7 @@ function attSelectClass(runId) {
         .then(function(d){
             if (!d.success) { alert('Error: ' + (d.message || 'load failed')); return; }
             attRoster   = d.roster || [];
-            attCheckinUrls = d.checkin_urls || {};
+            attCheckinUrl = d.checkin_url || '';
             attSigs = d.signatures || { learner: {}, trainer: {} };
             attSessions = d.sessions && d.sessions.length ? d.sessions : [{key:'d1am', day:1, ampm:'AM', date:'', label:'Day 1 · AM'}];
             attSel = {};

@@ -1,16 +1,18 @@
 <?php
 /**
  * Public class check-in page, opened from the trainer's Take Attendance QR:
- *   /checkin/index/index/run/<run_id>/s/<session key>/k/<signature>
- * One QR per session (Day 1 AM, Day 1 PM, …): the check-in marks THAT session. A link
- * without /s/ is the old class-wide one and marks the session running right now.
+ *   /checkin/index/index/run/<run_id>[/s/<session key>]/k/<signature>
+ * The trainer's QR is class-wide (no /s/): the session is picked by the clock, AM 08:00-11:59
+ * and PM 12:00-17:59 on a class day (Helper::autoSessionKey); outside those hours the form is
+ * closed. A link with /s/ (older per-session QR) marks THAT session.
  * No login. The learner enters name + email (+ optional phone); class code, date and time
  * are filled in. A learner not yet on the roster is registered on their first check-in
  * (MMD_Attendance_Helper_Data::publicCheckIn). A learner who gave a phone number before is
  * found again by it (this class's roster only; the email is shown masked and never sent
  * to the page), so a later session needs the phone number alone. The phone's browser also remembers the details
  * (localStorage, never sent anywhere else), so later sessions are pre-filled and typing a
- * saved name fills the rest. The signature (HMAC of the run id) stops link guessing; the
+ * saved name fills the rest. Checking in also registers the learner for the course's practice
+ * exam, if it has one (no second form). The signature (HMAC of the run id) stops link guessing; the
  * attendance window (class start to end + 1 day) gates the check-in itself.
  */
 class MMD_Attendance_IndexController extends Mage_Core_Controller_Front_Action
@@ -27,16 +29,21 @@ class MMD_Attendance_IndexController extends Mage_Core_Controller_Front_Action
         if (!$run || ($sKey !== '' && !$sess) || !hash_equals($h->checkinSig($runId, $sKey), (string) $req->getParam('k'))) {
             return $this->_page('Class Check-in', '<p class="msg err">This check-in link is not valid.</p>', 404);
         }
-        if (!$sess) {
-            $sess = $h->sessionForRun($run, $h->currentSessionKey($run));
-        }
-        $sessLabel = $sess ? $h->sessionShortLabel($sess) : '';
         $title    = 'Class Check-in';
         $classId  = (string) $run['class_id'];
         $head     = '<p class="course">' . htmlspecialchars((string) $run['course_title']) . '</p>';
         if (!$h->isWithinAttendanceWindow($run)) {
             return $this->_page($title, $head . '<p class="msg err">Check-in is not open for this class right now.</p>');
         }
+        if (!$sess) {                                   // class-wide QR: the clock picks the session
+            $sess = $h->sessionForRun($run, $h->autoSessionKey($run));
+            if (!$sess) {
+                return $this->_page($title, $head . '<p class="msg err">Check-in is not open right now. On class days the AM session'
+                    . ' check-in runs from 8:00 AM to 12:00 PM and the PM session from 12:00 PM to 6:00 PM.</p>');
+            }
+        }
+        $sessLabel = $h->sessionShortLabel($sess);
+        $markKey   = $sKey !== '' ? $sKey : (string) $sess['key'];
 
         $name  = trim(preg_replace('/\s+/', ' ', (string) $req->getPost('name')));
         $email = strtolower(trim((string) $req->getPost('email')));
@@ -57,7 +64,7 @@ class MMD_Attendance_IndexController extends Mage_Core_Controller_Front_Action
                 $msg = '<p class="msg err">Please enter a valid phone number, or leave it blank.</p>';
             } else {
                 try {
-                    $r = $h->publicCheckIn($runId, $name, $email, $phone, $sKey !== '' ? $sKey : null);
+                    $r = $h->publicCheckIn($runId, $name, $email, $phone, $markKey);
                 } catch (Exception $e) {
                     Mage::logException($e);
                     $r = array('success' => false, 'message' => 'Check-in failed. Please ask your trainer.');
@@ -164,8 +171,8 @@ class MMD_Attendance_IndexController extends Mage_Core_Controller_Front_Action
             . '<dt>Time</dt><dd>' . htmlspecialchars($when) . '</dd></dl>'
             . (!empty($r['registered']) ? '<p>You are now registered for this class. Sign in to the learning portal with <strong>'
                 . htmlspecialchars($email) . '</strong> and an email code to get the course material.</p>'
-                . '<p><a class="btn" href="' . htmlspecialchars(Mage::getUrl('lmslogin', array('_nosid' => true))) . '">Open the learning portal</a></p>' : '')
-            . $this->_practiceExamHtml($run, (string) $r['name'], $byPhone ? '' : $email)
+                . '<p><a class="btn" href="' . htmlspecialchars($this->_portalUrl($run, $byPhone ? '' : $email)) . '">Open the learning portal</a></p>' : '')
+            . $this->_practiceExamHtml($run, (string) $r['name'], $email, $byPhone)
             . '<p class="note"><a href="' . htmlspecialchars($again) . '">Check in someone else on this phone</a></p>'
             // Found by phone number alone: the email was never typed here, so it is not sent to the page.
             . ($byPhone ? '' : '<script>' . $this->_profilesJs() . '
@@ -179,24 +186,57 @@ class MMD_Attendance_IndexController extends Mage_Core_Controller_Front_Action
     }
 
     /**
-     * After check-in: when the course has a practice exam (MMD_PracticeExam), offer the learner
-     * the class's Self-Register form with their name and email filled in. Found by phone only?
-     * Then the email was never typed here and is not put in the link; they enter it on the form.
+     * The learning portal with this class's Course Run ID (and the learner's email) filled in,
+     * so a learner coming from check-in never has to type the class code.
+     */
+    protected function _portalUrl(array $run, $email = '')
+    {
+        $q = array('class' => (string) $run['class_id']);
+        if ($email !== '') $q['email'] = $email;
+        return Mage::getUrl('lmslogin', array('_nosid' => true, '_query' => $q));
+    }
+
+    /**
+     * After check-in: when the course has a practice exam (MMD_PracticeExam), the learner is
+     * registered for it at once (exams API, course run id = class id), so name + email (+ phone)
+     * on the check-in form is all they ever enter. The exams site creates the account and emails
+     * the exam link on the first registration; a repeat call changes nothing and sends nothing,
+     * and a success is remembered for 30 days so later sessions skip the API. If the call fails,
+     * the learner gets the class's Self-Register form instead. Found by phone only? The email
+     * stays on the server: it is used for the registration but not shown or put in a link.
      * Nothing shows when the exams token is not set (partner sites) or registration is closed.
      */
-    protected function _practiceExamHtml(array $run, $name, $email)
+    protected function _practiceExamHtml(array $run, $name, $email, $byPhone = false)
     {
         try {
             $pe   = Mage::helper('mmd_practiceexam');
             $prun = $pe->loadRun((int) $run['run_id']);
             $exam = $prun ? $pe->getCourseExam($prun['product_id']) : null;
             if (!$exam || !$pe->isConfigured() || !$pe->selfRegisterOpen($prun)) return '';
-            $url = $pe->selfRegisterUrl($prun['run_id'], $name, $email);
+            $code     = htmlspecialchars((string) $exam['exam_code']);
+            $cacheKey = 'mmd_pe_checkin_' . md5($prun['class_id'] . '|' . $exam['exam_slug'] . '|' . strtolower($email));
+            $done     = (bool) Mage::app()->getCache()->load($cacheKey);
+            if (!$done) {
+                $r = $pe->registerPerson($name, $email, $exam['exam_slug'], $prun['class_id'],
+                    'Registered at class check-in, course run ' . $prun['class_id']);
+                Mage::log(sprintf('check-in register class %s -> %s: %s %s', $prun['class_id'], $exam['exam_code'], $email, $r['ok'] ? 'ok' : 'FAILED ' . $r['error']), null, 'mmd_practiceexam.log', true);
+                if ($r['ok']) {
+                    Mage::app()->getCache()->save('1', $cacheKey, array(), 30 * 86400);
+                    $done = true;
+                }
+            }
+            if ($done) {
+                $to = $byPhone ? 'your email' : '<strong>' . htmlspecialchars($email) . '</strong>';
+                return '<div class="pe"><h2>' . $code . ' Practice Exam</h2>'
+                    . '<p>You are registered for the ' . $code . ' practice exam. The exam link is emailed to ' . $to
+                    . '. Sign in with that email using Google or an email code.</p>'
+                    . '<a class="btn" href="' . htmlspecialchars($pe->baseUrl()) . '/login">Open Tertiary Exams</a></div>';
+            }
+            $url = $pe->selfRegisterUrl($prun['run_id'], $name, $byPhone ? '' : $email);
         } catch (Exception $e) {
             Mage::logException($e);
             return '';
         }
-        $code = htmlspecialchars((string) $exam['exam_code']);
         return '<div class="pe"><h2>' . $code . ' Practice Exam</h2>'
             . '<p>This course includes the ' . $code . ' practice exam. Register and we email you the exam link.</p>'
             . '<a class="btn" href="' . htmlspecialchars($url) . '">Register for the Practice Exam</a></div>';

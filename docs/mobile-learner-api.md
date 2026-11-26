@@ -39,7 +39,7 @@ Authenticated calls send `Authorization: Bearer <token>`.
 | GET | `/mobileapi/profile` | ✓ | `{learner}`: name, `phone`, `theme` (`system`/`light`/`dark`), `roles` (`learner`, plus `trainer` when the account teaches) |
 | POST | `/mobileapi/profile` | ✓ | any of `{first_name, last_name, phone, theme}` → `{learner, message}`; 422 on invalid input |
 | GET | `/mobileapi/trainer/classes` | ✓ trainer | `{today, current[], upcoming[], past[]}`: the classes the trainer teaches, every SKU (WSQ and non-WSQ); items carry `role:"trainer"` and `learner_count` |
-| GET | `/mobileapi/trainer/class?run_id=` | ✓ trainer | sessions, `roster[]` (`present` = session keys), `attendance_open`, `current_session`, `checkin_url` (learner QR), trainer + learner courseware, `survey_responses` |
+| GET | `/mobileapi/trainer/class?run_id=` | ✓ trainer | sessions, `roster[]` (`present` = session keys), `attendance_open`, `current_session`, `checkin_url` (learner QR, class-wide: the check-in page picks AM 08:00-11:59 / PM 12:00-17:59 by the clock), trainer + learner courseware, `survey_responses` |
 | POST | `/mobileapi/trainer/attendance` | ✓ trainer | `{run_id, session_key, records:[{email, present}]}`: roster members only, while the class is running |
 | POST | `/mobileapi/trainer/sign` | ✓ trainer | `{run_id, session_key, signer, signature}`: a finger signature on the trainer's phone (app 1.5+). `signer` = `trainer` (the trainer's own signature for the session) or a roster learner's email (the learner signs and is marked present). Same open-window rules as `trainer/attendance`. `trainer/class` → `roster[].signed`, `trainer_signed` (session keys) |
 | GET | `/mobileapi/site/samplecertificate` | – | the App Review account's sample certificate PDF |

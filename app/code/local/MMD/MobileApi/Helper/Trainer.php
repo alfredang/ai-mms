@@ -242,7 +242,8 @@ class MMD_MobileApi_Helper_Trainer extends Mage_Core_Helper_Abstract
         $row['current_session']       = $currentKey;
         $row['current_session_label'] = $currentLbl;
         $row['attendance_open']       = $open;
-        $row['checkin_url']           = ($open && $currentKey !== '') ? $att->checkinUrl((int) $run['run_id'], $currentKey) : '';
+        // Class-wide QR: the check-in page picks AM (08:00-11:59) / PM (12:00-17:59) by the clock.
+        $row['checkin_url']           = ($open && $currentKey !== '') ? $att->checkinUrl((int) $run['run_id']) : '';
         $row['roster']                = $roster;
         $row['trainer_signed']        = isset($signed['trainer'][$email]) ? $signed['trainer'][$email] : array();
         $row['materials']             = $this->_materialsFor((int) $run['product_id']);

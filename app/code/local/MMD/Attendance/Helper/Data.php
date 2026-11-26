@@ -176,7 +176,7 @@ class MMD_Attendance_Helper_Data extends Mage_Core_Helper_Abstract
         $sessions = $this->sessionsForRun($run);
         $today    = Mage::getModel('core/date')->date('Y-m-d');
         $hour     = (int) Mage::getModel('core/date')->date('H');
-        $ampm     = $hour < 13 ? 'am' : 'pm';
+        $ampm     = $hour < 12 ? 'am' : 'pm';                    // PM starts at 12:00 (see autoSessionKey)
 
         $day = 1;
         foreach ($sessions as $s) {
@@ -185,6 +185,32 @@ class MMD_Attendance_Helper_Data extends Mage_Core_Helper_Abstract
             }
         }
         return 'd' . $day . ($this->isEveningRun($run) ? 'ev' : $ampm);
+    }
+
+    /**
+     * Session for the class-wide (auto) check-in QR, picked by the clock on a class day:
+     * AM 08:00-11:59, PM 12:00-17:59 (user rule 2026-11-26). '' outside those hours or on
+     * a day the class does not run, so the scan is refused rather than marking a wrong
+     * session. Imported timetables (TMS handover) and Malaysia evening classes keep their
+     * own session times (currentSessionKey).
+     */
+    public function autoSessionKey($run)
+    {
+        if (Mage::helper('mmd_rolemanager/handover')->sessions(isset($run['run_id']) ? $run['run_id'] : 0)
+            || $this->isEveningRun($run)) {
+            return $this->currentSessionKey($run);
+        }
+        $now  = Mage::getModel('core/date')->date('H:i');
+        $part = ($now >= '08:00' && $now < '12:00') ? 'AM' : (($now >= '12:00' && $now < '18:00') ? 'PM' : '');
+        if ($part === '') return '';
+        $today    = Mage::getModel('core/date')->date('Y-m-d');
+        $sessions = $this->sessionsForRun($run);
+        $dated    = false;
+        foreach ($sessions as $s) {
+            if ($s['date'] !== '') $dated = true;
+            if ($s['date'] === $today && $s['ampm'] === $part) return $s['key'];
+        }
+        return $dated ? '' : 'd1' . strtolower($part);              // legacy run without dates
     }
 
     /**
@@ -1188,7 +1214,7 @@ class MMD_Attendance_Helper_Data extends Mage_Core_Helper_Abstract
         return substr(hash_hmac('sha256', 'attendance-checkin:' . (int) $runId . ($sessionKey !== '' ? ':' . $sessionKey : ''), $key), 0, 24);
     }
 
-    /** Signed link the trainer's Take Attendance QR encodes, one per session. */
+    /** Signed check-in link. No $sessionKey = the class-wide QR, session picked by autoSessionKey(). */
     public function checkinUrl($runId, $sessionKey = '')
     {
         $base = Mage::app()->getDefaultStoreView()->getBaseUrl(Mage_Core_Model_Store::URL_TYPE_LINK, true);

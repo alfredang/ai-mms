@@ -682,6 +682,15 @@ class MMD_RoleManager_IndexController extends Mage_Adminhtml_Controller_Action
         $session->unsLearnerLoginError();
         $session->unsLearnerLoginEmail();
 
+        // Links from class check-in / practice exam carry ?class=C######&email=… so the
+        // learner never types the Course Run ID; anything malformed is ignored.
+        $req       = $this->getRequest();
+        $linkClass = strtoupper(trim((string) $req->getQuery('class')));
+        $linkClass = preg_match('/^C\d{6}$/', $linkClass) ? $linkClass : '';
+        $linkEmail = strtolower(trim((string) $req->getQuery('email')));
+        $linkEmail = filter_var($linkEmail, FILTER_VALIDATE_EMAIL) ? $linkEmail : '';
+        if ($prevEmail === '') $prevEmail = $linkEmail;
+
         $logoUrl   = Mage::getBaseUrl('skin') . 'adminhtml/default/default/images/admin-logo.png';
         // Post back to whichever frontName served the page (/lmslogin, or the
         // legacy /learnerlogin alias) so the session cookie path stays put.

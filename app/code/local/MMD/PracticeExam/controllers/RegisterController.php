@@ -61,7 +61,7 @@ class MMD_PracticeExam_RegisterController extends Mage_Core_Controller_Front_Act
                         . ($inClass ? '<p>You are also in class <strong>' . $cls . '</strong>. Sign in to the learning portal with <strong>' . $e
                             . '</strong> and an email code to get the course material.</p>' : '')
                         . '<p><a class="btn" href="' . htmlspecialchars($h->baseUrl()) . '/login">Open Tertiary Exams</a></p>'
-                        . ($inClass ? '<p><a class="btn btn2" href="' . htmlspecialchars(Mage::getUrl('lmslogin', array('_nosid' => true))) . '">Open the learning portal</a></p>' : ''));
+                        . ($inClass ? '<p><a class="btn btn2" href="' . htmlspecialchars(Mage::getUrl('lmslogin', array('_nosid' => true, '_query' => array('class' => (string) $run['class_id'], 'email' => $email)))) . '">Open the learning portal</a></p>' : ''));
                 }
                 $msg = '<p class="msg err">Registration failed. Please try again or ask your trainer.</p>';
             }
