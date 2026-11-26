@@ -159,6 +159,25 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
 .att-qr-zoom:hover{opacity:1;transform:scale(1.1);color:var(--blue, #60a5fa) !important;}
 .att-qr-zoom:focus-visible{outline:2px solid var(--blue, #60a5fa);outline-offset:2px;}
 .att-qr-zoom > svg{width:22px;height:22px;display:block;pointer-events:none;}
+/* QR header: course title + code, the Course Run ID large, then the session. */
+.att-qr-card .att-qr-title{margin:0 40px 2px;font-size:16px;font-weight:700;line-height:1.3;color:var(--t1, #f1f5f9);}
+.att-qr-card .att-qr-code{font-size:13px;color:var(--t3, #cbd5e1);}
+.att-qr-run{display:inline-flex;flex-direction:column;align-items:center;margin:10px 0 8px;padding:6px 18px;border:2px solid var(--blue, #60a5fa) !important;border-radius:10px;background:rgba(96,165,250,.10) !important;}
+.att-qr-run-lbl{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--t3, #cbd5e1);}
+.att-qr-run-id{font-size:30px;font-weight:800;letter-spacing:.04em;line-height:1.15;color:var(--t1, #f1f5f9);}
+.att-qr-sess{margin:0 0 12px;font-size:15px;font-weight:700;color:var(--blue, #60a5fa);}
+.admin-main.att-qr-fs .att-fs-title{margin:0 56px 2px;font-size:clamp(18px,2.6vw,30px);font-weight:700;line-height:1.25;color:#fff;}
+.admin-main.att-qr-fs .att-fs-code{font-size:clamp(14px,1.6vw,20px);color:#cbd5e1;}
+.admin-main.att-qr-fs .att-qr-run{margin:10px 0 6px;padding:6px 26px;border-color:#86efac !important;background:rgba(134,239,172,.10) !important;}
+.admin-main.att-qr-fs .att-qr-run-lbl{font-size:clamp(12px,1.3vw,16px);color:#cbd5e1;}
+.admin-main.att-qr-fs .att-qr-run-id{font-size:clamp(34px,5vw,64px);color:#fff;}
+.admin-main.att-qr-fs .lsx-qr h2.lsx-qr-name{margin:0 0 10px !important;}
+.admin-main.att-qr-fs .lsx-qr-img img{width:min(48vh,82vw);height:min(48vh,82vw);}
+:root[data-theme="light"] body .admin-main.lsx-layer.att-qr-fs .att-fs-title,
+:root[data-theme="light"] body .admin-main.lsx-layer.att-qr-fs .att-qr-run-id{color:var(--t1);}
+:root[data-theme="light"] body .admin-main.lsx-layer.att-qr-fs .att-fs-code,
+:root[data-theme="light"] body .admin-main.lsx-layer.att-qr-fs .att-qr-run-lbl{color:var(--t3);}
+:root[data-theme="light"] body .admin-main.lsx-layer.att-qr-fs .att-qr-run{border-color:var(--blue) !important;background:#ffffff !important;}
 /* Full-screen QR (shared .lsx-layer, dark by default) turns light in the light theme. */
 :root[data-theme="light"] body .admin-main.lsx-layer.att-qr-fs{background:rgba(241,245,252,.97);}
 :root[data-theme="light"] body .admin-main.lsx-layer.att-qr-fs .lsx-qr h2.lsx-qr-name{color:var(--blue) !important;}
@@ -466,9 +485,10 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
         <button type="button" class="att-qr-zoom" onclick="attZoomQr()" title="Show the QR full screen" aria-label="Show the check-in QR full screen">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/><path d="M11 8v6M8 11h6"/></svg>
         </button>
-        <h3>Take Attendance</h3>
-        <div id="att-qr-sess" style="font-size:15px;font-weight:700;color:var(--blue, #60a5fa);margin:-4px 0 10px;"></div>
-        <p class="note">Learners scan this to check in &mdash; no login. They enter their name and email (mobile optional) and are checked in for the session shown above (AM 8am to 12pm, PM 12pm to 6pm). A learner not yet in this class is registered for the class and the learning portal, and for the course's practice exam if it has one. From the next session their phone number alone fills in their details.</p>
+        <div id="att-qr-title" class="att-qr-title"></div>
+        <div id="att-qr-code" class="att-qr-code"></div>
+        <div class="att-qr-run"><span class="att-qr-run-lbl">Course Run ID</span><span id="att-qr-run" class="att-qr-run-id"></span></div>
+        <div id="att-qr-sess" class="att-qr-sess"></div>
         <div style="background:#fff;border-radius:12px;padding:14px;display:inline-block;">
             <img id="att-qr-img" width="220" height="220" alt="Check-in QR" style="display:block;" />
         </div>
@@ -517,9 +537,19 @@ var attSel = {};             // row-index -> true (bulk-selection state)
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
 // ── Take Attendance QR — learner scans -> public check-in form ──────────────
+// Course title, course code and Course Run ID of the selected class (from its <option>).
+function attQrMeta() {
+    var o = document.querySelector('#att-class option[value="' + attRunId + '"]');
+    return { title: o ? (o.getAttribute('data-title') || '') : '', code: o ? (o.getAttribute('data-sku') || '') : '',
+             run: o ? (o.getAttribute('data-class-id') || '') : '' };
+}
 function attShowQr() {
     var url = attCheckinUrl;
     if (!attRunId || !url) { alert('Select a class first.'); return; }
+    var m = attQrMeta();
+    document.getElementById('att-qr-title').textContent = m.title;
+    document.getElementById('att-qr-code').textContent = m.code ? 'Course Code: ' + m.code : '';
+    document.getElementById('att-qr-run').textContent = m.run;
     attQrTitle(attAutoSess);
     attQrTick();
     document.getElementById('att-qr-img').src =
@@ -564,6 +594,7 @@ document.getElementById('att-qr-modal').addEventListener('click', function(e){ i
 function attZoomQr() {
     var url = document.getElementById('att-qr-url').value;
     if (!url) return;
+    var m = attQrMeta();
     var opener = document.activeElement, overflow = document.body.style.overflow;
     var layer = document.createElement('div');
     layer.className = 'admin-main lsx-layer lsx-dark att-qr-fs';
@@ -574,8 +605,10 @@ function attZoomQr() {
     layer.innerHTML =
         '<button type="button" class="lsx-close" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>'
         + '<div class="lsx-qr">'
+        +   '<div class="att-fs-title">' + esc(m.title) + '</div>'
+        +   (m.code ? '<div class="att-fs-code">Course Code: ' + esc(m.code) + '</div>' : '')
+        +   '<div class="att-qr-run"><span class="att-qr-run-lbl">Course Run ID</span><span class="att-qr-run-id">' + esc(m.run) + '</span></div>'
         +   '<h2 class="lsx-qr-name">' + esc(document.getElementById('att-qr-sess').textContent) + '</h2>'
-        +   '<p class="lsx-qr-sub">Scan to check in &middot; no login needed</p>'
         +   '<div class="lsx-qr-img"><img alt="Check-in QR code" src="https://api.qrserver.com/v1/create-qr-code/?size=800x800&margin=0&data=' + encodeURIComponent(url) + '"></div>'
         +   '<p class="lsx-qr-link">' + esc(url) + '</p>'
         + '</div>';
