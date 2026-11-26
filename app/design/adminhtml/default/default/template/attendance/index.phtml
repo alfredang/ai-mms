@@ -54,6 +54,11 @@ $confUrl     = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/recordCon
 // Finger signatures from the TC LMS apps (image endpoint + the site's timezone for "signed at").
 $sigUrl      = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/signature');
 $siteTz      = (string) Mage::getStoreConfig('general/locale/timezone') ?: 'Asia/Singapore';
+// "Sign as Trainer": the signed-in user's own signature for the selected session.
+$signTrainerUrl = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/signTrainer');
+$meUser  = Mage::getSingleton('admin/session')->getUser();
+$meName  = $meUser ? (trim($meUser->getFirstname() . ' ' . $meUser->getLastname()) ?: (string) $meUser->getEmail()) : '';
+$meEmail = $meUser ? strtolower((string) $meUser->getEmail()) : '';
 
 // Certificate controls
 $certToggleUrl = Mage::helper('adminhtml')->getUrl('adminhtml/certificate/setAutoEnabled');
@@ -171,6 +176,17 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
 .att-sig-box img{display:block;max-width:100%;max-height:60vh;margin:6px auto 12px;}
 .att-sig-box .att-sig-cap{font-size:13px;color:#334155;text-align:center;}
 .att-sig-box .att-sig-cap b{color:#0f172a;}
+.att-sig-btn{margin-left:4px;padding:5px 12px;font-size:12px;font-weight:600;border-radius:6px;border:1px solid #3b82f6 !important;background:transparent !important;color:#3b82f6 !important;cursor:pointer;}
+.att-sig-btn:hover{background:rgba(59,130,246,.12) !important;}
+.att-sig-pad-box{width:min(560px,94vw);}
+.att-sig-pad-box h3{margin:0 0 4px;font-size:16px;color:#0f172a;}
+.att-sig-pad-box p{margin:0 0 10px;font-size:13px;color:#475569;}
+.att-sig-pad{display:block;width:100%;height:200px;background:#fff;border:1px dashed #64748b;border-radius:8px;touch-action:none;cursor:crosshair;}
+.att-sig-pad-row{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap;}
+.att-sig-pad-row .att-sig-msg{font-size:12px;color:#b91c1c;flex:1;min-width:120px;}
+.att-sig-pad-box button{padding:8px 14px;font-size:13px;font-weight:600;border-radius:8px;cursor:pointer;}
+.att-sig-pad-box .att-pad-ghost{background:#fff !important;color:#0f172a !important;border:1px solid #cbd5e1 !important;}
+.att-sig-pad-box .att-pad-save{background:#1d4ed8 !important;color:#fff !important;border:1px solid #1d4ed8 !important;}
 </style>
 
 <div class="rm-wrap">
@@ -469,6 +485,8 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
 var ATT_LOAD_URL   = '<?php echo $this->jsQuoteEscape($loadUrl) ?>';
 var attCheckinUrl  = '';    // signed public check-in link for the class (QR target; session picked by the clock)
 var ATT_SIG_URL = '<?php echo $this->jsQuoteEscape($sigUrl) ?>';
+var ATT_SIGN_TRAINER_URL = '<?php echo $this->jsQuoteEscape($signTrainerUrl) ?>';
+var ATT_ME = <?php echo json_encode(array('name' => $meName, 'email' => $meEmail), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
 var ATT_TZ      = '<?php echo $this->jsQuoteEscape($siteTz) ?>';
 var attSigs     = { learner: {}, trainer: {} };   // finger signatures from the apps (see loadAction)
 var ATT_EXPORT_URL = '<?php echo $this->jsQuoteEscape(Mage::helper('adminhtml')->getUrl('adminhtml/attendance/export')) ?>';
@@ -872,16 +890,75 @@ function attSigHtml(r) {
 function attRenderTrainerSig() {
     var el = document.getElementById('att-trainer-sig');
     if (!el) return;
+    if (!attRunId || !attActiveSess) { el.innerHTML = ''; el.style.display = 'none'; return; }
     var list = (attSigs.trainer || {})[attActiveSess] || [];
-    var anyLearner = false;
-    Object.keys(attSigs.learner || {}).forEach(function (e) { if ((attSigs.learner[e] || {})[attActiveSess]) anyLearner = true; });
-    if (!list.length && !anyLearner) { el.innerHTML = ''; el.style.display = 'none'; return; }
+    var mine = list.some(function (t) { return t.email === ATT_ME.email; });
+    var sess = attSessions.filter(function (s) { return s.key === attActiveSess; })[0] || {};
+    var future = sess.date && sess.date > attToday();
     el.style.display = '';
-    el.innerHTML = list.length
+    el.innerHTML = (list.length
         ? '<span>Trainer signature:</span>' + list.map(function (t) {
               return '<span style="display:inline-flex;align-items:center;">' + esc(t.name || t.email) + attSigTile(t.id, t.name || t.email, t.at, '') + '</span>';
           }).join('')
-        : '<span>The trainer has not signed this session in the app yet.</span>';
+        : '<span>The trainer has not signed this session yet.</span>')
+        + (future ? '' : '<button type="button" class="att-sig-btn" onclick="attSignTrainer(this)">'
+            + (mine ? 'Sign again' : 'Sign as Trainer') + '</button>');
+}
+function attToday() {
+    try { return new Date().toLocaleDateString('en-CA', { timeZone: ATT_TZ }); } catch (e) { return new Date().toISOString().slice(0, 10); }
+}
+// Signature pad: the signed-in user signs as the trainer for the selected session.
+function attSignTrainer(opener) {
+    var sess = attSessions.filter(function (s) { return s.key === attActiveSess; })[0];
+    if (!attRunId || !sess) { alert('Pick a session first.'); return; }
+    var layer = document.createElement('div');
+    layer.className = 'att-sig-layer';
+    layer.setAttribute('role', 'dialog');
+    layer.setAttribute('aria-modal', 'true');
+    layer.setAttribute('aria-labelledby', 'att-pad-title');
+    layer.innerHTML = '<div class="att-sig-box att-sig-pad-box">'
+        + '<h3 id="att-pad-title">Trainer signature · ' + esc(sess.label || sess.key) + '</h3>'
+        + '<p>Signing as <b>' + esc(ATT_ME.name || ATT_ME.email) + '</b>. Sign inside the box with your mouse, pen or finger.</p>'
+        + '<canvas class="att-sig-pad" aria-label="Signature box" tabindex="0"></canvas>'
+        + '<div class="att-sig-pad-row"><span class="att-sig-msg" role="status"></span>'
+        + '<span style="display:flex;gap:8px;"><button type="button" class="att-pad-ghost" data-act="clear">Clear</button>'
+        + '<button type="button" class="att-pad-ghost" data-act="cancel">Cancel</button>'
+        + '<button type="button" class="att-pad-save" data-act="save">Save Signature</button></span></div></div>';
+    document.body.appendChild(layer);
+    var cv = layer.querySelector('canvas'), cx = cv.getContext('2d'), msg = layer.querySelector('.att-sig-msg'), ink = 0, last = null;
+    var r = cv.getBoundingClientRect(), k = Math.min(window.devicePixelRatio || 1, 3);
+    cv.width = Math.round(r.width * k); cv.height = Math.round(r.height * k);
+    cx.setTransform(k, 0, 0, k, 0, 0); cx.lineWidth = 2.6; cx.lineCap = 'round'; cx.lineJoin = 'round'; cx.strokeStyle = '#0f172a'; cx.fillStyle = '#0f172a';
+    function pt(ev) { var b = cv.getBoundingClientRect(); return { x: ev.clientX - b.left, y: ev.clientY - b.top }; }
+    cv.addEventListener('pointerdown', function (ev) { ev.preventDefault(); cv.setPointerCapture(ev.pointerId); last = pt(ev);
+        cx.beginPath(); cx.arc(last.x, last.y, 1.2, 0, 2 * Math.PI); cx.fill(); });
+    cv.addEventListener('pointermove', function (ev) { if (!last) return; var p = pt(ev);
+        cx.beginPath(); cx.moveTo(last.x, last.y); cx.lineTo(p.x, p.y); cx.stroke();
+        ink += Math.abs(p.x - last.x) + Math.abs(p.y - last.y); last = p; if (ink > 40) msg.textContent = ''; });
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (t) { cv.addEventListener(t, function () { last = null; }); });
+    function close() { document.removeEventListener('keydown', onKey, true); layer.remove(); if (opener && opener.focus) opener.focus(); }
+    function onKey(e) { if (e.key === 'Escape') { e.stopPropagation(); close(); } }
+    document.addEventListener('keydown', onKey, true);
+    layer.addEventListener('click', function (e) {
+        if (e.target === layer) { close(); return; }
+        var act = e.target.getAttribute && e.target.getAttribute('data-act');
+        if (act === 'cancel') close();
+        else if (act === 'clear') { cx.clearRect(0, 0, cv.width, cv.height); ink = 0; }
+        else if (act === 'save') {
+            if (ink < 40) { msg.textContent = 'Please sign inside the box first.'; cv.focus(); return; }
+            var btn = e.target; btn.disabled = true; btn.textContent = 'Saving…';
+            fetch(ATT_SIGN_TRAINER_URL, {
+                method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ run_id: attRunId, session_key: sess.key, signature: cv.toDataURL('image/png'), form_key: ATT_FORM_KEY })
+            }).then(function (x) { return x.json(); }).then(function (d) {
+                if (!d.success) { btn.disabled = false; btn.textContent = 'Save Signature'; msg.textContent = d.message || 'Could not save.'; return; }
+                attSigs = d.signatures || attSigs;
+                close();
+                attRender();
+            }).catch(function () { btn.disabled = false; btn.textContent = 'Save Signature'; msg.textContent = 'Network error. Please try again.'; });
+        }
+    });
+    cv.focus();
 }
 function attSigZoom(tile) {
     var opener = tile;

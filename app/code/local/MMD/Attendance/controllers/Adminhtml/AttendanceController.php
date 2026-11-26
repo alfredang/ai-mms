@@ -110,7 +110,7 @@ class MMD_Attendance_Adminhtml_AttendanceController extends Mage_Adminhtml_Contr
                 // Malaysia: per-session timetable for attendance by training hours, and whether changes are corrections.
                 'timetable' => $helper->isMalaysiaSite() ? $helper->timetableForRun($run) : null,
                 'finished'  => $helper->isFinishedRun($run),
-                // Finger signatures from the TC LMS apps (learner check-in, trainer sign-off), without the images.
+                // Finger signatures (QR check-in form, TC LMS apps, E-Attendance trainer sign-off), without the images.
                 'signatures' => Mage::helper('mmd_mobileapi/signature')->forRun($runId),
                 'cert_roster'  => $certRoster,
                 'confirmation' => $confirmation,
@@ -159,6 +159,43 @@ class MMD_Attendance_Adminhtml_AttendanceController extends Mage_Adminhtml_Contr
             ->setHeader('Cache-Control', 'private, max-age=86400', true)
             ->setHeader('X-Content-Type-Options', 'nosniff', true)
             ->setBody($png);
+    }
+
+    /**
+     * POST JSON — the signed-in user's own finger signature as the trainer for one session
+     * (E-Attendance "Sign as Trainer"). Same table as the app's trainer sign-off; a second
+     * signature by the same person for the session replaces the first.
+     * body: { run_id, session_key, signature (base64 PNG) } -> { success, message, signatures }
+     */
+    public function signTrainerAction()
+    {
+        try {
+            if (!$this->getRequest()->isPost()) throw new Exception('POST required');
+            $body  = json_decode($this->getRequest()->getRawBody(), true) ?: array();
+            $runId = (int) ($body['run_id'] ?? 0);
+            $key   = (string) ($body['session_key'] ?? '');
+            $h     = Mage::helper('mmd_attendance');
+            $run   = $runId ? $h->getClassRow($runId) : null;
+            if (!$run) throw new Exception('Class not found.');
+            $sess  = $h->sessionForRun($run, $key);
+            if (!$sess) throw new Exception('Please pick a session of this class.');
+            if (!empty($sess['date']) && $sess['date'] > Mage::getModel('core/date')->date('Y-m-d')) {
+                throw new Exception('This session has not started yet.');
+            }
+            $sig = Mage::helper('mmd_mobileapi/signature');
+            $png = $sig->decode((string) ($body['signature'] ?? ''));
+            if (!$png || !$sig->hasInk($png)) throw new Exception('Please sign in the box first.');
+            $user  = Mage::getSingleton('admin/session')->getUser();
+            $email = $user ? strtolower(trim((string) $user->getEmail())) : '';
+            if ($email === '') throw new Exception('Please sign in again.');
+            $name  = trim($user->getFirstname() . ' ' . $user->getLastname()) ?: $email;
+            $sig->save(array('run_id' => $runId, 'class_id' => $run['class_id'] ?? null), $key, $email, $name, 'trainer', $png, $email);
+            Mage::log(sprintf('E-Attendance trainer signature run %d %s: %s', $runId, $key, $email), null, 'attendance.log', true);
+            $this->_json(array('success' => true, 'message' => 'Your trainer signature is saved for ' . $h->sessionShortLabel($sess) . '.',
+                'signatures' => $sig->forRun($runId)));
+        } catch (Exception $e) {
+            $this->_json(array('success' => false, 'message' => $e->getMessage()));
+        }
     }
 
     /**

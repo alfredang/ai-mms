@@ -12,7 +12,9 @@
  * to the page), so a later session needs the phone number alone. The phone's browser also remembers the details
  * (localStorage, never sent anywhere else), so later sessions are pre-filled and typing a
  * saved name fills the rest. Checking in also registers the learner for the course's practice
- * exam, if it has one (no second form). The signature (HMAC of the run id) stops link guessing; the
+ * exam, if it has one (no second form). The learner signs with a finger in the signature box
+ * (required); the signature is saved for the session and shows on E-Attendance and on the
+ * signed attendance sheet (PDF). The link's k (HMAC of the run id) stops link guessing; the
  * attendance window (class start to end + 1 day) gates the check-in itself.
  */
 class MMD_Attendance_IndexController extends Mage_Core_Controller_Front_Action
@@ -49,6 +51,7 @@ class MMD_Attendance_IndexController extends Mage_Core_Controller_Front_Action
         $email = strtolower(trim((string) $req->getPost('email')));
         $phone = trim((string) $req->getPost('phone'));
         $msg   = '';
+        $sig   = Mage::helper('mmd_mobileapi/signature');
         $byPhone = false;
         if ($req->isPost() && $email === '' && $phone !== '' && ($known = $h->checkinLearnerByPhone($runId, $phone))) {
             $email = strtolower((string) $known['learner_email']);     // returning learner: phone number is enough
@@ -62,14 +65,16 @@ class MMD_Attendance_IndexController extends Mage_Core_Controller_Front_Action
                 $msg = '<p class="msg err">Please enter your full name and a valid email address.</p>';
             } elseif ($phone !== '' && !preg_match('/^[0-9+()\-\s]{6,40}$/', $phone)) {
                 $msg = '<p class="msg err">Please enter a valid phone number, or leave it blank.</p>';
+            } elseif (!($png = $sig->decode((string) $req->getPost('signature'))) || !$sig->hasInk($png)) {
+                $msg = '<p class="msg err">Please sign in the signature box with your finger, then tap Check In.</p>';
             } else {
                 try {
-                    $r = $h->publicCheckIn($runId, $name, $email, $phone, $markKey);
+                    $r = $h->publicCheckIn($runId, $name, $email, $phone, $markKey, $png);
                 } catch (Exception $e) {
                     Mage::logException($e);
                     $r = array('success' => false, 'message' => 'Check-in failed. Please ask your trainer.');
                 }
-                Mage::log(sprintf('QR check-in class %s %s: %s %s', $classId, $sKey, $email, $r['success'] ? ('ok' . (!empty($r['registered']) ? ' (registered)' : '')) : 'FAILED ' . $r['message']), null, 'attendance.log', true);
+                Mage::log(sprintf('QR check-in class %s %s: %s signed %s', $classId, $markKey, $email, $r['success'] ? ('ok' . (!empty($r['registered']) ? ' (registered)' : '')) : 'FAILED ' . $r['message']), null, 'attendance.log', true);
                 if ($r['success']) {
                     return $this->_success($title, $head, $run, $r, $email, $phone, $sKey, $byPhone);
                 }
@@ -91,9 +96,14 @@ class MMD_Attendance_IndexController extends Mage_Core_Controller_Front_Action
             . '<div><label for="ci-sess">Session</label><input id="ci-sess" type="text" readonly value="' . htmlspecialchars($sessLabel) . '"></div></div>'
             . '<div class="row"><div><label for="ci-date">Date</label><input id="ci-date" type="text" readonly value="' . htmlspecialchars($date) . '"></div>'
             . '<div><label for="ci-time">Time</label><input id="ci-time" type="text" readonly value="' . htmlspecialchars($time) . '"></div></div>'
+            . '<div class="sig-head"><span class="lbl" id="ci-sig-label">Signature</span>'
+            . '<button type="button" class="link" id="ci-sig-clear">Clear</button></div>'
+            . '<canvas id="ci-sig" class="sig" role="img" aria-labelledby="ci-sig-label" aria-describedby="ci-sig-hint" tabindex="0"></canvas>'
+            . '<p class="hint" id="ci-sig-hint">Sign inside the box with your finger.</p>'
+            . '<input type="hidden" name="signature" id="ci-sig-data">'
             . '<input name="website" type="text" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px">'
             . '<button class="btn" type="submit">Check In</button></form>'
-            . '<p class="note">First time? You are registered for this class when you check in. Next session, your phone number is enough.</p>'
+            . '<p class="note">First time? You are registered for this class when you check in. Next session, your phone number and signature are enough.</p>'
             . '<script>' . $this->_profilesJs() . '
 (function(){
   var P = ciLoad(), n = document.getElementById("ci-name"), e = document.getElementById("ci-email"),
@@ -107,7 +117,7 @@ class MMD_Attendance_IndexController extends Mage_Core_Controller_Front_Action
     if (d && d.found) {
       if (!n.value.trim()) n.value = d.name;
       if (!e.value.trim()) { e.required = false; e.placeholder = d.email; }
-      hint.textContent = "Welcome back, " + d.name + ". Tap Check In.";
+      hint.textContent = "Welcome back, " + d.name + ". Sign below, then tap Check In.";
     } else { e.required = true; e.placeholder = ""; hint.textContent = hint0; }
   }
   function lookup(){
@@ -127,6 +137,30 @@ class MMD_Attendance_IndexController extends Mage_Core_Controller_Front_Action
   n.addEventListener("input", function(){
     var v = n.value.trim().toLowerCase();
     for (var i = 0; i < P.length; i++) if (P[i].name.toLowerCase() === v) { fill(P[i]); return; }
+  });
+  // Finger signature pad: ink is drawn at device resolution, sent as a PNG data URL.
+  var cv = document.getElementById("ci-sig"), cx = cv.getContext("2d"), sd = document.getElementById("ci-sig-data"),
+      sh = document.getElementById("ci-sig-hint"), sh0 = sh.textContent, ink = 0, last = null;
+  function size(){
+    var r = cv.getBoundingClientRect(), k = Math.min(window.devicePixelRatio || 1, 3);
+    cv.width = Math.round(r.width * k); cv.height = Math.round(r.height * k);
+    cx.setTransform(k, 0, 0, k, 0, 0); cx.lineWidth = 2.6; cx.lineCap = "round"; cx.lineJoin = "round"; cx.strokeStyle = "#0f172a";
+    ink = 0;
+  }
+  size();
+  function pt(ev){ var r = cv.getBoundingClientRect(); return { x: ev.clientX - r.left, y: ev.clientY - r.top }; }
+  cv.addEventListener("pointerdown", function(ev){ ev.preventDefault(); cv.setPointerCapture(ev.pointerId); last = pt(ev);
+    cx.beginPath(); cx.arc(last.x, last.y, 1.2, 0, 2 * Math.PI); cx.fillStyle = "#0f172a"; cx.fill(); });
+  cv.addEventListener("pointermove", function(ev){ if (!last) return; ev.preventDefault(); var p = pt(ev);
+    cx.beginPath(); cx.moveTo(last.x, last.y); cx.lineTo(p.x, p.y); cx.stroke();
+    ink += Math.abs(p.x - last.x) + Math.abs(p.y - last.y); last = p; if (ink > 40) { sh.textContent = sh0; sh.className = "hint"; cv.classList.remove("bad"); } });
+  function up(){ last = null; }
+  cv.addEventListener("pointerup", up); cv.addEventListener("pointercancel", up); cv.addEventListener("pointerleave", up);
+  document.getElementById("ci-sig-clear").addEventListener("click", function(){ cx.clearRect(0, 0, cv.width, cv.height); ink = 0; sd.value = ""; });
+  window.addEventListener("orientationchange", function(){ setTimeout(size, 300); });
+  cv.closest("form").addEventListener("submit", function(ev){
+    if (ink < 40) { ev.preventDefault(); sh.textContent = "Please sign inside the box with your finger."; sh.className = "hint bad"; cv.classList.add("bad"); cv.focus(); return; }
+    sd.value = cv.toDataURL("image/png");
   });
   // Keep the time current while the form is open (server time + elapsed).
   var t0 = Date.now(), base = ' . (int) Mage::getModel('core/date')->timestamp() . ' * 1000, tm = document.getElementById("ci-time");
@@ -270,6 +304,10 @@ class MMD_Attendance_IndexController extends Mage_Core_Controller_Front_Action
                 . '.msg{padding:12px;border-radius:8px;font-size:15px}.ok{background:#dcfce7;color:#14532d}.err{background:#fee2e2;color:#7f1d1d}'
                 . 'dl{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:15px;margin:16px 0}dt{color:#475569}dd{margin:0;font-weight:600}'
                 . '.note{color:#475569;font-size:13px;margin:16px 0 0}.note a{color:#1d4ed8}'
+                . '.sig-head{display:flex;align-items:flex-end;justify-content:space-between}.lbl{font-size:14px;font-weight:600;margin:14px 0 6px}'
+                . '.link{background:none;border:0;color:#1d4ed8;font-size:14px;font-weight:600;padding:4px 2px 6px;cursor:pointer}'
+                . '.sig{display:block;width:100%;height:170px;background:#fff;border:1px dashed #64748b;border-radius:8px;touch-action:none;cursor:crosshair}'
+                . '.sig.bad{border:2px solid #b91c1c}.hint.bad{color:#b91c1c;font-weight:600}.sig:focus-visible{outline:3px solid #93c5fd;outline-offset:2px}'
                 . '.pe{margin:20px 0 0;padding:16px;border:1px solid #bfdbfe;border-radius:10px;background:#eff6ff}'
                 . '.pe h2{font-size:17px;margin:0 0 6px}.pe p{font-size:14px;color:#334155;margin:0}.pe .btn{margin-top:14px}'
                 . '</style></head><body><main class="card"><h1>' . $t . '</h1>' . $body . '</main></body></html>');

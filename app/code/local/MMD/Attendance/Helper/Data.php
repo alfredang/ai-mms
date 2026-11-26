@@ -1087,7 +1087,7 @@ class MMD_Attendance_Helper_Data extends Mage_Core_Helper_Abstract
             $mpdf->imageVars[$var] = $bytes;
         }
         $mpdf->SetHTMLFooter('<table width="100%" style="font-size:7pt;color:#64748b;"><tr><td>'
-            . $esc(trim($org . ' · Signatures captured in the TC LMS app')) . ' · Downloaded '
+            . $esc(trim($org . ' · Signatures captured at check-in (QR form or TC LMS app)')) . ' · Downloaded '
             . $esc(Mage::getModel('core/date')->date('d M Y g:i A')) . '</td><td align="right">Page {PAGENO} of {nbpg}</td></tr></table>');
         $mpdf->WriteHTML($html);
         $name = 'Attendance-Sheet-' . preg_replace('/[^A-Za-z0-9._-]+/', '-', (string) ($run['class_id'] ?: $run['run_id'])) . '.pdf';
@@ -1282,9 +1282,11 @@ class MMD_Attendance_Helper_Data extends Mage_Core_Helper_Abstract
      * registered first (learner account if they have none + roster row, flagged
      * walk-in), then marked present for $sessionKey (the session of the QR they
      * scanned; null = the session running right now, for the old class-wide link).
+     * $signaturePng (decoded PNG bytes) is the learner's finger signature from the form; it is
+     * saved for the session (a later signature for the same session replaces it).
      * @return array success, message, name, session_label, registered, already
      */
-    public function publicCheckIn($runId, $name, $email, $phone = '', $sessionKey = null)
+    public function publicCheckIn($runId, $name, $email, $phone = '', $sessionKey = null, $signaturePng = null)
     {
         $ctx = $this->getSelfMarkContext($runId, $email, $sessionKey);
         if (!$ctx) {
@@ -1350,9 +1352,15 @@ class MMD_Attendance_Helper_Data extends Mage_Core_Helper_Abstract
             "SELECT learner_name FROM `$enrolTbl` WHERE run_id = ? AND LOWER(learner_email) = ? LIMIT 1",
             array((int) $run['run_id'], $email)
         );
+        if ($signaturePng !== null) {
+            Mage::helper('mmd_mobileapi/signature')->save($run, $ctx['session_key'], $email,
+                $rosterName !== '' ? $rosterName : $name, 'learner', $signaturePng, $email);
+        }
         return array(
             'success'       => true,
-            'message'       => $ctx['already_present'] ? 'You were already checked in for this session.' : 'You are checked in. Thank you!',
+            'message'       => $ctx['already_present']
+                ? ($signaturePng !== null ? 'You were already checked in for this session. Your signature is saved.' : 'You were already checked in for this session.')
+                : ($signaturePng !== null ? 'You are checked in and your signature is saved. Thank you!' : 'You are checked in. Thank you!'),
             'name'          => $rosterName !== '' ? $rosterName : $name,
             'session_label' => $this->sessionLabel($run, $ctx['session_key']),
             'registered'    => $registered,

@@ -34,6 +34,40 @@ class MMD_MobileApi_Helper_Signature extends Mage_Core_Helper_Abstract
         return $png;
     }
 
+    /**
+     * True when the PNG carries real ink (a few dark, opaque pixels), so a blank pad
+     * cannot be submitted as a signature. Shrinks the image first: cheap on any size.
+     */
+    public function hasInk($png)
+    {
+        if (!function_exists('imagecreatefromstring')) {
+            return true;                                   // no GD: trust the client-side check
+        }
+        $src = @imagecreatefromstring((string) $png);
+        if (!$src) {
+            return false;
+        }
+        $w = 200; $h = max(20, (int) round(imagesy($src) * 200 / max(1, imagesx($src))));
+        $dst = imagecreatetruecolor($w, $h);
+        imagealphablending($dst, false);
+        imagesavealpha($dst, true);
+        imagefill($dst, 0, 0, imagecolorallocatealpha($dst, 255, 255, 255, 127));
+        imagecopyresampled($dst, $src, 0, 0, 0, 0, $w, $h, imagesx($src), imagesy($src));
+        $ink = 0;
+        for ($y = 0; $y < $h; $y++) {
+            for ($x = 0; $x < $w; $x++) {
+                $c = imagecolorat($dst, $x, $y);
+                $a = ($c >> 24) & 0x7F;
+                if ($a < 100 && ((($c >> 16) & 0xFF) + (($c >> 8) & 0xFF) + ($c & 0xFF)) < 600 && ++$ink >= 25) {
+                    break 2;
+                }
+            }
+        }
+        imagedestroy($src);
+        imagedestroy($dst);
+        return $ink >= 25;
+    }
+
     /** Save (or replace) one signature. */
     public function save(array $run, $sessionKey, $email, $name, $role, $png, $capturedBy)
     {
