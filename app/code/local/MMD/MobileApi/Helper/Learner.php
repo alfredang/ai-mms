@@ -43,7 +43,13 @@ class MMD_MobileApi_Helper_Learner extends Mage_Core_Helper_Abstract
         $certs   = $this->_certificatesByRun($email);
         $surveys = $this->_surveyedRuns($email);
         $images  = $this->_imagesByProduct();
+        $trainer = Mage::helper('mmd_mobileapi/trainer');
         foreach ($runs as $run) {
+            // A class this person teaches is listed once, as Teaching (trainer/classes): their
+            // own learner registration on it (e.g. a test check-in) would show it twice.
+            if ($trainer->teaches($email, (int) $run['run_id'])) {
+                continue;
+            }
             $row = $this->_classRow($run, $today, $images);
             $row['certificate']      = isset($certs[(int) $run['run_id']]) ? $certs[(int) $run['run_id']] : null;
             $row['survey_submitted'] = isset($surveys[(int) $run['run_id']]);

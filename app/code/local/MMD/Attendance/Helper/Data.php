@@ -1326,6 +1326,12 @@ class MMD_Attendance_Helper_Data extends Mage_Core_Helper_Abstract
         }
         $run      = $ctx['run'];
         $email    = $ctx['learner_email'];
+        // The class's own trainer is never registered or marked as a learner: they sign as the
+        // trainer in the TC LMS app or on E-Attendance.
+        if (Mage::helper('mmd_mobileapi/trainer')->teaches($email, (int) $run['run_id'])) {
+            return array('success' => false, 'message' => 'You are the trainer of this class, so you are not checked in as a learner.'
+                . ' Sign as the trainer in the TC LMS app or on the E-Attendance page.');
+        }
         $resource = Mage::getSingleton('core/resource');
         $read     = $resource->getConnection('core_read');
         $write    = $resource->getConnection('core_write');
