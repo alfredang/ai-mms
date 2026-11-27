@@ -451,6 +451,14 @@ RewriteRule ^(.*)$ https://www.tertiarycourses.%1/$1 [L,R=301]
     RewriteCond %{QUERY_STRING} (^|&)(p|limit|dir|order|mode|cat|price|manufacturer|level|progromming_language|software|SID|___store|___from_store)=[^&]* [NC]
     RewriteRule ^ - [E=noindex_follow_url:1]
 
+    ## Crawler trap (2026-11-27): bots replay category URLs whose "&" was re-escaped
+    ## into an endless ?amp%3Bamp%3Bamp%3B... chain. Every variant is an uncached
+    ## category render; one bot walking them filled all 150 Apache workers on MY
+    ## (2 CPU) and took the site down. No real URL carries amp;amp;, so answer
+    ## 410 Gone before Magento boots. A single ?amp;x= level still passes.
+    RewriteCond %{QUERY_STRING} (^|&)amp(%3B|;)amp(%3B|;) [NC]
+    RewriteRule ^ - [G,L]
+
     RewriteCond %{REQUEST_URI} !^/(media|skin|js)/
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
