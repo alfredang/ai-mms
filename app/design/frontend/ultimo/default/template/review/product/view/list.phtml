@@ -82,6 +82,7 @@
 
     ?>
 
+    <div id="customer-reviews-list">
     <?php if (count($_items)): ?>
 
         <h2><?php echo $this->__('Customer Reviews') . " ({$reviewsTotalNumber})"?></h2>
@@ -153,26 +154,30 @@
         <?php if ($reviewsTotalNumber > $reviewsLimitPerPage) echo $this->getChildHtml('toolbar'); ?>
 
     <?php endif;?>
+    </div>
  <?php echo $this->getLayout()->createBlock('review/form')->setTemplate('magentocaptcha/reviewform.phtml')->toHtml(); ?>
     <?php  /*echo $this->getChildHtml('review_form')*/ ?>
 
 </div>
+<style>
+#customer-reviews-list { transition: opacity .18s ease; }
+#customer-reviews-list[aria-busy="true"] { opacity: .45; pointer-events: none; }
+#customer-reviews-list > h2:focus { outline: none; }
+/* Page size is fixed at 5 in layout (local.xml setLimit), so "Show N per page" does nothing: hide it. */
+#customer-reviews-list .pager .limiter { display: none; }
+</style>
 <script type="text/javascript">
 //<![CDATA[
-// Review pager: the stock pager links reload the course page at the top with the
-// Review tab closed. Send every page / per-page link to #customer-reviews, and on
-// a load with that hash open the Review tab (tabs or accordion) and scroll to it.
+// Review pager without a page reload. A page link fetches that page of reviews in the background and swap only #customer-reviews-list, so the
+// course page never jumps to the top. The URL follows (?p=N) and Back/Forward
+// step through review pages. Any failure falls back to a normal page load.
 (function () {
-    var box = document.getElementById('customer-reviews');
-    if (!box) return;
-    var H = '#customer-reviews';
-    var withHash = function (u) { return u ? u.replace(/#.*$/, '') + H : u; };
-    var i, links = box.querySelectorAll('.pager a[href]'), opts = box.querySelectorAll('.pager select option');
-    for (i = 0; i < links.length; i++) links[i].setAttribute('href', withHash(links[i].getAttribute('href')));
-    for (i = 0; i < opts.length; i++) opts[i].value = withHash(opts[i].value);
-    if (window.location.hash !== H || !window.jQuery) return;
+    var list = document.getElementById('customer-reviews-list');
+    if (!list) return;
+    var STICKY = 90;   // sticky header height
 
-    window.addEventListener('load', function () {
+    var openReviewTab = function () {
+        if (!window.jQuery) return;
         var $ = jQuery, $root = $('#product-tabs'), api, idx;
         if ($root.hasClass('accor')) {
             api = $root.children('.tabs-panels').data('tabs');
@@ -181,10 +186,67 @@
             api = $root.children('.tabs').data('tabs');
             idx = $root.children('.tabs').children('#tab-tabreviews').index();
         }
-        if (api && idx >= 0) api.click(idx);
-        setTimeout(function () {
-            $('html, body').scrollTop($(box).offset().top - 90);
-        }, 50);
+        if (api && idx >= 0 && api.getIndex() !== idx) api.click(idx);
+    };
+    var scrollToList = function (smooth) {
+        var top = list.getBoundingClientRect().top;
+        if (top >= STICKY && top < window.innerHeight * 0.4) return;   // already in view
+        var y = window.pageYOffset + top - STICKY - 10;
+        if (smooth && 'scrollBehavior' in document.documentElement.style) window.scrollTo({ top: y, behavior: 'smooth' });
+        else window.scrollTo(0, y);
+    };
+
+    // Opened from a shared / refreshed review-page URL: show the reviews.
+    var q = window.location.search;
+    if (/[?&]p=/.test(q) || window.location.hash === '#customer-reviews') {
+        var land = function () { openReviewTab(); scrollToList(false); };
+        if (window.jQuery) jQuery(function () { setTimeout(land, 0); }); else window.addEventListener('load', land);
+    }
+
+    if (!window.fetch || !window.DOMParser || !window.history || !history.pushState) return;
+
+    var controller = null;
+    var load = function (url, push) {
+        if (controller && controller.abort) controller.abort();
+        controller = window.AbortController ? new AbortController() : null;
+        list.style.minHeight = list.offsetHeight + 'px';   // hold the layout while loading
+        list.setAttribute('aria-busy', 'true');
+        fetch(url, { credentials: 'same-origin', signal: controller ? controller.signal : undefined })
+            .then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); })
+            .then(function (html) {
+                var fresh = new DOMParser().parseFromString(html, 'text/html').getElementById('customer-reviews-list');
+                if (!fresh) throw new Error('no list');
+                list.innerHTML = fresh.innerHTML;
+                list.style.minHeight = '';
+                list.removeAttribute('aria-busy');
+                if (push) history.pushState({ reviewsUrl: url }, '', url);
+                scrollToList(true);
+                var h = list.querySelector('h2');
+                if (h) { h.setAttribute('tabindex', '-1'); h.focus({ preventScroll: true }); }
+            })
+            .catch(function (e) {
+                if (e && e.name === 'AbortError') return;
+                window.location.href = url;   // fall back to a normal page load
+            });
+    };
+
+    list.addEventListener('click', function (e) {
+        var a = e.target.closest ? e.target.closest('.pager a[href]') : null;
+        if (!a || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+        e.preventDefault();
+        var li = a.closest('li'), ol = li && li.parentNode;
+        if (li && ol && /^\d+$/.test(a.textContent.trim())) {   // show the chosen page as current at once
+            var cur = ol.querySelector('li.current');
+            if (cur) cur.className = '';
+            li.className = 'current';
+        }
+        load(a.href, true);
+    });
+
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+    history.replaceState({ reviewsUrl: window.location.href }, '', window.location.href);
+    window.addEventListener('popstate', function (e) {
+        if (e.state && e.state.reviewsUrl) load(e.state.reviewsUrl, false);
     });
 })();
 //]]>
