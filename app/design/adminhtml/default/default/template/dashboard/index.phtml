@@ -6750,71 +6750,53 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
         <div class="lcd-detail-row"><span class="lcd-detail-label">Class End Date</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['end_date']) ?></span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Class Type</span><span class="lcd-badge <?php echo $_modeBadgeCls ?>"><?php echo htmlspecialchars($_modeLabel) ?></span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Class Status</span><span class="lcd-badge lcd-badge-<?php echo strtolower($_selectedCourse['status']) ?>"><?php echo htmlspecialchars($_selectedCourse['status']) ?></span></div>
+        <?php
+        // Physical / Hybrid class: Venue (building) and its street address from
+        // the run's venue_* columns; a run with no venue is held at the academy.
+        if ($_lcdRunId > 0 && $_modeKey !== 2):
+            $_vnName = ''; $_vnAddr = '';
+            try {
+                $_vn = Mage::getSingleton('core/resource')->getConnection('core_read')->fetchRow(
+                    "SELECT venue_block, venue_street, venue_building, venue_floor, venue_unit, postal_code FROM "
+                    . Mage::getSingleton('core/resource')->getTableName('course_runs') . " WHERE run_id = ?",
+                    array($_lcdRunId)
+                );
+                if ($_vn) {
+                    // Floor and unit are stored bare ("07") or already marked ("#07", "-85").
+                    $_vnFloor = ltrim(trim((string) $_vn['venue_floor']), '#');
+                    $_vnUnit  = ltrim(trim((string) $_vn['venue_unit']), '-');
+                    $_vnAddr  = implode(', ', array_filter(array_map('trim', array(
+                        trim((string) $_vn['venue_block'] . ' ' . (string) $_vn['venue_street']),
+                        ($_vnFloor !== '' ? '#' . $_vnFloor : '') . ($_vnUnit !== '' ? '-' . $_vnUnit : ''),
+                        trim((string) $_vn['postal_code']) !== ''
+                            ? trim(Mage::app()->getLocale()->getCountryTranslation(Mage::getStoreConfig('general/country/default')) . ' ' . trim((string) $_vn['postal_code']))
+                            : '',
+                    ))));
+                    $_vnName = trim((string) $_vn['venue_building']);
+                }
+                if ($_vnName === '' && $_vnAddr === '') {
+                    $_vnName = (string) Mage::getStoreConfig('general/store_information/name', Mage::app()->getDefaultStoreView());
+                    $_vnAddr = Mage::helper('mmd_mobileapi/classPage')->academyAddress();
+                }
+            } catch (Exception $e) {}
+        ?>
+        <?php if ($_vnName !== ''): ?>
+        <div class="lcd-detail-row"><span class="lcd-detail-label">Venue</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_vnName) ?></span></div>
+        <?php endif; ?>
+        <?php if ($_vnAddr !== ''): ?>
+        <div class="lcd-detail-row"><span class="lcd-detail-label">Address</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_vnAddr) ?></span></div>
+        <?php endif; ?>
+        <?php endif; ?>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Trainer</span><span class="lcd-detail-value"><?php echo !empty($_lcdClassTrainers) ? htmlspecialchars(implode(', ', $_lcdClassTrainers)) : '—' ?></span></div>
         </div><!-- /.lcd-card-body -->
       </div>
       <?php endif; ?>
-        <nav style="margin-top:14px;padding-top:14px;border-top:1px solid var(--b1, #1e293b);display:flex;flex-direction:column;gap:2px;">
-            <?php echo $_eAttendanceNavHtml; ?>
-            <?php if ($_courseManagerActive): /* Google Meet nav link removed — not shown in developer view */ ?>
-            <a href="#courseware" class="lcd-nav-item" onclick="return lcdNavTo(this,'courseware')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span>Courseware</span></a>
-            <a href="#lesson" class="lcd-nav-item active" onclick="return lcdNavTo(this,'lesson')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>Lesson</span></a>
-            <?php if (!empty($_lcdTrainerRows)): ?>
-            <a href="#approved-trainers" class="lcd-nav-item" onclick="return lcdNavTo(this,'approved-trainers')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Approved Trainers</span></a>
-            <?php endif; ?>
-            <a href="#course-sessions" class="lcd-nav-item" onclick="return lcdNavTo(this,'course-sessions')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span>Course Sessions</span></a>
-            <a href="#additional-documents" class="lcd-nav-item" onclick="return lcdNavTo(this,'additional-documents')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Additional Documents</span></a>
-            <?php else: ?>
-            <a href="#learner-slides" class="lcd-nav-item" onclick="return lcdNavTo(this,'learner-slides')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/></svg><span>Learner Slides</span></a>
-            <a href="#lesson" class="lcd-nav-item" onclick="return lcdNavTo(this,'lesson')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>Lesson</span></a>
-            <a href="#additional-documents" class="lcd-nav-item" onclick="return lcdNavTo(this,'additional-documents')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Additional Documents</span></a>
-            <a href="#certificate" class="lcd-nav-item" onclick="return lcdNavTo(this,'certificate')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><circle cx="12" cy="15" r="2"/></svg><span>Certificate</span></a>
-            <?php endif; ?>
-        </nav>
-    </div>
-
-    <!-- Right column: Course content -->
-    <div class="lcd-main-content">
-    <?php $_fromPage = (int) Mage::app()->getRequest()->getParam('from_page'); ?>
-    <?php if (!in_array($activeRole, array('developer', 'learner', 'trainer'), true)): ?>
-    <a href="<?php echo $_backUrl ?><?php echo $_fromPage > 1 ? '#page' . $_fromPage : '' ?>" class="lcd-back">
-        Back to Dashboard
-    </a>
-    <?php endif; ?>
-
-    <?php
-    /* Approved Trainers — full-width card mirroring the AI-LMS-TMS layout
-       (# / Trainer / Telephone / Email). Read-only here; the editable
-       version with add/remove/reorder lives in Edit Course → Trainer
-       Details. Built once into $_lcdTrainerCardHtml and echoed as the LAST
-       section of each per-role branch below (the right column is a role
-       if/elseif chain, so a single placement after the chain renders for
-       nobody). Empty string when the course has no approved trainers. */
-    $_lcdTrainerCardHtml = '';
-    if (!empty($_lcdTrainerRows)) {
-        $_h = '<div class="lcd-section" id="approved-trainers">'
-            . '<div class="lcd-section-title">Approved Trainers</div>'
-            . '<table class="tr-assigned-table lcd-trainer-table"><thead><tr>'
-            . '<th class="tr-col-num">#</th><th>Trainer</th><th>Telephone</th><th>Email</th>'
-            . '</tr></thead><tbody>';
-        foreach ($_lcdTrainerRows as $_i => $_tr) {
-            $_h .= '<tr>'
-                . '<td class="tr-col-num">' . ($_i + 1) . '.</td>'
-                . '<td class="tr-cell-name">' . htmlspecialchars($_tr['name']) . '</td>'
-                . '<td class="tr-cell-tel">' . htmlspecialchars(isset($_tr['tel']) ? $_tr['tel'] : '') . '</td>'
-                . '<td class="tr-cell-email">' . htmlspecialchars(isset($_tr['email']) ? $_tr['email'] : '') . '</td>'
-                . '</tr>';
-        }
-        $_lcdTrainerCardHtml = $_h . '</tbody></table></div>';
-    }
-    ?>
-
     <?php
     /* Practice Exam (MMD_PracticeExam) — for courses linked to a practice exam on
        exams.tertiaryinfotech.com (Edit Course → Lesson Details → Course Settings).
        The trainer registers the class's learners + trainer in one click, or opens the
-       Self-Register QR. Built once and echoed after Lesson in each role branch, like
-       $_lcdTrainerCardHtml. Plain .lcd-section markup: lcd-collapsible-sections.js adds
+       Self-Register QR. Built once, before the side menu (which links to it when it is not empty), and
+       echoed after Lesson in each role branch, like $_lcdTrainerCardHtml. Plain .lcd-section markup: lcd-collapsible-sections.js adds
        the collapse (it starts collapsed: class lcd-collapsed). Empty for learners, unlinked courses and courses with no class. */
     $_lcdPracticeExamHtml = '';
     try {
@@ -6961,6 +6943,72 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
         }
     } catch (Throwable $e) { $_lcdPracticeExamHtml = ''; }
     ?>
+
+        <nav style="margin-top:14px;padding-top:14px;border-top:1px solid var(--b1, #1e293b);display:flex;flex-direction:column;gap:2px;">
+            <?php echo $_eAttendanceNavHtml; ?>
+            <?php if ($_courseManagerActive): /* Google Meet nav link removed — not shown in developer view */ ?>
+            <a href="#courseware" class="lcd-nav-item" onclick="return lcdNavTo(this,'courseware')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span>Courseware</span></a>
+            <a href="#lesson" class="lcd-nav-item active" onclick="return lcdNavTo(this,'lesson')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>Lesson</span></a>
+            <?php if ($_lcdPracticeExamHtml !== ''): ?>
+            <a href="#practice-exam" class="lcd-nav-item" onclick="return lcdNavTo(this,'practice-exam')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M9 14l2 2 4-4"/></svg><span>Practice Exam</span></a>
+            <?php endif; ?>
+            <?php if (!empty($_lcdTrainerRows)): ?>
+            <a href="#approved-trainers" class="lcd-nav-item" onclick="return lcdNavTo(this,'approved-trainers')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Approved Trainers</span></a>
+            <?php endif; ?>
+            <a href="#course-sessions" class="lcd-nav-item" onclick="return lcdNavTo(this,'course-sessions')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span>Course Sessions</span></a>
+            <a href="#additional-documents" class="lcd-nav-item" onclick="return lcdNavTo(this,'additional-documents')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Additional Documents</span></a>
+            <?php else: ?>
+            <?php /* Same order as the right-hand sections: Courseware, Lesson, Practice Exam, Course Feedback, Certificate, Additional Documents. Practice Exam and Course Feedback follow their sections' own conditions so no item links to a missing section. */ ?>
+            <a href="#courseware" class="lcd-nav-item" onclick="return lcdNavTo(this,'courseware')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/></svg><span>Courseware</span></a>
+            <a href="#lesson" class="lcd-nav-item" onclick="return lcdNavTo(this,'lesson')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>Lesson</span></a>
+            <?php if (in_array($activeRole, array('trainer', 'learner'), true) && $_lcdPracticeExamHtml !== ''): ?>
+            <a href="#practice-exam" class="lcd-nav-item" onclick="return lcdNavTo(this,'practice-exam')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M9 14l2 2 4-4"/></svg><span>Practice Exam</span></a>
+            <?php endif; ?>
+            <?php if ($activeRole === 'learner' || in_array($activeRole, Mage::helper('mmd_feedbackform')->reviewRoles(), true)): ?>
+            <a href="#course-feedback" class="lcd-nav-item" onclick="return lcdNavTo(this,'course-feedback')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span>Course Feedback</span></a>
+            <?php endif; ?>
+            <a href="#certificate" class="lcd-nav-item" onclick="return lcdNavTo(this,'certificate')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><circle cx="12" cy="15" r="2"/></svg><span>Certificate</span></a>
+            <a href="#additional-documents" class="lcd-nav-item" onclick="return lcdNavTo(this,'additional-documents')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Additional Documents</span></a>
+            <?php endif; ?>
+        </nav>
+    </div>
+
+    <!-- Right column: Course content -->
+    <div class="lcd-main-content">
+    <?php $_fromPage = (int) Mage::app()->getRequest()->getParam('from_page'); ?>
+    <?php if (!in_array($activeRole, array('developer', 'learner', 'trainer'), true)): ?>
+    <a href="<?php echo $_backUrl ?><?php echo $_fromPage > 1 ? '#page' . $_fromPage : '' ?>" class="lcd-back">
+        Back to Dashboard
+    </a>
+    <?php endif; ?>
+
+    <?php
+    /* Approved Trainers — full-width card mirroring the AI-LMS-TMS layout
+       (# / Trainer / Telephone / Email). Read-only here; the editable
+       version with add/remove/reorder lives in Edit Course → Trainer
+       Details. Built once into $_lcdTrainerCardHtml and echoed as the LAST
+       section of each per-role branch below (the right column is a role
+       if/elseif chain, so a single placement after the chain renders for
+       nobody). Empty string when the course has no approved trainers. */
+    $_lcdTrainerCardHtml = '';
+    if (!empty($_lcdTrainerRows)) {
+        $_h = '<div class="lcd-section" id="approved-trainers">'
+            . '<div class="lcd-section-title">Approved Trainers</div>'
+            . '<table class="tr-assigned-table lcd-trainer-table"><thead><tr>'
+            . '<th class="tr-col-num">#</th><th>Trainer</th><th>Telephone</th><th>Email</th>'
+            . '</tr></thead><tbody>';
+        foreach ($_lcdTrainerRows as $_i => $_tr) {
+            $_h .= '<tr>'
+                . '<td class="tr-col-num">' . ($_i + 1) . '.</td>'
+                . '<td class="tr-cell-name">' . htmlspecialchars($_tr['name']) . '</td>'
+                . '<td class="tr-cell-tel">' . htmlspecialchars(isset($_tr['tel']) ? $_tr['tel'] : '') . '</td>'
+                . '<td class="tr-cell-email">' . htmlspecialchars(isset($_tr['email']) ? $_tr['email'] : '') . '</td>'
+                . '</tr>';
+        }
+        $_lcdTrainerCardHtml = $_h . '</tbody></table></div>';
+    }
+    ?>
+
 
     <?php if ($_courseManagerActive): ?>
     <?php /* DEVELOPER: Google Meet section removed per request — it is
