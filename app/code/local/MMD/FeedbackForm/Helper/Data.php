@@ -304,8 +304,10 @@ class MMD_FeedbackForm_Helper_Data extends Mage_Core_Helper_Abstract
 
         /** @var Mage_Review_Model_Review $review */
         $review = Mage::getModel('review/review');
+        // Saved PENDING: the 18:30 job on the class's last day publishes it on the
+        // course page (MMD_FeedbackForm_Model_Cron_Digest::publishReviews).
         $review->setEntityPkValue($productId)
-               ->setStatusId(Mage_Review_Model_Review::STATUS_APPROVED)
+               ->setStatusId(Mage_Review_Model_Review::STATUS_PENDING)
                ->setTitle('Average Rating: ' . number_format($average, 1) . '/5')
                ->setDetail($comment !== '' ? $comment : 'N/A')
                ->setEntityId($review->getEntityIdByCode(Mage_Review_Model_Review::ENTITY_PRODUCT_CODE))

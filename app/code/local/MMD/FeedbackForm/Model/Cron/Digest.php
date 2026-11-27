@@ -11,6 +11,10 @@
  * MY angch@ + saeid@, GH angch@ + siraj@. At-most-once per class via mmd_feedback_digest_sent; responses
  * that arrive after the email stay visible on the class reviews page
  * (adminhtml/feedbackresponses/class).
+ *
+ * The same job publishes the reviews: a QR / app submission is saved PENDING
+ * and goes live on the course page at 18:30 on the class's last day (a late
+ * response goes live at the next 18:30). See publishReviews().
  */
 class MMD_FeedbackForm_Model_Cron_Digest
 {
@@ -48,6 +52,12 @@ class MMD_FeedbackForm_Model_Cron_Digest
 
     public function run()
     {
+        try {
+            $this->publishReviews();
+        } catch (Exception $e) {
+            Mage::log('Class review publish error: ' . $e->getMessage(), Zend_Log::ERR, self::LOG_FILE);
+        }
+
         $code = strtoupper((string)(getenv('MMS_COUNTRY_CODE') ?: 'SG'));
         if (!isset($this->_sites[$code])) {
             Mage::log('Class evaluation email skipped — no recipients for site ' . $code, Zend_Log::WARN, self::LOG_FILE);
@@ -100,6 +110,50 @@ class MMD_FeedbackForm_Model_Cron_Digest
         }
 
         Mage::log(sprintf('Class evaluation emails complete — sent:%d (classes:%d)', $sent, count($runIds)), Zend_Log::INFO, self::LOG_FILE);
+    }
+
+    /**
+     * Approve every pending class-feedback review whose class has reached its
+     * last day (site-local date), then refresh the product rating summaries
+     * and the course page cache. Reviews from the storefront "Write Your Own
+     * Review" form are not linked to a class and are left for moderation.
+     *
+     * @return int number of reviews published
+     */
+    public function publishReviews()
+    {
+        $resource = Mage::getSingleton('core/resource');
+        $read     = $resource->getConnection('core_read');
+        $write    = $resource->getConnection('core_write');
+        $today    = Mage::getModel('core/date')->date('Y-m-d');
+
+        $rows = $read->fetchAll(
+            "SELECT r.review_id, r.entity_pk_value AS product_id
+               FROM `" . $resource->getTableName('mmd_feedback_review_run') . "` l
+               JOIN `" . $resource->getTableName('review') . "` r ON r.review_id = l.review_id
+               JOIN `" . $resource->getTableName('course_runs') . "` cr ON cr.run_id = l.run_id
+              WHERE r.status_id = ?
+                AND DATE(COALESCE(cr.course_end_date, cr.course_start_date)) <= ?",
+            array(Mage_Review_Model_Review::STATUS_PENDING, $today)
+        );
+        if (!$rows) return 0;
+
+        $ids = array_map('intval', array_column($rows, 'review_id'));
+        $write->update(
+            $resource->getTableName('review'),
+            array('status_id' => Mage_Review_Model_Review::STATUS_APPROVED),
+            array('review_id IN (?)' => $ids, 'status_id = ?' => Mage_Review_Model_Review::STATUS_PENDING)
+        );
+
+        $byProduct = array();
+        foreach ($rows as $r) $byProduct[(int)$r['product_id']] = (int)$r['review_id'];
+        foreach ($byProduct as $productId => $reviewId) {
+            Mage::getModel('review/review')->load($reviewId)->aggregate();
+            Mage::app()->cleanCache(array(Mage_Catalog_Model_Product::CACHE_TAG . '_' . $productId));
+        }
+
+        Mage::log(sprintf('Class reviews published — reviews:%d courses:%d', count($ids), count($byProduct)), Zend_Log::INFO, self::LOG_FILE);
+        return count($ids);
     }
 
     /**

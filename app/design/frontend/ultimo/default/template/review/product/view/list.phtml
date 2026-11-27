@@ -157,4 +157,36 @@
     <?php  /*echo $this->getChildHtml('review_form')*/ ?>
 
 </div>
+<script type="text/javascript">
+//<![CDATA[
+// Review pager: the stock pager links reload the course page at the top with the
+// Review tab closed. Send every page / per-page link to #customer-reviews, and on
+// a load with that hash open the Review tab (tabs or accordion) and scroll to it.
+(function () {
+    var box = document.getElementById('customer-reviews');
+    if (!box) return;
+    var H = '#customer-reviews';
+    var withHash = function (u) { return u ? u.replace(/#.*$/, '') + H : u; };
+    var i, links = box.querySelectorAll('.pager a[href]'), opts = box.querySelectorAll('.pager select option');
+    for (i = 0; i < links.length; i++) links[i].setAttribute('href', withHash(links[i].getAttribute('href')));
+    for (i = 0; i < opts.length; i++) opts[i].value = withHash(opts[i].value);
+    if (window.location.hash !== H || !window.jQuery) return;
+
+    window.addEventListener('load', function () {
+        var $ = jQuery, $root = $('#product-tabs'), api, idx;
+        if ($root.hasClass('accor')) {
+            api = $root.children('.tabs-panels').data('tabs');
+            idx = $root.children('.tabs-panels').children('.acctab').index($('#acctab-tabreviews'));
+        } else {
+            api = $root.children('.tabs').data('tabs');
+            idx = $root.children('.tabs').children('#tab-tabreviews').index();
+        }
+        if (api && idx >= 0) api.click(idx);
+        setTimeout(function () {
+            $('html, body').scrollTop($(box).offset().top - 90);
+        }, 50);
+    });
+})();
+//]]>
+</script>
 
