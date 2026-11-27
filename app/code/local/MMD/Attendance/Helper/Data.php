@@ -962,9 +962,11 @@ class MMD_Attendance_Helper_Data extends Mage_Core_Helper_Abstract
     // ── .xlsx download ───────────────────────────────────────────────────────
 
     /**
-     * Signed attendance sheet (PDF, A4 landscape): Name, Email, Tel, then each session's finger signature
-     * from the TC LMS app (Day 1 AM, Day 1 PM, ...), with a closing row for the trainer's name and signature
-     * per session. A learner marked present without a signature shows "Present"; unmarked shows "Absent".
+     * Signed attendance sheet (PDF, A4 landscape), one page per class day: letterhead (logo, company, UEN),
+     * Course Title / Code / Start Date / End Date / Course Run ID / Trainer, then "Learners Attendance"
+     * (Name, Email, Contact, AM Signature, PM Signature: the finger signatures from check-in), then the
+     * Trainer Name and the trainer's signature per session. A learner marked present without a signature
+     * shows "Present"; unmarked shows "Absent".
      * @return array(filename, bytes)
      */
     public function signedAttendancePdf($runId)
@@ -1001,7 +1003,6 @@ class MMD_Attendance_Helper_Data extends Mage_Core_Helper_Abstract
         $esc  = function ($v) { return htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8'); };
         $fmtD = function ($d) { return ($d && $d !== '0000-00-00') ? date('d M Y', strtotime($d)) : ''; };
         $img  = function ($var) { return '<img src="var:' . $var . '" style="max-height:11mm;max-width:24mm;" />'; };
-        $dates = trim($fmtD($run['course_start_date']) . ' to ' . $fmtD($run['course_end_date']), ' to');
         $org   = (string) Mage::getStoreConfig('general/store_information/name');
         // Letterhead: company name + UEN from Company Settings (mmd_company/details/*). SG falls back to
         // Tertiary Infotech Academy; a partner site shows its own store name and a UEN only if it set one.
@@ -1035,26 +1036,50 @@ class MMD_Attendance_Helper_Data extends Mage_Core_Helper_Abstract
             table.sheet td.s{text-align:center;height:13mm;}
             .muted{color:#64748b;font-size:7.5pt;}
             .absent{color:#b91c1c;font-size:7.5pt;}
-            tr.trainer td{border-top:0.5mm solid #1e3a8a;}
+            h2{font-size:11pt;color:#1e3a8a;margin:4mm 0 0;}
+            h2 .day{font-size:9pt;color:#475569;font-weight:normal;}
+            table.tsig{border-collapse:collapse;margin-top:6mm;}
+            table.tsig td{border:0.2mm solid #94a3b8;padding:1.5mm 2.5mm;font-size:9pt;vertical-align:middle;}
+            table.tsig td.k{background:#eef2ff;color:#1e3a8a;font-weight:bold;width:38mm;}
+            table.tsig td.v{width:110mm;}
+            table.tsig td.sg{width:55mm;height:15mm;text-align:center;}
         </style>';
 
         $html = $css;
-        $chunks = array_chunk($sessions, 6);   // at most 6 session columns per page
-        foreach ($chunks as $ci => $chunk) {
-            if ($ci > 0) {
+        // One page per class day: AM Signature + PM Signature columns (Evening on a MY evening class).
+        $byDay = array();
+        foreach ($sessions as $sx) {
+            $byDay[(int) $sx['day']][] = $sx;
+        }
+        // Header block, top to bottom: Course Title, Course Code, Start Date, End Date, Course Run ID, Trainer.
+        $meta = '<table class="meta">'
+            . '<tr><td class="k">Course Title</td><td>' . $esc($run['course_title']) . '</td></tr>'
+            . '<tr><td class="k">Course Code</td><td>' . $esc($run['course_sku']) . '</td></tr>'
+            . '<tr><td class="k">Start Date</td><td>' . $esc($fmtD($run['course_start_date'])) . '</td></tr>'
+            . '<tr><td class="k">End Date</td><td>' . $esc($fmtD($run['course_end_date']) ?: $fmtD($run['course_start_date'])) . '</td></tr>'
+            . '<tr><td class="k">Course Run ID</td><td>' . $esc($run['class_id']) . '</td></tr>'
+            . '<tr><td class="k">Trainer</td><td>' . $esc($run['trainer_name']) . '</td></tr>'
+            . '</table>';
+        $pi = 0;
+        foreach ($byDay as $day => $chunk) {
+            if ($pi++ > 0) {
                 $html .= '<pagebreak />';
             }
-            // Course info in the same order as the check-in QR: title, code, Course Run ID.
-            $html .= $letterhead . '<table class="meta">'
-                . '<tr><td class="k">Course Title</td><td>' . $esc($run['course_title']) . '</td><td class="k">Trainer</td><td>' . $esc($run['trainer_name']) . '</td></tr>'
-                . '<tr><td class="k">Course Code</td><td>' . $esc($run['course_sku']) . '</td><td class="k">Dates</td><td>' . $esc($dates) . '</td></tr>'
-                . '<tr><td class="k">Course Run ID</td><td>' . $esc($run['class_id']) . '</td><td class="k">Learners</td><td>' . count($roster)
-                . (count($chunks) > 1 ? ' &nbsp; <span class="muted">(sessions ' . ($ci * 6 + 1) . '-' . ($ci * 6 + count($chunk)) . ' of ' . count($sessions) . ')</span>' : '') . '</td></tr>'
-                . '</table>';
-            $html .= '<table class="sheet"><thead><tr><th style="width:7mm;">#</th><th style="width:38mm;">Name</th><th style="width:50mm;">Email</th><th style="width:26mm;">Tel</th>';
+            $dayDate = !empty($chunk[0]['date']) ? date('D j M Y', strtotime($chunk[0]['date'])) : '';
+            $html .= $letterhead . $meta
+                . '<h2>Learners Attendance' . (count($byDay) > 1 || $dayDate !== ''
+                    ? ' <span class="day">' . $esc(trim((count($byDay) > 1 ? 'Day ' . $day : '') . ($dayDate !== '' ? ' · ' . $dayDate : ''), ' ·')) . '</span>' : '')
+                . '</h2>';
+            // Session column titles: "AM Signature", "PM Signature"; times added if a day repeats a label.
+            $lbls = array_count_values(array_map(function ($s) { return $s['ampm']; }, $chunk));
+            $colTitle = function ($sx) use ($lbls) {
+                $t = $sx['ampm'] . ' Signature';
+                if ($lbls[$sx['ampm']] > 1 && !empty($sx['start_time'])) $t .= ' (' . substr($sx['start_time'], 0, 5) . ')';
+                return $t;
+            };
+            $html .= '<table class="sheet"><thead><tr><th style="width:7mm;">#</th><th style="width:48mm;">Name</th><th style="width:62mm;">Email</th><th style="width:30mm;">Contact</th>';
             foreach ($chunk as $sx) {
-                $html .= '<th class="s">' . $esc('Day ' . $sx['day'] . ' ' . $sx['ampm'])
-                    . (!empty($sx['date']) ? '<br /><span style="font-weight:normal;">' . $esc(date('D j M', strtotime($sx['date']))) . '</span>' : '') . '</th>';
+                $html .= '<th class="s">' . $esc($colTitle($sx)) . '</th>';
             }
             $html .= '</tr></thead><tbody>';
             if (!$roster) {
@@ -1078,14 +1103,24 @@ class MMD_Attendance_Helper_Data extends Mage_Core_Helper_Abstract
                 }
                 $html .= '</tr>';
             }
-            $html .= '<tr class="trainer"><td colspan="4"><b>Trainer Name &amp; Signature</b></td>';
+            $html .= '</tbody></table>';
+
+            // Closing block: Trainer Name, then the trainer's signature for each session of the day.
+            $tName = (string) $run['trainer_name'];
+            foreach ($chunk as $sx) {
+                if (isset($trainerSig[$sx['key']]) && $trainerSig[$sx['key']]['name'] !== '') {
+                    $tName = $trainerSig[$sx['key']]['name'];
+                    break;
+                }
+            }
+            $html .= '<table class="tsig"><tr><td class="k">Trainer Name</td><td class="v" colspan="' . count($chunk) . '">' . $esc($tName) . '</td></tr>'
+                . '<tr><td class="k">Trainer Signature</td>';
             foreach ($chunk as $sx) {
                 $t = isset($trainerSig[$sx['key']]) ? $trainerSig[$sx['key']] : null;
-                $html .= '<td class="s">' . ($t
-                    ? $img($t['var']) . '<br /><span style="font-size:7pt;">' . $esc($t['name'] ?: $run['trainer_name']) . '</span>'
-                    : '<span class="muted">' . $esc($run['trainer_name']) . '<br />(not signed)</span>') . '</td>';
+                $html .= '<td class="sg"><span class="muted">' . $esc($sx['ampm']) . '</span><br />'
+                    . ($t ? $img($t['var']) : '<span class="muted">(not signed)</span>') . '</td>';
             }
-            $html .= '</tr></tbody></table>';
+            $html .= '</tr></table>';
         }
 
         if (!class_exists('\\Mpdf\\Mpdf')) {

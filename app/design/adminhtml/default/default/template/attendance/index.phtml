@@ -352,7 +352,11 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
              (2-day class = 4 sessions). Attendance is marked per session. -->
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px;">
             <div id="att-sess-tabs" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
-            <div style="flex-shrink:0;">
+            <div style="flex-shrink:0;display:flex;align-items:center;gap:8px;">
+                <button type="button" id="att-refresh-btn" class="att-btn att-btn-ghost" onclick="attRefresh()" title="Reload the learner list and check-ins of every session (learners who signed in by QR or the TC LMS app since the page opened)" style="display:inline-flex;align-items:center;gap:6px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                    <span id="att-refresh-lbl">Refresh</span>
+                </button>
                 <button type="button" class="att-btn att-btn-primary" onclick="attShowQr()" style="display:inline-flex !important;align-items:center;gap:8px;padding:9px 18px !important;font-size:13px !important;font-weight:700 !important;border-radius:10px !important;background:#2563eb !important;border:1px solid #2563eb !important;color:#fff !important;box-shadow:0 4px 14px rgba(37,99,235,.35);" title="Show the check-in QR of the selected session for learners to scan">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></svg>
                     Take Attendance
@@ -481,7 +485,8 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
      on the public signed check-in form (/checkin/…, no login). The signed URL
      comes from the load action (checkin_url): one QR for the whole class, and the
      check-in page picks the session by the clock (AM 8am-12pm, PM 12pm-6pm). The title
-     shows only the session a scan marks now (auto_session), refreshed every minute. -->
+     shows only the session a scan marks now, by the site clock (attClockSession), so it turns to PM
+     at 12:00 and to Day 2 on the second day; imported timetables use the server value (auto_session). -->
 <div id="att-qr-modal" class="att-modal-bd">
     <div class="att-modal att-qr-card" style="max-width:360px;text-align:center;">
         <button type="button" class="att-qr-zoom" onclick="attZoomQr()" title="Show the QR full screen" aria-label="Show the check-in QR full screen">
@@ -534,6 +539,7 @@ var attRunId = 0;
 var attRoster = [];          // [{learner_name, learner_email, is_walkin, att:{d1am:{p,r,m},…}}]
 var attSessions = [];        // [{key:'d1am', day:1, ampm:'AM', date:'Y-m-d', label}]
 var attActiveSess = '';      // key of the session being marked
+var attDirty = false;        // unsaved marking on the page (Refresh asks before discarding)
 var attSel = {};             // row-index -> true (bulk-selection state)
 
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
@@ -552,8 +558,8 @@ function attShowQr() {
     document.getElementById('att-qr-title').textContent = m.title;
     document.getElementById('att-qr-code').textContent = m.code ? 'Course Code: ' + m.code : '';
     document.getElementById('att-qr-run').textContent = m.run;
-    attQrTitle(attAutoSess);
-    attQrTick();
+    attQrRefreshTitle();
+    attQrTick(true);
     document.getElementById('att-qr-img').src =
         'https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=0&data=' + encodeURIComponent(url);
     document.getElementById('att-qr-url').value = url;
@@ -569,17 +575,52 @@ function attQrTitle(label) {
     var fs = document.querySelector('.att-qr-fs .lsx-qr-name');
     if (fs) fs.textContent = t;
 }
+// Site-local date and time now (ATT_TZ), whatever the trainer's device timezone.
+function attSiteNow() {
+    var p = {};
+    try {
+        new Intl.DateTimeFormat('en-CA', { timeZone: ATT_TZ, year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date())
+            .forEach(function (x) { p[x.type] = x.value; });
+    } catch (e) { return null; }
+    return { d: p.year + '-' + p.month + '-' + p.day, t: p.hour + ':' + p.minute };
+}
+// Same clock rule as the check-in page (Helper::autoSessionKey): AM 08:00-11:59, PM 12:00-17:59
+// on a class day, so the title turns to PM at 12:00 and to Day 2 on the second day without waiting
+// for the server. Returns the short label ('' = none open), or null when the server must decide
+// (imported TMS timetable, Malaysia evening class).
+function attClockSession() {
+    var now = attSiteNow();
+    if (!now || !attSessions.length || !attSessions.every(function (s) { return /^d\d+(am|pm)$/.test(s.key); })) return null;
+    var part = (now.t >= '08:00' && now.t < '12:00') ? 'AM' : ((now.t >= '12:00' && now.t < '18:00') ? 'PM' : '');
+    if (!part) return '';
+    var dated = false, hit = null;
+    attSessions.forEach(function (s) { if (s.date) dated = true; if (!hit && s.date === now.d && s.ampm === part) hit = s; });
+    if (!hit) return dated ? '' : 'Day 1 ' + part;                       // legacy run without dates
+    var dt = hit.date.split('-'), w = new Date(+dt[0], +dt[1] - 1, +dt[2]);
+    return 'Day ' + hit.day + ' ' + hit.ampm + ' · ' + ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][w.getDay()] + ' ' + (+dt[2])
+        + ' ' + ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+dt[1] - 1];
+}
+function attQrRefreshTitle() { var c = attClockSession(); attQrTitle(c === null ? attAutoSess : c); }
+// While the QR is open: re-read the clock every 10 s, and the server (roster, imported timetables)
+// on opening and then every minute.
 var _attQrTimer = null;
-function attQrTick() {
+function attQrTick(fetchNow) {
     clearInterval(_attQrTimer);
+    var n = 0;
+    var poll = function () {
+        fetch(ATT_LOAD_URL + '?run_id=' + attRunId, { credentials: 'same-origin', cache: 'no-store' })
+            .then(function (r) { return r.json(); })
+            .then(function (d) { if (d && d.success) { attAutoSess = d.auto_session || ''; attQrRefreshTitle(); } })
+            .catch(function () {});
+    };
+    if (fetchNow) poll();
     _attQrTimer = setInterval(function () {
         var open = document.getElementById('att-qr-modal').style.display === 'flex' || document.querySelector('.att-qr-fs');
         if (!open || !attRunId) { clearInterval(_attQrTimer); return; }
-        fetch(ATT_LOAD_URL + '?run_id=' + attRunId, { credentials: 'same-origin' })
-            .then(function (r) { return r.json(); })
-            .then(function (d) { if (d && d.success) { attAutoSess = d.auto_session || ''; attQrTitle(attAutoSess); } })
-            .catch(function () {});
-    }, 60000);
+        attQrRefreshTitle();
+        if (++n % 6 === 0) poll();
+    }, 10000);
 }
 function attCopyQrUrl(btn) {
     var inp = document.getElementById('att-qr-url');
@@ -674,7 +715,7 @@ function certToggle(cb) {
         .catch(function(){ cb.disabled=false; certSpinStop(); certResult(false,'Network error'); });
 }
 
-function attSelectClass(runId) {
+function attSelectClass(runId, keepSess) {
     attRunId = parseInt(runId, 10) || 0;
     attCheckinUrl = '';
     var card = document.getElementById('att-roster-card');
@@ -693,10 +734,11 @@ function attSelectClass(runId) {
             (opt.getAttribute('data-trainer') ? '<span class="att-pill">Trainer <b>' + esc(opt.getAttribute('data-trainer')) + '</b></span>' : '');
     }
 
-    fetch(ATT_LOAD_URL + '?run_id=' + attRunId, { credentials: 'same-origin' })
+    return fetch(ATT_LOAD_URL + '?run_id=' + attRunId, { credentials: 'same-origin' })
         .then(function(r){ return r.json(); })
         .then(function(d){
             if (!d.success) { alert('Error: ' + (d.message || 'load failed')); return; }
+            attDirty    = false;
             attRoster   = d.roster || [];
             attCheckinUrl = d.checkin_url || '';
             attAutoSess   = d.auto_session || '';
@@ -706,7 +748,7 @@ function attSelectClass(runId) {
             attTimetable = d.timetable || null;
             var corr = document.getElementById('att-corr-wrap');
             if (corr) { corr.style.display = d.finished ? 'inline-flex' : 'none'; document.getElementById('att-corr-reason').value = ''; }
-            attActiveSess = attDefaultSession();
+            attActiveSess = (keepSess && attSessions.some(function(s){ return s.key === keepSess; })) ? keepSess : attDefaultSession();
             attConf = d.confirmation || null; attCertRoster = d.cert_roster || []; attCanConfirm = !!d.can_confirm;
             if (ATT_IS_MY) { attRenderTimetable(); attRenderConfirmation(); }
             attRenderSessTabs();
@@ -714,6 +756,17 @@ function attSelectClass(runId) {
             card.style.display = '';
         })
         .catch(function(){ alert('Network error loading roster.'); });
+}
+
+// Refresh: reload the roster + every session's check-ins and signatures from the
+// server (QR / app check-ins land there), staying on the selected session.
+function attRefresh() {
+    if (!attRunId) return;
+    if (attDirty && !confirm('You have unsaved attendance changes. Refresh and discard them?')) return;
+    var btn = document.getElementById('att-refresh-btn'), lbl = document.getElementById('att-refresh-lbl');
+    btn.disabled = true; lbl.textContent = 'Refreshing…';
+    var done = function(){ btn.disabled = false; lbl.textContent = 'Refresh'; };
+    (attSelectClass(attRunId, attActiveSess) || Promise.resolve()).then(done, done);
 }
 
 // ── Malaysia: class timetable (attendance by training hours) ─────────────────
@@ -864,7 +917,7 @@ function attSessMax(key) {
     if (attTimetable && attTimetable.sessions) attTimetable.sessions.forEach(function(s){ if (s.key === key && s.confirmed) n = s.training_minutes; });
     return n;
 }
-function attMinutes(i, val) { attCell(attRoster[i], attActiveSess).m = val; }
+function attMinutes(i, val) { attCell(attRoster[i], attActiveSess).m = val; attDirty = true; }
 
 // Today's session if the class is running now (AM before 1pm), else the first.
 function attDefaultSession() {
@@ -1090,6 +1143,7 @@ function attRender() {
 function attToggle(i, checked) {
     var cell = attCell(attRoster[i], attActiveSess);
     cell.p = checked ? 1 : 0;
+    attDirty = true;
     var lbl = document.getElementById('att-lbl-' + i);
     var reason = document.getElementById('att-reason-' + i);
     var mins = document.getElementById('att-min-' + i);
@@ -1099,10 +1153,11 @@ function attToggle(i, checked) {
     attUpdateCounters();
     attRenderSessTabs();
 }
-function attReason(i, val) { attCell(attRoster[i], attActiveSess).r = val; }
+function attReason(i, val) { attCell(attRoster[i], attActiveSess).r = val; attDirty = true; }
 
 function attAllPresent() {
     attRoster.forEach(function(r){ var c = attCell(r, attActiveSess); c.p = 1; c.r = ''; });
+    attDirty = true;
     attRenderSessTabs();
     attRender();
 }
@@ -1134,6 +1189,7 @@ function attBulkMark(present) {
         c.p = present ? 1 : 0;
         if (present) c.r = '';
     });
+    attDirty = true;
     attRenderSessTabs();
     attRender();
 }
@@ -1189,6 +1245,7 @@ function attSave() {
     .then(function(r){ return r.json(); })
     .then(function(d){
         btn.disabled = false; btn.textContent = 'Save Attendance';
+        if (d.success) attDirty = false;
         if (d.success && d.corrections) { document.getElementById('att-corr-reason').value = ''; }
         st.style.color = d.success ? '#22c55e' : '#f87171';
         st.textContent = (d.success ? '✓ ' : '✗ ') + (d.message || '');
