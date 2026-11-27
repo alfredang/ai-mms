@@ -7,7 +7,8 @@
  * trainer, cc this site's staff. Learners are listed as "Learner 1, 2, …" —
  * the trainer never sees who gave which rating. Each franchise site runs its
  * own DB, so the cc list is picked from MMS_COUNTRY_CODE (unset = SG, as in
- * apply.php). At-most-once per class via mmd_feedback_digest_sent; responses
+ * apply.php). User rule 2026-11-27: always to the trainer, cc SG angch@ + tansc@,
+ * MY angch@ + saeid@, GH angch@ + siraj@. At-most-once per class via mmd_feedback_digest_sent; responses
  * that arrive after the email stay visible on the class reviews page
  * (adminhtml/feedbackresponses/class).
  */
@@ -22,20 +23,27 @@ class MMD_FeedbackForm_Model_Cron_Digest
             'cc'     => array('angch@tertiaryinfotech.com', 'tansc@tertiaryinfotech.com'),
             'prefix' => '[TIA] ',
             'from'   => 'Tertiary Infotech Academy',
-            'sign'   => 'Tertiary Infotech Academy Pte Ltd',
+            'sign'   => 'Kael | Tertiary Infotech Academy',
         ),
         'MY' => array(
-            'cc'     => array('saeid@tertiarycourses.com.my'),
+            'cc'     => array('angch@tertiaryinfotech.com', 'saeid@tertiarycourses.com.my'),
             'prefix' => '',
             'from'   => 'Tertiary Courses Malaysia',
             'sign'   => 'Tertiary Courses Malaysia',
         ),
         'GH' => array(
-            'cc'     => array('siraj@tertiarycourses.com.gh'),
+            'cc'     => array('angch@tertiaryinfotech.com', 'siraj@tertiarycourses.com.gh'),
             'prefix' => '',
             'from'   => 'Tertiary Courses Ghana',
             'sign'   => 'Tertiary Courses Ghana',
         ),
+    );
+
+    /** Email wording per rating (same layout as the lms-tms "[TIA] Class Evaluation" email). */
+    protected $_ratingLabels = array(
+        1 => 'The course effectively met its learning objectives',
+        2 => 'The trainer demonstrated strong knowledge of the subject matter',
+        5 => 'The training environment was conducive to learning',
     );
 
     public function run()
@@ -126,6 +134,7 @@ class MMD_FeedbackForm_Model_Cron_Digest
 
         $n = 0;
         foreach ($q['ratings'] as $ratingId => $label) {
+            if (isset($this->_ratingLabels[$ratingId])) $label = $this->_ratingLabels[$ratingId];
             $lines = '';
             foreach ($responses as $i => $r) {
                 if (isset($r['stars'][$ratingId])) {
@@ -138,10 +147,10 @@ class MMD_FeedbackForm_Model_Cron_Digest
         $lines = '';
         foreach ($responses as $i => $r) {
             if ($r['detail'] !== '') {
-                $lines .= '<br>&nbsp;Learner ' . ($i + 1) . ': ' . nl2br($e($r['detail']));
+                $lines .= '<br>&nbsp;' . ($i + 1) . '. ' . nl2br($e($r['detail']));
             }
         }
-        $body .= $p . $e($q['comment']) . ':' . ($lines !== '' ? $lines : '<br>&nbsp;No comments') . '</p>'
+        $body .= $p . 'Feedback from learners:' . ($lines !== '' ? $lines : '<br>&nbsp;No comments') . '</p>'
                . '<p style="margin:0;">Best regards,<br>' . $e($site['sign']) . '</p>';
 
         return array(
