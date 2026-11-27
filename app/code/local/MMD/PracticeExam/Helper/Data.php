@@ -12,16 +12,21 @@
  *   GET  /api/v1/practice-exams
  *   GET  /api/v1/registrations?courseRunId=&exam=
  *   POST /api/v1/registrations { name, email, exam, courseRunId, remark }
+ *   POST /api/v1/signin-tickets { email, exam, courseRunId } -> { webUrl, appUrl, expiresAt }
+ *        (scope signin:practice-exams: a one-time sign-in so the apps open the exam signed in)
  * The course run id sent is the class id (C######).
  *
  * Config (core_config_data, default scope) - the feature is OFF without a token:
  *   mmd_practiceexam/general/api_token
  *   mmd_practiceexam/general/api_url     (default https://exams.tertiaryinfotech.com)
+ *   mmd_practiceexam/general/signin_token (optional; a token with signin:practice-exams.
+ *                                          Without it api_token is used, if it has that scope)
  */
 class MMD_PracticeExam_Helper_Data extends Mage_Core_Helper_Abstract
 {
     const CONFIG_PATH_TOKEN = 'mmd_practiceexam/general/api_token';
     const CONFIG_PATH_URL   = 'mmd_practiceexam/general/api_url';
+    const CONFIG_PATH_SIGNIN_TOKEN = 'mmd_practiceexam/general/signin_token';
     const DEFAULT_URL       = 'https://exams.tertiaryinfotech.com';
     const TABLE             = 'mmd_course_practice_exam';
     const CATALOG_CACHE_KEY = 'mmd_practiceexam_catalog';
@@ -57,10 +62,10 @@ class MMD_PracticeExam_Helper_Data extends Mage_Core_Helper_Abstract
     // ── Exams API ────────────────────────────────────────────────────────────
 
     /** @return array [ok(bool), status(int), data(array)] */
-    protected function _call($method, $path, $body = null)
+    protected function _call($method, $path, $body = null, $token = null)
     {
         $ch = curl_init($this->baseUrl() . '/api/v1' . $path);
-        $headers = array('Authorization: Bearer ' . $this->_token(), 'Accept: application/json');
+        $headers = array('Authorization: Bearer ' . ($token !== null ? $token : $this->_token()), 'Accept: application/json');
         if ($body !== null) {
             $headers[] = 'Content-Type: application/json';
             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body));
@@ -136,6 +141,25 @@ class MMD_PracticeExam_Helper_Data extends Mage_Core_Helper_Abstract
         ));
         if (!$res[0]) return array('ok' => false, 'error' => $this->_error($res), 'emailSent' => false);
         return array('ok' => true, 'error' => '', 'emailSent' => !empty($res[2]['registrationEmailSent']));
+    }
+
+    /**
+     * A one-time sign-in for a registered learner (5 minutes, works once), so the apps open the
+     * practice exam in the AI Exams app (app_url) or the browser (web_url) already signed in.
+     * The exams site refuses staff accounts and people without access to the exam.
+     * @return array [ok, error, web_url, app_url]
+     */
+    public function signinTicket($email, $examSlug, $classId = '')
+    {
+        $token = trim((string) Mage::getStoreConfig(self::CONFIG_PATH_SIGNIN_TOKEN, 0));
+        $res = $this->_call('POST', '/signin-tickets', array(
+            'email' => (string) $email, 'exam' => (string) $examSlug, 'courseRunId' => (string) $classId,
+        ), $token !== '' ? $token : null);
+        if (!$res[0] || empty($res[2]['webUrl'])) {
+            return array('ok' => false, 'error' => $this->_error($res), 'web_url' => '', 'app_url' => '');
+        }
+        return array('ok' => true, 'error' => '', 'web_url' => (string) $res[2]['webUrl'],
+                     'app_url' => isset($res[2]['appUrl']) ? (string) $res[2]['appUrl'] : '');
     }
 
     /**

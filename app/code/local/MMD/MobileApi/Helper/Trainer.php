@@ -264,6 +264,12 @@ class MMD_MobileApi_Helper_Trainer extends Mage_Core_Helper_Abstract
         return $row;
     }
 
+    /** The run if it is one of the trainer's classes, else null. */
+    public function taughtRun($email, $runId)
+    {
+        return $this->_run($email, $runId);
+    }
+
     /** Is this one of the trainer's classes? */
     public function teaches($email, $runId)
     {

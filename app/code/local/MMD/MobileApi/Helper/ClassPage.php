@@ -227,6 +227,43 @@ class MMD_MobileApi_Helper_ClassPage extends Mage_Core_Helper_Abstract
         }
     }
 
+    /**
+     * Where "Open Practice Exam" goes for this person and class: one-time sign-in links when the
+     * exams site gives them (auto_sign_in true), otherwise the exams sign-in page and the plain
+     * AI Exams app, so the button always opens something. Null when the class has no practice exam.
+     * @return array|null {web_url, app_url, auto_sign_in, message}
+     */
+    public function practiceExamLaunch(array $run, $email)
+    {
+        $pe = Mage::helper('mmd_practiceexam');
+        if (!$pe->isConfigured()) return null;
+        $exam = $pe->getCourseExam((int) $run['product_id']);
+        if (!$exam) return null;
+        $full = $pe->loadRun((int) $run['run_id']);
+        if (!$full) return null;
+        $fallback = array(
+            'web_url'      => $pe->baseUrl() . '/login?next=' . rawurlencode('/user-dashboard/exams'),
+            'app_url'      => 'aiexams://',
+            'auto_sign_in' => false,
+            'message'      => '',
+        );
+        $email = strtolower(trim((string) $email));
+        if ($email === '') return $fallback;
+        $t = $pe->signinTicket($email, $exam['exam_slug'], $full['class_id']);
+        if (!$t['ok']) {
+            Mage::log(sprintf('signin ticket class %s -> %s: %s FAILED %s', $full['class_id'], $exam['exam_code'], $email, $t['error']),
+                null, 'mmd_practiceexam.log', true);
+            $fallback['message'] = 'Sign in to Tertiary Exams with ' . $email . '.';
+            return $fallback;
+        }
+        return array(
+            'web_url'      => $t['web_url'],
+            'app_url'      => $t['app_url'] !== '' ? $t['app_url'] : 'aiexams://',
+            'auto_sign_in' => true,
+            'message'      => '',
+        );
+    }
+
     protected function _regsKey(array $run, array $exam)
     {
         return 'mmd_mobileapi_pe_regs_' . md5($run['class_id'] . '|' . $exam['exam_slug']);

@@ -149,4 +149,30 @@ class MMD_MobileApi_LearnerController extends MMD_MobileApi_Controller_Base
     {
         return Mage::helper('mmd_mobileapi/demo');
     }
+
+    /**
+     * POST {run_id} -> {launch: {web_url, app_url, auto_sign_in, message}}: "Open Practice Exam".
+     * The app opens app_url when the AI Exams app is installed, else web_url in the browser;
+     * with auto_sign_in both are one-time links that sign the learner in (5 minutes, once).
+     */
+    public function practiceexamAction()
+    {
+        if (!$this->_requirePost() || !$this->_requireLearner()) return;
+        return $this->_guard(function () {
+            $runId = (int) $this->_input('run_id');
+            if ($this->_isDemo()) {
+                $base = Mage::helper('mmd_practiceexam')->baseUrl();
+                return $this->_ok(array('launch' => array('web_url' => $base . '/login', 'app_url' => 'aiexams://', 'auto_sign_in' => false, 'message' => '')));
+            }
+            $run = $this->_learner()->enrolledRun($this->_email(), $runId);
+            if (!$run) {
+                return $this->_error(404, 'This class is not on your account.', 'not_found');
+            }
+            $launch = Mage::helper('mmd_mobileapi/classPage')->practiceExamLaunch($run, $this->_email());
+            if (!$launch) {
+                return $this->_error(404, 'This class has no practice exam.', 'no_practice_exam');
+            }
+            return $this->_ok(array('launch' => $launch));
+        });
+    }
 }

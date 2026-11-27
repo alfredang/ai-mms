@@ -69,6 +69,12 @@ class MMD_MobileApi_Helper_Learner extends Mage_Core_Helper_Abstract
         return $out;
     }
 
+    /** The run if the learner is enrolled in it, else null. */
+    public function enrolledRun($email, $runId)
+    {
+        return $this->_enrolledRun($email, $runId);
+    }
+
     /** Full detail of one of the learner's classes, or null if not theirs. */
     public function classDetail($email, $runId)
     {
